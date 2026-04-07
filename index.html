@@ -326,9 +326,11 @@ textarea { resize: vertical; min-height: 68px; font-family: inherit; }
 canvas { width: 100% !important; max-height: 220px; }
 
 /* ── Map widget & modal ── */
-.map-widget-card { cursor: pointer; user-select: none; transition: transform .15s, box-shadow .15s; }
+.map-widget-card { padding: 0; overflow: hidden; cursor: pointer; user-select: none; transition: transform .15s, box-shadow .15s; position: relative; }
 .map-widget-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.4); }
-.map-widget-card .stat-value { font-size: 1.5rem; }
+#airport-mini-map { height: 110px; width: 100%; display: block; }
+.map-widget-footer { padding: .45rem .75rem; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); }
+.map-widget-click-overlay { position: absolute; inset: 0; z-index: 10; cursor: pointer; }
 .map-modal-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; padding: 1rem; animation: mapFadeIn .15s; }
 .map-modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 820px; height: min(82vh, 580px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
 .map-modal-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -978,25 +980,38 @@ document.addEventListener('click', e => {
 function weeklyHoursData() {
   const entries = load();
   const now = new Date();
-  now.setHours(23, 59, 59, 999);
+  const MONTHS_SV = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+  const curYear  = now.getFullYear();
+  const curMonth = now.getMonth();
+  const monthName = MONTHS_SV[curMonth];
+  const isoWeek = d => { const t = new Date(d); t.setHours(0,0,0,0); t.setDate(t.getDate() + 3 - (t.getDay()+6)%7); const w1 = new Date(t.getFullYear(),0,4); return 1 + Math.round(((t-w1)/86400000 - 3 + (w1.getDay()+6)%7)/7); };
+
+  // 4 fixed week-slots anchored to the 1st of the month: days 1–7, 8–14, 15–21, 22–end
   const cur  = [0, 0, 0, 0];
   const prev = [0, 0, 0, 0];
-  const MONTHS_SV = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
-  const monthName = MONTHS_SV[now.getMonth()];
-  const labels = ['', '', '', ''];
-  for (let i = 3; i >= 0; i--) {
-    const curEnd   = new Date(now); curEnd.setDate(now.getDate() - i * 7);
-    const curStart = new Date(curEnd); curStart.setDate(curEnd.getDate() - 6); curStart.setHours(0,0,0,0);
-    const prevEnd   = new Date(curEnd);   prevEnd.setDate(curEnd.getDate() - 28);
-    const prevStart = new Date(curStart); prevStart.setDate(curStart.getDate() - 28);
+  const labels = [];
+
+  for (let w = 0; w < 4; w++) {
+    const startDay = 1 + w * 7;
+    const endDay   = w < 3 ? startDay + 6 : 31; // last slot goes to end of month
+    const curStart  = new Date(curYear, curMonth,     startDay, 0, 0, 0, 0);
+    const curEnd    = new Date(curYear, curMonth,     endDay,  23, 59, 59, 999);
+    const prevStart = new Date(curYear, curMonth - 1, startDay, 0, 0, 0, 0);
+    const prevEnd   = new Date(curYear, curMonth - 1, endDay,  23, 59, 59, 999);
+    labels.push('v' + isoWeek(curStart));
     for (const e of entries) {
       const d = new Date(e.date);
-      if (d >= curStart  && d <= curEnd)  cur[3 - i]  += e.totalTime;
-      if (d >= prevStart && d <= prevEnd) prev[3 - i] += e.totalTime;
+      if (d >= curStart  && d <= curEnd)  cur[w]  += e.totalTime;
+      if (d >= prevStart && d <= prevEnd) prev[w] += e.totalTime;
     }
   }
+
   const cumulate = arr => arr.map((_, i) => Math.round(arr.slice(0, i+1).reduce((a,b) => a+b, 0) * 100) / 100);
-  return { labels, monthName, current: cumulate(cur), previous: cumulate(prev) };
+  const cumCur = cumulate(cur).map((v, w) => {
+    const weekStart = new Date(curYear, curMonth, 1 + w * 7);
+    return weekStart <= now ? v : null;
+  });
+  return { labels, monthName, current: cumCur, previous: cumulate(prev) };
 }
 
 function monthlyHoursData() {
@@ -1317,6 +1332,7 @@ function makePinIcon(fill) {
 const PIN_ICON = makePinIcon('#1565c0');
 
 let airportMap = null, airportMarkerLayer = null;
+let airportMiniMap = null, airportMiniMarkerLayer = null;
 
 function renderAirportMap() {
   if (typeof L === 'undefined') return;
@@ -1358,30 +1374,55 @@ function renderAirportMap() {
   const titleEl = $('map-card-title');
   if (titleEl) titleEl.textContent = `Besökta flygplatser${total ? ' · ' + total + ' unika' : ''}`;
 
+  const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_matter_nolabels/{z}/{x}/{y}{r}.png';
+  const tileOpts = { subdomains: 'abcd', maxZoom: 18 };
+  const iconBlue = makePinIcon('#1565c0');
+  const iconGold = makePinIcon('#f0a500');
+  const markers  = visitedKnown.map(icao => {
+    const ap = AIRPORT_DB[icao]; const n = visitCounts[icao]; const isNew = icao === newestNew;
+    return { icao, ap, n, isNew };
+  });
+  const bounds = markers.length
+    ? L.latLngBounds(markers.map(m => [m.ap.lat, m.ap.lon]))
+    : null;
+
+  // ── Mini map (widget preview) ──────────────────────────────────────────────
+  if ($('airport-mini-map') && !airportMiniMap) {
+    airportMiniMap = L.map('airport-mini-map', {
+      center: [62, 16], zoom: 4,
+      zoomControl: false, dragging: false, touchZoom: false,
+      doubleClickZoom: false, scrollWheelZoom: false,
+      keyboard: false, attributionControl: false,
+    });
+    L.tileLayer(tileUrl, tileOpts).addTo(airportMiniMap);
+    airportMiniMarkerLayer = L.layerGroup().addTo(airportMiniMap);
+  }
+  if (airportMiniMap) {
+    airportMiniMarkerLayer.clearLayers();
+    const miniIcon = fill => makePinIcon(fill) || iconBlue;
+    markers.forEach(({ ap, isNew }) =>
+      L.marker([ap.lat, ap.lon], { icon: miniIcon(isNew ? '#f0a500' : '#1565c0') }).addTo(airportMiniMarkerLayer)
+    );
+    if (bounds) setTimeout(() => { airportMiniMap.invalidateSize(); airportMiniMap.fitBounds(bounds, { padding: [16, 16], maxZoom: 7 }); }, 50);
+  }
+
+  // ── Full modal map ─────────────────────────────────────────────────────────
   if (!$('airport-map')) return;
 
-  // Init map once
   if (!airportMap) {
     airportMap = L.map('airport-map', { center: [63, 16.5], zoom: 5, zoomControl: true });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 18,
+      subdomains: 'abcd', maxZoom: 18,
     }).addTo(airportMap);
     airportMarkerLayer = L.layerGroup().addTo(airportMap);
   }
 
-  const iconRed  = makePinIcon('#1565c0');
-  const iconGold = makePinIcon('#f0a500');
-
   airportMarkerLayer.clearLayers();
 
-  visitedKnown.forEach(icao => {
-    const ap   = AIRPORT_DB[icao];
-    const n    = visitCounts[icao];
-    const isNew = icao === newestNew;
+  markers.forEach(({ icao, ap, n, isNew }) => {
     const label = isNew ? ' <span style="color:#f0a500;font-weight:600">★ Ny!</span>' : '';
-    L.marker([ap.lat, ap.lon], { icon: isNew ? iconGold : iconRed, zIndexOffset: isNew ? 1000 : 0 })
+    L.marker([ap.lat, ap.lon], { icon: isNew ? iconGold : iconBlue, zIndexOffset: isNew ? 1000 : 0 })
       .bindPopup(`<strong>${icao}</strong>${label}<br>${ap.name}<br><span style="color:#6b7280">${n} besök</span>`)
       .addTo(airportMarkerLayer);
   });
@@ -1513,6 +1554,8 @@ function renderDashboard() {
   const s = statsWithBaseline(entries);
   const active = loadWidgets();
 
+  if (airportMiniMap) { airportMiniMap.remove(); airportMiniMap = null; airportMiniMarkerLayer = null; }
+
   $('stat-grid').innerHTML = active.map(key => {
     const meta = WIDGET_CATALOG.find(w => w.key === key) || { label: key };
     const [val, sub] = widgetValue(key, entries, s);
@@ -1521,10 +1564,12 @@ function renderDashboard() {
       <div class="stat-value">${val}</div>
       <div class="stat-sub">${sub}</div>
     </div>`;
-  }).join('') + `<div class="stat-card map-widget-card" onclick="openMapModal()" title="Visa karta">
-      <div class="stat-label">Flygplatser</div>
-      <div class="stat-value" id="map-widget-count">✈</div>
-      <div class="stat-sub">tryck för karta</div>
+  }).join('') + `<div class="stat-card map-widget-card" title="Visa karta">
+      <div id="airport-mini-map"></div>
+      <div class="map-widget-footer">
+        <span id="map-widget-count">—</span><span>flygplatser ↗</span>
+      </div>
+      <div class="map-widget-click-overlay" onclick="openMapModal()"></div>
     </div>`;
 
   drawCharts();
