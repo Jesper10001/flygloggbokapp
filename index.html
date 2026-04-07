@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Flygloggbok</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#060e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Loggbok">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+#airport-map .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background: var(--popup-bg); color: var(--popup-text); }
+#airport-map .leaflet-popup-content { margin: .6rem .8rem; font-size: .82rem; line-height: 1.5; color: var(--popup-text); }
+#airport-map .leaflet-popup-content strong { color: var(--popup-strong); font-size: .9rem; }
+#airport-map .leaflet-popup-tip { background: var(--popup-bg); }
+#airport-map .leaflet-control-attribution { font-size: .6rem; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Dark theme (default) */
+  --navy:   #060e1a;
+  --blue:   #4a9eff;
+  --blue-l: #74b8ff;
+  --sky:    #0d1e33;
+  --bg:     #0b1220;
+  --card:   #111c2e;
+  --text:   #dce6f0;
+  --muted:  #6b82a0;
+  --border: #1e2f45;
+  --green:  #2ecc71;
+  --green-l:#39d97d;
+  --yellow: #f5a623;
+  --red:    #e05555;
+  --r: 10px;
+  --sh: 0 2px 12px rgba(0,0,0,.45);
+  /* badges */
+  --badge-vfr-bg: #0d2a18; --badge-vfr-fg: #4ade80;
+  --badge-ifr-bg: #0d1e33; --badge-ifr-fg: #74b8ff;
+  --badge-mix-bg: #2a1f0a; --badge-mix-fg: #f5a623;
+  --badge-till-bg:#2a0f14; --badge-till-fg: #f87171;
+  /* misc */
+  --row-hover:    rgba(255,255,255,.03);
+  --del-border:   #4a1f1f;
+  --del-hover-bg: #2a0f0f;
+  --danger-bg:    #2a0f0f;
+  --danger-border:#4a1f1f;
+  --import-bg:    #0d1e33;
+  --popup-bg:     #111c2e;
+  --popup-text:   #dce6f0;
+  --popup-strong: #74b8ff;
+  --chart-grid:   rgba(255,255,255,.06);
+  --chart-tick:   #6b82a0;
+  --chart-line1:  rgb(57,217,125);
+  --chart-line2:  rgb(116,184,255);
+  --chart-fill1:  .15;
+  --chart-fill2:  .07;
+}
+
+html[data-theme="light"] {
+  --navy:   #0d2240;
+  --blue:   #1565c0;
+  --blue-l: #1e88e5;
+  --sky:    #e3f2fd;
+  --bg:     #f0f4f8;
+  --card:   #fff;
+  --text:   #1a1a2e;
+  --muted:  #6b7280;
+  --border: #dde3ea;
+  --green:  #2e7d32;
+  --green-l:#43a047;
+  --yellow: #f57f17;
+  --red:    #c62828;
+  --sh: 0 2px 8px rgba(0,0,0,.08);
+  --badge-vfr-bg: #e8f5e9; --badge-vfr-fg: #2e7d32;
+  --badge-ifr-bg: #e3f2fd; --badge-ifr-fg: #1565c0;
+  --badge-mix-bg: #fff8e1; --badge-mix-fg: #e65100;
+  --badge-till-bg:#fce4ec; --badge-till-fg: #b71c1c;
+  --row-hover:    #f6f9ff;
+  --del-border:   #ffcdd2;
+  --del-hover-bg: #ffebee;
+  --danger-bg:    #fff1f0;
+  --danger-border:#ffcdd2;
+  --import-bg:    #f8faff;
+  --popup-bg:     #fff;
+  --popup-text:   #1a1a2e;
+  --popup-strong: #0d2240;
+  --chart-grid:   rgba(0,0,0,.06);
+  --chart-tick:   #6b7280;
+  --chart-line1:  rgb(46,125,50);
+  --chart-line2:  rgb(21,101,192);
+  --chart-fill1:  .12;
+  --chart-fill2:  .07;
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Nav ── */
+nav {
+  background: var(--navy);
+  color: #fff;
+  display: flex;
+  align-items: stretch;
+  padding: 0 1.5rem 0 1rem;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,.35);
+}
+.brand { font-size: 1.15rem; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: .4rem; padding: .9rem 1rem .9rem 0; white-space: nowrap; }
+.nav-tabs { display: flex; margin-left: auto; }
+.nav-tab {
+  background: none; border: none; color: rgba(255,255,255,.65);
+  padding: 1rem 1.3rem; font-size: .88rem; cursor: pointer;
+  border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap;
+}
+.nav-tab:hover { color: #fff; background: rgba(255,255,255,.07); }
+.nav-tab.active { color: #fff; border-bottom-color: #29b6f6; }
+
+/* ── Layout ── */
+main { max-width: 1140px; margin: 0 auto; padding: 1.5rem; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Cards ── */
+.card { background: var(--card); border-radius: var(--r); box-shadow: var(--sh); padding: 1.5rem; margin-bottom: 1.25rem; }
+.card-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 1rem; }
+
+/* ── Stat grid ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.stat-card { background: var(--card); border-radius: var(--r); box-shadow: var(--sh); padding: 1.2rem; text-align: center; }
+.stat-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: .35rem; }
+.stat-value { font-size: 1.9rem; font-weight: 700; color: var(--blue); line-height: 1.1; }
+.stat-sub { font-size: .72rem; color: var(--muted); margin-top: .2rem; }
+
+/* ── Progress ── */
+.req-section { margin-bottom: 1.75rem; }
+.req-section:last-child { margin-bottom: 0; }
+.req-title { font-size: .82rem; font-weight: 700; color: var(--blue); margin-bottom: .8rem; padding-bottom: .45rem; border-bottom: 2px solid var(--sky); }
+.prog-item { margin-bottom: .65rem; }
+.prog-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .28rem; }
+.prog-label { font-size: .82rem; font-weight: 500; }
+.prog-vals { font-size: .75rem; color: var(--muted); }
+.prog-track { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 4px; background: var(--blue-l); transition: width .6s ease; }
+.prog-fill.done { background: var(--green-l); }
+.prog-fill.low  { background: var(--yellow); }
+
+/* ── Table ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+thead th {
+  background: var(--sky); color: var(--blue);
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  padding: .65rem .8rem; text-align: left; white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:hover { background: var(--row-hover); }
+td { padding: .6rem .8rem; vertical-align: middle; }
+td.mono { font-family: 'SF Mono', 'Cascadia Code', monospace; }
+.totals-row td { font-weight: 700; background: var(--sky); }
+
+/* ── Badges ── */
+.badge { display: inline-block; padding: .15rem .5rem; border-radius: 20px; font-size: .68rem; font-weight: 700; }
+.badge-vfr  { background: var(--badge-vfr-bg);  color: var(--badge-vfr-fg); }
+.badge-ifr  { background: var(--badge-ifr-bg);  color: var(--badge-ifr-fg); }
+.badge-mix  { background: var(--badge-mix-bg);  color: var(--badge-mix-fg); }
+.badge-till { background: var(--badge-till-bg); color: var(--badge-till-fg); font-size: .65rem; }
+
+/* ── Buttons ── */
+.btn { padding: .55rem 1.1rem; border-radius: 8px; font-size: .85rem; font-weight: 600; cursor: pointer; border: none; transition: all .2s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-l); }
+.btn-outline { background: transparent; color: var(--blue); border: 1.5px solid var(--blue); }
+.btn-outline:hover { background: var(--sky); }
+.btn-del { background: none; border: 1px solid var(--del-border); color: var(--red); border-radius: 6px; padding: .22rem .55rem; cursor: pointer; font-size: .75rem; transition: all .2s; }
+.btn-del:hover { background: var(--del-hover-bg); }
+
+/* ── Toolbar ── */
+.toolbar { display: flex; gap: .7rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+.search-input, .filter-select {
+  padding: .52rem .85rem; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .86rem; outline: none; transition: border-color .2s; background: var(--card); color: var(--text);
+}
+.search-input { flex: 1; min-width: 200px; }
+.search-input:focus, .filter-select:focus { border-color: var(--blue-l); }
+.filter-select { cursor: pointer; }
+
+/* ── Form ── */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: .3rem; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group.row { flex-direction: row; align-items: center; gap: .7rem; }
+label { font-size: .75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+input[type=text], input[type=date], input[type=number], select, textarea {
+  padding: .58rem .8rem; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .9rem; outline: none; transition: border-color .2s; width: 100%; background: var(--card); color: var(--text);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--blue-l); }
+textarea { resize: vertical; min-height: 68px; font-family: inherit; }
+.hint { font-size: .72rem; color: var(--muted); }
+.form-sep { grid-column: 1 / -1; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--blue); margin-top: .75rem; padding-bottom: .4rem; border-bottom: 2px solid var(--sky); }
+
+/* ── Location toggle ── */
+.loc-wrap { display: flex; flex-direction: column; gap: .4rem; }
+.loc-toggle { display: flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+.loc-btn { flex: 1; padding: .32rem; font-size: .76rem; font-weight: 700; border: none; background: none; cursor: pointer; color: var(--muted); transition: all .2s; }
+.loc-btn.active { background: var(--blue); color: #fff; }
+
+/* ── FIDS board ── */
+.fids-board { background: #0a0e14; border-radius: var(--r); box-shadow: 0 4px 24px rgba(0,0,0,.6); overflow: hidden; margin-bottom: 1.25rem; font-family: 'SF Mono','Cascadia Code','Courier New',monospace; }
+.fids-header { background: #111820; padding: .6rem 1.1rem; display: flex; flex-direction: column; gap: .35rem; border-bottom: 1px solid #1e2d3d; }
+.fids-title { font-size: .7rem; font-weight: 700; letter-spacing: 2px; color: #f5a623; }
+.fids-cols { display: grid; grid-template-columns: 3.5rem 7rem 1fr 4rem 4rem 4rem 4rem; gap: .5rem; font-size: .6rem; font-weight: 700; letter-spacing: 1.5px; color: #3a5068; }
+.fids-row { display: grid; grid-template-columns: 3.5rem 7rem 1fr 4rem 4rem 4rem 4rem; gap: .5rem; align-items: center; padding: .65rem 1.1rem; border-bottom: 1px solid #0f161e; transition: background .15s; }
+.fids-row:last-child { border-bottom: none; }
+.fids-row:hover { background: #0f1a25; }
+.fids-date { font-size: .82rem; font-weight: 700; color: #e0eaf5; letter-spacing: .5px; }
+.fids-ac { font-size: .82rem; font-weight: 700; color: #f5a623; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fids-reg { font-size: .72rem; color: #7a95ad; font-weight: 400; }
+.fids-route { font-size: .85rem; font-weight: 700; color: #ffffff; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fids-time { font-size: .82rem; color: #a0bcd0; white-space: nowrap; }
+.fids-empty { padding: 2rem; text-align: center; color: #3a5068; font-size: .8rem; letter-spacing: 2px; }
+
+/* ── Widget picker ── */
+.widget-pick-item { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .75rem; border-radius:20px; border:1.5px solid var(--border); cursor:pointer; font-size:.82rem; font-weight:500; transition:all .15s; user-select:none; }
+.widget-pick-item.checked { background:var(--sky); border-color:var(--blue); color:var(--blue); }
+.widget-pick-item input { display:none; }
+
+/* ── Inline add rows (aircraft type / reg) ── */
+.inline-add-row { display: flex; gap: .4rem; margin-top: .4rem; align-items: center; }
+.inline-add-row input { flex: 1; }
+.btn-inline-save { padding: .32rem .7rem; font-size: .78rem; font-weight: 700; background: var(--blue); color: #fff; border: none; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.btn-inline-save:hover { background: var(--blue-l); }
+.btn-inline-cancel { padding: .32rem .6rem; font-size: .78rem; background: none; color: var(--muted); border: 1.5px solid var(--border); border-radius: 7px; cursor: pointer; }
+.btn-inline-cancel:hover { border-color: var(--red); color: var(--red); }
+
+/* ── NVG preset buttons ── */
+.nvg-preset-btn { padding: .28rem .75rem; font-size: .8rem; font-weight: 700; border: 1.5px solid var(--border); border-radius: 7px; background: none; color: var(--muted); cursor: pointer; transition: all .15s; }
+.nvg-preset-btn:hover { border-color: var(--blue); color: var(--blue); }
+.nvg-preset-btn.active { border-color: var(--blue); background: var(--blue); color: #fff; }
+
+/* ── Touch and Go rows ── */
+.tng-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem; }
+.tng-del { flex: none; background: none; border: 1.5px solid var(--border); border-radius: 6px; width: 1.8rem; height: 1.8rem; cursor: pointer; color: var(--muted); font-size: 1rem; line-height: 1; transition: all .2s; }
+.tng-del:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* ── Alerts ── */
+.alert { padding: .7rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .86rem; }
+.alert-error { background: #ffebee; color: var(--red); border: 1px solid #ffcdd2; }
+.alert-ok { background: #e8f5e9; color: var(--green); border: 1px solid #c8e6c9; }
+
+/* ── Empty state ── */
+.empty { text-align: center; padding: 3rem; color: var(--muted); }
+.empty-icon { font-size: 2.8rem; margin-bottom: .75rem; }
+
+/* ── Responsive ── */
+/* ── Import ── */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--r);
+  padding: 2.5rem 1.5rem; text-align: center; cursor: pointer;
+  transition: all .2s; margin-bottom: 1rem; color: var(--muted);
+}
+.drop-zone.drag-over { border-color: var(--blue-l); background: var(--sky); color: var(--blue); }
+.drop-zone:hover { border-color: var(--blue-l); }
+.drop-icon { font-size: 2.5rem; margin-bottom: .6rem; }
+.drop-zone p { font-size: .9rem; margin-bottom: .9rem; }
+.import-or { text-align: center; font-size: .78rem; color: var(--muted); margin: .75rem 0; letter-spacing: .5px; text-transform: uppercase; }
+.import-cols { font-size: .75rem; color: var(--muted); background: var(--import-bg); border-radius: 8px; padding: .75rem 1rem; margin-top: 1rem; line-height: 1.7; }
+.import-cols code { background: var(--sky); color: var(--blue); padding: .05rem .35rem; border-radius: 4px; font-size: .72rem; }
+.preview-valid { color: var(--green); font-weight: 700; font-size: .75rem; }
+.preview-error { color: var(--red);   font-weight: 700; font-size: .75rem; }
+.preview-dup   { color: var(--yellow); font-weight: 700; font-size: .75rem; }
+.import-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.import-stat { font-size: .85rem; }
+.import-stat strong { font-size: 1.3rem; display: block; line-height: 1.1; }
+.import-stat.ok   strong { color: var(--green); }
+.import-stat.warn strong { color: var(--yellow); }
+.import-stat.err  strong { color: var(--red); }
+
+/* ── Counter buttons ── */
+.counter-wrap { display: flex; align-items: stretch; }
+.counter-wrap input[type=number] { text-align: center; border-radius: 0; border-left: none; border-right: none; flex: 1; min-width: 0; -moz-appearance: textfield; }
+.counter-wrap input[type=number]::-webkit-outer-spin-button,
+.counter-wrap input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.counter-btn { padding: .58rem .9rem; background: var(--sky); border: 1.5px solid var(--border); font-size: 1.15rem; font-weight: 700; cursor: pointer; color: var(--blue); transition: all .15s; line-height: 1; }
+.counter-btn:first-child { border-radius: 8px 0 0 8px; }
+.counter-btn:last-child  { border-radius: 0 8px 8px 0; }
+.counter-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* ── Charts ── */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+.chart-card { margin-bottom: 0; }
+canvas { width: 100% !important; max-height: 220px; }
+
+@media (max-width: 750px) {
+  .chart-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  nav { padding: 0 .75rem; }
+  .brand { font-size: 1rem; }
+  .nav-tab { padding: .85rem .65rem; font-size: .78rem; }
+  main { padding: 1rem .75rem; }
+  .stat-value { font-size: 1.5rem; }
+}
+
+/* ── Mobile nav scrollable ── */
+.nav-tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.nav-tabs::-webkit-scrollbar { display: none; }
+
+/* ── Mobile logbook cards ── */
+.log-cards { display: none; }
+@media (max-width: 660px) {
+  #log-table-wrap { display: none; }
+  .log-cards { display: block; }
+  .log-card { background: var(--card); border-radius: var(--r); padding: .85rem 1rem; margin-bottom: .6rem; box-shadow: var(--sh); border-left: 3px solid var(--blue-l); }
+  .log-card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .25rem; }
+  .log-card-date { font-weight: 700; font-size: .85rem; }
+  .log-card-ac { font-size: .75rem; color: var(--muted); }
+  .log-card-route { font-size: .88rem; font-weight: 600; color: var(--navy); margin-bottom: .4rem; }
+  .log-card-times { display: flex; gap: .5rem 1rem; flex-wrap: wrap; }
+  .log-card-time { display: flex; flex-direction: column; align-items: center; min-width: 44px; }
+  .log-card-time-lbl { font-size: .6rem; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+  .log-card-time-val { font-family: 'SF Mono','Cascadia Code',monospace; font-size: .82rem; font-weight: 600; }
+  .log-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: .45rem; padding-top: .45rem; border-top: 1px solid var(--border); }
+  .log-cards-total { font-size: .78rem; font-weight: 700; color: var(--blue); padding: .65rem 0; text-align: center; }
+  .toolbar { gap: .5rem; }
+  .search-input { min-width: 0; }
+}
+
+/* ── Rapport ── */
+.r-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .7rem; margin-bottom: 0; }
+.r-stat { text-align: center; padding: .75rem .5rem; background: var(--sky); border-radius: var(--r); }
+.r-stat-val { font-size: 1.4rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.r-stat-lbl { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--blue); margin-top: .2rem; }
+.rapport-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+.r-section-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--blue); margin-bottom: .85rem; padding-bottom: .35rem; border-bottom: 2px solid var(--sky); }
+.ac-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .45rem; }
+.ac-name { width: 80px; font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.ac-bar-track { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.ac-bar-fill { height: 100%; border-radius: 4px; }
+.ac-bar-val { width: 50px; text-align: right; font-size: .75rem; color: var(--muted); font-family: 'SF Mono','Cascadia Code',monospace; flex-shrink: 0; }
+.monthly-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+.monthly-col { display: flex; flex-direction: column; align-items: center; }
+.monthly-bar-wrap { height: 72px; display: flex; align-items: flex-end; width: 100%; }
+.monthly-bar { width: 100%; border-radius: 2px 2px 0 0; }
+.monthly-lbl { font-size: .58rem; color: var(--muted); margin-top: .15rem; }
+.monthly-val { font-size: .58rem; font-family: monospace; color: var(--blue); min-height: .85rem; text-align: center; }
+@media (max-width: 640px) {
+  .rapport-two-col { grid-template-columns: 1fr; }
+  .r-stat-val { font-size: 1.1rem; }
+}
+
+/* ── Print / PDF ── */
+@media print {
+  @page { margin: 12mm 15mm; size: A4; }
+  * { print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+  nav, .rapport-controls { display: none !important; }
+  body { background: white !important; }
+  main { padding: 0 !important; max-width: 100% !important; }
+  .tab-content { display: none !important; }
+  #rapport { display: block !important; }
+  .card { box-shadow: none !important; border: 1px solid var(--border) !important; margin-bottom: .75rem !important; }
+  .rapport-two-col { grid-template-columns: 1fr 1fr !important; gap: .75rem !important; }
+  .page-break { page-break-before: always; }
+  #rapport-log-table { font-size: 7pt; }
+  #rapport-log-table th, #rapport-log-table td { padding: .18rem .3rem !important; }
+  .r-stat-grid { grid-template-columns: repeat(4, 1fr) !important; }
+  .btn { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">🚁 Flygloggbok</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
+    <button class="nav-tab" onclick="showTab('loggbok')">Loggbok</button>
+    <button class="nav-tab" onclick="showTab('ny-flygning')">+ Ny flygning</button>
+    <button class="nav-tab" onclick="showTab('cpl-atpl')">CPL/ATPL</button>
+    <button class="nav-tab" onclick="showTab('importera')">Importera</button>
+    <button class="nav-tab" onclick="showTab('rapport')">Rapport</button>
+  </div>
+  <button id="theme-toggle" onclick="toggleTheme()" title="Byt tema" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:1.15rem;padding:.6rem .7rem;margin-left:.25rem;transition:color .2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">🌙</button>
+</nav>
+
+<main>
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<section id="dashboard" class="tab-content active">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+    <button class="btn btn-outline" style="font-size:.78rem;padding:.3rem .8rem" onclick="openWidgetPicker()">⚙ Anpassa widgets</button>
+  </div>
+  <div id="widget-picker" style="display:none" class="card" style="margin-bottom:1rem">
+    <div class="card-title" style="margin-bottom:.75rem">Välj 3–5 widgets</div>
+    <div id="widget-picker-body" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem"></div>
+    <button class="btn btn-primary" style="font-size:.82rem" onclick="closeWidgetPicker()">Klar</button>
+  </div>
+  <div id="stat-grid" class="stat-grid"></div>
+  <div class="chart-row">
+    <div class="card chart-card">
+      <div class="card-title">Månad · ackumulerad flygtid per vecka</div>
+      <canvas id="chart-month"></canvas>
+    </div>
+    <div class="card chart-card">
+      <div class="card-title">År · ackumulerad flygtid per månad</div>
+      <canvas id="chart-year"></canvas>
+    </div>
+  </div>
+  <div class="fids-board">
+    <div class="fids-header">
+      <span class="fids-title">✈ SENASTE FLYGNINGAR</span>
+      <span class="fids-cols"><span>DATUM</span><span>TYP / REG</span><span>AVG → DEST</span><span>TOTAL</span><span>PIC</span><span>NATT</span><span>IFR</span></span>
+    </div>
+    <div id="recent-body"></div>
+  </div>
+  <div class="card" style="padding:1.25rem 1.5rem .75rem">
+    <div class="card-title" id="map-card-title">Besökta flygplatser</div>
+    <div id="airport-map" style="height:460px;border-radius:8px;margin:0 -1.5rem -.75rem;"></div>
+  </div>
+</section>
+
+<!-- ══════════════ LOGGBOK ══════════════ -->
+<section id="loggbok" class="tab-content">
+  <div class="card">
+    <div class="toolbar">
+      <input class="search-input" type="text" id="search" placeholder="Sök datum, ort, typ, registration, anmärkning…" oninput="renderLogbook()">
+      <select class="filter-select" id="filter-role" onchange="renderLogbook()">
+        <option value="">Alla roller</option>
+        <option value="pic">PIC</option>
+        <option value="copilot">Co-pilot</option>
+        <option value="dual">Dual / Elev</option>
+      </select>
+      <select class="filter-select" id="filter-rules" onchange="renderLogbook()">
+        <option value="">VFR &amp; IFR</option>
+        <option value="VFR">VFR</option>
+        <option value="IFR">IFR</option>
+        <option value="Blandat">Blandat</option>
+      </select>
+      <button class="btn btn-outline" onclick="exportCSV()">↓ Exportera CSV</button>
+    </div>
+    <div class="table-wrap" id="log-table-wrap">
+      <table id="log-table">
+        <thead><tr>
+          <th>Datum</th>
+          <th>Typ</th>
+          <th>Reg</th>
+          <th>Avgång</th>
+          <th>Destination</th>
+          <th>Total</th>
+          <th>PIC</th>
+          <th>Co-P</th>
+          <th>Dual</th>
+          <th>Natt</th>
+          <th>IFR</th>
+          <th>S/L</th>
+          <th>Regler</th>
+          <th>Anm</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="log-body"></tbody>
+        <tfoot id="log-foot"></tfoot>
+      </table>
+    </div>
+    <div id="log-empty" class="empty" style="display:none">
+      <div class="empty-icon">📋</div>
+      <p>Inga flygningar matchar filtret.</p>
+    </div>
+    <div id="log-cards" class="log-cards"></div>
+  </div>
+</section>
+
+<!-- ══════════════ NY FLYGNING ══════════════ -->
+<section id="ny-flygning" class="tab-content">
+  <div class="card">
+    <div id="form-alert"></div>
+    <form id="flight-form" onsubmit="submitFlight(event)" autocomplete="off">
+      <div class="form-grid">
+
+        <div class="form-sep">Grunduppgifter</div>
+
+        <div class="form-group">
+          <label for="f-date">Datum *</label>
+          <input type="date" id="f-date" required>
+        </div>
+        <div class="form-group">
+          <label for="f-type">Luftfartygstyp *</label>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <select id="f-type" onchange="onTypeChange()" style="flex:1" required>
+              <option value="">Välj typ…</option>
+            </select>
+            <button type="button" class="btn-inline-save" onclick="addNewType()" title="Lägg till ny typ">+</button>
+          </div>
+          <div id="new-type-row" class="inline-add-row" style="display:none">
+            <input type="text" id="new-type-input" placeholder="t.ex. AW109, EC135T1" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmNewType();}if(event.key==='Escape')cancelNewType();">
+            <button type="button" class="btn-inline-save" onclick="confirmNewType()">Spara</button>
+            <button type="button" class="btn-inline-cancel" onclick="cancelNewType()">Avbryt</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="f-reg">Registration *</label>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <select id="f-reg" onchange="onRegChange()" style="flex:1" required>
+              <option value="">Välj typ först</option>
+            </select>
+            <button type="button" class="btn-inline-save" onclick="addNewReg()" title="Lägg till ny registration">+</button>
+          </div>
+          <div id="new-reg-row" class="inline-add-row" style="display:none">
+            <input type="text" id="new-reg-input" placeholder="t.ex. SE-HXO, LN-OFU" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmNewReg();}if(event.key==='Escape')cancelNewReg();">
+            <button type="button" class="btn-inline-save" onclick="confirmNewReg()">Spara</button>
+            <button type="button" class="btn-inline-cancel" onclick="cancelNewReg()">Avbryt</button>
+          </div>
+        </div>
+
+        <div class="form-sep">Avgång &amp; Destination</div>
+
+        <!-- Departure -->
+        <div class="form-group">
+          <label>Avgång *</label>
+          <div class="loc-wrap">
+            <div class="loc-toggle">
+              <button type="button" class="loc-btn active" id="dep-icao-btn" onclick="setLocType('dep','icao')">ICAO-kod</button>
+              <button type="button" class="loc-btn" id="dep-till-btn" onclick="setLocType('dep','till')">Tillfällig landningsplats</button>
+            </div>
+            <input type="text" id="f-dep-icao" placeholder="ESGG" maxlength="4" style="text-transform:uppercase">
+            <input type="text" id="f-dep-custom" placeholder="t.ex. Sjukhuset Mölndal, Fartyg M/S Nordic" style="display:none">
+            <input type="time" id="f-block-off" placeholder="Starttid" oninput="calcBlockTime()" onchange="calcBlockTime()" style="margin-top:.2rem">
+          </div>
+        </div>
+
+        <!-- Touch and Go / Hot refuel -->
+        <div class="form-group">
+          <label>Touch and Go / Hot refuel <span style="font-weight:400;color:var(--muted)">(valfritt)</span></label>
+          <div id="tng-stops"></div>
+          <button type="button" id="tng-add-btn" class="loc-btn" style="margin-top:.4rem" onclick="addTngStop();updateTngBtn()">+ Lägg till stopp</button>
+        </div>
+
+        <!-- Arrival -->
+        <div class="form-group">
+          <label>Destination *</label>
+          <div class="loc-wrap">
+            <div class="loc-toggle">
+              <button type="button" class="loc-btn active" id="arr-icao-btn" onclick="setLocType('arr','icao')">ICAO-kod</button>
+              <button type="button" class="loc-btn" id="arr-till-btn" onclick="setLocType('arr','till')">Tillfällig landningsplats</button>
+            </div>
+            <input type="text" id="f-arr-icao" placeholder="ESSA" maxlength="4" style="text-transform:uppercase">
+            <input type="text" id="f-arr-custom" placeholder="t.ex. Offshore-plattform Alpha, Privat helipad" style="display:none">
+            <input type="time" id="f-block-on" placeholder="Landningstid" oninput="calcBlockTime()" onchange="calcBlockTime()" style="margin-top:.2rem">
+          </div>
+        </div>
+
+        <div class="form-sep">Flygtid</div>
+
+        <div class="form-group">
+          <label for="f-total">Total flygtid</label>
+          <input type="text" id="f-total" placeholder="Fylls i automatiskt" readonly style="background:var(--sky);color:var(--blue);cursor:default">
+        </div>
+        <div class="form-group">
+          <label for="f-rules">Flygregler</label>
+          <select id="f-rules">
+            <option value="VFR">VFR</option>
+            <option value="IFR">IFR</option>
+            <option value="Blandat">Blandat (VFR+IFR)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Roll *</label>
+          <div class="loc-toggle">
+            <button type="button" class="loc-btn active" id="role-pic-btn" onclick="setRole('pic')">PIC</button>
+            <button type="button" class="loc-btn" id="role-cop-btn" onclick="setRole('cop')">Co-pilot</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="f-dual">Dual / Elev-tid</label>
+          <input type="text" id="f-dual" placeholder="0:00">
+        </div>
+        <div class="form-group">
+          <label for="f-night">Natttid</label>
+          <input type="text" id="f-night" placeholder="0:00">
+        </div>
+        <div class="form-group">
+          <label for="f-ifr">IFR-tid</label>
+          <input type="text" id="f-ifr" placeholder="0:00">
+        </div>
+        <div class="form-group">
+          <label for="f-nvg-pct">NVG <span style="font-weight:400;color:var(--muted)">(% av passet)</span></label>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <input type="number" id="f-nvg-pct" min="0" max="100" step="10" placeholder="0" style="width:4.5rem" oninput="updateNvgCalc()">
+            <span style="font-size:.8rem;color:var(--muted)">%</span>
+            <span id="nvg-calc" style="font-size:.8rem;color:var(--blue);font-family:monospace"></span>
+          </div>
+          <div style="display:flex;gap:.4rem;margin-top:.3rem">
+            <button type="button" class="nvg-preset-btn" onclick="setNvg(50)">50%</button>
+            <button type="button" class="nvg-preset-btn" onclick="setNvg(100)">100%</button>
+          </div>
+        </div>
+
+        <div class="form-sep">Landningar</div>
+
+        <div class="form-group">
+          <label>Dag-landningar</label>
+          <div class="counter-wrap">
+            <button type="button" class="counter-btn" onclick="adj('f-ldg-day',-1)">−</button>
+            <input type="number" id="f-ldg-day" min="0" step="1" value="1">
+            <button type="button" class="counter-btn" onclick="adj('f-ldg-day',1)">+</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Natt-landningar</label>
+          <div class="counter-wrap">
+            <button type="button" class="counter-btn" onclick="adj('f-ldg-night',-1)">−</button>
+            <input type="number" id="f-ldg-night" min="0" step="1" value="0">
+            <button type="button" class="counter-btn" onclick="adj('f-ldg-night',1)">+</button>
+          </div>
+        </div>
+
+        <div class="form-sep">Övrigt</div>
+
+        <div class="form-group">
+          <label for="f-second-pilot">Second pilot</label>
+          <input type="text" id="f-second-pilot" placeholder="Namn eller ID">
+        </div>
+
+        <div class="form-group full">
+          <label for="f-remarks">Anmärkningar</label>
+          <textarea id="f-remarks" placeholder="Övningstyp, väder, passagerare, uppdragstyp…"></textarea>
+        </div>
+
+        <div class="form-group full" style="flex-direction:row; gap:.75rem; margin-top:.25rem;">
+          <button type="submit" class="btn btn-primary" style="flex:1;">Spara flygning</button>
+          <button type="button" class="btn btn-outline" onclick="resetForm()">Rensa</button>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ══════════════ IMPORTERA ══════════════ -->
+<section id="importera" class="tab-content">
+  <div class="card">
+    <div class="card-title">Importera flygningar från CSV</div>
+
+    <div id="drop-zone" class="drop-zone"
+         onclick="$('csv-file').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <div class="drop-icon">📂</div>
+      <p>Dra och släpp en CSV-fil här, eller klicka för att välja</p>
+      <button class="btn btn-outline" onclick="event.stopPropagation();$('csv-file').click()" type="button">Välj fil</button>
+      <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none" onchange="handleFileSelect(event)">
+    </div>
+
+    <div class="import-or">— eller klistra in CSV-innehåll nedan —</div>
+    <textarea id="csv-paste" style="min-height:110px;font-family:monospace;font-size:.8rem" placeholder="Klistra in CSV här (med eller utan rubrikrad)…"></textarea>
+
+    <div style="display:flex;gap:.75rem;margin-top:.9rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" onclick="previewImport()" type="button">Förhandsgranska</button>
+      <button class="btn btn-outline" onclick="downloadTemplate()" type="button">↓ Ladda ned CSV-mall</button>
+      <button class="btn" onclick="clearAllData()" type="button" style="margin-left:auto;background:var(--danger-bg);color:var(--red);border:1.5px solid var(--danger-border)">🗑 Rensa all data</button>
+    </div>
+
+    <div class="import-cols">
+      <strong style="display:block;margin-bottom:.35rem;color:var(--text)">Förväntade kolumner (i ordning):</strong>
+      <code>FlightDate</code> <code>Depart</code> <code>STime</code> <code>Dest</code> <code>DTime</code> <code>FlTime</code>
+      <code>AcReg</code> <code>AcType</code> <code>Ldgs</code> <code>NLdgs</code>
+      <code>IFR</code> <code>MaxFL</code> <code>PIC</code> <code>2ndPilot</code> <code>Client</code> <code>Remarks</code><br>
+      Datum: valfritt format · Tider &amp; flygtid: <code>HH:MM</code> · <code>PIC</code>: <code>1</code> = PIC, <code>0</code> = Co-pilot · Flygplatser: ICAO eller fritext
+    </div>
+  </div>
+
+  <div id="import-preview-card" class="card" style="display:none">
+    <div id="import-summary" class="import-summary"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Datum</th><th>Typ</th><th>Reg</th><th>Avgång</th><th>Dest</th><th>Total</th><th>Status</th>
+        </tr></thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
+      <button id="confirm-import-btn" class="btn btn-primary" onclick="confirmImport()" type="button"></button>
+      <button class="btn btn-outline" onclick="clearImport()" type="button">Rensa</button>
+    </div>
+  </div>
+
+  <!-- ── Manuella bastimmar ── -->
+  <div class="card">
+    <div class="card-title">Lägg in timmar manuellt</div>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1.25rem">Ange ackumulerade timmar från tidigare erfarenhet. Räknas in i totaler och CPL/ATPL-krav men visas inte i loggbok eller grafer.</p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Total flygtid</label>
+        <input type="text" id="b-total" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>PIC</label>
+        <input type="text" id="b-pic" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>IFR</label>
+        <input type="text" id="b-ifr" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>Multi engine</label>
+        <input type="text" id="b-me" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>Night</label>
+        <input type="text" id="b-night" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>Night NVD</label>
+        <input type="text" id="b-nvd" placeholder="0:00">
+      </div>
+      <div class="form-group">
+        <label>Landningar dag</label>
+        <div class="counter-wrap">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-day',-1)">−</button>
+          <input type="number" id="b-ldg-day" min="0" step="1" value="0">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-day',1)">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Landningar mörker</label>
+        <div class="counter-wrap">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-night',-1)">−</button>
+          <input type="number" id="b-ldg-night" min="0" step="1" value="0">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-night',1)">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>IFR-landningar</label>
+        <div class="counter-wrap">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-ifr',-1)">−</button>
+          <input type="number" id="b-ldg-ifr" min="0" step="1" value="0">
+          <button type="button" class="counter-btn" onclick="adj('b-ldg-ifr',1)">+</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:.75rem">
+      <button class="btn btn-primary" onclick="saveBaseline()" type="button">Spara bastimmar</button>
+      <div id="baseline-saved" style="display:none;align-self:center;font-size:.85rem;color:var(--green);font-weight:600">✓ Sparat</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ CPL/ATPL ══════════════ -->
+<section id="cpl-atpl" class="tab-content">
+  <div class="card">
+    <div id="req-content"></div>
+  </div>
+</section>
+
+<!-- ══════════════ RAPPORT ══════════════ -->
+<section id="rapport" class="tab-content">
+  <div class="card rapport-controls">
+    <div class="toolbar" style="align-items:center">
+      <label style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">År</label>
+      <select id="r-year" class="filter-select" onchange="renderRapport()">
+        <option value="">Alla år</option>
+      </select>
+      <span style="font-size:.82rem;color:var(--muted)">Filtrera per år</span>
+      <button class="btn btn-primary" style="margin-left:auto;white-space:nowrap" onclick="window.print()">🖨 Exportera PDF</button>
+    </div>
+  </div>
+  <div id="rapport-content"></div>
+</section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict';
+
+// ── Storage ────────────────────────────────────────────────────────────────
+const KEY = 'flygloggbok_entries';
+const load  = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+const save  = es => localStorage.setItem(KEY, JSON.stringify(es));
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const n = v  => Math.max(0, parseFloat(v) || 0);
+const ni = v => Math.max(0, parseInt(v)   || 0);
+
+function fmt(h) {
+  if (!h || h <= 0) return '—';
+  const hrs = Math.floor(h), min = Math.round((h - hrs) * 60);
+  return `${hrs}:${String(min).padStart(2,'0')}`;
+}
+function fmtFull(h) {
+  const hrs = Math.floor(h), min = Math.round((h - hrs) * 60);
+  return `${hrs}:${String(min).padStart(2,'0')}`;
+}
+
+function parseHHMM(s) {
+  s = (s || '').trim().replace(',', '.');
+  if (!s || s === '0:00') return 0;
+  if (s.includes(':')) {
+    const [h, m] = s.split(':');
+    return Math.round(((parseInt(h) || 0) + (parseInt(m) || 0) / 60) * 100) / 100;
+  }
+  return parseFloat(s) || 0;
+}
+
+function escH(s) {
+  if (!s && s !== 0) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Strips legacy structured prefixes (STime: DTime: MaxFL: 2ndPilot: Client:) from imported remarks
+function cleanRemarks(s) {
+  if (!s) return '';
+  return s
+    .replace(/\bSTime:\s*\S+/g, '')
+    .replace(/\bDTime:\s*\S+/g, '')
+    .replace(/\bMaxFL:\s*\S+/gi, '')
+    .replace(/\b2ndPilot:\s*\S+/g, '')
+    .replace(/\bClient:\s*\S+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+// Extracts a named prefix value from legacy remarks string
+function extractRem(s, key) {
+  const m = (s || '').match(new RegExp(`\\b${key}:\\s*(\\S+)`));
+  return m ? m[1] : '';
+}
+// Returns best tooltip string (full raw remarks with structured data)
+function remarkTooltip(e) {
+  const parts = [];
+  if (e.sTime)       parts.push(`Avg: ${e.sTime}`);
+  if (e.dTime)       parts.push(`Dest: ${e.dTime}`);
+  if (e.maxFL)       parts.push(`MaxFL: FL${e.maxFL}`);
+  if (e.secondPilot) parts.push(`2ndPilot: ${e.secondPilot}`);
+  if (e.client)      parts.push(`Client: ${e.client}`);
+  // Also check legacy format in remarks field
+  const legacySTime  = extractRem(e.remarks, 'STime');
+  const legacyDTime  = extractRem(e.remarks, 'DTime');
+  const legacyMaxFL  = extractRem(e.remarks, 'MaxFL');
+  const legacy2nd    = extractRem(e.remarks, '2ndPilot');
+  const legacyClient = extractRem(e.remarks, 'Client');
+  if (!e.sTime       && legacySTime)  parts.push(`Avg: ${legacySTime}`);
+  if (!e.dTime       && legacyDTime)  parts.push(`Dest: ${legacyDTime}`);
+  if (!e.maxFL       && legacyMaxFL)  parts.push(`MaxFL: ${legacyMaxFL}`);
+  if (!e.secondPilot && legacy2nd)    parts.push(`2ndPilot: ${legacy2nd}`);
+  if (!e.client      && legacyClient) parts.push(`Client: ${legacyClient}`);
+  const text = cleanRemarks(e.remarks);
+  if (text) parts.push(text);
+  return parts.join('  ');
+}
+// Returns display client string (new field or legacy fallback)
+function entryClient(e) {
+  return e.client || extractRem(e.remarks, 'Client') || '';
+}
+function entryPilot2(e) {
+  return e.secondPilot || extractRem(e.remarks, '2ndPilot') || '';
+}
+
+function locLabel(e, w) {
+  if (w === 'dep') return e.depIsTillfällig ? `🚁 ${e.depCustom}` : (e.depICAO || '—');
+  return e.arrIsTillfällig ? `🚁 ${e.arrCustom}` : (e.arrICAO || '—');
+}
+function routeLabel(e) {
+  const dep = locLabel(e, 'dep');
+  const arr = locLabel(e, 'arr');
+  const tng = (e.touchAndGo || []);
+  if (!tng.length) return `${dep} → ${arr}`;
+  return `${dep} → ${tng.join(' → ')} → ${arr}`;
+}
+function locKey(e, w) {
+  if (w === 'dep') return e.depIsTillfällig ? `T:${e.depCustom}` : e.depICAO;
+  return e.arrIsTillfällig ? `T:${e.arrCustom}` : e.arrICAO;
+}
+
+function stats(entries) {
+  let total=0, pic=0, cop=0, dual=0, night=0, ifr=0, nvg=0, to=0, ldg=0, toN=0, ldgN=0, cc=0;
+  for (const e of entries) {
+    total += e.totalTime; pic += e.picTime; cop += e.copilotTime; dual += e.dualTime;
+    night += e.nightTime; ifr += e.ifrTime; nvg += (e.nvgTime || 0);
+    to += e.takeoffs; ldg += e.landings; toN += e.nightTakeoffs; ldgN += e.nightLandings;
+    if (locKey(e,'dep') !== locKey(e,'arr')) cc += e.totalTime;
+  }
+  return { total, pic, cop, dual, night, ifr, nvg, to, ldg, toN, ldgN, cc, count: entries.length };
+}
+
+// ── Tab navigation ─────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  $(id).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(b => {
+    if (b.getAttribute('onclick').includes(`'${id}'`)) b.classList.add('active');
+  });
+  if (id === 'dashboard')   { renderDashboard(); setTimeout(() => airportMap && airportMap.invalidateSize(), 60); }
+  if (id === 'loggbok')     renderLogbook();
+  if (id === 'ny-flygning') resetForm();
+  if (id === 'cpl-atpl')    renderCPLATPL();
+  if (id === 'importera')   { clearImport(); initBaselineForm(); }
+  if (id === 'rapport')     renderRapport();
+}
+
+// ── Chart data helpers ─────────────────────────────────────────────────────
+function weeklyHoursData() {
+  const entries = load();
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  const cur  = [0, 0, 0, 0];
+  const prev = [0, 0, 0, 0];
+  const MONTHS_SV = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+  const monthName = MONTHS_SV[now.getMonth()];
+  const labels = ['', '', '', ''];
+  for (let i = 3; i >= 0; i--) {
+    const curEnd   = new Date(now); curEnd.setDate(now.getDate() - i * 7);
+    const curStart = new Date(curEnd); curStart.setDate(curEnd.getDate() - 6); curStart.setHours(0,0,0,0);
+    const prevEnd   = new Date(curEnd);   prevEnd.setDate(curEnd.getDate() - 28);
+    const prevStart = new Date(curStart); prevStart.setDate(curStart.getDate() - 28);
+    for (const e of entries) {
+      const d = new Date(e.date);
+      if (d >= curStart  && d <= curEnd)  cur[3 - i]  += e.totalTime;
+      if (d >= prevStart && d <= prevEnd) prev[3 - i] += e.totalTime;
+    }
+  }
+  const cumulate = arr => arr.map((_, i) => Math.round(arr.slice(0, i+1).reduce((a,b) => a+b, 0) * 100) / 100);
+  return { labels, monthName, current: cumulate(cur), previous: cumulate(prev) };
+}
+
+function monthlyHoursData() {
+  const entries  = load();
+  const now      = new Date();
+  const curYear  = now.getFullYear();
+  const prevYear = curYear - 1;
+  const curM     = now.getMonth();
+  const MONTHS   = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const curData  = Array(12).fill(0);
+  const prevData = Array(12).fill(0);
+  for (const e of entries) {
+    const d = new Date(e.date);
+    if (d.getFullYear() === curYear)  curData[d.getMonth()]  += e.totalTime;
+    if (d.getFullYear() === prevYear) prevData[d.getMonth()] += e.totalTime;
+  }
+  const cumulate = arr => arr.map((_, i) => Math.round(arr.slice(0, i+1).reduce((a,b) => a+b, 0) * 100) / 100);
+  const cumCur  = cumulate(curData);
+  const cumPrev = cumulate(prevData);
+  return {
+    labels:   MONTHS,
+    current:  cumCur.map((v, i) => i <= curM ? v : null),
+    previous: cumPrev,
+  };
+}
+
+let chartMonth = null, chartYear = null;
+
+function chartOpts() {
+  const s = getComputedStyle(document.documentElement);
+  const grid = s.getPropertyValue('--chart-grid').trim() || 'rgba(0,0,0,.06)';
+  const tick = s.getPropertyValue('--chart-tick').trim() || '#6b7280';
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: {} } },
+    scales: {
+      x: { grid: { color: grid }, ticks: { font: { size: 11 }, color: tick } },
+      y: { beginAtZero: true, grid: { color: grid }, ticks: { font: { size: 11 }, color: tick } }
+    }
+  };
+}
+// Keep backward-compat alias
+const CHART_OPTS = { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false},tooltip:{callbacks:{}}}, scales:{ x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11}}}, y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11}}} } };
+
+function drawCharts() {
+  if (chartMonth) { chartMonth.destroy(); chartMonth = null; }
+  if (chartYear)  { chartYear.destroy();  chartYear  = null; }
+
+  const cs = getComputedStyle(document.documentElement);
+  const c1    = cs.getPropertyValue('--chart-line1').trim();
+  const c2    = cs.getPropertyValue('--chart-line2').trim();
+  const f1    = parseFloat(cs.getPropertyValue('--chart-fill1').trim()) || .15;
+  const f2    = parseFloat(cs.getPropertyValue('--chart-fill2').trim()) || .07;
+  const tick  = cs.getPropertyValue('--chart-tick').trim();
+  const blue  = cs.getPropertyValue('--blue-l').trim();
+
+  const CO = chartOpts();
+  const legendOpts = { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 24, color: cs.getPropertyValue('--text').trim() } };
+  const lineDataset = (label, data, color, alpha, dashed) => ({
+    label, data,
+    borderColor: color, backgroundColor: color.replace(')', `,${alpha})`).replace('rgb','rgba'),
+    tension: 0.4, fill: true, borderWidth: 2.5, spanGaps: false,
+    borderDash: dashed ? [6, 3] : [],
+    pointBackgroundColor: color, pointRadius: 3, pointHoverRadius: 4.5,
+  });
+
+  const wm = weeklyHoursData();
+  chartMonth = new Chart($('chart-month'), {
+    type: 'line',
+    data: { labels: wm.labels, datasets: [
+      lineDataset('Innevarande månad', wm.current,  c1, f1, false),
+      lineDataset('Föregående månad',  wm.previous, c2, f2, true),
+    ]},
+    options: { ...CO,
+      plugins: { ...CO.plugins, legend: legendOpts },
+      scales: {
+        x: { ...CO.scales.x, title: { display: true, text: wm.monthName, font: { size: 12, weight: '700' }, color: blue } },
+        y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { size: 11 }, color: tick } }
+      }
+    }
+  });
+
+  const mh = monthlyHoursData();
+  chartYear = new Chart($('chart-year'), {
+    type: 'line',
+    data: { labels: mh.labels, datasets: [
+      lineDataset('Innevarande år',  mh.current,  c1, f1, false),
+      lineDataset('Föregående år',   mh.previous, c2, f2, true),
+    ]},
+    options: { ...CO,
+      plugins: { ...CO.plugins, legend: legendOpts },
+      scales: { ...CO.scales, y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { size: 11 }, color: tick } } }
+    }
+  });
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+// ── Airport map ────────────────────────────────────────────────────────────
+const AIRPORT_DB = {
+  // ── Sverige — Södra ───────────────────────────────────────────────────────
+  ESMS: { name: 'Malmö / Sturup',           lat: 55.5363, lon: 13.3762 },
+  ESMO: { name: 'Oskarshamn',               lat: 57.3505, lon: 16.4980 },
+  ESMA: { name: 'Emmaboda',                 lat: 56.6333, lon: 15.5833 },
+  ESTA: { name: 'Ängelholm / Helsingborg',  lat: 56.2962, lon: 12.8471 },
+  ESDF: { name: 'Ronneby / Blekinge',       lat: 56.2667, lon: 15.2650 },
+  ESMT: { name: 'Halmstad',                 lat: 56.6911, lon: 12.8202 },
+  ESMQ: { name: 'Kalmar',                   lat: 56.6855, lon: 16.2876 },
+  ESMX: { name: 'Växjö / Kronoberg',        lat: 56.9291, lon: 14.7280 },
+  ESIB: { name: 'Såtenäs',                  lat: 58.4264, lon: 12.7017 },
+  ESSF: { name: 'Hultsfred',                lat: 57.5254, lon: 15.8233 },
+  ESSV: { name: 'Visby',                    lat: 57.6628, lon: 18.3462 },
+  ESMK: { name: 'Kristianstad',             lat: 56.0133, lon: 14.0856 },
+  ESMI: { name: 'Sjöbo / Sövde',            lat: 55.6917, lon: 13.7433 },
+  // ── Sverige — Västra ──────────────────────────────────────────────────────
+  ESGG: { name: 'Göteborg Landvetter',      lat: 57.6628, lon: 12.2798 },
+  ESGP: { name: 'Göteborg Säve',            lat: 57.7745, lon: 11.8703 },
+  ESGT: { name: 'Trollhättan / Vänersborg', lat: 58.3181, lon: 12.3447 },
+  ESGE: { name: 'Borås / Viared',           lat: 57.7503, lon: 12.9295 },
+  ESGL: { name: 'Lidköping / Hovby',        lat: 58.4655, lon: 13.1744 },
+  ESGJ: { name: 'Jönköping',                lat: 57.7576, lon: 14.0687 },
+  ESGR: { name: 'Skövde',                   lat: 58.4572, lon: 13.9727 },
+  ESGU: { name: 'Uddevalla',                lat: 58.3520, lon: 11.9369 },
+  ESGV: { name: 'Varberg',                  lat: 57.1064, lon: 12.3014 },
+  ESGA: { name: 'Backamo',                  lat: 58.1833, lon: 11.9500 },
+  ESGO: { name: 'Vårgårda',                 lat: 58.0300, lon: 12.8200 },
+  // ── Sverige — Mitt ────────────────────────────────────────────────────────
+  ESSA: { name: 'Stockholm Arlanda',        lat: 59.6519, lon: 17.9186 },
+  ESSB: { name: 'Stockholm Bromma',         lat: 59.3544, lon: 17.9416 },
+  ESKN: { name: 'Nyköping / Skavsta',       lat: 58.7886, lon: 16.9122 },
+  ESOW: { name: 'Västerås',                 lat: 59.5894, lon: 16.6337 },
+  ESOE: { name: 'Örebro',                   lat: 59.2237, lon: 15.0380 },
+  ESOK: { name: 'Karlstad',                 lat: 59.4447, lon: 13.3374 },
+  ESSP: { name: 'Norrköping',               lat: 58.5863, lon: 16.2508 },
+  ESSL: { name: 'Linköping / SAAB',         lat: 58.4026, lon: 15.6805 },
+  ESCF: { name: 'Linköping / Malmen',       lat: 58.4022, lon: 15.5253 },
+  ESSD: { name: 'Borlänge / Dala',          lat: 60.4227, lon: 15.5151 },
+  ESSE: { name: 'Eskilstuna',               lat: 59.3511, lon: 16.7084 },
+  ESSH: { name: 'Laxå',                     lat: 59.0578, lon: 14.5919 },
+  ESVS: { name: 'Mora / Siljan',            lat: 60.9574, lon: 14.5114 },
+  ESUD: { name: 'Hudiksvall',               lat: 61.7681, lon: 17.0996 },
+  ESST: { name: 'Torsby',                   lat: 60.1576, lon: 12.9912 },
+  ESNH: { name: 'Hagfors',                  lat: 60.0200, lon: 13.5790 },
+  ESVQ: { name: 'Köping',                   lat: 59.5167, lon: 16.0500 },
+  ESDA: { name: 'Ljungbyhed',               lat: 56.1286, lon: 13.2122 },
+  ESSK: { name: 'Gävle / Sandviken',        lat: 60.5933, lon: 16.9514 },
+  ESSC: { name: 'Eskilstuna / Ekeby',       lat: 59.4367, lon: 16.7242 },
+  ESQO: { name: 'Arboga',                   lat: 59.3978, lon: 15.9245 },
+  ESKV: { name: 'Arvika',                   lat: 59.6742, lon: 12.5981 },
+  ESUB: { name: 'Uppsala / Ärna',           lat: 59.8981, lon: 17.5886 },
+  // ── Sverige — Norra ───────────────────────────────────────────────────────
+  ESPA: { name: 'Luleå / Kallax',           lat: 65.5438, lon: 22.1220 },
+  ESNU: { name: 'Umeå',                     lat: 63.7918, lon: 20.2828 },
+  ESNS: { name: 'Skellefteå',               lat: 64.6248, lon: 21.0769 },
+  ESNZ: { name: 'Åre / Östersund',          lat: 63.1944, lon: 14.5003 },
+  ESNQ: { name: 'Kiruna',                   lat: 67.8220, lon: 20.3368 },
+  ESNL: { name: 'Lycksele',                 lat: 64.5483, lon: 18.7162 },
+  ESNO: { name: 'Örnsköldsvik',             lat: 63.4083, lon: 18.9900 },
+  ESNX: { name: 'Arvidsjaur',               lat: 65.5903, lon: 19.2819 },
+  ESPC: { name: 'Pajala',                   lat: 67.2456, lon: 23.0689 },
+  ESUE: { name: 'Hemavan / Tärnaby',        lat: 65.8060, lon: 15.0828 },
+  ESNC: { name: 'Härnösand',                lat: 62.6483, lon: 17.9683 },
+  ESND: { name: 'Härjedalen / Sveg',        lat: 62.0477, lon: 14.4233 },
+  ESPE: { name: 'Vidsel',                   lat: 65.8753, lon: 20.1500 },
+  ESUF: { name: 'Fallfors',                 lat: 64.3600, lon: 20.3667 },
+  ESNV: { name: 'Vilhelmina',               lat: 64.5792, lon: 16.8336 },
+  ESNG: { name: 'Gällivare',                lat: 67.1324, lon: 20.8146 },
+  ESNN: { name: 'Sundsvall-Härnösand',      lat: 62.5281, lon: 17.4436 },
+  ESNK: { name: 'Kramfors / Höga Kusten',   lat: 62.9208, lon: 17.7686 },
+  // ── Norge ─────────────────────────────────────────────────────────────────
+  ENGM: { name: 'Oslo Gardermoen',          lat: 60.1939, lon: 11.1004 },
+  ENRY: { name: 'Oslo / Rygge',             lat: 59.3789, lon: 10.7856 },
+  ENTO: { name: 'Sandefjord / Torp',        lat: 59.1867, lon: 10.2586 },
+  ENSN: { name: 'Skien / Geiteryggen',      lat: 59.1850, lon:  9.5669 },
+  ENBR: { name: 'Bergen Flesland',          lat: 60.2934, lon:  5.2181 },
+  ENHD: { name: 'Haugesund / Karmøy',       lat: 59.3453, lon:  5.2086 },
+  ENSO: { name: 'Stord / Sørstokken',       lat: 59.7919, lon:  5.3408 },
+  ENCN: { name: 'Kristiansand / Kjevik',    lat: 58.2042, lon:  8.0853 },
+  ENFL: { name: 'Florø',                    lat: 61.5836, lon:  5.0247 },
+  ENSG: { name: 'Sogndal / Haukåsen',       lat: 61.1560, lon:  7.1378 },
+  ENVA: { name: 'Trondheim / Værnes',       lat: 63.4578, lon: 10.9258 },
+  ENOL: { name: 'Ørland',                   lat: 63.6989, lon:  9.6042 },
+  ENKB: { name: 'Kristiansund / Kvernberget',lat:63.1119, lon:  7.8247 },
+  ENRA: { name: 'Mo i Rana / Røssvoll',     lat: 66.3639, lon: 14.3015 },
+  ENMS: { name: 'Mosjøen / Kjærstad',       lat: 65.7840, lon: 13.2150 },
+  ENST: { name: 'Sandnessjøen / Stokka',    lat: 65.9568, lon: 12.4689 },
+  ENRO: { name: 'Røros',                    lat: 62.5782, lon: 11.3424 },
+  ENBO: { name: 'Bodø',                     lat: 67.2692, lon: 14.3653 },
+  ENVR: { name: 'Svolvær / Helle',          lat: 68.2433, lon: 14.6692 },
+  ENAS: { name: 'Andøya',                   lat: 69.2925, lon: 16.1442 },
+  ENEV: { name: 'Harstad / Narvik',         lat: 68.4913, lon: 16.6781 },
+  ENTC: { name: 'Tromsø / Langnes',         lat: 69.6833, lon: 18.9189 },
+  ENKR: { name: 'Kirkenes / Høybuktmoen',   lat: 69.7258, lon: 29.8913 },
+  ENVD: { name: 'Vadsø',                    lat: 70.0653, lon: 29.8440 },
+  ENSS: { name: 'Vardø / Svartnes',         lat: 70.3553, lon: 31.0447 },
+  // ── Danmark ───────────────────────────────────────────────────────────────
+  EKCH: { name: 'København / Kastrup',      lat: 55.6180, lon: 12.6560 },
+  EKRK: { name: 'Roskilde',                 lat: 55.5856, lon: 12.1314 },
+  EKYT: { name: 'Aalborg',                  lat: 57.0928, lon:  9.8492 },
+  EKBI: { name: 'Billund',                  lat: 55.7403, lon:  9.1519 },
+  EKAH: { name: 'Aarhus / Tirstrup',        lat: 56.2999, lon: 10.6190 },
+  EKSB: { name: 'Sønderborg',               lat: 54.9644, lon:  9.7922 },
+  EKEB: { name: 'Esbjerg',                  lat: 55.5258, lon:  8.5533 },
+  EKVG: { name: 'Billund',                  lat: 55.7403, lon:  9.1519 },
+  EKOD: { name: 'Odense / Beldringe',       lat: 55.4767, lon: 10.3311 },
+  EKRN: { name: 'Bornholm',                 lat: 55.0633, lon: 14.7595 },
+  // ── Finland ───────────────────────────────────────────────────────────────
+  EFHK: { name: 'Helsinki / Vantaa',        lat: 60.3172, lon: 24.9633 },
+  EFTU: { name: 'Turku',                    lat: 60.5141, lon: 22.2628 },
+  EFOU: { name: 'Oulu',                     lat: 64.9301, lon: 25.3546 },
+  EFRO: { name: 'Rovaniemi',                lat: 66.5648, lon: 25.8304 },
+  EFTP: { name: 'Tampere / Pirkkala',       lat: 61.4142, lon: 23.6044 },
+  EFVA: { name: 'Vaasa',                    lat: 63.0507, lon: 21.7622 },
+  EFJO: { name: 'Joensuu',                  lat: 62.6629, lon: 29.6076 },
+  EFKU: { name: 'Kuopio',                   lat: 63.0071, lon: 27.7978 },
+  EFIV: { name: 'Ivalo',                    lat: 68.6073, lon: 27.4053 },
+  EFKT: { name: 'Kittilä',                  lat: 67.7010, lon: 24.8468 },
+  // ── Baltikum ──────────────────────────────────────────────────────────────
+  EVRA: { name: 'Riga',                     lat: 56.9236, lon: 23.9711 },
+  EYVI: { name: 'Vilnius',                  lat: 54.6341, lon: 25.2858 },
+  EETN: { name: 'Tallinn',                  lat: 59.4133, lon: 24.8328 },
+  // ── Tyskland — Civilt (EDD) ────────────────────────────────────────────────
+  EDDB: { name: 'Berlin Brandenburg',       lat: 52.3667, lon: 13.5033 },
+  EDDE: { name: 'Erfurt / Weimar',          lat: 50.9798, lon: 10.9581 },
+  EDDF: { name: 'Frankfurt / Main',         lat: 50.0379, lon:  8.5622 },
+  EDDG: { name: 'Münster / Osnabrück',      lat: 52.1347, lon:  7.6848 },
+  EDDH: { name: 'Hamburg',                  lat: 53.6304, lon:  9.9882 },
+  EDDK: { name: 'Köln / Bonn',              lat: 50.8659, lon:  7.1427 },
+  EDDL: { name: 'Düsseldorf',               lat: 51.2895, lon:  6.7668 },
+  EDDM: { name: 'München',                  lat: 48.3537, lon: 11.7750 },
+  EDDN: { name: 'Nürnberg',                 lat: 49.4987, lon: 11.0669 },
+  EDDP: { name: 'Leipzig / Halle',          lat: 51.4324, lon: 12.2416 },
+  EDDR: { name: 'Saarbrücken',              lat: 49.2146, lon:  7.1095 },
+  EDDS: { name: 'Stuttgart',                lat: 48.6899, lon:  9.2220 },
+  EDDV: { name: 'Hannover',                 lat: 52.4611, lon:  9.6850 },
+  EDDW: { name: 'Bremen',                   lat: 53.0475, lon:  8.7867 },
+  EDDX: { name: 'Heringsdorf / Usedom',     lat: 53.8788, lon: 14.1525 },
+  EDDC: { name: 'Dresden',                  lat: 51.1328, lon: 13.7672 },
+  EDLV: { name: 'Weeze / Niederrhein',      lat: 51.6022, lon:  6.1422 },
+  EDLP: { name: 'Paderborn / Lippstadt',    lat: 51.6142, lon:  8.6162 },
+  EDLN: { name: 'Mönchengladbach',          lat: 51.2303, lon:  6.5046 },
+  EDMA: { name: 'Augsburg',                 lat: 48.4252, lon: 10.9317 },
+  EDMO: { name: 'Oberpfaffenhofen',         lat: 48.0814, lon: 11.2831 },
+  EDNX: { name: 'Ainring',                  lat: 47.8064, lon: 12.9947 },
+  EDQD: { name: 'Bayreuth',                 lat: 49.9855, lon: 11.6400 },
+  EDQM: { name: 'Hof / Plauen',             lat: 50.2888, lon: 11.8564 },
+  EDRY: { name: 'Speyer',                   lat: 49.3045, lon:  8.4517 },
+  EDRZ: { name: 'Zweibrücken',              lat: 49.2094, lon:  7.4003 },
+  EDTL: { name: 'Lahr',                     lat: 48.3693, lon:  7.8278 },
+  EDTD: { name: 'Donaueschingen',           lat: 47.9733, lon:  8.5222 },
+  EDHI: { name: 'Hamburg / Finkenwerder',   lat: 53.5353, lon:  9.8353 },
+  EDHK: { name: 'Kiel / Holtenau',          lat: 54.3794, lon: 10.1453 },
+  // ── Tyskland — Militärt (ETH/ETS) ─────────────────────────────────────────
+  ETHA: { name: 'Altenstadt (Heer)',        lat: 47.8289, lon: 10.8722 },
+  ETHB: { name: 'Bückeburg (Heer)',         lat: 52.2783, lon:  9.0822 },
+  ETHE: { name: 'Celle / Arloh (Heer)',     lat: 52.5922, lon: 10.0214 },
+  ETHF: { name: 'Fritzlar (Heer)',          lat: 51.1142, lon:  9.2869 },
+  ETHH: { name: 'Holzdorf (Heer)',          lat: 51.7678, lon: 13.1677 },
+  ETHI: { name: 'Itzehoe / Hungriger Wolf', lat: 53.9319, lon:  9.5394 },
+  ETHL: { name: 'Laupheim (Heer)',          lat: 48.2233, lon:  9.9103 },
+  ETHN: { name: 'Niederstetten (Heer)',     lat: 49.3911, lon:  9.9578 },
+  ETHR: { name: 'Roth (Heer)',              lat: 49.2178, lon: 11.1003 },
+  ETHS: { name: 'Fassberg',                 lat: 52.9219, lon: 10.1867 },
+  ETAD: { name: 'Diepholz (Lw)',            lat: 52.5775, lon:  8.3428 },
+  ETAI: { name: 'Ingolstadt / Manching',    lat: 48.7156, lon: 11.5342 },
+  ETAR: { name: 'Ramstein AB (USAF)',       lat: 49.4369, lon:  7.6003 },
+  ETAS: { name: 'Schwäbisch Hall (Lw)',     lat: 49.1133, lon:  9.7839 },
+  ETAT: { name: 'Trier / Föhren',           lat: 49.8653, lon:  6.7878 },
+  ETAU: { name: 'Aalen / Heidenheim',       lat: 48.7778, lon: 10.2647 },
+  ETGY: { name: 'Geilenkirchen (NATO)',     lat: 50.9608, lon:  6.0422 },
+  ETNL: { name: 'Rostock / Laage (Lw)',     lat: 53.9183, lon: 12.2783 },
+  ETNS: { name: 'Schleswig / Jagel',        lat: 54.4592, lon:  9.5167 },
+  ETNU: { name: 'Nordholz (Mar)',           lat: 53.7678, lon:  8.6583 },
+  ETOR: { name: 'Rhein-Main AB',            lat: 50.0432, lon:  8.5847 },
+  ETSN: { name: 'Neuburg a.d. Donau',       lat: 48.7100, lon: 11.2119 },
+  // ── Österrike ─────────────────────────────────────────────────────────────
+  LOWW: { name: 'Wien / Schwechat',         lat: 48.1103, lon: 16.5697 },
+  LOWI: { name: 'Innsbruck',                lat: 47.2602, lon: 11.3439 },
+  LOWL: { name: 'Linz / Hörsching',         lat: 48.2333, lon: 14.1875 },
+  LOWG: { name: 'Graz',                     lat: 46.9911, lon: 15.4397 },
+  LOWS: { name: 'Salzburg',                 lat: 47.7933, lon: 13.0043 },
+  LKPR: { name: 'Prag',                     lat: 50.1008, lon: 14.2600 },
+  // ── Schweiz ───────────────────────────────────────────────────────────────
+  LSZH: { name: 'Zürich',                   lat: 47.4647, lon:  8.5492 },
+  LSGG: { name: 'Genève',                   lat: 46.2381, lon:  6.1089 },
+  LFSB: { name: 'Basel / Mulhouse',         lat: 47.5896, lon:  7.5299 },
+  LSMM: { name: 'Bern / Belp',              lat: 46.9141, lon:  7.4972 },
+  // ── Övriga Europa ─────────────────────────────────────────────────────────
+  EHAM: { name: 'Amsterdam Schiphol',       lat: 52.3086, lon:  4.7639 },
+  EBBR: { name: 'Bryssel',                  lat: 50.9014, lon:  4.4844 },
+  EGLL: { name: 'London Heathrow',          lat: 51.4775, lon: -0.4614 },
+  EGKK: { name: 'London Gatwick',           lat: 51.1481, lon: -0.1903 },
+  LFPG: { name: 'Paris CDG',                lat: 49.0097, lon:  2.5478 },
+  LFPO: { name: 'Paris Orly',               lat: 48.7233, lon:  2.3794 },
+  EPWA: { name: 'Warszawa / Chopin',        lat: 52.1657, lon: 20.9671 },
+  EPKK: { name: 'Kraków',                   lat: 50.0778, lon: 19.7847 },
+};
+
+const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="32" viewBox="0 0 22 32" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><path d="M11 1C5.5 1 1 5.5 1 11c0 7.8 10 20 10 20S21 18.8 21 11C21 5.5 16.5 1 11 1z" fill="#1565c0" stroke="white" stroke-width="1.5"/><circle cx="11" cy="11" r="4" fill="white"/></svg>`;
+
+const PIN_ICON = typeof L !== 'undefined' ? L.divIcon({
+  className: '',
+  html: PIN_SVG,
+  iconSize: [22, 32],
+  iconAnchor: [11, 32],
+  popupAnchor: [0, -30],
+}) : null;
+
+let airportMap = null, airportMarkerLayer = null;
+
+function renderAirportMap() {
+  if (!$('airport-map') || typeof L === 'undefined') return;
+
+  const entries = load();
+
+  // Collect visited ICAO codes — only destination and touch-and-go count as a visit
+  const visitCounts = {};
+  entries.forEach(e => {
+    if (!e.arrIsTillfällig && e.arrICAO) {
+      const k = e.arrICAO.toUpperCase();
+      visitCounts[k] = (visitCounts[k] || 0) + 1;
+    }
+    (e.touchAndGo || []).forEach(icao => {
+      const k = icao.toUpperCase();
+      visitCounts[k] = (visitCounts[k] || 0) + 1;
+    });
+  });
+
+  const visitedKnown = Object.keys(visitCounts).filter(k => AIRPORT_DB[k]);
+  const total = visitedKnown.length;
+
+  const titleEl = $('map-card-title');
+  if (titleEl) titleEl.textContent = `Besökta flygplatser${total ? ' · ' + total + ' unika' : ''}`;
+
+  // Init map once
+  if (!airportMap) {
+    airportMap = L.map('airport-map', { center: [63, 16.5], zoom: 5, zoomControl: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(airportMap);
+    airportMarkerLayer = L.layerGroup().addTo(airportMap);
+  }
+
+  airportMarkerLayer.clearLayers();
+
+  visitedKnown.forEach(icao => {
+    const ap = AIRPORT_DB[icao];
+    const n  = visitCounts[icao];
+    L.marker([ap.lat, ap.lon], { icon: PIN_ICON })
+      .bindPopup(`<strong>${icao}</strong><br>${ap.name}<br><span style="color:#6b7280">${n} besök</span>`)
+      .addTo(airportMarkerLayer);
+  });
+}
+
+// ── Widget system ──────────────────────────────────────────────────────────
+const WIDGET_KEY = 'flygloggbok_widgets';
+const WIDGET_DEFAULT = ['total','pic','ifr'];
+const loadWidgets  = () => { try { const w = JSON.parse(localStorage.getItem(WIDGET_KEY)); return Array.isArray(w) ? w : WIDGET_DEFAULT.slice(); } catch { return WIDGET_DEFAULT.slice(); } };
+const saveWidgets  = w  => localStorage.setItem(WIDGET_KEY, JSON.stringify(w));
+
+function widgetValue(key, entries, s) {
+  const now = new Date();
+  switch (key) {
+    case 'total':  return [fmtFull(s.total),  'timmar block'];
+    case 'pic':    return [fmtFull(s.pic),     'som befälhavare'];
+    case 'ifr':    return [fmtFull(s.ifr),     'timmar instrument'];
+    case 'night':  return [fmtFull(s.night),   'timmar natt'];
+    case 'year': {
+      const yr = String(now.getFullYear());
+      const t = entries.filter(e => e.date.startsWith(yr)).reduce((a,e) => a + e.totalTime, 0);
+      return [fmtFull(t), `flygtid ${yr}`];
+    }
+    case 'last30': {
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30);
+      const co = cutoff.toISOString().slice(0,10);
+      const t = entries.filter(e => e.date >= co).reduce((a,e) => a + e.totalTime, 0);
+      return [fmtFull(t), 'senaste 30 dagarna'];
+    }
+    case 'nvg': {
+      const t = entries.reduce((a,e) => a + (e.nvgTime||0), 0);
+      return [fmtFull(t), 'timmar NVG'];
+    }
+    case 'pb_day': {
+      const byDay = {};
+      entries.forEach(e => { byDay[e.date] = (byDay[e.date]||0) + e.totalTime; });
+      const max = Math.max(0, ...Object.values(byDay));
+      const bestDate = Object.keys(byDay).find(k => byDay[k] === max) || '';
+      let dateSub = 'PB dag';
+      if (bestDate) {
+        const [y,m,d] = bestDate.split('-');
+        dateSub = `${parseInt(d)}/${parseInt(m)}-${y}`;
+      }
+      return [fmtFull(max), dateSub];
+    }
+    case 'pb_week': {
+      const byWeek = {};
+      entries.forEach(e => {
+        const d = new Date(e.date); const dow = (d.getDay()+6)%7;
+        const mon = new Date(d); mon.setDate(d.getDate()-dow);
+        const wk = mon.toISOString().slice(0,10);
+        byWeek[wk] = (byWeek[wk]||0) + e.totalTime;
+      });
+      const max = Math.max(0, ...Object.values(byWeek));
+      const bestMon = Object.keys(byWeek).find(k => byWeek[k] === max) || '';
+      let weekSub = 'PB vecka';
+      if (bestMon) {
+        const d = new Date(bestMon);
+        const jan4 = new Date(d.getFullYear(), 0, 4);
+        const startOfWeek1 = new Date(jan4); startOfWeek1.setDate(jan4.getDate() - (jan4.getDay()+6)%7);
+        const wn = Math.round((d - startOfWeek1) / 604800000) + 1;
+        weekSub = `V${wn} - ${d.getFullYear()}`;
+      }
+      return [fmtFull(max), weekSub];
+    }
+    default: return ['—',''];
+  }
+}
+
+const WIDGET_CATALOG = [
+  { key:'total',   label:'Totalt' },
+  { key:'pic',     label:'PIC' },
+  { key:'ifr',     label:'IFR' },
+  { key:'night',   label:'Natt' },
+  { key:'year',    label:'I år' },
+  { key:'last30',  label:'30 dagar' },
+  { key:'nvg',     label:'NVG' },
+  { key:'pb_day',  label:'PB dag' },
+  { key:'pb_week', label:'PB vecka' },
+];
+
+function openWidgetPicker() {
+  const active = loadWidgets();
+  const html = WIDGET_CATALOG.map(w => {
+    const on   = active.includes(w.key);
+    const dis  = on && active.length <= 3 ? 'disabled' : '';
+    return `<label class="widget-pick-item${on?' checked':''}">
+      <input type="checkbox" value="${w.key}" ${on?'checked':''} ${dis}
+        onchange="onWidgetToggle(this)">
+      ${w.label}
+    </label>`;
+  }).join('');
+  $('widget-picker-body').innerHTML = html;
+  $('widget-picker').style.display = 'block';
+}
+function closeWidgetPicker() { $('widget-picker').style.display = 'none'; renderDashboard(); }
+function onWidgetToggle(cb) {
+  const active = loadWidgets();
+  if (cb.checked) {
+    if (active.length >= 5) { cb.checked = false; return; }
+    active.push(cb.value);
+  } else {
+    if (active.length <= 3) { cb.checked = true; return; }
+    const i = active.indexOf(cb.value); if (i > -1) active.splice(i,1);
+  }
+  saveWidgets(active);
+  // Refresh checkboxes (enforce min/max visual state)
+  document.querySelectorAll('#widget-picker-body input[type=checkbox]').forEach(el => {
+    el.disabled = !el.checked && active.length >= 5;
+    el.closest('label').className = 'widget-pick-item' + (el.checked?' checked':'');
+  });
+}
+
+function renderDashboard() {
+  const entries = load();
+  const s = statsWithBaseline(entries);
+  const active = loadWidgets();
+
+  $('stat-grid').innerHTML = active.map(key => {
+    const meta = WIDGET_CATALOG.find(w => w.key === key) || { label: key };
+    const [val, sub] = widgetValue(key, entries, s);
+    return `<div class="stat-card">
+      <div class="stat-label">${meta.label}</div>
+      <div class="stat-value">${val}</div>
+      <div class="stat-sub">${sub}</div>
+    </div>`;
+  }).join('');
+
+  drawCharts();
+
+  const recent = [...load()].sort((a,b) => b.date.localeCompare(a.date)).slice(0,3);
+  $('recent-body').innerHTML = recent.length
+    ? recent.map(e => {
+        const [y,m,d] = e.date.split('-');
+        const dateStr = `${d}/${m}`;
+        const role = e.picTime > 0 ? '<span class="fids-role pic">PIC</span>' : '<span class="fids-role cop">COP</span>';
+        const blkOff = e.blockOff ? `<span class="fids-time">${e.blockOff}</span>` : '';
+        const blkOn  = e.blockOn  ? `<span class="fids-time">${e.blockOn}</span>`  : '';
+        const times  = (blkOff || blkOn) ? `${blkOff}${blkOff&&blkOn?'–':''}${blkOn}` : `<span class="fids-time">${fmt(e.totalTime)}</span>`;
+        return `<div class="fids-row">
+          <span class="fids-date">${dateStr}</span>
+          <span class="fids-ac">${escH(e.aircraftType)}<span class="fids-reg"> ${escH(e.registration)}</span></span>
+          <span class="fids-route">${escH(routeLabel(e))}</span>
+          <span class="fids-time">${fmt(e.totalTime)}</span>
+          <span class="fids-time">${fmt(e.picTime)}</span>
+          <span class="fids-time">${fmt(e.nightTime)}</span>
+          <span class="fids-time">${fmt(e.ifrTime)}</span>
+        </div>`;
+      }).join('')
+    : '<div class="fids-empty">INGA FLYGNINGAR LOGGADE</div>';
+
+  renderAirportMap();
+}
+
+// ── Logbook ────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const q     = $('search').value.toLowerCase();
+  const role  = $('filter-role').value;
+  const rules = $('filter-rules').value;
+  return load()
+    .filter(e => {
+      if (q) {
+        const hay = [e.date, e.aircraftType, e.registration,
+          locLabel(e,'dep'), locLabel(e,'arr'), e.remarks || ''].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (role === 'pic'     && !(e.picTime > 0))     return false;
+      if (role === 'copilot' && !(e.copilotTime > 0)) return false;
+      if (role === 'dual'    && !(e.dualTime > 0))    return false;
+      if (rules && e.flightRules !== rules)            return false;
+      return true;
+    })
+    .sort((a,b) => b.date.localeCompare(a.date));
+}
+
+function rulesBadge(r) {
+  const safe = escH(r || 'VFR');
+  const cls  = r === 'IFR' ? 'ifr' : r === 'Blandat' ? 'mix' : 'vfr';
+  return `<span class="badge badge-${cls}">${safe}</span>`;
+}
+
+function renderLogbook() {
+  const filtered = getFiltered();
+  const tbody = $('log-body'), tfoot = $('log-foot'), empty = $('log-empty');
+
+  if (!filtered.length) {
+    tbody.innerHTML = ''; tfoot.innerHTML = '';
+    if ($('log-cards')) $('log-cards').innerHTML = '';
+    empty.style.display = 'block'; return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(e => {
+    const sl = `${e.takeoffs}/${e.landings}`;
+    const slN = (e.nightTakeoffs || e.nightLandings)
+      ? ` <small style="color:var(--muted)">${e.nightTakeoffs}N/${e.nightLandings}N</small>` : '';
+    const cleanRem = cleanRemarks(e.remarks);
+    const rem = cleanRem.length > 38 ? cleanRem.slice(0,36)+'…' : cleanRem;
+    const cli = entryClient(e);
+    const p2  = entryPilot2(e);
+    const remCell = [
+      rem ? escH(rem) : '',
+      cli ? `<span style="font-size:.68rem;color:var(--muted);font-style:italic">${escH(cli)}</span>` : '',
+      p2  ? `<span style="font-size:.68rem;color:var(--muted)">/ ${escH(p2)}</span>` : '',
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td>${escH(e.date)}</td>
+      <td>${escH(e.aircraftType)}</td>
+      <td>${escH(e.registration)}</td>
+      <td>${escH(locLabel(e,'dep'))}${(e.touchAndGo||[]).length ? `<br><span style="font-size:.68rem;color:var(--muted)">T&amp;G: ${escH((e.touchAndGo||[]).join(', '))}</span>` : ''}</td>
+      <td>${escH(locLabel(e,'arr'))}</td>
+      <td class="mono">${fmt(e.totalTime)}</td>
+      <td class="mono">${fmt(e.picTime)}</td>
+      <td class="mono">${fmt(e.copilotTime)}</td>
+      <td class="mono">${fmt(e.dualTime)}</td>
+      <td class="mono">${fmt(e.nightTime)}</td>
+      <td class="mono">${fmt(e.ifrTime)}</td>
+      <td class="mono">${sl}${slN}</td>
+      <td>${rulesBadge(e.flightRules)}</td>
+      <td style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${escH(remarkTooltip(e))}">${remCell || '—'}</td>
+      <td><button class="btn-del" onclick="deleteFlight('${e.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const s = stats(filtered);
+  tfoot.innerHTML = `<tr class="totals-row">
+    <td colspan="5">Totalt (${filtered.length} flygningar)</td>
+    <td class="mono">${fmtFull(s.total)}</td>
+    <td class="mono">${fmtFull(s.pic)}</td>
+    <td class="mono">${fmtFull(s.cop)}</td>
+    <td class="mono">${fmtFull(s.dual)}</td>
+    <td class="mono">${fmtFull(s.night)}</td>
+    <td class="mono">${fmtFull(s.ifr)}</td>
+    <td class="mono">${s.to}/${s.ldg}</td>
+    <td colspan="3"></td>
+  </tr>`;
+
+  // Mobile card view
+  const cards = $('log-cards');
+  if (cards) {
+    cards.innerHTML = filtered.map(e => {
+      const cleanRem = cleanRemarks(e.remarks);
+      const rem = cleanRem.length > 50 ? cleanRem.slice(0,48)+'…' : cleanRem;
+      const cli = entryClient(e);
+      const p2  = entryPilot2(e);
+      const times = [
+        ['Total', fmt(e.totalTime)],
+        e.picTime     > 0 ? ['PIC',  fmt(e.picTime)]     : null,
+        e.copilotTime > 0 ? ['Co-P', fmt(e.copilotTime)] : null,
+        e.nightTime   > 0 ? ['Natt', fmt(e.nightTime)]   : null,
+        e.ifrTime     > 0 ? ['IFR',  fmt(e.ifrTime)]     : null,
+        e.dualTime    > 0 ? ['Dual', fmt(e.dualTime)]    : null,
+      ].filter(Boolean);
+      return `<div class="log-card">
+        <div class="log-card-top">
+          <span class="log-card-date">${escH(e.date)}</span>
+          <span class="log-card-ac">${escH(e.aircraftType)} · ${escH(e.registration)}</span>
+        </div>
+        <div class="log-card-route">${escH(routeLabel(e))}</div>
+        <div class="log-card-times">${times.map(([l,v]) =>
+          `<div class="log-card-time"><span class="log-card-time-lbl">${l}</span><span class="log-card-time-val">${v}</span></div>`
+        ).join('')}</div>
+        <div class="log-card-footer">
+          <span>${rulesBadge(e.flightRules)}<small style="color:var(--muted);margin-left:.3rem">${e.takeoffs}S/${e.landings}L</small></span>
+          <span style="font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;text-align:right">
+            ${cli ? `<em>${escH(cli)}</em>${rem ? ' · ' : ''}` : ''}${rem ? escH(rem) : (!cli && !p2 ? '' : '')}${p2 && !rem && !cli ? escH(p2) : ''}
+          </span>
+          <button class="btn-del" onclick="deleteFlight('${e.id}')">✕</button>
+        </div>
+      </div>`;
+    }).join('') + `<div class="log-cards-total">Totalt ${filtered.length} flygningar · ${fmtFull(s.total)} h · ${fmtFull(s.pic)} h PIC</div>`;
+  }
+}
+
+function deleteFlight(id) {
+  if (!confirm('Ta bort denna flygning från loggboken?')) return;
+  save(load().filter(e => e.id !== id));
+  renderLogbook();
+  renderDashboard();
+}
+
+// ── CSV export ─────────────────────────────────────────────────────────────
+function csvEsc(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCSV() {
+  const entries = getFiltered();
+  const hdr = ['Datum','Typ','Registration',
+    'Avgång_ICAO','Avgång_Tillfällig',
+    'Destination_ICAO','Destination_Tillfällig',
+    'Total_h','PIC_h','Copilot_h','Dual_h','Natt_h','IFR_h',
+    'Starter_dag','Landningar_dag','Starter_natt','Landningar_natt',
+    'Flygregler','Anmärkningar'];
+  const rows = entries.map(e => [
+    e.date, e.aircraftType, e.registration,
+    e.depIsTillfällig ? '' : e.depICAO,
+    e.depIsTillfällig ? e.depCustom : '',
+    e.arrIsTillfällig ? '' : e.arrICAO,
+    e.arrIsTillfällig ? e.arrCustom : '',
+    e.totalTime, e.picTime, e.copilotTime, e.dualTime, e.nightTime, e.ifrTime,
+    e.takeoffs, e.landings, e.nightTakeoffs, e.nightLandings,
+    e.flightRules, e.remarks
+  ].map(csvEsc).join(','));
+  const csv = [hdr.join(','), ...rows].join('\r\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `flygloggbok_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── Role toggle (PIC / Co-pilot) ───────────────────────────────────────────
+let flightRole = 'pic';
+function setRole(r) {
+  flightRole = r;
+  $('role-pic-btn').classList.toggle('active', r === 'pic');
+  $('role-cop-btn').classList.toggle('active', r === 'cop');
+}
+
+// ── Location type toggle ───────────────────────────────────────────────────
+const locState = { dep: 'icao', arr: 'icao' };
+
+function setLocType(which, type) {
+  locState[which] = type;
+  $(`${which}-icao-btn`).classList.toggle('active', type === 'icao');
+  $(`${which}-till-btn`).classList.toggle('active', type === 'till');
+  $(`f-${which}-icao`).style.display   = type === 'icao'  ? '' : 'none';
+  $(`f-${which}-custom`).style.display = type === 'till'  ? '' : 'none';
+}
+
+// ── Form alerts ────────────────────────────────────────────────────────────
+function showAlert(msg, type) {
+  type = type || 'error';
+  $('form-alert').innerHTML = `<div class="alert alert-${type}">${escH(msg)}</div>`;
+  if (type === 'ok') setTimeout(() => { $('form-alert').innerHTML = ''; }, 3500);
+}
+
+// ── Aircraft management ────────────────────────────────────────────────────
+const AC_KEY = 'flygloggbok_aircraft';
+const loadAC = () => { try { return JSON.parse(localStorage.getItem(AC_KEY)) || {}; } catch { return {}; } };
+const saveAC = d => localStorage.setItem(AC_KEY, JSON.stringify(d));
+
+function lastUsedAC() {
+  const entries = [...load()].sort((a,b) => b.date.localeCompare(a.date));
+  return entries.length ? { type: entries[0].aircraftType || '', reg: entries[0].registration || '' } : { type:'', reg:'' };
+}
+
+function initAircraftDropdowns(preferType, preferReg) {
+  const ac    = loadAC();
+  const types = Object.keys(ac);
+  const last  = lastUsedAC();
+  const selType = preferType !== undefined ? preferType : last.type;
+
+  const typeEl = $('f-type');
+  typeEl.innerHTML = types.length
+    ? types.map(t => `<option value="${escH(t)}"${t === selType ? ' selected' : ''}>${escH(t)}</option>`).join('')
+    : '<option value="" disabled>Inga typer sparade — klicka +</option>';
+  if (types.includes(selType)) typeEl.value = selType;
+  else if (types.length) typeEl.value = types[0];
+
+  const activeType = typeEl.value !== '__new__' ? typeEl.value : '';
+  const selReg = preferReg !== undefined ? preferReg : (last.type === activeType ? last.reg : '');
+  updateRegDropdown(activeType, selReg);
+}
+
+function updateRegDropdown(type, preferReg) {
+  const ac   = loadAC();
+  const regs = type ? (ac[type] || []) : [];
+  const regEl = $('f-reg');
+  regEl.innerHTML = regs.length
+    ? regs.map(r => `<option value="${escH(r)}"${r === preferReg ? ' selected' : ''}>${escH(r)}</option>`).join('')
+    : `<option value="" disabled>${type ? 'Inga reg sparade — klicka +' : 'Välj typ först'}</option>`;
+  if (regs.includes(preferReg)) regEl.value = preferReg;
+  else if (regs.length) regEl.value = regs[0];
+}
+
+function onTypeChange() {
+  updateRegDropdown($('f-type').value, '');
+}
+
+function onRegChange() {
+  // handled by dedicated + button
+}
+
+function addNewType() {
+  $('new-type-input').value = '';
+  $('new-type-row').style.display = 'flex';
+  $('new-type-input').focus();
+}
+function cancelNewType() {
+  $('new-type-row').style.display = 'none';
+}
+function confirmNewType() {
+  const t = $('new-type-input').value.trim();
+  if (!t) return;
+  const ac = loadAC();
+  if (!ac[t]) ac[t] = [];
+  saveAC(ac);
+  $('new-type-row').style.display = 'none';
+  initAircraftDropdowns(t, '');
+}
+
+function addNewReg() {
+  const type = $('f-type').value;
+  if (!type || type === '__new__') return;
+  $('new-reg-input').value = '';
+  $('new-reg-row').style.display = 'flex';
+  $('new-reg-input').focus();
+}
+function cancelNewReg() {
+  $('new-reg-row').style.display = 'none';
+}
+function confirmNewReg() {
+  const r = $('new-reg-input').value.trim();
+  if (!r) return;
+  const type = $('f-type').value;
+  if (!type || type === '__new__') return;
+  const ac = loadAC();
+  if (!ac[type]) ac[type] = [];
+  if (!ac[type].includes(r)) ac[type].push(r);
+  saveAC(ac);
+  $('new-reg-row').style.display = 'none';
+  updateRegDropdown(type, r);
+}
+
+function adj(id, delta) {
+  const el = $(id);
+  el.value = Math.max(0, (parseInt(el.value) || 0) + delta);
+}
+
+// ── Block time calc ────────────────────────────────────────────────────────
+function calcBlockTime() {
+  const off = $('f-block-off').value;
+  const on  = $('f-block-on').value;
+  if (!off || !on) { $('f-total').value = ''; updateNvgCalc(); return; }
+  const [oh, om] = off.split(':').map(Number);
+  const [nh, nm] = on.split(':').map(Number);
+  let diffMin = (nh * 60 + nm) - (oh * 60 + om);
+  if (diffMin < 0) diffMin += 24 * 60;
+  if (diffMin <= 0) { $('f-total').value = ''; updateNvgCalc(); return; }
+  const h = Math.floor(diffMin / 60), m = diffMin % 60;
+  $('f-total').value = `${h}:${String(m).padStart(2,'0')}`;
+  updateNvgCalc();
+}
+
+// ── NVG calc ───────────────────────────────────────────────────────────────
+function setNvg(pct) {
+  $('f-nvg-pct').value = pct;
+  document.querySelectorAll('.nvg-preset-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === pct);
+  });
+  updateNvgCalc();
+}
+function updateNvgCalc() {
+  const pct = parseFloat($('f-nvg-pct').value) || 0;
+  document.querySelectorAll('.nvg-preset-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === pct);
+  });
+  const total = parseHHMM($('f-total').value);
+  const el    = $('nvg-calc');
+  if (!el) return;
+  if (!pct || !total) { el.textContent = ''; return; }
+  const mins = Math.round(total * 60 * pct / 100);
+  el.textContent = `= ${fmt(mins / 60)}`;
+}
+
+// ── Touch and Go stops ─────────────────────────────────────────────────────
+function addTngStop(val) {
+  const wrap = $('tng-stops');
+  if (!wrap) return;
+  if (wrap.children.length >= 3) return;
+  const row = document.createElement('div');
+  row.className = 'tng-row';
+  row.innerHTML = `<input type="text" class="tng-icao" placeholder="ICAO (t.ex. ESGG)" maxlength="4" style="text-transform:uppercase;flex:1" value="${val||''}">` +
+    `<button type="button" class="tng-del" onclick="this.parentElement.remove();updateTngBtn()" title="Ta bort">×</button>`;
+  wrap.appendChild(row);
+}
+function updateTngBtn() {
+  const btn = $('tng-add-btn');
+  if (btn) btn.style.display = ($('tng-stops').children.length >= 3) ? 'none' : '';
+}
+function getTngStops() {
+  return [...document.querySelectorAll('.tng-icao')]
+    .map(i => i.value.trim().toUpperCase())
+    .filter(v => v.length === 4);
+}
+
+// ── Reset form (with last-flight defaults) ─────────────────────────────────
+function resetForm() {
+  $('flight-form').reset();
+  $('f-date').value = todayISO();
+  if ($('tng-stops')) { $('tng-stops').innerHTML = ''; updateTngBtn(); }
+  if ($('new-type-row')) $('new-type-row').style.display = 'none';
+  if ($('new-reg-row'))  $('new-reg-row').style.display  = 'none';
+  $('form-alert').innerHTML = '';
+
+  const entries = load();
+  const last = entries.length
+    ? [...entries].sort((a,b) => a.date.localeCompare(b.date)).pop()
+    : null;
+
+  if (last) {
+    // Aircraft
+    initAircraftDropdowns(last.aircraftType, last.registration);
+    // Departure = last destination
+    if (last.arrIsTillfällig) {
+      setLocType('dep','till');
+      $('f-dep-custom').value = last.arrCustom || '';
+    } else {
+      setLocType('dep','icao');
+      $('f-dep-icao').value = last.arrICAO || '';
+    }
+    setLocType('arr','icao');
+    // Flight rules
+    if ($('f-rules')) $('f-rules').value = last.flightRules || 'VFR';
+    // Role
+    const role = last.picTime > 0 ? 'pic' : 'cop';
+    setRole(role);
+    // Block times: block-on = now, block-off = now minus last flight duration
+    const toHHMM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const now = new Date();
+    $('f-block-on').value = toHHMM(now);
+    if (last.totalTime) {
+      const offTime = new Date(now.getTime() - last.totalTime * 3600000);
+      $('f-block-off').value = toHHMM(offTime);
+    }
+    calcBlockTime();
+  } else {
+    initAircraftDropdowns();
+    setLocType('dep','icao');
+    setLocType('arr','icao');
+    setRole('pic');
+    const toHHMM = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    $('f-block-on').value = toHHMM(new Date());
+  }
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0,10);
+}
+
+// ── Submit flight ──────────────────────────────────────────────────────────
+function submitFlight(ev) {
+  ev.preventDefault();
+
+  const depIsTillfällig = locState.dep === 'till';
+  const arrIsTillfällig = locState.arr === 'till';
+  const depICAO   = $('f-dep-icao').value.trim().toUpperCase();
+  const depCustom = $('f-dep-custom').value.trim();
+  const arrICAO   = $('f-arr-icao').value.trim().toUpperCase();
+  const arrCustom = $('f-arr-custom').value.trim();
+
+  if (!depIsTillfällig && depICAO.length !== 4)  { showAlert('Avgångs-ICAO måste vara exakt 4 tecken (t.ex. ESGG).'); return; }
+  if (depIsTillfällig  && depCustom.length < 2)  { showAlert('Beskriv avgångsplatsen med minst 2 tecken.'); return; }
+  if (!arrIsTillfällig && arrICAO.length !== 4)  { showAlert('Destinations-ICAO måste vara exakt 4 tecken (t.ex. ESSA).'); return; }
+  if (arrIsTillfällig  && arrCustom.length < 2)  { showAlert('Beskriv destinationsplatsen med minst 2 tecken.'); return; }
+
+  const totalTime = parseHHMM($('f-total').value);
+  if (totalTime <= 0) { showAlert('Fyll i starttid och landningstid för att beräkna total flygtid.'); return; }
+
+  const acType = $('f-type').value;
+  const acReg  = $('f-reg').value;
+  if (!acType || acType === '__new__') { showAlert('Välj luftfartygstyp.'); return; }
+  if (!acReg  || acReg  === '__new__') { showAlert('Välj registration.'); return; }
+
+  const ldgDay   = ni($('f-ldg-day').value);
+  const ldgNight = ni($('f-ldg-night').value);
+
+  const entry = {
+    id:            crypto.randomUUID(),
+    date:          $('f-date').value,
+    aircraftType:  acType,
+    registration:  acReg,
+    blockOff: $('f-block-off').value || '',
+    blockOn:  $('f-block-on').value  || '',
+    depICAO, depCustom, depIsTillfällig,
+    touchAndGo: getTngStops(),
+    arrICAO, arrCustom, arrIsTillfällig,
+    totalTime,
+    flightRules:   $('f-rules').value,
+    picTime:       flightRole === 'pic' ? totalTime : 0,
+    copilotTime:   flightRole === 'cop' ? totalTime : 0,
+    dualTime:      parseHHMM($('f-dual').value),
+    nightTime:     parseHHMM($('f-night').value),
+    ifrTime:       parseHHMM($('f-ifr').value),
+    nvgTime:       (() => { const p = parseFloat($('f-nvg-pct').value)||0; return p ? +(totalTime * p / 100).toFixed(4) : 0; })(),
+    takeoffs:      ldgDay,
+    landings:      ldgDay,
+    nightTakeoffs: ldgNight,
+    nightLandings: ldgNight,
+    secondPilot:   $('f-second-pilot').value.trim(),
+    remarks:       $('f-remarks').value.trim(),
+  };
+
+  const entries = load();
+  entries.push(entry);
+  save(entries);
+  showAlert('Flygning sparad!', 'ok');
+  setTimeout(() => showTab('loggbok'), 700);
+}
+
+// ── CPL/ATPL ───────────────────────────────────────────────────────────────
+function renderCPLATPL() {
+  const s = statsWithBaseline(load());
+
+  function bar(label, val, max, unit) {
+    unit = unit || 'h';
+    const pct = Math.min(100, (val / max) * 100);
+    const done = val >= max;
+    const cls  = done ? 'done' : pct < 15 ? 'low' : '';
+    const disp = unit === 'h' ? fmtFull(val) : val;
+    return `<div class="prog-item">
+      <div class="prog-header">
+        <span class="prog-label">${label}${done ? ' ✓' : ''}</span>
+        <span class="prog-vals">${disp} / ${max}${unit}</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  $('req-content').innerHTML = `
+    <div class="req-section">
+      <div class="req-title">CPL-krav · EASA FCL.140.A</div>
+      ${bar('Total flygtid',   s.total, 200)}
+      ${bar('PIC-tid',         s.pic,   100)}
+      ${bar('Instrumenttid',   s.ifr,    10)}
+      ${bar('Natttid',         s.night,   5)}
+      ${bar('Natt-landningar', s.ldgN,    5, ' st')}
+    </div>
+    <div class="req-section">
+      <div class="req-title">ATPL-krav · EASA FCL.515.A</div>
+      ${bar('Total flygtid',   s.total,  1500)}
+      ${bar('PIC-tid',         s.pic,     250)}
+      ${bar('Cross-country',   s.cc,      500)}
+      ${bar('Natttid',         s.night,   100)}
+      ${bar('IFR-tid',         s.ifr,      75)}
+    </div>`;
+}
+
+// ── Baseline (manual hours) ────────────────────────────────────────────────
+const BL_KEY = 'flygloggbok_baseline';
+const loadBL = () => { try { return JSON.parse(localStorage.getItem(BL_KEY)) || {}; } catch { return {}; } };
+
+function statsWithBaseline(entries) {
+  const s = stats(entries);
+  const b = loadBL();
+  s.total += b.total || 0;
+  s.pic   += b.pic   || 0;
+  s.night += b.night || 0;
+  s.ifr   += b.ifr   || 0;
+  s.ldg   += b.ldgDay   || 0;
+  s.ldgN  += b.ldgNight || 0;
+  s.multiEngine = (b.me    || 0);
+  s.nightNVD    = (b.nvd   || 0);
+  s.ldgIFR      = (b.ldgIFR || 0);
+  return s;
+}
+
+function initBaselineForm() {
+  const b = loadBL();
+  const setT = (id, key) => { if ($(id)) $(id).value = b[key] ? fmtFull(b[key]) : ''; };
+  const setI = (id, key) => { if ($(id)) $(id).value = b[key] || 0; };
+  setT('b-total',     'total');
+  setT('b-pic',       'pic');
+  setT('b-ifr',       'ifr');
+  setT('b-me',        'me');
+  setT('b-night',     'night');
+  setT('b-nvd',       'nvd');
+  setI('b-ldg-day',   'ldgDay');
+  setI('b-ldg-night', 'ldgNight');
+  setI('b-ldg-ifr',   'ldgIFR');
+}
+
+function saveBaseline() {
+  const g  = id => parseHHMM($(id).value);
+  const gi = id => Math.max(0, parseInt($(id).value) || 0);
+  const b = {
+    total:    g('b-total'),
+    pic:      g('b-pic'),
+    ifr:      g('b-ifr'),
+    me:       g('b-me'),
+    night:    g('b-night'),
+    nvd:      g('b-nvd'),
+    ldgDay:   gi('b-ldg-day'),
+    ldgNight: gi('b-ldg-night'),
+    ldgIFR:   gi('b-ldg-ifr'),
+  };
+  localStorage.setItem(BL_KEY, JSON.stringify(b));
+  const el = $('baseline-saved');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+// ── CSV Import ─────────────────────────────────────────────────────────────
+const CSV_HEADERS = ['FlightDate','Depart','STime','Dest','DTime','FlTime','AcReg','AcType','Ldgs','NLdgs','IFR','MaxFL','PIC','2ndPilot','Client','Remarks'];
+
+function parseCSVLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSVText(text) {
+  // Strip BOM, normalise line endings
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = text.split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+  // Detect and skip header row
+  const first = parseCSVLine(lines[0]);
+  const isHeader = first[0].toLowerCase().includes('datum') || first[0].toLowerCase().includes('date');
+  return (isHeader ? lines.slice(1) : lines)
+    .map(l => parseCSVLine(l))
+    .filter(f => f.length >= 8); // need at least date..total
+}
+
+function parseDDMMYYYY(s) {
+  // Accepts dd.mm.yyyy, d.m.yyyy, dd/mm/yyyy, yyyy-mm-dd
+  s = s.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+  const m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+  if (!m) return s;
+  return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+
+function parseFlightTime(s) {
+  s = (s || '').trim();
+  if (!s) return 0;
+  if (s.includes(':')) {
+    const [h, m] = s.split(':');
+    return Math.round(((parseInt(h) || 0) + (parseInt(m) || 0) / 60) * 100) / 100;
+  }
+  return parseFloat(s.replace(',', '.')) || 0;
+}
+
+function detectLocation(raw) {
+  const s = raw.trim();
+  const isICAO = /^[A-Z0-9]{4}$/i.test(s);
+  return {
+    icao:         isICAO ? s.toUpperCase() : '',
+    custom:       isICAO ? '' : s,
+    isTillfällig: !isICAO,
+  };
+}
+
+function fieldsToEntry(f) {
+  // f[0]=FlightDate  f[1]=Depart  f[2]=STime  f[3]=Dest  f[4]=DTime  f[5]=FlTime
+  // f[6]=AcReg  f[7]=AcType  f[8]=Ldgs  f[9]=NLdgs  f[10]=IFR  f[11]=MaxFL
+  // f[12]=PIC  f[13]=2ndPilot  f[14]=Client  f[15]=Remarks
+  const date     = parseDDMMYYYY(f[0] || '');
+  const dep      = detectLocation(f[1] || '');
+  const sTime    = (f[2]  || '').trim();
+  const arr      = detectLocation(f[3] || '');
+  const dTime    = (f[4]  || '').trim();
+  const total    = parseFlightTime(f[5]);
+  const ifrTime  = parseFlightTime(f[10]);
+  const isPIC    = (f[12] || '').trim() !== '0';
+  const ldgs     = parseInt(f[8])  || 0;
+  const nLdgs    = parseInt(f[9])  || 0;
+  const maxFL    = (f[11] || '').trim();
+  const secondP  = (f[13] || '').trim();
+  const client   = (f[14] || '').trim();
+  const baseRem  = (f[15] || '').trim();
+  const flightRules = ifrTime > 0 ? 'IFR' : 'VFR';
+
+  return {
+    id:              crypto.randomUUID(),
+    date,
+    aircraftType:    (f[7] || '').trim(),
+    registration:    (f[6] || '').trim(),
+    depICAO:         dep.icao,
+    depCustom:       dep.custom,
+    depIsTillfällig: dep.isTillfällig,
+    arrICAO:         arr.icao,
+    arrCustom:       arr.custom,
+    arrIsTillfällig: arr.isTillfällig,
+    totalTime:       total,
+    picTime:         isPIC ? total : 0,
+    copilotTime:     isPIC ? 0 : total,
+    dualTime:        0,
+    nightTime:       0,
+    ifrTime,
+    takeoffs:        ldgs,
+    landings:        ldgs,
+    nightTakeoffs:   nLdgs,
+    nightLandings:   nLdgs,
+    flightRules,
+    remarks:         baseRem,
+    sTime,
+    dTime,
+    maxFL,
+    secondPilot:     secondP,
+    client,
+  };
+}
+
+function validateEntry(e) {
+  const errs = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date))  errs.push('Ogiltigt datum');
+  if (!e.depICAO && !e.depCustom)            errs.push('Depart saknas');
+  if (!e.arrICAO && !e.arrCustom)            errs.push('Dest saknas');
+  if (!(e.totalTime > 0))                    errs.push('FlTime = 0');
+  return errs;
+}
+
+function isDuplicate(e, existing) {
+  return existing.some(x =>
+    x.date === e.date &&
+    x.registration === e.registration &&
+    Math.abs(x.totalTime - e.totalTime) < 0.01
+  );
+}
+
+let parsedRows = []; // { entry, errors, dup }
+
+function previewImport() {
+  const text = $('csv-paste').value.trim();
+  if (!text) { alert('Ingen CSV-data. Klistra in eller välj en fil.'); return; }
+
+  const existing = load();
+  const fieldSets = parseCSVText(text);
+  if (!fieldSets.length) { alert('Inga rader hittades i CSV-filen.'); return; }
+
+  parsedRows = fieldSets.map(f => {
+    const entry  = fieldsToEntry(f);
+    const errors = validateEntry(entry);
+    const dup    = !errors.length && isDuplicate(entry, existing);
+    return { entry, errors, dup };
+  });
+
+  const valid = parsedRows.filter(r => !r.errors.length && !r.dup).length;
+  const dups  = parsedRows.filter(r => r.dup).length;
+  const errs  = parsedRows.filter(r => r.errors.length).length;
+
+  $('import-summary').innerHTML = `
+    <div class="import-stat ok"><strong>${valid}</strong>Redo att importera</div>
+    <div class="import-stat warn"><strong>${dups}</strong>Dubbletter (hoppas över)</div>
+    <div class="import-stat err"><strong>${errs}</strong>Ogiltiga rader</div>
+    <div class="import-stat"><strong>${parsedRows.length}</strong>Totalt</div>`;
+
+  $('preview-body').innerHTML = parsedRows.map(({ entry: e, errors, dup }) => {
+    const dep = e.depIsTillfällig ? `🚁 ${escH(e.depCustom)}` : escH(e.depICAO);
+    const arr = e.arrIsTillfällig ? `🚁 ${escH(e.arrCustom)}` : escH(e.arrICAO);
+    let status;
+    if (errors.length) status = `<span class="preview-error">✕ ${escH(errors.join(', '))}</span>`;
+    else if (dup)      status = `<span class="preview-dup">↩ Dubblett</span>`;
+    else               status = `<span class="preview-valid">✓ OK</span>`;
+    return `<tr>
+      <td>${escH(e.date)}</td>
+      <td>${escH(e.aircraftType)}</td>
+      <td>${escH(e.registration)}</td>
+      <td>${dep}</td>
+      <td>${arr}</td>
+      <td class="mono">${fmt(e.totalTime)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  $('confirm-import-btn').textContent = `Importera ${valid} flygning${valid !== 1 ? 'ar' : ''}`;
+  $('confirm-import-btn').disabled = valid === 0;
+  $('import-preview-card').style.display = '';
+  $('import-preview-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function confirmImport() {
+  const toAdd = parsedRows.filter(r => !r.errors.length && !r.dup).map(r => r.entry);
+  if (!toAdd.length) return;
+  const entries = load();
+  toAdd.forEach(e => entries.push(e));
+  save(entries);
+
+  // Merge aircraft types + registrations from imported entries
+  const ac = loadAC();
+  toAdd.forEach(e => {
+    const t = (e.aircraftType || '').trim();
+    const r = (e.registration  || '').trim();
+    if (!t) return;
+    if (!ac[t]) ac[t] = [];
+    if (r && !ac[t].includes(r)) ac[t].push(r);
+  });
+  saveAC(ac);
+
+  clearImport();
+  showTab('loggbok');
+}
+
+function clearAllData() {
+  if (!confirm('Radera ALLA loggade flygningar permanent? Detta går inte att ångra.')) return;
+  localStorage.removeItem(KEY);
+  clearImport();
+  alert('All data raderad.');
+}
+
+function clearImport() {
+  $('csv-paste').value = '';
+  $('import-preview-card').style.display = 'none';
+  parsedRows = [];
+}
+
+function handleFileSelect(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { $('csv-paste').value = e.target.result; previewImport(); };
+  reader.readAsText(file, 'UTF-8');
+  ev.target.value = ''; // reset so same file can be re-selected
+}
+
+function handleDrop(ev) {
+  ev.preventDefault();
+  $('drop-zone').classList.remove('drag-over');
+  const file = ev.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { $('csv-paste').value = e.target.result; previewImport(); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function downloadTemplate() {
+  const hdr = CSV_HEADERS.join(',');
+  const ex  = ['15.06.2024','ESCF','19:00','ESCF','21:13','02:13','Kilo 22','EC135T1','1','0','00:00','170','1','JOX','LV6','Konturflygning'].join(',');
+  const ex2 = ['16.06.2024','ESGG','08:30','Sjukhuset Mölndal','09:15','00:45','SE-JXX','R44','1','0','00:00','','0','','Ambulans',''].join(',');
+  const csv = [hdr, ex, ex2].join('\r\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'flygloggbok_mall.csv'; a.click();
+}
+
+// ── Rapport ────────────────────────────────────────────────────────────────
+function rapportBar(label, val, max, unit) {
+  unit = unit || 'h';
+  const pct  = Math.min(100, max > 0 ? (val / max) * 100 : 0);
+  const done = val >= max;
+  const disp = unit === 'h' ? fmtFull(val) : val;
+  const col  = done ? 'var(--green-l)' : pct < 15 ? 'var(--yellow)' : 'var(--blue-l)';
+  return `<div class="prog-item">
+    <div class="prog-header">
+      <span class="prog-label" style="font-size:.78rem">${label}${done ? ' ✓' : ''}</span>
+      <span class="prog-vals">${disp} / ${max}${unit}</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div>
+  </div>`;
+}
+
+function renderRapport() {
+  const allEntries = load();
+  const years = [...new Set(allEntries.map(e => e.date.slice(0,4)))].sort().reverse();
+  const yearEl = $('r-year');
+  if (!yearEl) return;
+  const cur = yearEl.value;
+  yearEl.innerHTML = '<option value="">Alla år</option>' +
+    years.map(y => `<option value="${y}"${y === cur ? ' selected' : ''}>${y}</option>`).join('');
+
+  const yearFilter = yearEl.value;
+  const entries = yearFilter ? allEntries.filter(e => e.date.startsWith(yearFilter)) : allEntries;
+  const s = statsWithBaseline(entries);
+  const today = new Date().toISOString().slice(0,10);
+  const yearLabel = yearFilter || 'Hela karriären';
+
+  if (!allEntries.length) {
+    $('rapport-content').innerHTML = `<div class="empty"><div class="empty-icon">📊</div><p>Inga flygningar loggade ännu.</p></div>`;
+    return;
+  }
+
+  // Aircraft breakdown
+  const acMap = {};
+  entries.forEach(e => {
+    if (!acMap[e.aircraftType]) acMap[e.aircraftType] = { time: 0, pic: 0, count: 0 };
+    acMap[e.aircraftType].time  += e.totalTime;
+    acMap[e.aircraftType].pic   += e.picTime;
+    acMap[e.aircraftType].count += 1;
+  });
+  const acList = Object.entries(acMap).sort((a,b) => b[1].time - a[1].time);
+  const maxAcTime = acList[0]?.[1].time || 1;
+  const barColors = ['#1565c0','#1e88e5','#0288d1','#00838f','#2e7d32','#6a1b9a','#ad1457','#e65100'];
+
+  // Airport frequency
+  const apMap = {};
+  entries.forEach(e => {
+    [locLabel(e,'dep'), ...(e.touchAndGo||[]), locLabel(e,'arr')].forEach(ap => { if (ap) apMap[ap] = (apMap[ap]||0) + 1; });
+  });
+  const apList = Object.entries(apMap).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxAp = apList[0]?.[1] || 1;
+
+  // Monthly breakdown for chart year
+  const MONTHS_SV = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const chartYear = yearFilter || String(new Date().getFullYear());
+  const monthData = Array(12).fill(0);
+  allEntries.filter(e => e.date.startsWith(chartYear)).forEach(e => {
+    monthData[parseInt(e.date.slice(5,7)) - 1] += e.totalTime;
+  });
+  const maxMonth = Math.max(...monthData, 0.01);
+
+  // Most frequent routes
+  const routeMap = {};
+  entries.forEach(e => {
+    const d = locLabel(e,'dep'), a = locLabel(e,'arr');
+    if (d !== a) { const k = `${d} → ${a}`; routeMap[k] = (routeMap[k]||0) + 1; }
+  });
+  const routeList = Object.entries(routeMap).sort((a,b) => b[1]-a[1]).slice(0,7);
+
+  $('rapport-content').innerHTML = `
+    <!-- Header + summary stats -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem">
+        <div>
+          <div style="font-size:1.2rem;font-weight:700;color:var(--navy)">✈ Flygerfarenhetsrapport</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:.15rem">${escH(yearLabel)} · Genererad ${today}</div>
+        </div>
+        <div style="font-size:.82rem;color:var(--muted)">${entries.length} flygningar</div>
+      </div>
+      <div class="r-stat-grid">
+        ${[['Total flygtid',fmtFull(s.total),'h'],['PIC-tid',fmtFull(s.pic),'h'],
+           ['IFR-tid',fmtFull(s.ifr),'h'],['Natttid',fmtFull(s.night),'h'],
+           ['Co-pilot',fmtFull(s.cop),'h'],['Dual/Elev',fmtFull(s.dual),'h'],
+           ['Starter/Ldg',`${s.to}/${s.ldg}`,''],['Cross-country',fmtFull(s.cc),'h'],
+        ].map(([l,v,u]) => `<div class="r-stat">
+          <div class="r-stat-val">${v}</div>
+          <div class="r-stat-lbl">${l}${u?' '+u:''}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- CPL/ATPL + Aircraft -->
+    <div class="rapport-two-col">
+      <div class="card">
+        <div class="r-section-title">CPL-krav · EASA FCL.140.A</div>
+        ${rapportBar('Total flygtid', s.total, 200)}
+        ${rapportBar('PIC-tid',       s.pic,   100)}
+        ${rapportBar('Instrumenttid', s.ifr,    10)}
+        ${rapportBar('Natttid',       s.night,   5)}
+        ${rapportBar('Natt-ldg',      s.ldgN,    5, ' st')}
+        <div class="r-section-title" style="margin-top:1.1rem">ATPL-krav · EASA FCL.515.A</div>
+        ${rapportBar('Total flygtid', s.total, 1500)}
+        ${rapportBar('PIC-tid',       s.pic,    250)}
+        ${rapportBar('Cross-country', s.cc,     500)}
+        ${rapportBar('Natttid',       s.night,  100)}
+        ${rapportBar('IFR-tid',       s.ifr,     75)}
+      </div>
+      <div class="card">
+        <div class="r-section-title">Luftfartygstyper</div>
+        ${acList.length ? acList.map(([t,d],i) => `
+          <div class="ac-row">
+            <div class="ac-name" title="${escH(t)}">${escH(t)}</div>
+            <div class="ac-bar-track"><div class="ac-bar-fill" style="width:${Math.round(d.time/maxAcTime*100)}%;background:${barColors[i%barColors.length]}"></div></div>
+            <div class="ac-bar-val">${fmtFull(d.time)}</div>
+          </div>`).join('') : '<p style="color:var(--muted);font-size:.85rem">Inga data.</p>'}
+        ${acList.length ? `<table style="width:100%;font-size:.76rem;border-collapse:collapse;margin-top:.9rem">
+          <thead><tr>
+            <th style="text-align:left;padding:.25rem .35rem;color:var(--muted);font-size:.65rem;text-transform:uppercase;border-bottom:2px solid var(--sky)">Typ</th>
+            <th style="text-align:right;padding:.25rem .35rem;color:var(--muted);font-size:.65rem;text-transform:uppercase;border-bottom:2px solid var(--sky)">Ggr</th>
+            <th style="text-align:right;padding:.25rem .35rem;color:var(--muted);font-size:.65rem;text-transform:uppercase;border-bottom:2px solid var(--sky)">Total</th>
+            <th style="text-align:right;padding:.25rem .35rem;color:var(--muted);font-size:.65rem;text-transform:uppercase;border-bottom:2px solid var(--sky)">PIC</th>
+          </tr></thead>
+          <tbody>${acList.map(([t,d]) => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:.28rem .35rem;font-weight:600">${escH(t)}</td>
+            <td style="padding:.28rem .35rem;text-align:right;color:var(--muted)">${d.count}</td>
+            <td style="padding:.28rem .35rem;text-align:right;font-family:monospace">${fmtFull(d.time)}</td>
+            <td style="padding:.28rem .35rem;text-align:right;font-family:monospace">${fmtFull(d.pic)}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : ''}
+      </div>
+    </div>
+
+    <!-- Monthly activity bar chart -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="r-section-title">Månadsaktivitet · ${escH(chartYear)}</div>
+      <div class="monthly-grid">
+        ${monthData.map((h,i) => `<div class="monthly-col">
+          <div class="monthly-val">${h > 0 ? fmtFull(h) : ''}</div>
+          <div class="monthly-bar-wrap">
+            <div class="monthly-bar" style="height:${h>0?Math.max(2,Math.round(h/maxMonth*100)):0}%;background:${h>0?'var(--blue-l)':'transparent'}"></div>
+          </div>
+          <div class="monthly-lbl">${MONTHS_SV[i]}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Airports + Routes -->
+    <div class="rapport-two-col">
+      <div class="card">
+        <div class="r-section-title">Mest besökta platser</div>
+        ${apList.length ? apList.map(([ap,n]) => `<div class="ac-row">
+          <div class="ac-name" title="${escH(ap)}">${escH(ap)}</div>
+          <div class="ac-bar-track"><div class="ac-bar-fill" style="width:${Math.round(n/maxAp*100)}%;background:var(--blue-l)"></div></div>
+          <div class="ac-bar-val">${n} ggr</div>
+        </div>`).join('') : '<p style="color:var(--muted);font-size:.85rem">—</p>'}
+      </div>
+      <div class="card">
+        <div class="r-section-title">Vanligaste rutter</div>
+        ${routeList.length ? routeList.map(([r,n]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.32rem 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(r)}</span>
+            <span style="font-size:.76rem;color:var(--muted);font-weight:700;flex-shrink:0;margin-left:.5rem">${n}×</span>
+          </div>`).join('') : '<p style="color:var(--muted);font-size:.85rem">—</p>'}
+      </div>
+    </div>
+
+    <!-- Full logbook table -->
+    <div class="card page-break">
+      <div class="r-section-title">Fullständig loggbok · ${entries.length} flygningar</div>
+      <div class="table-wrap">
+        <table id="rapport-log-table" style="font-size:.78rem">
+          <thead><tr>
+            <th>Datum</th><th>Typ</th><th>Reg</th><th>Avgång</th><th>Destination</th>
+            <th>Total</th><th>PIC</th><th>Co-P</th><th>Natt</th><th>IFR</th><th>S/L</th><th>Regler</th><th>Anmärkning</th>
+          </tr></thead>
+          <tbody>${[...entries].sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr>
+            <td>${escH(e.date)}</td>
+            <td>${escH(e.aircraftType)}</td>
+            <td>${escH(e.registration)}</td>
+            <td>${escH(locLabel(e,'dep'))}${(e.touchAndGo||[]).length ? `<br><span style="font-size:.68rem;color:var(--muted)">T&amp;G: ${escH((e.touchAndGo||[]).join(', '))}</span>` : ''}</td>
+            <td>${escH(locLabel(e,'arr'))}</td>
+            <td class="mono">${fmt(e.totalTime)}</td>
+            <td class="mono">${fmt(e.picTime)}</td>
+            <td class="mono">${fmt(e.copilotTime)}</td>
+            <td class="mono">${fmt(e.nightTime)}</td>
+            <td class="mono">${fmt(e.ifrTime)}</td>
+            <td class="mono">${e.takeoffs}/${e.landings}</td>
+            <td>${rulesBadge(e.flightRules)}</td>
+            <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                title="${escH(remarkTooltip(e))}">${(()=>{const c=cleanRemarks(e.remarks),cl=entryClient(e),p=entryPilot2(e);const parts=[c?escH(c.length>35?c.slice(0,33)+'…':c):'',cl?`<em style="color:var(--muted)">${escH(cl)}</em>`:'',(p&&!cl)?`<span style="color:var(--muted)">${escH(p)}</span>`:''].filter(Boolean);return parts.join(' · ')||'—';})()}</td>
+          </tr>`).join('')}</tbody>
+          <tfoot><tr class="totals-row">
+            <td colspan="5">Totalt (${entries.length} flygningar)</td>
+            <td class="mono">${fmtFull(s.total)}</td>
+            <td class="mono">${fmtFull(s.pic)}</td>
+            <td class="mono">${fmtFull(s.cop)}</td>
+            <td class="mono">${fmtFull(s.night)}</td>
+            <td class="mono">${fmtFull(s.ifr)}</td>
+            <td class="mono">${s.to}/${s.ldg}</td>
+            <td colspan="2"></td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+$('f-date').value = todayISO();
+// ── Theme ──────────────────────────────────────────────────────────────────
+const THEME_KEY = 'flygloggbok_theme';
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme === 'light' ? 'light' : '';
+  const btn = $('theme-toggle');
+  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const current = localStorage.getItem(THEME_KEY) || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  drawCharts();
+}
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+initAircraftDropdowns();
+renderDashboard();
+
+// ── PWA service worker ──────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
