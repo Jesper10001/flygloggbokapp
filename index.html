@@ -341,6 +341,8 @@ canvas { width: 100% !important; max-height: 220px; }
 .stress-prompt-box.level-red    { border-left-color: #e05555; }
 .stress-prompt-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
 .stress-prompt-text { font-size: .8rem; line-height: 1.55; color: var(--text); opacity: .88; }
+.stress-prompt-bullets { margin: .45rem 0 0 .1rem; padding-left: 1rem; list-style: disc; }
+.stress-prompt-bullets li { font-size: .78rem; line-height: 1.5; color: var(--text); opacity: .75; margin-bottom: .15rem; }
 
 /* ── Map widget & modal ── */
 .map-widget-card { padding: 0; overflow: hidden; cursor: pointer; user-select: none; transition: transform .15s, box-shadow .15s; position: relative; }
@@ -1129,28 +1131,28 @@ const CHART_OPTS = { responsive:true, maintainAspectRatio:true, plugins:{legend:
 
 const STRESS_PROMPTS = {
   grey: [
-    { icon: '📉', text: 'Din flygtakt är lägre än vanligt. EASA betonar att regelbunden flygning är avgörande för att bibehålla situationsmedvetande och manuella färdigheter. Planera in fler flygningar och överväg en repetitionsövning eller simulator.' },
-    { icon: '⚠️', text: 'Reducerad aktivitet kan påverka din currency. EASA:s säkerhetsrekommendationer lyfter fram att långa uppehåll försämrar beslutsförmåga och reaktionstid — särskilt i oväntade situationer.' },
-    { icon: '🛫', text: 'Under genomsnittlig flygtid kan tyda på minskad currency. Enligt EASA är regelbunden träning en av de viktigaste säkerhetsfaktorerna — fråga dig om dina färdigheter är tillräckligt underhållna.' },
-    { icon: '📋', text: 'EASA:s riktlinjer för pilotkompetens kräver att erfarenheten hålls aktuell. Låg aktivitet kan ge falsk trygghet — dina kunskaper finns kvar, men den operativa skärpan försvagas gradvis.' },
+    { icon: '📉', text: 'Din flygtakt är lägre än vanligt. EASA betonar att regelbunden flygning är avgörande för att bibehålla situationsmedvetande och manuella färdigheter. Planera in fler flygningar och överväg en repetitionsövning eller simulator.', bullets: ['Boka en flygning eller simulatorpass inom 2 veckor.', 'Gå igenom nödprocedurer och checklistor mentalt.'] },
+    { icon: '⚠️', text: 'Reducerad aktivitet kan påverka din currency. EASA:s säkerhetsrekommendationer lyfter fram att långa uppehåll försämrar beslutsförmåga och reaktionstid — särskilt i oväntade situationer.', bullets: ['Kontakta din instruktör för ett currency-pass.', 'Repetera IFR/VFR-procedurer i simulator eller hemma.'] },
+    { icon: '🛫', text: 'Under genomsnittlig flygtid kan tyda på minskad currency. Enligt EASA är regelbunden träning en av de viktigaste säkerhetsfaktorerna — fråga dig om dina färdigheter är tillräckligt underhållna.', bullets: ['Schemalägg minst en flygning inom de närmaste 10 dagarna.', 'Läs igenom POH och aktuella procedurer för ditt flygplan.'] },
+    { icon: '📋', text: 'EASA:s riktlinjer för pilotkompetens kräver att erfarenheten hålls aktuell. Låg aktivitet kan ge falsk trygghet — dina kunskaper finns kvar, men den operativa skärpan försvagas gradvis.', bullets: ['Genomför ett proficiency check med behörig instruktör.', 'Uppdatera din kännedom om aktuella NOTAM och procedurer.'] },
   ],
   green: [
-    { icon: '✅', text: 'Din flygtakt är väl balanserad. EASA:s riktlinjer för trötthetshantering betonar värdet av förutsägbar och regelbunden flygtid — du befinner dig i ett bra läge. Fortsätt underhålla goda rutiner för sömn och återhämtning.' },
-    { icon: '💚', text: 'Bra balans! Regelbundet flygande stärker situationsmedvetande och beslutsförmåga. EASA lyfter fram rutinmässig träning som en av de viktigaste säkerhetsfaktorerna — du är på rätt spår.' },
-    { icon: '🧠', text: 'Din aktivitetsnivå är sund. Kom ihåg att god sömn, kost och återhämtning är grundläggande för säkert flygande — även vid normal belastning rekommenderar EASA medvetenhet om kumulativ trötthet.' },
-    { icon: '📊', text: 'Du håller en stabil flygrytm. EASA:s FRMS-ramverk betonar att förutsägbarhet i schema och belastning är skyddande faktorer mot trötthet. Bevara denna balans.' },
+    { icon: '✅', text: 'Din flygtakt är väl balanserad. EASA:s riktlinjer för trötthetshantering betonar värdet av förutsägbar och regelbunden flygtid — du befinner dig i ett bra läge. Fortsätt underhålla goda rutiner för sömn och återhämtning.', bullets: ['Planera kommande flygningar i god tid för att hålla rytmen.', 'Kontrollera att medikal och rating är aktuella.'] },
+    { icon: '💚', text: 'Bra balans! Regelbundet flygande stärker situationsmedvetande och beslutsförmåga. EASA lyfter fram rutinmässig träning som en av de viktigaste säkerhetsfaktorerna — du är på rätt spår.', bullets: ['Sätt ett nytt mål — en ny rutt, flygplats eller övning.', 'Se proaktivt över ditt utrustningsunderhåll.'] },
+    { icon: '🧠', text: 'Din aktivitetsnivå är sund. Kom ihåg att god sömn, kost och återhämtning är grundläggande för säkert flygande — även vid normal belastning rekommenderar EASA medvetenhet om kumulativ trötthet.', bullets: ['Följ upp din sömnkvalitet för att identifiera mönster.', 'Planera nästa flygning med ett specifikt träningsmoment.'] },
+    { icon: '📊', text: 'Du håller en stabil flygrytm. EASA:s FRMS-ramverk betonar att förutsägbarhet i schema och belastning är skyddande faktorer mot trötthet. Bevara denna balans.', bullets: ['Dra nytta av balansen — öva ett svagare moment aktivt.', 'Diskutera dina mål med din instruktör eller mentor.'] },
   ],
   yellow: [
-    { icon: '🟡', text: 'Du flyger mer än vanligt. Enligt EASA:s FTL-regelverk (ORO.FTL) ökar trötthetsrisken vid hög arbetsbelastning. Prioritera sömn och var extra uppmärksam på tidiga tecken på trötthet.' },
-    { icon: '😴', text: 'Ökad flygtid kräver mer återhämtning. EASA varnar för att kumulativ trötthet är svår att självbedöma — du kan känna dig alert trots nedsatt prestationsförmåga. Säkerställ att dina viloperioder verkligen ger återhämtning.' },
-    { icon: '⏱️', text: 'EASA:s FRMS-riktlinjer påminner om att perioder med hög arbetsbelastning kräver extra uppmärksamhet kring sömnkvalitet. Undvik att kompensera sömnunderskott med koffein inför flygning.' },
-    { icon: '🔶', text: 'Hög aktivitet under en period är normalt, men EASA betonar vikten av att aktivt övervaka din trötthetsgrad. Diskutera gärna schemaläggningen med din operatör om belastningen är ihållande.' },
+    { icon: '🟡', text: 'Du flyger mer än vanligt. Enligt EASA:s FTL-regelverk (ORO.FTL) ökar trötthetsrisken vid hög arbetsbelastning. Prioritera sömn och var extra uppmärksam på tidiga tecken på trötthet.', bullets: ['Säkerställ minst 8 timmars sömn natten innan varje flygning.', 'Använd operatörens trötthetsrapporteringsformulär (FRMS) vid behov.'] },
+    { icon: '😴', text: 'Ökad flygtid kräver mer återhämtning. EASA varnar för att kumulativ trötthet är svår att självbedöma — du kan känna dig alert trots nedsatt prestationsförmåga. Säkerställ att dina viloperioder verkligen ger återhämtning.', bullets: ['Planera in minst en hel fridag utan flygrelaterade åtaganden.', 'Undvik alkohol och sen skärmtid kvällen innan tjänst.'] },
+    { icon: '⏱️', text: 'EASA:s FRMS-riktlinjer påminner om att perioder med hög arbetsbelastning kräver extra uppmärksamhet kring sömnkvalitet. Undvik att kompensera sömnunderskott med koffein inför flygning.', bullets: ['Gör ett kort trötthetstest (t.ex. PVT-app) innan flygning.', 'Informera befälhavaren om du känner dig ovanligt trött.'] },
+    { icon: '🔶', text: 'Hög aktivitet under en period är normalt, men EASA betonar vikten av att aktivt övervaka din trötthetsgrad. Diskutera gärna schemaläggningen med din operatör om belastningen är ihållande.', bullets: ['Tacka nej till frivilliga extraturer om möjligt.', 'Ät regelbundet — hoppa inte över måltider under tjänstgöring.'] },
   ],
   red: [
-    { icon: '🔴', text: 'Varning: du flyger avsevärt mer än ditt genomsnitt. EASA:s ORO.FTL-gränser finns för att förebygga farlig trötthet. Trötthet försämrar omdöme och reaktionstid lika mycket som alkohol — ta din återhämtning på allvar.' },
-    { icon: '🚨', text: 'Hög flygtakt ökar risken för fatigue-relaterade fel markant. EASA:s forskning visar att trötthet bidrar till en stor andel av alla rapporterade incidenter. Utvärdera din belastning och ge dig själv tid att återhämta dig.' },
-    { icon: '⛔', text: 'EASA kräver att operatörer implementerar FRMS vid hög belastning. Du är ansvarig att rapportera om du är otjänstgöringsduglig på grund av trötthet — det är ett aktivt säkerhetsbeslut, inte ett svaghetstecken.' },
-    { icon: '💤', text: 'Kraftigt förhöjd flygtakt signalerar risk. Enligt EASA försämras kognitiv förmåga, minneshantering och situationsmedvetande vid sömnbrist. Prioritera minst 8 timmars sömn och undvik flygning vid tvivel.' },
+    { icon: '🔴', text: 'Varning: du flyger avsevärt mer än ditt genomsnitt. EASA:s ORO.FTL-gränser finns för att förebygga farlig trötthet. Trötthet försämrar omdöme och reaktionstid lika mycket som alkohol — ta din återhämtning på allvar.', bullets: ['Kontakta din operatör och begär omplanering om möjligt.', 'Neka flygning och rapportera om du är otjänstduglig av trötthet.'] },
+    { icon: '🚨', text: 'Hög flygtakt ökar risken för fatigue-relaterade fel markant. EASA:s forskning visar att trötthet bidrar till en stor andel av alla rapporterade incidenter. Utvärdera din belastning och ge dig själv tid att återhämta dig.', bullets: ['Rapportera trötthet till din chef — det är din skyldighet.', 'Undvik att acceptera fler avgångar utan adekvat viloperiod.'] },
+    { icon: '⛔', text: 'EASA kräver att operatörer implementerar FRMS vid hög belastning. Du är ansvarig att rapportera om du är otjänstgöringsduglig på grund av trötthet — det är ett aktivt säkerhetsbeslut, inte ett svaghetstecken.', bullets: ['Fyll i en fatigue-rapport i ditt SMS-system omgående.', 'Verifiera att dina viloperioder uppfyller ORO.FTL-minimikraven.'] },
+    { icon: '💤', text: 'Kraftigt förhöjd flygtakt signalerar risk. Enligt EASA försämras kognitiv förmåga, minneshantering och situationsmedvetande vid sömnbrist. Prioritera minst 8 timmars sömn och undvik flygning vid tvivel.', bullets: ['Prioritera sömn framför sociala aktiviteter kommande dagar.', 'Kontakta flygläkare om sömnproblem återkommer regelbundet.'] },
   ],
 };
 
@@ -1165,12 +1167,20 @@ function stressData() {
     .filter(e => new Date(e.date) >= cut14)
     .reduce((a, e) => a + e.totalTime, 0);
 
+  // Exclude July (6) and December (11) — vacation months that skew the baseline
+  const EXCL = new Set([6, 11]);
+
   const yearHours = entries
-    .filter(e => { const d = new Date(e.date); return d >= cut365 && d < cut14; })
+    .filter(e => { const d = new Date(e.date); return d >= cut365 && d < cut14 && !EXCL.has(d.getMonth()); })
     .reduce((a, e) => a + e.totalTime, 0);
 
-  // Average 2-week window over the 351 days (365-14) excluding recent 2 weeks
-  const avg = yearHours * 14 / 351;
+  // Count only non-excluded days in the window to get correct divisor
+  let validDays = 0;
+  for (let d = new Date(cut365.getTime()); d < cut14; d = new Date(d.getTime() + DAY)) {
+    if (!EXCL.has(d.getMonth())) validDays++;
+  }
+
+  const avg = validDays > 0 ? yearHours * 14 / validDays : 0;
   return { recent, avg, ratio: avg > 0.01 ? recent / avg : null };
 }
 
@@ -1188,9 +1198,9 @@ function renderThermometer() {
   } else {
     const diff = Math.round((ratio - 1) * 100);
     pctText = (diff >= 0 ? '+' : '') + diff + '%';
-    if      (ratio < 0.85)  { color = '#6b82a0'; level = 'grey';   }
-    else if (ratio <= 1.15) { color = '#2ecc71'; level = 'green';  }
-    else if (ratio <= 1.25) { color = '#f5a623'; level = 'yellow'; }
+    if      (ratio < 0.75)  { color = '#6b82a0'; level = 'grey';   }
+    else if (ratio <= 1.25) { color = '#2ecc71'; level = 'green';  }
+    else if (ratio <= 1.40) { color = '#f5a623'; level = 'yellow'; }
     else                    { color = '#e05555'; level = 'red';    }
   }
 
@@ -1228,7 +1238,10 @@ function renderThermometer() {
       const pick = pool[Math.floor(Date.now() / 3600000) % pool.length]; // changes hourly
       promptBox.className = `stress-prompt-box level-${level}`;
       promptBox.style.display = 'flex';
-      promptBox.innerHTML = `<span class="stress-prompt-icon">${pick.icon}</span><span class="stress-prompt-text">${pick.text}</span>`;
+      const bulletsHtml = pick.bullets
+        ? `<ul class="stress-prompt-bullets">${pick.bullets.map(b => `<li>${b}</li>`).join('')}</ul>`
+        : '';
+      promptBox.innerHTML = `<span class="stress-prompt-icon">${pick.icon}</span><div><span class="stress-prompt-text">${pick.text}</span>${bulletsHtml}</div>`;
     }
   }
 }
