@@ -321,9 +321,26 @@ textarea { resize: vertical; min-height: 68px; font-family: inherit; }
 .counter-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
 
 /* ── Charts ── */
-.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+.chart-row { display: grid; grid-template-columns: 1fr 52px 1fr; gap: 1.25rem; margin-bottom: 1.25rem; align-items: center; }
 .chart-card { margin-bottom: 0; }
 canvas { width: 100% !important; max-height: 220px; }
+.thermo-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; }
+.thermo-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); text-align: center; }
+.thermo-pct { font-size: .72rem; font-weight: 600; color: var(--muted); text-align: center; min-height: 1.1em; }
+#thermo-tube-fill, #thermo-bulb-fill { transition: fill .6s ease; }
+#thermo-tube-fill { transition: fill .6s ease, y .6s ease, height .6s ease; }
+.thermo-mobile { display: none; margin-bottom: 1.25rem; }
+.thermo-mobile-inner { background: var(--card); border-radius: var(--r); box-shadow: var(--sh); padding: .7rem 1rem; display: flex; align-items: center; gap: .85rem; }
+.thermo-mobile-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); white-space: nowrap; }
+.thermo-mobile svg { flex: 1; min-width: 0; }
+#thermo-tube-fill-h, #thermo-bulb-fill-h { transition: fill .6s ease, width .6s ease; }
+.stress-prompt-box { display: flex; align-items: flex-start; gap: .75rem; background: var(--card); border-radius: var(--r); box-shadow: var(--sh); padding: .85rem 1.1rem; margin-bottom: 1.25rem; border-left: 3px solid var(--muted); }
+.stress-prompt-box.level-grey   { border-left-color: #6b82a0; }
+.stress-prompt-box.level-green  { border-left-color: #2ecc71; }
+.stress-prompt-box.level-yellow { border-left-color: #f5a623; }
+.stress-prompt-box.level-red    { border-left-color: #e05555; }
+.stress-prompt-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+.stress-prompt-text { font-size: .8rem; line-height: 1.55; color: var(--text); opacity: .88; }
 
 /* ── Map widget & modal ── */
 .map-widget-card { padding: 0; overflow: hidden; cursor: pointer; user-select: none; transition: transform .15s, box-shadow .15s; position: relative; }
@@ -342,6 +359,8 @@ canvas { width: 100% !important; max-height: 220px; }
 
 @media (max-width: 750px) {
   .chart-row { grid-template-columns: 1fr; }
+  .thermo-col { display: none; }
+  .thermo-mobile { display: block; }
 }
 @media (max-width: 600px) {
   nav { padding: 0 .75rem; }
@@ -455,11 +474,51 @@ canvas { width: 100% !important; max-height: 220px; }
       <div class="card-title">Månad · ackumulerad flygtid per vecka</div>
       <canvas id="chart-month"></canvas>
     </div>
+    <div class="thermo-col">
+      <div class="thermo-label">Stress</div>
+      <svg id="thermo-svg" viewBox="0 0 44 230" width="44" height="200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="thermo-clip">
+            <rect x="16" y="10" width="12" height="160" rx="6"/>
+          </clipPath>
+        </defs>
+        <!-- tube background -->
+        <rect x="16" y="10" width="12" height="160" rx="6" fill="var(--border)"/>
+        <!-- bulb background -->
+        <circle cx="22" cy="196" r="22" fill="var(--border)"/>
+        <!-- tube fill (clips to tube shape) -->
+        <rect id="thermo-tube-fill" x="16" y="170" width="12" height="0" clip-path="url(#thermo-clip)" fill="var(--muted)"/>
+        <!-- bulb fill -->
+        <circle id="thermo-bulb-fill" cx="22" cy="196" r="19" fill="var(--muted)"/>
+        <!-- avg tick -->
+        <line x1="28" y1="90" x2="36" y2="90" stroke="var(--muted)" stroke-width="1.2" opacity=".5"/>
+      </svg>
+      <div id="thermo-pct" class="thermo-pct">—</div>
+    </div>
     <div class="card chart-card">
       <div class="card-title">År · ackumulerad flygtid per månad</div>
       <canvas id="chart-year"></canvas>
     </div>
   </div>
+  <div class="thermo-mobile">
+    <div class="thermo-mobile-inner">
+      <div class="thermo-mobile-label">Stress</div>
+      <svg viewBox="0 0 240 44" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="thermo-clip-h">
+            <rect x="38" y="16" width="186" height="12" rx="6"/>
+          </clipPath>
+        </defs>
+        <circle cx="22" cy="22" r="19" fill="var(--border)"/>
+        <rect x="38" y="16" width="186" height="12" rx="6" fill="var(--border)"/>
+        <rect id="thermo-tube-fill-h" x="38" y="16" width="0" height="12" clip-path="url(#thermo-clip-h)" fill="var(--muted)"/>
+        <circle id="thermo-bulb-fill-h" cx="22" cy="22" r="16" fill="var(--muted)"/>
+        <line x1="131" y1="11" x2="131" y2="15" stroke="var(--muted)" stroke-width="1.2" opacity=".5"/>
+      </svg>
+      <div id="thermo-pct-mobile" class="thermo-pct">—</div>
+    </div>
+  </div>
+  <div id="stress-prompt" class="stress-prompt-box" style="display:none"></div>
   <div class="fids-board">
     <div class="fids-header">
       <span class="fids-title">✈ SENASTE FLYGNINGAR</span>
@@ -1068,6 +1127,112 @@ function chartOpts() {
 // Keep backward-compat alias
 const CHART_OPTS = { responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false},tooltip:{callbacks:{}}}, scales:{ x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11}}}, y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11}}} } };
 
+const STRESS_PROMPTS = {
+  grey: [
+    { icon: '📉', text: 'Din flygtakt är lägre än vanligt. EASA betonar att regelbunden flygning är avgörande för att bibehålla situationsmedvetande och manuella färdigheter. Planera in fler flygningar och överväg en repetitionsövning eller simulator.' },
+    { icon: '⚠️', text: 'Reducerad aktivitet kan påverka din currency. EASA:s säkerhetsrekommendationer lyfter fram att långa uppehåll försämrar beslutsförmåga och reaktionstid — särskilt i oväntade situationer.' },
+    { icon: '🛫', text: 'Under genomsnittlig flygtid kan tyda på minskad currency. Enligt EASA är regelbunden träning en av de viktigaste säkerhetsfaktorerna — fråga dig om dina färdigheter är tillräckligt underhållna.' },
+    { icon: '📋', text: 'EASA:s riktlinjer för pilotkompetens kräver att erfarenheten hålls aktuell. Låg aktivitet kan ge falsk trygghet — dina kunskaper finns kvar, men den operativa skärpan försvagas gradvis.' },
+  ],
+  green: [
+    { icon: '✅', text: 'Din flygtakt är väl balanserad. EASA:s riktlinjer för trötthetshantering betonar värdet av förutsägbar och regelbunden flygtid — du befinner dig i ett bra läge. Fortsätt underhålla goda rutiner för sömn och återhämtning.' },
+    { icon: '💚', text: 'Bra balans! Regelbundet flygande stärker situationsmedvetande och beslutsförmåga. EASA lyfter fram rutinmässig träning som en av de viktigaste säkerhetsfaktorerna — du är på rätt spår.' },
+    { icon: '🧠', text: 'Din aktivitetsnivå är sund. Kom ihåg att god sömn, kost och återhämtning är grundläggande för säkert flygande — även vid normal belastning rekommenderar EASA medvetenhet om kumulativ trötthet.' },
+    { icon: '📊', text: 'Du håller en stabil flygrytm. EASA:s FRMS-ramverk betonar att förutsägbarhet i schema och belastning är skyddande faktorer mot trötthet. Bevara denna balans.' },
+  ],
+  yellow: [
+    { icon: '🟡', text: 'Du flyger mer än vanligt. Enligt EASA:s FTL-regelverk (ORO.FTL) ökar trötthetsrisken vid hög arbetsbelastning. Prioritera sömn och var extra uppmärksam på tidiga tecken på trötthet.' },
+    { icon: '😴', text: 'Ökad flygtid kräver mer återhämtning. EASA varnar för att kumulativ trötthet är svår att självbedöma — du kan känna dig alert trots nedsatt prestationsförmåga. Säkerställ att dina viloperioder verkligen ger återhämtning.' },
+    { icon: '⏱️', text: 'EASA:s FRMS-riktlinjer påminner om att perioder med hög arbetsbelastning kräver extra uppmärksamhet kring sömnkvalitet. Undvik att kompensera sömnunderskott med koffein inför flygning.' },
+    { icon: '🔶', text: 'Hög aktivitet under en period är normalt, men EASA betonar vikten av att aktivt övervaka din trötthetsgrad. Diskutera gärna schemaläggningen med din operatör om belastningen är ihållande.' },
+  ],
+  red: [
+    { icon: '🔴', text: 'Varning: du flyger avsevärt mer än ditt genomsnitt. EASA:s ORO.FTL-gränser finns för att förebygga farlig trötthet. Trötthet försämrar omdöme och reaktionstid lika mycket som alkohol — ta din återhämtning på allvar.' },
+    { icon: '🚨', text: 'Hög flygtakt ökar risken för fatigue-relaterade fel markant. EASA:s forskning visar att trötthet bidrar till en stor andel av alla rapporterade incidenter. Utvärdera din belastning och ge dig själv tid att återhämta dig.' },
+    { icon: '⛔', text: 'EASA kräver att operatörer implementerar FRMS vid hög belastning. Du är ansvarig att rapportera om du är otjänstgöringsduglig på grund av trötthet — det är ett aktivt säkerhetsbeslut, inte ett svaghetstecken.' },
+    { icon: '💤', text: 'Kraftigt förhöjd flygtakt signalerar risk. Enligt EASA försämras kognitiv förmåga, minneshantering och situationsmedvetande vid sömnbrist. Prioritera minst 8 timmars sömn och undvik flygning vid tvivel.' },
+  ],
+};
+
+function stressData() {
+  const entries = load();
+  const now = new Date();
+  const DAY = 86400000;
+  const cut14  = new Date(now - 14 * DAY);
+  const cut365 = new Date(now - 379 * DAY); // 365+14 days ago
+
+  const recent = entries
+    .filter(e => new Date(e.date) >= cut14)
+    .reduce((a, e) => a + e.totalTime, 0);
+
+  const yearHours = entries
+    .filter(e => { const d = new Date(e.date); return d >= cut365 && d < cut14; })
+    .reduce((a, e) => a + e.totalTime, 0);
+
+  // Average 2-week window over the 351 days (365-14) excluding recent 2 weeks
+  const avg = yearHours * 14 / 351;
+  return { recent, avg, ratio: avg > 0.01 ? recent / avg : null };
+}
+
+function renderThermometer() {
+  const tubeFill = document.getElementById('thermo-tube-fill');
+  const bulbFill = document.getElementById('thermo-bulb-fill');
+  const pctEl    = document.getElementById('thermo-pct');
+  if (!tubeFill || !bulbFill) return;
+
+  const { ratio } = stressData();
+
+  let color, pctText, level;
+  if (ratio === null) {
+    color = 'var(--muted)'; pctText = '—'; level = null;
+  } else {
+    const diff = Math.round((ratio - 1) * 100);
+    pctText = (diff >= 0 ? '+' : '') + diff + '%';
+    if      (ratio < 0.85)  { color = '#6b82a0'; level = 'grey';   }
+    else if (ratio <= 1.15) { color = '#2ecc71'; level = 'green';  }
+    else if (ratio <= 1.25) { color = '#f5a623'; level = 'yellow'; }
+    else                    { color = '#e05555'; level = 'red';    }
+  }
+
+  // Fill: ratio 0 = 0%, ratio 1 (avg) = 50%, ratio 2 = 100%
+  const fillPct = ratio !== null ? Math.min(100, Math.max(0, (ratio / 2) * 100)) : 0;
+  const tubeH   = 160;
+  const tubeBot = 170;
+  const fillH   = (fillPct / 100) * tubeH;
+
+  tubeFill.setAttribute('y', tubeBot - fillH);
+  tubeFill.setAttribute('height', fillH);
+  tubeFill.setAttribute('fill', color);
+  bulbFill.setAttribute('fill', color);
+  if (pctEl) { pctEl.textContent = pctText; pctEl.style.color = color; }
+
+  // Mobile horizontal thermometer
+  const tubeFillH = document.getElementById('thermo-tube-fill-h');
+  const bulbFillH = document.getElementById('thermo-bulb-fill-h');
+  const pctMobile = document.getElementById('thermo-pct-mobile');
+  if (tubeFillH && bulbFillH) {
+    const maxW = 186;
+    tubeFillH.setAttribute('width', (fillPct / 100) * maxW);
+    tubeFillH.setAttribute('fill', color);
+    bulbFillH.setAttribute('fill', color);
+  }
+  if (pctMobile) { pctMobile.textContent = pctText; pctMobile.style.color = color; }
+
+  // Stress prompt
+  const promptBox = $('stress-prompt');
+  if (promptBox) {
+    if (!level) {
+      promptBox.style.display = 'none';
+    } else {
+      const pool = STRESS_PROMPTS[level];
+      const pick = pool[Math.floor(Date.now() / 3600000) % pool.length]; // changes hourly
+      promptBox.className = `stress-prompt-box level-${level}`;
+      promptBox.style.display = 'flex';
+      promptBox.innerHTML = `<span class="stress-prompt-icon">${pick.icon}</span><span class="stress-prompt-text">${pick.text}</span>`;
+    }
+  }
+}
+
 function drawCharts() {
   if (chartMonth) { chartMonth.destroy(); chartMonth = null; }
   if (chartYear)  { chartYear.destroy();  chartYear  = null; }
@@ -1567,12 +1732,13 @@ function renderDashboard() {
   }).join('') + `<div class="stat-card map-widget-card" title="Visa karta">
       <div id="airport-mini-map"></div>
       <div class="map-widget-footer">
-        <span id="map-widget-count">—</span><span>flygplatser ↗</span>
+        <span>Flygplatser: <span id="map-widget-count">—</span></span>
       </div>
       <div class="map-widget-click-overlay" onclick="openMapModal()"></div>
     </div>`;
 
   drawCharts();
+  renderThermometer();
 
   const recent = [...load()].sort((a,b) => b.date.localeCompare(a.date)).slice(0,3);
   $('recent-body').innerHTML = recent.length
