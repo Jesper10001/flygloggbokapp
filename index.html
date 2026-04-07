@@ -13,6 +13,9 @@
 <meta name="apple-mobile-web-app-title" content="Loggbok">
 <link rel="apple-touch-icon" href="icon-192.png">
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 #airport-map .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background: var(--popup-bg); color: var(--popup-text); }
@@ -54,12 +57,12 @@
   --popup-bg:     #111c2e;
   --popup-text:   #dce6f0;
   --popup-strong: #74b8ff;
-  --chart-grid:   rgba(255,255,255,.06);
-  --chart-tick:   #6b82a0;
-  --chart-line1:  rgb(57,217,125);
-  --chart-line2:  rgb(116,184,255);
-  --chart-fill1:  .15;
-  --chart-fill2:  .07;
+  --chart-grid:   rgba(255,255,255,.04);
+  --chart-tick:   #5a7090;
+  --chart-line1:  rgb(52,199,113);
+  --chart-line2:  rgb(100,170,255);
+  --chart-fill1:  .10;
+  --chart-fill2:  .05;
 }
 
 html[data-theme="light"] {
@@ -90,15 +93,15 @@ html[data-theme="light"] {
   --popup-bg:     #fff;
   --popup-text:   #1a1a2e;
   --popup-strong: #0d2240;
-  --chart-grid:   rgba(0,0,0,.06);
-  --chart-tick:   #6b7280;
+  --chart-grid:   rgba(0,0,0,.04);
+  --chart-tick:   #8a97a8;
   --chart-line1:  rgb(46,125,50);
   --chart-line2:  rgb(21,101,192);
-  --chart-fill1:  .12;
-  --chart-fill2:  .07;
+  --chart-fill1:  .08;
+  --chart-fill2:  .04;
 }
 
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
 /* ── Nav ── */
 nav {
@@ -106,19 +109,45 @@ nav {
   color: #fff;
   display: flex;
   align-items: stretch;
-  padding: 0 1.5rem 0 1rem;
-  position: sticky; top: 0; z-index: 100;
+  padding: 0 .75rem 0 1rem;
+  position: sticky; top: 0; z-index: 200;
   box-shadow: 0 2px 12px rgba(0,0,0,.35);
 }
-.brand { font-size: 1.15rem; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: .4rem; padding: .9rem 1rem .9rem 0; white-space: nowrap; }
+.brand { font-size: 1.4rem; display: flex; align-items: center; padding: .7rem .6rem .7rem 0; }
 .nav-tabs { display: flex; margin-left: auto; }
 .nav-tab {
   background: none; border: none; color: rgba(255,255,255,.65);
-  padding: 1rem 1.3rem; font-size: .88rem; cursor: pointer;
+  padding: 1rem 1.1rem; font-size: .88rem; cursor: pointer;
   border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap;
 }
 .nav-tab:hover { color: #fff; background: rgba(255,255,255,.07); }
 .nav-tab.active { color: #fff; border-bottom-color: #29b6f6; }
+.nav-tab-add { font-size: 1.5rem; font-weight: 300; padding: .6rem 1rem; line-height: 1; }
+.nav-tab-add.active { border-bottom-color: var(--green-l); }
+.nav-more-wrap { position: relative; display: flex; align-items: center; }
+.nav-more-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.65); font-size: 1.1rem;
+  padding: .7rem .75rem; border-bottom: 3px solid transparent;
+  transition: color .2s, background .2s; display: flex; align-items: center;
+  height: 100%;
+}
+.nav-more-btn:hover { color: #fff; background: rgba(255,255,255,.07); }
+.nav-more-btn.has-active { color: #fff; border-bottom-color: #29b6f6; }
+.nav-dropdown {
+  position: absolute; top: calc(100% + 2px); right: 0;
+  background: var(--navy); border: 1px solid var(--border);
+  border-radius: var(--r); box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  min-width: 170px; overflow: hidden; z-index: 300;
+  animation: mapFadeIn .12s;
+}
+.nav-dropdown-item {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.75); padding: .75rem 1.1rem;
+  font-size: .88rem; transition: background .15s, color .15s;
+}
+.nav-dropdown-item:hover { background: rgba(255,255,255,.08); color: #fff; }
 
 /* ── Layout ── */
 main { max-width: 1140px; margin: 0 auto; padding: 1.5rem; }
@@ -296,6 +325,19 @@ textarea { resize: vertical; min-height: 68px; font-family: inherit; }
 .chart-card { margin-bottom: 0; }
 canvas { width: 100% !important; max-height: 220px; }
 
+/* ── Map widget & modal ── */
+.map-widget-card { cursor: pointer; user-select: none; transition: transform .15s, box-shadow .15s; }
+.map-widget-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+.map-widget-card .stat-value { font-size: 1.5rem; }
+.map-modal-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; padding: 1rem; animation: mapFadeIn .15s; }
+.map-modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 820px; height: min(82vh, 580px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+.map-modal-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.map-modal-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+.map-modal-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1.1rem; padding: .25rem .5rem; border-radius: 6px; line-height: 1; }
+.map-modal-close:hover { color: var(--text); background: var(--border); }
+#airport-map { flex: 1; min-height: 0; }
+@keyframes mapFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
 @media (max-width: 750px) {
   .chart-row { grid-template-columns: 1fr; }
 }
@@ -376,16 +418,21 @@ canvas { width: 100% !important; max-height: 220px; }
 <body>
 
 <nav>
-  <div class="brand">✈ Flygloggbok</div>
+  <div class="brand">🚁</div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
-    <button class="nav-tab" onclick="showTab('loggbok')">Loggbok</button>
-    <button class="nav-tab" onclick="showTab('ny-flygning')">+ Ny flygning</button>
-    <button class="nav-tab" onclick="showTab('cpl-atpl')">CPL/ATPL</button>
-    <button class="nav-tab" onclick="showTab('importera')">Importera</button>
-    <button class="nav-tab" onclick="showTab('rapport')">Rapport</button>
+    <button class="nav-tab nav-tab-add" onclick="showTab('ny-flygning')" title="Ny flygning">+</button>
   </div>
-  <button id="theme-toggle" onclick="toggleTheme()" title="Byt tema" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:1.15rem;padding:.6rem .7rem;margin-left:.25rem;transition:color .2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">🌙</button>
+  <div class="nav-more-wrap">
+    <button class="nav-more-btn" id="nav-more-btn" onclick="toggleNavMenu()" title="Mer">☰</button>
+    <div class="nav-dropdown" id="nav-dropdown" style="display:none">
+      <button class="nav-dropdown-item" onclick="showTab('loggbok');closeNavMenu()">📋 Loggbok</button>
+      <button class="nav-dropdown-item" onclick="showTab('cpl-atpl');closeNavMenu()">🎓 CPL/ATPL</button>
+      <button class="nav-dropdown-item" onclick="showTab('importera');closeNavMenu()">📥 Importera</button>
+      <button class="nav-dropdown-item" onclick="showTab('rapport');closeNavMenu()">📄 Rapport</button>
+    </div>
+  </div>
+  <button id="theme-toggle" onclick="toggleTheme()" title="Byt tema" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:1.15rem;padding:.6rem .7rem;transition:color .2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.7)'">🌙</button>
 </nav>
 
 <main>
@@ -418,9 +465,14 @@ canvas { width: 100% !important; max-height: 220px; }
     </div>
     <div id="recent-body"></div>
   </div>
-  <div class="card" style="padding:1.25rem 1.5rem .75rem">
-    <div class="card-title" id="map-card-title">Besökta flygplatser</div>
-    <div id="airport-map" style="height:460px;border-radius:8px;margin:0 -1.5rem -.75rem;"></div>
+  <div id="map-modal-overlay" style="display:none" class="map-modal-overlay" onclick="if(event.target===this)closeMapModal()">
+    <div class="map-modal">
+      <div class="map-modal-header">
+        <span class="map-modal-title" id="map-card-title">Besökta flygplatser</span>
+        <button class="map-modal-close" onclick="closeMapModal()">✕</button>
+      </div>
+      <div id="airport-map"></div>
+    </div>
   </div>
 </section>
 
@@ -891,6 +943,8 @@ function stats(entries) {
 }
 
 // ── Tab navigation ─────────────────────────────────────────────────────────
+const NAV_DROPDOWN_IDS = ['loggbok', 'cpl-atpl', 'importera', 'rapport'];
+
 function showTab(id) {
   document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
@@ -898,13 +952,27 @@ function showTab(id) {
   document.querySelectorAll('.nav-tab').forEach(b => {
     if (b.getAttribute('onclick').includes(`'${id}'`)) b.classList.add('active');
   });
-  if (id === 'dashboard')   { renderDashboard(); setTimeout(() => airportMap && airportMap.invalidateSize(), 60); }
+  const moreBtn = $('nav-more-btn');
+  if (moreBtn) moreBtn.classList.toggle('has-active', NAV_DROPDOWN_IDS.includes(id));
+  if (id === 'dashboard')   { renderDashboard(); }
   if (id === 'loggbok')     renderLogbook();
   if (id === 'ny-flygning') resetForm();
   if (id === 'cpl-atpl')    renderCPLATPL();
   if (id === 'importera')   { clearImport(); initBaselineForm(); }
   if (id === 'rapport')     renderRapport();
 }
+
+// ── Nav dropdown menu ──────────────────────────────────────────────────────
+function toggleNavMenu() {
+  const dd = $('nav-dropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+function closeNavMenu() {
+  $('nav-dropdown').style.display = 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-more-wrap')) closeNavMenu();
+});
 
 // ── Chart data helpers ─────────────────────────────────────────────────────
 function weeklyHoursData() {
@@ -959,15 +1027,26 @@ let chartMonth = null, chartYear = null;
 
 function chartOpts() {
   const s = getComputedStyle(document.documentElement);
-  const grid = s.getPropertyValue('--chart-grid').trim() || 'rgba(0,0,0,.06)';
+  const grid = s.getPropertyValue('--chart-grid').trim() || 'rgba(0,0,0,.04)';
   const tick = s.getPropertyValue('--chart-tick').trim() || '#6b7280';
+  const fontOpts = { family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 11, weight: '400' };
   return {
     responsive: true,
     maintainAspectRatio: true,
     plugins: { legend: { display: false }, tooltip: { callbacks: {} } },
+    layout: { padding: { top: 4, right: 4, bottom: 0, left: 0 } },
     scales: {
-      x: { grid: { color: grid }, ticks: { font: { size: 11 }, color: tick } },
-      y: { beginAtZero: true, grid: { color: grid }, ticks: { font: { size: 11 }, color: tick } }
+      x: {
+        grid: { color: grid, drawBorder: false, tickLength: 0 },
+        ticks: { font: fontOpts, color: tick, padding: 8 },
+        border: { display: false }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: grid, drawBorder: false, tickLength: 0 },
+        ticks: { font: fontOpts, color: tick, padding: 8 },
+        border: { display: false }
+      }
     }
   };
 }
@@ -980,20 +1059,23 @@ function drawCharts() {
 
   const cs = getComputedStyle(document.documentElement);
   const c1    = cs.getPropertyValue('--chart-line1').trim();
-  const c2    = cs.getPropertyValue('--chart-line2').trim();
+  const c2    = cs.getPropertyValue('--red').trim();
   const f1    = parseFloat(cs.getPropertyValue('--chart-fill1').trim()) || .15;
-  const f2    = parseFloat(cs.getPropertyValue('--chart-fill2').trim()) || .07;
+  const f2    = parseFloat(cs.getPropertyValue('--chart-fill2').trim()) || .05;
   const tick  = cs.getPropertyValue('--chart-tick').trim();
   const blue  = cs.getPropertyValue('--blue-l').trim();
 
   const CO = chartOpts();
-  const legendOpts = { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 24, color: cs.getPropertyValue('--text').trim() } };
-  const lineDataset = (label, data, color, alpha, dashed) => ({
+  const interFont = { family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
+  const legendOpts = { display: true, position: 'top', labels: { font: { ...interFont, size: 11, weight: '400' }, boxWidth: 20, boxHeight: 2, padding: 16, color: cs.getPropertyValue('--text').trim() } };
+  const lineDataset = (label, data, color, alpha, dashed, noFill = false) => ({
     label, data,
-    borderColor: color, backgroundColor: color.replace(')', `,${alpha})`).replace('rgb','rgba'),
-    tension: 0.4, fill: true, borderWidth: 2.5, spanGaps: false,
-    borderDash: dashed ? [6, 3] : [],
-    pointBackgroundColor: color, pointRadius: 3, pointHoverRadius: 4.5,
+    borderColor: color, backgroundColor: noFill ? 'transparent' : color.replace(')', `,${alpha})`).replace('rgb','rgba'),
+    tension: 0.45, fill: !noFill, borderWidth: 1.5, spanGaps: false,
+    borderDash: dashed ? [5, 4] : [],
+    borderCapStyle: 'round', borderJoinStyle: 'round',
+    pointBackgroundColor: color, pointBorderColor: 'transparent',
+    pointRadius: 2.5, pointHoverRadius: 4, pointHoverBorderWidth: 0,
   });
 
   const wm = weeklyHoursData();
@@ -1001,13 +1083,13 @@ function drawCharts() {
     type: 'line',
     data: { labels: wm.labels, datasets: [
       lineDataset('Innevarande månad', wm.current,  c1, f1, false),
-      lineDataset('Föregående månad',  wm.previous, c2, f2, true),
+      lineDataset('Föregående månad',  wm.previous, c2, f2, false, true),
     ]},
     options: { ...CO,
       plugins: { ...CO.plugins, legend: legendOpts },
       scales: {
-        x: { ...CO.scales.x, title: { display: true, text: wm.monthName, font: { size: 12, weight: '700' }, color: blue } },
-        y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { size: 11 }, color: tick } }
+        x: { ...CO.scales.x, title: { display: true, text: wm.monthName, font: { family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 11, weight: '600' }, color: blue } },
+        y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 10, weight: '400' }, color: tick } }
       }
     }
   });
@@ -1017,11 +1099,11 @@ function drawCharts() {
     type: 'line',
     data: { labels: mh.labels, datasets: [
       lineDataset('Innevarande år',  mh.current,  c1, f1, false),
-      lineDataset('Föregående år',   mh.previous, c2, f2, true),
+      lineDataset('Föregående år',   mh.previous, c2, f2, false, true),
     ]},
     options: { ...CO,
       plugins: { ...CO.plugins, legend: legendOpts },
-      scales: { ...CO.scales, y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { size: 11 }, color: tick } } }
+      scales: { ...CO.scales, y: { ...CO.scales.y, title: { display: true, text: 'Ackumulerade timmar', font: { family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 10, weight: '400' }, color: tick } } }
     }
   });
 }
@@ -1227,20 +1309,17 @@ const AIRPORT_DB = {
   EPKK: { name: 'Kraków',                   lat: 50.0778, lon: 19.7847 },
 };
 
-const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="32" viewBox="0 0 22 32" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><path d="M11 1C5.5 1 1 5.5 1 11c0 7.8 10 20 10 20S21 18.8 21 11C21 5.5 16.5 1 11 1z" fill="#1565c0" stroke="white" stroke-width="1.5"/><circle cx="11" cy="11" r="4" fill="white"/></svg>`;
-
-const PIN_ICON = typeof L !== 'undefined' ? L.divIcon({
-  className: '',
-  html: PIN_SVG,
-  iconSize: [22, 32],
-  iconAnchor: [11, 32],
-  popupAnchor: [0, -30],
-}) : null;
+function makePinIcon(fill) {
+  if (typeof L === 'undefined') return null;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="32" viewBox="0 0 22 32" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))"><path d="M11 1C5.5 1 1 5.5 1 11c0 7.8 10 20 10 20S21 18.8 21 11C21 5.5 16.5 1 11 1z" fill="${fill}" stroke="white" stroke-width="1.5"/><circle cx="11" cy="11" r="4" fill="white"/></svg>`;
+  return L.divIcon({ className: '', html: svg, iconSize: [22, 32], iconAnchor: [11, 32], popupAnchor: [0, -30] });
+}
+const PIN_ICON = makePinIcon('#1565c0');
 
 let airportMap = null, airportMarkerLayer = null;
 
 function renderAirportMap() {
-  if (!$('airport-map') || typeof L === 'undefined') return;
+  if (typeof L === 'undefined') return;
 
   const entries = load();
 
@@ -1260,8 +1339,26 @@ function renderAirportMap() {
   const visitedKnown = Object.keys(visitCounts).filter(k => AIRPORT_DB[k]);
   const total = visitedKnown.length;
 
+  // Find the newest "new" airport: last flight (by date) whose destination was a first-ever visit
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const seen = new Set();
+  let newestNew = null;
+  for (const e of sorted) {
+    const arr = !e.arrIsTillfällig && e.arrICAO ? e.arrICAO.toUpperCase() : null;
+    const tng = (e.touchAndGo || []).map(k => k.toUpperCase());
+    const newOnes = [...(arr ? [arr] : []), ...tng].filter(k => AIRPORT_DB[k] && !seen.has(k));
+    newOnes.forEach(k => seen.add(k));
+    if (newOnes.length) newestNew = newOnes[newOnes.length - 1];
+  }
+
+  // Update widget counter
+  const countEl = $('map-widget-count');
+  if (countEl) countEl.textContent = total || '—';
+
   const titleEl = $('map-card-title');
   if (titleEl) titleEl.textContent = `Besökta flygplatser${total ? ' · ' + total + ' unika' : ''}`;
+
+  if (!$('airport-map')) return;
 
   // Init map once
   if (!airportMap) {
@@ -1274,15 +1371,33 @@ function renderAirportMap() {
     airportMarkerLayer = L.layerGroup().addTo(airportMap);
   }
 
+  const iconRed  = makePinIcon('#1565c0');
+  const iconGold = makePinIcon('#f0a500');
+
   airportMarkerLayer.clearLayers();
 
   visitedKnown.forEach(icao => {
-    const ap = AIRPORT_DB[icao];
-    const n  = visitCounts[icao];
-    L.marker([ap.lat, ap.lon], { icon: PIN_ICON })
-      .bindPopup(`<strong>${icao}</strong><br>${ap.name}<br><span style="color:#6b7280">${n} besök</span>`)
+    const ap   = AIRPORT_DB[icao];
+    const n    = visitCounts[icao];
+    const isNew = icao === newestNew;
+    const label = isNew ? ' <span style="color:#f0a500;font-weight:600">★ Ny!</span>' : '';
+    L.marker([ap.lat, ap.lon], { icon: isNew ? iconGold : iconRed, zIndexOffset: isNew ? 1000 : 0 })
+      .bindPopup(`<strong>${icao}</strong>${label}<br>${ap.name}<br><span style="color:#6b7280">${n} besök</span>`)
       .addTo(airportMarkerLayer);
   });
+}
+
+function openMapModal() {
+  const overlay = $('map-modal-overlay');
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  renderAirportMap();
+  setTimeout(() => airportMap && airportMap.invalidateSize(), 100);
+}
+
+function closeMapModal() {
+  $('map-modal-overlay').style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 // ── Widget system ──────────────────────────────────────────────────────────
@@ -1406,7 +1521,11 @@ function renderDashboard() {
       <div class="stat-value">${val}</div>
       <div class="stat-sub">${sub}</div>
     </div>`;
-  }).join('');
+  }).join('') + `<div class="stat-card map-widget-card" onclick="openMapModal()" title="Visa karta">
+      <div class="stat-label">Flygplatser</div>
+      <div class="stat-value" id="map-widget-count">✈</div>
+      <div class="stat-sub">tryck för karta</div>
+    </div>`;
 
   drawCharts();
 
