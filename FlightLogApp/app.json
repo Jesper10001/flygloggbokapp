@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "FlightLog Pro",
+    "slug": "flightlog-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "flightlogpro",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0F1E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.flightlogpro.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
+        "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0F1E"
+      },
+      "package": "com.flightlogpro.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kameran används för OCR-skanning av loggböcker."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
