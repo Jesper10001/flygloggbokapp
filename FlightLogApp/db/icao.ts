@@ -54,6 +54,7 @@ const SEED_AIRPORTS: [string, string, string, string, number, number][] = [
   ['ESQO', 'Arboga',                   'Sweden', 'ES', 59.3978, 15.9245],
   ['ESKV', 'Arvika',                   'Sweden', 'ES', 59.6742, 12.5981],
   ['ESUB', 'Uppsala / Ärna',           'Sweden', 'ES', 59.8981, 17.5886],
+  ['ESCM', 'Ärna Air Base (F16)',       'Sweden', 'ES', 59.8973, 17.5886],
   // ── Sverige — Norra ──────────────────────────────────────────────────────
   ['ESPA', 'Luleå / Kallax',           'Sweden', 'ES', 65.5438, 22.1220],
   ['ESNU', 'Umeå',                     'Sweden', 'ES', 63.7918, 20.2828],
@@ -268,6 +269,15 @@ export async function deleteCustomAirport(icao: string): Promise<void> {
   await db.runAsync(
     'DELETE FROM icao_airports WHERE icao=? AND custom=1',
     [icao.toUpperCase()]
+  );
+}
+
+export async function addTemporaryPlace(icao: string, name: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, custom, temporary)
+     VALUES (?, ?, '', '', 0, 0, 0, 1)`,
+    [icao.toUpperCase(), name || icao.toUpperCase()]
   );
 }
 

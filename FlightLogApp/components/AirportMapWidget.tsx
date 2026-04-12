@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, StyleSheet, FlatList,
+  View, Text, TouchableOpacity, Modal, StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { getVisitedAirportIcaos } from '../db/flights';
@@ -71,15 +71,12 @@ window.onload = function() {
   });
 
   var layers = {
-    'Standard':   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap'}),
-    'Ljus':       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Mörk':       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Mörk (ren)': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter_nolabels/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Satellit':   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19,attribution:'© Esri'}),
-    'Terrängkarta':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
+    'Mörk':      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
+    'Satellit':  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19,attribution:'© Esri'}),
+    'Terrängkarta': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
   };
 
-  var activeKey = 'Standard';
+  var activeKey = 'Mörk';
   layers[activeKey].addTo(map);
 
   // Bygg knappar
@@ -106,9 +103,10 @@ window.onload = function() {
 }
 
 export function AirportMapWidget() {
-  const [airports, setAirports] = useState<AirportPoint[]>([]); // med koordinater (för karta)
-  const [allIcaos, setAllIcaos] = useState<string[]>([]); // alla besökta ICAO-koder (för chips)
+  const [airports, setAirports] = useState<AirportPoint[]>([]);
+  const [allIcaos, setAllIcaos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -164,18 +162,8 @@ export function AirportMapWidget() {
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              Besökta flygplatser ({airports.length})
-            </Text>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.modal}>
+          {/* Karta tar hela skärmen */}
           <WebView
             style={styles.webview}
             source={{ html: buildMapHtml(airports), baseUrl: 'https://tile.openstreetmap.org' }}
@@ -185,7 +173,15 @@ export function AirportMapWidget() {
             mixedContentMode="always"
             cacheEnabled={false}
           />
-        </SafeAreaView>
+          {/* Stäng-knapp som overlay i övre högra hörnet, under statusbar */}
+          <TouchableOpacity
+            style={[styles.closeBtn, { top: insets.top + 12 }]}
+            onPress={() => setModalVisible(false)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </Modal>
     </>
   );
@@ -249,25 +245,21 @@ const styles = StyleSheet.create({
 
   modal: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  modalTitle: {
-    color: Colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
+    backgroundColor: '#000',
   },
   webview: {
     flex: 1,
-    backgroundColor: Colors.background,
+  },
+  closeBtn: {
+    position: 'absolute',
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
 });

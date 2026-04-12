@@ -1,45 +1,43 @@
 export const Colors = {
   // Bakgrunder
-  background: '#0A0F1E',
-  surface: '#111827',
-  card: '#1A2235',
-  cardBorder: '#2A3550',
-  elevated: '#1E2D45',
+  background: '#0A1628',
+  surface: '#0F1E3A',
+  card: '#0F1E3A',
+  cardBorder: '#1A3A5A',
+  elevated: '#152338',
 
-  // Primärfärger
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
+  // Primär cyan-accent (logofärgen)
+  primary: '#00C8E8',
+  primaryLight: '#33D4ED',
+  primaryDark: '#00A8C8',
 
-  // Accent
-  accent: '#10B981',
-  accentLight: '#34D399',
-
-  // Varning / Granskning
-  warning: '#F59E0B',
-  warningLight: '#FCD34D',
-  danger: '#EF4444',
-  dangerLight: '#FCA5A5',
-
-  // Text
-  textPrimary: '#F9FAFB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  textInverse: '#0A0F1E',
-
-  // Gräns / Separator
-  border: '#2A3550',
-  separator: '#1F2B42',
+  // Accent (behålls för bakåtkompatibilitet, pekar på cyan)
+  accent: '#00C8E8',
+  accentLight: '#33D4ED',
 
   // Status
-  success: '#10B981',
-  info: '#3B82F6',
+  success: '#00E8A0',
+  warning: '#FFB830',
+  warningLight: '#FFD080',
+  danger: '#FF4D6A',
+  dangerLight: '#FF8099',
+  info: '#00C8E8',
 
-  // Premium
-  gold: '#F59E0B',
-  goldLight: '#FCD34D',
+  // Text
+  textPrimary: '#FFFFFF',
+  textSecondary: '#7FA8C8',
+  textMuted: '#3A5A7A',
+  textInverse: '#0A1628',
 
-  // Ikoner
-  tabIconDefault: '#4B5563',
-  tabIconActive: '#3B82F6',
+  // Gräns / Separator
+  border: '#1A3A5A',
+  separator: '#122030',
+
+  // Premium / Gold
+  gold: '#FFB830',
+  goldLight: '#FFD080',
+
+  // Tab-ikoner
+  tabIconDefault: '#3A5A7A',
+  tabIconActive: '#00C8E8',
 } as const;

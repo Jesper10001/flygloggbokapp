@@ -118,7 +118,7 @@ export default function SettingsScreen() {
               <Ionicons name="star" size={20} color={Colors.textInverse} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.premiumTitle}>FlightLog Pro Premium</Text>
+              <Text style={styles.premiumTitle}>Tailwind Premium</Text>
               <Text style={styles.premiumSub}>Obegränsat · OCR · PDF · EASA-krav</Text>
               <Text style={styles.premiumPrice}>~$3–5/månad · ~$30/år</Text>
             </View>
@@ -187,8 +187,14 @@ export default function SettingsScreen() {
         <SettingsRow
           icon="cloud-upload"
           label="Importera från annan app"
-          sub="ForeFlight, LogTen Pro, MyFlightbook m.fl. — alltid gratis"
+          sub="ForeFlight, LogTen Pro, MyFlightbook m.fl."
           onPress={() => router.push('/import')}
+        />
+        <SettingsRow
+          icon="create-outline"
+          label="Registrera erfarenhet manuellt"
+          sub="Fyll i dina timmar per år — alltid gratis"
+          onPress={() => router.push('/import/manual')}
         />
       </View>
 
@@ -244,7 +250,7 @@ export default function SettingsScreen() {
       {/* Om appen */}
       <Text style={styles.sectionTitle}>Om appen</Text>
       <View style={styles.card}>
-        <SettingsRow icon="information-circle" label="FlightLog Pro" sub="Version 1.0.0 · EASA FCL.050" />
+        <SettingsRow icon="information-circle" label="Tailwind" sub="Version 1.0.0 · EASA FCL.050" />
         <SettingsRow icon="shield-checkmark" label="Lokal datalagring" sub="All data på din enhet — ingenting i molnet utan din tillåtelse" />
         <SettingsRow
           icon="mail"

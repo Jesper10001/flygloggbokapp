@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "FlightLog Pro",
-    "slug": "flightlog-pro",
+    "name": "Tailwind",
+    "slug": "tailwind-logbook",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "flightlogpro",
+    "scheme": "tailwind",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0F1E"
+      "backgroundColor": "#0A1628"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.flightlogpro.app",
+      "bundleIdentifier": "com.tailwind.logbook",
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
         "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning."
@@ -25,7 +25,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0F1E"
       },
-      "package": "com.flightlogpro.app"
+      "package": "com.tailwind.logbook"
     },
     "web": {
       "bundler": "metro",

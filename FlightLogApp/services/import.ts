@@ -26,6 +26,9 @@ Använd dessa mönster för att identifiera kolumner även när rubriknamnet är
 
   DATUM-kolumn: värden som "2024-03-15", "15.03.2024", "03/15/2024"
   TID-kolumn (flygtid): värden som "1:30", "2.5", "0.8", "1,5" — decimaler eller HH:MM. Aldrig tomma strängar eller namn.
+  BOOLESK FLAGGA (1/0): kolumner med ENBART värdena 0 och 1 där kolumnnamnet matchar ett tidsfält (t.ex. PIC, IFR, Night, Dual).
+    → Mappa dem ÄNDÅ till rätt internt fält. Appen konverterar 1 → total_time och 0 → 0 automatiskt.
+    → Skippa dem INTE bara för att värdena är 0/1 istället för decimaltimmar.
   ICAO-kolumn: 4-bokstavskoder med versaler, t.ex. "ESSA", "EKCH", "ENGM", "EDDF". Ibland blandat med tomma värden.
   REGISTRERING: mönster som "SE-XYZ", "LN-ABC", "OY-123", "D-ABCD"
   LANDNINGAR: heltal, oftast 0 eller 1 per rad
@@ -45,12 +48,15 @@ Använd dessa mönster för att identifiera kolumner även när rubriknamnet är
   co_pilot       — co-pilot/SIC-tid (timvärde, ej namn). Rubriker: "SIC", "P2", "Co-Pilot", "Copilot Time"
                    OBS: Om det finns BÅDE tidkolumn och namnkolumn för andrepilot — mappa BARA tidkolumnen till co_pilot
   second_pilot   — andrepilotens namn/beteckning (fritext). Rubriker: "2ndPilot", "SIC Name", "Co-Pilot Name", "P2 Name", "Andrepilot", "Second Pilot", "Crew"
-  dual           — elevtid/dual. Rubriker: "Dual", "Student", "Elev", "Schüler", "Dual Received"
+  dual           — elevtid/dual received. Rubriker: "Dual", "Dual Received", "Student", "Elev", "Schüler"
+  instructor     — instruktörstid (given dual instruction). Rubriker: "Instructor", "Dual Given", "Instr", "INST", "Dual Instr", "Instructor Time"
+  multi_pilot    — flerpilottid (multi-crew operations). Rubriker: "Multi Pilot", "Multi-Pilot", "MP", "Multi Crew", "MCC"
+  single_pilot   — enpilottid. Rubriker: "Single Pilot", "SP", "Single Engine"
   ifr            — IFR-tid. Rubriker: "IFR", "Instrument", "Actual Instrument", "Simulated Instrument"
   night          — natttid. Rubriker: "Night", "Natt", "Nacht", "Night Time"
   flight_rules   — flygregler. Rubriker: "Flight Rules", "IFR/VFR", "Rule", "FPL Type". Värden normaliseras till "IFR" eller "VFR"
-  landings_day   — daglandningar (heltal). Rubriker: "Day Ldg", "Day Land", "Dag ldg", "LDG Day", "TO/LDG Day"
-  landings_night — nattlandningar (heltal). Rubriker: "Night Ldg", "Natt ldg", "LDG Night"
+  landings_day   — daglandningar (heltal). Rubriker: "Day Ldg", "Day Land", "Dag ldg", "LDG Day", "TO/LDG Day", "Ldgs", "LDG", "Landings"
+  landings_night — nattlandningar (heltal). Rubriker: "Night Ldg", "Natt ldg", "LDG Night", "Nldgs", "Night LDG", "Night Landings"
   remarks        — anmärkningar/fri text. Rubriker: "Remarks", "Comments", "Notes", "Anmärkningar", "Bemerkungen"
 
 ── STRATEGI ────────────────────────────────────────────────────────────────
@@ -58,6 +64,16 @@ Använd dessa mönster för att identifiera kolumner även när rubriknamnet är
 2. Om rubriknamnet är oklart — låt datamönstret avgöra (t.ex. om värden ser ut som flygtider → mappa till rätt tidsfält)
 3. Om samma datatyp verkar finnas i flera kolumner (t.ex. två tidkolumner) — välj den som innehåller mer data / är mer fullständig
 4. En namnkolumn (med text som "Svensson, Lars") ska ALDRIG mappas till ett tidsfält
+
+── EFLIGHTBOOK-SPECIFIKT ────────────────────────────────────────────────────
+Om du identifierar formatet som eFlightbook (kolumner: FlightDate, Depart, STime, Dest, DTime, FlTime, AcReg, AcType, Ldgs, NLdgs, IFR, MaxFL, PIC, 2ndPilot, Client, Remarks):
+  "PIC" med värden 0/1           → mappa till pic          (boolesk: 1 = PIC hela flygningen, 0 = copilot)
+  "IFR" med värden 0/1 ELLER HH:MM → mappa till ifr       (0/1: boolesk flagga. HH:MM: faktisk tid. Mappa alltid oavsett format.)
+  "Ldgs"                         → mappa till landings_day
+  "NLdgs"                        → mappa till landings_night
+  "FlTime" med decimaltimmar     → mappa till total_time
+  "2ndPilot"                     → mappa till second_pilot
+  KRITISKT: Mappa ALLTID IFR-kolumnen till ifr — aldrig till remarks eller flight_rules.
 
 ── REGLER ──────────────────────────────────────────────────────────────────
 - date_format: "MM/DD/YYYY", "DD.MM.YYYY", "YYYY-MM-DD", eller "DD/MM/YYYY"
@@ -138,7 +154,7 @@ function convertDate(value: string, format: string): string {
 
 function convertTime(value: string, _format: string): string {
   const v = value.trim();
-  if (!v || v === '0' || v === '0.0' || v === '0:00') return '0';
+  if (!v || v === '0' || v === '0.0' || v === '0:00' || v === '0,0') return '0';
   // Säkerhetsnät: om värdet ser ut som ett namn (bokstäver utan siffror) → 0
   if (/[a-zA-ZåäöÅÄÖ]/.test(v) && !/\d/.test(v)) return '0';
   // Auto-detektera HH:MM oavsett vad Claude angav som format
@@ -146,6 +162,8 @@ function convertTime(value: string, _format: string): string {
     const [h, m] = v.split(':').map(Number);
     if (!isNaN(h)) return String(Math.round((h + (m || 0) / 60) * 100) / 100);
   }
+  // Hantera komma som decimalseparator (t.ex. "1,5" → 1.5)
+  if (v.includes(',') && !v.includes('.')) return v.replace(',', '.');
   return v;
 }
 
@@ -157,7 +175,7 @@ function convertInt(value: string): string {
 }
 
 // Fält som ska konverteras som flygtid (decimal/HH:MM)
-const TIME_FIELDS = new Set(['total_time','ifr','night','pic','co_pilot','dual']);
+const TIME_FIELDS = new Set(['total_time','ifr','night','pic','co_pilot','dual','instructor','multi_pilot','single_pilot']);
 const INT_FIELDS  = new Set(['landings_day','landings_night']);
 
 function normalize(s: string): string {
@@ -200,16 +218,19 @@ function mapRow(
     dep_place: '', dep_utc: '', arr_place: '', arr_utc: '',
     total_time: '0', ifr: '0', night: '0',
     pic: '0', co_pilot: '0', dual: '0',
+    instructor: '0', multi_pilot: '0', single_pilot: '0',
     landings_day: '0', landings_night: '0', remarks: '',
     second_pilot: '', flight_rules: 'VFR',
     needs_review: false, review_reason: undefined,
   };
 
-  // Spåra vilka CSV-kolumner som mappas till ett internt fält
+  // Spåra vilka CSV-kolumner och interna fält som mappas
   const mappedCsvCols = new Set<string>();
+  const mappedInternalFields = new Set<string>();
 
   for (const [csvCol, internalField] of Object.entries(colMap)) {
     mappedCsvCols.add(normalize(csvCol));
+    mappedInternalFields.add(internalField);
     const val = findValue(normIndex, csvCol);
     if (internalField === 'date') {
       out.date = convertDate(val, dateFormat);
@@ -221,22 +242,60 @@ function mapRow(
       out[internalField] = val.toUpperCase().trim();
     } else if (internalField === 'flight_rules') {
       const fr = val.trim().toUpperCase();
-      out.flight_rules = fr.includes('IFR') ? 'IFR' : 'VFR';
+      // Stöd för booleska flaggor: '1' = IFR, '0' = VFR
+      if (fr === '1') out.flight_rules = 'IFR';
+      else if (fr === '0') out.flight_rules = 'VFR';
+      else out.flight_rules = fr.includes('IFR') ? 'IFR' : 'VFR';
     } else {
       out[internalField] = val;
     }
   }
 
-  // ── Omappade kolumner → lägg till i remarks ──────────────────────────────
-  // Säkerställer att ingen data tappas bort vid import
+  // ── Omappade kolumner → räddningsförsök + remarks ───────────────────────
+  // Kolumner Claude missade mappas ändå om namn matchar kända tidsfält.
+  const RESCUE_MAP: Record<string, string> = {
+    ifr: 'ifr', ifrtime: 'ifr', instrument: 'ifr',
+    night: 'night', nighttime: 'night', natt: 'night',
+    nvg: 'nvg',
+    pic: 'pic', p1: 'pic',
+    copilot: 'co_pilot', sic: 'co_pilot', p2: 'co_pilot',
+    dual: 'dual', dualreceived: 'dual',
+    instructor: 'instructor', dualgiven: 'instructor',
+    multipilot: 'multi_pilot', mp: 'multi_pilot',
+    singlepilot: 'single_pilot', sp: 'single_pilot',
+  };
+
+  // Räddning för textfält som Claude kan missa
+  const TEXT_RESCUE_MAP: Record<string, string> = {
+    secondpilot: 'second_pilot', '2ndpilot': 'second_pilot',
+    copilotname: 'second_pilot', sicname: 'second_pilot',
+    p2name: 'second_pilot', p2pilot: 'second_pilot',
+    andrepilot: 'second_pilot', crew: 'second_pilot',
+    secondpilotname: 'second_pilot', crewname: 'second_pilot',
+  };
+
   const extraParts: string[] = [];
   headers.forEach((header, i) => {
     const normHeader = normalize(header);
-    // Hoppa över: redan mappade, systemkolumner, och kolumner utan värde
     if (mappedCsvCols.has(normHeader)) return;
     if (SKIP_COLUMNS.has(normHeader)) return;
     const val = (fields[i] ?? '').trim();
     if (!val || val === '(null)' || val.toLowerCase() === 'null' || val === '0' || val === '0.0') return;
+
+    // Försök rädda känt tidsfält som Claude missade
+    const rescued = RESCUE_MAP[normHeader];
+    if (rescued && TIME_FIELDS.has(rescued)) {
+      out[rescued] = convertTime(val, 'decimal');
+      return;
+    }
+
+    // Försök rädda textfält (t.ex. second_pilot) som Claude missade
+    const rescuedText = TEXT_RESCUE_MAP[normHeader];
+    if (rescuedText) {
+      if (!out[rescuedText]) out[rescuedText] = val; // behåll befintligt värde om redan satt
+      return;
+    }
+
     extraParts.push(`${header}: ${val}`);
   });
 
@@ -245,8 +304,45 @@ function mapRow(
     out.remarks = out.remarks ? `${out.remarks} | ${extra}` : extra;
   }
 
-  // Hoppa bara över rader som saknar datum, flygtid OCH flygplatser
   const totalParsed = parseFloat(out.total_time);
+
+  // ── Booleska flaggfält: 1 = hela passet i denna roll, 0 = inte alls ────────
+  // Gäller fält som Claude mappade som boolean (0 eller 1, ej HH:MM-konverterat).
+  // IFR behandlas separat eftersom eFlightbook har faktiska tider (ej boolean).
+  if (out.pic === '1') out.pic = out.total_time;
+  if (out.co_pilot === '1') out.co_pilot = out.total_time;
+  if (out.dual === '1') out.dual = out.total_time;
+  if (out.night === '1') out.night = out.total_time;
+  // IFR boolean: värde '1' = hela passet flögs IFR → ifr = total_time.
+  // (eFlightbook och liknande exporterar IFR som 0/1-flagga, inte timmar)
+  if (out.ifr === '1') {
+    out.ifr = out.total_time;
+    out.flight_rules = 'IFR';
+  }
+
+  // ── Härledd IFR-tid från flight_rules ─────────────────────────────────────
+  // Om Claude mappade IFR-kolumnen till flight_rules istället för ifr,
+  // eller om formatet bara har en flight_rules-kolumn utan separat IFR-tid.
+  if ((parseFloat(out.ifr) || 0) === 0 && out.flight_rules === 'IFR' && totalParsed > 0) {
+    out.ifr = out.total_time;
+  }
+
+  // ── Natttid från nattlandningar ───────────────────────────────────────────
+  // eFlightbook: Ldgs = daglandningar, Nldgs = nattlandningar.
+  // Om natttid inte är direkt angett men nattlandningar finns → hela flygtiden = natt.
+  const nightLandings = parseInt(out.landings_night) || 0;
+  if ((parseFloat(out.night) || 0) === 0 && nightLandings > 0 && totalParsed > 0) {
+    out.night = out.total_time;
+  }
+
+  // ── Standard-roll: co-pilot om PIC inte är angett ────────────────────────
+  const picVal = parseFloat(out.pic) || 0;
+  const copVal = parseFloat(out.co_pilot) || 0;
+  if (picVal === 0 && copVal === 0 && totalParsed > 0) {
+    out.co_pilot = out.total_time;
+  }
+
+  // Hoppa bara över rader som saknar datum, flygtid OCH flygplatser
   if (!out.date && !out.dep_place && !out.arr_place && (isNaN(totalParsed) || totalParsed === 0)) return null;
 
   return out as OcrFlightResult;

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { TailwindLogo } from '../../components/TailwindLogo';
 
 export default function TabsLayout() {
   return (
@@ -9,17 +10,18 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
-          borderTopWidth: 1,
+          borderTopWidth: 0.5,
           height: 84,
           paddingBottom: 28,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: Colors.tabIconActive,
+        tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.tabIconDefault,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
         headerStyle: { backgroundColor: Colors.surface },
         headerTintColor: Colors.textPrimary,
         headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
@@ -29,7 +31,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
-          headerTitle: 'FlightLog Pro',
+          headerTitle: () => <TailwindLogo size="small" showWordmark />,
+          headerTitleAlign: 'left',
         }}
       />
       <Tabs.Screen

@@ -48,6 +48,10 @@ function flightToForm(f: Flight): FlightFormData {
     landings_day: String(f.landings_day),
     landings_night: String(f.landings_night),
     remarks: f.remarks,
+    flight_type: f.flight_type ?? 'normal',
+    multi_pilot: String(f.multi_pilot ?? 0),
+    single_pilot: String(f.single_pilot ?? 0),
+    instructor: String(f.instructor ?? 0),
   };
 }
 
@@ -77,7 +81,15 @@ export default function FlightDetailScreen() {
     const next = { ...form, [key]: val };
     if ((key === 'dep_utc' || key === 'arr_utc') && isValidTime(next.dep_utc) && isValidTime(next.arr_utc)) {
       const t = calcFlightTime(next.dep_utc, next.arr_utc);
-      if (t > 0) next.total_time = String(t);
+      if (t > 0) {
+        next.total_time = String(t);
+        if (next.flight_rules === 'IFR') next.ifr = String(t);
+      }
+    }
+    if (key === 'total_time' && next.flight_rules === 'IFR') next.ifr = val;
+    if (key === 'flight_rules') {
+      if (val === 'IFR') next.ifr = next.total_time || '0';
+      else next.ifr = '0';
     }
     setForm(next);
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
@@ -204,6 +216,17 @@ export default function FlightDetailScreen() {
                 <FormField label="Dual" value={form.dual} onChangeText={(v) => set('dual', v)} placeholder="0" keyboardType="decimal-pad" />
               </View>
             </View>
+            <View style={styles.row3}>
+              <View style={{ flex: 1 }}>
+                <FormField label="Instruktör" value={form.instructor ?? '0'} onChangeText={(v) => set('instructor', v)} placeholder="0" keyboardType="decimal-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormField label="Multi-pilot" value={form.multi_pilot ?? '0'} onChangeText={(v) => set('multi_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormField label="Single pilot" value={form.single_pilot ?? '0'} onChangeText={(v) => set('single_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
+              </View>
+            </View>
             <FormField label="Natt" value={form.night} onChangeText={(v) => set('night', v)} placeholder="0" keyboardType="decimal-pad" />
 
             <Text style={styles.section}>Landningar</Text>
@@ -216,6 +239,25 @@ export default function FlightDetailScreen() {
               </View>
             </View>
             <FormField label="Anmärkningar" value={form.remarks} onChangeText={(v) => set('remarks', v)} placeholder="..." multiline numberOfLines={3} style={{ minHeight: 70, textAlignVertical: 'top' }} />
+
+            <Text style={styles.section}>Flygningstyp</Text>
+            <View style={styles.flightTypeRow}>
+              {(['normal', 'hot_refuel', 'sim'] as const).map((ft) => {
+                const labels = { normal: 'Normal', hot_refuel: 'Hot refuel', sim: 'FFS / Sim' };
+                const active = (form.flight_type ?? 'normal') === ft;
+                return (
+                  <TouchableOpacity
+                    key={ft}
+                    style={[styles.flightTypeBtn, active && styles.flightTypeBtnActive]}
+                    onPress={() => set('flight_type', ft)}
+                  >
+                    <Text style={[styles.flightTypeBtnText, active && styles.flightTypeBtnTextActive]}>
+                      {labels[ft]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
               {saving ? <ActivityIndicator color={Colors.textInverse} /> : (
@@ -239,10 +281,20 @@ export default function FlightDetailScreen() {
               <Detail label="PIC" value={`${flight.pic}h`} />
               <Detail label="Co-pilot" value={`${flight.co_pilot}h`} />
               <Detail label="Dual" value={`${flight.dual}h`} />
+              {(flight.instructor ?? 0) > 0 && <Detail label="Instruktör" value={`${flight.instructor}h`} />}
+              {(flight.multi_pilot ?? 0) > 0 && <Detail label="Multi-pilot" value={`${flight.multi_pilot}h`} />}
+              {(flight.single_pilot ?? 0) > 0 && <Detail label="Single pilot" value={`${flight.single_pilot}h`} />}
               <Detail label="IFR" value={`${flight.ifr}h`} />
               <Detail label="Natt" value={`${flight.night}h`} />
               <Detail label="Landningar dag" value={String(flight.landings_day)} />
               <Detail label="Landningar natt" value={String(flight.landings_night)} />
+              {flight.flight_type && flight.flight_type !== 'normal' && (
+                <Detail
+                  label="Flygningstyp"
+                  value={flight.flight_type === 'sim' ? 'FFS / Sim' : 'Hot refuel'}
+                  highlight={flight.flight_type === 'sim'}
+                />
+              )}
             </View>
             {flight.remarks ? (
               <View style={styles.remarksCard}>
@@ -332,6 +384,15 @@ const styles = StyleSheet.create({
   },
   remarksLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 6 },
   remarksText: { color: Colors.textPrimary, fontSize: 14, lineHeight: 20 },
+
+  flightTypeRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  flightTypeBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+    backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+  },
+  flightTypeBtnActive: { backgroundColor: Colors.primary + '22', borderColor: Colors.primary },
+  flightTypeBtnText: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
+  flightTypeBtnTextActive: { color: Colors.primary, fontWeight: '700' },
 
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

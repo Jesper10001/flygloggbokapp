@@ -94,6 +94,99 @@ Returnera ENBART ett JSON-objekt:
 
 Returnera BARA JSON, inga förklaringar.`;
 
+// ── Summera sida ─────────────────────────────────────────────────────────────
+
+const SUMMARIZE_PROMPT = `Du är expert på att läsa EASA-flygloggböcker. Din uppgift är att summera ALLA flygtider och landningar på sidan.
+
+Läs varje rad och addera kolumnerna. Returnera ENBART ett JSON-objekt med summorna för sidan:
+
+{
+  "total_time": 0.0,
+  "pic": 0.0,
+  "co_pilot": 0.0,
+  "dual": 0.0,
+  "instructor": 0.0,
+  "ifr": 0.0,
+  "night": 0.0,
+  "landings_day": 0,
+  "landings_night": 0,
+  "row_count": 0,
+  "note": ""
+}
+
+REGLER:
+- Summera BARA individuella flygningsrader — ta INTE med eventuella befintliga "Total this page"- eller "Brought forward"-rader längst ner, de ska räknas om.
+- Tider kan stå som decimal (1.5) eller HH:MM (1:30) — konvertera alltid till decimal.
+- row_count = antal flygningsrader du hittade.
+- note = kort kommentar om något är oklart eller svårläst (annars "").
+- Returnera BARA JSON, inga förklaringar.`;
+
+export interface PageSummary {
+  total_time: number;
+  pic: number;
+  co_pilot: number;
+  dual: number;
+  instructor: number;
+  ifr: number;
+  night: number;
+  landings_day: number;
+  landings_night: number;
+  row_count: number;
+  note: string;
+}
+
+export async function ocrSummarizePage(base64: string, mediaType: string): Promise<PageSummary> {
+  if (!API_KEY || API_KEY === 'your_api_key_here') {
+    throw new Error('Anthropic API-nyckel saknas. Ange den i .env-filen.');
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: SUMMARIZE_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: 'Summera alla flygtider och landningar på sidan.' },
+        ],
+      }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`API-fel ${response.status}: ${err}`);
+  }
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('Kunde inte tolka svaret. Försök med en tydligare bild.');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  return {
+    total_time:   Number(parsed.total_time)   || 0,
+    pic:          Number(parsed.pic)           || 0,
+    co_pilot:     Number(parsed.co_pilot)      || 0,
+    dual:         Number(parsed.dual)          || 0,
+    instructor:   Number(parsed.instructor)    || 0,
+    ifr:          Number(parsed.ifr)           || 0,
+    night:        Number(parsed.night)         || 0,
+    landings_day: Number(parsed.landings_day)  || 0,
+    landings_night: Number(parsed.landings_night) || 0,
+    row_count:    Number(parsed.row_count)     || 0,
+    note:         String(parsed.note ?? ''),
+  };
+}
+
 export async function ocrScanLogbook(_imageUri?: string): Promise<{
   flights: OcrFlightResult[];
   pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };

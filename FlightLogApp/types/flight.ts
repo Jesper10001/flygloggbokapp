@@ -27,6 +27,10 @@ export interface Flight {
   second_pilot: string;
   nvg: number;
   tng_count: number;
+  flight_type: 'normal' | 'sim' | 'hot_refuel' | 'summary';
+  multi_pilot: number;
+  single_pilot: number;
+  instructor: number;
 }
 
 export interface FlightFormData {
@@ -50,6 +54,10 @@ export interface FlightFormData {
   second_pilot?: string;
   nvg?: string;
   tng_count?: string;
+  flight_type?: 'normal' | 'sim' | 'hot_refuel' | 'summary';
+  multi_pilot?: string;
+  single_pilot?: string;
+  instructor?: string;
 }
 
 export interface IcaoAirport {
@@ -60,6 +68,7 @@ export interface IcaoAirport {
   lat: number;
   lon: number;
   custom?: boolean;
+  temporary?: number; // 1 = tillfällig landningsplats, ej på karta
 }
 
 export interface OcrFlightResult extends FlightFormData {
@@ -96,8 +105,22 @@ export interface FlightStats {
   total_dual: number;
   total_ifr: number;
   total_night: number;
+  total_sim: number;
   total_landings_day: number;
   total_landings_night: number;
   last_90_days: number;
   last_12_months: number;
+  best_week_hours: number;
+  best_week_label: string;
+  best_week_start: string;
+  best_week_last_flight_id: number | null;
+  longest_xc_hours: number;
+  longest_xc_km: number;
+  longest_xc_date: string;
+  longest_xc_first_dep: string;
+  longest_xc_last_arr: string;
+  longest_xc_id: number | null;
+  total_multi_pilot: number;
+  total_single_pilot: number;
+  total_instructor: number;
 }

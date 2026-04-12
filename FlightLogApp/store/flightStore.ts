@@ -30,24 +30,38 @@ const emptyStats: FlightStats = {
   total_dual: 0,
   total_ifr: 0,
   total_night: 0,
+  total_sim: 0,
   total_landings_day: 0,
   total_landings_night: 0,
   last_90_days: 0,
   last_12_months: 0,
+  best_week_hours: 0,
+  best_week_label: '',
+  best_week_start: '',
+  best_week_last_flight_id: null,
+  longest_xc_hours: 0,
+  longest_xc_km: 0,
+  longest_xc_date: '',
+  longest_xc_first_dep: '',
+  longest_xc_last_arr: '',
+  longest_xc_id: null,
+  total_multi_pilot: 0,
+  total_single_pilot: 0,
+  total_instructor: 0,
 };
 
 export const useFlightStore = create<FlightStore>((set, get) => ({
   flights: [],
   stats: null,
   flightCount: 0,
-  isPremium: false,
+  isPremium: true, // TODO: aktivera premiumlogik inför lansering
   isLoading: false,
 
   loadFlights: async () => {
     set({ isLoading: true });
     try {
       const [flights, count] = await Promise.all([
-        getFlights(100),
+        getFlights(10000),
         getFlightCount(),
       ]);
       set({ flights, flightCount: count });
@@ -61,7 +75,8 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
       const stats = await getFlightStats();
       const count = await getFlightCount();
       set({ stats, flightCount: count });
-    } catch {
+    } catch (e) {
+      console.error('[loadStats] getFlightStats kraschade:', e);
       set({ stats: emptyStats });
     }
   },

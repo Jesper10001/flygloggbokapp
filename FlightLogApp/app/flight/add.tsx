@@ -8,7 +8,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FormField } from '../../components/FormField';
 import { IcaoInput } from '../../components/IcaoInput';
-import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getFlights } from '../../db/flights';
+import { SmartTimeInput } from '../../components/SmartTimeInput';
+import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry } from '../../db/flights';
+import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
@@ -39,6 +41,9 @@ const EMPTY: FlightFormData = {
   second_pilot: '',
   nvg: '0',
   tng_count: '0',
+  multi_pilot: '0',
+  single_pilot: '0',
+  instructor: '0',
 };
 
 // ── Hjälpkomponenter ────────────────────────────────────────────────────────
@@ -126,18 +131,22 @@ export default function AddFlightScreen() {
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
   const [recentRegs, setRecentRegs] = useState<string[]>([]);
   const [recentPlaces, setRecentPlaces] = useState<string[]>([]);
+  const [showAircraftModal, setShowAircraftModal] = useState(false);
 
   useEffect(() => {
     Promise.all([
       getRecentAircraftTypes(),
-      getRecentRegistrations(),
       getRecentPlaces(),
       getFlights(1),
-    ]).then(([types, regs, places, flights]) => {
+    ]).then(([types, places, flights]) => {
       setRecentTypes(types);
-      setRecentRegs(regs);
       setRecentPlaces(places);
-      if (flights[0]) setLastFlight(flights[0]);
+      const last = flights[0] ?? null;
+      if (last) {
+        setLastFlight(last);
+        // Hämta registreringar bara för senaste flygets typ
+        getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
+      }
     });
   }, []);
 
@@ -160,6 +169,7 @@ export default function AddFlightScreen() {
   const set = (key: keyof FlightFormData, val: string) => {
     setForm((prev) => {
       const next = { ...prev, [key]: val };
+
       if (key === 'dep_utc' || key === 'arr_utc') {
         const dep = key === 'dep_utc' ? val : prev.dep_utc;
         const arr = key === 'arr_utc' ? val : prev.arr_utc;
@@ -169,13 +179,23 @@ export default function AddFlightScreen() {
             next.total_time = String(t);
             if (role === 'pic') next.pic = String(t);
             else next.co_pilot = String(t);
+            if (next.flight_rules === 'IFR') next.ifr = String(t);
           }
         }
       }
+
       if (key === 'total_time') {
         if (role === 'pic') next.pic = val;
         else next.co_pilot = val;
+        if (next.flight_rules === 'IFR') next.ifr = val;
       }
+
+      // När flygregler ändras: synka ifr med total_time eller nollställ
+      if (key === 'flight_rules') {
+        if (val === 'IFR') next.ifr = next.total_time || '0';
+        else next.ifr = '0';
+      }
+
       return next;
     });
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
@@ -244,15 +264,11 @@ export default function AddFlightScreen() {
   // Senaste typ (index 0 i recentTypes = senast flugna)
   const mostRecentType = recentTypes[0] ?? null;
 
-  // recentRegs är redan sorterade senast-flugna först (MAX(date) DESC från DB)
-  const recentTop3 = new Set(recentRegs.slice(0, 3));
-  const base = form.registration
+  // Alla individer för vald typ, i fallande ordning (senast flugna först)
+  // Filtrera på påbörjad inmatning om registrering redan är ifylld
+  const filteredRegs = form.registration
     ? recentRegs.filter((r) => r.startsWith(form.registration.toUpperCase()))
     : recentRegs;
-  const pinnedRegs = base.filter((r) => recentTop3.has(r)); // de 3 senaste, i ordning
-  const restRegs   = base.filter((r) => !recentTop3.has(r))
-                         .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const filteredRegs = [...pinnedRegs, ...restRegs];
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -291,6 +307,19 @@ export default function AddFlightScreen() {
               placeholder="YYYY-MM-DD"
               keyboardType="numbers-and-punctuation"
             />
+            {form.date === today && (
+              <TouchableOpacity
+                style={styles.yesterdayBtn}
+                onPress={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 1);
+                  set('date', d.toISOString().split('T')[0]);
+                }}
+              >
+                <Ionicons name="arrow-back" size={11} color={Colors.primary} />
+                <Text style={styles.yesterdayText}>Igår</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={{ flex: 1.4 }}>
             <FormField
@@ -301,19 +330,24 @@ export default function AddFlightScreen() {
               placeholder="C172"
               autoCapitalize="characters"
             />
-            {filteredTypes.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                {filteredTypes.map((t) => {
-                  const isRecent = t === mostRecentType;
-                  return (
-                    <TouchableOpacity key={t} style={[styles.chip, isRecent && styles.chipRecent]} onPress={() => onTypeSelect(t)}>
-                      {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
-                      <Text style={[styles.chipText, isRecent && styles.chipRecentText]}>{t}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+              {/* + Nytt luftfartyg */}
+              <TouchableOpacity
+                style={[styles.chip, styles.chipAdd]}
+                onPress={() => setShowAircraftModal(true)}
+              >
+                <Ionicons name="add" size={13} color={Colors.primary} />
+              </TouchableOpacity>
+              {filteredTypes.map((t) => {
+                const isRecent = t === mostRecentType;
+                return (
+                  <TouchableOpacity key={t} style={[styles.chip, isRecent && styles.chipRecent]} onPress={() => onTypeSelect(t)}>
+                    {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
+                    <Text style={[styles.chipText, isRecent && styles.chipRecentText]}>{t}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
 
@@ -325,23 +359,47 @@ export default function AddFlightScreen() {
           placeholder="SE-KXY"
           autoCapitalize="characters"
         />
-        {filteredRegs.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-            {filteredRegs.map((r) => {
-              const isRecent = recentTop3.has(r);
-              return (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.chip, isRecent && styles.chipRecent]}
-                  onPress={() => set('registration', r)}
-                >
-                  {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
-                  <Text style={[styles.chipText, isRecent && styles.chipRecentText]}>{r}</Text>
-                </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+          {/* + Ny individ */}
+          <TouchableOpacity
+            style={[styles.chip, styles.chipAdd]}
+            onPress={() => {
+              if (!form.aircraft_type) {
+                Alert.alert('Välj fartygstyp först', 'Ange en fartygstyp innan du lägger till en individ.');
+                return;
+              }
+              Alert.prompt(
+                'Nytt individnummer',
+                `Lägg till individ för ${form.aircraft_type}`,
+                async (reg) => {
+                  const r = reg?.trim().toUpperCase();
+                  if (!r) return;
+                  await addToAircraftRegistry(form.aircraft_type, r);
+                  const updated = await getRecentRegistrations(form.aircraft_type);
+                  setRecentRegs(updated);
+                  set('registration', r);
+                },
+                'plain-text',
+                '',
               );
-            })}
-          </ScrollView>
-        )}
+            }}
+          >
+            <Ionicons name="add" size={13} color={Colors.primary} />
+          </TouchableOpacity>
+          {filteredRegs.map((r, idx) => {
+            const isRecent = idx === 0;
+            return (
+              <TouchableOpacity
+                key={r}
+                style={[styles.chip, isRecent && styles.chipRecent]}
+                onPress={() => set('registration', r)}
+              >
+                {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
+                <Text style={[styles.chipText, isRecent && styles.chipRecentText]}>{r}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* ── Rutt ── */}
         <Text style={styles.section}>Rutt (UTC)</Text>
@@ -350,12 +408,20 @@ export default function AddFlightScreen() {
         <View style={styles.placeBlock}>
           <View style={styles.placeHeader}>
             <Text style={styles.placeLabel}>Avgång</Text>
-            <TouchableOpacity style={styles.customToggle} onPress={() => { setDepCustom(!depCustom); set('dep_place', ''); }}>
-              <Ionicons name={depCustom ? 'location' : 'location-outline'} size={13} color={depCustom ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.customToggleText, depCustom && { color: Colors.primary }]}>
-                {depCustom ? 'Tillfällig' : 'ICAO'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.locSegment}>
+              <TouchableOpacity
+                style={[styles.locSegmentBtn, !depCustom && styles.locSegmentBtnActive]}
+                onPress={() => { setDepCustom(false); set('dep_place', ''); }}
+              >
+                <Text style={[styles.locSegmentText, !depCustom && styles.locSegmentTextActive]}>ICAO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.locSegmentBtn, depCustom && styles.locSegmentBtnActive]}
+                onPress={() => { setDepCustom(true); set('dep_place', ''); }}
+              >
+                <Text style={[styles.locSegmentText, depCustom && styles.locSegmentTextActive]}>Tillfällig</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.row2}>
             <View style={{ flex: 2 }}>
@@ -365,9 +431,13 @@ export default function AddFlightScreen() {
                 <IcaoInput label="" value={form.dep_place} onChangeText={(v) => set('dep_place', v)} error={errors.dep_place} recentPlaces={top2places} />
               )}
             </View>
-            <View style={{ flex: 1 }}>
-              <FormField label="Tid" value={form.dep_utc} onChangeText={(v) => set('dep_utc', v)} error={errors.dep_utc} placeholder="08:30" keyboardType="numbers-and-punctuation" maxLength={5} />
-            </View>
+            <SmartTimeInput
+              label="Block-off"
+              value={form.dep_utc}
+              onChangeText={(v) => set('dep_utc', v)}
+              error={errors.dep_utc}
+              showNowBtn={false}
+            />
           </View>
         </View>
 
@@ -381,12 +451,20 @@ export default function AddFlightScreen() {
         <View style={styles.placeBlock}>
           <View style={styles.placeHeader}>
             <Text style={styles.placeLabel}>Ankomst</Text>
-            <TouchableOpacity style={styles.customToggle} onPress={() => { setArrCustom(!arrCustom); set('arr_place', ''); }}>
-              <Ionicons name={arrCustom ? 'location' : 'location-outline'} size={13} color={arrCustom ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.customToggleText, arrCustom && { color: Colors.primary }]}>
-                {arrCustom ? 'Tillfällig' : 'ICAO'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.locSegment}>
+              <TouchableOpacity
+                style={[styles.locSegmentBtn, !arrCustom && styles.locSegmentBtnActive]}
+                onPress={() => { setArrCustom(false); set('arr_place', ''); }}
+              >
+                <Text style={[styles.locSegmentText, !arrCustom && styles.locSegmentTextActive]}>ICAO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.locSegmentBtn, arrCustom && styles.locSegmentBtnActive]}
+                onPress={() => { setArrCustom(true); set('arr_place', ''); }}
+              >
+                <Text style={[styles.locSegmentText, arrCustom && styles.locSegmentTextActive]}>Tillfällig</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.row2}>
             <View style={{ flex: 2 }}>
@@ -396,9 +474,13 @@ export default function AddFlightScreen() {
                 <IcaoInput label="" value={form.arr_place} onChangeText={(v) => set('arr_place', v)} error={errors.arr_place} recentPlaces={top2places} />
               )}
             </View>
-            <View style={{ flex: 1 }}>
-              <FormField label="Tid" value={form.arr_utc} onChangeText={(v) => set('arr_utc', v)} error={errors.arr_utc} placeholder="10:00" keyboardType="numbers-and-punctuation" maxLength={5} />
-            </View>
+            <SmartTimeInput
+              label="Block-on"
+              value={form.arr_utc}
+              onChangeText={(v) => set('arr_utc', v)}
+              error={errors.arr_utc}
+              showNowBtn={true}
+            />
           </View>
         </View>
 
@@ -406,9 +488,38 @@ export default function AddFlightScreen() {
         <Text style={styles.section}>Flygtid</Text>
 
         <View style={styles.card}>
-          <View style={styles.row2}>
+          {/* Total flygtid — auto från block-off/block-on */}
+          <View style={styles.totalTimeRow}>
             <View style={{ flex: 1 }}>
-              <FormField label="Total flygtid" value={form.total_time} onChangeText={(v) => set('total_time', v)} error={errors.total_time} placeholder="1.5 eller 1:30" keyboardType="decimal-pad" hint="Auto från tider" />
+              <View style={styles.labelRow}>
+                <Text style={styles.cardFieldLabel}>Total flygtid</Text>
+                {form.dep_utc && form.arr_utc && isValidTime(form.dep_utc) && isValidTime(form.arr_utc) && (
+                  <View style={styles.autoBadge}>
+                    <Ionicons name="flash" size={9} color={Colors.primary} />
+                    <Text style={styles.autoBadgeText}>AUTO</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.totalTimeDisplay}>
+                <Text style={[
+                  styles.totalTimeValue,
+                  form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
+                ]}>
+                  {form.total_time
+                    ? `${parseFloat(form.total_time).toFixed(1)}h`
+                    : '—'}
+                </Text>
+                {form.total_time ? (
+                  <Text style={styles.totalTimeHhmm}>
+                    {(() => {
+                      const h = Math.floor(parseFloat(form.total_time));
+                      const m = Math.round((parseFloat(form.total_time) - h) * 60);
+                      return `${h}:${String(m).padStart(2, '0')}`;
+                    })()}
+                  </Text>
+                ) : null}
+              </View>
+              {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardFieldLabel}>Din roll</Text>
@@ -419,6 +530,18 @@ export default function AddFlightScreen() {
               />
             </View>
           </View>
+
+          {/* Manuell override om inga block-tider */}
+          {(!isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) && (
+            <FormField
+              label="Ange manuellt (om inga block-tider)"
+              value={form.total_time}
+              onChangeText={(v) => set('total_time', v)}
+              error={undefined}
+              placeholder="1.5 eller 1:30"
+              keyboardType="decimal-pad"
+            />
+          )}
 
           <Text style={styles.cardFieldLabel}>Flygregler</Text>
           <SegmentControl
@@ -441,7 +564,7 @@ export default function AddFlightScreen() {
         {/* ── Mer detaljer (expanderbart) ── */}
         <TouchableOpacity style={styles.extrasToggle} onPress={() => setShowExtras(!showExtras)} activeOpacity={0.7}>
           <Ionicons name={showExtras ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
-          <Text style={styles.extrasToggleText}>{showExtras ? 'Dölj detaljer' : 'Fler detaljer (IFR, natt, NVG, T&G…)'}</Text>
+          <Text style={styles.extrasToggleText}>{showExtras ? 'Dölj detaljer' : 'Fler detaljer (IFR, natt, multi-pilot, instruktör, NVG…)'}</Text>
         </TouchableOpacity>
 
         {showExtras && (
@@ -452,10 +575,21 @@ export default function AddFlightScreen() {
                   <FormField label="Dual" value={form.dual} onChangeText={(v) => set('dual', v)} placeholder="0" keyboardType="decimal-pad" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <FormField label="Natt" value={form.night} onChangeText={(v) => set('night', v)} placeholder="0" keyboardType="decimal-pad" />
+                  <FormField label="Instruktör" value={form.instructor ?? '0'} onChangeText={(v) => set('instructor', v)} placeholder="0" keyboardType="decimal-pad" />
                 </View>
                 <View style={{ flex: 1 }}>
+                  <FormField label="Natt" value={form.night} onChangeText={(v) => set('night', v)} placeholder="0" keyboardType="decimal-pad" />
+                </View>
+              </View>
+              <View style={styles.row3}>
+                <View style={{ flex: 1 }}>
                   <FormField label="IFR-tid" value={form.ifr} onChangeText={(v) => set('ifr', v)} placeholder="0" keyboardType="decimal-pad" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <FormField label="Multi-pilot" value={form.multi_pilot ?? '0'} onChangeText={(v) => set('multi_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <FormField label="Single pilot" value={form.single_pilot ?? '0'} onChangeText={(v) => set('single_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
                 </View>
               </View>
 
@@ -511,6 +645,18 @@ export default function AddFlightScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      <AircraftModal
+        visible={showAircraftModal}
+        onClose={() => setShowAircraftModal(false)}
+        onSave={async (type, speedKts, endH, crewType) => {
+          await addAircraftTypeToRegistry(type, speedKts, endH, crewType);
+          const updated = await getRecentAircraftTypes();
+          setRecentTypes(updated);
+          onTypeSelect(type);
+          setShowAircraftModal(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -550,6 +696,12 @@ const styles = StyleSheet.create({
     marginTop: 10, marginBottom: 2,
   },
 
+  yesterdayBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: 5, paddingHorizontal: 2,
+  },
+  yesterdayText: { color: Colors.primary, fontSize: 12, fontWeight: '600' },
+
   chipsRow: { marginTop: 4, marginBottom: 2 },
   chip: {
     flexDirection: 'row', alignItems: 'center',
@@ -561,6 +713,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold + '22',
     borderColor: Colors.gold + '88',
   },
+  chipAdd: {
+    borderColor: Colors.primary + '66',
+    backgroundColor: Colors.primary + '14',
+    paddingHorizontal: 10,
+  },
   chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
   chipRecentText: { color: Colors.gold, fontWeight: '700' },
 
@@ -568,13 +725,39 @@ const styles = StyleSheet.create({
   row3: { flexDirection: 'row', gap: 10 },
 
   card: {
-    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.cardBorder, gap: 10,
+    backgroundColor: Colors.card, borderRadius: 10, padding: 14,
+    borderWidth: 0.5, borderColor: Colors.border, gap: 10,
   },
   cardFieldLabel: {
-    color: Colors.textSecondary, fontSize: 11, fontWeight: '600',
-    textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2,
+    color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1, marginTop: 2, marginBottom: 4,
   },
+
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  autoBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: Colors.primary + '20',
+    borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1,
+    borderWidth: 0.5, borderColor: Colors.primary + '55',
+  },
+  autoBadgeText: { color: Colors.primary, fontSize: 8, fontWeight: '700', letterSpacing: 0.5 },
+
+  totalTimeRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  totalTimeDisplay: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 8,
+    paddingVertical: 8,
+  },
+  totalTimeValue: {
+    fontSize: 32, fontWeight: '800', fontFamily: 'Menlo',
+    fontVariant: ['tabular-nums'],
+  },
+  totalTimeValueFilled: { color: Colors.primary },
+  totalTimeValueEmpty: { color: Colors.textMuted },
+  totalTimeHhmm: {
+    color: Colors.textMuted, fontSize: 14, fontFamily: 'Menlo',
+    fontVariant: ['tabular-nums'],
+  },
+  errorInline: { color: Colors.danger, fontSize: 11, marginTop: 2 },
 
   placeBlock: {
     backgroundColor: Colors.card, borderRadius: 12, padding: 14,
@@ -582,13 +765,20 @@ const styles = StyleSheet.create({
   },
   placeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   placeLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  customToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.elevated, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: Colors.border,
+
+  locSegment: {
+    flexDirection: 'row',
+    backgroundColor: Colors.elevated,
+    borderRadius: 6, padding: 2,
+    borderWidth: 0.5, borderColor: Colors.border,
   },
-  customToggleText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
+  locSegmentBtn: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 5, alignItems: 'center',
+  },
+  locSegmentBtnActive: { backgroundColor: Colors.primary },
+  locSegmentText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
+  locSegmentTextActive: { color: Colors.textInverse },
 
   swapBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

@@ -9,55 +9,74 @@ import type { IcaoAirport } from '../types/flight';
 
 interface Props {
   label: string;
-  value: string;
-  onChangeText: (text: string) => void;
+  value: string;          // alltid 4-bokstavs ICAO (eller tomt)
+  onChangeText: (icao: string) => void;
   error?: string;
   placeholder?: string;
   recentPlaces?: string[];
 }
 
 export function IcaoInput({ label, value, onChangeText, error, placeholder, recentPlaces = [] }: Props) {
+  const [inputText, setInputText] = useState(value);   // vad som visas i fältet
   const [suggestions, setSuggestions] = useState<IcaoAirport[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  // Synka visad text när värdet ändras utifrån (t.ex. swap eller formulärreset)
   useEffect(() => {
-    if (value.length === 0 && recentPlaces.length > 0) {
-      // Visa senaste platser som chips
+    setInputText(value);
+    setSuggestions([]);
+    setShowDropdown(false);
+  }, [value]);
+
+  const handleChangeText = (t: string) => {
+    const upper = t.toUpperCase();
+    setInputText(upper);
+
+    if (!upper) {
+      onChangeText('');
       setSuggestions([]);
       setShowDropdown(false);
       return;
     }
-    if (value.length >= 1) {
-      searchAirports(value).then((results) => {
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
-      });
-    } else {
-      setSuggestions([]);
-      setShowDropdown(false);
-    }
-  }, [value]);
 
-  const select = (icao: string) => {
-    onChangeText(icao);
+    // Sök om 1+ tecken — matchar ICAO-kod ELLER namn
+    searchAirports(upper).then((results) => {
+      setSuggestions(results);
+      setShowDropdown(results.length > 0);
+    });
+  };
+
+  const select = (airport: IcaoAirport) => {
+    onChangeText(airport.icao);
+    setInputText(airport.icao);
+    setSuggestions([]);
     setShowDropdown(false);
     inputRef.current?.blur();
   };
 
+  const selectRecent = (icao: string) => {
+    onChangeText(icao);
+    setInputText(icao);
+    setSuggestions([]);
+    setShowDropdown(false);
+  };
+
+  const isConfirmed = value.length === 4 && inputText === value;
+
   // Filtrera och deduplicera recent places
   const filteredRecent = [...new Set(
-    value
-      ? recentPlaces.filter((p) => p.startsWith(value.toUpperCase()) && p !== value.toUpperCase())
+    inputText
+      ? recentPlaces.filter((p) => p.startsWith(inputText) && p !== inputText)
       : recentPlaces.slice(0, 6)
   )].filter(Boolean);
 
   return (
     <View>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
 
       {/* Senaste platser som chips om fältet är tomt */}
-      {!value && filteredRecent.length > 0 && (
+      {!inputText && filteredRecent.length > 0 && (
         <View style={styles.recentRow}>
           {filteredRecent.slice(0, 5).map((place, idx) => {
             const isRecent = idx === 0;
@@ -65,7 +84,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
               <TouchableOpacity
                 key={place}
                 style={[styles.recentChip, isRecent && styles.recentChipGold]}
-                onPress={() => select(place)}
+                onPress={() => selectRecent(place)}
               >
                 {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
                 <Text style={[styles.recentChipText, isRecent && styles.recentChipTextGold]}>{place}</Text>
@@ -79,20 +98,25 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
         <TextInput
           ref={inputRef}
           style={styles.input}
-          value={value}
-          onChangeText={(t) => onChangeText(t.toUpperCase().slice(0, 4))}
-          placeholder={placeholder ?? 'ESSA'}
+          value={inputText}
+          onChangeText={handleChangeText}
+          placeholder={placeholder ?? 'ESSA eller Linköping'}
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="characters"
-          maxLength={4}
+          autoCorrect={false}
         />
-        {value.length === 4 && (
+        {isConfirmed && (
           <Ionicons
             name={error ? 'close-circle' : 'checkmark-circle'}
             size={18}
             color={error ? Colors.danger : Colors.success}
             style={styles.icon}
           />
+        )}
+        {inputText.length > 0 && !isConfirmed && (
+          <TouchableOpacity onPress={() => { onChangeText(''); setInputText(''); }} hitSlop={8}>
+            <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
+          </TouchableOpacity>
         )}
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -102,11 +126,12 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
           {suggestions.slice(0, 8).map((item, idx) => (
             <View key={item.icao}>
               {idx > 0 && <View style={styles.sep} />}
-              <TouchableOpacity style={styles.suggestion} onPress={() => select(item.icao)}>
+              <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
                 <Text style={styles.suggestionIcao}>{item.icao}</Text>
-                <Text style={styles.suggestionName} numberOfLines={1}>
-                  {item.name}, {item.country}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.suggestionCountry}>{item.country}</Text>
+                </View>
               </TouchableOpacity>
             </View>
           ))}
@@ -143,7 +168,7 @@ const styles = StyleSheet.create({
   inputError: { borderColor: Colors.danger },
   input: {
     flex: 1, color: Colors.textPrimary, fontSize: 16,
-    fontWeight: '700', letterSpacing: 2, paddingVertical: 12,
+    fontWeight: '700', letterSpacing: 1, paddingVertical: 12,
   },
   icon: { marginLeft: 8 },
   errorText: { color: Colors.danger, fontSize: 11, marginTop: 4 },
@@ -151,16 +176,17 @@ const styles = StyleSheet.create({
   dropdown: {
     backgroundColor: Colors.elevated, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
-    marginTop: 4, maxHeight: 220, zIndex: 100, overflow: 'hidden',
+    marginTop: 4, zIndex: 100, overflow: 'hidden',
   },
   suggestion: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10, gap: 10,
   },
   suggestionIcao: {
-    color: Colors.textPrimary, fontSize: 14, fontWeight: '700',
-    letterSpacing: 1, width: 48,
+    color: Colors.primary, fontSize: 14, fontWeight: '800',
+    letterSpacing: 1, fontFamily: 'Menlo', width: 48,
   },
-  suggestionName: { color: Colors.textSecondary, fontSize: 13, flex: 1 },
+  suggestionName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  suggestionCountry: { color: Colors.textMuted, fontSize: 11 },
   sep: { height: 1, backgroundColor: Colors.separator },
 });
