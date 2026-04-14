@@ -31,6 +31,17 @@ export interface Flight {
   multi_pilot: number;
   single_pilot: number;
   instructor: number;
+  picus: number;
+  spic: number;
+  examiner: number;
+  safety_pilot: number;
+  observer: number;
+  ferry_pic: number;
+  relief_crew: number;
+  sim_category: string;
+  vfr: number;
+  se_time: number;
+  me_time: number;
 }
 
 export interface FlightFormData {
@@ -54,10 +65,20 @@ export interface FlightFormData {
   second_pilot?: string;
   nvg?: string;
   tng_count?: string;
-  flight_type?: 'normal' | 'sim' | 'hot_refuel' | 'summary';
+  flight_type?: 'normal' | 'sim' | 'hot_refuel' | 'touch_and_go' | 'summary';
+  stop_place?: string;
   multi_pilot?: string;
   single_pilot?: string;
   instructor?: string;
+  picus?: string;
+  spic?: string;
+  examiner?: string;
+  safety_pilot?: string;
+  observer?: string;
+  ferry_pic?: string;
+  relief_crew?: string;
+  sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | '';
+  vfr?: string;
 }
 
 export interface IcaoAirport {
@@ -123,4 +144,6 @@ export interface FlightStats {
   total_multi_pilot: number;
   total_single_pilot: number;
   total_instructor: number;
+  total_se: number;
+  total_me: number;
 }

@@ -61,6 +61,18 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS scan_summaries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      book_name TEXT NOT NULL DEFAULT '',
+      page_name TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      total_this_page TEXT NOT NULL DEFAULT '{}',
+      brought_forward TEXT NOT NULL DEFAULT '{}',
+      total_to_date TEXT NOT NULL DEFAULT '{}',
+      row_count INTEGER NOT NULL DEFAULT 0,
+      flight_count_at_save INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS idx_flights_date ON flights(date);
     CREATE INDEX IF NOT EXISTS idx_audit_log_flight ON audit_log(flight_id);
     CREATE INDEX IF NOT EXISTS idx_icao ON icao_airports(icao);
@@ -117,6 +129,10 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'endurance_h', 'REAL NOT NULL DEFAULT 0');
   // Besättningstyp: '' = okänd | 'sp' = single-pilot | 'mp' = multi-pilot (båda) | 'sp_only' = enbart SP | 'mp_only' = enbart MP
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'crew_type', "TEXT NOT NULL DEFAULT ''");
+  // Farkosttyp: '' = okänd | 'airplane' = flygplan | 'helicopter' = helikopter
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'category', "TEXT NOT NULL DEFAULT ''");
+  // Motortyp: '' = okänd | 'se' = single engine | 'me' = multi engine
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'engine_type', "TEXT NOT NULL DEFAULT ''");
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 
@@ -128,4 +144,33 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'single_pilot', `REAL NOT NULL DEFAULT 0`);
   // Instruktörstid (given dual instruction)
   await addColumnIfMissing(db, 'instructor',   `REAL NOT NULL DEFAULT 0`);
+  // PICUS (Pilot-in-Command Under Supervision)
+  await addColumnIfMissing(db, 'picus',        `REAL NOT NULL DEFAULT 0`);
+  // Avancerade rolltyper
+  await addColumnIfMissing(db, 'spic',          `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'examiner',      `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'safety_pilot',  `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'observer',      `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'ferry_pic',     `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'relief_crew',   `REAL NOT NULL DEFAULT 0`);
+  // Sim-kategori: FFS | FTD | FNPT_II | FNPT_I | BITD (endast när flight_type='sim')
+  await addColumnIfMissing(db, 'sim_category',  `TEXT NOT NULL DEFAULT ''`);
+  // VFR-tid (kompletterar IFR-tid, summerar till total_time)
+  await addColumnIfMissing(db, 'vfr',           `REAL NOT NULL DEFAULT 0`);
+  // Motortyp per pass: 0 om okänd/ej tillämplig
+  await addColumnIfMissing(db, 'se_time', `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'me_time', `REAL NOT NULL DEFAULT 0`);
+
+  // Mellanlandningsplats (touch & go / hot refuel)
+  await addColumnIfMissing(db, 'stop_place', `TEXT NOT NULL DEFAULT ''`);
+
+  // scan_summaries: ersätt enkelt name-fält med book_name + page_name
+  await addColumnIfMissingOnTable(db, 'scan_summaries', 'book_name', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissingOnTable(db, 'scan_summaries', 'page_name', `TEXT NOT NULL DEFAULT ''`);
+  // Kopiera gamla name-värdet till book_name om book_name är tomt (engångsmigration)
+  try {
+    await db.execAsync(`UPDATE scan_summaries SET book_name = name WHERE book_name = '' AND name IS NOT NULL AND name != ''`);
+  } catch {
+    // name-kolumnen kanske inte finns — ignorera
+  }
 }

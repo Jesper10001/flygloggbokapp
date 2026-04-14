@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { getVisitedAirportIcaos } from '../db/flights';
-import { getAirportCoordinates } from '../db/icao';
+import { getAirportCoordinates, getAllTemporaryPlaces } from '../db/icao';
 import { Colors } from '../constants/colors';
+import { useTranslation } from '../hooks/useTranslation';
+import { useFlightStore } from '../store/flightStore';
 
-type AirportPoint = { icao: string; name: string; lat: number; lon: number };
+type AirportPoint = { icao: string; name: string; lat: number; lon: number; temporary?: boolean };
 
 // Hämta alla unika besökta ICAO-koder direkt från flygningarna
 async function getAllVisitedIcaos(): Promise<string[]> {
@@ -25,8 +27,17 @@ function buildMapHtml(airports: AirportPoint[]): string {
   const latSpan = Math.max(...lats) - Math.min(...lats);
   const zoom = latSpan > 20 ? 4 : latSpan > 10 ? 5 : latSpan > 5 ? 6 : 7;
 
+  const pinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#D32F2F" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
+  const heliSvg = `<svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="10" width="13" height="5" rx="2.5" fill="#1565C0"/><rect x="11" y="12" width="10" height="2" rx="1" fill="#1565C0"/><rect x="1" y="9" width="14" height="2" rx="1" fill="#42A5F5"/><circle cx="5" cy="17" r="1.5" fill="#1565C0"/><circle cx="15" cy="17" r="1.5" fill="#1565C0"/><rect x="4.5" y="14" width="1" height="3" fill="#1565C0"/><rect x="14.5" y="14" width="1" height="3" fill="#1565C0"/><circle cx="12" cy="7" r="5" fill="none" stroke="#42A5F5" stroke-width="1.2"/><line x1="7" y1="7" x2="17" y2="7" stroke="#42A5F5" stroke-width="1.5"/></svg>`;
   const markers = airports
-    .map(a => `L.circleMarker([${a.lat},${a.lon}],{radius:7,fillColor:'#2563EB',color:'#fff',weight:1.5,opacity:1,fillOpacity:.9}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${a.name.replace(/'/g, "\\'")}</span>');`)
+    .map(a => {
+      const name = a.name.replace(/'/g, "\\'");
+      const svg = a.temporary ? heliSvg : pinSvg;
+      const size = a.temporary ? '[20,20]' : '[14,20]';
+      const anchor = a.temporary ? '[10,10]' : '[7,20]';
+      const popupAnchor = a.temporary ? '[0,-12]' : '[0,-22]';
+      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:${size},iconAnchor:${anchor},popupAnchor:${popupAnchor}})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>');`;
+    })
     .join('\n');
 
   return `<!DOCTYPE html><html><head>
@@ -71,12 +82,12 @@ window.onload = function() {
   });
 
   var layers = {
-    'Mörk':      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Satellit':  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19,attribution:'© Esri'}),
-    'Terrängkarta': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
+    'Light':    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19,attribution:'© Esri'}),
+    'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
   };
 
-  var activeKey = 'Mörk';
+  var activeKey = 'Light';
   layers[activeKey].addTo(map);
 
   // Bygg knappar
@@ -102,21 +113,111 @@ window.onload = function() {
 </script></body></html>`;
 }
 
+function makeStyles() {
+  return StyleSheet.create({
+    widget: {
+      backgroundColor: Colors.card,
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: Colors.cardBorder,
+      gap: 10,
+    },
+    widgetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    widgetTitle: {
+      flex: 1,
+      color: Colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    widgetCount: {
+      color: Colors.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    airportGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    airportChip: {
+      backgroundColor: Colors.elevated,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: Colors.border,
+    },
+    airportCode: {
+      color: Colors.textPrimary,
+      fontSize: 12,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    mapPreviewHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    mapPreviewHintText: {
+      color: Colors.textMuted,
+      fontSize: 11,
+    },
+
+    modal: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    webview: {
+      flex: 1,
+    },
+    closeBtn: {
+      position: 'absolute',
+      right: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 0.5,
+      borderColor: 'rgba(255,255,255,0.2)',
+    },
+  });
+}
+
 export function AirportMapWidget() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const [airports, setAirports] = useState<AirportPoint[]>([]);
   const [allIcaos, setAllIcaos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
+  const flightCount = useFlightStore((s) => s.flightCount);
+
   useEffect(() => {
     (async () => {
       const icaos = await getAllVisitedIcaos();
-      if (!icaos.length) return;
-      setAllIcaos(icaos);
+      const tempPlaces = await getAllTemporaryPlaces();
+      if (!icaos.length && !tempPlaces.length) {
+        setAllIcaos([]);
+        setAirports([]);
+        return;
+      }
+      setAllIcaos([...icaos, ...tempPlaces.map(p => p.icao)]);
       const coords = await getAirportCoordinates(icaos);
-      setAirports(coords.filter(a => a.lat && a.lon));
+      const regular = coords.filter(a => a.lat && a.lon).map(a => ({ ...a, temporary: false }));
+      const temps = tempPlaces.map(p => ({ icao: p.icao, name: p.name, lat: p.lat, lon: p.lon, temporary: true }));
+      setAirports([...regular, ...temps]);
     })();
-  }, []);
+  }, [flightCount]);
 
   if (!allIcaos.length) return null;
 
@@ -130,8 +231,8 @@ export function AirportMapWidget() {
       >
         <View style={styles.widgetHeader}>
           <Ionicons name="map-outline" size={14} color={Colors.primary} />
-          <Text style={styles.widgetTitle}>Besökta flygplatser</Text>
-          <Text style={styles.widgetCount}>{allIcaos.length} st</Text>
+          <Text style={styles.widgetTitle}>{t('visited_airports')}</Text>
+          <Text style={styles.widgetCount}>{allIcaos.length}</Text>
           <Ionicons name="expand-outline" size={14} color={Colors.textMuted} />
         </View>
         <View style={styles.airportGrid}>
@@ -150,8 +251,8 @@ export function AirportMapWidget() {
           <Ionicons name="globe-outline" size={12} color={Colors.textMuted} />
           <Text style={styles.mapPreviewHintText}>
             {airports.length > 0
-              ? `Tryck för att visa karta (${airports.length} med koordinater)`
-              : 'Karta kräver kända koordinater — lägg till via Hantera flygplatser'}
+              ? `${t('tap_to_show_map_with_count')} (${airports.length})`
+              : t('map_requires_coordinates')}
           </Text>
         </View>
       </TouchableOpacity>
@@ -187,79 +288,3 @@ export function AirportMapWidget() {
   );
 }
 
-const styles = StyleSheet.create({
-  widget: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    gap: 10,
-  },
-  widgetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  widgetTitle: {
-    flex: 1,
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  widgetCount: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  airportGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  airportChip: {
-    backgroundColor: Colors.elevated,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  airportCode: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  mapPreviewHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mapPreviewHintText: {
-    color: Colors.textMuted,
-    fontSize: 11,
-  },
-
-  modal: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  webview: {
-    flex: 1,
-  },
-  closeBtn: {
-    position: 'absolute',
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-});

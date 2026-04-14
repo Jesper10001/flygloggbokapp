@@ -1,9 +1,27 @@
+import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { TailwindLogo } from '../../components/TailwindLogo';
+import { useTranslation } from '../../hooks/useTranslation';
+import { useFlightStore } from '../../store/flightStore';
+import { getSetting } from '../../db/flights';
+
+const PAGE_SIZE = 12; // flygningar per blad
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
+  const { flightCount } = useFlightStore();
+  const [scanBadge, setScanBadge] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await getSetting('scan_page_start_count');
+      const startCount = parseInt(saved ?? '0', 10) || 0;
+      setScanBadge(flightCount - startCount >= PAGE_SIZE);
+    })();
+  }, [flightCount]);
+
   return (
     <Tabs
       screenOptions={{
@@ -27,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: t('tab_dashboard'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
@@ -38,7 +56,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="log"
         options={{
-          title: 'Loggbok',
+          title: t('tab_logbook'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),
@@ -47,7 +65,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Skanna',
+          title: t('tab_scan'),
+          tabBarBadge: scanBadge ? '!' : undefined,
+          tabBarBadgeStyle: { backgroundColor: Colors.primary, fontSize: 10 },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="camera" size={size} color={color} />
           ),
@@ -56,7 +76,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Inställningar',
+          title: t('tab_settings'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),

@@ -1,7 +1,14 @@
 import type { OcrFlightResult } from '../types/flight';
 import { getScanImage, clearScanImage } from '../store/scanStore';
+import type { TimeFormat } from '../store/timeFormatStore';
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+
+function timeFormatHint(fmt: TimeFormat): string {
+  return fmt === 'hhmm'
+    ? 'TIDSFORMAT: Loggboken använder HH:MM-format (t.ex. 1:30 = 1h30min). Returnera alltid tider som decimal i JSON (1:30 → 1.5).'
+    : 'TIDSFORMAT: Loggboken använder decimalformat (t.ex. 1.5 = 1h30min). Max 1 decimal.';
+}
 
 const SYSTEM_PROMPT = `Du är en expert på att läsa EASA-flygloggböcker. Analysera bilden noggrant och extrahera varje flygningsrad.
 
@@ -32,6 +39,11 @@ REGISTRATION — viktigt:
 ARVSREGEL FÖR TOMMA FÄLT:
 Om aircraft_type eller registration är tom på en rad men föregående rad har värden,
 ärv dessa värden och sätt needs_review=false (det är normalt att upprepade rader utelämnar dessa).
+
+DITO-SYMBOL "-::-" ELLER LIKNANDE:
+Om ett fält innehåller symbolen "-::-", "---", ":--:", "〃" eller liknande dito-tecken,
+betyder det "samma som ovan" — ärv värdet från närmaste föregående rad som har ett riktigt värde i det fältet.
+Gäller alla fält: aircraft_type, registration, dep_place, arr_place m.fl.
 
 SIFFERVALIDERING — dessa förväxlas ofta i handskrift:
 - 1 och 7 (särskilt i flygtider och tider)
@@ -96,32 +108,23 @@ Returnera BARA JSON, inga förklaringar.`;
 
 // ── Summera sida ─────────────────────────────────────────────────────────────
 
-const SUMMARIZE_PROMPT = `Du är expert på att läsa EASA-flygloggböcker. Din uppgift är att summera ALLA flygtider och landningar på sidan.
+const SUMMARIZE_PROMPT = `OUTPUT FORMAT: Respond with ONLY a raw JSON object. No markdown, no explanation, no text before or after. First character must be { and last character must be }.
 
-Läs varje rad och addera kolumnerna. Returnera ENBART ett JSON-objekt med summorna för sidan:
-
-{
-  "total_time": 0.0,
-  "pic": 0.0,
-  "co_pilot": 0.0,
-  "dual": 0.0,
-  "instructor": 0.0,
-  "ifr": 0.0,
-  "night": 0.0,
-  "landings_day": 0,
-  "landings_night": 0,
-  "row_count": 0,
-  "note": ""
-}
+Du är expert på EASA-flygloggböcker. Summera flygtider/landningar och läs av "Brought forward".
 
 REGLER:
-- Summera BARA individuella flygningsrader — ta INTE med eventuella befintliga "Total this page"- eller "Brought forward"-rader längst ner, de ska räknas om.
-- Tider kan stå som decimal (1.5) eller HH:MM (1:30) — konvertera alltid till decimal.
-- row_count = antal flygningsrader du hittade.
-- note = kort kommentar om något är oklart eller svårläst (annars "").
-- Returnera BARA JSON, inga förklaringar.`;
+- total_this_page: addera BARA individuella flygningsrader. Ignorera befintliga "Total this page", "Brought forward", "Total to date"-rader.
+- brought_forward: läs av "Brought forward"-raden (överst eller nedtill på sidan). Saknas den, sätt 0.
+- Tider som HH:MM konverteras till decimal (1:30 → 1.5).
+- row_count = antal flygningsrader.
+- note = kort kommentar om oklarheter, annars "".
 
-export interface PageSummary {
+JSON-SCHEMA (följ exakt):
+{"total_this_page":{"total_time":0.0,"pic":0.0,"co_pilot":0.0,"dual":0.0,"instructor":0.0,"ifr":0.0,"night":0.0,"landings_day":0,"landings_night":0},"brought_forward":{"total_time":0.0,"pic":0.0,"co_pilot":0.0,"dual":0.0,"instructor":0.0,"ifr":0.0,"night":0.0,"landings_day":0,"landings_night":0},"row_count":0,"note":""}
+
+KRITISKT: Svara ENBART med JSON-objektet ovan ifyllt med rätt värden. Ingen annan text.`;
+
+export interface PageTotals {
   total_time: number;
   pic: number;
   co_pilot: number;
@@ -131,11 +134,45 @@ export interface PageSummary {
   night: number;
   landings_day: number;
   landings_night: number;
+}
+
+export interface PageSummary {
+  total_this_page: PageTotals;
+  brought_forward: PageTotals;
+  total_to_date: PageTotals;
   row_count: number;
   note: string;
 }
 
-export async function ocrSummarizePage(base64: string, mediaType: string): Promise<PageSummary> {
+function parseTotals(obj: any): PageTotals {
+  return {
+    total_time:    Number(obj?.total_time)    || 0,
+    pic:           Number(obj?.pic)           || 0,
+    co_pilot:      Number(obj?.co_pilot)      || 0,
+    dual:          Number(obj?.dual)          || 0,
+    instructor:    Number(obj?.instructor)    || 0,
+    ifr:           Number(obj?.ifr)           || 0,
+    night:         Number(obj?.night)         || 0,
+    landings_day:  Number(obj?.landings_day)  || 0,
+    landings_night:Number(obj?.landings_night)|| 0,
+  };
+}
+
+function addTotals(a: PageTotals, b: PageTotals): PageTotals {
+  return {
+    total_time:     a.total_time     + b.total_time,
+    pic:            a.pic            + b.pic,
+    co_pilot:       a.co_pilot       + b.co_pilot,
+    dual:           a.dual           + b.dual,
+    instructor:     a.instructor     + b.instructor,
+    ifr:            a.ifr            + b.ifr,
+    night:          a.night          + b.night,
+    landings_day:   a.landings_day   + b.landings_day,
+    landings_night: a.landings_night + b.landings_night,
+  };
+}
+
+export async function ocrSummarizePage(base64: string, mediaType: string, timeFormat: TimeFormat = 'decimal'): Promise<PageSummary> {
   if (!API_KEY || API_KEY === 'your_api_key_here') {
     throw new Error('Anthropic API-nyckel saknas. Ange den i .env-filen.');
   }
@@ -148,14 +185,15 @@ export async function ocrSummarizePage(base64: string, mediaType: string): Promi
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      temperature: 0,
       system: SUMMARIZE_PROMPT,
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-          { type: 'text', text: 'Summera alla flygtider och landningar på sidan.' },
+          { type: 'text', text: `${timeFormatHint(timeFormat)} Summera alla flygtider och landningar på sidan. Svara ENBART med ett JSON-objekt — ingen text före eller efter.` },
         ],
       }],
     }),
@@ -167,27 +205,24 @@ export async function ocrSummarizePage(base64: string, mediaType: string): Promi
   }
 
   const data = await response.json();
-  const text = data.content?.[0]?.text ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Kunde inte tolka svaret. Försök med en tydligare bild.');
+  const rawText = data.content?.[0]?.text ?? '';
+  console.log('[OCR summarize raw]', rawText.slice(0, 500));
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error(`Kunde inte tolka svaret. Claude svarade: "${rawText.slice(0, 120)}"`);
 
   const parsed = JSON.parse(jsonMatch[0]);
+  const total_this_page = parseTotals(parsed.total_this_page);
+  const brought_forward = parseTotals(parsed.brought_forward);
   return {
-    total_time:   Number(parsed.total_time)   || 0,
-    pic:          Number(parsed.pic)           || 0,
-    co_pilot:     Number(parsed.co_pilot)      || 0,
-    dual:         Number(parsed.dual)          || 0,
-    instructor:   Number(parsed.instructor)    || 0,
-    ifr:          Number(parsed.ifr)           || 0,
-    night:        Number(parsed.night)         || 0,
-    landings_day: Number(parsed.landings_day)  || 0,
-    landings_night: Number(parsed.landings_night) || 0,
-    row_count:    Number(parsed.row_count)     || 0,
-    note:         String(parsed.note ?? ''),
+    total_this_page,
+    brought_forward,
+    total_to_date: addTotals(total_this_page, brought_forward),
+    row_count: Number(parsed.row_count) || 0,
+    note: String(parsed.note ?? ''),
   };
 }
 
-export async function ocrScanLogbook(_imageUri?: string): Promise<{
+export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageUri?: string): Promise<{
   flights: OcrFlightResult[];
   pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };
 }> {
@@ -210,17 +245,15 @@ export async function ocrScanLogbook(_imageUri?: string): Promise<{
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-4-6',
       max_tokens: 4096,
+      temperature: 0,
       system: SYSTEM_PROMPT,
       messages: [{
         role: 'user',
         content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
-          },
-          { type: 'text', text: 'Extrahera alla flygningar från denna loggbokssida.' },
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida. Svara ENBART med ett JSON-objekt — ingen text före eller efter.` },
         ],
       }],
     }),
@@ -233,9 +266,10 @@ export async function ocrScanLogbook(_imageUri?: string): Promise<{
 
   const data = await response.json();
   const content = data.content?.[0]?.text ?? '';
+  console.log('[OCR import raw]', content.slice(0, 500));
 
   const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Kunde inte tolka svaret från Claude. Försök med en tydligare bild.');
+  if (!jsonMatch) throw new Error(`Kunde inte tolka svaret från Claude. Svar: "${content.slice(0, 120)}"`);
 
   const parsed = JSON.parse(jsonMatch[0]);
 

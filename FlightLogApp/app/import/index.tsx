@@ -9,6 +9,7 @@ import { pickImportFile, importFromFile, type ImportResult } from '../../service
 import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
@@ -21,10 +22,234 @@ const SUPPORTED_FORMATS = [
   { name: 'Logbook Pro', icon: 'document', ext: 'CSV' },
   { name: 'APDL', icon: 'layers', ext: 'TXT' },
   { name: 'Eflightbook', icon: 'albums', ext: 'CSV' },
-  { name: 'Generisk CSV', icon: 'code', ext: 'CSV' },
+  { name: 'Generic CSV', icon: 'code', ext: 'CSV' },
 ];
 
+function makeStyles() {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.background },
+    content: { padding: 16, paddingBottom: 40, gap: 12 },
+
+    title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
+    subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+
+    freeNotice: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: Colors.success + '18', borderRadius: 8,
+      padding: 12, borderWidth: 1, borderColor: Colors.success + '44',
+    },
+    freeNoticeText: { color: Colors.success, fontSize: 13, fontWeight: '600' },
+
+    section: {
+      color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1,
+      marginTop: 8, marginBottom: 4,
+    },
+
+    formatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    formatChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: Colors.card, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 7,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    formatName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '600' },
+    formatExt: { color: Colors.textMuted, fontSize: 10 },
+
+    pickBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.primary, borderRadius: 12,
+      paddingVertical: 15, gap: 8,
+    },
+    pickBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
+
+    resultHeader: {
+      backgroundColor: Colors.card, borderRadius: 12, padding: 14,
+      borderWidth: 1, borderColor: Colors.cardBorder,
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+    },
+    resultInfo: { flex: 1 },
+    resultFormat: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+    resultFile: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+    resultStats: { flexDirection: 'row', gap: 8 },
+    statPill: { alignItems: 'center' },
+    statValue: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
+    statLabel: { color: Colors.textMuted, fontSize: 9, textTransform: 'uppercase' },
+
+    warningBox: {
+      backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12,
+      gap: 6, borderWidth: 1, borderColor: Colors.warning + '44',
+    },
+    warningRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
+    warningText: { color: Colors.warning, fontSize: 12, flex: 1 },
+
+    summaryCard: {
+      flexDirection: 'row', backgroundColor: Colors.card, borderRadius: 12,
+      borderWidth: 1, borderColor: Colors.cardBorder,
+      overflow: 'hidden',
+    },
+    summaryItem: { flex: 1, alignItems: 'center', paddingVertical: 16 },
+    summaryValue: { color: Colors.primary, fontSize: 28, fontWeight: '800' },
+    summaryLabel: { color: Colors.textSecondary, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+    summarySep: { width: 1, backgroundColor: Colors.separator, marginVertical: 12 },
+
+    previewRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: Colors.card, borderRadius: 8, padding: 10,
+      borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+    },
+    previewRowFlagged: { borderColor: Colors.warning + '66' },
+    previewRoute: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+    previewDate: { color: Colors.textSecondary, fontSize: 12 },
+    previewChip: { color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Menlo' },
+    moreText: { color: Colors.textMuted, fontSize: 12, textAlign: 'center' },
+
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 15, gap: 8, marginTop: 8,
+    },
+    saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
+    hint: { color: Colors.textMuted, fontSize: 11, textAlign: 'center' },
+
+    instructionRow: {
+      flexDirection: 'row', backgroundColor: Colors.card,
+      borderRadius: 8, padding: 12,
+      borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+    },
+    instructionApp: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', width: 110 },
+    instructionSteps: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
+
+    speedSection: {
+      backgroundColor: Colors.gold + '14',
+      borderRadius: 10, padding: 12,
+      borderWidth: 1, borderColor: Colors.gold + '55', gap: 8,
+    },
+    speedHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    speedTitle: { color: Colors.gold, fontSize: 12, fontWeight: '700' },
+    speedSubtitle: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
+    speedRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: Colors.card, borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 8,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    speedColHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
+    speedType: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+    speedInput: {
+      width: 72, color: Colors.textPrimary, fontSize: 15, fontWeight: '700',
+      fontFamily: 'Menlo', textAlign: 'center',
+      backgroundColor: Colors.elevated, borderRadius: 6,
+      paddingHorizontal: 6, paddingVertical: 6,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    speedInputDone: { borderColor: Colors.success + '66', backgroundColor: Colors.success + '12' },
+    speedUnit: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', width: 24 },
+
+    exceedSection: {
+      backgroundColor: Colors.warning + '12',
+      borderRadius: 10, padding: 12,
+      borderWidth: 1, borderColor: Colors.warning + '55', gap: 8,
+    },
+    exceedTitle: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
+    exceedRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: Colors.card, borderRadius: 8,
+      padding: 10, borderWidth: 1, borderColor: Colors.border, gap: 8,
+    },
+    exceedInfo: { flex: 1 },
+    exceedRoute: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
+    exceedMeta: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
+    exceedToggle: { flexDirection: 'row', gap: 4 },
+    exceedBtn: {
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
+      borderWidth: 1, borderColor: Colors.border,
+      backgroundColor: Colors.elevated,
+    },
+    exceedBtnSim: { backgroundColor: Colors.danger + '22', borderColor: Colors.danger + '88' },
+    exceedBtnHot: { backgroundColor: Colors.success + '22', borderColor: Colors.success + '88' },
+    exceedBtnText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
+    exceedBtnTextActive: { color: Colors.textPrimary, fontWeight: '700' },
+
+    typeBlock: { gap: 6 },
+    crewRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 2 },
+    crewBtn: {
+      flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,
+      borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated,
+    },
+    crewBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+    crewBtnLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700' },
+    crewBtnLabelActive: { color: Colors.primary },
+    crewBtnSub: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
+
+    // Misstänkta sträckor
+    suspiciousSection: {
+      backgroundColor: Colors.warning + '12',
+      borderRadius: 10, padding: 12,
+      borderWidth: 1, borderColor: Colors.warning + '55', gap: 8,
+    },
+    suspiciousTitle: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
+    suspiciousRow: {
+      backgroundColor: Colors.card, borderRadius: 8,
+      padding: 10, borderWidth: 1, borderColor: Colors.border, gap: 8,
+    },
+    suspiciousInfo: { gap: 2 },
+    suspiciousRoute: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
+    suspiciousMeta: { color: Colors.textSecondary, fontSize: 11 },
+    suspiciousToggle: { flexDirection: 'row', gap: 6 },
+    suspiciousBtn: {
+      flex: 1, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 6,
+      borderWidth: 1, borderColor: Colors.border,
+      backgroundColor: Colors.elevated, alignItems: 'center',
+    },
+    suspiciousBtnActive: { backgroundColor: Colors.textMuted + 'CC', borderColor: Colors.textMuted },
+    suspiciousBtnRefuel: { backgroundColor: Colors.success + '22', borderColor: Colors.success + '88' },
+    suspiciousBtnText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', textAlign: 'center' },
+    suspiciousBtnTextActive: { color: Colors.textInverse, fontWeight: '700' },
+
+    // Okända flygplatser
+    unknownSection: {
+      backgroundColor: Colors.danger + '10',
+      borderRadius: 10, padding: 12,
+      borderWidth: 1, borderColor: Colors.danger + '44', gap: 8,
+    },
+    unknownTitle: { color: Colors.danger, fontSize: 12, fontWeight: '700' },
+    unknownRow: {
+      backgroundColor: Colors.card, borderRadius: 8,
+      borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+    },
+    unknownHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 12, paddingVertical: 10, gap: 8,
+    },
+    unknownIcao: {
+      color: Colors.textPrimary, fontSize: 14, fontWeight: '800',
+      fontFamily: 'Menlo', letterSpacing: 1,
+    },
+    unknownDecisionLabel: { color: Colors.success, fontSize: 11, fontWeight: '600', marginTop: 2 },
+    unknownDecisionTemporary: { color: Colors.textMuted },
+    unknownBody: { paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderTopWidth: 1, borderTopColor: Colors.separator },
+    tempBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: Colors.elevated, borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 10,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    tempBtnActive: { backgroundColor: Colors.textMuted, borderColor: Colors.textMuted },
+    tempBtnText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '500', flex: 1 },
+    tempBtnTextActive: { color: Colors.textInverse },
+    unknownForm: { gap: 6 },
+    unknownFormLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', marginTop: 4 },
+    unknownInput: {
+      backgroundColor: Colors.elevated, borderRadius: 8, padding: 10,
+      borderWidth: 1, borderColor: Colors.border,
+      color: Colors.textPrimary, fontSize: 14,
+    },
+  });
+}
+
 export default function ImportScreen() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const router = useRouter();
   const { loadFlights, loadStats } = useFlightStore();
 
@@ -39,8 +264,12 @@ export default function ImportScreen() {
   const [typesNeedingData, setTypesNeedingData] = useState<{ type: string; hasSpeed: boolean; hasEndurance: boolean }[]>([]);
   // flight_type per flygningsindex för flygningar som överstiger uthållighet: 'sim' | 'hot_refuel'
   const [flightTypes, setFlightTypes] = useState<Record<number, 'sim' | 'hot_refuel'>>({});
+  // sim-kategori per index när flight_type='sim': FFS | FTD | FNPT_II | FNPT_I | BITD
+  const [simCategories, setSimCategories] = useState<Record<number, 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD'>>({});
   // Besättningstyp per fartygstyp
   const [crewTypeInputs, setCrewTypeInputs] = useState<Record<string, Set<string>>>({});
+  // Farkosttyp per typ: 'airplane' | 'helicopter' | ''
+  const [categoryInputs, setCategoryInputs] = useState<Record<string, 'airplane' | 'helicopter' | ''>>({});
   // Koordinater för kända flygplatser i importen + kända typ-data från DB
   const [airportCoords, setAirportCoords] = useState<Record<string, { lat: number; lon: number }>>({});
   const [dbTypeData, setDbTypeData] = useState<Record<string, { speedKts: number; endH: number }>>({});
@@ -58,19 +287,16 @@ export default function ImportScreen() {
   };
   const [unknownAirports, setUnknownAirports] = useState<UnknownAirport[]>([]);
 
-  const toggleCrewForType = (aircraftType: string, key: 'sp' | 'mp' | 'sp_only' | 'mp_only') => {
+  const toggleCrewForType = (aircraftType: string, key: 'sp' | 'mp') => {
     setCrewTypeInputs(prev => {
       const current = new Set(prev[aircraftType] ?? []);
-      if (key === 'sp_only' || key === 'mp_only') {
-        if (current.has(key)) { current.clear(); }
-        else { current.clear(); current.add(key); }
-      } else {
-        current.delete('sp_only'); current.delete('mp_only');
-        if (current.has(key)) current.delete(key); else current.add(key);
-      }
+      if (current.has(key)) current.delete(key); else current.add(key);
       return { ...prev, [aircraftType]: current };
     });
   };
+
+  // Motortyp per fartygstyp: 'se' | 'me' | ''
+  const [engineInputs, setEngineInputs] = useState<Record<string, 'se' | 'me' | ''>>({});
 
   // Flygningar som överstiger angiven uthållighet — reaktivt på enduranceInputs
   const exceedingFlights = useMemo(() => {
@@ -78,7 +304,9 @@ export default function ImportScreen() {
     return result.flights
       .map((f, idx) => ({ f, idx }))
       .filter(({ f }) => {
-        const endH = parseFloat(enduranceInputs[f.aircraft_type] ?? '0') || 0;
+        const raw = enduranceInputs[f.aircraft_type] ?? '';
+        if (raw.endsWith('.')) return false; // fortfarande inmatning, vänta
+        const endH = parseFloat(raw) || 0;
         return endH > 0 && parseFloat(f.total_time) > endH;
       });
   }, [result, enduranceInputs]);
@@ -93,11 +321,14 @@ export default function ImportScreen() {
         if (!dep || !arr || f.dep_place === f.arr_place) return null;
 
         // Hämta fart + endurance: user-input prioriteras, annars DB-känd
+        // Om fältet slutar på '.' håller användaren fortfarande på att skriva — använd 0
+        const rawSpeed = speedInputs[f.aircraft_type] ?? '';
+        const rawEnd = enduranceInputs[f.aircraft_type] ?? '';
         const speedKts =
-          parseInt(speedInputs[f.aircraft_type] ?? '0') ||
+          (!rawSpeed.endsWith('.') && parseInt(rawSpeed)) ||
           dbTypeData[f.aircraft_type]?.speedKts || 0;
         const endH =
-          parseFloat(enduranceInputs[f.aircraft_type] ?? '0') ||
+          (!rawEnd.endsWith('.') && parseFloat(rawEnd)) ||
           dbTypeData[f.aircraft_type]?.endH || 0;
         if (!speedKts || !endH) return null;
 
@@ -147,6 +378,8 @@ export default function ImportScreen() {
       setTypesNeedingData(needingData);
       setSpeedInputs(Object.fromEntries(needingData.map(({ type }) => [type, ''])));
       setEnduranceInputs(Object.fromEntries(needingData.map(({ type }) => [type, ''])));
+      setCategoryInputs(Object.fromEntries(needingData.map(({ type }) => [type, ''])));
+      setEngineInputs(Object.fromEntries(needingData.map(({ type }) => [type, ''])));
 
       // Kontrollera okända ICAO-koder mot databasen
       const places = [...new Set(
@@ -179,7 +412,7 @@ export default function ImportScreen() {
       }
       setDbTypeData(dbData);
     } catch (e: any) {
-      Alert.alert('Import misslyckades', e.message);
+      Alert.alert(t('import_failed'), e.message);
     } finally {
       setImporting(false);
     }
@@ -196,7 +429,9 @@ export default function ImportScreen() {
         const endH = parseFloat(enduranceInputs[type] ?? '0') || 0;
         const crewSet = crewTypeInputs[type] ?? new Set<string>();
         const crewType = crewSet.size === 0 ? '' : [...crewSet].sort().join(',');
-        await addAircraftTypeToRegistry(type, speedKts, endH, crewType);
+        const category = categoryInputs[type] ?? '';
+        const engineType = engineInputs[type] ?? '';
+        await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
         if (speedKts > 0) await updateAircraftCruiseSpeed(type, speedKts);
         if (endH > 0) await updateAircraftEndurance(type, endH);
       }
@@ -223,38 +458,45 @@ export default function ImportScreen() {
       for (let i = 0; i < result.flights.length; i++) {
         const f = result.flights[i];
         const ft = flightTypes[i] ?? 'normal';
-        await insertFlight({ ...f, flight_type: ft }, { source: 'import' });
+        const simCat = ft === 'sim' ? (simCategories[i] ?? 'FFS') : '';
+        const explanation = flightExplanations[i];
+        const remarksNote =
+          explanation === 'temporary' ? '[Temporary landing site]' :
+          explanation === 'refuel'    ? '[En-route refuel]' : '';
+        const remarks = [f.remarks, remarksNote].filter(Boolean).join(' ');
+        await insertFlight({ ...f, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
-      Alert.alert('Klart!', `${saved} flygningar importerade.`, [
+      Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}`, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e: any) {
-      Alert.alert('Fel vid sparning', e.message);
+      Alert.alert(t('save_error'), e.message);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Importera loggbok</Text>
-      <Text style={styles.subtitle}>
-        Ladda upp en exportfil från din nuvarande loggboksapp. Claude identifierar formatet
-        och mappar kolumnerna automatiskt.
-      </Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets
+    >
+      <Text style={styles.title}>{t('import_logbook')}</Text>
+      <Text style={styles.subtitle}>{t('import_logbook_sub')}</Text>
 
-      {/* Gratis-info */}
+      {/* Free notice */}
       <View style={styles.freeNotice}>
         <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-        <Text style={styles.freeNoticeText}>
-          Import är alltid gratis — din data tillhör dig.
-        </Text>
+        <Text style={styles.freeNoticeText}>{t('import_always_free')}</Text>
       </View>
 
-      {/* Format-lista */}
-      <Text style={styles.section}>Stöds format</Text>
+      {/* Format list */}
+      <Text style={styles.section}>{t('supported_formats')}</Text>
       <View style={styles.formatGrid}>
         {SUPPORTED_FORMATS.map((f) => (
           <View key={f.name} style={styles.formatChip}>
@@ -276,16 +518,16 @@ export default function ImportScreen() {
           <>
             <ActivityIndicator color={Colors.textInverse} size="small" />
             <Text style={styles.pickBtnText}>
-              {progress.current === 0 ? 'Läser fil...' :
-               progress.current === 1 ? 'Claude identifierar format...' :
-               progress.current === 2 ? 'Tolkar rader...' :
-               'Klar!'}
+              {progress.current === 0 ? t('reading_file') :
+               progress.current === 1 ? t('claude_identifying') :
+               progress.current === 2 ? t('parsing_rows') :
+               t('done_exclamation')}
             </Text>
           </>
         ) : (
           <>
             <Ionicons name="cloud-upload" size={20} color={Colors.textInverse} />
-            <Text style={styles.pickBtnText}>Välj fil att importera</Text>
+            <Text style={styles.pickBtnText}>{t('choose_file')}</Text>
           </>
         )}
       </TouchableOpacity>
@@ -299,10 +541,10 @@ export default function ImportScreen() {
               <Text style={styles.resultFile} numberOfLines={1}>{fileName}</Text>
             </View>
             <View style={styles.resultStats}>
-              <StatPill label="Rader" value={String(result.totalRows)} />
-              <StatPill label="Mappade" value={String(result.mappedRows)} color={Colors.success} />
+              <StatPill label="Rows" value={String(result.totalRows)} />
+              <StatPill label="Mapped" value={String(result.mappedRows)} color={Colors.success} />
               {result.warnings.length > 0 && (
-                <StatPill label="Varningar" value={String(result.warnings.length)} color={Colors.warning} />
+                <StatPill label="Warnings" value={String(result.warnings.length)} color={Colors.warning} />
               )}
             </View>
           </View>
@@ -319,25 +561,32 @@ export default function ImportScreen() {
             </View>
           )}
 
-          {/* Förhandsvisning av flygningar */}
-          <Text style={styles.section}>Förhandsvisning ({result.flights.length} flygningar)</Text>
-          {result.flights.slice(0, 10).map((f, i) => (
-            <FlightPreviewRow key={i} flight={f} />
-          ))}
-          {result.flights.length > 10 && (
-            <Text style={styles.moreText}>... och {result.flights.length - 10} till</Text>
-          )}
+          {/* Flight summary */}
+          {(() => {
+            const totalHours = result.flights.reduce((sum, f) => sum + (parseFloat(f.total_time) || 0), 0);
+            return (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{result.flights.length}</Text>
+                  <Text style={styles.summaryLabel}>{t('flights_label')}</Text>
+                </View>
+                <View style={styles.summarySep} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{totalHours.toFixed(1)}h</Text>
+                  <Text style={styles.summaryLabel}>{t('total_flight_time')}</Text>
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Okända flygplatser */}
           {unknownAirports.length > 0 && (
             <View style={styles.unknownSection}>
               <View style={styles.speedHeader}>
                 <Ionicons name="location-outline" size={14} color={Colors.danger} />
-                <Text style={styles.unknownTitle}>Okända flygplatser ({unknownAirports.length})</Text>
+                <Text style={styles.unknownTitle}>{t('unknown_airports')} ({unknownAirports.length})</Text>
               </View>
-              <Text style={styles.speedSubtitle}>
-                Dessa platser saknas i databasen. Lägg till koordinater eller markera som tillfällig landningsplats.
-              </Text>
+              <Text style={styles.speedSubtitle}>{t('unknown_airports_sub')}</Text>
               {unknownAirports.map((ua, idx) => {
                 const setField = (patch: Partial<typeof ua>) =>
                   setUnknownAirports(prev => prev.map((x, i) => i === idx ? { ...x, ...patch } : x));
@@ -353,7 +602,7 @@ export default function ImportScreen() {
                         <Text style={styles.unknownIcao}>{ua.icao}</Text>
                         {ua.decision !== 'pending' && (
                           <Text style={[styles.unknownDecisionLabel, ua.decision === 'temporary' && styles.unknownDecisionTemporary]}>
-                            {ua.decision === 'temporary' ? 'Tillfällig' : 'Läggs till i databasen'}
+                            {ua.decision === 'temporary' ? t('temporary_badge') : t('will_be_added')}
                           </Text>
                         )}
                       </View>
@@ -377,17 +626,17 @@ export default function ImportScreen() {
                             color={ua.decision === 'temporary' ? Colors.textInverse : Colors.textMuted}
                           />
                           <Text style={[styles.tempBtnText, ua.decision === 'temporary' && styles.tempBtnTextActive]}>
-                            Tillfällig landningsplats (ej på karta)
+                            {t('temporary_landing_site')}
                           </Text>
                         </TouchableOpacity>
 
                         {/* Formulär för att lägga till i databasen */}
                         {ua.decision !== 'temporary' && (
                           <View style={styles.unknownForm}>
-                            <Text style={styles.unknownFormLabel}>Eller lägg till i databasen:</Text>
+                            <Text style={styles.unknownFormLabel}>{t('or_add_to_database')}</Text>
                             <RNTextInput
                               style={styles.unknownInput}
-                              placeholder="Namn (t.ex. Torsby flygplats)"
+                              placeholder={t('name_placeholder')}
                               placeholderTextColor={Colors.textMuted}
                               value={ua.name}
                               onChangeText={(v) => setField({ name: v, decision: v ? 'custom' : 'pending' })}
@@ -395,7 +644,7 @@ export default function ImportScreen() {
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                               <RNTextInput
                                 style={[styles.unknownInput, { flex: 1 }]}
-                                placeholder="Latitud (t.ex. 60.1234)"
+                                placeholder={t('latitude_placeholder')}
                                 placeholderTextColor={Colors.textMuted}
                                 keyboardType="decimal-pad"
                                 value={ua.lat}
@@ -403,7 +652,7 @@ export default function ImportScreen() {
                               />
                               <RNTextInput
                                 style={[styles.unknownInput, { flex: 1 }]}
-                                placeholder="Longitud (t.ex. 13.5678)"
+                                placeholder={t('longitude_placeholder')}
                                 placeholderTextColor={Colors.textMuted}
                                 keyboardType="decimal-pad"
                                 value={ua.lon}
@@ -425,24 +674,16 @@ export default function ImportScreen() {
             <View style={styles.speedSection}>
               <View style={styles.speedHeader}>
                 <Ionicons name="speedometer-outline" size={14} color={Colors.gold} />
-                <Text style={styles.speedTitle}>Fartygsdata (kan lämnas tomt)</Text>
+                <Text style={styles.speedTitle}>{t('aircraft_data')}</Text>
               </View>
-              <Text style={styles.speedSubtitle}>
-                Marschfart används för avstånd på lokala pass. Uthållighet filtrerar bort sim-pass från statistiken.
-              </Text>
+              <Text style={styles.speedSubtitle}>{t('aircraft_data_sub')} {t('aircraft_data_edit_later')}</Text>
               <View style={styles.speedColHeader}>
-                <Text style={[styles.speedType, { color: Colors.textMuted, fontSize: 10 }]}>TYP</Text>
-                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>FART (kts)</Text>
-                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>UTHÅLL. (h)</Text>
+                <Text style={[styles.speedType, { color: Colors.textMuted, fontSize: 10 }]}>TYPE</Text>
+                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>SPEED (kts)</Text>
+                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>ENDUR. (h)</Text>
               </View>
               {typesNeedingData.map(({ type, hasSpeed, hasEndurance }) => {
                 const crewSet = crewTypeInputs[type] ?? new Set<string>();
-                const CREW_OPTS = [
-                  { key: 'sp',      label: 'SP',        sub: 'Singelpilot' },
-                  { key: 'mp',      label: 'MP',        sub: 'Multipilot' },
-                  { key: 'sp_only', label: 'Enbart SP', sub: '' },
-                  { key: 'mp_only', label: 'Enbart MP', sub: '' },
-                ] as const;
                 return (
                   <View key={type} style={styles.typeBlock}>
                     <View style={styles.speedRow}>
@@ -469,19 +710,55 @@ export default function ImportScreen() {
                       />
                     </View>
                     <View style={styles.crewRow}>
-                      {CREW_OPTS.map(opt => (
-                        <TouchableOpacity
-                          key={opt.key}
-                          style={[styles.crewBtn, crewSet.has(opt.key) && styles.crewBtnActive]}
-                          onPress={() => toggleCrewForType(type, opt.key)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.crewBtnLabel, crewSet.has(opt.key) && styles.crewBtnLabelActive]}>
-                            {opt.label}
-                          </Text>
-                          {opt.sub ? <Text style={styles.crewBtnSub}>{opt.sub}</Text> : null}
-                        </TouchableOpacity>
-                      ))}
+                      {(['sp', 'mp'] as const).map((key) => {
+                        const active = crewSet.has(key);
+                        const label = key === 'sp' ? 'SP' : 'MP';
+                        const sub = key === 'sp' ? 'Single pilot' : 'Multi-pilot';
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            style={[styles.crewBtn, active && styles.crewBtnActive]}
+                            onPress={() => toggleCrewForType(type, key)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
+                            <Text style={styles.crewBtnSub}>{sub}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                      {(['se', 'me'] as const).map((key) => {
+                        const active = engineInputs[type] === key;
+                        const label = key === 'se' ? 'SE' : 'ME';
+                        const sub = key === 'se' ? 'Single engine' : 'Multi engine';
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            style={[styles.crewBtn, active && styles.crewBtnActive]}
+                            onPress={() => setEngineInputs(prev => ({ ...prev, [type]: active ? '' : key }))}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
+                            <Text style={styles.crewBtnSub}>{sub}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.crewRow}>
+                      {(['airplane', 'helicopter'] as const).map((cat) => {
+                        const active = categoryInputs[type] === cat;
+                        return (
+                          <TouchableOpacity
+                            key={cat}
+                            style={[styles.crewBtn, { flex: 1 }, active && styles.crewBtnActive]}
+                            onPress={() => setCategoryInputs(prev => ({ ...prev, [type]: active ? '' : cat }))}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>
+                              {cat === 'airplane' ? t('airplane') : t('helicopter')}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 );
@@ -494,10 +771,10 @@ export default function ImportScreen() {
             <View style={styles.suspiciousSection}>
               <View style={styles.speedHeader}>
                 <Ionicons name="warning-outline" size={14} color={Colors.warning} />
-                <Text style={styles.suspiciousTitle}>Misstänkta sträckor ({suspiciousFlights.length})</Text>
+                <Text style={styles.suspiciousTitle}>Suspicious legs ({suspiciousFlights.length})</Text>
               </View>
               <Text style={styles.speedSubtitle}>
-                Avståndet överstiger 1,5× räckvidden. Ange en förklaring eller importera ändå.
+                Distance exceeds 1.5× the range. Provide an explanation or import anyway.
               </Text>
               {suspiciousFlights.map(({ idx, f, distNm, rangeNm }) => {
                 const current = flightExplanations[idx];
@@ -506,7 +783,7 @@ export default function ImportScreen() {
                     <View style={styles.suspiciousInfo}>
                       <Text style={styles.suspiciousRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
                       <Text style={styles.suspiciousMeta}>
-                        {f.date} · {f.aircraft_type} · {distNm} nm · räckvidd {rangeNm} nm
+                        {f.date} · {f.aircraft_type} · {distNm} nm · range {rangeNm} nm
                       </Text>
                     </View>
                     <View style={styles.suspiciousToggle}>
@@ -515,7 +792,7 @@ export default function ImportScreen() {
                         onPress={() => setFlightExplanations(p => ({ ...p, [idx]: p[idx] === 'temporary' ? undefined as any : 'temporary' }))}
                       >
                         <Text style={[styles.suspiciousBtnText, current === 'temporary' && styles.suspiciousBtnTextActive]}>
-                          Tillfällig plats
+                          Temporary site
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -523,7 +800,7 @@ export default function ImportScreen() {
                         onPress={() => setFlightExplanations(p => ({ ...p, [idx]: p[idx] === 'refuel' ? undefined as any : 'refuel' }))}
                       >
                         <Text style={[styles.suspiciousBtnText, current === 'refuel' && styles.suspiciousBtnTextActive]}>
-                          Tankning längs vägen
+                          En-route refuel
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -538,33 +815,53 @@ export default function ImportScreen() {
             <View style={styles.exceedSection}>
               <View style={styles.speedHeader}>
                 <Ionicons name="warning-outline" size={14} color={Colors.warning} />
-                <Text style={styles.exceedTitle}>Längre än uthålligheten — vad är det?</Text>
+                <Text style={styles.exceedTitle}>Longer than endurance — what is it?</Text>
               </View>
               <Text style={styles.speedSubtitle}>
-                Sim-pass exkluderas från statistik och karta. Hot refuel räknas som normal flygning.
+                Sim sessions are excluded from statistics and map. Hot refuel counts as a normal flight.
               </Text>
               {exceedingFlights.map(({ f, idx }) => {
                 const current = flightTypes[idx] ?? 'sim';
                 return (
-                  <View key={idx} style={styles.exceedRow}>
-                    <View style={styles.exceedInfo}>
-                      <Text style={styles.exceedRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
-                      <Text style={styles.exceedMeta}>{f.date} · {f.aircraft_type} · {f.total_time}h</Text>
+                  <View key={idx}>
+                    <View style={styles.exceedRow}>
+                      <View style={styles.exceedInfo}>
+                        <Text style={styles.exceedRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
+                        <Text style={styles.exceedMeta}>{f.date} · {f.aircraft_type} · {f.total_time}h</Text>
+                      </View>
+                      <View style={styles.exceedToggle}>
+                        <TouchableOpacity
+                          style={[styles.exceedBtn, current === 'sim' && styles.exceedBtnSim]}
+                          onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'sim' }))}
+                        >
+                          <Text style={[styles.exceedBtnText, current === 'sim' && styles.exceedBtnTextActive]}>Sim</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.exceedBtn, current === 'hot_refuel' && styles.exceedBtnHot]}
+                          onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'hot_refuel' }))}
+                        >
+                          <Text style={[styles.exceedBtnText, current === 'hot_refuel' && styles.exceedBtnTextActive]}>Hot refuel</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.exceedToggle}>
-                      <TouchableOpacity
-                        style={[styles.exceedBtn, current === 'sim' && styles.exceedBtnSim]}
-                        onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'sim' }))}
-                      >
-                        <Text style={[styles.exceedBtnText, current === 'sim' && styles.exceedBtnTextActive]}>Sim</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.exceedBtn, current === 'hot_refuel' && styles.exceedBtnHot]}
-                        onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'hot_refuel' }))}
-                      >
-                        <Text style={[styles.exceedBtnText, current === 'hot_refuel' && styles.exceedBtnTextActive]}>Hot refuel</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {current === 'sim' && (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6, marginLeft: 12 }}>
+                        {(['FFS','FTD','FNPT_II','FNPT_I','BITD'] as const).map((cat) => {
+                          const active = (simCategories[idx] ?? 'FFS') === cat;
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              style={[styles.exceedBtn, active && styles.exceedBtnSim]}
+                              onPress={() => setSimCategories((p) => ({ ...p, [idx]: cat }))}
+                            >
+                              <Text style={[styles.exceedBtnText, active && styles.exceedBtnTextActive]}>
+                                {cat.replace('_', ' ')}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -583,19 +880,19 @@ export default function ImportScreen() {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
-                <Text style={styles.saveBtnText}>Importera {result.flights.length} flygningar</Text>
+                <Text style={styles.saveBtnText}>{t('save_all')} ({result.flights.length})</Text>
               </>
             )}
           </TouchableOpacity>
 
           <Text style={styles.hint}>
-            All importerad data sparas med källan "import" och kan granskas i ändringsloggen.
+            All imported data is saved with source "import" and can be reviewed in the audit log.
           </Text>
         </>
       )}
 
       {/* Instruktioner */}
-      <Text style={styles.section}>Hur exporterar jag?</Text>
+      <Text style={styles.section}>How do I export?</Text>
       {[
         { app: 'ForeFlight', steps: 'Logbook → Export → CSV' },
         { app: 'LogTen Pro', steps: 'File → Export → LogTen Pro' },
@@ -612,6 +909,7 @@ export default function ImportScreen() {
 }
 
 function FlightPreviewRow({ flight }: { flight: OcrFlightResult }) {
+  const styles = makeStyles();
   const pic = parseFloat(flight.pic ?? '0') || 0;
   const ifr = parseFloat(flight.ifr ?? '0') || 0;
   const night = parseFloat(flight.night ?? '0') || 0;
@@ -628,7 +926,7 @@ function FlightPreviewRow({ flight }: { flight: OcrFlightResult }) {
           {pic > 0 && <Text style={[styles.previewChip, { color: Colors.success }]}>PIC {flight.pic}h</Text>}
           {cop > 0 && <Text style={[styles.previewChip, { color: Colors.primary }]}>COP {flight.co_pilot}h</Text>}
           {ifr > 0 && <Text style={[styles.previewChip, { color: Colors.primaryLight }]}>IFR {flight.ifr}h</Text>}
-          {night > 0 && <Text style={[styles.previewChip, { color: Colors.textMuted }]}>NATT {flight.night}h</Text>}
+          {night > 0 && <Text style={[styles.previewChip, { color: Colors.textMuted }]}>NIGHT {flight.night}h</Text>}
           {flight.flight_rules === 'IFR' && ifr === 0 && (
             <Text style={[styles.previewChip, { color: Colors.warning }]}>IFR-regel</Text>
           )}
@@ -642,6 +940,7 @@ function FlightPreviewRow({ flight }: { flight: OcrFlightResult }) {
 }
 
 function StatPill({ label, value, color }: { label: string; value: string; color?: string }) {
+  const styles = makeStyles();
   return (
     <View style={styles.statPill}>
       <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
@@ -649,188 +948,3 @@ function StatPill({ label, value, color }: { label: string; value: string; color
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, paddingBottom: 40, gap: 12 },
-
-  title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
-  subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-
-  freeNotice: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.success + '18', borderRadius: 8,
-    padding: 12, borderWidth: 1, borderColor: Colors.success + '44',
-  },
-  freeNoticeText: { color: Colors.success, fontSize: 13, fontWeight: '600' },
-
-  section: {
-    color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1,
-    marginTop: 8, marginBottom: 4,
-  },
-
-  formatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  formatChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.card, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 7,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  formatName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '600' },
-  formatExt: { color: Colors.textMuted, fontSize: 10 },
-
-  pickBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primary, borderRadius: 12,
-    paddingVertical: 15, gap: 8,
-  },
-  pickBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
-
-  resultHeader: {
-    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.cardBorder,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  resultInfo: { flex: 1 },
-  resultFormat: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
-  resultFile: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  resultStats: { flexDirection: 'row', gap: 8 },
-  statPill: { alignItems: 'center' },
-  statValue: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
-  statLabel: { color: Colors.textMuted, fontSize: 9, textTransform: 'uppercase' },
-
-  warningBox: {
-    backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12,
-    gap: 6, borderWidth: 1, borderColor: Colors.warning + '44',
-  },
-  warningRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
-  warningText: { color: Colors.warning, fontSize: 12, flex: 1 },
-
-  previewRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 8, padding: 10,
-    borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
-  },
-  previewRowFlagged: { borderColor: Colors.warning + '66' },
-  previewRoute: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
-  previewDate: { color: Colors.textSecondary, fontSize: 12 },
-  previewChip: { color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Menlo' },
-  moreText: { color: Colors.textMuted, fontSize: 12, textAlign: 'center' },
-
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 15, gap: 8, marginTop: 8,
-  },
-  saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
-  hint: { color: Colors.textMuted, fontSize: 11, textAlign: 'center' },
-
-  instructionRow: {
-    flexDirection: 'row', backgroundColor: Colors.card,
-    borderRadius: 8, padding: 12,
-    borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
-  },
-  instructionApp: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', width: 110 },
-  instructionSteps: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
-
-  speedSection: {
-    backgroundColor: Colors.gold + '14',
-    borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: Colors.gold + '55', gap: 8,
-  },
-  speedHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  speedTitle: { color: Colors.gold, fontSize: 12, fontWeight: '700' },
-  speedSubtitle: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
-  speedRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.card, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  speedColHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
-  speedType: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
-  speedInput: {
-    width: 72, color: Colors.textPrimary, fontSize: 15, fontWeight: '700',
-    fontFamily: 'Menlo', textAlign: 'center',
-    backgroundColor: Colors.elevated, borderRadius: 6,
-    paddingHorizontal: 6, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  speedInputDone: { borderColor: Colors.success + '66', backgroundColor: Colors.success + '12' },
-  speedUnit: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', width: 24 },
-
-  exceedSection: {
-    backgroundColor: Colors.warning + '12',
-    borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: Colors.warning + '55', gap: 8,
-  },
-  exceedTitle: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
-  exceedRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 8,
-    padding: 10, borderWidth: 1, borderColor: Colors.border, gap: 8,
-  },
-  exceedInfo: { flex: 1 },
-  exceedRoute: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
-  exceedMeta: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
-  exceedToggle: { flexDirection: 'row', gap: 4 },
-  exceedBtn: {
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
-    borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.elevated,
-  },
-  exceedBtnSim: { backgroundColor: Colors.danger + '22', borderColor: Colors.danger + '88' },
-  exceedBtnHot: { backgroundColor: Colors.success + '22', borderColor: Colors.success + '88' },
-  exceedBtnText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
-  exceedBtnTextActive: { color: Colors.textPrimary, fontWeight: '700' },
-
-  typeBlock: { gap: 6 },
-  crewRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 2 },
-  crewBtn: {
-    flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated,
-  },
-  crewBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
-  crewBtnLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700' },
-  crewBtnLabelActive: { color: Colors.primary },
-  crewBtnSub: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
-
-  // Okända flygplatser
-  unknownSection: {
-    backgroundColor: Colors.danger + '10',
-    borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: Colors.danger + '44', gap: 8,
-  },
-  unknownTitle: { color: Colors.danger, fontSize: 12, fontWeight: '700' },
-  unknownRow: {
-    backgroundColor: Colors.card, borderRadius: 8,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-  },
-  unknownHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
-  },
-  unknownIcao: {
-    color: Colors.textPrimary, fontSize: 14, fontWeight: '800',
-    fontFamily: 'Menlo', letterSpacing: 1,
-  },
-  unknownDecisionLabel: { color: Colors.success, fontSize: 11, fontWeight: '600', marginTop: 2 },
-  unknownDecisionTemporary: { color: Colors.textMuted },
-  unknownBody: { paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderTopWidth: 1, borderTopColor: Colors.separator },
-  tempBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.elevated, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  tempBtnActive: { backgroundColor: Colors.textMuted, borderColor: Colors.textMuted },
-  tempBtnText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '500', flex: 1 },
-  tempBtnTextActive: { color: Colors.textInverse },
-  unknownForm: { gap: 6 },
-  unknownFormLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', marginTop: 4 },
-  unknownInput: {
-    backgroundColor: Colors.elevated, borderRadius: 8, padding: 10,
-    borderWidth: 1, borderColor: Colors.border,
-    color: Colors.textPrimary, fontSize: 14,
-  },
-});

@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Tailwind",
-    "slug": "tailwind-logbook",
+    "name": "BushpilotFlightlog",
+    "slug": "bushpilot-flightlog",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "tailwind",
+    "scheme": "bushpilot",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -14,10 +14,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.tailwind.logbook",
+      "bundleIdentifier": "com.bushpilot.flightlog",
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
-        "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning."
+        "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning.",
+        "NSLocationWhenInUseUsageDescription": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser."
       }
     },
     "android": {
@@ -25,7 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0F1E"
       },
-      "package": "com.tailwind.logbook"
+      "package": "com.bushpilot.flightlog"
     },
     "web": {
       "bundler": "metro",
@@ -40,7 +41,14 @@
         {
           "cameraPermission": "Kameran används för OCR-skanning av loggböcker."
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

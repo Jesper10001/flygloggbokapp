@@ -7,16 +7,23 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFlightStore } from '../../store/flightStore';
-import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType } from '../../db/flights';
+import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry } from '../../db/flights';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { Colors } from '../../constants/colors';
-import { formatDate, formatHours } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import type { Flight } from '../../types/flight';
 import { AircraftModal } from '../../components/AircraftModal';
+import { useTranslation } from '../../hooks/useTranslation';
+import { useTimeFormat, formatTimeValue } from '../../hooks/useTimeFormat';
+import { useTimeFormatStore } from '../../store/timeFormatStore';
+import {
+  getAllScanSummaries, deleteScanSummary, updateScanSummaryNames,
+  type ScanSummary,
+} from '../../db/scanSummaries';
 
 const MONTH_NAMES = [
-  'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 type MonthSection = {
@@ -71,13 +78,226 @@ function currentMonthKey(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+function makeStyles() {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.background },
+
+    searchRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: Colors.card, margin: 12, marginBottom: 4,
+      borderRadius: 8, paddingHorizontal: 12,
+      borderWidth: 0.5, borderColor: Colors.border,
+    },
+    searchIcon: { marginRight: 8 },
+    searchInput: { flex: 1, color: Colors.textPrimary, fontSize: 15, paddingVertical: 10 },
+
+    listContent: { paddingBottom: 96 },
+    separator: { height: 1, backgroundColor: Colors.separator },
+
+    // Loggbokssummering
+    summaryAccordion: {
+      borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+      backgroundColor: Colors.elevated,
+    },
+    summaryAccordionHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 7,
+      paddingHorizontal: 14, paddingVertical: 12,
+    },
+    summaryAccordionTitle: {
+      flex: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    summaryAccordionCount: { color: Colors.textMuted, fontSize: 11, marginRight: 4 },
+    summaryEmpty: { paddingHorizontal: 22, paddingVertical: 12 },
+    summaryEmptyText: { color: Colors.textMuted, fontSize: 13 },
+    summaryBookHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 10,
+      backgroundColor: Colors.background,
+      borderTopWidth: 0.5, borderTopColor: Colors.border,
+    },
+    summaryBookTitle: { flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+    summaryBookCount: { color: Colors.textMuted, fontSize: 11 },
+    summaryPageHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 9,
+      backgroundColor: Colors.elevated,
+      borderTopWidth: 0.5, borderTopColor: Colors.separator,
+    },
+    summaryPageTitle: { flex: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+    summaryPageDate: { color: Colors.textMuted, fontSize: 11 },
+    summaryPageStats: {
+      paddingHorizontal: 14, paddingLeft: 56, paddingVertical: 8,
+      backgroundColor: Colors.card, gap: 6,
+      borderTopWidth: 0.5, borderTopColor: Colors.separator,
+    },
+    summaryStatRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    summaryStatLabel: { color: Colors.textMuted, fontSize: 12 },
+    summaryStatValue: {
+      color: Colors.textPrimary, fontSize: 12, fontWeight: '700',
+      fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
+    },
+
+    // Flygningar-dropdown
+    flightsHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 7,
+      paddingHorizontal: 14, paddingVertical: 12,
+      backgroundColor: Colors.elevated,
+      borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+      borderTopWidth: 0.5, borderTopColor: Colors.border,
+    },
+    flightsHeaderTitle: {
+      flex: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: '700',
+      letterSpacing: 0.5, textTransform: 'uppercase',
+    },
+    flightsHeaderCount: { color: Colors.textMuted, fontSize: 11, marginRight: 4 },
+
+    // Årsrad
+    yearHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 12,
+      backgroundColor: Colors.background,
+      borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+    },
+    yearTitle: {
+      flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '800', letterSpacing: 0.5,
+    },
+    yearMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    yearHours: { color: Colors.primary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
+    yearCount: { color: Colors.textMuted, fontSize: 12 },
+
+    // Månadsrad
+    monthHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 10,
+      backgroundColor: Colors.elevated,
+      borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+    },
+    monthHeaderCurrent: {
+      backgroundColor: Colors.primary + '12',
+    },
+    monthTitle: {
+      flex: 1, color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1,
+    },
+    monthTitleCurrent: { color: Colors.primary },
+    monthMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    monthHours: { color: Colors.textMuted, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' },
+    monthCount: { color: Colors.textMuted, fontSize: 11 },
+    monthBottom: { height: 4, backgroundColor: Colors.elevated },
+
+    // Flygningsrad
+    row: { padding: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'flex-start' },
+    rowEven: { backgroundColor: Colors.card },
+    rowOdd: { backgroundColor: Colors.elevated },
+    rowFlagged: { backgroundColor: Colors.danger + '18' },
+    flagBadge: {
+      backgroundColor: Colors.danger + '22', borderRadius: 3,
+      paddingHorizontal: 5, paddingVertical: 1,
+      borderWidth: 0.5, borderColor: Colors.danger + '88',
+    },
+    flagBadgeText: { color: Colors.danger, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+    rowLeft: { flex: 1, gap: 4 },
+    routeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    icao: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 1, fontFamily: 'Menlo' },
+    meta: { color: Colors.textSecondary, fontSize: 12 },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+    tag: {
+      flexDirection: 'row', alignItems: 'center', gap: 3,
+      borderWidth: 0.5, borderColor: Colors.border,
+      borderRadius: 3, paddingHorizontal: 6, paddingVertical: 2,
+    },
+    tagText: { color: Colors.textMuted, fontSize: 10, fontWeight: '600', fontFamily: 'Menlo' },
+
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+    emptyText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', paddingHorizontal: 40 },
+
+    fab: {
+      position: 'absolute', bottom: 24, right: 20,
+      width: 56, height: 56, borderRadius: 28,
+      backgroundColor: Colors.primary,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: Colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+    },
+
+    // Segment control
+    segmentBar: {
+      flexDirection: 'row', margin: 12, marginBottom: 4,
+      backgroundColor: Colors.elevated, borderRadius: 8, padding: 3,
+      borderWidth: 0.5, borderColor: Colors.border,
+    },
+    segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 6 },
+    segmentBtnActive: { backgroundColor: Colors.primary },
+    segmentText: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
+    segmentTextActive: { color: Colors.textInverse, fontWeight: '700' },
+
+    // Saved airframes
+    airframesList: { padding: 12, paddingBottom: 40, gap: 8 },
+    addAircraftBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 12, gap: 6,
+    },
+    addAircraftBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '700' },
+    airframeRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: Colors.card, borderRadius: 10, padding: 14,
+      borderWidth: 1, borderColor: Colors.cardBorder, gap: 10,
+    },
+    airframeLeft: { flex: 1, gap: 4 },
+    airframeTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    airframeBadgeRow: { flexDirection: 'row', gap: 4 },
+    badge: {
+      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    },
+    badgeText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+    badgeMe: { backgroundColor: Colors.primary + '22', borderColor: Colors.primary + '66' },
+    badgeMeText: { color: Colors.primary },
+    badgeHeli: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '66' },
+    badgeHeliText: { color: Colors.gold },
+    airframeType: {
+      color: Colors.textPrimary, fontSize: 17, fontWeight: '800',
+      letterSpacing: 0.5, fontFamily: 'Menlo',
+    },
+    airframeMeta: { flexDirection: 'row', gap: 8 },
+    airframeMetaText: { color: Colors.textSecondary, fontSize: 12 },
+    airframeRight: { alignItems: 'flex-end', gap: 4 },
+    totalHours: { color: Colors.primary, fontSize: 20, fontWeight: '800' },
+    topRegBlock: { alignItems: 'flex-end' },
+    topRegText: {
+      color: Colors.textSecondary, fontSize: 12, fontWeight: '700',
+      textDecorationLine: 'underline',
+    },
+    topRegHours: { color: Colors.textMuted, fontSize: 10, marginTop: 1 },
+    airframeActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    airframeUnknown: { color: Colors.textMuted, fontSize: 12 },
+
+    specRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    specDotGreen: { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.success },
+    specDotRed: { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.danger },
+
+    crewBadge: {
+      backgroundColor: Colors.primary + '22', borderRadius: 4,
+      paddingHorizontal: 6, paddingVertical: 2,
+      borderWidth: 0.5, borderColor: Colors.primary + '66',
+    },
+    crewBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: '700' },
+  });
+}
+
 // ─── Subcomponents ────────────────────────────────────────────────────────────
 
-function FlightRow({ flight, onPress, onDelete, index }: {
-  flight: Flight; onPress: () => void; onDelete: () => void; index: number;
+function FlightRow({ flight, onPress, index }: {
+  flight: Flight; onPress: () => void; index: number;
 }) {
+  const styles = makeStyles();
   const isFlagged = flight.status === 'flagged';
   const isEven = index % 2 === 0;
+  const { formatTime } = useTimeFormat();
   return (
     <TouchableOpacity
       style={[styles.row, isEven ? styles.rowEven : styles.rowOdd, isFlagged && styles.rowFlagged]}
@@ -90,25 +310,23 @@ function FlightRow({ flight, onPress, onDelete, index }: {
           <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
           <Text style={styles.icao}>{flight.arr_place}</Text>
           {isFlagged && (
-            <View style={styles.flagBadge}><Text style={styles.flagBadgeText}>FLAGGAD</Text></View>
+            <View style={styles.flagBadge}><Text style={styles.flagBadgeText}>FLAGGED</Text></View>
           )}
         </View>
         <Text style={styles.meta}>{formatDate(flight.date)} · {flight.aircraft_type} {flight.registration}</Text>
         <View style={styles.tags}>
-          <Tag label={`${formatHours(flight.total_time)}h`} color={Colors.primary} />
-          {flight.pic > 0 && <Tag label={`PIC ${formatHours(flight.pic)}h`} color={Colors.success} />}
-          {flight.ifr > 0 && <Tag label={`IFR ${formatHours(flight.ifr)}h`} color={Colors.primaryLight} />}
-          {flight.night > 0 && <Tag label={`Natt ${formatHours(flight.night)}h`} color={Colors.textMuted} />}
+          <Tag label={`${formatTime(flight.total_time)}h`} color={Colors.primary} />
+          {flight.pic > 0 && <Tag label={`PIC ${formatTime(flight.pic)}h`} color={Colors.success} />}
+          {flight.ifr > 0 && <Tag label={`IFR ${formatTime(flight.ifr)}h`} color={Colors.primaryLight} />}
+          {flight.night > 0 && <Tag label={`Night ${formatTime(flight.night)}h`} color={Colors.textMuted} />}
         </View>
       </View>
-      <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={8}>
-        <Ionicons name="trash-outline" size={17} color={Colors.textMuted} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 function Tag({ label, color }: { label: string; color?: string }) {
+  const styles = makeStyles();
   return (
     <View style={[styles.tag, color ? { borderColor: color + '44' } : null]}>
       <Text style={[styles.tagText, color ? { color } : null]}>{label}</Text>
@@ -118,18 +336,24 @@ function Tag({ label, color }: { label: string; color?: string }) {
 
 // ─── Crew type helpers ────────────────────────────────────────────────────────
 
-const CREW_LABELS: Record<string, string> = {
-  sp: 'SP', mp: 'MP', sp_only: 'Enbart SP', mp_only: 'Enbart MP',
-};
-
-function CrewBadges({ crewType }: { crewType: string }) {
-  if (!crewType) return <Text style={styles.airframeUnknown}>–</Text>;
-  const parts = crewType.split(',').map((s) => s.trim()).filter(Boolean);
+function SpecBadges({ crewType, engineType }: { crewType: string; engineType: string }) {
+  const styles = makeStyles();
+  const parts = crewType ? crewType.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  const hasSP = parts.includes('sp');
+  const hasMP = parts.includes('mp');
+  const hasSE = engineType === 'se';
+  const hasME = engineType === 'me';
+  const items: { label: string }[] = [];
+  if (hasSP) items.push({ label: 'SP' });
+  if (hasMP) items.push({ label: 'MP' });
+  if (hasSE) items.push({ label: 'SE' });
+  if (hasME) items.push({ label: 'ME' });
+  if (items.length === 0) return null;
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
-      {parts.map((p) => (
-        <View key={p} style={styles.crewBadge}>
-          <Text style={styles.crewBadgeText}>{CREW_LABELS[p] ?? p}</Text>
+      {items.map((item) => (
+        <View key={item.label} style={styles.crewBadge}>
+          <Text style={styles.crewBadgeText}>{item.label}</Text>
         </View>
       ))}
     </View>
@@ -139,9 +363,12 @@ function CrewBadges({ crewType }: { crewType: string }) {
 // ─── Saved airframes view ────────────────────────────────────────────────────
 
 function AirframesView() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const [airframes, setAirframes] = useState<AircraftRegistryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AircraftRegistryEntry | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -156,12 +383,12 @@ function AirframesView() {
 
   const handleDelete = (entry: AircraftRegistryEntry) => {
     Alert.alert(
-      `Ta bort ${entry.aircraft_type}?`,
-      'Registrerade individer och fartygsdata tas bort.',
+      `${t('delete')} ${entry.aircraft_type}?`,
+      'Registered aircraft and type data will be removed.',
       [
-        { text: 'Avbryt', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Ta bort', style: 'destructive',
+          text: t('delete'), style: 'destructive',
           onPress: async () => {
             await deleteAircraftType(entry.aircraft_type);
             reload();
@@ -173,18 +400,40 @@ function AirframesView() {
 
   if (loading) return <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />;
 
-  if (airframes.length === 0) {
+  if (airframes.length === 0 && !loading) {
     return (
       <View style={styles.empty}>
         <Ionicons name="airplane-outline" size={48} color={Colors.textMuted} />
-        <Text style={styles.emptyTitle}>Inga sparade fartyg</Text>
-        <Text style={styles.emptyText}>Lägg till ett luftfartyg när du loggar en flygning (+).</Text>
+        <Text style={styles.emptyTitle}>{t('no_saved_airframes')}</Text>
+        <Text style={styles.emptyText}>{t('no_saved_airframes_text')}</Text>
+        <TouchableOpacity style={styles.addAircraftBtn} onPress={() => setAdding(true)} activeOpacity={0.8}>
+          <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
+          <Text style={styles.addAircraftBtnText}>{t('new_aircraft')}</Text>
+        </TouchableOpacity>
+        <AircraftModal
+          visible={adding}
+          onClose={() => setAdding(false)}
+          onSave={async (type, speedKts, endH, crewType, category, engineType) => {
+            await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
+            setAdding(false);
+            reload();
+          }}
+        />
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.airframesList}>
+    <ScrollView
+      contentContainerStyle={styles.airframesList}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets
+    >
+      <TouchableOpacity style={styles.addAircraftBtn} onPress={() => setAdding(true)} activeOpacity={0.8}>
+        <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
+        <Text style={styles.addAircraftBtnText}>{t('new_aircraft')}</Text>
+      </TouchableOpacity>
       {airframes.map((entry) => (
         <TouchableOpacity
           key={entry.aircraft_type}
@@ -193,25 +442,59 @@ function AirframesView() {
           activeOpacity={0.75}
         >
           <View style={styles.airframeLeft}>
-            <Text style={styles.airframeType}>{entry.aircraft_type}</Text>
-            <View style={styles.airframeMeta}>
-              {entry.cruise_speed_kts > 0 && (
-                <Text style={styles.airframeMetaText}>{entry.cruise_speed_kts} kts</Text>
+            {/* Rad 1: Typbeteckning + HELI/FIXED W */}
+            <View style={styles.airframeTypeRow}>
+              <Text style={styles.airframeType}>{entry.aircraft_type}</Text>
+              {entry.category === 'helicopter' && (
+                <View style={[styles.badge, styles.badgeHeli]}>
+                  <Text style={[styles.badgeText, styles.badgeHeliText]}>HELI</Text>
+                </View>
               )}
-              {entry.endurance_h > 0 && (
-                <Text style={styles.airframeMetaText}>{entry.endurance_h}h</Text>
-              )}
-              {entry.reg_count > 0 && (
-                <Text style={styles.airframeMetaText}>{entry.reg_count} individ{entry.reg_count !== 1 ? 'er' : ''}</Text>
+              {entry.category === 'airplane' && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>FIXED W</Text>
+                </View>
               )}
             </View>
-            <CrewBadges crewType={entry.crew_type} />
+
+            {/* Rad 2: Marschfart (grön) + Endurance (röd) */}
+            <View style={styles.airframeMeta}>
+              {entry.cruise_speed_kts > 0 && (
+                <View style={styles.specRow}>
+                  <View style={styles.specDotGreen} />
+                  <Text style={styles.airframeMetaText}>{entry.cruise_speed_kts} KTS</Text>
+                </View>
+              )}
+              {entry.endurance_h > 0 && (
+                <View style={styles.specRow}>
+                  <View style={styles.specDotRed} />
+                  <Text style={styles.airframeMetaText}>{entry.endurance_h}H END.</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Rad 3: SP/MP/SE/ME längst ner */}
+            <SpecBadges crewType={entry.crew_type} engineType={entry.engine_type} />
           </View>
-          <View style={styles.airframeActions}>
-            <TouchableOpacity onPress={() => handleDelete(entry)} hitSlop={8}>
-              <Ionicons name="trash-outline" size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+
+          <View style={styles.airframeRight}>
+            {entry.top_registration ? (
+              <View style={styles.topRegBlock}>
+                <Text style={styles.topRegText}>{entry.top_registration}</Text>
+                {entry.top_registration_hours > 0 && (
+                  <Text style={styles.topRegHours}>{entry.top_registration_hours}h</Text>
+                )}
+              </View>
+            ) : null}
+            <Text style={styles.totalHours}>{entry.total_hours > 0 ? `${entry.total_hours}h` : '—'}</Text>
+            <View style={styles.airframeActions}>
+              {entry.flight_count === 0 && (
+                <TouchableOpacity onPress={() => handleDelete(entry)} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </View>
           </View>
         </TouchableOpacity>
       ))}
@@ -223,10 +506,21 @@ function AirframesView() {
         initialSpeedKts={editing?.cruise_speed_kts}
         initialEnduranceH={editing?.endurance_h}
         initialCrewType={editing?.crew_type}
+        initialCategory={editing?.category}
+        initialEngineType={editing?.engine_type}
         onClose={() => setEditing(null)}
-        onSave={async (type, speedKts, endH, crewType) => {
-          await updateAircraftType(type, speedKts, endH, crewType);
+        onSave={async (type, speedKts, endH, crewType, category, engineType) => {
+          await updateAircraftType(type, speedKts, endH, crewType, category, engineType);
           setEditing(null);
+          reload();
+        }}
+      />
+      <AircraftModal
+        visible={adding}
+        onClose={() => setAdding(false)}
+        onSave={async (type, speedKts, endH, crewType, category, engineType) => {
+          await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
+          setAdding(false);
           reload();
         }}
       />
@@ -234,11 +528,132 @@ function AirframesView() {
   );
 }
 
+// ─── Logbook summary accordion ───────────────────────────────────────────────
+
+const SUMMARY_ROWS_LOG = [
+  { label: 'Total flygtid', field: 'total_time' as const, isTime: true },
+  { label: 'PIC',           field: 'pic'        as const, isTime: true },
+  { label: 'Co-pilot',      field: 'co_pilot'   as const, isTime: true },
+  { label: 'IFR',           field: 'ifr'        as const, isTime: true },
+  { label: 'Natt',          field: 'night'      as const, isTime: true },
+  { label: 'Ldg dag',       field: 'landings_day'   as const, isTime: false },
+  { label: 'Ldg natt',      field: 'landings_night' as const, isTime: false },
+];
+
+function LogbookSummaryAccordion({
+  summaries,
+  onDelete,
+  onRename,
+}: {
+  summaries: ScanSummary[];
+  onDelete: (id: number) => void;
+  onRename: (id: number, book: string, page: string) => void;
+}) {
+  const styles = makeStyles();
+  const { timeFormat } = useTimeFormatStore();
+  const [open, setOpen] = useState(false);
+  const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
+  const [expandedPages, setExpandedPages] = useState<Set<number>>(new Set());
+
+  const books = Array.from(new Set(summaries.map(s => s.book_name || 'Okänd bok')));
+
+  const toggleBook = (book: string) =>
+    setExpandedBooks(prev => { const n = new Set(prev); n.has(book) ? n.delete(book) : n.add(book); return n; });
+
+  const togglePage = (id: number) =>
+    setExpandedPages(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  return (
+    <View style={styles.summaryAccordion}>
+      <TouchableOpacity style={styles.summaryAccordionHeader} onPress={() => setOpen(v => !v)} activeOpacity={0.8}>
+        <Ionicons name="book-outline" size={15} color={Colors.textSecondary} />
+        <Text style={styles.summaryAccordionTitle}>Loggbokssummering</Text>
+        <Text style={styles.summaryAccordionCount}>{summaries.length} blad</Text>
+        <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      {open && (
+        <View>
+          {summaries.length === 0 ? (
+            <View style={styles.summaryEmpty}>
+              <Text style={styles.summaryEmptyText}>Inga summerade blad ännu</Text>
+            </View>
+          ) : books.map(book => {
+            const pages = summaries.filter(s => (s.book_name || 'Okänd bok') === book);
+            const bookOpen = expandedBooks.has(book);
+            return (
+              <View key={book}>
+                <TouchableOpacity style={styles.summaryBookHeader} onPress={() => toggleBook(book)} activeOpacity={0.75}>
+                  <Ionicons
+                    name={bookOpen ? 'chevron-down' : 'chevron-forward'}
+                    size={13} color={Colors.textMuted} style={{ marginRight: 6, marginLeft: 22 }}
+                  />
+                  <Text style={styles.summaryBookTitle}>{book}</Text>
+                  <Text style={styles.summaryBookCount}>{pages.length} blad</Text>
+                </TouchableOpacity>
+
+                {bookOpen && pages.map(page => {
+                  const pageOpen = expandedPages.has(page.id);
+                  const td = page.total_to_date;
+                  return (
+                    <View key={page.id}>
+                      <TouchableOpacity
+                        style={styles.summaryPageHeader}
+                        onPress={() => togglePage(page.id)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons
+                          name={pageOpen ? 'chevron-down' : 'chevron-forward'}
+                          size={12} color={Colors.textMuted} style={{ marginRight: 6, marginLeft: 44 }}
+                        />
+                        <Text style={styles.summaryPageTitle}>{page.page_name || 'Okänt blad'}</Text>
+                        <Text style={styles.summaryPageDate}>{page.created_at.slice(0, 10)}</Text>
+                        <TouchableOpacity
+                          hitSlop={8}
+                          style={{ marginLeft: 10 }}
+                          onPress={() => Alert.alert('Ta bort', `Ta bort "${page.page_name}"?`, [
+                            { text: 'Avbryt', style: 'cancel' },
+                            { text: 'Ta bort', style: 'destructive', onPress: () => onDelete(page.id) },
+                          ])}
+                        >
+                          <Ionicons name="trash-outline" size={14} color={Colors.danger} />
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+
+                      {pageOpen && (
+                        <View style={styles.summaryPageStats}>
+                          {SUMMARY_ROWS_LOG.filter(r => (td as any)[r.field]).map(r => (
+                            <View key={r.field} style={styles.summaryStatRow}>
+                              <Text style={styles.summaryStatLabel}>{r.label}</Text>
+                              <Text style={styles.summaryStatValue}>
+                                {r.isTime
+                                  ? formatTimeValue((td as any)[r.field], timeFormat)
+                                  : String((td as any)[r.field])}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function LogScreen() {
+  const styles = makeStyles();
   const router = useRouter();
-  const { flights, isLoading, loadFlights, removeFlight } = useFlightStore();
+  const { t } = useTranslation();
+  const { formatTime } = useTimeFormat();
+  const { flights, isLoading, loadFlights } = useFlightStore();
   const [tab, setTab] = useState<'flights' | 'airframes'>('flights');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Flight[]>([]);
@@ -250,8 +665,17 @@ export default function LogScreen() {
   // Expanded state: which years show their months, which month shows flights
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([nowYear]));
   const [openMonthKey, setOpenMonthKey] = useState<string>(nowKey);
+  const [flightsExpanded, setFlightsExpanded] = useState(true);
+  const [summaries, setSummaries] = useState<ScanSummary[]>([]);
 
-  useFocusEffect(useCallback(() => { loadFlights(); }, []));
+  const loadSummaries = useCallback(async () => {
+    setSummaries(await getAllScanSummaries());
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadFlights();
+    loadSummaries();
+  }, [loadSummaries]));
 
   useEffect(() => {
     if (!query.trim()) setTree(buildTree(flights));
@@ -261,13 +685,6 @@ export default function LogScreen() {
     if (!query.trim()) return;
     searchFlights(query).then(setSearchResults);
   }, [query]);
-
-  const handleDelete = (id: number, route: string) => {
-    Alert.alert('Ta bort flygning', `Ta bort ${route}?`, [
-      { text: 'Avbryt', style: 'cancel' },
-      { text: 'Ta bort', style: 'destructive', onPress: () => removeFlight(id) },
-    ]);
-  };
 
   const toggleYear = (year: number) => {
     setExpandedYears((prev) => {
@@ -285,32 +702,32 @@ export default function LogScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Segment: Flygningar | Saved airframes */}
+      {/* Segment: Flights | Saved airframes */}
       <View style={styles.segmentBar}>
         <TouchableOpacity
           style={[styles.segmentBtn, tab === 'flights' && styles.segmentBtnActive]}
           onPress={() => setTab('flights')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.segmentText, tab === 'flights' && styles.segmentTextActive]}>Flygningar</Text>
+          <Text style={[styles.segmentText, tab === 'flights' && styles.segmentTextActive]}>{t('flights')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.segmentBtn, tab === 'airframes' && styles.segmentBtnActive]}
           onPress={() => setTab('airframes')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.segmentText, tab === 'airframes' && styles.segmentTextActive]}>Saved airframes</Text>
+          <Text style={[styles.segmentText, tab === 'airframes' && styles.segmentTextActive]}>{t('saved_airframes')}</Text>
         </TouchableOpacity>
       </View>
 
       {tab === 'airframes' ? <AirframesView /> : (<>
 
-      {/* Sökfält */}
+      {/* Search field */}
       <View style={styles.searchRow}>
         <Ionicons name="search" size={16} color={Colors.textMuted} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Sök ICAO, typ, registration..."
+          placeholder={t('search_placeholder')}
           placeholderTextColor={Colors.textMuted}
           value={query}
           onChangeText={setQuery}
@@ -322,12 +739,12 @@ export default function LogScreen() {
       {isLoading && flights.length === 0 ? (
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
       ) : isSearching ? (
-        /* Sökvy */
+        /* Search results view */
         searchResults.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="search-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Inga träffar</Text>
-            <Text style={styles.emptyText}>Inga flygningar matchar sökningen.</Text>
+            <Text style={styles.emptyTitle}>{t('no_results')}</Text>
+            <Text style={styles.emptyText}>{t('no_results_text')}</Text>
           </View>
         ) : (
           <FlatList
@@ -337,23 +754,44 @@ export default function LogScreen() {
               <FlightRow
                 flight={item} index={index}
                 onPress={() => router.push(`/flight/${item.id}`)}
-                onDelete={() => handleDelete(item.id, `${item.dep_place}→${item.arr_place}`)}
               />
             )}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
           />
         )
       ) : tree.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="airplane-outline" size={48} color={Colors.textMuted} />
-          <Text style={styles.emptyTitle}>Inga flygningar</Text>
-          <Text style={styles.emptyText}>Tryck på + för att logga din första flygning.</Text>
+          <Text style={styles.emptyTitle}>{t('no_flights')}</Text>
+          <Text style={styles.emptyText}>{t('no_flights_text')}</Text>
         </View>
       ) : (
         /* Accordion-vy */
-        <ScrollView contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
-          {tree.map((yg) => {
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+        >
+          <LogbookSummaryAccordion
+            summaries={summaries}
+            onDelete={async (id) => { await deleteScanSummary(id); loadSummaries(); }}
+            onRename={async (id, book, page) => { await updateScanSummaryNames(id, book, page); loadSummaries(); }}
+          />
+
+          {/* Flygningar-dropdown */}
+          <TouchableOpacity style={styles.flightsHeader} onPress={() => setFlightsExpanded(v => !v)} activeOpacity={0.75}>
+            <Ionicons name="airplane-outline" size={15} color={Colors.textSecondary} />
+            <Text style={styles.flightsHeaderTitle}>{t('flights')}</Text>
+            <Text style={styles.flightsHeaderCount}>{flights.length} flt.</Text>
+            <Ionicons name={flightsExpanded ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          {flightsExpanded && tree.map((yg) => {
             const yearOpen = expandedYears.has(yg.year);
             return (
               <View key={yg.year}>
@@ -365,8 +803,8 @@ export default function LogScreen() {
                   />
                   <Text style={styles.yearTitle}>{yg.year}</Text>
                   <View style={styles.yearMeta}>
-                    <Text style={styles.yearHours}>{formatHours(yg.totalHours)}h</Text>
-                    <Text style={styles.yearCount}>{yg.months.reduce((s, m) => s + m.count, 0)} flygn.</Text>
+                    <Text style={styles.yearHours}>{formatTime(yg.totalHours)}h</Text>
+                    <Text style={styles.yearCount}>{yg.months.reduce((s, m) => s + m.count, 0)} flt.</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -393,9 +831,9 @@ export default function LogScreen() {
                         </Text>
                         <View style={styles.monthMeta}>
                           <Text style={[styles.monthHours, isCurrent && { color: Colors.primary }]}>
-                            {formatHours(sec.totalHours)}h
+                            {formatTime(sec.totalHours)}h
                           </Text>
-                          <Text style={styles.monthCount}>{sec.count} flygn.</Text>
+                          <Text style={styles.monthCount}>{sec.count} flt.</Text>
                         </View>
                       </TouchableOpacity>
 
@@ -406,7 +844,6 @@ export default function LogScreen() {
                           flight={flight}
                           index={index}
                           onPress={() => router.push(`/flight/${flight.id}`)}
-                          onDelete={() => handleDelete(flight.id, `${flight.dep_place}→${flight.arr_place}`)}
                         />
                       ))}
                       {monthOpen && <View style={styles.monthBottom} />}
@@ -434,125 +871,3 @@ export default function LogScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, margin: 12, marginBottom: 4,
-    borderRadius: 8, paddingHorizontal: 12,
-    borderWidth: 0.5, borderColor: Colors.border,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, color: Colors.textPrimary, fontSize: 15, paddingVertical: 10 },
-
-  listContent: { paddingBottom: 96 },
-  separator: { height: 1, backgroundColor: Colors.separator },
-
-  // Årsrad
-  yearHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: Colors.background,
-    borderBottomWidth: 0.5, borderBottomColor: Colors.border,
-  },
-  yearTitle: {
-    flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '800', letterSpacing: 0.5,
-  },
-  yearMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  yearHours: { color: Colors.primary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
-  yearCount: { color: Colors.textMuted, fontSize: 12 },
-
-  // Månadsrad
-  monthHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: Colors.elevated,
-    borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
-  },
-  monthHeaderCurrent: {
-    backgroundColor: Colors.primary + '12',
-  },
-  monthTitle: {
-    flex: 1, color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1,
-  },
-  monthTitleCurrent: { color: Colors.primary },
-  monthMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  monthHours: { color: Colors.textMuted, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' },
-  monthCount: { color: Colors.textMuted, fontSize: 11 },
-  monthBottom: { height: 4, backgroundColor: Colors.elevated },
-
-  // Flygningsrad
-  row: { padding: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'flex-start' },
-  rowEven: { backgroundColor: Colors.card },
-  rowOdd: { backgroundColor: Colors.elevated },
-  rowFlagged: { backgroundColor: Colors.danger + '18' },
-  flagBadge: {
-    backgroundColor: Colors.danger + '22', borderRadius: 3,
-    paddingHorizontal: 5, paddingVertical: 1,
-    borderWidth: 0.5, borderColor: Colors.danger + '88',
-  },
-  flagBadgeText: { color: Colors.danger, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
-  rowLeft: { flex: 1, gap: 4 },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  icao: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 1, fontFamily: 'Menlo' },
-  meta: { color: Colors.textSecondary, fontSize: 12 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  tag: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    borderWidth: 0.5, borderColor: Colors.border,
-    borderRadius: 3, paddingHorizontal: 6, paddingVertical: 2,
-  },
-  tagText: { color: Colors.textMuted, fontSize: 10, fontWeight: '600', fontFamily: 'Menlo' },
-  deleteBtn: { padding: 4, marginLeft: 8 },
-
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
-  emptyText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', paddingHorizontal: 40 },
-
-  fab: {
-    position: 'absolute', bottom: 24, right: 20,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
-  },
-
-  // Segment control
-  segmentBar: {
-    flexDirection: 'row', margin: 12, marginBottom: 4,
-    backgroundColor: Colors.elevated, borderRadius: 8, padding: 3,
-    borderWidth: 0.5, borderColor: Colors.border,
-  },
-  segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 6 },
-  segmentBtnActive: { backgroundColor: Colors.primary },
-  segmentText: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
-  segmentTextActive: { color: Colors.textInverse, fontWeight: '700' },
-
-  // Saved airframes
-  airframesList: { padding: 12, paddingBottom: 40, gap: 8 },
-  airframeRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: Colors.cardBorder, gap: 10,
-  },
-  airframeLeft: { flex: 1, gap: 4 },
-  airframeType: {
-    color: Colors.textPrimary, fontSize: 17, fontWeight: '800',
-    letterSpacing: 0.5, fontFamily: 'Menlo',
-  },
-  airframeMeta: { flexDirection: 'row', gap: 8 },
-  airframeMetaText: { color: Colors.textSecondary, fontSize: 12 },
-  airframeActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  airframeUnknown: { color: Colors.textMuted, fontSize: 12 },
-
-  crewBadge: {
-    backgroundColor: Colors.primary + '22', borderRadius: 4,
-    paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 0.5, borderColor: Colors.primary + '66',
-  },
-  crewBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: '700' },
-});

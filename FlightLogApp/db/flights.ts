@@ -13,6 +13,15 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 
 // ─── INSERT ──────────────────────────────────────────────────────────────────
 
+async function getEngineType(db: any, aircraftType: string): Promise<'se' | 'me' | ''> {
+  const row = await db.getFirstAsync<{ engine_type: string }>(
+    `SELECT engine_type FROM aircraft_registry WHERE aircraft_type=? AND engine_type != '' LIMIT 1`,
+    [aircraftType.toUpperCase()]
+  );
+  const et = row?.engine_type ?? '';
+  return (et === 'se' || et === 'me') ? et : '';
+}
+
 export async function insertFlight(
   data: FlightFormData,
   opts?: { source?: 'manual' | 'ocr' | 'import'; originalData?: string }
@@ -20,6 +29,11 @@ export async function insertFlight(
   const db = await getDatabase();
   const source = opts?.source ?? 'manual';
   const status = source === 'manual' ? 'manual' : 'scanned';
+
+  const totalTime = parseFlightTime(data.total_time);
+  const engineType = await getEngineType(db, data.aircraft_type);
+  const seTime = engineType === 'se' ? totalTime : 0;
+  const meTime = engineType === 'me' ? totalTime : 0;
 
   const result = await db.runAsync(
     `INSERT INTO flights (
@@ -29,8 +43,10 @@ export async function insertFlight(
       landings_day, landings_night, remarks,
       status, source, original_data,
       flight_rules, second_pilot, nvg, tng_count, flight_type,
-      multi_pilot, single_pilot, instructor
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      multi_pilot, single_pilot, instructor, picus,
+      spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
+      se_time, me_time, stop_place
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -39,7 +55,7 @@ export async function insertFlight(
       data.dep_utc ?? '',
       (data.arr_place ?? '').toUpperCase(),
       data.arr_utc ?? '',
-      parseFlightTime(data.total_time),
+      totalTime,
       parseFlightTime(data.ifr),
       parseFlightTime(data.night),
       parseFlightTime(data.pic),
@@ -59,6 +75,18 @@ export async function insertFlight(
       parseFlightTime(data.multi_pilot),
       parseFlightTime(data.single_pilot),
       parseFlightTime(data.instructor),
+      parseFlightTime(data.picus),
+      parseFlightTime(data.spic),
+      parseFlightTime(data.examiner),
+      parseFlightTime(data.safety_pilot),
+      parseFlightTime(data.observer),
+      parseFlightTime(data.ferry_pic),
+      parseFlightTime(data.relief_crew),
+      data.sim_category ?? '',
+      parseFlightTime(data.vfr),
+      seTime,
+      meTime,
+      (data.stop_place ?? '').toUpperCase(),
     ]
   );
   return result.lastInsertRowId;
@@ -81,7 +109,8 @@ export async function updateFlight(
     'dep_place','dep_utc','arr_place','arr_utc',
     'total_time','ifr','night','pic','co_pilot','dual',
     'landings_day','landings_night','remarks',
-    'multi_pilot','single_pilot','instructor',
+    'multi_pilot','single_pilot','instructor','picus',
+    'spic','examiner','safety_pilot','observer','ferry_pic','relief_crew','sim_category','vfr',
   ];
 
   for (const field of fields) {
@@ -96,6 +125,11 @@ export async function updateFlight(
     }
   }
 
+  const totalTime = parseFlightTime(data.total_time);
+  const engineType = await getEngineType(db, data.aircraft_type);
+  const seTime = engineType === 'se' ? totalTime : 0;
+  const meTime = engineType === 'me' ? totalTime : 0;
+
   await db.runAsync(
     `UPDATE flights SET
       date=?, aircraft_type=?, registration=?,
@@ -103,14 +137,16 @@ export async function updateFlight(
       total_time=?, ifr=?, night=?, pic=?, co_pilot=?, dual=?,
       landings_day=?, landings_night=?, remarks=?,
       flight_rules=?, second_pilot=?, nvg=?, tng_count=?, flight_type=?,
-      multi_pilot=?, single_pilot=?, instructor=?,
+      multi_pilot=?, single_pilot=?, instructor=?, picus=?,
+      spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
+      se_time=?, me_time=?, stop_place=?,
       status=CASE WHEN status='scanned' THEN 'verified' ELSE status END
     WHERE id=?`,
     [
       data.date, data.aircraft_type, data.registration,
       (data.dep_place ?? '').toUpperCase(), data.dep_utc ?? '',
       (data.arr_place ?? '').toUpperCase(), data.arr_utc ?? '',
-      parseFlightTime(data.total_time),
+      totalTime,
       parseFlightTime(data.ifr),
       parseFlightTime(data.night),
       parseFlightTime(data.pic),
@@ -127,6 +163,18 @@ export async function updateFlight(
       parseFlightTime(data.multi_pilot),
       parseFlightTime(data.single_pilot),
       parseFlightTime(data.instructor),
+      parseFlightTime(data.picus),
+      parseFlightTime(data.spic),
+      parseFlightTime(data.examiner),
+      parseFlightTime(data.safety_pilot),
+      parseFlightTime(data.observer),
+      parseFlightTime(data.ferry_pic),
+      parseFlightTime(data.relief_crew),
+      data.sim_category ?? '',
+      parseFlightTime(data.vfr),
+      seTime,
+      meTime,
+      (data.stop_place ?? '').toUpperCase(),
       id,
     ]
   );
@@ -154,6 +202,7 @@ export async function clearAllFlights(): Promise<void> {
   await db.runAsync('DELETE FROM flights');
   await db.runAsync('DELETE FROM audit_log');
   await db.runAsync('DELETE FROM aircraft_registry');
+  await db.runAsync('DELETE FROM icao_airports WHERE "temporary" > 0');
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
@@ -255,16 +304,37 @@ export async function getRecentRegistrations(type?: string): Promise<string[]> {
   return rows.map((r) => r.registration);
 }
 
-export async function getRecentPlaces(): Promise<string[]> {
+export async function getRecentRemarks(limit = 20): Promise<string[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<{ place: string }>(
-    `SELECT place FROM (
-       SELECT dep_place as place, MAX(date) as last FROM flights GROUP BY dep_place
-       UNION
-       SELECT arr_place as place, MAX(date) as last FROM flights GROUP BY arr_place
-     ) ORDER BY last DESC LIMIT 20`
+  const rows = await db.getAllAsync<{ remarks: string }>(
+    `SELECT remarks FROM flights
+     WHERE remarks != ''
+     GROUP BY remarks
+     ORDER BY MAX(date) DESC LIMIT ?`,
+    [limit]
   );
-  return rows.map((r) => r.place);
+  return rows.map(r => r.remarks);
+}
+
+export async function getRecentPlaces(): Promise<{ icao: string; temporary: boolean }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; last: string }>(
+    `SELECT icao, MAX(last) as last FROM (
+       SELECT dep_place as icao, date as last FROM flights WHERE dep_place != ''
+       UNION ALL
+       SELECT arr_place as icao, date as last FROM flights WHERE arr_place != ''
+     )
+     GROUP BY icao
+     ORDER BY last DESC LIMIT 20`
+  );
+  if (rows.length === 0) return [];
+  const placeholders = rows.map(() => '?').join(',');
+  const tempRows = await db.getAllAsync<{ icao: string; temporary: number }>(
+    `SELECT icao, temporary FROM icao_airports WHERE icao IN (${placeholders})`,
+    rows.map((r) => r.icao)
+  );
+  const tempMap = new Map(tempRows.map((r) => [r.icao, r.temporary === 1]));
+  return rows.map((r) => ({ icao: r.icao, temporary: tempMap.get(r.icao) ?? false }));
 }
 
 // ─── STATISTIK ────────────────────────────────────────────────────────────────
@@ -296,7 +366,9 @@ export async function getFlightStats(): Promise<FlightStats> {
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN f.total_time ELSE 0 END), 1) as total_sim,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.multi_pilot END), 1) as total_multi_pilot,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.single_pilot END), 1) as total_single_pilot,
-      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.instructor END), 1) as total_instructor
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.instructor END), 1) as total_instructor,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.se_time END), 1) as total_se,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.me_time END), 1) as total_me
     FROM flights f
     LEFT JOIN (
       SELECT aircraft_type, MAX(endurance_h) as endurance_h
@@ -354,8 +426,8 @@ export async function getFlightStats(): Promise<FlightStats> {
             dep_ap.lat as dep_lat, dep_ap.lon as dep_lon,
             arr_ap.lat as arr_lat, arr_ap.lon as arr_lon
      FROM flights f
-     INNER JOIN icao_airports dep_ap ON dep_ap.icao = f.dep_place AND dep_ap.lat IS NOT NULL AND dep_ap.lon IS NOT NULL
-     INNER JOIN icao_airports arr_ap ON arr_ap.icao = f.arr_place AND arr_ap.lat IS NOT NULL AND arr_ap.lon IS NOT NULL
+     INNER JOIN icao_airports dep_ap ON dep_ap.icao = f.dep_place AND dep_ap.lat IS NOT NULL AND dep_ap.lon IS NOT NULL AND (dep_ap.temporary IS NULL OR dep_ap.temporary = 0)
+     INNER JOIN icao_airports arr_ap ON arr_ap.icao = f.arr_place AND arr_ap.lat IS NOT NULL AND arr_ap.lon IS NOT NULL AND (arr_ap.temporary IS NULL OR arr_ap.temporary = 0)
      LEFT JOIN (
        SELECT aircraft_type, MAX(endurance_h) as endurance_h
        FROM aircraft_registry GROUP BY aircraft_type
@@ -443,6 +515,8 @@ export async function getFlightStats(): Promise<FlightStats> {
     total_multi_pilot: totals?.total_multi_pilot ?? 0,
     total_single_pilot: totals?.total_single_pilot ?? 0,
     total_instructor: totals?.total_instructor ?? 0,
+    total_se: totals?.total_se ?? 0,
+    total_me: totals?.total_me ?? 0,
   };
 }
 
@@ -466,9 +540,14 @@ export async function getVisitedAirportIcaos(): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ icao: string }>(
     `SELECT places.icao FROM (
-       SELECT dep_place as icao, MAX(date) as last FROM flights WHERE length(dep_place)=4 GROUP BY dep_place
+       SELECT dep_place as icao, MAX(date) as last FROM flights
+         WHERE length(dep_place)=4 AND flight_type != 'sim' GROUP BY dep_place
        UNION
-       SELECT arr_place as icao, MAX(date) as last FROM flights WHERE length(arr_place)=4 GROUP BY arr_place
+       SELECT arr_place as icao, MAX(date) as last FROM flights
+         WHERE length(arr_place)=4 AND flight_type != 'sim' GROUP BY arr_place
+       UNION
+       SELECT stop_place as icao, MAX(date) as last FROM flights
+         WHERE length(stop_place)=4 AND flight_type != 'sim' GROUP BY stop_place
      ) places
      LEFT JOIN icao_airports ia ON ia.icao = places.icao
      WHERE ia.icao IS NULL OR (ia.temporary IS NULL OR ia.temporary = 0)
@@ -492,16 +571,20 @@ export async function addAircraftTypeToRegistry(
   cruiseSpeedKts = 0,
   enduranceH = 0,
   crewType = '',
+  category = '',
+  engineType = '',
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type)
-     VALUES (?, '', ?, ?, ?)
+    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type, category, engine_type)
+     VALUES (?, '', ?, ?, ?, ?, ?)
      ON CONFLICT(aircraft_type, registration) DO UPDATE SET
        cruise_speed_kts=CASE WHEN excluded.cruise_speed_kts>0 THEN excluded.cruise_speed_kts ELSE cruise_speed_kts END,
        endurance_h=CASE WHEN excluded.endurance_h>0 THEN excluded.endurance_h ELSE endurance_h END,
-       crew_type=CASE WHEN excluded.crew_type!='' THEN excluded.crew_type ELSE crew_type END`,
-    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType]
+       crew_type=CASE WHEN excluded.crew_type!='' THEN excluded.crew_type ELSE crew_type END,
+       category=CASE WHEN excluded.category!='' THEN excluded.category ELSE category END,
+       engine_type=CASE WHEN excluded.engine_type!='' THEN excluded.engine_type ELSE engine_type END`,
+    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType, category, engineType]
   );
 }
 
@@ -535,20 +618,51 @@ export type AircraftRegistryEntry = {
   cruise_speed_kts: number;
   endurance_h: number;
   crew_type: string;
+  category: string;
+  engine_type: string;
   reg_count: number;
+  total_hours: number;
+  top_registration: string;
+  top_registration_hours: number;
+  flight_count: number;
 };
 
 export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
   const db = await getDatabase();
   return await db.getAllAsync<AircraftRegistryEntry>(`
-    SELECT aircraft_type,
-           MAX(cruise_speed_kts) as cruise_speed_kts,
-           MAX(endurance_h) as endurance_h,
-           MAX(crew_type) as crew_type,
-           COUNT(CASE WHEN registration != '' THEN 1 END) as reg_count
-    FROM aircraft_registry
-    GROUP BY aircraft_type
-    ORDER BY aircraft_type
+    SELECT ar.aircraft_type,
+           MAX(ar.cruise_speed_kts) as cruise_speed_kts,
+           MAX(ar.endurance_h) as endurance_h,
+           MAX(ar.crew_type) as crew_type,
+           MAX(ar.category) as category,
+           MAX(ar.engine_type) as engine_type,
+           COUNT(CASE WHEN ar.registration != '' THEN 1 END) as reg_count,
+           COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
+           COUNT(f.id) as flight_count,
+           (
+             SELECT f2.registration
+             FROM flights f2
+             WHERE f2.aircraft_type = ar.aircraft_type
+               AND f2.registration != ''
+               AND f2.flight_type != 'sim'
+             GROUP BY f2.registration
+             ORDER BY SUM(f2.total_time) DESC
+             LIMIT 1
+           ) as top_registration,
+           (
+             SELECT ROUND(SUM(f2.total_time), 1)
+             FROM flights f2
+             WHERE f2.aircraft_type = ar.aircraft_type
+               AND f2.registration != ''
+               AND f2.flight_type != 'sim'
+             GROUP BY f2.registration
+             ORDER BY SUM(f2.total_time) DESC
+             LIMIT 1
+           ) as top_registration_hours
+    FROM aircraft_registry ar
+    LEFT JOIN flights f ON f.aircraft_type = ar.aircraft_type AND f.flight_type != 'sim'
+    GROUP BY ar.aircraft_type
+    ORDER BY total_hours DESC
   `);
 }
 
@@ -557,11 +671,13 @@ export async function updateAircraftType(
   speedKts: number,
   enduranceH: number,
   crewType: string,
+  category = '',
+  engineType = '',
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE aircraft_registry SET cruise_speed_kts=?, endurance_h=?, crew_type=? WHERE aircraft_type=?`,
-    [speedKts, enduranceH, crewType, type.toUpperCase()]
+    `UPDATE aircraft_registry SET cruise_speed_kts=?, endurance_h=?, crew_type=?, category=?, engine_type=? WHERE aircraft_type=?`,
+    [speedKts, enduranceH, crewType, category, engineType, type.toUpperCase()]
   );
 }
 
@@ -651,8 +767,8 @@ export async function getXCLegsForDate(date: string): Promise<XCLeg[]> {
     `SELECT f.dep_place, f.arr_place, f.dep_utc, f.arr_utc,
             f.total_time, f.pic, f.co_pilot, f.aircraft_type, f.registration, f.second_pilot
      FROM flights f
-     INNER JOIN icao_airports dep_ap ON dep_ap.icao = f.dep_place AND dep_ap.lat IS NOT NULL AND dep_ap.lon IS NOT NULL
-     INNER JOIN icao_airports arr_ap ON arr_ap.icao = f.arr_place AND arr_ap.lat IS NOT NULL AND arr_ap.lon IS NOT NULL
+     INNER JOIN icao_airports dep_ap ON dep_ap.icao = f.dep_place AND dep_ap.lat IS NOT NULL AND dep_ap.lon IS NOT NULL AND (dep_ap.temporary IS NULL OR dep_ap.temporary = 0)
+     INNER JOIN icao_airports arr_ap ON arr_ap.icao = f.arr_place AND arr_ap.lat IS NOT NULL AND arr_ap.lon IS NOT NULL AND (arr_ap.temporary IS NULL OR arr_ap.temporary = 0)
      WHERE f.date = ? AND f.dep_place != f.arr_place
      ORDER BY f.dep_utc ASC, f.id ASC`,
     [date]

@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getAirportCoordinates } from '../db/icao';
 import { getXCLegsForDate, type XCLeg } from '../db/flights';
 import { Colors } from '../constants/colors';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface Props {
   visible: boolean;
@@ -88,15 +89,16 @@ function buildInteractiveHtml(legs: EnrichedLeg[]): string {
 <script>
 var LEGS = ${legsJson};
 var map, polylines, planeMarker;
+var animLine = null, animFrame = null;
 
 window.onload = function() {
   map = L.map('map',{center:[${centerLat},${centerLon}],zoom:${zoom},zoomControl:true,attributionControl:true});
   var layers = {
-    'Ljus':         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Satellit':     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
-    'Terrängkarta': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
+    'Light':     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
   };
-  var activeKey = 'Ljus';
+  var activeKey = 'Light';
   layers[activeKey].addTo(map);
   var sw = document.getElementById('layer-switcher');
   Object.keys(layers).forEach(function(key){
@@ -141,21 +143,43 @@ function goto(idx){
   if(idx<0||idx>=LEGS.length) return;
   var leg = LEGS[idx];
   for(var i=0;i<LEGS.length;i++){
-    if(i<idx)       polylines[i].setStyle({color:'#94A3B8',weight:2.5,opacity:0.7,dashArray:'6,4'});
-    else if(i===idx) polylines[i].setStyle({color:'#D97706',weight:3.5,opacity:1,dashArray:''});
-    else             polylines[i].setStyle({color:'#CBD5E1',weight:1.5,opacity:0.3,dashArray:'5,4'});
+    if(i<idx) polylines[i].setStyle({color:'#1e3a6e',weight:2.5,opacity:0.45,dashArray:''});
+    else      polylines[i].setStyle({color:'#CBD5E1',weight:1.5,opacity:0.3,dashArray:'5,4'});
   }
+  animateLeg(leg.dep, leg.arr);
   var from = idx===0 ? [leg.dep.lat,leg.dep.lon] : [LEGS[idx-1].arr.lat,LEGS[idx-1].arr.lon];
   animatePlane(from,[leg.arr.lat,leg.arr.lon],leg.bearing);
   map.fitBounds([[leg.dep.lat,leg.dep.lon],[leg.arr.lat,leg.arr.lon]],{padding:[70,70],maxZoom:11,animate:true});
 }
 
+function animateLeg(dep, arr){
+  if(animLine){ map.removeLayer(animLine); animLine = null; }
+  if(animFrame){ cancelAnimationFrame(animFrame); animFrame = null; }
+  var DURATION = 2000;
+  var startTs = null;
+  animLine = L.polyline([[dep.lat,dep.lon],[dep.lat,dep.lon]],{
+    color:'#0A1E3C',weight:4,opacity:0,lineCap:'round',lineJoin:'round'
+  }).addTo(map);
+  function frame(ts){
+    if(!startTs) startTs = ts;
+    var progress = Math.min((ts - startTs) / DURATION, 1);
+    // ease-in-out cubic
+    var t = progress < 0.5 ? 4*progress*progress*progress : 1 - Math.pow(-2*progress+2,3)/2;
+    var lat = dep.lat + (arr.lat - dep.lat) * t;
+    var lon = dep.lon + (arr.lon - dep.lon) * t;
+    animLine.setLatLngs([[dep.lat,dep.lon],[lat,lon]]);
+    animLine.setStyle({opacity: t * 0.92});
+    if(progress < 1){ animFrame = requestAnimationFrame(frame); }
+  }
+  animFrame = requestAnimationFrame(frame);
+}
+
 function animatePlane(from,to,hdg){
-  var STEPS=50,step=0,icon=makePlaneIcon(hdg);
+  var STEPS=80,step=0,icon=makePlaneIcon(hdg);
   function tick(){
     step++;
     var t=step/STEPS;
-    t=t<0.5?2*t*t:-1+(4-2*t)*t;
+    t=t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
     planeMarker.setLatLng([from[0]+(to[0]-from[0])*t, from[1]+(to[1]-from[1])*t]);
     if(step===1) planeMarker.setIcon(icon);
     if(step<STEPS) requestAnimationFrame(tick);
@@ -166,6 +190,7 @@ function animatePlane(from,to,hdg){
 }
 
 export function RouteMapModal({ visible, onClose, xcDate, hours }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -232,15 +257,13 @@ export function RouteMapModal({ visible, onClose, xcDate, hours }: Props) {
         {loading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Hämtar koordinater…</Text>
+            <Text style={styles.loadingText}>{t('loading_coordinates')}</Text>
           </View>
         )}
         {error && (
           <View style={styles.center}>
             <Ionicons name="map-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.errorText}>
-              Koordinater saknas för en eller flera flygplatser.{'\n'}Lägg till via Hantera flygplatser.
-            </Text>
+            <Text style={styles.errorText}>{t('coordinates_missing_airports')}</Text>
           </View>
         )}
         {html && (
@@ -298,7 +321,7 @@ export function RouteMapModal({ visible, onClose, xcDate, hours }: Props) {
               </TouchableOpacity>
 
               <View style={styles.stepCenter}>
-                <Text style={styles.stepLabel}>Sträcka</Text>
+                <Text style={styles.stepLabel}>{t('leg')}</Text>
                 <Text style={styles.stepValue}>{step + 1} / {legs.length}</Text>
               </View>
 
@@ -317,7 +340,7 @@ export function RouteMapModal({ visible, onClose, xcDate, hours }: Props) {
               <View style={styles.dataDivider} />
               <DataCell label="LDG" value={`${currentLeg.arr_place}${currentLeg.arr_utc ? ' · ' + currentLeg.arr_utc : ''}`} />
               <View style={styles.dataDivider} />
-              <DataCell label="Flygtid" value={toHHMM(currentLeg.total_time)} mono />
+              <DataCell label={t('flight_time_label')} value={toHHMM(currentLeg.total_time)} mono />
               <View style={styles.dataDivider} />
               <DataCell
                 label={currentLeg.pic > 0 ? 'Co-pilot' : currentLeg.co_pilot > 0 ? 'PIC' : 'Co-pilot'}

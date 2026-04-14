@@ -48,6 +48,8 @@ const emptyStats: FlightStats = {
   total_multi_pilot: 0,
   total_single_pilot: 0,
   total_instructor: 0,
+  total_se: 0,
+  total_me: 0,
 };
 
 export const useFlightStore = create<FlightStore>((set, get) => ({

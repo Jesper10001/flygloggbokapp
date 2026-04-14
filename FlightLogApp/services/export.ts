@@ -26,43 +26,66 @@ function escapeCSV(val: string | number | null | undefined): string {
 export async function exportToCSV(): Promise<void> {
   const flights = await getFlights(99999);
 
-  // Kolumnrubriker i loggboksordning
-  const headers = [
-    'Datum',
-    'Luftfartygstyp', 'Registration',
-    'Avgångsplats', 'Avgångstid UTC',
-    'Ankomstplats', 'Ankomsttid UTC',
-    'Total flygtid', 'Flerpilottid', 'Enpilottid', 'FFS/Sim',
-    'PIC', 'Co-pilot', 'Dual (elev)', 'Instruktör',
-    'IFR', 'Natt', 'NVG',
-    'Landningar dag', 'Landningar natt', 'Touch & Go',
-    'Flygregler', 'Andrepilot', 'Anmärkningar', 'Flygningstyp',
+  // Kolumndefinition — `optional` betyder att den utelämnas om ingen flygning har data.
+  // `hasData` anger vad som räknas som "innehåller information".
+  type Col = {
+    header: string;
+    value: (f: Flight) => string | number;
+    optional?: boolean;
+    hasData?: (f: Flight) => boolean;
+  };
+
+  const hasTime = (n: number | null | undefined) => !!n && n > 0;
+  const hasText = (s: string | null | undefined) => !!s && s.trim() !== '';
+
+  const cols: Col[] = [
+    { header: 'Datum',                value: f => f.date },
+    { header: 'Luftfartygstyp',       value: f => f.aircraft_type },
+    { header: 'Registration',         value: f => f.registration },
+    { header: 'Avgångsplats',         value: f => f.dep_place },
+    { header: 'Avgångstid UTC',       value: f => f.dep_utc },
+    { header: 'Ankomstplats',         value: f => f.arr_place },
+    { header: 'Ankomsttid UTC',       value: f => f.arr_utc },
+    { header: 'Total flygtid',        value: f => toHHMM(f.total_time) },
+    { header: 'Flerpilottid',         value: f => toHHMM(f.multi_pilot ?? 0),  optional: true, hasData: f => hasTime(f.multi_pilot) },
+    { header: 'Enpilottid',           value: f => toHHMM(f.single_pilot ?? 0), optional: true, hasData: f => hasTime(f.single_pilot) },
+    { header: 'FFS/Sim',              value: f => f.flight_type === 'sim' ? toHHMM(f.total_time) : '0:00',
+                                       optional: true, hasData: f => f.flight_type === 'sim' },
+    { header: 'SE (Single Engine)',   value: f => toHHMM(f.se_time ?? 0),      optional: true, hasData: f => hasTime(f.se_time) },
+    { header: 'ME (Multi Engine)',    value: f => toHHMM(f.me_time ?? 0),      optional: true, hasData: f => hasTime(f.me_time) },
+    { header: 'PIC',                  value: f => toHHMM(f.pic),               optional: true, hasData: f => hasTime(f.pic) },
+    { header: 'PICUS',                value: f => toHHMM(f.picus ?? 0),        optional: true, hasData: f => hasTime(f.picus) },
+    { header: 'SPIC',                 value: f => toHHMM(f.spic ?? 0),         optional: true, hasData: f => hasTime(f.spic) },
+    { header: 'Copilot',              value: f => toHHMM(f.co_pilot),          optional: true, hasData: f => hasTime(f.co_pilot) },
+    { header: 'Relief Crew',          value: f => toHHMM(f.relief_crew ?? 0),  optional: true, hasData: f => hasTime(f.relief_crew) },
+    { header: 'Ferry PIC',            value: f => toHHMM(f.ferry_pic ?? 0),    optional: true, hasData: f => hasTime(f.ferry_pic) },
+    { header: 'Observer',             value: f => toHHMM(f.observer ?? 0),     optional: true, hasData: f => hasTime(f.observer) },
+    { header: 'Dual (elev)',          value: f => toHHMM(f.dual),              optional: true, hasData: f => hasTime(f.dual) },
+    { header: 'Instruktör',           value: f => toHHMM(f.instructor ?? 0),   optional: true, hasData: f => hasTime(f.instructor) },
+    { header: 'Examinator',           value: f => toHHMM(f.examiner ?? 0),     optional: true, hasData: f => hasTime(f.examiner) },
+    { header: 'Safety Pilot',         value: f => toHHMM(f.safety_pilot ?? 0), optional: true, hasData: f => hasTime(f.safety_pilot) },
+    { header: 'IFR',                  value: f => toHHMM(f.ifr),               optional: true, hasData: f => hasTime(f.ifr) },
+    { header: 'VFR',                  value: f => toHHMM(f.vfr ?? 0),          optional: true, hasData: f => hasTime(f.vfr) },
+    { header: 'Natt',                 value: f => toHHMM(f.night),             optional: true, hasData: f => hasTime(f.night) },
+    { header: 'NVG',                  value: f => toHHMM(f.nvg ?? 0),          optional: true, hasData: f => hasTime(f.nvg) },
+    { header: 'Landningar dag',       value: f => f.landings_day },
+    { header: 'Landningar natt',      value: f => f.landings_night,            optional: true, hasData: f => (f.landings_night ?? 0) > 0 },
+    { header: 'Touch & Go',           value: f => f.tng_count ?? 0,            optional: true, hasData: f => (f.tng_count ?? 0) > 0 },
+    { header: 'Flygregler',           value: f => f.flight_rules ?? 'VFR' },
+    { header: 'Andrepilot',           value: f => f.second_pilot ?? '',        optional: true, hasData: f => hasText(f.second_pilot) },
+    { header: 'Anmärkningar',         value: f => [f.second_pilot ? `2P: ${f.second_pilot}` : '', f.remarks ?? ''].filter(Boolean).join(' · '),
+                                       optional: true, hasData: f => hasText(f.remarks) || hasText(f.second_pilot) },
+    { header: 'Flygningstyp',         value: f => f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
+                                       optional: true, hasData: f => f.flight_type && f.flight_type !== 'normal' },
+    { header: 'Sim-kategori',         value: f => f.flight_type === 'sim' ? (f.sim_category ?? '').replace('_', ' ') : '',
+                                       optional: true, hasData: f => f.flight_type === 'sim' && hasText(f.sim_category) },
   ];
 
-  const rows = flights.map((f: Flight) => [
-    f.date,
-    f.aircraft_type, f.registration,
-    f.dep_place, f.dep_utc,
-    f.arr_place, f.arr_utc,
-    toHHMM(f.total_time),
-    toHHMM(f.multi_pilot ?? 0),
-    toHHMM(f.single_pilot ?? 0),
-    f.flight_type === 'sim' ? toHHMM(f.total_time) : '0:00',
-    toHHMM(f.pic),
-    toHHMM(f.co_pilot),
-    toHHMM(f.dual),
-    toHHMM(f.instructor ?? 0),
-    toHHMM(f.ifr),
-    toHHMM(f.night),
-    toHHMM(f.nvg ?? 0),
-    f.landings_day,
-    f.landings_night,
-    f.tng_count ?? 0,
-    f.flight_rules ?? 'VFR',
-    f.second_pilot ?? '',
-    f.remarks ?? '',
-    f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
-  ].map(escapeCSV).join(','));
+  const activeCols = cols.filter(c => !c.optional || flights.some(f => c.hasData!(f)));
+  const headers = activeCols.map(c => c.header);
+  const rows = flights.map((f: Flight) =>
+    activeCols.map(c => c.value(f)).map(escapeCSV).join(',')
+  );
 
   const csv = [headers.join(','), ...rows].join('\r\n');
   const filename = `loggbok_${new Date().toISOString().split('T')[0]}.csv`;
@@ -105,6 +128,8 @@ export async function exportToPDF(): Promise<void> {
     instructor:  sum('instructor'),
     multi_pilot: sum('multi_pilot'),
     single_pilot:sum('single_pilot'),
+    se:          sum('se_time'),
+    me:          sum('me_time'),
     ifr:         sum('ifr'),
     night:       sum('night'),
     nvg:         sum('nvg'),
@@ -134,6 +159,8 @@ export async function exportToPDF(): Promise<void> {
       <td class="num">${isSim ? h(f.total_time) : '—'}</td>
       <td class="num">${h(f.multi_pilot ?? 0)}</td>
       <td class="num">${h(f.single_pilot ?? 0)}</td>
+      <td class="num">${h(f.se_time ?? 0)}</td>
+      <td class="num">${h(f.me_time ?? 0)}</td>
       <td class="num">${h(f.pic)}</td>
       <td class="num">${h(f.co_pilot)}</td>
       <td class="num">${h(f.dual)}</td>
@@ -358,6 +385,8 @@ export async function exportToPDF(): Promise<void> {
     ${statCard('NVG', h(totals.nvg), 'Night Vision')}
     ${statCard('Multi-pilot', h(totals.multi_pilot), 'Flerpilot')}
     ${statCard('Single pilot', h(totals.single_pilot), 'Enpilot')}
+    ${statCard('SE', h(totals.se), 'Single Engine')}
+    ${statCard('ME', h(totals.me), 'Multi Engine')}
   </div>
 
   <!-- Simulator & landningar -->
@@ -400,6 +429,8 @@ export async function exportToPDF(): Promise<void> {
         <th class="num">FFS</th>
         <th class="num">MP</th>
         <th class="num">SP</th>
+        <th class="num">SE</th>
+        <th class="num">ME</th>
         <th class="num">PIC</th>
         <th class="num">Co-P</th>
         <th class="num">Dual</th>
@@ -423,6 +454,8 @@ export async function exportToPDF(): Promise<void> {
         <td class="num">${h(totals.sim)}</td>
         <td class="num">${h(totals.multi_pilot)}</td>
         <td class="num">${h(totals.single_pilot)}</td>
+        <td class="num">${h(totals.se)}</td>
+        <td class="num">${h(totals.me)}</td>
         <td class="num">${h(totals.pic)}</td>
         <td class="num">${h(totals.co_pilot)}</td>
         <td class="num">${h(totals.dual)}</td>

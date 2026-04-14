@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { insertFlight, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
+import { useTranslation } from '../../hooks/useTranslation';
 
 // ── Typdef ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,118 @@ function blockHasData(b: YearBlock): boolean {
   return parseH(b.total_time) > 0;
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
+
+function makeStyles() {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.background },
+    content: { padding: 16, paddingBottom: 48, gap: 12 },
+
+    title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
+    subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+
+    addYearBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, paddingVertical: 11,
+      backgroundColor: Colors.primary + '18',
+      borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '55',
+    },
+    addYearText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
+
+    // ── Block ──
+    block: {
+      backgroundColor: Colors.card, borderRadius: 14,
+      borderWidth: 1, borderColor: Colors.border,
+      overflow: 'hidden',
+    },
+    blockHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: Colors.elevated,
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: Colors.separator,
+    },
+    yearInput: {
+      flex: 1, color: Colors.textPrimary, fontSize: 16, fontWeight: '800',
+      fontFamily: 'Menlo',
+    },
+
+    groupLabel: {
+      color: Colors.textMuted, fontSize: 10, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1,
+      paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2,
+    },
+
+    fieldRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 6,
+      borderBottomWidth: 1, borderBottomColor: Colors.separator,
+    },
+    fieldLabel: {
+      color: Colors.textSecondary, fontSize: 13, flex: 1,
+    },
+    fieldInput: {
+      color: Colors.textPrimary, fontSize: 14, fontWeight: '600',
+      fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
+      textAlign: 'right', minWidth: 72,
+      paddingVertical: 4, paddingHorizontal: 6,
+      backgroundColor: Colors.elevated, borderRadius: 6,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    fieldInputText: {
+      fontFamily: undefined, fontVariant: undefined,
+      textAlign: 'left', minWidth: 120,
+    },
+    fieldUnit: {
+      color: Colors.textMuted, fontSize: 11, width: 18,
+      textAlign: 'right', marginLeft: 4,
+    },
+
+    aircraftToggle: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingVertical: 11, paddingHorizontal: 14,
+      backgroundColor: Colors.card, borderRadius: 10,
+      borderWidth: 1, borderColor: Colors.border,
+    },
+    aircraftToggleText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
+
+    aircraftBlock: {
+      backgroundColor: Colors.card, borderRadius: 14,
+      borderWidth: 1, borderColor: Colors.border,
+      overflow: 'hidden',
+    },
+
+    crewGrid: {
+      flexDirection: 'row', flexWrap: 'wrap',
+      gap: 8, padding: 12,
+    },
+    crewBtn: {
+      flex: 1, minWidth: '45%',
+      backgroundColor: Colors.elevated, borderRadius: 10,
+      borderWidth: 1, borderColor: Colors.border,
+      padding: 10, alignItems: 'center', gap: 2,
+    },
+    crewBtnActive: {
+      backgroundColor: Colors.primary + '1A',
+      borderColor: Colors.primary,
+    },
+    crewBtnLabel: {
+      color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center',
+    },
+    crewBtnLabelActive: { color: Colors.primary },
+    crewBtnSub: {
+      color: Colors.textMuted, fontSize: 10, textAlign: 'center',
+    },
+
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.accent, borderRadius: 12,
+      paddingVertical: 15, gap: 8, marginTop: 4,
+    },
+    saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
+    hint: { color: Colors.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16 },
+  });
+}
+
 // ── Formulärrad ───────────────────────────────────────────────────────────────
 
 function FieldRow({
@@ -74,6 +187,7 @@ function FieldRow({
   text?: boolean;
   placeholder?: string;
 }) {
+  const styles = makeStyles();
   return (
     <View style={styles.fieldRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -102,6 +216,8 @@ function Block({
   onRemove: () => void;
   canRemove: boolean;
 }) {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const set = (key: keyof YearBlock) => (val: string) => onChange(key, val);
 
   return (
@@ -113,7 +229,7 @@ function Block({
           style={styles.yearInput}
           value={block.year}
           onChangeText={set('year')}
-          placeholder="År (valfritt)"
+          placeholder={t('year_optional')}
           placeholderTextColor={Colors.textMuted}
           keyboardType="number-pad"
           maxLength={4}
@@ -125,30 +241,30 @@ function Block({
         )}
       </View>
 
-      {/* Flygtider */}
-      <Text style={styles.groupLabel}>Flygtider</Text>
-      <FieldRow label="Total flygtid"  value={block.total_time}   onChange={set('total_time')} />
-      <FieldRow label="PIC"            value={block.pic}          onChange={set('pic')} />
-      <FieldRow label="Co-pilot"       value={block.co_pilot}     onChange={set('co_pilot')} />
-      <FieldRow label="Dual"           value={block.dual}         onChange={set('dual')} />
-      <FieldRow label="Instruktör"     value={block.instructor}   onChange={set('instructor')} />
-      <FieldRow label="Multi-pilot"    value={block.multi_pilot}  onChange={set('multi_pilot')} />
-      <FieldRow label="Single pilot"   value={block.single_pilot} onChange={set('single_pilot')} />
+      {/* Flight times */}
+      <Text style={styles.groupLabel}>{t('flight_times_group')}</Text>
+      <FieldRow label={t('total_flight_time')} value={block.total_time}   onChange={set('total_time')} />
+      <FieldRow label={t('pic')}               value={block.pic}          onChange={set('pic')} />
+      <FieldRow label={t('co_pilot')}          value={block.co_pilot}     onChange={set('co_pilot')} />
+      <FieldRow label={t('dual')}              value={block.dual}         onChange={set('dual')} />
+      <FieldRow label={t('instructor')}        value={block.instructor}   onChange={set('instructor')} />
+      <FieldRow label={t('multi_pilot')}       value={block.multi_pilot}  onChange={set('multi_pilot')} />
+      <FieldRow label={t('single_pilot')}      value={block.single_pilot} onChange={set('single_pilot')} />
 
-      {/* Operativa förhållanden */}
-      <Text style={styles.groupLabel}>Operativt</Text>
-      <FieldRow label="IFR"  value={block.ifr}   onChange={set('ifr')} />
-      <FieldRow label="Natt" value={block.night} onChange={set('night')} />
+      {/* Operational conditions */}
+      <Text style={styles.groupLabel}>{t('operational')}</Text>
+      <FieldRow label={t('ifr')}   value={block.ifr}   onChange={set('ifr')} />
+      <FieldRow label={t('night')} value={block.night} onChange={set('night')} />
 
-      {/* Landningar */}
-      <Text style={styles.groupLabel}>Landningar</Text>
-      <FieldRow label="Dag"  value={block.landings_day}   onChange={set('landings_day')}  integer />
-      <FieldRow label="Natt" value={block.landings_night} onChange={set('landings_night')} integer />
+      {/* Landings */}
+      <Text style={styles.groupLabel}>{t('landings')}</Text>
+      <FieldRow label={t('day')}   value={block.landings_day}   onChange={set('landings_day')}  integer />
+      <FieldRow label={t('night')} value={block.landings_night} onChange={set('landings_night')} integer />
 
-      {/* Övrigt */}
-      <Text style={styles.groupLabel}>Övrigt (valfritt)</Text>
-      <FieldRow label="Luftfartygstyp" value={block.aircraft_type} onChange={set('aircraft_type')} text placeholder="ex. R44, C172" />
-      <FieldRow label="Anmärkningar"   value={block.remarks}       onChange={set('remarks')}       text placeholder="ex. Militär tjänst" />
+      {/* Other */}
+      <Text style={styles.groupLabel}>{t('other_optional')}</Text>
+      <FieldRow label={t('aircraft_type')} value={block.aircraft_type} onChange={set('aircraft_type')} text placeholder="e.g. R44, C172" />
+      <FieldRow label={t('remarks')}       value={block.remarks}       onChange={set('remarks')}       text placeholder="e.g. Military service" />
     </View>
   );
 }
@@ -156,6 +272,8 @@ function Block({
 // ── Huvud ─────────────────────────────────────────────────────────────────────
 
 export default function ManualExperienceScreen() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const router = useRouter();
   const { loadFlights, loadStats } = useFlightStore();
 
@@ -208,7 +326,7 @@ export default function ManualExperienceScreen() {
 
   const saveAll = async () => {
     if (!readyBlocks.length) {
-      Alert.alert('Inget att spara', 'Ange flygtid för minst ett block.');
+      Alert.alert(t('nothing_to_save'), t('enter_flight_time'));
       return;
     }
     setSaving(true);
@@ -216,8 +334,8 @@ export default function ManualExperienceScreen() {
     try {
       for (const b of readyBlocks) {
         const label = b.year
-          ? `Erfarenhetssammanfattning ${b.year}`
-          : 'Sammanlagd erfarenhet';
+          ? `Experience summary ${b.year}`
+          : 'Total experience';
         await insertFlight({
           date: blockDate(b.year),
           aircraft_type: b.aircraft_type || '',
@@ -259,12 +377,12 @@ export default function ManualExperienceScreen() {
 
       await Promise.all([loadFlights(), loadStats()]);
       Alert.alert(
-        'Klart!',
-        `${saved} block sparade.${aircraftType.trim() ? `\n${aircraftType.toUpperCase()} registrerad.` : ''}`,
+        t('done_exclamation'),
+        `${saved} ${t('block_saved')}${aircraftType.trim() ? `\n${aircraftType.toUpperCase()} ${t('registered')}` : ''}`,
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (e: any) {
-      Alert.alert('Fel', e.message);
+      Alert.alert(t('fel'), e.message);
     } finally {
       setSaving(false);
     }
@@ -273,23 +391,22 @@ export default function ManualExperienceScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'android' ? 'height' : undefined}
     >
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
       >
-        <Text style={styles.title}>Manuell erfarenhet</Text>
-        <Text style={styles.subtitle}>
-          Fyll i din sammanlagda flygerfarenhet. Dela upp per år om du vill ha
-          detaljerad historik, annars räcker ett block.
-        </Text>
+        <Text style={styles.title}>{t('manual_experience')}</Text>
+        <Text style={styles.subtitle}>{t('manual_experience_sub')}</Text>
 
-        {/* Lägg till år-knapp */}
+        {/* Add year button */}
         <TouchableOpacity style={styles.addYearBtn} onPress={addBlock} activeOpacity={0.8}>
           <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-          <Text style={styles.addYearText}>Lägg till år</Text>
+          <Text style={styles.addYearText}>{t('add_year')}</Text>
         </TouchableOpacity>
 
         {/* Årsblock */}
@@ -311,7 +428,7 @@ export default function ManualExperienceScreen() {
         >
           <Ionicons name="airplane-outline" size={15} color={Colors.primary} />
           <Text style={styles.aircraftToggleText}>
-            {showAircraftSection ? 'Dölj farkosttyp' : 'Lägg till farkosttyp (valfritt)'}
+            {showAircraftSection ? t('hide_aircraft_type') : t('add_aircraft_type_optional')}
           </Text>
           <Ionicons
             name={showAircraftSection ? 'chevron-up' : 'chevron-down'}
@@ -322,9 +439,9 @@ export default function ManualExperienceScreen() {
 
         {showAircraftSection && (
           <View style={styles.aircraftBlock}>
-            {/* Typ */}
+            {/* Type */}
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Typ</Text>
+              <Text style={styles.fieldLabel}>Type</Text>
               <TextInput
                 style={[styles.fieldInput, styles.fieldInputText]}
                 value={aircraftType}
@@ -335,9 +452,9 @@ export default function ManualExperienceScreen() {
               />
             </View>
 
-            {/* Marschfart */}
+            {/* Cruise speed */}
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Marschfart</Text>
+              <Text style={styles.fieldLabel}>Cruise speed</Text>
               <TextInput
                 style={styles.fieldInput}
                 value={cruiseSpeed}
@@ -350,9 +467,9 @@ export default function ManualExperienceScreen() {
               <Text style={styles.fieldUnit}>kts</Text>
             </View>
 
-            {/* Uthållighet */}
+            {/* Endurance */}
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Uthållighet</Text>
+              <Text style={styles.fieldLabel}>Endurance</Text>
               <TextInput
                 style={styles.fieldInput}
                 value={endurance}
@@ -365,14 +482,14 @@ export default function ManualExperienceScreen() {
               <Text style={styles.fieldUnit}>h</Text>
             </View>
 
-            {/* Besättningstyp */}
-            <Text style={styles.groupLabel}>Besättningstyp</Text>
+            {/* Crew type */}
+            <Text style={styles.groupLabel}>Crew type</Text>
             <View style={styles.crewGrid}>
               {([
-                { key: 'sp',      label: 'Single-pilot',       sub: 'SP-certifierad' },
-                { key: 'mp',      label: 'Multi-pilot',        sub: 'Båda roller' },
-                { key: 'sp_only', label: 'Enbart single-pilot', sub: 'Alltid SP' },
-                { key: 'mp_only', label: 'Enbart multi-pilot',  sub: 'Kräver alltid besättning' },
+                { key: 'sp',      label: 'Single-pilot',    sub: 'SP certified' },
+                { key: 'mp',      label: 'Multi-pilot',     sub: 'Both roles' },
+                { key: 'sp_only', label: 'SP only',         sub: 'Always SP' },
+                { key: 'mp_only', label: 'MP only',         sub: 'Always requires crew' },
               ] as const).map(opt => (
                 <TouchableOpacity
                   key={opt.key}
@@ -403,125 +520,17 @@ export default function ManualExperienceScreen() {
               <>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
                 <Text style={styles.saveBtnText}>
-                  Spara {readyBlocks.length} {readyBlocks.length === 1 ? 'block' : 'block'}
+                  Save {readyBlocks.length} {readyBlocks.length === 1 ? 'block' : 'blocks'}
                 </Text>
               </>
             )}
         </TouchableOpacity>
 
         <Text style={styles.hint}>
-          Varje block sparas som en rad med datum 31 dec angivet år. Timmar i decimalform
-          eller HH:MM accepteras.
+          Each block is saved as a row with the date Dec 31 of the given year. Hours in decimal
+          or HH:MM format are accepted.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, paddingBottom: 48, gap: 12 },
-
-  title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
-  subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-
-  addYearBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 11,
-    backgroundColor: Colors.primary + '18',
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '55',
-  },
-  addYearText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
-
-  // ── Block ──
-  block: {
-    backgroundColor: Colors.card, borderRadius: 14,
-    borderWidth: 1, borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  blockHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.elevated,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: Colors.separator,
-  },
-  yearInput: {
-    flex: 1, color: Colors.textPrimary, fontSize: 16, fontWeight: '800',
-    fontFamily: 'Menlo',
-  },
-
-  groupLabel: {
-    color: Colors.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1,
-    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2,
-  },
-
-  fieldRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderBottomWidth: 1, borderBottomColor: Colors.separator,
-  },
-  fieldLabel: {
-    color: Colors.textSecondary, fontSize: 13, flex: 1,
-  },
-  fieldInput: {
-    color: Colors.textPrimary, fontSize: 14, fontWeight: '600',
-    fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
-    textAlign: 'right', minWidth: 72,
-    paddingVertical: 4, paddingHorizontal: 6,
-    backgroundColor: Colors.elevated, borderRadius: 6,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  fieldInputText: {
-    fontFamily: undefined, fontVariant: undefined,
-    textAlign: 'left', minWidth: 120,
-  },
-  fieldUnit: {
-    color: Colors.textMuted, fontSize: 11, width: 18,
-    textAlign: 'right', marginLeft: 4,
-  },
-
-  aircraftToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 11, paddingHorizontal: 14,
-    backgroundColor: Colors.card, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  aircraftToggleText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-
-  aircraftBlock: {
-    backgroundColor: Colors.card, borderRadius: 14,
-    borderWidth: 1, borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-
-  crewGrid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    gap: 8, padding: 12,
-  },
-  crewBtn: {
-    flex: 1, minWidth: '45%',
-    backgroundColor: Colors.elevated, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: 10, alignItems: 'center', gap: 2,
-  },
-  crewBtnActive: {
-    backgroundColor: Colors.primary + '1A',
-    borderColor: Colors.primary,
-  },
-  crewBtnLabel: {
-    color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center',
-  },
-  crewBtnLabelActive: { color: Colors.primary },
-  crewBtnSub: {
-    color: Colors.textMuted, fontSize: 10, textAlign: 'center',
-  },
-
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.accent, borderRadius: 12,
-    paddingVertical: 15, gap: 8, marginTop: 4,
-  },
-  saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
-  hint: { color: Colors.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16 },
-});

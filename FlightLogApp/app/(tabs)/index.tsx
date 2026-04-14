@@ -8,15 +8,191 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { EASA_CPL_REQUIREMENTS, EASA_ATPL_REQUIREMENTS, FREE_TIER_LIMIT } from '../../constants/easa';
-import { formatHours } from '../../utils/format';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FlightChart } from '../../components/FlightChart';
 import { StressWidget } from '../../components/StressWidget';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { getSetting, setSetting } from '../../db/flights';
+import { useTranslation } from '../../hooks/useTranslation';
+
+function makeStyles() {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.background },
+    content: { padding: 16, paddingBottom: 32 },
+
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: Colors.primary,
+      borderRadius: 10,
+      paddingVertical: 14,
+      marginBottom: 16,
+      gap: 8,
+    },
+    addButtonText: {
+      color: Colors.textInverse,
+      fontSize: 16,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+
+    freeNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.card,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 16,
+      gap: 6,
+      borderWidth: 0.5,
+      borderColor: Colors.gold + '66',
+    },
+    freeNoticeText: { color: Colors.textSecondary, fontSize: 13, flex: 1 },
+    upgradeLink: { color: Colors.gold, fontSize: 13, fontWeight: '700' },
+
+    sectionTitle: {
+      color: Colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      marginBottom: 10,
+      marginTop: 20,
+    },
+
+    statsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    statCard: {
+      backgroundColor: Colors.card,
+      borderRadius: 10,
+      padding: 14,
+      flex: 1,
+      minWidth: '28%',
+      borderWidth: 0.5,
+      borderColor: Colors.border,
+      alignItems: 'center',
+    },
+    statCardAccent: {
+      borderColor: Colors.primary + '55',
+    },
+    statValue: {
+      color: Colors.textPrimary,
+      fontSize: 22,
+      fontWeight: '800',
+      fontFamily: 'Menlo',
+      fontVariant: ['tabular-nums'],
+    },
+    statValueAccent: {
+      color: Colors.primary,
+    },
+    statLabel: {
+      color: Colors.textSecondary,
+      fontSize: 11,
+      marginTop: 3,
+      textAlign: 'center',
+    },
+    statSub: {
+      color: Colors.textMuted,
+      fontSize: 10,
+    },
+
+    spotlightRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 4,
+    },
+    spotlightCard: {
+      flex: 1,
+      backgroundColor: Colors.card,
+      borderRadius: 10,
+      padding: 16,
+      gap: 6,
+      borderWidth: 0.5,
+      borderColor: Colors.border,
+    },
+    spotlightCardClickable: {
+      borderColor: Colors.primary + '55',
+    },
+    spotlightIconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    spotlightLabel: {
+      color: Colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    spotlightValue: {
+      color: Colors.textPrimary,
+      fontSize: 30,
+      fontWeight: '800',
+      fontFamily: 'Menlo',
+      fontVariant: ['tabular-nums'],
+      marginTop: 4,
+    },
+    spotlightSub: {
+      color: Colors.textSecondary,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+
+    easaCard: {
+      backgroundColor: Colors.card,
+      borderRadius: 10,
+      padding: 16,
+      gap: 16,
+      borderWidth: 0.5,
+      borderColor: Colors.border,
+    },
+    progressRow: { gap: 6 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+    progressLabel: { color: Colors.textSecondary, fontSize: 13 },
+    progressValue: {
+      color: Colors.textPrimary,
+      fontSize: 12,
+      fontWeight: '600',
+      fontFamily: 'Menlo',
+      fontVariant: ['tabular-nums'],
+    },
+    progressTrack: {
+      height: 4,
+      backgroundColor: Colors.separator,
+      borderRadius: 2,
+      overflow: 'hidden',
+    },
+    progressFill: { height: '100%', borderRadius: 2 },
+
+    premiumBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.card,
+      borderRadius: 10,
+      padding: 16,
+      marginTop: 20,
+      gap: 10,
+      borderWidth: 0.5,
+      borderColor: Colors.gold + '66',
+    },
+    premiumBannerText: {
+      flex: 1,
+      color: Colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+  });
+}
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+  const styles = makeStyles();
   return (
     <View style={[styles.statCard, accent && styles.statCardAccent]}>
       <Text style={[styles.statValue, accent && styles.statValueAccent]}>{value}</Text>
@@ -32,6 +208,8 @@ function ProgressBar({ label, current, required, color = Colors.primary }: {
   required: number;
   color?: string;
 }) {
+  const styles = makeStyles();
+  const { formatTime } = useTimeFormat();
   const pct = Math.min((current / required) * 100, 100);
   const done = current >= required;
   return (
@@ -39,7 +217,7 @@ function ProgressBar({ label, current, required, color = Colors.primary }: {
       <View style={styles.progressHeader}>
         <Text style={styles.progressLabel}>{label}</Text>
         <Text style={[styles.progressValue, done && { color: Colors.success }]}>
-          {formatHours(current)} / {required}h
+          {formatTime(current)} / {required}h
         </Text>
       </View>
       <View style={styles.progressTrack}>
@@ -55,16 +233,23 @@ function ProgressBar({ label, current, required, color = Colors.primary }: {
 }
 
 export default function DashboardScreen() {
+  const styles = makeStyles();
   const router = useRouter();
   const { stats, flightCount, isPremium, isLoading, loadStats } = useFlightStore();
+  const { t } = useTranslation();
+  const { formatTime } = useTimeFormat();
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const [thirdWidget, setThirdWidget] = useState<'ffs' | 'ifr'>('ffs');
+  const [picWidget, setPicWidget] = useState<'pic' | 'co_pilot'>('pic');
 
   useEffect(() => {
     loadStats();
     getSetting('dashboard_third_widget').then((v) => {
       if (v === 'ifr' || v === 'ffs') setThirdWidget(v);
+    });
+    getSetting('dashboard_pic_widget').then((v) => {
+      if (v === 'pic' || v === 'co_pilot') setPicWidget(v);
     });
   }, []);
 
@@ -74,7 +259,12 @@ export default function DashboardScreen() {
     await setSetting('dashboard_third_widget', next);
   };
 
-  // XC-kortet är klickbart om det finns en kandidat (DB-queryn garanterar att koordinaterna finns)
+  const togglePicWidget = async () => {
+    const next = picWidget === 'pic' ? 'co_pilot' : 'pic';
+    setPicWidget(next);
+    await setSetting('dashboard_pic_widget', next);
+  };
+
   const xcCoordsOk = !!stats?.longest_xc_id;
 
   const s = stats;
@@ -91,25 +281,25 @@ export default function DashboardScreen() {
         />
       }
     >
-      {/* Lägg till-knapp */}
+      {/* Log new flight button */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => router.push('/flight/add')}
         activeOpacity={0.8}
       >
         <Ionicons name="add-circle" size={20} color={Colors.textInverse} />
-        <Text style={styles.addButtonText}>Logga ny flygning</Text>
+        <Text style={styles.addButtonText}>{t('log_new_flight')}</Text>
       </TouchableOpacity>
 
-      {/* Freemium-varning */}
+      {/* Freemium notice */}
       {!isPremium && (
         <View style={styles.freeNotice}>
           <Ionicons name="information-circle" size={16} color={Colors.gold} />
           <Text style={styles.freeNoticeText}>
-            {flightCount}/{FREE_TIER_LIMIT} flygningar (gratis)
+            {flightCount}/{FREE_TIER_LIMIT} {t('flights_free')}
           </Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/settings')}>
-            <Text style={styles.upgradeLink}>Uppgradera</Text>
+            <Text style={styles.upgradeLink}>{t('upgrade')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -118,23 +308,30 @@ export default function DashboardScreen() {
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <>
-          {/* Totaler — tre översta kort */}
-          <Text style={styles.sectionTitle}>Totaler</Text>
+          {/* Totals */}
+          <Text style={styles.sectionTitle}>{t('totals')}</Text>
           <View style={styles.statsGrid}>
-            <StatCard label="Total flygtid" value={formatHours(s?.total_time ?? 0)} sub="timmar" accent />
-            <StatCard label="PIC" value={formatHours(s?.total_pic ?? 0)} sub="timmar" accent />
+            <StatCard label={t('total_flight_time')} value={formatTime(s?.total_time ?? 0)} sub={t('hours')} accent />
+            <TouchableOpacity onPress={togglePicWidget} activeOpacity={0.7}>
+              <StatCard
+                label={picWidget === 'pic' ? t('pic') : t('co_pilot')}
+                value={formatTime(picWidget === 'pic' ? (s?.total_pic ?? 0) : (s?.total_co_pilot ?? 0))}
+                sub={t('tap_to_switch')}
+                accent
+              />
+            </TouchableOpacity>
             <TouchableOpacity onPress={toggleThirdWidget} activeOpacity={0.7}>
               <StatCard
                 label={thirdWidget === 'ffs' ? 'FFS' : 'IFR'}
-                value={formatHours(thirdWidget === 'ffs' ? (s?.total_sim ?? 0) : (s?.total_ifr ?? 0))}
-                sub="tryck för att byta"
+                value={formatTime(thirdWidget === 'ffs' ? (s?.total_sim ?? 0) : (s?.total_ifr ?? 0))}
+                sub={t('tap_to_switch')}
               />
             </TouchableOpacity>
           </View>
 
-          {/* Spotlight-kort */}
+          {/* Spotlight cards */}
           <View style={styles.spotlightRow}>
-            {/* Bästa veckan */}
+            {/* Best week */}
             <TouchableOpacity
               style={styles.spotlightCard}
               activeOpacity={s?.best_week_start ? 0.7 : 1}
@@ -142,20 +339,20 @@ export default function DashboardScreen() {
             >
               <View style={styles.spotlightIconRow}>
                 <Ionicons name="trophy" size={16} color={Colors.gold} />
-                <Text style={styles.spotlightLabel}>Bästa veckan</Text>
+                <Text style={styles.spotlightLabel}>{t('best_week')}</Text>
                 {s?.best_week_last_flight_id ? (
                   <Ionicons name="chevron-forward" size={12} color={Colors.textMuted} style={{ marginLeft: 'auto' }} />
                 ) : null}
               </View>
               <Text style={styles.spotlightValue}>
-                {s?.best_week_hours ? `${formatHours(s.best_week_hours)}h` : '—'}
+                {s?.best_week_hours ? `${formatTime(s.best_week_hours)}h` : '—'}
               </Text>
               <Text style={styles.spotlightSub}>
-                {s?.best_week_label || 'Inga data'}
+                {s?.best_week_label || t('no_data')}
               </Text>
             </TouchableOpacity>
 
-            {/* Längsta cross country */}
+            {/* Longest XC */}
             <TouchableOpacity
               style={[styles.spotlightCard, xcCoordsOk && styles.spotlightCardClickable]}
               activeOpacity={xcCoordsOk ? 0.7 : 1}
@@ -164,7 +361,7 @@ export default function DashboardScreen() {
             >
               <View style={styles.spotlightIconRow}>
                 <Ionicons name="navigate" size={16} color={xcCoordsOk ? Colors.primary : Colors.textMuted} />
-                <Text style={styles.spotlightLabel}>Längsta XC</Text>
+                <Text style={styles.spotlightLabel}>{t('longest_xc')}</Text>
                 {xcCoordsOk ? (
                   <Ionicons name="map" size={12} color={Colors.textMuted} style={{ marginLeft: 'auto' }} />
                 ) : null}
@@ -175,12 +372,12 @@ export default function DashboardScreen() {
               <Text style={styles.spotlightSub}>
                 {s?.longest_xc_first_dep && s?.longest_xc_last_arr
                   ? `${s.longest_xc_first_dep}→${s.longest_xc_last_arr} · ${s.longest_xc_date}`
-                  : 'Inga data'}
+                  : t('no_data')}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* XC-karta modal */}
+          {/* XC map modal */}
           {s?.longest_xc_date && (
             <RouteMapModal
               visible={xcMapVisible}
@@ -190,7 +387,7 @@ export default function DashboardScreen() {
             />
           )}
 
-          {/* Bästa-veckan karta modal */}
+          {/* Best week map modal */}
           {s?.best_week_start && (
             <BestWeekMapModal
               visible={weekMapVisible}
@@ -201,21 +398,22 @@ export default function DashboardScreen() {
             />
           )}
 
-          {/* Karta — besökta flygplatser */}
-          <Text style={styles.sectionTitle}>Karta</Text>
+          {/* Performance / Stress widget */}
+          <Text style={styles.sectionTitle}>{t('performance')}</Text>
+          <StressWidget />
+
+          {/* Map */}
+          <Text style={styles.sectionTitle}>{t('map')}</Text>
           <AirportMapWidget />
 
-          {/* Flygtimmar per månad */}
-          <Text style={styles.sectionTitle}>Statistik</Text>
+          {/* Statistics */}
+          <Text style={styles.sectionTitle}>{t('statistics')}</Text>
           <FlightChart />
-
-          {/* Stressindikator */}
-          <StressWidget />
 
           {/* EASA CPL */}
           {isPremium && (
             <>
-              <Text style={styles.sectionTitle}>EASA CPL-krav (FCL.515)</Text>
+              <Text style={styles.sectionTitle}>{t('easa_cpl_requirements')}</Text>
               <View style={styles.easaCard}>
                 <ProgressBar
                   label={EASA_CPL_REQUIREMENTS.total_flight_time.label}
@@ -239,7 +437,7 @@ export default function DashboardScreen() {
                 />
               </View>
 
-              <Text style={styles.sectionTitle}>EASA ATPL-krav (FCL.510)</Text>
+              <Text style={styles.sectionTitle}>{t('easa_atpl_requirements')}</Text>
               <View style={styles.easaCard}>
                 <ProgressBar
                   label={EASA_ATPL_REQUIREMENTS.total_flight_time.label}
@@ -277,7 +475,7 @@ export default function DashboardScreen() {
             >
               <Ionicons name="star" size={18} color={Colors.gold} />
               <Text style={styles.premiumBannerText}>
-                Uppgradera till Premium för EASA-kravöversikt, OCR-skanning och export
+                {t('upgrade_to_premium_banner')}
               </Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
             </TouchableOpacity>
@@ -288,174 +486,3 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, paddingBottom: 32 },
-
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    marginBottom: 16,
-    gap: 8,
-  },
-  addButtonText: {
-    color: Colors.textInverse,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-
-  freeNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 16,
-    gap: 6,
-    borderWidth: 0.5,
-    borderColor: Colors.gold + '66',
-  },
-  freeNoticeText: { color: Colors.textSecondary, fontSize: 13, flex: 1 },
-  upgradeLink: { color: Colors.gold, fontSize: 13, fontWeight: '700' },
-
-  sectionTitle: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 10,
-    marginTop: 20,
-  },
-
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  statCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 10,
-    padding: 14,
-    flex: 1,
-    minWidth: '28%',
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  statCardAccent: {
-    borderColor: Colors.primary + '55',
-  },
-  statValue: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: 'Menlo',
-    fontVariant: ['tabular-nums'],
-  },
-  statValueAccent: {
-    color: Colors.primary,
-  },
-  statLabel: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  statSub: {
-    color: Colors.textMuted,
-    fontSize: 10,
-  },
-
-  spotlightRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  spotlightCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: 10,
-    padding: 16,
-    gap: 6,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-  },
-  spotlightCardClickable: {
-    borderColor: Colors.primary + '55',
-  },
-  spotlightIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  spotlightLabel: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  spotlightValue: {
-    color: Colors.textPrimary,
-    fontSize: 30,
-    fontWeight: '800',
-    fontFamily: 'Menlo',
-    fontVariant: ['tabular-nums'],
-    marginTop: 4,
-  },
-  spotlightSub: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-
-  easaCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 10,
-    padding: 16,
-    gap: 16,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-  },
-  progressRow: { gap: 6 },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressLabel: { color: Colors.textSecondary, fontSize: 13 },
-  progressValue: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Menlo',
-    fontVariant: ['tabular-nums'],
-  },
-  progressTrack: {
-    height: 4,
-    backgroundColor: Colors.separator,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%', borderRadius: 2 },
-
-  premiumBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: 10,
-    padding: 16,
-    marginTop: 20,
-    gap: 10,
-    borderWidth: 0.5,
-    borderColor: Colors.gold + '66',
-  },
-  premiumBannerText: {
-    flex: 1,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-});

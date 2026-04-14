@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { isValidTime } from '../utils/format';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface Props {
   label: string;
@@ -10,6 +11,7 @@ interface Props {
   onChangeText: (t: string) => void;
   error?: string;
   showNowBtn?: boolean;
+  onSubmitEditing?: () => void;
 }
 
 function getCurrentUtc(): string {
@@ -19,7 +21,50 @@ function getCurrentUtc(): string {
   return `${h}:${m}`;
 }
 
-export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn = false }: Props) {
+function makeStyles() {
+  return StyleSheet.create({
+    wrapper: { flex: 1 },
+    labelRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6,
+    },
+    label: {
+      color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1,
+    },
+    input: {
+      backgroundColor: Colors.card,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      color: Colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily: 'Menlo',
+      letterSpacing: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      textAlign: 'center',
+    },
+    inputFocused: { borderColor: Colors.primary, borderWidth: 1 },
+    inputError:  { borderColor: Colors.danger, borderWidth: 1 },
+    inputValid:  { borderColor: Colors.success + '88' },
+
+    nowBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 4, marginTop: 5,
+      backgroundColor: Colors.primary + '14',
+      borderRadius: 6, paddingVertical: 6,
+      borderWidth: 0.5, borderColor: Colors.primary + '44',
+    },
+    nowText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
+
+    errorText: { color: Colors.danger, fontSize: 11, marginTop: 4 },
+  });
+}
+
+export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn = false, onSubmitEditing }: Props) {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
@@ -39,12 +84,14 @@ export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn =
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>{label}</Text>
-        {valid && !error && (
-          <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
-        )}
-      </View>
+      {label ? (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          {valid && !error && (
+            <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
+          )}
+        </View>
+      ) : null}
 
       <TextInput
         ref={inputRef}
@@ -63,6 +110,7 @@ export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn =
         keyboardType="number-pad"
         maxLength={5}
         returnKeyType="done"
+        onSubmitEditing={onSubmitEditing}
       />
 
       {showNowBtn && (
@@ -72,7 +120,7 @@ export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn =
           activeOpacity={0.7}
         >
           <Ionicons name="time-outline" size={12} color={Colors.primary} />
-          <Text style={styles.nowText}>Sätt till nu (UTC)</Text>
+          <Text style={styles.nowText}>{t('now_utc')}</Text>
         </TouchableOpacity>
       )}
 
@@ -81,41 +129,3 @@ export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn =
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { flex: 1 },
-  labelRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6,
-  },
-  label: {
-    color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1,
-  },
-  input: {
-    backgroundColor: Colors.card,
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '700',
-    fontFamily: 'Menlo',
-    letterSpacing: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    textAlign: 'center',
-  },
-  inputFocused: { borderColor: Colors.primary, borderWidth: 1 },
-  inputError:  { borderColor: Colors.danger, borderWidth: 1 },
-  inputValid:  { borderColor: Colors.success + '88' },
-
-  nowBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 4, marginTop: 5,
-    backgroundColor: Colors.primary + '14',
-    borderRadius: 6, paddingVertical: 6,
-    borderWidth: 0.5, borderColor: Colors.primary + '44',
-  },
-  nowText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
-
-  errorText: { color: Colors.danger, fontSize: 11, marginTop: 4 },
-});

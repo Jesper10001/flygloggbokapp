@@ -2,10 +2,90 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { getMonthlyHours } from '../db/flights';
 import { Colors } from '../constants/colors';
+import { useTranslation } from '../hooks/useTranslation';
 
 const MONTH_LABELS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
 
+function makeStyles() {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: Colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: Colors.cardBorder,
+    },
+    title: {
+      color: Colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 8,
+    },
+    legend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 4,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      color: Colors.textSecondary,
+      fontSize: 11,
+    },
+    chart: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 4,
+    },
+    column: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 4,
+    },
+    bars: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 1,
+      height: 80,
+      justifyContent: 'center',
+    },
+    bar: {
+      width: 5,
+      borderRadius: 2,
+    },
+    barCur: {
+      backgroundColor: Colors.primary,
+    },
+    barPrev: {
+      backgroundColor: Colors.textMuted,
+      opacity: 0.6,
+    },
+    barEmpty: {
+      width: 5,
+      height: 2,
+      backgroundColor: Colors.separator,
+      borderRadius: 1,
+    },
+    label: {
+      color: Colors.textMuted,
+      fontSize: 9,
+      fontWeight: '600',
+    },
+    labelActive: {
+      color: Colors.primary,
+    },
+  });
+}
+
 export function FlightChart() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
   const [data, setData] = useState<{ year: number; month: number; hours: number }[]>([]);
 
   useEffect(() => {
@@ -36,7 +116,7 @@ export function FlightChart() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Flygtimmar per månad</Text>
+      <Text style={styles.title}>{t('flight_hours_per_month')}</Text>
       <View style={styles.legend}>
         <View style={[styles.dot, { backgroundColor: Colors.primary }]} />
         <Text style={styles.legendText}>{curYear}</Text>
@@ -76,78 +156,3 @@ export function FlightChart() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  title: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 4,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-  },
-  chart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  column: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  bars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 1,
-    height: 80,
-    justifyContent: 'center',
-  },
-  bar: {
-    width: 5,
-    borderRadius: 2,
-  },
-  barCur: {
-    backgroundColor: Colors.primary,
-  },
-  barPrev: {
-    backgroundColor: Colors.textMuted,
-    opacity: 0.6,
-  },
-  barEmpty: {
-    width: 5,
-    height: 2,
-    backgroundColor: Colors.separator,
-    borderRadius: 1,
-  },
-  label: {
-    color: Colors.textMuted,
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  labelActive: {
-    color: Colors.primary,
-  },
-});

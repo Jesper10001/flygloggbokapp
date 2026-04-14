@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getAirportCoordinates } from '../db/icao';
 import { getFlightsForWeek } from '../db/flights';
 import { Colors } from '../constants/colors';
+import { useTranslation } from '../hooks/useTranslation';
 import type { Flight } from '../types/flight';
 
 interface Props {
@@ -101,11 +102,11 @@ var map, polylines, planeMarker;
 window.onload = function() {
   map = L.map('map',{center:[${centerLat},${centerLon}],zoom:${zoom},zoomControl:true,attributionControl:true});
   var layers = {
-    'Ljus':         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Satellit':     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
-    'Terrängkarta': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
+    'Light':     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
   };
-  var activeKey = 'Ljus';
+  var activeKey = 'Light';
   layers[activeKey].addTo(map);
   var sw = document.getElementById('layer-switcher');
   Object.keys(layers).forEach(function(key){
@@ -205,6 +206,7 @@ function animatePlane(from,to,hdg){
 }
 
 export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -278,13 +280,13 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
         {loading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Hämtar veckans flygningar…</Text>
+            <Text style={styles.loadingText}>{t('loading_week')}</Text>
           </View>
         )}
         {error && (
           <View style={styles.center}>
             <Ionicons name="map-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.errorText}>Koordinater saknas för flygplatserna den här veckan.</Text>
+            <Text style={styles.errorText}>{t('coordinates_missing_week')}</Text>
           </View>
         )}
         {html && (
@@ -308,7 +310,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
               <Ionicons name="trophy" size={13} color={Colors.gold} />
               <Text style={styles.weekLabel}>{weekLabel}</Text>
             </View>
-            <Text style={styles.bannerMeta}>{hhmm}h · {steps.length} flygn.</Text>
+            <Text style={styles.bannerMeta}>{hhmm}h · {steps.length} flt.</Text>
           </View>
         )}
 
@@ -335,7 +337,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
               </TouchableOpacity>
 
               <View style={styles.stepCenter}>
-                <Text style={styles.stepLabel}>Flygning</Text>
+                <Text style={styles.stepLabel}>{t('flight_label')}</Text>
                 <Text style={styles.stepValue}>{step + 1} / {steps.length}</Text>
               </View>
 
@@ -362,7 +364,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
                   : `${currentStep.dep.icao}${currentStep.arr_utc ? ' · ' + currentStep.arr_utc : ''}`}
               />
               <View style={styles.dataDivider} />
-              <DataCell label="Flygtid" value={toHHMM(currentStep.total_time)} mono />
+              <DataCell label={t('flight_time_label')} value={toHHMM(currentStep.total_time)} mono />
               <View style={styles.dataDivider} />
               <DataCell
                 label={currentStep.pic > 0 ? 'Co-pilot' : currentStep.co_pilot > 0 ? 'PIC' : 'Co-pilot'}
@@ -378,7 +380,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
                 {[currentStep.aircraft_type, currentStep.registration].filter(Boolean).join(' · ')}
               </Text>
               <View style={[styles.typeBadge, currentStep.isXC ? styles.badgeXC : styles.badgeLocal]}>
-                <Text style={styles.typeBadgeText}>{currentStep.isXC ? 'XC' : 'Lokal'}</Text>
+                <Text style={styles.typeBadgeText}>{currentStep.isXC ? 'XC' : t('local')}</Text>
               </View>
             </View>
           </View>
