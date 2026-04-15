@@ -44,46 +44,46 @@ const NavyColors = {
 };
 
 const BrightColors = {
-  // Bakgrunder
-  background: '#EEF3F8',
+  // Bakgrunder — varm off-white med lätt slate-ton för mjukt intryck
+  background: '#F6F7F9',
   surface: '#FFFFFF',
   card: '#FFFFFF',
-  cardBorder: '#C8D8E8',
-  elevated: '#E2ECF5',
+  cardBorder: '#E2E8F0',
+  elevated: '#F1F4F8',
 
-  // Primär cyan-accent (mörkare för läsbarhet på vitt)
-  primary: '#0099BB',
-  primaryLight: '#00C8E8',
-  primaryDark: '#007799',
+  // Primär — lugnare indigo-blå som harmoniserar utan att skära
+  primary: '#2563EB',
+  primaryLight: '#3B82F6',
+  primaryDark: '#1D4ED8',
 
-  accent: '#0099BB',
-  accentLight: '#00C8E8',
+  accent: '#2563EB',
+  accentLight: '#3B82F6',
 
-  // Status
-  success: '#00A870',
-  warning: '#D48A00',
-  warningLight: '#F5C842',
-  danger: '#D93050',
-  dangerLight: '#F07090',
-  info: '#0099BB',
+  // Status — dämpade men tydliga
+  success: '#059669',
+  warning: '#D97706',
+  warningLight: '#F59E0B',
+  danger: '#DC2626',
+  dangerLight: '#F87171',
+  info: '#2563EB',
 
-  // Text
-  textPrimary: '#0A1628',
-  textSecondary: '#2A5070',
-  textMuted: '#7A9AB8',
+  // Text — slate-skala för neutral läsbarhet
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
   textInverse: '#FFFFFF',
 
-  // Gräns / Separator
-  border: '#C0D0E0',
-  separator: '#D8E8F0',
+  // Gräns / Separator — mjuka avgränsningar
+  border: '#E2E8F0',
+  separator: '#EEF1F5',
 
-  // Premium / Gold
-  gold: '#C8860A',
-  goldLight: '#E8A820',
+  // Premium / Gold — varm amber
+  gold: '#B45309',
+  goldLight: '#D97706',
 
   // Tab-ikoner
-  tabIconDefault: '#7A9AB8',
-  tabIconActive: '#0099BB',
+  tabIconDefault: '#94A3B8',
+  tabIconActive: '#2563EB',
 };
 
 export type ColorPalette = typeof NavyColors;

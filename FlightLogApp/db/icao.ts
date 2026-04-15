@@ -2822,6 +2822,7 @@ export async function searchAirports(query: string): Promise<IcaoAirport[]> {
     `SELECT * FROM icao_airports
      WHERE icao LIKE ? OR UPPER(name) LIKE ?
      ORDER BY
+       COALESCE(temporary, 0) ASC,
        CASE WHEN icao = ? THEN 0
             WHEN icao LIKE ? THEN 1
             ELSE 2 END,
@@ -2861,11 +2862,50 @@ export async function addCustomAirport(airport: Omit<IcaoAirport, 'custom'>): Pr
   );
 }
 
+/** Hämta alla custom- och tillfälliga platser utan limit — används av Settings-listan */
+export async function getAllUserAirports(): Promise<IcaoAirport[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE custom = 1 OR "temporary" = 1
+     ORDER BY "temporary" ASC, icao ASC`
+  );
+}
+
 export async function deleteCustomAirport(icao: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    'DELETE FROM icao_airports WHERE icao=? AND custom=1',
+    'DELETE FROM icao_airports WHERE icao=? AND custom=1 AND ("temporary" IS NULL OR "temporary"=0)',
     [icao.toUpperCase()]
+  );
+}
+
+export async function deleteTemporaryPlace(icao: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'DELETE FROM icao_airports WHERE icao=? AND "temporary"=1',
+    [icao.toUpperCase()]
+  );
+}
+
+export async function renameCustomAirport(icao: string, newName: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'UPDATE icao_airports SET name=? WHERE icao=? AND (custom=1 OR "temporary"=1)',
+    [newName.trim(), icao.toUpperCase()]
+  );
+}
+
+export async function updateUserAirport(
+  icao: string,
+  name: string,
+  lat: number,
+  lon: number,
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'UPDATE icao_airports SET name=?, lat=?, lon=? WHERE icao=? AND (custom=1 OR "temporary"=1)',
+    [name.trim(), lat, lon, icao.toUpperCase()]
   );
 }
 

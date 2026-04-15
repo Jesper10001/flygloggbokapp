@@ -22,9 +22,7 @@ function makeStyles() {
       backgroundColor: Colors.card,
       borderRadius: 12,
       padding: 14,
-      borderWidth: 1,
-      borderColor: Colors.cardBorder,
-      borderLeftWidth: 3,
+      borderWidth: 2,
       gap: 8,
     },
     header: {
@@ -122,7 +120,7 @@ export function StressWidget() {
   const msg = MESSAGES[level];
 
   return (
-    <View style={[styles.card, { borderLeftColor: color }]}>
+    <View style={[styles.card, { borderColor: color }]}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('flight_load')}</Text>
         <Text style={[styles.pct, { color }]}>

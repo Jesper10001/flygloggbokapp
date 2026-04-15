@@ -77,7 +77,7 @@ export async function exportToCSV(): Promise<void> {
                                        optional: true, hasData: f => hasText(f.remarks) || hasText(f.second_pilot) },
     { header: 'Flygningstyp',         value: f => f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
                                        optional: true, hasData: f => f.flight_type && f.flight_type !== 'normal' },
-    { header: 'Sim-kategori',         value: f => f.flight_type === 'sim' ? (f.sim_category ?? '').replace('_', ' ') : '',
+    { header: 'Sim-kategori',         value: f => f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '',
                                        optional: true, hasData: f => f.flight_type === 'sim' && hasText(f.sim_category) },
   ];
 

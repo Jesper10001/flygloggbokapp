@@ -265,7 +265,7 @@ export default function ImportScreen() {
   // flight_type per flygningsindex för flygningar som överstiger uthållighet: 'sim' | 'hot_refuel'
   const [flightTypes, setFlightTypes] = useState<Record<number, 'sim' | 'hot_refuel'>>({});
   // sim-kategori per index när flight_type='sim': FFS | FTD | FNPT_II | FNPT_I | BITD
-  const [simCategories, setSimCategories] = useState<Record<number, 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD'>>({});
+  const [simCategories, setSimCategories] = useState<Record<number, 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | 'CPT_PPT' | 'CBT'>>({});
   // Besättningstyp per fartygstyp
   const [crewTypeInputs, setCrewTypeInputs] = useState<Record<string, Set<string>>>({});
   // Farkosttyp per typ: 'airplane' | 'helicopter' | ''
@@ -846,7 +846,7 @@ export default function ImportScreen() {
                     </View>
                     {current === 'sim' && (
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6, marginLeft: 12 }}>
-                        {(['FFS','FTD','FNPT_II','FNPT_I','BITD'] as const).map((cat) => {
+                        {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
                           const active = (simCategories[idx] ?? 'FFS') === cat;
                           return (
                             <TouchableOpacity
@@ -855,7 +855,7 @@ export default function ImportScreen() {
                               onPress={() => setSimCategories((p) => ({ ...p, [idx]: cat }))}
                             >
                               <Text style={[styles.exceedBtnText, active && styles.exceedBtnTextActive]}>
-                                {cat.replace('_', ' ')}
+                                {cat.replace(/_/g, '/')}
                               </Text>
                             </TouchableOpacity>
                           );

@@ -303,6 +303,7 @@ export default function FlightDetailScreen() {
               {(flight.single_pilot ?? 0) > 0 && <Detail label={t('single_pilot')} value={`${formatTime(flight.single_pilot ?? 0)}h`} />}
               <Detail label={t('ifr')} value={`${formatTime(flight.ifr)}h`} />
               <Detail label={t('night')} value={`${formatTime(flight.night)}h`} />
+              {(flight.nvg ?? 0) > 0 && <Detail label="NVG" value={`${formatTime(flight.nvg ?? 0)}h`} />}
               <Detail label={t('day_landings')} value={String(flight.landings_day)} />
               <Detail label={t('night_landings')} value={String(flight.landings_night)} />
               {flight.flight_type && flight.flight_type !== 'normal' && (
@@ -364,7 +365,7 @@ export default function FlightDetailScreen() {
               <DateTimePicker
                 value={form?.date ? new Date(form.date) : new Date()}
                 mode="date"
-                display="spinner"
+                display="inline"
                 maximumDate={new Date()}
                 themeVariant="dark"
                 onChange={(_, selectedDate) => {

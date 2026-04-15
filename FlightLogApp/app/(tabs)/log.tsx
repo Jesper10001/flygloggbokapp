@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView,
+  StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFlightStore } from '../../store/flightStore';
-import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry } from '../../db/flights';
+import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry, getNightFlightsMissingNvg, setFlightNvg } from '../../db/flights';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { Colors } from '../../constants/colors';
 import { formatDate } from '../../utils/format';
@@ -139,6 +139,64 @@ function makeStyles() {
       color: Colors.textPrimary, fontSize: 12, fontWeight: '700',
       fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
     },
+
+    // Äldre årtal-dropdown
+    olderYearsHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 10,
+      backgroundColor: Colors.elevated,
+      borderTopWidth: 0.5, borderTopColor: Colors.border,
+      borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+      marginTop: 8,
+    },
+    olderYearsTitle: {
+      flex: 1, color: Colors.textSecondary, fontSize: 12,
+      fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase',
+    },
+    olderYearsCount: {
+      color: Colors.textMuted, fontSize: 11, marginLeft: 8,
+    },
+
+    // NVG-hjälparen under flygningar
+    nvgHelperCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: Colors.primary + '14',
+      borderRadius: 10, padding: 12, marginTop: 12, marginBottom: 4,
+      borderWidth: 1, borderColor: Colors.primary + '44',
+    },
+    nvgHelperTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+    nvgHelperSub: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
+    nvgModalBackdrop: { flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' },
+    nvgModalSheet: {
+      backgroundColor: Colors.card, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24,
+      borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    },
+    nvgModalHandle: {
+      width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border,
+      alignSelf: 'center', marginBottom: 12,
+    },
+    nvgModalTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 4 },
+    nvgModalEmpty: { color: Colors.textMuted, fontSize: 13, paddingVertical: 24, textAlign: 'center' },
+    nvgModalProgress: { color: Colors.textMuted, fontSize: 11, marginBottom: 10 },
+    nvgFlightCard: {
+      backgroundColor: Colors.elevated, borderRadius: 10, padding: 14,
+      borderWidth: 0.5, borderColor: Colors.border, gap: 4, marginBottom: 12,
+    },
+    nvgFlightRoute: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', letterSpacing: 1 },
+    nvgFlightMeta: { color: Colors.textSecondary, fontSize: 12 },
+    nvgModalBtnRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    nvgSkipBtn: {
+      flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    },
+    nvgSkipBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
+    nvgMarkBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.primary,
+    },
+    nvgMarkBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '700' },
+    nvgCloseBtn: { alignItems: 'center', paddingVertical: 10 },
+    nvgCloseBtnText: { color: Colors.textMuted, fontSize: 13 },
 
     // Flygningar-dropdown
     flightsHeader: {
@@ -319,6 +377,8 @@ function FlightRow({ flight, onPress, index }: {
           {flight.pic > 0 && <Tag label={`PIC ${formatTime(flight.pic)}h`} color={Colors.success} />}
           {flight.ifr > 0 && <Tag label={`IFR ${formatTime(flight.ifr)}h`} color={Colors.primaryLight} />}
           {flight.night > 0 && <Tag label={`Night ${formatTime(flight.night)}h`} color={Colors.textMuted} />}
+          {(flight.nvg ?? 0) > 0 && <Tag label={`NVG ${formatTime(flight.nvg ?? 0)}h`} color={Colors.gold} />}
+          {flight.flight_type === 'hot_refuel' && <Tag label="Hot refuel" color={Colors.warning} />}
         </View>
       </View>
     </TouchableOpacity>
@@ -653,7 +713,7 @@ export default function LogScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
-  const { flights, isLoading, loadFlights } = useFlightStore();
+  const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
   const [tab, setTab] = useState<'flights' | 'airframes'>('flights');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Flight[]>([]);
@@ -666,6 +726,37 @@ export default function LogScreen() {
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([nowYear]));
   const [openMonthKey, setOpenMonthKey] = useState<string>(nowKey);
   const [flightsExpanded, setFlightsExpanded] = useState(true);
+  const [oldYearsExpanded, setOldYearsExpanded] = useState(false);
+  const [nvgHelperOpen, setNvgHelperOpen] = useState(false);
+  const [nvgCandidates, setNvgCandidates] = useState<Flight[]>([]);
+  const [nvgIdx, setNvgIdx] = useState(0);
+
+  const openNvgHelper = async () => {
+    const rows = await getNightFlightsMissingNvg();
+    setNvgCandidates(rows);
+    setNvgIdx(0);
+    setNvgHelperOpen(true);
+  };
+  const markCurrentAsNvg = async () => {
+    const f = nvgCandidates[nvgIdx];
+    if (!f) return;
+    await setFlightNvg(f.id, f.night);
+    await Promise.all([loadFlights(), loadStats()]);
+    const next = nvgIdx + 1;
+    if (next >= nvgCandidates.length) {
+      setNvgHelperOpen(false);
+    } else {
+      setNvgIdx(next);
+    }
+  };
+  const skipCurrentNvg = () => {
+    const next = nvgIdx + 1;
+    if (next >= nvgCandidates.length) {
+      setNvgHelperOpen(false);
+    } else {
+      setNvgIdx(next);
+    }
+  };
   const [summaries, setSummaries] = useState<ScanSummary[]>([]);
 
   const loadSummaries = useCallback(async () => {
@@ -791,72 +882,151 @@ export default function LogScreen() {
             <Ionicons name={flightsExpanded ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
           </TouchableOpacity>
 
-          {flightsExpanded && tree.map((yg) => {
-            const yearOpen = expandedYears.has(yg.year);
-            return (
-              <View key={yg.year}>
-                {/* Årsrad */}
-                <TouchableOpacity style={styles.yearHeader} onPress={() => toggleYear(yg.year)} activeOpacity={0.75}>
-                  <Ionicons
-                    name={yearOpen ? 'chevron-down' : 'chevron-forward'}
-                    size={16} color={Colors.textMuted} style={{ marginRight: 6 }}
-                  />
-                  <Text style={styles.yearTitle}>{yg.year}</Text>
-                  <View style={styles.yearMeta}>
-                    <Text style={styles.yearHours}>{formatTime(yg.totalHours)}h</Text>
-                    <Text style={styles.yearCount}>{yg.months.reduce((s, m) => s + m.count, 0)} flt.</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Månader under detta år */}
-                {yearOpen && yg.months.map((sec) => {
-                  const monthOpen = openMonthKey === sec.key;
-                  const isCurrent = sec.key === nowKey;
-                  return (
-                    <View key={sec.key}>
-                      {/* Månadsrad */}
-                      <TouchableOpacity
-                        style={[styles.monthHeader, isCurrent && styles.monthHeaderCurrent]}
-                        onPress={() => toggleMonth(sec.key)}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons
-                          name={monthOpen ? 'chevron-down' : 'chevron-forward'}
-                          size={14}
-                          color={isCurrent ? Colors.primary : Colors.textMuted}
-                          style={{ marginRight: 6, marginLeft: 22 }}
-                        />
-                        <Text style={[styles.monthTitle, isCurrent && styles.monthTitleCurrent]}>
-                          {sec.title.toUpperCase()}
-                        </Text>
-                        <View style={styles.monthMeta}>
-                          <Text style={[styles.monthHours, isCurrent && { color: Colors.primary }]}>
-                            {formatTime(sec.totalHours)}h
-                          </Text>
-                          <Text style={styles.monthCount}>{sec.count} flt.</Text>
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Flygningar i månaden */}
-                      {monthOpen && sec.flights.map((flight, index) => (
-                        <FlightRow
-                          key={flight.id}
-                          flight={flight}
-                          index={index}
-                          onPress={() => router.push(`/flight/${flight.id}`)}
-                        />
-                      ))}
-                      {monthOpen && <View style={styles.monthBottom} />}
+          {flightsExpanded && (() => {
+            const currentYear = new Date().getFullYear();
+            const recentYears = tree.filter((yg) => currentYear - yg.year <= 5);
+            const olderYears = tree.filter((yg) => currentYear - yg.year > 5);
+            const renderYear = (yg: YearGroup) => {
+              const yearOpen = expandedYears.has(yg.year);
+              return (
+                <View key={yg.year}>
+                  <TouchableOpacity style={styles.yearHeader} onPress={() => toggleYear(yg.year)} activeOpacity={0.75}>
+                    <Ionicons
+                      name={yearOpen ? 'chevron-down' : 'chevron-forward'}
+                      size={16} color={Colors.textMuted} style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.yearTitle}>{yg.year}</Text>
+                    <View style={styles.yearMeta}>
+                      <Text style={styles.yearHours}>{formatTime(yg.totalHours)}h</Text>
+                      <Text style={styles.yearCount}>{yg.months.reduce((s, m) => s + m.count, 0)} flt.</Text>
                     </View>
-                  );
-                })}
-              </View>
+                  </TouchableOpacity>
+                  {yearOpen && yg.months.map((sec) => {
+                    const monthOpen = openMonthKey === sec.key;
+                    const isCurrent = sec.key === nowKey;
+                    return (
+                      <View key={sec.key}>
+                        <TouchableOpacity
+                          style={[styles.monthHeader, isCurrent && styles.monthHeaderCurrent]}
+                          onPress={() => toggleMonth(sec.key)}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons
+                            name={monthOpen ? 'chevron-down' : 'chevron-forward'}
+                            size={14}
+                            color={isCurrent ? Colors.primary : Colors.textMuted}
+                            style={{ marginRight: 6, marginLeft: 22 }}
+                          />
+                          <Text style={[styles.monthTitle, isCurrent && styles.monthTitleCurrent]}>
+                            {sec.title.toUpperCase()}
+                          </Text>
+                          <View style={styles.monthMeta}>
+                            <Text style={[styles.monthHours, isCurrent && { color: Colors.primary }]}>
+                              {formatTime(sec.totalHours)}h
+                            </Text>
+                            <Text style={styles.monthCount}>{sec.count} flt.</Text>
+                          </View>
+                        </TouchableOpacity>
+                        {monthOpen && sec.flights.map((flight, index) => (
+                          <FlightRow
+                            key={flight.id}
+                            flight={flight}
+                            index={index}
+                            onPress={() => router.push(`/flight/${flight.id}`)}
+                          />
+                        ))}
+                        {monthOpen && <View style={styles.monthBottom} />}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            };
+            return (
+              <>
+                {recentYears.map(renderYear)}
+                {olderYears.length > 0 && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.olderYearsHeader}
+                      onPress={() => setOldYearsExpanded((v) => !v)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons
+                        name={oldYearsExpanded ? 'chevron-down' : 'chevron-forward'}
+                        size={14} color={Colors.textMuted} style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.olderYearsTitle}>{t('older_than_5_years')}</Text>
+                      <Text style={styles.olderYearsCount}>
+                        {olderYears.reduce((s, y) => s + y.months.reduce((a, m) => a + m.count, 0), 0)} flt.
+                      </Text>
+                    </TouchableOpacity>
+                    {oldYearsExpanded && olderYears.map(renderYear)}
+                  </>
+                )}
+              </>
             );
-          })}
+          })()}
+
+          {/* NVG-hjälparen — alltid synlig, oberoende av flygningar-dropdown */}
+          <TouchableOpacity style={styles.nvgHelperCard} onPress={openNvgHelper} activeOpacity={0.75}>
+            <Ionicons name="moon-outline" size={16} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nvgHelperTitle}>{t('missing_nvg_title')}</Text>
+              <Text style={styles.nvgHelperSub}>{t('missing_nvg_sub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
+
         </ScrollView>
       )}
 
       </>)}
+
+      <Modal visible={nvgHelperOpen} transparent animationType="slide" onRequestClose={() => setNvgHelperOpen(false)}>
+        <Pressable style={styles.nvgModalBackdrop} onPress={() => setNvgHelperOpen(false)}>
+          <Pressable style={styles.nvgModalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.nvgModalHandle} />
+            <Text style={styles.nvgModalTitle}>{t('missing_nvg_title')}</Text>
+            {nvgCandidates.length === 0 ? (
+              <Text style={styles.nvgModalEmpty}>{t('missing_nvg_none')}</Text>
+            ) : (
+              (() => {
+                const f = nvgCandidates[nvgIdx];
+                if (!f) return null;
+                return (
+                  <>
+                    <Text style={styles.nvgModalProgress}>
+                      {nvgIdx + 1} / {nvgCandidates.length}
+                    </Text>
+                    <View style={styles.nvgFlightCard}>
+                      <Text style={styles.nvgFlightRoute}>{f.dep_place} → {f.arr_place}</Text>
+                      <Text style={styles.nvgFlightMeta}>
+                        {f.date} · {f.aircraft_type} {f.registration}
+                      </Text>
+                      <Text style={styles.nvgFlightMeta}>
+                        Night: {formatTime(f.night)}h · Total: {formatTime(f.total_time)}h
+                      </Text>
+                    </View>
+                    <View style={styles.nvgModalBtnRow}>
+                      <TouchableOpacity style={styles.nvgSkipBtn} onPress={skipCurrentNvg} activeOpacity={0.8}>
+                        <Text style={styles.nvgSkipBtnText}>{t('skip')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.nvgMarkBtn} onPress={markCurrentAsNvg} activeOpacity={0.8}>
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.textInverse} />
+                        <Text style={styles.nvgMarkBtnText}>{t('mark_as_nvg')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                );
+              })()
+            )}
+            <TouchableOpacity style={styles.nvgCloseBtn} onPress={() => setNvgHelperOpen(false)}>
+              <Text style={styles.nvgCloseBtnText}>{t('close')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* FAB — only in flights tab */}
       {tab === 'flights' && (

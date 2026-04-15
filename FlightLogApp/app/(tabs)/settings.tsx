@@ -81,11 +81,13 @@ function makeStyles() {
       gap: 3,
       borderWidth: 0.5,
       borderColor: Colors.border,
+      width: 130,
     },
     langBtn: {
-      paddingHorizontal: 10,
+      flex: 1,
       paddingVertical: 5,
       borderRadius: 6,
+      alignItems: 'center',
     },
     langBtnActive: {
       backgroundColor: Colors.primary,
@@ -258,14 +260,14 @@ export default function SettingsScreen() {
               onPress={() => setLanguage('en')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.langBtnText, language === 'en' && styles.langBtnTextActive]}>EN</Text>
+              <Text style={[styles.langBtnText, language === 'en' && styles.langBtnTextActive]}>ENG</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.langBtn, language === 'sv' && styles.langBtnActive]}
               onPress={() => setLanguage('sv')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.langBtnText, language === 'sv' && styles.langBtnTextActive]}>SV</Text>
+              <Text style={[styles.langBtnText, language === 'sv' && styles.langBtnTextActive]}>SWE</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -309,8 +311,8 @@ export default function SettingsScreen() {
             <Ionicons name="time-outline" size={18} color={Colors.primary} />
           </View>
           <View style={styles.settingsText}>
-            <Text style={styles.settingsLabel}>Time format</Text>
-            <Text style={styles.settingsSub}>Dashboard always shows HH:MM</Text>
+            <Text style={styles.settingsLabel}>{t('time_format')}</Text>
+            <Text style={styles.settingsSub}>{t('time_format_sub')}</Text>
           </View>
           <View style={styles.langToggle}>
             <TouchableOpacity

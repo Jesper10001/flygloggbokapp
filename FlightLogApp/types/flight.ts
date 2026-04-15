@@ -77,7 +77,7 @@ export interface FlightFormData {
   observer?: string;
   ferry_pic?: string;
   relief_crew?: string;
-  sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | '';
+  sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | 'CPT_PPT' | 'CBT' | '';
   vfr?: string;
 }
 
@@ -125,12 +125,15 @@ export interface FlightStats {
   total_co_pilot: number;
   total_dual: number;
   total_ifr: number;
+  total_vfr: number;
   total_night: number;
+  total_nvg: number;
   total_sim: number;
   total_landings_day: number;
   total_landings_night: number;
   last_90_days: number;
   last_12_months: number;
+  year_to_date: number;
   best_week_hours: number;
   best_week_label: string;
   best_week_start: string;
@@ -144,6 +147,13 @@ export interface FlightStats {
   total_multi_pilot: number;
   total_single_pilot: number;
   total_instructor: number;
+  total_picus: number;
+  total_spic: number;
+  total_ferry_pic: number;
+  total_observer: number;
+  total_relief_crew: number;
+  total_examiner: number;
+  total_safety_pilot: number;
   total_se: number;
   total_me: number;
 }

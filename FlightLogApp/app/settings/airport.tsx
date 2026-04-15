@@ -7,7 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { searchAirports, addCustomAirport, deleteCustomAirport } from '../../db/icao';
+import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports } from '../../db/icao';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { IcaoAirport } from '../../types/flight';
@@ -198,13 +198,40 @@ function makeDetailStyles() {
     infoValue: { flex: 1, color: Colors.textPrimary, fontSize: 15 },
     infoMono: { fontFamily: 'Menlo', letterSpacing: 0.5 },
 
+    renameBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, marginHorizontal: 16, marginTop: 16, paddingVertical: 13, borderRadius: 10,
+      backgroundColor: Colors.primary + '18',
+      borderWidth: 1, borderColor: Colors.primary + '44',
+    },
+    renameBtnText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
     deleteBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 8, margin: 16, paddingVertical: 13, borderRadius: 10,
+      gap: 8, marginHorizontal: 16, marginTop: 10, marginBottom: 16, paddingVertical: 13, borderRadius: 10,
       backgroundColor: Colors.danger + '18',
       borderWidth: 1, borderColor: Colors.danger + '44',
     },
     deleteBtnText: { color: Colors.danger, fontSize: 14, fontWeight: '700' },
+
+    editForm: {
+      marginHorizontal: 16, marginTop: 16, gap: 6,
+    },
+    editLabel: {
+      color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4,
+    },
+    editInput: {
+      backgroundColor: Colors.elevated, borderRadius: 8,
+      borderWidth: 1, borderColor: Colors.border,
+      color: Colors.textPrimary, fontSize: 14,
+      paddingHorizontal: 10, paddingVertical: 10,
+    },
+    saveEditBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      paddingVertical: 12, borderRadius: 10,
+      backgroundColor: Colors.primary,
+    },
+    saveEditBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '700' },
   });
 }
 
@@ -214,20 +241,30 @@ function AirportDetailModal({
   airport,
   onClose,
   onDelete,
+  onUpdate,
 }: {
   airport: IcaoAirport;
   onClose: () => void;
   onDelete: (a: IcaoAirport) => void;
+  onUpdate: (a: IcaoAirport, name: string, lat: number, lon: number) => void;
 }) {
   const detailStyles = makeDetailStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const hasCoords = airport.lat && airport.lon && !(airport.lat === 0 && airport.lon === 0);
   const isTemporary = airport.temporary === 1;
+  const editable = !!airport.custom || isTemporary;
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(airport.name);
+  const [editLat, setEditLat] = useState(String(airport.lat || ''));
+  const [editLon, setEditLon] = useState(String(airport.lon || ''));
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
-      <View style={[detailStyles.container, { paddingTop: insets.top }]}>
+      <KeyboardAvoidingView
+        style={[detailStyles.container, { paddingTop: insets.top }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         {/* Rubrikrad */}
         <View style={detailStyles.header}>
           <TouchableOpacity onPress={onClose} style={detailStyles.closeBtn}>
@@ -283,19 +320,94 @@ function AirportDetailModal({
             </>
           ) : null}
 
-          {/* Radera-knapp för custom */}
-          {!!airport.custom && (
-            <TouchableOpacity
-              style={detailStyles.deleteBtn}
-              onPress={() => onDelete(airport)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-              <Text style={detailStyles.deleteBtnText}>{t('delete_from_database')}</Text>
-            </TouchableOpacity>
+          {/* Redigera / Radera — gäller custom och tillfälliga platser */}
+          {editable && !editing && (
+            <>
+              <TouchableOpacity
+                style={detailStyles.renameBtn}
+                onPress={() => {
+                  setEditName(airport.name);
+                  setEditLat(String(airport.lat || ''));
+                  setEditLon(String(airport.lon || ''));
+                  setEditing(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                <Text style={detailStyles.renameBtnText}>{t('edit')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={detailStyles.deleteBtn}
+                onPress={() => onDelete(airport)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+                <Text style={detailStyles.deleteBtnText}>{t('delete_from_database')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {editable && editing && (
+            <View style={detailStyles.editForm}>
+              <Text style={detailStyles.editLabel}>{t('airport_name_label').replace(' *', '')}</Text>
+              <TextInput
+                style={detailStyles.editInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder={airport.name}
+                placeholderTextColor={Colors.textMuted}
+              />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={detailStyles.editLabel}>{t('latitude_label')}</Text>
+                  <TextInput
+                    style={detailStyles.editInput}
+                    value={editLat}
+                    onChangeText={setEditLat}
+                    placeholder="59.6519"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={detailStyles.editLabel}>{t('longitude_label')}</Text>
+                  <TextInput
+                    style={detailStyles.editInput}
+                    value={editLon}
+                    onChangeText={setEditLon}
+                    placeholder="17.9186"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                <TouchableOpacity
+                  style={[detailStyles.renameBtn, { flex: 1, marginTop: 0 }]}
+                  onPress={() => setEditing(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={detailStyles.renameBtnText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[detailStyles.saveEditBtn, { flex: 1 }]}
+                  onPress={() => {
+                    const name = editName.trim() || airport.name;
+                    const lat = parseFloat(editLat.replace(',', '.')) || 0;
+                    const lon = parseFloat(editLon.replace(',', '.')) || 0;
+                    onUpdate(airport, name, lat, lon);
+                    setEditing(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.textInverse} />
+                  <Text style={detailStyles.saveEditBtnText}>{t('save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -318,14 +430,20 @@ export default function AirportScreen() {
   const [form, setForm] = useState(EMPTY);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<IcaoAirport | null>(null);
+  const [tab, setTab] = useState<'custom' | 'temporary'>('custom');
 
   useEffect(() => {
     if (query.length >= 2) {
-      searchAirports(query).then(setResults);
+      searchAirports(query).then((r) => setResults(
+        r.filter((a) => tab === 'temporary' ? a.temporary === 1 : (!!a.custom && a.temporary !== 1))
+      ));
     } else {
-      searchAirports('').then((r) => setResults(r.filter((a) => a.custom)));
+      // Full lista utan LIMIT så att stora mängder platser inte trunkeras
+      getAllUserAirports().then((r) => setResults(
+        r.filter((a) => tab === 'temporary' ? a.temporary === 1 : (!!a.custom && a.temporary !== 1))
+      ));
     }
-  }, [query]);
+  }, [query, tab]);
 
   const handleAdd = async () => {
     if (!form.icao || form.icao.length !== 4) {
@@ -346,7 +464,7 @@ export default function AirportScreen() {
     });
     setForm(EMPTY);
     setShowForm(false);
-    searchAirports('').then((r) => setResults(r.filter((a) => a.custom)));
+    getAllUserAirports().then((r) => setResults(r.filter((a) => !!a.custom && a.temporary !== 1)));
     Alert.alert(t('added'), `${form.icao.toUpperCase()} ${t('has_been_added')}`);
   };
 
@@ -356,12 +474,22 @@ export default function AirportScreen() {
       {
         text: t('delete'), style: 'destructive',
         onPress: async () => {
-          await deleteCustomAirport(airport.icao);
+          if (airport.temporary === 1) {
+            await deleteTemporaryPlace(airport.icao);
+          } else {
+            await deleteCustomAirport(airport.icao);
+          }
           setResults((prev) => prev.filter((a) => a.icao !== airport.icao));
           setSelected(null);
         },
       },
     ]);
+  };
+
+  const handleUpdate = async (airport: IcaoAirport, name: string, lat: number, lon: number) => {
+    await updateUserAirport(airport.icao, name, lat, lon);
+    setResults((prev) => prev.map((a) => a.icao === airport.icao ? { ...a, name, lat, lon } : a));
+    setSelected({ ...airport, name, lat, lon });
   };
 
   return (
@@ -377,6 +505,28 @@ export default function AirportScreen() {
         automaticallyAdjustKeyboardInsets
       >
         <Text style={styles.subtitle}>{t('airport_subtitle')}</Text>
+
+        {/* Flik-växlare */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'custom' && styles.tabBtnActive]}
+            onPress={() => setTab('custom')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabBtnText, tab === 'custom' && styles.tabBtnTextActive]}>
+              {t('custom_badge')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'temporary' && styles.tabBtnActive]}
+            onPress={() => setTab('temporary')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabBtnText, tab === 'temporary' && styles.tabBtnTextActive]}>
+              {t('temporary_badge')}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Sök */}
         <View style={styles.searchRow}>
@@ -440,21 +590,25 @@ export default function AirportScreen() {
         {results.length === 0 && query.length < 2 && (
           <View style={styles.empty}>
             <Ionicons name="location-outline" size={32} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>{t('no_custom_airports')}</Text>
+            <Text style={styles.emptyText}>
+              {tab === 'temporary' ? t('no_temporary_places') : t('no_custom_airports')}
+            </Text>
           </View>
         )}
 
-        {/* Lägg till */}
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => setShowForm(!showForm)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name={showForm ? 'close' : 'add'} size={18} color={Colors.textInverse} />
-          <Text style={styles.addBtnText}>{showForm ? t('cancel') : t('add_airport')}</Text>
-        </TouchableOpacity>
+        {/* Lägg till — bara i custom-tab */}
+        {tab === 'custom' && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => setShowForm(!showForm)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={showForm ? 'close' : 'add'} size={18} color={Colors.textInverse} />
+            <Text style={styles.addBtnText}>{showForm ? t('cancel') : t('add_airport')}</Text>
+          </TouchableOpacity>
+        )}
 
-        {showForm && (
+        {tab === 'custom' && showForm && (
           <View style={styles.form}>
             <Text style={styles.formTitle}>{t('new_airport')}</Text>
             {[
@@ -493,6 +647,7 @@ export default function AirportScreen() {
           airport={selected}
           onClose={() => setSelected(null)}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
         />
       )}
     </KeyboardAvoidingView>
@@ -506,6 +661,16 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40, gap: 10 },
   subtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   hint: { color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: -4 },
+
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.elevated, borderRadius: 8, padding: 3,
+    borderWidth: 0.5, borderColor: Colors.border,
+  },
+  tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 6 },
+  tabBtnActive: { backgroundColor: Colors.primary },
+  tabBtnText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
+  tabBtnTextActive: { color: Colors.textInverse },
 
   searchRow: {
     flexDirection: 'row', alignItems: 'center',

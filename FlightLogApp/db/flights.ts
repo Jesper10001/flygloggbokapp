@@ -304,6 +304,21 @@ export async function getRecentRegistrations(type?: string): Promise<string[]> {
   return rows.map((r) => r.registration);
 }
 
+/** Flygningar som har nattid men saknar NVG-tid — för NVG-hjälparfunktionen i loggboken */
+export async function getNightFlightsMissingNvg(): Promise<Flight[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<Flight>(
+    `SELECT * FROM flights
+     WHERE night > 0 AND (nvg IS NULL OR nvg = 0)
+     ORDER BY date DESC, dep_utc DESC`
+  );
+}
+
+export async function setFlightNvg(id: number, hours: number): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE flights SET nvg=? WHERE id=?', [hours, id]);
+}
+
 export async function getRecentRemarks(limit = 20): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ remarks: string }>(
@@ -360,13 +375,22 @@ export async function getFlightStats(): Promise<FlightStats> {
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.co_pilot END), 1) as total_co_pilot,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.dual END), 1) as total_dual,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.ifr END), 1) as total_ifr,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.vfr END), 1) as total_vfr,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.night END), 1) as total_night,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.nvg END), 1) as total_nvg,
       SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.landings_day END) as total_landings_day,
       SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.landings_night END) as total_landings_night,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN f.total_time ELSE 0 END), 1) as total_sim,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.multi_pilot END), 1) as total_multi_pilot,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.single_pilot END), 1) as total_single_pilot,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.instructor END), 1) as total_instructor,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.picus END), 1) as total_picus,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.spic END), 1) as total_spic,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.ferry_pic END), 1) as total_ferry_pic,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.observer END), 1) as total_observer,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.relief_crew END), 1) as total_relief_crew,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.examiner END), 1) as total_examiner,
+      ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.safety_pilot END), 1) as total_safety_pilot,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.se_time END), 1) as total_se,
       ROUND(SUM(CASE WHEN ${FFS_EXPR} THEN 0 ELSE f.me_time END), 1) as total_me
     FROM flights f
@@ -394,6 +418,16 @@ export async function getFlightStats(): Promise<FlightStats> {
        FROM aircraft_registry GROUP BY aircraft_type
      ) ar ON ar.aircraft_type = f.aircraft_type
      WHERE date >= date('now', '-12 months') AND NOT ${FFS_EXPR}`
+  );
+
+  const ytd = await db.getFirstAsync<{ hours: number }>(
+    `SELECT ROUND(SUM(f.total_time), 1) as hours
+     FROM flights f
+     LEFT JOIN (
+       SELECT aircraft_type, MAX(endurance_h) as endurance_h
+       FROM aircraft_registry GROUP BY aircraft_type
+     ) ar ON ar.aircraft_type = f.aircraft_type
+     WHERE strftime('%Y', date) = strftime('%Y', 'now') AND NOT ${FFS_EXPR}`
   );
 
   // Vecka med mest flygtid — sim-pass exkluderas (explicit 'sim' + otaggade som överstiger uthållighet)
@@ -496,12 +530,15 @@ export async function getFlightStats(): Promise<FlightStats> {
     total_co_pilot: totals?.total_co_pilot ?? 0,
     total_dual: totals?.total_dual ?? 0,
     total_ifr: totals?.total_ifr ?? 0,
+    total_vfr: totals?.total_vfr ?? 0,
     total_night: totals?.total_night ?? 0,
+    total_nvg: totals?.total_nvg ?? 0,
     total_sim: totals?.total_sim ?? 0,
     total_landings_day: totals?.total_landings_day ?? 0,
     total_landings_night: totals?.total_landings_night ?? 0,
     last_90_days: last90?.hours ?? 0,
     last_12_months: last12m?.hours ?? 0,
+    year_to_date: ytd?.hours ?? 0,
     best_week_hours: bestWeek?.hours ?? 0,
     best_week_label: bestWeekLabel,
     best_week_start: bestWeek?.week_start ?? '',
@@ -515,6 +552,13 @@ export async function getFlightStats(): Promise<FlightStats> {
     total_multi_pilot: totals?.total_multi_pilot ?? 0,
     total_single_pilot: totals?.total_single_pilot ?? 0,
     total_instructor: totals?.total_instructor ?? 0,
+    total_picus: totals?.total_picus ?? 0,
+    total_spic: totals?.total_spic ?? 0,
+    total_ferry_pic: totals?.total_ferry_pic ?? 0,
+    total_observer: totals?.total_observer ?? 0,
+    total_relief_crew: totals?.total_relief_crew ?? 0,
+    total_examiner: totals?.total_examiner ?? 0,
+    total_safety_pilot: totals?.total_safety_pilot ?? 0,
     total_se: totals?.total_se ?? 0,
     total_me: totals?.total_me ?? 0,
   };
@@ -603,6 +647,24 @@ export async function updateAircraftCruiseSpeed(type: string, speedKts: number):
     `UPDATE aircraft_registry SET cruise_speed_kts=? WHERE aircraft_type=?`,
     [speedKts, type.toUpperCase()]
   );
+}
+
+export async function getAircraftCrewType(type: string): Promise<string> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ crew_type: string }>(
+    `SELECT crew_type FROM aircraft_registry WHERE aircraft_type=?`,
+    [type.toUpperCase()]
+  );
+  return row?.crew_type ?? '';
+}
+
+export async function getAircraftEndurance(type: string): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ endurance_h: number }>(
+    `SELECT MAX(endurance_h) as endurance_h FROM aircraft_registry WHERE aircraft_type=?`,
+    [type.toUpperCase()]
+  );
+  return row?.endurance_h ?? 0;
 }
 
 export async function updateAircraftEndurance(type: string, enduranceH: number): Promise<void> {

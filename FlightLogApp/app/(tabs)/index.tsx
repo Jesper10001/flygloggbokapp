@@ -240,30 +240,94 @@ export default function DashboardScreen() {
   const { formatTime } = useTimeFormat();
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
-  const [thirdWidget, setThirdWidget] = useState<'ffs' | 'ifr'>('ffs');
-  const [picWidget, setPicWidget] = useState<'pic' | 'co_pilot'>('pic');
+  type ThirdWidget = 'ifr' | 'vfr' | 'night' | 'nvg';
+  const [thirdWidget, setThirdWidget] = useState<ThirdWidget>('ifr');
+  const [totalWidget, setTotalWidget] = useState<'total' | 'ytd'>('total');
+  type RoleKey = 'pic' | 'co_pilot' | 'picus' | 'spic' | 'ferry_pic' | 'observer' | 'relief_crew' | 'dual' | 'instructor' | 'examiner' | 'safety_pilot';
+  const [picWidget, setPicWidget] = useState<RoleKey>('pic');
 
   useEffect(() => {
     loadStats();
     getSetting('dashboard_third_widget').then((v) => {
-      if (v === 'ifr' || v === 'ffs') setThirdWidget(v);
+      if (v === 'ifr' || v === 'vfr' || v === 'night' || v === 'nvg') setThirdWidget(v as ThirdWidget);
+    });
+    getSetting('dashboard_total_widget').then((v) => {
+      if (v === 'total' || v === 'ytd') setTotalWidget(v);
     });
     getSetting('dashboard_pic_widget').then((v) => {
-      if (v === 'pic' || v === 'co_pilot') setPicWidget(v);
+      const allowed: RoleKey[] = ['pic','co_pilot','picus','spic','ferry_pic','observer','relief_crew','dual','instructor','examiner','safety_pilot'];
+      if (v && allowed.includes(v as RoleKey)) setPicWidget(v as RoleKey);
     });
   }, []);
 
+  const toggleTotalWidget = async () => {
+    const next = totalWidget === 'total' ? 'ytd' : 'total';
+    setTotalWidget(next);
+    await setSetting('dashboard_total_widget', next);
+  };
+
   const toggleThirdWidget = async () => {
-    const next = thirdWidget === 'ffs' ? 'ifr' : 'ffs';
+    const cycle: ThirdWidget[] = ['ifr', 'vfr', 'night', 'nvg'];
+    const idx = cycle.indexOf(thirdWidget);
+    const next = cycle[(idx + 1) % cycle.length];
     setThirdWidget(next);
     await setSetting('dashboard_third_widget', next);
   };
 
+  const roleValue = (key: RoleKey): number => {
+    const s = stats;
+    switch (key) {
+      case 'pic': return s?.total_pic ?? 0;
+      case 'co_pilot': return s?.total_co_pilot ?? 0;
+      case 'picus': return s?.total_picus ?? 0;
+      case 'spic': return s?.total_spic ?? 0;
+      case 'ferry_pic': return s?.total_ferry_pic ?? 0;
+      case 'observer': return s?.total_observer ?? 0;
+      case 'relief_crew': return s?.total_relief_crew ?? 0;
+      case 'dual': return s?.total_dual ?? 0;
+      case 'instructor': return s?.total_instructor ?? 0;
+      case 'examiner': return s?.total_examiner ?? 0;
+      case 'safety_pilot': return s?.total_safety_pilot ?? 0;
+    }
+  };
+  const roleLabel = (key: RoleKey): string => {
+    switch (key) {
+      case 'pic': return t('pic');
+      case 'co_pilot': return t('co_pilot');
+      case 'picus': return 'PICUS';
+      case 'spic': return 'SPIC';
+      case 'ferry_pic': return 'Ferry PIC';
+      case 'observer': return 'Observer';
+      case 'relief_crew': return 'Relief Crew';
+      case 'dual': return t('dual');
+      case 'instructor': return 'FI';
+      case 'examiner': return 'Examiner';
+      case 'safety_pilot': return 'Safety Pilot';
+    }
+  };
+  const activeRoles = (): RoleKey[] => {
+    const order: RoleKey[] = ['pic','co_pilot','picus','spic','ferry_pic','observer','relief_crew','dual','instructor','examiner','safety_pilot'];
+    return order.filter((k) => roleValue(k) > 0);
+  };
   const togglePicWidget = async () => {
-    const next = picWidget === 'pic' ? 'co_pilot' : 'pic';
+    const active = activeRoles();
+    if (active.length === 0) return;
+    const idx = active.indexOf(picWidget);
+    const next = active[(idx + 1) % active.length] ?? active[0];
     setPicWidget(next);
     await setSetting('dashboard_pic_widget', next);
   };
+
+  // Auto-korrigera om sparad roll inte längre har någon tid
+  useEffect(() => {
+    if (!stats) return;
+    if (roleValue(picWidget) > 0) return;
+    const active = activeRoles();
+    if (active.length > 0 && active[0] !== picWidget) {
+      setPicWidget(active[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats]);
 
   const xcCoordsOk = !!stats?.longest_xc_id;
 
@@ -311,20 +375,38 @@ export default function DashboardScreen() {
           {/* Totals */}
           <Text style={styles.sectionTitle}>{t('totals')}</Text>
           <View style={styles.statsGrid}>
-            <StatCard label={t('total_flight_time')} value={formatTime(s?.total_time ?? 0)} sub={t('hours')} accent />
-            <TouchableOpacity onPress={togglePicWidget} activeOpacity={0.7}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={toggleTotalWidget} activeOpacity={0.7}>
               <StatCard
-                label={picWidget === 'pic' ? t('pic') : t('co_pilot')}
-                value={formatTime(picWidget === 'pic' ? (s?.total_pic ?? 0) : (s?.total_co_pilot ?? 0))}
+                label={totalWidget === 'total' ? t('total_flight_time') : t('flight_time_ytd')}
+                value={formatTime(totalWidget === 'total' ? (s?.total_time ?? 0) : (s?.year_to_date ?? 0))}
                 sub={t('tap_to_switch')}
                 accent
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={toggleThirdWidget} activeOpacity={0.7}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={togglePicWidget} activeOpacity={0.7}>
               <StatCard
-                label={thirdWidget === 'ffs' ? 'FFS' : 'IFR'}
-                value={formatTime(thirdWidget === 'ffs' ? (s?.total_sim ?? 0) : (s?.total_ifr ?? 0))}
+                label={roleLabel(picWidget)}
+                value={formatTime(roleValue(picWidget))}
                 sub={t('tap_to_switch')}
+                accent
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={{ flex: 1 }} onPress={toggleThirdWidget} activeOpacity={0.7}>
+              <StatCard
+                label={
+                  thirdWidget === 'ifr' ? 'IFR'
+                    : thirdWidget === 'vfr' ? 'VFR'
+                    : thirdWidget === 'night' ? t('night')
+                    : 'NVG'
+                }
+                value={formatTime(
+                  thirdWidget === 'ifr' ? (s?.total_ifr ?? 0)
+                    : thirdWidget === 'vfr' ? (s?.total_vfr ?? 0)
+                    : thirdWidget === 'night' ? (s?.total_night ?? 0)
+                    : (s?.total_nvg ?? 0)
+                )}
+                sub={t('tap_to_switch')}
+                accent
               />
             </TouchableOpacity>
           </View>
@@ -333,7 +415,7 @@ export default function DashboardScreen() {
           <View style={styles.spotlightRow}>
             {/* Best week */}
             <TouchableOpacity
-              style={styles.spotlightCard}
+              style={[styles.spotlightCard, s?.best_week_start && styles.spotlightCardClickable]}
               activeOpacity={s?.best_week_start ? 0.7 : 1}
               onPress={() => s?.best_week_start && setWeekMapVisible(true)}
             >

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Image, Alert, ScrollView, ActivityIndicator, Modal, TextInput, FlatList,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -717,7 +718,10 @@ export default function ScanScreen() {
 
       {/* ── Spara-modal ── */}
       <Modal visible={showSaveModal} transparent animationType="slide" onRequestClose={() => setShowSaveModal(false)}>
-        <View style={styles.buyOverlay}>
+        <KeyboardAvoidingView
+          style={styles.buyOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.buySheet}>
             <View style={styles.buyHandle} />
             <Text style={styles.buyTitle}>Namnge blad</Text>
@@ -790,7 +794,7 @@ export default function ScanScreen() {
               <Text style={styles.closeBuyBtnText}>Hoppa över</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Nästa blad-modal ── */}

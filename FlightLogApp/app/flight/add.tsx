@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -9,8 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FormField } from '../../components/FormField';
 import { IcaoInput } from '../../components/IcaoInput';
+import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
-import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry } from '../../db/flights';
+import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
+import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -151,15 +153,11 @@ function makeStyles() {
       paddingVertical: 8,
     },
     totalTimeValue: {
-      fontSize: 32, fontWeight: '800', fontFamily: 'Menlo',
+      fontSize: 52, fontWeight: '900', fontFamily: 'Menlo',
       fontVariant: ['tabular-nums'],
     },
-    totalTimeValueFilled: { color: Colors.primary },
+    totalTimeValueFilled: { color: Colors.gold },
     totalTimeValueEmpty: { color: Colors.textMuted },
-    totalTimeHhmm: {
-      color: Colors.textMuted, fontSize: 14, fontFamily: 'Menlo',
-      fontVariant: ['tabular-nums'],
-    },
     errorInline: { color: Colors.danger, fontSize: 11, marginTop: 2 },
 
     placeBlock: {
@@ -256,8 +254,9 @@ function makeStyles() {
       color: Colors.textPrimary, fontSize: 14, textAlign: 'center',
     },
     nvgPreset: {
+      width: 60,
       backgroundColor: Colors.elevated, borderRadius: 8,
-      paddingHorizontal: 14, paddingVertical: 10,
+      paddingVertical: 10,
       borderWidth: 1, borderColor: Colors.border,
       alignItems: 'center', justifyContent: 'center',
     },
@@ -386,6 +385,22 @@ function makeStyles() {
     simCatText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
     simCatTextActive: { color: Colors.textInverse },
 
+    pilotModeRow: {
+      flexDirection: 'row',
+      alignSelf: 'flex-end',
+      width: 160,
+      backgroundColor: Colors.elevated,
+      borderRadius: 7, padding: 2, marginTop: 4,
+      borderWidth: 0.5, borderColor: Colors.border,
+    },
+    pilotModeBtn: {
+      flex: 1, alignItems: 'center', paddingVertical: 5, paddingHorizontal: 2, borderRadius: 5,
+    },
+    pilotModeBtnActive: { backgroundColor: Colors.primary },
+    pilotModeBtnDisabled: { opacity: 0.35 },
+    pilotModeText: { color: Colors.textMuted, fontSize: 10, fontWeight: '700' },
+    pilotModeTextActive: { color: Colors.textInverse },
+
     remarksWarning: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: Colors.warning + '18',
@@ -504,6 +519,16 @@ export default function AddFlightScreen() {
   const [recentPlaces, setRecentPlaces] = useState<{ icao: string; temporary: boolean }[]>([]);
   const [recentRemarks, setRecentRemarks] = useState<string[]>([]);
   const [lastTemplate, setLastTemplate] = useState<string>('');
+  const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
+  const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
+  const scrollViewRef = useRef<ScrollView>(null);
+  const routeBlockY = useRef(0);
+  const depIcaoRef = useRef<IcaoInputHandle>(null);
+  const arrIcaoRef = useRef<IcaoInputHandle>(null);
+  const depTimeRef = useRef<SmartTimeInputHandle>(null);
+  const arrTimeRef = useRef<SmartTimeInputHandle>(null);
+  const [spSupported, setSpSupported] = useState(true);
+  const [mpSupported, setMpSupported] = useState(true);
   const [showAircraftModal, setShowAircraftModal] = useState(false);
 
   useEffect(() => {
@@ -521,9 +546,33 @@ export default function AddFlightScreen() {
         setLastFlight(last);
         // Hämta registreringar bara för senaste flygets typ
         getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
+        // Förvalda flygregler baserat på senaste flygningen
+        if (last.flight_rules) {
+          setForm((prev) => ({ ...prev, flight_rules: last.flight_rules, ifr: '0', vfr: '0' }));
+        }
+        // Förvald roll baserat på senaste flygningen
+        const r: PrimaryRole =
+          (last.picus ?? 0) > 0 ? 'picus' :
+          (last.spic ?? 0) > 0 ? 'spic' :
+          (last.ferry_pic ?? 0) > 0 ? 'ferry_pic' :
+          (last.observer ?? 0) > 0 ? 'observer' :
+          (last.relief_crew ?? 0) > 0 ? 'relief_crew' :
+          (last.dual ?? 0) > 0 ? 'dual' :
+          (last.co_pilot ?? 0) > 0 ? 'co_pilot' :
+          'pic';
+        setRole(r);
+        setFi((last.instructor ?? 0) > 0 && ['pic','picus','spic','ferry_pic'].includes(r));
+        setExaminerOverlay((last.examiner ?? 0) > 0 && r === 'pic');
+        setSafetyPilotOverlay((last.safety_pilot ?? 0) > 0 && r === 'co_pilot');
       }
     });
   }, []);
+
+  // Uppdatera multi_pilot/single_pilot när pilotMode ändras
+  useEffect(() => {
+    applyDistribution(role, fi, examinerOverlay, safetyPilotOverlay, form.total_time);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pilotMode]);
 
   // Föreslå remarks-mall baserat på roll/overlay
   useEffect(() => {
@@ -545,10 +594,22 @@ export default function AddFlightScreen() {
 
   useEffect(() => {
     const type = form.aircraft_type.trim().toUpperCase();
-    if (!type) { setRecentRegs([]); return; }
+    if (!type) { setRecentRegs([]); setSpSupported(true); setMpSupported(true); return; }
     let cancelled = false;
     getRecentRegistrations(type).then((regs) => {
       if (!cancelled) setRecentRegs(regs);
+    });
+    getAircraftCrewType(type).then((ct) => {
+      if (cancelled) return;
+      const hasSp = !ct || ct.includes('sp');
+      const hasMp = !ct || ct.includes('mp');
+      setSpSupported(hasSp);
+      setMpSupported(hasMp);
+      // Ändra läge om det nya fartyget inte stödjer aktuellt val
+      if (!hasSp && pilotMode === 'single') setPilotMode('multi');
+      else if (!hasMp && pilotMode === 'multi') setPilotMode('single');
+      else if (hasSp && !hasMp) setPilotMode('single');
+      else if (!hasSp && hasMp) setPilotMode('multi');
     });
     return () => { cancelled = true; };
   }, [form.aircraft_type]);
@@ -559,6 +620,35 @@ export default function AddFlightScreen() {
       ...prev,
       aircraft_type: lastFlight.aircraft_type,
       registration: lastFlight.registration,
+    }));
+    getRecentRegistrations(lastFlight.aircraft_type).then(setRecentRegs);
+  };
+
+  const fillReverseRoute = () => {
+    if (!lastFlight) return;
+    const detectedRole: PrimaryRole =
+      (lastFlight.picus ?? 0) > 0 ? 'picus' :
+      (lastFlight.spic ?? 0) > 0 ? 'spic' :
+      (lastFlight.ferry_pic ?? 0) > 0 ? 'ferry_pic' :
+      (lastFlight.observer ?? 0) > 0 ? 'observer' :
+      (lastFlight.relief_crew ?? 0) > 0 ? 'relief_crew' :
+      (lastFlight.dual ?? 0) > 0 ? 'dual' :
+      (lastFlight.co_pilot ?? 0) > 0 ? 'co_pilot' :
+      'pic';
+    setRole(detectedRole);
+    setFi((lastFlight.instructor ?? 0) > 0 && ['pic','picus','spic','ferry_pic'].includes(detectedRole));
+    setExaminerOverlay((lastFlight.examiner ?? 0) > 0 && detectedRole === 'pic');
+    setSafetyPilotOverlay((lastFlight.safety_pilot ?? 0) > 0 && detectedRole === 'co_pilot');
+    setForm((prev) => ({
+      ...prev,
+      aircraft_type: lastFlight.aircraft_type,
+      registration: lastFlight.registration,
+      second_pilot: lastFlight.second_pilot ?? '',
+      dep_place: lastFlight.arr_place ?? '',
+      arr_place: lastFlight.dep_place ?? '',
+      flight_rules: lastFlight.flight_rules ?? prev.flight_rules,
+      ifr: '0',
+      vfr: '0',
     }));
     getRecentRegistrations(lastFlight.aircraft_type).then(setRecentRegs);
   };
@@ -575,9 +665,7 @@ export default function AddFlightScreen() {
 
       const distribute = (tt: string) => {
         const instrEligible: PrimaryRole[] = ['pic','picus','spic','ferry_pic'];
-        const multiCrewRole: PrimaryRole[] = ['co_pilot','relief_crew'];
-        const hasSecondPilot = !!(next.second_pilot && next.second_pilot.trim());
-        const isMulti = multiCrewRole.includes(role) || hasSecondPilot;
+        const isMulti = pilotMode === 'multi';
         next.pic = role === 'pic' ? tt : '0';
         next.co_pilot = role === 'co_pilot' ? tt : '0';
         next.dual = role === 'dual' ? tt : '0';
@@ -594,13 +682,16 @@ export default function AddFlightScreen() {
       };
 
       if (key === 'second_pilot') {
+        if (val && val.trim() && mpSupported && pilotMode !== 'multi') {
+          setPilotMode('multi');
+        }
         distribute(next.total_time || '0');
       }
 
       const syncRules = (tt: string, rules: string | undefined) => {
         if (rules === 'IFR') { next.ifr = tt; next.vfr = '0'; }
         else if (rules === 'VFR') { next.ifr = '0'; next.vfr = tt; }
-        // Mixed: lämna värdena som de är (användaren fyller i manuellt)
+        // Y / Z: lämna värdena som de är (användaren fyller i manuellt)
       };
 
       if (key === 'dep_utc' || key === 'arr_utc') {
@@ -626,11 +717,10 @@ export default function AddFlightScreen() {
         const tt = next.total_time || '0';
         if (val === 'IFR') { next.ifr = tt; next.vfr = '0'; next.nvg = '0'; }
         else if (val === 'VFR') { next.ifr = '0'; next.vfr = tt; }
-        else if (val === 'Mixed') {
-          // Behåll befintliga värden om de summerar rimligt, annars nollställ så användaren matar in
-          const total = parseFloat(tt) || 0;
-          const sum = (parseFloat(next.ifr) || 0) + (parseFloat(next.vfr) || 0);
-          if (sum <= 0 || sum > total + 0.05) { next.ifr = '0'; next.vfr = '0'; }
+        else if (val === 'Y' || val === 'Z' || val === 'Mixed') {
+          // Y/Z: alltid tom start — piloten måste fylla i andelen manuellt
+          next.ifr = '0';
+          next.vfr = '0';
         }
       }
 
@@ -647,10 +737,8 @@ export default function AddFlightScreen() {
     tt: string,
   ) => {
     const instrEligible: PrimaryRole[] = ['pic','picus','spic','ferry_pic'];
-    const multiCrewRole: PrimaryRole[] = ['co_pilot','relief_crew'];
     setForm((prev) => {
-      const hasSecondPilot = !!(prev.second_pilot && prev.second_pilot.trim());
-      const isMulti = multiCrewRole.includes(r) || hasSecondPilot;
+      const isMulti = pilotMode === 'multi';
       return {
         ...prev,
         pic: r === 'pic' ? tt : '0',
@@ -714,6 +802,19 @@ export default function AddFlightScreen() {
     else handleRoleChange('picus');
   };
 
+  const performSave = async (overrides?: Partial<FlightFormData>) => {
+    setSaving(true);
+    try {
+      await insertFlight({ ...form, ...(overrides ?? {}) }, { source: 'manual' });
+      await Promise.all([loadFlights(), loadStats()]);
+      router.back();
+    } catch {
+      Alert.alert(t('error'), t('error_save'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = async () => {
     if (!canAddFlight()) {
       Alert.alert(
@@ -735,16 +836,34 @@ export default function AddFlightScreen() {
       return;
     }
     setWarnings(issues.filter((i) => i.severity === 'warning'));
-    setSaving(true);
-    try {
-      await insertFlight(form, { source: 'manual' });
-      await Promise.all([loadFlights(), loadStats()]);
-      router.back();
-    } catch {
-      Alert.alert(t('error'), t('error_save'));
-    } finally {
-      setSaving(false);
+
+    // Endurance-kontroll: om passets längd överstiger luftfartygets angivna uthållighet,
+    // föreslå hot refuel eller låt piloten spara ändå.
+    const tt = parseFloat(form.total_time) || 0;
+    if (tt > 0 && form.aircraft_type && form.flight_type !== 'hot_refuel' && form.flight_type !== 'sim') {
+      const endurance = await getAircraftEndurance(form.aircraft_type);
+      if (endurance > 0 && tt > endurance) {
+        Alert.alert(
+          t('endurance_exceeded_title'),
+          `${form.aircraft_type} ${t('endurance_exceeded_msg')} ${endurance.toFixed(1)}h. ${t('endurance_exceeded_hint')}`,
+          [
+            { text: t('cancel'), style: 'cancel' },
+            {
+              text: t('mark_hot_refuel'),
+              onPress: () => performSave({ flight_type: 'hot_refuel' }),
+            },
+            {
+              text: t('save_anyway'),
+              style: 'destructive',
+              onPress: () => performSave(),
+            },
+          ]
+        );
+        return;
+      }
     }
+
+    await performSave();
   };
 
   // Topp 3 senaste platserna, filtrering sker inuti IcaoInput
@@ -770,6 +889,7 @@ export default function AddFlightScreen() {
       behavior={Platform.OS === 'android' ? 'height' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -785,12 +905,16 @@ export default function AddFlightScreen() {
 
         <ValidationWarnings issues={warnings} />
 
-        {/* ── Snabbfyll från senaste flygning ── */}
-        {lastFlight && (
-          <TouchableOpacity style={styles.lastFlightBar} onPress={fillLastAircraft} activeOpacity={0.7}>
-            <Ionicons name="flash" size={14} color={Colors.primary} />
+        {/* ── Snabbfyll: omvänd rutt från senaste flygning ── */}
+        {lastFlight && lastFlight.dep_place && lastFlight.arr_place && (
+          <TouchableOpacity style={styles.lastFlightBar} onPress={fillReverseRoute} activeOpacity={0.7}>
+            <Ionicons name="swap-horizontal" size={14} color={Colors.primary} />
             <Text style={styles.lastFlightText}>
-              {t('same_aircraft')} <Text style={styles.lastFlightBold}>{lastFlight.aircraft_type} · {lastFlight.registration}</Text>
+              {t('reverse_route')}{' '}
+              <Text style={styles.lastFlightBold}>
+                {lastFlight.arr_place} → {lastFlight.dep_place}
+              </Text>
+              {lastFlight.second_pilot ? <> · <Text style={styles.lastFlightBold}>{lastFlight.second_pilot}</Text></> : null}
             </Text>
             <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -932,11 +1056,40 @@ export default function AddFlightScreen() {
               onChangeText={(v) => set('second_pilot', v)}
               placeholder={t('second_pilot_ph')}
             />
+            <View style={styles.pilotModeRow}>
+              <TouchableOpacity
+                style={[
+                  styles.pilotModeBtn,
+                  pilotMode === 'single' && styles.pilotModeBtnActive,
+                  !spSupported && styles.pilotModeBtnDisabled,
+                ]}
+                disabled={!spSupported}
+                onPress={() => setPilotMode('single')}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.pilotModeText, pilotMode === 'single' && styles.pilotModeTextActive]}>Single pilot</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pilotModeBtn,
+                  pilotMode === 'multi' && styles.pilotModeBtnActive,
+                  !mpSupported && styles.pilotModeBtnDisabled,
+                ]}
+                disabled={!mpSupported}
+                onPress={() => setPilotMode('multi')}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.pilotModeText, pilotMode === 'multi' && styles.pilotModeTextActive]}>Multi pilot</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* ── Route ── */}
-        <Text style={styles.section}>{t('route_utc')}</Text>
+        <Text
+          style={styles.section}
+          onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}
+        >{t('route_utc')}</Text>
 
         {/* Kombinerat Departure / Arrival block */}
         <View style={styles.placeBlock}>
@@ -963,7 +1116,7 @@ export default function AddFlightScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ width: 120 }}>
               <View style={styles.locSegment}>
                 <TouchableOpacity
                   style={[styles.locSegmentBtn, activePlace === 'dep' && styles.locSegmentBtnActive]}
@@ -984,19 +1137,34 @@ export default function AddFlightScreen() {
             <View style={{ flex: 1 }}>
               {activePlace === 'dep' ? (
                 <IcaoInput
+                  ref={depIcaoRef}
                   label=""
                   value={form.dep_place}
                   onChangeText={(v) => set('dep_place', v)}
                   error={errors.dep_place}
                   recentPlaces={top2places}
                   allowHere={depCustom}
+                  onFocus={() => {
+                    const target = Math.max(0, routeBlockY.current - 8);
+                    // Skjut scroll efter att tangentbordet + auto-insets har justerats,
+                    // annars skriver RN över målet och ingen scroll syns.
+                    requestAnimationFrame(() => {
+                      scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                    });
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                    }, 320);
+                  }}
                   onTemporaryPlaceSelect={(icao) => {
                     setDepCustom(true);
                     set('dep_place', icao);
+                    setTimeout(() => depTimeRef.current?.focus(), 80);
                   }}
+                  onConfirm={() => setTimeout(() => depTimeRef.current?.focus(), 80)}
                 />
               ) : (
                 <IcaoInput
+                  ref={arrIcaoRef}
                   label=""
                   value={form.arr_place}
                   onChangeText={(v) => set('arr_place', v)}
@@ -1006,12 +1174,16 @@ export default function AddFlightScreen() {
                   onTemporaryPlaceSelect={(icao) => {
                     setArrCustom(true);
                     set('arr_place', icao);
+                    setTimeout(() => arrTimeRef.current?.focus(), 80);
                   }}
+                  onConfirm={() => setTimeout(() => arrTimeRef.current?.focus(), 80)}
                 />
               )}
             </View>
             {activePlace === 'dep' ? (
+              <View style={{ width: 120 }}>
               <SmartTimeInput
+                ref={depTimeRef}
                 label=""
                 value={form.dep_utc}
                 onChangeText={(v) => set('dep_utc', v)}
@@ -1020,17 +1192,22 @@ export default function AddFlightScreen() {
                 onSubmitEditing={() => {
                   if (form.dep_place.trim() && isValidTime(form.dep_utc)) {
                     setActivePlace('arr');
+                    setTimeout(() => arrIcaoRef.current?.focus(), 120);
                   }
                 }}
               />
+              </View>
             ) : (
+              <View style={{ width: 120 }}>
               <SmartTimeInput
+                ref={arrTimeRef}
                 label=""
                 value={form.arr_utc}
                 onChangeText={(v) => set('arr_utc', v)}
                 error={errors.arr_utc}
                 showNowBtn={false}
               />
+              </View>
             )}
           </View>
         </View>
@@ -1066,23 +1243,31 @@ export default function AddFlightScreen() {
         </View>
 
         {form.flight_type === 'sim' && (
-          <View style={styles.simCatRow}>
-            {(['FFS','FTD','FNPT_II','FNPT_I','BITD'] as const).map((cat) => {
-              const active = form.sim_category === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.simCatBtn, active && styles.simCatBtnActive]}
-                  onPress={() => set('sim_category', cat)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.simCatText, active && styles.simCatTextActive]}>
-                    {cat.replace('_', ' ')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <>
+            <View style={styles.simCatRow}>
+              {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
+                const active = form.sim_category === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.simCatBtn, active && styles.simCatBtnActive]}
+                    onPress={() => set('sim_category', cat)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.simCatText, active && styles.simCatTextActive]}>
+                      {cat.replace(/_/g, '/')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {(form.sim_category === 'CPT_PPT' || form.sim_category === 'CBT') && (
+              <View style={styles.remarksWarning}>
+                <Ionicons name="warning" size={14} color={Colors.warning} />
+                <Text style={styles.remarksWarningText}>{t('sim_no_credit_warning')}</Text>
+              </View>
+            )}
+          </>
         )}
 
         {/* Stop place for touch & go / hot refuel */}
@@ -1116,13 +1301,8 @@ export default function AddFlightScreen() {
                   styles.totalTimeValue,
                   form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
                 ]}>
-                  {form.total_time ? formatTime(parseFloat(form.total_time)) : '—'}
+                  {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '—'}
                 </Text>
-                {form.total_time ? (
-                  <Text style={styles.totalTimeHhmm}>
-                    {decimalToHHMM(parseFloat(form.total_time))}
-                  </Text>
-                ) : null}
               </View>
               {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
             </View>
@@ -1204,9 +1384,14 @@ export default function AddFlightScreen() {
             </View>
           </View>
 
-          <Text style={[styles.cardFieldLabel, { marginTop: 0, marginBottom: 2 }]}>{t('flight_rules')}</Text>
+          <Text style={[styles.cardFieldLabel, { marginTop: -6, marginBottom: 2 }]}>{t('flight_rules')}</Text>
           <SegmentControl
-            options={[{ label: 'VFR', value: 'VFR' }, { label: 'IFR', value: 'IFR' }, { label: 'Mixed', value: 'Mixed' }]}
+            options={[
+              { label: 'VFR', value: 'VFR' },
+              { label: 'IFR', value: 'IFR' },
+              { label: 'IFR/VFR', value: 'Y' },
+              { label: 'VFR/IFR', value: 'Z' },
+            ]}
             value={form.flight_rules ?? 'VFR'}
             onChange={(v) => set('flight_rules', v)}
           />
@@ -1226,74 +1411,125 @@ export default function AddFlightScreen() {
               const n = parseFloat(v) || 0;
               return total > 0 ? Math.round((n / total) * 100) : 0;
             };
+            const cap = (n: number) => Math.min(Math.max(0, n), total || n);
             const setPct = (key: 'ifr' | 'vfr' | 'night' | 'nvg', p: number) => {
-              set(key, String((total * p / 100).toFixed(2)));
+              const val = (total * p / 100).toFixed(2);
+              set(key, String(val));
+              setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
+              if (key === 'ifr') {
+                set('vfr', String((total - parseFloat(val)).toFixed(2)));
+                setRawTime((r) => { const n = { ...r }; delete n.vfr; return n; });
+              } else if (key === 'vfr') {
+                set('ifr', String((total - parseFloat(val)).toFixed(2)));
+                setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
+              } else if (key === 'nvg') {
+                const nvgN = parseFloat(val) || 0;
+                const nightN = parseFloat(form.night) || 0;
+                if (nvgN > nightN) {
+                  set('night', String(nvgN.toFixed(2)));
+                  setRawTime((r) => { const n = { ...r }; delete n.night; return n; });
+                }
+              }
             };
             const formatForInput = (decimal: string) => {
               const n = parseFloat(decimal);
               if (!n || isNaN(n)) return '';
               return decimalToHHMM(n);
             };
-            const onHhmmChange = (key: 'ifr' | 'vfr' | 'night' | 'nvg', raw: string) => {
-              const digits = raw.replace(/\D/g, '').slice(0, 4);
-              let hhmm = '';
-              if (digits.length === 0) hhmm = '';
-              else if (digits.length <= 2) hhmm = digits;
-              else hhmm = `${digits.slice(0, digits.length - 2)}:${digits.slice(-2)}`;
-              if (!hhmm || !hhmm.includes(':')) {
-                set(key, hhmm === '' ? '0' : String(parseInt(hhmm, 10)));
-                return;
+            const parseRaw = (raw: string): number => {
+              if (raw.trim() === '') return 0;
+              if (raw.includes(':')) {
+                const [h, m] = raw.split(':');
+                const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
+                const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
+                return hh + mm / 60;
               }
-              const decimal = hhmmToDecimal(hhmm);
-              set(key, String(decimal));
+              const d = raw.replace(/\D/g, '');
+              if (d.length === 0) return 0;
+              return parseInt(d, 10) || 0;
             };
-            const mixed = form.flight_rules === 'Mixed';
+            const onHhmmChange = (key: 'ifr' | 'vfr' | 'night' | 'nvg', raw: string) => {
+              setRawTime((r) => ({ ...r, [key]: raw }));
+              let decimal = cap(parseRaw(raw));
+              set(key, String(decimal));
+              if (key === 'ifr') {
+                const remain = Math.max(0, total - decimal);
+                set('vfr', String(remain.toFixed(2)));
+                setRawTime((r) => { const n = { ...r }; delete n.vfr; return n; });
+              } else if (key === 'vfr') {
+                const remain = Math.max(0, total - decimal);
+                set('ifr', String(remain.toFixed(2)));
+                setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
+              } else if (key === 'nvg') {
+                const nightN = parseFloat(form.night) || 0;
+                if (decimal > nightN) {
+                  set('night', String(decimal.toFixed(2)));
+                  setRawTime((r) => { const n = { ...r }; delete n.night; return n; });
+                }
+              }
+            };
+            const onHhmmBlur = (key: 'ifr' | 'vfr' | 'night' | 'nvg') => {
+              setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
+            };
+            const valueFor = (key: 'ifr' | 'vfr' | 'night' | 'nvg', decimal: string) =>
+              rawTime[key] !== undefined ? rawTime[key]! : formatForInput(decimal);
+            const mixed = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
+            const vfrFirst = form.flight_rules === 'Z';
+            const ifrRow = (
+              <View key="ifr-block">
+                <Text style={styles.cardFieldLabel}>IFR ({pct(form.ifr)}%)</Text>
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.nvgInput, { flex: 1 }]}
+                    value={valueFor('ifr', form.ifr)}
+                    onChangeText={(v) => onHhmmChange('ifr', v)}
+                    onBlur={() => onHhmmBlur('ifr')}
+                    placeholder="0:00"
+                    keyboardType="numbers-and-punctuation"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 25)}>
+                    <Text style={styles.nvgPresetText}>25%</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 50)}>
+                    <Text style={styles.nvgPresetText}>50%</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+            const vfrRow = (
+              <View key="vfr-block">
+                <Text style={styles.cardFieldLabel}>VFR ({pct(form.vfr ?? '0')}%)</Text>
+                <View style={styles.row2}>
+                  <TextInput
+                    style={[styles.nvgInput, { flex: 1 }]}
+                    value={valueFor('vfr', form.vfr ?? '0')}
+                    onChangeText={(v) => onHhmmChange('vfr', v)}
+                    onBlur={() => onHhmmBlur('vfr')}
+                    placeholder="0:00"
+                    keyboardType="numbers-and-punctuation"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 25)}>
+                    <Text style={styles.nvgPresetText}>25%</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 50)}>
+                    <Text style={styles.nvgPresetText}>50%</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
             return (
               <>
-                <Text style={styles.cardFieldLabel}>IFR ({pct(form.ifr)}%)</Text>
-                <View style={[styles.row2, !mixed && { opacity: 0.5 }]}>
-                  <TextInput
-                    style={[styles.nvgInput, { flex: 1 }]}
-                    value={formatForInput(form.ifr)}
-                    onChangeText={(v) => onHhmmChange('ifr', v)}
-                    placeholder="0:00"
-                    keyboardType="numbers-and-punctuation"
-                    placeholderTextColor={Colors.textMuted}
-                    editable={mixed}
-                  />
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 50)} disabled={!mixed}>
-                    <Text style={styles.nvgPresetText}>50%</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 100)} disabled={!mixed}>
-                    <Text style={styles.nvgPresetText}>100%</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.cardFieldLabel}>VFR ({pct(form.vfr ?? '0')}%)</Text>
-                <View style={[styles.row2, !mixed && { opacity: 0.5 }]}>
-                  <TextInput
-                    style={[styles.nvgInput, { flex: 1 }]}
-                    value={formatForInput(form.vfr ?? '0')}
-                    onChangeText={(v) => onHhmmChange('vfr', v)}
-                    placeholder="0:00"
-                    keyboardType="numbers-and-punctuation"
-                    placeholderTextColor={Colors.textMuted}
-                    editable={mixed}
-                  />
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 50)} disabled={!mixed}>
-                    <Text style={styles.nvgPresetText}>50%</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 100)} disabled={!mixed}>
-                    <Text style={styles.nvgPresetText}>100%</Text>
-                  </TouchableOpacity>
-                </View>
+                {mixed && (vfrFirst ? <>{vfrRow}{ifrRow}</> : <>{ifrRow}{vfrRow}</>)}
 
                 <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
                 <View style={styles.row2}>
                   <TextInput
                     style={[styles.nvgInput, { flex: 1 }]}
-                    value={formatForInput(form.night)}
+                    value={valueFor('night', form.night)}
                     onChangeText={(v) => onHhmmChange('night', v)}
+                    onBlur={() => onHhmmBlur('night')}
                     placeholder="0:00"
                     keyboardType="numbers-and-punctuation"
                     placeholderTextColor={Colors.textMuted}
@@ -1306,31 +1542,28 @@ export default function AddFlightScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {(() => {
-                  const nvgEnabled = form.flight_rules !== 'IFR';
-                  return (
-                    <>
-                      <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
-                      <View style={[styles.row2, !nvgEnabled && { opacity: 0.5 }]}>
-                        <TextInput
-                          style={[styles.nvgInput, { flex: 1 }]}
-                          value={formatForInput(form.nvg ?? '0')}
-                          onChangeText={(v) => onHhmmChange('nvg', v)}
-                          placeholder="0:00"
-                          keyboardType="numbers-and-punctuation"
-                          placeholderTextColor={Colors.textMuted}
-                          editable={nvgEnabled}
-                        />
-                        <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 50)} disabled={!nvgEnabled}>
-                          <Text style={styles.nvgPresetText}>50%</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 100)} disabled={!nvgEnabled}>
-                          <Text style={styles.nvgPresetText}>100%</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  );
-                })()}
+                {form.flight_rules !== 'IFR' && (
+                  <>
+                    <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
+                    <View style={styles.row2}>
+                      <TextInput
+                        style={[styles.nvgInput, { flex: 1 }]}
+                        value={valueFor('nvg', form.nvg ?? '0')}
+                        onChangeText={(v) => onHhmmChange('nvg', v)}
+                        onBlur={() => onHhmmBlur('nvg')}
+                        placeholder="0:00"
+                        keyboardType="numbers-and-punctuation"
+                        placeholderTextColor={Colors.textMuted}
+                      />
+                      <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 50)}>
+                        <Text style={styles.nvgPresetText}>50%</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 100)}>
+                        <Text style={styles.nvgPresetText}>100%</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </>
             );
           })()}
@@ -1353,23 +1586,41 @@ export default function AddFlightScreen() {
           </View>
         )}
         {(() => {
-          const q = form.remarks.trim().toLowerCase();
-          const matches = (q && q.length > 1
-            ? recentRemarks.filter((r) => r.toLowerCase().includes(q) && r !== form.remarks)
-            : recentRemarks
-          ).slice(0, 3);
-          if (matches.length === 0) return null;
+          const suggestions: string[] = [];
+          const rules = form.flight_rules;
+          const hasIfrPortion = rules === 'IFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.ifr) || 0) > 0;
+          const hasVfrPortion = rules === 'VFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.vfr) || 0) > 0;
+          // Flygtyp-specifika förslag (högsta prio)
+          if (form.flight_type === 'sim') suggestions.push('Exercise: ');
+          if (form.flight_type === 'hot_refuel') suggestions.push('Fuel stop: ');
+          if (form.flight_type === 'touch_and_go') suggestions.push('T&G: ');
+          // Roll-specifika
+          if (role === 'picus') suggestions.push('PICUS u/s Capt. ');
+          else if (role === 'spic') suggestions.push('SPIC exercise: ');
+          else if (role === 'dual') suggestions.push('FI: ');
+          else if (role === 'ferry_pic') suggestions.push('Ferry: ');
+          if (examinerOverlay && role === 'pic') suggestions.push('TRE: ');
+          if (safetyPilotOverlay && role === 'co_pilot') suggestions.push('Under hood: ');
+          // Flygregler
+          if (hasIfrPortion) { suggestions.push('ILS: '); suggestions.push('MaxFL: '); }
+          if (hasVfrPortion && !hasIfrPortion) suggestions.push('Route: ');
+          // Natt / NVG
+          if ((parseFloat(form.night) || 0) > 0) suggestions.push('Night ldg: ');
+          if ((parseFloat(form.nvg) || 0) > 0) suggestions.push('NVG: ');
+
+          const unique = [...new Set(suggestions)].slice(0, 3);
+          if (unique.length === 0) return null;
           return (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-              {matches.map((r) => (
+              {unique.map((r) => (
                 <TouchableOpacity
                   key={r}
-                  style={[styles.chip, styles.chipRecent]}
-                  onPress={() => set('remarks', r)}
+                  style={[styles.chip, styles.chipAdd]}
+                  onPress={() => set('remarks', form.remarks ? `${form.remarks.trimEnd()} · ${r}` : r)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="time-outline" size={10} color={Colors.gold} style={{ marginRight: 3 }} />
-                  <Text style={[styles.chipText, styles.chipRecentText]} numberOfLines={1}>{r}</Text>
+                  <Ionicons name="add" size={10} color={Colors.primary} style={{ marginRight: 3 }} />
+                  <Text style={[styles.chipText]} numberOfLines={1}>{r.trim()}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1377,21 +1628,32 @@ export default function AddFlightScreen() {
         })()}
 
         {/* ── Spara ── */}
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.textInverse} />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
-              <Text style={styles.saveBtnText}>{t('save')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {(() => {
+          const needsMixedSplit = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
+          const totalN = parseFloat(form.total_time) || 0;
+          const sumN = (parseFloat(form.ifr) || 0) + (parseFloat(form.vfr) || 0);
+          const mixedMissing = needsMixedSplit && (totalN <= 0 || Math.abs(sumN - totalN) > 0.05);
+          const disabled = saving || mixedMissing;
+          return (
+            <TouchableOpacity
+              style={[styles.saveBtn, disabled && { opacity: 0.5 }]}
+              onPress={save}
+              disabled={disabled}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator color={Colors.textInverse} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
+                  <Text style={styles.saveBtnText}>
+                    {mixedMissing ? t('mixed_split_required') : t('save')}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
 
       </ScrollView>
 
@@ -1511,7 +1773,7 @@ export default function AddFlightScreen() {
               <DateTimePicker
                 value={form.date ? new Date(form.date) : new Date()}
                 mode="date"
-                display="spinner"
+                display="inline"
                 maximumDate={new Date()}
                 themeVariant="dark"
                 onChange={(_, selectedDate) => {

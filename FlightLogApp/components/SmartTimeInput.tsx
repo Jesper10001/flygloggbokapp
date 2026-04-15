@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -62,11 +62,17 @@ function makeStyles() {
   });
 }
 
-export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn = false, onSubmitEditing }: Props) {
+export type SmartTimeInputHandle = { focus: () => void };
+
+export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function SmartTimeInput(
+  { label, value, onChangeText, error, showNowBtn = false, onSubmitEditing },
+  ref,
+) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   const valid = isValidTime(value);
 
@@ -127,5 +133,5 @@ export function SmartTimeInput({ label, value, onChangeText, error, showNowBtn =
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
-}
+});
 

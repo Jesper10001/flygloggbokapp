@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, ActivityIndicator, Alert,
+  Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -21,7 +21,11 @@ interface Props {
   recentPlaces?: RecentPlace[];
   allowHere?: boolean;
   onTemporaryPlaceSelect?: (icao: string) => void;
+  onConfirm?: (icao: string) => void;
+  onFocus?: () => void;
 }
+
+export type IcaoInputHandle = { focus: () => void };
 
 function makeStyles() {
   return StyleSheet.create({
@@ -119,13 +123,17 @@ function makeStyles() {
   });
 }
 
-export function IcaoInput({ label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, onTemporaryPlaceSelect }: Props) {
+export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, onTemporaryPlaceSelect, onConfirm, onFocus },
+  outerRef,
+) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const [inputText, setInputText] = useState(value);
   const [suggestions, setSuggestions] = useState<IcaoAirport[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   // "Här"-modal state
   const [hereLoading, setHereLoading] = useState(false);
@@ -161,6 +169,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
     setSuggestions([]);
     setShowDropdown(false);
     inputRef.current?.blur();
+    onConfirm?.(airport.icao);
   };
 
   const selectRecent = (icao: string) => {
@@ -168,6 +177,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
     setInputText(icao);
     setSuggestions([]);
     setShowDropdown(false);
+    onConfirm?.(icao);
   };
 
   // ── "Här"-knapp ─────────────────────────────────────────────────────────
@@ -212,6 +222,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
       setHereModal(false);
       onChangeText(existingIcao);
       setInputText(existingIcao);
+      onConfirm?.(existingIcao);
       return;
     }
     // Skapa ny tillfällig plats
@@ -220,6 +231,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
     await addTemporaryPlace(icao, nameClean, hereCoords.lat, hereCoords.lon);
     setHereModal(false);
     onChangeText(icao);
+    onConfirm?.(icao);
     setInputText(icao);
   };
 
@@ -244,6 +256,7 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
           style={styles.input}
           value={inputText}
           onChangeText={handleChangeText}
+          onFocus={onFocus}
           placeholder={placeholder ?? t('icao_placeholder')}
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="characters"
@@ -331,7 +344,10 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
 
       {/* ── "Här"-modal ── */}
       <Modal visible={hereModal} transparent animationType="slide" onRequestClose={() => setHereModal(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('here')}</Text>
@@ -384,9 +400,9 @@ export function IcaoInput({ label, value, onChangeText, error, placeholder, rece
               <Text style={styles.cancelBtnText}>Avbryt</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
-}
+});
 
