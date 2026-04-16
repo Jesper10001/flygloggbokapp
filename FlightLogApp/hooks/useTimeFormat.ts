@@ -16,6 +16,22 @@ export function hhmmToDecimal(str: string): number {
   return Math.round((h + m / 60) * 10) / 10;
 }
 
+/** Decimaltimmar → MM:SS (för drönartid där flygpass är korta) */
+export function decimalToMMSS(decimal: number): string {
+  if (!decimal || isNaN(decimal)) return '00:00';
+  const totalSec = Math.round(decimal * 3600);
+  const mm = Math.floor(totalSec / 60);
+  const ss = totalSec % 60;
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+/** MM:SS-sträng → decimaltimmar */
+export function mmssToDecimal(str: string): number {
+  const [mm, ss] = str.split(':').map(Number);
+  if (isNaN(mm) || isNaN(ss)) return 0;
+  return (mm * 60 + ss) / 3600;
+}
+
 /** Parsar en tids-sträng (decimal ELLER HH:MM) till decimal */
 export function parseTimeInput(str: string, format: TimeFormat): number | null {
   if (!str || str.trim() === '') return 0;

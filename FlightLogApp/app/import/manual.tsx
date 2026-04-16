@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
@@ -286,6 +287,13 @@ export default function ManualExperienceScreen() {
   const [cruiseSpeed, setCruiseSpeed] = useState('');
   const [endurance, setEndurance] = useState('');
   const [crewTypes, setCrewTypes] = useState<Set<string>>(new Set());
+  const [category, setCategory] = useState<'airplane' | 'helicopter' | ''>('');
+  const [engineType, setEngineType] = useState<'se' | 'me' | ''>('');
+  const [lookupStatus, setLookupStatus] = useState<
+    { state: 'idle' } | { state: 'loading' } | { state: 'ok'; summary: string } | { state: 'unknown' }
+  >({ state: 'idle' });
+  const [lastLookupQuery, setLastLookupQuery] = useState('');
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
 
   const toggleCrew = (key: 'sp' | 'mp' | 'sp_only' | 'mp_only') => {
     setCrewTypes(prev => {
@@ -307,6 +315,67 @@ export default function ManualExperienceScreen() {
   const serializeCrewType = (): string =>
     crewTypes.size === 0 ? '' : [...crewTypes].sort().join(',');
   const [showAircraftSection, setShowAircraftSection] = useState(false);
+
+  // Smart auto-lookup — debounce 800 ms, fyller i tomma fält, skriver aldrig
+  // över värden användaren redan har editerat manuellt.
+  useEffect(() => {
+    const q = aircraftType.trim();
+    if (q.length < 2 || q === lastLookupQuery) {
+      if (q.length < 2) setLookupStatus({ state: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLookupStatus({ state: 'loading' });
+      try {
+        const r = await lookupAircraft(q);
+        if (cancelled) return;
+        setLastLookupQuery(q);
+        if (r.needs_manual || !r.aircraft_type) {
+          setLookupStatus({ state: 'unknown' });
+          return;
+        }
+        // Fyll endast tomma fält så vi inte överskriver användarens ändringar
+        const filled = new Set<string>();
+        if (!cruiseSpeed && r.cruise_speed_kts > 0) {
+          setCruiseSpeed(String(r.cruise_speed_kts));
+          filled.add('cruiseSpeed');
+        }
+        if (!endurance && r.endurance_h > 0) {
+          setEndurance(String(r.endurance_h));
+          filled.add('endurance');
+        }
+        if (crewTypes.size === 0 && r.crew_type) {
+          const keys = r.crew_type.split(',').filter((k) => ['sp', 'mp'].includes(k));
+          if (keys.length) {
+            setCrewTypes(new Set(keys));
+            filled.add('crew');
+          }
+        }
+        if (!category && r.category) {
+          setCategory(r.category);
+          filled.add('category');
+        }
+        if (!engineType && r.engine_type) {
+          setEngineType(r.engine_type);
+          filled.add('engine');
+        }
+        setAiFilledFields(filled);
+        const parts = [r.manufacturer, r.model].filter(Boolean).join(' ');
+        const tail = [
+          r.cruise_speed_kts ? `${r.cruise_speed_kts} kt` : null,
+          r.endurance_h ? `${r.endurance_h} h` : null,
+        ].filter(Boolean).join(' · ');
+        setLookupStatus({
+          state: 'ok',
+          summary: tail ? `${parts} · ${tail}` : parts || r.aircraft_type,
+        });
+      } catch {
+        if (!cancelled) setLookupStatus({ state: 'unknown' });
+      }
+    }, 800);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [aircraftType]);
 
   const updateBlock = (id: string, key: keyof YearBlock, val: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, [key]: val } : b));
@@ -372,6 +441,8 @@ export default function ManualExperienceScreen() {
           parseInt(cruiseSpeed) || 0,
           parseFloat(endurance.replace(',', '.')) || 0,
           serializeCrewType(),
+          category,
+          engineType,
         );
       }
 
@@ -430,10 +501,21 @@ export default function ManualExperienceScreen() {
           <Text style={styles.aircraftToggleText}>
             {showAircraftSection ? t('hide_aircraft_type') : t('add_aircraft_type_optional')}
           </Text>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto',
+            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+            backgroundColor: Colors.primary + '1F',
+            borderWidth: 0.5, borderColor: Colors.primary + '66',
+          }}>
+            <Ionicons name="sparkles" size={10} color={Colors.primary} />
+            <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
+              {t('autofilled_with_ai')}
+            </Text>
+          </View>
           <Ionicons
             name={showAircraftSection ? 'chevron-up' : 'chevron-down'}
             size={14} color={Colors.textMuted}
-            style={{ marginLeft: 'auto' }}
+            style={{ marginLeft: 6 }}
           />
         </TouchableOpacity>
 
@@ -445,20 +527,50 @@ export default function ManualExperienceScreen() {
               <TextInput
                 style={[styles.fieldInput, styles.fieldInputText]}
                 value={aircraftType}
-                onChangeText={setAircraftType}
+                onChangeText={(v) => setAircraftType(v.toUpperCase())}
                 placeholder="ex. R44, EC135, B737"
                 placeholderTextColor={Colors.textMuted}
                 autoCapitalize="characters"
               />
             </View>
+            {lookupStatus.state !== 'idle' && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 12, paddingVertical: 6, marginBottom: 4,
+              }}>
+                {lookupStatus.state === 'loading' && (
+                  <>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('aircraft_lookup_searching')}</Text>
+                  </>
+                )}
+                {lookupStatus.state === 'ok' && (
+                  <>
+                    <Ionicons name="sparkles" size={12} color={Colors.primary} />
+                    <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={2}>
+                      {lookupStatus.summary}
+                    </Text>
+                  </>
+                )}
+                {lookupStatus.state === 'unknown' && (
+                  <>
+                    <Ionicons name="help-circle-outline" size={12} color={Colors.textMuted} />
+                    <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('aircraft_lookup_unknown_hint')}</Text>
+                  </>
+                )}
+              </View>
+            )}
 
             {/* Cruise speed */}
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Cruise speed</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[
+                  styles.fieldInput,
+                  aiFilledFields.has('cruiseSpeed') && { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' },
+                ]}
                 value={cruiseSpeed}
-                onChangeText={setCruiseSpeed}
+                onChangeText={(v) => { setCruiseSpeed(v); setAiFilledFields(s => { const n = new Set(s); n.delete('cruiseSpeed'); return n; }); }}
                 placeholder="0"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
@@ -471,15 +583,75 @@ export default function ManualExperienceScreen() {
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Endurance</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[
+                  styles.fieldInput,
+                  aiFilledFields.has('endurance') && { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' },
+                ]}
                 value={endurance}
-                onChangeText={setEndurance}
+                onChangeText={(v) => { setEndurance(v); setAiFilledFields(s => { const n = new Set(s); n.delete('endurance'); return n; }); }}
                 placeholder="0"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="decimal-pad"
                 selectTextOnFocus
               />
               <Text style={styles.fieldUnit}>h</Text>
+            </View>
+
+            {/* Airplane / Helicopter */}
+            <Text style={styles.groupLabel}>Category</Text>
+            <View style={styles.crewGrid}>
+              {(['airplane', 'helicopter'] as const).map((c) => {
+                const active = category === c;
+                const ai = aiFilledFields.has('category') && active;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    style={[
+                      styles.crewBtn,
+                      active && styles.crewBtnActive,
+                      ai && { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+                    ]}
+                    onPress={() => {
+                      setCategory(active ? '' : c);
+                      setAiFilledFields(s => { const n = new Set(s); n.delete('category'); return n; });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>
+                      {c === 'airplane' ? t('airplane') : t('helicopter')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Engine type */}
+            <Text style={styles.groupLabel}>Engine</Text>
+            <View style={styles.crewGrid}>
+              {(['se', 'me'] as const).map((k) => {
+                const active = engineType === k;
+                const ai = aiFilledFields.has('engine') && active;
+                return (
+                  <TouchableOpacity
+                    key={k}
+                    style={[
+                      styles.crewBtn,
+                      active && styles.crewBtnActive,
+                      ai && { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+                    ]}
+                    onPress={() => {
+                      setEngineType(active ? '' : k);
+                      setAiFilledFields(s => { const n = new Set(s); n.delete('engine'); return n; });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>
+                      {k === 'se' ? 'SE' : 'ME'}
+                    </Text>
+                    <Text style={styles.crewBtnSub}>{k === 'se' ? 'Single engine' : 'Multi engine'}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Crew type */}
@@ -490,19 +662,30 @@ export default function ManualExperienceScreen() {
                 { key: 'mp',      label: 'Multi-pilot',     sub: 'Both roles' },
                 { key: 'sp_only', label: 'SP only',         sub: 'Always SP' },
                 { key: 'mp_only', label: 'MP only',         sub: 'Always requires crew' },
-              ] as const).map(opt => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.crewBtn, crewTypes.has(opt.key) && styles.crewBtnActive]}
-                  onPress={() => toggleCrew(opt.key as 'sp' | 'mp' | 'sp_only' | 'mp_only')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.crewBtnLabel, crewTypes.has(opt.key) && styles.crewBtnLabelActive]}>
-                    {opt.label}
-                  </Text>
-                  <Text style={styles.crewBtnSub}>{opt.sub}</Text>
-                </TouchableOpacity>
-              ))}
+              ] as const).map(opt => {
+                const active = crewTypes.has(opt.key);
+                const ai = aiFilledFields.has('crew') && active && (opt.key === 'sp' || opt.key === 'mp');
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[
+                      styles.crewBtn,
+                      active && styles.crewBtnActive,
+                      ai && { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+                    ]}
+                    onPress={() => {
+                      toggleCrew(opt.key as 'sp' | 'mp' | 'sp_only' | 'mp_only');
+                      setAiFilledFields(s => { const n = new Set(s); n.delete('crew'); return n; });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>
+                      {opt.label}
+                    </Text>
+                    <Text style={styles.crewBtnSub}>{opt.sub}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}

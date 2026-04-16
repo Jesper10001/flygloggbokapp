@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import type { OcrFlightResult } from '../types/flight';
 
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+import { callAnthropicJson } from './anthropicClient';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt
 const MAPPING_PROMPT = `Du är expert på flygloggboksformat (ForeFlight, LogTen Pro, MyFlightbook, mccPILOTLOG, APDL, Logbook Pro, Eflightbook, generisk CSV).
@@ -354,10 +354,6 @@ export async function importFromFile(
   fileUri: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<ImportResult> {
-  if (!API_KEY || API_KEY === 'your_api_key_here') {
-    throw new Error('Anthropic API-nyckel saknas. Ange den i .env-filen.');
-  }
-
   onProgress?.(0, 3);
 
   const content = await FileSystem.readAsStringAsync(fileUri, {
@@ -400,43 +396,11 @@ export async function importFromFile(
   // Skicka header + 15 exempelrader till Claude för mappning (fler rader = bättre datamönsterigenkänning)
   const sample = lines.slice(0, 16).join('\n');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: MAPPING_PROMPT,
-      messages: [{
-        role: 'user',
-        content: `Identifiera format och kolumnmappning:\n\n${sample}`,
-      }],
-    }),
+  const mapping = await callAnthropicJson<any>({
+    system: MAPPING_PROMPT,
+    maxTokens: 2048,
+    userContent: `Identifiera format och kolumnmappning:\n\n${sample}`,
   });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`API-fel ${response.status}: ${err}`);
-  }
-
-  const apiData = await response.json();
-  const text = apiData.content?.[0]?.text ?? '';
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Claude kunde inte identifiera filformatet. Kontrollera att filen är en text/CSV-fil.');
-  }
-
-  let mapping: any;
-  try {
-    mapping = JSON.parse(jsonMatch[0]);
-  } catch {
-    throw new Error('Kunde inte tolka formatsvar från Claude. Försök igen.');
-  }
 
   const delimiter: string = mapping.delimiter ?? ',';
   const dateFormat: string = mapping.date_format ?? 'YYYY-MM-DD';

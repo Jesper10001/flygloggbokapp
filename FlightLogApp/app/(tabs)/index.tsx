@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
+import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { EASA_CPL_REQUIREMENTS, EASA_ATPL_REQUIREMENTS, FREE_TIER_LIMIT } from '../../constants/easa';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
@@ -235,6 +236,7 @@ function ProgressBar({ label, current, required, color = Colors.primary }: {
 export default function DashboardScreen() {
   const styles = makeStyles();
   const router = useRouter();
+  const mode = useAppModeStore((s) => s.mode);
   const { stats, flightCount, isPremium, isLoading, loadStats } = useFlightStore();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
@@ -332,6 +334,8 @@ export default function DashboardScreen() {
   const xcCoordsOk = !!stats?.longest_xc_id;
 
   const s = stats;
+
+  if (mode !== 'manned') return <View style={styles.container} />;
 
   return (
     <ScrollView

@@ -95,6 +95,31 @@ export interface IcaoAirport {
 export interface OcrFlightResult extends FlightFormData {
   needs_review: boolean;
   review_reason?: string;
+  // AI-förslag på tolkning av remarks-fältet. Om AI tror att en del av remarks
+  // egentligen hör hemma i ett annat fält (t.ex. 3-bokstavskod → second_pilot),
+  // läggs förslaget här så UI kan visa en "Ja/Nej"-prompt.
+  remarks_suggestion?: {
+    field: string;           // fältnamn (second_pilot, picus, ...)
+    value: string;           // värde att fylla in
+    original_text: string;   // texten i remarks som triggade förslaget
+    confidence: number;      // 0-1
+    reason: string;          // kort förklaring (ex. "3-bokstavskod = andrepilot-kod")
+  };
+  // Om total_time (anchor) inte går ihop med dep_utc/arr_utc — AI anger vilka
+  // alternativ som räknats ut så UI kan visa Ja/Nej-knappar per sida.
+  time_mismatch?: {
+    anchor_total_h: number;
+    read_dep: string;
+    read_arr: string;
+    computed_dep_if_arr_correct: string;   // om arr är rätt, vad bör dep vara?
+    computed_arr_if_dep_correct: string;   // om dep är rätt, vad bör arr vara?
+  };
+  // Specifika fält AI är osäker på. UI visar BARA dessa fält på flaggade
+  // rader (plus "Visa alla fält"-toggle). Om tom array → visa alla fält.
+  field_issues?: { field: string; reason: string; confidence: number }[];
+  // Övergripande säkerhet 0–1 på hela raden. ≥ 0.95 = fast-track (komprimerad
+  // rad, auto-godkänd) om needs_review=false.
+  overall_confidence?: number;
 }
 
 export interface ValidationIssue {

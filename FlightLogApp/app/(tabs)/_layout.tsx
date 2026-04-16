@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { TailwindLogo } from '../../components/TailwindLogo';
+import { Text } from 'react-native';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
+import { useAppModeStore } from '../../store/appModeStore';
 import { getSetting } from '../../db/flights';
 
 const PAGE_SIZE = 12; // flygningar per blad
@@ -12,7 +13,9 @@ const PAGE_SIZE = 12; // flygningar per blad
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { flightCount } = useFlightStore();
+  const { mode } = useAppModeStore();
   const [scanBadge, setScanBadge] = useState(false);
+  const isDrone = mode === 'drone';
 
   useEffect(() => {
     (async () => {
@@ -45,17 +48,23 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          href: isDrone ? null : undefined,
           title: t('tab_dashboard'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
-          headerTitle: () => <TailwindLogo size="small" showWordmark />,
+          headerTitle: () => (
+            <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 }}>
+              BLADES · Flight logbook
+            </Text>
+          ),
           headerTitleAlign: 'left',
         }}
       />
       <Tabs.Screen
         name="log"
         options={{
+          href: isDrone ? null : undefined,
           title: t('tab_logbook'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
@@ -65,11 +74,48 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
+          href: isDrone ? null : undefined,
           title: t('tab_scan'),
           tabBarBadge: scanBadge ? '!' : undefined,
           tabBarBadgeStyle: { backgroundColor: Colors.primary, fontSize: 10 },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="camera" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="drone-dashboard"
+        options={{
+          href: isDrone ? undefined : null,
+          title: t('tab_dashboard'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart" size={size} color={color} />
+          ),
+          headerTitle: () => (
+            <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 }}>
+              BLADES · Drone logbook
+            </Text>
+          ),
+          headerTitleAlign: 'left',
+        }}
+      />
+      <Tabs.Screen
+        name="drone-log"
+        options={{
+          href: isDrone ? undefined : null,
+          title: t('tab_logbook'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="drone-prep"
+        options={{
+          href: isDrone ? undefined : null,
+          title: t('tab_prep_flight'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="compass" size={size} color={color} />
           ),
         }}
       />

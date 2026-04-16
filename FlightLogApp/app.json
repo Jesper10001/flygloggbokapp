@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "BushpilotFlightlog",
-    "slug": "bushpilot-flightlog",
+    "name": "Blades",
+    "slug": "blades-joint-logbook",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "bushpilot",
+    "scheme": "blades",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A1628"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bushpilot.flightlog",
+      "bundleIdentifier": "com.blades.jointlogbook",
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
         "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning.",
@@ -24,9 +24,9 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0F1E"
+        "backgroundColor": "#0A1A33"
       },
-      "package": "com.bushpilot.flightlog"
+      "package": "com.blades.jointlogbook"
     },
     "web": {
       "bundler": "metro",

@@ -1,19 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  StyleSheet, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { exportToCSV, exportToPDF } from '../../services/export';
-import { clearAllFlights } from '../../db/flights';
+import { exportDroneToCSV } from '../../services/droneExport';
+import { clearAllFlights, getFlightCount } from '../../db/flights';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useLanguageStore } from '../../store/languageStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
+import { useAppModeStore } from '../../store/appModeStore';
+import { useToastStore } from '../../components/Toast';
+import { useOperatorStore } from '../../store/operatorStore';
+import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
+import { usePilotTypeStore } from '../../store/pilotTypeStore';
+import { clearDroneRegistryCategories, getDroneFlightCount } from '../../db/drones';
+import { useDroneFlightStore } from '../../store/droneFlightStore';
 
 function makeStyles() {
   return StyleSheet.create({
@@ -81,13 +89,15 @@ function makeStyles() {
       gap: 3,
       borderWidth: 0.5,
       borderColor: Colors.border,
-      width: 130,
+      width: 150,
     },
     langBtn: {
       flex: 1,
-      paddingVertical: 5,
+      paddingVertical: 6,
+      paddingHorizontal: 4,
       borderRadius: 6,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     langBtnActive: {
       backgroundColor: Colors.primary,
@@ -101,6 +111,123 @@ function makeStyles() {
       color: Colors.textInverse,
     },
   });
+}
+
+function PreviewAlwaysRow({ appMode }: { appMode: 'manned' | 'drone' }) {
+  const styles = makeStyles();
+  const { t } = useTranslation();
+  const [on, setOn] = useState(false);
+  const key = appMode === 'drone' ? 'preview_always_show' : 'manned_preview_always_show';
+  useEffect(() => {
+    import('../../db/flights').then(({ getSetting }) => {
+      getSetting(key).then((v) => setOn(v === '1'));
+    });
+  }, [key]);
+  const toggle = async () => {
+    const next = !on;
+    setOn(next);
+    const { setSetting } = await import('../../db/flights');
+    await setSetting(key, next ? '1' : '0');
+  };
+  return (
+    <View style={styles.settingsRow}>
+      <View style={styles.settingsIcon}>
+        <Ionicons name="refresh-outline" size={18} color={Colors.primary} />
+      </View>
+      <View style={styles.settingsText}>
+        <Text style={styles.settingsLabel}>{t('preview_always_label')}</Text>
+        <Text style={styles.settingsSub}>{t('preview_always_sub')}</Text>
+      </View>
+      <View style={styles.langToggle}>
+        <TouchableOpacity
+          style={[styles.langBtn, !on && styles.langBtnActive]}
+          onPress={() => !on ? null : toggle()}
+        >
+          <Text style={[styles.langBtnText, !on && styles.langBtnTextActive]}>{t('off')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.langBtn, on && styles.langBtnActive]}
+          onPress={() => on ? null : toggle()}
+        >
+          <Text style={[styles.langBtnText, on && styles.langBtnTextActive]}>{t('on')}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function PilotTypeRow() {
+  const styles = makeStyles();
+  const { t } = useTranslation();
+  const router = useRouter();
+  const pilotType = usePilotTypeStore((s) => s.pilotType);
+  const setPilotType = usePilotTypeStore((s) => s.setPilotType);
+
+  const switchTo = (next: 'commercial' | 'military') => {
+    if (next === pilotType) return;
+    Alert.alert(
+      t('pilot_type_switch_title'),
+      t('pilot_type_switch_body'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('pilot_type_switch_confirm'),
+          onPress: async () => {
+            await clearDroneRegistryCategories();
+            await setPilotType(next);
+            router.push('/settings/drones');
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <View style={styles.settingsRow}>
+      <View style={styles.settingsIcon}>
+        <Ionicons name="ribbon-outline" size={18} color={Colors.primary} />
+      </View>
+      <View style={styles.settingsText}>
+        <Text style={styles.settingsLabel}>{t('pilot_type')}</Text>
+        <Text style={styles.settingsSub}>
+          {pilotType === 'military' ? t('pilot_type_military_sub') : t('pilot_type_commercial_sub')}
+        </Text>
+      </View>
+      <View style={styles.langToggle}>
+        <TouchableOpacity
+          style={[styles.langBtn, pilotType === 'commercial' && styles.langBtnActive]}
+          onPress={() => switchTo('commercial')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.langBtnText, pilotType === 'commercial' && styles.langBtnTextActive]}>
+            {t('pilot_type_commercial')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.langBtn, pilotType === 'military' && styles.langBtnActive]}
+          onPress={() => switchTo('military')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.langBtnText, pilotType === 'military' && styles.langBtnTextActive]}>
+            {t('pilot_type_military')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function ThemePill({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  const styles = makeStyles();
+  return (
+    <TouchableOpacity
+      style={[styles.langBtn, active && styles.langBtnActive, { flex: 0, paddingHorizontal: 12, paddingVertical: 5 }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.langBtnText, active && styles.langBtnTextActive]} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
 
 function SettingsRow({
@@ -149,6 +276,43 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const { timeFormat, setTimeFormat } = useTimeFormatStore();
   const { theme, setTheme } = useThemeStore();
+  const { mode: appMode, setMode: setAppMode } = useAppModeStore();
+  const { operatorId, setOperatorId, loadOperatorId } = useOperatorStore();
+  const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
+
+  const applyTestUser = (which: 1 | 2 | 'clear') => {
+    const label = which === 'clear' ? t('clear_test_user') : `${t('test_user')} ${which}`;
+    Alert.alert(
+      label,
+      t('test_user_confirm'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('apply'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (which === 1) {
+                await seedTestUser1();
+                await setTheme('drone-industrial');
+              } else if (which === 2) {
+                await seedTestUser2();
+                await setTheme('drone-neon');
+              } else {
+                await clearTestUser();
+              }
+              await loadOperatorId();
+              await loadDroneFlights();
+              await loadDroneStats();
+              useToastStore.getState().show(label);
+            } catch (e: any) {
+              Alert.alert(t('error'), e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
   const { isPremium, setIsPremium, flightCount, loadFlights, loadStats } = useFlightStore();
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
@@ -156,7 +320,8 @@ export default function SettingsScreen() {
   const handleExportCSV = async () => {
     setExportingCSV(true);
     try {
-      await exportToCSV();
+      if (appMode === 'drone') await exportDroneToCSV();
+      else await exportToCSV();
     } catch (e: any) {
       Alert.alert(t('export_failed'), e.message);
     } finally {
@@ -243,6 +408,49 @@ export default function SettingsScreen() {
         <Text style={styles.dataPhilosophyText}>{t('data_philosophy')}</Text>
       </View>
 
+      {/* Developer */}
+      <Text style={styles.sectionTitle}>{t('developer_section')}</Text>
+      <View style={styles.card}>
+        {appMode === 'drone' && <PilotTypeRow />}
+        {appMode === 'drone' && (
+          <>
+            <SettingsRow
+              icon="flask-outline"
+              label={`${t('test_user')} 1`}
+              sub={t('test_user_1_sub')}
+              onPress={() => applyTestUser(1)}
+            />
+            <SettingsRow
+              icon="flask-outline"
+              label={`${t('test_user')} 2`}
+              sub={t('test_user_2_sub')}
+              onPress={() => applyTestUser(2)}
+            />
+            <SettingsRow
+              icon="refresh-outline"
+              label={t('clear_test_user')}
+              sub={t('clear_test_user_sub')}
+              onPress={() => applyTestUser('clear')}
+              danger
+            />
+          </>
+        )}
+        <SettingsRow
+          icon="compass-outline"
+          label={t('replay_tour')}
+          sub={t('replay_tour_sub')}
+          onPress={() => router.push(appMode === 'drone' ? '/preview' : '/manned-preview')}
+        />
+        <PreviewAlwaysRow appMode={appMode} />
+        <SettingsRow
+          icon="trash"
+          label={t('clear_all_logbook_data')}
+          sub={t('clear_all_sub')}
+          onPress={handleClearAll}
+          danger
+        />
+      </View>
+
       {/* App section — language */}
       <Text style={styles.sectionTitle}>{t('app_section')}</Text>
       <View style={styles.card}>
@@ -272,7 +480,6 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
         {/* Theme */}
@@ -285,20 +492,41 @@ export default function SettingsScreen() {
             <Text style={styles.settingsSub}>{t('theme_sub')}</Text>
           </View>
           <View style={styles.langToggle}>
-            <TouchableOpacity
-              style={[styles.langBtn, theme === 'navy' && styles.langBtnActive]}
-              onPress={() => setTheme('navy')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, theme === 'navy' && styles.langBtnTextActive]}>{t('theme_navy')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langBtn, theme === 'bright' && styles.langBtnActive]}
-              onPress={() => setTheme('bright')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, theme === 'bright' && styles.langBtnTextActive]}>{t('theme_bright')}</Text>
-            </TouchableOpacity>
+            {appMode === 'manned' ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.langBtn, theme === 'navy' && styles.langBtnActive]}
+                  onPress={() => setTheme('navy')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.langBtnText, theme === 'navy' && styles.langBtnTextActive]}>{t('theme_navy')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.langBtn, theme === 'bright' && styles.langBtnActive]}
+                  onPress={() => setTheme('bright')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.langBtnText, theme === 'bright' && styles.langBtnTextActive]}>{t('theme_bright')}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.langBtn, theme === 'drone-industrial' && styles.langBtnActive]}
+                  onPress={() => setTheme('drone-industrial')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.langBtnText, theme === 'drone-industrial' && styles.langBtnTextActive]}>{t('theme_matt')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.langBtn, theme === 'drone-neon' && styles.langBtnActive]}
+                  onPress={() => setTheme('drone-neon')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.langBtnText, theme === 'drone-neon' && styles.langBtnTextActive]}>{t('theme_neon')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -386,32 +614,113 @@ export default function SettingsScreen() {
       {/* Export */}
       <Text style={styles.sectionTitle}>{t('export')}</Text>
       <View style={styles.card}>
-        <SettingsRow
-          icon="document-text"
-          label={t('export_to_csv')}
-          sub={t('export_to_csv_sub')}
-          onPress={handleExportCSV}
-          rightEl={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-        />
-        <SettingsRow
-          icon="print"
-          label={t('export_to_pdf')}
-          sub={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
-          locked={!isPremium}
-          onPress={isPremium ? handleExportPDF : handleUpgrade}
-          rightEl={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-        />
+        {appMode === 'drone' ? (
+          <>
+            <SettingsRow
+              icon="document-text"
+              label={t('export_csv_basic')}
+              sub={t('export_csv_basic_sub')}
+              onPress={handleExportCSV}
+              rightEl={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+            />
+            <View style={[styles.settingsRow, { opacity: 0.5 }]}>
+              <View style={styles.settingsIcon}>
+                <Ionicons name="document-text-outline" size={18} color={Colors.textMuted} />
+              </View>
+              <View style={styles.settingsText}>
+                <Text style={[styles.settingsLabel, { color: Colors.textMuted }]}>{t('export_csv_extended')}</Text>
+                <Text style={styles.settingsSub}>{t('export_csv_extended_sub')}</Text>
+              </View>
+              <View style={{
+                backgroundColor: Colors.elevated, borderRadius: 6,
+                borderWidth: 0.5, borderColor: Colors.border,
+                paddingHorizontal: 8, paddingVertical: 4,
+              }}>
+                <Text style={{ color: Colors.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  {t('coming_soon')}
+                </Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <SettingsRow
+              icon="document-text"
+              label={t('export_to_csv')}
+              sub={t('export_to_csv_sub')}
+              onPress={handleExportCSV}
+              rightEl={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+            />
+            <SettingsRow
+              icon="print"
+              label={t('export_to_pdf')}
+              sub={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
+              locked={!isPremium}
+              onPress={isPremium ? handleExportPDF : handleUpgrade}
+              rightEl={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+            />
+          </>
+        )}
       </View>
 
       {/* Database & traceability */}
       <Text style={styles.sectionTitle}>{t('database_traceability')}</Text>
       <View style={styles.card}>
-        <SettingsRow
+        {appMode === 'drone' && (
+          <>
+            <View style={styles.settingsRow}>
+              <View style={styles.settingsIcon}>
+                <Ionicons name="person-outline" size={18} color={Colors.primary} />
+              </View>
+              <View style={styles.settingsText}>
+                <Text style={styles.settingsLabel}>{t('operator_id')}</Text>
+                <Text style={styles.settingsSub}>{t('operator_id_sub')}</Text>
+              </View>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.elevated, borderRadius: 7,
+                  borderWidth: 0.5, borderColor: Colors.border,
+                  color: Colors.textPrimary, fontSize: 12, fontWeight: '600',
+                  paddingHorizontal: 8, paddingVertical: 6, minWidth: 140, textAlign: 'right',
+                }}
+                value={operatorId}
+                onChangeText={setOperatorId}
+                placeholder="SWE-OP-xxx"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="characters"
+              />
+            </View>
+            <SettingsRow
+              icon="shield-checkmark-outline"
+              label={t('certificates')}
+              sub={t('certificates_sub')}
+              onPress={() => router.push('/settings/certificates')}
+            />
+          </>
+        )}
+        {appMode === 'manned' && (
+          <>
+            <SettingsRow
+              icon="location"
+              label={t('manage_airports')}
+              sub={t('add_custom_icao')}
+              onPress={() => router.push('/settings/airport')}
+            />
+            <SettingsRow
+              icon="book-outline"
+              label={t('physical_logbooks')}
+              sub={t('physical_logbooks_sub')}
+              onPress={() => router.push('/settings/logbook-books')}
+            />
+          </>
+        )}
+        {/* Dold när fel mode, bevarad för källref */}
+        {false && <SettingsRow
           icon="location"
           label={t('manage_airports')}
           sub={t('add_custom_icao')}
           onPress={() => router.push('/settings/airport')}
-        />
+        />}
         <SettingsRow
           icon="time"
           label={t('audit_log')}
@@ -420,22 +729,10 @@ export default function SettingsScreen() {
         />
       </View>
 
-      {/* Troubleshooting */}
-      <Text style={styles.sectionTitle}>{t('troubleshooting')}</Text>
-      <View style={styles.card}>
-        <SettingsRow
-          icon="trash"
-          label={t('clear_all_logbook_data')}
-          sub={t('clear_all_sub')}
-          onPress={handleClearAll}
-          danger
-        />
-      </View>
-
       {/* About */}
       <Text style={styles.sectionTitle}>{t('about')}</Text>
       <View style={styles.card}>
-        <SettingsRow icon="information-circle" label="Tailwind" sub="Version 1.0.0 · EASA FCL.050" />
+        <SettingsRow icon="information-circle" label="Blades" sub="Version 1.0.0 · EASA FCL.050" />
         <SettingsRow icon="shield-checkmark" label="Local data storage" sub="All data on your device — nothing in the cloud without your permission" />
         <SettingsRow
           icon="mail"
@@ -444,6 +741,56 @@ export default function SettingsScreen() {
           onPress={() => Alert.alert(t('support_alert_title'), t('support_alert_message'))}
         />
       </View>
+
+      {/* Switch mode (längst ner) */}
+      <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
     </ScrollView>
+  );
+}
+
+function SwitchModeButton({
+  appMode, setAppMode,
+}: {
+  appMode: 'manned' | 'drone';
+  setAppMode: (m: 'manned' | 'drone') => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const target: 'manned' | 'drone' = appMode === 'manned' ? 'drone' : 'manned';
+  const label = target === 'drone' ? t('switch_to_drone_logbook') : t('switch_to_manned_logbook');
+  const icon = target === 'drone' ? 'hardware-chip' : 'airplane';
+
+  const onPress = async () => {
+    await setAppMode(target);
+    const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
+    if (hasData) {
+      // Navigera till respektive lägets dashboard-rutt — index.tsx (manned)
+      // eller drone-dashboard. Annars visar den gömda manned-ruttens guard
+      // bara en tom vy efter bytet.
+      router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+    } else {
+      router.replace(target === 'drone' ? '/preview' : '/manned-preview');
+    }
+  };
+
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+          backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16,
+          shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35, shadowRadius: 10, elevation: 4,
+        }}
+      >
+        <Ionicons name={icon as any} size={20} color={Colors.textInverse} />
+        <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 }}>
+          {label}
+        </Text>
+        <Ionicons name="arrow-forward" size={16} color={Colors.textInverse} />
+      </TouchableOpacity>
+    </View>
   );
 }

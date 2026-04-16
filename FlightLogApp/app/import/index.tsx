@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator,
@@ -297,6 +298,64 @@ export default function ImportScreen() {
 
   // Motortyp per fartygstyp: 'se' | 'me' | ''
   const [engineInputs, setEngineInputs] = useState<Record<string, 'se' | 'me' | ''>>({});
+  const [aiFilledByType, setAiFilledByType] = useState<Record<string, Set<string>>>({});
+  const [aiLoadingTypes, setAiLoadingTypes] = useState<Set<string>>(new Set());
+  const lookedUpTypesRef = useRef<Set<string>>(new Set());
+
+  // Auto-lookup via AI så fort en ny fartygstyp visas — fyller tomma fält
+  useEffect(() => {
+    typesNeedingData.forEach(({ type, hasSpeed, hasEndurance }) => {
+      if (!type || lookedUpTypesRef.current.has(type)) return;
+      lookedUpTypesRef.current.add(type);
+      setAiLoadingTypes((prev) => new Set(prev).add(type));
+      lookupAircraft(type)
+        .then((r) => {
+          if (r.needs_manual || !r.aircraft_type) return;
+          const filled = new Set<string>();
+          if (!hasSpeed && r.cruise_speed_kts > 0) {
+            setSpeedInputs((prev) => (prev[type] ? prev : { ...prev, [type]: String(r.cruise_speed_kts) }));
+            filled.add('speed');
+          }
+          if (!hasEndurance && r.endurance_h > 0) {
+            setEnduranceInputs((prev) => (prev[type] ? prev : { ...prev, [type]: String(r.endurance_h) }));
+            filled.add('endurance');
+          }
+          if (r.crew_type) {
+            const keys = r.crew_type.split(',').filter((k) => k === 'sp' || k === 'mp');
+            if (keys.length) {
+              setCrewTypeInputs((prev) => (prev[type]?.size ? prev : { ...prev, [type]: new Set(keys) }));
+              filled.add('crew');
+            }
+          }
+          if (r.engine_type) {
+            setEngineInputs((prev) => (prev[type] ? prev : { ...prev, [type]: r.engine_type }));
+            filled.add('engine');
+          }
+          if (r.category) {
+            setCategoryInputs((prev) => (prev[type] ? prev : { ...prev, [type]: r.category }));
+            filled.add('category');
+          }
+          if (filled.size > 0) {
+            setAiFilledByType((prev) => ({ ...prev, [type]: filled }));
+          }
+        })
+        .catch(() => { /* tyst vid fel — användaren kan fylla manuellt */ })
+        .finally(() => {
+          setAiLoadingTypes((prev) => {
+            const n = new Set(prev); n.delete(type); return n;
+          });
+        });
+    });
+  }, [typesNeedingData]);
+
+  const clearAiFlag = (type: string, field: string) => {
+    setAiFilledByType((prev) => {
+      const curr = prev[type];
+      if (!curr || !curr.has(field)) return prev;
+      const next = new Set(curr); next.delete(field);
+      return { ...prev, [type]: next };
+    });
+  };
 
   // Flygningar som överstiger angiven uthållighet — reaktivt på enduranceInputs
   const exceedingFlights = useMemo(() => {
@@ -672,9 +731,21 @@ export default function ImportScreen() {
           {/* Marschfart + uthållighet för nya/ofullständiga fartygstyper */}
           {typesNeedingData.length > 0 && (
             <View style={styles.speedSection}>
-              <View style={styles.speedHeader}>
+              <View style={[styles.speedHeader, { flexDirection: 'row', alignItems: 'center' }]}>
                 <Ionicons name="speedometer-outline" size={14} color={Colors.gold} />
                 <Text style={styles.speedTitle}>{t('aircraft_data')}</Text>
+                <View style={{
+                  marginLeft: 'auto',
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+                  backgroundColor: Colors.primary + '1F',
+                  borderWidth: 0.5, borderColor: Colors.primary + '66',
+                }}>
+                  <Ionicons name="sparkles" size={10} color={Colors.primary} />
+                  <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
+                    {t('autofilled_with_ai')}
+                  </Text>
+                </View>
               </View>
               <Text style={styles.speedSubtitle}>{t('aircraft_data_sub')} {t('aircraft_data_edit_later')}</Text>
               <View style={styles.speedColHeader}>
@@ -684,27 +755,42 @@ export default function ImportScreen() {
               </View>
               {typesNeedingData.map(({ type, hasSpeed, hasEndurance }) => {
                 const crewSet = crewTypeInputs[type] ?? new Set<string>();
+                const ai = aiFilledByType[type] ?? new Set<string>();
+                const aiStyle = { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' } as const;
+                const aiBtn = { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' } as const;
+                const loading = aiLoadingTypes.has(type);
                 return (
                   <View key={type} style={styles.typeBlock}>
                     <View style={styles.speedRow}>
-                      <Text style={styles.speedType}>{type}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                        <Text style={styles.speedType}>{type}</Text>
+                        {loading && <ActivityIndicator size="small" color={Colors.primary} />}
+                      </View>
                       <RNTextInput
-                        style={[styles.speedInput, hasSpeed && styles.speedInputDone]}
+                        style={[
+                          styles.speedInput,
+                          hasSpeed && styles.speedInputDone,
+                          ai.has('speed') && aiStyle,
+                        ]}
                         placeholder={hasSpeed ? '✓' : '110'}
                         placeholderTextColor={hasSpeed ? Colors.success : Colors.textMuted}
                         keyboardType="number-pad"
                         value={speedInputs[type] ?? ''}
-                        onChangeText={(v) => setSpeedInputs((prev) => ({ ...prev, [type]: v }))}
+                        onChangeText={(v) => { setSpeedInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'speed'); }}
                         maxLength={4}
                         editable={!hasSpeed}
                       />
                       <RNTextInput
-                        style={[styles.speedInput, hasEndurance && styles.speedInputDone]}
+                        style={[
+                          styles.speedInput,
+                          hasEndurance && styles.speedInputDone,
+                          ai.has('endurance') && aiStyle,
+                        ]}
                         placeholder={hasEndurance ? '✓' : '3.0'}
                         placeholderTextColor={hasEndurance ? Colors.success : Colors.textMuted}
                         keyboardType="decimal-pad"
                         value={enduranceInputs[type] ?? ''}
-                        onChangeText={(v) => setEnduranceInputs((prev) => ({ ...prev, [type]: v }))}
+                        onChangeText={(v) => { setEnduranceInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'endurance'); }}
                         maxLength={4}
                         editable={!hasEndurance}
                       />
@@ -712,13 +798,14 @@ export default function ImportScreen() {
                     <View style={styles.crewRow}>
                       {(['sp', 'mp'] as const).map((key) => {
                         const active = crewSet.has(key);
+                        const aiActive = ai.has('crew') && active;
                         const label = key === 'sp' ? 'SP' : 'MP';
                         const sub = key === 'sp' ? 'Single pilot' : 'Multi-pilot';
                         return (
                           <TouchableOpacity
                             key={key}
-                            style={[styles.crewBtn, active && styles.crewBtnActive]}
-                            onPress={() => toggleCrewForType(type, key)}
+                            style={[styles.crewBtn, active && styles.crewBtnActive, aiActive && aiBtn]}
+                            onPress={() => { toggleCrewForType(type, key); clearAiFlag(type, 'crew'); }}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
@@ -728,13 +815,14 @@ export default function ImportScreen() {
                       })}
                       {(['se', 'me'] as const).map((key) => {
                         const active = engineInputs[type] === key;
+                        const aiActive = ai.has('engine') && active;
                         const label = key === 'se' ? 'SE' : 'ME';
                         const sub = key === 'se' ? 'Single engine' : 'Multi engine';
                         return (
                           <TouchableOpacity
                             key={key}
-                            style={[styles.crewBtn, active && styles.crewBtnActive]}
-                            onPress={() => setEngineInputs(prev => ({ ...prev, [type]: active ? '' : key }))}
+                            style={[styles.crewBtn, active && styles.crewBtnActive, aiActive && aiBtn]}
+                            onPress={() => { setEngineInputs(prev => ({ ...prev, [type]: active ? '' : key })); clearAiFlag(type, 'engine'); }}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
@@ -746,11 +834,12 @@ export default function ImportScreen() {
                     <View style={styles.crewRow}>
                       {(['airplane', 'helicopter'] as const).map((cat) => {
                         const active = categoryInputs[type] === cat;
+                        const aiActive = ai.has('category') && active;
                         return (
                           <TouchableOpacity
                             key={cat}
-                            style={[styles.crewBtn, { flex: 1 }, active && styles.crewBtnActive]}
-                            onPress={() => setCategoryInputs(prev => ({ ...prev, [type]: active ? '' : cat }))}
+                            style={[styles.crewBtn, { flex: 1 }, active && styles.crewBtnActive, aiActive && aiBtn]}
+                            onPress={() => { setCategoryInputs(prev => ({ ...prev, [type]: active ? '' : cat })); clearAiFlag(type, 'category'); }}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>

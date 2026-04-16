@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
+import { lookupAircraft } from '../services/aircraftLookup';
 
 type CrewKey = 'sp' | 'mp';
 type Category = 'airplane' | 'helicopter' | '';
@@ -97,6 +99,49 @@ export function AircraftModal({
   const [category, setCategory] = useState<Category>('');
   const [engineType, setEngineType] = useState<EngineType>('');
   const [saving, setSaving] = useState(false);
+  const [looking, setLooking] = useState(false);
+
+  const handleSmartLookup = async () => {
+    const q = type.trim();
+    if (!q) {
+      Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body'));
+      return;
+    }
+    setLooking(true);
+    try {
+      const r = await lookupAircraft(q);
+      if (r.needs_manual || !r.aircraft_type) {
+        Alert.alert(t('aircraft_lookup_unclear_title'), t('aircraft_lookup_unclear_body'));
+        return;
+      }
+      const summary = `${r.manufacturer} ${r.model}`.trim()
+        + (r.cruise_speed_kts ? ` · ${r.cruise_speed_kts} kt` : '')
+        + (r.endurance_h ? ` · ${r.endurance_h} h` : '')
+        + `\n${t('drone_scan_confidence')}: ${Math.round(r.confidence * 100)}%`;
+      Alert.alert(
+        t('aircraft_lookup_result_title'),
+        summary,
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('drone_scan_apply'),
+            onPress: () => {
+              setType(r.aircraft_type);
+              if (r.cruise_speed_kts > 0) setSpeed(String(r.cruise_speed_kts));
+              if (r.endurance_h > 0) setEndurance(String(r.endurance_h));
+              if (r.category) setCategory(r.category);
+              if (r.engine_type) setEngineType(r.engine_type);
+              if (r.crew_type) setCrewTypes(parseCrewType(r.crew_type));
+            },
+          },
+        ],
+      );
+    } catch (e: any) {
+      Alert.alert(t('error'), e.message || String(e));
+    } finally {
+      setLooking(false);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
@@ -139,15 +184,42 @@ export function AircraftModal({
           <Text style={styles.title}>{editMode ? t('edit_aircraft') : t('new_aircraft')}</Text>
 
           <Text style={styles.label}>{t('aircraft_type')}</Text>
-          <TextInput
-            style={[styles.input, editMode && styles.inputReadOnly]}
-            value={type}
-            onChangeText={(v) => { if (!editMode) setType(v.toUpperCase()); }}
-            placeholder="C172"
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="characters"
-            editable={!editMode}
-          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TextInput
+              style={[styles.input, editMode && styles.inputReadOnly, { flex: 1 }]}
+              value={type}
+              onChangeText={(v) => { if (!editMode) setType(v.toUpperCase()); }}
+              placeholder="C172, R44, A320…"
+              placeholderTextColor={Colors.textMuted}
+              autoCapitalize="characters"
+              editable={!editMode}
+            />
+            {!editMode && (
+              <TouchableOpacity
+                onPress={handleSmartLookup}
+                disabled={looking}
+                activeOpacity={0.75}
+                style={{
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  backgroundColor: Colors.primary + '1F',
+                  borderWidth: 1,
+                  borderColor: Colors.primary + '88',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                {looking
+                  ? <ActivityIndicator size="small" color={Colors.primary} />
+                  : <Ionicons name="sparkles" size={14} color={Colors.primary} />}
+                <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 }}>
+                  {looking ? t('drone_scan_loading') : t('aircraft_lookup_btn')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.row}>
             <View style={{ flex: 1 }}>

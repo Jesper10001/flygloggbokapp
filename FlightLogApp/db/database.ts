@@ -76,6 +76,63 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_flights_date ON flights(date);
     CREATE INDEX IF NOT EXISTS idx_audit_log_flight ON audit_log(flight_id);
     CREATE INDEX IF NOT EXISTS idx_icao ON icao_airports(icao);
+
+    CREATE TABLE IF NOT EXISTS drone_registry (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      drone_type TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT '',
+      registration TEXT NOT NULL DEFAULT '',
+      mtow_g INTEGER NOT NULL DEFAULT 0,
+      category TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      UNIQUE(drone_type, registration)
+    );
+
+    CREATE TABLE IF NOT EXISTS drone_batteries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      drone_id INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      serial TEXT NOT NULL DEFAULT '',
+      cycle_count INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (drone_id) REFERENCES drone_registry(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS drone_certificates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cert_type TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      issued_date TEXT NOT NULL DEFAULT '',
+      expires_date TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS drone_flights (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      drone_id INTEGER,
+      drone_type TEXT NOT NULL DEFAULT '',
+      registration TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      lat REAL NOT NULL DEFAULT 0,
+      lon REAL NOT NULL DEFAULT 0,
+      mission_type TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT '',
+      flight_mode TEXT NOT NULL DEFAULT 'VLOS',
+      total_time REAL NOT NULL DEFAULT 0,
+      max_altitude_m INTEGER NOT NULL DEFAULT 0,
+      is_night INTEGER NOT NULL DEFAULT 0,
+      has_observer INTEGER NOT NULL DEFAULT 0,
+      observer_name TEXT NOT NULL DEFAULT '',
+      battery_id INTEGER,
+      battery_start_cycles INTEGER NOT NULL DEFAULT 0,
+      remarks TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (drone_id) REFERENCES drone_registry(id) ON DELETE SET NULL,
+      FOREIGN KEY (battery_id) REFERENCES drone_batteries(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_drone_flights_date ON drone_flights(date);
+    CREATE INDEX IF NOT EXISTS idx_drone_batteries_drone ON drone_batteries(drone_id);
   `);
 
   // Steg 2: Migrationer — lägg till nya kolumner om de saknas
@@ -163,6 +220,23 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
 
   // Mellanlandningsplats (touch & go / hot refuel)
   await addColumnIfMissing(db, 'stop_place', `TEXT NOT NULL DEFAULT ''`);
+
+  // Papperloggböcker — referens för transkribering av digitala flygningar till papper
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS logbook_books (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      template_id TEXT NOT NULL DEFAULT 'sv-easa-standard',
+      starting_page INTEGER NOT NULL DEFAULT 1,
+      rows_per_spread INTEGER NOT NULL DEFAULT 12,
+      transcribed_spreads INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  // Vilken papperbok + uppslag en flygning är transkriberad till (0 = ej skriven)
+  await addColumnIfMissing(db, 'book_id',       `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'spread_number', `INTEGER NOT NULL DEFAULT 0`);
 
   // scan_summaries: ersätt enkelt name-fält med book_name + page_name
   await addColumnIfMissingOnTable(db, 'scan_summaries', 'book_name', `TEXT NOT NULL DEFAULT ''`);

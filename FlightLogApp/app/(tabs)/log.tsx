@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFlightStore } from '../../store/flightStore';
+import { useAppModeStore } from '../../store/appModeStore';
 import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry, getNightFlightsMissingNvg, setFlightNvg } from '../../db/flights';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { Colors } from '../../constants/colors';
@@ -16,6 +17,7 @@ import { AircraftModal } from '../../components/AircraftModal';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat, formatTimeValue } from '../../hooks/useTimeFormat';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
+import { getActiveBook, getSpreadsForBook, type LogbookBook, type SpreadInfo } from '../../db/logbookBooks';
 import {
   getAllScanSummaries, deleteScanSummary, updateScanSummaryNames,
   type ScanSummary,
@@ -600,6 +602,116 @@ const SUMMARY_ROWS_LOG = [
   { label: 'Ldg natt',      field: 'landings_night' as const, isTime: false },
 ];
 
+function TranscribeAccordion() {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const styles = makeStyles();
+  const [expanded, setExpanded] = useState(false);
+  const [book, setBook] = useState<LogbookBook | null>(null);
+  const [spreads, setSpreads] = useState<SpreadInfo[]>([]);
+
+  const load = async () => {
+    const b = await getActiveBook();
+    setBook(b);
+    if (b) setSpreads(await getSpreadsForBook(b));
+    else setSpreads([]);
+  };
+  useFocusEffect(useCallback(() => { load(); }, []));
+
+  const currentSpread = spreads.find((s) => s.is_current);
+  const badge = currentSpread ? currentSpread.flights.length : 0;
+  const rowsPerSpread = book?.rows_per_spread ?? 0;
+  const ready = book && currentSpread && badge >= rowsPerSpread;
+
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <TouchableOpacity
+        style={[styles.flightsHeader, ready && { backgroundColor: Colors.primary + '14', borderColor: Colors.primary + '88' }]}
+        onPress={() => setExpanded((v) => !v)}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="book-outline" size={15} color={ready ? Colors.primary : Colors.textSecondary} />
+        <Text style={[styles.flightsHeaderTitle, ready && { color: Colors.primary }]}>
+          {t('transcribe_to_paper')}
+        </Text>
+        {book ? (
+          ready ? (
+            <View style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Text style={{ color: Colors.textInverse, fontSize: 10, fontWeight: '800' }}>{t('ready')}</Text>
+            </View>
+          ) : (
+            <Text style={styles.flightsHeaderCount}>{badge}/{rowsPerSpread}</Text>
+          )
+        ) : (
+          <Text style={styles.flightsHeaderCount}>{t('no_book')}</Text>
+        )}
+        <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ backgroundColor: Colors.card, borderRadius: 10, borderWidth: 0.5, borderColor: Colors.cardBorder, marginTop: 4, overflow: 'hidden' }}>
+          {!book ? (
+            <TouchableOpacity
+              style={{ padding: 14, alignItems: 'center', gap: 6 }}
+              onPress={() => router.push('/settings/logbook-books')}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="add-circle" size={20} color={Colors.primary} />
+              <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>{t('add_logbook_book')}</Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: 11, textAlign: 'center' }}>{t('transcribe_no_book_hint')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={{ padding: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700' }}>{book.name}</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 1 }}>
+                  {spreads.length} {t('spreads_available')}
+                </Text>
+              </View>
+              {spreads.map((s) => (
+                <TouchableOpacity
+                  key={s.spread_number}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    padding: 12, gap: 8,
+                    borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+                    backgroundColor: s.is_current ? Colors.primary + '0E' : 'transparent',
+                  }}
+                  onPress={() => router.push(`/transcribe?spread=${s.spread_number}` as any)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={s.is_current ? 'create-outline' : 'checkmark-circle'}
+                    size={16}
+                    color={s.is_current ? Colors.primary : Colors.success}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                      {t('page')} {s.page_left}–{s.page_right}
+                    </Text>
+                    <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 1 }}>
+                      {s.is_current ? t('transcribe_current') : t('transcribe_past')}
+                      {' · '}{s.flights.length}/{book.rows_per_spread} {t('flights').toLowerCase()}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={13} color={Colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={{ padding: 12, alignItems: 'center' }}
+                onPress={() => router.push('/settings/logbook-books')}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('manage_books')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function LogbookSummaryAccordion({
   summaries,
   onDelete,
@@ -713,6 +825,7 @@ export default function LogScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
+  const mode = useAppModeStore((s) => s.mode);
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
   const [tab, setTab] = useState<'flights' | 'airframes'>('flights');
   const [query, setQuery] = useState('');
@@ -790,6 +903,8 @@ export default function LogScreen() {
   };
 
   const isSearching = query.trim().length > 0;
+
+  if (mode !== 'manned') return <View style={styles.container} />;
 
   return (
     <View style={styles.container}>
@@ -873,6 +988,9 @@ export default function LogScreen() {
             onDelete={async (id) => { await deleteScanSummary(id); loadSummaries(); }}
             onRename={async (id, book, page) => { await updateScanSummaryNames(id, book, page); loadSummaries(); }}
           />
+
+          <TranscribeAccordion />
+
 
           {/* Flygningar-dropdown */}
           <TouchableOpacity style={styles.flightsHeader} onPress={() => setFlightsExpanded(v => !v)} activeOpacity={0.75}>
