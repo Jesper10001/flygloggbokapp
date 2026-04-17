@@ -1,17 +1,34 @@
-// Enkel global buffer för OCR-bilden — undviker URI-problem via router-params
-let pendingImageBase64: string | null = null;
-let pendingMediaType: 'image/jpeg' | 'image/png' = 'image/jpeg';
+// Buffer för OCR-bilder — stöder enkel skanning (1 bild) och batch (2–5 bilder)
 
-export function setScanImage(base64: string, mediaType: 'image/jpeg' | 'image/png') {
-  pendingImageBase64 = base64;
-  pendingMediaType = mediaType;
+interface ScanImage {
+  base64: string;
+  mediaType: 'image/jpeg' | 'image/png';
 }
 
-export function getScanImage(): { base64: string; mediaType: 'image/jpeg' | 'image/png' } | null {
-  if (!pendingImageBase64) return null;
-  return { base64: pendingImageBase64, mediaType: pendingMediaType };
+let pendingImages: ScanImage[] = [];
+
+// Enkel bild (bakåtkompatibel med befintlig flow)
+export function setScanImage(base64: string, mediaType: 'image/jpeg' | 'image/png') {
+  pendingImages = [{ base64, mediaType }];
+}
+
+export function getScanImage(): ScanImage | null {
+  return pendingImages[0] ?? null;
 }
 
 export function clearScanImage() {
-  pendingImageBase64 = null;
+  pendingImages = [];
+}
+
+// Batch — flera bilder
+export function setScanBatch(images: ScanImage[]) {
+  pendingImages = images.slice(0, 5);
+}
+
+export function getScanBatch(): ScanImage[] {
+  return [...pendingImages];
+}
+
+export function getScanBatchSize(): number {
+  return pendingImages.length;
 }

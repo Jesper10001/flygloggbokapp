@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
-import { setScanImage } from '../../store/scanStore';
+import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, MONTHLY_SUMMARIZE_QUOTA, SCAN_PACKS } from '../../store/scanQuotaStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
@@ -502,6 +502,40 @@ export default function ScanScreen() {
     }
   };
 
+  const handleBatchImport = async () => {
+    setWorking(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'] as any,
+        quality: 0.85,
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
+        orderedSelection: true,
+      });
+      if (result.canceled || !result.assets?.length) { setWorking(false); return; }
+
+      const images: { base64: string; mediaType: 'image/jpeg' | 'image/png' }[] = [];
+      for (const asset of result.assets) {
+        const prepared = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 2000 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+        if (prepared.base64) images.push({ base64: prepared.base64, mediaType: 'image/jpeg' });
+      }
+      if (images.length === 0) {
+        Alert.alert(t('error'), t('could_not_process_image'));
+        return;
+      }
+      setScanBatch(images);
+      router.push('/flight/review?batch=1');
+    } catch (e: any) {
+      Alert.alert(t('error'), e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const handleSummarize = async () => {
     if (!canSummarize()) {
       Alert.alert('Gränsen nådd', `Du har använt alla ${MONTHLY_SUMMARIZE_QUOTA} summerings-skanningar för denna månad.`);
@@ -634,8 +668,70 @@ export default function ScanScreen() {
       {/* Bildresultat (summera-läge) */}
       {summary ? (
         <SummaryResult summary={summary} onReset={reset} onSave={() => { setSaveBookName(''); setSavePageName(''); setShowSaveModal(true); }} />
+      ) : !imageUri && mode === 'import' ? (
+        /* ── Import-läge: tydlig val mellan kamera (1 sida) och bibliotek (1–5 sidor) ── */
+        <View style={{ gap: 12 }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 14,
+              backgroundColor: Colors.card, borderRadius: 14, padding: 18,
+              borderWidth: 1, borderColor: Colors.primary + '88',
+            }}
+            onPress={() => pickImage(true)}
+            activeOpacity={0.8}
+            disabled={working}
+          >
+            <View style={{
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: Colors.primary + '22',
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1, borderColor: Colors.primary + '55',
+            }}>
+              <Ionicons name="camera" size={28} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                {t('scan_camera_title')}
+              </Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                {t('scan_camera_sub')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 14,
+              backgroundColor: Colors.card, borderRadius: 14, padding: 18,
+              borderWidth: 1, borderColor: Colors.cardBorder,
+            }}
+            onPress={handleBatchImport}
+            activeOpacity={0.8}
+            disabled={working}
+          >
+            <View style={{
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: Colors.primary + '14',
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1, borderColor: Colors.primary + '44',
+            }}>
+              <Ionicons name="images" size={28} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                {t('scan_library_title')}
+              </Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                {t('scan_library_sub')}
+              </Text>
+            </View>
+            {working && <ActivityIndicator size="small" color={Colors.primary} />}
+            {!working && <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />}
+          </TouchableOpacity>
+        </View>
       ) : !imageUri ? (
-        /* Bildval */
+        /* ── Summera-läge: enkel bildval ── */
         <View style={styles.pickRow}>
           <TouchableOpacity style={styles.pickBtn} onPress={() => pickImage(true)} activeOpacity={0.8}>
             <Ionicons name="camera" size={32} color={Colors.primary} />
@@ -647,7 +743,7 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        /* Förhandsvisning */
+        /* ── Förhandsvisning (kamera-bild tagen) ── */
         <>
           <View style={styles.previewContainer}>
             <Image
@@ -660,7 +756,7 @@ export default function ScanScreen() {
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.actionBtn} onPress={reset}>
               <Ionicons name="close-circle-outline" size={20} color={Colors.textSecondary} />
-              <Text style={styles.actionBtnText}>Change image</Text>
+              <Text style={styles.actionBtnText}>{t('change_image')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setRotation((r) => (r + 90) % 360)}>
               <Ionicons name="refresh" size={20} color={Colors.primary} />
@@ -678,18 +774,18 @@ export default function ScanScreen() {
               <>
                 <ActivityIndicator color={Colors.textInverse} />
                 <Text style={styles.scanBtnText}>
-                  {mode === 'import' ? 'Importing…' : 'Summarising…'}
+                  {mode === 'import' ? t('importing') : t('summarising')}
                 </Text>
               </>
             ) : mode === 'import' ? (
               <>
                 <Ionicons name="cloud-upload" size={20} color={Colors.textInverse} />
-                <Text style={styles.scanBtnText}>Import with Claude AI</Text>
+                <Text style={styles.scanBtnText}>{t('import_with_ai')}</Text>
               </>
             ) : (
               <>
                 <Ionicons name="calculator" size={20} color={Colors.textInverse} />
-                <Text style={styles.scanBtnText}>Summarise with Claude AI</Text>
+                <Text style={styles.scanBtnText}>{t('summarise_with_ai')}</Text>
               </>
             )}
           </TouchableOpacity>

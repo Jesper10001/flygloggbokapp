@@ -3,6 +3,7 @@ import { getScanImage, clearScanImage } from '../store/scanStore';
 import type { TimeFormat } from '../store/timeFormatStore';
 
 import { callAnthropicJson } from './anthropicClient';
+import { buildContextHint } from '../db/ocrLearned';
 
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
@@ -166,6 +167,14 @@ Skicka ENDAST remarks_suggestion om confidence >= 0.6. Format:
 Användaren får en Ja/Nej-prompt och kan välja att acceptera eller behålla
 värdet i remarks.
 
+SIDNUMMER-DETEKTION (VIKTIGT):
+Läs sidnumren som står längst ned (vanligen i mitten eller hörnen) på vänster
+och höger sida. Svenska EASA-loggböcker har tryckt sidnumrering, t.ex. "92" på
+vänster och "93" på höger. Returnera som page_numbers i JSON:
+  "page_numbers": { "left": 92, "right": 93 }
+Om bara ett sidnummer syns, returnera det du ser och null för det andra.
+Om inga sidnummer syns, returnera null för båda.
+
 SIDVALIDERING:
 - Om sidan har radsummor: kontrollera att radsumman matchar "Total this page"
 - Kontrollera att "Brought forward" + "Total this page" = "Total to date"
@@ -269,6 +278,10 @@ Returnera ENBART ett JSON-objekt:
     "brought_forward": null,
     "total_this_page": null,
     "total_to_date": null
+  },
+  "page_numbers": {
+    "left": null,
+    "right": null
   }
 }
 
@@ -372,15 +385,57 @@ export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageU
   const { base64, mediaType } = scanImage;
   clearScanImage();
 
+  // Använd gemensam ocrScanPage + parseOcrResponse
+  return ocrScanPage(base64, mediaType, timeFormat);
+}
+
+// Kontext från föregående sida — används vid batch-skanning för ditto-upplösning
+export interface PageContext {
+  last_date?: string;
+  last_aircraft_type?: string;
+  last_registration?: string;
+  last_dep_place?: string;
+  last_arr_place?: string;
+  page_number?: number;
+}
+
+export type OcrPageResult = {
+  flights: OcrFlightResult[];
+  pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };
+  aircraftDetections: AircraftDetection[];
+  pageNumbers: { left: number | null; right: number | null };
+};
+
+// Skanna EN sida direkt från base64 — för batch-import.
+// Accepterar kontext från föregående sida för ditto-upplösning.
+export async function ocrScanPage(
+  base64: string,
+  mediaType: string,
+  timeFormat: TimeFormat = 'decimal',
+  prevContext?: PageContext,
+): Promise<OcrPageResult> {
+  let contextHint = '';
+  if (prevContext) {
+    contextHint = `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
+  }
+  // Bifoga inlärda mappningar från tidigare skanningar
+  const learnedHint = await buildContextHint();
+  if (learnedHint) contextHint += `\n\n${learnedHint}`;
+
   const parsed = await callAnthropicJson<any>({
     system: SYSTEM_PROMPT,
     maxTokens: 16000,
     userContent: [
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-      { type: 'text', text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida. Svara ENBART med ett JSON-objekt — ingen text före eller efter.` },
+      { type: 'text', text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida. Svara ENBART med ett JSON-objekt — ingen text före eller efter.${contextHint}` },
     ],
   });
 
+  return parseOcrResponse(parsed);
+}
+
+// Gemensam parser — används av både ocrScanLogbook och ocrScanPage
+function parseOcrResponse(parsed: any): OcrPageResult {
   const flights: OcrFlightResult[] = (parsed.flights ?? []).map((f: any) => {
     const rs = f.remarks_suggestion;
     const validSuggestion = rs && typeof rs === 'object' && rs.field && rs.value && Number(rs.confidence ?? 0) >= 0.6
@@ -429,7 +484,6 @@ export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageU
       landings_day: String(f.landings_day ?? '1'),
       landings_night: String(f.landings_night ?? '0'),
       remarks: f.remarks ?? '',
-      // Advanced fields — endast om AI returnerade värden
       multi_pilot: f.multi_pilot !== undefined ? String(f.multi_pilot) : undefined,
       single_pilot: f.single_pilot !== undefined ? String(f.single_pilot) : undefined,
       instructor: f.instructor !== undefined ? String(f.instructor) : undefined,
@@ -451,7 +505,6 @@ export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageU
   });
 
   const pt = parsed.page_totals ?? {};
-
   const detections: AircraftDetection[] = Array.isArray(parsed.aircraft_detections)
     ? parsed.aircraft_detections
         .filter((d: any) => d && typeof d === 'object' && (d.as_written || d.resolved))
@@ -465,6 +518,7 @@ export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageU
         }))
     : [];
 
+  const pn = parsed.page_numbers ?? {};
   return {
     flights,
     pageTotals: {
@@ -473,6 +527,10 @@ export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageU
       total_to_date: pt.total_to_date ?? null,
     },
     aircraftDetections: detections,
+    pageNumbers: {
+      left: typeof pn.left === 'number' ? pn.left : null,
+      right: typeof pn.right === 'number' ? pn.right : null,
+    },
   };
 }
 

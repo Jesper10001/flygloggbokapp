@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, TextInput, Modal, Pressable, Platform,
+  Alert, ActivityIndicator, TextInput, Modal, Pressable, Platform, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ocrScanLogbook, type AircraftDetection } from '../../services/ocr';
+import { ocrScanLogbook, ocrScanPage, type AircraftDetection, type PageContext } from '../../services/ocr';
+import { getScanBatch, clearScanImage } from '../../store/scanStore';
 import { insertFlight, getAllAircraftTypes, addAircraftTypeToRegistry } from '../../db/flights';
+import { getDatabase } from '../../db/database';
+import { getActiveBook } from '../../db/logbookBooks';
+import { saveLearnedMapping, buildContextHint } from '../../db/ocrLearned';
+import * as Haptics from 'expo-haptics';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -16,6 +21,7 @@ import { validatePageTotals } from '../../utils/validation';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue, parseTimeInput } from '../../hooks/useTimeFormat';
 import { IcaoInput } from '../../components/IcaoInput';
+import { getAirportByIcao, addTemporaryPlace } from '../../db/icao';
 import type { OcrFlightResult } from '../../types/flight';
 import type { TimeFormat } from '../../store/timeFormatStore';
 
@@ -152,7 +158,7 @@ function makeStyles() {
 }
 
 function FlaggedCard({
-  idx, row, onChange, onDecision, timeFormat, savedAircraftTypes,
+  idx, row, onChange, onDecision, timeFormat, savedAircraftTypes, prevRow, onShowImage,
 }: {
   idx: number;
   row: ReviewRow;
@@ -160,13 +166,19 @@ function FlaggedCard({
   onDecision: (d: RowDecision) => void;
   timeFormat: TimeFormat;
   savedAircraftTypes: string[];
+  prevRow?: ReviewRow;        // #4: föregående rad för "kopiera"-knapp
+  onShowImage?: () => void;   // #5: öppna bild-popup
 }) {
   // Om AI har angett field_issues — visa ENDAST dessa fält som default.
-  // Toggle för att expandera till alla fält.
   const issueFields = new Set((row.data.field_issues ?? []).map((i) => i.field));
   const [showAll, setShowAll] = useState(issueFields.size === 0);
   const shouldShow = (name: string) => showAll || issueFields.has(name);
   const hasIssues = issueFields.size > 0;
+
+  // Blockera godkännande om okända ICAO-koder finns
+  const hasUnresolvedIcao = (row.data.field_issues ?? []).some(
+    (i) => (i.field === 'dep_place' || i.field === 'arr_place') && i.reason.includes('ICAO-databasen'),
+  );
   const styles = makeStyles();
   const { t } = useTranslation();
   const skipped = row.decision === 'skip';
@@ -189,7 +201,7 @@ function FlaggedCard({
 
   return (
     <View style={styles.flagCard}>
-      {/* Rad-referens: Rad N · datum */}
+      {/* Rad-referens: Rad N · datum + kopiera/bild-knappar */}
       <View style={{
         flexDirection: 'row', alignItems: 'center', gap: 6,
         paddingHorizontal: 12, paddingVertical: 6,
@@ -217,6 +229,29 @@ function FlaggedCard({
             </Text>
           </>
         ) : null}
+        <View style={{ flex: 1 }} />
+        {/* #4: Kopiera tomma fält från föregående rad */}
+        {prevRow && (
+          <TouchableOpacity
+            onPress={() => {
+              const keys: (keyof OcrFlightResult)[] = ['aircraft_type', 'registration', 'dep_place', 'arr_place'];
+              keys.forEach((k) => {
+                if (!row.data[k] && prevRow.data[k]) onChange(k, prevRow.data[k]);
+              });
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            activeOpacity={0.7}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="arrow-down-circle-outline" size={16} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
+        {/* #5: Visa relevant del av skannad bild */}
+        {onShowImage && (
+          <TouchableOpacity onPress={onShowImage} activeOpacity={0.7} style={{ padding: 4 }}>
+            <Ionicons name="image-outline" size={16} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Varning */}
@@ -264,7 +299,13 @@ function FlaggedCard({
         {shouldShow('registration') && <FieldRow label="Reg"       value={row.data.registration}  onChange={v => onChange('registration', v.toUpperCase())} original={row.original.registration} mono />}
 
         {/* Rutt */}
-        {shouldShow('dep_place') && <FieldRowIcao label="Dep"   value={row.data.dep_place}     onChange={v => onChange('dep_place', v.toUpperCase())} original={row.original.dep_place} />}
+        {shouldShow('dep_place') && <FieldRowIcao
+          label="Dep" value={row.data.dep_place} onChange={v => { onChange('dep_place', v.toUpperCase()); }} original={row.original.dep_place}
+          isUnknown={(row.data.field_issues ?? []).some(i => i.field === 'dep_place' && i.reason.includes('ICAO-databasen'))}
+          onMarkTemporary={() => {
+            onChange('field_issues' as any, (row.data.field_issues ?? []).filter((i: any) => !(i.field === 'dep_place' && i.reason.includes('ICAO-databasen'))));
+          }}
+        />}
         {(shouldShow('dep_utc') || row.data.time_mismatch) && <FieldRowClock
           label="Dep·T"
           value={row.data.dep_utc}
@@ -280,7 +321,13 @@ function FlaggedCard({
             onChange('time_mismatch' as any, null as any);
           }}
         />}
-        {shouldShow('arr_place') && <FieldRowIcao label="Arr"   value={row.data.arr_place}     onChange={v => onChange('arr_place', v.toUpperCase())} original={row.original.arr_place} />}
+        {shouldShow('arr_place') && <FieldRowIcao
+          label="Arr" value={row.data.arr_place} onChange={v => { onChange('arr_place', v.toUpperCase()); }} original={row.original.arr_place}
+          isUnknown={(row.data.field_issues ?? []).some(i => i.field === 'arr_place' && i.reason.includes('ICAO-databasen'))}
+          onMarkTemporary={() => {
+            onChange('field_issues' as any, (row.data.field_issues ?? []).filter((i: any) => !(i.field === 'arr_place' && i.reason.includes('ICAO-databasen'))));
+          }}
+        />}
         {(shouldShow('arr_utc') || row.data.time_mismatch) && <FieldRowClock
           label="Arr·T"
           value={row.data.arr_utc}
@@ -339,6 +386,11 @@ function FlaggedCard({
                   const cleaned = (row.data.remarks ?? '').replace(s.original_text, '').replace(/\s{2,}/g, ' ').trim();
                   onChange('remarks', cleaned);
                   onChange('remarks_suggestion' as any, null as any);
+                  // Spara andrepilot-mappning för framtida skanningar
+                  if (s.field === 'second_pilot') {
+                    saveLearnedMapping('second_pilot', s.original_text, s.value);
+                  }
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }}
                 onReject={() => onChange('remarks_suggestion' as any, null as any)}
               />
@@ -352,8 +404,29 @@ function FlaggedCard({
       </View>
 
       {/* Knappar */}
+      {hasUnresolvedIcao && (
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 6,
+          backgroundColor: Colors.danger + '14', borderRadius: 8, padding: 8, marginBottom: 6,
+          borderWidth: 0.5, borderColor: Colors.danger + '55',
+        }}>
+          <Ionicons name="alert-circle" size={13} color={Colors.danger} />
+          <Text style={{ color: Colors.danger, fontSize: 11, fontWeight: '700', flex: 1 }}>
+            {t('unknown_icao_block')}
+          </Text>
+        </View>
+      )}
       <View style={styles.decisionRow}>
-        <TouchableOpacity style={[styles.decisionBtn, styles.btnOk]} onPress={() => onDecision('corrected')}>
+        <TouchableOpacity
+          style={[styles.decisionBtn, styles.btnOk, hasUnresolvedIcao && { opacity: 0.35 }]}
+          onPress={() => {
+            if (hasUnresolvedIcao) {
+              Alert.alert(t('unknown_icao_block_title'), t('unknown_icao_block_body'));
+              return;
+            }
+            onDecision('corrected');
+          }}
+        >
           <Ionicons name="checkmark" size={14} color={Colors.success} />
           <Text style={[styles.decisionText, { color: Colors.success }]}>{t('approve')}</Text>
         </TouchableOpacity>
@@ -747,7 +820,7 @@ function AircraftConfirmation({
   };
 
   const apply = async () => {
-    // Spara varje luftfartyg till registret
+    // Spara varje luftfartyg till registret + lär AI:n handstilen
     for (const d of detections) {
       const f = forms[d.as_written]; if (!f) continue;
       const typeUpper = f.type.trim().toUpperCase();
@@ -760,6 +833,10 @@ function AircraftConfirmation({
         f.category,
         f.engineType,
       );
+      // Spara handstils-mappning: "Bell206" → "B206"
+      if (d.as_written && d.as_written !== typeUpper) {
+        await saveLearnedMapping('aircraft_type', d.as_written, typeUpper);
+      }
     }
     onConfirm(detections.map((d) => ({
       as_written: d.as_written,
@@ -777,7 +854,7 @@ function AircraftConfirmation({
         AI har identifierat {detections.length} {detections.length === 1 ? 'luftfartyg' : 'luftfartyg'} på sidan. Rättar du något här uppdateras ALLA rader med samma handstilsform automatiskt — och fartyget sparas under Sparade luftfartyg.
       </Text>
 
-      {detections.map((d) => {
+      {detections.map((d, idx) => {
         const f = forms[d.as_written];
         if (!f) return null;
         const filteredSaved = savedTypes
@@ -785,7 +862,7 @@ function AircraftConfirmation({
           .slice(0, 4);
         const aiActive = (k: string) => f.aiFilled.has(k);
         return (
-          <View key={d.as_written} style={{
+          <View key={`${d.as_written}-${d.registration}-${idx}`} style={{
             backgroundColor: Colors.card, borderRadius: 14, padding: 14,
             borderWidth: 0.5, borderColor: Colors.cardBorder, gap: 10,
           }}>
@@ -891,22 +968,7 @@ function AircraftConfirmation({
               </View>
             )}
 
-            {/* Registration */}
-            <View>
-              <Text style={{ color: Colors.textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Registrering</Text>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                  color: Colors.textPrimary, fontSize: 14, fontFamily: 'Menlo', fontWeight: '700',
-                  paddingHorizontal: 10, paddingVertical: 9,
-                }}
-                value={f.reg}
-                onChangeText={(v) => updateForm(d.as_written, { reg: v.toUpperCase() })}
-                autoCapitalize="characters"
-                placeholder="SE-XXX"
-                placeholderTextColor={Colors.textMuted}
-              />
-            </View>
+            {/* Registration borttagen — hanteras per flygning, inte per typ */}
 
             {/* SP / MP / SE / ME */}
             <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -1075,13 +1137,15 @@ function FieldRowDate({ value, onChange, original }: { value: string; onChange: 
 
 // ── ICAO-fält med sökning ─────────────────────────────────────────────────────
 
-function FieldRowIcao({ label, value, onChange, original }: {
+function FieldRowIcao({ label, value, onChange, original, isUnknown, onMarkTemporary }: {
   label: string; value: string; onChange: (v: string) => void; original?: string;
+  isUnknown?: boolean; onMarkTemporary?: () => void;
 }) {
   const styles = makeStyles();
+  const { t } = useTranslation();
   const changed = original !== undefined && value !== original;
   return (
-    <View style={[styles.fieldRow, { alignItems: 'flex-start' }]}>
+    <View style={[styles.fieldRow, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
       <Text style={[styles.fieldLabel, { marginTop: 8 }]}>{label}</Text>
       <View style={{ flex: 1 }}>
         <IcaoInput
@@ -1091,6 +1155,24 @@ function FieldRowIcao({ label, value, onChange, original }: {
         />
       </View>
       {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
+      {isUnknown && onMarkTemporary && (
+        <TouchableOpacity
+          onPress={onMarkTemporary}
+          activeOpacity={0.75}
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 4,
+            marginTop: 4, paddingHorizontal: 10, paddingVertical: 6,
+            borderRadius: 8, backgroundColor: Colors.warning + '1F',
+            borderWidth: 0.5, borderColor: Colors.warning + '88',
+            width: '100%',
+          }}
+        >
+          <Ionicons name="location-outline" size={13} color={Colors.warning} />
+          <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '700', flex: 1 }}>
+            {value} — {t('mark_as_temporary')}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1162,6 +1244,119 @@ export default function ReviewScreen() {
   const [detections, setDetections] = useState<AircraftDetection[]>([]);
   const [aircraftConfirmed, setAircraftConfirmed] = useState(false);
 
+  // Batch-progress
+  const [batchTotal, setBatchTotal] = useState(0);
+  const [batchDone, setBatchDone] = useState(0);
+  const [batchRunning, setBatchRunning] = useState(false);
+  // Kalibrering: pausa efter sida 1 i batch för att lära sig rättningar
+  const [calibrationDone, setCalibrationDone] = useState(true); // true = ej batch eller kalibrering klar
+  const [page1RowCount, setPage1RowCount] = useState(0);
+  const [batchRemainder, setBatchRemainder] = useState<{ pages: any[]; prevContext: PageContext | undefined; allDetections: AircraftDetection[] } | null>(null);
+  // Detekterade sidnummer per skanning (för koppling till papperloggbok)
+  const [scannedPageNumbers, setScannedPageNumbers] = useState<{ left: number | null; right: number | null }[]>([]);
+  // Spara base64-bilder för popup-visning per rad
+  const [scanImages, setScanImages] = useState<string[]>([]);
+  const [popupImage, setPopupImage] = useState<{ base64: string; rowIndex: number; totalRows: number } | null>(null);
+
+  // Deduplicera aircraft-detektioner: om AI returnerar samma as_written flera gånger
+  // (t.ex. från olika rader eller sidor), slå ihop till en enda detektion.
+  const dedupeDetections = (dets: AircraftDetection[]): AircraftDetection[] => {
+    const map = new Map<string, AircraftDetection>();
+    for (const d of dets) {
+      const key = d.as_written.toUpperCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.rows = [...new Set([...existing.rows, ...d.rows])];
+        if (d.confidence > existing.confidence) {
+          existing.resolved = d.resolved;
+          existing.confidence = d.confidence;
+        }
+      } else {
+        map.set(key, { ...d, rows: [...d.rows] });
+      }
+    }
+    return Array.from(map.values());
+  };
+
+  // Detektera aritmetik i tidsfält (t.ex. "1.5 + 0.2") och föreslå summan
+  const resolveArithmetic = (data: OcrFlightResult): void => {
+    const timeFields: (keyof OcrFlightResult)[] = [
+      'total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night',
+      'instructor', 'picus', 'spic', 'nvg', 'multi_pilot', 'single_pilot',
+    ];
+    const addPattern = /^\s*(\d+[\.,]\d+)\s*\+\s*(\d+[\.,]\d+)\s*$/;
+    const issues = data.field_issues ? [...data.field_issues] : [];
+    for (const field of timeFields) {
+      const raw = String((data as any)[field] ?? '');
+      const match = raw.match(addPattern);
+      if (!match) continue;
+      const a = parseFloat(match[1].replace(',', '.'));
+      const b = parseFloat(match[2].replace(',', '.'));
+      if (isNaN(a) || isNaN(b)) continue;
+      const sum = Math.round((a + b) * 10) / 10;
+      // Ersätt värdet med summan men flagga för bekräftelse
+      (data as any)[field] = String(sum);
+      issues.push({
+        field: field as string,
+        reason: `AI läste "${raw}" — summan ${sum} har beräknats. Stämmer det?`,
+        confidence: 0.6,
+      });
+      data.needs_review = true;
+      data.review_reason = data.review_reason || 'Aritmetik i tidsfält';
+    }
+    data.field_issues = issues;
+  };
+
+  const flightsToRows = (flights: OcrFlightResult[]): ReviewRow[] =>
+    flights.map((f) => {
+      const data = { ...f };
+      resolveArithmetic(data);
+      // Auto-detect: dep_utc === arr_utc med total_time > 0 → en av tiderna är fel
+      const totalH = parseFloat(data.total_time) || 0;
+      if (data.dep_utc && data.arr_utc && data.dep_utc === data.arr_utc && totalH > 0 && !data.time_mismatch) {
+        const [dh, dm] = data.dep_utc.split(':').map(Number);
+        if (!isNaN(dh) && !isNaN(dm)) {
+          const depMin = dh * 60 + dm;
+          const totalMin = Math.round(totalH * 60);
+          const arrMin = depMin + totalMin;
+          const arrH = Math.floor(arrMin / 60) % 24;
+          const arrM = arrMin % 60;
+          const computedArr = `${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`;
+          const depFromArr = depMin - totalMin;
+          const depH2 = Math.floor(((depFromArr % 1440) + 1440) % 1440 / 60);
+          const depM2 = ((depFromArr % 1440) + 1440) % 1440 % 60;
+          const computedDep = `${String(depH2).padStart(2, '0')}:${String(depM2).padStart(2, '0')}`;
+          data.time_mismatch = {
+            anchor_total_h: totalH,
+            read_dep: data.dep_utc,
+            read_arr: data.arr_utc,
+            computed_arr_if_dep_correct: computedArr,
+            computed_dep_if_arr_correct: computedDep,
+          };
+          data.needs_review = true;
+          data.review_reason = data.review_reason || 'Dep och arr har samma tid — en måste vara fel';
+        }
+      }
+      // VFR-tid = total - IFR som default om inte explicit angett
+      const totalH = parseFloat(data.total_time) || 0;
+      const ifrH = parseFloat(data.ifr) || 0;
+      if (totalH > 0 && (!data.vfr || parseFloat(data.vfr) === 0)) {
+        data.vfr = String(Math.round(Math.max(0, totalH - ifrH) * 10) / 10);
+      }
+      // flight_rules baserat på IFR-tid
+      if (!data.flight_rules || data.flight_rules === 'VFR') {
+        data.flight_rules = ifrH > 0 ? (ifrH >= totalH ? 'IFR' : 'Y') : 'VFR';
+      }
+
+      const conf = data.overall_confidence ?? 0;
+      const issues = (data.field_issues ?? []).length;
+      const fastTrack = conf >= 0.95 && issues === 0 && !data.needs_review;
+      return { data, original: { ...f }, decision: fastTrack ? 'keep' : (data.needs_review ? 'pending' : 'keep') };
+    });
+
+  // Spara okända ICAO-koder som upptäcks under validering
+  const [unknownIcaos, setUnknownIcaos] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     getAllAircraftTypes().then((entries) => {
       const unique = Array.from(new Set(entries.map((e: any) => e.aircraft_type).filter(Boolean)));
@@ -1169,39 +1364,192 @@ export default function ReviewScreen() {
     });
   }, []);
 
-  useEffect(() => {
-    ocrScanLogbook(timeFormat)
-      .then(({ flights, pageTotals: pt, aircraftDetections }) => {
-        setDetections(aircraftDetections);
-        // Om inga detektioner eller bara en med hög konfidens kan vi hoppa över bekräftelsen
-        if (!aircraftDetections || aircraftDetections.length === 0) {
-          setAircraftConfirmed(true);
-        }
-        setRows(flights.map((f) => {
-          // Fast-track: hög konfidens + inga field_issues + ingen needs_review
-          // → auto-godkänn (decision='keep' direkt, behandlas som "keep")
-          const conf = f.overall_confidence ?? 0;
-          const issues = (f.field_issues ?? []).length;
-          const fastTrack = conf >= 0.95 && issues === 0 && !f.needs_review;
-          return {
-            data: { ...f },
-            original: { ...f },
-            decision: fastTrack ? 'keep' : (f.needs_review ? 'pending' : 'keep'),
-          };
-        }));
+  // Validera ICAO-koder mot databasen — flagga okända
+  const validateIcaoCodes = async (newRows: ReviewRow[]) => {
+    const icaoPattern = /^[A-Z]{4}$/;
+    const checked = new Set<string>();
+    const unknown = new Set<string>();
+    for (const row of newRows) {
+      for (const field of ['dep_place', 'arr_place'] as const) {
+        const code = (row.data[field] ?? '').toUpperCase();
+        if (!code || !icaoPattern.test(code) || checked.has(code)) continue;
+        checked.add(code);
+        const airport = await getAirportByIcao(code);
+        if (!airport) unknown.add(code);
+      }
+    }
+    if (unknown.size === 0) return;
+    setUnknownIcaos((prev) => new Set([...prev, ...unknown]));
+    // Flagga rader med okända koder
+    setRows((prev) => prev.map((r) => {
+      const depUnknown = unknown.has((r.data.dep_place ?? '').toUpperCase());
+      const arrUnknown = unknown.has((r.data.arr_place ?? '').toUpperCase());
+      if (!depUnknown && !arrUnknown) return r;
+      const issues = [...(r.data.field_issues ?? [])];
+      if (depUnknown && !issues.find((i) => i.field === 'dep_place')) {
+        issues.push({ field: 'dep_place', reason: `${r.data.dep_place} finns inte i ICAO-databasen — tillfällig plats?`, confidence: 0.3 });
+      }
+      if (arrUnknown && !issues.find((i) => i.field === 'arr_place')) {
+        issues.push({ field: 'arr_place', reason: `${r.data.arr_place} finns inte i ICAO-databasen — tillfällig plats?`, confidence: 0.3 });
+      }
+      return {
+        ...r,
+        data: { ...r.data, field_issues: issues, needs_review: true,
+          review_reason: r.data.review_reason || 'Okänd flygplatskod' },
+        decision: r.decision === 'keep' ? 'pending' : r.decision,
+      };
+    }));
+  };
 
-        if (pt.brought_forward !== null && pt.total_this_page !== null && pt.total_to_date !== null) {
-          const issue = validatePageTotals({
-            broughtForward: pt.brought_forward,
-            totalThisPage: pt.total_this_page,
-            totalToDate: pt.total_to_date,
-          });
-          if (issue) setPageWarning(issue.message);
+  // Batch-import: processera flera sidor sekventiellt med kontext-överföring
+  useEffect(() => {
+    const batch = getScanBatch();
+    if (batch.length > 1) {
+      // Batch-mode: processera sida 1 först, pausa för kalibrering
+      setBatchTotal(batch.length);
+      setBatchRunning(true);
+      setCalibrationDone(false);
+
+      (async () => {
+        let prevContext: PageContext | undefined;
+        let allDetections: AircraftDetection[] = [];
+
+        // --- Sida 1 ---
+        try {
+          const page = batch[0];
+          const result = await ocrScanPage(page.base64, page.mediaType, timeFormat, prevContext);
+          const newPageRows = flightsToRows(result.flights);
+          setRows(newPageRows);
+          setPage1RowCount(newPageRows.length);
+          validateIcaoCodes(newPageRows);
+          setScanImages([page.base64]);
+          allDetections = [...result.aircraftDetections];
+          setDetections(dedupeDetections(allDetections));
+          setScannedPageNumbers([result.pageNumbers]);
+          setBatchDone(1);
+          setScanning(false);
+
+          const lastFlight = result.flights[result.flights.length - 1];
+          if (lastFlight) {
+            prevContext = {
+              last_date: lastFlight.date,
+              last_aircraft_type: lastFlight.aircraft_type,
+              last_registration: lastFlight.registration,
+              last_dep_place: lastFlight.dep_place,
+              last_arr_place: lastFlight.arr_place,
+              page_number: 1,
+            };
+          }
+        } catch (e: any) {
+          setError(`Sida 1: ${e.message}`);
+          setBatchRunning(false);
+          clearScanImage();
+          return;
         }
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setScanning(false));
+
+        // Pausa — spara resterande sidor + kontext så useEffect kan fortsätta
+        if (allDetections.length === 0) setAircraftConfirmed(true);
+        setBatchRunning(false);
+        setBatchRemainder({ pages: batch.slice(1), prevContext, allDetections });
+      })();
+    } else {
+      // Enkelskanning — spara bild för popup
+      const singleImg = getScanBatch()[0];
+      if (singleImg) setScanImages([singleImg.base64]);
+      ocrScanLogbook(timeFormat)
+        .then(({ flights, pageTotals: pt, aircraftDetections, pageNumbers }) => {
+          const deduped = dedupeDetections(aircraftDetections);
+          setDetections(deduped);
+          if (!deduped || deduped.length === 0) setAircraftConfirmed(true);
+          const newRows = flightsToRows(flights);
+          setRows(newRows);
+          setScannedPageNumbers([pageNumbers]);
+          validateIcaoCodes(newRows);
+          if (pt.brought_forward !== null && pt.total_this_page !== null && pt.total_to_date !== null) {
+            const issue = validatePageTotals({ broughtForward: pt.brought_forward, totalThisPage: pt.total_this_page, totalToDate: pt.total_to_date });
+            if (issue) setPageWarning(issue.message);
+          }
+        })
+        .catch((e) => setError(e.message))
+        .finally(() => setScanning(false));
+    }
   }, []);
+
+  // Fortsätt batch-skanning efter kalibrering av sida 1
+  useEffect(() => {
+    if (!calibrationDone || !batchRemainder) return;
+    const { pages, prevContext: initCtx, allDetections: initDets } = batchRemainder;
+    setBatchRemainder(null);
+    setBatchRunning(true);
+
+    (async () => {
+      let prevContext = initCtx;
+      let allDetections = [...initDets];
+
+      for (let i = 0; i < pages.length; i++) {
+        try {
+          const page = pages[i];
+          const result = await ocrScanPage(page.base64, page.mediaType, timeFormat, prevContext);
+          const newPageRows = flightsToRows(result.flights);
+          setRows((prev) => [...prev, ...newPageRows]);
+          validateIcaoCodes(newPageRows);
+          setScanImages((prev) => [...prev, page.base64]);
+          allDetections = [...allDetections, ...result.aircraftDetections];
+          setDetections(dedupeDetections(allDetections));
+          setScannedPageNumbers((prev) => [...prev, result.pageNumbers]);
+          setBatchDone(i + 2); // +2 because page 1 is already done
+
+          const lastFlight = result.flights[result.flights.length - 1];
+          if (lastFlight) {
+            prevContext = {
+              last_date: lastFlight.date,
+              last_aircraft_type: lastFlight.aircraft_type,
+              last_registration: lastFlight.registration,
+              last_dep_place: lastFlight.dep_place,
+              last_arr_place: lastFlight.arr_place,
+              page_number: i + 2,
+            };
+          }
+        } catch (e: any) {
+          setError(`Sida ${i + 2}: ${e.message}`);
+          break;
+        }
+      }
+      setBatchRunning(false);
+      clearScanImage();
+    })();
+  }, [calibrationDone]);
+
+  // Hantera kalibrering: spara rättningar från sida 1 som learned mappings
+  const handleCalibrationConfirm = async () => {
+    const page1Rows = rows.slice(0, page1RowCount);
+    for (const row of page1Rows) {
+      // Jämför rättade fält mot originalet
+      if (row.data.aircraft_type && row.data.aircraft_type !== row.original.aircraft_type && row.original.aircraft_type) {
+        await saveLearnedMapping('aircraft_type', row.original.aircraft_type, row.data.aircraft_type);
+      }
+      if (row.data.dep_place && row.data.dep_place !== row.original.dep_place && row.original.dep_place) {
+        await saveLearnedMapping('icao', row.original.dep_place, row.data.dep_place);
+      }
+      if (row.data.arr_place && row.data.arr_place !== row.original.arr_place && row.original.arr_place) {
+        await saveLearnedMapping('icao', row.original.arr_place, row.data.arr_place);
+      }
+      if (row.data.second_pilot && row.data.second_pilot !== row.original.second_pilot && row.original.second_pilot) {
+        await saveLearnedMapping('second_pilot', row.original.second_pilot, row.data.second_pilot);
+      }
+      // Tidsfält — informativt
+      const timeFields: (keyof OcrFlightResult)[] = ['total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night', 'dep_utc', 'arr_utc'];
+      for (const field of timeFields) {
+        const orig = String(row.original[field] ?? '');
+        const curr = String(row.data[field] ?? '');
+        if (orig && curr && orig !== curr) {
+          await saveLearnedMapping('time_correction', orig, curr);
+        }
+      }
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCalibrationDone(true);
+  };
 
   const updateField = (idx: number, key: keyof OcrFlightResult, val: any) => {
     setRows((prev) => {
@@ -1220,6 +1568,11 @@ export default function ReviewScreen() {
       copy[idx] = { ...copy[idx], decision };
       return copy;
     });
+    if (decision === 'corrected' || decision === 'keep') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (decision === 'skip') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const toggleExpand = (idx: number) => {
@@ -1252,17 +1605,67 @@ export default function ReviewScreen() {
 
   const doSave = async () => {
     setSaving(true);
-    let saved = 0, skipped = 0;
+    let saved = 0, skipped = 0, duplicates = 0;
+    const savedFlightIds: number[] = [];
     try {
+      const db = await getDatabase();
       for (const row of rows) {
         if (row.decision === 'skip') { skipped++; continue; }
-        await insertFlight(row.data, { source: 'ocr', originalData: JSON.stringify(row.original) });
+        // #8: Duplicering-varning — kolla om exakt samma flygning redan finns
+        const dup = await db.getFirstAsync<{ id: number }>(
+          `SELECT id FROM flights WHERE date=? AND dep_place=? AND arr_place=? AND ABS(total_time - ?) < 0.05 LIMIT 1`,
+          [row.data.date, row.data.dep_place, row.data.arr_place, parseFloat(row.data.total_time) || 0],
+        );
+        if (dup) {
+          duplicates++;
+          continue; // hoppa automatiskt — dubbletten sparas inte
+        }
+        const id = await insertFlight(row.data, { source: 'ocr', originalData: JSON.stringify(row.original) });
+        if (id) savedFlightIds.push(id);
         saved++;
       }
+
+      // Spara okända ICAO-koder som tillfälliga landningsplatser
+      for (const icao of unknownIcaos) {
+        try { await addTemporaryPlace(icao, icao); } catch { /* redan tillagd */ }
+      }
+
+      // Koppla till aktiv papperloggbok om sidnummer detekterades
+      const book = await getActiveBook();
+      if (book && savedFlightIds.length > 0 && scannedPageNumbers.length > 0) {
+        const db = await getDatabase();
+        for (const pn of scannedPageNumbers) {
+          const leftPage = pn.left;
+          if (!leftPage) continue;
+          // Räkna ut spread_number från sidnummer: spread = (leftPage - startingPage) / 2 + 1
+          const spreadNumber = Math.floor((leftPage - book.starting_page) / 2) + 1;
+          if (spreadNumber <= 0) continue;
+          // Stämpla dessa flygningar (ungefärlig — vi tar de som sparats i denna session)
+          const placeholders = savedFlightIds.map(() => '?').join(',');
+          await db.runAsync(
+            `UPDATE flights SET book_id=?, spread_number=? WHERE id IN (${placeholders}) AND book_id=0`,
+            [book.id, spreadNumber, ...savedFlightIds],
+          );
+          // Uppdatera bokens transcribed_spreads om det är nytt spread
+          await db.runAsync(
+            `UPDATE logbook_books SET transcribed_spreads = MAX(transcribed_spreads, ?) WHERE id = ?`,
+            [spreadNumber, book.id],
+          );
+        }
+      }
+
       await Promise.all([loadFlights(), loadStats()]);
+
+      const pageLabel = scannedPageNumbers
+        .filter((p) => p.left)
+        .map((p) => `${p.left}–${p.right ?? (p.left! + 1)}`)
+        .join(', ');
+      const bookNote = pageLabel ? `\n📖 ${t('linked_to_book')}: ${book?.name ?? ''} · ${t('page')} ${pageLabel}` : '';
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         t('done_exclamation'),
-        `${saved} ${t('flights_saved')}${skipped > 0 ? ` ${skipped} ${t('skipped')}` : ''}`,
+        `${saved} ${t('flights_saved')}${skipped > 0 ? ` · ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` · ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
         [{ text: 'OK', onPress: () => router.dismissAll() }]
       );
     } finally {
@@ -1344,10 +1747,17 @@ export default function ReviewScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{rows.length} {t('rows_imported')}</Text>
           <Text style={styles.headerSub}>
-            {pendingLeft > 0
-              ? `${pendingLeft} ${t('requires_review')}`
-              : t('all_rows_approved')}
+            {batchRunning
+              ? `${t('batch_scanning')} ${batchDone}/${batchTotal}…`
+              : pendingLeft > 0
+                ? `${pendingLeft} ${t('requires_review')}`
+                : t('all_rows_approved')}
           </Text>
+          {batchTotal > 1 && (
+            <View style={{ height: 3, backgroundColor: Colors.elevated, borderRadius: 2, marginTop: 4 }}>
+              <View style={{ height: 3, borderRadius: 2, backgroundColor: batchRunning ? Colors.primary : Colors.success, width: `${(batchDone / batchTotal) * 100}%` }} />
+            </View>
+          )}
         </View>
         <TouchableOpacity
           style={[styles.saveBtn, (saving || rows.length === 0) && { opacity: 0.5 }]}
@@ -1359,6 +1769,59 @@ export default function ReviewScreen() {
             : <Text style={styles.saveBtnText}>{t('save')} {toSave}</Text>}
         </TouchableOpacity>
       </View>
+
+      {/* Kalibreringsbanner — visas efter sida 1 i batch, innan resterande sidor processas */}
+      {!calibrationDone && !batchRunning && batchTotal > 1 && (
+        <View style={{
+          marginHorizontal: 12, marginTop: 8, padding: 14, borderRadius: 12,
+          backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '55',
+          gap: 8,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="school" size={16} color={Colors.primary} />
+            <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>
+              {t('calibration_page_title')}
+            </Text>
+          </View>
+          <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
+            {t('calibration_page_body')}
+          </Text>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.primary, marginTop: 4,
+            }}
+            onPress={handleCalibrationConfirm}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="checkmark-circle" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
+              {t('calibration_confirm')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* #1: Allt klart — godkänn + spara i ett steg */}
+      {pendingLeft === 0 && rows.length > 0 && !batchRunning && !saving && (
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+            marginHorizontal: 12, marginTop: 8, paddingVertical: 12, borderRadius: 12,
+            backgroundColor: Colors.success,
+          }}
+          onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            doSave();
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="checkmark-done" size={18} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
+            {t('save_all_verified')} ({toSave})
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Batch-godkänn verifierade (hög konfidens, tomma field_issues) */}
       {(() => {
@@ -1416,6 +1879,7 @@ export default function ReviewScreen() {
             </Text>
             {flagged.map((row) => {
               const idx = rows.indexOf(row);
+              const pageIdx = Math.min(Math.floor(idx / 12), scanImages.length - 1);
               return (
                 <FlaggedCard
                   key={idx}
@@ -1425,6 +1889,12 @@ export default function ReviewScreen() {
                   onDecision={(d) => setDecision(idx, d)}
                   timeFormat={timeFormat}
                   savedAircraftTypes={savedAircraftTypes}
+                  prevRow={idx > 0 ? rows[idx - 1] : undefined}
+                  onShowImage={scanImages[pageIdx] ? () => setPopupImage({
+                    base64: scanImages[pageIdx],
+                    rowIndex: idx % 12,
+                    totalRows: 12,
+                  }) : undefined}
                 />
               );
             })}
@@ -1453,6 +1923,7 @@ export default function ReviewScreen() {
                           onDecision={(d) => setDecision(idx, d)}
                           timeFormat={timeFormat}
                           savedAircraftTypes={savedAircraftTypes}
+                          prevRow={idx > 0 ? rows[idx - 1] : undefined}
                         />
                       </View>
                     )}
@@ -1463,6 +1934,44 @@ export default function ReviewScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* #5: Bild-popup — visar den relevanta raden från skannad bild */}
+      {popupImage && (
+        <Modal transparent visible animationType="fade" onRequestClose={() => setPopupImage(null)}>
+          <Pressable
+            style={{ flex: 1, backgroundColor: '#000000CC', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+            onPress={() => setPopupImage(null)}
+          >
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxHeight: 200 }}>
+              <View style={{ borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '88' }}>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${popupImage.base64}` }}
+                  style={{
+                    width: '100%',
+                    height: 900,
+                    // Visa bara den relevanta raddelen: header ~15%, varje rad ~(85%/totalRows)
+                    marginTop: -(0.15 * 900 + popupImage.rowIndex * (0.85 * 900 / popupImage.totalRows) - 20),
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                marginTop: 10,
+              }}>
+                <View style={{
+                  backgroundColor: Colors.primary, borderRadius: 8,
+                  paddingHorizontal: 14, paddingVertical: 8,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>
+                    Rad {popupImage.rowIndex + 1} — tryck för att stänga
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }

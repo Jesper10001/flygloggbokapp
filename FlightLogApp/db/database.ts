@@ -238,6 +238,19 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'book_id',       `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'spread_number', `INTEGER NOT NULL DEFAULT 0`);
 
+  // AI-inlärning: sparar bekräftade mappningar så nästa skanning blir bättre
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS ocr_learned (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL,
+      raw_text TEXT NOT NULL,
+      resolved_value TEXT NOT NULL,
+      confidence REAL NOT NULL DEFAULT 1.0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(category, raw_text)
+    );
+  `);
+
   // scan_summaries: ersätt enkelt name-fält med book_name + page_name
   await addColumnIfMissingOnTable(db, 'scan_summaries', 'book_name', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissingOnTable(db, 'scan_summaries', 'page_name', `TEXT NOT NULL DEFAULT ''`);
