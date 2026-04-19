@@ -825,6 +825,23 @@ function AircraftConfirmation({
       const f = forms[d.as_written]; if (!f) continue;
       const typeUpper = f.type.trim().toUpperCase();
       if (!typeUpper) continue;
+      // Hämta bild från Wikipedia för luftfartyget
+      let imgUrl = '';
+      try {
+        const searchTerm = encodeURIComponent(`${typeUpper} aircraft`);
+        const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=480&format=json&origin=*`);
+        if (wikiRes.ok) {
+          const wikiData = await wikiRes.json();
+          const pages = wikiData.query?.pages;
+          if (pages) {
+            for (const id of Object.keys(pages)) {
+              const thumb = pages[id]?.thumbnail?.source;
+              if (thumb) { imgUrl = thumb; break; }
+            }
+          }
+        }
+      } catch { /* bild-hämtning frivillig */ }
+
       await addAircraftTypeToRegistry(
         typeUpper,
         parseInt(f.speed) || 0,
@@ -832,6 +849,7 @@ function AircraftConfirmation({
         Array.from(f.crewTypes).sort().join(','),
         f.category,
         f.engineType,
+        imgUrl,
       );
       // Spara handstils-mappning: "Bell206" → "B206"
       if (d.as_written && d.as_written !== typeUpper) {
@@ -1338,14 +1356,14 @@ export default function ReviewScreen() {
         }
       }
       // VFR-tid = total - IFR som default om inte explicit angett
-      const totalH = parseFloat(data.total_time) || 0;
+      const totalHvfr = parseFloat(data.total_time) || 0;
       const ifrH = parseFloat(data.ifr) || 0;
-      if (totalH > 0 && (!data.vfr || parseFloat(data.vfr) === 0)) {
-        data.vfr = String(Math.round(Math.max(0, totalH - ifrH) * 10) / 10);
+      if (totalHvfr > 0 && (!data.vfr || parseFloat(data.vfr) === 0)) {
+        data.vfr = String(Math.round(Math.max(0, totalHvfr - ifrH) * 10) / 10);
       }
       // flight_rules baserat på IFR-tid
       if (!data.flight_rules || data.flight_rules === 'VFR') {
-        data.flight_rules = ifrH > 0 ? (ifrH >= totalH ? 'IFR' : 'Y') : 'VFR';
+        data.flight_rules = ifrH > 0 ? (ifrH >= totalHvfr ? 'IFR' : 'Y') : 'VFR';
       }
 
       const conf = data.overall_confidence ?? 0;

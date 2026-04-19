@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Text } from 'react-native';
+import { BladesTabIcon } from '../../components/BladesTabIcon';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
@@ -39,9 +40,9 @@ export default function TabsLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.tabIconDefault,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
-        headerStyle: { backgroundColor: Colors.surface },
-        headerTintColor: Colors.textPrimary,
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+        headerShown: true,
+        headerTitle: '',
+        headerStyle: { backgroundColor: Colors.background },
         headerShadowVisible: false,
       }}
     >
@@ -53,12 +54,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
-          headerTitle: () => (
-            <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 }}>
-              BLADES · Flight logbook
-            </Text>
-          ),
-          headerTitleAlign: 'left',
         }}
       />
       <Tabs.Screen
@@ -75,11 +70,10 @@ export default function TabsLayout() {
         name="scan"
         options={{
           href: isDrone ? null : undefined,
-          title: t('tab_scan'),
-          tabBarBadge: scanBadge ? '!' : undefined,
-          tabBarBadgeStyle: { backgroundColor: Colors.primary, fontSize: 10 },
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera" size={size} color={color} />
+          title: '',
+          tabBarLabel: () => null,
+          tabBarIcon: ({ size, focused }) => (
+            <BladesTabIcon size={size + 4} focused={focused} />
           ),
         }}
       />
@@ -91,12 +85,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
-          headerTitle: () => (
-            <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 }}>
-              BLADES · Drone logbook
-            </Text>
-          ),
-          headerTitleAlign: 'left',
         }}
       />
       <Tabs.Screen

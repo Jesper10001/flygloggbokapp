@@ -732,7 +732,7 @@ export default function SettingsScreen() {
       {/* About */}
       <Text style={styles.sectionTitle}>{t('about')}</Text>
       <View style={styles.card}>
-        <SettingsRow icon="information-circle" label="Blades" sub="Version 1.0.0 · EASA FCL.050" />
+        <SettingsRow icon="information-circle" label="Blades" sub="Version 1.0.0" />
         <SettingsRow icon="shield-checkmark" label="Local data storage" sub="All data on your device — nothing in the cloud without your permission" />
         <SettingsRow
           icon="mail"

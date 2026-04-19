@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
+import { getActiveBook, getSpreadsForBook, type LogbookBook, type SpreadInfo } from '../../db/logbookBooks';
 import { useScanQuotaStore, MONTHLY_QUOTA, MONTHLY_SUMMARIZE_QUOTA, SCAN_PACKS } from '../../store/scanQuotaStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
@@ -52,6 +53,107 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     content: { padding: 20, paddingBottom: 40, gap: 14 },
+
+    hubCard: {
+      backgroundColor: Colors.card,
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: Colors.cardBorder,
+      gap: 10,
+    },
+    hubIconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    hubIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: Colors.primary + '1F',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: Colors.primary + '55',
+    },
+    hubTitle: {
+      color: Colors.textPrimary,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    hubSub: {
+      color: Colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    hubSectionTitle: {
+      color: Colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    hubOptionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: Colors.card,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 0.5,
+      borderColor: Colors.cardBorder,
+    },
+    hubOptionIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: Colors.primary + '1A',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: Colors.primary + '44',
+    },
+    hubOptionTitle: {
+      color: Colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    hubOptionSub: {
+      color: Colors.textSecondary,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    premiumBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: Colors.gold + '1F',
+      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderWidth: 0.5,
+      borderColor: Colors.gold + '66',
+    },
+    premiumBadgeText: {
+      color: Colors.gold,
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+    freeBadge: {
+      backgroundColor: Colors.success + '1F',
+      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderWidth: 0.5,
+      borderColor: Colors.success + '66',
+    },
+    freeBadgeText: {
+      color: Colors.success,
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
 
     modeRow: {
       flexDirection: 'row',
@@ -271,6 +373,110 @@ function makeStyles() {
     },
     upgradeBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
   });
+}
+
+function TranscribeSection() {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const styles = makeStyles();
+  const [book, setBook] = useState<LogbookBook | null>(null);
+  const [spreads, setSpreads] = useState<SpreadInfo[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const b = await getActiveBook();
+      setBook(b);
+      if (b) setSpreads(await getSpreadsForBook(b));
+    })();
+  }, []);
+
+  const currentSpread = spreads.find((s) => s.is_current);
+  const ready = book && currentSpread && currentSpread.flights.length >= (book.rows_per_spread ?? 12);
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Text style={styles.hubSectionTitle}>{t('hub_output_title')}</Text>
+
+      {!book ? (
+        <TouchableOpacity
+          style={styles.hubOptionCard}
+          onPress={() => router.push('/settings/logbook-books')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.hubOptionIcon}>
+            <Ionicons name="add-circle" size={24} color={Colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.hubOptionTitle}>{t('add_logbook_book')}</Text>
+            <Text style={styles.hubOptionSub}>{t('transcribe_no_book_hint')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
+      ) : (
+        <View style={{
+          backgroundColor: Colors.card, borderRadius: 14, borderWidth: 0.5,
+          borderColor: Colors.cardBorder, overflow: 'hidden',
+        }}>
+          {/* Boknamn + status */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            padding: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+          }}>
+            <Ionicons name="book" size={18} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '800' }}>{book.name}</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 1 }}>
+                {spreads.length} {t('spreads_available')}
+              </Text>
+            </View>
+            {ready && (
+              <View style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ color: Colors.textInverse, fontSize: 10, fontWeight: '800' }}>{t('ready')}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Uppslag-lista */}
+          {spreads.map((s) => (
+            <TouchableOpacity
+              key={s.spread_number}
+              style={{
+                flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10,
+                borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+                backgroundColor: s.is_current ? Colors.primary + '0E' : 'transparent',
+              }}
+              onPress={() => router.push(`/transcribe?spread=${s.spread_number}` as any)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={s.is_current ? 'create-outline' : 'checkmark-circle'}
+                size={18} color={s.is_current ? Colors.primary : Colors.success}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                  {t('page')} {s.page_left}–{s.page_right}
+                </Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 1 }}>
+                  {s.is_current ? t('transcribe_current') : t('transcribe_past')}
+                  {' · '}{s.flights.length}/{book.rows_per_spread} {t('flights').toLowerCase()}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+
+          {/* Hantera böcker */}
+          <TouchableOpacity
+            style={{ padding: 12, alignItems: 'center' }}
+            onPress={() => router.push('/settings/logbook-books')}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('manage_books')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 }
 
 function SummaryResult({ summary, onReset, onSave }: { summary: PageSummary; onReset: () => void; onSave?: () => void }) {
@@ -596,6 +802,9 @@ export default function ScanScreen() {
   const displayMonthly = isImport ? monthly : summarize;
   const barWidth = `${(displayMonthly / displayQuota) * 100}%` as any;
 
+  // Hub-state: null = visa tre val, 'scan' | 'import' | 'output' = visa undersida
+  const [hubMode, setHubMode] = useState<null | 'scan' | 'digital' | 'output'>(null);
+
   // ── Huvud ─────────────────────────────────────────────────────────────────
   return (
     <ScrollView
@@ -606,144 +815,199 @@ export default function ScanScreen() {
       automaticallyAdjustKeyboardInsets
     >
 
-      {/* Mode switcher */}
-      <View style={styles.modeRow}>
-        <TouchableOpacity
-          style={[styles.modeBtn, mode === 'summarize' && styles.modeBtnActive]}
-          onPress={() => switchMode('summarize')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="calculator-outline" size={16} color={mode === 'summarize' ? Colors.textInverse : Colors.textSecondary} />
-          <Text style={[styles.modeBtnText, mode === 'summarize' && styles.modeBtnTextActive]}>{t('summarise_page')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeBtn, mode === 'import' && styles.modeBtnActive]}
-          onPress={() => switchMode('import')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="cloud-upload-outline" size={16} color={mode === 'import' ? Colors.textInverse : Colors.textSecondary} />
-          <Text style={[styles.modeBtnText, mode === 'import' && styles.modeBtnTextActive]}>{t('import_to_app')}</Text>
-        </TouchableOpacity>
-      </View>
+      {/* ── HUB: tre huvudval ── */}
+      {hubMode === null && (
+        <View style={{ gap: 12 }}>
+          {/* 1. Loggbok → App — denna sätts först */}
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => { setHubMode('scan'); switchMode('import'); }}
+            activeOpacity={0.85}
+          >
+            <View style={styles.hubIconRow}>
+              <View style={styles.hubIcon}><Ionicons name="book" size={22} color={Colors.primary} /></View>
+              <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+              <View style={styles.hubIcon}><Ionicons name="phone-portrait" size={22} color={Colors.primary} /></View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.hubTitle}>{t('hub_scan_title')}</Text>
+              <View style={styles.premiumBadge}>
+                <Ionicons name="star" size={9} color={Colors.gold} />
+                <Text style={styles.premiumBadgeText}>Premium</Text>
+              </View>
+            </View>
+            <Text style={styles.hubSub}>{t('hub_scan_sub')}</Text>
+          </TouchableOpacity>
 
-      {/* Kvotbanner */}
-      {loaded && (
-        <View style={styles.quotaCard}>
-          <View style={styles.quotaRow}>
-            <View style={styles.quotaLeft}>
-              <Text style={[styles.quotaCount, displayTotal === 0 && styles.quotaCountEmpty]}>
-                {displayTotal === 0 ? 'Inga skanningar kvar' : `${displayTotal} skanning${displayTotal === 1 ? '' : 'ar'} kvar`}
-              </Text>
-              <Text style={styles.quotaSub}>
-                {displayMonthly}/{displayQuota} månadskvot
-                {isImport && extraScans > 0 ? ` · +${extraScans} köpta` : ''}
+          {/* 2. App → App */}
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => setHubMode('digital')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.hubIconRow}>
+              <View style={styles.hubIcon}><Ionicons name="document-text" size={22} color={Colors.primary} /></View>
+              <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+              <View style={styles.hubIcon}><Ionicons name="phone-portrait" size={22} color={Colors.primary} /></View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.hubTitle}>{t('hub_digital_title')}</Text>
+              <View style={styles.freeBadge}>
+                <Text style={styles.freeBadgeText}>{t('free_badge')}</Text>
+              </View>
+            </View>
+            <Text style={styles.hubSub}>{t('hub_digital_sub')}</Text>
+          </TouchableOpacity>
+
+          {/* 3. App → Loggbok */}
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => setHubMode('output')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.hubIconRow}>
+              <View style={styles.hubIcon}><Ionicons name="phone-portrait" size={22} color={Colors.primary} /></View>
+              <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+              <View style={styles.hubIcon}><Ionicons name="book" size={22} color={Colors.primary} /></View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.hubTitle}>{t('hub_output_title')}</Text>
+              <View style={styles.premiumBadge}>
+                <Ionicons name="star" size={9} color={Colors.gold} />
+                <Text style={styles.premiumBadgeText}>Premium</Text>
+              </View>
+            </View>
+            <Text style={styles.hubSub}>{t('hub_output_sub')}</Text>
+          </TouchableOpacity>
+
+          {/* Varning — internet + databehandling */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+            backgroundColor: Colors.elevated, borderRadius: 12, padding: 14,
+            borderWidth: 0.5, borderColor: Colors.border,
+          }}>
+            <Ionicons name="information-circle-outline" size={18} color={Colors.textMuted} style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textSecondary, fontSize: 11, lineHeight: 16 }}>
+                {t('hub_ai_disclaimer')}
               </Text>
             </View>
-            {isImport && (
-              <TouchableOpacity style={styles.buyMoreBtn} onPress={() => setShowBuyModal(true)} activeOpacity={0.8}>
-                <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
-                <Text style={styles.buyMoreText}>Köp fler</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <View style={styles.quotaBarBg}>
-            <View style={[styles.quotaBarFill, { width: barWidth }, total === 0 && styles.quotaBarEmpty]} />
           </View>
         </View>
       )}
 
-      {/* Description */}
-      <Text style={styles.subtitle}>
-        {mode === 'import' ? t('scan_import_desc') : t('scan_summarise_desc')}
-      </Text>
-
-      {/* ── Notisbanner (Summarise-läge) ── */}
-      {mode === 'summarize' && scanBadge && (
-        <View style={styles.badgeBanner}>
-          <Ionicons name="notifications" size={16} color={Colors.primary} />
-          <Text style={styles.badgeBannerText}>Dags att summera nästa blad! Du har loggat {PAGE_SIZE}+ flygningar sedan senaste summering.</Text>
-        </View>
+      {/* ── Tillbaka-knapp på undersidor ── */}
+      {hubMode !== null && (
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}
+          onPress={() => { setHubMode(null); reset(); }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '700' }}>{t('back')}</Text>
+        </TouchableOpacity>
       )}
 
-      {/* Bildresultat (summera-läge) */}
-      {summary ? (
-        <SummaryResult summary={summary} onReset={reset} onSave={() => { setSaveBookName(''); setSavePageName(''); setShowSaveModal(true); }} />
-      ) : !imageUri && mode === 'import' ? (
-        /* ── Import-läge: tydlig val mellan kamera (1 sida) och bibliotek (1–5 sidor) ── */
+      {/* ═══════ 1. LOGGBOK → APP (Skanna) ═══════ */}
+      {hubMode === 'scan' && !imageUri && (
         <View style={{ gap: 12 }}>
+          <Text style={styles.hubSectionTitle}>{t('hub_scan_title')}</Text>
           <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: Colors.card, borderRadius: 14, padding: 18,
-              borderWidth: 1, borderColor: Colors.primary + '88',
-            }}
-            onPress={() => pickImage(true)}
+            style={styles.hubOptionCard}
+            onPress={() => { switchMode('import'); pickImage(true); }}
             activeOpacity={0.8}
             disabled={working}
           >
-            <View style={{
-              width: 56, height: 56, borderRadius: 28,
-              backgroundColor: Colors.primary + '22',
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: 1, borderColor: Colors.primary + '55',
-            }}>
-              <Ionicons name="camera" size={28} color={Colors.primary} />
+            <View style={styles.hubOptionIcon}>
+              <Ionicons name="camera" size={24} color={Colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
-                {t('scan_camera_title')}
-              </Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                {t('scan_camera_sub')}
-              </Text>
+              <Text style={styles.hubOptionTitle}>{t('scan_camera_title')}</Text>
+              <Text style={styles.hubOptionSub}>{t('scan_camera_sub')}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: Colors.card, borderRadius: 14, padding: 18,
-              borderWidth: 1, borderColor: Colors.cardBorder,
-            }}
+            style={styles.hubOptionCard}
             onPress={handleBatchImport}
             activeOpacity={0.8}
             disabled={working}
           >
-            <View style={{
-              width: 56, height: 56, borderRadius: 28,
-              backgroundColor: Colors.primary + '14',
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: 1, borderColor: Colors.primary + '44',
-            }}>
-              <Ionicons name="images" size={28} color={Colors.primary} />
+            <View style={styles.hubOptionIcon}>
+              <Ionicons name="images" size={24} color={Colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
-                {t('scan_library_title')}
-              </Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                {t('scan_library_sub')}
-              </Text>
+              <Text style={styles.hubOptionTitle}>{t('scan_library_title')}</Text>
+              <Text style={styles.hubOptionSub}>{t('scan_library_sub')}</Text>
             </View>
-            {working && <ActivityIndicator size="small" color={Colors.primary} />}
-            {!working && <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />}
+            {working ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />}
           </TouchableOpacity>
         </View>
-      ) : !imageUri ? (
-        /* ── Summera-läge: enkel bildval ── */
-        <View style={styles.pickRow}>
-          <TouchableOpacity style={styles.pickBtn} onPress={() => pickImage(true)} activeOpacity={0.8}>
-            <Ionicons name="camera" size={32} color={Colors.primary} />
-            <Text style={styles.pickBtnText}>Camera</Text>
+      )}
+
+      {/* ═══════ 2. APP → APP (Digital import) ═══════ */}
+      {hubMode === 'digital' && (
+        <View style={{ gap: 12 }}>
+          <Text style={styles.hubSectionTitle}>{t('hub_digital_title')}</Text>
+          <TouchableOpacity
+            style={styles.hubOptionCard}
+            onPress={() => router.push('/import')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.hubOptionIcon}>
+              <Ionicons name="cloud-upload" size={24} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubOptionTitle}>{t('import_csv_title')}</Text>
+              <Text style={styles.hubOptionSub}>{t('import_csv_sub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.pickBtn} onPress={() => pickImage(false)} activeOpacity={0.8}>
-            <Ionicons name="images" size={32} color={Colors.primary} />
-            <Text style={styles.pickBtnText}>Photo library</Text>
+          <TouchableOpacity
+            style={styles.hubOptionCard}
+            onPress={() => router.push('/import/manual')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.hubOptionIcon}>
+              <Ionicons name="create" size={24} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubOptionTitle}>{t('import_manual_title')}</Text>
+              <Text style={styles.hubOptionSub}>{t('import_manual_sub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
-      ) : (
-        /* ── Förhandsvisning (kamera-bild tagen) ── */
+      )}
+
+      {/* ═══════ 3. APP → LOGGBOK (Summera + Transkribera) ═══════ */}
+      {hubMode === 'output' && !imageUri && !summary && (
+        <>
+          <TranscribeSection />
+          <TouchableOpacity
+            style={styles.hubOptionCard}
+            onPress={() => { switchMode('summarize'); pickImage(true); }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.hubOptionIcon}>
+              <Ionicons name="calculator" size={24} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hubOptionTitle}>{t('summarise_page_title')}</Text>
+              <Text style={styles.hubOptionSub}>{t('summarise_page_sub')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* ═══════ Summering-resultat (output-läge) ═══════ */}
+      {(hubMode === 'output' || hubMode === 'scan') && summary && (
+        <SummaryResult summary={summary} onReset={reset} onSave={() => { setSaveBookName(''); setSavePageName(''); setShowSaveModal(true); }} />
+      )}
+
+      {/* ═══════ Förhandsvisning av tagen bild (scan eller summera) ═══════ */}
+      {(hubMode === 'scan' || hubMode === 'output') && imageUri && !summary && (
         <>
           <View style={styles.previewContainer}>
             <Image
@@ -792,8 +1056,8 @@ export default function ScanScreen() {
         </>
       )}
 
-      {/* Tips */}
-      {!summary && (
+      {/* Tips — visas bara på undersidor, inte på hubben */}
+      {!summary && hubMode !== null && (
         <View style={styles.tipsCard}>
           <Text style={styles.tipsTitle}>Tips for best results</Text>
           {[

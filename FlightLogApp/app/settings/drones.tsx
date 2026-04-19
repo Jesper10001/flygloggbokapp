@@ -280,6 +280,13 @@ function DroneFormModal({
                   <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '800' }}>
                     {scanning ? t('drone_scan_loading') : t('drone_scan_camera')}
                   </Text>
+                  <View style={{
+                    backgroundColor: Colors.gold + '22', borderRadius: 4,
+                    paddingHorizontal: 4, paddingVertical: 1,
+                    borderWidth: 0.5, borderColor: Colors.gold + '66',
+                  }}>
+                    <Text style={{ color: Colors.gold, fontSize: 7, fontWeight: '800' }}>★</Text>
+                  </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{
@@ -295,6 +302,13 @@ function DroneFormModal({
                   <Text style={{ color: Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>
                     {t('drone_scan_library')}
                   </Text>
+                  <View style={{
+                    backgroundColor: Colors.gold + '22', borderRadius: 4,
+                    paddingHorizontal: 4, paddingVertical: 1,
+                    borderWidth: 0.5, borderColor: Colors.gold + '66',
+                  }}>
+                    <Text style={{ color: Colors.gold, fontSize: 7, fontWeight: '800' }}>★</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}

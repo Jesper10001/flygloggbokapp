@@ -617,18 +617,20 @@ export async function addAircraftTypeToRegistry(
   crewType = '',
   category = '',
   engineType = '',
+  imageUrl = '',
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type, category, engine_type)
-     VALUES (?, '', ?, ?, ?, ?, ?)
+    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type, category, engine_type, image_url)
+     VALUES (?, '', ?, ?, ?, ?, ?, ?)
      ON CONFLICT(aircraft_type, registration) DO UPDATE SET
        cruise_speed_kts=CASE WHEN excluded.cruise_speed_kts>0 THEN excluded.cruise_speed_kts ELSE cruise_speed_kts END,
        endurance_h=CASE WHEN excluded.endurance_h>0 THEN excluded.endurance_h ELSE endurance_h END,
        crew_type=CASE WHEN excluded.crew_type!='' THEN excluded.crew_type ELSE crew_type END,
        category=CASE WHEN excluded.category!='' THEN excluded.category ELSE category END,
-       engine_type=CASE WHEN excluded.engine_type!='' THEN excluded.engine_type ELSE engine_type END`,
-    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType, category, engineType]
+       engine_type=CASE WHEN excluded.engine_type!='' THEN excluded.engine_type ELSE engine_type END,
+       image_url=CASE WHEN excluded.image_url!='' THEN excluded.image_url ELSE image_url END`,
+    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType, category, engineType, imageUrl]
   );
 }
 
@@ -682,6 +684,7 @@ export type AircraftRegistryEntry = {
   crew_type: string;
   category: string;
   engine_type: string;
+  image_url: string;
   reg_count: number;
   total_hours: number;
   top_registration: string;
@@ -698,6 +701,7 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.crew_type) as crew_type,
            MAX(ar.category) as category,
            MAX(ar.engine_type) as engine_type,
+           MAX(ar.image_url) as image_url,
            COUNT(CASE WHEN ar.registration != '' THEN 1 END) as reg_count,
            COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
            COUNT(f.id) as flight_count,

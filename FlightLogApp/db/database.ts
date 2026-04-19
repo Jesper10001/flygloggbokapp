@@ -190,6 +190,7 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'category', "TEXT NOT NULL DEFAULT ''");
   // Motortyp: '' = okänd | 'se' = single engine | 'me' = multi engine
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'engine_type', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'image_url', "TEXT NOT NULL DEFAULT ''");
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 

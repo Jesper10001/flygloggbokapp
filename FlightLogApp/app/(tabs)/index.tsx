@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
-import { EASA_CPL_REQUIREMENTS, EASA_ATPL_REQUIREMENTS, FREE_TIER_LIMIT } from '../../constants/easa';
+import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FlightChart } from '../../components/FlightChart';
@@ -146,32 +146,6 @@ function makeStyles() {
       lineHeight: 15,
     },
 
-    easaCard: {
-      backgroundColor: Colors.card,
-      borderRadius: 10,
-      padding: 16,
-      gap: 16,
-      borderWidth: 0.5,
-      borderColor: Colors.border,
-    },
-    progressRow: { gap: 6 },
-    progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-    progressLabel: { color: Colors.textSecondary, fontSize: 13 },
-    progressValue: {
-      color: Colors.textPrimary,
-      fontSize: 12,
-      fontWeight: '600',
-      fontFamily: 'Menlo',
-      fontVariant: ['tabular-nums'],
-    },
-    progressTrack: {
-      height: 4,
-      backgroundColor: Colors.separator,
-      borderRadius: 2,
-      overflow: 'hidden',
-    },
-    progressFill: { height: '100%', borderRadius: 2 },
-
     premiumBanner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -199,36 +173,6 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
       <Text style={[styles.statValue, accent && styles.statValueAccent]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
       {sub ? <Text style={styles.statSub}>{sub}</Text> : null}
-    </View>
-  );
-}
-
-function ProgressBar({ label, current, required, color = Colors.primary }: {
-  label: string;
-  current: number;
-  required: number;
-  color?: string;
-}) {
-  const styles = makeStyles();
-  const { formatTime } = useTimeFormat();
-  const pct = Math.min((current / required) * 100, 100);
-  const done = current >= required;
-  return (
-    <View style={styles.progressRow}>
-      <View style={styles.progressHeader}>
-        <Text style={styles.progressLabel}>{label}</Text>
-        <Text style={[styles.progressValue, done && { color: Colors.success }]}>
-          {formatTime(current)} / {required}h
-        </Text>
-      </View>
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${pct}%` as any, backgroundColor: done ? Colors.success : color },
-          ]}
-        />
-      </View>
     </View>
   );
 }
@@ -496,62 +440,6 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>{t('statistics')}</Text>
           <FlightChart />
 
-          {/* EASA CPL */}
-          {isPremium && (
-            <>
-              <Text style={styles.sectionTitle}>{t('easa_cpl_requirements')}</Text>
-              <View style={styles.easaCard}>
-                <ProgressBar
-                  label={EASA_CPL_REQUIREMENTS.total_flight_time.label}
-                  current={s?.total_time ?? 0}
-                  required={EASA_CPL_REQUIREMENTS.total_flight_time.required}
-                />
-                <ProgressBar
-                  label={EASA_CPL_REQUIREMENTS.pic.label}
-                  current={s?.total_pic ?? 0}
-                  required={EASA_CPL_REQUIREMENTS.pic.required}
-                />
-                <ProgressBar
-                  label={EASA_CPL_REQUIREMENTS.instrument_time.label}
-                  current={s?.total_ifr ?? 0}
-                  required={EASA_CPL_REQUIREMENTS.instrument_time.required}
-                />
-                <ProgressBar
-                  label={EASA_CPL_REQUIREMENTS.night_flight.label}
-                  current={s?.total_night ?? 0}
-                  required={EASA_CPL_REQUIREMENTS.night_flight.required}
-                />
-              </View>
-
-              <Text style={styles.sectionTitle}>{t('easa_atpl_requirements')}</Text>
-              <View style={styles.easaCard}>
-                <ProgressBar
-                  label={EASA_ATPL_REQUIREMENTS.total_flight_time.label}
-                  current={s?.total_time ?? 0}
-                  required={EASA_ATPL_REQUIREMENTS.total_flight_time.required}
-                  color={Colors.gold}
-                />
-                <ProgressBar
-                  label={EASA_ATPL_REQUIREMENTS.pic.label}
-                  current={s?.total_pic ?? 0}
-                  required={EASA_ATPL_REQUIREMENTS.pic.required}
-                  color={Colors.gold}
-                />
-                <ProgressBar
-                  label={EASA_ATPL_REQUIREMENTS.instrument_time.label}
-                  current={s?.total_ifr ?? 0}
-                  required={EASA_ATPL_REQUIREMENTS.instrument_time.required}
-                  color={Colors.gold}
-                />
-                <ProgressBar
-                  label={EASA_ATPL_REQUIREMENTS.night_flight.label}
-                  current={s?.total_night ?? 0}
-                  required={EASA_ATPL_REQUIREMENTS.night_flight.required}
-                  color={Colors.gold}
-                />
-              </View>
-            </>
-          )}
 
           {!isPremium && (
             <TouchableOpacity
