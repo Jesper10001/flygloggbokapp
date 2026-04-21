@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
@@ -599,6 +599,7 @@ function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void 
 export default function ScanScreen() {
   const styles = makeStyles();
   const router = useRouter();
+  const params = useLocalSearchParams<{ summarize?: string }>();
   const { isPremium, flightCount } = useFlightStore();
   const { t } = useTranslation();
   const {
@@ -683,7 +684,12 @@ export default function ScanScreen() {
     if (!imageUri) return null;
     const actions: ImageManipulator.Action[] = [];
     if (rotation !== 0) actions.push({ rotate: rotation });
-    // Begränsa bredden till 2000px — behåller aspect ratio, räcker för OCR
+    // Steg 1: hämta original-dimensioner
+    const info = await ImageManipulator.manipulateAsync(imageUri, [], {});
+    const isPortrait = info.height > info.width;
+    // Auto-rotera stående bilder till liggande (loggböcker är alltid landscape)
+    if (isPortrait) actions.push({ rotate: 90 });
+    // Begränsa bredden till 2000px
     actions.push({ resize: { width: 2000 } });
     return ImageManipulator.manipulateAsync(
       imageUri,
@@ -722,9 +728,14 @@ export default function ScanScreen() {
 
       const images: { base64: string; mediaType: 'image/jpeg' | 'image/png' }[] = [];
       for (const asset of result.assets) {
+        // Kolla om bilden är stående → rotera till liggande
+        const info = await ImageManipulator.manipulateAsync(asset.uri, [], {});
+        const actions: ImageManipulator.Action[] = [];
+        if (info.height > info.width) actions.push({ rotate: 90 });
+        actions.push({ resize: { width: 2000 } });
         const prepared = await ImageManipulator.manipulateAsync(
           asset.uri,
-          [{ resize: { width: 2000 } }],
+          actions,
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
         );
         if (prepared.base64) images.push({ base64: prepared.base64, mediaType: 'image/jpeg' });
@@ -805,6 +816,16 @@ export default function ScanScreen() {
   // Hub-state: null = visa tre val, 'scan' | 'import' | 'output' = visa undersida
   const [hubMode, setHubMode] = useState<null | 'scan' | 'digital' | 'output'>(null);
 
+  // Auto-start summarize when navigated with ?summarize=camera|library
+  const [didAutoStart, setDidAutoStart] = useState(false);
+  useEffect(() => {
+    if (!params.summarize || didAutoStart) return;
+    setDidAutoStart(true);
+    setMode('summarize');
+    setHubMode('output');
+    setTimeout(() => pickImage(params.summarize === 'camera'), 300);
+  }, [params.summarize, didAutoStart]);
+
   // ── Huvud ─────────────────────────────────────────────────────────────────
   return (
     <ScrollView
@@ -859,26 +880,6 @@ export default function ScanScreen() {
             <Text style={styles.hubSub}>{t('hub_digital_sub')}</Text>
           </TouchableOpacity>
 
-          {/* 3. App → Loggbok */}
-          <TouchableOpacity
-            style={styles.hubCard}
-            onPress={() => setHubMode('output')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.hubIconRow}>
-              <View style={styles.hubIcon}><Ionicons name="phone-portrait" size={22} color={Colors.primary} /></View>
-              <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
-              <View style={styles.hubIcon}><Ionicons name="book" size={22} color={Colors.primary} /></View>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.hubTitle}>{t('hub_output_title')}</Text>
-              <View style={styles.premiumBadge}>
-                <Ionicons name="star" size={9} color={Colors.gold} />
-                <Text style={styles.premiumBadgeText}>Premium</Text>
-              </View>
-            </View>
-            <Text style={styles.hubSub}>{t('hub_output_sub')}</Text>
-          </TouchableOpacity>
 
           {/* Varning — internet + databehandling */}
           <View style={{
@@ -980,26 +981,6 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* ═══════ 3. APP → LOGGBOK (Summera + Transkribera) ═══════ */}
-      {hubMode === 'output' && !imageUri && !summary && (
-        <>
-          <TranscribeSection />
-          <TouchableOpacity
-            style={styles.hubOptionCard}
-            onPress={() => { switchMode('summarize'); pickImage(true); }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.hubOptionIcon}>
-              <Ionicons name="calculator" size={24} color={Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hubOptionTitle}>{t('summarise_page_title')}</Text>
-              <Text style={styles.hubOptionSub}>{t('summarise_page_sub')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-        </>
-      )}
 
       {/* ═══════ Summering-resultat (output-läge) ═══════ */}
       {(hubMode === 'output' || hubMode === 'scan') && summary && (

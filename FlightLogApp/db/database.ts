@@ -235,6 +235,10 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Sista sida/rad i boken — när vi nått dit är boken full
+  await addColumnIfMissingOnTable(db, 'logbook_books', 'end_page', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissingOnTable(db, 'logbook_books', 'end_row', `INTEGER NOT NULL DEFAULT 0`);
+
   // Vilken papperbok + uppslag en flygning är transkriberad till (0 = ej skriven)
   await addColumnIfMissing(db, 'book_id',       `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'spread_number', `INTEGER NOT NULL DEFAULT 0`);

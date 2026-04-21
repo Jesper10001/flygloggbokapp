@@ -51,7 +51,19 @@ KOLUMNSTRUKTUR I EASA-LOGGBOK (vanlig ordning vänster→höger):
 6. Pilotuppgift: PIC / Co-pilot / Dual / Instructor
 7. Flygtider: Total / Natt / IFR
 8. Landningar: Dag / Natt
-9. Anmärkningar / Simulator
+9. Synthetic training session (simulator) — se nedan
+10. Anmärkningar
+
+SIMULATOR (Synthetic training session) — VIKTIGT:
+Om en rad har tid i kolumnen "Synthetic training session" (STD):
+- Raden är en SIMULATORSESSION, inte en flygning
+- Sätt flight_type = "sim"
+- Sätt total_time = STD-tiden (INTE från "Total time of flight" — den är 0 för sim)
+- Dep/arr-platser kan vara tomma eller angivna som sim-center
+- Returnera STD-tiden i fältet "total_time" så det loggas korrekt
+- PIC/co-pilot/dual gäller fortfarande — piloter loggar rolltid i sim också
+- Landningar: vanligtvis 0 för sim (ignorera om de ser konstiga ut)
+- AI ska INTE blanda ihop sim-tid med flygtid — de är separata
 
 LUFTFARTYGSTYP — viktigt:
 - Står ofta i en smal kolumn, kan vara förkortat: "C172", "PA-28", "B737", "A320", "TB20", "DA40"
@@ -84,6 +96,14 @@ FÖREGÅENDE raden som har ett verkligt värde (alfanumeriskt, icke-ditto,
 icke-tomt) för samma kolumn:
   -::-   "   "   ---   :--:   〃   〃〃   ''   ,,   ″   ″″   do.   do
 
+VANLIG FÖRVÄXLING — MYCKET VIKTIGT:
+Ditto-symbolen "-::-" ser EXTREMT lik ut som "-11-" i handskrift. Om du ser
+"-11-" eller "~11~" eller liknande i en kolumn där det INTE är rimligt med
+siffror (t.ex. aircraft_type, registration, dep_place, arr_place, date) — anta
+att det är en ditto-symbol (-::-) och lös den mot föregående rads värde.
+Generellt: om SAMMA markering upprepas på flera rader i följd och bara
+siffror/tider varierar, är det troligen ditto-symboler på de statiska fälten.
+
 REGLER:
 A. Kopiera HELA föregående värdet ordagrant — bokstav för bokstav. Blanda
    ALDRIG ihop bokstäver från olika rader, uppfinn inte nya koder.
@@ -112,6 +132,16 @@ ditto-symbolen som värde — alltid det lösta värdet.
 Om en ditto-symbol står på sidans första rad utan föregående värde, markera
 needs_review=true med reason="ditto utan föregående värde" och lämna fältet
 tomt.
+
+BOKSTAVSFÖRVÄXLINGAR I HANDSKRIFT — MYCKET VANLIGT:
+- A ↔ H (t.ex. ETAB ↔ ETHB, A109 ↔ H109)
+- A ↔ N (t.ex. ETHA ↔ ETHN, EDNA ↔ EDNA)
+- N ↔ H (t.ex. ETNB ↔ ETHB)
+- U ↔ V (t.ex. UH60 ↔ VH60)
+Om du läser en ICAO-kod och den inte finns som känd flygplats — försök byta
+A↔H, A↔N, N↔H och kontrollera om NÅGON variant är en känd flygplats. Om ja,
+använd den kända varianten som primärvärde och den ursprungligt lästa som
+suggested_value i field_issues. Flagga alltid för granskning.
 
 SIFFERVALIDERING — dessa förväxlas ofta i handskrift:
 - 1 och 7 (särskilt i flygtider och tider)
@@ -197,7 +227,12 @@ För varje rad, ange hur säker du är på totalt och på enskilda fält.
 
 2. field_issues: array med bara de fält som har hög osäkerhet. Format per fält:
    { "field": "aircraft_type", "reason": "suddig handstil, kan vara C172 eller G172",
-     "confidence": 0.55 }
+     "confidence": 0.55, "suggested_value": "C172" }
+
+   suggested_value: ditt alternativa förslag om du har en rimlig gissning.
+   Exempel: primärvärdet är "ETAB" men "ETHB" är en giltig ICAO-kod → suggested_value = "ETHB".
+   Exempel: tidsformat oklart, 08:20 primärt men kan vara 08:30 → suggested_value = "08:30".
+   Lämna tomt ("") om du inte har en alternativ tolkning.
 
    Inkludera ENDAST fält med confidence < 0.85. Hoppa över alla säkra fält.
    UI:t visar bara dessa fält vid review → användaren slipper leta efter vad
@@ -215,6 +250,28 @@ BILDORIENTERING:
 - Bilden kan vara roterad 90° (loggboken fotograferad stående eller liggande)
 - Läs texten oavsett orientering — rotera mentalt om nödvändigt
 - Om bilden är 90° roterad är kolumnerna horisontella istället för vertikala — anpassa läsningen
+
+BILD-METADATA (VIKTIGT — returnera alltid):
+Returnera fältet image_layout på toppnivå:
+{
+  "image_layout": {
+    "orientation": "landscape" | "portrait",
+    "logbook_bounds": {
+      "x_pct": 5,     // vänsterkant av loggboken i % av bildens bredd (0-100)
+      "y_pct": 10,    // överkant av loggboken i % av bildens höjd (0-100)
+      "w_pct": 90,    // loggbokens bredd i %
+      "h_pct": 80     // loggbokens höjd i %
+    }
+  }
+}
+Uppskatta var den fysiska loggboken börjar och slutar i bilden. Om bilden
+redan är croppat tight: {x_pct:0, y_pct:0, w_pct:100, h_pct:100}.
+
+För VARJE flygningsrad, returnera ungefärlig position i bilden:
+  "row_y_pct": 35    // radans vertikala mitt i % av bildhöjden (0=överst, 100=underst)
+
+För varje field_issue, returnera ungefärlig horisontell position:
+  "x_pct": 65        // fältets horisontella position i % av bildbredden
 
 AIRCRAFT-DETEKTERING (KRITISKT):
 Innan du returnerar flights-listan, gruppera de unika luftfartyg du sett på
@@ -271,6 +328,7 @@ Returnera ENBART ett JSON-objekt:
       "remarks_suggestion": null,
       "time_mismatch": null,
       "overall_confidence": 0.0,
+      "row_y_pct": 0,
       "field_issues": []
     }
   ],
@@ -282,6 +340,10 @@ Returnera ENBART ett JSON-objekt:
   "page_numbers": {
     "left": null,
     "right": null
+  },
+  "image_layout": {
+    "orientation": "landscape",
+    "logbook_bounds": { "x_pct": 0, "y_pct": 0, "w_pct": 100, "h_pct": 100 }
   }
 }
 
@@ -399,11 +461,17 @@ export interface PageContext {
   page_number?: number;
 }
 
+export type ImageLayout = {
+  orientation: 'landscape' | 'portrait';
+  logbook_bounds: { x_pct: number; y_pct: number; w_pct: number; h_pct: number };
+};
+
 export type OcrPageResult = {
   flights: OcrFlightResult[];
   pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };
   aircraftDetections: AircraftDetection[];
   pageNumbers: { left: number | null; right: number | null };
+  imageLayout: ImageLayout;
 };
 
 // Skanna EN sida direkt från base64 — för batch-import.
@@ -465,6 +533,8 @@ function parseOcrResponse(parsed: any): OcrPageResult {
             field: String(i.field),
             reason: String(i.reason ?? ''),
             confidence: Number(i.confidence ?? 0),
+            x_pct: typeof i.x_pct === 'number' ? i.x_pct : undefined,
+            suggested_value: i.suggested_value ? String(i.suggested_value) : undefined,
           }))
       : [];
     return {
@@ -500,6 +570,7 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       remarks_suggestion: validSuggestion,
       time_mismatch: validMismatch,
       overall_confidence: overallConfidence,
+      row_y_pct: typeof f.row_y_pct === 'number' ? f.row_y_pct : undefined,
       field_issues: fieldIssues,
     } as OcrFlightResult;
   });
@@ -530,6 +601,15 @@ function parseOcrResponse(parsed: any): OcrPageResult {
     pageNumbers: {
       left: typeof pn.left === 'number' ? pn.left : null,
       right: typeof pn.right === 'number' ? pn.right : null,
+    },
+    imageLayout: {
+      orientation: parsed.image_layout?.orientation === 'portrait' ? 'portrait' : 'landscape',
+      logbook_bounds: {
+        x_pct: Number(parsed.image_layout?.logbook_bounds?.x_pct ?? 0),
+        y_pct: Number(parsed.image_layout?.logbook_bounds?.y_pct ?? 0),
+        w_pct: Number(parsed.image_layout?.logbook_bounds?.w_pct ?? 100),
+        h_pct: Number(parsed.image_layout?.logbook_bounds?.h_pct ?? 100),
+      },
     },
   };
 }

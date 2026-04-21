@@ -15,19 +15,33 @@ type EngineType = 'se' | 'me' | '';
 
 async function fetchAircraftImage(query: string): Promise<string | null> {
   try {
-    const searchTerm = encodeURIComponent(`${query} aircraft`);
-    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=480&format=json&origin=*`;
+    const searchTerm = encodeURIComponent(`${query} helicopter OR aircraft`);
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=480&format=json&origin=*`;
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn('[AircraftImage] fetch failed:', res.status);
+      return null;
+    }
     const data = await res.json();
     const pages = data.query?.pages;
     if (!pages) return null;
+    const keywords = ['aircraft', 'helicopter', 'airplane', 'airliner', 'rotorcraft', 'aviation'];
     for (const id of Object.keys(pages)) {
-      const thumb = pages[id]?.thumbnail?.source;
+      const page = pages[id];
+      const info = page?.imageinfo?.[0];
+      if (!info?.thumburl) continue;
+      const cats = (info.extmetadata?.Categories?.value ?? '').toLowerCase();
+      const desc = (info.extmetadata?.ImageDescription?.value ?? '').toLowerCase();
+      const isAviation = keywords.some(kw => cats.includes(kw) || desc.includes(kw));
+      if (isAviation) return info.thumburl;
+    }
+    for (const id of Object.keys(pages)) {
+      const thumb = pages[id]?.imageinfo?.[0]?.thumburl;
       if (thumb) return thumb;
     }
     return null;
-  } catch {
+  } catch (e) {
+    console.warn('[AircraftImage] error:', e);
     return null;
   }
 }
@@ -225,6 +239,11 @@ export function AircraftModal({
               <Text style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }}>
                 {lookupInfo.manufacturer} {lookupInfo.model}
               </Text>
+              {aircraftImageUrl && (
+                <Text style={{ color: Colors.textMuted, fontSize: 9, marginTop: 2 }}>
+                  Wikimedia Commons
+                </Text>
+              )}
             </View>
           )}
 

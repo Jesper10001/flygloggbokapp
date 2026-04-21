@@ -139,7 +139,12 @@ export default function TranscribeScreen() {
         <Text style={{ color: Colors.textSecondary, fontSize: 13, fontWeight: '700', marginLeft: 10 }}>
           {book.name}
         </Text>
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Ionicons name="hand-left-outline" size={14} color={Colors.gold} />
+          <Text style={{ color: Colors.gold, fontSize: 13, fontWeight: '700' }}>
+            {t('transcribe_tap_column_hint')}
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => setActiveIdx((i) => Math.max(0, i - 1))}
@@ -227,6 +232,15 @@ function SpreadTable({ template, flights, rowsPerSpread, priorFlights = [] }: {
   rowsPerSpread: number;
   priorFlights?: Flight[];
 }) {
+  const { t } = useTranslation();
+  const [doneColumns, setDoneColumns] = useState<Set<string>>(new Set());
+  const toggleDone = (colId: string) => {
+    setDoneColumns(prev => {
+      const next = new Set(prev);
+      next.has(colId) ? next.delete(colId) : next.add(colId);
+      return next;
+    });
+  };
   const columns = [...template.left_columns, ...template.right_columns];
   const emptyRows = Math.max(0, rowsPerSpread - flights.length);
   const totalColWidth = columns.reduce((s, c) => s + c.width, 0);
@@ -342,31 +356,73 @@ function SpreadTable({ template, flights, rowsPerSpread, priorFlights = [] }: {
       {/* Kolumnrubriker */}
       <View style={{ flexDirection: 'row' }}>
         {columns.map((c) => (
-          <View
+          <TouchableOpacity
             key={c.id}
             style={{
               width: c.width, paddingVertical: 3, paddingHorizontal: 2,
-              borderWidth: 0.5, borderColor: Colors.border,
-              backgroundColor: Colors.surface,
+              borderWidth: 0.5, borderColor: doneColumns.has(c.id) ? Colors.success + '44' : Colors.border,
+              backgroundColor: doneColumns.has(c.id) ? Colors.success + '22' : Colors.surface,
               alignItems: 'center', justifyContent: 'center',
             }}
+            onPress={() => toggleDone(c.id)}
+            activeOpacity={0.7}
           >
-            <Text style={{ color: Colors.textSecondary, fontSize: 9, fontWeight: '700', textAlign: 'center' }} numberOfLines={1}>
-              {c.label}
-            </Text>
-          </View>
+            {doneColumns.has(c.id) ? (
+              <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
+            ) : (
+              <Text style={{
+                color: Colors.textSecondary,
+                fontSize: 9, fontWeight: '700', textAlign: 'center',
+              }} numberOfLines={1}>
+                {c.label}
+              </Text>
+            )}
+          </TouchableOpacity>
         ))}
       </View>
 
-      {/* Data-rader */}
-      {flights.map((f, idx) => (
-        <Row key={f.id} flight={f} columns={columns} rowIndex={idx} />
-      ))}
+      {/* Data-rader med kolumn-overlay */}
+      <View style={{ position: 'relative' }}>
+        {flights.map((f, idx) => (
+          <Row key={f.id} flight={f} columns={columns} rowIndex={idx} doneColumns={doneColumns} onToggle={toggleDone} />
+        ))}
+        {Array.from({ length: emptyRows }).map((_, i) => (
+          <EmptyRow key={`e${i}`} columns={columns} rowIndex={flights.length + i} doneColumns={doneColumns} onToggle={toggleDone} />
+        ))}
 
-      {/* Tomma rader (om färre än rows_per_spread) */}
-      {Array.from({ length: emptyRows }).map((_, i) => (
-        <EmptyRow key={`e${i}`} columns={columns} rowIndex={flights.length + i} />
-      ))}
+        {/* "Klar" overlay per done column */}
+        {columns.map((c) => {
+          if (!doneColumns.has(c.id)) return null;
+          const xOffset = columns.slice(0, columns.indexOf(c)).reduce((s, col) => s + col.width, 0);
+          return (
+            <TouchableOpacity
+              key={`overlay-${c.id}`}
+              style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: xOffset, width: c.width,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              onPress={() => toggleDone(c.id)}
+              activeOpacity={0.8}
+            >
+              <View style={{
+                backgroundColor: Colors.success + 'DD',
+                borderRadius: 6,
+                paddingHorizontal: 6,
+                paddingVertical: 4,
+                alignItems: 'center',
+              }}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }}>
+                  {t('transcribe_done')}
+                </Text>
+              </View>
+              <Text style={{ color: Colors.success, fontSize: 8, marginTop: 3, fontWeight: '600', textAlign: 'center' }}>
+                {t('transcribe_tap_to_undo')}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Total this page — per kolumn, fetstil, primärfärgad tint */}
       {renderSummaryRow('Total this page', flights, { highlight: true, bold: true })}
@@ -394,25 +450,31 @@ function SpreadTable({ template, flights, rowsPerSpread, priorFlights = [] }: {
   );
 }
 
-function Row({ flight, columns, rowIndex }: { flight: Flight; columns: LogbookColumn[]; rowIndex: number }) {
+function Row({ flight, columns, rowIndex, doneColumns, onToggle }: {
+  flight: Flight; columns: LogbookColumn[]; rowIndex: number;
+  doneColumns: Set<string>; onToggle: (id: string) => void;
+}) {
   const bg = rowIndex % 2 === 0 ? Colors.card : Colors.elevated;
   return (
     <View style={{ flexDirection: 'row' }}>
       {columns.map((c) => {
         const raw = c.flightKey ? (flight as any)[c.flightKey] : '';
         const value = formatCell(raw, c);
+        const done = doneColumns.has(c.id);
         return (
-          <View
+          <TouchableOpacity
             key={c.id}
             style={{
               width: c.width, minHeight: 22, paddingVertical: 2, paddingHorizontal: 4,
-              borderWidth: 0.5, borderColor: Colors.border,
-              backgroundColor: bg, justifyContent: 'center',
+              borderWidth: 0.5, borderColor: done ? Colors.success + '44' : Colors.border,
+              backgroundColor: done ? Colors.success + '18' : bg, justifyContent: 'center',
             }}
+            onPress={() => onToggle(c.id)}
+            activeOpacity={0.7}
           >
             <Text
               style={{
-                color: value ? Colors.textPrimary : Colors.textMuted,
+                color: done ? 'transparent' : (value ? Colors.textPrimary : Colors.textMuted),
                 fontSize: 11, fontFamily: 'Menlo',
                 textAlign: c.format === 'text' ? 'left' : 'center',
               }}
@@ -420,27 +482,35 @@ function Row({ flight, columns, rowIndex }: { flight: Flight; columns: LogbookCo
             >
               {value || '·'}
             </Text>
-          </View>
+          </TouchableOpacity>
         );
       })}
     </View>
   );
 }
 
-function EmptyRow({ columns, rowIndex }: { columns: LogbookColumn[]; rowIndex: number }) {
+function EmptyRow({ columns, rowIndex, doneColumns, onToggle }: {
+  columns: LogbookColumn[]; rowIndex: number;
+  doneColumns: Set<string>; onToggle: (id: string) => void;
+}) {
   const bg = rowIndex % 2 === 0 ? Colors.card : Colors.elevated;
   return (
     <View style={{ flexDirection: 'row' }}>
-      {columns.map((c) => (
-        <View
-          key={c.id}
-          style={{
-            width: c.width, minHeight: 22,
-            borderWidth: 0.5, borderColor: Colors.border,
-            backgroundColor: bg,
-          }}
-        />
-      ))}
+      {columns.map((c) => {
+        const done = doneColumns.has(c.id);
+        return (
+          <TouchableOpacity
+            key={c.id}
+            style={{
+              width: c.width, minHeight: 22,
+              borderWidth: 0.5, borderColor: done ? Colors.success + '44' : Colors.border,
+              backgroundColor: done ? Colors.success + '18' : bg,
+            }}
+            onPress={() => onToggle(c.id)}
+            activeOpacity={0.7}
+          />
+        );
+      })}
     </View>
   );
 }

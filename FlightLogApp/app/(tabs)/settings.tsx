@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, TextInput,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, TextInput, Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +11,6 @@ import { Colors } from '../../constants/colors';
 import { exportToCSV, exportToPDF } from '../../services/export';
 import { exportDroneToCSV } from '../../services/droneExport';
 import { clearAllFlights, getFlightCount } from '../../db/flights';
-import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useLanguageStore } from '../../store/languageStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
@@ -18,259 +18,99 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useToastStore } from '../../components/Toast';
 import { useOperatorStore } from '../../store/operatorStore';
-import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
+import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { clearDroneRegistryCategories, getDroneFlightCount } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { getSetting, setSetting } from '../../db/flights';
 
-function makeStyles() {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    content: { padding: 16, paddingBottom: 40, gap: 8 },
+// ── Design components (från Claude Design handoff) ─────────────────────────
 
-    premiumCard: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: Colors.card, borderRadius: 16, padding: 16,
-      borderWidth: 1, borderColor: Colors.gold + '55', marginBottom: 8,
-    },
-    premiumLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    premiumBadge: {
-      width: 40, height: 40, borderRadius: 10,
-      backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center',
-    },
-    premiumTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
-    premiumSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
-    premiumPrice: { color: Colors.gold, fontSize: 12, fontWeight: '600', marginTop: 2 },
-
-    dataPhilosophy: {
-      flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-      backgroundColor: Colors.primary + '18', borderRadius: 10, padding: 12,
-      borderWidth: 1, borderColor: Colors.primary + '33', marginBottom: 8,
-    },
-    dataPhilosophyText: { color: Colors.textSecondary, fontSize: 13, flex: 1, lineHeight: 18 },
-
-    sectionTitle: {
-      color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
-      textTransform: 'uppercase', letterSpacing: 1,
-      marginTop: 16, marginBottom: 4, marginLeft: 4,
-    },
-
-    card: {
-      backgroundColor: Colors.card, borderRadius: 12,
-      borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden',
-    },
-    settingsRow: {
-      flexDirection: 'row', alignItems: 'center',
-      padding: 14, gap: 12,
-      borderBottomWidth: 1, borderBottomColor: Colors.separator,
-    },
-    settingsIcon: {
-      width: 34, height: 34, borderRadius: 8,
-      backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center',
-    },
-    settingsText: { flex: 1 },
-    settingsLabel: { color: Colors.textPrimary, fontSize: 14, fontWeight: '500' },
-    settingsSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
-    premiumTag: {
-      flexDirection: 'row', alignItems: 'center', gap: 2,
-      backgroundColor: Colors.gold + '33', borderRadius: 3,
-      paddingHorizontal: 4, paddingVertical: 1,
-    },
-    premiumTagText: { color: Colors.gold, fontSize: 9, fontWeight: '700' },
-
-    divider: {
-      height: 1, backgroundColor: Colors.separator, marginHorizontal: -16,
-    },
-    langToggle: {
-      flexDirection: 'row',
-      backgroundColor: Colors.elevated,
-      borderRadius: 8,
-      padding: 3,
-      gap: 3,
-      borderWidth: 0.5,
-      borderColor: Colors.border,
-      width: 150,
-    },
-    langBtn: {
-      flex: 1,
-      paddingVertical: 6,
-      paddingHorizontal: 4,
-      borderRadius: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    langBtnActive: {
-      backgroundColor: Colors.primary,
-    },
-    langBtnText: {
-      color: Colors.textMuted,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    langBtnTextActive: {
-      color: Colors.textInverse,
-    },
-  });
-}
-
-function PreviewAlwaysRow({ appMode }: { appMode: 'manned' | 'drone' }) {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const [on, setOn] = useState(false);
-  const key = appMode === 'drone' ? 'preview_always_show' : 'manned_preview_always_show';
-  useEffect(() => {
-    import('../../db/flights').then(({ getSetting }) => {
-      getSetting(key).then((v) => setOn(v === '1'));
-    });
-  }, [key]);
-  const toggle = async () => {
-    const next = !on;
-    setOn(next);
-    const { setSetting } = await import('../../db/flights');
-    await setSetting(key, next ? '1' : '0');
-  };
+function SectionHeader({ children }: { children: string }) {
   return (
-    <View style={styles.settingsRow}>
-      <View style={styles.settingsIcon}>
-        <Ionicons name="refresh-outline" size={18} color={Colors.primary} />
-      </View>
-      <View style={styles.settingsText}>
-        <Text style={styles.settingsLabel}>{t('preview_always_label')}</Text>
-        <Text style={styles.settingsSub}>{t('preview_always_sub')}</Text>
-      </View>
-      <View style={styles.langToggle}>
-        <TouchableOpacity
-          style={[styles.langBtn, !on && styles.langBtnActive]}
-          onPress={() => !on ? null : toggle()}
-        >
-          <Text style={[styles.langBtnText, !on && styles.langBtnTextActive]}>{t('off')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.langBtn, on && styles.langBtnActive]}
-          onPress={() => on ? null : toggle()}
-        >
-          <Text style={[styles.langBtnText, on && styles.langBtnTextActive]}>{t('on')}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
+      <Text style={{
+        fontSize: 11, fontWeight: '700', color: Colors.textMuted,
+        letterSpacing: 0.9, textTransform: 'uppercase',
+      }}>
+        {children}
+      </Text>
     </View>
   );
 }
 
-function PilotTypeRow() {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const router = useRouter();
-  const pilotType = usePilotTypeStore((s) => s.pilotType);
-  const setPilotType = usePilotTypeStore((s) => s.setPilotType);
-
-  const switchTo = (next: 'commercial' | 'military') => {
-    if (next === pilotType) return;
-    Alert.alert(
-      t('pilot_type_switch_title'),
-      t('pilot_type_switch_body'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('pilot_type_switch_confirm'),
-          onPress: async () => {
-            await clearDroneRegistryCategories();
-            await setPilotType(next);
-            router.push('/settings/drones');
-          },
-        },
-      ],
-    );
-  };
-
+function Card({ children, padding = 0 }: { children: React.ReactNode; padding?: number }) {
   return (
-    <View style={styles.settingsRow}>
-      <View style={styles.settingsIcon}>
-        <Ionicons name="ribbon-outline" size={18} color={Colors.primary} />
-      </View>
-      <View style={styles.settingsText}>
-        <Text style={styles.settingsLabel}>{t('pilot_type')}</Text>
-        <Text style={styles.settingsSub}>
-          {pilotType === 'military' ? t('pilot_type_military_sub') : t('pilot_type_commercial_sub')}
-        </Text>
-      </View>
-      <View style={styles.langToggle}>
-        <TouchableOpacity
-          style={[styles.langBtn, pilotType === 'commercial' && styles.langBtnActive]}
-          onPress={() => switchTo('commercial')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.langBtnText, pilotType === 'commercial' && styles.langBtnTextActive]}>
-            {t('pilot_type_commercial')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.langBtn, pilotType === 'military' && styles.langBtnActive]}
-          onPress={() => switchTo('military')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.langBtnText, pilotType === 'military' && styles.langBtnTextActive]}>
-            {t('pilot_type_military')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <View style={{
+      backgroundColor: Colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: Colors.cardBorder,
+      padding,
+      marginHorizontal: 20,
+      overflow: 'hidden',
+    }}>
+      {children}
     </View>
   );
 }
 
-function ThemePill({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  const styles = makeStyles();
-  return (
-    <TouchableOpacity
-      style={[styles.langBtn, active && styles.langBtnActive, { flex: 0, paddingHorizontal: 12, paddingVertical: 5 }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Text style={[styles.langBtnText, active && styles.langBtnTextActive]} numberOfLines={1}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function SettingsRow({
-  icon, label, sub, onPress, rightEl, danger, locked,
+function Row({
+  icon, iconColor, iconBg, title, subtitle, right, onClick, border = true, pressable = true,
 }: {
   icon: string;
-  label: string;
-  sub?: string;
-  onPress?: () => void;
-  rightEl?: React.ReactNode;
-  danger?: boolean;
-  locked?: boolean;
+  iconColor?: string;
+  iconBg?: string;
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  onClick?: () => void;
+  border?: boolean;
+  pressable?: boolean;
 }) {
-  const styles = makeStyles();
-  return (
-    <TouchableOpacity
-      style={styles.settingsRow}
-      onPress={onPress}
-      disabled={!onPress && !rightEl}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
-      <View style={[styles.settingsIcon, danger && { backgroundColor: Colors.danger + '22' }]}>
-        <Ionicons name={icon as any} size={18} color={danger ? Colors.danger : Colors.primary} />
-      </View>
-      <View style={styles.settingsText}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={[styles.settingsLabel, danger && { color: Colors.danger }]}>{label}</Text>
-          {locked && (
-            <View style={styles.premiumTag}>
-              <Ionicons name="star" size={9} color={Colors.gold} />
-              <Text style={styles.premiumTagText}>Premium</Text>
-            </View>
-          )}
+  const content = (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14,
+      borderBottomWidth: border ? 0.5 : 0, borderBottomColor: Colors.separator,
+    }}>
+      {iconBg ? (
+        <View style={{
+          width: 32, height: 32, borderRadius: 8,
+          backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Ionicons name={icon as any} size={16} color={iconColor ?? Colors.textPrimary} />
         </View>
-        {sub ? <Text style={styles.settingsSub}>{sub}</Text> : null}
+      ) : (
+        <Ionicons name={icon as any} size={18} color={iconColor ?? Colors.textPrimary} />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>{title}</Text>
+        {subtitle ? <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>{subtitle}</Text> : null}
       </View>
-      {rightEl ?? (onPress ? <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} /> : null)}
-    </TouchableOpacity>
+      {right ?? (onClick ? <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} /> : null)}
+    </View>
+  );
+
+  if (!pressable || !onClick) return content;
+  return <TouchableOpacity onPress={onClick} activeOpacity={0.7}>{content}</TouchableOpacity>;
+}
+
+function PremiumPill() {
+  return (
+    <View style={{
+      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+      backgroundColor: Colors.gold + '25',
+    }}>
+      <Text style={{ color: Colors.gold, fontSize: 10, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+        Premium
+      </Text>
+    </View>
   );
 }
 
+// ── Huvudskärm ─────────────────────────────────────────────────────────────
+
 export default function SettingsScreen() {
-  const styles = makeStyles();
   const router = useRouter();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
@@ -279,481 +119,343 @@ export default function SettingsScreen() {
   const { mode: appMode, setMode: setAppMode } = useAppModeStore();
   const { operatorId, setOperatorId, loadOperatorId } = useOperatorStore();
   const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
-
-  const applyTestUser = (which: 1 | 2 | 'clear') => {
-    const label = which === 'clear' ? t('clear_test_user') : `${t('test_user')} ${which}`;
-    Alert.alert(
-      label,
-      t('test_user_confirm'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('apply'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (which === 1) {
-                await seedTestUser1();
-                await setTheme('drone-industrial');
-              } else if (which === 2) {
-                await seedTestUser2();
-                await setTheme('drone-neon');
-              } else {
-                await clearTestUser();
-              }
-              await loadOperatorId();
-              await loadDroneFlights();
-              await loadDroneStats();
-              useToastStore.getState().show(label);
-            } catch (e: any) {
-              Alert.alert(t('error'), e.message);
-            }
-          },
-        },
-      ]
-    );
-  };
   const { isPremium, setIsPremium, flightCount, loadFlights, loadStats } = useFlightStore();
+  const pilotType = usePilotTypeStore((s) => s.pilotType);
+  const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const isDrone = appMode === 'drone';
+
+  // Profildata — laddas från settings-DB
+  const [profileName, setProfileName] = useState('');
+  const [profileInitials, setProfileInitials] = useState('');
+  const [profileCredentials, setProfileCredentials] = useState('');
+
+  useFocusEffect(useCallback(() => {
+    (async () => {
+      const first = (await getSetting('profile_first_name')) ?? '';
+      const last = (await getSetting('profile_last_name')) ?? '';
+      const initials = (await getSetting('profile_initials')) ?? '';
+      const creds = (await getSetting('profile_credentials')) ?? '';
+      setProfileName(`${first} ${last}`.trim());
+      setProfileInitials(initials || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase() || '?');
+      setProfileCredentials(creds);
+    })();
+  }, []));
+
+  // ── Handlers ──
 
   const handleExportCSV = async () => {
     setExportingCSV(true);
     try {
-      if (appMode === 'drone') await exportDroneToCSV();
+      if (isDrone) await exportDroneToCSV();
       else await exportToCSV();
-    } catch (e: any) {
-      Alert.alert(t('export_failed'), e.message);
-    } finally {
-      setExportingCSV(false);
-    }
+    } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
+    finally { setExportingCSV(false); }
   };
 
   const handleExportPDF = async () => {
     setExportingPDF(true);
-    try {
-      await exportToPDF();
-    } catch (e: any) {
-      Alert.alert(t('export_failed'), e.message);
-    } finally {
-      setExportingPDF(false);
-    }
+    try { await exportToPDF(); }
+    catch (e: any) { Alert.alert(t('export_failed'), e.message); }
+    finally { setExportingPDF(false); }
   };
 
   const handleClearAll = () => {
-    Alert.alert(
-      t('clear_all_data'),
-      `${t('clear_all_data_message')} ${flightCount} ${t('clear_all_data_message2')}`,
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('clear_all'),
-          style: 'destructive',
-          onPress: async () => {
-            await clearAllFlights();
-            await Promise.all([loadFlights(), loadStats()]);
-            Alert.alert(t('done'), t('all_deleted'));
-          },
-        },
-      ]
-    );
+    Alert.alert(t('clear_all_data'), `${t('clear_all_data_message')} ${flightCount} ${t('clear_all_data_message2')}`, [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('clear_all'), style: 'destructive', onPress: async () => {
+        await clearAllFlights();
+        await Promise.all([loadFlights(), loadStats()]);
+        Alert.alert(t('done'), t('all_deleted'));
+      }},
+    ]);
   };
 
-  const handleUpgrade = () => {
-    Alert.alert(
-      t('premium_alert_title'),
-      t('premium_alert_message'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('enable_test'), onPress: () => setIsPremium(true) },
-      ]
-    );
+  const applyDroneTestUser = (which: 1 | 2 | 'clear') => {
+    const label = which === 'clear' ? t('clear_test_user') : `${t('test_user')} ${which}`;
+    Alert.alert(label, t('test_user_confirm'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('apply'), style: 'destructive', onPress: async () => {
+        try {
+          if (which === 1) { await seedTestUser1(); await setTheme('drone-industrial'); }
+          else if (which === 2) { await seedTestUser2(); await setTheme('drone-neon'); }
+          else { await clearTestUser(); }
+          await loadOperatorId(); await loadDroneFlights(); await loadDroneStats();
+          useToastStore.getState().show(label);
+        } catch (e: any) { Alert.alert(t('error'), e.message); }
+      }},
+    ]);
   };
+
+  const applyMannedTestUser = (which: 1 | 2 | 'clear') => {
+    const label = which === 'clear' ? t('clear_test_user') : `Manned ${t('test_user')} ${which}`;
+    Alert.alert(label, t('test_user_confirm'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('apply'), style: 'destructive', onPress: async () => {
+        try {
+          if (which === 1) { await seedMannedPilot1(); }
+          else if (which === 2) { await seedMannedPilot2(); }
+          else { await clearMannedTestUser(); }
+          await Promise.all([loadFlights(), loadStats()]);
+          useToastStore.getState().show(label);
+        } catch (e: any) { Alert.alert(t('error'), e.message); }
+      }},
+    ]);
+  };
+
+  const switchPilotType = (next: 'commercial' | 'military') => {
+    if (next === pilotType) return;
+    Alert.alert(t('pilot_type_switch_title'), t('pilot_type_switch_body'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('pilot_type_switch_confirm'), onPress: async () => {
+        await clearDroneRegistryCategories();
+        await setPilotType(next);
+        router.push('/settings/drones');
+      }},
+    ]);
+  };
+
+  const switchMode = async (target: 'manned' | 'drone') => {
+    await setAppMode(target);
+    const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
+    if (hasData) router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+    else router.replace(target === 'drone' ? '/preview' : '/manned-preview');
+  };
+
+  // ── Render ──
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Header */}
+      <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+        <Text style={{ fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.8 }}>
+          {t('settings')}
+        </Text>
+      </View>
 
-      {/* Premium banner */}
-      {!isPremium ? (
-        <TouchableOpacity style={styles.premiumCard} onPress={handleUpgrade} activeOpacity={0.85}>
-          <View style={styles.premiumLeft}>
-            <View style={styles.premiumBadge}>
-              <Ionicons name="star" size={20} color={Colors.textInverse} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.premiumTitle}>{t('tailwind_premium')}</Text>
-              <Text style={styles.premiumSub}>{t('premium_sub')}</Text>
-              <Text style={styles.premiumPrice}>{t('premium_price')}</Text>
-            </View>
+      {/* ── A. Profilkort ── */}
+      <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder,
+            padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
+          }}
+          activeOpacity={0.7}
+          onPress={() => router.push('/settings/profile')}
+        >
+          <View style={{
+            width: 56, height: 56, borderRadius: 28,
+            backgroundColor: Colors.primary,
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textInverse, letterSpacing: -0.5 }}>
+              {profileInitials || '?'}
+            </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.gold} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 }}>
+              {profileName || t('your_name')}
+            </Text>
+            <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
+              {profileCredentials || t('tap_to_edit_profile')}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
         </TouchableOpacity>
-      ) : (
-        <View style={[styles.premiumCard, { borderColor: Colors.success + '55' }]}>
-          <View style={styles.premiumLeft}>
-            <View style={[styles.premiumBadge, { backgroundColor: Colors.success }]}>
-              <Ionicons name="checkmark" size={20} color={Colors.textInverse} />
-            </View>
-            <View>
-              <Text style={styles.premiumTitle}>{t('premium_active')}</Text>
-              <Text style={styles.premiumSub}>{t('all_features_unlocked')}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Data philosophy */}
-      <View style={styles.dataPhilosophy}>
-        <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
-        <Text style={styles.dataPhilosophyText}>{t('data_philosophy')}</Text>
       </View>
 
-      {/* Developer */}
-      <Text style={styles.sectionTitle}>{t('developer_section')}</Text>
-      <View style={styles.card}>
-        {appMode === 'drone' && <PilotTypeRow />}
-        {appMode === 'drone' && (
-          <>
-            <SettingsRow
-              icon="flask-outline"
-              label={`${t('test_user')} 1`}
-              sub={t('test_user_1_sub')}
-              onPress={() => applyTestUser(1)}
-            />
-            <SettingsRow
-              icon="flask-outline"
-              label={`${t('test_user')} 2`}
-              sub={t('test_user_2_sub')}
-              onPress={() => applyTestUser(2)}
-            />
-            <SettingsRow
-              icon="refresh-outline"
-              label={t('clear_test_user')}
-              sub={t('clear_test_user_sub')}
-              onPress={() => applyTestUser('clear')}
-              danger
-            />
-          </>
+      {/* ── B. Läge ── */}
+      <SectionHeader>{t('app_mode') ?? 'LÄGE'}</SectionHeader>
+      <Card>
+        <Row
+          icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
+          title={t('mode_manned')} subtitle="Hkp & flygplan"
+          right={appMode === 'manned' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => { if (appMode !== 'manned') switchMode('manned'); }}
+        />
+        <Row
+          icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
+          title={t('mode_drone')} subtitle="UAS open & specific"
+          right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => { if (appMode !== 'drone') switchMode('drone'); }}
+          border={false}
+        />
+      </Card>
+
+      {/* ── C. Loggbok ── */}
+      <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
+      <Card>
+        <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />
+        {!isDrone && (
+          <Row icon="airplane-outline" iconColor={Colors.primary} title={t('saved_airframes')} subtitle={t('manage_airports_sub') ?? 'Sparade farkoster'} onClick={() => router.push('/(tabs)/log')} />
         )}
-        <SettingsRow
-          icon="compass-outline"
-          label={t('replay_tour')}
-          sub={t('replay_tour_sub')}
-          onPress={() => router.push(appMode === 'drone' ? '/preview' : '/manned-preview')}
+        {isDrone && (
+          <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
+        )}
+        <Row icon="shield-checkmark-outline" iconColor={Colors.success} title={t('certificates')} subtitle={t('certificates_sub')} onClick={() => router.push('/settings/certificates')} />
+        <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} border={false} />
+      </Card>
+
+      {/* ── D. Data & Export ── */}
+      <SectionHeader>{t('export') ?? 'DATA & EXPORT'}</SectionHeader>
+      <Card>
+        <Row
+          icon="cloud-outline" iconColor={Colors.info}
+          title="iCloud-sync" subtitle={t('coming_soon')}
+          right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+          pressable={false}
         />
-        <PreviewAlwaysRow appMode={appMode} />
-        <SettingsRow
-          icon="trash"
-          label={t('clear_all_logbook_data')}
-          sub={t('clear_all_sub')}
-          onPress={handleClearAll}
-          danger
+        <Row
+          icon="document-text-outline" iconColor={Colors.primary}
+          title={t('export_to_pdf')} subtitle={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
+          right={!isPremium ? <PremiumPill /> : exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+          onClick={isPremium ? handleExportPDF : undefined}
         />
-      </View>
-
-      {/* App section — language */}
-      <Text style={styles.sectionTitle}>{t('app_section')}</Text>
-      <View style={styles.card}>
-        <View style={styles.settingsRow}>
-          <View style={[styles.settingsIcon]}>
-            <Ionicons name="language" size={18} color={Colors.primary} />
-          </View>
-          <View style={styles.settingsText}>
-            <Text style={styles.settingsLabel}>{t('language')}</Text>
-            <Text style={styles.settingsSub}>{t('language_sub')}</Text>
-          </View>
-          <View style={styles.langToggle}>
-            <TouchableOpacity
-              style={[styles.langBtn, language === 'en' && styles.langBtnActive]}
-              onPress={() => setLanguage('en')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, language === 'en' && styles.langBtnTextActive]}>ENG</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langBtn, language === 'sv' && styles.langBtnActive]}
-              onPress={() => setLanguage('sv')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, language === 'sv' && styles.langBtnTextActive]}>SWE</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Theme */}
-        <View style={styles.settingsRow}>
-          <View style={styles.settingsIcon}>
-            <Ionicons name="contrast-outline" size={18} color={Colors.primary} />
-          </View>
-          <View style={styles.settingsText}>
-            <Text style={styles.settingsLabel}>{t('theme')}</Text>
-            <Text style={styles.settingsSub}>{t('theme_sub')}</Text>
-          </View>
-          <View style={styles.langToggle}>
-            {appMode === 'manned' ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.langBtn, theme === 'navy' && styles.langBtnActive]}
-                  onPress={() => setTheme('navy')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, theme === 'navy' && styles.langBtnTextActive]}>{t('theme_navy')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.langBtn, theme === 'bright' && styles.langBtnActive]}
-                  onPress={() => setTheme('bright')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, theme === 'bright' && styles.langBtnTextActive]}>{t('theme_bright')}</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[styles.langBtn, theme === 'drone-industrial' && styles.langBtnActive]}
-                  onPress={() => setTheme('drone-industrial')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, theme === 'drone-industrial' && styles.langBtnTextActive]}>{t('theme_matt')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.langBtn, theme === 'drone-neon' && styles.langBtnActive]}
-                  onPress={() => setTheme('drone-neon')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, theme === 'drone-neon' && styles.langBtnTextActive]}>{t('theme_neon')}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Time format */}
-        <View style={styles.settingsRow}>
-          <View style={styles.settingsIcon}>
-            <Ionicons name="time-outline" size={18} color={Colors.primary} />
-          </View>
-          <View style={styles.settingsText}>
-            <Text style={styles.settingsLabel}>{t('time_format')}</Text>
-            <Text style={styles.settingsSub}>{t('time_format_sub')}</Text>
-          </View>
-          <View style={styles.langToggle}>
-            <TouchableOpacity
-              style={[styles.langBtn, timeFormat === 'decimal' && styles.langBtnActive]}
-              onPress={() => setTimeFormat('decimal')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, timeFormat === 'decimal' && styles.langBtnTextActive]}>1.5</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langBtn, timeFormat === 'hhmm' && styles.langBtnActive]}
-              onPress={() => setTimeFormat('hhmm')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langBtnText, timeFormat === 'hhmm' && styles.langBtnTextActive]}>1:30</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Subscription */}
-      <Text style={styles.sectionTitle}>{t('subscription')}</Text>
-      <View style={styles.card}>
-        <SettingsRow
-          icon="airplane"
-          label={t('flights_logged')}
-          sub={`${flightCount} of ${isPremium ? '∞' : FREE_TIER_LIMIT}`}
+        <Row
+          icon="cloud-upload-outline" iconColor={Colors.primary}
+          title={t('export_to_csv')} subtitle={t('export_to_csv_sub')}
+          right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+          onClick={handleExportCSV}
         />
-        {!isPremium ? (
-          <SettingsRow
-            icon="star"
-            label={t('upgrade_to_premium')}
-            sub={t('upgrade_to_premium_sub')}
-            onPress={handleUpgrade}
-          />
-        ) : (
-          <SettingsRow
-            icon="star-outline"
-            label={t('cancel_premium')}
-            onPress={() => Alert.alert(t('cancel_premium_alert'), t('disable_premium'), [
+        <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
+      </Card>
+
+      {/* ── E. Premium ── */}
+      <SectionHeader>PREMIUM</SectionHeader>
+      <Card>
+        <Row
+          icon="star-outline" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
+          title={t('tailwind_premium')}
+          subtitle={isPremium ? t('all_features_unlocked') : t('premium_sub')}
+          right={isPremium ? <Ionicons name="checkmark-circle" size={18} color={Colors.success} /> : undefined}
+          onClick={() => {
+            if (!isPremium) Alert.alert(t('premium_alert_title'), t('premium_alert_message'), [
               { text: t('cancel'), style: 'cancel' },
-              { text: t('yes'), onPress: () => setIsPremium(false) },
-            ])}
+              { text: t('enable_test'), onPress: () => setIsPremium(true) },
+            ]);
+          }}
+          border={false}
+        />
+      </Card>
+
+      {/* ── F. App ── */}
+      <SectionHeader>{t('app_section')}</SectionHeader>
+      <Card>
+        <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
+          right={
+            <View style={styles.toggle}>
+              <TouchableOpacity style={[styles.toggleBtn, language === 'en' && styles.toggleBtnActive]} onPress={() => setLanguage('en')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, language === 'en' && styles.toggleTextActive]}>ENG</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, language === 'sv' && styles.toggleBtnActive]} onPress={() => setLanguage('sv')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, language === 'sv' && styles.toggleTextActive]}>SWE</Text>
+              </TouchableOpacity>
+            </View>
+          } pressable={false}
+        />
+        <Row icon="contrast-outline" iconColor={Colors.primary} title={t('theme')} subtitle={t('theme_sub')}
+          right={
+            <View style={styles.toggle}>
+              {appMode === 'manned' ? (<>
+                <TouchableOpacity style={[styles.toggleBtn, theme === 'navy' && styles.toggleBtnActive]} onPress={() => setTheme('navy')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, theme === 'navy' && styles.toggleTextActive]}>{t('theme_navy')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, theme === 'bright' && styles.toggleBtnActive]} onPress={() => setTheme('bright')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, theme === 'bright' && styles.toggleTextActive]}>{t('theme_bright')}</Text>
+                </TouchableOpacity>
+              </>) : (<>
+                <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-industrial' && styles.toggleBtnActive]} onPress={() => setTheme('drone-industrial')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, theme === 'drone-industrial' && styles.toggleTextActive]}>{t('theme_matt')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-neon' && styles.toggleBtnActive]} onPress={() => setTheme('drone-neon')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, theme === 'drone-neon' && styles.toggleTextActive]}>{t('theme_neon')}</Text>
+                </TouchableOpacity>
+              </>)}
+            </View>
+          } pressable={false}
+        />
+        <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
+          right={
+            <View style={styles.toggle}>
+              <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'decimal' && styles.toggleBtnActive]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, timeFormat === 'decimal' && styles.toggleTextActive]}>1.5</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
+              </TouchableOpacity>
+            </View>
+          } pressable={false} border={false}
+        />
+      </Card>
+
+      {/* ── G. Om ── */}
+      <SectionHeader>{t('about')}</SectionHeader>
+      <Card>
+        <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title="Version"
+          right={<Text style={{ fontSize: 13, color: Colors.textMuted }}>1.0.0</Text>} pressable={false}
+        />
+        <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title="Local data storage"
+          subtitle="All data on your device" pressable={false}
+        />
+        <Row icon="mail" iconColor={Colors.textSecondary} title="Support" subtitle="support@flightlogpro.se"
+          onClick={() => Alert.alert(t('support_alert_title'), t('support_alert_message'))} border={false}
+        />
+      </Card>
+
+      {/* ── H. Utvecklare ── */}
+      <SectionHeader>{t('developer_section')}</SectionHeader>
+      <Card>
+        {/* Pilottyp (drone only) */}
+        {isDrone && (
+          <Row icon="ribbon-outline" iconColor={Colors.primary}
+            title={t('pilot_type')}
+            subtitle={pilotType === 'military' ? t('pilot_type_military_sub') : t('pilot_type_commercial_sub')}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, pilotType === 'commercial' && styles.toggleBtnActive]} onPress={() => switchPilotType('commercial')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, pilotType === 'commercial' && styles.toggleTextActive]}>{t('pilot_type_commercial')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, pilotType === 'military' && styles.toggleBtnActive]} onPress={() => switchPilotType('military')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, pilotType === 'military' && styles.toggleTextActive]}>{t('pilot_type_military')}</Text>
+                </TouchableOpacity>
+              </View>
+            } pressable={false}
           />
         )}
-        <SettingsRow
-          icon="refresh"
-          label={t('restore_purchases')}
-          sub={t('restore_purchases_sub')}
-          onPress={() => Alert.alert(t('restore_alert_title'), t('restore_alert_message'))}
-        />
-      </View>
 
-      {/* Import */}
-      <Text style={styles.sectionTitle}>{t('import')}</Text>
-      <View style={styles.card}>
-        <SettingsRow
-          icon="cloud-upload"
-          label={t('import_from_another_app')}
-          sub={t('import_from_another_app_sub')}
-          onPress={() => router.push('/import')}
-        />
-        <SettingsRow
-          icon="create-outline"
-          label={t('enter_experience_manually')}
-          sub={t('enter_experience_manually_sub')}
-          onPress={() => router.push('/import/manual')}
-        />
-      </View>
+        {/* Drone test users */}
+        {isDrone && (<>
+          <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 1`} subtitle={t('test_user_1_sub')} onClick={() => applyDroneTestUser(1)} />
+          <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 2`} subtitle={t('test_user_2_sub')} onClick={() => applyDroneTestUser(2)} />
+          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle={t('clear_test_user_sub')} onClick={() => applyDroneTestUser('clear')} />
+        </>)}
 
-      {/* Export */}
-      <Text style={styles.sectionTitle}>{t('export')}</Text>
-      <View style={styles.card}>
-        {appMode === 'drone' ? (
-          <>
-            <SettingsRow
-              icon="document-text"
-              label={t('export_csv_basic')}
-              sub={t('export_csv_basic_sub')}
-              onPress={handleExportCSV}
-              rightEl={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-            />
-            <View style={[styles.settingsRow, { opacity: 0.5 }]}>
-              <View style={styles.settingsIcon}>
-                <Ionicons name="document-text-outline" size={18} color={Colors.textMuted} />
-              </View>
-              <View style={styles.settingsText}>
-                <Text style={[styles.settingsLabel, { color: Colors.textMuted }]}>{t('export_csv_extended')}</Text>
-                <Text style={styles.settingsSub}>{t('export_csv_extended_sub')}</Text>
-              </View>
-              <View style={{
-                backgroundColor: Colors.elevated, borderRadius: 6,
-                borderWidth: 0.5, borderColor: Colors.border,
-                paddingHorizontal: 8, paddingVertical: 4,
-              }}>
-                <Text style={{ color: Colors.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                  {t('coming_soon')}
-                </Text>
-              </View>
-            </View>
-          </>
-        ) : (
-          <>
-            <SettingsRow
-              icon="document-text"
-              label={t('export_to_csv')}
-              sub={t('export_to_csv_sub')}
-              onPress={handleExportCSV}
-              rightEl={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-            />
-            <SettingsRow
-              icon="print"
-              label={t('export_to_pdf')}
-              sub={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
-              locked={!isPremium}
-              onPress={isPremium ? handleExportPDF : handleUpgrade}
-              rightEl={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-            />
-          </>
-        )}
-      </View>
+        {/* Manned test users */}
+        {!isDrone && (<>
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 1 — Airline" subtitle="A320, kommersiell, ~5500h" onClick={() => applyMannedTestUser(1)} />
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 2 — Bushpilot" subtitle="B407/H125, NVG, ~3200h" onClick={() => applyMannedTestUser(2)} />
+          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle="Rensa manned testdata" onClick={() => applyMannedTestUser('clear')} />
+        </>)}
 
-      {/* Database & traceability */}
-      <Text style={styles.sectionTitle}>{t('database_traceability')}</Text>
-      <View style={styles.card}>
-        {appMode === 'drone' && (
-          <>
-            <View style={styles.settingsRow}>
-              <View style={styles.settingsIcon}>
-                <Ionicons name="person-outline" size={18} color={Colors.primary} />
-              </View>
-              <View style={styles.settingsText}>
-                <Text style={styles.settingsLabel}>{t('operator_id')}</Text>
-                <Text style={styles.settingsSub}>{t('operator_id_sub')}</Text>
-              </View>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.elevated, borderRadius: 7,
-                  borderWidth: 0.5, borderColor: Colors.border,
-                  color: Colors.textPrimary, fontSize: 12, fontWeight: '600',
-                  paddingHorizontal: 8, paddingVertical: 6, minWidth: 140, textAlign: 'right',
-                }}
-                value={operatorId}
-                onChangeText={setOperatorId}
-                placeholder="SWE-OP-xxx"
-                placeholderTextColor={Colors.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-            <SettingsRow
-              icon="shield-checkmark-outline"
-              label={t('certificates')}
-              sub={t('certificates_sub')}
-              onPress={() => router.push('/settings/certificates')}
-            />
-          </>
-        )}
-        {appMode === 'manned' && (
-          <>
-            <SettingsRow
-              icon="location"
-              label={t('manage_airports')}
-              sub={t('add_custom_icao')}
-              onPress={() => router.push('/settings/airport')}
-            />
-            <SettingsRow
-              icon="book-outline"
-              label={t('physical_logbooks')}
-              sub={t('physical_logbooks_sub')}
-              onPress={() => router.push('/settings/logbook-books')}
-            />
-          </>
-        )}
-        {/* Dold när fel mode, bevarad för källref */}
-        {false && <SettingsRow
-          icon="location"
-          label={t('manage_airports')}
-          sub={t('add_custom_icao')}
-          onPress={() => router.push('/settings/airport')}
-        />}
-        <SettingsRow
-          icon="time"
-          label={t('audit_log')}
-          sub={t('all_changes_logged')}
-          onPress={() => router.push('/settings/auditlog')}
-        />
-      </View>
+        {/* Rundtur */}
+        <Row icon="compass-outline" iconColor={Colors.primary} title={t('replay_tour')} subtitle={t('replay_tour_sub')}
+          onClick={() => router.push(isDrone ? '/preview' : '/manned-preview')} />
 
-      {/* About */}
-      <Text style={styles.sectionTitle}>{t('about')}</Text>
-      <View style={styles.card}>
-        <SettingsRow icon="information-circle" label="Blades" sub="Version 1.0.0" />
-        <SettingsRow icon="shield-checkmark" label="Local data storage" sub="All data on your device — nothing in the cloud without your permission" />
-        <SettingsRow
-          icon="mail"
-          label="Support"
-          sub="support@flightlogpro.se"
-          onPress={() => Alert.alert(t('support_alert_title'), t('support_alert_message'))}
-        />
-      </View>
+        {/* Rensa data */}
+        <Row icon="trash" iconColor={Colors.danger} title={t('clear_all_logbook_data')} subtitle={t('clear_all_sub')} onClick={handleClearAll} border={false} />
+      </Card>
 
-      {/* Switch mode (längst ner) */}
+      {/* ── I. Byt loggbok ── */}
       <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
+
     </ScrollView>
   );
 }
 
-function SwitchModeButton({
-  appMode, setAppMode,
-}: {
-  appMode: 'manned' | 'drone';
-  setAppMode: (m: 'manned' | 'drone') => Promise<void>;
-}) {
+// ── Switch mode-knapp ──────────────────────────────────────────────────────
+
+function SwitchModeButton({ appMode, setAppMode }: { appMode: 'manned' | 'drone'; setAppMode: (m: 'manned' | 'drone') => Promise<void> }) {
   const { t } = useTranslation();
   const router = useRouter();
   const target: 'manned' | 'drone' = appMode === 'manned' ? 'drone' : 'manned';
@@ -763,21 +465,14 @@ function SwitchModeButton({
   const onPress = async () => {
     await setAppMode(target);
     const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
-    if (hasData) {
-      // Navigera till respektive lägets dashboard-rutt — index.tsx (manned)
-      // eller drone-dashboard. Annars visar den gömda manned-ruttens guard
-      // bara en tom vy efter bytet.
-      router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
-    } else {
-      router.replace(target === 'drone' ? '/preview' : '/manned-preview');
-    }
+    if (hasData) router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+    else router.replace(target === 'drone' ? '/preview' : '/manned-preview');
   };
 
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}>
+    <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 }}>
       <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.85}
+        onPress={onPress} activeOpacity={0.85}
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
           backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16,
@@ -786,11 +481,26 @@ function SwitchModeButton({
         }}
       >
         <Ionicons name={icon as any} size={20} color={Colors.textInverse} />
-        <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 }}>
-          {label}
-        </Text>
+        <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 }}>{label}</Text>
         <Ionicons name="arrow-forward" size={16} color={Colors.textInverse} />
       </TouchableOpacity>
     </View>
   );
 }
+
+// ── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  toggle: {
+    flexDirection: 'row', backgroundColor: Colors.elevated,
+    borderRadius: 8, padding: 3, gap: 3,
+    borderWidth: 0.5, borderColor: Colors.border, width: 150,
+  },
+  toggleBtn: {
+    flex: 1, paddingVertical: 6, paddingHorizontal: 4,
+    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+  },
+  toggleBtnActive: { backgroundColor: Colors.primary },
+  toggleText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
+  toggleTextActive: { color: Colors.textInverse },
+});

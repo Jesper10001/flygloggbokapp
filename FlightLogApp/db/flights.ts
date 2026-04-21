@@ -319,6 +319,18 @@ export async function setFlightNvg(id: number, hours: number): Promise<void> {
   await db.runAsync('UPDATE flights SET nvg=? WHERE id=?', [hours, id]);
 }
 
+export async function getRecentSecondPilots(limit = 10): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ second_pilot: string }>(
+    `SELECT second_pilot FROM flights
+     WHERE second_pilot != '' AND second_pilot IS NOT NULL
+     GROUP BY second_pilot
+     ORDER BY MAX(date) DESC LIMIT ?`,
+    [limit]
+  );
+  return rows.map(r => r.second_pilot);
+}
+
 export async function getRecentRemarks(limit = 20): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ remarks: string }>(

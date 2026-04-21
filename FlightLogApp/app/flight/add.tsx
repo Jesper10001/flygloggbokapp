@@ -7,12 +7,13 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Slider from '@react-native-community/slider';
 import { FormField } from '../../components/FormField';
 import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
+import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -261,6 +262,34 @@ function makeStyles() {
       alignItems: 'center', justifyContent: 'center',
     },
     nvgPresetText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
+    sliderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    sliderInput: {
+      flex: 1,
+    },
+    sliderTrack: {
+      width: 200,
+      flexShrink: 0,
+      position: 'relative',
+    },
+    sliderDots: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      marginTop: -4,
+    },
+    sliderDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: Colors.border,
+    },
+    sliderDotActive: {
+      backgroundColor: Colors.primary,
+    },
 
     dateFieldLabel: {
       color: Colors.textSecondary, fontSize: 12, fontWeight: '600',
@@ -387,14 +416,13 @@ function makeStyles() {
 
     pilotModeRow: {
       flexDirection: 'row',
-      alignSelf: 'flex-end',
-      width: 160,
+      flex: 1,
       backgroundColor: Colors.elevated,
-      borderRadius: 7, padding: 2, marginTop: 4,
+      borderRadius: 7, padding: 2,
       borderWidth: 0.5, borderColor: Colors.border,
     },
     pilotModeBtn: {
-      flex: 1, alignItems: 'center', paddingVertical: 5, paddingHorizontal: 2, borderRadius: 5,
+      flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 5,
     },
     pilotModeBtnActive: { backgroundColor: Colors.primary },
     pilotModeBtnDisabled: { opacity: 0.35 },
@@ -518,6 +546,8 @@ export default function AddFlightScreen() {
   const [recentRegs, setRecentRegs] = useState<string[]>([]);
   const [recentPlaces, setRecentPlaces] = useState<{ icao: string; temporary: boolean }[]>([]);
   const [recentRemarks, setRecentRemarks] = useState<string[]>([]);
+  const [recentPilots, setRecentPilots] = useState<string[]>([]);
+  const [showPilotModal, setShowPilotModal] = useState(false);
   const [lastTemplate, setLastTemplate] = useState<string>('');
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
@@ -537,10 +567,12 @@ export default function AddFlightScreen() {
       getRecentPlaces(),
       getFlights(1),
       getRecentRemarks(20),
-    ]).then(([types, places, flights, remarks]) => {
+      getRecentSecondPilots(),
+    ]).then(([types, places, flights, remarks, pilots]) => {
       setRecentTypes(types);
       setRecentPlaces(places);
       setRecentRemarks(remarks);
+      setRecentPilots(pilots);
       const last = flights[0] ?? null;
       if (last) {
         setLastFlight(last);
@@ -959,8 +991,17 @@ export default function AddFlightScreen() {
               error={errors.aircraft_type}
               placeholder="C172"
               autoCapitalize="characters"
+              onPressAdd={() => setShowAircraftModal(true)}
             />
             <View style={styles.regRow}>
+              <TouchableOpacity
+                style={styles.regDropdownBtn}
+                onPress={() => setShowTypeModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="bookmark" size={12} color={Colors.textSecondary} />
+                <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
+              </TouchableOpacity>
               {mostRecentType && (
                 <TouchableOpacity
                   style={[styles.chip, styles.chipRecent]}
@@ -970,20 +1011,6 @@ export default function AddFlightScreen() {
                   <Text style={[styles.chipText, styles.chipRecentText]}>{mostRecentType}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={styles.regDropdownBtn}
-                onPress={() => setShowTypeModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chip, styles.chipAdd]}
-                onPress={() => setShowAircraftModal(true)}
-              >
-                <Ionicons name="add" size={13} color={Colors.primary} />
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -997,17 +1024,28 @@ export default function AddFlightScreen() {
               error={errors.registration}
               placeholder="SE-KXY"
               autoCapitalize="characters"
+              onPressAdd={() => {
+                if (!form.aircraft_type) {
+                  Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg'));
+                  return;
+                }
+                Alert.prompt(
+                  t('new_registration'),
+                  `${t('add_registration_for')} ${form.aircraft_type}`,
+                  async (reg) => {
+                    const r = reg?.trim().toUpperCase();
+                    if (!r) return;
+                    await addToAircraftRegistry(form.aircraft_type, r);
+                    const updated = await getRecentRegistrations(form.aircraft_type);
+                    setRecentRegs(updated);
+                    set('registration', r);
+                  },
+                  'plain-text',
+                  '',
+                );
+              }}
             />
             <View style={styles.regRow}>
-              {mostRecentReg && (
-                <TouchableOpacity
-                  style={[styles.chip, styles.chipRecent]}
-                  onPress={() => set('registration', mostRecentReg)}
-                >
-                  <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />
-                  <Text style={[styles.chipText, styles.chipRecentText]}>{mostRecentReg}</Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity
                 style={[styles.regDropdownBtn, !form.aircraft_type && styles.regDropdownDisabled]}
                 onPress={() => {
@@ -1022,31 +1060,15 @@ export default function AddFlightScreen() {
                 <Ionicons name="bookmark" size={12} color={Colors.textSecondary} />
                 <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chip, styles.chipAdd]}
-                onPress={() => {
-                  if (!form.aircraft_type) {
-                    Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg'));
-                    return;
-                  }
-                  Alert.prompt(
-                    t('new_registration'),
-                    `${t('add_registration_for')} ${form.aircraft_type}`,
-                    async (reg) => {
-                      const r = reg?.trim().toUpperCase();
-                      if (!r) return;
-                      await addToAircraftRegistry(form.aircraft_type, r);
-                      const updated = await getRecentRegistrations(form.aircraft_type);
-                      setRecentRegs(updated);
-                      set('registration', r);
-                    },
-                    'plain-text',
-                    '',
-                  );
-                }}
-              >
-                <Ionicons name="add" size={13} color={Colors.primary} />
-              </TouchableOpacity>
+              {mostRecentReg && (
+                <TouchableOpacity
+                  style={[styles.chip, styles.chipRecent]}
+                  onPress={() => set('registration', mostRecentReg)}
+                >
+                  <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />
+                  <Text style={[styles.chipText, styles.chipRecentText]}>{mostRecentReg}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           <View style={{ flex: 1.4 }}>
@@ -1055,8 +1077,32 @@ export default function AddFlightScreen() {
               value={form.second_pilot ?? ''}
               onChangeText={(v) => set('second_pilot', v)}
               placeholder={t('second_pilot_ph')}
+              onPressAdd={() => {
+                Alert.prompt(
+                  t('add_second_pilot'),
+                  '',
+                  (name) => {
+                    const n = name?.trim();
+                    if (n) set('second_pilot', n);
+                  },
+                  'plain-text',
+                  '',
+                );
+              }}
             />
-            <View style={styles.pilotModeRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <TouchableOpacity
+                style={[styles.regDropdownBtn, recentPilots.length === 0 && styles.regDropdownDisabled]}
+                onPress={() => {
+                  if (recentPilots.length === 0) return;
+                  setShowPilotModal(true);
+                }}
+                activeOpacity={recentPilots.length === 0 ? 1 : 0.7}
+              >
+                <Ionicons name="bookmark" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+                <Ionicons name="chevron-down" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+              </TouchableOpacity>
+              <View style={styles.pilotModeRow}>
               <TouchableOpacity
                 style={[
                   styles.pilotModeBtn,
@@ -1067,7 +1113,7 @@ export default function AddFlightScreen() {
                 onPress={() => setPilotMode('single')}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.pilotModeText, pilotMode === 'single' && styles.pilotModeTextActive]}>Single pilot</Text>
+                <Text style={[styles.pilotModeText, pilotMode === 'single' && styles.pilotModeTextActive]}>SP</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -1079,8 +1125,9 @@ export default function AddFlightScreen() {
                 onPress={() => setPilotMode('multi')}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.pilotModeText, pilotMode === 'multi' && styles.pilotModeTextActive]}>Multi pilot</Text>
+                <Text style={[styles.pilotModeText, pilotMode === 'multi' && styles.pilotModeTextActive]}>MP</Text>
               </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -1389,10 +1436,9 @@ export default function AddFlightScreen() {
             options={[
               { label: 'VFR', value: 'VFR' },
               { label: 'IFR', value: 'IFR' },
-              { label: 'IFR/VFR', value: 'Y' },
-              { label: 'VFR/IFR', value: 'Z' },
+              { label: 'Y/Z flight', value: 'Y' },
             ]}
-            value={form.flight_rules ?? 'VFR'}
+            value={(form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR')}
             onChange={(v) => set('flight_rules', v)}
           />
         </View>
@@ -1478,9 +1524,9 @@ export default function AddFlightScreen() {
             const ifrRow = (
               <View key="ifr-block">
                 <Text style={styles.cardFieldLabel}>IFR ({pct(form.ifr)}%)</Text>
-                <View style={styles.row2}>
+                <View style={styles.sliderRow}>
                   <TextInput
-                    style={[styles.nvgInput, { flex: 1 }]}
+                    style={[styles.nvgInput, styles.sliderInput]}
                     value={valueFor('ifr', form.ifr)}
                     onChangeText={(v) => onHhmmChange('ifr', v)}
                     onBlur={() => onHhmmBlur('ifr')}
@@ -1488,21 +1534,33 @@ export default function AddFlightScreen() {
                     keyboardType="numbers-and-punctuation"
                     placeholderTextColor={Colors.textMuted}
                   />
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 25)}>
-                    <Text style={styles.nvgPresetText}>25%</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('ifr', 50)}>
-                    <Text style={styles.nvgPresetText}>50%</Text>
-                  </TouchableOpacity>
+                  <View style={styles.sliderTrack}>
+                    <Slider
+                      style={{ flex: 1, height: 36 }}
+                      minimumValue={0}
+                      maximumValue={100}
+                      step={10}
+                      value={pct(form.ifr)}
+                      onValueChange={(v) => setPct('ifr', v)}
+                      minimumTrackTintColor={Colors.primary}
+                      maximumTrackTintColor={Colors.border}
+                      thumbTintColor={Colors.primary}
+                    />
+                    <View style={styles.sliderDots}>
+                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
+                        <View key={d} style={[styles.sliderDot, pct(form.ifr) >= d && styles.sliderDotActive]} />
+                      ))}
+                    </View>
+                  </View>
                 </View>
               </View>
             );
             const vfrRow = (
               <View key="vfr-block">
                 <Text style={styles.cardFieldLabel}>VFR ({pct(form.vfr ?? '0')}%)</Text>
-                <View style={styles.row2}>
+                <View style={styles.sliderRow}>
                   <TextInput
-                    style={[styles.nvgInput, { flex: 1 }]}
+                    style={[styles.nvgInput, styles.sliderInput]}
                     value={valueFor('vfr', form.vfr ?? '0')}
                     onChangeText={(v) => onHhmmChange('vfr', v)}
                     onBlur={() => onHhmmBlur('vfr')}
@@ -1510,12 +1568,24 @@ export default function AddFlightScreen() {
                     keyboardType="numbers-and-punctuation"
                     placeholderTextColor={Colors.textMuted}
                   />
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 25)}>
-                    <Text style={styles.nvgPresetText}>25%</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('vfr', 50)}>
-                    <Text style={styles.nvgPresetText}>50%</Text>
-                  </TouchableOpacity>
+                  <View style={styles.sliderTrack}>
+                    <Slider
+                      style={{ flex: 1, height: 36 }}
+                      minimumValue={0}
+                      maximumValue={100}
+                      step={10}
+                      value={pct(form.vfr ?? '0')}
+                      onValueChange={(v) => setPct('vfr', v)}
+                      minimumTrackTintColor={Colors.primary}
+                      maximumTrackTintColor={Colors.border}
+                      thumbTintColor={Colors.primary}
+                    />
+                    <View style={styles.sliderDots}>
+                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
+                        <View key={d} style={[styles.sliderDot, pct(form.vfr ?? '0') >= d && styles.sliderDotActive]} />
+                      ))}
+                    </View>
+                  </View>
                 </View>
               </View>
             );
@@ -1524,9 +1594,9 @@ export default function AddFlightScreen() {
                 {mixed && (vfrFirst ? <>{vfrRow}{ifrRow}</> : <>{ifrRow}{vfrRow}</>)}
 
                 <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
-                <View style={styles.row2}>
+                <View style={styles.sliderRow}>
                   <TextInput
-                    style={[styles.nvgInput, { flex: 1 }]}
+                    style={[styles.nvgInput, styles.sliderInput]}
                     value={valueFor('night', form.night)}
                     onChangeText={(v) => onHhmmChange('night', v)}
                     onBlur={() => onHhmmBlur('night')}
@@ -1534,20 +1604,32 @@ export default function AddFlightScreen() {
                     keyboardType="numbers-and-punctuation"
                     placeholderTextColor={Colors.textMuted}
                   />
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('night', 50)}>
-                    <Text style={styles.nvgPresetText}>50%</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('night', 100)}>
-                    <Text style={styles.nvgPresetText}>100%</Text>
-                  </TouchableOpacity>
+                  <View style={styles.sliderTrack}>
+                    <Slider
+                      style={{ flex: 1, height: 36 }}
+                      minimumValue={0}
+                      maximumValue={100}
+                      step={10}
+                      value={pct(form.night)}
+                      onValueChange={(v) => setPct('night', v)}
+                      minimumTrackTintColor={Colors.primary}
+                      maximumTrackTintColor={Colors.border}
+                      thumbTintColor={Colors.primary}
+                    />
+                    <View style={styles.sliderDots}>
+                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
+                        <View key={d} style={[styles.sliderDot, pct(form.night) >= d && styles.sliderDotActive]} />
+                      ))}
+                    </View>
+                  </View>
                 </View>
 
                 {form.flight_rules !== 'IFR' && (
                   <>
                     <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
-                    <View style={styles.row2}>
+                    <View style={styles.sliderRow}>
                       <TextInput
-                        style={[styles.nvgInput, { flex: 1 }]}
+                        style={[styles.nvgInput, styles.sliderInput]}
                         value={valueFor('nvg', form.nvg ?? '0')}
                         onChangeText={(v) => onHhmmChange('nvg', v)}
                         onBlur={() => onHhmmBlur('nvg')}
@@ -1555,12 +1637,24 @@ export default function AddFlightScreen() {
                         keyboardType="numbers-and-punctuation"
                         placeholderTextColor={Colors.textMuted}
                       />
-                      <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 50)}>
-                        <Text style={styles.nvgPresetText}>50%</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.nvgPreset} onPress={() => setPct('nvg', 100)}>
-                        <Text style={styles.nvgPresetText}>100%</Text>
-                      </TouchableOpacity>
+                      <View style={styles.sliderTrack}>
+                        <Slider
+                          style={{ flex: 1, height: 36 }}
+                          minimumValue={0}
+                          maximumValue={100}
+                          step={10}
+                          value={pct(form.nvg ?? '0')}
+                          onValueChange={(v) => setPct('nvg', v)}
+                          minimumTrackTintColor={Colors.primary}
+                          maximumTrackTintColor={Colors.border}
+                          thumbTintColor={Colors.primary}
+                        />
+                        <View style={styles.sliderDots}>
+                          {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
+                            <View key={d} style={[styles.sliderDot, pct(form.nvg ?? '0') >= d && styles.sliderDotActive]} />
+                          ))}
+                        </View>
+                      </View>
                     </View>
                   </>
                 )}
@@ -1889,6 +1983,41 @@ export default function AddFlightScreen() {
                 <Ionicons name="add-circle" size={18} color={Colors.primary} />
                 <Text style={styles.modalAddText}>{t('add_new_registration')}</Text>
               </TouchableOpacity>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showPilotModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPilotModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowPilotModal(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t('saved_second_pilots')}</Text>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {recentPilots.length === 0 ? (
+                <Text style={styles.modalEmpty}>{t('no_saved_pilots')}</Text>
+              ) : (
+                recentPilots.map((p, idx) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={styles.modalItem}
+                    onPress={() => {
+                      set('second_pilot', p);
+                      setShowPilotModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    {idx === 0 && <Ionicons name="star" size={12} color={Colors.gold} />}
+                    <Text style={styles.modalItemText}>{p}</Text>
+                    {idx === 0 && <Text style={styles.modalItemSub}>{t('most_recent')}</Text>}
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
           </Pressable>
         </Pressable>

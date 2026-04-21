@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, TextInput, Modal, Pressable, Platform, Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,8 @@ import { getAirportByIcao, addTemporaryPlace } from '../../db/icao';
 import type { OcrFlightResult } from '../../types/flight';
 import type { TimeFormat } from '../../store/timeFormatStore';
 
+const mono = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+
 type RowDecision = 'pending' | 'keep' | 'corrected' | 'skip';
 
 interface ReviewRow {
@@ -33,474 +36,23 @@ interface ReviewRow {
   decision: RowDecision;
 }
 
-// ── Redigerbar rad för flaggade flygningar ────────────────────────────────────
+// ── Helper: field label mapping ──────────────────────────────────────────────
 
-function makeStyles() {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-    content: { padding: 12, paddingBottom: 40, gap: 8 },
-
-    header: {
-      flexDirection: 'row', alignItems: 'center',
-      padding: 14, backgroundColor: Colors.surface,
-      borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 12,
-    },
-    headerTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
-    headerSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
-    saveBtn: {
-      backgroundColor: Colors.primary, borderRadius: 8,
-      paddingHorizontal: 18, paddingVertical: 9, alignItems: 'center',
-    },
-    saveBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '700' },
-
-    pageWarning: {
-      flexDirection: 'row', gap: 6, alignItems: 'center',
-      backgroundColor: Colors.warning + '18', padding: 10,
-      borderBottomWidth: 1, borderBottomColor: Colors.warning + '44',
-    },
-    pageWarningText: { color: Colors.warning, fontSize: 12, flex: 1 },
-
-    sectionLabel: {
-      color: Colors.textMuted, fontSize: 11, fontWeight: '700',
-      textTransform: 'uppercase', letterSpacing: 0.8,
-      marginTop: 4, marginBottom: 4, marginLeft: 2,
-    },
-
-    // Flaggad kort
-    flagCard: {
-      backgroundColor: Colors.card, borderRadius: 10,
-      borderWidth: 1, borderColor: Colors.danger + '66',
-      overflow: 'hidden', marginBottom: 2,
-    },
-    cardSkipped: { borderColor: Colors.border, opacity: 0.5 },
-
-    flagBanner: {
-      flexDirection: 'row', gap: 6, alignItems: 'center',
-      backgroundColor: Colors.danger + '18',
-      paddingHorizontal: 12, paddingVertical: 8,
-      borderBottomWidth: 1, borderBottomColor: Colors.danger + '33',
-    },
-    flagBannerText: { color: Colors.danger, fontSize: 12, flex: 1 },
-
-    fields: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 4 },
-    fieldRow: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.separator,
-    },
-    fieldLabel: { color: Colors.textMuted, fontSize: 11, width: 56 },
-    fieldInput: {
-      flex: 1, color: Colors.textPrimary, fontSize: 13,
-      paddingVertical: 2, paddingHorizontal: 4,
-    },
-    fieldMono: { fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
-    fieldChanged: { color: Colors.success },
-    fieldOriginal: {
-      color: Colors.textMuted, fontSize: 10,
-      textDecorationLine: 'line-through', marginLeft: 4,
-    },
-
-    decisionRow: {
-      flexDirection: 'row', gap: 8,
-      paddingHorizontal: 12, paddingVertical: 10,
-      borderTopWidth: 1, borderTopColor: Colors.separator,
-    },
-    decisionBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 4, paddingVertical: 8, borderRadius: 7, borderWidth: 1,
-    },
-    btnOk: { borderColor: Colors.success + '66', backgroundColor: Colors.success + '14' },
-    btnSkip: { borderColor: Colors.border, backgroundColor: Colors.elevated },
-    decisionText: { fontSize: 13, fontWeight: '600' },
-
-    compactRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12,
-    },
-    compactText: { color: Colors.textMuted, fontSize: 13, flex: 1 },
-    undoText: { color: Colors.primary, fontSize: 12, fontWeight: '600' },
-
-    // Godkänd lista
-    okList: {
-      backgroundColor: Colors.card, borderRadius: 10,
-      borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-    },
-    okRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      paddingHorizontal: 12, paddingVertical: 10,
-      borderBottomWidth: 1, borderBottomColor: Colors.separator,
-    },
-    okDate: { color: Colors.textMuted, fontSize: 11, width: 72 },
-    okRoute: {
-      flex: 1, color: Colors.textPrimary, fontSize: 12,
-      fontWeight: '600', fontFamily: 'Menlo',
-    },
-    okType: { color: Colors.textMuted, fontSize: 11, width: 44 },
-    okTime: {
-      color: Colors.textSecondary, fontSize: 12,
-      fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
-    },
-    okExpanded: {
-      marginHorizontal: 0,
-      borderTopWidth: 1, borderTopColor: Colors.separator,
-    },
-
-    scanningText: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
-    scanningSubtext: { color: Colors.textSecondary, fontSize: 14 },
-    errorTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
-    errorText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
-    retryBtn: {
-      backgroundColor: Colors.card, borderRadius: 10,
-      paddingHorizontal: 24, paddingVertical: 12, marginTop: 8,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    retryBtnText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
-  });
-}
-
-function FlaggedCard({
-  idx, row, onChange, onDecision, timeFormat, savedAircraftTypes, prevRow, onShowImage,
-}: {
-  idx: number;
-  row: ReviewRow;
-  onChange: (key: keyof OcrFlightResult, val: any) => void;
-  onDecision: (d: RowDecision) => void;
-  timeFormat: TimeFormat;
-  savedAircraftTypes: string[];
-  prevRow?: ReviewRow;        // #4: föregående rad för "kopiera"-knapp
-  onShowImage?: () => void;   // #5: öppna bild-popup
-}) {
-  // Om AI har angett field_issues — visa ENDAST dessa fält som default.
-  const issueFields = new Set((row.data.field_issues ?? []).map((i) => i.field));
-  const [showAll, setShowAll] = useState(issueFields.size === 0);
-  const shouldShow = (name: string) => showAll || issueFields.has(name);
-  const hasIssues = issueFields.size > 0;
-
-  // Blockera godkännande om okända ICAO-koder finns
-  const hasUnresolvedIcao = (row.data.field_issues ?? []).some(
-    (i) => (i.field === 'dep_place' || i.field === 'arr_place') && i.reason.includes('ICAO-databasen'),
-  );
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const skipped = row.decision === 'skip';
-
-  if (skipped) {
-    return (
-      <View style={[styles.flagCard, styles.cardSkipped]}>
-        <View style={styles.compactRow}>
-          <Ionicons name="remove-circle-outline" size={16} color={Colors.textMuted} />
-          <Text style={styles.compactText}>
-            {row.data.dep_place} → {row.data.arr_place} · {row.data.date}
-          </Text>
-          <TouchableOpacity onPress={() => onDecision('pending')}>
-            <Text style={styles.undoText}>{t('undo')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.flagCard}>
-      {/* Rad-referens: Rad N · datum + kopiera/bild-knappar */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 12, paddingVertical: 6,
-        backgroundColor: Colors.elevated,
-        borderTopLeftRadius: 12, borderTopRightRadius: 12,
-        borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
-      }}>
-        <Ionicons name="list" size={11} color={Colors.textMuted} />
-        <Text style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
-          Rad {idx + 1}
-        </Text>
-        {row.data.date ? (
-          <>
-            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>·</Text>
-            <Text style={{ color: Colors.textPrimary, fontSize: 11, fontFamily: 'Menlo', fontWeight: '600' }}>
-              {row.data.date}
-            </Text>
-          </>
-        ) : null}
-        {row.data.dep_place && row.data.arr_place ? (
-          <>
-            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>·</Text>
-            <Text style={{ color: Colors.textSecondary, fontSize: 11, fontFamily: 'Menlo' }}>
-              {row.data.dep_place} → {row.data.arr_place}
-            </Text>
-          </>
-        ) : null}
-        <View style={{ flex: 1 }} />
-        {/* #4: Kopiera tomma fält från föregående rad */}
-        {prevRow && (
-          <TouchableOpacity
-            onPress={() => {
-              const keys: (keyof OcrFlightResult)[] = ['aircraft_type', 'registration', 'dep_place', 'arr_place'];
-              keys.forEach((k) => {
-                if (!row.data[k] && prevRow.data[k]) onChange(k, prevRow.data[k]);
-              });
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            activeOpacity={0.7}
-            style={{ padding: 4 }}
-          >
-            <Ionicons name="arrow-down-circle-outline" size={16} color={Colors.primary} />
-          </TouchableOpacity>
-        )}
-        {/* #5: Visa relevant del av skannad bild */}
-        {onShowImage && (
-          <TouchableOpacity onPress={onShowImage} activeOpacity={0.7} style={{ padding: 4 }}>
-            <Ionicons name="image-outline" size={16} color={Colors.primary} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Varning */}
-      <View style={styles.flagBanner}>
-        <Ionicons name="warning" size={14} color={Colors.danger} />
-        <Text style={styles.flagBannerText} numberOfLines={2}>
-          {row.data.review_reason ?? t('review_before_saving')}
-        </Text>
-      </View>
-
-      {/* Issue-banner + toggle */}
-      {hasIssues && (
-        <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 8,
-          paddingHorizontal: 10, paddingVertical: 8, marginBottom: 4,
-          backgroundColor: Colors.warning + '14',
-          borderRadius: 8, borderWidth: 0.5, borderColor: Colors.warning + '66',
-        }}>
-          <Ionicons name="alert-circle" size={13} color={Colors.warning} />
-          <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '700', flex: 1 }}>
-            {issueFields.size} {issueFields.size === 1 ? 'fält behöver granskas' : 'fält behöver granskas'}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setShowAll((v) => !v)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 3,
-              paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-              backgroundColor: Colors.elevated, borderWidth: 0.5, borderColor: Colors.border,
-            }}
-          >
-            <Ionicons name={showAll ? 'chevron-up' : 'chevron-down'} size={11} color={Colors.textSecondary} />
-            <Text style={{ color: Colors.textSecondary, fontSize: 10, fontWeight: '700' }}>
-              {showAll ? 'Göm övriga' : 'Visa alla fält'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Redigerbara fält */}
-      <View style={styles.fields}>
-        {/* Grunddata */}
-        {shouldShow('date') && <FieldRowDate     value={row.data.date}           onChange={v => onChange('date', v)}           original={row.original.date} />}
-        {shouldShow('aircraft_type') && <FieldRowAircraft value={row.data.aircraft_type}  savedTypes={savedAircraftTypes} onChange={v => onChange('aircraft_type', v)} original={row.original.aircraft_type} />}
-        {shouldShow('registration') && <FieldRow label="Reg"       value={row.data.registration}  onChange={v => onChange('registration', v.toUpperCase())} original={row.original.registration} mono />}
-
-        {/* Rutt */}
-        {shouldShow('dep_place') && <FieldRowIcao
-          label="Dep" value={row.data.dep_place} onChange={v => { onChange('dep_place', v.toUpperCase()); }} original={row.original.dep_place}
-          isUnknown={(row.data.field_issues ?? []).some(i => i.field === 'dep_place' && i.reason.includes('ICAO-databasen'))}
-          onMarkTemporary={() => {
-            onChange('field_issues' as any, (row.data.field_issues ?? []).filter((i: any) => !(i.field === 'dep_place' && i.reason.includes('ICAO-databasen'))));
-          }}
-        />}
-        {(shouldShow('dep_utc') || row.data.time_mismatch) && <FieldRowClock
-          label="Dep·T"
-          value={row.data.dep_utc}
-          onChange={v => onChange('dep_utc', v)}
-          original={row.original.dep_utc}
-          mismatch={row.data.time_mismatch ? {
-            correctArr: row.data.time_mismatch.computed_arr_if_dep_correct,
-            side: 'dep',
-          } : undefined}
-          onAcceptAsCorrect={() => {
-            if (!row.data.time_mismatch) return;
-            onChange('arr_utc', row.data.time_mismatch.computed_arr_if_dep_correct);
-            onChange('time_mismatch' as any, null as any);
-          }}
-        />}
-        {shouldShow('arr_place') && <FieldRowIcao
-          label="Arr" value={row.data.arr_place} onChange={v => { onChange('arr_place', v.toUpperCase()); }} original={row.original.arr_place}
-          isUnknown={(row.data.field_issues ?? []).some(i => i.field === 'arr_place' && i.reason.includes('ICAO-databasen'))}
-          onMarkTemporary={() => {
-            onChange('field_issues' as any, (row.data.field_issues ?? []).filter((i: any) => !(i.field === 'arr_place' && i.reason.includes('ICAO-databasen'))));
-          }}
-        />}
-        {(shouldShow('arr_utc') || row.data.time_mismatch) && <FieldRowClock
-          label="Arr·T"
-          value={row.data.arr_utc}
-          onChange={v => onChange('arr_utc', v)}
-          original={row.original.arr_utc}
-          mismatch={row.data.time_mismatch ? {
-            correctArr: row.data.time_mismatch.computed_dep_if_arr_correct,
-            side: 'arr',
-          } : undefined}
-          onAcceptAsCorrect={() => {
-            if (!row.data.time_mismatch) return;
-            onChange('dep_utc', row.data.time_mismatch.computed_dep_if_arr_correct);
-            onChange('time_mismatch' as any, null as any);
-          }}
-        />}
-        {row.data.time_mismatch && (
-          <View style={{
-            backgroundColor: Colors.warning + '14', borderColor: Colors.warning + '66',
-            borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 4,
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="warning" size={12} color={Colors.warning} />
-              <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>
-                Tid stämmer inte ({row.data.time_mismatch.anchor_total_h.toFixed(1)}h)
-              </Text>
-            </View>
-            <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 4 }}>
-              Klicka ✓ bredvid den tid som är korrekt — den andra justeras automatiskt.
-            </Text>
-          </View>
-        )}
-
-        {/* Tider (duration — endast valt format visas, ingen alternativ) */}
-        {shouldShow('total_time') && <FieldRowDur label="Total"    value={row.data.total_time} onChange={v => onChange('total_time', v)} original={row.original.total_time} timeFormat={timeFormat} primary />}
-        {(() => { const cap = parseFloat(row.data.total_time) || 0; return <>
-          {shouldShow('pic') && <FieldRowDur label="PIC"      value={row.data.pic}        onChange={v => onChange('pic', v)}        original={row.original.pic} timeFormat={timeFormat} capTo={cap} />}
-          {shouldShow('co_pilot') && <FieldRowDur label="Co-Pilot" value={row.data.co_pilot}   onChange={v => onChange('co_pilot', v)}   original={row.original.co_pilot} timeFormat={timeFormat} capTo={cap} />}
-          {shouldShow('dual') && <FieldRowDur label="Dual"     value={row.data.dual}       onChange={v => onChange('dual', v)}       original={row.original.dual} timeFormat={timeFormat} capTo={cap} />}
-          {shouldShow('ifr') && <FieldRowDur label="IFR"      value={row.data.ifr}        onChange={v => onChange('ifr', v)}        original={row.original.ifr} timeFormat={timeFormat} capTo={cap} />}
-          {shouldShow('night') && <FieldRowDur label="Night"    value={row.data.night}      onChange={v => onChange('night', v)}      original={row.original.night} timeFormat={timeFormat} capTo={cap} />}
-        </>; })()}
-
-        {/* Landningar */}
-        {shouldShow('landings_day') && <FieldRowInt label="Ldg Day"   value={row.data.landings_day ?? '0'}   onChange={v => onChange('landings_day', v)}   original={row.original.landings_day} />}
-        {shouldShow('landings_night') && <FieldRowInt label="Ldg Night" value={row.data.landings_night ?? '0'} onChange={v => onChange('landings_night', v)} original={row.original.landings_night} />}
-
-        {/* Remarks med AI-förslag */}
-        {(row.data.remarks_suggestion || shouldShow('remarks')) && (
-          <>
-            {row.data.remarks_suggestion && (
-              <RemarksSuggestion
-                suggestion={row.data.remarks_suggestion}
-                onAccept={() => {
-                  const s = row.data.remarks_suggestion!;
-                  onChange(s.field as keyof OcrFlightResult, s.value);
-                  const cleaned = (row.data.remarks ?? '').replace(s.original_text, '').replace(/\s{2,}/g, ' ').trim();
-                  onChange('remarks', cleaned);
-                  onChange('remarks_suggestion' as any, null as any);
-                  // Spara andrepilot-mappning för framtida skanningar
-                  if (s.field === 'second_pilot') {
-                    saveLearnedMapping('second_pilot', s.original_text, s.value);
-                  }
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }}
-                onReject={() => onChange('remarks_suggestion' as any, null as any)}
-              />
-            )}
-            <FieldRow label="Rmk."    value={row.data.remarks ?? ''} onChange={v => onChange('remarks', v)} original={row.original.remarks} />
-          </>
-        )}
-
-        {/* Avancerade fält — endast när "Visa alla fält" är på */}
-        {showAll && <AdvancedFields row={row} onChange={onChange} timeFormat={timeFormat} />}
-      </View>
-
-      {/* Knappar */}
-      {hasUnresolvedIcao && (
-        <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-          backgroundColor: Colors.danger + '14', borderRadius: 8, padding: 8, marginBottom: 6,
-          borderWidth: 0.5, borderColor: Colors.danger + '55',
-        }}>
-          <Ionicons name="alert-circle" size={13} color={Colors.danger} />
-          <Text style={{ color: Colors.danger, fontSize: 11, fontWeight: '700', flex: 1 }}>
-            {t('unknown_icao_block')}
-          </Text>
-        </View>
-      )}
-      <View style={styles.decisionRow}>
-        <TouchableOpacity
-          style={[styles.decisionBtn, styles.btnOk, hasUnresolvedIcao && { opacity: 0.35 }]}
-          onPress={() => {
-            if (hasUnresolvedIcao) {
-              Alert.alert(t('unknown_icao_block_title'), t('unknown_icao_block_body'));
-              return;
-            }
-            onDecision('corrected');
-          }}
-        >
-          <Ionicons name="checkmark" size={14} color={Colors.success} />
-          <Text style={[styles.decisionText, { color: Colors.success }]}>{t('approve')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.decisionBtn, styles.btnSkip]} onPress={() => onDecision('skip')}>
-          <Ionicons name="close" size={14} color={Colors.textMuted} />
-          <Text style={[styles.decisionText, { color: Colors.textMuted }]}>{t('skip')}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// ── Kompakt rad för godkända flygningar ───────────────────────────────────────
-
-function OkRow({ row, onExpand, timeFormat }: { row: ReviewRow; onExpand: () => void; timeFormat: TimeFormat }) {
-  const styles = makeStyles();
-  const h = parseFloat(row.data.total_time) || 0;
-  const timeStr = formatTimeValue(h, timeFormat);
-  const fastTrack = (row.data.overall_confidence ?? 0) >= 0.95 && (row.data.field_issues ?? []).length === 0;
-
-  return (
-    <TouchableOpacity style={styles.okRow} onPress={onExpand} activeOpacity={0.7}>
-      <Ionicons name={fastTrack ? 'flash' : 'checkmark-circle'} size={15} color={fastTrack ? Colors.primary : Colors.success} />
-      <Text style={styles.okDate}>{row.data.date}</Text>
-      <Text style={styles.okRoute}>
-        {row.data.dep_place || '—'} → {row.data.arr_place || '—'}
-      </Text>
-      <Text style={styles.okType}>{row.data.aircraft_type}</Text>
-      <Text style={styles.okTime}>{timeStr}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function FieldRow({
-  label, value, onChange, mono, num, original, timeFormat,
-}: {
-  label: string; value: string; onChange: (v: string) => void;
-  mono?: boolean; num?: boolean; original?: string; timeFormat?: TimeFormat;
-}) {
-  const styles = makeStyles();
-  const changed = original !== undefined && value !== original;
-  // For numeric time fields: display in user's format, store raw input
-  const displayValue = (num && timeFormat && value)
-    ? formatTimeValue(parseFloat(value) || 0, timeFormat)
-    : value;
-  const originalDisplay = (num && timeFormat && original)
-    ? formatTimeValue(parseFloat(original) || 0, timeFormat)
-    : original;
-
-  return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.fieldInput, (mono || num) && styles.fieldMono, changed && styles.fieldChanged]}
-        value={displayValue}
-        onChangeText={(v) => {
-          if (num && timeFormat) {
-            // Convert to decimal on change, store as decimal string
-            const parsed = parseTimeInput(v, timeFormat);
-            onChange(parsed !== null ? String(parsed) : v);
-          } else {
-            onChange(v);
-          }
-        }}
-        autoCapitalize={mono ? 'characters' : 'none'}
-        keyboardType={num
-          ? (timeFormat === 'hhmm' ? 'numbers-and-punctuation' : 'decimal-pad')
-          : 'default'}
-      />
-      {changed && originalDisplay ? (
-        <Text style={styles.fieldOriginal}>{originalDisplay}</Text>
-      ) : null}
-    </View>
-  );
+function fieldLabel(field: string): string {
+  const map: Record<string, string> = {
+    date: 'DATE', aircraft_type: 'TYPE', registration: 'REG',
+    dep_place: 'DEP', arr_place: 'ARR', dep_utc: 'DEP UTC', arr_utc: 'ARR UTC',
+    total_time: 'TOTAL', pic: 'PIC', co_pilot: 'CO-PILOT', dual: 'DUAL',
+    ifr: 'IFR', night: 'NIGHT', landings_day: 'LDG DAY', landings_night: 'LDG NIGHT',
+    remarks: 'REMARKS', second_pilot: '2ND PILOT', stop_place: 'STOP',
+    multi_pilot: 'MULTI-PILOT', single_pilot: 'SINGLE-PILOT',
+    instructor: 'INSTRUCTOR', picus: 'PICUS', spic: 'SPIC',
+    examiner: 'EXAMINER', safety_pilot: 'SAFETY PILOT', nvg: 'NVG',
+    se_time: 'SE TIME', me_time: 'ME TIME', tng_count: 'TNG COUNT',
+    sim_category: 'SIMULATOR TYP',
+    other_time_role: 'TIDTYP (OTHER)',
+  };
+  return map[field] ?? field.toUpperCase();
 }
 
 // ── Klocktid (UTC) — auto-formatera HH:MM medan man skriver ─────────────────
@@ -510,7 +62,7 @@ function FieldRowClock({ label, value, onChange, original, mismatch, onAcceptAsC
   mismatch?: { correctArr: string; side: 'dep' | 'arr' };
   onAcceptAsCorrect?: () => void;
 }) {
-  const styles = makeStyles();
+  const s = makeStyles();
   const changed = original !== undefined && value !== original;
   const handle = (raw: string) => {
     const digits = raw.replace(/\D/g, '').slice(0, 4);
@@ -519,10 +71,10 @@ function FieldRowClock({ label, value, onChange, original, mismatch, onAcceptAsC
     else onChange(`${digits.slice(0, 2)}:${digits.slice(2)}`);
   };
   return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={s.fieldRow}>
+      <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, styles.fieldMono, changed && styles.fieldChanged, mismatch && { flex: 0, width: 90 }]}
+        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, mismatch && { flex: 0, width: 90 }]}
         value={value}
         onChangeText={handle}
         keyboardType="number-pad"
@@ -541,26 +93,23 @@ function FieldRowClock({ label, value, onChange, original, mismatch, onAcceptAsC
           }}
         >
           <Ionicons name="checkmark" size={13} color={Colors.success} />
-          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '700' }}>Rätt</Text>
+          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '700' }}>Ratt</Text>
         </TouchableOpacity>
       )}
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
     </View>
   );
 }
 
-// ── Duration-fält med alternativ tidsformat-caption ─────────────────────────
+// ── Duration-falt med alternativ tidsformat-caption ─────────────────────────
 
 function FieldRowDur({ label, value, onChange, original, timeFormat, showAlt = false, primary = false, capTo }: {
   label: string; value: string; onChange: (v: string) => void; original?: string; timeFormat: TimeFormat; showAlt?: boolean; primary?: boolean;
-  // Om värdet > capTo visas en "≤ Total"-knapp som klampar värdet till capTo.
-  // Ingen tidkolumn (utom total) får någonsin vara > total flygtid.
   capTo?: number;
 }) {
-  const styles = makeStyles();
+  const s = makeStyles();
   const changed = original !== undefined && value !== original;
 
-  // Visa alltid i användarens valda format. Decimal = 1 decimal (inte två).
   const d = parseFloat(value) || 0;
   const displayValue = !value
     ? ''
@@ -568,7 +117,6 @@ function FieldRowDur({ label, value, onChange, original, timeFormat, showAlt = f
       ? (d === 0 ? '' : d.toFixed(1))
       : formatTimeValue(d, 'hhmm');
 
-  // Alternativ format — visas om showAlt eller primary=true (för Total)
   const alt = (!showAlt && !primary) ? '' : (() => {
     if (!d) return '';
     if (timeFormat === 'decimal') {
@@ -580,10 +128,10 @@ function FieldRowDur({ label, value, onChange, original, timeFormat, showAlt = f
   })();
 
   return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={s.fieldRow}>
+      <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, styles.fieldMono, changed && styles.fieldChanged, { flex: 0, width: 90 }]}
+        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, { flex: 0, width: 90 }]}
         value={displayValue}
         onChangeText={(v) => {
           const parsed = parseTimeInput(v, timeFormat);
@@ -594,7 +142,7 @@ function FieldRowDur({ label, value, onChange, original, timeFormat, showAlt = f
         placeholderTextColor={Colors.textMuted}
       />
       {alt ? (
-        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', marginLeft: 6, minWidth: 48 }}>
+        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: mono, marginLeft: 6, minWidth: 48 }}>
           {primary ? `(${alt})` : `= ${alt}`}
         </Text>
       ) : null}
@@ -612,23 +160,23 @@ function FieldRowDur({ label, value, onChange, original, timeFormat, showAlt = f
           <Text style={{ color: Colors.warning, fontSize: 10, fontWeight: '800' }}>= Total</Text>
         </TouchableOpacity>
       )}
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
     </View>
   );
 }
 
-// ── Heltals-fält (landningar m.m.) ─────────────────────────────────────────
+// ── Heltals-falt (landningar m.m.) ─────────────────────────────────────────
 
 function FieldRowInt({ label, value, onChange, original }: {
   label: string; value: string; onChange: (v: string) => void; original?: string;
 }) {
-  const styles = makeStyles();
+  const s = makeStyles();
   const changed = original !== undefined && value !== original;
   return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={s.fieldRow}>
+      <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, styles.fieldMono, changed && styles.fieldChanged, { flex: 0, width: 80, textAlign: 'center' as const }]}
+        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, { flex: 0, width: 80, textAlign: 'center' as const }]}
         value={value}
         onChangeText={(v) => onChange(v.replace(/\D/g, ''))}
         keyboardType="number-pad"
@@ -636,36 +184,243 @@ function FieldRowInt({ label, value, onChange, original }: {
         placeholder="0"
         placeholderTextColor={Colors.textMuted}
       />
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
     </View>
   );
 }
 
-// ── Remarks-förslag från AI ────────────────────────────────────────────────
+// ── FieldRow (generic text) ─────────────────────────────────────────────────
 
-function RemarksSuggestion({
+function FieldRow({
+  label, value, onChange, monoFont, num, original, timeFormat,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  monoFont?: boolean; num?: boolean; original?: string; timeFormat?: TimeFormat;
+}) {
+  const s = makeStyles();
+  const changed = original !== undefined && value !== original;
+  const displayValue = (num && timeFormat && value)
+    ? formatTimeValue(parseFloat(value) || 0, timeFormat)
+    : value;
+  const originalDisplay = (num && timeFormat && original)
+    ? formatTimeValue(parseFloat(original) || 0, timeFormat)
+    : original;
+
+  return (
+    <View style={s.fieldRow}>
+      <Text style={s.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[s.fieldInput, (monoFont || num) && s.fieldMono, changed && s.fieldChanged]}
+        value={displayValue}
+        onChangeText={(v) => {
+          if (num && timeFormat) {
+            const parsed = parseTimeInput(v, timeFormat);
+            onChange(parsed !== null ? String(parsed) : v);
+          } else {
+            onChange(v);
+          }
+        }}
+        autoCapitalize={monoFont ? 'characters' : 'none'}
+        keyboardType={num
+          ? (timeFormat === 'hhmm' ? 'numbers-and-punctuation' : 'decimal-pad')
+          : 'default'}
+      />
+      {changed && originalDisplay ? (
+        <Text style={s.fieldOriginal}>{originalDisplay}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+// ── Datumfalt med DateTimePicker ──────────────────────────────────────────────
+
+function FieldRowDate({ value, onChange, original }: { value: string; onChange: (v: string) => void; original?: string }) {
+  const s = makeStyles();
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const changed = original !== undefined && value !== original;
+
+  const parseDate = (str: string): Date => {
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const setFromPicker = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    onChange(`${y}-${m}-${day}`);
+  };
+
+  return (
+    <View style={s.fieldRow}>
+      <Text style={s.fieldLabel}>Date</Text>
+      <TouchableOpacity
+        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, { paddingVertical: 10, justifyContent: 'center' }]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: value ? Colors.textPrimary : Colors.textMuted, fontSize: 13, fontFamily: mono }}>
+          {value || 'YYYY-MM-DD'}
+        </Text>
+      </TouchableOpacity>
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
+
+      {open && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={parseDate(value)}
+          mode="date"
+          display="default"
+          onChange={(_, d) => {
+            setOpen(false);
+            if (d) setFromPicker(d);
+          }}
+        />
+      )}
+      {Platform.OS === 'ios' && (
+        <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+          <Pressable style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }} onPress={() => setOpen(false)}>
+            <Pressable style={{ backgroundColor: Colors.surface, padding: 14, borderTopLeftRadius: 16, borderTopRightRadius: 16 }} onPress={(e) => e.stopPropagation()}>
+              <DateTimePicker
+                value={parseDate(value)}
+                mode="date"
+                display="spinner"
+                onChange={(_, d) => { if (d) setFromPicker(d); }}
+                themeVariant="dark"
+              />
+              <TouchableOpacity
+                style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 6 }}
+                onPress={() => setOpen(false)}
+                activeOpacity={0.75}
+              >
+                <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>{t('done')}</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
+// ── ICAO-falt med sokning ─────────────────────────────────────────────────────
+
+function FieldRowIcao({ label, value, onChange, original, isUnknown, onMarkTemporary }: {
+  label: string; value: string; onChange: (v: string) => void; original?: string;
+  isUnknown?: boolean; onMarkTemporary?: () => void;
+}) {
+  const s = makeStyles();
+  const { t } = useTranslation();
+  const changed = original !== undefined && value !== original;
+  return (
+    <View style={[s.fieldRow, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
+      <Text style={[s.fieldLabel, { marginTop: 8 }]}>{label}</Text>
+      <View style={{ flex: 1 }}>
+        <IcaoInput
+          label=""
+          value={value}
+          onChangeText={(v) => onChange(v.toUpperCase())}
+        />
+      </View>
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
+      {isUnknown && onMarkTemporary && (
+        <TouchableOpacity
+          onPress={onMarkTemporary}
+          activeOpacity={0.75}
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 4,
+            marginTop: 4, paddingHorizontal: 10, paddingVertical: 6,
+            borderRadius: 8, backgroundColor: Colors.warning + '1F',
+            borderWidth: 0.5, borderColor: Colors.warning + '88',
+            width: '100%',
+          }}
+        >
+          <Ionicons name="location-outline" size={13} color={Colors.warning} />
+          <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '700', flex: 1 }}>
+            {value} — {t('mark_as_temporary')}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ── Fartygstyp — textfalt + chip-rad med sparade typer ────────────────────────
+
+function FieldRowAircraft({ value, onChange, original, savedTypes }: {
+  value: string; onChange: (v: string) => void; original?: string; savedTypes: string[];
+}) {
+  const s = makeStyles();
+  const changed = original !== undefined && value !== original;
+  const q = (value ?? '').toUpperCase();
+  const suggestions = q
+    ? savedTypes.filter((tp) => tp.toUpperCase().startsWith(q) && tp.toUpperCase() !== q).slice(0, 4)
+    : savedTypes.slice(0, 4);
+
+  return (
+    <View style={[s.fieldRow, { flexWrap: 'wrap', alignItems: 'flex-start' }]}>
+      <Text style={[s.fieldLabel, { marginTop: 8 }]}>Type</Text>
+      <View style={{ flex: 1, gap: 4 }}>
+        <TextInput
+          style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged]}
+          value={value}
+          onChangeText={(v) => onChange(v.toUpperCase())}
+          autoCapitalize="characters"
+          placeholder="R44, A320..."
+          placeholderTextColor={Colors.textMuted}
+        />
+        {suggestions.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+            {suggestions.map((tp) => (
+              <TouchableOpacity
+                key={tp}
+                onPress={() => onChange(tp.toUpperCase())}
+                activeOpacity={0.7}
+                style={{
+                  paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+                  backgroundColor: Colors.primary + '1F',
+                  borderWidth: 0.5, borderColor: Colors.primary + '66',
+                }}
+              >
+                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: mono }}>{tp}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+      {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
+    </View>
+  );
+}
+
+// ── Remarks-forslag fran AI ────────────────────────────────────────────────
+
+function RemarksSuggestionBlock({
   suggestion, onAccept, onReject,
 }: {
   suggestion: { field: string; value: string; original_text: string; confidence: number; reason: string };
   onAccept: () => void;
   onReject: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={{
-      backgroundColor: Colors.primary + '14', borderColor: Colors.primary + '66',
-      borderWidth: 1, borderRadius: 10, padding: 10, gap: 8, marginVertical: 4,
+      padding: 10, borderRadius: 8,
+      backgroundColor: Colors.primary + '10', borderWidth: 1, borderColor: Colors.primary + '55',
     }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Ionicons name="sparkles" size={13} color={Colors.primary} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Ionicons name="sparkles" size={12} color={Colors.primary} />
         <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>
-          AI förslag
+          {t('ai_suggestion')} ({Math.round(suggestion.confidence * 100)}%)
         </Text>
       </View>
-      <Text style={{ color: Colors.textPrimary, fontSize: 12 }}>
-        "{suggestion.original_text}" → <Text style={{ fontWeight: '800' }}>{suggestion.field}</Text>? ({Math.round(suggestion.confidence * 100)}%)
+      <Text style={{ color: Colors.textPrimary, fontSize: 12, marginBottom: 4 }}>
+        "<Text style={{ fontFamily: mono, fontWeight: '700' }}>{suggestion.original_text}</Text>"
+        {' '}&rarr;{' '}
+        <Text style={{ fontWeight: '800', color: Colors.primary }}>{fieldLabel(suggestion.field)}</Text>?
       </Text>
-      <Text style={{ color: Colors.textSecondary, fontSize: 11 }}>{suggestion.reason}</Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>{suggestion.reason}</Text>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
         <TouchableOpacity
           style={{
             flex: 1, paddingVertical: 8, borderRadius: 8,
@@ -674,70 +429,381 @@ function RemarksSuggestion({
           onPress={onAccept}
           activeOpacity={0.85}
         >
-          <Text style={{ color: Colors.textInverse, fontSize: 12, fontWeight: '800' }}>Ja</Text>
+          <Text style={{ color: Colors.textInverse, fontSize: 12, fontWeight: '800' }}>{t('yes_btn')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{
             flex: 1, paddingVertical: 8, borderRadius: 8,
-            backgroundColor: Colors.elevated, alignItems: 'center',
-            borderWidth: 0.5, borderColor: Colors.border,
+            backgroundColor: 'transparent', alignItems: 'center',
+            borderWidth: 1, borderColor: Colors.border,
           }}
           onPress={onReject}
           activeOpacity={0.85}
         >
-          <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>Nej</Text>
+          <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>{t('no_keep')}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// ── Avancerade fält — collapsible ─────────────────────────────────────────
+// ── TimeMismatch block ────────────────────────────────────────────────────────
 
-function AdvancedFields({ row, onChange, timeFormat }: {
-  row: ReviewRow;
-  onChange: (key: keyof OcrFlightResult, val: any) => void;
-  timeFormat: TimeFormat;
+function TimeMismatchBlock({ tm, onAcceptDep, onAcceptArr }: {
+  tm: OcrFlightResult['time_mismatch'];
+  onAcceptDep: () => void;
+  onAcceptArr: () => void;
 }) {
-  const styles = makeStyles();
-  const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
+  if (!tm) return null;
   return (
-    <View style={{ marginTop: 6 }}>
-      <TouchableOpacity
-        style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-          paddingVertical: 8, borderTopWidth: 0.5, borderTopColor: Colors.separator,
-        }}
-        onPress={() => setOpen((v) => !v)}
-        activeOpacity={0.75}
-      >
-        <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
-        <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-          Advanced fields
+    <View style={{
+      padding: 10, borderRadius: 8,
+      backgroundColor: Colors.warning + '12', borderWidth: 1, borderColor: Colors.warning + '55',
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <Ionicons name="time" size={13} color={Colors.warning} />
+        <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '800' }}>
+          {t('time_mismatch_title')} ({tm.anchor_total_h.toFixed(1)}h)
         </Text>
-      </TouchableOpacity>
-      {open && (() => { const cap = parseFloat(row.data.total_time) || 0; return (
-        <View style={styles.fields}>
-          <FieldRowDur label="Multi-pilot"  value={row.data.multi_pilot ?? ''}  onChange={v => onChange('multi_pilot', v)}  original={row.original.multi_pilot}  timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="Single-pilot" value={row.data.single_pilot ?? ''} onChange={v => onChange('single_pilot', v)} original={row.original.single_pilot} timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="Instructor"   value={row.data.instructor ?? ''}   onChange={v => onChange('instructor', v)}   original={row.original.instructor}   timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="PICUS"        value={row.data.picus ?? ''}        onChange={v => onChange('picus', v)}        original={row.original.picus}        timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="SPIC"         value={row.data.spic ?? ''}         onChange={v => onChange('spic', v)}         original={row.original.spic}         timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="Examiner"     value={row.data.examiner ?? ''}     onChange={v => onChange('examiner', v)}     original={row.original.examiner}     timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="Safety Pilot" value={row.data.safety_pilot ?? ''} onChange={v => onChange('safety_pilot', v)} original={row.original.safety_pilot} timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="NVG"          value={row.data.nvg ?? ''}          onChange={v => onChange('nvg', v)}          original={row.original.nvg}          timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="SE time"      value={(row.data as any).se_time ?? ''}      onChange={v => onChange('se_time' as any, v)} original={(row.original as any).se_time} timeFormat={timeFormat} capTo={cap} />
-          <FieldRowDur label="ME time"      value={(row.data as any).me_time ?? ''}      onChange={v => onChange('me_time' as any, v)} original={(row.original as any).me_time} timeFormat={timeFormat} capTo={cap} />
-          <FieldRowInt label="TNG count"    value={row.data.tng_count ?? '0'}   onChange={v => onChange('tng_count', v)}   original={row.original.tng_count} />
-          <FieldRow    label="2nd pilot"    value={row.data.second_pilot ?? ''} onChange={v => onChange('second_pilot', v)} original={row.original.second_pilot} mono />
-          <FieldRow    label="Stop place"   value={row.data.stop_place ?? ''}   onChange={v => onChange('stop_place', v.toUpperCase())} original={row.original.stop_place} mono />
-        </View>
-      ); })()}
+      </View>
+      <Text style={{ color: Colors.textSecondary, fontSize: 11, marginBottom: 8 }}>
+        {t('time_mismatch_help')}
+      </Text>
+
+      {/* DEP option */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        padding: 6, paddingHorizontal: 8, borderRadius: 6,
+        backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, marginBottom: 4,
+      }}>
+        <Text style={{ width: 32, fontSize: 10, fontWeight: '700', color: Colors.textMuted }}>DEP</Text>
+        <Text style={{ fontSize: 13, fontFamily: mono, fontWeight: '700', color: Colors.textPrimary }}>{tm.read_dep}</Text>
+        <Text style={{ fontSize: 10, color: Colors.textMuted, flex: 1 }}>ARR blir {tm.computed_arr_if_dep_correct}</Text>
+        <TouchableOpacity
+          onPress={onAcceptDep}
+          activeOpacity={0.75}
+          style={{
+            paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5,
+            backgroundColor: Colors.success + '20', borderWidth: 1, borderColor: Colors.success + '70',
+          }}
+        >
+          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '800', letterSpacing: 0.3 }}>{t('correct_btn')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ARR option */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        padding: 6, paddingHorizontal: 8, borderRadius: 6,
+        backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border,
+      }}>
+        <Text style={{ width: 32, fontSize: 10, fontWeight: '700', color: Colors.textMuted }}>ARR</Text>
+        <Text style={{ fontSize: 13, fontFamily: mono, fontWeight: '700', color: Colors.textPrimary }}>{tm.read_arr}</Text>
+        <Text style={{ fontSize: 10, color: Colors.textMuted, flex: 1 }}>DEP blir {tm.computed_dep_if_arr_correct}</Text>
+        <TouchableOpacity
+          onPress={onAcceptArr}
+          activeOpacity={0.75}
+          style={{
+            paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5,
+            backgroundColor: Colors.success + '20', borderWidth: 1, borderColor: Colors.success + '70',
+          }}
+        >
+          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '800', letterSpacing: 0.3 }}>{t('correct_btn')}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-// ── Aircraft-bekräftelse innan review ─────────────────────────────────────
+// ── FieldEditor (one per field_issue) ─────────────────────────────────────────
+
+function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText, onShowImage }: {
+  issue: { field: string; reason: string; confidence: number; x_pct?: number };
+  value: string;
+  originalValue?: string;
+  suggestedValue?: string;  // AI:s alternativa förslag (t.ex. ETHB? när primary = ETAB)
+  onChangeText: (v: string) => void;
+  onShowImage?: () => void;
+}) {
+  const isChanged = originalValue != null && value !== originalValue;
+  const isIcao = issue.field === 'dep_place' || issue.field === 'arr_place';
+  const isTime = issue.field === 'dep_utc' || issue.field === 'arr_utc';
+  const isNum = ['total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night', 'landings_day', 'landings_night'].includes(issue.field);
+  const isSim = issue.field === 'sim_category';
+  const isOtherRole = issue.field === 'other_time_role';
+  const SIM_TYPES = ['FFS', 'FTD', 'FNPT II', 'FNPT I', 'BITD', 'CPT/PPT', 'CBT'];
+  const TIME_ROLES = ['Instructor', 'PICUS', 'SPIC', 'Multi-pilot', 'Single-pilot', 'Examiner', 'Safety pilot', 'NVG', 'SE time', 'ME time'];
+  const [icaoResults, setIcaoResults] = useState<{ icao: string; name: string }[]>([]);
+
+  const handleIcaoChange = async (v: string) => {
+    const upper = v.toUpperCase();
+    onChangeText(upper);
+    if (isIcao && upper.length >= 2) {
+      try {
+        const { searchAirports } = require('../../db/icao');
+        setIcaoResults(await searchAirports(upper, 4));
+      } catch { setIcaoResults([]); }
+    } else { setIcaoResults([]); }
+  };
+
+  const handleTime = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+    if (digits.length === 0) onChangeText('');
+    else if (digits.length <= 2) onChangeText(digits);
+    else onChangeText(`${digits.slice(0, 2)}:${digits.slice(2)}`);
+  };
+
+  const borderColor = isChanged ? Colors.success : Colors.warning + '44';
+
+  return (
+    <View style={{
+      padding: 8, paddingHorizontal: 10, backgroundColor: Colors.elevated,
+      borderRadius: 8, borderWidth: 1, borderColor, marginBottom: 6,
+    }}>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 5 }}>
+        {isChanged && <Ionicons name="checkmark-circle" size={12} color={Colors.success} />}
+        <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: isChanged ? Colors.success : Colors.warning, textTransform: 'uppercase' }}>
+          {fieldLabel(issue.field)}
+        </Text>
+        <Text style={{ flex: 1, fontSize: 10, color: Colors.textMuted }} numberOfLines={1}>{issue.reason}</Text>
+        <Text style={{ fontSize: 10, fontFamily: mono, fontWeight: '700', color: isChanged ? Colors.success : Colors.warning }}>
+          {isChanged ? 'ÄNDRAD' : `${Math.round(issue.confidence * 100)}%`}
+        </Text>
+      </View>
+      {(isSim || isOtherRole) ? (
+        /* Chip-picker: simulatortyp ELLER roll */
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+          {(isSim ? SIM_TYPES : TIME_ROLES).map(opt => {
+            const key = opt.replace(/[\s\/\-]/g, '_').toLowerCase();
+            const active = value === key || value === opt || value.toLowerCase() === key;
+            return (
+              <TouchableOpacity key={opt} onPress={() => onChangeText(key)} activeOpacity={0.75}
+                style={{
+                  paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
+                  backgroundColor: active ? Colors.primary : Colors.elevated,
+                  borderWidth: 1, borderColor: active ? Colors.primary : Colors.border,
+                }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: active ? Colors.textInverse : Colors.textSecondary }}>{opt}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <TextInput
+            style={{
+              flex: 1, padding: 7, paddingHorizontal: 10, borderRadius: 6,
+              backgroundColor: Colors.card,
+              borderWidth: 1, borderColor: isChanged ? Colors.success + '88' : Colors.border,
+              color: Colors.textPrimary, fontSize: 13, fontFamily: mono, fontWeight: '600',
+            }}
+            value={value}
+            onChangeText={isIcao ? handleIcaoChange : isTime ? handleTime : onChangeText}
+            autoCapitalize={isIcao || issue.field === 'registration' || issue.field === 'aircraft_type' ? 'characters' : 'none'}
+            keyboardType={isNum ? 'decimal-pad' : isTime ? 'number-pad' : 'default'}
+            maxLength={isIcao ? 4 : isTime ? 5 : undefined}
+          />
+          {onShowImage && (
+            <TouchableOpacity onPress={onShowImage} activeOpacity={0.7}
+              style={{ width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '20', borderWidth: 1, borderColor: Colors.primary + '50' }}>
+              <Ionicons name="search" size={14} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      {/* Förslag med grön bock — snabb accept */}
+      {suggestedValue && suggestedValue !== value && (
+        <TouchableOpacity
+          onPress={() => onChangeText(suggestedValue)}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            marginTop: 4, paddingVertical: 5, paddingHorizontal: 8,
+            backgroundColor: Colors.success + '14', borderRadius: 6,
+            borderWidth: 1, borderColor: Colors.success + '55',
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+          <Text style={{ fontSize: 12, fontFamily: mono, fontWeight: '700', color: Colors.success }}>
+            {suggestedValue}?
+          </Text>
+          <View style={{ flex: 1 }} />
+          <Text style={{ fontSize: 10, color: Colors.textMuted }}>Tryck för att acceptera</Text>
+        </TouchableOpacity>
+      )}
+      {/* ICAO autocomplete */}
+      {icaoResults.length > 0 && (
+        <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.cardBorder, marginTop: 4, overflow: 'hidden' }}>
+          {icaoResults.map(r => (
+            <TouchableOpacity key={r.icao} onPress={() => { onChangeText(r.icao); setIcaoResults([]); }} activeOpacity={0.7}
+              style={{ paddingVertical: 6, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ fontSize: 12, fontFamily: mono, color: Colors.primary, fontWeight: '700' }}>{r.icao}</Text>
+              <Text style={{ fontSize: 10, color: Colors.textMuted }} numberOfLines={1}>{r.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── MiniField varianter (kompakt 2-kolumns-grid) ─────────────────────────────
+
+const miniInputStyle = {
+  width: '100%' as any, padding: 6, paddingHorizontal: 8, borderRadius: 6,
+  backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+  fontSize: 12, fontFamily: mono, color: Colors.textPrimary,
+};
+const miniLabelStyle = {
+  fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.6,
+  textTransform: 'uppercase' as const, color: Colors.textMuted, marginBottom: 3,
+};
+
+function MiniField({ label, value, onChangeText }: {
+  label: string; value: string; onChangeText: (v: string) => void;
+}) {
+  return (
+    <View style={{ width: '48%', marginBottom: 10 }}>
+      <Text style={miniLabelStyle}>{label}</Text>
+      <TextInput style={miniInputStyle} value={value} onChangeText={onChangeText} />
+    </View>
+  );
+}
+
+function MiniFieldDate({ value, onChangeText }: { value: string; onChangeText: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const d = value ? new Date(value) : new Date();
+  return (
+    <View style={{ width: '48%', marginBottom: 10 }}>
+      <Text style={miniLabelStyle}>DATE</Text>
+      <TouchableOpacity style={miniInputStyle} onPress={() => setOpen(true)} activeOpacity={0.7}>
+        <Text style={{ fontSize: 12, fontFamily: mono, color: value ? Colors.textPrimary : Colors.textMuted }}>
+          {value || 'YYYY-MM-DD'}
+        </Text>
+      </TouchableOpacity>
+      {open && Platform.OS === 'android' && (
+        <DateTimePicker value={d} mode="date" display="default" onChange={(_, picked) => {
+          setOpen(false);
+          if (picked) onChangeText(`${picked.getFullYear()}-${String(picked.getMonth()+1).padStart(2,'0')}-${String(picked.getDate()).padStart(2,'0')}`);
+        }} />
+      )}
+      {open && Platform.OS === 'ios' && (
+        <Modal transparent visible animationType="fade" onRequestClose={() => setOpen(false)}>
+          <Pressable style={{ flex:1, backgroundColor:'#00000088', justifyContent:'flex-end' }} onPress={() => setOpen(false)}>
+            <Pressable style={{ backgroundColor:Colors.surface, padding:14, borderTopLeftRadius:16, borderTopRightRadius:16 }} onPress={e => e.stopPropagation()}>
+              <DateTimePicker value={d} mode="date" display="spinner" themeVariant="dark"
+                onChange={(_, picked) => { if (picked) onChangeText(`${picked.getFullYear()}-${String(picked.getMonth()+1).padStart(2,'0')}-${String(picked.getDate()).padStart(2,'0')}`); }} />
+              <TouchableOpacity style={{ backgroundColor:Colors.primary, borderRadius:10, paddingVertical:10, alignItems:'center', marginTop:6 }} onPress={() => setOpen(false)}>
+                <Text style={{ color:Colors.textInverse, fontSize:14, fontWeight:'700' }}>OK</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
+function MiniFieldIcao({ label, value, onChangeText, onAddTemp }: {
+  label: string; value: string; onChangeText: (v: string) => void; onAddTemp?: () => void;
+}) {
+  const [results, setResults] = useState<{ icao: string; name: string }[]>([]);
+  const handleChange = async (v: string) => {
+    const upper = v.toUpperCase();
+    onChangeText(upper);
+    if (upper.length >= 2) {
+      try {
+        const { searchAirports } = require('../../db/icao');
+        const found = await searchAirports(upper, 4);
+        setResults(found);
+      } catch { setResults([]); }
+    } else { setResults([]); }
+  };
+  return (
+    <View style={{ width: '48%', marginBottom: 10 }}>
+      <Text style={miniLabelStyle}>{label}</Text>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        <TextInput
+          style={[miniInputStyle, { flex: 1 }]}
+          value={value}
+          onChangeText={handleChange}
+          autoCapitalize="characters"
+          maxLength={4}
+        />
+        {onAddTemp && (
+          <TouchableOpacity onPress={onAddTemp} activeOpacity={0.7}
+            style={{ width: 28, borderRadius: 6, backgroundColor: Colors.warning + '22', borderWidth: 1, borderColor: Colors.warning + '55', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="add" size={14} color={Colors.warning} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {results.length > 0 && (
+        <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.cardBorder, marginTop: 2, overflow: 'hidden' }}>
+          {results.map(r => (
+            <TouchableOpacity key={r.icao} onPress={() => { onChangeText(r.icao); setResults([]); }} activeOpacity={0.7}
+              style={{ paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ fontSize: 11, fontFamily: mono, color: Colors.primary, fontWeight: '700' }}>{r.icao}</Text>
+              <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{r.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MiniFieldTime({ label, value, onChangeText }: {
+  label: string; value: string; onChangeText: (v: string) => void;
+}) {
+  const handle = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+    if (digits.length === 0) onChangeText('');
+    else if (digits.length <= 2) onChangeText(digits);
+    else onChangeText(`${digits.slice(0, 2)}:${digits.slice(2)}`);
+  };
+  return (
+    <View style={{ width: '48%', marginBottom: 10 }}>
+      <Text style={miniLabelStyle}>{label}</Text>
+      <TextInput style={miniInputStyle} value={value} onChangeText={handle} keyboardType="number-pad" maxLength={5} placeholder="HH:MM" placeholderTextColor={Colors.textMuted} />
+    </View>
+  );
+}
+
+function MiniFieldNum({ label, value, onChangeText }: {
+  label: string; value: string; onChangeText: (v: string) => void;
+}) {
+  return (
+    <View style={{ width: '48%', marginBottom: 10 }}>
+      <Text style={miniLabelStyle}>{label}</Text>
+      <TextInput style={miniInputStyle} value={value} onChangeText={onChangeText} keyboardType="decimal-pad" />
+    </View>
+  );
+}
+
+// ── SummaryRow (done state) ──────────────────────────────────────────────────
+
+function SummaryRow({ icon, iconColor, label, count, isLast }: {
+  icon: keyof typeof Ionicons.glyphMap; iconColor: string; label: string; count: number; isLast?: boolean;
+}) {
+  return (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingVertical: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: Colors.separator,
+    }}>
+      <View style={{
+        width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: iconColor + '20',
+      }}>
+        <Ionicons name={icon} size={14} color={iconColor} />
+      </View>
+      <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textPrimary }}>{label}</Text>
+      <Text style={{ fontSize: 17, fontWeight: '800', fontFamily: mono, color: Colors.textPrimary }}>{count}</Text>
+    </View>
+  );
+}
+
+// ── Aircraft-bekraftelse innan review ─────────────────────────────────────
 
 interface AircraftForm {
   type: string;
@@ -777,7 +843,7 @@ function AircraftConfirmation({
     return init;
   });
 
-  // Auto-lookup via AI när skärmen öppnas
+  // Auto-lookup via AI nar skarmen oppnas
   useEffect(() => {
     detections.forEach(async (d) => {
       try {
@@ -820,27 +886,35 @@ function AircraftConfirmation({
   };
 
   const apply = async () => {
-    // Spara varje luftfartyg till registret + lär AI:n handstilen
     for (const d of detections) {
       const f = forms[d.as_written]; if (!f) continue;
       const typeUpper = f.type.trim().toUpperCase();
       if (!typeUpper) continue;
-      // Hämta bild från Wikipedia för luftfartyget
       let imgUrl = '';
       try {
-        const searchTerm = encodeURIComponent(`${typeUpper} aircraft`);
-        const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=480&format=json&origin=*`);
+        const searchTerm = encodeURIComponent(`${typeUpper} helicopter OR aircraft`);
+        const wikiRes = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&format=json&origin=*`);
         if (wikiRes.ok) {
           const wikiData = await wikiRes.json();
           const pages = wikiData.query?.pages;
           if (pages) {
+            const keywords = ['aircraft', 'helicopter', 'airplane', 'airliner', 'rotorcraft'];
             for (const id of Object.keys(pages)) {
-              const thumb = pages[id]?.thumbnail?.source;
-              if (thumb) { imgUrl = thumb; break; }
+              const info = pages[id]?.imageinfo?.[0];
+              if (!info?.thumburl) continue;
+              const cats = (info.extmetadata?.Categories?.value ?? '').toLowerCase();
+              const desc = (info.extmetadata?.ImageDescription?.value ?? '').toLowerCase();
+              if (keywords.some(kw => cats.includes(kw) || desc.includes(kw))) { imgUrl = info.thumburl; break; }
+            }
+            if (!imgUrl) {
+              for (const id of Object.keys(pages)) {
+                const thumb = pages[id]?.imageinfo?.[0]?.thumburl;
+                if (thumb) { imgUrl = thumb; break; }
+              }
             }
           }
         }
-      } catch { /* bild-hämtning frivillig */ }
+      } catch { /* bild-hamtning frivillig */ }
 
       await addAircraftTypeToRegistry(
         typeUpper,
@@ -851,7 +925,6 @@ function AircraftConfirmation({
         f.engineType,
         imgUrl,
       );
-      // Spara handstils-mappning: "Bell206" → "B206"
       if (d.as_written && d.as_written !== typeUpper) {
         await saveLearnedMapping('aircraft_type', d.as_written, typeUpper);
       }
@@ -869,7 +942,7 @@ function AircraftConfirmation({
   return (
     <ScrollView contentContainerStyle={{ padding: 14, gap: 14 }}>
       <Text style={{ color: Colors.textSecondary, fontSize: 12, lineHeight: 17, paddingHorizontal: 2 }}>
-        AI har identifierat {detections.length} {detections.length === 1 ? 'luftfartyg' : 'luftfartyg'} på sidan. Rättar du något här uppdateras ALLA rader med samma handstilsform automatiskt — och fartyget sparas under Sparade luftfartyg.
+        AI har identifierat {detections.length} {detections.length === 1 ? 'luftfartyg' : 'luftfartyg'} pa sidan. Rattar du nagot har uppdateras ALLA rader med samma handstilsform automatiskt — och fartyget sparas under Sparade luftfartyg.
       </Text>
 
       {detections.map((d, idx) => {
@@ -884,7 +957,7 @@ function AircraftConfirmation({
             backgroundColor: Colors.card, borderRadius: 14, padding: 14,
             borderWidth: 0.5, borderColor: Colors.cardBorder, gap: 10,
           }}>
-            {/* Header "Flygplansdata" + AI-badge */}
+            {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="speedometer-outline" size={16} color={Colors.gold} />
               <Text style={{ color: Colors.gold, fontSize: 15, fontWeight: '800' }}>
@@ -901,19 +974,19 @@ function AircraftConfirmation({
                   ? <ActivityIndicator size="small" color={Colors.primary} />
                   : <Ionicons name="sparkles" size={10} color={Colors.primary} />}
                 <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
-                  {f.loading ? 'Hämtar…' : 'Autogenererat med AI'}
+                  {f.loading ? 'Hamtar...' : 'Autogenererat med AI'}
                 </Text>
               </View>
             </View>
 
-            {/* Upptäckt-rad: piloten skrev X på rad Y */}
+            {/* Upptackt-rad */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Piloten skrev</Text>
-              <Text style={{ color: Colors.textPrimary, fontSize: 12, fontFamily: 'Menlo', fontWeight: '700' }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 12, fontFamily: mono, fontWeight: '700' }}>
                 "{d.as_written}"
               </Text>
               <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
-                · Först rad {d.first_row} · {d.rows.length} {d.rows.length === 1 ? 'rad' : 'rader'}
+                . Forst rad {d.first_row} . {d.rows.length} {d.rows.length === 1 ? 'rad' : 'rader'}
               </Text>
             </View>
 
@@ -924,13 +997,13 @@ function AircraftConfirmation({
                 <TextInput
                   style={{
                     backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                    color: Colors.textPrimary, fontSize: 15, fontFamily: 'Menlo', fontWeight: '800',
+                    color: Colors.textPrimary, fontSize: 15, fontFamily: mono, fontWeight: '800',
                     paddingHorizontal: 10, paddingVertical: 10, textAlign: 'center',
                   }}
                   value={f.type}
                   onChangeText={(v) => updateForm(d.as_written, { type: v.toUpperCase() })}
                   autoCapitalize="characters"
-                  placeholder="R44, A320…"
+                  placeholder="R44, A320..."
                   placeholderTextColor={Colors.textMuted}
                 />
               </View>
@@ -939,7 +1012,7 @@ function AircraftConfirmation({
                 <TextInput
                   style={[{
                     backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                    color: Colors.textPrimary, fontSize: 15, fontFamily: 'Menlo', fontWeight: '800',
+                    color: Colors.textPrimary, fontSize: 15, fontFamily: mono, fontWeight: '800',
                     paddingHorizontal: 10, paddingVertical: 10, textAlign: 'center',
                   }, aiActive('speed') && aiInput]}
                   value={f.speed}
@@ -954,7 +1027,7 @@ function AircraftConfirmation({
                 <TextInput
                   style={[{
                     backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                    color: Colors.textPrimary, fontSize: 15, fontFamily: 'Menlo', fontWeight: '800',
+                    color: Colors.textPrimary, fontSize: 15, fontFamily: mono, fontWeight: '800',
                     paddingHorizontal: 10, paddingVertical: 10, textAlign: 'center',
                   }, aiActive('endurance') && aiInput]}
                   value={f.endurance}
@@ -966,7 +1039,7 @@ function AircraftConfirmation({
               </View>
             </View>
 
-            {/* Förslag på sparade typer */}
+            {/* Forslag pa sparade typer */}
             {filteredSaved.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                 {filteredSaved.map((tp) => (
@@ -980,13 +1053,11 @@ function AircraftConfirmation({
                       borderWidth: 0.5, borderColor: Colors.primary + '66',
                     }}
                   >
-                    <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', fontFamily: 'Menlo' }}>{tp}</Text>
+                    <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', fontFamily: mono }}>{tp}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             )}
-
-            {/* Registration borttagen — hanteras per flygning, inte per typ */}
 
             {/* SP / MP / SE / ME */}
             <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -1075,175 +1146,16 @@ function AircraftConfirmation({
       >
         <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
         <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
-          Bekräfta & fortsätt granska flygningarna
+          Bekrafta & fortsatt granska flygningarna
         </Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
-// ── Datumfält med DateTimePicker ──────────────────────────────────────────────
-
-function FieldRowDate({ value, onChange, original }: { value: string; onChange: (v: string) => void; original?: string }) {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const changed = original !== undefined && value !== original;
-
-  const parseDate = (s: string): Date => {
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
-  const setFromPicker = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    onChange(`${y}-${m}-${day}`);
-  };
-
-  return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>Date</Text>
-      <TouchableOpacity
-        style={[styles.fieldInput, styles.fieldMono, changed && styles.fieldChanged, { paddingVertical: 10, justifyContent: 'center' }]}
-        onPress={() => setOpen(true)}
-        activeOpacity={0.7}
-      >
-        <Text style={{ color: value ? Colors.textPrimary : Colors.textMuted, fontSize: 13, fontFamily: 'Menlo' }}>
-          {value || 'YYYY-MM-DD'}
-        </Text>
-      </TouchableOpacity>
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
-
-      {open && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={parseDate(value)}
-          mode="date"
-          display="default"
-          onChange={(_, d) => {
-            setOpen(false);
-            if (d) setFromPicker(d);
-          }}
-        />
-      )}
-      {Platform.OS === 'ios' && (
-        <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-          <Pressable style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }} onPress={() => setOpen(false)}>
-            <Pressable style={{ backgroundColor: Colors.surface, padding: 14, borderTopLeftRadius: 16, borderTopRightRadius: 16 }} onPress={(e) => e.stopPropagation()}>
-              <DateTimePicker
-                value={parseDate(value)}
-                mode="date"
-                display="spinner"
-                onChange={(_, d) => { if (d) setFromPicker(d); }}
-                themeVariant="dark"
-              />
-              <TouchableOpacity
-                style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 6 }}
-                onPress={() => setOpen(false)}
-                activeOpacity={0.75}
-              >
-                <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>{t('done')}</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-    </View>
-  );
-}
-
-// ── ICAO-fält med sökning ─────────────────────────────────────────────────────
-
-function FieldRowIcao({ label, value, onChange, original, isUnknown, onMarkTemporary }: {
-  label: string; value: string; onChange: (v: string) => void; original?: string;
-  isUnknown?: boolean; onMarkTemporary?: () => void;
-}) {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const changed = original !== undefined && value !== original;
-  return (
-    <View style={[styles.fieldRow, { alignItems: 'flex-start', flexWrap: 'wrap' }]}>
-      <Text style={[styles.fieldLabel, { marginTop: 8 }]}>{label}</Text>
-      <View style={{ flex: 1 }}>
-        <IcaoInput
-          label=""
-          value={value}
-          onChangeText={(v) => onChange(v.toUpperCase())}
-        />
-      </View>
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
-      {isUnknown && onMarkTemporary && (
-        <TouchableOpacity
-          onPress={onMarkTemporary}
-          activeOpacity={0.75}
-          style={{
-            flexDirection: 'row', alignItems: 'center', gap: 4,
-            marginTop: 4, paddingHorizontal: 10, paddingVertical: 6,
-            borderRadius: 8, backgroundColor: Colors.warning + '1F',
-            borderWidth: 0.5, borderColor: Colors.warning + '88',
-            width: '100%',
-          }}
-        >
-          <Ionicons name="location-outline" size={13} color={Colors.warning} />
-          <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '700', flex: 1 }}>
-            {value} — {t('mark_as_temporary')}
-          </Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
-
-// ── Fartygstyp — textfält + chip-rad med sparade typer ────────────────────────
-
-function FieldRowAircraft({ value, onChange, original, savedTypes }: {
-  value: string; onChange: (v: string) => void; original?: string; savedTypes: string[];
-}) {
-  const styles = makeStyles();
-  const changed = original !== undefined && value !== original;
-  const q = (value ?? '').toUpperCase();
-  const suggestions = q
-    ? savedTypes.filter((tp) => tp.toUpperCase().startsWith(q) && tp.toUpperCase() !== q).slice(0, 4)
-    : savedTypes.slice(0, 4);
-
-  return (
-    <View style={[styles.fieldRow, { flexWrap: 'wrap', alignItems: 'flex-start' }]}>
-      <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Type</Text>
-      <View style={{ flex: 1, gap: 4 }}>
-        <TextInput
-          style={[styles.fieldInput, styles.fieldMono, changed && styles.fieldChanged]}
-          value={value}
-          onChangeText={(v) => onChange(v.toUpperCase())}
-          autoCapitalize="characters"
-          placeholder="R44, A320…"
-          placeholderTextColor={Colors.textMuted}
-        />
-        {suggestions.length > 0 && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
-            {suggestions.map((tp) => (
-              <TouchableOpacity
-                key={tp}
-                onPress={() => onChange(tp.toUpperCase())}
-                activeOpacity={0.7}
-                style={{
-                  paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-                  backgroundColor: Colors.primary + '1F',
-                  borderWidth: 0.5, borderColor: Colors.primary + '66',
-                }}
-              >
-                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Menlo' }}>{tp}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-      {changed && original ? <Text style={styles.fieldOriginal}>{original}</Text> : null}
-    </View>
-  );
-}
-
-// ── Huvud ─────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ── MAIN SCREEN ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 
 export default function ReviewScreen() {
   const styles = makeStyles();
@@ -1251,13 +1163,14 @@ export default function ReviewScreen() {
   const router = useRouter();
   const { loadFlights, loadStats, canAddFlight } = useFlightStore();
   const { timeFormat } = useTimeFormatStore();
+  const scrollRef = useRef<ScrollView>(null);
 
+  // ── Existing state ──────────────────────────────────────────────────────────
   const [scanning, setScanning] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [pageWarning, setPageWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [expandedOk, setExpandedOk] = useState<Set<number>>(new Set());
   const [savedAircraftTypes, setSavedAircraftTypes] = useState<string[]>([]);
   const [detections, setDetections] = useState<AircraftDetection[]>([]);
   const [aircraftConfirmed, setAircraftConfirmed] = useState(false);
@@ -1266,18 +1179,36 @@ export default function ReviewScreen() {
   const [batchTotal, setBatchTotal] = useState(0);
   const [batchDone, setBatchDone] = useState(0);
   const [batchRunning, setBatchRunning] = useState(false);
-  // Kalibrering: pausa efter sida 1 i batch för att lära sig rättningar
-  const [calibrationDone, setCalibrationDone] = useState(true); // true = ej batch eller kalibrering klar
+  const [calibrationDone, setCalibrationDone] = useState(true);
   const [page1RowCount, setPage1RowCount] = useState(0);
   const [batchRemainder, setBatchRemainder] = useState<{ pages: any[]; prevContext: PageContext | undefined; allDetections: AircraftDetection[] } | null>(null);
-  // Detekterade sidnummer per skanning (för koppling till papperloggbok)
   const [scannedPageNumbers, setScannedPageNumbers] = useState<{ left: number | null; right: number | null }[]>([]);
-  // Spara base64-bilder för popup-visning per rad
   const [scanImages, setScanImages] = useState<string[]>([]);
-  const [popupImage, setPopupImage] = useState<{ base64: string; rowIndex: number; totalRows: number } | null>(null);
+  const [scanLayouts, setScanLayouts] = useState<{ x_pct: number; y_pct: number; w_pct: number; h_pct: number }[]>([]);
+  const [popupImage, setPopupImage] = useState<{ base64: string; rowIndex: number; totalRows: number; fieldXPct?: number } | null>(null);
+  const [unknownIcaos, setUnknownIcaos] = useState<Set<string>>(new Set());
 
-  // Deduplicera aircraft-detektioner: om AI returnerar samma as_written flera gånger
-  // (t.ex. från olika rader eller sidor), slå ihop till en enda detektion.
+  // ── NEW wizard state ────────────────────────────────────────────────────────
+  const [wizardCursor, setWizardCursor] = useState(0);
+  const [wizardDecisions, setWizardDecisions] = useState<Record<number, 'corrected' | 'skip'>>({});
+  const [wizardEdits, setWizardEdits] = useState<Record<number, Record<string, any>>>({});
+  const [showAllFields, setShowAllFields] = useState(false);
+  const [fullImage, setFullImage] = useState(false);
+
+  // ── Derived wizard data ─────────────────────────────────────────────────────
+  const isFastTrack = (r: ReviewRow) => !r.data.needs_review && (r.data.overall_confidence ?? 0) >= 0.95;
+  const flaggedIdx = rows.map((r, i) => !isFastTrack(r) ? i : -1).filter(i => i >= 0);
+  const fastTrackCount = rows.length - flaggedIdx.length;
+  const atEnd = wizardCursor >= flaggedIdx.length;
+  const currentFlaggedRowIdx = flaggedIdx[wizardCursor];
+  const currentRow = atEnd ? null : rows[currentFlaggedRowIdx];
+
+  const manuallyApprovedCount = Object.values(wizardDecisions).filter(d => d === 'corrected').length;
+  const skippedCount = Object.values(wizardDecisions).filter(d => d === 'skip').length;
+  const totalToSave = fastTrackCount + manuallyApprovedCount;
+
+  // ── Pre-render logic (completely unchanged) ─────────────────────────────────
+
   const dedupeDetections = (dets: AircraftDetection[]): AircraftDetection[] => {
     const map = new Map<string, AircraftDetection>();
     for (const d of dets) {
@@ -1296,7 +1227,6 @@ export default function ReviewScreen() {
     return Array.from(map.values());
   };
 
-  // Detektera aritmetik i tidsfält (t.ex. "1.5 + 0.2") och föreslå summan
   const resolveArithmetic = (data: OcrFlightResult): void => {
     const timeFields: (keyof OcrFlightResult)[] = [
       'total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night',
@@ -1312,15 +1242,14 @@ export default function ReviewScreen() {
       const b = parseFloat(match[2].replace(',', '.'));
       if (isNaN(a) || isNaN(b)) continue;
       const sum = Math.round((a + b) * 10) / 10;
-      // Ersätt värdet med summan men flagga för bekräftelse
       (data as any)[field] = String(sum);
       issues.push({
         field: field as string,
-        reason: `AI läste "${raw}" — summan ${sum} har beräknats. Stämmer det?`,
+        reason: `AI laste "${raw}" — summan ${sum} har beraknats. Stammer det?`,
         confidence: 0.6,
       });
       data.needs_review = true;
-      data.review_reason = data.review_reason || 'Aritmetik i tidsfält';
+      data.review_reason = data.review_reason || 'Aritmetik i tidsfalt';
     }
     data.field_issues = issues;
   };
@@ -1329,7 +1258,37 @@ export default function ReviewScreen() {
     flights.map((f) => {
       const data = { ...f };
       resolveArithmetic(data);
-      // Auto-detect: dep_utc === arr_utc med total_time > 0 → en av tiderna är fel
+
+      // "Other type of flight time" → användaren anger vilken roll
+      const otherVal = parseFloat(String((data as any).other_time ?? '0')) || 0;
+      if (otherVal > 0) {
+        data.needs_review = true;
+        data.review_reason = data.review_reason || '"Other type of flight time" — ange vilken tid';
+        const issues = data.field_issues ? [...data.field_issues] : [];
+        if (!issues.find((i) => i.field === 'other_time_role')) {
+          issues.push({ field: 'other_time_role', reason: 'Ange vilken typ av tid', confidence: 0.5 });
+        }
+        data.field_issues = issues;
+      }
+
+      // Simulator-detektion: om flight_type='sim' eller STD-tid finns → flagga för sim-typ
+      const isSim = data.flight_type === 'sim';
+      const stdVal = parseFloat(String((data as any).std ?? '0')) || 0;
+      if ((isSim || stdVal > 0) && !data.sim_category) {
+        data.flight_type = 'sim';
+        // Sim-tid loggas INTE som vanlig flygtid — säkerställ
+        if (stdVal > 0 && (parseFloat(data.total_time) || 0) === 0) {
+          data.total_time = String(stdVal);
+        }
+        data.needs_review = true;
+        data.review_reason = data.review_reason || 'Simulator — välj typ';
+        const issues = data.field_issues ? [...data.field_issues] : [];
+        if (!issues.find((i) => i.field === 'sim_category')) {
+          issues.push({ field: 'sim_category', reason: 'Välj typ av simulator (FFS, FTD, FNPT…)', confidence: 0.5 });
+        }
+        data.field_issues = issues;
+      }
+
       const totalH = parseFloat(data.total_time) || 0;
       if (data.dep_utc && data.arr_utc && data.dep_utc === data.arr_utc && totalH > 0 && !data.time_mismatch) {
         const [dh, dm] = data.dep_utc.split(':').map(Number);
@@ -1352,16 +1311,14 @@ export default function ReviewScreen() {
             computed_dep_if_arr_correct: computedDep,
           };
           data.needs_review = true;
-          data.review_reason = data.review_reason || 'Dep och arr har samma tid — en måste vara fel';
+          data.review_reason = data.review_reason || 'Dep och arr har samma tid — en maste vara fel';
         }
       }
-      // VFR-tid = total - IFR som default om inte explicit angett
       const totalHvfr = parseFloat(data.total_time) || 0;
       const ifrH = parseFloat(data.ifr) || 0;
       if (totalHvfr > 0 && (!data.vfr || parseFloat(data.vfr) === 0)) {
         data.vfr = String(Math.round(Math.max(0, totalHvfr - ifrH) * 10) / 10);
       }
-      // flight_rules baserat på IFR-tid
       if (!data.flight_rules || data.flight_rules === 'VFR') {
         data.flight_rules = ifrH > 0 ? (ifrH >= totalHvfr ? 'IFR' : 'Y') : 'VFR';
       }
@@ -1372,9 +1329,6 @@ export default function ReviewScreen() {
       return { data, original: { ...f }, decision: fastTrack ? 'keep' : (data.needs_review ? 'pending' : 'keep') };
     });
 
-  // Spara okända ICAO-koder som upptäcks under validering
-  const [unknownIcaos, setUnknownIcaos] = useState<Set<string>>(new Set());
-
   useEffect(() => {
     getAllAircraftTypes().then((entries) => {
       const unique = Array.from(new Set(entries.map((e: any) => e.aircraft_type).filter(Boolean)));
@@ -1382,7 +1336,6 @@ export default function ReviewScreen() {
     });
   }, []);
 
-  // Validera ICAO-koder mot databasen — flagga okända
   const validateIcaoCodes = async (newRows: ReviewRow[]) => {
     const icaoPattern = /^[A-Z]{4}$/;
     const checked = new Set<string>();
@@ -1398,32 +1351,31 @@ export default function ReviewScreen() {
     }
     if (unknown.size === 0) return;
     setUnknownIcaos((prev) => new Set([...prev, ...unknown]));
-    // Flagga rader med okända koder
     setRows((prev) => prev.map((r) => {
       const depUnknown = unknown.has((r.data.dep_place ?? '').toUpperCase());
       const arrUnknown = unknown.has((r.data.arr_place ?? '').toUpperCase());
       if (!depUnknown && !arrUnknown) return r;
       const issues = [...(r.data.field_issues ?? [])];
       if (depUnknown && !issues.find((i) => i.field === 'dep_place')) {
-        issues.push({ field: 'dep_place', reason: `${r.data.dep_place} finns inte i ICAO-databasen — tillfällig plats?`, confidence: 0.3 });
+        issues.push({ field: 'dep_place', reason: `${r.data.dep_place} finns inte i ICAO-databasen — tillfallig plats?`, confidence: 0.3 });
       }
       if (arrUnknown && !issues.find((i) => i.field === 'arr_place')) {
-        issues.push({ field: 'arr_place', reason: `${r.data.arr_place} finns inte i ICAO-databasen — tillfällig plats?`, confidence: 0.3 });
+        issues.push({ field: 'arr_place', reason: `${r.data.arr_place} finns inte i ICAO-databasen — tillfallig plats?`, confidence: 0.3 });
       }
       return {
         ...r,
         data: { ...r.data, field_issues: issues, needs_review: true,
-          review_reason: r.data.review_reason || 'Okänd flygplatskod' },
+          review_reason: r.data.review_reason || 'Okand flygplatskod' },
         decision: r.decision === 'keep' ? 'pending' : r.decision,
       };
     }));
   };
 
-  // Batch-import: processera flera sidor sekventiellt med kontext-överföring
+  // ── Batch useEffect ─────────────────────────────────────────────────────────
+
   useEffect(() => {
     const batch = getScanBatch();
     if (batch.length > 1) {
-      // Batch-mode: processera sida 1 först, pausa för kalibrering
       setBatchTotal(batch.length);
       setBatchRunning(true);
       setCalibrationDone(false);
@@ -1432,7 +1384,6 @@ export default function ReviewScreen() {
         let prevContext: PageContext | undefined;
         let allDetections: AircraftDetection[] = [];
 
-        // --- Sida 1 ---
         try {
           const page = batch[0];
           const result = await ocrScanPage(page.base64, page.mediaType, timeFormat, prevContext);
@@ -1441,6 +1392,7 @@ export default function ReviewScreen() {
           setPage1RowCount(newPageRows.length);
           validateIcaoCodes(newPageRows);
           setScanImages([page.base64]);
+          setScanLayouts([result.imageLayout?.logbook_bounds ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 }]);
           allDetections = [...result.aircraftDetections];
           setDetections(dedupeDetections(allDetections));
           setScannedPageNumbers([result.pageNumbers]);
@@ -1465,17 +1417,16 @@ export default function ReviewScreen() {
           return;
         }
 
-        // Pausa — spara resterande sidor + kontext så useEffect kan fortsätta
         if (allDetections.length === 0) setAircraftConfirmed(true);
         setBatchRunning(false);
         setBatchRemainder({ pages: batch.slice(1), prevContext, allDetections });
       })();
     } else {
-      // Enkelskanning — spara bild för popup
       const singleImg = getScanBatch()[0];
       if (singleImg) setScanImages([singleImg.base64]);
       ocrScanLogbook(timeFormat)
-        .then(({ flights, pageTotals: pt, aircraftDetections, pageNumbers }) => {
+        .then(({ flights, pageTotals: pt, aircraftDetections, pageNumbers, imageLayout }) => {
+          setScanLayouts([imageLayout?.logbook_bounds ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 }]);
           const deduped = dedupeDetections(aircraftDetections);
           setDetections(deduped);
           if (!deduped || deduped.length === 0) setAircraftConfirmed(true);
@@ -1493,7 +1444,7 @@ export default function ReviewScreen() {
     }
   }, []);
 
-  // Fortsätt batch-skanning efter kalibrering av sida 1
+  // Continue batch after calibration
   useEffect(() => {
     if (!calibrationDone || !batchRemainder) return;
     const { pages, prevContext: initCtx, allDetections: initDets } = batchRemainder;
@@ -1512,10 +1463,11 @@ export default function ReviewScreen() {
           setRows((prev) => [...prev, ...newPageRows]);
           validateIcaoCodes(newPageRows);
           setScanImages((prev) => [...prev, page.base64]);
+          setScanLayouts((prev) => [...prev, result.imageLayout?.logbook_bounds ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 }]);
           allDetections = [...allDetections, ...result.aircraftDetections];
           setDetections(dedupeDetections(allDetections));
           setScannedPageNumbers((prev) => [...prev, result.pageNumbers]);
-          setBatchDone(i + 2); // +2 because page 1 is already done
+          setBatchDone(i + 2);
 
           const lastFlight = result.flights[result.flights.length - 1];
           if (lastFlight) {
@@ -1538,11 +1490,11 @@ export default function ReviewScreen() {
     })();
   }, [calibrationDone]);
 
-  // Hantera kalibrering: spara rättningar från sida 1 som learned mappings
+  // ── Calibration confirm ─────────────────────────────────────────────────────
+
   const handleCalibrationConfirm = async () => {
     const page1Rows = rows.slice(0, page1RowCount);
     for (const row of page1Rows) {
-      // Jämför rättade fält mot originalet
       if (row.data.aircraft_type && row.data.aircraft_type !== row.original.aircraft_type && row.original.aircraft_type) {
         await saveLearnedMapping('aircraft_type', row.original.aircraft_type, row.data.aircraft_type);
       }
@@ -1555,7 +1507,6 @@ export default function ReviewScreen() {
       if (row.data.second_pilot && row.data.second_pilot !== row.original.second_pilot && row.original.second_pilot) {
         await saveLearnedMapping('second_pilot', row.original.second_pilot, row.data.second_pilot);
       }
-      // Tidsfält — informativt
       const timeFields: (keyof OcrFlightResult)[] = ['total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night', 'dep_utc', 'arr_utc'];
       for (const field of timeFields) {
         const orig = String(row.original[field] ?? '');
@@ -1569,12 +1520,11 @@ export default function ReviewScreen() {
     setCalibrationDone(true);
   };
 
+  // ── updateField / setDecision ───────────────────────────────────────────────
+
   const updateField = (idx: number, key: keyof OcrFlightResult, val: any) => {
     setRows((prev) => {
       const copy = [...prev];
-      // Viktigt: ändra INTE decision vid editering — då flyttas flaggade rader
-      // till "godkända" vid varje knapptryck och fokus tappas. Användaren måste
-      // aktivt trycka "Godkänn" eller "Hoppa över" för att ändra decision.
       copy[idx] = { ...copy[idx], data: { ...copy[idx].data, [key]: val } };
       return copy;
     });
@@ -1593,33 +1543,31 @@ export default function ReviewScreen() {
     }
   };
 
-  const toggleExpand = (idx: number) => {
-    setExpandedOk((prev) => {
-      const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
-      return next;
-    });
+  // ── Wizard advance / undo ───────────────────────────────────────────────────
+
+  const advanceWizard = (decision: 'corrected' | 'skip') => {
+    setWizardDecisions(d => ({ ...d, [currentFlaggedRowIdx]: decision }));
+    // Apply any pending edits to rows for 'corrected'
+    if (decision === 'corrected' && wizardEdits[currentFlaggedRowIdx]) {
+      const edits = wizardEdits[currentFlaggedRowIdx];
+      Object.entries(edits).forEach(([key, val]) => updateField(currentFlaggedRowIdx, key as any, val));
+    }
+    setDecision(currentFlaggedRowIdx, decision);
+    Haptics.notificationAsync(decision === 'corrected' ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning);
+    setWizardCursor(c => c + 1);
+    setShowAllFields(false);
+    // Auto-scroll to top
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const saveAll = async () => {
-    if (!canAddFlight()) {
-      Alert.alert(t('limit_reached'), t('limit_reached_upgrade'));
-      return;
-    }
-    const pendingLeft = rows.filter(r => r.decision === 'pending').length;
-    if (pendingLeft > 0) {
-      Alert.alert(
-        t('incomplete_review'),
-        `${pendingLeft} ${pendingLeft > 1 ? t('rows_not_reviewed') : t('row_not_reviewed')}`,
-        [
-          { text: t('cancel'), style: 'cancel' },
-          { text: t('save_anyway'), onPress: () => doSave() },
-        ]
-      );
-      return;
-    }
-    doSave();
+  const undoWizard = () => {
+    if (wizardCursor <= 0) return;
+    setWizardCursor(c => c - 1);
+    setShowAllFields(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
+
+  // ── Save logic (updated for wizard decisions) ───────────────────────────────
 
   const doSave = async () => {
     setSaving(true);
@@ -1627,44 +1575,46 @@ export default function ReviewScreen() {
     const savedFlightIds: number[] = [];
     try {
       const db = await getDatabase();
-      for (const row of rows) {
-        if (row.decision === 'skip') { skipped++; continue; }
-        // #8: Duplicering-varning — kolla om exakt samma flygning redan finns
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        // Skip rows: wizard-skipped flagged rows, or rows with decision='skip'
+        if (row.decision === 'skip' || wizardDecisions[i] === 'skip') {
+          skipped++;
+          continue;
+        }
+        // Duplicate check
         const dup = await db.getFirstAsync<{ id: number }>(
           `SELECT id FROM flights WHERE date=? AND dep_place=? AND arr_place=? AND ABS(total_time - ?) < 0.05 LIMIT 1`,
           [row.data.date, row.data.dep_place, row.data.arr_place, parseFloat(row.data.total_time) || 0],
         );
         if (dup) {
           duplicates++;
-          continue; // hoppa automatiskt — dubbletten sparas inte
+          continue;
         }
         const id = await insertFlight(row.data, { source: 'ocr', originalData: JSON.stringify(row.original) });
         if (id) savedFlightIds.push(id);
         saved++;
       }
 
-      // Spara okända ICAO-koder som tillfälliga landningsplatser
+      // Save unknown ICAOs as temporary places
       for (const icao of unknownIcaos) {
         try { await addTemporaryPlace(icao, icao); } catch { /* redan tillagd */ }
       }
 
-      // Koppla till aktiv papperloggbok om sidnummer detekterades
+      // Link to active paper logbook
       const book = await getActiveBook();
       if (book && savedFlightIds.length > 0 && scannedPageNumbers.length > 0) {
         const db = await getDatabase();
         for (const pn of scannedPageNumbers) {
           const leftPage = pn.left;
           if (!leftPage) continue;
-          // Räkna ut spread_number från sidnummer: spread = (leftPage - startingPage) / 2 + 1
           const spreadNumber = Math.floor((leftPage - book.starting_page) / 2) + 1;
           if (spreadNumber <= 0) continue;
-          // Stämpla dessa flygningar (ungefärlig — vi tar de som sparats i denna session)
           const placeholders = savedFlightIds.map(() => '?').join(',');
           await db.runAsync(
             `UPDATE flights SET book_id=?, spread_number=? WHERE id IN (${placeholders}) AND book_id=0`,
             [book.id, spreadNumber, ...savedFlightIds],
           );
-          // Uppdatera bokens transcribed_spreads om det är nytt spread
           await db.runAsync(
             `UPDATE logbook_books SET transcribed_spreads = MAX(transcribed_spreads, ?) WHERE id = ?`,
             [spreadNumber, book.id],
@@ -1678,12 +1628,12 @@ export default function ReviewScreen() {
         .filter((p) => p.left)
         .map((p) => `${p.left}–${p.right ?? (p.left! + 1)}`)
         .join(', ');
-      const bookNote = pageLabel ? `\n📖 ${t('linked_to_book')}: ${book?.name ?? ''} · ${t('page')} ${pageLabel}` : '';
+      const bookNote = pageLabel ? `\n${t('linked_to_book')}: ${book?.name ?? ''} . ${t('page')} ${pageLabel}` : '';
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         t('done_exclamation'),
-        `${saved} ${t('flights_saved')}${skipped > 0 ? ` · ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` · ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
+        `${saved} ${t('flights_saved')}${skipped > 0 ? ` . ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` . ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
         [{ text: 'OK', onPress: () => router.dismissAll() }]
       );
     } finally {
@@ -1691,8 +1641,54 @@ export default function ReviewScreen() {
     }
   };
 
-  // ── Laddning ──
+  const saveAll = async () => {
+    if (!canAddFlight()) {
+      Alert.alert(t('limit_reached'), t('limit_reached_upgrade'));
+      return;
+    }
+    doSave();
+  };
 
+  // ── Close with confirmation ─────────────────────────────────────────────────
+
+  const handleClose = () => {
+    if (Object.keys(wizardDecisions).length > 0) {
+      Alert.alert(
+        t('exit_without_saving'),
+        t('exit_without_saving_body'),
+        [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('exit_btn'), style: 'destructive', onPress: () => router.back() },
+        ]
+      );
+    } else {
+      router.back();
+    }
+  };
+
+  // ── Helper: get field value from row (with wizard edits overlay) ────────────
+
+  const getEditedValue = (rowIdx: number, field: string): string => {
+    if (wizardEdits[rowIdx] && wizardEdits[rowIdx][field] !== undefined) {
+      return String(wizardEdits[rowIdx][field]);
+    }
+    return String((rows[rowIdx]?.data as any)?.[field] ?? '');
+  };
+
+  const setWizardEdit = (rowIdx: number, field: string, value: any) => {
+    setWizardEdits(prev => ({
+      ...prev,
+      [rowIdx]: { ...(prev[rowIdx] ?? {}), [field]: value },
+    }));
+    // Also update the row directly for immediate visual feedback
+    updateField(rowIdx, field as any, value);
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ── RENDER ────────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // ── Loading state ──
   if (scanning) {
     return (
       <View style={styles.center}>
@@ -1703,6 +1699,7 @@ export default function ReviewScreen() {
     );
   }
 
+  // ── Error state ──
   if (error) {
     return (
       <View style={styles.center}>
@@ -1716,21 +1713,20 @@ export default function ReviewScreen() {
     );
   }
 
-  // Bekräftelsesteg för luftfartyg — visas FÖRE review-listan
+  // ── Aircraft confirmation gate ──
   if (!aircraftConfirmed && detections.length > 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={styles.acHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Steg 1 av 2: Bekräfta luftfartyg</Text>
-            <Text style={styles.headerSub}>Rätta innan vi går till flygningarna — uppdaterar alla rader</Text>
+            <Text style={styles.acHeaderTitle}>Steg 1 av 2: Bekrafta luftfartyg</Text>
+            <Text style={styles.acHeaderSub}>Ratta innan vi gar till flygningarna — uppdaterar alla rader</Text>
           </View>
         </View>
         <AircraftConfirmation
           detections={detections}
           savedTypes={savedAircraftTypes}
           onConfirm={(corrections) => {
-            // Propagera rättningar till alla rader med matching aircraft_type
             setRows((prev) => prev.map((r) => {
               const hit = corrections.find((c) =>
                 c.as_written === r.original.aircraft_type ||
@@ -1753,128 +1749,125 @@ export default function ReviewScreen() {
     );
   }
 
-  const flagged = rows.filter(r => (r.data.needs_review && r.decision === 'pending') || r.decision === 'skip');
-  const ok      = rows.filter(r => !r.data.needs_review || r.decision === 'corrected' || r.decision === 'keep');
-  const toSave  = rows.filter(r => r.decision !== 'skip').length;
-  const pendingLeft = rows.filter(r => r.decision === 'pending').length;
+  // ── Calibration banner (batch mode, page 1 done) ──
+  if (!calibrationDone && !batchRunning && batchTotal > 1) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.wizardHeader}>
+          <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
+            <Ionicons name="close" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={styles.headerLabel}>{t('calibration_page_title').toUpperCase()}</Text>
+          </View>
+          <View style={styles.headerBtn} />
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          <View style={{
+            padding: 14, borderRadius: 12,
+            backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '55',
+            gap: 8,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="school" size={16} color={Colors.primary} />
+              <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>
+                {t('calibration_page_title')}
+              </Text>
+            </View>
+            <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
+              {t('calibration_page_body')}
+            </Text>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.primary, marginTop: 4,
+              }}
+              onPress={handleCalibrationConfirm}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle" size={16} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
+                {t('calibration_confirm')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── Check for unresolved ICAO — blockerar bara om fältet INTE ändrats ──
+  const currentHasUnresolvedIcao = currentRow ? (currentRow.data.field_issues ?? []).some(
+    (i) => {
+      if (!(i.field === 'dep_place' || i.field === 'arr_place') || !i.reason.includes('ICAO')) return false;
+      // Om användaren ändrat fältet → inte längre blockerat
+      const current = String((currentRow.data as any)[i.field] ?? '');
+      const original = String((currentRow.original as any)[i.field] ?? '');
+      return current === original; // blockerad bara om oförändrat
+    },
+  ) : false;
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ── WIZARD UI ─────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════════
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>{rows.length} {t('rows_imported')}</Text>
-          <Text style={styles.headerSub}>
-            {batchRunning
-              ? `${t('batch_scanning')} ${batchDone}/${batchTotal}…`
-              : pendingLeft > 0
-                ? `${pendingLeft} ${t('requires_review')}`
-                : t('all_rows_approved')}
+      {/* ── Wizard Header ── */}
+      <View style={styles.wizardHeader}>
+        <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
+          <Ionicons name="close" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={styles.headerLabel}>
+            {atEnd ? t('review_done') : t('review_problems')}
           </Text>
-          {batchTotal > 1 && (
-            <View style={{ height: 3, backgroundColor: Colors.elevated, borderRadius: 2, marginTop: 4 }}>
-              <View style={{ height: 3, borderRadius: 2, backgroundColor: batchRunning ? Colors.primary : Colors.success, width: `${(batchDone / batchTotal) * 100}%` }} />
-            </View>
+          {!atEnd && (
+            <Text style={styles.headerProgress}>
+              {wizardCursor + 1} / {flaggedIdx.length}
+            </Text>
+          )}
+          {atEnd && (
+            <Text style={[styles.headerProgress, { color: Colors.success }]}>
+              {'\u2713'} {t('review_done')}
+            </Text>
           )}
         </View>
         <TouchableOpacity
-          style={[styles.saveBtn, (saving || rows.length === 0) && { opacity: 0.5 }]}
-          onPress={saveAll}
-          disabled={saving || rows.length === 0}
+          onPress={undoWizard}
+          style={[styles.headerBtn, wizardCursor === 0 && { opacity: 0.3 }]}
+          disabled={wizardCursor === 0}
         >
-          {saving
-            ? <ActivityIndicator color={Colors.textInverse} size="small" />
-            : <Text style={styles.saveBtnText}>{t('save')} {toSave}</Text>}
+          <Ionicons name="arrow-undo" size={18} color={wizardCursor === 0 ? Colors.textMuted : Colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* Kalibreringsbanner — visas efter sida 1 i batch, innan resterande sidor processas */}
-      {!calibrationDone && !batchRunning && batchTotal > 1 && (
-        <View style={{
-          marginHorizontal: 12, marginTop: 8, padding: 14, borderRadius: 12,
-          backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '55',
-          gap: 8,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="school" size={16} color={Colors.primary} />
-            <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>
-              {t('calibration_page_title')}
-            </Text>
-          </View>
-          <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
-            {t('calibration_page_body')}
-          </Text>
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-              paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.primary, marginTop: 4,
-            }}
-            onPress={handleCalibrationConfirm}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="checkmark-circle" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
-              {t('calibration_confirm')}
-            </Text>
-          </TouchableOpacity>
+      {/* ── Progress dots ── */}
+      {flaggedIdx.length > 0 && (
+        <View style={styles.progressRow}>
+          {flaggedIdx.map((_, i) => {
+            let bgColor = Colors.border; // future
+            if (i === wizardCursor && !atEnd) bgColor = Colors.primary; // current
+            else if (wizardDecisions[flaggedIdx[i]] === 'corrected') bgColor = Colors.success;
+            else if (wizardDecisions[flaggedIdx[i]] === 'skip') bgColor = Colors.textMuted;
+            return <View key={i} style={[styles.progressDot, { backgroundColor: bgColor }]} />;
+          })}
         </View>
       )}
 
-      {/* #1: Allt klart — godkänn + spara i ett steg */}
-      {pendingLeft === 0 && rows.length > 0 && !batchRunning && !saving && (
-        <TouchableOpacity
-          style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-            marginHorizontal: 12, marginTop: 8, paddingVertical: 12, borderRadius: 12,
-            backgroundColor: Colors.success,
-          }}
-          onPress={() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            doSave();
-          }}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="checkmark-done" size={18} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
-            {t('save_all_verified')} ({toSave})
+      {/* ── Batch progress bar ── */}
+      {batchRunning && batchTotal > 1 && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <Text style={{ color: Colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
+            {t('batch_scanning')} {batchDone}/{batchTotal}...
           </Text>
-        </TouchableOpacity>
+          <View style={{ height: 3, backgroundColor: Colors.elevated, borderRadius: 2 }}>
+            <View style={{ height: 3, borderRadius: 2, backgroundColor: Colors.primary, width: `${(batchDone / batchTotal) * 100}%` }} />
+          </View>
+        </View>
       )}
 
-      {/* Batch-godkänn verifierade (hög konfidens, tomma field_issues) */}
-      {(() => {
-        const verifiable = rows.filter(r =>
-          r.decision === 'pending' &&
-          (r.data.overall_confidence ?? 0) >= 0.85 &&
-          (r.data.field_issues ?? []).length === 0 &&
-          !r.data.time_mismatch
-        );
-        if (verifiable.length === 0) return null;
-        return (
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-              marginHorizontal: 12, marginTop: 8, paddingVertical: 10, borderRadius: 10,
-              backgroundColor: Colors.primary + '1F',
-              borderWidth: 1, borderColor: Colors.primary + '88',
-            }}
-            onPress={() => {
-              setRows(prev => prev.map(r => {
-                if (verifiable.includes(r)) return { ...r, decision: 'corrected' };
-                return r;
-              }));
-            }}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="flash" size={14} color={Colors.primary} />
-            <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '800' }}>
-              Godkänn {verifiable.length} verifierade rader
-            </Text>
-          </TouchableOpacity>
-        );
-      })()}
-
-      {/* Sidvarning */}
+      {/* ── Page warning ── */}
       {pageWarning && (
         <View style={styles.pageWarning}>
           <Ionicons name="warning" size={14} color={Colors.warning} />
@@ -1882,114 +1875,629 @@ export default function ReviewScreen() {
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {atEnd ? (
+          /* ════════════════════════════════════════════════════════════════════
+             DONE STATE
+             ════════════════════════════════════════════════════════════════════ */
+          <ScrollView contentContainerStyle={styles.doneContainer} keyboardShouldPersistTaps="handled">
+            {/* Hero */}
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+              <View style={styles.doneHero}>
+                <Ionicons name="checkmark" size={38} color={Colors.success} />
+              </View>
+              <Text style={styles.doneTitle}>{t('all_done_title')}</Text>
+              <Text style={styles.doneSub}>{t('all_done_sub')}</Text>
+            </View>
 
-        {/* ── Flaggade / hoppa-över ── */}
-        {flagged.length > 0 && (
-          <>
-            <Text style={styles.sectionLabel}>
-              <Ionicons name="warning" size={11} color={Colors.danger} /> {t('requires_review_label')} ({flagged.length})
-            </Text>
-            {flagged.map((row) => {
-              const idx = rows.indexOf(row);
-              const pageIdx = Math.min(Math.floor(idx / 12), scanImages.length - 1);
-              return (
-                <FlaggedCard
-                  key={idx}
-                  idx={idx}
-                  row={row}
-                  onChange={(key, val) => updateField(idx, key, val)}
-                  onDecision={(d) => setDecision(idx, d)}
-                  timeFormat={timeFormat}
-                  savedAircraftTypes={savedAircraftTypes}
-                  prevRow={idx > 0 ? rows[idx - 1] : undefined}
-                  onShowImage={scanImages[pageIdx] ? () => setPopupImage({
-                    base64: scanImages[pageIdx],
-                    rowIndex: idx % 12,
-                    totalRows: 12,
-                  }) : undefined}
-                />
-              );
-            })}
-          </>
-        )}
+            {/* Summary card */}
+            <View style={styles.summaryCard}>
+              <SummaryRow icon="flash" iconColor={Colors.success} label={t('auto_approved')} count={fastTrackCount} />
+              <SummaryRow icon="checkmark-circle" iconColor={Colors.success} label={t('manually_approved')} count={manuallyApprovedCount} />
+              <SummaryRow icon="remove-circle" iconColor={Colors.textMuted} label={t('skipped_count')} count={skippedCount} isLast />
+            </View>
 
-        {/* ── Godkända ── */}
-        {ok.length > 0 && (
+            {/* Info box */}
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={14} color={Colors.primary} />
+              <Text style={styles.infoText}>{t('first_review_disclaimer')}</Text>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.doneActions}>
+              <TouchableOpacity
+                style={styles.reviewAgainBtn}
+                onPress={() => {
+                  setWizardCursor(0);
+                  setShowAllFields(false);
+                  scrollRef.current?.scrollTo({ y: 0, animated: true });
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.reviewAgainText}>{t('review_again')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.importBtn, saving && { opacity: 0.5 }]}
+                onPress={saveAll}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving
+                  ? <ActivityIndicator color={Colors.textInverse} size="small" />
+                  : <Text style={styles.importBtnText}>
+                      {t('import_n_flights').replace('{n}', String(totalToSave))}
+                    </Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : currentRow ? (
+          /* ════════════════════════════════════════════════════════════════════
+             WIZARD CARD — one flagged row at a time
+             ════════════════════════════════════════════════════════════════════ */
           <>
-            <Text style={styles.sectionLabel}>
-              <Ionicons name="checkmark-circle" size={11} color={Colors.success} /> {t('approved_label')} ({ok.length})
-            </Text>
-            <View style={styles.okList}>
-              {ok.map((row) => {
-                const idx = rows.indexOf(row);
-                const expanded = expandedOk.has(idx);
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.wizardBody}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+            >
+              {/* 1. Image preview card med highlight + crop — scrollbar */}
+              {(() => {
+                const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
+                if (pageIdx < 0 || !scanImages[pageIdx]) return null;
+                const rowYPct = currentRow?.data?.row_y_pct;
+                const issues = currentRow?.data?.field_issues ?? [];
+                // Logbook bounds — crop visuellt till bara loggboken
+                const bounds = scanLayouts[pageIdx] ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 };
+                const fullW = 800;
+                const fullH = 500;
+                // Skala upp: bilden visas i full storlek men vi offsettar till loggbokens area
+                const cropX = (bounds.x_pct / 100) * fullW;
+                const cropY = (bounds.y_pct / 100) * fullH;
+                const imgW = (bounds.w_pct / 100) * fullW;
+                const imgH = (bounds.h_pct / 100) * fullH;
+                // Auto-scroll till rad-position (relativt croppat område)
+                const relativeRowY = rowYPct != null
+                  ? Math.max(0, ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 90)
+                  : 0;
                 return (
-                  <View key={idx}>
-                    <OkRow row={row} onExpand={() => toggleExpand(idx)} timeFormat={timeFormat} />
-                    {expanded && (
-                      <View style={styles.okExpanded}>
-                        <FlaggedCard
-                          idx={idx}
-                          row={row}
-                          onChange={(key, val) => updateField(idx, key, val)}
-                          onDecision={(d) => setDecision(idx, d)}
-                          timeFormat={timeFormat}
-                          savedAircraftTypes={savedAircraftTypes}
-                          prevRow={idx > 0 ? rows[idx - 1] : undefined}
-                        />
-                      </View>
-                    )}
+                  <View style={[styles.imageCard, { height: 200 }]}>
+                    <ScrollView
+                      horizontal
+                      contentOffset={{ x: 0, y: 0 }}
+                      showsHorizontalScrollIndicator={false}
+                      showsVerticalScrollIndicator={false}
+                      style={{ height: 200 }}
+                    >
+                      <ScrollView
+                        contentOffset={{ x: 0, y: relativeRowY }}
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled
+                      >
+                        <View style={{ width: imgW, height: imgH, overflow: 'hidden' }}>
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
+                            style={{
+                              width: fullW, height: fullH,
+                              marginLeft: -cropX,
+                              marginTop: -cropY,
+                            }}
+                            resizeMode="contain"
+                          />
+                          {/* Rad-highlight — relativ till croppat område */}
+                          {rowYPct != null && (
+                            <View
+                              style={{
+                                position: 'absolute',
+                                top: ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 12,
+                                left: 0, width: imgW, height: 24,
+                                backgroundColor: Colors.warning + '30',
+                                borderTopWidth: 2, borderBottomWidth: 2,
+                                borderColor: Colors.warning,
+                              }}
+                            />
+                          )}
+                          {/* Fält-highlights */}
+                          {issues.map((issue, i) => (
+                            issue.x_pct != null && rowYPct != null ? (
+                              <View
+                                key={i}
+                                style={{
+                                  position: 'absolute',
+                                  top: ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 12,
+                                  left: ((issue.x_pct - bounds.x_pct) / bounds.w_pct) * imgW - 20,
+                                  width: 40, height: 24,
+                                  borderWidth: 2, borderColor: Colors.danger,
+                                  borderRadius: 4,
+                                  backgroundColor: Colors.danger + '25',
+                                }}
+                              />
+                            ) : null
+                          ))}
+                        </View>
+                      </ScrollView>
+                    </ScrollView>
+                    <TouchableOpacity
+                      style={styles.expandBtn}
+                      onPress={() => setPopupImage({
+                        base64: scanImages[pageIdx],
+                        rowIndex: currentFlaggedRowIdx % 12,
+                        totalRows: 12,
+                      })}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="expand" size={10} color="#FFF" />
+                      <Text style={styles.expandBtnText}>{t('expand_image')}</Text>
+                    </TouchableOpacity>
                   </View>
                 );
-              })}
-            </View>
-          </>
-        )}
-      </ScrollView>
+              })()}
 
-      {/* #5: Bild-popup — visar den relevanta raden från skannad bild */}
-      {popupImage && (
-        <Modal transparent visible animationType="fade" onRequestClose={() => setPopupImage(null)}>
-          <Pressable
-            style={{ flex: 1, backgroundColor: '#000000CC', justifyContent: 'center', alignItems: 'center', padding: 20 }}
-            onPress={() => setPopupImage(null)}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxHeight: 200 }}>
-              <View style={{ borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '88' }}>
-                <Image
-                  source={{ uri: `data:image/jpeg;base64,${popupImage.base64}` }}
-                  style={{
-                    width: '100%',
-                    height: 900,
-                    // Visa bara den relevanta raddelen: header ~15%, varje rad ~(85%/totalRows)
-                    marginTop: -(0.15 * 900 + popupImage.rowIndex * (0.85 * 900 / popupImage.totalRows) - 20),
-                  }}
-                  resizeMode="cover"
-                />
-              </View>
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                marginTop: 10,
-              }}>
-                <View style={{
-                  backgroundColor: Colors.primary, borderRadius: 8,
-                  paddingHorizontal: 14, paddingVertical: 8,
-                }}>
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>
-                    Rad {popupImage.rowIndex + 1} — tryck för att stänga
+              {/* 2. Row summary card */}
+              <View style={styles.rowSummaryCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                  <Text style={styles.routeText}>
+                    {currentRow.data.dep_place || '----'} {'\u2192'} {currentRow.data.arr_place || '----'}
+                  </Text>
+                  <Text style={styles.dateText}>{currentRow.data.date}</Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ color: Colors.gold, fontSize: 13, fontWeight: '800', fontFamily: 'Menlo' }}>
+                    Rad {currentFlaggedRowIdx + 1}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <Text style={styles.metaText}>
+                    {currentRow.data.dep_utc || '--:--'}–{currentRow.data.arr_utc || '--:--'}
+                    {' '}{'\u00B7'}{' '}{currentRow.data.aircraft_type} {currentRow.data.registration}
+                    {' '}{'\u00B7'}{' '}
+                    <Text style={{ color: Colors.textSecondary, fontWeight: '700' }}>
+                      {(parseFloat(currentRow.data.total_time) || 0).toFixed(1)}h
+                    </Text>
                   </Text>
                 </View>
               </View>
+
+              {/* 3. Problem section */}
+              <View style={{ marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Ionicons name="alert-circle" size={14} color={Colors.warning} />
+                  <Text style={styles.problemLabel}>{t('what_needs_checking')}</Text>
+                </View>
+                <Text style={styles.reviewReasonText}>
+                  {currentRow.data.review_reason ?? t('review_before_saving')}
+                </Text>
+              </View>
+
+              {/* 3a. TimeMismatch block */}
+              {currentRow.data.time_mismatch && (
+                <View style={{ marginTop: 12 }}>
+                  <TimeMismatchBlock
+                    tm={currentRow.data.time_mismatch}
+                    onAcceptDep={() => {
+                      if (!currentRow.data.time_mismatch) return;
+                      updateField(currentFlaggedRowIdx, 'arr_utc', currentRow.data.time_mismatch.computed_arr_if_dep_correct);
+                      updateField(currentFlaggedRowIdx, 'time_mismatch' as any, null as any);
+                    }}
+                    onAcceptArr={() => {
+                      if (!currentRow.data.time_mismatch) return;
+                      updateField(currentFlaggedRowIdx, 'dep_utc', currentRow.data.time_mismatch.computed_dep_if_arr_correct);
+                      updateField(currentFlaggedRowIdx, 'time_mismatch' as any, null as any);
+                    }}
+                  />
+                </View>
+              )}
+
+              {/* 3b. RemarksSuggestion block */}
+              {currentRow.data.remarks_suggestion && (
+                <View style={{ marginTop: 12 }}>
+                  <RemarksSuggestionBlock
+                    suggestion={currentRow.data.remarks_suggestion}
+                    onAccept={() => {
+                      const s = currentRow.data.remarks_suggestion!;
+                      updateField(currentFlaggedRowIdx, s.field as keyof OcrFlightResult, s.value);
+                      const cleaned = (currentRow.data.remarks ?? '').replace(s.original_text, '').replace(/\s{2,}/g, ' ').trim();
+                      updateField(currentFlaggedRowIdx, 'remarks', cleaned);
+                      updateField(currentFlaggedRowIdx, 'remarks_suggestion' as any, null as any);
+                      if (s.field === 'second_pilot') {
+                        saveLearnedMapping('second_pilot', s.original_text, s.value);
+                      }
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }}
+                    onReject={() => updateField(currentFlaggedRowIdx, 'remarks_suggestion' as any, null as any)}
+                  />
+                </View>
+              )}
+
+              {/* 3c. FieldEditor per field_issue */}
+              {(currentRow.data.field_issues ?? []).length > 0 && (
+                <View style={{ marginTop: 12, gap: 6 }}>
+                  {(currentRow.data.field_issues ?? []).map((issue, i) => {
+                    const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
+                    return (
+                      <FieldEditor
+                        key={`${issue.field}-${i}`}
+                        issue={issue}
+                        value={String((currentRow.data as any)[issue.field] ?? '')}
+                        originalValue={String((currentRow.original as any)[issue.field] ?? '')}
+                        suggestedValue={issue.suggested_value}
+                        onChangeText={(v) => {
+                          updateField(currentFlaggedRowIdx, issue.field as any, v);
+                        }}
+                        onShowImage={scanImages[pageIdx] ? () => setPopupImage({
+                          base64: scanImages[pageIdx],
+                          rowIndex: currentRow.data.row_y_pct ?? (currentFlaggedRowIdx % 12) * (100 / 12),
+                          totalRows: 100,
+                          fieldXPct: issue.x_pct,
+                        }) : undefined}
+                      />
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Unknown ICAO warning */}
+              {currentHasUnresolvedIcao && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: Colors.danger + '14', borderRadius: 8, padding: 8, marginTop: 12,
+                  borderWidth: 0.5, borderColor: Colors.danger + '55',
+                }}>
+                  <Ionicons name="alert-circle" size={13} color={Colors.danger} />
+                  <Text style={{ color: Colors.danger, fontSize: 11, fontWeight: '700', flex: 1 }}>
+                    {t('unknown_icao_block')}
+                  </Text>
+                </View>
+              )}
+
+              {/* 4. "Visa alla falt" collapsible */}
+              <Pressable
+                onPress={() => setShowAllFields(v => !v)}
+                style={styles.showAllToggle}
+              >
+                <Ionicons name="list" size={14} color={Colors.textSecondary} />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textSecondary }}>
+                  {showAllFields ? t('hide_fields') : t('show_all_fields')}
+                </Text>
+                <Ionicons name={showAllFields ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textMuted} />
+              </Pressable>
+
+              {showAllFields && (
+                <View style={styles.miniFieldGrid}>
+                  <MiniFieldDate value={currentRow.data.date ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'date', v)} />
+                  <MiniField label="REG" value={currentRow.data.registration ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'registration', v.toUpperCase())} />
+                  <MiniFieldIcao label="DEP" value={currentRow.data.dep_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_place', v)} onAddTemp={() => {
+                    const code = currentRow.data.dep_place?.toUpperCase();
+                    if (code) { setUnknownIcaos(prev => new Set([...prev, code])); Alert.alert('Tillfällig plats', `${code} sparas som tillfällig landningsplats`); }
+                  }} />
+                  <MiniFieldIcao label="ARR" value={currentRow.data.arr_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_place', v)} onAddTemp={() => {
+                    const code = currentRow.data.arr_place?.toUpperCase();
+                    if (code) { setUnknownIcaos(prev => new Set([...prev, code])); Alert.alert('Tillfällig plats', `${code} sparas som tillfällig landningsplats`); }
+                  }} />
+                  <MiniFieldTime label="DEP UTC" value={currentRow.data.dep_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_utc', v)} />
+                  <MiniFieldTime label="ARR UTC" value={currentRow.data.arr_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_utc', v)} />
+                  <MiniFieldNum label="TOTAL" value={currentRow.data.total_time ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'total_time', v)} />
+                  <MiniFieldNum label="PIC" value={currentRow.data.pic ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'pic', v)} />
+                  <MiniFieldNum label="DUAL" value={currentRow.data.dual ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dual', v)} />
+                  <MiniFieldNum label="IFR" value={currentRow.data.ifr ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'ifr', v)} />
+                  <MiniFieldNum label="NIGHT" value={currentRow.data.night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'night', v)} />
+                  <MiniFieldNum label="LDG DAY" value={currentRow.data.landings_day ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_day', v)} />
+                  <MiniFieldNum label="LDG NIGHT" value={currentRow.data.landings_night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_night', v)} />
+                  <MiniField label="REMARKS" value={currentRow.data.remarks ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'remarks', v)} />
+                </View>
+              )}
+
+              {/* Spacer for bottom bar */}
+              <View style={{ height: 100 }} />
+            </ScrollView>
+
+            {/* ── Bottom action bar ── */}
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={() => advanceWizard('skip')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skipBtnText}>{t('skip')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.approveBtn, currentHasUnresolvedIcao && { opacity: 0.35 }]}
+                onPress={() => {
+                  if (currentHasUnresolvedIcao) {
+                    Alert.alert(t('unknown_icao_block_title'), t('unknown_icao_block_body'));
+                    return;
+                  }
+                  advanceWizard('corrected');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.approveBtnText}>{t('approve')}</Text>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textInverse} />
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : null}
+      </KeyboardAvoidingView>
+
+      {/* ── Fullscreen image overlay ── */}
+      {popupImage && (() => {
+        // Zoom 2x inzoomat — visa bara ~50% av bildens bredd och ~20% höjd
+        const scale = 2.0;
+        const imgW = 800 * scale;
+        const imgH = 500 * scale;
+        const rowYPct = popupImage.rowIndex;  // redan i procent (0-100)
+        const fieldXPct = popupImage.fieldXPct ?? 50;
+        // Centrera scroll på fältet
+        const scrollX = Math.max(0, (fieldXPct / 100) * imgW - 180);
+        const scrollY = Math.max(0, (rowYPct / 100) * imgH - 60);
+        return (
+          <Modal transparent visible animationType="fade" onRequestClose={() => setPopupImage(null)}>
+            <Pressable
+              style={{ flex: 1, backgroundColor: '#000000EE', justifyContent: 'center', padding: 14 }}
+              onPress={() => setPopupImage(null)}
+            >
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: Colors.warning }}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentOffset={{ x: scrollX, y: 0 }}
+                  >
+                    <ScrollView
+                      showsVerticalScrollIndicator={false}
+                      contentOffset={{ x: 0, y: scrollY }}
+                      nestedScrollEnabled
+                    >
+                      <View style={{ width: imgW, height: imgH }}>
+                        <Image
+                          source={{ uri: `data:image/jpeg;base64,${popupImage.base64}` }}
+                          style={{ width: imgW, height: imgH }}
+                          resizeMode="contain"
+                        />
+                        {/* Gul highlight-ruta på texten */}
+                        <View style={{
+                          position: 'absolute',
+                          top: (rowYPct / 100) * imgH - 14,
+                          left: (fieldXPct / 100) * imgW - 40,
+                          width: 80, height: 28,
+                          backgroundColor: Colors.warning + '30',
+                          borderWidth: 2.5, borderColor: Colors.warning,
+                          borderRadius: 6,
+                        }} />
+                      </View>
+                    </ScrollView>
+                  </ScrollView>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setPopupImage(null)}
+                    style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Stäng</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
     </View>
   );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── STYLES ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function makeStyles() {
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+
+  // ── Scanning / error ──
+  scanningText: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  scanningSubtext: { color: Colors.textSecondary, fontSize: 14 },
+  errorTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  errorText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
+  retryBtn: {
+    backgroundColor: Colors.card, borderRadius: 10,
+    paddingHorizontal: 24, paddingVertical: 12, marginTop: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  retryBtnText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
+
+  // ── Aircraft confirmation header ──
+  acHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 14, backgroundColor: Colors.surface,
+    borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 12,
+  },
+  acHeaderTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  acHeaderSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
+
+  // ── Wizard header ──
+  wizardHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 54, paddingHorizontal: 16, paddingBottom: 6,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  headerBtn: {
+    width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
+  },
+  headerLabel: {
+    fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase',
+    color: Colors.textMuted,
+  },
+  headerProgress: {
+    fontSize: 15, fontWeight: '800', letterSpacing: -0.2,
+    fontFamily: mono, color: Colors.textPrimary, marginTop: 1,
+  },
+
+  // ── Progress dots ──
+  progressRow: {
+    flexDirection: 'row', gap: 3, paddingHorizontal: 16, paddingVertical: 10,
+    backgroundColor: Colors.surface,
+  },
+  progressDot: {
+    flex: 1, height: 3, borderRadius: 2,
+  },
+
+  // ── Page warning ──
+  pageWarning: {
+    flexDirection: 'row', gap: 6, alignItems: 'center',
+    backgroundColor: Colors.warning + '18', padding: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.warning + '44',
+  },
+  pageWarningText: { color: Colors.warning, fontSize: 12, flex: 1 },
+
+  // ── Wizard body ──
+  wizardBody: {
+    padding: 16, paddingBottom: 20,
+  },
+
+  // ── Image card ──
+  imageCard: {
+    borderRadius: 12, overflow: 'hidden', height: 180,
+    backgroundColor: Colors.card, marginBottom: 12,
+  },
+  expandBtn: {
+    position: 'absolute', bottom: 8, right: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  expandBtnText: {
+    color: '#FFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.3,
+  },
+
+  // ── Row summary card ──
+  rowSummaryCard: {
+    padding: 12, paddingHorizontal: 14, borderRadius: 12,
+    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  routeText: {
+    fontSize: 19, fontWeight: '800', letterSpacing: -0.3,
+    color: Colors.textPrimary, fontFamily: mono,
+  },
+  dateText: {
+    fontSize: 13, fontWeight: '600', color: Colors.textSecondary, fontFamily: mono,
+  },
+  metaText: {
+    fontSize: 11, color: Colors.textMuted, fontFamily: mono,
+  },
+
+  // ── Problem section ──
+  problemLabel: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase',
+    color: Colors.warning,
+  },
+  reviewReasonText: {
+    fontSize: 14, color: Colors.textPrimary, lineHeight: 21, marginBottom: 4,
+  },
+
+  // ── Show all fields toggle ──
+  showAllToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 10, paddingHorizontal: 12, borderRadius: 10,
+    backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    marginTop: 16,
+  },
+  miniFieldGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
+    padding: 12, borderRadius: 10,
+    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
+    marginTop: 8,
+  },
+
+  // ── Bottom bar ──
+  bottomBar: {
+    flexDirection: 'row', gap: 8,
+    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  skipBtn: {
+    paddingHorizontal: 14, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  skipBtnText: {
+    fontSize: 13, fontWeight: '700', color: Colors.textMuted,
+  },
+  approveBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: Colors.success,
+  },
+  approveBtnText: {
+    fontSize: 15, fontWeight: '800', letterSpacing: -0.2, color: Colors.textInverse,
+  },
+
+  // ── Done state ──
+  doneContainer: {
+    padding: 20, paddingTop: 24,
+  },
+  doneHero: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: Colors.success + '20', borderWidth: 2, borderColor: Colors.success,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  doneTitle: {
+    fontSize: 22, fontWeight: '800', letterSpacing: -0.4, color: Colors.textPrimary,
+  },
+  doneSub: {
+    fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginTop: 6, textAlign: 'center',
+  },
+  summaryCard: {
+    padding: 14, borderRadius: 12,
+    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
+    marginBottom: 12,
+  },
+  infoBox: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    padding: 10, paddingHorizontal: 14, borderRadius: 10,
+    backgroundColor: Colors.primary + '12', borderWidth: 1, borderColor: Colors.primary + '40',
+    marginBottom: 20,
+  },
+  infoText: {
+    flex: 1, fontSize: 11, color: Colors.textSecondary, lineHeight: 16,
+  },
+  doneActions: {
+    flexDirection: 'row', gap: 8, marginTop: 'auto' as any,
+  },
+  reviewAgainBtn: {
+    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  reviewAgainText: {
+    fontSize: 13, fontWeight: '700', color: Colors.textSecondary,
+  },
+  importBtn: {
+    flex: 1, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12,
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  importBtnText: {
+    fontSize: 15, fontWeight: '800', letterSpacing: -0.2, color: Colors.textInverse,
+  },
+
+  // ── Field row (shared by sub-components) ──
+  fieldRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.separator,
+  },
+  fieldLabel: { color: Colors.textMuted, fontSize: 11, width: 56 },
+  fieldInput: {
+    flex: 1, color: Colors.textPrimary, fontSize: 13,
+    paddingVertical: 2, paddingHorizontal: 4,
+  },
+  fieldMono: { fontFamily: mono, fontVariant: ['tabular-nums'] },
+  fieldChanged: { color: Colors.success },
+  fieldOriginal: {
+    color: Colors.textMuted, fontSize: 10,
+    textDecorationLine: 'line-through', marginLeft: 4,
+  },
+  });
 }

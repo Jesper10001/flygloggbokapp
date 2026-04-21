@@ -114,9 +114,11 @@ export interface OcrFlightResult extends FlightFormData {
     computed_dep_if_arr_correct: string;   // om arr är rätt, vad bör dep vara?
     computed_arr_if_dep_correct: string;   // om dep är rätt, vad bör arr vara?
   };
+  // Ungefärlig vertikal position av raden i bilden (0=topp, 100=botten)
+  row_y_pct?: number;
   // Specifika fält AI är osäker på. UI visar BARA dessa fält på flaggade
   // rader (plus "Visa alla fält"-toggle). Om tom array → visa alla fält.
-  field_issues?: { field: string; reason: string; confidence: number }[];
+  field_issues?: { field: string; reason: string; confidence: number; x_pct?: number; suggested_value?: string }[];
   // Övergripande säkerhet 0–1 på hela raden. ≥ 0.95 = fast-track (komprimerad
   // rad, auto-godkänd) om needs_review=false.
   overall_confidence?: number;

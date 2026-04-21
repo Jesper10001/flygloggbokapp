@@ -1,0 +1,10 @@
+name = "blades-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# API-nyckeln lagras som secret — aldrig i kod eller git.
+# Sätt den med: wrangler secret put ANTHROPIC_API_KEY
+
+# Telemetri — Cloudflare Analytics Engine (gratis)
+[[analytics_engine_datasets]]
+binding = "TELEMETRY"

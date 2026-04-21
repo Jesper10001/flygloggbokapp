@@ -9,6 +9,8 @@ export interface LogbookBook {
   rows_per_spread: number;
   transcribed_spreads: number;
   is_active: number;
+  end_page: number;
+  end_row: number;
   created_at: string;
 }
 
@@ -32,16 +34,24 @@ export async function getActiveBook(): Promise<LogbookBook | null> {
   return row ?? null;
 }
 
-export async function addBook(name: string, templateId: string, startingPage: number, rowsPerSpread: number): Promise<number> {
+export async function addBook(
+  name: string, templateId: string, startingPage: number, rowsPerSpread: number,
+  endPage?: number, endRow?: number,
+): Promise<number> {
   const db = await getDatabase();
-  // Avaktivera tidigare aktiv bok
   await db.runAsync(`UPDATE logbook_books SET is_active=0`);
   const r = await db.runAsync(
-    `INSERT INTO logbook_books (name, template_id, starting_page, rows_per_spread, transcribed_spreads, is_active)
-     VALUES (?, ?, ?, ?, 0, 1)`,
-    [name.trim(), templateId, startingPage, rowsPerSpread],
+    `INSERT INTO logbook_books (name, template_id, starting_page, rows_per_spread, transcribed_spreads, is_active, end_page, end_row)
+     VALUES (?, ?, ?, ?, 0, 1, ?, ?)`,
+    [name.trim(), templateId, startingPage, rowsPerSpread, endPage ?? 0, endRow ?? 0],
   );
   return r.lastInsertRowId as number;
+}
+
+export function isBookFull(book: LogbookBook): boolean {
+  if (book.end_page <= 0) return false;
+  const totalSpreads = Math.floor((book.end_page - book.starting_page) / 2) + 1;
+  return book.transcribed_spreads >= totalSpreads;
 }
 
 export async function renameBook(id: number, name: string): Promise<void> {

@@ -8,9 +8,26 @@
 // Prompt-caching: systemprompten cacheas automatiskt (ephemeral, 5-min TTL)
 // så efterföljande anrop inom 5 min får ~90 % lägre input-kostnad på prompten.
 
+// Proxy-URL: appen pratar med din Cloudflare Worker, ALDRIG direkt med Anthropic.
+// Proxyn lägger på API-nyckeln — den finns inte i appen.
+// Fallback till direkt Anthropic-anrop om PROXY_URL inte är satt (lokalt dev-läge).
+import * as Application from 'expo-application';
+import { Platform } from 'react-native';
+
+const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const API_URL = PROXY_URL || 'https://api.anthropic.com/v1/messages';
+const USE_PROXY = !!PROXY_URL;
 const ANTHROPIC_VERSION = '2023-06-01';
+
+// Anonym device-ID för telemetri — inte personuppgift
+function getDeviceId(): string {
+  try {
+    return Application.getAndroidId?.() ?? Application.applicationId ?? Platform.OS;
+  } catch {
+    return Platform.OS;
+  }
+}
 
 export type AnthropicContent =
   | { type: 'text'; text: string }
@@ -64,29 +81,31 @@ export function repairTruncatedJson(s: string): string {
 
 /** Gör ett råtext-anrop till Claude och returnerar text + stop_reason. */
 export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<AnthropicRawResult> {
-  if (!API_KEY || API_KEY === 'your_api_key_here') {
-    throw new Error('Anthropic API-nyckel saknas. Ange EXPO_PUBLIC_ANTHROPIC_API_KEY i .env.');
+  if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
+    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
   }
 
   const userContent = typeof opts.userContent === 'string'
     ? [{ type: 'text' as const, text: opts.userContent }]
     : opts.userContent;
 
-  // Systemprompt som array av blocks så vi kan lägga cache_control på sista blocket.
-  // Prompt-caching sparar tokens och pengar när samma systemprompt återanvänds
-  // inom 5 min (t.ex. vid massimport av flera sidor).
   const cacheSystem = opts.cacheSystemPrompt !== false;
   const systemBlocks = cacheSystem
     ? [{ type: 'text', text: opts.system, cache_control: { type: 'ephemeral' } }]
     : opts.system;
 
+  // Bygg headers — via proxy behövs ingen API-nyckel från appen
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (USE_PROXY) {
+    headers['X-Device-ID'] = getDeviceId();
+  } else {
+    headers['x-api-key'] = API_KEY;
+    headers['anthropic-version'] = ANTHROPIC_VERSION;
+  }
+
   const response = await fetch(API_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': ANTHROPIC_VERSION,
-    },
+    headers,
     body: JSON.stringify({
       model: opts.model ?? 'claude-sonnet-4-6',
       max_tokens: opts.maxTokens,
