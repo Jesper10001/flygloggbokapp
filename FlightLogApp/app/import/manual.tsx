@@ -10,6 +10,7 @@ import { insertFlight, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { PremiumModal } from '../../components/PremiumModal';
 
 // ── Typdef ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ interface YearBlock {
   sim_fnpt_ii: string;
   sim_fnpt_i: string;
   sim_bitd: string;
+  sim_cpt_ppt: string;
+  sim_cbt: string;
 }
 
 function emptyBlock(year = ''): YearBlock {
@@ -54,7 +57,7 @@ function emptyBlock(year = ''): YearBlock {
     landings_day: '', landings_night: '',
     aircraft_type: '', remarks: '',
     examiner: '', safety_pilot: '', spic: '', ferry_pic: '', observer: '', relief_crew: '',
-    sim_ffs: '', sim_ftd: '', sim_fnpt_ii: '', sim_fnpt_i: '', sim_bitd: '',
+    sim_ffs: '', sim_ftd: '', sim_fnpt_ii: '', sim_fnpt_i: '', sim_bitd: '', sim_cpt_ppt: '', sim_cbt: '',
   };
 }
 
@@ -271,6 +274,8 @@ function Block({
     { key: 'sim_fnpt_ii', label: 'FNPT II' },
     { key: 'sim_fnpt_i', label: 'FNPT I' },
     { key: 'sim_bitd', label: 'BITD' },
+    { key: 'sim_cpt_ppt', label: 'CPT/PPT' },
+    { key: 'sim_cbt', label: 'CBT' },
   ];
 
   const [showRoles, setShowRoles] = useState(false);
@@ -394,7 +399,8 @@ export default function ManualExperienceScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { loadFlights, loadStats } = useFlightStore();
+  const { loadFlights, loadStats, isPremium } = useFlightStore();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const currentYear = String(new Date().getFullYear());
   const [mode, setMode] = useState<'lump' | 'yearly'>('lump');
@@ -451,6 +457,7 @@ export default function ManualExperienceScreen() {
     ct.size === 0 ? '' : [...ct].sort().join(',');
 
   const handleSmartLookup = async (acId: string) => {
+    if (!isPremium) { setShowPremiumModal(true); return; }
     const ac = aircraft.find(a => a.id === acId);
     if (!ac) return;
     const q = ac.type.trim();
@@ -663,17 +670,7 @@ export default function ManualExperienceScreen() {
           <Text style={styles.aircraftToggleText}>
             {showAircraftSection ? t('hide_aircraft_type') : t('add_aircraft_type_optional')}
           </Text>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto',
-            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-            backgroundColor: Colors.primary + '1F',
-            borderWidth: 0.5, borderColor: Colors.primary + '66',
-          }}>
-            <Ionicons name="sparkles" size={10} color={Colors.primary} />
-            <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
-              {t('autofilled_with_ai')}
-            </Text>
-          </View>
+          <View style={{ marginLeft: 'auto' }} />
           <Ionicons
             name={showAircraftSection ? 'chevron-up' : 'chevron-down'}
             size={14} color={Colors.textMuted}
@@ -868,6 +865,8 @@ export default function ManualExperienceScreen() {
         <Text style={styles.hint}>
           {t('manual_hint')}
         </Text>
+
+        <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={t('prem_feat_ai_title')} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

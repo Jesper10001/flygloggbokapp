@@ -8,11 +8,74 @@ import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports } from '../../db/icao';
+import { SEED_AIRPORTS } from '../../db/seedAirports';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useFlightStore } from '../../store/flightStore';
+import { PremiumModal } from '../../components/PremiumModal';
 import type { IcaoAirport } from '../../types/flight';
 
 const EMPTY = { icao: '', name: '', country: '', region: '', lat: '', lon: '' };
+
+function buildGlobalMapHtml(airports: [string, string, string, string, number, number][]): string {
+  const pts = airports.map(([icao, name, , , lat, lon]) =>
+    `[${lat},${lon},"${icao}","${name.replace(/"/g, '\\"')}"]`
+  ).join(',');
+
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#1a2235}
+  #map{position:absolute;top:0;left:0;right:0;bottom:0}
+  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
+  .leaflet-popup-tip{background:#1A2235}
+  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
+  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
+  #layer-switcher{
+    position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
+    z-index:1000;display:flex;gap:6px;
+    background:rgba(15,22,38,.88);border-radius:12px;padding:6px;
+    box-shadow:0 4px 16px rgba(0,0,0,.5);
+  }
+  #layer-switcher button{
+    font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;
+    color:#9BAAC0;background:transparent;border:none;
+    border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;
+  }
+  #layer-switcher button.active{background:#2563EB;color:#fff}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+</head><body>
+<div id="map"></div>
+<div id="layer-switcher"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+window.onload=function(){
+  var map=L.map('map',{center:[30,0],zoom:2,zoomControl:true,attributionControl:true});
+  var layers={
+    'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
+    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Dark':L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'})
+  };
+  var ak='Light';layers[ak].addTo(map);
+  var sw=document.getElementById('layer-switcher');
+  Object.keys(layers).forEach(function(k){
+    var b=document.createElement('button');b.textContent=k;
+    if(k===ak)b.className='active';
+    b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);
+      sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};
+    sw.appendChild(b);
+  });
+  var pts=[${pts}];
+  pts.forEach(function(p){
+    L.circleMarker([p[0],p[1]],{radius:2,fillColor:'#4f7cff',fillOpacity:0.7,color:'#2563EB',weight:0.4})
+      .addTo(map).bindPopup('<strong>'+p[2]+'</strong><br><span style="font-size:11px">'+p[3]+'</span>');
+  });
+  setTimeout(function(){map.invalidateSize();},300);
+};
+</script></body></html>`;
+}
 
 // ── Mini-karta ────────────────────────────────────────────────────────────────
 
@@ -423,14 +486,40 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
 
 // ── Huvudskärm ────────────────────────────────────────────────────────────────
 
+// Country index from seed data
+const countryIndex = (() => {
+  const map = new Map<string, number>();
+  for (const [, , country] of SEED_AIRPORTS) {
+    map.set(country, (map.get(country) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count);
+})();
+
+function getPreviewForCountry(countryCode: string, limit = 10) {
+  const all = SEED_AIRPORTS.filter(([, , c]) => c === countryCode);
+  return {
+    sample: all.slice(0, limit),
+    total: all.length,
+    remaining: Math.max(0, all.length - limit),
+  };
+}
+
 export default function AirportScreen() {
   const { t } = useTranslation();
+  const { isPremium } = useFlightStore();
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [form, setForm] = useState(EMPTY);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<IcaoAirport | null>(null);
-  const [tab, setTab] = useState<'custom' | 'temporary'>('custom');
+  const [tab, setTab] = useState<'custom' | 'temporary' | 'global'>('global');
+  const [showPremium, setShowPremium] = useState(false);
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [showGlobalMap, setShowGlobalMap] = useState(false);
 
   useEffect(() => {
     if (query.length >= 2) {
@@ -509,6 +598,15 @@ export default function AirportScreen() {
         {/* Flik-växlare */}
         <View style={styles.tabRow}>
           <TouchableOpacity
+            style={[styles.tabBtn, tab === 'global' && styles.tabBtnActive]}
+            onPress={() => setTab('global')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabBtnText, tab === 'global' && styles.tabBtnTextActive]}>
+              {t('global_database')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.tabBtn, tab === 'custom' && styles.tabBtnActive]}
             onPress={() => setTab('custom')}
             activeOpacity={0.7}
@@ -528,6 +626,149 @@ export default function AirportScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Global tab ── */}
+        {tab === 'global' && (
+          <>
+            <View style={styles.globalHeader}>
+              <Ionicons name="globe" size={20} color={Colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.globalTitle}>{t('global_db_title')}</Text>
+                <Text style={styles.globalSub}>
+                  {SEED_AIRPORTS.length.toLocaleString()} {t('global_db_airports')} · {countryIndex.length} {t('global_db_countries')}
+                </Text>
+              </View>
+              {isPremium ? (
+                <View style={[styles.badge, styles.badgeCustom]}>
+                  <Text style={[styles.badgeText, { color: Colors.primary }]}>{t('prem_active')}</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.unlockBtn}
+                  onPress={() => setShowPremium(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="lock-open" size={12} color={Colors.gold} />
+                  <Text style={styles.unlockBtnText}>{t('global_db_unlock')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Global map card */}
+            <TouchableOpacity
+              style={styles.globalHeader}
+              onPress={() => setShowGlobalMap(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="map" size={20} color={Colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.globalTitle}>{t('global_map_title')}</Text>
+                <Text style={styles.globalSub}>{t('global_map_sub')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.searchRow}>
+              <Ionicons name="search" size={16} color={Colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('global_db_search')}
+                placeholderTextColor={Colors.textMuted}
+                value={globalQuery}
+                onChangeText={setGlobalQuery}
+                autoCapitalize="characters"
+              />
+              {globalQuery.length > 0 && (
+                <TouchableOpacity onPress={() => { setGlobalQuery(''); setSelectedCountry(null); }}>
+                  <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {(() => {
+              const q = globalQuery.toUpperCase().trim();
+              const filtered = q
+                ? countryIndex.filter(c => c.code.toUpperCase().includes(q))
+                : countryIndex;
+
+              if (selectedCountry) {
+                const preview = getPreviewForCountry(selectedCountry);
+                return (
+                  <>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
+                      onPress={() => setSelectedCountry(null)}
+                    >
+                      <Ionicons name="chevron-back" size={14} color={Colors.primary} />
+                      <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>{t('global_db_all_countries')}</Text>
+                    </TouchableOpacity>
+                    <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>
+                      {selectedCountry} — {preview.total} {t('global_db_airports').toLowerCase()}
+                    </Text>
+                    {preview.sample.map(([icao, name, , region, lat, lon]) => (
+                      <View key={icao} style={styles.airportRow}>
+                        <View style={styles.airportLeft}>
+                          <Text style={styles.airportIcao}>{icao}</Text>
+                          <Text style={styles.airportName}>{name}</Text>
+                          <Text style={styles.airportCountry}>{lat.toFixed(2)}, {lon.toFixed(2)}</Text>
+                        </View>
+                      </View>
+                    ))}
+                    {preview.remaining > 0 && (
+                      <View style={styles.moreCard}>
+                        <Ionicons name={isPremium ? 'checkmark-circle' : 'lock-closed'} size={16} color={isPremium ? Colors.success : Colors.gold} />
+                        <Text style={styles.moreText}>
+                          {isPremium
+                            ? `${preview.total} ${t('global_db_airports').toLowerCase()} ${t('global_db_available')}`
+                            : `${t('global_db_and')} ${preview.remaining} ${t('global_db_more')}`}
+                        </Text>
+                        {!isPremium && (
+                          <TouchableOpacity onPress={() => setShowPremium(true)}>
+                            <Text style={styles.moreUnlock}>{t('global_db_unlock')}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                  </>
+                );
+              }
+
+              const FEATURED = ['US', 'BR', 'AU', 'DE', 'ZA', 'JP'];
+              const isSearching = q.length > 0;
+              const shown = isSearching ? filtered.slice(0, 30) : filtered.filter(c => FEATURED.includes(c.code));
+              const remaining = isSearching ? 0 : filtered.length - shown.length;
+
+              return (
+                <>
+                  {shown.map(c => (
+                    <TouchableOpacity
+                      key={c.code}
+                      style={styles.airportRow}
+                      onPress={() => setSelectedCountry(c.code)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.airportLeft}>
+                        <Text style={styles.airportIcao}>{c.code}</Text>
+                        <Text style={styles.airportName}>
+                          {c.count.toLocaleString()} {t('global_db_airports').toLowerCase()}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                  {remaining > 0 && (
+                    <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', paddingVertical: 8 }}>
+                      {t('global_db_and')} {remaining} {t('global_db_more_countries')}
+                    </Text>
+                  )}
+                </>
+              );
+            })()}
+          </>
+        )}
+
+        {/* ── Custom/Temporary tabs ── */}
+        {tab !== 'global' && (
+        <>
         {/* Sök */}
         <View style={styles.searchRow}>
           <Ionicons name="search" size={16} color={Colors.textMuted} />
@@ -639,7 +880,52 @@ export default function AirportScreen() {
             </TouchableOpacity>
           </View>
         )}
+        </>
+        )}
       </ScrollView>
+
+      <PremiumModal visible={showPremium} onClose={() => setShowPremium(false)} feature={t('prem_feat_icao_title')} />
+
+      {/* Global map modal */}
+      <Modal visible={showGlobalMap} animationType="slide" onRequestClose={() => setShowGlobalMap(false)}>
+        <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: insets.top }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            paddingHorizontal: 12, paddingVertical: 10,
+            backgroundColor: Colors.surface,
+            borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+          }}>
+            <Ionicons name="globe" size={18} color={Colors.primary} />
+            <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '700', flex: 1 }}>
+              {t('global_map_title')}
+            </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
+              {SEED_AIRPORTS.length.toLocaleString()} {t('global_db_airports')}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            {showGlobalMap && (
+              <WebView
+              source={{ html: buildGlobalMapHtml(SEED_AIRPORTS), baseUrl: 'https://tile.openstreetmap.org' }}
+              style={{ flex: 1 }}
+              originWhitelist={['*']}
+            />
+            )}
+            <TouchableOpacity
+              onPress={() => setShowGlobalMap(false)}
+              style={{
+                position: 'absolute', top: 10, right: 10, zIndex: 10,
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: 'rgba(15,22,38,0.85)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Detaljmodal */}
       {selected && (
@@ -700,6 +986,27 @@ const styles = StyleSheet.create({
   badgeCustom: { backgroundColor: Colors.primary + '33' },
   badgeTemporary: { backgroundColor: Colors.textMuted + '33' },
   badgeText: { color: Colors.textMuted, fontSize: 10, fontWeight: '600' },
+
+  globalHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  globalTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  globalSub: { color: Colors.textMuted, fontSize: 11, marginTop: 1 },
+  unlockBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.gold + '18', paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderWidth: 0.5, borderColor: Colors.gold + '44',
+  },
+  unlockBtnText: { color: Colors.gold, fontSize: 11, fontWeight: '700' },
+  moreCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.elevated, borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  moreText: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
+  moreUnlock: { color: Colors.gold, fontSize: 12, fontWeight: '700' },
 
   empty: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   emptyText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },

@@ -56,7 +56,7 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   flights: [],
   stats: null,
   flightCount: 0,
-  isPremium: true, // TODO: aktivera premiumlogik inför lansering
+  isPremium: false,
   isLoading: false,
 
   loadFlights: async () => {
@@ -89,7 +89,12 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     await get().loadStats();
   },
 
-  setIsPremium: (val: boolean) => set({ isPremium: val }),
+  setIsPremium: (val: boolean) => {
+    set({ isPremium: val });
+    if (val) {
+      import('../db/icao').then(({ seedIcaoAirports }) => seedIcaoAirports(true));
+    }
+  },
 
   canAddFlight: () => {
     const { isPremium, flightCount } = get();

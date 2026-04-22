@@ -218,8 +218,8 @@ function AirframesView() {
         <AircraftModal
           visible={adding}
           onClose={() => setAdding(false)}
-          onSave={async (type, speedKts, endH, crewType, category, engineType, imageUrl) => {
-            await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType, imageUrl);
+          onSave={async (type, speedKts, endH, crewType, category, engineType) => {
+            await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
             setAdding(false);
             reload();
           }}
@@ -277,14 +277,6 @@ function AirframesView() {
             <SpecBadges crewType={entry.crew_type} engineType={entry.engine_type} />
           </View>
 
-          {entry.image_url ? (
-            <RNImage
-              source={{ uri: entry.image_url }}
-              style={{ width: 80, height: 55, borderRadius: 8 }}
-              resizeMode="cover"
-            />
-          ) : null}
-
           <View style={styles.airframeRight}>
             {entry.top_registration ? (
               <View style={styles.topRegBlock}>
@@ -317,7 +309,7 @@ function AirframesView() {
         initialCategory={editing?.category}
         initialEngineType={editing?.engine_type}
         onClose={() => setEditing(null)}
-        onSave={async (type, speedKts, endH, crewType, category, engineType, imageUrl) => {
+        onSave={async (type, speedKts, endH, crewType, category, engineType) => {
           await updateAircraftType(type, speedKts, endH, crewType, category, engineType);
           setEditing(null);
           reload();
@@ -326,8 +318,8 @@ function AirframesView() {
       <AircraftModal
         visible={adding}
         onClose={() => setAdding(false)}
-        onSave={async (type, speedKts, endH, crewType, category, engineType, imageUrl) => {
-          await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType, imageUrl);
+        onSave={async (type, speedKts, endH, crewType, category, engineType) => {
+          await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
           setAdding(false);
           reload();
         }}

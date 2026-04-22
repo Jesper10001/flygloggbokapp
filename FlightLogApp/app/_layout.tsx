@@ -10,6 +10,7 @@ import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore } from '../store/timeFormatStore';
 import { useThemeStore } from '../store/themeStore';
 import { useAppModeStore } from '../store/appModeStore';
+import { useFlightStore } from '../store/flightStore';
 import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -29,7 +30,8 @@ export default function RootLayout() {
     const init = async () => {
       try {
         await getDatabase();
-        await seedIcaoAirports();
+        const { isPremium } = useFlightStore.getState();
+        await seedIcaoAirports(isPremium);
         await loadLanguage();
         await loadTimeFormat();
         await loadTheme();

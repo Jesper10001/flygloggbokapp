@@ -20,6 +20,7 @@ import { useToastStore } from '../../components/Toast';
 import { useOperatorStore } from '../../store/operatorStore';
 import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
+import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
@@ -124,6 +125,8 @@ export default function SettingsScreen() {
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const isDrone = appMode === 'drone';
 
   // Profildata — laddas från settings-DB
@@ -311,7 +314,7 @@ export default function SettingsScreen() {
           title={t('import_scan_title')}
           subtitle={t('import_scan_sub')}
           right={!isPremium ? <PremiumPill /> : undefined}
-          onClick={() => router.push('/(tabs)/scan')}
+          onClick={() => router.push('/import/scan')}
         />
         <Row
           icon="create-outline" iconColor={Colors.primary}
@@ -335,7 +338,7 @@ export default function SettingsScreen() {
           icon="document-text-outline" iconColor={Colors.primary}
           title={t('export_to_pdf')} subtitle={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
           right={!isPremium ? <PremiumPill /> : exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-          onClick={isPremium ? handleExportPDF : undefined}
+          onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('prem_feat_pdf_title')); setShowPremiumModal(true); }}
         />
         <Row
           icon="cloud-upload-outline" iconColor={Colors.primary}
@@ -431,6 +434,12 @@ export default function SettingsScreen() {
       {/* ── H. Utvecklare ── */}
       <SectionHeader>{t('developer_section')}</SectionHeader>
       <Card>
+        <Row icon="star" iconColor={Colors.gold}
+          title="Premium"
+          subtitle={isPremium ? 'Active' : 'Inactive'}
+          right={<Switch value={isPremium} onValueChange={setIsPremium} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+          pressable={false}
+        />
         {/* Pilottyp (drone only) */}
         {isDrone && (
           <Row icon="ribbon-outline" iconColor={Colors.primary}
@@ -474,6 +483,7 @@ export default function SettingsScreen() {
       {/* ── I. Byt loggbok ── */}
       <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
 
+      <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
     </ScrollView>
   );
 }

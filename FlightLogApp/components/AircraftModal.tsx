@@ -7,44 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { lookupAircraft } from '../services/aircraftLookup';
-import { Image as RNImage } from 'react-native';
+import { useFlightStore } from '../store/flightStore';
 
 type CrewKey = 'sp' | 'mp';
 type Category = 'airplane' | 'helicopter' | '';
 type EngineType = 'se' | 'me' | '';
 
-async function fetchAircraftImage(query: string): Promise<string | null> {
-  try {
-    const searchTerm = encodeURIComponent(`${query} helicopter OR aircraft`);
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=480&format=json&origin=*`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn('[AircraftImage] fetch failed:', res.status);
-      return null;
-    }
-    const data = await res.json();
-    const pages = data.query?.pages;
-    if (!pages) return null;
-    const keywords = ['aircraft', 'helicopter', 'airplane', 'airliner', 'rotorcraft', 'aviation'];
-    for (const id of Object.keys(pages)) {
-      const page = pages[id];
-      const info = page?.imageinfo?.[0];
-      if (!info?.thumburl) continue;
-      const cats = (info.extmetadata?.Categories?.value ?? '').toLowerCase();
-      const desc = (info.extmetadata?.ImageDescription?.value ?? '').toLowerCase();
-      const isAviation = keywords.some(kw => cats.includes(kw) || desc.includes(kw));
-      if (isAviation) return info.thumburl;
-    }
-    for (const id of Object.keys(pages)) {
-      const thumb = pages[id]?.imageinfo?.[0]?.thumburl;
-      if (thumb) return thumb;
-    }
-    return null;
-  } catch (e) {
-    console.warn('[AircraftImage] error:', e);
-    return null;
-  }
-}
 
 function parseCrewType(raw: string): Set<CrewKey> {
   if (!raw) return new Set();
@@ -64,7 +32,7 @@ type Props = {
   initialCrewType?: string;
   initialCategory?: string;
   initialEngineType?: string;
-  onSave: (type: string, speedKts: number, enduranceH: number, crewType: string, category: Category, engineType: EngineType, imageUrl?: string) => Promise<void>;
+  onSave: (type: string, speedKts: number, enduranceH: number, crewType: string, category: Category, engineType: EngineType) => Promise<void>;
   onClose: () => void;
 };
 
@@ -135,10 +103,14 @@ export function AircraftModal({
   const [engineType, setEngineType] = useState<EngineType>('');
   const [saving, setSaving] = useState(false);
   const [looking, setLooking] = useState(false);
+  const { isPremium } = useFlightStore();
   const [lookupInfo, setLookupInfo] = useState<{ manufacturer: string; model: string } | null>(null);
-  const [aircraftImageUrl, setAircraftImageUrl] = useState<string | null>(null);
 
   const handleSmartLookup = async () => {
+    if (!isPremium) {
+      Alert.alert(t('premium_modal_title'), t('premium_modal_desc'));
+      return;
+    }
     const q = type.trim();
     if (!q) {
       Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body'));
@@ -171,7 +143,6 @@ export function AircraftModal({
               if (r.engine_type) setEngineType(r.engine_type);
               if (r.crew_type) setCrewTypes(parseCrewType(r.crew_type));
               setLookupInfo({ manufacturer: r.manufacturer, model: r.model });
-              fetchAircraftImage(`${r.manufacturer} ${r.model}`).then(setAircraftImageUrl).catch(() => {});
             },
           },
         ],
@@ -194,7 +165,6 @@ export function AircraftModal({
       const eng = initialEngineType ?? '';
       setEngineType(eng === 'se' || eng === 'me' ? eng : '');
       setLookupInfo(null);
-      setAircraftImageUrl(null);
     }
   }, [visible, initialType, initialSpeedKts, initialEnduranceH, initialCrewType, initialCategory, initialEngineType]);
 
@@ -211,7 +181,7 @@ export function AircraftModal({
     if (!trimmed) return;
     setSaving(true);
     try {
-      await onSave(trimmed, parseInt(speed) || 0, parseFloat(endurance.replace(',', '.')) || 0, serializeCrewType(crewTypes), category, engineType, aircraftImageUrl ?? undefined);
+      await onSave(trimmed, parseInt(speed) || 0, parseFloat(endurance.replace(',', '.')) || 0, serializeCrewType(crewTypes), category, engineType);
     } finally {
       setSaving(false);
     }
@@ -226,24 +196,11 @@ export function AircraftModal({
           <Text style={styles.title}>{editMode ? t('edit_aircraft') : t('new_aircraft')}</Text>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* Bild från Wikipedia efter smart sökning */}
           {lookupInfo && (
-            <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-              {aircraftImageUrl && (
-                <RNImage
-                  source={{ uri: aircraftImageUrl }}
-                  style={{ width: 240, height: 140, borderRadius: 10 }}
-                  resizeMode="cover"
-                />
-              )}
+            <View style={{ alignItems: 'center', paddingVertical: 6 }}>
               <Text style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }}>
                 {lookupInfo.manufacturer} {lookupInfo.model}
               </Text>
-              {aircraftImageUrl && (
-                <Text style={{ color: Colors.textMuted, fontSize: 9, marginTop: 2 }}>
-                  Wikimedia Commons
-                </Text>
-              )}
             </View>
           )}
 
@@ -281,13 +238,6 @@ export function AircraftModal({
                 <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 }}>
                   {looking ? t('drone_scan_loading') : t('aircraft_lookup_btn')}
                 </Text>
-                <View style={{
-                  backgroundColor: Colors.gold + '22', borderRadius: 4,
-                  paddingHorizontal: 4, paddingVertical: 1,
-                  borderWidth: 0.5, borderColor: Colors.gold + '66',
-                }}>
-                  <Text style={{ color: Colors.gold, fontSize: 7, fontWeight: '800' }}>★</Text>
-                </View>
               </TouchableOpacity>
             )}
           </View>

@@ -736,15 +736,7 @@ export default function ImportScreen() {
                 <Text style={styles.speedTitle}>{t('aircraft_data')}</Text>
                 <View style={{
                   marginLeft: 'auto',
-                  flexDirection: 'row', alignItems: 'center', gap: 4,
-                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-                  backgroundColor: Colors.primary + '1F',
-                  borderWidth: 0.5, borderColor: Colors.primary + '66',
                 }}>
-                  <Ionicons name="sparkles" size={10} color={Colors.primary} />
-                  <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
-                    {t('autofilled_with_ai')}
-                  </Text>
                 </View>
               </View>
               <Text style={styles.speedSubtitle}>{t('aircraft_data_sub')} {t('aircraft_data_edit_later')}</Text>
