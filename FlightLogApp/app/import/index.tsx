@@ -11,6 +11,7 @@ import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, update
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { PremiumModal } from '../../components/PremiumModal';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
@@ -252,7 +253,7 @@ export default function ImportScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { loadFlights, loadStats } = useFlightStore();
+  const { loadFlights, loadStats, isPremium } = useFlightStore();
 
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -536,6 +537,14 @@ export default function ImportScreen() {
       setSaving(false);
     }
   };
+
+  if (!isPremium) {
+    return (
+      <View style={styles.container}>
+        <PremiumModal visible={true} onClose={() => router.back()} feature={t('import_csv_title')} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView

@@ -543,6 +543,9 @@ export default function AddFlightScreen() {
   const [lastTemplate, setLastTemplate] = useState<string>('');
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
+  const [milOp, setMilOp] = useState('');
+  const [showMilOp, setShowMilOp] = useState(false);
+  const MIL_OPS = ['SAR', 'MEDEVAC', 'CASEVAC', 'CAS', 'ISR', 'CSAR', 'INFIL/EXFIL', 'RECCE', 'ESCORT', 'FAC', 'TRANSPORT'];
   const scrollViewRef = useRef<ScrollView>(null);
   const routeBlockY = useRef(0);
   const depIcaoRef = useRef<IcaoInputHandle>(null);
@@ -1656,15 +1659,63 @@ export default function AddFlightScreen() {
         </View>
 
         {/* ── Remarks ── */}
-        <FormField
-          label={t('remarks')}
-          value={form.remarks}
-          onChangeText={(v) => set('remarks', v)}
-          placeholder="Optional free text…"
-          multiline
-          numberOfLines={2}
-          style={{ minHeight: 60, textAlignVertical: 'top' }}
-        />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ width: 100 }}>
+            <Text style={styles.cardFieldLabel}>Mil-op</Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: Colors.card, borderRadius: 8, borderWidth: 0.5, borderColor: Colors.border,
+                paddingHorizontal: 10, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              }}
+              onPress={() => setShowMilOp(!showMilOp)}
+              activeOpacity={0.75}
+            >
+              <Text style={{ color: milOp ? Colors.textPrimary : Colors.textMuted, fontSize: 14, fontWeight: milOp ? '600' : '400' }}>
+                {milOp || '—'}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+            </TouchableOpacity>
+            {showMilOp && (
+              <View style={{
+                position: 'absolute', top: 62, left: 0, right: 0, zIndex: 20,
+                backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+                maxHeight: 200, overflow: 'hidden',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
+              }}>
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}
+                  onPress={() => { setMilOp(''); setShowMilOp(false); }}
+                >
+                  <Text style={{ color: Colors.textMuted, fontSize: 13 }}>—</Text>
+                </TouchableOpacity>
+                {MIL_OPS.map(op => (
+                  <TouchableOpacity
+                    key={op}
+                    style={{
+                      paddingHorizontal: 12, paddingVertical: 10,
+                      borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+                      backgroundColor: milOp === op ? Colors.primary + '14' : undefined,
+                    }}
+                    onPress={() => { setMilOp(op); setShowMilOp(false); }}
+                  >
+                    <Text style={{ color: milOp === op ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{op}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <FormField
+              label={t('remarks')}
+              value={form.remarks}
+              onChangeText={(v) => set('remarks', v)}
+              placeholder="Optional free text…"
+              multiline
+              numberOfLines={2}
+              style={{ minHeight: 60, textAlignVertical: 'top' }}
+            />
+          </View>
+        </View>
         {role === 'picus' && (
           <View style={styles.remarksWarning}>
             <Ionicons name="warning" size={14} color={Colors.warning} />

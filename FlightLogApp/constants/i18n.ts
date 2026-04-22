@@ -942,6 +942,10 @@ export const translations = {
 
     // AirportMapWidget
     visited_airports: 'Visited airports',
+    visited_in: 'visited in',
+    select_country: 'Country layer',
+    search_country: 'Search country...',
+    clear: 'Clear',
     tap_to_show_map_with_count: 'Tap to show map',
     map_requires_coordinates: 'Map requires known coordinates — add via Manage airports',
 
@@ -1924,6 +1928,10 @@ export const translations = {
 
     // AirportMapWidget
     visited_airports: 'Besökta flygplatser',
+    visited_in: 'besökta i',
+    select_country: 'Landsfilter',
+    search_country: 'Sök land...',
+    clear: 'Rensa',
     tap_to_show_map_with_count: 'Tryck för att visa karta',
     map_requires_coordinates: 'Karta kräver kända koordinater — lägg till via Hantera flygplatser',
 

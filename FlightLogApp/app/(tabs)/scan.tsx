@@ -873,8 +873,9 @@ export default function ScanScreen() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={styles.hubTitle}>{t('hub_digital_title')}</Text>
-              <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>{t('free_badge')}</Text>
+              <View style={styles.premiumBadge}>
+                <Ionicons name="star" size={9} color={Colors.gold} />
+                <Text style={styles.premiumBadgeText}>Premium</Text>
               </View>
             </View>
             <Text style={styles.hubSub}>{t('hub_digital_sub')}</Text>

@@ -306,8 +306,9 @@ export default function SettingsScreen() {
         <Row
           icon="document-attach-outline" iconColor={Colors.primary}
           title={t('import_csv_title')}
-          subtitle={t('import_csv_sub')}
-          onClick={() => router.push('/import')}
+          subtitle={isPremium ? t('import_csv_sub') : t('export_to_pdf_locked')}
+          right={!isPremium ? <PremiumPill /> : undefined}
+          onClick={isPremium ? () => router.push('/import') : () => { setPremiumFeatureName(t('prem_feat_import_title')); setShowPremiumModal(true); }}
         />
         <Row
           icon="camera-outline" iconColor={Colors.primary}
