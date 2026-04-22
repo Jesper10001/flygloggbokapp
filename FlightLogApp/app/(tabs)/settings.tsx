@@ -297,7 +297,32 @@ export default function SettingsScreen() {
         <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} border={false} />
       </Card>
 
-      {/* ── D. Data & Export ── */}
+      {/* ── D. Import ── */}
+      <SectionHeader>{t('import_section') ?? 'IMPORT'}</SectionHeader>
+      <Card>
+        <Row
+          icon="document-attach-outline" iconColor={Colors.primary}
+          title={t('import_csv_title')}
+          subtitle={t('import_csv_sub')}
+          onClick={() => router.push('/import')}
+        />
+        <Row
+          icon="camera-outline" iconColor={Colors.primary}
+          title={t('import_scan_title')}
+          subtitle={t('import_scan_sub')}
+          right={!isPremium ? <PremiumPill /> : undefined}
+          onClick={() => router.push('/(tabs)/scan')}
+        />
+        <Row
+          icon="create-outline" iconColor={Colors.primary}
+          title={t('import_manual_title')}
+          subtitle={t('import_manual_sub')}
+          onClick={() => router.push('/import/manual')}
+          border={false}
+        />
+      </Card>
+
+      {/* ── E. Data & Export ── */}
       <SectionHeader>{t('export') ?? 'DATA & EXPORT'}</SectionHeader>
       <Card>
         <Row

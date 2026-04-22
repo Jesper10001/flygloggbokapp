@@ -254,14 +254,6 @@ function makeStyles() {
       borderWidth: 1, borderColor: Colors.border,
       color: Colors.textPrimary, fontSize: 14, textAlign: 'center',
     },
-    nvgPreset: {
-      width: 60,
-      backgroundColor: Colors.elevated, borderRadius: 8,
-      paddingVertical: 10,
-      borderWidth: 1, borderColor: Colors.border,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    nvgPresetText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
     sliderRow: {
       flexDirection: 'row',
       alignItems: 'center',

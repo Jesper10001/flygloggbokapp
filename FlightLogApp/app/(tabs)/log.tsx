@@ -11,7 +11,6 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry } from '../../db/flights';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { Colors } from '../../constants/colors';
-import { formatDate } from '../../utils/format';
 import type { Flight } from '../../types/flight';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -190,7 +189,7 @@ function AirframesView() {
   const handleDelete = (entry: AircraftRegistryEntry) => {
     Alert.alert(
       `${t('delete')} ${entry.aircraft_type}?`,
-      'Registered aircraft and type data will be removed.',
+      t('delete_aircraft_confirm'),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -339,14 +338,14 @@ function AirframesView() {
 
 // ─── Logbook summary accordion data rows ────────────────────────────────────
 
-const SUMMARY_ROWS_LOG = [
-  { label: 'Total flygtid', field: 'total_time' as const, isTime: true },
-  { label: 'PIC',           field: 'pic'        as const, isTime: true },
-  { label: 'Co-pilot',      field: 'co_pilot'   as const, isTime: true },
-  { label: 'IFR',           field: 'ifr'        as const, isTime: true },
-  { label: 'Natt',          field: 'night'      as const, isTime: true },
-  { label: 'Ldg dag',       field: 'landings_day'   as const, isTime: false },
-  { label: 'Ldg natt',      field: 'landings_night' as const, isTime: false },
+const getSummaryRows = (t: (k: any) => string) => [
+  { label: t('total_flight_time'), field: 'total_time' as const, isTime: true },
+  { label: 'PIC',                  field: 'pic'        as const, isTime: true },
+  { label: t('co_pilot'),          field: 'co_pilot'   as const, isTime: true },
+  { label: 'IFR',                  field: 'ifr'        as const, isTime: true },
+  { label: t('night'),             field: 'night'      as const, isTime: true },
+  { label: `${t('landings')} ${t('day').toLowerCase()}`,   field: 'landings_day'   as const, isTime: false },
+  { label: `${t('landings')} ${t('night').toLowerCase()}`, field: 'landings_night' as const, isTime: false },
 ];
 
 // ─── TranscribeView ────────────────────────────────────────────────────────
@@ -865,7 +864,7 @@ function TranscribeView() {
 
                       {pageOpen && (
                         <View style={tvStyles.pageDetails}>
-                          {SUMMARY_ROWS_LOG.filter(r => (td as any)[r.field]).map(r => (
+                          {getSummaryRows(t).filter(r => (td as any)[r.field]).map(r => (
                             <View key={r.field} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                               <Text style={{ color: Colors.textMuted, fontSize: 13 }}>{r.label}</Text>
                               <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>
@@ -1473,7 +1472,7 @@ export default function LogScreen() {
                       </View>
                       <View style={styles.yearHeaderRight}>
                         <Text style={styles.yearHours}>{formatTime(yg.totalHours)}h</Text>
-                        <Text style={styles.yearCount}>{flightCount} flg</Text>
+                        <Text style={styles.yearCount}>{flightCount} {t('flights').toLowerCase()}</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -1492,7 +1491,7 @@ export default function LogScreen() {
                               {sec.title.charAt(0).toUpperCase() + sec.title.slice(1)}
                             </Text>
                             <Text style={styles.monthMeta}>
-                              {formatTime(sec.totalHours)}h · {sec.count} flg
+                              {formatTime(sec.totalHours)}h · {sec.count} {t('flights').toLowerCase()}
                             </Text>
                           </TouchableOpacity>
 
