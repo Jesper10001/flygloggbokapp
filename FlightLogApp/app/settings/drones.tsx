@@ -21,6 +21,7 @@ import { categoryLabel } from '../../constants/droneCategories';
 import * as ImagePicker from 'expo-image-picker';
 import { scanDroneImage } from '../../services/droneScan';
 import { useFlightStore } from '../../store/flightStore';
+import { useScanQuotaStore } from '../../store/scanQuotaStore';
 
 const TYPE_OPTIONS: { value: DroneType; label: string }[] = [
   { value: 'multirotor', label: 'Multirotor' },
@@ -150,6 +151,8 @@ function DroneFormModal({
       Alert.alert(t('premium_modal_title'), t('premium_modal_desc'));
       return;
     }
+    const { canLookup, consumeLookup } = useScanQuotaStore.getState();
+    if (!canLookup()) { Alert.alert(t('quota_exceeded_title'), t('lookup_quota_exceeded')); return; }
     try {
       let result;
       if (fromCamera) {
@@ -164,6 +167,7 @@ function DroneFormModal({
       }
       if (result.canceled || !result.assets[0]) return;
       setScanning(true);
+      await consumeLookup();
       const scan = await scanDroneImage(result.assets[0].uri);
 
       if (scan.needs_manual || !scan.model) {

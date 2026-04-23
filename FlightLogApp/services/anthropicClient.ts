@@ -116,8 +116,18 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`API-fel ${response.status}: ${err}`);
+    const errText = await response.text();
+    if (response.status === 429) {
+      try {
+        const quota = JSON.parse(errText);
+        if (quota.error === 'quota_exceeded') {
+          throw new Error(`QUOTA_EXCEEDED:${quota.type}:${quota.used}:${quota.limit}`);
+        }
+      } catch (e: any) {
+        if (e.message?.startsWith('QUOTA_EXCEEDED')) throw e;
+      }
+    }
+    throw new Error(`API-fel ${response.status}: ${errText}`);
   }
 
   const data = await response.json();

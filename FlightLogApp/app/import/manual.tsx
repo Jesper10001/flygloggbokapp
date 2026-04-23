@@ -11,6 +11,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
+import { useScanQuotaStore } from '../../store/scanQuotaStore';
 
 // ── Typdef ────────────────────────────────────────────────────────────────────
 
@@ -458,12 +459,15 @@ export default function ManualExperienceScreen() {
 
   const handleSmartLookup = async (acId: string) => {
     if (!isPremium) { setShowPremiumModal(true); return; }
+    const { canLookup, consumeLookup } = useScanQuotaStore.getState();
+    if (!canLookup()) { Alert.alert(t('quota_exceeded_title'), t('lookup_quota_exceeded')); return; }
     const ac = aircraft.find(a => a.id === acId);
     if (!ac) return;
     const q = ac.type.trim();
     if (!q) { Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body')); return; }
     updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'loading' } }));
     try {
+      await consumeLookup();
       const r = await lookupAircraft(q);
       if (r.needs_manual || !r.aircraft_type) {
         updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'unknown' } }));

@@ -3,9 +3,68 @@
 interface Env {
   ANTHROPIC_API_KEY: string;
   TELEMETRY: AnalyticsEngineDataset;
+  QUOTA_KV: KVNamespace;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   STATS_PASSWORD: string;
+}
+
+// ── Quota limits per device per month ────────────────────────────────────────
+
+const MONTHLY_LIMITS: Record<string, number> = {
+  scan: 12,
+  summarize: 20,
+  lookup: 15,
+  import: 5,
+};
+
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function detectRequestType(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body);
+    const system = typeof parsed.system === 'string' ? parsed.system : Array.isArray(parsed.system) ? parsed.system.map((s: any) => s.text ?? '').join(' ') : '';
+    const userContent = JSON.stringify(parsed.messages ?? []);
+    const hasImage = userContent.includes('"type":"image"') || userContent.includes('"type": "image"');
+
+    if (system.includes('loggbokssida') || system.includes('logbook page') || system.includes('row-by-row')) {
+      return hasImage ? 'scan' : 'scan';
+    }
+    if (system.includes('Total this page') || system.includes('summarize') || system.includes('summera')) {
+      return 'summarize';
+    }
+    if (system.includes('aircraft') && system.includes('lookup') || system.includes('cruise_speed') && system.includes('manufacturer')) {
+      return 'lookup';
+    }
+    if (system.includes('CSV') || system.includes('column mapping') || system.includes('kolumnmappning')) {
+      return 'import';
+    }
+    if (system.includes('drone') && (system.includes('manufacturer') || system.includes('model'))) {
+      return 'lookup';
+    }
+  } catch {}
+  return null;
+}
+
+async function checkAndIncrementQuota(
+  kv: KVNamespace, deviceHash: string, reqType: string
+): Promise<{ allowed: boolean; used: number; limit: number }> {
+  const limit = MONTHLY_LIMITS[reqType];
+  if (!limit) return { allowed: true, used: 0, limit: 0 };
+
+  const month = currentMonth();
+  const key = `quota:${deviceHash}:${month}:${reqType}`;
+  const current = parseInt(await kv.get(key) ?? '0', 10);
+
+  if (current >= limit) {
+    return { allowed: false, used: current, limit };
+  }
+
+  await kv.put(key, String(current + 1), { expirationTtl: 60 * 60 * 24 * 35 });
+  return { allowed: true, used: current + 1, limit };
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -273,6 +332,25 @@ export default {
       const body = await request.text();
       let model = 'unknown';
       try { model = JSON.parse(body).model ?? 'unknown'; } catch {}
+
+      // ── Server-side quota check ──
+      if (env.QUOTA_KV) {
+        const reqType = detectRequestType(body);
+        if (reqType) {
+          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType);
+          if (!quota.allowed) {
+            return new Response(JSON.stringify({
+              error: 'quota_exceeded',
+              type: reqType,
+              used: quota.used,
+              limit: quota.limit,
+              message: `Monthly ${reqType} quota exceeded (${quota.used}/${quota.limit})`,
+            }), {
+              status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+            });
+          }
+        }
+      }
 
       const t0 = Date.now();
       const resp = await fetch(ANTHROPIC_URL, {

@@ -8,6 +8,7 @@ import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { lookupAircraft } from '../services/aircraftLookup';
 import { useFlightStore } from '../store/flightStore';
+import { useScanQuotaStore } from '../store/scanQuotaStore';
 
 type CrewKey = 'sp' | 'mp';
 type Category = 'airplane' | 'helicopter' | '';
@@ -111,6 +112,11 @@ export function AircraftModal({
       Alert.alert(t('premium_modal_title'), t('premium_modal_desc'));
       return;
     }
+    const { canLookup, consumeLookup } = useScanQuotaStore.getState();
+    if (!canLookup()) {
+      Alert.alert(t('quota_exceeded_title'), t('lookup_quota_exceeded'));
+      return;
+    }
     const q = type.trim();
     if (!q) {
       Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body'));
@@ -118,6 +124,7 @@ export function AircraftModal({
     }
     setLooking(true);
     try {
+      await consumeLookup();
       const r = await lookupAircraft(q);
       if (r.needs_manual || !r.aircraft_type) {
         Alert.alert(t('aircraft_lookup_unclear_title'), t('aircraft_lookup_unclear_body'));

@@ -249,10 +249,10 @@ export default function SettingsScreen() {
         >
           <View style={{
             width: 56, height: 56, borderRadius: 28,
-            backgroundColor: Colors.primary,
+            backgroundColor: isPremium ? Colors.gold : Colors.primary,
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textInverse, letterSpacing: -0.5 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: isPremium ? '#1a1200' : Colors.textInverse, letterSpacing: -0.5 }}>
               {profileInitials || '?'}
             </Text>
           </View>
@@ -266,6 +266,27 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
         </TouchableOpacity>
+
+        {!isPremium && (
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 10,
+              backgroundColor: Colors.gold + '12', borderRadius: 12,
+              borderWidth: 1, borderColor: Colors.gold + '33',
+              padding: 14, marginTop: 8,
+            }}
+            onPress={() => router.push('/settings/premium')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="star" size={20} color={Colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>{t('tailwind_premium')}</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('premium_sub')}</Text>
+            </View>
+            <Text style={{ color: Colors.gold, fontSize: 14, fontWeight: '800' }}>49 kr</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── B. Läge ── */}
@@ -337,9 +358,9 @@ export default function SettingsScreen() {
         />
         <Row
           icon="document-text-outline" iconColor={Colors.primary}
-          title={t('export_to_pdf')} subtitle={isPremium ? t('export_to_pdf_premium') : t('export_to_pdf_locked')}
-          right={!isPremium ? <PremiumPill /> : exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-          onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('prem_feat_pdf_title')); setShowPremiumModal(true); }}
+          title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
+          right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+          onClick={handleExportPDF}
         />
         <Row
           icon="cloud-upload-outline" iconColor={Colors.primary}
@@ -347,28 +368,16 @@ export default function SettingsScreen() {
           right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
           onClick={handleExportCSV}
         />
+        <Row
+          icon="options-outline" iconColor={Colors.primary}
+          title={t('custom_csv_title')} subtitle={t('custom_csv_sub')}
+          right={!isPremium ? <PremiumPill /> : undefined}
+          onClick={isPremium ? () => router.push('/settings/custom-export') : () => { setPremiumFeatureName(t('custom_csv_title')); setShowPremiumModal(true); }}
+        />
         <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
       </Card>
 
-      {/* ── E. Premium ── */}
-      <SectionHeader>PREMIUM</SectionHeader>
-      <Card>
-        <Row
-          icon="star-outline" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
-          title={t('tailwind_premium')}
-          subtitle={isPremium ? t('all_features_unlocked') : t('premium_sub')}
-          right={isPremium ? <Ionicons name="checkmark-circle" size={18} color={Colors.success} /> : undefined}
-          onClick={() => {
-            if (!isPremium) Alert.alert(t('premium_alert_title'), t('premium_alert_message'), [
-              { text: t('cancel'), style: 'cancel' },
-              { text: t('enable_test'), onPress: () => setIsPremium(true) },
-            ]);
-          }}
-          border={false}
-        />
-      </Card>
-
-      {/* ── F. App ── */}
+      {/* ── E. App ── */}
       <SectionHeader>{t('app_section')}</SectionHeader>
       <Card>
         <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
@@ -483,6 +492,39 @@ export default function SettingsScreen() {
 
       {/* ── I. Byt loggbok ── */}
       <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
+
+      {isPremium && (
+        <TouchableOpacity
+          style={{
+            marginHorizontal: 20, marginTop: 16, paddingVertical: 14,
+            borderRadius: 12, alignItems: 'center',
+            backgroundColor: Colors.danger + '12',
+            borderWidth: 1, borderColor: Colors.danger + '33',
+          }}
+          onPress={() => {
+            Alert.alert(
+              t('cancel_premium_title'),
+              t('cancel_premium_body'),
+              [
+                { text: t('cancel'), style: 'cancel' },
+                {
+                  text: t('cancel_premium_confirm'),
+                  style: 'destructive',
+                  onPress: () => {
+                    setIsPremium(false);
+                    Alert.alert(t('cancel_premium_done_title'), t('cancel_premium_done_body'));
+                  },
+                },
+              ],
+            );
+          }}
+          activeOpacity={0.75}
+        >
+          <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '600' }}>
+            {t('cancel_premium_btn')}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
     </ScrollView>

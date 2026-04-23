@@ -5,8 +5,8 @@ import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
 
-export const PREMIUM_PRICE_MONTHLY = 69;
-export const PREMIUM_PRICE_YEARLY = 499;
+export const PREMIUM_PRICE_MONTHLY = 49;
+export const PREMIUM_PRICE_YEARLY = 349;
 export const PREMIUM_PRICE_YEARLY_MONTHLY = Math.round(PREMIUM_PRICE_YEARLY / 12);
 
 interface Props {
@@ -72,29 +72,13 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
             </View>
 
             {/* Pricing */}
-            <View style={s.priceCards}>
-              {/* Yearly — best value */}
-              <TouchableOpacity style={[s.priceCard, s.priceCardBest]} onPress={handlePurchaseYearly} activeOpacity={0.85}>
-                <View style={s.saveBadge}>
-                  <Text style={s.saveBadgeText}>{t('premium_save_40')}</Text>
-                </View>
-                <Text style={s.priceCardLabel}>{t('premium_yearly')}</Text>
-                <View style={s.priceRow}>
-                  <Text style={s.priceAmount}>{PREMIUM_PRICE_YEARLY}</Text>
-                  <Text style={s.priceCurrency}>kr/{t('premium_year_short')}</Text>
-                </View>
-                <Text style={s.pricePerMonth}>{PREMIUM_PRICE_YEARLY_MONTHLY} kr/{t('premium_month_short')}</Text>
-              </TouchableOpacity>
-
-              {/* Monthly */}
-              <TouchableOpacity style={s.priceCard} onPress={handlePurchaseMonthly} activeOpacity={0.85}>
-                <Text style={s.priceCardLabel}>{t('premium_monthly')}</Text>
-                <View style={s.priceRow}>
-                  <Text style={s.priceAmount}>{PREMIUM_PRICE_MONTHLY}</Text>
-                  <Text style={s.priceCurrency}>kr/{t('premium_month_short')}</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={[s.priceCard, s.priceCardBest, { marginHorizontal: 16 }]} onPress={handlePurchaseMonthly} activeOpacity={0.85}>
+              <Text style={s.priceCardLabel}>{t('premium_monthly')}</Text>
+              <View style={s.priceRow}>
+                <Text style={s.priceAmount}>{PREMIUM_PRICE_MONTHLY}</Text>
+                <Text style={s.priceCurrency}>kr/{t('premium_month_short')}</Text>
+              </View>
+            </TouchableOpacity>
 
             {/* Discover all */}
             <TouchableOpacity

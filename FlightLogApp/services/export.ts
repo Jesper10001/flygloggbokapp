@@ -103,6 +103,61 @@ export async function exportToCSV(): Promise<void> {
   }
 }
 
+// ── Custom CSV export ────────────────────────────────────────────────────────
+
+type CustomColumn = { key: string; header: string };
+type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat: 'hhmm' | 'decimal' };
+
+const timeFields = new Set([
+  'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'examiner', 'safety_pilot',
+  'ifr', 'vfr', 'night', 'nvg', 'multi_pilot', 'single_pilot', 'se_time', 'me_time',
+  'picus', 'spic', 'ferry_pic', 'observer', 'relief_crew',
+]);
+
+function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal'): string | number {
+  const raw = (f as any)[key];
+  if (key === 'flight_type') return f.flight_type === 'sim' ? 'Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal';
+  if (key === 'sim_category') return f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '';
+  if (timeFields.has(key)) {
+    const n = parseFloat(String(raw)) || 0;
+    return fmt === 'hhmm' ? toHHMM(n) : n;
+  }
+  return raw ?? '';
+}
+
+export async function exportCustomCSV(opts: CustomExportOpts): Promise<void> {
+  const flights = await getFlights(99999);
+  const sep = opts.separator;
+
+  const escapeVal = (val: string | number | null | undefined): string => {
+    const s = String(val ?? '');
+    if (s.includes(sep) || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const headers = opts.columns.map(c => escapeVal(c.header));
+  const rows = flights.map(f =>
+    opts.columns.map(c => escapeVal(getFlightValue(f, c.key, opts.timeFormat))).join(sep)
+  );
+
+  const csv = [headers.join(sep), ...rows].join('\r\n');
+  const filename = `logbook_custom_${new Date().toISOString().split('T')[0]}.csv`;
+  const path = FileSystem.documentDirectory + filename;
+
+  await FileSystem.writeAsStringAsync(path, '\uFEFF' + csv, {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(path, {
+      mimeType: 'text/csv',
+      dialogTitle: 'Custom CSV Export',
+    });
+  }
+}
+
 // ── PDF (HTML → dela → Skriv ut) ─────────────────────────────────────────────
 
 export async function exportToPDF(): Promise<void> {

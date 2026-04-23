@@ -12,6 +12,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
+import { useScanQuotaStore } from '../../store/scanQuotaStore';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
@@ -402,8 +403,14 @@ export default function ImportScreen() {
   }, [result, airportCoords, speedInputs, enduranceInputs, dbTypeData]);
 
   const handlePick = async () => {
+    const { canImport, consumeImport } = useScanQuotaStore.getState();
+    if (!canImport()) {
+      Alert.alert(t('quota_exceeded_title'), t('import_quota_exceeded'));
+      return;
+    }
     const file = await pickImportFile();
     if (!file) return;
+    await consumeImport();
 
     setFileName(file.name);
     setImporting(true);

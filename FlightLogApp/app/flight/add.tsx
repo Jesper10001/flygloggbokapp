@@ -2239,8 +2239,19 @@ export default function AddFlightScreen() {
                 backgroundColor: Colors.primary, alignItems: 'center',
               }}
               onPress={() => {
-                const ops = Array.from(milOps).join(' / ');
-                set('remarks', ops);
+                const codeOnlyCats = new Set([
+                  t('mil_cat_combat'), t('mil_cat_rescue'), t('mil_cat_refuel'),
+                  t('mil_cat_specops'), t('mil_cat_isr'), t('mil_cat_transport'),
+                  t('mil_cat_maritime'), t('mil_cat_other'),
+                ]);
+                const allWithCat = MIL_CATEGORIES.flatMap(c => c.items.map(i => ({ ...i, cat: c.title })));
+                const descs = Array.from(milOps).map(code => {
+                  const item = allWithCat.find(i => i.code === code);
+                  if (!item) return code;
+                  if (codeOnlyCats.has(item.cat)) return code;
+                  return item.desc.replace(/\s*\(.*?\)\s*/g, '').trim();
+                });
+                set('remarks', descs.join(' / '));
                 setShowMilOp(false);
               }}
               activeOpacity={0.85}

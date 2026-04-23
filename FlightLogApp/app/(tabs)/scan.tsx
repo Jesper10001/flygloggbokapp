@@ -773,6 +773,28 @@ export default function ScanScreen() {
     }
   };
 
+  const monthly = monthlyRemaining();
+  const total = totalRemaining();
+  const summarize = summarizeRemaining();
+  const isImport = mode === 'import';
+  const displayTotal = isImport ? total : summarize;
+  const displayQuota = isImport ? MONTHLY_QUOTA : MONTHLY_SUMMARIZE_QUOTA;
+  const displayMonthly = isImport ? monthly : summarize;
+  const barWidth = `${(displayMonthly / displayQuota) * 100}%` as any;
+
+  // Hub-state: null = visa tre val, 'scan' | 'import' | 'output' = visa undersida
+  const [hubMode, setHubMode] = useState<null | 'scan' | 'digital' | 'output'>(null);
+
+  // Auto-start summarize when navigated with ?summarize=camera|library
+  const [didAutoStart, setDidAutoStart] = useState(false);
+  useEffect(() => {
+    if (!params.summarize || didAutoStart) return;
+    setDidAutoStart(true);
+    setMode('summarize');
+    setHubMode('output');
+    setTimeout(() => pickImage(params.summarize === 'camera'), 300);
+  }, [params.summarize, didAutoStart]);
+
   // ── Locked ────────────────────────────────────────────────────────────────
   if (!isPremium) {
     return (
@@ -803,28 +825,6 @@ export default function ScanScreen() {
       </View>
     );
   }
-
-  const monthly = monthlyRemaining();
-  const total = totalRemaining();
-  const summarize = summarizeRemaining();
-  const isImport = mode === 'import';
-  const displayTotal = isImport ? total : summarize;
-  const displayQuota = isImport ? MONTHLY_QUOTA : MONTHLY_SUMMARIZE_QUOTA;
-  const displayMonthly = isImport ? monthly : summarize;
-  const barWidth = `${(displayMonthly / displayQuota) * 100}%` as any;
-
-  // Hub-state: null = visa tre val, 'scan' | 'import' | 'output' = visa undersida
-  const [hubMode, setHubMode] = useState<null | 'scan' | 'digital' | 'output'>(null);
-
-  // Auto-start summarize when navigated with ?summarize=camera|library
-  const [didAutoStart, setDidAutoStart] = useState(false);
-  useEffect(() => {
-    if (!params.summarize || didAutoStart) return;
-    setDidAutoStart(true);
-    setMode('summarize');
-    setHubMode('output');
-    setTimeout(() => pickImage(params.summarize === 'camera'), 300);
-  }, [params.summarize, didAutoStart]);
 
   // ── Huvud ─────────────────────────────────────────────────────────────────
   return (

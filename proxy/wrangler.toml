@@ -8,3 +8,10 @@ compatibility_date = "2024-01-01"
 # Telemetri — Cloudflare Analytics Engine (gratis)
 [[analytics_engine_datasets]]
 binding = "TELEMETRY"
+
+# Quota tracking — KV namespace for per-device monthly limits
+# Create with: wrangler kv:namespace create QUOTA_KV
+# Then add the id below:
+[[kv_namespaces]]
+binding = "QUOTA_KV"
+id = "784887bfd7f24f4a81f846f42409c8fb"

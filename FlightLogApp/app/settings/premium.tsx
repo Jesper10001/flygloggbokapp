@@ -113,16 +113,8 @@ export default function PremiumScreen() {
         <>
           <Text style={s.pricingTitle}>{t('prem_pricing_title')}</Text>
           <TouchableOpacity style={s.yearlyBtn} onPress={() => setIsPremium(true)} activeOpacity={0.85}>
-            <View style={s.yearlyBadge}>
-              <Text style={s.yearlyBadgeText}>{t('premium_save_40')}</Text>
-            </View>
-            <Text style={s.yearlyLabel}>{t('premium_yearly')}</Text>
-            <Text style={s.yearlyPrice}>{PREMIUM_PRICE_YEARLY} kr/{t('premium_year_short')}</Text>
-            <Text style={s.yearlyPerMonth}>{PREMIUM_PRICE_YEARLY_MONTHLY} kr/{t('premium_month_short')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.monthlyBtn} onPress={() => setIsPremium(true)} activeOpacity={0.85}>
-            <Text style={s.monthlyLabel}>{t('premium_monthly')}</Text>
-            <Text style={s.monthlyPrice}>{PREMIUM_PRICE_MONTHLY} kr/{t('premium_month_short')}</Text>
+            <Text style={s.yearlyLabel}>{t('premium_monthly')}</Text>
+            <Text style={s.yearlyPrice}>{PREMIUM_PRICE_MONTHLY} kr/{t('premium_month_short')}</Text>
           </TouchableOpacity>
         </>
       )}
