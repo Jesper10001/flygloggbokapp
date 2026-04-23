@@ -543,9 +543,98 @@ export default function AddFlightScreen() {
   const [lastTemplate, setLastTemplate] = useState<string>('');
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
-  const [milOp, setMilOp] = useState('');
+  const [milOps, setMilOps] = useState<Set<string>>(new Set());
   const [showMilOp, setShowMilOp] = useState(false);
-  const MIL_OPS = ['SAR', 'MEDEVAC', 'CASEVAC', 'CAS', 'ISR', 'CSAR', 'INFIL/EXFIL', 'RECCE', 'ESCORT', 'FAC', 'TRANSPORT'];
+
+  const MIL_CATEGORIES: { title: string; items: { code: string; desc: string }[] }[] = [
+    { title: t('mil_cat_combat'), items: [
+      { code: 'CAS', desc: t('mil_cas') },
+      { code: 'SEAD', desc: t('mil_sead') },
+      { code: 'OCA', desc: t('mil_oca') },
+      { code: 'DCA', desc: t('mil_dca') },
+      { code: 'EW', desc: t('mil_ew') },
+      { code: 'FAC', desc: t('mil_fac') },
+    ]},
+    { title: t('mil_cat_isr'), items: [
+      { code: 'ISTAR', desc: t('mil_istar') },
+      { code: 'ASC', desc: t('mil_asc') },
+    ]},
+    { title: t('mil_cat_rescue'), items: [
+      { code: 'SAR', desc: t('mil_sar') },
+      { code: 'CSAR', desc: t('mil_csar') },
+      { code: 'CR', desc: t('mil_cr') },
+      { code: 'PR', desc: t('mil_pr') },
+      { code: 'SERE', desc: t('mil_sere') },
+    ]},
+    { title: t('mil_cat_transport'), items: [
+      { code: 'MEDEVAC', desc: t('mil_medevac') },
+      { code: 'CASEVAC', desc: t('mil_casevac') },
+      { code: 'MEDT', desc: t('mil_medt') },
+      { code: 'AIRDROP', desc: t('mil_airdrop') },
+      { code: 'SLING', desc: t('mil_sling') },
+      { code: 'INFIL', desc: t('mil_infil') },
+      { code: 'EXFIL', desc: t('mil_exfil') },
+    ]},
+    { title: t('mil_cat_refuel'), items: [
+      { code: 'AAR', desc: t('mil_aar') },
+      { code: 'HIFR', desc: t('mil_hifr') },
+    ]},
+    { title: t('mil_cat_maritime'), items: [
+      { code: 'ASW', desc: t('mil_asw') },
+      { code: 'ASUW', desc: t('mil_asuw') },
+      { code: 'MIO', desc: t('mil_mio') },
+      { code: 'HOSTAC', desc: t('mil_hostac') },
+      { code: 'VERTREP', desc: t('mil_vertrep') },
+    ]},
+    { title: t('mil_cat_specops'), items: [
+      { code: 'SF', desc: t('mil_sf') },
+      { code: 'HLZ', desc: t('mil_hlz') },
+      { code: 'NFZ', desc: t('mil_nfz') },
+      { code: 'TIC', desc: t('mil_tic') },
+      { code: 'CONVOY', desc: t('mil_convoy') },
+    ]},
+    { title: t('mil_cat_heliops'), items: [
+      { code: 'NOE', desc: t('mil_noe') },
+      { code: 'CONTOUR', desc: t('mil_contour') },
+      { code: 'DGO', desc: t('mil_dgo') },
+      { code: 'SNIPER', desc: t('mil_sniper') },
+      { code: 'HOIST', desc: t('mil_hoist') },
+      { code: 'HRST', desc: t('mil_hrst') },
+      { code: 'TROOPTX', desc: t('mil_trooptx') },
+      { code: 'PIX', desc: t('mil_pix') },
+    ]},
+    { title: t('mil_cat_formation'), items: [
+      { code: 'ROTE', desc: t('mil_rote') },
+      { code: 'GROUP', desc: t('mil_group') },
+      { code: 'MIXED', desc: t('mil_mixed') },
+    ]},
+    { title: t('mil_cat_other'), items: [
+      { code: 'FFO', desc: t('mil_ffo') },
+      { code: 'AIRLOG', desc: t('mil_airlog') },
+      { code: 'ARTY', desc: t('mil_arty') },
+      { code: 'SHIPBOARD', desc: t('mil_shipboard') },
+    ]},
+  ];
+
+  const [expandedMilCats, setExpandedMilCats] = useState<Set<string>>(new Set());
+
+  const toggleMilOp = (op: string) => {
+    setMilOps(prev => {
+      const next = new Set(prev);
+      next.has(op) ? next.delete(op) : next.add(op);
+      return next;
+    });
+  };
+
+  const toggleMilCat = (cat: string) => {
+    setExpandedMilCats(prev => {
+      const next = new Set(prev);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
+    });
+  };
+
+  const milOpSummary = milOps.size > 0 ? Array.from(milOps).join(', ') : '';
   const scrollViewRef = useRef<ScrollView>(null);
   const routeBlockY = useRef(0);
   const depIcaoRef = useRef<IcaoInputHandle>(null);
@@ -1660,50 +1749,6 @@ export default function AddFlightScreen() {
 
         {/* ── Remarks ── */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ width: 100 }}>
-            <Text style={styles.cardFieldLabel}>Mil-op</Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: Colors.card, borderRadius: 8, borderWidth: 0.5, borderColor: Colors.border,
-                paddingHorizontal: 10, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              }}
-              onPress={() => setShowMilOp(!showMilOp)}
-              activeOpacity={0.75}
-            >
-              <Text style={{ color: milOp ? Colors.textPrimary : Colors.textMuted, fontSize: 14, fontWeight: milOp ? '600' : '400' }}>
-                {milOp || '—'}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
-            </TouchableOpacity>
-            {showMilOp && (
-              <View style={{
-                position: 'absolute', top: 62, left: 0, right: 0, zIndex: 20,
-                backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
-                maxHeight: 200, overflow: 'hidden',
-                shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-              }}>
-                <TouchableOpacity
-                  style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}
-                  onPress={() => { setMilOp(''); setShowMilOp(false); }}
-                >
-                  <Text style={{ color: Colors.textMuted, fontSize: 13 }}>—</Text>
-                </TouchableOpacity>
-                {MIL_OPS.map(op => (
-                  <TouchableOpacity
-                    key={op}
-                    style={{
-                      paddingHorizontal: 12, paddingVertical: 10,
-                      borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
-                      backgroundColor: milOp === op ? Colors.primary + '14' : undefined,
-                    }}
-                    onPress={() => { setMilOp(op); setShowMilOp(false); }}
-                  >
-                    <Text style={{ color: milOp === op ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{op}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
           <View style={{ flex: 1 }}>
             <FormField
               label={t('remarks')}
@@ -1715,6 +1760,24 @@ export default function AddFlightScreen() {
               style={{ minHeight: 60, textAlignVertical: 'top' }}
             />
           </View>
+          <TouchableOpacity
+            style={{
+              width: 78, marginTop: 22, marginBottom: 4,
+              backgroundColor: milOps.size > 0 ? Colors.gold + '18' : Colors.elevated,
+              borderRadius: 8, borderWidth: 1.5,
+              borderColor: milOps.size > 0 ? Colors.gold : Colors.border,
+              alignItems: 'center', justifyContent: 'center',
+            }}
+            onPress={() => setShowMilOp(true)}
+            activeOpacity={0.75}
+          >
+            <Text style={{
+              color: milOps.size > 0 ? Colors.gold : Colors.textMuted, fontSize: 12, fontWeight: '900',
+              letterSpacing: 0.3, textAlign: 'center', lineHeight: 16,
+            }}>
+              {milOps.size > 0 ? `MIL-OP\n(${milOps.size})` : 'Military\nOperation'}
+            </Text>
+          </TouchableOpacity>
         </View>
         {role === 'picus' && (
           <View style={styles.remarksWarning}>
@@ -2077,6 +2140,118 @@ export default function AddFlightScreen() {
           setShowAircraftModal(false);
         }}
       />
+
+      {/* Military Operation modal */}
+      <Modal visible={showMilOp} transparent animationType="slide" onRequestClose={() => setShowMilOp(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }} onPress={() => setShowMilOp(false)}>
+          <Pressable style={{
+            backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            maxHeight: '80%', paddingBottom: 32,
+          }} onPress={e => e.stopPropagation()}>
+            <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginTop: 10, marginBottom: 6 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', flex: 1 }}>Military Operation</Text>
+              {milOps.size > 0 && (
+                <TouchableOpacity onPress={() => setMilOps(new Set())}>
+                  <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '600' }}>{t('clear')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
+                {[0, 1].map(col => (
+                  <View key={col} style={{ flex: 1, paddingHorizontal: 4 }}>
+                    {MIL_CATEGORIES.filter((_, i) => i % 2 === col).map(cat => {
+                      const open = expandedMilCats.has(cat.title);
+                      const selectedInCat = cat.items.filter(op => milOps.has(op.code));
+                      return (
+                        <View key={cat.title} style={{
+                          backgroundColor: Colors.elevated, borderRadius: 10,
+                          borderWidth: 0.5, borderColor: Colors.border,
+                          marginBottom: 8, overflow: 'hidden',
+                        }}>
+                          <TouchableOpacity
+                            style={{
+                              flexDirection: 'row', alignItems: 'center',
+                              paddingHorizontal: 10, paddingVertical: 10,
+                            }}
+                            onPress={() => toggleMilCat(cat.title)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={12} color={Colors.textMuted} style={{ marginRight: 6 }} />
+                            <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>{cat.title}</Text>
+                            {selectedInCat.length > 0 && (
+                              <View style={{
+                                backgroundColor: Colors.gold + '22', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5,
+                              }}>
+                                <Text style={{ color: Colors.gold, fontSize: 10, fontWeight: '700' }}>{selectedInCat.length}</Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                          {open && cat.items.map(op => {
+                            const active = milOps.has(op.code);
+                            return (
+                              <TouchableOpacity
+                                key={op.code}
+                                style={{
+                                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                                  paddingVertical: 7, paddingHorizontal: 10,
+                                  borderTopWidth: 0.5, borderTopColor: Colors.separator,
+                                }}
+                                onPress={() => toggleMilOp(op.code)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons
+                                  name={active ? 'checkbox' : 'square-outline'}
+                                  size={16}
+                                  color={active ? Colors.gold : Colors.textMuted}
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{
+                                    color: active ? Colors.gold : Colors.textPrimary,
+                                    fontSize: 11, fontWeight: '800',
+                                  }}>{op.code}</Text>
+                                  <Text style={{
+                                    color: Colors.textMuted, fontSize: 9, lineHeight: 12,
+                                  }}>{op.desc}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+              <View style={{ height: 16 }} />
+            </ScrollView>
+            {milOps.size > 0 && (
+              <View style={{ paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: Colors.separator }}>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 8 }}>
+                  {Array.from(milOps).join(' / ')}
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={{
+                marginHorizontal: 16, paddingVertical: 14, borderRadius: 12,
+                backgroundColor: Colors.primary, alignItems: 'center',
+              }}
+              onPress={() => {
+                const ops = Array.from(milOps).join(' / ');
+                set('remarks', ops);
+                setShowMilOp(false);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>
+                {milOps.size > 0 ? `${t('done_exclamation')} (${milOps.size})` : t('cancel')}
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
