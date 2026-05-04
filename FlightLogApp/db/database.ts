@@ -222,6 +222,9 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Mellanlandningsplats (touch & go / hot refuel)
   await addColumnIfMissing(db, 'stop_place', `TEXT NOT NULL DEFAULT ''`);
 
+  // Operator-specific data (JSON) for non-pilot crew logbooks
+  await addColumnIfMissing(db, 'operator_data', `TEXT NOT NULL DEFAULT ''`);
+
   // Papperloggböcker — referens för transkribering av digitala flygningar till papper
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS logbook_books (

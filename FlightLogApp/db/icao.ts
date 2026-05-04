@@ -1,6 +1,16 @@
 import { getDatabase } from './database';
 import type { IcaoAirport } from '../types/flight';
-import { SEED_AIRPORTS } from './seedAirports';
+
+let airportData: [string, string, string, string, number, number][] = [];
+try {
+  airportData = require('../assets/icao-airports.json');
+} catch {
+  console.warn('[ICAO] icao-airports.json not found — airport database unavailable');
+}
+
+export function getSeedAirports(): Promise<[string, string, string, string, number, number][]> {
+  return Promise.resolve(airportData);
+}
 
 const SEED_VERSION = '2026-04-22-global';
 
@@ -15,7 +25,7 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
 
   if (existing?.v === SEED_VERSION) return;
 
-  const data = SEED_AIRPORTS;
+  const data = airportData;
 
   const BATCH = 200;
   await db.withTransactionAsync(async () => {

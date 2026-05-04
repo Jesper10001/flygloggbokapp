@@ -6,8 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { getVisitedAirportIcaos } from '../db/flights';
-import { getAirportCoordinates, getAllTemporaryPlaces } from '../db/icao';
-import { SEED_AIRPORTS } from '../db/seedAirports';
+import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
@@ -30,15 +29,15 @@ function getCountryName(code: string): string {
   return countryNames[code] || code;
 }
 
-const countryList = (() => {
+type SeedRow = [string, string, string, string, number, number];
+
+function buildCountryList(data: SeedRow[]) {
   const map = new Map<string, number>();
-  for (const [, , country] of SEED_AIRPORTS) {
-    map.set(country, (map.get(country) ?? 0) + 1);
-  }
+  for (const [, , country] of data) map.set(country, (map.get(country) ?? 0) + 1);
   return Array.from(map.entries())
     .map(([code, count]) => ({ code, name: getCountryName(code), count }))
     .sort((a, b) => a.name.localeCompare(b.name));
-})();
+}
 
 type AirportPoint = { icao: string; name: string; lat: number; lon: number; temporary?: boolean };
 
@@ -57,15 +56,12 @@ function buildMapHtml(airports: AirportPoint[]): string {
   const zoom = latSpan > 20 ? 4 : latSpan > 10 ? 5 : latSpan > 5 ? 6 : 7;
 
   const pinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#D32F2F" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
-  const heliSvg = `<svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="10" width="13" height="5" rx="2.5" fill="#1565C0"/><rect x="11" y="12" width="10" height="2" rx="1" fill="#1565C0"/><rect x="1" y="9" width="14" height="2" rx="1" fill="#42A5F5"/><circle cx="5" cy="17" r="1.5" fill="#1565C0"/><circle cx="15" cy="17" r="1.5" fill="#1565C0"/><rect x="4.5" y="14" width="1" height="3" fill="#1565C0"/><rect x="14.5" y="14" width="1" height="3" fill="#1565C0"/><circle cx="12" cy="7" r="5" fill="none" stroke="#42A5F5" stroke-width="1.2"/><line x1="7" y1="7" x2="17" y2="7" stroke="#42A5F5" stroke-width="1.5"/></svg>`;
+  const tempPinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2E7D32" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
   const markers = airports
     .map(a => {
       const name = a.name.replace(/'/g, "\\'");
-      const svg = a.temporary ? heliSvg : pinSvg;
-      const size = a.temporary ? '[20,20]' : '[14,20]';
-      const anchor = a.temporary ? '[10,10]' : '[7,20]';
-      const popupAnchor = a.temporary ? '[0,-12]' : '[0,-22]';
-      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:${size},iconAnchor:${anchor},popupAnchor:${popupAnchor}})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>');`;
+      const svg = a.temporary ? tempPinSvg : pinSvg;
+      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>');`;
     })
     .join('\n');
 
@@ -213,56 +209,10 @@ function makeStyles() {
     widget: {
       backgroundColor: Colors.card,
       borderRadius: 12,
-      padding: 14,
+      padding: 12,
       borderWidth: 1,
       borderColor: Colors.cardBorder,
-      gap: 10,
-    },
-    widgetHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    widgetTitle: {
-      flex: 1,
-      color: Colors.textSecondary,
-      fontSize: 12,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    widgetCount: {
-      color: Colors.primary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    airportGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-    },
-    airportChip: {
-      backgroundColor: Colors.elevated,
-      borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: Colors.border,
-    },
-    airportCode: {
-      color: Colors.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-      fontVariant: ['tabular-nums'],
-    },
-    mapPreviewHint: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    mapPreviewHintText: {
-      color: Colors.textMuted,
-      fontSize: 11,
+      marginBottom: 8,
     },
 
     modal: {
@@ -296,10 +246,16 @@ export function AirportMapWidget() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+  const [seedData, setSeedData] = useState<SeedRow[]>([]);
+  const [countryList, setCountryList] = useState<{ code: string; name: string; count: number }[]>([]);
   const insets = useSafeAreaInsets();
   const { isPremium } = useFlightStore();
 
   const flightCount = useFlightStore((s) => s.flightCount);
+
+  useEffect(() => {
+    getSeedAirports().then(data => { setSeedData(data); setCountryList(buildCountryList(data)); });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -322,37 +278,53 @@ export function AirportMapWidget() {
 
   return (
     <>
-      {/* Mini-widget — klickbar förhandvisning */}
+      {/* Visited airports — MC1 style */}
       <TouchableOpacity
         style={styles.widget}
         onPress={() => airports.length > 0 && setModalVisible(true)}
-        activeOpacity={airports.length > 0 ? 0.85 : 1}
+        activeOpacity={airports.length > 0 ? 0.75 : 1}
       >
-        <View style={styles.widgetHeader}>
-          <Ionicons name="map-outline" size={14} color={Colors.primary} />
-          <Text style={styles.widgetTitle}>{t('visited_airports')}</Text>
-          <Text style={styles.widgetCount}>{allIcaos.length}</Text>
-          <Ionicons name="expand-outline" size={14} color={Colors.textMuted} />
-        </View>
-        <View style={styles.airportGrid}>
-          {allIcaos.slice(0, 8).map(icao => (
-            <View key={icao} style={styles.airportChip}>
-              <Text style={styles.airportCode}>{icao}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{
+            width: 36, height: 36, borderRadius: 8,
+            backgroundColor: Colors.info + '22',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Ionicons name="location" size={16} color={Colors.info} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <Text style={{
+                fontSize: 9, fontWeight: '700', color: Colors.textMuted,
+                letterSpacing: 1, fontFamily: 'Menlo',
+              }}>VISITED AIRPORTS</Text>
+              <Text style={{
+                fontSize: 11, fontWeight: '800', color: Colors.info,
+                fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
+              }}>{allIcaos.length}</Text>
             </View>
-          ))}
-          {allIcaos.length > 8 && (
-            <View style={styles.airportChip}>
-              <Text style={styles.airportCode}>+{allIcaos.length - 8}</Text>
+            <View style={{ flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+              {allIcaos.slice(0, 6).map(icao => (
+                <View key={icao} style={{
+                  paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+                  backgroundColor: Colors.info + '15',
+                  borderWidth: 1, borderColor: Colors.info + '30',
+                }}>
+                  <Text style={{
+                    fontSize: 10, fontWeight: '700', color: Colors.textPrimary,
+                    fontFamily: 'Menlo', letterSpacing: 0.4,
+                  }}>{icao}</Text>
+                </View>
+              ))}
+              {allIcaos.length > 6 && (
+                <Text style={{
+                  fontSize: 10, fontWeight: '700', color: Colors.textMuted,
+                  fontFamily: 'Menlo', paddingVertical: 2,
+                }}>+{allIcaos.length - 6}</Text>
+              )}
             </View>
-          )}
-        </View>
-        <View style={styles.mapPreviewHint}>
-          <Ionicons name="globe-outline" size={12} color={Colors.textMuted} />
-          <Text style={styles.mapPreviewHintText}>
-            {airports.length > 0
-              ? `${t('tap_to_show_map_with_count')} (${airports.length})`
-              : t('map_requires_coordinates')}
-          </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
         </View>
       </TouchableOpacity>
 
@@ -366,7 +338,7 @@ export function AirportMapWidget() {
           {(() => {
             const visitedSet = new Set(allIcaos);
             if (selectedCountry) {
-              const countryApts = SEED_AIRPORTS
+              const countryApts = seedData
                 .filter(([, , c]) => c === selectedCountry)
                 .map(([icao, name, , , lat, lon]) => ({ icao, name, lat, lon }));
               const visitedInCountry = countryApts.filter(a => visitedSet.has(a.icao)).length;
@@ -474,7 +446,7 @@ export function AirportMapWidget() {
                 )}
                 keyExtractor={c => c.code}
                 renderItem={({ item: c }) => {
-                  const visitedCount = SEED_AIRPORTS
+                  const visitedCount = seedData
                     .filter(([icao, , cc]) => cc === c.code && allIcaos.includes(icao)).length;
                   return (
                     <TouchableOpacity

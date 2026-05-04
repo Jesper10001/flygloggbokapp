@@ -8,20 +8,56 @@ import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAppModeStore } from '../../store/appModeStore';
+import { useProfileStore, isOperator } from '../../store/profileStore';
 import {
   listCertificates, addCertificate, updateCertificate, deleteCertificate,
   certStatus, type DroneCertificate,
 } from '../../db/drones';
 
-const CERT_TYPES = ['A1/A3', 'A2', 'STS-01', 'STS-02', 'Operational Authorization', 'Other'];
+const DRONE_CERT_TYPES = ['A1/A3', 'A2', 'STS-01', 'STS-02', 'Operational Authorization', 'Other'];
 
-// Default validity in years per certificate type (EASA reference values)
+const MANNED_CERT_TYPES = [
+  'ATPL', 'CPL', 'PPL', 'IR', 'Type Rating',
+  'Medical Class 1', 'Medical Class 2', 'Medical LAPL',
+  'Proficiency Check (PC)', 'Operator Proficiency Check (OPC)',
+  'Line Check', 'CRM', 'Dangerous Goods',
+  'PBN', 'RVSM', 'ETOPS', 'LVO / CAT II/III',
+  'SEP', 'MEP', 'Instructor Rating',
+  'English Language Proficiency',
+  'Other',
+];
+
+const OPERATOR_CERT_TYPES = [
+  'Crew Chief Qualification', 'Hoist Operator Cert', 'Rescue Swimmer Cert',
+  'HEMS Crew Member', 'Loadmaster Cert',
+  'Medical Class 2', 'Medical Class 3',
+  'CRM', 'Underwater Escape Training',
+  'Fire Fighting', 'First Aid',
+  'NVG Qualification', 'Weapons Qualification',
+  'Other',
+];
+
+function getCertTypes(mode: string, isOp: boolean): string[] {
+  if (mode === 'drone') return DRONE_CERT_TYPES;
+  if (isOp) return OPERATOR_CERT_TYPES;
+  return MANNED_CERT_TYPES;
+}
+
+// Default validity in years per certificate type
 const CERT_DEFAULT_YEARS: Record<string, number> = {
-  'A1/A3': 5,
-  'A2': 5,
-  'STS-01': 5,
-  'STS-02': 5,
-  'Operational Authorization': 2,
+  'A1/A3': 5, 'A2': 5, 'STS-01': 5, 'STS-02': 5, 'Operational Authorization': 2,
+  'ATPL': 0, 'CPL': 0, 'PPL': 0, 'IR': 1, 'Type Rating': 1,
+  'Medical Class 1': 1, 'Medical Class 2': 2, 'Medical LAPL': 2, 'Medical Class 3': 2,
+  'Proficiency Check (PC)': 1, 'Operator Proficiency Check (OPC)': 1,
+  'Line Check': 1, 'CRM': 3, 'Dangerous Goods': 2,
+  'PBN': 0, 'RVSM': 0, 'ETOPS': 0, 'LVO / CAT II/III': 0,
+  'SEP': 2, 'MEP': 1, 'Instructor Rating': 3,
+  'English Language Proficiency': 4,
+  'Crew Chief Qualification': 2, 'Hoist Operator Cert': 1, 'Rescue Swimmer Cert': 1,
+  'HEMS Crew Member': 1, 'Loadmaster Cert': 2,
+  'Underwater Escape Training': 4, 'Fire Fighting': 3, 'First Aid': 2,
+  'NVG Qualification': 1, 'Weapons Qualification': 1,
   'Other': 0,
 };
 
@@ -34,6 +70,9 @@ function addYears(dateStr: string, years: number): string {
 export default function CertificatesScreen() {
   const { t } = useTranslation();
   const styles = makeStyles();
+  const mode = useAppModeStore(s => s.mode);
+  const profile = useProfileStore(s => s.profile);
+  const CERT_TYPES = getCertTypes(mode, isOperator(profile));
   const [certs, setCerts] = useState<DroneCertificate[]>([]);
   const [editing, setEditing] = useState<DroneCertificate | null>(null);
   const [adding, setAdding] = useState(false);
@@ -79,12 +118,14 @@ export default function CertificatesScreen() {
       <CertForm
         visible={adding}
         initial={null}
+        certTypes={CERT_TYPES}
         onClose={() => setAdding(false)}
         onSaved={async () => { await load(); setAdding(false); }}
       />
       <CertForm
         visible={!!editing}
         initial={editing}
+        certTypes={CERT_TYPES}
         onClose={() => setEditing(null)}
         onSaved={async () => { await load(); setEditing(null); }}
       />
@@ -103,16 +144,18 @@ function daysUntil(dateStr: string): string {
 }
 
 function CertForm({
-  visible, initial, onClose, onSaved,
+  visible, initial, certTypes, onClose, onSaved,
 }: {
   visible: boolean;
   initial: DroneCertificate | null;
+  certTypes: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const styles = makeStyles();
-  const [certType, setCertType] = useState(initial?.cert_type ?? 'A1/A3');
+  const CERT_TYPES = certTypes;
+  const [certType, setCertType] = useState(initial?.cert_type ?? certTypes[0] ?? 'Other');
   const [label, setLabel] = useState(initial?.label ?? '');
   const [issued, setIssued] = useState(initial?.issued_date ?? '');
   const [expires, setExpires] = useState(initial?.expires_date ?? '');
@@ -123,7 +166,7 @@ function CertForm({
   // Reset when opening
   useCallback(() => {
     if (!visible) return;
-    setCertType(initial?.cert_type ?? 'A1/A3');
+    setCertType(initial?.cert_type ?? certTypes[0] ?? 'Other');
     setLabel(initial?.label ?? '');
     setIssued(initial?.issued_date ?? '');
     setExpires(initial?.expires_date ?? '');

@@ -25,6 +25,11 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LOGBOOK_TEMPLATES } from '../../constants/logbookTemplates';
+import { useProfileStore, isOperator } from '../../store/profileStore';
+import { useThemeStore } from '../../store/themeStore';
+import * as Haptics from 'expo-haptics';
+import { FlightChart } from '../../components/FlightChart';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
 
@@ -124,6 +129,8 @@ function FlightRow({ flight, onPress, isLast }: {
     f.source === 'ocr' ? 'camera' : f.source === 'import' ? 'cloud-upload-outline' : 'pencil';
   const isFlagged = f.status === 'flagged';
   const needsReview = (f as any).needs_review === 1 || (f as any).needs_review === true;
+  const crewMatch = f.remarks?.match(/\[(.+?)\]/);
+  const crewText = crewMatch ? crewMatch[1] : '';
 
   return (
     <TouchableOpacity
@@ -149,8 +156,10 @@ function FlightRow({ flight, onPress, isLast }: {
         </View>
         <View style={styles.flightMetaRow}>
           <Ionicons name={srcIcon} size={10} color={Colors.textMuted} />
-          <Text style={styles.flightMeta}>
+          <Text style={styles.flightMeta} numberOfLines={1}>
             {f.aircraft_type} · {f.registration}
+            {f.second_pilot ? ` · 2P: ${f.second_pilot}` : ''}
+            {crewText ? ` · ${crewText}` : ''}
           </Text>
           {f.ifr > 0 && <Text style={styles.badgeIfr}>IFR</Text>}
           {f.night > 0 && <Text style={styles.badgeNight}>{(f.nvg ?? 0) > 0 ? 'NVG' : 'NIGHT'}</Text>}
@@ -1329,6 +1338,181 @@ const tvStyles = StyleSheet.create({
   },
 });
 
+// ─── WeaponsView ────────────────────────────────────────────────────────────
+
+function WeaponsView() {
+  const { t } = useTranslation();
+  const { flights } = useFlightStore();
+  const { formatTime } = useTimeFormat();
+  const [period, setPeriod] = useState<'day' | 'week' | 'custom'>('week');
+  const [customFromDate, setCustomFromDate] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d; });
+  const [customToDate, setCustomToDate] = useState(new Date());
+
+  const now = new Date();
+  const dayStart = now.toISOString().split('T')[0];
+  const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0]; })();
+  const customFrom = customFromDate.toISOString().split('T')[0];
+  const customTo = customToDate.toISOString().split('T')[0];
+
+  const fromDate = period === 'day' ? dayStart : period === 'week' ? weekStart : customFrom;
+  const toDate = period === 'custom' ? customTo : dayStart;
+
+  const weaponFlights = flights.filter(f => {
+    if (!f.operator_data) return false;
+    try {
+      const op = JSON.parse(f.operator_data);
+      const hasWeapon = op.weapon_category || op.weapon_system || op.rounds_fired;
+      if (!hasWeapon) return false;
+      if (fromDate && f.date < fromDate) return false;
+      if (toDate && f.date > toDate) return false;
+      return true;
+    } catch { return false; }
+  }).map(f => ({ ...f, op: JSON.parse(f.operator_data || '{}') }));
+
+  const totalRounds = weaponFlights.reduce((s, f) => s + (parseInt(f.op.rounds_fired) || 0), 0);
+  const weaponTypes = new Map<string, number>();
+  weaponFlights.forEach(f => {
+    const rounds = parseInt(f.op.rounds_fired) || 0;
+    const typeStr = f.op.weapon_type || f.op.weapon_system || '';
+    const types = typeStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+    if (types.length > 0) {
+      const perType = Math.round(rounds / types.length);
+      types.forEach((t: string) => weaponTypes.set(t, (weaponTypes.get(t) ?? 0) + perType));
+    } else {
+      const cat = Array.isArray(f.op.weapon_category) ? f.op.weapon_category.join(', ') : (f.op.weapon_category || 'Unknown');
+      weaponTypes.set(cat, (weaponTypes.get(cat) ?? 0) + rounds);
+    }
+  });
+
+  const allTimeFlights = flights.filter(f => {
+    try { const op = JSON.parse(f.operator_data || '{}'); return !!(op.weapon_type || op.weapon_system); } catch { return false; }
+  }).map(f => ({ ...f, op: JSON.parse(f.operator_data || '{}') }));
+  const certifiedWeapons = [...new Set(allTimeFlights.flatMap(f => {
+    const typeStr = f.op.weapon_type || f.op.weapon_system || '';
+    return typeStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+  }))];
+
+  const sv = t('yes') === 'Ja';
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+      {/* Period selector */}
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {(['day', 'week', 'custom'] as const).map(p => (
+          <TouchableOpacity
+            key={p}
+            style={{
+              flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
+              backgroundColor: period === p ? Colors.primary : Colors.elevated,
+              borderWidth: 1, borderColor: period === p ? Colors.primary : Colors.border,
+            }}
+            onPress={() => setPeriod(p)}
+            activeOpacity={0.75}
+          >
+            <Text style={{ color: period === p ? Colors.textInverse : Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>
+              {p === 'day' ? (sv ? 'Idag' : 'Today') : p === 'week' ? (sv ? '7 dagar' : '7 days') : (sv ? 'Välj datum' : 'Custom')}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {period === 'custom' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 8 }}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 }}>{sv ? 'FRÅN' : 'FROM'}</Text>
+            <DateTimePicker
+              value={customFromDate}
+              mode="date"
+              display="compact"
+              maximumDate={customToDate}
+              onChange={(_, d) => d && setCustomFromDate(d)}
+              themeVariant="dark"
+            />
+          </View>
+          <Ionicons name="arrow-forward" size={14} color={Colors.textMuted} />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 }}>{sv ? 'TILL' : 'TO'}</Text>
+            <DateTimePicker
+              value={customToDate}
+              mode="date"
+              display="compact"
+              minimumDate={customFromDate}
+              maximumDate={new Date()}
+              onChange={(_, d) => d && setCustomToDate(d)}
+              themeVariant="dark"
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Total rounds */}
+      <View style={{
+        backgroundColor: Colors.card, borderRadius: 14, padding: 16,
+        borderWidth: 1, borderColor: Colors.cardBorder, alignItems: 'center', gap: 4,
+      }}>
+        <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, fontFamily: 'Menlo' }}>
+          {sv ? 'TOTAL SKOTT' : 'TOTAL ROUNDS'}
+        </Text>
+        <Text style={{ color: Colors.danger, fontSize: 36, fontWeight: '900', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>
+          {totalRounds}
+        </Text>
+        <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
+          {weaponFlights.length} {sv ? 'pass' : 'sessions'}
+        </Text>
+      </View>
+
+      {/* Per weapon type */}
+      {weaponTypes.size > 0 && (
+        <View style={{
+          backgroundColor: Colors.card, borderRadius: 14, padding: 14,
+          borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+        }}>
+          <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, fontFamily: 'Menlo' }}>
+            {sv ? 'PER VAPENTYP' : 'PER WEAPON'}
+          </Text>
+          {[...weaponTypes.entries()].sort((a, b) => b[1] - a[1]).map(([type, rounds]) => (
+            <View key={type} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>{type}</Text>
+              <Text style={{ color: Colors.danger, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>{rounds}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Certified weapons (all time) */}
+      {certifiedWeapons.length > 0 && (
+        <View style={{
+          backgroundColor: Colors.card, borderRadius: 14, padding: 14,
+          borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+        }}>
+          <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, fontFamily: 'Menlo' }}>
+            {sv ? 'VAPENTYPER (ALLA TIDER)' : 'WEAPON TYPES (ALL TIME)'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {certifiedWeapons.map(w => (
+              <View key={w} style={{
+                paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                backgroundColor: Colors.danger + '15', borderWidth: 1, borderColor: Colors.danger + '33',
+              }}>
+                <Text style={{ color: Colors.danger, fontSize: 12, fontWeight: '700' }}>{w}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {weaponFlights.length === 0 && (
+        <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+          <Ionicons name="shield-outline" size={40} color={Colors.textMuted} />
+          <Text style={{ color: Colors.textMuted, fontSize: 13 }}>
+            {sv ? 'Inga vapenhändelser under perioden' : 'No weapon events in this period'}
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
 // ─── Main screen ────────────────────────────────────────────────────────────
 
 export default function LogScreen() {
@@ -1336,8 +1520,9 @@ export default function LogScreen() {
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const mode = useAppModeStore((s) => s.mode);
+  const _theme = useThemeStore((s) => s.theme);
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
-  const [tab, setTab] = useState<'loggbok' | 'transkribering' | 'farkoster'>('loggbok');
+  const [tab, setTab] = useState<'loggbok' | 'transkribering' | 'farkoster' | 'weapons'>('loggbok');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Flight[]>([]);
   const [tree, setTree] = useState<YearGroup[]>([]);
@@ -1379,18 +1564,25 @@ export default function LogScreen() {
     <View style={styles.container}>
       {/* ── Tab header ── */}
       <View style={styles.tabRow}>
-        <TouchableOpacity onPress={() => setTab('loggbok')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('loggbok'); }} activeOpacity={0.7}>
           <Text style={[styles.tabTextPrimary, tab === 'loggbok' && styles.tabTextPrimaryActive]}>{t('tab_logbook_label')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setTab('farkoster')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('farkoster'); }} activeOpacity={0.7}>
           <Text style={[styles.tabTextSecondary, tab === 'farkoster' && styles.tabTextSecondaryActive]}>{t('tab_airframes')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setTab('transkribering')} activeOpacity={0.7}>
-          <Text style={[styles.tabTextSecondary, tab === 'transkribering' && styles.tabTextSecondaryActive]}>{t('tab_transcription')}</Text>
-        </TouchableOpacity>
+        {!isOperator(useProfileStore.getState().profile) && (
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('transkribering'); }} activeOpacity={0.7}>
+            <Text style={[styles.tabTextSecondary, tab === 'transkribering' && styles.tabTextSecondaryActive]}>{t('tab_transcription')}</Text>
+          </TouchableOpacity>
+        )}
+        {(useProfileStore.getState().profile?.subRole === 'crew-chief' || useProfileStore.getState().profile?.subRole === 'loadmaster') && (
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('weapons'); }} activeOpacity={0.7}>
+            <Text style={[styles.tabTextSecondary, tab === 'weapons' && styles.tabTextSecondaryActive]}>{t('tab_weapons')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? <TranscribeView /> : (
+      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? <TranscribeView /> : tab === 'weapons' ? <WeaponsView /> : (
         <>
           {/* ── Search field ── */}
           <View style={styles.searchRow}>
@@ -1506,6 +1698,11 @@ export default function LogScreen() {
                   </View>
                 );
               })}
+
+              {/* Flight time chart */}
+              <View style={{ marginHorizontal: 12, marginTop: 16, marginBottom: 8 }}>
+                <FlightChart />
+              </View>
             </ScrollView>
           )}
         </>
@@ -1515,7 +1712,7 @@ export default function LogScreen() {
       {tab === 'loggbok' && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => router.push('/flight/add')}
+          onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={28} color={Colors.textInverse} />

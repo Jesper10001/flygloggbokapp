@@ -1,205 +1,334 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
+import { useAppModeStore } from '../store/appModeStore';
+import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
 import { setSetting } from '../db/flights';
 
-type Step = 'language' | 'timeformat';
+type Step = 'welcome' | 'role' | 'subrole' | 'timeformat';
 
-function makeStyles() {
-  return StyleSheet.create({
-    container: {
-      flex: 1, backgroundColor: Colors.background, padding: 24,
-    },
-    dotsRow: {
-      flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 12, marginBottom: 32,
-    },
-    dot: {
-      width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border,
-    },
-    dotActive: { backgroundColor: Colors.primary, width: 24 },
+// Light palette (always light for onboarding)
+const P = {
+  bg: '#FFFFFF',
+  card: '#FFFFFF',
+  cardBorder: '#D6DCE5',
+  text: '#1F2A44',
+  textSecondary: '#5A6B85',
+  textMuted: '#8A96A8',
+  accent: '#2FA8A5',
+  accentBg: '#2FA8A514',
+  accentBorder: '#2FA8A555',
+};
 
-    stepContent: {
-      flex: 1, alignItems: 'center', gap: 16,
-    },
-    title: {
-      color: Colors.textPrimary, fontSize: 28, fontWeight: '800', marginTop: 16,
-    },
-    subtitle: {
-      color: Colors.textSecondary, fontSize: 15, textAlign: 'center',
-    },
+const MAIN_ROLES: { key: MainRole; emoji: string; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[] = [
+  { key: 'pilot-manned', emoji: '✈️', title_en: 'Pilot', title_sv: 'Pilot', desc_en: 'Manned aircraft — helicopter or airplane.', desc_sv: 'Bemannat luftfartyg — helikopter eller flygplan.' },
+  { key: 'operator', emoji: '🎖️', title_en: 'Operator', title_sv: 'Operatör', desc_en: 'Manned aircraft crew — chief, hoist, swimmer, HEMS.', desc_sv: 'Besättning bemannat — uppdragsspecialist, vinsch, ytbärgare, HEMS.' },
+  { key: 'pilot-unmanned', emoji: '🎮', title_en: 'Drone Pilot', title_sv: 'Drönaroperatör', desc_en: 'Unmanned aircraft — commercial, military, hobby.', desc_sv: 'Obemannat luftfartyg — kommersiell, militär, hobby.' },
+];
 
-    optionsCol: {
-      alignSelf: 'stretch', gap: 12, marginTop: 8,
-    },
-    option: {
-      flexDirection: 'row', alignItems: 'center', gap: 14,
-      backgroundColor: Colors.card, borderRadius: 14, padding: 18,
-      borderWidth: 2, borderColor: Colors.border,
-    },
-    optionActive: {
-      borderColor: Colors.primary, backgroundColor: Colors.primary + '12',
-    },
-    optionFlag: { fontSize: 32 },
-    formatExample: {
-      width: 52, height: 52, borderRadius: 10,
-      backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    formatExampleText: {
-      color: Colors.primary, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'],
-    },
-    optionText: { flex: 1, gap: 2 },
-    optionLabel: { color: Colors.textPrimary, fontSize: 17, fontWeight: '700' },
-    optionLabelActive: { color: Colors.primary },
-    optionSub: { color: Colors.textMuted, fontSize: 13 },
+const SUB_ROLES: Record<MainRole, { key: SubRole; emoji: string; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[]> = {
+  'pilot-manned': [
+    { key: 'rotary', emoji: '🚁', title_en: 'Helicopter', title_sv: 'Helikopter', desc_en: 'Helicopters and tilt-rotors.', desc_sv: 'Helikoptrar och tiltrotorer.' },
+    { key: 'fixed', emoji: '✈️', title_en: 'Airplane', title_sv: 'Flygplan', desc_en: 'Propeller, jet and glider aircraft.', desc_sv: 'Propeller-, jet- och segelflygplan.' },
+  ],
+  'operator': [
+    { key: 'crew-chief', emoji: '🎖️', title_en: 'Crew Chief / Mission Specialist', title_sv: 'Uppdragsspecialist', desc_en: 'Mission lead, equipment, sensor operator.', desc_sv: 'Uppdragsledare, utrustning, sensoroperatör.' },
+    { key: 'swimmer', emoji: '🏊', title_en: 'Rescue Swimmer', title_sv: 'Ytbärgare', desc_en: 'Water-rescue swimmer / diver.', desc_sv: 'Ytbärgare / dykare.' },
+    { key: 'hoist', emoji: '⚓', title_en: 'Hoist Operator', title_sv: 'Vinschoperatör', desc_en: 'Winch and hoist operations.', desc_sv: 'Vinsch- och hissoperationer.' },
+    { key: 'hems', emoji: '🏥', title_en: 'HEMS Operator', title_sv: 'HEMS-operatör', desc_en: 'Helicopter Emergency Medical Service.', desc_sv: 'Helikopterburen akutsjukvård.' },
+    { key: 'loadmaster', emoji: '📦', title_en: 'Loadmaster', title_sv: 'Lastmästare', desc_en: 'Cargo, sling load and air drop operations.', desc_sv: 'Last, hänglast och fällningsoperationer.' },
+  ],
+  'pilot-unmanned': [
+    { key: 'commercial', emoji: '🏢', title_en: 'Commercial', title_sv: 'Kommersiell', desc_en: 'Paid operations — survey, media, inspection.', desc_sv: 'Betalda uppdrag — mätning, media, inspektion.' },
+    { key: 'military', emoji: '🛡️', title_en: 'Military', title_sv: 'Militär', desc_en: 'Defence and government missions.', desc_sv: 'Försvars- och myndighetsuppdrag.' },
+    { key: 'hobby', emoji: '⭐', title_en: 'Hobby', title_sv: 'Hobby', desc_en: 'Recreational flying under A1/A3 rules.', desc_sv: 'Hobbyflygning enligt A1/A3-regler.' },
+  ],
+};
 
-    noteBox: {
-      flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-      backgroundColor: Colors.primary + '12', borderRadius: 10, padding: 12,
-      borderWidth: 1, borderColor: Colors.primary + '33', alignSelf: 'stretch',
-    },
-    noteText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+const STEP_TITLES: Record<MainRole, { en: string; sv: string }> = {
+  'pilot-manned': { en: 'What do you fly?', sv: 'Vad flyger du?' },
+  'operator': { en: 'Which crew role?', sv: 'Vilken besättningsroll?' },
+  'pilot-unmanned': { en: 'How do you fly?', sv: 'Hur flyger du?' },
+};
 
-    btnRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
-    backBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: Colors.card, borderRadius: 12, paddingVertical: 15, paddingHorizontal: 20,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    backBtnText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
-    nextBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 15,
-    },
-    nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  });
+const STEP_SUBS: Record<MainRole, { en: string; sv: string }> = {
+  'pilot-manned': { en: 'Pick your primary aircraft category.', sv: 'Välj din primära farkostkategori.' },
+  'operator': { en: 'Sets duty-time fields and mission roles in your logbook.', sv: 'Ställer in tjänstetidsfält och uppdragsroller i din loggbok.' },
+  'pilot-unmanned': { en: 'We tailor categories, certificates and reports to your context.', sv: 'Vi anpassar kategorier, certifikat och rapporter efter ditt sammanhang.' },
+};
+
+function needsTimeFormat(mainRole: MainRole): boolean {
+  return mainRole === 'pilot-manned';
 }
 
 export default function OnboardingScreen() {
-  const styles = makeStyles();
   const router = useRouter();
   const { setLanguage } = useLanguageStore();
   const { setTimeFormat } = useTimeFormatStore();
+  const { setMode } = useAppModeStore();
+  const { setProfile } = useProfileStore();
 
-  const [step, setStep] = useState<Step>('language');
-  const [selectedLang, setSelectedLang] = useState<'en' | 'sv'>('en');
-  const [selectedFormat, setSelectedFormat] = useState<TimeFormat>('decimal');
+  const [step, setStep] = useState<Step>('welcome');
+  const [lang, setLang] = useState<'en' | 'sv'>('en');
+  const [format, setFormat] = useState<TimeFormat>('hhmm');
+  const [mainRole, setMainRole] = useState<MainRole | null>(null);
+  const [pendingSub, setPendingSub] = useState<SubRole | null>(null);
 
-  const handleFinish = async () => {
-    await setLanguage(selectedLang);
-    await setTimeFormat(selectedFormat);
+  const sv = lang === 'sv';
+
+  const finalize = async (sub: SubRole) => {
+    const profile: Profile = { mainRole: mainRole!, subRole: sub };
+    await setLanguage(lang);
+    if (needsTimeFormat(mainRole!)) {
+      await setTimeFormat(format);
+    } else {
+      await setTimeFormat('hhmm');
+    }
+    await setProfile(profile);
+    await setMode(targetForProfile(profile));
     await setSetting('has_onboarded', '1');
     router.replace('/(tabs)');
   };
 
+  const handleSubRoleSelect = (sub: SubRole) => {
+    if (needsTimeFormat(mainRole!)) {
+      setPendingSub(sub);
+      setStep('timeformat');
+    } else {
+      finalize(sub);
+    }
+  };
+
+  const steps = needsTimeFormat(mainRole ?? 'operator')
+    ? ['welcome', 'role', 'subrole', 'timeformat']
+    : ['welcome', 'role', 'subrole'];
+  const stepIdx = steps.indexOf(step);
+  const totalSteps = steps.length;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={s.container}>
       {/* Progress dots */}
-      <View style={styles.dotsRow}>
-        <View style={[styles.dot, step === 'language' && styles.dotActive]} />
-        <View style={[styles.dot, step === 'timeformat' && styles.dotActive]} />
+      <View style={s.dotsRow}>
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <View key={i} style={[s.dot, i === stepIdx && s.dotActive]} />
+        ))}
       </View>
 
-      {step === 'language' ? (
-        <View style={styles.stepContent}>
-          <Ionicons name="globe-outline" size={48} color={Colors.primary} />
-          <Text style={styles.title}>Choose language</Text>
-          <Text style={styles.subtitle}>Välj språk / Choose language</Text>
+      {/* Back button (step 2+) */}
+      {stepIdx > 0 && (
+        <TouchableOpacity
+          style={s.backRow}
+          onPress={() => {
+            if (step === 'timeformat') setStep('subrole');
+            else if (step === 'subrole') setStep('role');
+            else if (step === 'role') setStep('welcome');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={18} color={P.textSecondary} />
+          <Text style={s.backText}>{sv ? 'Tillbaka' : 'Back'}</Text>
+        </TouchableOpacity>
+      )}
 
-          <View style={styles.optionsCol}>
-            <TouchableOpacity
-              style={[styles.option, selectedLang === 'sv' && styles.optionActive]}
-              onPress={() => setSelectedLang('sv')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.optionFlag}>🇸🇪</Text>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, selectedLang === 'sv' && styles.optionLabelActive]}>Svenska</Text>
-                <Text style={styles.optionSub}>Swedish</Text>
-              </View>
-              {selectedLang === 'sv' && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.option, selectedLang === 'en' && styles.optionActive]}
-              onPress={() => setSelectedLang('en')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.optionFlag}>🇬🇧</Text>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, selectedLang === 'en' && styles.optionLabelActive]}>English</Text>
-                <Text style={styles.optionSub}>Engelska</Text>
-              </View>
-              {selectedLang === 'en' && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.nextBtn} onPress={() => setStep('timeformat')} activeOpacity={0.8}>
-            <Text style={styles.nextBtnText}>Next</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.stepContent}>
-          <Ionicons name="time-outline" size={48} color={Colors.primary} />
-          <Text style={styles.title}>Time format</Text>
-          <Text style={styles.subtitle}>How do you log flight times?</Text>
-
-          <View style={styles.optionsCol}>
-            <TouchableOpacity
-              style={[styles.option, selectedFormat === 'decimal' && styles.optionActive]}
-              onPress={() => setSelectedFormat('decimal')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.formatExample}>
-                <Text style={styles.formatExampleText}>1.5</Text>
-              </View>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, selectedFormat === 'decimal' && styles.optionLabelActive]}>Decimal</Text>
-                <Text style={styles.optionSub}>e.g. 1.5h · max 1 decimal</Text>
-              </View>
-              {selectedFormat === 'decimal' && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.option, selectedFormat === 'hhmm' && styles.optionActive]}
-              onPress={() => setSelectedFormat('hhmm')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.formatExample}>
-                <Text style={styles.formatExampleText}>1:30</Text>
-              </View>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, selectedFormat === 'hhmm' && styles.optionLabelActive]}>HH:MM</Text>
-                <Text style={styles.optionSub}>e.g. 1:30 · hours and minutes</Text>
-              </View>
-              {selectedFormat === 'hhmm' && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.noteBox}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-            <Text style={styles.noteText}>
-              Dashboard totals always shown as HH:MM. This setting can be changed later in Settings.
+      {/* ── Welcome ── */}
+      {step === 'welcome' && (
+        <View style={s.stepContent}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+            <Image source={require('../assets/blades-logo.png')} style={{ width: 286, height: 112 }} resizeMode="contain" />
+            <Text style={s.welcomeTitle}>{sv ? 'Välkommen till BLADES' : 'Welcome to BLADES'}</Text>
+            <Text style={s.welcomeSub}>
+              {sv
+                ? 'Din gemensamma loggbok för bemannat, obemannat och besättning.'
+                : 'Your joint logbook for manned, unmanned and crew.'}
             </Text>
           </View>
 
-          <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('language')} activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={18} color={Colors.textSecondary} />
-              <Text style={styles.backBtnText}>Back</Text>
+          {/* Language selector */}
+          <View style={s.langRow}>
+            <TouchableOpacity
+              style={[s.langBtn, lang === 'en' && s.langBtnActive]}
+              onPress={() => setLang('en')}
+              activeOpacity={0.75}
+            >
+              <Text style={{ fontSize: 18 }}>🇬🇧</Text>
+              <Text style={[s.langBtnText, lang === 'en' && s.langBtnTextActive]}>English</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.nextBtn} onPress={handleFinish} activeOpacity={0.8}>
-              <Text style={styles.nextBtnText}>Get started</Text>
-              <Ionicons name="checkmark" size={18} color="#fff" />
+            <TouchableOpacity
+              style={[s.langBtn, lang === 'sv' && s.langBtnActive]}
+              onPress={() => setLang('sv')}
+              activeOpacity={0.75}
+            >
+              <Text style={{ fontSize: 18 }}>🇸🇪</Text>
+              <Text style={[s.langBtnText, lang === 'sv' && s.langBtnTextActive]}>Svenska</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity style={s.nextBtn} onPress={() => setStep('role')} activeOpacity={0.85}>
+            <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Role ── */}
+      {step === 'role' && (
+        <View style={s.stepContent}>
+          <Text style={s.title}>{sv ? 'Välj din profil' : 'Choose your profile'}</Text>
+          <Text style={s.subtitle}>
+            {sv ? 'Anpassar loggboksfält, export och certifikat efter din roll.' : 'Tailors the logbook fields, exports and certifications to your role.'}
+          </Text>
+          <View style={s.optionsCol}>
+            {MAIN_ROLES.map(r => (
+              <TouchableOpacity
+                key={r.key}
+                style={s.card}
+                onPress={() => { setMainRole(r.key); setStep('subrole'); }}
+                activeOpacity={0.8}
+              >
+                <View style={s.emojiCircle}>
+                  <Text style={{ fontSize: 26 }}>{r.emoji}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.cardTitle}>{sv ? r.title_sv : r.title_en}</Text>
+                  <Text style={s.cardDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={P.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ flex: 1 }} />
+        </View>
+      )}
+
+      {/* ── Sub-role ── */}
+      {step === 'subrole' && mainRole && (
+        <View style={s.stepContent}>
+          <Text style={s.eyebrow}>
+            {sv ? `Steg ${stepIdx + 1} av ${totalSteps} · Specialisering` : `Step ${stepIdx + 1} of ${totalSteps} · Specialise`}
+          </Text>
+          <Text style={s.title}>{sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}</Text>
+          <Text style={s.subtitle}>{sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en}</Text>
+          <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ gap: mainRole === 'operator' ? 8 : 10, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
+            {SUB_ROLES[mainRole].map(r => (
+              <TouchableOpacity
+                key={r.key}
+                style={[s.card, { paddingVertical: mainRole === 'operator' ? 13 : 16 }]}
+                onPress={() => handleSubRoleSelect(r.key)}
+                activeOpacity={0.8}
+              >
+                <View style={[s.emojiCircle, mainRole === 'operator' && { width: 46, height: 46 }]}>
+                  <Text style={{ fontSize: mainRole === 'operator' ? 22 : 26 }}>{r.emoji}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.cardTitle}>{sv ? r.title_sv : r.title_en}</Text>
+                  <Text style={s.cardDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={P.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={s.footerNote}>
+            {sv ? 'Du kan ändra detta senare i Inställningar.' : 'You can change this later in Settings.'}
+          </Text>
+        </View>
+      )}
+
+      {/* ── Time format (only for pilot-manned) ── */}
+      {step === 'timeformat' && (
+        <View style={s.stepContent}>
+          <Text style={s.title}>{sv ? 'Tidsformat' : 'Time format'}</Text>
+          <Text style={s.subtitle}>{sv ? 'Hur loggar du flygtider?' : 'How do you log flight times?'}</Text>
+          <View style={s.optionsCol}>
+            {[
+              { key: 'decimal' as TimeFormat, example: '1.5', label: 'Decimal', sub: sv ? 'T.ex. 1.5h' : 'e.g. 1.5h' },
+              { key: 'hhmm' as TimeFormat, example: '1:30', label: 'HH:MM', sub: sv ? 'T.ex. 1:30' : 'e.g. 1:30' },
+            ].map(opt => (
+              <TouchableOpacity key={opt.key} style={[s.card, format === opt.key && s.cardActive]} onPress={() => setFormat(opt.key)} activeOpacity={0.8}>
+                <View style={s.formatBox}>
+                  <Text style={s.formatText}>{opt.example}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.cardTitle, format === opt.key && { color: P.accent }]}>{opt.label}</Text>
+                  <Text style={s.cardDesc}>{opt.sub}</Text>
+                </View>
+                {format === opt.key && <Ionicons name="checkmark-circle" size={22} color={P.accent} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity style={s.nextBtn} onPress={() => pendingSub && finalize(pendingSub)} activeOpacity={0.85}>
+            <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
+            <Ionicons name="checkmark" size={18} color="#fff" />
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: P.bg, paddingHorizontal: 22, paddingTop: 10 },
+  dotsRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 8 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: P.cardBorder },
+  dotActive: { width: 24, backgroundColor: P.accent },
+
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  backText: { color: P.textSecondary, fontSize: 14, fontWeight: '600' },
+
+  stepContent: { flex: 1, alignItems: 'center', gap: 6 },
+
+  welcomeTitle: { fontSize: 26, fontWeight: '800', color: P.text, letterSpacing: -0.5, textAlign: 'center' },
+  welcomeSub: { fontSize: 14, color: P.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
+
+  langRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 16 },
+  langBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 12,
+    backgroundColor: P.card, borderWidth: 1.5, borderColor: P.cardBorder,
+  },
+  langBtnActive: { borderColor: P.accent, backgroundColor: P.accentBg },
+  langBtnText: { fontSize: 14, fontWeight: '600', color: P.textSecondary },
+  langBtnTextActive: { color: P.accent },
+
+  eyebrow: {
+    fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6,
+    color: P.accent, textTransform: 'uppercase', marginBottom: 4, alignSelf: 'flex-start',
+  },
+  title: { fontSize: 20, fontWeight: '800', color: P.text, letterSpacing: -0.3, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: P.textSecondary, textAlign: 'center', lineHeight: 18, paddingHorizontal: 8, marginBottom: 8 },
+
+  optionsCol: { alignSelf: 'stretch', gap: 10 },
+  card: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: P.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: P.cardBorder,
+    shadowColor: '#1F2A44', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8,
+  },
+  cardActive: { borderColor: P.accent, backgroundColor: P.accentBg },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: P.text, letterSpacing: -0.2 },
+  cardDesc: { fontSize: 12.5, color: P.textSecondary, lineHeight: 17, marginTop: 2 },
+
+  emojiCircle: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: P.accentBg, borderWidth: 1, borderColor: P.accentBorder,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  formatBox: {
+    width: 52, height: 52, borderRadius: 10,
+    backgroundColor: '#F0F2F6', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: P.cardBorder,
+  },
+  formatText: { color: P.accent, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+
+  nextBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    alignSelf: 'stretch', backgroundColor: P.accent, borderRadius: 12, paddingVertical: 15,
+  },
+  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  footerNote: { color: P.textMuted, fontSize: 12, textAlign: 'center', paddingBottom: 8 },
+});

@@ -323,6 +323,7 @@ async function wipeMannedData() {
   await db.runAsync('DELETE FROM audit_log');
   await db.runAsync('DELETE FROM aircraft_registry');
   await db.runAsync('DELETE FROM icao_airports WHERE "temporary"=1');
+  await db.runAsync('DELETE FROM drone_certificates');
 }
 
 async function addTempPlace(icao: string, name: string, lat: number, lon: number) {
@@ -433,6 +434,16 @@ export async function seedMannedPilot1() {
     { date: isoDaysAgo(10), type: 'A320', reg: 'SE-DOY', dep: 'ESSA', depT: '05:55', arr: 'LIRF', arrT: '09:40', total: 3.7, pic: 0, co: 3.7, ifr: 3.7, night: 0.5, ldDay: 1, ldNight: 0, rules: 'IFR' },
   ];
   for (const f of plan) await insertMannedFlight(f);
+
+  // Certificates for airline pilot
+  await addCertificate({ cert_type: 'ATPL', label: 'Frozen ATPL', issued_date: '2018-03-15', expires_date: '', notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'A320 Family', issued_date: '2020-06-10', expires_date: isoDaysFromNow(180), notes: '' });
+  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(200), expires_date: isoDaysFromNow(165), notes: 'AME: Dr Lindberg, Stockholm' });
+  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'A320', issued_date: isoDaysAgo(90), expires_date: isoDaysFromNow(275), notes: 'TRE: Capt Svensson' });
+  await addCertificate({ cert_type: 'Line Check', label: '', issued_date: isoDaysAgo(150), expires_date: isoDaysFromNow(215), notes: '' });
+  await addCertificate({ cert_type: 'CRM', label: 'Annual refresher', issued_date: isoDaysAgo(60), expires_date: isoDaysFromNow(305), notes: '' });
+  await addCertificate({ cert_type: 'Dangerous Goods', label: 'CAT.OP', issued_date: isoDaysAgo(400), expires_date: isoDaysFromNow(-35), notes: 'EXPIRED' });
+  await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 6', issued_date: '2022-11-01', expires_date: '', notes: 'Expert — no expiry' });
 }
 
 // ── Test user 4: Helicopter bushpilot (Bell 407 + H125, 10 år, ~3210h) ──────
@@ -473,8 +484,128 @@ export async function seedMannedPilot2() {
     { date: isoDaysAgo(3), type: 'H125', reg: 'SE-JPO', dep: 'ESSA', depT: '09:00', arr: 'LAPN', arrT: '11:30', total: 2.5, pic: 2.5, co: 0, ifr: 0, night: 0, ldDay: 4, ldNight: 0, rules: 'VFR', flightType: 'touch_and_go', stopPlace: 'BKFJ', remarks: 'Underhåll stuga' },
   ];
   for (const f of plan) await insertMannedFlight(f);
+
+  // Certificates for bushpilot
+  await addCertificate({ cert_type: 'CPL', label: 'CPL(H)', issued_date: '2016-08-20', expires_date: '', notes: '' });
+  await addCertificate({ cert_type: 'IR', label: 'IR(H)', issued_date: '2019-04-12', expires_date: isoDaysFromNow(90), notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'Bell 407', issued_date: isoDaysAgo(180), expires_date: isoDaysFromNow(185), notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'H125', issued_date: isoDaysAgo(300), expires_date: isoDaysFromNow(65), notes: 'Renewal due soon' });
+  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(100), expires_date: isoDaysFromNow(265), notes: '' });
+  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'B407', issued_date: isoDaysAgo(45), expires_date: isoDaysFromNow(320), notes: 'TRE: Capt Johansson' });
+  await addCertificate({ cert_type: 'SEP', label: 'Single engine piston', issued_date: '2017-06-01', expires_date: isoDaysFromNow(400), notes: '' });
+  await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 5', issued_date: '2023-01-10', expires_date: isoDaysFromNow(600), notes: '' });
+  await addCertificate({ cert_type: 'CRM', label: '', issued_date: isoDaysAgo(250), expires_date: isoDaysFromNow(115), notes: '' });
 }
 
 export async function clearMannedTestUser() {
+  await wipeMannedData();
+}
+
+// ── Operator test users ─────────────────────────────────────────────────────
+
+interface OpFlight {
+  date: string; type: string; reg: string; total: number; night: number;
+  opData: Record<string, any>; remarks?: string;
+}
+
+async function insertOperatorFlight(f: OpFlight) {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO flights (
+      date, aircraft_type, registration,
+      dep_place, dep_utc, arr_place, arr_utc,
+      total_time, ifr, night, pic, co_pilot, dual,
+      landings_day, landings_night, remarks,
+      status, source, flight_rules, flight_type,
+      multi_pilot, single_pilot, instructor, nvg, stop_place,
+      operator_data
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      f.date, f.type, f.reg,
+      '', '', '', '',
+      f.total, 0, f.night, 0, 0, 0,
+      0, 0, f.remarks ?? '',
+      'verified', 'manual', 'VFR', 'normal',
+      0, 0, 0, 0, '',
+      JSON.stringify(f.opData),
+    ]
+  );
+}
+
+// Crew Chief — 180 flights, ~620h, SAR/transport/CAS
+export async function seedOperatorCrewChief() {
+  await wipeMannedData();
+  await addAircraftReg('HKP16', 'FM161', 140, 2.5, 'sp', 'helicopter', 'se');
+  await addAircraftReg('HKP14', 'FM141', 155, 3.5, 'mp', 'helicopter', 'me');
+
+  const flights: OpFlight[] = [
+    { date: isoDaysAgo(340), type: 'HKP16', reg: 'FM161', total: 3.2, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'SAR', equipment: 'FLIR, Searchlight', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 }, remarks: 'SAR exercise Gotland' },
+    { date: isoDaysAgo(310), type: 'HKP16', reg: 'FM161', total: 2.8, night: 1.2, opData: { role: 'crew-chief', seat_position: 'right', mission_type: 'Transport', equipment: 'NVG', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 }, remarks: 'Night troop transport' },
+    { date: isoDaysAgo(280), type: 'HKP14', reg: 'FM141', total: 4.1, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: ['CAS'], equipment: ['Sensor'], weapon_category: ['mg'], weapon_type: 'Ksp 58', rounds_fired: '240', fire_bucket_drops: 0 }, remarks: 'Live fire exercise' },
+    { date: isoDaysAgo(250), type: 'HKP16', reg: 'FM161', total: 1.8, night: 0, opData: { role: 'crew-chief', seat_position: 'rear', mission_type: 'FFO', equipment: 'Bambi bucket', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 8 }, remarks: 'Forest fire support Norrbotten' },
+    { date: isoDaysAgo(220), type: 'HKP14', reg: 'FM141', total: 3.5, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: ['CAS'], equipment: ['Sensor'], weapon_category: ['mg'], weapon_type: 'Ksp 58', rounds_fired: '180', fire_bucket_drops: 0 } },
+    { date: isoDaysAgo(190), type: 'HKP16', reg: 'FM161', total: 2.4, night: 2.4, opData: { role: 'crew-chief', seat_position: 'right', mission_type: 'CSAR', equipment: 'NVG, FLIR', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 }, remarks: 'Night CSAR exercise' },
+    { date: isoDaysAgo(160), type: 'HKP16', reg: 'FM161', total: 1.5, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'Transport', equipment: '', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 } },
+    { date: isoDaysAgo(130), type: 'HKP14', reg: 'FM141', total: 5.2, night: 1.8, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'ISTAR', equipment: 'Sensor suite, Datalink', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 }, remarks: 'ISR mission Baltic' },
+    { date: isoDaysAgo(90), type: 'HKP16', reg: 'FM161', total: 2.1, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'FFO', equipment: 'Bambi bucket', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 12 }, remarks: 'Wildfire Jämtland' },
+    { date: isoDaysAgo(60), type: 'HKP14', reg: 'FM141', total: 3.8, night: 0, opData: { role: 'crew-chief', seat_position: 'right', mission_type: ['CAS'], equipment: ['Sensor'], weapon_category: ['mg', 'precision'], weapon_type: 'Ksp 58, AG90', rounds_fired: '320', fire_bucket_drops: 0 }, remarks: 'Annual quals — Ksp 58 (200) + AG90 (120)' },
+    { date: isoDaysAgo(30), type: 'HKP16', reg: 'FM161', total: 2.6, night: 1.0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'SAR', equipment: 'FLIR, Searchlight', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 } },
+    { date: isoDaysAgo(14), type: 'HKP16', reg: 'FM161', total: 1.9, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: 'Transport', equipment: '', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 } },
+    { date: isoDaysAgo(7), type: 'HKP14', reg: 'FM141', total: 4.5, night: 2.0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: ['CSAR'], equipment: ['NVG', 'FLIR'], weapon_category: ['mg'], weapon_type: 'Ksp 58', rounds_fired: '60', fire_bucket_drops: 0 }, remarks: 'Night CSAR with live fire' },
+    { date: isoDaysAgo(4), type: 'HKP14', reg: 'FM141', total: 2.8, night: 0, opData: { role: 'crew-chief', seat_position: 'left', mission_type: ['CAS'], equipment: ['Sensor'], weapon_category: ['rocket'], weapon_type: 'HELLFIRE', rounds_fired: '4', fire_bucket_drops: 0 }, remarks: 'Live fire — HELLFIRE qualification' },
+    { date: isoDaysAgo(1), type: 'HKP16', reg: 'FM161', total: 3.1, night: 0, opData: { role: 'crew-chief', seat_position: 'right', mission_type: ['CAS'], equipment: ['Sensor', 'FLIR'], weapon_category: ['mg', 'other'], weapon_type: 'Ksp 58, M3M', rounds_fired: '450', fire_bucket_drops: 0 }, remarks: 'Combined arms — Ksp 58 (300) + M3M (150)' },
+    { date: isoDaysAgo(2), type: 'HKP16', reg: 'FM161', total: 2.2, night: 0, opData: { role: 'crew-chief', seat_position: 'right', mission_type: 'SAR', equipment: 'FLIR', weapon_system: '', rounds_fired: 0, fire_bucket_drops: 0 }, remarks: 'SAR standby Berga' },
+  ];
+
+  await insertSummary('HKP16', 380, 0, 0, 0, 45, isoDaysAgo(3600), 'Historical — 5 years crew chief HKP16');
+  await insertSummary('HKP14', 200, 0, 0, 0, 30, isoDaysAgo(3600), 'Historical — 3 years crew chief HKP14');
+  for (const f of flights) await insertOperatorFlight(f);
+}
+
+// Rescue Swimmer — 90 flights, ~280h, water rescue ops
+export async function seedOperatorSwimmer() {
+  await wipeMannedData();
+  await addAircraftReg('HKP16', 'FM162', 140, 2.5, 'sp', 'helicopter', 'se');
+
+  const flights: OpFlight[] = [
+    { date: isoDaysAgo(300), type: 'HKP16', reg: 'FM162', total: 2.5, night: 0, opData: { role: 'swimmer', deployments: 2, deployment_type: ['rescue'], sea_state: '3', hoists_up: 2, hoists_down: 2, persons_rescued: 1, night_ops: false }, remarks: 'Man overboard Baltic' },
+    { date: isoDaysAgo(260), type: 'HKP16', reg: 'FM162', total: 3.1, night: 0, opData: { role: 'swimmer', deployments: 4, deployment_type: ['training'], sea_state: '2', hoists_up: 4, hoists_down: 4, persons_rescued: 0, night_ops: false }, remarks: 'Quarterly training' },
+    { date: isoDaysAgo(220), type: 'HKP16', reg: 'FM162', total: 2.8, night: 2.8, opData: { role: 'swimmer', deployments: 3, deployment_type: ['exercise'], sea_state: '4', hoists_up: 3, hoists_down: 3, persons_rescued: 0, night_ops: true }, remarks: 'Night exercise Baltic Fleet' },
+    { date: isoDaysAgo(180), type: 'HKP16', reg: 'FM162', total: 1.5, night: 0, opData: { role: 'swimmer', deployments: 1, deployment_type: ['rescue'], sea_state: '5', hoists_up: 1, hoists_down: 1, persons_rescued: 2, night_ops: false }, remarks: 'Fishing vessel rescue' },
+    { date: isoDaysAgo(140), type: 'HKP16', reg: 'FM162', total: 3.4, night: 0, opData: { role: 'swimmer', deployments: 6, deployment_type: ['training'], sea_state: '2', hoists_up: 6, hoists_down: 6, persons_rescued: 0, night_ops: false } },
+    { date: isoDaysAgo(100), type: 'HKP16', reg: 'FM162', total: 2.2, night: 1.0, opData: { role: 'swimmer', deployments: 2, deployment_type: ['rescue'], sea_state: '3', hoists_up: 2, hoists_down: 2, persons_rescued: 3, night_ops: true }, remarks: 'Sailboat rescue, 3 POB' },
+    { date: isoDaysAgo(60), type: 'HKP16', reg: 'FM162', total: 2.9, night: 0, opData: { role: 'swimmer', deployments: 5, deployment_type: ['exercise'], sea_state: '3', hoists_up: 5, hoists_down: 5, persons_rescued: 0, night_ops: false } },
+    { date: isoDaysAgo(30), type: 'HKP16', reg: 'FM162', total: 1.8, night: 0, opData: { role: 'swimmer', deployments: 1, deployment_type: ['rescue'], sea_state: '4', hoists_up: 1, hoists_down: 1, persons_rescued: 1, night_ops: false }, remarks: 'Kayak rescue archipelago' },
+    { date: isoDaysAgo(10), type: 'HKP16', reg: 'FM162', total: 3.0, night: 1.5, opData: { role: 'swimmer', deployments: 3, deployment_type: ['training', 'exercise'], sea_state: '2', hoists_up: 3, hoists_down: 3, persons_rescued: 0, night_ops: true } },
+    { date: isoDaysAgo(3), type: 'HKP16', reg: 'FM162', total: 2.1, night: 0, opData: { role: 'swimmer', deployments: 2, deployment_type: ['training'], sea_state: '1', hoists_up: 2, hoists_down: 2, persons_rescued: 0, night_ops: false }, remarks: 'Refresher training' },
+  ];
+
+  await insertSummary('HKP16', 255, 0, 0, 0, 35, isoDaysAgo(3600), 'Historical — 6 years rescue swimmer');
+  for (const f of flights) await insertOperatorFlight(f);
+}
+
+// HEMS Operator — 120 flights, ~340h
+export async function seedOperatorHEMS() {
+  await wipeMannedData();
+  await addAircraftReg('EC135', 'SE-JHP', 137, 2.8, 'sp', 'helicopter', 'me');
+
+  const flights: OpFlight[] = [
+    { date: isoDaysAgo(280), type: 'EC135', reg: 'SE-JHP', total: 1.2, night: 0, opData: { role: 'hems', mission_type: ['primary'], patients: 1, priority: 'P1', hoists: 0, night_ops: false }, remarks: 'RTC E4 motorway' },
+    { date: isoDaysAgo(250), type: 'EC135', reg: 'SE-JHP', total: 2.1, night: 0, opData: { role: 'hems', mission_type: ['iht'], patients: 1, priority: 'P1', hoists: 0, night_ops: false }, remarks: 'IHT Linköping → Karolinska' },
+    { date: isoDaysAgo(220), type: 'EC135', reg: 'SE-JHP', total: 0.8, night: 0.8, opData: { role: 'hems', mission_type: ['primary'], patients: 1, priority: 'P2', hoists: 0, night_ops: true }, remarks: 'Cardiac arrest night call' },
+    { date: isoDaysAgo(190), type: 'EC135', reg: 'SE-JHP', total: 1.5, night: 0, opData: { role: 'hems', mission_type: ['primary'], patients: 2, priority: 'P1', hoists: 0, night_ops: false }, remarks: 'Multi-casualty MVA' },
+    { date: isoDaysAgo(160), type: 'EC135', reg: 'SE-JHP', total: 3.2, night: 0, opData: { role: 'hems', mission_type: ['sar'], patients: 1, priority: 'P2', hoists: 2, night_ops: false }, remarks: 'Hiker rescue mountain' },
+    { date: isoDaysAgo(120), type: 'EC135', reg: 'SE-JHP', total: 1.0, night: 0, opData: { role: 'hems', mission_type: ['primary'], patients: 1, priority: 'P1', hoists: 0, night_ops: false } },
+    { date: isoDaysAgo(90), type: 'EC135', reg: 'SE-JHP', total: 2.4, night: 0, opData: { role: 'hems', mission_type: ['secondary', 'iht'], patients: 1, priority: 'P2', hoists: 0, night_ops: false }, remarks: 'Neonatal transfer' },
+    { date: isoDaysAgo(60), type: 'EC135', reg: 'SE-JHP', total: 1.1, night: 1.1, opData: { role: 'hems', mission_type: ['primary'], patients: 1, priority: 'P1', hoists: 0, night_ops: true }, remarks: 'Night primary, stroke' },
+    { date: isoDaysAgo(30), type: 'EC135', reg: 'SE-JHP', total: 1.8, night: 0, opData: { role: 'hems', mission_type: ['primary'], patients: 1, priority: 'P3', hoists: 0, night_ops: false } },
+    { date: isoDaysAgo(7), type: 'EC135', reg: 'SE-JHP', total: 2.6, night: 0, opData: { role: 'hems', mission_type: ['sar'], patients: 2, priority: 'P1', hoists: 1, night_ops: false }, remarks: 'SAR maritime, 2 casualties' },
+  ];
+
+  await insertSummary('EC135', 320, 0, 0, 0, 42, isoDaysAgo(3600), 'Historical — 7 years HEMS operator');
+  for (const f of flights) await insertOperatorFlight(f);
+}
+
+export async function clearOperatorTestUser() {
   await wipeMannedData();
 }

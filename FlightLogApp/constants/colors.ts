@@ -38,39 +38,39 @@ const NavyColors = {
 };
 
 const BrightColors = {
-  background: '#F6F7F9',
+  background: '#F2F5F9',
   surface: '#FFFFFF',
   card: '#FFFFFF',
-  cardBorder: '#E2E8F0',
-  elevated: '#F1F4F8',
+  cardBorder: '#D8E0EB',
+  elevated: '#EAF0F7',
 
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
+  primary: '#3B82F6',
+  primaryLight: '#60A5FA',
+  primaryDark: '#2563EB',
 
-  accent: '#2563EB',
-  accentLight: '#3B82F6',
+  accent: '#3B82F6',
+  accentLight: '#60A5FA',
 
-  success: '#059669',
-  warning: '#D97706',
-  warningLight: '#F59E0B',
-  danger: '#DC2626',
-  dangerLight: '#F87171',
-  info: '#2563EB',
+  success: '#10B981',
+  warning: '#F59E0B',
+  warningLight: '#FBBF24',
+  danger: '#EF4444',
+  dangerLight: '#FCA5A5',
+  info: '#38BDF8',
 
   textPrimary: '#0F172A',
   textSecondary: '#475569',
   textMuted: '#94A3B8',
   textInverse: '#FFFFFF',
 
-  border: '#E2E8F0',
-  separator: '#EEF1F5',
+  border: '#D8E0EB',
+  separator: '#E2E8F0',
 
-  gold: '#B45309',
-  goldLight: '#D97706',
+  gold: '#D97706',
+  goldLight: '#F59E0B',
 
   tabIconDefault: '#94A3B8',
-  tabIconActive: '#2563EB',
+  tabIconActive: '#3B82F6',
 };
 
 // ── DRÖNAR-PALETTER ──────────────────────────────────────────────────────────

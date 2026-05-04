@@ -316,11 +316,15 @@ export default function FlightDetailScreen() {
               {flight.second_pilot ? (
                 <Detail label={t('second_pilot_label')} value={flight.second_pilot} />
               ) : null}
+              {(() => {
+                const cm = flight.remarks?.match(/\[(.+?)\]/);
+                return cm ? <Detail label={t('crew_chief_label')} value={cm[1]} /> : null;
+              })()}
             </View>
             {flight.remarks ? (
               <View style={styles.remarksCard}>
                 <Text style={styles.remarksLabel}>{t('remarks')}</Text>
-                <Text style={styles.remarksText}>{flight.remarks}</Text>
+                <Text style={styles.remarksText}>{flight.remarks.replace(/\s*\[.+?\]\s*/g, '').trim() || flight.remarks}</Text>
               </View>
             ) : null}
 

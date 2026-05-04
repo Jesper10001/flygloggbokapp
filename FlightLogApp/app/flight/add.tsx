@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
+import * as Haptics from 'expo-haptics';
 import { FormField } from '../../components/FormField';
 import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
@@ -18,6 +19,8 @@ import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useLanguageStore } from '../../store/languageStore';
+import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
 import { validateFlightForm } from '../../utils/validation';
@@ -468,13 +471,13 @@ function Counter({ label, value, onChange, min = 0 }: {
       <View style={styles.counterRow}>
         <TouchableOpacity
           style={[styles.counterBtn, n <= min && styles.counterBtnDisabled]}
-          onPress={() => onChange(String(Math.max(min, n - 1)))}
+          onPress={() => { Haptics.selectionAsync(); onChange(String(Math.max(min, n - 1))); }}
           disabled={n <= min}
         >
           <Ionicons name="remove" size={18} color={n <= min ? Colors.textMuted : Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.counterValue}>{n}</Text>
-        <TouchableOpacity style={styles.counterBtn} onPress={() => onChange(String(n + 1))}>
+        <TouchableOpacity style={styles.counterBtn} onPress={() => { Haptics.selectionAsync(); onChange(String(n + 1)); }}>
           <Ionicons name="add" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
@@ -513,6 +516,7 @@ export default function AddFlightScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium } = useFlightStore();
+  const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
 
   const [form, setForm] = useState<FlightFormData>(EMPTY);
@@ -544,6 +548,28 @@ export default function AddFlightScreen() {
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
   const [milOps, setMilOps] = useState<Set<string>>(new Set());
+  type CrewMember = { id: string; role: string; name: string };
+  const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
+  const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
+  const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
+
+  const CREW_ROLES = [
+    { key: 'Crew chief', label: selectedLang === 'sv' ? 'Uppdragsspecialist' : 'Crew chief' },
+    { key: 'Rescue swimmer', label: selectedLang === 'sv' ? 'Ytbärgare' : 'Rescue swimmer' },
+    { key: 'Winch operator', label: selectedLang === 'sv' ? 'Vinschoperatör' : 'Winch operator' },
+    { key: 'HEMS operator', label: selectedLang === 'sv' ? 'HEMS-operatör' : 'HEMS operator' },
+    { key: 'Loadmaster', label: selectedLang === 'sv' ? 'Lastmästare' : 'Loadmaster' },
+  ];
+
+  const updateCrewMember = (id: string, field: 'role' | 'name', value: string) => {
+    setCrewMembers(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+  const addCrewMember = () => {
+    setCrewMembers(prev => [...prev, { id: String(Date.now()), role: '', name: '' }]);
+  };
+  const removeCrewMember = (id: string) => {
+    setCrewMembers(prev => prev.length > 1 ? prev.filter(m => m.id !== id) : prev);
+  };
   const [showMilOp, setShowMilOp] = useState(false);
 
   const MIL_CATEGORIES: { title: string; items: { code: string; desc: string }[] }[] = [
@@ -619,6 +645,7 @@ export default function AddFlightScreen() {
   const [expandedMilCats, setExpandedMilCats] = useState<Set<string>>(new Set());
 
   const toggleMilOp = (op: string) => {
+    Haptics.selectionAsync();
     setMilOps(prev => {
       const next = new Set(prev);
       next.has(op) ? next.delete(op) : next.add(op);
@@ -921,8 +948,17 @@ export default function AddFlightScreen() {
   const performSave = async (overrides?: Partial<FlightFormData>) => {
     setSaving(true);
     try {
-      await insertFlight({ ...form, ...(overrides ?? {}) }, { source: 'manual' });
+      const crewStr = crewMembers
+        .filter(m => m.role || m.name)
+        .map(m => [m.role, m.name].filter(Boolean).join(': '))
+        .join(', ');
+      const finalRemarks = [
+        form.remarks,
+        crewStr ? `[${crewStr}]` : '',
+      ].filter(Boolean).join(' · ');
+      await insertFlight({ ...form, ...(overrides ?? {}), remarks: finalRemarks }, { source: 'manual' });
       await Promise.all([loadFlights(), loadStats()]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch {
       Alert.alert(t('error'), t('error_save'));
@@ -932,17 +968,6 @@ export default function AddFlightScreen() {
   };
 
   const save = async () => {
-    if (!canAddFlight()) {
-      Alert.alert(
-        t('limit_reached'),
-        `${t('limit_reached_message')} ${FREE_TIER_LIMIT} ${t('flights')}.`,
-        [
-          { text: t('close'), style: 'cancel' },
-          { text: t('upgrade'), onPress: () => router.push('/(tabs)/settings') },
-        ]
-      );
-      return;
-    }
     const issues = validateFlightForm(form);
     const hardErrors = issues.filter((i) => i.severity === 'error');
     if (hardErrors.length > 0) {
@@ -1011,13 +1036,6 @@ export default function AddFlightScreen() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
-
-        {!isPremium && (
-          <View style={styles.freeNotice}>
-            <Ionicons name="information-circle-outline" size={14} color={Colors.gold} />
-            <Text style={styles.freeNoticeText}>{flightCount}/{FREE_TIER_LIMIT} {t('flights')}</Text>
-          </View>
-        )}
 
         <ValidationWarnings issues={warnings} />
 
@@ -1214,6 +1232,81 @@ export default function AddFlightScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* ── Crew ── */}
+        <View style={{ gap: 6 }}>
+          <Text style={styles.cardFieldLabel}>{t('crew_chief_label')}</Text>
+          {crewMembers.map((member) => (
+            <View key={member.id} style={{ gap: 4 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 5,
+                    backgroundColor: Colors.card, borderRadius: 8,
+                    borderWidth: 0.5, borderColor: member.role ? Colors.primary : Colors.border,
+                    paddingHorizontal: 10, paddingVertical: 11,
+                  }}
+                  onPress={() => setActiveCrewPicker(activeCrewPicker === member.id ? null : member.id)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={{ color: member.role ? Colors.primary : Colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+                    {member.role ? CREW_ROLES.find(r => r.key === member.role)?.label ?? member.role : t('crew_role_select')}
+                  </Text>
+                  <Ionicons name="chevron-down" size={12} color={Colors.textMuted} />
+                </TouchableOpacity>
+                <TextInput
+                  style={{
+                    flex: 1, backgroundColor: Colors.card, borderRadius: 8,
+                    borderWidth: 0.5, borderColor: Colors.border,
+                    color: Colors.textPrimary, fontSize: 14,
+                    paddingHorizontal: 12, paddingVertical: 11,
+                  }}
+                  value={member.name}
+                  onChangeText={(v) => updateCrewMember(member.id, 'name', v)}
+                  placeholder={t('crew_chief_ph')}
+                  placeholderTextColor={Colors.textMuted}
+                />
+                {crewMembers.length > 1 && (
+                  <TouchableOpacity onPress={() => removeCrewMember(member.id)} style={{ justifyContent: 'center', padding: 4 }}>
+                    <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {activeCrewPicker === member.id && (
+                <View style={{
+                  backgroundColor: Colors.surface, borderRadius: 10,
+                  borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+                }}>
+                  {[{ key: '', label: `— ${t('clear')}` }, ...CREW_ROLES].map(opt => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={{
+                        paddingHorizontal: 14, paddingVertical: 10,
+                        borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+                        backgroundColor: member.role === opt.key ? Colors.primary + '14' : undefined,
+                      }}
+                      onPress={() => { updateCrewMember(member.id, 'role', opt.key); setActiveCrewPicker(null); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: member.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+            onPress={addCrewMember}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+            <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '600' }}>{t('crew_add_more')}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Route ── */}
@@ -1543,6 +1636,7 @@ export default function AddFlightScreen() {
             };
             const cap = (n: number) => Math.min(Math.max(0, n), total || n);
             const setPct = (key: 'ifr' | 'vfr' | 'night' | 'nvg', p: number) => {
+              Haptics.selectionAsync();
               const val = (total * p / 100).toFixed(2);
               set(key, String(val));
               setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
@@ -1762,7 +1856,7 @@ export default function AddFlightScreen() {
           </View>
           <TouchableOpacity
             style={{
-              width: 78, marginTop: 22, marginBottom: 4,
+              width: 78, alignSelf: 'stretch', marginTop: 23, marginBottom: 4,
               backgroundColor: milOps.size > 0 ? Colors.gold + '18' : Colors.elevated,
               borderRadius: 8, borderWidth: 1.5,
               borderColor: milOps.size > 0 ? Colors.gold : Colors.border,

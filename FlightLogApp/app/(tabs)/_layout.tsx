@@ -6,6 +6,7 @@ import { Text } from 'react-native';
 import { BladesTabIcon } from '../../components/BladesTabIcon';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
+import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { getSetting } from '../../db/flights';
 
@@ -15,6 +16,7 @@ export default function TabsLayout() {
   const { t } = useTranslation();
   const { flightCount } = useFlightStore();
   const { mode } = useAppModeStore();
+  const _theme = useThemeStore(s => s.theme);
   const [scanBadge, setScanBadge] = useState(false);
   const isDrone = mode === 'drone';
 
@@ -42,7 +44,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
         headerShown: true,
         headerTitle: '',
-        headerStyle: { backgroundColor: Colors.background },
+        headerStyle: { backgroundColor: Colors.background, height: 50 },
         headerShadowVisible: false,
       }}
     >
@@ -69,7 +71,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          href: isDrone ? null : undefined,
+          href: null,
           title: '',
           tabBarLabel: () => null,
           tabBarIcon: ({ size, focused }) => (

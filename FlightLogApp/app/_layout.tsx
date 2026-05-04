@@ -13,6 +13,7 @@ import { useAppModeStore } from '../store/appModeStore';
 import { useFlightStore } from '../store/flightStore';
 import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
+import { useProfileStore } from '../store/profileStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 
@@ -38,15 +39,17 @@ export default function RootLayout() {
         await loadMode();
         await useOperatorStore.getState().loadOperatorId();
         await usePilotTypeStore.getState().load();
+        await useProfileStore.getState().load();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
         const onboarded = await getSetting('has_onboarded');
+        // Wait for layout to mount before navigating
+        await new Promise(r => setTimeout(r, 300));
         if (!onboarded) {
           router.replace('/onboarding');
           return;
         }
-        // Mode-picker visas alltid vid appstart — användaren väljer aktivt vilket läge
-        router.replace('/mode-picker');
+        router.replace('/(tabs)');
       } catch (err) {
         console.error('DB init error:', err);
       }
@@ -55,8 +58,8 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style={theme === 'bright' ? 'dark' : 'light'} key={theme} />
+    <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
+      <StatusBar style={theme === 'bright' ? 'dark' : 'light'} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: Colors.surface },

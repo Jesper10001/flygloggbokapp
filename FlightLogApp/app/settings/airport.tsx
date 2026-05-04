@@ -7,8 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports } from '../../db/icao';
-import { SEED_AIRPORTS } from '../../db/seedAirports';
+import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports, getSeedAirports } from '../../db/icao';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
@@ -486,24 +485,18 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
 
 // ── Huvudskärm ────────────────────────────────────────────────────────────────
 
-// Country index from seed data
-const countryIndex = (() => {
-  const map = new Map<string, number>();
-  for (const [, , country] of SEED_AIRPORTS) {
-    map.set(country, (map.get(country) ?? 0) + 1);
-  }
-  return Array.from(map.entries())
-    .map(([code, count]) => ({ code, count }))
-    .sort((a, b) => b.count - a.count);
-})();
+type SeedRow = [string, string, string, string, number, number];
+type CountryEntry = { code: string; count: number };
 
-function getPreviewForCountry(countryCode: string, limit = 10) {
-  const all = SEED_AIRPORTS.filter(([, , c]) => c === countryCode);
-  return {
-    sample: all.slice(0, limit),
-    total: all.length,
-    remaining: Math.max(0, all.length - limit),
-  };
+function buildCountryIndex(data: SeedRow[]): CountryEntry[] {
+  const map = new Map<string, number>();
+  for (const [, , country] of data) map.set(country, (map.get(country) ?? 0) + 1);
+  return Array.from(map.entries()).map(([code, count]) => ({ code, count })).sort((a, b) => b.count - a.count);
+}
+
+function getPreviewForCountry(data: SeedRow[], countryCode: string, limit = 10) {
+  const all = data.filter(([, , c]) => c === countryCode);
+  return { sample: all.slice(0, limit), total: all.length, remaining: Math.max(0, all.length - limit) };
 }
 
 export default function AirportScreen() {
@@ -520,6 +513,15 @@ export default function AirportScreen() {
   const [globalQuery, setGlobalQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [showGlobalMap, setShowGlobalMap] = useState(false);
+  const [seedData, setSeedData] = useState<SeedRow[]>([]);
+  const [countryIndex, setCountryIndex] = useState<CountryEntry[]>([]);
+
+  useEffect(() => {
+    getSeedAirports().then(data => {
+      setSeedData(data);
+      setCountryIndex(buildCountryIndex(data));
+    });
+  }, []);
 
   useEffect(() => {
     if (query.length >= 2) {
@@ -634,7 +636,7 @@ export default function AirportScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.globalTitle}>{t('global_db_title')}</Text>
                 <Text style={styles.globalSub}>
-                  {SEED_AIRPORTS.length.toLocaleString()} {t('global_db_airports')} · {countryIndex.length} {t('global_db_countries')}
+                  {seedData.length.toLocaleString()} {t('global_db_airports')} · {countryIndex.length} {t('global_db_countries')}
                 </Text>
               </View>
               {isPremium ? (
@@ -691,7 +693,7 @@ export default function AirportScreen() {
                 : countryIndex;
 
               if (selectedCountry) {
-                const preview = getPreviewForCountry(selectedCountry);
+                const preview = getPreviewForCountry(seedData, selectedCountry);
                 return (
                   <>
                     <TouchableOpacity
@@ -900,13 +902,13 @@ export default function AirportScreen() {
               {t('global_map_title')}
             </Text>
             <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
-              {SEED_AIRPORTS.length.toLocaleString()} {t('global_db_airports')}
+              {seedData.length.toLocaleString()} {t('global_db_airports')}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
             {showGlobalMap && (
               <WebView
-              source={{ html: buildGlobalMapHtml(SEED_AIRPORTS), baseUrl: 'https://tile.openstreetmap.org' }}
+              source={{ html: buildGlobalMapHtml(seedData), baseUrl: 'https://tile.openstreetmap.org' }}
               style={{ flex: 1 }}
               originWhitelist={['*']}
             />

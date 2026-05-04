@@ -18,8 +18,9 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useToastStore } from '../../components/Toast';
 import { useOperatorStore } from '../../store/operatorStore';
-import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
+import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser, seedOperatorCrewChief, seedOperatorSwimmer, seedOperatorHEMS, clearOperatorTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
+import { useProfileStore, isOperator } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -132,6 +133,7 @@ export default function SettingsScreen() {
   // Profildata — laddas från settings-DB
   const [profileName, setProfileName] = useState('');
   const [profileInitials, setProfileInitials] = useState('');
+  const [userProfile, setUserProfile] = useState('');
   const [profileCredentials, setProfileCredentials] = useState('');
 
   useFocusEffect(useCallback(() => {
@@ -143,6 +145,8 @@ export default function SettingsScreen() {
       setProfileName(`${first} ${last}`.trim());
       setProfileInitials(initials || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase() || '?');
       setProfileCredentials(creds);
+      const { profile } = useProfileStore.getState();
+      setUserProfile(profile ? t(`profile_${profile.subRole}` as any) : '');
     })();
   }, []));
 
@@ -231,6 +235,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header */}
+      {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
         <Text style={{ fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.8 }}>
           {t('settings')}
@@ -294,15 +299,21 @@ export default function SettingsScreen() {
       <Card>
         <Row
           icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
-          title={t('mode_manned')} subtitle="Hkp & flygplan"
-          right={appMode === 'manned' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { if (appMode !== 'manned') switchMode('manned'); }}
+          title={t('mode_manned')} subtitle={t('mode_manned_sub')}
+          right={appMode === 'manned' && !isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => { switchMode('manned'); useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); }}
+        />
+        <Row
+          icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
+          title={t('intro_operator_title')} subtitle={t('intro_operator_desc')}
+          right={isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => router.push('/onboarding')}
         />
         <Row
           icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
-          title={t('mode_drone')} subtitle="UAS open & specific"
+          title={t('mode_drone')} subtitle={t('mode_drone_sub')}
           right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { if (appMode !== 'drone') switchMode('drone'); }}
+          onClick={() => { switchMode('drone'); useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); }}
           border={false}
         />
       </Card>
@@ -311,9 +322,6 @@ export default function SettingsScreen() {
       <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
       <Card>
         <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />
-        {!isDrone && (
-          <Row icon="airplane-outline" iconColor={Colors.primary} title={t('saved_airframes')} subtitle={t('manage_airports_sub') ?? 'Sparade farkoster'} onClick={() => router.push('/(tabs)/log')} />
-        )}
         {isDrone && (
           <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
         )}
@@ -380,6 +388,11 @@ export default function SettingsScreen() {
       {/* ── E. App ── */}
       <SectionHeader>{t('app_section')}</SectionHeader>
       <Card>
+        <Row icon="person-circle-outline" iconColor={Colors.primary}
+          title={t('user_profile')}
+          subtitle={userProfile || t('not_set')}
+          onClick={() => router.push('/onboarding')}
+        />
         <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
           right={
             <View style={styles.toggle}>
@@ -450,41 +463,29 @@ export default function SettingsScreen() {
           right={<Switch value={isPremium} onValueChange={setIsPremium} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
           pressable={false}
         />
-        {/* Pilottyp (drone only) */}
-        {isDrone && (
-          <Row icon="ribbon-outline" iconColor={Colors.primary}
-            title={t('pilot_type')}
-            subtitle={pilotType === 'military' ? t('pilot_type_military_sub') : t('pilot_type_commercial_sub')}
-            right={
-              <View style={styles.toggle}>
-                <TouchableOpacity style={[styles.toggleBtn, pilotType === 'commercial' && styles.toggleBtnActive]} onPress={() => switchPilotType('commercial')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, pilotType === 'commercial' && styles.toggleTextActive]}>{t('pilot_type_commercial')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, pilotType === 'military' && styles.toggleBtnActive]} onPress={() => switchPilotType('military')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, pilotType === 'military' && styles.toggleTextActive]}>{t('pilot_type_military')}</Text>
-                </TouchableOpacity>
-              </View>
-            } pressable={false}
-          />
-        )}
-
-        {/* Drone test users */}
+        {/* Test users — based on current profile */}
         {isDrone && (<>
           <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 1`} subtitle={t('test_user_1_sub')} onClick={() => applyDroneTestUser(1)} />
           <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 2`} subtitle={t('test_user_2_sub')} onClick={() => applyDroneTestUser(2)} />
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle={t('clear_test_user_sub')} onClick={() => applyDroneTestUser('clear')} />
         </>)}
-
-        {/* Manned test users */}
-        {!isDrone && (<>
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 1 — Airline" subtitle="A320, kommersiell, ~5500h" onClick={() => applyMannedTestUser(1)} />
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 2 — Bushpilot" subtitle="B407/H125, NVG, ~3200h" onClick={() => applyMannedTestUser(2)} />
-          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle="Rensa manned testdata" onClick={() => applyMannedTestUser('clear')} />
+        {!isDrone && !isOperator(useProfileStore.getState().profile) && (<>
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 1 — Airline" subtitle="A320, ~5500h" onClick={() => applyMannedTestUser(1)} />
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 2 — Bushpilot" subtitle="B407/H125, ~3200h" onClick={() => applyMannedTestUser(2)} />
+          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={() => applyMannedTestUser('clear')} />
+        </>)}
+        {isOperator(useProfileStore.getState().profile) && (<>
+          <Row icon="flask-outline" iconColor={Colors.gold} title="🎖️ Crew Chief" subtitle="HKP16/14, ~620h" onClick={async () => { await seedOperatorCrewChief(); await loadFlights(); await loadStats(); Alert.alert('OK', 'Crew Chief loaded'); }} />
+          <Row icon="flask-outline" iconColor={Colors.info} title="🏊 Rescue Swimmer" subtitle="HKP16, ~280h" onClick={async () => { await seedOperatorSwimmer(); await loadFlights(); await loadStats(); Alert.alert('OK', 'Swimmer loaded'); }} />
+          <Row icon="flask-outline" iconColor={Colors.danger} title="🏥 HEMS Operator" subtitle="EC135, ~340h" onClick={async () => { await seedOperatorHEMS(); await loadFlights(); await loadStats(); Alert.alert('OK', 'HEMS loaded'); }} />
+          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={async () => { await clearOperatorTestUser(); await loadFlights(); await loadStats(); }} />
         </>)}
 
         {/* Rundtur */}
         <Row icon="compass-outline" iconColor={Colors.primary} title={t('replay_tour')} subtitle={t('replay_tour_sub')}
           onClick={() => router.push(isDrone ? '/preview' : '/manned-preview')} />
+        <Row icon="refresh-circle-outline" iconColor={Colors.primary} title="Replay onboarding" subtitle="Reset and show intro flow"
+          onClick={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
 
         {/* Rensa data */}
         <Row icon="trash" iconColor={Colors.danger} title={t('clear_all_logbook_data')} subtitle={t('clear_all_sub')} onClick={handleClearAll} border={false} />

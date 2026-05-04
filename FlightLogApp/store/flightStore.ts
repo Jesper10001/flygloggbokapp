@@ -98,6 +98,6 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
 
   canAddFlight: () => {
     const { isPremium, flightCount } = get();
-    return isPremium || flightCount < FREE_TIER_LIMIT;
+    return true;
   },
 }));

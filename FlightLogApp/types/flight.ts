@@ -39,6 +39,7 @@ export interface Flight {
   ferry_pic: number;
   relief_crew: number;
   sim_category: string;
+  operator_data: string;
   vfr: number;
   se_time: number;
   me_time: number;

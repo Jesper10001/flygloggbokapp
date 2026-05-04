@@ -19,6 +19,7 @@ import { useFlightStore } from '../store/flightStore';
 import type { Flight } from '../types/flight';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Haptics from 'expo-haptics';
 
 export default function TranscribeScreen() {
   const router = useRouter();
@@ -235,6 +236,7 @@ function SpreadTable({ template, flights, rowsPerSpread, priorFlights = [] }: {
   const { t } = useTranslation();
   const [doneColumns, setDoneColumns] = useState<Set<string>>(new Set());
   const toggleDone = (colId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDoneColumns(prev => {
       const next = new Set(prev);
       next.has(colId) ? next.delete(colId) : next.add(colId);
