@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { getVisitedAirportIcaos } from '../db/flights';
-import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
+import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlaces, updateUserAirport, getSeedAirports } from '../db/icao';
+import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
+import * as Haptics from 'expo-haptics';
 
 const countryNames: Record<string, string> = {
   US:'United States',BR:'Brazil',CA:'Canada',AU:'Australia',RU:'Russia',CL:'Chile',DE:'Germany',
@@ -204,6 +206,59 @@ window.onload=function(){
 </script></body></html>`;
 }
 
+function buildPinPlacementHtml(placeName: string, centerLat = 59.3, centerLon = 18.0): string {
+  const pinSvg = `<svg width="28" height="40" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2E7D32" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#1a2235}
+  #map{position:absolute;top:0;left:0;right:0;bottom:0}
+  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
+  .leaflet-popup-tip{background:#1A2235}
+  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
+  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
+  #layer-switcher{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;background:rgba(15,22,38,.88);border-radius:12px;padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+  #layer-switcher button{font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;color:#9BAAC0;background:transparent;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;}
+  #layer-switcher button.active{background:#2563EB;color:#fff}
+  #info{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,30,58,.92);border-radius:10px;padding:8px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;color:#fff;text-align:center;pointer-events:none;white-space:nowrap;border:1px solid rgba(255,255,255,.15)}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+</head><body>
+<div id="map"></div>
+<div id="info">${placeName.replace(/'/g, "\\'")} — tryck på kartan</div>
+<div id="layer-switcher"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+window.onload=function(){
+  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:6,zoomControl:true,attributionControl:true});
+  var layers={
+    'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
+    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Terrain':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OSM © OpenTopoMap'})
+  };
+  var ak='Light';layers[ak].addTo(map);
+  var sw=document.getElementById('layer-switcher');
+  Object.keys(layers).forEach(function(k){var b=document.createElement('button');b.textContent=k;if(k===ak)b.className='active';b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};sw.appendChild(b);});
+
+  var pinIcon=L.divIcon({html:'${pinSvg.replace(/'/g, "\\'")}',className:'',iconSize:[28,40],iconAnchor:[14,40],popupAnchor:[0,-42]});
+  var marker=null;
+
+  map.on('click',function(e){
+    if(marker) map.removeLayer(marker);
+    marker=L.marker(e.latlng,{icon:pinIcon,draggable:true}).addTo(map);
+    marker.bindPopup('${placeName.replace(/'/g, "\\'")}').openPopup();
+    window.ReactNativeWebView.postMessage(JSON.stringify({lat:e.latlng.lat,lon:e.latlng.lng}));
+    marker.on('dragend',function(){
+      var p=marker.getLatLng();
+      window.ReactNativeWebView.postMessage(JSON.stringify({lat:p.lat,lon:p.lng}));
+    });
+  });
+  setTimeout(function(){map.invalidateSize();},300);
+};
+</script></body></html>`;
+}
+
 function makeStyles() {
   return StyleSheet.create({
     widget: {
@@ -248,6 +303,9 @@ export function AirportMapWidget() {
   const [countrySearch, setCountrySearch] = useState('');
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [countryList, setCountryList] = useState<{ code: string; name: string; count: number }[]>([]);
+  const [unlocated, setUnlocated] = useState<IcaoAirport[]>([]);
+  const [placingPlace, setPlacingPlace] = useState<IcaoAirport | null>(null);
+  const [placedCoord, setPlacedCoord] = useState<{ lat: number; lon: number } | null>(null);
   const insets = useSafeAreaInsets();
   const { isPremium } = useFlightStore();
 
@@ -271,6 +329,8 @@ export function AirportMapWidget() {
       const regular = coords.filter(a => a.lat && a.lon).map(a => ({ ...a, temporary: false }));
       const temps = tempPlaces.map(p => ({ icao: p.icao, name: p.name, lat: p.lat, lon: p.lon, temporary: true }));
       setAirports([...regular, ...temps]);
+      const unloc = await getUnlocatedTemporaryPlaces();
+      setUnlocated(unloc);
     })();
   }, [flightCount]);
 
@@ -327,6 +387,47 @@ export function AirportMapWidget() {
           <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
         </View>
       </TouchableOpacity>
+
+      {/* Unlocated temp places banner */}
+      {unlocated.length > 0 && (
+        <View style={{
+          backgroundColor: Colors.warning + '12', borderRadius: 12,
+          borderWidth: 1, borderColor: Colors.warning + '33',
+          padding: 12, marginBottom: 8, gap: 8,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="location-outline" size={16} color={Colors.warning} />
+            <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>
+              {unlocated.length} {unlocated.length === 1 ? 'tillfällig plats' : 'tillfälliga platser'} saknar position
+            </Text>
+          </View>
+          {unlocated.map(p => (
+            <TouchableOpacity
+              key={p.icao}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: Colors.card, borderRadius: 8, padding: 10,
+                borderWidth: 1, borderColor: Colors.cardBorder,
+              }}
+              onPress={() => { setPlacingPlace(p); setPlacedCoord(null); }}
+              activeOpacity={0.75}
+            >
+              <View style={{
+                width: 28, height: 28, borderRadius: 14,
+                backgroundColor: '#2E7D32' + '22', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Ionicons name="pin" size={14} color="#2E7D32" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{p.icao}</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{p.name}</Text>
+              </View>
+              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>Placera</Text>
+              <Ionicons name="chevron-forward" size={12} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Fullskärmskarta med Leaflet */}
       <Modal
@@ -476,6 +577,87 @@ export function AirportMapWidget() {
             </View>
           </View>
         )}
+      </Modal>
+
+      {/* Pin placement modal */}
+      <Modal
+        visible={!!placingPlace}
+        animationType="slide"
+        onRequestClose={() => setPlacingPlace(null)}
+      >
+        <View style={styles.modal}>
+          {placingPlace && (
+            <WebView
+              style={styles.webview}
+              source={{ html: buildPinPlacementHtml(
+                `${placingPlace.icao} — ${placingPlace.name}`,
+                airports.length > 0 ? airports[0].lat : 59.3,
+                airports.length > 0 ? airports[0].lon : 18.0,
+              ), baseUrl: 'https://tile.openstreetmap.org' }}
+              originWhitelist={['*']}
+              javaScriptEnabled
+              domStorageEnabled
+              onMessage={(e) => {
+                try {
+                  const { lat, lon } = JSON.parse(e.nativeEvent.data);
+                  setPlacedCoord({ lat, lon });
+                } catch {}
+              }}
+            />
+          )}
+
+          {/* Save bar */}
+          <View style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            paddingBottom: insets.bottom + 12, paddingTop: 12, paddingHorizontal: 16,
+            backgroundColor: 'rgba(10,22,40,0.92)',
+            borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)',
+            flexDirection: 'row', gap: 10, alignItems: 'center',
+          }}>
+            <TouchableOpacity
+              style={{
+                flex: 1, paddingVertical: 13, borderRadius: 10, alignItems: 'center',
+                borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated,
+              }}
+              onPress={() => { setPlacingPlace(null); setPlacedCoord(null); }}
+            >
+              <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Avbryt</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 2, paddingVertical: 13, borderRadius: 10, alignItems: 'center',
+                backgroundColor: placedCoord ? '#2E7D32' : Colors.textMuted,
+                flexDirection: 'row', justifyContent: 'center', gap: 6,
+              }}
+              disabled={!placedCoord}
+              onPress={async () => {
+                if (!placingPlace || !placedCoord) return;
+                await updateUserAirport(placingPlace.icao, placingPlace.name, placedCoord.lat, placedCoord.lon);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setUnlocated(prev => prev.filter(p => p.icao !== placingPlace.icao));
+                setAirports(prev => [...prev, {
+                  icao: placingPlace.icao, name: placingPlace.name,
+                  lat: placedCoord.lat, lon: placedCoord.lon, temporary: true,
+                }]);
+                setPlacingPlace(null);
+                setPlacedCoord(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Spara position</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Close button */}
+          <TouchableOpacity
+            style={[styles.closeBtn, { top: insets.top + 12 }]}
+            onPress={() => { setPlacingPlace(null); setPlacedCoord(null); }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </Modal>
     </>
   );

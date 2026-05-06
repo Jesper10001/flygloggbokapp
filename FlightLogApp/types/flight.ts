@@ -94,6 +94,8 @@ export interface IcaoAirport {
 }
 
 export interface OcrFlightResult extends FlightFormData {
+  other_times?: Record<string, number>;
+  other_time_labels?: Record<string, string>;
   needs_review: boolean;
   review_reason?: string;
   // AI-förslag på tolkning av remarks-fältet. Om AI tror att en del av remarks

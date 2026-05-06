@@ -14,6 +14,8 @@ import { useFlightStore } from '../store/flightStore';
 import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
 import { useProfileStore } from '../store/profileStore';
+import { useScanProfileStore } from '../store/scanProfileStore';
+import { cleanupDittoEntries } from '../db/ocrLearned';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 
@@ -40,6 +42,8 @@ export default function RootLayout() {
         await useOperatorStore.getState().loadOperatorId();
         await usePilotTypeStore.getState().load();
         await useProfileStore.getState().load();
+        await useScanProfileStore.getState().load();
+        await cleanupDittoEntries();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
         const onboarded = await getSetting('has_onboarded');
@@ -79,6 +83,7 @@ export default function RootLayout() {
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
+        <Stack.Screen name="settings/scan-profile" options={{ title: 'Scan Profile' }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />

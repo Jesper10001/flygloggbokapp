@@ -13,6 +13,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, SCAN_PACKS } from '../../store/scanQuotaStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
+import { useScanProfileStore } from '../../store/scanProfileStore';
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
@@ -28,6 +29,7 @@ export default function ScanImportScreen() {
   const [working, setWorking] = useState(false);
   const [showBuy, setShowBuy] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
+  const hasProfile = useScanProfileStore((s) => s.hasProfile);
 
   if (!isPremium) {
     return (
@@ -158,8 +160,39 @@ export default function ScanImportScreen() {
             ))}
           </View>
 
-          {/* Actions */}
-          <View style={s.actionCards}>
+          {/* Step 1 — Scan Profile */}
+          <TouchableOpacity
+            style={[s.stepCard, hasProfile() && s.stepCardDone]}
+            onPress={() => router.push('/settings/scan-profile')}
+            activeOpacity={0.8}
+          >
+            <View style={s.stepBadge}>
+              <Text style={s.stepBadgeText}>1</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.stepTitle}>{t('scan_profile_title') ?? 'Skanningsprofil'}</Text>
+              <Text style={s.stepSub}>
+                {hasProfile()
+                  ? (t('scan_profile_done') ?? 'Konfigurerad — tryck för att ändra')
+                  : (t('scan_profile_needed') ?? 'Beskriv din loggbok för bättre resultat')}
+              </Text>
+            </View>
+            {hasProfile()
+              ? <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
+              : <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            }
+          </TouchableOpacity>
+
+          {/* Step 2 — Camera / Library */}
+          <View style={s.stepHeader}>
+            <View style={[s.stepBadge, !hasProfile() && { opacity: 0.4 }]}>
+              <Text style={s.stepBadgeText}>2</Text>
+            </View>
+            <Text style={[s.stepHeaderText, !hasProfile() && { color: Colors.textMuted }]}>
+              {t('scan_choose_image') ?? 'Välj bild'}
+            </Text>
+          </View>
+          <View style={[s.actionCards, !hasProfile() && { opacity: 0.35 }]} pointerEvents={hasProfile() ? 'auto' : 'none'}>
             <TouchableOpacity style={s.actionCard} onPress={() => pickImage(true)} activeOpacity={0.8}>
               <Ionicons name="camera" size={28} color={Colors.primary} />
               <Text style={s.actionCardTitle}>{t('scan_camera')}</Text>
@@ -172,7 +205,7 @@ export default function ScanImportScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={s.batchBtn} onPress={pickBatch} activeOpacity={0.8}>
+          <TouchableOpacity style={[s.batchBtn, !hasProfile() && { opacity: 0.35 }]} onPress={hasProfile() ? pickBatch : undefined} activeOpacity={0.8} disabled={!hasProfile()}>
             <Ionicons name="copy-outline" size={16} color={Colors.primary} />
             <Text style={s.batchBtnText}>{t('scan_batch')}</Text>
             <Text style={s.batchBtnSub}>{t('scan_batch_sub')}</Text>
@@ -303,6 +336,24 @@ const s = StyleSheet.create({
   tipsTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 2 },
   tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   tipText: { color: Colors.textSecondary, fontSize: 13, flex: 1, lineHeight: 18 },
+
+  stepCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: Colors.primary + '44',
+  },
+  stepCardDone: { borderColor: Colors.success + '44' },
+  stepBadge: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+  stepBadgeText: { color: Colors.textInverse, fontSize: 13, fontWeight: '800' },
+  stepTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  stepSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  stepHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4,
+  },
+  stepHeaderText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
 
   actionCards: { flexDirection: 'row', gap: 10 },
   actionCard: {

@@ -22,7 +22,7 @@ import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMann
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, isOperator } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
-import { clearDroneRegistryCategories, getDroneFlightCount } from '../../db/drones';
+import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
 
@@ -135,6 +135,9 @@ export default function SettingsScreen() {
   const [profileInitials, setProfileInitials] = useState('');
   const [userProfile, setUserProfile] = useState('');
   const [profileCredentials, setProfileCredentials] = useState('');
+  const [hasOtherModeData, setHasOtherModeData] = useState(false);
+  const [certCount, setCertCount] = useState(0);
+  const [certLabels, setCertLabels] = useState('');
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -147,6 +150,14 @@ export default function SettingsScreen() {
       setProfileCredentials(creds);
       const { profile } = useProfileStore.getState();
       setUserProfile(profile ? t(`profile_${profile.subRole}` as any) : '');
+      const otherHasData = isDrone
+        ? (await getFlightCount()) > 0
+        : (await getDroneFlightCount()) > 0;
+      setHasOtherModeData(otherHasData);
+      const certs = await listCertificates();
+      setCertCount(certs.length);
+      const labels = certs.slice(0, 3).map(c => c.cert_type).join(', ');
+      setCertLabels(labels + (certs.length > 3 ? ` +${certs.length - 3}` : ''));
     })();
   }, []));
 
@@ -244,33 +255,58 @@ export default function SettingsScreen() {
 
       {/* ── A. Profilkort ── */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-        <TouchableOpacity
-          style={{
-            backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder,
-            padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
-          }}
-          activeOpacity={0.7}
-          onPress={() => router.push('/settings/profile')}
-        >
-          <View style={{
-            width: 56, height: 56, borderRadius: 28,
-            backgroundColor: isPremium ? Colors.gold : Colors.primary,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: isPremium ? '#1a1200' : Colors.textInverse, letterSpacing: -0.5 }}>
-              {profileInitials || '?'}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 }}>
-              {profileName || t('your_name')}
-            </Text>
-            <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
-              {profileCredentials || t('tap_to_edit_profile')}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-        </TouchableOpacity>
+        <View style={{
+          backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder,
+          overflow: 'hidden',
+        }}>
+          {/* Profil-rad */}
+          <TouchableOpacity
+            style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
+              borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}
+            activeOpacity={0.7}
+            onPress={() => router.push('/settings/profile')}
+          >
+            <View style={{
+              width: 50, height: 50, borderRadius: 25,
+              backgroundColor: isPremium ? Colors.gold : Colors.primary,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: isPremium ? '#1a1200' : Colors.textInverse, letterSpacing: -0.5 }}>
+                {profileInitials || '?'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 }}>
+                {profileName || t('your_name')}
+              </Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
+                {certLabels || t('tap_to_edit_profile')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Certifikat-rad */}
+          <TouchableOpacity
+            style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            activeOpacity={0.7}
+            onPress={() => router.push('/settings/certificates')}
+          >
+            <View style={{
+              width: 32, height: 32, borderRadius: 8,
+              backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Ionicons name="shield-checkmark" size={15} color={Colors.success} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{t('certificates')}</Text>
+              <Text style={{ fontSize: 11, color: Colors.textMuted }}>
+                {certCount > 0 ? `${certCount} ${certCount === 1 ? 'certifikat' : 'certifikat'}` : t('certificates_sub')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
 
         {!isPremium && (
           <TouchableOpacity
@@ -294,29 +330,12 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* ── B. Läge ── */}
-      <SectionHeader>{t('app_mode') ?? 'LÄGE'}</SectionHeader>
-      <Card>
-        <Row
-          icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
-          title={t('mode_manned')} subtitle={t('mode_manned_sub')}
-          right={appMode === 'manned' && !isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { switchMode('manned'); useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); }}
-        />
-        <Row
-          icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
-          title={t('intro_operator_title')} subtitle={t('intro_operator_desc')}
-          right={isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => router.push('/onboarding')}
-        />
-        <Row
-          icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
-          title={t('mode_drone')} subtitle={t('mode_drone_sub')}
-          right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { switchMode('drone'); useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); }}
-          border={false}
-        />
-      </Card>
+      {/* ── Byt loggbok (bara om det finns data i annat läge) ── */}
+      {hasOtherModeData && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+          <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
+        </View>
+      )}
 
       {/* ── C. Loggbok ── */}
       <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
@@ -325,7 +344,6 @@ export default function SettingsScreen() {
         {isDrone && (
           <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
         )}
-        <Row icon="shield-checkmark-outline" iconColor={Colors.success} title={t('certificates')} subtitle={t('certificates_sub')} onClick={() => router.push('/settings/certificates')} />
         <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} border={false} />
       </Card>
 
@@ -351,6 +369,12 @@ export default function SettingsScreen() {
           title={t('import_manual_title')}
           subtitle={t('import_manual_sub')}
           onClick={() => router.push('/import/manual')}
+        />
+        <Row
+          icon="scan-outline" iconColor={Colors.accent}
+          title={t('scan_profile_title') ?? 'Scan Profile'}
+          subtitle={t('scan_profile_sub') ?? 'Help AI read your logbook'}
+          onClick={() => router.push('/settings/scan-profile')}
           border={false}
         />
       </Card>
@@ -388,11 +412,6 @@ export default function SettingsScreen() {
       {/* ── E. App ── */}
       <SectionHeader>{t('app_section')}</SectionHeader>
       <Card>
-        <Row icon="person-circle-outline" iconColor={Colors.primary}
-          title={t('user_profile')}
-          subtitle={userProfile || t('not_set')}
-          onClick={() => router.push('/onboarding')}
-        />
         <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
           right={
             <View style={styles.toggle}>
@@ -454,6 +473,30 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      {/* ── Typ av loggbok ── */}
+      <SectionHeader>{t('app_mode') ?? 'LÄGE'}</SectionHeader>
+      <Card>
+        <Row
+          icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
+          title={t('mode_manned')} subtitle={t('mode_manned_sub')}
+          right={appMode === 'manned' && !isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => { switchMode('manned'); useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); }}
+        />
+        <Row
+          icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
+          title={t('intro_operator_title')} subtitle={t('intro_operator_desc')}
+          right={isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => router.push('/onboarding')}
+        />
+        <Row
+          icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
+          title={t('mode_drone')} subtitle={t('mode_drone_sub')}
+          right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
+          onClick={() => { switchMode('drone'); useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); }}
+          border={false}
+        />
+      </Card>
+
       {/* ── H. Utvecklare ── */}
       <SectionHeader>{t('developer_section')}</SectionHeader>
       <Card>
@@ -491,8 +534,6 @@ export default function SettingsScreen() {
         <Row icon="trash" iconColor={Colors.danger} title={t('clear_all_logbook_data')} subtitle={t('clear_all_sub')} onClick={handleClearAll} border={false} />
       </Card>
 
-      {/* ── I. Byt loggbok ── */}
-      <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
 
       {isPremium && (
         <TouchableOpacity
@@ -549,7 +590,7 @@ function SwitchModeButton({ appMode, setAppMode }: { appMode: 'manned' | 'drone'
   };
 
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 }}>
+    <View>
       <TouchableOpacity
         onPress={onPress} activeOpacity={0.85}
         style={{

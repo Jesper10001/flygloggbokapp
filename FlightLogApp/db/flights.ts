@@ -203,6 +203,7 @@ export async function clearAllFlights(): Promise<void> {
   await db.runAsync('DELETE FROM audit_log');
   await db.runAsync('DELETE FROM aircraft_registry');
   await db.runAsync('DELETE FROM icao_airports WHERE "temporary" > 0');
+  await db.runAsync('DELETE FROM ocr_learned');
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────

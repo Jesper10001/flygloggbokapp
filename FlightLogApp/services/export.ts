@@ -161,378 +161,259 @@ export async function exportCustomCSV(opts: CustomExportOpts): Promise<void> {
 // ── PDF (HTML → dela → Skriv ut) ─────────────────────────────────────────────
 
 export async function exportToPDF(): Promise<void> {
-  const [flights, stats] = await Promise.all([getFlights(99999), getFlightStats()]);
+  const { listCertificates, certStatus } = require('../db/drones');
+  const { getSetting } = require('../db/flights');
+  const { getAllAircraftTypes } = require('../db/flights');
+
+  const [flights, stats, certs] = await Promise.all([
+    getFlights(99999),
+    getFlightStats(),
+    listCertificates(),
+  ]);
+
+  const firstName = (await getSetting('profile_first_name')) ?? '';
+  const lastName = (await getSetting('profile_last_name')) ?? '';
+  const pilotName = `${firstName} ${lastName}`.trim() || 'Pilot';
 
   const realFlights = flights.filter((f: Flight) => f.flight_type !== 'sim');
   const simFlights  = flights.filter((f: Flight) => f.flight_type === 'sim');
 
-  // Datumintervall
   const dates = flights.map((f: Flight) => f.date).sort();
   const firstDate = dates[0] ?? '—';
   const lastDate  = dates[dates.length - 1] ?? '—';
 
-  // Summor för PDF (sim separerat)
   const sum = (key: keyof Flight, arr = realFlights) =>
     arr.reduce((acc, f) => acc + (Number(f[key]) || 0), 0);
 
   const totals = {
-    total:       sum('total_time'),
-    pic:         sum('pic'),
-    co_pilot:    sum('co_pilot'),
-    dual:        sum('dual'),
-    instructor:  sum('instructor'),
-    multi_pilot: sum('multi_pilot'),
-    single_pilot:sum('single_pilot'),
-    se:          sum('se_time'),
-    me:          sum('me_time'),
-    ifr:         sum('ifr'),
-    night:       sum('night'),
-    nvg:         sum('nvg'),
-    sim:         sum('total_time', simFlights),
-    ldg_day:     sum('landings_day'),
-    ldg_night:   sum('landings_night'),
-    tng:         sum('tng_count'),
+    total: sum('total_time'), pic: sum('pic'), co_pilot: sum('co_pilot'),
+    dual: sum('dual'), instructor: sum('instructor'),
+    multi_pilot: sum('multi_pilot'), single_pilot: sum('single_pilot'),
+    se: sum('se_time'), me: sum('me_time'),
+    ifr: sum('ifr'), night: sum('night'), nvg: sum('nvg'),
+    sim: sum('total_time', simFlights),
+    ldg_day: sum('landings_day'), ldg_night: sum('landings_night'), tng: sum('tng_count'),
   };
 
+  // Aircraft experience breakdown
+  const acMap = new Map<string, { hours: number; flights: number; lastDate: string }>();
+  for (const f of realFlights) {
+    const t = f.aircraft_type;
+    if (!t) continue;
+    const cur = acMap.get(t) ?? { hours: 0, flights: 0, lastDate: '' };
+    cur.hours += f.total_time || 0;
+    cur.flights++;
+    if (f.date > cur.lastDate) cur.lastDate = f.date;
+    acMap.set(t, cur);
+  }
+  const aircraftList = Array.from(acMap.entries())
+    .sort((a, b) => b[1].hours - a[1].hours);
+
+  // Unique airports
+  const airports = new Set<string>();
+  for (const f of flights) {
+    if (f.dep_place) airports.add(f.dep_place);
+    if (f.arr_place) airports.add(f.arr_place);
+  }
+
   const h = (n: number) => toHHMM(n);
+  const dec = (n: number) => n.toFixed(1);
   const exportDate = new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // ── Tabellrader ───────────────────────────────────────────────────────────
+  // Certificates HTML
+  const activeCerts = certs.filter((c: any) => {
+    const s = certStatus(c);
+    return s === 'valid' || s === 'expiring';
+  });
+  const expiredCerts = certs.filter((c: any) => certStatus(c) === 'expired');
 
-  const rows = flights.map((f: Flight) => {
-    const isSim = f.flight_type === 'sim';
-    const rowClass = isSim ? 'sim-row' : (f.flight_rules === 'IFR' ? 'ifr-row' : '');
-    return `<tr class="${rowClass}">
-      <td>${f.date}</td>
-      <td>${f.aircraft_type}</td>
-      <td>${f.registration}</td>
-      <td>${f.dep_place}</td>
-      <td>${f.dep_utc}</td>
-      <td>${f.arr_place}</td>
-      <td>${f.arr_utc}</td>
-      <td class="num">${isSim ? '—' : h(f.total_time)}</td>
-      <td class="num">${isSim ? h(f.total_time) : '—'}</td>
-      <td class="num">${h(f.multi_pilot ?? 0)}</td>
-      <td class="num">${h(f.single_pilot ?? 0)}</td>
-      <td class="num">${h(f.se_time ?? 0)}</td>
-      <td class="num">${h(f.me_time ?? 0)}</td>
-      <td class="num">${h(f.pic)}</td>
-      <td class="num">${h(f.co_pilot)}</td>
-      <td class="num">${h(f.dual)}</td>
-      <td class="num">${h(f.instructor ?? 0)}</td>
-      <td class="num">${h(f.ifr)}</td>
-      <td class="num">${h(f.night)}</td>
-      <td class="num">${h(f.nvg ?? 0)}</td>
-      <td class="num">${f.landings_day}</td>
-      <td class="num">${f.landings_night}</td>
-      <td class="num">${f.tng_count ?? 0}</td>
-      <td>${f.remarks ?? ''}</td>
-    </tr>`;
+  const certRows = activeCerts.map((c: any) => {
+    const status = certStatus(c);
+    const color = status === 'expiring' ? '#d97706' : '#16a34a';
+    return `<div class="cert-item">
+      <span class="cert-dot" style="background:${color}"></span>
+      <span class="cert-name">${c.cert_type}${c.label ? ` — ${c.label}` : ''}</span>
+      <span class="cert-date">${c.expires_date ? `exp. ${c.expires_date}` : 'No expiry'}</span>
+    </div>`;
   }).join('\n');
 
-  // ── Sammanfattningskort ───────────────────────────────────────────────────
+  const aircraftRows = aircraftList.map(([type, data]) =>
+    `<tr>
+      <td style="font-weight:700">${type}</td>
+      <td class="num">${h(data.hours)}</td>
+      <td class="num">${dec(data.hours)}</td>
+      <td class="num">${data.flights}</td>
+      <td>${data.lastDate}</td>
+    </tr>`
+  ).join('\n');
 
-  const statCard = (label: string, value: string, sub = '') => `
-    <div class="stat-card">
-      <div class="stat-label">${label}</div>
-      <div class="stat-value">${value}</div>
-      ${sub ? `<div class="stat-sub">${sub}</div>` : ''}
+  // Year breakdown for last 5 years
+  const yearMap = new Map<string, number>();
+  for (const f of realFlights) {
+    const yr = f.date.slice(0, 4);
+    yearMap.set(yr, (yearMap.get(yr) ?? 0) + (f.total_time || 0));
+  }
+  const years = Array.from(yearMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 5);
+  const maxYearHours = Math.max(...years.map(y => y[1]), 1);
+
+  const yearBars = years.map(([yr, hrs]) => {
+    const pct = Math.round((hrs / maxYearHours) * 100);
+    return `<div class="year-row">
+      <span class="year-label">${yr}</span>
+      <div class="year-bar-bg"><div class="year-bar-fill" style="width:${pct}%"></div></div>
+      <span class="year-value">${h(hrs)}</span>
     </div>`;
+  }).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>Flygloggbok — Export ${exportDate}</title>
+<title>${pilotName} — Flight Experience ${exportDate}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, Arial, sans-serif;
-    font-size: 8pt;
-    color: #1a1a2e;
-    background: #fff;
-  }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; color: #1e293b; background: #fff; }
 
-  /* ── Omslagssida ── */
-  .cover {
-    padding: 20mm 20mm 10mm;
-    page-break-after: always;
-  }
-  .cover-title {
-    font-size: 26pt;
-    font-weight: 800;
-    color: #1a2235;
-    margin-bottom: 4pt;
-    letter-spacing: -0.5pt;
-  }
-  .cover-sub {
-    font-size: 11pt;
-    color: #64748b;
-    margin-bottom: 20pt;
-  }
-  .cover-meta {
-    font-size: 9pt;
-    color: #94a3b8;
-    margin-top: 4pt;
-  }
+  .page { padding: 18mm 20mm; }
 
-  /* ── Statistiksektionen ── */
-  .section-title {
-    font-size: 7pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1pt;
-    color: #94a3b8;
-    margin: 14pt 0 6pt;
-    padding-bottom: 3pt;
-    border-bottom: 1pt solid #e2e8f0;
-  }
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6pt;
-    margin-bottom: 4pt;
-  }
-  .stat-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6pt;
-    margin-bottom: 4pt;
-  }
-  .stat-card {
-    background: #f8fafc;
-    border: 0.5pt solid #e2e8f0;
-    border-radius: 5pt;
-    padding: 7pt 8pt;
-  }
-  .stat-label {
-    font-size: 6.5pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5pt;
-    color: #94a3b8;
-    margin-bottom: 2pt;
-  }
-  .stat-value {
-    font-size: 14pt;
-    font-weight: 800;
-    color: #1a2235;
-    font-variant-numeric: tabular-nums;
-    font-family: 'SF Mono', 'Cascadia Code', 'Courier New', monospace;
-  }
-  .stat-sub {
-    font-size: 6pt;
-    color: #94a3b8;
-    margin-top: 1pt;
-  }
-  .stat-card.accent .stat-value { color: #2563eb; }
-  .stat-card.gold .stat-value { color: #d97706; }
-  .stat-card.green .stat-value { color: #16a34a; }
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16pt; padding-bottom: 12pt; border-bottom: 2pt solid #1e293b; }
+  .header-left {}
+  .pilot-name { font-size: 28pt; font-weight: 800; color: #0f172a; letter-spacing: -0.8pt; }
+  .pilot-sub { font-size: 11pt; color: #64748b; margin-top: 2pt; }
+  .header-right { text-align: right; }
+  .header-total-label { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1pt; color: #94a3b8; }
+  .header-total { font-size: 32pt; font-weight: 800; color: #1e293b; font-family: 'SF Mono', 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+  .header-total-sub { font-size: 8pt; color: #64748b; }
 
-  /* ── Loggbokstabell ── */
-  .log-section {
-    page-break-before: always;
-    padding: 0 0 0;
-  }
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 6pt;
-    padding: 0 2pt;
-  }
-  .page-header-title {
-    font-size: 9pt;
-    font-weight: 700;
-    color: #1a2235;
-  }
-  .page-header-meta {
-    font-size: 7pt;
-    color: #94a3b8;
-  }
+  /* Section */
+  .section { margin-top: 16pt; }
+  .section-title { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2pt; color: #94a3b8; margin-bottom: 6pt; padding-bottom: 3pt; border-bottom: 0.5pt solid #e2e8f0; }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 6.5pt;
-  }
-  thead tr th {
-    background: #1a2235;
-    color: #fff;
-    padding: 3pt 2pt;
-    text-align: left;
-    font-size: 6pt;
-    font-weight: 700;
-    letter-spacing: 0.3pt;
-    white-space: nowrap;
-  }
-  thead tr th.num { text-align: right; }
+  /* Stat grid */
+  .grid { display: grid; gap: 6pt; margin-bottom: 4pt; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-5 { grid-template-columns: repeat(5, 1fr); }
+  .grid-6 { grid-template-columns: repeat(6, 1fr); }
+  .card { background: #f8fafc; border: 0.5pt solid #e2e8f0; border-radius: 5pt; padding: 7pt 8pt; }
+  .card-label { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5pt; color: #94a3b8; margin-bottom: 1pt; }
+  .card-value { font-size: 14pt; font-weight: 800; color: #0f172a; font-family: 'SF Mono', 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+  .card-sub { font-size: 6pt; color: #94a3b8; }
+  .card-value.blue { color: #2563eb; }
+  .card-value.amber { color: #d97706; }
 
-  tbody tr td {
-    padding: 2.5pt 2pt;
-    border-bottom: 0.3pt solid #e2e8f0;
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-  tbody tr:nth-child(even) td { background: #f8fafc; }
-  tbody tr:hover td { background: #eff6ff; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: monospace; }
+  /* Certificates */
+  .cert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3pt 16pt; }
+  .cert-item { display: flex; align-items: center; gap: 4pt; padding: 3pt 0; }
+  .cert-dot { width: 5pt; height: 5pt; border-radius: 50%; flex-shrink: 0; }
+  .cert-name { font-size: 8pt; font-weight: 600; color: #1e293b; flex: 1; }
+  .cert-date { font-size: 7pt; color: #94a3b8; white-space: nowrap; }
 
-  .sim-row td { color: #d97706; background: #fffbeb !important; }
-  .ifr-row td { color: #2563eb; }
+  /* Aircraft table */
+  .ac-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  .ac-table th { text-align: left; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5pt; color: #94a3b8; padding: 3pt 4pt; border-bottom: 1pt solid #e2e8f0; }
+  .ac-table th.num { text-align: right; }
+  .ac-table td { padding: 4pt; border-bottom: 0.3pt solid #f1f5f9; }
+  .ac-table td.num { text-align: right; font-family: 'SF Mono', 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+  .ac-table tr:nth-child(even) td { background: #fafbfc; }
 
-  tfoot tr td {
-    background: #1a2235 !important;
-    color: #fff;
-    font-weight: 700;
-    padding: 3pt 2pt;
-    font-size: 6.5pt;
-  }
-  tfoot .num { text-align: right; font-variant-numeric: tabular-nums; font-family: monospace; }
+  /* Year bars */
+  .year-row { display: flex; align-items: center; gap: 6pt; margin-bottom: 4pt; }
+  .year-label { font-size: 8pt; font-weight: 700; color: #475569; width: 28pt; }
+  .year-bar-bg { flex: 1; height: 10pt; background: #f1f5f9; border-radius: 5pt; overflow: hidden; }
+  .year-bar-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #3b82f6); border-radius: 5pt; }
+  .year-value { font-size: 8pt; font-weight: 700; color: #1e293b; font-family: 'SF Mono', monospace; width: 36pt; text-align: right; }
 
-  .legend {
-    display: flex;
-    gap: 12pt;
-    margin-top: 6pt;
-    font-size: 6.5pt;
-    color: #64748b;
-  }
-  .legend-dot {
-    display: inline-block;
-    width: 6pt; height: 6pt;
-    border-radius: 50%;
-    margin-right: 3pt;
-    vertical-align: middle;
-  }
+  /* Two column layout */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16pt; }
+  .cols-wide { display: grid; grid-template-columns: 3fr 2fr; gap: 16pt; }
+
+  /* Footer */
+  .footer { margin-top: 20pt; padding-top: 8pt; border-top: 0.5pt solid #e2e8f0; display: flex; justify-content: space-between; font-size: 7pt; color: #94a3b8; }
 
   @media print {
-    body { font-size: 7pt; }
-    .cover { padding: 15mm 15mm 8mm; }
-    @page { size: A4 landscape; margin: 8mm; }
-    @page :first { size: A4 portrait; margin: 15mm; }
+    @page { size: A4 portrait; margin: 12mm; }
+    .page { padding: 0; }
   }
 </style>
 </head>
 <body>
+<div class="page">
 
-<!-- ── Omslagssida / Sammanfattning ── -->
-<div class="cover">
-  <div class="cover-title">Flygloggbok</div>
-  <div class="cover-sub">EASA FCL.050 — Personlig loggbok</div>
-  <div class="cover-meta">Exporterad: ${exportDate}</div>
-  <div class="cover-meta">Period: ${firstDate} – ${lastDate} &nbsp;·&nbsp; ${flights.length} flygningar (varav ${simFlights.length} FFS/Sim)</div>
-
-  <!-- Flygtider -->
-  <div class="section-title">Flygtider</div>
-  <div class="stat-grid">
-    ${statCard('Total flygtid', h(totals.total), 'Exkl. FFS/Sim')}
-    ${statCard('PIC', h(totals.pic), 'Pilot in Command')}
-    ${statCard('Co-pilot', h(totals.co_pilot), 'SIC')}
-    ${statCard('Dual (elev)', h(totals.dual), 'Mottagen')}
-    ${statCard('Instruktör', h(totals.instructor), 'Given')}
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="pilot-name">${pilotName}</div>
+      <div class="pilot-sub">${activeCerts.length > 0 ? activeCerts.slice(0, 3).map((c: any) => c.cert_type).join(' · ') : 'Pilot'}</div>
+    </div>
+    <div class="header-right">
+      <div class="header-total-label">Total flight time</div>
+      <div class="header-total">${h(totals.total)}</div>
+      <div class="header-total-sub">${dec(totals.total)} hours · ${realFlights.length} flights · ${airports.size} airports</div>
+    </div>
   </div>
 
-  <!-- Operativa förhållanden -->
-  <div class="section-title">Operativa förhållanden</div>
-  <div class="stat-grid">
-    ${statCard('IFR', h(totals.ifr), 'Instrumentflyg')}
-    ${statCard('Natt', h(totals.night), 'Natttid')}
-    ${statCard('NVG', h(totals.nvg), 'Night Vision')}
-    ${statCard('Multi-pilot', h(totals.multi_pilot), 'Flerpilot')}
-    ${statCard('Single pilot', h(totals.single_pilot), 'Enpilot')}
-    ${statCard('SE', h(totals.se), 'Single Engine')}
-    ${statCard('ME', h(totals.me), 'Multi Engine')}
+  <!-- Flight time summary -->
+  <div class="section">
+    <div class="section-title">Flight Time Summary</div>
+    <div class="grid grid-6">
+      <div class="card"><div class="card-label">PIC</div><div class="card-value">${h(totals.pic)}</div></div>
+      <div class="card"><div class="card-label">Co-pilot</div><div class="card-value">${h(totals.co_pilot)}</div></div>
+      <div class="card"><div class="card-label">Dual received</div><div class="card-value">${h(totals.dual)}</div></div>
+      <div class="card"><div class="card-label">Instructor</div><div class="card-value">${h(totals.instructor)}</div></div>
+      <div class="card"><div class="card-label">Multi-pilot</div><div class="card-value">${h(totals.multi_pilot)}</div></div>
+      <div class="card"><div class="card-label">Single-pilot</div><div class="card-value">${h(totals.single_pilot)}</div></div>
+    </div>
+    <div class="grid grid-6">
+      <div class="card"><div class="card-label">IFR</div><div class="card-value blue">${h(totals.ifr)}</div></div>
+      <div class="card"><div class="card-label">Night</div><div class="card-value">${h(totals.night)}</div></div>
+      <div class="card"><div class="card-label">NVG</div><div class="card-value">${h(totals.nvg)}</div></div>
+      <div class="card"><div class="card-label">SE</div><div class="card-value">${h(totals.se)}</div></div>
+      <div class="card"><div class="card-label">ME</div><div class="card-value">${h(totals.me)}</div></div>
+      <div class="card"><div class="card-label">FFS / Sim</div><div class="card-value amber">${h(totals.sim)}</div></div>
+    </div>
+    <div class="grid grid-4">
+      <div class="card"><div class="card-label">Landings day</div><div class="card-value">${totals.ldg_day}</div></div>
+      <div class="card"><div class="card-label">Landings night</div><div class="card-value">${totals.ldg_night}</div></div>
+      <div class="card"><div class="card-label">Last 90 days</div><div class="card-value">${h(stats.last_90_days)}</div></div>
+      <div class="card"><div class="card-label">Last 12 months</div><div class="card-value">${h(stats.last_12_months)}</div></div>
+    </div>
   </div>
 
-  <!-- Simulator & landningar -->
-  <div class="section-title">FFS / Simulator &amp; Landningar</div>
-  <div class="stat-grid">
-    ${statCard('FFS / Sim', h(totals.sim), 'Full Flight Sim')}
-    ${statCard('Landningar dag', String(totals.ldg_day), '')}
-    ${statCard('Landningar natt', String(totals.ldg_night), '')}
-    ${statCard('Touch &amp; Go', String(totals.tng), '')}
-    ${statCard('Flygningar', String(flights.length), `${realFlights.length} verkliga`)}
+  <div class="cols-wide">
+    <!-- Aircraft experience -->
+    <div class="section">
+      <div class="section-title">Aircraft Experience</div>
+      <table class="ac-table">
+        <thead><tr><th>Type</th><th class="num">HH:MM</th><th class="num">Decimal</th><th class="num">Flights</th><th>Last flown</th></tr></thead>
+        <tbody>${aircraftRows}</tbody>
+      </table>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <!-- Certificates -->
+      ${activeCerts.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Certificates &amp; Ratings (${activeCerts.length} active)</div>
+        <div class="cert-grid">${certRows}</div>
+      </div>` : ''}
+
+      <!-- Year breakdown -->
+      ${years.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Annual Flight Hours</div>
+        ${yearBars}
+      </div>` : ''}
+    </div>
   </div>
 
-  <!-- Senaste aktivitet -->
-  <div class="section-title">Senaste aktivitet</div>
-  <div class="stat-grid-3">
-    ${statCard('Senaste 90 dagarna', h(stats.last_90_days), 'flygtimmar')}
-    ${statCard('Senaste 12 månaderna', h(stats.last_12_months), 'flygtimmar')}
-    ${statCard('Bästa veckan', h(stats.best_week_hours), stats.best_week_label || '—')}
+  <div class="footer">
+    <span>Generated from BLADES — Joint Logbook</span>
+    <span>${exportDate} · Period: ${firstDate} – ${lastDate}</span>
   </div>
+
 </div>
-
-<!-- ── Loggbok ── -->
-<div class="log-section">
-  <div class="page-header">
-    <span class="page-header-title">Loggbok — Alla flygningar</span>
-    <span class="page-header-meta">${flights.length} poster · ${firstDate} – ${lastDate}</span>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Datum</th>
-        <th>Typ</th>
-        <th>Reg</th>
-        <th>Avg.</th>
-        <th>Avg.tid</th>
-        <th>Ank.</th>
-        <th>Ank.tid</th>
-        <th class="num">Total</th>
-        <th class="num">FFS</th>
-        <th class="num">MP</th>
-        <th class="num">SP</th>
-        <th class="num">SE</th>
-        <th class="num">ME</th>
-        <th class="num">PIC</th>
-        <th class="num">Co-P</th>
-        <th class="num">Dual</th>
-        <th class="num">Instr</th>
-        <th class="num">IFR</th>
-        <th class="num">Natt</th>
-        <th class="num">NVG</th>
-        <th class="num">L.dag</th>
-        <th class="num">L.natt</th>
-        <th class="num">T&amp;G</th>
-        <th>Anmärkningar</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="7">TOTALER — ${flights.length} poster</td>
-        <td class="num">${h(totals.total)}</td>
-        <td class="num">${h(totals.sim)}</td>
-        <td class="num">${h(totals.multi_pilot)}</td>
-        <td class="num">${h(totals.single_pilot)}</td>
-        <td class="num">${h(totals.se)}</td>
-        <td class="num">${h(totals.me)}</td>
-        <td class="num">${h(totals.pic)}</td>
-        <td class="num">${h(totals.co_pilot)}</td>
-        <td class="num">${h(totals.dual)}</td>
-        <td class="num">${h(totals.instructor)}</td>
-        <td class="num">${h(totals.ifr)}</td>
-        <td class="num">${h(totals.night)}</td>
-        <td class="num">${h(totals.nvg)}</td>
-        <td class="num">${totals.ldg_day}</td>
-        <td class="num">${totals.ldg_night}</td>
-        <td class="num">${totals.tng}</td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="legend">
-    <span><span class="legend-dot" style="background:#d97706"></span>Gul rad = FFS/Simulator (räknas ej i flygtid)</span>
-    <span><span class="legend-dot" style="background:#2563eb"></span>Blå text = IFR-flygning</span>
-    <span>Tider i format HH:MM &nbsp;·&nbsp; MP = Multi-pilot &nbsp;·&nbsp; SP = Single pilot &nbsp;·&nbsp; Instr = Instruktör</span>
-  </div>
-</div>
-
 </body>
 </html>`;
 

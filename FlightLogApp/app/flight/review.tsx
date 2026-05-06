@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ocrScanLogbook, ocrScanPage, type AircraftDetection, type PageContext } from '../../services/ocr';
 import { getScanBatch, clearScanImage } from '../../store/scanStore';
-import { insertFlight, getAllAircraftTypes, addAircraftTypeToRegistry } from '../../db/flights';
+import { insertFlight, getAllAircraftTypes, addAircraftTypeToRegistry, addToAircraftRegistry } from '../../db/flights';
 import { getDatabase } from '../../db/database';
 import { getActiveBook } from '../../db/logbookBooks';
 import { saveLearnedMapping, buildContextHint } from '../../db/ocrLearned';
@@ -25,6 +25,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import { getAirportByIcao, addTemporaryPlace } from '../../db/icao';
 import type { OcrFlightResult } from '../../types/flight';
 import type { TimeFormat } from '../../store/timeFormatStore';
+import { useScanProfileStore } from '../../store/scanProfileStore';
 
 const mono = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
 
@@ -518,13 +519,14 @@ function TimeMismatchBlock({ tm, onAcceptDep, onAcceptArr }: {
 
 // ── FieldEditor (one per field_issue) ─────────────────────────────────────────
 
-function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText, onShowImage }: {
+function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText, onShowImage, onAddTemp }: {
   issue: { field: string; reason: string; confidence: number; x_pct?: number };
   value: string;
   originalValue?: string;
-  suggestedValue?: string;  // AI:s alternativa förslag (t.ex. ETHB? när primary = ETAB)
+  suggestedValue?: string;
   onChangeText: (v: string) => void;
   onShowImage?: () => void;
+  onAddTemp?: (name: string, newCode?: string) => void;
 }) {
   const isChanged = originalValue != null && value !== originalValue;
   const isIcao = issue.field === 'dep_place' || issue.field === 'arr_place';
@@ -535,16 +537,30 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
   const SIM_TYPES = ['FFS', 'FTD', 'FNPT II', 'FNPT I', 'BITD', 'CPT/PPT', 'CBT'];
   const TIME_ROLES = ['Instructor', 'PICUS', 'SPIC', 'Multi-pilot', 'Single-pilot', 'Examiner', 'Safety pilot', 'NVG', 'SE time', 'ME time'];
   const [icaoResults, setIcaoResults] = useState<{ icao: string; name: string }[]>([]);
+  const [showTempList, setShowTempList] = useState(false);
+  const [tempPlaces, setTempPlaces] = useState<{ icao: string; name: string }[]>([]);
+  const isTemp = isIcao && (value.length > 4 || value.toUpperCase().startsWith('ZZ'));
 
   const handleIcaoChange = async (v: string) => {
     const upper = v.toUpperCase();
     onChangeText(upper);
-    if (isIcao && upper.length >= 2) {
+    if (upper.length > 4 || upper.startsWith('ZZ')) {
+      setIcaoResults([]);
+    } else if (isIcao && upper.length >= 2) {
       try {
         const { searchAirports } = require('../../db/icao');
         setIcaoResults(await searchAirports(upper, 4));
       } catch { setIcaoResults([]); }
     } else { setIcaoResults([]); }
+  };
+
+  const openTempList = async () => {
+    try {
+      const { getAllTempPlaces } = require('../../db/icao');
+      const temps = await getAllTempPlaces();
+      setTempPlaces(temps.map((t: any) => ({ icao: t.icao, name: t.name })));
+    } catch { setTempPlaces([]); }
+    setShowTempList(!showTempList);
   };
 
   const handleTime = (raw: string) => {
@@ -602,12 +618,21 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
             onChangeText={isIcao ? handleIcaoChange : isTime ? handleTime : onChangeText}
             autoCapitalize={isIcao || issue.field === 'registration' || issue.field === 'aircraft_type' ? 'characters' : 'none'}
             keyboardType={isNum ? 'decimal-pad' : isTime ? 'number-pad' : 'default'}
-            maxLength={isIcao ? 4 : isTime ? 5 : undefined}
+            maxLength={isIcao ? 12 : isTime ? 5 : undefined}
           />
-          {onShowImage && (
+          {onShowImage && !isIcao && (
             <TouchableOpacity onPress={onShowImage} activeOpacity={0.7}
               style={{ width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '20', borderWidth: 1, borderColor: Colors.primary + '50' }}>
               <Ionicons name="search" size={14} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
+          {isIcao && onAddTemp && (
+            <TouchableOpacity
+              onPress={openTempList}
+              activeOpacity={0.7}
+              style={{ width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.warning + '20', borderWidth: 1, borderColor: Colors.warning + '50' }}
+            >
+              <Ionicons name={showTempList ? 'chevron-up' : 'list'} size={14} color={Colors.warning} />
             </TouchableOpacity>
           )}
         </View>
@@ -633,7 +658,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
         </TouchableOpacity>
       )}
       {/* ICAO autocomplete */}
-      {icaoResults.length > 0 && (
+      {icaoResults.length > 0 && !showTempList && (
         <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.cardBorder, marginTop: 4, overflow: 'hidden' }}>
           {icaoResults.map(r => (
             <TouchableOpacity key={r.icao} onPress={() => { onChangeText(r.icao); setIcaoResults([]); }} activeOpacity={0.7}
@@ -642,6 +667,45 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
               <Text style={{ fontSize: 10, color: Colors.textMuted }} numberOfLines={1}>{r.name}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+      )}
+      {isTemp && (
+        <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.warning, marginTop: 2, letterSpacing: 0.3 }}>TILLFÄLLIG LANDNINGSPLATS</Text>
+      )}
+      {showTempList && (
+        <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.warning + '55', marginTop: 4, overflow: 'hidden' }}>
+          {tempPlaces.length > 0 ? tempPlaces.slice(0, 8).map(t => (
+            <TouchableOpacity key={t.icao} onPress={() => {
+              onChangeText(t.icao);
+              setShowTempList(false);
+            }} activeOpacity={0.7}
+              style={{ paddingVertical: 6, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ fontSize: 11, fontFamily: mono, color: Colors.success, fontWeight: '700' }}>{t.icao}</Text>
+              <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{t.name}</Text>
+            </TouchableOpacity>
+          )) : (
+            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>Inga sparade platser</Text>
+          )}
+          <TouchableOpacity
+            onPress={() => {
+              setShowTempList(false);
+              const code = value.toUpperCase();
+              Alert.prompt(
+                'Ny tillfällig plats',
+                'Ange namn (t.ex. "Villingsberg")',
+                [
+                  { text: 'Avbryt', style: 'cancel' },
+                  { text: 'Spara', onPress: (name) => { if (onAddTemp) onAddTemp(name?.trim() || code); } },
+                ],
+                'plain-text', '', 'default',
+              );
+            }}
+            activeOpacity={0.7}
+            style={{ paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
+            <Ionicons name="add-circle" size={14} color={Colors.primary} />
+            <Text style={{ fontSize: 11, color: Colors.primary, fontWeight: '700' }}>Ny plats...</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -706,47 +770,106 @@ function MiniFieldDate({ value, onChangeText }: { value: string; onChangeText: (
 }
 
 function MiniFieldIcao({ label, value, onChangeText, onAddTemp }: {
-  label: string; value: string; onChangeText: (v: string) => void; onAddTemp?: () => void;
+  label: string; value: string; onChangeText: (v: string) => void; onAddTemp?: (name: string) => void;
 }) {
   const [results, setResults] = useState<{ icao: string; name: string }[]>([]);
+  const [isTemp, setIsTemp] = useState(false);
+  const [showTempDropdown, setShowTempDropdown] = useState(false);
+  const [existingTemps, setExistingTemps] = useState<{ icao: string; name: string }[]>([]);
+
+  const upper = value.toUpperCase();
+  const startsZZ = upper.startsWith('ZZ');
+  const beyondIcao = upper.length > 4;
+  const shouldSearchIcao = upper.length >= 2 && upper.length <= 4 && !startsZZ && !isTemp;
+
   const handleChange = async (v: string) => {
-    const upper = v.toUpperCase();
-    onChangeText(upper);
-    if (upper.length >= 2) {
+    const u = v.toUpperCase();
+    onChangeText(u);
+    if (u.length > 4 || u.startsWith('ZZ')) {
+      setResults([]);
+      if (!isTemp) setIsTemp(true);
+    } else if (u.length >= 2) {
+      setIsTemp(false);
       try {
         const { searchAirports } = require('../../db/icao');
-        const found = await searchAirports(upper, 4);
-        setResults(found);
+        setResults(await searchAirports(u, 4));
       } catch { setResults([]); }
-    } else { setResults([]); }
+    } else {
+      setResults([]);
+      setIsTemp(false);
+    }
   };
+
+  const loadTemps = async () => {
+    try {
+      const { getAllTempPlaces } = require('../../db/icao');
+      const temps = await getAllTempPlaces();
+      setExistingTemps(temps.map((t: any) => ({ icao: t.icao, name: t.name })));
+    } catch { setExistingTemps([]); }
+  };
+
   return (
     <View style={{ width: '48%', marginBottom: 10 }}>
-      <Text style={miniLabelStyle}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={miniLabelStyle}>{label}</Text>
+        {(isTemp || startsZZ || beyondIcao) && (
+          <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.warning, letterSpacing: 0.3 }}>TILLFÄLLIG</Text>
+        )}
+      </View>
       <View style={{ flexDirection: 'row', gap: 4 }}>
         <TextInput
           style={[miniInputStyle, { flex: 1 }]}
           value={value}
           onChangeText={handleChange}
           autoCapitalize="characters"
-          maxLength={4}
+          maxLength={12}
         />
         {onAddTemp && (
-          <TouchableOpacity onPress={onAddTemp} activeOpacity={0.7}
-            style={{ width: 28, borderRadius: 6, backgroundColor: Colors.warning + '22', borderWidth: 1, borderColor: Colors.warning + '55', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="add" size={14} color={Colors.warning} />
+          <TouchableOpacity
+            onPress={async () => {
+              await loadTemps();
+              setShowTempDropdown(!showTempDropdown);
+            }}
+            activeOpacity={0.7}
+            style={{ width: 28, borderRadius: 6, backgroundColor: Colors.warning + '22', borderWidth: 1, borderColor: Colors.warning + '55', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name={showTempDropdown ? 'chevron-up' : 'list'} size={14} color={Colors.warning} />
           </TouchableOpacity>
         )}
       </View>
-      {results.length > 0 && (
+
+      {/* ICAO search results (only for 2-4 chars, not ZZ, not temp mode) */}
+      {shouldSearchIcao && results.length > 0 && !showTempDropdown && (
         <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.cardBorder, marginTop: 2, overflow: 'hidden' }}>
           {results.map(r => (
-            <TouchableOpacity key={r.icao} onPress={() => { onChangeText(r.icao); setResults([]); }} activeOpacity={0.7}
+            <TouchableOpacity key={r.icao} onPress={() => { onChangeText(r.icao); setResults([]); setIsTemp(false); }} activeOpacity={0.7}
               style={{ paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
               <Text style={{ fontSize: 11, fontFamily: mono, color: Colors.primary, fontWeight: '700' }}>{r.icao}</Text>
               <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{r.name}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+      )}
+
+      {/* Saved temp places dropdown */}
+      {showTempDropdown && (
+        <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.warning + '55', marginTop: 2, overflow: 'hidden' }}>
+          {existingTemps.length > 0 ? existingTemps.slice(0, 8).map(t => (
+            <TouchableOpacity key={t.icao} onPress={() => {
+              onChangeText(t.icao);
+              setShowTempDropdown(false);
+              setIsTemp(true);
+            }} activeOpacity={0.7}
+              style={{ paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ fontSize: 11, fontFamily: mono, color: Colors.success, fontWeight: '700' }}>{t.icao}</Text>
+              <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{t.name}</Text>
+            </TouchableOpacity>
+          )) : (
+            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>Inga sparade platser</Text>
+          )}
+          <TouchableOpacity onPress={() => setShowTempDropdown(false)} style={{ padding: 6, alignItems: 'center' }}>
+            <Text style={{ fontSize: 10, color: Colors.textMuted }}>Stäng</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -1227,6 +1350,25 @@ export default function ReviewScreen() {
     return Array.from(map.values());
   };
 
+  const autoConfirmIfAllKnown = async (dets: AircraftDetection[]): Promise<boolean> => {
+    if (!dets || dets.length === 0) return true;
+    const profileTypes = useScanProfileStore.getState().profile.aircraftTypes.map(t => t.toUpperCase());
+    const registryTypes = (await getAllAircraftTypes()).map(e => e.aircraft_type.toUpperCase());
+    const known = new Set([...profileTypes, ...registryTypes]);
+    const allKnown = dets.every(d => known.has(d.resolved.toUpperCase()));
+    if (allKnown) {
+      setRows((prev) => prev.map((r) => {
+        const hit = dets.find(d =>
+          d.as_written.toUpperCase() === (r.original.aircraft_type || '').toUpperCase() ||
+          d.as_written.toUpperCase() === (r.data.aircraft_type || '').toUpperCase()
+        );
+        if (!hit || hit.resolved.toUpperCase() === (r.data.aircraft_type || '').toUpperCase()) return r;
+        return { ...r, data: { ...r.data, aircraft_type: hit.resolved.toUpperCase() } };
+      }));
+    }
+    return allKnown;
+  };
+
   const resolveArithmetic = (data: OcrFlightResult): void => {
     const timeFields: (keyof OcrFlightResult)[] = [
       'total_time', 'pic', 'co_pilot', 'dual', 'ifr', 'night',
@@ -1417,7 +1559,7 @@ export default function ReviewScreen() {
           return;
         }
 
-        if (allDetections.length === 0) setAircraftConfirmed(true);
+        autoConfirmIfAllKnown(allDetections).then(known => { if (known) setAircraftConfirmed(true); });
         setBatchRunning(false);
         setBatchRemainder({ pages: batch.slice(1), prevContext, allDetections });
       })();
@@ -1429,7 +1571,7 @@ export default function ReviewScreen() {
           setScanLayouts([imageLayout?.logbook_bounds ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 }]);
           const deduped = dedupeDetections(aircraftDetections);
           setDetections(deduped);
-          if (!deduped || deduped.length === 0) setAircraftConfirmed(true);
+          autoConfirmIfAllKnown(deduped).then(known => { if (known) setAircraftConfirmed(true); });
           const newRows = flightsToRows(flights);
           setRows(newRows);
           setScannedPageNumbers([pageNumbers]);
@@ -1591,9 +1733,42 @@ export default function ReviewScreen() {
           duplicates++;
           continue;
         }
+        if (row.data.other_times && row.data.other_time_labels) {
+          for (const [key, val] of Object.entries(row.data.other_times)) {
+            if (!val || val <= 0) continue;
+            const label = (row.data.other_time_labels[key] ?? '').toUpperCase();
+            if (label.includes('NVG') || label.includes('NVD')) {
+              row.data.nvg = String(val);
+            }
+          }
+        }
+        for (const field of ['dep_place', 'arr_place'] as const) {
+          const val = (row.data[field] ?? '').toUpperCase();
+          if (!val) continue;
+          if (val.length > 4 || val.startsWith('ZZ')) {
+            try {
+              const { generateTemporaryIcao } = require('../../db/icao');
+              const tempCode = val === 'ZZZZ' ? 'ZZZZ' : await generateTemporaryIcao(val);
+              await addTemporaryPlace(tempCode, val.length > 4 ? val : tempCode);
+              row.data[field] = tempCode;
+            } catch { /* keep as is */ }
+          }
+        }
         const id = await insertFlight(row.data, { source: 'ocr', originalData: JSON.stringify(row.original) });
         if (id) savedFlightIds.push(id);
         saved++;
+      }
+
+      // Update aircraft registry with all scanned aircraft types + registrations
+      const seenAircraft = new Map<string, string>();
+      for (const row of rows) {
+        if (row.decision === 'skip' || wizardDecisions[rows.indexOf(row)] === 'skip') continue;
+        const type = (row.data.aircraft_type ?? '').toUpperCase();
+        const reg = (row.data.registration ?? '').toUpperCase();
+        if (type && !seenAircraft.has(type + '|' + reg)) {
+          seenAircraft.set(type + '|' + reg, reg);
+          try { await addToAircraftRegistry(type, reg); } catch { /* ignore */ }
+        }
       }
 
       // Save unknown ICAOs as temporary places
@@ -1985,36 +2160,6 @@ export default function ReviewScreen() {
                             }}
                             resizeMode="contain"
                           />
-                          {/* Rad-highlight — relativ till croppat område */}
-                          {rowYPct != null && (
-                            <View
-                              style={{
-                                position: 'absolute',
-                                top: ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 12,
-                                left: 0, width: imgW, height: 24,
-                                backgroundColor: Colors.warning + '30',
-                                borderTopWidth: 2, borderBottomWidth: 2,
-                                borderColor: Colors.warning,
-                              }}
-                            />
-                          )}
-                          {/* Fält-highlights */}
-                          {issues.map((issue, i) => (
-                            issue.x_pct != null && rowYPct != null ? (
-                              <View
-                                key={i}
-                                style={{
-                                  position: 'absolute',
-                                  top: ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 12,
-                                  left: ((issue.x_pct - bounds.x_pct) / bounds.w_pct) * imgW - 20,
-                                  width: 40, height: 24,
-                                  borderWidth: 2, borderColor: Colors.danger,
-                                  borderRadius: 4,
-                                  backgroundColor: Colors.danger + '25',
-                                }}
-                              />
-                            ) : null
-                          ))}
                         </View>
                       </ScrollView>
                     </ScrollView>
@@ -2130,6 +2275,15 @@ export default function ReviewScreen() {
                           totalRows: 100,
                           fieldXPct: issue.x_pct,
                         }) : undefined}
+                        onAddTemp={(issue.field === 'dep_place' || issue.field === 'arr_place') ? (name) => {
+                          const code = String((currentRow.data as any)[issue.field] ?? '').toUpperCase();
+                          if (code) {
+                            addTemporaryPlace(code, name || code);
+                            saveLearnedMapping('icao', code, code);
+                            setUnknownIcaos(prev => { const s = new Set(prev); s.delete(code); return s; });
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          }
+                        } : undefined}
                       />
                     );
                   })}
@@ -2162,28 +2316,99 @@ export default function ReviewScreen() {
                 <Ionicons name={showAllFields ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textMuted} />
               </Pressable>
 
-              {showAllFields && (
-                <View style={styles.miniFieldGrid}>
-                  <MiniFieldDate value={currentRow.data.date ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'date', v)} />
-                  <MiniField label="REG" value={currentRow.data.registration ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'registration', v.toUpperCase())} />
-                  <MiniFieldIcao label="DEP" value={currentRow.data.dep_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_place', v)} onAddTemp={() => {
-                    const code = currentRow.data.dep_place?.toUpperCase();
-                    if (code) { setUnknownIcaos(prev => new Set([...prev, code])); Alert.alert('Tillfällig plats', `${code} sparas som tillfällig landningsplats`); }
-                  }} />
-                  <MiniFieldIcao label="ARR" value={currentRow.data.arr_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_place', v)} onAddTemp={() => {
-                    const code = currentRow.data.arr_place?.toUpperCase();
-                    if (code) { setUnknownIcaos(prev => new Set([...prev, code])); Alert.alert('Tillfällig plats', `${code} sparas som tillfällig landningsplats`); }
-                  }} />
-                  <MiniFieldTime label="DEP UTC" value={currentRow.data.dep_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_utc', v)} />
-                  <MiniFieldTime label="ARR UTC" value={currentRow.data.arr_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_utc', v)} />
-                  <MiniFieldNum label="TOTAL" value={currentRow.data.total_time ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'total_time', v)} />
-                  <MiniFieldNum label="PIC" value={currentRow.data.pic ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'pic', v)} />
-                  <MiniFieldNum label="DUAL" value={currentRow.data.dual ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dual', v)} />
-                  <MiniFieldNum label="IFR" value={currentRow.data.ifr ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'ifr', v)} />
-                  <MiniFieldNum label="NIGHT" value={currentRow.data.night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'night', v)} />
-                  <MiniFieldNum label="LDG DAY" value={currentRow.data.landings_day ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_day', v)} />
-                  <MiniFieldNum label="LDG NIGHT" value={currentRow.data.landings_night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_night', v)} />
-                  <MiniField label="REMARKS" value={currentRow.data.remarks ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'remarks', v)} />
+              {showAllFields && (() => {
+                const profileCols = useScanProfileStore.getState().profile.columnOrder;
+                const addTempHandler = (field: 'dep_place' | 'arr_place') => (name: string) => {
+                  const code = currentRow.data[field]?.toUpperCase();
+                  if (code) {
+                    addTemporaryPlace(code, name || code);
+                    saveLearnedMapping('icao', code, code);
+                    setUnknownIcaos(prev => { const s = new Set(prev); s.delete(code); return s; });
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                };
+                const fieldMap: Record<string, React.ReactNode> = {
+                  date: <MiniFieldDate key="date" value={currentRow.data.date ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'date', v)} />,
+                  aircraft_type: <MiniField key="type" label="TYPE" value={currentRow.data.aircraft_type ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'aircraft_type', v.toUpperCase())} />,
+                  registration: <MiniField key="reg" label="REG" value={currentRow.data.registration ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'registration', v.toUpperCase())} />,
+                  dep_place: <MiniFieldIcao key="dep" label="DEP" value={currentRow.data.dep_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_place', v)} onAddTemp={addTempHandler('dep_place')} />,
+                  dep_utc: <MiniFieldTime key="dep_utc" label="DEP UTC" value={currentRow.data.dep_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dep_utc', v)} />,
+                  arr_place: <MiniFieldIcao key="arr" label="ARR" value={currentRow.data.arr_place ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_place', v)} onAddTemp={addTempHandler('arr_place')} />,
+                  arr_utc: <MiniFieldTime key="arr_utc" label="ARR UTC" value={currentRow.data.arr_utc ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'arr_utc', v)} />,
+                  total_time: <MiniFieldNum key="total" label="TOTAL" value={currentRow.data.total_time ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'total_time', v)} />,
+                  pic: <MiniFieldNum key="pic" label="PIC" value={currentRow.data.pic ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'pic', v)} />,
+                  co_pilot: <MiniFieldNum key="cop" label="CO-PILOT" value={currentRow.data.co_pilot ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'co_pilot', v)} />,
+                  dual: <MiniFieldNum key="dual" label="DUAL" value={currentRow.data.dual ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'dual', v)} />,
+                  instructor: <MiniFieldNum key="instr" label="INSTRUCTOR" value={currentRow.data.instructor ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'instructor', v)} />,
+                  multi_pilot: <MiniFieldNum key="mp" label="MULTI-PILOT" value={currentRow.data.multi_pilot ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'multi_pilot', v)} />,
+                  single_pilot: <MiniFieldNum key="sp" label="SINGLE-PILOT" value={currentRow.data.single_pilot ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'single_pilot', v)} />,
+                  ifr: <MiniFieldNum key="ifr" label="IFR" value={currentRow.data.ifr ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'ifr', v)} />,
+                  vfr: <MiniFieldNum key="vfr" label="VFR" value={currentRow.data.vfr ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'vfr', v)} />,
+                  night: <MiniFieldNum key="night" label="NIGHT" value={currentRow.data.night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'night', v)} />,
+                  nvg: <MiniFieldNum key="nvg" label="NVG" value={currentRow.data.nvg ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'nvg', v)} />,
+                  landings_day: <MiniFieldNum key="ldgd" label="LDG DAY" value={currentRow.data.landings_day ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_day', v)} />,
+                  landings_night: <MiniFieldNum key="ldgn" label="LDG NIGHT" value={currentRow.data.landings_night ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'landings_night', v)} />,
+                  se_time: <MiniFieldNum key="se" label="SE" value={currentRow.data.se_time ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'se_time', v)} />,
+                  me_time: <MiniFieldNum key="me" label="ME" value={currentRow.data.me_time ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'me_time', v)} />,
+                  sim: <MiniFieldNum key="sim" label="SIM" value={currentRow.data.sim ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'sim', v)} />,
+                  remarks: <MiniField key="rmk" label="REMARKS" value={currentRow.data.remarks ?? ''} onChangeText={v => updateField(currentFlaggedRowIdx, 'remarks', v)} />,
+                };
+                const otherFields = currentRow.data.other_times
+                  ? Object.entries(currentRow.data.other_times).map(([key, val]) => {
+                      const lbl = currentRow.data.other_time_labels?.[key] || key.replace('other_flight_time', 'Other').replace(/_/g, ' ');
+                      return (
+                        <MiniFieldNum key={key} label={lbl.toUpperCase().slice(0, 10)} value={String(val || '')}
+                          onChangeText={v => { setRows(prev => prev.map((r, i) => i !== currentFlaggedRowIdx ? r : { ...r, data: { ...r.data, other_times: { ...r.data.other_times, [key]: parseFloat(v) || 0 } } })); }}
+                        />
+                      );
+                    })
+                  : [];
+                const orderedFields: React.ReactNode[] = [];
+                if (profileCols.length > 0) {
+                  for (const col of profileCols) {
+                    if (col.startsWith('other_flight_time')) {
+                      const otherField = otherFields.find((f: any) => f.key === col);
+                      if (otherField) orderedFields.push(otherField);
+                    } else if (fieldMap[col]) {
+                      orderedFields.push(fieldMap[col]);
+                    }
+                  }
+                  const usedKeys = new Set(profileCols);
+                  for (const [k, node] of Object.entries(fieldMap)) {
+                    if (!usedKeys.has(k)) orderedFields.push(node);
+                  }
+                  for (const f of otherFields) {
+                    if (!usedKeys.has((f as any).key)) orderedFields.push(f);
+                  }
+                } else {
+                  orderedFields.push(...Object.values(fieldMap), ...otherFields);
+                }
+                return <View style={styles.miniFieldGrid}>{orderedFields}</View>;
+              })()}
+
+              {/* Other times confirmation banner */}
+              {currentRow.data.other_times && Object.entries(currentRow.data.other_times).some(([, v]) => v > 0) && (
+                <View style={{
+                  backgroundColor: Colors.warning + '12', borderRadius: 10,
+                  borderWidth: 1, borderColor: Colors.warning + '33',
+                  padding: 12, marginTop: 8, gap: 6,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="alert-circle" size={16} color={Colors.warning} />
+                    <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>
+                      Other flight time
+                    </Text>
+                  </View>
+                  {Object.entries(currentRow.data.other_times).filter(([, v]) => v > 0).map(([key, val]) => {
+                    const label = currentRow.data.other_time_labels?.[key] || '?';
+                    return (
+                      <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ color: Colors.textSecondary, fontSize: 12, flex: 1 }}>
+                          "{label}" = {val}h — {label.toUpperCase().includes('NV') ? 'NVG/NVD-tid?' : 'Bekräfta typ'}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               )}
 
@@ -2254,16 +2479,6 @@ export default function ReviewScreen() {
                           style={{ width: imgW, height: imgH }}
                           resizeMode="contain"
                         />
-                        {/* Gul highlight-ruta på texten */}
-                        <View style={{
-                          position: 'absolute',
-                          top: (rowYPct / 100) * imgH - 14,
-                          left: (fieldXPct / 100) * imgW - 40,
-                          width: 80, height: 28,
-                          backgroundColor: Colors.warning + '30',
-                          borderWidth: 2.5, borderColor: Colors.warning,
-                          borderRadius: 6,
-                        }} />
                       </View>
                     </ScrollView>
                   </ScrollView>

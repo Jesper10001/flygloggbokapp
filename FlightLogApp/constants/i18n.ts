@@ -243,6 +243,11 @@ export const translations = {
 
     import_manual_title: 'Log flight manually',
     import_manual_sub: 'Fill in flight details by hand',
+    scan_profile_title: 'Scan Profile',
+    scan_profile_sub: 'Help AI read your logbook accurately',
+    scan_profile_done: 'Configured — tap to edit',
+    scan_profile_needed: 'Required — set up before scanning',
+    scan_choose_image: 'Choose image',
     summarise_page_title: 'Summarize page',
     summarise_page_sub: 'Take photo of page totals for quick overview',
     transcribe_title: 'Transcribe to paper',
@@ -1304,6 +1309,11 @@ export const translations = {
 
     import_manual_title: 'Logga flygning manuellt',
     import_manual_sub: 'Fyll i flygdetaljer för hand',
+    scan_profile_title: 'Skanningsprofil',
+    scan_profile_sub: 'Hjälp AI läsa din loggbok korrekt',
+    scan_profile_done: 'Konfigurerad — tryck för att ändra',
+    scan_profile_needed: 'Obligatoriskt — ställ in innan skanning',
+    scan_choose_image: 'Välj bild',
     summarise_page_title: 'Summera sida',
     summarise_page_sub: 'Fotografera sidsummor för snabb överblick',
     transcribe_title: 'Transkribera till papper',

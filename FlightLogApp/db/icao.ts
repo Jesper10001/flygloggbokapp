@@ -183,6 +183,18 @@ export async function getAllTemporaryPlaces(): Promise<IcaoAirport[]> {
   );
 }
 
+export async function getAllTempPlaces(): Promise<IcaoAirport[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<IcaoAirport>('SELECT * FROM icao_airports WHERE temporary = 1');
+}
+
+export async function getUnlocatedTemporaryPlaces(): Promise<IcaoAirport[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<IcaoAirport>(
+    'SELECT * FROM icao_airports WHERE temporary = 1 AND (lat = 0 OR lon = 0 OR lat IS NULL OR lon IS NULL)'
+  );
+}
+
 export function calculateDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number

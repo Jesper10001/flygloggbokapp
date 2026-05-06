@@ -4,6 +4,47 @@ import type { TimeFormat } from '../store/timeFormatStore';
 
 import { callAnthropicJson } from './anthropicClient';
 import { buildContextHint } from '../db/ocrLearned';
+import { useScanProfileStore, buildScanContext } from '../store/scanProfileStore';
+
+const SLIM_SYSTEM_PROMPT = `Du är expert på att läsa flygloggböcker. Scan-profilen nedan beskriver EXAKT vilka kolumner loggboken har och i vilken ordning. Följ den strikt.
+
+ARBETSORDNING:
+1. Läs raderna uppifrån och ned, en åt gången
+2. Använd COLUMN MAPPING från scan-profilen för att identifiera varje kolumn efter POSITION
+3. Lös ditto-symboler (-::-, -11-, ″, do.) mot senaste riktiga värde i samma kolumn
+4. Returnera JSON först när alla rader är klara
+
+KOLUMNREGLER:
+- Pilottid (PIC/Dual/Co-pilot/Instructor) bestäms av KOLUMNPOSITION — gissa aldrig
+- aircraft_type + modell delar alltid samma kolumn
+- remarks + andrepilot delar alltid samma kolumn
+- 2-3 bokstavskod i remarks som INTE är flygterm (ILS/NDB/VOR/GPS/RNAV/LOC/PC/OPC/LPC) → second_pilot
+
+MULTI-PILOT (automatisk):
+- co_pilot > 0 + andrepilot finns → multi_pilot = total_time
+- pic > 0 + andrepilot finns → multi_pilot = total_time
+- dual > 0 (elev) → multi_pilot = 0
+- instructor > 0 → multi_pilot = total_time
+
+TIDSREGLER:
+- Läs total_time FÖRST som anchor, validera dep/arr mot den
+- Addition i tidsfält (1.2+0.2) → beräkna summan (1.4)
+- Returnera alltid decimal. Behåll pilotens värde om läsbart
+- Avvikelse >5min → time_mismatch-objekt + needs_review
+
+DITTO: -::- / -11- / ″ / do. → kopiera EXAKT föregående rads värde. Aldrig hybrid.
+Tomma fält (type/reg/dep/arr): ärv från föregående rad.
+
+DATUM: Kronologiskt — välj datum som passar sekvensen vid osäkerhet.
+
+HANDSKRIFT: Vanliga förväxlingar: 1↔7, 3↔8, 0↔6, 5↔6, A↔H, N↔H.
+ICAO: Prova A↔H/N↔H-varianter vid okänd kod.
+
+KONFIDENS: overall_confidence 0-1. ≥0.95 = auto-godkänd. <0.80 = needs_review.
+field_issues: bara fält med confidence <0.85.
+
+Returnera ENBART JSON (samma schema som vanligt med aircraft_detections, flights, page_totals, page_numbers, image_layout).`;
+
 
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
@@ -38,7 +79,26 @@ för senare:
        }
      Användaren får en Ja/Nej-knapp bredvid dep och arr och kan välja vilken
      som är rätt; den andra justeras automatiskt.
-  3. Övriga kolumner (pic, co_pilot, ifr, night, landings, remarks)
+  3. Övriga kolumner — VIKTIGT: om en COLUMN MAPPING finns i scan-profilen,
+     använd ALLTID kolumnpositionen för att avgöra om ett värde är PIC, Dual,
+     Co-pilot eller Instructor. Gissa ALDRIG baserat på värdet — samma tid
+     (t.ex. 1.5) kan stå i PIC-kolumnen ELLER Dual-kolumnen. Positionen avgör.
+     En elev loggar all tid som DUAL, inte PIC. En instruktör loggar som
+     Instructor. Läs kolumnhuvudet eller scan-profilens mapping.
+
+MULTI-PILOT TID (AUTOMATISK HÄRLEDNING):
+Många äldre loggböcker saknar en separat "Multi-pilot"-kolumn. Härleda multi_pilot
+automatiskt enligt dessa regler:
+- Om co_pilot > 0 (tid loggad som co-pilot) OCH det finns en andrepilot
+  (second_pilot eller namn i remarks) → multi_pilot = total_time
+- Om pic > 0 OCH det finns en andrepilot → multi_pilot = total_time
+  (PIC med andrepilot = multi-pilot operation)
+- Om dual > 0 (elev under utbildning) → multi_pilot = 0
+  (dual-tid som elev räknas INTE som multi-pilot, även om instruktör sitter bredvid)
+- Om instructor > 0 → multi_pilot = total_time
+  (instruktör flygande med elev = multi-pilot operation)
+Sätt multi_pilot ÄVEN om loggboken inte har en MP-kolumn. Returnera alltid
+multi_pilot-fältet i JSON.
 
 Om total_time saknas eller är oläslig, fall tillbaka på (arr − dep).
 
@@ -46,13 +106,14 @@ KOLUMNSTRUKTUR I EASA-LOGGBOK (vanlig ordning vänster→höger):
 1. Datum
 2. Avgångsplats (ICAO) + tid
 3. Ankomstplats (ICAO) + tid
-4. Luftfartyg — TYP (t.ex. C172, PA28, B737, A320)
+4. Luftfartyg — TYP + MODELL (i samma kolumn, t.ex. "Bell 206 B3", "C172SP")
+   Returnera aircraft_type = ICAO-koden (B206), aircraft_model = modellvarianten (B3)
 5. Luftfartyg — REGISTRATION (t.ex. SE-KXY, OY-ABC, G-ABCD, LN-XYZ, OH-ABC)
-6. Pilotuppgift: PIC / Co-pilot / Dual / Instructor
+6. Pilotuppgift: PIC / Co-pilot / Dual / Instructor (separata kolumner — läs POSITION, inte värde)
 7. Flygtider: Total / Natt / IFR
 8. Landningar: Dag / Natt
 9. Synthetic training session (simulator) — se nedan
-10. Anmärkningar
+10. Anmärkningar + andrepilot (delar ALLTID samma kolumn — se regler nedan)
 
 SIMULATOR (Synthetic training session) — VIKTIGT:
 Om en rad har tid i kolumnen "Synthetic training session" (STD):
@@ -170,32 +231,71 @@ Returnera alltid det värde piloten faktiskt skrev om det är läsbart.
 Generös avrundning används BARA när du själv konverterar från dep/arr-tider
 eller när värdet är suddigt/oläsligt och du måste gissa.
 
+HANDSKRIVEN ADDITION I TIDSFÄLT (VIKTIGT):
+Piloter skriver ibland en addition direkt i ett tidsfält, t.ex. "1.2 + 0.2"
+eller "0.8+0.4" istället för totalen. Beräkna summan och returnera resultatet
+som ett enda decimalvärde (1.2 + 0.2 → 1.4, 0.8 + 0.4 → 1.2). Detta gäller
+alla tidsfält: total_time, pic, co_pilot, dual, ifr, night, instructor, etc.
+Markera INTE raden som needs_review enbart pga addition — det är ett vanligt
+skrivsätt och summan är entydig.
+
 REMARKS-KLASSIFICERING:
 Om innehållet i remarks-fältet matchar ett specifikt mönster kan det egentligen
 höra hemma i ett annat fält. Föreslå detta via "remarks_suggestion"-objektet.
 
+VIKTIGT: Remarks och andrepilot delar ALLTID samma kolumn i EASA-loggböcker.
+Texten i remarks-kolumnen kan vara:
+  a) Bara andrepilot-signatur (t.ex. "SZ", "JON", "HES")
+  b) Bara anmärkning (t.ex. "ILS", "NDB", "check ride", "PC")
+  c) Blandning (t.ex. "AXA PC", "JON ILS 28R", "SZ NDB")
+
+REGLER FÖR ATT SKILJA ANDREPILOT FRÅN ANMÄRKNING:
+- Följande är ALLTID flyg-/inflygningstermer, ALDRIG andrepiloter:
+  ILS, NDB, VOR, GPS, RNAV, LOC, DME, PAR, GCA, RNP, LPV, LNAV, VNAV,
+  RVR, GLS, SRA, ASR, NPA, PA, APV, PC, OPC, LPC, CRM, IR, VFR, IFR,
+  SE, ME, SP, MP
+- 2-3 bokstavskoder (A-Z) som INTE matchar ovan → föreslå second_pilot
+- Om scanningsprofilen anger crewFormat, matcha mot det mönstret
+- Om kolumnen har BÅDE en kort bokstavskod OCH en flygterm:
+  Separera dem: bokstavskoden → second_pilot, resten → remarks
+  T.ex. "AXA PC" → second_pilot="AXA", remarks="PC"
+  T.ex. "SZ NDB" → second_pilot="SZ", remarks="NDB"
+
 Mönster att känna igen:
-- 3-bokstavs kod (A-Z), t.ex. "ABC", "DEF" → föreslå second_pilot (vanligt
-  svenskt mönster för andrepilotens signaturinitialer)
-- "PIC/us", "PICUS", "P/us" → föreslå att värdet flyttas till picus-fältet
+- 2-3 bokstavskod (A-Z) som inte är flygterm → föreslå second_pilot
+- "PIC/us", "PICUS", "P/us" → föreslå picus-fältet
 - "SPIC", "SP/c" → föreslå spic-fältet
-- "NVG" följt av tid → föreslå nvg-fältet
-- "IR ren.", "IR renewal", "PC" → ingen åtgärd (låt stå i remarks)
-- "check ride", "OPC", "LPC" → ingen åtgärd
+- "NVG"/"NVD" följt av tid → föreslå nvg-fältet
 - "touch and go" → överväg flight_type = 'touch_and_go'
 - Instruktörs-signatur (fullt namn) → ingen åtgärd (bör stå i remarks)
 
-Skicka ENDAST remarks_suggestion om confidence >= 0.6. Format:
+Skicka ALLTID remarks_suggestion om du identifierar en andrepilot. Format:
 {
   "field": "second_pilot",
-  "value": "ABC",
-  "original_text": "ABC",
-  "confidence": 0.75,
-  "reason": "3-bokstavskod — vanligen andrepilotens signatur"
+  "value": "SZ",
+  "original_text": "SZ NDB",
+  "confidence": 0.80,
+  "reason": "2-bokstavskod — andrepilotens signatur, NDB kvar i remarks"
 }
 
 Användaren får en Ja/Nej-prompt och kan välja att acceptera eller behålla
 värdet i remarks.
+
+OTHER TYPE OF FLIGHT TIME (VIKTIGT):
+Om scan-profilen anger other_flight_time-kolumner, läs värdena i dessa kolumner
+för varje rad. Returnera dem som:
+  "other_times": { "other_flight_time": 0.7, "other_flight_time_2": 0.0 }
+  "other_time_labels": { "other_flight_time": "AR landings", "other_flight_time_2": "NVD" }
+
+other_time_labels: läs kolumnhuvudet (kan vara handskrivet, t.ex. "AR landings",
+"NVD", "NVG") och returnera det. Om kolumnen är tom/ingen rubrik: "".
+other_times: decimalvärdet i kolumnen för den raden. 0 om tomt.
+
+Dessa värden ska ALLTID flaggas i field_issues med reason som beskriver vad
+kolumnen verkar innehålla, t.ex.:
+  { "field": "other_flight_time", "reason": "NVD-tid — bekräfta", "confidence": 0.7,
+    "suggested_value": "0.7" }
+Användaren får bekräfta vad tiden avser (NVG, NVD, etc.) innan den loggas.
 
 SIDNUMMER-DETEKTION (VIKTIGT):
 Läs sidnumren som står längst ned (vanligen i mitten eller hörnen) på vänster
@@ -214,6 +314,21 @@ ICAO-VALIDERING:
 - ICAO-koder är alltid exakt 4 bokstäver
 - Om koden verkar felaktig eller bara 3 bokstäver, flagga för granskning
 - Det är fullt normalt att dep_place och arr_place är samma (övningsflyg, trafik­mönster, lokala rundflygningar) — flagga INTE detta
+- En plats som inte matchar ett känt 4-bokstavs ICAO-mönster kan vara en
+  tillfällig landningsplats (t.ex. ett fältnamn, en militärbas med lokal kod).
+  Returnera den text du ser och flagga med field_issues om du är osäker.
+
+DATUMVALIDERING (VIKTIGT):
+- Datum läses uppifrån och ned. Varje rads datum bör vara SAMMA som eller SENARE
+  än föregående rads datum. Om det verkar gå bakåt i tid → troligt OCR-fel.
+- Förväntat mönster: samma månad eller nästa månad. Hopp på flera månader är
+  möjligt men ovanligt — höj osäkerheten.
+- Vanliga handskriftsförväxlingar i datum: 1↔7, 3↔8, 5↔6, 0↔6, 11↔17.
+- Om ett datum är svårläst, välj det alternativ som bäst passar in i den
+  kronologiska sekvensen (t.ex. om rad 3=2024-03-12 och rad 5=2024-03-14,
+  men rad 4 ser ut som "13" eller "18" → välj "2024-03-13").
+- Flagga för granskning om du inte är säker, med suggested_value satt till
+  ditt bästa förslag baserat på kronologisk ordning.
 
 KONFIDENS PER RAD OCH FÄLT (VIKTIGT):
 För varje rad, ange hur säker du är på totalt och på enskilda fält.
@@ -323,6 +438,8 @@ Returnera ENBART ett JSON-objekt:
       "landings_day": 0,
       "landings_night": 0,
       "remarks": "",
+      "other_times": {},
+      "other_time_labels": {},
       "needs_review": false,
       "review_reason": null,
       "remarks_suggestion": null,
@@ -490,8 +607,17 @@ export async function ocrScanPage(
   const learnedHint = await buildContextHint();
   if (learnedHint) contextHint += `\n\n${learnedHint}`;
 
+  // Bifoga scan profile-kontext (användarens loggboksbeskrivning)
+  const scanProfile = useScanProfileStore.getState().profile;
+  const hasProfile = useScanProfileStore.getState().hasProfile();
+  if (hasProfile) {
+    contextHint += buildScanContext(scanProfile);
+  }
+
+  const systemPrompt = hasProfile ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
+
   const parsed = await callAnthropicJson<any>({
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     maxTokens: 16000,
     userContent: [
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
@@ -565,6 +691,12 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       tng_count: f.tng_count !== undefined ? String(f.tng_count) : undefined,
       second_pilot: f.second_pilot !== undefined ? String(f.second_pilot) : undefined,
       stop_place: f.stop_place !== undefined ? String(f.stop_place).toUpperCase() : undefined,
+      other_times: f.other_times && typeof f.other_times === 'object'
+        ? Object.fromEntries(Object.entries(f.other_times).map(([k, v]) => [k, Number(v) || 0]))
+        : undefined,
+      other_time_labels: f.other_time_labels && typeof f.other_time_labels === 'object'
+        ? Object.fromEntries(Object.entries(f.other_time_labels).map(([k, v]) => [k, String(v ?? '')]))
+        : undefined,
       needs_review: Boolean(f.needs_review),
       review_reason: f.review_reason ?? undefined,
       remarks_suggestion: validSuggestion,
