@@ -8,7 +8,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
-import { exportToCSV, exportToPDF } from '../../services/export';
+import { exportToCSV } from '../../services/export';
+import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportDroneToCSV } from '../../services/droneExport';
 import { clearAllFlights, getFlightCount } from '../../db/flights';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -25,6 +26,7 @@ import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
+import { useVersionStore } from '../../store/versionStore';
 
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
@@ -113,6 +115,7 @@ function PremiumPill() {
 // ── Huvudskärm ─────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
+  const styles = makeSettingsStyles();
   const router = useRouter();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
@@ -172,9 +175,22 @@ export default function SettingsScreen() {
     finally { setExportingCSV(false); }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
+    Alert.alert(
+      t('pdf_layout_title'),
+      t('pdf_layout_desc'),
+      [
+        { text: t('pdf_layout_easa'), onPress: () => runPdfExport('easa') },
+        { text: t('pdf_layout_modern'), onPress: () => runPdfExport('modern') },
+        { text: t('pdf_layout_editorial'), onPress: () => runPdfExport('editorial') },
+        { text: t('cancel'), style: 'cancel' },
+      ],
+    );
+  };
+
+  const runPdfExport = async (template: PdfTemplate) => {
     setExportingPDF(true);
-    try { await exportToPDF(); }
+    try { await exportPilotPDF(template); }
     catch (e: any) { Alert.alert(t('export_failed'), e.message); }
     finally { setExportingPDF(false); }
   };
@@ -301,7 +317,7 @@ export default function SettingsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{t('certificates')}</Text>
               <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {certCount > 0 ? `${certCount} ${certCount === 1 ? 'certifikat' : 'certifikat'}` : t('certificates_sub')}
+                {certCount > 0 ? `${certCount} ${t('certificates_count')}` : t('certificates_sub')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
@@ -384,15 +400,15 @@ export default function SettingsScreen() {
       <Card>
         <Row
           icon="cloud-outline" iconColor={Colors.info}
-          title="iCloud-sync" subtitle={t('coming_soon')}
+          title={t('icloud_sync')} subtitle={t('coming_soon')}
           right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
           pressable={false}
         />
         <Row
           icon="document-text-outline" iconColor={Colors.primary}
           title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
-          right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-          onClick={handleExportPDF}
+          right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
+          onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
         />
         <Row
           icon="cloud-upload-outline" iconColor={Colors.primary}
@@ -462,13 +478,34 @@ export default function SettingsScreen() {
       {/* ── G. Om ── */}
       <SectionHeader>{t('about')}</SectionHeader>
       <Card>
-        <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title="Version"
-          right={<Text style={{ fontSize: 13, color: Colors.textMuted }}>1.0.0</Text>} pressable={false}
+        <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title={t('version')}
+          right={
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 13, color: Colors.textMuted, fontFamily: 'Menlo' }}>1.0.0</Text>
+              {useVersionStore.getState().updateAvailable && (
+                <View style={{ backgroundColor: Colors.primary + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.primary }}>{t('update_available')}</Text>
+                </View>
+              )}
+            </View>
+          }
+          onClick={() => {
+            useVersionStore.getState().check().then(() => {
+              if (useVersionStore.getState().updateAvailable) {
+                Alert.alert(t('update_available'), t('update_available_sub'), [
+                  { text: t('cancel'), style: 'cancel' },
+                  { text: 'App Store', onPress: () => require('react-native').Linking.openURL('https://apps.apple.com') },
+                ]);
+              } else {
+                Alert.alert(t('version'), t('version_up_to_date') ?? 'You are on the latest version.');
+              }
+            });
+          }}
         />
-        <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title="Local data storage"
-          subtitle="All data on your device" pressable={false}
+        <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title={t('local_storage')}
+          subtitle={t('local_storage_sub')} pressable={false}
         />
-        <Row icon="mail" iconColor={Colors.textSecondary} title="Support" subtitle="support@flightlogpro.se"
+        <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com"
           onClick={() => Alert.alert(t('support_alert_title'), t('support_alert_message'))} border={false}
         />
       </Card>
@@ -527,7 +564,7 @@ export default function SettingsScreen() {
         {/* Rundtur */}
         <Row icon="compass-outline" iconColor={Colors.primary} title={t('replay_tour')} subtitle={t('replay_tour_sub')}
           onClick={() => router.push(isDrone ? '/preview' : '/manned-preview')} />
-        <Row icon="refresh-circle-outline" iconColor={Colors.primary} title="Replay onboarding" subtitle="Reset and show intro flow"
+        <Row icon="refresh-circle-outline" iconColor={Colors.primary} title={t('replay_onboarding')} subtitle={t('replay_onboarding_sub')}
           onClick={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
 
         {/* Rensa data */}
@@ -610,7 +647,7 @@ function SwitchModeButton({ appMode, setAppMode }: { appMode: 'manned' | 'drone'
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+function makeSettingsStyles() { return StyleSheet.create({
   toggle: {
     flexDirection: 'row', backgroundColor: Colors.elevated,
     borderRadius: 8, padding: 3, gap: 3,
@@ -623,4 +660,4 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: Colors.primary },
   toggleText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   toggleTextActive: { color: Colors.textInverse },
-});
+}); }

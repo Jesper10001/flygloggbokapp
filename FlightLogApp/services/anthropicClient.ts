@@ -98,6 +98,10 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (USE_PROXY) {
     headers['X-Device-ID'] = getDeviceId();
+    try {
+      const { useFlightStore } = require('../store/flightStore');
+      if (useFlightStore.getState().isPremium) headers['X-Premium'] = 'true';
+    } catch { /* ignore */ }
   } else {
     headers['x-api-key'] = API_KEY;
     headers['anthropic-version'] = ANTHROPIC_VERSION;

@@ -113,9 +113,16 @@ export async function updateFlight(
     'spic','examiner','safety_pilot','observer','ferry_pic','relief_crew','sim_category','vfr',
   ];
 
+  const norm = (v: any) => {
+    if (v === null || v === undefined || v === '') return '';
+    const s = String(v);
+    if (s === '0' || s === '0.0' || s === '0.00') return '';
+    return s;
+  };
+
   for (const field of fields) {
-    const oldVal = String((existing as any)[field] ?? '');
-    const newVal = String(data[field] ?? '');
+    const oldVal = norm((existing as any)[field]);
+    const newVal = norm(data[field]);
     if (oldVal !== newVal) {
       await db.runAsync(
         `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)

@@ -119,9 +119,10 @@ export function buildScanContext(p: ScanProfile): string {
   }
   if (p.columnOrder.length > 0) {
     const numbered = p.columnOrder.map((key, i) => `Column ${i + 1} = ${key}`).join('\n  ');
-    lines.push(`COLUMN MAPPING (CRITICAL — follow strictly):\n  ${numbered}`);
+    lines.push(`COLUMN MAPPING (OVERRIDES the generic column structure in system prompt):\n  ${numbered}`);
     lines.push(`Total columns: ${p.columnOrder.length}. Count from left edge of LEFT page to right edge of RIGHT page.`);
-    lines.push('This mapping is AUTHORITATIVE. Do NOT guess which column is which — use the position numbers above.');
+    lines.push('This mapping is AUTHORITATIVE and OVERRIDES any column order described earlier in this prompt.');
+    lines.push('Do NOT guess which column is which — use the position numbers above.');
     lines.push('If column 10 = dual, then the 10th physical column from the left contains DUAL time, not PIC or anything else.');
     const otherCols = p.columnOrder.filter(k => k.startsWith('other_flight_time'));
     if (otherCols.length > 0) {

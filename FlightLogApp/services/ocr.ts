@@ -6,46 +6,6 @@ import { callAnthropicJson } from './anthropicClient';
 import { buildContextHint } from '../db/ocrLearned';
 import { useScanProfileStore, buildScanContext } from '../store/scanProfileStore';
 
-const SLIM_SYSTEM_PROMPT = `Du är expert på att läsa flygloggböcker. Scan-profilen nedan beskriver EXAKT vilka kolumner loggboken har och i vilken ordning. Följ den strikt.
-
-ARBETSORDNING:
-1. Läs raderna uppifrån och ned, en åt gången
-2. Använd COLUMN MAPPING från scan-profilen för att identifiera varje kolumn efter POSITION
-3. Lös ditto-symboler (-::-, -11-, ″, do.) mot senaste riktiga värde i samma kolumn
-4. Returnera JSON först när alla rader är klara
-
-KOLUMNREGLER:
-- Pilottid (PIC/Dual/Co-pilot/Instructor) bestäms av KOLUMNPOSITION — gissa aldrig
-- aircraft_type + modell delar alltid samma kolumn
-- remarks + andrepilot delar alltid samma kolumn
-- 2-3 bokstavskod i remarks som INTE är flygterm (ILS/NDB/VOR/GPS/RNAV/LOC/PC/OPC/LPC) → second_pilot
-
-MULTI-PILOT (automatisk):
-- co_pilot > 0 + andrepilot finns → multi_pilot = total_time
-- pic > 0 + andrepilot finns → multi_pilot = total_time
-- dual > 0 (elev) → multi_pilot = 0
-- instructor > 0 → multi_pilot = total_time
-
-TIDSREGLER:
-- Läs total_time FÖRST som anchor, validera dep/arr mot den
-- Addition i tidsfält (1.2+0.2) → beräkna summan (1.4)
-- Returnera alltid decimal. Behåll pilotens värde om läsbart
-- Avvikelse >5min → time_mismatch-objekt + needs_review
-
-DITTO: -::- / -11- / ″ / do. → kopiera EXAKT föregående rads värde. Aldrig hybrid.
-Tomma fält (type/reg/dep/arr): ärv från föregående rad.
-
-DATUM: Kronologiskt — välj datum som passar sekvensen vid osäkerhet.
-
-HANDSKRIFT: Vanliga förväxlingar: 1↔7, 3↔8, 0↔6, 5↔6, A↔H, N↔H.
-ICAO: Prova A↔H/N↔H-varianter vid okänd kod.
-
-KONFIDENS: overall_confidence 0-1. ≥0.95 = auto-godkänd. <0.80 = needs_review.
-field_issues: bara fält med confidence <0.85.
-
-Returnera ENBART JSON (samma schema som vanligt med aircraft_detections, flights, page_totals, page_numbers, image_layout).`;
-
-
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
     ? 'TIDSFORMAT: Loggboken använder HH:MM-format (t.ex. 1:30 = 1h30min). Returnera alltid tider som decimal i JSON (1:30 → 1.5).'
@@ -61,14 +21,15 @@ ARBETSORDNING (SKA FÖLJAS):
 4. Returnera slutliga JSON:en först när ALLA rader är bearbetade sekventiellt
 
 LÄSORDNING INOM EN RAD (VIKTIGT):
-Läs fälten i denna ordning per rad, så att tidigare fält kan agera "anchor"
-för senare:
-  1. total_time  ← läs FÖRST. Decimalformat är oftast lättare att avkoda och
-                    ger en trovärdig absolut flygtid. Spara detta som "anchor".
+Läs fälten i denna ordning per rad:
+  1. total_time  ← läs FÖRST. Detta är det VIKTIGASTE fältet och den
+     absoluta sanningskällan för flygtiden. Spara som "anchor".
+     ÄNDRA ALDRIG total_time för att passa dep/arr-tider.
   2. dep_utc / arr_utc — validera mot anchor:
      - Räkna (arr − dep) → jämför mot total_time
-     - Om avvikelse > 5 min: EN av tiderna är troligen fel-OCR'ad
+     - Om avvikelse > 5 min: dep eller arr är troligen fel-OCR'ad
        (vanligt i handskrift: 3↔8, 0↔6, 5↔6, 1↔7, 7↔9)
+     - Behåll ALLTID total_time som det står. Anpassa dep/arr, INTE tvärtom.
      - Sätt needs_review=true och inkludera time_mismatch i JSON:
        "time_mismatch": {
          "anchor_total_h": 1.5,
@@ -77,8 +38,7 @@ för senare:
          "computed_dep_if_arr_correct": "15:00",
          "computed_arr_if_dep_correct": "14:30"
        }
-     Användaren får en Ja/Nej-knapp bredvid dep och arr och kan välja vilken
-     som är rätt; den andra justeras automatiskt.
+     Användaren väljer sedan vilken tid som är rätt.
   3. Övriga kolumner — VIKTIGT: om en COLUMN MAPPING finns i scan-profilen,
      använd ALLTID kolumnpositionen för att avgöra om ett värde är PIC, Dual,
      Co-pilot eller Instructor. Gissa ALDRIG baserat på värdet — samma tid
@@ -115,16 +75,18 @@ KOLUMNSTRUKTUR I EASA-LOGGBOK (vanlig ordning vänster→höger):
 9. Synthetic training session (simulator) — se nedan
 10. Anmärkningar + andrepilot (delar ALLTID samma kolumn — se regler nedan)
 
-SIMULATOR (Synthetic training session) — VIKTIGT:
-Om en rad har tid i kolumnen "Synthetic training session" (STD):
-- Raden är en SIMULATORSESSION, inte en flygning
+SIMULATOR (Synthetic training session / STD / FSTD / FFS / Sim) — VIKTIGT:
+Kolumnen kan heta "Synthetic training session", "STD", "FSTD", "FFS",
+"Sim" eller liknande. Om en rad har tid i denna kolumn:
 - Sätt flight_type = "sim"
-- Sätt total_time = STD-tiden (INTE från "Total time of flight" — den är 0 för sim)
+- Sätt total_time = tiden i sim-kolumnen
+- "Total time of flight"-kolumnen är normalt 0 eller tom för sim — ignorera den
+- Om VARKEN total_time eller sim-kolumnen har tid, lämna total_time = 0
 - Dep/arr-platser kan vara tomma eller angivna som sim-center
-- Returnera STD-tiden i fältet "total_time" så det loggas korrekt
-- PIC/co-pilot/dual gäller fortfarande — piloter loggar rolltid i sim också
-- Landningar: vanligtvis 0 för sim (ignorera om de ser konstiga ut)
-- AI ska INTE blanda ihop sim-tid med flygtid — de är separata
+- PIC/co-pilot/dual gäller fortfarande — piloter loggar rolltid i sim
+- Landningar: vanligtvis 0 för sim
+- Sim-tid räknas INTE som flygtid — de är separata
+- Blanda ALDRIG ihop sim-rader med vanliga flygningsrader
 
 LUFTFARTYGSTYP — viktigt:
 - Står ofta i en smal kolumn, kan vara förkortat: "C172", "PA-28", "B737", "A320", "TB20", "DA40"
@@ -330,6 +292,9 @@ DATUMVALIDERING (VIKTIGT):
 - Flagga för granskning om du inte är säker, med suggested_value satt till
   ditt bästa förslag baserat på kronologisk ordning.
 
+TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → returnera 0.
+Varje flygning (ej sim) bör ha minst 1 landning — flagga om 0.
+
 KONFIDENS PER RAD OCH FÄLT (VIKTIGT):
 För varje rad, ange hur säker du är på totalt och på enskilda fält.
 
@@ -364,7 +329,6 @@ Exempel:
 BILDORIENTERING:
 - Bilden kan vara roterad 90° (loggboken fotograferad stående eller liggande)
 - Läs texten oavsett orientering — rotera mentalt om nödvändigt
-- Om bilden är 90° roterad är kolumnerna horisontella istället för vertikala — anpassa läsningen
 
 BILD-METADATA (VIKTIGT — returnera alltid):
 Returnera fältet image_layout på toppnivå:
@@ -384,9 +348,6 @@ redan är croppat tight: {x_pct:0, y_pct:0, w_pct:100, h_pct:100}.
 
 För VARJE flygningsrad, returnera ungefärlig position i bilden:
   "row_y_pct": 35    // radans vertikala mitt i % av bildhöjden (0=överst, 100=underst)
-
-För varje field_issue, returnera ungefärlig horisontell position:
-  "x_pct": 65        // fältets horisontella position i % av bildbredden
 
 AIRCRAFT-DETEKTERING (KRITISKT):
 Innan du returnerar flights-listan, gruppera de unika luftfartyg du sett på
@@ -614,10 +575,8 @@ export async function ocrScanPage(
     contextHint += buildScanContext(scanProfile);
   }
 
-  const systemPrompt = hasProfile ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
-
   const parsed = await callAnthropicJson<any>({
-    system: systemPrompt,
+    system: SYSTEM_PROMPT,
     maxTokens: 16000,
     userContent: [
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },

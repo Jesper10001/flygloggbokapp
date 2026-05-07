@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { getDatabase } from '../db/database';
 import { seedIcaoAirports } from '../db/icao';
@@ -16,6 +18,7 @@ import { usePilotTypeStore } from '../store/pilotTypeStore';
 import { useProfileStore } from '../store/profileStore';
 import { useScanProfileStore } from '../store/scanProfileStore';
 import { cleanupDittoEntries } from '../db/ocrLearned';
+import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 
@@ -25,6 +28,7 @@ export default function RootLayout() {
   const { loadTimeFormat } = useTimeFormatStore();
   const { loadTheme, theme } = useThemeStore();
   const { loadMode } = useAppModeStore();
+  const { forceUpdate, check: checkVersion } = useVersionStore();
 
   useEffect(() => {
     // Lås rotation till portrait som default — bara transkriberingsvyn
@@ -44,22 +48,44 @@ export default function RootLayout() {
         await useProfileStore.getState().load();
         await useScanProfileStore.getState().load();
         await cleanupDittoEntries();
+        await checkVersion();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
         const onboarded = await getSetting('has_onboarded');
         // Wait for layout to mount before navigating
-        await new Promise(r => setTimeout(r, 300));
-        if (!onboarded) {
-          router.replace('/onboarding');
-          return;
-        }
-        router.replace('/(tabs)');
+        await new Promise(r => setTimeout(r, 500));
+        const dest = !onboarded ? '/onboarding' : '/(tabs)';
+        router.replace(dest);
       } catch (err) {
         console.error('DB init error:', err);
       }
     };
     init();
   }, []);
+
+  if (forceUpdate) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <StatusBar style={theme === 'bright' ? 'dark' : 'light'} />
+        <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <Ionicons name="arrow-up-circle" size={32} color={Colors.primary} />
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 }}>
+          Uppdatering krävs
+        </Text>
+        <Text style={{ fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+          Den här versionen stöds inte längre. Uppdatera appen för att fortsätta.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}
+          onPress={() => Linking.openURL('https://apps.apple.com')}
+          activeOpacity={0.85}
+        >
+          <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Öppna App Store</Text>
+        </TouchableOpacity>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
@@ -74,9 +100,11 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="flight/[id]" options={{ title: 'Flight' }} />
-        <Stack.Screen name="flight/add" options={{ title: 'Log flight', presentation: 'modal' }} />
+        <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
+        <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
+        <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports' }} />
         <Stack.Screen name="settings/drones" options={{ title: 'Manage drones' }} />
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates' }} />
@@ -84,6 +112,8 @@ export default function RootLayout() {
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
         <Stack.Screen name="settings/scan-profile" options={{ title: 'Scan Profile' }} />
+        <Stack.Screen name="settings/premium" options={{ title: 'Premium' }} />
+        <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export' }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />

@@ -93,6 +93,7 @@ function buildTree(flights: Flight[]): YearGroup[] {
 // ─── Crew type helpers ──────────────────────────────────────────────────────
 
 function SpecBadges({ crewType, engineType }: { crewType: string; engineType: string }) {
+  const styles = makeLogStyles();
   const parts = crewType ? crewType.split(',').map((s) => s.trim()).filter(Boolean) : [];
   const hasSP = parts.includes('sp');
   const hasMP = parts.includes('mp');
@@ -120,6 +121,7 @@ function SpecBadges({ crewType, engineType }: { crewType: string; engineType: st
 function FlightRow({ flight, onPress, isLast }: {
   flight: Flight; onPress: () => void; isLast?: boolean;
 }) {
+  const styles = makeLogStyles();
   const { formatTime } = useTimeFormat();
   const f = flight;
   const day = f.date?.split('-')[2] ?? '??';
@@ -352,6 +354,7 @@ const getSummaryRows = (t: (k: any) => string) => [
 // ─── TranscribeView ────────────────────────────────────────────────────────
 
 function TranscribeView() {
+  const tvStyles = makeTvStyles();
   const router = useRouter();
   const { t } = useTranslation();
   const { timeFormat } = useTimeFormatStore();
@@ -967,7 +970,7 @@ function TranscribeView() {
   );
 }
 
-const tvStyles = StyleSheet.create({
+function makeTvStyles() { return StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1336,7 +1339,7 @@ const tvStyles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 20,
   },
-});
+}); }
 
 // ─── WeaponsView ────────────────────────────────────────────────────────────
 
@@ -1516,6 +1519,8 @@ function WeaponsView() {
 // ─── Main screen ────────────────────────────────────────────────────────────
 
 export default function LogScreen() {
+  const styles = makeLogStyles();
+  const tvStyles = makeTvStyles();
   const router = useRouter();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
@@ -1724,7 +1729,7 @@ export default function LogScreen() {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+function makeLogStyles() { return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
   // Tab header
@@ -2031,4 +2036,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary + '66',
   },
   crewBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: '700' },
-});
+}); }

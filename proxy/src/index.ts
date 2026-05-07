@@ -14,7 +14,14 @@ interface Env {
 const MONTHLY_LIMITS: Record<string, number> = {
   scan: 12,
   summarize: 20,
-  lookup: 15,
+  lookup: 20,
+  import: 5,
+};
+
+const PREMIUM_LIMITS: Record<string, number> = {
+  scan: 12,
+  summarize: 20,
+  lookup: 20,
   import: 5,
 };
 
@@ -50,9 +57,10 @@ function detectRequestType(body: string): string | null {
 }
 
 async function checkAndIncrementQuota(
-  kv: KVNamespace, deviceHash: string, reqType: string
+  kv: KVNamespace, deviceHash: string, reqType: string, isPremium: boolean
 ): Promise<{ allowed: boolean; used: number; limit: number }> {
-  const limit = MONTHLY_LIMITS[reqType];
+  const limits = isPremium ? PREMIUM_LIMITS : MONTHLY_LIMITS;
+  const limit = limits[reqType];
   if (!limit) return { allowed: true, used: 0, limit: 0 };
 
   const month = currentMonth();
@@ -73,7 +81,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -132,6 +140,241 @@ const n = (v: any, fallback = 0) => {
   const x = Number(v);
   return isNaN(x) ? fallback : x;
 };
+
+// ── Landing page ──────────────────────────────────────────────────────────
+
+function landingPage(): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BLADES — Joint Logbook</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,'Helvetica Neue',sans-serif;background:#0A1628;color:#E6EDF3;overflow-x:hidden}
+a{color:#00C8E8;text-decoration:none}
+.hero{max-width:720px;margin:0 auto;padding:80px 24px 60px;text-align:center}
+.logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:32px}
+.logo-icon{width:40px;height:40px;border-radius:10px;background:#00C8E8;display:grid;place-items:center;color:#0A1628;font-weight:900;font-size:22px}
+.logo-text{font-size:14px;letter-spacing:5px;font-weight:700;color:#7FA8C8}
+h1{font-size:clamp(36px,6vw,56px);font-weight:800;letter-spacing:-1.5px;line-height:1.05;margin-bottom:16px}
+h1 span{color:#00C8E8}
+.sub{font-size:18px;color:#7FA8C8;line-height:1.5;max-width:520px;margin:0 auto 36px}
+.cta{display:inline-flex;align-items:center;gap:8px;background:#00C8E8;color:#0A1628;font-weight:800;font-size:16px;padding:14px 32px;border-radius:12px;transition:transform .15s}
+.cta:hover{transform:scale(1.03)}
+.cta svg{width:20px;height:20px}
+.features{max-width:720px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:600px){.features{grid-template-columns:1fr}}
+.feat{background:#0F1E3A;border:1px solid #1A3A5A;border-radius:14px;padding:24px}
+.feat-icon{font-size:28px;margin-bottom:10px}
+.feat h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.feat p{font-size:13px;color:#7FA8C8;line-height:1.5}
+.pricing{max-width:720px;margin:0 auto;padding:0 24px 60px;text-align:center}
+.pricing h2{font-size:12px;letter-spacing:3px;color:#7FA8C8;text-transform:uppercase;margin-bottom:16px}
+.price-card{background:#0F1E3A;border:1px solid #00C8E8;border-radius:16px;padding:32px;max-width:340px;margin:0 auto}
+.price-amount{font-size:48px;font-weight:800;color:#00C8E8;font-variant-numeric:tabular-nums}
+.price-period{font-size:14px;color:#7FA8C8;margin-top:4px}
+.price-features{text-align:left;margin-top:20px;font-size:13px;color:#B5C8D8;line-height:2}
+.price-features li{list-style:none;padding-left:20px;position:relative}
+.price-features li::before{content:'✓';position:absolute;left:0;color:#00C8E8;font-weight:700}
+.footer{border-top:1px solid #1A3A5A;padding:24px;text-align:center;font-size:12px;color:#5F7FA0}
+.footer a{color:#7FA8C8}
+</style>
+</head><body>
+
+<div class="hero">
+  <div class="logo">
+    <div class="logo-icon">B</div>
+    <div class="logo-text">BLADES</div>
+  </div>
+  <h1>Your flight log,<br><span>digitised.</span></h1>
+  <p class="sub">AI-powered logbook scanning, pilot CV export, certificate tracking — built for helicopter and fixed-wing pilots, operators, and drone pilots.</p>
+  <a class="cta" href="https://apps.apple.com">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+    Download on the App Store
+  </a>
+</div>
+
+<div class="features">
+  <div class="feat">
+    <div class="feat-icon">📸</div>
+    <h3>AI Scan</h3>
+    <p>Photograph your paper logbook — AI reads every row, resolves ditto marks, and validates times.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">📄</div>
+    <h3>PDF Export</h3>
+    <p>Three professional layouts — EASA, Modern, and Editorial — ready for job applications.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🛡️</div>
+    <h3>Certificates</h3>
+    <p>Track ratings, medicals, and proficiency checks with expiry alerts and renewal reminders.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">📊</div>
+    <h3>Stress Indicator</h3>
+    <p>14-day workload gauge based on your flight hours — know when you're pushing limits.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🔒</div>
+    <h3>Offline First</h3>
+    <p>All data stored locally on your device. No account needed. Works without internet.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🚁</div>
+    <h3>Multi-role</h3>
+    <p>Pilot, crew chief, swimmer, HEMS, loadmaster, drone — one app for everyone.</p>
+  </div>
+</div>
+
+<div class="pricing">
+  <h2>Pricing</h2>
+  <div class="price-card">
+    <div class="price-amount">49 kr</div>
+    <div class="price-period">per month</div>
+    <ul class="price-features">
+      <li>12 AI logbook scans / month</li>
+      <li>20 smart aircraft lookups</li>
+      <li>PDF export (3 layouts)</li>
+      <li>CSV import & custom export</li>
+      <li>Global ICAO airport database</li>
+      <li>1 free scan to try before you buy</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  <p>© ${new Date().getFullYear()} Toreld Apps · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="mailto:support@blades-app.com">Support</a></p>
+</div>
+
+</body></html>`;
+}
+
+// ── Privacy Policy ────────────────────────────────────────────────────────
+
+function privacyPage(): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy — BLADES</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0A1628;color:#C8D8E8;max-width:680px;margin:0 auto;padding:40px 24px;line-height:1.7;font-size:15px}
+h1{color:#E6EDF3;font-size:28px;font-weight:800;margin-bottom:8px}
+h2{color:#E6EDF3;font-size:18px;font-weight:700;margin:28px 0 8px}
+p,ul{margin-bottom:12px}
+ul{padding-left:20px}
+a{color:#00C8E8}
+.meta{color:#5F7FA0;font-size:13px;margin-bottom:24px}
+</style>
+</head><body>
+<h1>Privacy Policy</h1>
+<p class="meta">BLADES — Joint Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
+
+<h2>1. Data Storage</h2>
+<p>BLADES stores all flight data, certificates, and settings <strong>locally on your device</strong> using an encrypted SQLite database. We do not operate user accounts, and no flight data is stored on our servers.</p>
+
+<h2>2. AI Processing</h2>
+<p>When you use AI-powered features (logbook scanning, aircraft lookup, CSV import mapping), the image or text you submit is sent to Anthropic's Claude API via our Cloudflare Workers proxy for processing. This data is:</p>
+<ul>
+<li>Transmitted over HTTPS (encrypted in transit)</li>
+<li>Processed by Anthropic and <strong>not stored</strong> on their servers after processing</li>
+<li>Not used to train AI models (per Anthropic's API terms)</li>
+<li>Not stored on our proxy beyond the duration of the request</li>
+</ul>
+
+<h2>3. Data We Collect</h2>
+<p>Our proxy collects minimal anonymous telemetry:</p>
+<ul>
+<li>An anonymous device hash (not your Apple ID or personal identifier)</li>
+<li>Request count and type (scan, lookup, etc.) for quota enforcement</li>
+<li>Country of origin (from Cloudflare, not GPS)</li>
+<li>No names, email addresses, flight data, or personal information</li>
+</ul>
+
+<h2>4. Third-Party Services</h2>
+<ul>
+<li><strong>Anthropic (Claude API)</strong> — AI processing. <a href="https://www.anthropic.com/privacy">Anthropic Privacy Policy</a></li>
+<li><strong>Cloudflare Workers</strong> — API proxy and hosting. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a></li>
+<li><strong>Apple App Store</strong> — distribution and payments</li>
+<li><strong>OpenStreetMap / CARTO / Esri</strong> — map tiles (no personal data sent)</li>
+</ul>
+
+<h2>5. Your Rights</h2>
+<p>Since all data is stored locally on your device, you have full control:</p>
+<ul>
+<li><strong>Export</strong> your data at any time (CSV or PDF)</li>
+<li><strong>Delete</strong> all data from Settings → Clear all logbook data</li>
+<li><strong>Uninstall</strong> the app to remove all data permanently</li>
+</ul>
+
+<h2>6. Children</h2>
+<p>BLADES is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+<h2>7. Changes</h2>
+<p>We may update this policy. Changes will be posted at this URL. Continued use of the app constitutes acceptance.</p>
+
+<h2>8. Contact</h2>
+<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
+
+<p style="margin-top:32px;text-align:center"><a href="/">← Back to BLADES</a></p>
+</body></html>`;
+}
+
+// ── Terms of Service ──────────────────────────────────────────────────────
+
+function termsPage(): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terms of Service — BLADES</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,sans-serif;background:#0A1628;color:#C8D8E8;max-width:680px;margin:0 auto;padding:40px 24px;line-height:1.7;font-size:15px}
+h1{color:#E6EDF3;font-size:28px;font-weight:800;margin-bottom:8px}
+h2{color:#E6EDF3;font-size:18px;font-weight:700;margin:28px 0 8px}
+p,ul{margin-bottom:12px}
+ul{padding-left:20px}
+a{color:#00C8E8}
+.meta{color:#5F7FA0;font-size:13px;margin-bottom:24px}
+</style>
+</head><body>
+<h1>Terms of Service</h1>
+<p class="meta">BLADES — Joint Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
+
+<h2>1. Service</h2>
+<p>BLADES is a digital flight logbook application. It assists pilots in recording, scanning, and exporting flight data. The app is a <strong>tool</strong> — the pilot is always responsible for the accuracy of their logbook entries.</p>
+
+<h2>2. AI Features</h2>
+<p>AI-powered features (OCR scanning, aircraft lookup) are provided as an aid. Results should always be reviewed by the pilot before saving. We do not guarantee 100% accuracy of AI-generated data.</p>
+
+<h2>3. Subscriptions</h2>
+<ul>
+<li>Free tier: manual logging, 1 free AI scan, 10 aircraft lookups</li>
+<li>Premium: 49 kr/month — full AI quota, PDF export, CSV import, global ICAO database</li>
+<li>Quota top-up: 49 kr — resets all monthly limits once</li>
+<li>Scan packs: 10 scans for 30 kr, 50 scans for 150 kr</li>
+</ul>
+<p>Subscriptions are managed through Apple's App Store. Cancel any time in your Apple ID settings.</p>
+
+<h2>4. Data Ownership</h2>
+<p>You own your flight data. We do not claim any rights to the data you enter or scan into the app. You can export or delete your data at any time.</p>
+
+<h2>5. Limitation of Liability</h2>
+<p>BLADES is provided "as is". We are not liable for any errors in AI-scanned data, lost data due to device failure, or regulatory consequences of logbook inaccuracies. Always maintain a backup of your official logbook.</p>
+
+<h2>6. Acceptable Use</h2>
+<p>Do not attempt to reverse-engineer the API, bypass quota limits, or use the service for purposes other than personal flight logging.</p>
+
+<h2>7. Termination</h2>
+<p>We reserve the right to suspend service for abuse. Your local data remains yours regardless.</p>
+
+<h2>8. Contact</h2>
+<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
+
+<p style="margin-top:32px;text-align:center"><a href="/">← Back to BLADES</a></p>
+</body></html>`;
+}
 
 // ── Stats HTML ─────────────────────────────────────────────────────────────
 
@@ -306,6 +549,34 @@ export default {
       );
     }
 
+    // ── Landing page ──
+    if (url.pathname === '/' && request.method === 'GET') {
+      return new Response(landingPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // ── Privacy policy ──
+    if (url.pathname === '/privacy') {
+      return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // ── Terms of service ──
+    if (url.pathname === '/terms') {
+      return new Response(termsPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // ── Version / app news endpoint ──
+    if (url.pathname === '/version') {
+      const versionData = {
+        min_version: '1.0.0',
+        latest_version: '1.0.0',
+        force_update: false,
+        news: null,
+      };
+      return new Response(JSON.stringify(versionData), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' },
+      });
+    }
+
     // ── CORS ──
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -334,10 +605,11 @@ export default {
       try { model = JSON.parse(body).model ?? 'unknown'; } catch {}
 
       // ── Server-side quota check ──
+      const isPremium = request.headers.get('X-Premium') === 'true';
       if (env.QUOTA_KV) {
         const reqType = detectRequestType(body);
         if (reqType) {
-          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType);
+          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType, isPremium);
           if (!quota.allowed) {
             return new Response(JSON.stringify({
               error: 'quota_exceeded',

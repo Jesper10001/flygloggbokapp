@@ -1,15 +1,20 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '../db/flights';
+import { useFlightStore } from './flightStore';
 
 export const MONTHLY_QUOTA = 12;
+export const FREE_SCAN_QUOTA = 1;
+export const FREE_LOOKUP_QUOTA = 10;
 export const MONTHLY_SUMMARIZE_QUOTA = 20;
-export const MONTHLY_LOOKUP_QUOTA = 15;
+export const MONTHLY_LOOKUP_QUOTA = 20;
 export const MONTHLY_IMPORT_QUOTA = 5;
 
 export const SCAN_PACKS = [
   { count: 10, price: 30, pricePerScan: '3 kr/skanning' },
   { count: 50, price: 150, pricePerScan: '3 kr/skanning — en hel loggbok' },
 ] as const;
+
+export const MONTHLY_TOPUP_PRICE = 49;
 
 function currentMonthKey(): string {
   const d = new Date();
@@ -39,6 +44,7 @@ interface ScanQuotaState {
   consumeLookup: () => Promise<void>;
   consumeImport: () => Promise<void>;
   addExtraScans: (n: number) => Promise<void>;
+  topUpMonthly: () => Promise<void>;
 }
 
 export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
@@ -73,24 +79,36 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     set({ monthKey: mk, scansUsed, summarizeUsed, lookupUsed, importUsed, extraScans, loaded: true });
   },
 
-  monthlyRemaining: () => Math.max(0, MONTHLY_QUOTA - get().scansUsed),
+  monthlyRemaining: () => {
+    const premium = useFlightStore.getState().isPremium;
+    const quota = premium ? MONTHLY_QUOTA : FREE_SCAN_QUOTA;
+    return Math.max(0, quota - get().scansUsed);
+  },
   summarizeRemaining: () => Math.max(0, MONTHLY_SUMMARIZE_QUOTA - get().summarizeUsed),
-  lookupRemaining: () => Math.max(0, MONTHLY_LOOKUP_QUOTA - get().lookupUsed),
+  lookupRemaining: () => {
+    const premium = useFlightStore.getState().isPremium;
+    const quota = premium ? MONTHLY_LOOKUP_QUOTA : FREE_LOOKUP_QUOTA;
+    return Math.max(0, quota - get().lookupUsed);
+  },
   importRemaining: () => Math.max(0, MONTHLY_IMPORT_QUOTA - get().importUsed),
 
   totalRemaining: () => {
     const { scansUsed, extraScans } = get();
-    return Math.max(0, MONTHLY_QUOTA - scansUsed) + extraScans;
+    const premium = useFlightStore.getState().isPremium;
+    const quota = premium ? MONTHLY_QUOTA : FREE_SCAN_QUOTA;
+    return Math.max(0, quota - scansUsed) + extraScans;
   },
 
   canScan: () => get().totalRemaining() > 0,
-  canSummarize: () => get().summarizeRemaining() > 0,
   canLookup: () => get().lookupRemaining() > 0,
-  canImport: () => get().importRemaining() > 0,
+  canSummarize: () => useFlightStore.getState().isPremium || get().summarizeRemaining() > 0,
+  canImport: () => useFlightStore.getState().isPremium || get().importRemaining() > 0,
 
   consumeScan: async () => {
     const { scansUsed, extraScans } = get();
-    if (MONTHLY_QUOTA - scansUsed > 0) {
+    const premium = useFlightStore.getState().isPremium;
+    const quota = premium ? MONTHLY_QUOTA : FREE_SCAN_QUOTA;
+    if (quota - scansUsed > 0) {
       const newUsed = scansUsed + 1;
       await setSetting('scans_used', String(newUsed));
       set({ scansUsed: newUsed });
@@ -131,5 +149,18 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     const newExtra = get().extraScans + n;
     await setSetting('extra_scans', String(newExtra));
     set({ extraScans: newExtra });
+  },
+
+  topUpMonthly: async () => {
+    const s = get();
+    const newScans = s.scansUsed - MONTHLY_QUOTA;
+    const newSummarize = s.summarizeUsed - MONTHLY_SUMMARIZE_QUOTA;
+    const newLookup = s.lookupUsed - MONTHLY_LOOKUP_QUOTA;
+    const newImport = s.importUsed - MONTHLY_IMPORT_QUOTA;
+    await setSetting('scans_used', String(newScans));
+    await setSetting('summarize_used', String(newSummarize));
+    await setSetting('lookup_used', String(newLookup));
+    await setSetting('import_used', String(newImport));
+    set({ scansUsed: newScans, summarizeUsed: newSummarize, lookupUsed: newLookup, importUsed: newImport });
   },
 }));

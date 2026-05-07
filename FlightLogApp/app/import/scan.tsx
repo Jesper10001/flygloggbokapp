@@ -10,7 +10,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
-import { useScanQuotaStore, MONTHLY_QUOTA, SCAN_PACKS } from '../../store/scanQuotaStore';
+import { useScanQuotaStore, MONTHLY_QUOTA, SCAN_PACKS, MONTHLY_TOPUP_PRICE } from '../../store/scanQuotaStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { useScanProfileStore } from '../../store/scanProfileStore';
@@ -31,7 +31,9 @@ export default function ScanImportScreen() {
   const [showPremium, setShowPremium] = useState(false);
   const hasProfile = useScanProfileStore((s) => s.hasProfile);
 
-  if (!isPremium) {
+  const hasFreeTrial = !isPremium && loaded && totalRemaining() > 0;
+
+  if (!isPremium && loaded && totalRemaining() <= 0) {
     return (
       <View style={s.container}>
         <PremiumModal visible={true} onClose={() => router.back()} feature={t('import_scan_title')} />
@@ -282,6 +284,22 @@ export default function ScanImportScreen() {
             <Ionicons name="warning" size={32} color={Colors.gold} />
             <Text style={s.buySheetTitle}>{t('scan_no_scans_title')}</Text>
             <Text style={s.buySheetDesc}>{t('scan_no_scans_desc')}</Text>
+            {/* Monthly top-up */}
+            <TouchableOpacity
+              style={[s.packCard, { borderColor: Colors.gold + '88' }]}
+              onPress={() => {
+                useScanQuotaStore.getState().topUpMonthly();
+                setShowBuy(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={s.packTitle}>{t('quota_topup_btn')}</Text>
+                <Text style={s.packSub}>{t('quota_topup_body')?.slice(0, 60)}...</Text>
+              </View>
+              <Text style={[s.packPrice, { color: Colors.gold }]}>{MONTHLY_TOPUP_PRICE} kr</Text>
+            </TouchableOpacity>
+            {/* Scan packs */}
             {SCAN_PACKS.map((pack, i) => (
               <TouchableOpacity
                 key={i}

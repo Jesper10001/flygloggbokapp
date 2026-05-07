@@ -72,6 +72,18 @@ const EMPTY: FlightFormData = {
 function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
+    customHeader: {
+      paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 30 : 8, paddingBottom: 10,
+      backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+      justifyContent: 'flex-end', alignItems: 'center', position: 'relative',
+    },
+    headerClose: {
+      position: 'absolute', left: 16, bottom: 10,
+    },
+    headerDate: {
+      fontSize: 22, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.6,
+      textTransform: 'capitalize', fontFamily: 'Georgia',
+    },
     content: { padding: 16, paddingBottom: 40, gap: 8 },
 
     freeNotice: {
@@ -554,11 +566,11 @@ export default function AddFlightScreen() {
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   const CREW_ROLES = [
-    { key: 'Crew chief', label: selectedLang === 'sv' ? 'Uppdragsspecialist' : 'Crew chief' },
-    { key: 'Rescue swimmer', label: selectedLang === 'sv' ? 'Ytbärgare' : 'Rescue swimmer' },
-    { key: 'Winch operator', label: selectedLang === 'sv' ? 'Vinschoperatör' : 'Winch operator' },
-    { key: 'HEMS operator', label: selectedLang === 'sv' ? 'HEMS-operatör' : 'HEMS operator' },
-    { key: 'Loadmaster', label: selectedLang === 'sv' ? 'Lastmästare' : 'Loadmaster' },
+    { key: 'Crew chief', label: selectedLang === 'sv' ? 'Uppdragsspecialist' : 'Crew chief', short: 'CC' },
+    { key: 'Rescue swimmer', label: selectedLang === 'sv' ? 'Ytbärgare' : 'Rescue swimmer', short: 'RS' },
+    { key: 'Winch operator', label: selectedLang === 'sv' ? 'Vinschoperatör' : 'Winch operator', short: 'WO' },
+    { key: 'HEMS operator', label: selectedLang === 'sv' ? 'HEMS-operatör' : 'HEMS operator', short: 'HEMS' },
+    { key: 'Loadmaster', label: selectedLang === 'sv' ? 'Lastmästare' : 'Loadmaster', short: 'LM' },
   ];
 
   const updateCrewMember = (id: string, field: 'role' | 'name', value: string) => {
@@ -1029,6 +1041,27 @@ export default function AddFlightScreen() {
       style={styles.container}
       behavior={Platform.OS === 'android' ? 'height' : undefined}
     >
+      {/* Custom header */}
+      <TouchableOpacity
+        style={styles.customHeader}
+        onPress={() => setShowDatePicker(true)}
+        activeOpacity={0.8}
+      >
+        <TouchableOpacity style={styles.headerClose} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="close" size={22} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.headerDate}>
+            {(() => {
+              const d = form.date ? new Date(form.date + 'T12:00:00') : new Date();
+              const lang = useLanguageStore.getState().language;
+              return d.toLocaleDateString(lang === 'sv' ? 'sv-SE' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+            })()}
+          </Text>
+          <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.content}
@@ -1057,35 +1090,9 @@ export default function AddFlightScreen() {
         {/* ── Basic info ── */}
         <Text style={styles.section}>{t('basic_info')}</Text>
 
+        {/* Row 1: Aircraft type + Registration */}
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.dateFieldLabel}>{t('date')}</Text>
-            <TouchableOpacity
-              style={styles.dateBtn}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.dateBtnText}>{form.date || '—'}</Text>
-              <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-            </TouchableOpacity>
-            {errors.date ? (
-              <Text style={styles.errorInline}>{errors.date}</Text>
-            ) : null}
-            {form.date === today && (
-              <TouchableOpacity
-                style={styles.yesterdayBtn}
-                onPress={() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 1);
-                  set('date', d.toISOString().split('T')[0]);
-                }}
-              >
-                <Ionicons name="arrow-back" size={11} color={Colors.primary} />
-                <Text style={styles.yesterdayText}>{t('yesterday')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <View style={{ flex: 1.4 }}>
             <FormField
               label={t('aircraft_type')}
               value={form.aircraft_type}
@@ -1115,9 +1122,6 @@ export default function AddFlightScreen() {
               )}
             </View>
           </View>
-        </View>
-
-        <View style={styles.row2}>
           <View style={{ flex: 1 }}>
             <FormField
               label={t('registration')}
@@ -1173,7 +1177,11 @@ export default function AddFlightScreen() {
               )}
             </View>
           </View>
-          <View style={{ flex: 1.4 }}>
+        </View>
+
+        {/* Row 2: Second pilot + Cabin crew (side by side) */}
+        <View style={styles.row2}>
+          <View style={{ flex: 1 }}>
             <FormField
               label={t('second_pilot_label')}
               value={form.second_pilot ?? ''}
@@ -1232,81 +1240,79 @@ export default function AddFlightScreen() {
               </View>
             </View>
           </View>
-        </View>
-
-        {/* ── Crew ── */}
-        <View style={{ gap: 6 }}>
-          <Text style={styles.cardFieldLabel}>{t('crew_chief_label')}</Text>
-          {crewMembers.map((member) => (
-            <View key={member.id} style={{ gap: 4 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 5,
-                    backgroundColor: Colors.card, borderRadius: 8,
-                    borderWidth: 0.5, borderColor: member.role ? Colors.primary : Colors.border,
-                    paddingHorizontal: 10, paddingVertical: 11,
-                  }}
-                  onPress={() => setActiveCrewPicker(activeCrewPicker === member.id ? null : member.id)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={{ color: member.role ? Colors.primary : Colors.textMuted, fontSize: 13, fontWeight: '600' }}>
-                    {member.role ? CREW_ROLES.find(r => r.key === member.role)?.label ?? member.role : t('crew_role_select')}
-                  </Text>
-                  <Ionicons name="chevron-down" size={12} color={Colors.textMuted} />
-                </TouchableOpacity>
-                <TextInput
-                  style={{
-                    flex: 1, backgroundColor: Colors.card, borderRadius: 8,
-                    borderWidth: 0.5, borderColor: Colors.border,
-                    color: Colors.textPrimary, fontSize: 14,
-                    paddingHorizontal: 12, paddingVertical: 11,
-                  }}
-                  value={member.name}
-                  onChangeText={(v) => updateCrewMember(member.id, 'name', v)}
-                  placeholder={t('crew_chief_ph')}
-                  placeholderTextColor={Colors.textMuted}
-                />
-                {crewMembers.length > 1 && (
-                  <TouchableOpacity onPress={() => removeCrewMember(member.id)} style={{ justifyContent: 'center', padding: 4 }}>
-                    <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardFieldLabel}>{t('crew_chief_label')}</Text>
+            {crewMembers.map((member) => (
+              <View key={member.id} style={{ gap: 4, marginTop: 4 }}>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 3,
+                      backgroundColor: Colors.card, borderRadius: 8,
+                      borderWidth: 0.5, borderColor: member.role ? Colors.primary : Colors.border,
+                      paddingHorizontal: 6, paddingVertical: 12,
+                    }}
+                    onPress={() => setActiveCrewPicker(activeCrewPicker === member.id ? null : member.id)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={{ color: member.role ? Colors.primary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
+                      {member.role ? CREW_ROLES.find(r => r.key === member.role)?.short ?? member.role : t('crew_role_select')}
+                    </Text>
+                    <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
                   </TouchableOpacity>
+                  <TextInput
+                    style={{
+                      flex: 1, backgroundColor: Colors.card, borderRadius: 8,
+                      borderWidth: 0.5, borderColor: Colors.border,
+                      color: Colors.textPrimary, fontSize: 13,
+                      paddingHorizontal: 8, paddingVertical: 12,
+                    }}
+                    value={member.name}
+                    onChangeText={(v) => updateCrewMember(member.id, 'name', v)}
+                    placeholder={t('crew_chief_ph')}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  {crewMembers.length > 1 && (
+                    <TouchableOpacity onPress={() => removeCrewMember(member.id)} style={{ justifyContent: 'center' }}>
+                      <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {activeCrewPicker === member.id && (
+                  <View style={{
+                    backgroundColor: Colors.surface, borderRadius: 10,
+                    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+                  }}>
+                    {[{ key: '', label: `— ${t('clear')}` }, ...CREW_ROLES].map(opt => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={{
+                          paddingHorizontal: 14, paddingVertical: 10,
+                          borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+                          backgroundColor: member.role === opt.key ? Colors.primary + '14' : undefined,
+                        }}
+                        onPress={() => { updateCrewMember(member.id, 'role', opt.key); setActiveCrewPicker(null); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ color: member.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 )}
               </View>
-              {activeCrewPicker === member.id && (
-                <View style={{
-                  backgroundColor: Colors.surface, borderRadius: 10,
-                  borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
-                }}>
-                  {[{ key: '', label: `— ${t('clear')}` }, ...CREW_ROLES].map(opt => (
-                    <TouchableOpacity
-                      key={opt.key}
-                      style={{
-                        paddingHorizontal: 14, paddingVertical: 10,
-                        borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
-                        backgroundColor: member.role === opt.key ? Colors.primary + '14' : undefined,
-                      }}
-                      onPress={() => { updateCrewMember(member.id, 'role', opt.key); setActiveCrewPicker(null); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ color: member.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          ))}
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
-            onPress={addCrewMember}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-            <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '600' }}>{t('crew_add_more')}</Text>
-          </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+              onPress={addCrewMember}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
+              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>{t('crew_add_more')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Route ── */}

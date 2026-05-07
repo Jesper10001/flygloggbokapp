@@ -2121,47 +2121,20 @@ export default function ReviewScreen() {
               {(() => {
                 const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
                 if (pageIdx < 0 || !scanImages[pageIdx]) return null;
-                const rowYPct = currentRow?.data?.row_y_pct;
-                const issues = currentRow?.data?.field_issues ?? [];
-                // Logbook bounds — crop visuellt till bara loggboken
-                const bounds = scanLayouts[pageIdx] ?? { x_pct: 0, y_pct: 0, w_pct: 100, h_pct: 100 };
-                const fullW = 800;
-                const fullH = 500;
-                // Skala upp: bilden visas i full storlek men vi offsettar till loggbokens area
-                const cropX = (bounds.x_pct / 100) * fullW;
-                const cropY = (bounds.y_pct / 100) * fullH;
-                const imgW = (bounds.w_pct / 100) * fullW;
-                const imgH = (bounds.h_pct / 100) * fullH;
-                // Auto-scroll till rad-position (relativt croppat område)
-                const relativeRowY = rowYPct != null
-                  ? Math.max(0, ((rowYPct - bounds.y_pct) / bounds.h_pct) * imgH - 90)
-                  : 0;
+                const imgW = 800;
+                const imgH = 260;
                 return (
-                  <View style={[styles.imageCard, { height: 200 }]}>
+                  <View style={[styles.imageCard, { height: 220 }]}>
                     <ScrollView
                       horizontal
-                      contentOffset={{ x: 0, y: 0 }}
-                      showsHorizontalScrollIndicator={false}
-                      showsVerticalScrollIndicator={false}
-                      style={{ height: 200 }}
+                      showsHorizontalScrollIndicator
+                      style={{ height: 220 }}
                     >
-                      <ScrollView
-                        contentOffset={{ x: 0, y: relativeRowY }}
-                        showsVerticalScrollIndicator={false}
-                        nestedScrollEnabled
-                      >
-                        <View style={{ width: imgW, height: imgH, overflow: 'hidden' }}>
-                          <Image
-                            source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
-                            style={{
-                              width: fullW, height: fullH,
-                              marginLeft: -cropX,
-                              marginTop: -cropY,
-                            }}
-                            resizeMode="contain"
-                          />
-                        </View>
-                      </ScrollView>
+                      <Image
+                        source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
+                        style={{ width: imgW, height: imgH }}
+                        resizeMode="cover"
+                      />
                     </ScrollView>
                     <TouchableOpacity
                       style={styles.expandBtn}

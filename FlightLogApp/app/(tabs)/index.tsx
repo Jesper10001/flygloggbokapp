@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
+  Alert, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { getStressHours, getSetting } from '../../db/flights';
+import { useVersionStore } from '../../store/versionStore';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProfileStore, isOperator, type SubRole } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -105,24 +107,25 @@ function StressRing({ stress, size = 120, animKey = 0 }: { stress: StressData; s
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function LatestFlightRow({ flight, onPress, isLast }: { flight: Flight; onPress: () => void; isLast?: boolean }) {
+  const ls = makeDashStyles();
   const { formatTime } = useTimeFormat();
   const f = flight;
   const day = f.date?.split('-')[2] ?? '??';
   const mIdx = parseInt(f.date?.split('-')[1] ?? '0') - 1;
   return (
     <TouchableOpacity
-      style={[s.latestRow, !isLast && { borderBottomWidth: 0.5, borderBottomColor: Colors.separator }]}
+      style={[ls.latestRow, !isLast && { borderBottomWidth: 0.5, borderBottomColor: Colors.separator }]}
       onPress={onPress} activeOpacity={0.7}
     >
-      <View style={s.latestDate}>
-        <Text style={s.latestDay}>{day}</Text>
-        <Text style={s.latestMonth}>{MONTH_ABBR[mIdx] ?? ''}</Text>
+      <View style={ls.latestDate}>
+        <Text style={ls.latestDay}>{day}</Text>
+        <Text style={ls.latestMonth}>{MONTH_ABBR[mIdx] ?? ''}</Text>
       </View>
       <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={s.latestRoute}>{f.dep_place} → {f.arr_place}</Text>
-        <Text style={s.latestMeta}>{f.aircraft_type} · {f.registration}</Text>
+        <Text style={ls.latestRoute}>{f.dep_place} → {f.arr_place}</Text>
+        <Text style={ls.latestMeta}>{f.aircraft_type} · {f.registration}</Text>
       </View>
-      <Text style={s.latestTime}>{formatTime(f.total_time)}</Text>
+      <Text style={ls.latestTime}>{formatTime(f.total_time)}</Text>
     </TouchableOpacity>
   );
 }
@@ -152,6 +155,7 @@ const ROLE_EMOJI: Record<string, string> = {
 function OperatorDashboard({ flights, role, formatTime: fmt }: {
   flights: Flight[]; role: SubRole; formatTime: (v: number) => string;
 }) {
+  const s = makeDashStyles();
   const st = computeOperatorStats(flights, role);
   const emoji = ROLE_EMOJI[role] ?? '🎖️';
   const sv = useTranslation().t('yes') === 'Ja'; // quick lang check
@@ -237,9 +241,10 @@ function OperatorDashboard({ flights, role, formatTime: fmt }: {
 // ── Main screen ─────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
+  const s = makeDashStyles();
   const router = useRouter();
-  const mode = useAppModeStore((s) => s.mode);
-  const _theme = useThemeStore((s) => s.theme); // subscribe to force re-render on theme change
+  const mode = useAppModeStore((st) => st.mode);
+  const _theme = useThemeStore((st) => st.theme); // subscribe to force re-render on theme change
   const { stats, flights, flightCount, isLoading, loadStats, loadFlights } = useFlightStore();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
@@ -249,12 +254,14 @@ export default function DashboardScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
+  const { updateAvailable, news, check: checkVersion } = useVersionStore();
 
   useEffect(() => {
     loadStats();
     loadFlights();
     getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
     getSetting('profile_first_name').then(v => setProfileName(v ?? ''));
+    checkVersion();
   }, []);
 
   useEffect(() => {
@@ -308,11 +315,42 @@ export default function DashboardScreen() {
           loadStats(),
           loadFlights(),
           getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14))),
+          checkVersion(),
         ]);
       }} tintColor={Colors.primary} />}
     >
       {/* ── Header ── */}
       <Text style={s.hudGreeting}>{greeting}</Text>
+
+      {/* ── App news / update banner ── */}
+      {updateAvailable && (
+        <TouchableOpacity
+          style={s.newsBanner}
+          activeOpacity={0.8}
+          onPress={() => {
+            Alert.alert(t('update_available'), t('update_available_sub'), [
+              { text: t('cancel'), style: 'cancel' },
+              { text: 'App Store', onPress: () => Linking.openURL('https://apps.apple.com') },
+            ]);
+          }}
+        >
+          <Ionicons name="arrow-up-circle" size={18} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.newsBannerTitle}>{t('update_available')}</Text>
+            <Text style={s.newsBannerBody}>{t('update_available_sub')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
+      )}
+      {news && !updateAvailable && (
+        <View style={[s.newsBanner, news.type === 'warning' && { borderColor: Colors.warning + '44', backgroundColor: Colors.warning + '08' }]}>
+          <Ionicons name={news.type === 'warning' ? 'alert-circle' : 'information-circle'} size={18} color={news.type === 'warning' ? Colors.warning : Colors.info} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.newsBannerTitle}>{news.title}</Text>
+            <Text style={s.newsBannerBody}>{news.body}</Text>
+          </View>
+        </View>
+      )}
 
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
@@ -360,7 +398,7 @@ export default function DashboardScreen() {
 
         {/* Percentage display */}
         <View style={s.telPctRow}>
-          <StressRing stress={stress} size={90} animKey={refreshKey} />
+          <StressRing stress={stress} size={110} animKey={refreshKey} />
           <View style={{ flex: 1, gap: 6 }}>
             {/* Readout rows */}
             {[
@@ -481,13 +519,22 @@ export default function DashboardScreen() {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+function makeDashStyles() { return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 32 },
 
   hudHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hudLabel: { fontSize: 10, fontWeight: '700', color: Colors.primary, letterSpacing: 1.6, fontFamily: 'Menlo' },
-  hudGreeting: { fontSize: 24, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.8, marginBottom: 14, fontFamily: 'Georgia' },
+  hudGreeting: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.8, marginBottom: 16, fontFamily: 'Georgia' },
+
+  newsBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.primary + '08', borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.primary + '33',
+    padding: 12, marginBottom: 12,
+  },
+  newsBannerTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  newsBannerBody: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
   readyPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1,
@@ -496,9 +543,9 @@ const s = StyleSheet.create({
   readyText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6, fontFamily: 'Menlo' },
 
   telPanel: {
-    borderRadius: 14, overflow: 'hidden',
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.background,
-    padding: 14, gap: 12, marginBottom: 10,
+    borderRadius: 16, overflow: 'hidden',
+    backgroundColor: Colors.background, borderWidth: 0,
+    padding: 4, gap: 14, marginBottom: 14,
   },
   telGaugeHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
@@ -509,18 +556,18 @@ const s = StyleSheet.create({
   },
   telGaugeZone: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' },
   telGaugeTrack: {
-    flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'visible',
+    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'visible',
     backgroundColor: Colors.separator, position: 'relative',
   },
-  telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   telReadout: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
     paddingVertical: 5, paddingHorizontal: 10,
     backgroundColor: Colors.background + 'CC', borderRadius: 8,
     borderWidth: 1, borderColor: Colors.cardBorder,
   },
-  telReadoutLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },
-  telReadoutValue: { fontSize: 13, fontWeight: '800', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
+  telReadoutLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },
+  telReadoutValue: { fontSize: 16, fontWeight: '800', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
   telAdvice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     padding: 8, borderRadius: 8, borderLeftWidth: 3,
@@ -529,13 +576,14 @@ const s = StyleSheet.create({
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, marginTop: 14, marginBottom: 10,
+    backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 12,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
   },
-  addBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
+  addBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '800' },
 
   sectionHeader: {
-    fontSize: 10, fontWeight: '700', color: Colors.textMuted,
-    letterSpacing: 1.2, fontFamily: 'Menlo', marginTop: 16, marginBottom: 8,
+    fontSize: 11, fontWeight: '700', color: Colors.textMuted,
+    letterSpacing: 1.4, fontFamily: 'Menlo', marginTop: 20, marginBottom: 10,
   },
 
   card: {
@@ -543,14 +591,14 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden',
   },
 
-  classGrid: { flexDirection: 'row', gap: 6 },
+  classGrid: { flexDirection: 'row', gap: 8 },
   classCell: {
-    flex: 1, paddingVertical: 10, paddingHorizontal: 6,
+    flex: 1, paddingVertical: 14, paddingHorizontal: 8,
     backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
-    borderRadius: 8, alignItems: 'center',
+    borderRadius: 10, alignItems: 'center',
   },
-  classCellLabel: { fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, fontFamily: 'Menlo' },
-  classCellValue: { fontSize: 14, fontWeight: '800', marginTop: 3, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
+  classCellLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, fontFamily: 'Menlo' },
+  classCellValue: { fontSize: 17, fontWeight: '800', marginTop: 4, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
 
   milestoneCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -568,4 +616,4 @@ const s = StyleSheet.create({
   latestRoute: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.1 },
   latestMeta: { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
   latestTime: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
-});
+}); }

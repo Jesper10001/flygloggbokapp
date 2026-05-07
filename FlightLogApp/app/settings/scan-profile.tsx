@@ -11,6 +11,7 @@ import { useScanProfileStore, LOGBOOK_COLUMNS, type ScanProfile } from '../../st
 import { lookupAircraft, type AircraftLookupResult } from '../../services/aircraftLookup';
 import { addAircraftTypeToRegistry } from '../../db/flights';
 import { callAnthropicJson } from '../../services/anthropicClient';
+import { showQuotaExceededAlert } from '../../utils/quotaAlert';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
@@ -405,7 +406,7 @@ export default function ScanProfileScreen() {
                   setEditEngine(result.engine_type || '');
                   setEditCrew(result.crew_type || '');
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                } catch {
+                } catch (err: any) {
                   setLookupResult(null);
                   setEditType(q.toUpperCase());
                   setEditSpeed('');
@@ -413,7 +414,12 @@ export default function ScanProfileScreen() {
                   setEditCategory('');
                   setEditEngine('');
                   setEditCrew('');
-                  Alert.alert(sv ? 'Sökning misslyckades' : 'Lookup failed', sv ? 'Fyll i uppgifterna manuellt.' : 'Fill in the details manually.');
+                  const msg = err?.message ?? '';
+                  if (msg.includes('QUOTA_EXCEEDED') || msg.includes('quota') || msg.includes('429')) {
+                    showQuotaExceededAlert(t as any, sv ? 'Farkostsökningar slut denna månad.' : 'Aircraft lookups exhausted this month.');
+                  } else {
+                    Alert.alert(sv ? 'Sökning misslyckades' : 'Lookup failed', msg || (sv ? 'Fyll i uppgifterna manuellt.' : 'Fill in the details manually.'));
+                  }
                 } finally {
                   setLookingUp(false);
                 }
