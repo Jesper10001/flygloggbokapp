@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy — BLADES</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#F6F1E8;color:#1B2233;max-width:680px;margin:0 auto;padding:40px 24px;line-height:1.7;font-size:15px}
+h1{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:32px;font-weight:600;margin-bottom:8px}
+h2{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:20px;font-weight:500;margin:28px 0 8px}
+p,ul{margin-bottom:12px}
+ul{padding-left:20px}
+a{color:#C9522C}
+.meta{color:#6B6356;font-size:13px;margin-bottom:24px}
+.back{display:inline-flex;align-items:center;gap:6px;margin-top:32px;padding:10px 20px;background:#1B2233;color:#F6F1E8;border-radius:999px;font-size:13px;font-weight:600;text-decoration:none}
+</style>
+</head><body>
+<h1>Privacy Policy</h1>
+<p class="meta">BLADES — Joint Logbook · Last updated: 2026-05-07</p>
+
+<h2>1. Data Storage</h2>
+<p>BLADES stores all flight data, certificates, and settings <strong>locally on your device</strong> using an encrypted SQLite database. We do not operate user accounts, and no flight data is stored on our servers.</p>
+
+<h2>2. AI Processing</h2>
+<p>When you use AI-powered features (logbook scanning, aircraft lookup, CSV import mapping), the image or text you submit is sent to Anthropic's Claude API via our Cloudflare Workers proxy for processing. This data is:</p>
+<ul>
+<li>Transmitted over HTTPS (encrypted in transit)</li>
+<li>Processed by Anthropic and <strong>not stored</strong> on their servers after processing</li>
+<li>Not used to train AI models (per Anthropic's API terms)</li>
+<li>Not stored on our proxy beyond the duration of the request</li>
+</ul>
+
+<h2>3. Data We Collect</h2>
+<p>Our proxy collects minimal anonymous telemetry:</p>
+<ul>
+<li>An anonymous device hash (not your Apple ID or personal identifier)</li>
+<li>Request count and type (scan, lookup, etc.) for quota enforcement</li>
+<li>Country of origin (from Cloudflare, not GPS)</li>
+<li>No names, email addresses, flight data, or personal information</li>
+</ul>
+
+<h2>4. Third-Party Services</h2>
+<ul>
+<li><strong>Anthropic (Claude API)</strong> — AI processing. <a href="https://www.anthropic.com/privacy">Anthropic Privacy Policy</a></li>
+<li><strong>Cloudflare Workers</strong> — API proxy and hosting. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a></li>
+<li><strong>Apple App Store</strong> — distribution and payments</li>
+<li><strong>OpenStreetMap / CARTO / Esri</strong> — map tiles (no personal data sent)</li>
+</ul>
+
+<h2>5. Your Rights</h2>
+<p>Since all data is stored locally on your device, you have full control:</p>
+<ul>
+<li><strong>Export</strong> your data at any time (CSV or PDF)</li>
+<li><strong>Delete</strong> all data from Settings → Clear all logbook data</li>
+<li><strong>Uninstall</strong> the app to remove all data permanently</li>
+</ul>
+
+<h2>6. Children</h2>
+<p>BLADES is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+<h2>7. Changes</h2>
+<p>We may update this policy. Changes will be posted at this URL. Continued use of the app constitutes acceptance.</p>
+
+<h2>8. Contact</h2>
+<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
+
+<a class="back" href="/">← Back to BLADES</a>
+</body></html>

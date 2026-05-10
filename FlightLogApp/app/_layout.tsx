@@ -95,6 +95,8 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: Colors.surface },
           headerTintColor: Colors.textPrimary,
           headerTitleStyle: { fontWeight: '700' },
+          headerBackTitle: ' ',
+          headerBackTitleVisible: false,
           contentStyle: { backgroundColor: Colors.background },
         }}
       >

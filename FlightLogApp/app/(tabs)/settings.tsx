@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, TextInput, Switch,
+  Alert, ActivityIndicator, TextInput, Switch, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -506,7 +506,14 @@ export default function SettingsScreen() {
           subtitle={t('local_storage_sub')} pressable={false}
         />
         <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com"
-          onClick={() => Alert.alert(t('support_alert_title'), t('support_alert_message'))} border={false}
+          onClick={() => Linking.openURL('mailto:support@blades-app.com')}
+        />
+        <Row icon="globe-outline" iconColor={Colors.textSecondary} title="blades-app.com"
+          subtitle={t('website_sub')}
+          onClick={() => Linking.openURL('https://blades-app.com')}
+        />
+        <Row icon="document-text-outline" iconColor={Colors.textSecondary} title={t('privacy_policy')}
+          onClick={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false}
         />
       </Card>
 

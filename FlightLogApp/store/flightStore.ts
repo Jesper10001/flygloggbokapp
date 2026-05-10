@@ -4,6 +4,7 @@ import {
   getFlights,
   getFlightStats,
   getFlightCount,
+  getManualFlightCount,
   deleteFlight,
 } from '../db/flights';
 import { FREE_TIER_LIMIT } from '../constants/easa';
@@ -12,6 +13,7 @@ interface FlightStore {
   flights: Flight[];
   stats: FlightStats | null;
   flightCount: number;
+  manualFlightCount: number;
   isPremium: boolean;
   isLoading: boolean;
 
@@ -56,17 +58,19 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   flights: [],
   stats: null,
   flightCount: 0,
+  manualFlightCount: 0,
   isPremium: false,
   isLoading: false,
 
   loadFlights: async () => {
     set({ isLoading: true });
     try {
-      const [flights, count] = await Promise.all([
+      const [flights, count, manualCount] = await Promise.all([
         getFlights(10000),
         getFlightCount(),
+        getManualFlightCount(),
       ]);
-      set({ flights, flightCount: count });
+      set({ flights, flightCount: count, manualFlightCount: manualCount });
     } finally {
       set({ isLoading: false });
     }
@@ -97,7 +101,8 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   },
 
   canAddFlight: () => {
-    const { isPremium, flightCount } = get();
-    return true;
+    const { isPremium, manualFlightCount } = get();
+    if (isPremium) return true;
+    return manualFlightCount < FREE_TIER_LIMIT;
   },
 }));

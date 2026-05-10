@@ -37,10 +37,15 @@ function detectRequestType(body: string): string | null {
     const userContent = JSON.stringify(parsed.messages ?? []);
     const hasImage = userContent.includes('"type":"image"') || userContent.includes('"type": "image"');
 
-    if (system.includes('loggbokssida') || system.includes('logbook page') || system.includes('row-by-row')) {
-      return hasImage ? 'scan' : 'scan';
+    // Scan detection — check both system and user content, must have image
+    if (hasImage && (
+      system.includes('flygloggb') || system.includes('EASA') || system.includes('flygningsrad') ||
+      userContent.includes('loggbokssida') || userContent.includes('logbook page')
+    )) {
+      return 'scan';
     }
-    if (system.includes('Total this page') || system.includes('summarize') || system.includes('summera')) {
+    // Summarize — only the dedicated summarize prompt (shorter, no EASA/flygningsrad)
+    if (hasImage && system.includes('summera') && !system.includes('flygningsrad') && !system.includes('EASA')) {
       return 'summarize';
     }
     if (system.includes('aircraft') && system.includes('lookup') || system.includes('cruise_speed') && system.includes('manufacturer')) {

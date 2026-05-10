@@ -29,6 +29,8 @@ import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
 import { FlightChart } from '../../components/FlightChart';
+import { RollingLoadChart } from '../../components/RollingLoadChart';
+import { EASAProgressCharts, GoalCalculator } from '../../components/EASAProgressChart';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
@@ -1707,6 +1709,17 @@ export default function LogScreen() {
               {/* Flight time chart */}
               <View style={{ marginHorizontal: 12, marginTop: 16, marginBottom: 8 }}>
                 <FlightChart />
+              </View>
+
+              {/* 14-day rolling load */}
+              <View style={{ marginHorizontal: 12, marginBottom: 8 }}>
+                <RollingLoadChart />
+              </View>
+
+              {/* EASA CPL/ATPL progress */}
+              <View style={{ marginHorizontal: 12, marginBottom: 8, gap: 8 }}>
+                <EASAProgressCharts />
+                <GoalCalculator />
               </View>
             </ScrollView>
           )}

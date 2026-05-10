@@ -112,6 +112,20 @@ function LatestFlightRow({ flight, onPress, isLast }: { flight: Flight; onPress:
   const f = flight;
   const day = f.date?.split('-')[2] ?? '??';
   const mIdx = parseInt(f.date?.split('-')[1] ?? '0') - 1;
+
+  // Build flight condition segments
+  const total = f.total_time || 0.01;
+  const ifrH = f.ifr || 0;
+  const nightH = f.night || 0;
+  const nvgH = f.nvg || 0;
+  const vfrH = Math.max(total - ifrH - nightH, 0);
+  const segments: { color: string; pct: number; label: string }[] = [];
+  if (vfrH > 0) segments.push({ color: Colors.primary, pct: (vfrH / total) * 100, label: 'VFR' });
+  if (ifrH > 0) segments.push({ color: Colors.info, pct: (ifrH / total) * 100, label: 'IFR' });
+  if (nightH > 0) segments.push({ color: '#1A2235', pct: (nightH / total) * 100, label: 'Night' });
+  if (nvgH > 0) segments.push({ color: Colors.success, pct: (nvgH / total) * 100, label: 'NVG' });
+  if (segments.length === 0) segments.push({ color: Colors.primary, pct: 100, label: 'VFR' });
+
   return (
     <TouchableOpacity
       style={[ls.latestRow, !isLast && { borderBottomWidth: 0.5, borderBottomColor: Colors.separator }]}
@@ -121,8 +135,18 @@ function LatestFlightRow({ flight, onPress, isLast }: { flight: Flight; onPress:
         <Text style={ls.latestDay}>{day}</Text>
         <Text style={ls.latestMonth}>{MONTH_ABBR[mIdx] ?? ''}</Text>
       </View>
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={ls.latestRoute}>{f.dep_place} → {f.arr_place}</Text>
+      <View style={{ flex: 1, marginLeft: 10, gap: 4 }}>
+        {/* Route bar */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Menlo' }}>{f.dep_place}</Text>
+          <View style={{ width: 60, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
+            {segments.map((seg, i) => (
+              <View key={i} style={{ width: `${seg.pct}%`, height: 4, backgroundColor: seg.color }} />
+            ))}
+          </View>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Menlo' }}>{f.arr_place}</Text>
+        </View>
+        {/* Meta */}
         <Text style={ls.latestMeta}>{f.aircraft_type} · {f.registration}</Text>
       </View>
       <Text style={ls.latestTime}>{formatTime(f.total_time)}</Text>
@@ -254,6 +278,7 @@ export default function DashboardScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
+  const [showLatestOps, setShowLatestOps] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
 
   useEffect(() => {
@@ -293,7 +318,7 @@ export default function DashboardScreen() {
   const zc = zoneColor(stress.zone);
 
   const animTime = (v: number) => decimalToHHMM(v * readoutPct);
-  const latestFlights = flights.slice(0, 3);
+  const latestFlights = flights.slice(0, 6);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -454,17 +479,6 @@ export default function DashboardScreen() {
         <Text style={s.addBtnText}>{t('log_new_flight')}</Text>
       </TouchableOpacity>
 
-      {/* ── Latest Ops ── */}
-      <Text style={s.sectionHeader}>Latest Ops</Text>
-      <View style={s.card}>
-        {latestFlights.map((f, i) => (
-          <LatestFlightRow key={f.id} flight={f} isLast={i === latestFlights.length - 1} onPress={() => router.push(`/flight/${f.id}`)} />
-        ))}
-        {latestFlights.length === 0 && (
-          <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('no_flights')}</Text>
-        )}
-      </View>
-
       {/* ── Pilot-only sections ── */}
       {!isOperator(useProfileStore.getState().profile) && (
         <>
@@ -511,6 +525,26 @@ export default function DashboardScreen() {
             <BestWeekMapModal visible={weekMapVisible} onClose={() => setWeekMapVisible(false)} weekStart={st.best_week_start} weekLabel={st.best_week_label} hours={st.best_week_hours} />
           )}
         </>
+      )}
+
+      {/* ── Latest Ops ── */}
+      <TouchableOpacity
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 10 }}
+        onPress={() => setShowLatestOps(v => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>Latest Ops</Text>
+        <Ionicons name={showLatestOps ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+      </TouchableOpacity>
+      {showLatestOps && (
+        <View style={s.card}>
+          {latestFlights.map((f, i) => (
+            <LatestFlightRow key={f.id} flight={f} isLast={i === latestFlights.length - 1} onPress={() => router.push(`/flight/${f.id}`)} />
+          ))}
+          {latestFlights.length === 0 && (
+            <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('no_flights')}</Text>
+          )}
+        </View>
       )}
 
     </ScrollView>
@@ -576,14 +610,14 @@ function makeDashStyles() { return StyleSheet.create({
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 12,
+    backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 6,
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
   },
   addBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '800' },
 
   sectionHeader: {
     fontSize: 11, fontWeight: '700', color: Colors.textMuted,
-    letterSpacing: 1.4, fontFamily: 'Menlo', marginTop: 20, marginBottom: 10,
+    letterSpacing: 1.4, fontFamily: 'Menlo', marginTop: 6, marginBottom: 10,
   },
 
   card: {

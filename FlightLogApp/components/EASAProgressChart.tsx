@@ -1,0 +1,599 @@
+import { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Colors } from '../constants/colors';
+import { useFlightStore } from '../store/flightStore';
+import { useProfileStore } from '../store/profileStore';
+import { getDatabase } from '../db/database';
+
+type Requirement = { label: string; current: number; required: number };
+
+const CPL_A: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 200 },
+  { label: 'PIC', key: 'pic', required: 100 },
+  { label: 'Cross-country PIC', key: 'xc_pic', required: 20 },
+  { label: 'Instrument', key: 'ifr', required: 10 },
+  { label: 'Night', key: 'night', required: 5 },
+];
+
+const ATPL_A: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 1500 },
+  { label: 'Multi-crew ops', key: 'multi_pilot', required: 500 },
+  { label: 'PIC', key: 'pic', required: 250 },
+  { label: 'Cross-country', key: 'xc', required: 200 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 75 },
+  { label: 'Night', key: 'night', required: 100 },
+];
+
+const CPL_H: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 185 },
+  { label: 'PIC', key: 'pic', required: 50 },
+  { label: 'Cross-country PIC', key: 'xc_pic', required: 10 },
+  { label: 'Dual instruction', key: 'dual', required: 30 },
+  { label: 'Instrument (dual)', key: 'ifr', required: 10 },
+  { label: 'Night', key: 'night', required: 5 },
+];
+
+const ATPL_H: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 1000 },
+  { label: 'PIC', key: 'pic', required: 250 },
+  { label: 'Cross-country', key: 'xc', required: 200 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 30 },
+  { label: 'Night', key: 'night', required: 100 },
+];
+
+async function getAdaptiveRates(): Promise<Record<string, number>> {
+  const db = await getDatabase();
+
+  // Find how long the user has been logging
+  const first = await db.getFirstAsync<{ d: string }>(
+    `SELECT MIN(date) as d FROM flights WHERE flight_type != 'sim'`
+  );
+  if (!first?.d) return { _insufficient: 1 };
+
+  const firstDate = new Date(first.d);
+  const now = new Date();
+  const totalMonths = Math.max(1, Math.round((now.getTime() - firstDate.getTime()) / (30.4 * 86400000)));
+
+  // Adaptive window: <6 months → use 3mo, <12 months → use 6mo, else → use 12mo
+  let windowMonths: number;
+  let windowDays: number;
+  if (totalMonths < 6) { windowMonths = 3; windowDays = 90; }
+  else if (totalMonths < 12) { windowMonths = 6; windowDays = 183; }
+  else { windowMonths = 12; windowDays = 365; }
+
+  const r = await db.getFirstAsync<any>(
+    `SELECT
+      ROUND(SUM(total_time), 1) as total,
+      ROUND(SUM(pic), 1) as pic,
+      ROUND(SUM(co_pilot), 1) as co_pilot,
+      ROUND(SUM(dual), 1) as dual,
+      ROUND(SUM(ifr), 1) as ifr,
+      ROUND(SUM(night), 1) as night,
+      ROUND(SUM(multi_pilot), 1) as multi_pilot,
+      COUNT(*) as cnt
+    FROM flights WHERE flight_type != 'sim' AND date >= date('now', '-${windowDays} days')`
+  );
+  const xc = await db.getFirstAsync<{ h: number }>(
+    `SELECT ROUND(SUM(total_time), 1) as h FROM flights
+     WHERE flight_type != 'sim' AND dep_place != arr_place AND total_time >= 0.5
+     AND date >= date('now', '-${windowDays} days')`
+  );
+  const xcPic = await db.getFirstAsync<{ h: number }>(
+    `SELECT ROUND(SUM(total_time), 1) as h FROM flights
+     WHERE flight_type != 'sim' AND dep_place != arr_place AND total_time >= 0.5 AND pic > 0
+     AND date >= date('now', '-${windowDays} days')`
+  );
+  const cnt = r?.cnt ?? 0;
+  if (cnt < 3) return { _insufficient: 1 };
+  return {
+    total: (r?.total ?? 0) / windowMonths,
+    pic: (r?.pic ?? 0) / windowMonths,
+    co_pilot: (r?.co_pilot ?? 0) / windowMonths,
+    dual: (r?.dual ?? 0) / windowMonths,
+    ifr: (r?.ifr ?? 0) / windowMonths,
+    night: (r?.night ?? 0) / windowMonths,
+    multi_pilot: (r?.multi_pilot ?? 0) / windowMonths,
+    xc: (xc?.h ?? 0) / windowMonths,
+    xc_pic: (xcPic?.h ?? 0) / windowMonths,
+  };
+}
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function forecastDate(remaining: number, ratePerMonth: number): string | null {
+  if (remaining <= 0) return null;
+  if (ratePerMonth <= 0) return null;
+  const monthsLeft = Math.ceil(remaining / ratePerMonth);
+  const d = new Date();
+  d.setMonth(d.getMonth() + monthsLeft);
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+async function getHourTotals(): Promise<Record<string, number>> {
+  const db = await getDatabase();
+  const r = await db.getFirstAsync<any>(
+    `SELECT
+      ROUND(SUM(total_time), 1) as total,
+      ROUND(SUM(pic), 1) as pic,
+      ROUND(SUM(co_pilot), 1) as co_pilot,
+      ROUND(SUM(dual), 1) as dual,
+      ROUND(SUM(ifr), 1) as ifr,
+      ROUND(SUM(night), 1) as night,
+      ROUND(SUM(multi_pilot), 1) as multi_pilot
+    FROM flights WHERE flight_type != 'sim'`
+  );
+  // Cross-country is approximated — flights where dep != arr and total_time > 0.5h
+  const xc = await db.getFirstAsync<{ h: number }>(
+    `SELECT ROUND(SUM(total_time), 1) as h FROM flights
+     WHERE flight_type != 'sim' AND dep_place != arr_place AND total_time >= 0.5`
+  );
+  const xcPic = await db.getFirstAsync<{ h: number }>(
+    `SELECT ROUND(SUM(total_time), 1) as h FROM flights
+     WHERE flight_type != 'sim' AND dep_place != arr_place AND total_time >= 0.5 AND pic > 0`
+  );
+  return {
+    total: r?.total ?? 0,
+    pic: r?.pic ?? 0,
+    co_pilot: r?.co_pilot ?? 0,
+    dual: r?.dual ?? 0,
+    ifr: r?.ifr ?? 0,
+    night: r?.night ?? 0,
+    multi_pilot: r?.multi_pilot ?? 0,
+    xc: xc?.h ?? 0,
+    xc_pic: xcPic?.h ?? 0,
+  };
+}
+
+function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
+  title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean;
+}) {
+  const [showHelp, setShowHelp] = useState(false);
+  const items: Requirement[] = reqs.map(r => ({
+    label: r.label,
+    current: totals[r.key] ?? 0,
+    required: r.required,
+  }));
+
+  const allMet = items.every(i => i.current >= i.required);
+
+  return (
+    <View style={{
+      backgroundColor: Colors.card, borderRadius: 14,
+      borderWidth: 1, borderColor: Colors.cardBorder,
+      padding: 14, gap: 10, position: 'relative',
+    }}>
+      <View>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          EASA · PREMIUM
+        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia' }}>
+            {title}
+          </Text>
+          {allMet && (
+            <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.success }}>✓ COMPLETE</Text>
+          )}
+        </View>
+        <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }}>{subtitle}</Text>
+      </View>
+
+      <View style={{ gap: 8 }}>
+        {items.map((item, i) => {
+          const pct = Math.min(100, (item.current / item.required) * 100);
+          const met = item.current >= item.required;
+          const remaining = item.required - item.current;
+          const rate = rates[reqs[i].key] ?? 0;
+          const forecast = met ? null : forecastDate(remaining, rate);
+          const insufficient = rates._insufficient === 1;
+          return (
+            <View key={i} style={{ gap: 3 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ fontSize: 12, color: Colors.textPrimary, fontWeight: '500' }}>{item.label}</Text>
+                <Text style={{ fontSize: 11, fontFamily: 'Menlo', fontWeight: '700', color: met ? Colors.success : Colors.textPrimary }}>
+                  {item.current.toFixed(0)}
+                  <Text style={{ color: Colors.textMuted, fontWeight: '400' }}>/{item.required}h</Text>
+                </Text>
+              </View>
+              <View style={{
+                height: 6, backgroundColor: Colors.separator, borderRadius: 3, overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: 6, borderRadius: 3, width: `${pct}%`,
+                  backgroundColor: met ? Colors.success : pct > 70 ? Colors.primary : Colors.warning,
+                }} />
+              </View>
+              {!met && (
+                <Text style={{ fontSize: 9, color: Colors.textMuted, marginTop: 1 }}>
+                  {insufficient
+                    ? 'Log more flights for forecast'
+                    : forecast
+                      ? `📅 ${forecast} · ${rate.toFixed(1)}h/mo avg`
+                      : rate <= 0 ? 'No recent activity in this category' : ''}
+                </Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Help button */}
+      <TouchableOpacity
+        style={{ position: 'absolute', top: 12, right: 12, width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
+        onPress={() => setShowHelp(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.textMuted }}>?</Text>
+      </TouchableOpacity>
+
+      {/* Help modal */}
+      <Modal visible={showHelp} transparent animationType="fade" onRequestClose={() => setShowHelp(false)}>
+        <View style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: Colors.surface, borderRadius: 18, maxHeight: '85%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: Colors.textPrimary }}>{title}</Text>
+              <TouchableOpacity onPress={() => setShowHelp(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 16 }} contentContainerStyle={{ paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>What this tracks</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  {isCpl
+                    ? 'The minimum flight experience required for a Commercial Pilot Licence under EASA Part-FCL. Each bar shows your logged hours against the regulatory minimum. All requirements must be met before you can take the CPL skill test.'
+                    : 'The minimum flight experience required for an Airline Transport Pilot Licence under EASA Part-FCL. These are the hours you need to hold an ATPL. Requirements build on top of your CPL hours — they are cumulative, not additional.'}
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Progress bar colours</Text>
+                <View style={{ gap: 4, marginTop: 4 }}>
+                  {[
+                    { color: Colors.warning, label: 'Orange', desc: 'Less than 70% complete' },
+                    { color: Colors.primary, label: 'Blue', desc: '70–99% complete — almost there' },
+                    { color: Colors.success, label: 'Green', desc: '100% — requirement met' },
+                  ].map((z, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: z.color }} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: z.color, width: 55 }}>{z.label}</Text>
+                      <Text style={{ fontSize: 11, color: Colors.textMuted, flex: 1 }}>{z.desc}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Why are my hours lower than expected?</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  There are several common reasons your progress bars may show less than you expect:
+                </Text>
+                <View style={{ gap: 6, marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Simulator time excluded — </Text>
+                    Only actual flight time counts. FFS/FSTD sessions are tracked separately and do not add to these totals.
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>PIC vs Dual — </Text>
+                    Time logged as Dual (student) does not count towards PIC requirements. Only time where you were the acting pilot-in-command counts as PIC.
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Cross-country approximation — </Text>
+                    Cross-country hours are estimated from flights where departure and arrival are different airports and the flight is at least 30 minutes. Short repositioning flights or flights where you forgot to log a different arrival may not count.
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Imported data — </Text>
+                    If you imported flights from CSV or scanned them, some role fields (PIC, Dual, IFR) may not have been correctly mapped. Check individual flights under the logbook tab.
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Multi-crew time — </Text>
+                    For ATPL, multi-crew hours require that the flight was operated with two pilots. This is only counted if multi-pilot time was logged on the flight.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Regulatory reference</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  {subtitle}. These are minimum requirements — your national authority may have additional requirements. Always verify with your flight school or examiner before applying for a skill test.
+                </Text>
+              </View>
+
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function LockedOverlay() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: Colors.background + '55',
+        borderRadius: 14, zIndex: 10,
+        alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}
+      activeOpacity={0.9}
+      onPress={() => router.push('/settings/premium')}
+    >
+      <Ionicons name="lock-closed" size={22} color={Colors.gold} />
+      <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.gold, textAlign: 'center' }}>
+        EASA Progress Tracking
+      </Text>
+      <Text style={{ fontSize: 12, color: Colors.textPrimary, textAlign: 'center', paddingHorizontal: 24 }}>
+        Unlock with Premium to track your CPL/ATPL requirements live
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+export function EASAProgressCharts() {
+  const [totals, setTotals] = useState<Record<string, number>>({});
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const flightCount = useFlightStore(s => s.flightCount);
+  const isPremium = useFlightStore(s => s.isPremium);
+  const profile = useProfileStore(s => s.profile);
+
+  useEffect(() => {
+    getHourTotals().then(setTotals);
+    getAdaptiveRates().then(setRates);
+  }, [flightCount]);
+
+  if (!profile || profile.mainRole !== 'pilot-manned') return null;
+
+  const isRotary = profile.subRole === 'rotary';
+  const cplReqs = isRotary ? CPL_H : CPL_A;
+  const atplReqs = isRotary ? ATPL_H : ATPL_A;
+  const cplTitle = isRotary ? 'CPL(H) Requirements' : 'CPL(A) Requirements';
+  const atplTitle = isRotary ? 'ATPL(H) Requirements' : 'ATPL(A) Requirements';
+  const cplRef = isRotary ? 'FCL.310.H' : 'FCL.310.A';
+  const atplRef = isRotary ? 'FCL.510.H' : 'FCL.510.A';
+  const displayTotals = isPremium ? totals : {};
+
+  return (
+    <>
+      <View style={{ position: 'relative' }}>
+        <View style={!isPremium ? { opacity: 0.25 } : undefined}>
+          <ProgressCard
+            title={cplTitle}
+            subtitle={`${cplRef} — Minimum flight experience`}
+            reqs={cplReqs}
+            totals={displayTotals}
+            rates={isPremium ? rates : {}}
+            isCpl
+          />
+        </View>
+        {!isPremium && <LockedOverlay />}
+      </View>
+      <View style={{ position: 'relative' }}>
+        <View style={!isPremium ? { opacity: 0.25 } : undefined}>
+          <ProgressCard
+            title={atplTitle}
+            subtitle={`${atplRef} — Minimum flight experience`}
+            reqs={atplReqs}
+            totals={displayTotals}
+            rates={isPremium ? rates : {}}
+          />
+        </View>
+        {!isPremium && <LockedOverlay />}
+      </View>
+    </>
+  );
+}
+
+// ── Goal Calculator ─────────────────────────────────────────────────────────
+
+function getGoalPresets(currentTotal: number): { label: string; value: number }[] {
+  const base = Math.floor(currentTotal / 500) * 500;
+  const next1 = base + 500;
+  const next2 = base + 1000;
+  return [
+    { label: `${next1.toLocaleString()}h`, value: next1 },
+    { label: `${next2.toLocaleString()}h`, value: next2 },
+  ];
+}
+
+export function GoalCalculator() {
+  const [totals, setTotals] = useState<Record<string, number>>({});
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const [goal, setGoal] = useState(0);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const [sliderRate, setSliderRate] = useState(0);
+  const flightCount = useFlightStore(s => s.flightCount);
+  const isPremium = useFlightStore(s => s.isPremium);
+  const profile = useProfileStore(s => s.profile);
+
+  useEffect(() => {
+    getHourTotals().then(t => {
+      setTotals(t);
+      if (goal === 0) {
+        const presets = getGoalPresets(t.total ?? 0);
+        setGoal(presets[0].value);
+      }
+      getAdaptiveRates().then(r => {
+        setRates(r);
+        if (r.total && r.total > 0 && sliderRate === 0) setSliderRate(Math.round(r.total / 5) * 5 || 5);
+      });
+    });
+  }, [flightCount]);
+
+  if (!profile || profile.mainRole !== 'pilot-manned') return null;
+
+  const currentTotal = totals.total ?? 0;
+  const actualRate = rates.total ?? 0;
+  const useRate = sliderRate || actualRate || 5;
+  const remaining = Math.max(0, goal - currentTotal);
+  const monthsLeft = useRate > 0 ? Math.ceil(remaining / useRate) : 0;
+  const targetDate = new Date();
+  targetDate.setMonth(targetDate.getMonth() + monthsLeft);
+  const targetDateStr = remaining <= 0 ? 'Goal reached!' : `${MONTH_NAMES[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+  const pct = Math.min(100, (currentTotal / goal) * 100);
+
+  // Simple progress visualization
+  const barSegments = 20;
+  const filledSegments = Math.round((pct / 100) * barSegments);
+
+  return (
+    <View style={{
+      backgroundColor: Colors.card, borderRadius: 14,
+      borderWidth: 1, borderColor: Colors.cardBorder,
+      padding: 14, gap: 12, position: 'relative',
+    }}>
+      <View>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          GOAL CALCULATOR · PREMIUM
+        </Text>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia', marginTop: 4 }}>
+          When will I reach {goal.toLocaleString()}h?
+        </Text>
+      </View>
+
+      {/* Goal presets */}
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {getGoalPresets(currentTotal).map(p => (
+          <TouchableOpacity
+            key={p.value}
+            style={{
+              flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+              backgroundColor: goal === p.value && !showCustom ? Colors.primary : Colors.elevated,
+              borderWidth: 1, borderColor: goal === p.value && !showCustom ? Colors.primary : Colors.border,
+            }}
+            onPress={() => { setGoal(p.value); setShowCustom(false); }}
+            activeOpacity={0.75}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: goal === p.value && !showCustom ? Colors.textInverse : Colors.textSecondary }}>
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          style={{
+            flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+            backgroundColor: showCustom ? Colors.primary : Colors.elevated,
+            borderWidth: 1, borderColor: showCustom ? Colors.primary : Colors.border,
+          }}
+          onPress={() => setShowCustom(true)}
+          activeOpacity={0.75}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: showCustom ? Colors.textInverse : Colors.textSecondary }}>
+            Custom
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {showCustom && (
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{
+            flex: 1, flexDirection: 'row', alignItems: 'center',
+            backgroundColor: Colors.elevated, borderRadius: 8,
+            borderWidth: 1, borderColor: Colors.border,
+            paddingHorizontal: 10,
+          }}>
+            <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Goal: </Text>
+            <TextInput
+              style={{ flex: 1, color: Colors.textPrimary, fontSize: 14, fontFamily: 'Menlo', fontWeight: '700', paddingVertical: 8 }}
+              value={customInput}
+              onChangeText={setCustomInput}
+              placeholder="e.g. 3000"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+            />
+            <Text style={{ color: Colors.textMuted, fontSize: 13 }}>h</Text>
+          </View>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14 }}
+            onPress={() => {
+              const v = parseInt(customInput);
+              if (v && v > currentTotal) { setGoal(v); }
+            }}
+            activeOpacity={0.75}
+          >
+            <Text style={{ color: Colors.textInverse, fontSize: 12, fontWeight: '700' }}>Set</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Progress bar */}
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <Text style={{ fontSize: 11, fontFamily: 'Menlo', fontWeight: '700', color: Colors.textPrimary }}>
+            {currentTotal.toFixed(0)}h
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: 'Menlo', color: Colors.textMuted }}>
+            {goal.toLocaleString()}h
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 2 }}>
+          {Array.from({ length: barSegments }, (_, i) => (
+            <View key={i} style={{
+              flex: 1, height: 8, borderRadius: 2,
+              backgroundColor: i < filledSegments ? Colors.primary : Colors.separator,
+            }} />
+          ))}
+        </View>
+        <Text style={{ fontSize: 10, color: Colors.textMuted, textAlign: 'center' }}>
+          {pct.toFixed(0)}% complete · {remaining.toFixed(0)}h remaining
+        </Text>
+      </View>
+
+      {/* Target date */}
+      <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: remaining <= 0 ? Colors.success : Colors.primary, fontFamily: 'Georgia' }}>
+          {targetDateStr}
+        </Text>
+        {remaining > 0 && (
+          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
+            {monthsLeft} months · {(monthsLeft / 12).toFixed(1)} years at {useRate}h/mo
+          </Text>
+        )}
+      </View>
+
+      {/* Rate slider */}
+      <View style={{ gap: 4 }}>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          If I fly {useRate}h / month...
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 10, color: Colors.textMuted, fontFamily: 'Menlo' }}>5</Text>
+          <View style={{ flex: 1, height: 28, justifyContent: 'center' }}>
+            {(() => {
+              try {
+                const Slider = require('@react-native-community/slider').default;
+                return (
+                  <Slider
+                    minimumValue={5}
+                    maximumValue={100}
+                    step={5}
+                    value={useRate}
+                    onValueChange={(v: number) => setSliderRate(v)}
+                    minimumTrackTintColor={Colors.primary}
+                    maximumTrackTintColor={Colors.separator}
+                    thumbTintColor={Colors.primary}
+                  />
+                );
+              } catch {
+                return <View style={{ flex: 1, height: 4, backgroundColor: Colors.separator, borderRadius: 2 }} />;
+              }
+            })()}
+          </View>
+          <Text style={{ fontSize: 10, color: Colors.textMuted, fontFamily: 'Menlo' }}>100</Text>
+        </View>
+        {actualRate > 0 && sliderRate !== Math.round(actualRate / 5) * 5 && (
+          <TouchableOpacity onPress={() => setSliderRate(Math.round(actualRate / 5) * 5 || 5)}>
+            <Text style={{ fontSize: 10, color: Colors.primary, fontWeight: '600' }}>
+              Reset to my actual rate ({actualRate.toFixed(1)}h/mo)
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {!isPremium && <LockedOverlay />}
+    </View>
+  );
+}

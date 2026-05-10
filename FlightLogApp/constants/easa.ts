@@ -16,4 +16,4 @@ export const EASA_ATPL_REQUIREMENTS = {
   multi_pilot: { required: 500, label: 'Multi-pilot' },
 };
 
-export const FREE_TIER_LIMIT = 50;
+export const FREE_TIER_LIMIT = 200;

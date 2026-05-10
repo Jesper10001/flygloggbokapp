@@ -313,7 +313,7 @@ export default function FlightDetailScreen() {
                   highlight={flight.flight_type === 'sim'}
                 />
               )}
-              {flight.second_pilot ? (
+              {flight.second_pilot && (flight.multi_pilot ?? 0) > 0 ? (
                 <Detail label={t('second_pilot_label')} value={flight.second_pilot} />
               ) : null}
               {(() => {
