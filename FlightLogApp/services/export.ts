@@ -23,8 +23,24 @@ function escapeCSV(val: string | number | null | undefined): string {
 
 // ── CSV ──────────────────────────────────────────────────────────────────────
 
+async function getTempIcaoCodes(): Promise<Set<string>> {
+  try {
+    const { getAllTempPlaces } = require('../db/icao');
+    const temps = await getAllTempPlaces();
+    const { getUnlocatedTemporaryPlaces } = require('../db/icao');
+    const unloc = await getUnlocatedTemporaryPlaces();
+    return new Set([...temps, ...unloc].map((t: any) => t.icao.toUpperCase()));
+  } catch { return new Set(); }
+}
+
+function exportPlace(code: string, tempCodes: Set<string>): string {
+  if (!code) return '';
+  return tempCodes.has(code.toUpperCase()) ? 'ZZZZ' : code;
+}
+
 export async function exportToCSV(): Promise<void> {
   const flights = await getFlights(99999);
+  const tempCodes = await getTempIcaoCodes();
 
   // Kolumndefinition — `optional` betyder att den utelämnas om ingen flygning har data.
   // `hasData` anger vad som räknas som "innehåller information".
@@ -42,9 +58,9 @@ export async function exportToCSV(): Promise<void> {
     { header: 'Datum',                value: f => f.date },
     { header: 'Luftfartygstyp',       value: f => f.aircraft_type },
     { header: 'Registration',         value: f => f.registration },
-    { header: 'Avgångsplats',         value: f => f.dep_place },
+    { header: 'Avgångsplats',         value: f => exportPlace(f.dep_place, tempCodes) },
     { header: 'Avgångstid UTC',       value: f => f.dep_utc },
-    { header: 'Ankomstplats',         value: f => f.arr_place },
+    { header: 'Ankomstplats',         value: f => exportPlace(f.arr_place, tempCodes) },
     { header: 'Ankomsttid UTC',       value: f => f.arr_utc },
     { header: 'Total flygtid',        value: f => toHHMM(f.total_time) },
     { header: 'Flerpilottid',         value: f => toHHMM(f.multi_pilot ?? 0),  optional: true, hasData: f => hasTime(f.multi_pilot) },
@@ -114,8 +130,9 @@ const timeFields = new Set([
   'picus', 'spic', 'ferry_pic', 'observer', 'relief_crew',
 ]);
 
-function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal'): string | number {
+function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal', tempCodes: Set<string>): string | number {
   const raw = (f as any)[key];
+  if (key === 'dep_place' || key === 'arr_place') return exportPlace(String(raw ?? ''), tempCodes);
   if (key === 'flight_type') return f.flight_type === 'sim' ? 'Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal';
   if (key === 'sim_category') return f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '';
   if (timeFields.has(key)) {
@@ -127,6 +144,7 @@ function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal'): string
 
 export async function exportCustomCSV(opts: CustomExportOpts): Promise<void> {
   const flights = await getFlights(99999);
+  const tempCodes = await getTempIcaoCodes();
   const sep = opts.separator;
 
   const escapeVal = (val: string | number | null | undefined): string => {
@@ -139,7 +157,7 @@ export async function exportCustomCSV(opts: CustomExportOpts): Promise<void> {
 
   const headers = opts.columns.map(c => escapeVal(c.header));
   const rows = flights.map(f =>
-    opts.columns.map(c => escapeVal(getFlightValue(f, c.key, opts.timeFormat))).join(sep)
+    opts.columns.map(c => escapeVal(getFlightValue(f, c.key, opts.timeFormat, tempCodes))).join(sep)
   );
 
   const csv = [headers.join(sep), ...rows].join('\r\n');

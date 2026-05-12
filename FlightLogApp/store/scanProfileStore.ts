@@ -99,7 +99,7 @@ export function buildScanContext(p: ScanProfile): string {
   const lines: string[] = [];
 
   if (p.aircraftTypes.length > 0) {
-    lines.push(`KNOWN AIRCRAFT TYPES: ${p.aircraftTypes.join(', ')}. If OCR reads something close to one of these, correct to the known type.`);
+    lines.push(`KNOWN AIRCRAFT TYPES: ${p.aircraftTypes.join(', ')}. Use these ONLY to resolve ambiguous handwriting — do NOT replace a clearly readable type with a different one from this list. If the logbook clearly says EC135, return EC135 even if A109 is also in the list.`);
   }
   if (p.homeCountries.length > 0) {
     lines.push(`HOME COUNTRIES: ${p.homeCountries.join(', ')}. ICAO codes will predominantly start with prefixes for these countries.`);
@@ -124,6 +124,11 @@ export function buildScanContext(p: ScanProfile): string {
     lines.push('This mapping is AUTHORITATIVE and OVERRIDES any column order described earlier in this prompt.');
     lines.push('Do NOT guess which column is which — use the position numbers above.');
     lines.push('If column 10 = dual, then the 10th physical column from the left contains DUAL time, not PIC or anything else.');
+    lines.push('NEVER copy a value from one column to another. Each JSON field gets ONLY the value from its mapped column position. If a column is empty, return 0.');
+    if (p.columnOrder.includes('sim')) {
+      const simIdx = p.columnOrder.indexOf('sim') + 1;
+      lines.push(`SIMULATOR: Column ${simIdx} = sim. The printed header may say "Synthetic training session", "STD", "FSTD", or "FFS" — these ALL map to the "sim" field in JSON. If this column has a value, set flight_type="sim" and put the time in the "sim" field. Do NOT put it in total_time, dual, or any other field.`);
+    }
     const otherCols = p.columnOrder.filter(k => k.startsWith('other_flight_time'));
     if (otherCols.length > 0) {
       lines.push(`OTHER FLIGHT TIME COLUMNS: This logbook has ${otherCols.length} "Other type of flight time" column(s): ${otherCols.join(', ')}.`);

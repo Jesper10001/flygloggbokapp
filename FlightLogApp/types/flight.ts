@@ -43,6 +43,8 @@ export interface Flight {
   vfr: number;
   se_time: number;
   me_time: number;
+  photo_uri: string;
+  max_fl: number;
 }
 
 export interface FlightFormData {
@@ -80,6 +82,8 @@ export interface FlightFormData {
   relief_crew?: string;
   sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | 'CPT_PPT' | 'CBT' | '';
   vfr?: string;
+  photo_uri?: string;
+  max_fl?: string;
 }
 
 export interface IcaoAirport {

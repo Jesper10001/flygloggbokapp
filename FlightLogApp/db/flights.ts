@@ -45,8 +45,8 @@ export async function insertFlight(
       flight_rules, second_pilot, nvg, tng_count, flight_type,
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
-      se_time, me_time, stop_place
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      se_time, me_time, stop_place, photo_uri, max_fl
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -87,6 +87,8 @@ export async function insertFlight(
       seTime,
       meTime,
       (data.stop_place ?? '').toUpperCase(),
+      data.photo_uri ?? '',
+      parseInt(data.max_fl ?? '0') || 0,
     ]
   );
   return result.lastInsertRowId;
@@ -146,7 +148,7 @@ export async function updateFlight(
       flight_rules=?, second_pilot=?, nvg=?, tng_count=?, flight_type=?,
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
-      se_time=?, me_time=?, stop_place=?,
+      se_time=?, me_time=?, stop_place=?, photo_uri=?, max_fl=?,
       status=CASE WHEN status='scanned' THEN 'verified' ELSE status END
     WHERE id=?`,
     [
@@ -182,6 +184,8 @@ export async function updateFlight(
       seTime,
       meTime,
       (data.stop_place ?? '').toUpperCase(),
+      data.photo_uri ?? '',
+      parseInt(data.max_fl ?? '0') || 0,
       id,
     ]
   );
@@ -221,6 +225,23 @@ export async function getFlights(limit = 100, offset = 0): Promise<Flight[]> {
     'SELECT * FROM flights ORDER BY date DESC, dep_utc DESC LIMIT ? OFFSET ?',
     [limit, offset]
   );
+}
+
+export async function getFlightsWithPhotos(): Promise<Flight[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<Flight>(
+    "SELECT * FROM flights WHERE photo_uri != '' ORDER BY date DESC, dep_utc DESC"
+  );
+}
+
+export async function getFlightNumberOfYear(flightId: number, date: string): Promise<number> {
+  const db = await getDatabase();
+  const year = date.slice(0, 4);
+  const row = await db.getFirstAsync<{ cnt: number }>(
+    `SELECT COUNT(*) as cnt FROM flights WHERE date >= ? AND (date < ? OR (date = ? AND id <= ?)) AND flight_type != 'sim'`,
+    [`${year}-01-01`, date, date, flightId]
+  );
+  return row?.cnt ?? 0;
 }
 
 export async function getFlightById(id: number): Promise<Flight | null> {

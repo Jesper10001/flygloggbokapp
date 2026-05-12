@@ -1,63 +1,19 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Modal, Pressable,
+  StyleSheet, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { FormField } from '../../components/FormField';
-import { IcaoInput } from '../../components/IcaoInput';
-import { getFlightById, updateFlight, deleteFlight } from '../../db/flights';
+import { getFlightById, deleteFlight } from '../../db/flights';
+import { batchPlaceNames } from '../../db/icao';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
-import { calcFlightTime, isValidIcao, isValidTime, formatDate } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
-import type { FlightFormData, Flight } from '../../types/flight';
-
-type Errors = Partial<Record<keyof FlightFormData, string>>;
-type TFn = ReturnType<typeof useTranslation>['t'];
-
-function validate(d: FlightFormData, t: TFn): Errors {
-  const e: Errors = {};
-  if (!d.date) e.date = t('val_date_required');
-  if (!d.aircraft_type.trim()) e.aircraft_type = t('val_aircraft_type_required');
-  if (!d.registration.trim()) e.registration = t('val_registration_required');
-  if (!isValidIcao(d.dep_place)) e.dep_place = t('val_invalid_icao');
-  if (!isValidIcao(d.arr_place)) e.arr_place = t('val_invalid_icao');
-  if (!isValidTime(d.dep_utc)) e.dep_utc = t('val_format_hhmm');
-  if (!isValidTime(d.arr_utc)) e.arr_utc = t('val_format_hhmm');
-  const tt = parseFloat(d.total_time);
-  if (isNaN(tt) || tt <= 0) e.total_time = t('val_flight_time_decimal');
-  return e;
-}
-
-function flightToForm(f: Flight): FlightFormData {
-  return {
-    date: f.date,
-    aircraft_type: f.aircraft_type,
-    registration: f.registration,
-    dep_place: f.dep_place,
-    dep_utc: f.dep_utc,
-    arr_place: f.arr_place,
-    arr_utc: f.arr_utc,
-    total_time: String(f.total_time),
-    ifr: String(f.ifr),
-    night: String(f.night),
-    pic: String(f.pic),
-    co_pilot: String(f.co_pilot),
-    dual: String(f.dual),
-    landings_day: String(f.landings_day),
-    landings_night: String(f.landings_night),
-    remarks: f.remarks,
-    flight_type: f.flight_type ?? 'normal',
-    multi_pilot: String(f.multi_pilot ?? 0),
-    single_pilot: String(f.single_pilot ?? 0),
-    instructor: String(f.instructor ?? 0),
-  };
-}
+import { FlightShareCard } from '../../components/FlightShareCard';
+import type { Flight } from '../../types/flight';
 
 export default function FlightDetailScreen() {
   const styles = makeStyles();
@@ -67,57 +23,20 @@ export default function FlightDetailScreen() {
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const [flight, setFlight] = useState<Flight | null>(null);
-  const [form, setForm] = useState<FlightFormData | null>(null);
-  const [errors, setErrors] = useState<Errors>({});
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+  const [showShareCard, setShowShareCard] = useState(false);
 
   useEffect(() => {
     if (id) {
       getFlightById(Number(id)).then((f) => {
         if (f) {
           setFlight(f);
-          setForm(flightToForm(f));
+          const codes = [f.dep_place, f.arr_place].filter(Boolean);
+          if (codes.length) batchPlaceNames(codes).then(setPlaceNames);
         }
       });
     }
   }, [id]);
-
-  const set = (key: keyof FlightFormData, val: string) => {
-    if (!form) return;
-    const next = { ...form, [key]: val };
-    if ((key === 'dep_utc' || key === 'arr_utc') && isValidTime(next.dep_utc) && isValidTime(next.arr_utc)) {
-      const t = calcFlightTime(next.dep_utc, next.arr_utc);
-      if (t > 0) {
-        next.total_time = String(t);
-        if (next.flight_rules === 'IFR') next.ifr = String(t);
-      }
-    }
-    if (key === 'total_time' && next.flight_rules === 'IFR') next.ifr = val;
-    if (key === 'flight_rules') {
-      if (val === 'IFR') next.ifr = next.total_time || '0';
-      else next.ifr = '0';
-    }
-    setForm(next);
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
-  };
-
-  const handleSave = async () => {
-    if (!form) return;
-    const e = validate(form, t);
-    if (Object.keys(e).length > 0) { setErrors(e); return; }
-    setSaving(true);
-    try {
-      await updateFlight(Number(id), form);
-      await Promise.all([loadFlights(), loadStats()]);
-      setEditing(false);
-    } catch {
-      Alert.alert(t('error'), t('could_not_save'));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleDelete = () => {
     Alert.alert(t('delete'), t('are_you_sure'), [
@@ -133,7 +52,7 @@ export default function FlightDetailScreen() {
     ]);
   };
 
-  if (!flight || !form) {
+  if (!flight) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={Colors.primary} />
@@ -142,151 +61,32 @@ export default function FlightDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'android' ? 'height' : undefined}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
-      >
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
 
         {/* Header */}
         <View style={styles.header}>
           <View>
             <View style={styles.routeRow}>
-              <Text style={styles.icao}>{flight.dep_place}</Text>
+              <Text style={styles.icao}>{placeNames[flight.dep_place] ?? flight.dep_place}</Text>
               <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
-              <Text style={styles.icao}>{flight.arr_place}</Text>
+              <Text style={styles.icao}>{placeNames[flight.arr_place] ?? flight.arr_place}</Text>
             </View>
             <Text style={styles.meta}>{formatDate(flight.date)} · {flight.aircraft_type} {flight.registration}</Text>
           </View>
           <View style={styles.headerActions}>
-            {!editing ? (
-              <TouchableOpacity style={styles.iconBtn} onPress={() => setEditing(true)}>
-                <Ionicons name="pencil" size={18} color={Colors.primary} />
+            {flight.photo_uri ? (
+              <TouchableOpacity style={styles.iconBtn} onPress={() => setShowShareCard(true)}>
+                <Ionicons name="share-outline" size={18} color={Colors.primary} />
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.iconBtn} onPress={() => { setEditing(false); setForm(flightToForm(flight)); }}>
-                <Ionicons name="close" size={20} color={Colors.textMuted} />
-              </TouchableOpacity>
-            )}
+            ) : null}
+            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/flight/add?editId=${id}`)}>
+              <Ionicons name="pencil" size={18} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {editing ? (
-          <>
-            <Text style={styles.section}>{t('basic_info')}</Text>
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>{t('date')}</Text>
-                <TouchableOpacity
-                  style={styles.dateBtn}
-                  onPress={() => setShowDatePicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dateBtnText}>{form.date || '—'}</Text>
-                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-                </TouchableOpacity>
-                {errors.date ? <Text style={styles.errorInline}>{errors.date}</Text> : null}
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('aircraft_type')} value={form.aircraft_type} onChangeText={(v) => set('aircraft_type', v.toUpperCase())} error={errors.aircraft_type} placeholder="C172" autoCapitalize="characters" />
-              </View>
-            </View>
-            <FormField label={t('registration')} value={form.registration} onChangeText={(v) => set('registration', v.toUpperCase())} error={errors.registration} placeholder="SE-KXY" autoCapitalize="characters" />
-
-            <Text style={styles.section}>{t('route')}</Text>
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <IcaoInput label={t('departure')} value={form.dep_place} onChangeText={(v) => set('dep_place', v)} error={errors.dep_place} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <IcaoInput label={t('arrival')} value={form.arr_place} onChangeText={(v) => set('arr_place', v)} error={errors.arr_place} />
-              </View>
-            </View>
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('departure_time_utc')} value={form.dep_utc} onChangeText={(v) => set('dep_utc', v)} error={errors.dep_utc} placeholder="08:30" keyboardType="numbers-and-punctuation" maxLength={5} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('arrival_time_utc')} value={form.arr_utc} onChangeText={(v) => set('arr_utc', v)} error={errors.arr_utc} placeholder="10:00" keyboardType="numbers-and-punctuation" maxLength={5} />
-              </View>
-            </View>
-
-            <Text style={styles.section}>{t('flight_times')}</Text>
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('total')} value={form.total_time} onChangeText={(v) => set('total_time', v)} error={errors.total_time} placeholder="1.5" keyboardType="decimal-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('ifr')} value={form.ifr} onChangeText={(v) => set('ifr', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-            </View>
-            <View style={styles.row3}>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('pic')} value={form.pic} onChangeText={(v) => set('pic', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('co_pilot')} value={form.co_pilot} onChangeText={(v) => set('co_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('dual')} value={form.dual} onChangeText={(v) => set('dual', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-            </View>
-            <View style={styles.row3}>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('instructor')} value={form.instructor ?? '0'} onChangeText={(v) => set('instructor', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('multi_pilot')} value={form.multi_pilot ?? '0'} onChangeText={(v) => set('multi_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('single_pilot')} value={form.single_pilot ?? '0'} onChangeText={(v) => set('single_pilot', v)} placeholder="0" keyboardType="decimal-pad" />
-              </View>
-            </View>
-            <FormField label={t('night')} value={form.night} onChangeText={(v) => set('night', v)} placeholder="0" keyboardType="decimal-pad" />
-
-            <Text style={styles.section}>{t('landings')}</Text>
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('day')} value={form.landings_day} onChangeText={(v) => set('landings_day', v)} placeholder="1" keyboardType="number-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FormField label={t('night')} value={form.landings_night} onChangeText={(v) => set('landings_night', v)} placeholder="0" keyboardType="number-pad" />
-              </View>
-            </View>
-            <FormField label={t('remarks')} value={form.remarks} onChangeText={(v) => set('remarks', v)} placeholder="..." multiline numberOfLines={3} style={{ minHeight: 70, textAlignVertical: 'top' }} />
-
-            <Text style={styles.section}>{t('flight_type_section')}</Text>
-            <View style={styles.flightTypeRow}>
-              {(['normal', 'hot_refuel', 'sim'] as const).map((ft) => {
-                const labels = { normal: t('normal'), hot_refuel: t('hot_refuel'), sim: t('ffs_sim') };
-                const active = (form.flight_type ?? 'normal') === ft;
-                return (
-                  <TouchableOpacity
-                    key={ft}
-                    style={[styles.flightTypeBtn, active && styles.flightTypeBtnActive]}
-                    onPress={() => set('flight_type', ft)}
-                  >
-                    <Text style={[styles.flightTypeBtnText, active && styles.flightTypeBtnTextActive]}>
-                      {labels[ft]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color={Colors.textInverse} /> : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
-                  <Text style={styles.saveBtnText}>{t('save_changes')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </>
-        ) : (
-          // Read view
+        {(
           <>
             <View style={styles.detailGrid}>
               <Detail label={t('date')} value={formatDate(flight.date)} />
@@ -328,6 +128,12 @@ export default function FlightDetailScreen() {
               </View>
             ) : null}
 
+            {flight.photo_uri ? (
+              <View style={{ borderRadius: 12, overflow: 'hidden' }}>
+                <Image source={{ uri: flight.photo_uri }} style={{ width: '100%', height: 220, borderRadius: 12 }} resizeMode="cover" />
+              </View>
+            ) : null}
+
             <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.8}>
               <Ionicons name="trash-outline" size={18} color={Colors.danger} />
               <Text style={styles.deleteBtnText}>{t('delete')}</Text>
@@ -336,51 +142,17 @@ export default function FlightDetailScreen() {
         )}
       </ScrollView>
 
-      {showDatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={form?.date ? new Date(form.date) : new Date()}
-          mode="date"
-          display="calendar"
-          maximumDate={new Date()}
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (event.type === 'set' && selectedDate) {
-              set('date', selectedDate.toISOString().split('T')[0]);
-            }
-          }}
+      {flight && (
+        <FlightShareCard
+          flight={flight}
+          depName={placeNames[flight.dep_place] ?? flight.dep_place}
+          arrName={placeNames[flight.arr_place] ?? flight.arr_place}
+          visible={showShareCard}
+          onClose={() => setShowShareCard(false)}
+          formatTime={formatTime}
         />
       )}
-
-      {Platform.OS === 'ios' && (
-        <Modal
-          visible={showDatePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowDatePicker(false)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowDatePicker(false)}>
-            <Pressable style={styles.datePickerSheet} onPress={(e) => e.stopPropagation()}>
-              <TouchableOpacity
-                style={styles.datePickerDone}
-                onPress={() => setShowDatePicker(false)}
-              >
-                <Text style={styles.datePickerDoneText}>{t('done')}</Text>
-              </TouchableOpacity>
-              <DateTimePicker
-                value={form?.date ? new Date(form.date) : new Date()}
-                mode="date"
-                display="inline"
-                maximumDate={new Date()}
-                themeVariant="dark"
-                onChange={(_, selectedDate) => {
-                  if (selectedDate) set('date', selectedDate.toISOString().split('T')[0]);
-                }}
-              />
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

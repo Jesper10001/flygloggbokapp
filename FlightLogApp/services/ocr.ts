@@ -46,20 +46,6 @@ Läs fälten i denna ordning per rad:
      En elev loggar all tid som DUAL, inte PIC. En instruktör loggar som
      Instructor. Läs kolumnhuvudet eller scan-profilens mapping.
 
-MULTI-PILOT TID (AUTOMATISK HÄRLEDNING):
-Många äldre loggböcker saknar en separat "Multi-pilot"-kolumn. Härleda multi_pilot
-automatiskt enligt dessa regler:
-- Om co_pilot > 0 (tid loggad som co-pilot) OCH det finns en andrepilot
-  (second_pilot eller namn i remarks) → multi_pilot = total_time
-- Om pic > 0 OCH det finns en andrepilot → multi_pilot = total_time
-  (PIC med andrepilot = multi-pilot operation)
-- Om dual > 0 (elev under utbildning) → multi_pilot = 0
-  (dual-tid som elev räknas INTE som multi-pilot, även om instruktör sitter bredvid)
-- Om instructor > 0 → multi_pilot = total_time
-  (instruktör flygande med elev = multi-pilot operation)
-Sätt multi_pilot ÄVEN om loggboken inte har en MP-kolumn. Returnera alltid
-multi_pilot-fältet i JSON.
-
 Om total_time saknas eller är oläslig, fall tillbaka på (arr − dep).
 
 KOLUMNSTRUKTUR I EASA-LOGGBOK (vanlig ordning vänster→höger):
@@ -77,16 +63,15 @@ KOLUMNSTRUKTUR I EASA-LOGGBOK (vanlig ordning vänster→höger):
 
 SIMULATOR (Synthetic training session / STD / FSTD / FFS / Sim) — VIKTIGT:
 Kolumnen kan heta "Synthetic training session", "STD", "FSTD", "FFS",
-"Sim" eller liknande. Om en rad har tid i denna kolumn:
+"Sim" eller liknande. Om en rad har tid i sim-kolumnen:
 - Sätt flight_type = "sim"
-- Sätt total_time = tiden i sim-kolumnen
-- "Total time of flight"-kolumnen är normalt 0 eller tom för sim — ignorera den
-- Om VARKEN total_time eller sim-kolumnen har tid, lämna total_time = 0
-- Dep/arr-platser kan vara tomma eller angivna som sim-center
-- PIC/co-pilot/dual gäller fortfarande — piloter loggar rolltid i sim
+- Läs VARJE kolumns värde strikt från sin position — sim-tid stannar i sim-fältet
+- total_time: läs kolumnen för total_time (INTE sim-kolumnen). Om total_time
+  kolumnen är tom eller 0 för en sim-rad → returnera 0
+- Kopiera ALDRIG sim-tiden till total_time, dual, pic eller andra kolumner
+- PIC/co-pilot/dual: läs bara vad som faktiskt står i respektive kolumn
 - Landningar: vanligtvis 0 för sim
 - Sim-tid räknas INTE som flygtid — de är separata
-- Blanda ALDRIG ihop sim-rader med vanliga flygningsrader
 
 LUFTFARTYGSTYP — viktigt:
 - Står ofta i en smal kolumn, kan vara förkortat: "C172", "PA-28", "B737", "A320", "TB20", "DA40"
@@ -259,14 +244,6 @@ kolumnen verkar innehålla, t.ex.:
     "suggested_value": "0.7" }
 Användaren får bekräfta vad tiden avser (NVG, NVD, etc.) innan den loggas.
 
-SIDNUMMER-DETEKTION (VIKTIGT):
-Läs sidnumren som står längst ned (vanligen i mitten eller hörnen) på vänster
-och höger sida. Svenska EASA-loggböcker har tryckt sidnumrering, t.ex. "92" på
-vänster och "93" på höger. Returnera som page_numbers i JSON:
-  "page_numbers": { "left": 92, "right": 93 }
-Om bara ett sidnummer syns, returnera det du ser och null för det andra.
-Om inga sidnummer syns, returnera null för båda.
-
 SIDVALIDERING:
 - Om sidan har radsummor: kontrollera att radsumman matchar "Total this page"
 - Kontrollera att "Brought forward" + "Total this page" = "Total to date"
@@ -280,74 +257,13 @@ ICAO-VALIDERING:
   tillfällig landningsplats (t.ex. ett fältnamn, en militärbas med lokal kod).
   Returnera den text du ser och flagga med field_issues om du är osäker.
 
-DATUMVALIDERING (VIKTIGT):
-- Datum läses uppifrån och ned. Varje rads datum bör vara SAMMA som eller SENARE
-  än föregående rads datum. Om det verkar gå bakåt i tid → troligt OCR-fel.
-- Förväntat mönster: samma månad eller nästa månad. Hopp på flera månader är
-  möjligt men ovanligt — höj osäkerheten.
-- Vanliga handskriftsförväxlingar i datum: 1↔7, 3↔8, 5↔6, 0↔6, 11↔17.
-- Om ett datum är svårläst, välj det alternativ som bäst passar in i den
-  kronologiska sekvensen (t.ex. om rad 3=2024-03-12 och rad 5=2024-03-14,
-  men rad 4 ser ut som "13" eller "18" → välj "2024-03-13").
-- Flagga för granskning om du inte är säker, med suggested_value satt till
-  ditt bästa förslag baserat på kronologisk ordning.
-
 TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → returnera 0.
 Varje flygning (ej sim) bör ha minst 1 landning — flagga om 0.
 
-KONFIDENS PER RAD OCH FÄLT (VIKTIGT):
-För varje rad, ange hur säker du är på totalt och på enskilda fält.
-
-1. overall_confidence (0.0–1.0): sammanvägd säkerhet för HELA raden
-   - 0.95+ = du är säker på alla fält (handstil tydlig, ICAO standard, tider
-     stämmer med total) → raden "fast-trackas" i UI:t, auto-godkänns, visas
-     komprimerat. Använd SPARSAMT — bara när du verkligen är säker.
-   - 0.80–0.95 = merparten säker, någon liten osäkerhet
-   - < 0.80 = viktig osäkerhet — sätt needs_review=true
-
-2. field_issues: array med bara de fält som har hög osäkerhet. Format per fält:
-   { "field": "aircraft_type", "reason": "suddig handstil, kan vara C172 eller G172",
-     "confidence": 0.55, "suggested_value": "C172" }
-
-   suggested_value: ditt alternativa förslag om du har en rimlig gissning.
-   Exempel: primärvärdet är "ETAB" men "ETHB" är en giltig ICAO-kod → suggested_value = "ETHB".
-   Exempel: tidsformat oklart, 08:20 primärt men kan vara 08:30 → suggested_value = "08:30".
-   Lämna tomt ("") om du inte har en alternativ tolkning.
-
-   Inkludera ENDAST fält med confidence < 0.85. Hoppa över alla säkra fält.
-   UI:t visar bara dessa fält vid review → användaren slipper leta efter vad
-   som är fel. Om field_issues är tom array → hela raden är säker eller
-   flaggad av andra skäl (tidsmismatch etc.)
-
-Exempel:
-  - Tydlig handstil, allt läsbart, tider kontrollerade → overall_confidence=0.96,
-    field_issues=[], needs_review=false
-  - "ESCF" tydligt men siffran "1" kan vara "7" i total_time →
-    overall_confidence=0.70, field_issues=[{field:"total_time", reason:"...", confidence:0.5}],
-    needs_review=true
-
-BILDORIENTERING:
-- Bilden kan vara roterad 90° (loggboken fotograferad stående eller liggande)
-- Läs texten oavsett orientering — rotera mentalt om nödvändigt
-
-BILD-METADATA (VIKTIGT — returnera alltid):
-Returnera fältet image_layout på toppnivå:
-{
-  "image_layout": {
-    "orientation": "landscape" | "portrait",
-    "logbook_bounds": {
-      "x_pct": 5,     // vänsterkant av loggboken i % av bildens bredd (0-100)
-      "y_pct": 10,    // överkant av loggboken i % av bildens höjd (0-100)
-      "w_pct": 90,    // loggbokens bredd i %
-      "h_pct": 80     // loggbokens höjd i %
-    }
-  }
-}
-Uppskatta var den fysiska loggboken börjar och slutar i bilden. Om bilden
-redan är croppat tight: {x_pct:0, y_pct:0, w_pct:100, h_pct:100}.
-
-För VARJE flygningsrad, returnera ungefärlig position i bilden:
-  "row_y_pct": 35    // radans vertikala mitt i % av bildhöjden (0=överst, 100=underst)
+KONFIDENS:
+- overall_confidence (0–1): ≥0.95 = auto-godkänd, <0.80 = needs_review=true
+- field_issues: array med osäkra fält (confidence <0.85). Format:
+  { "field": "...", "reason": "...", "confidence": 0.55, "suggested_value": "..." }
 
 AIRCRAFT-DETEKTERING (KRITISKT):
 Innan du returnerar flights-listan, gruppera de unika luftfartyg du sett på
@@ -396,6 +312,15 @@ Returnera ENBART ett JSON-objekt:
       "pic": 0.0,
       "co_pilot": 0.0,
       "dual": 0.0,
+      "instructor": 0.0,
+      "multi_pilot": 0.0,
+      "single_pilot": 0.0,
+      "picus": 0.0,
+      "spic": 0.0,
+      "nvg": 0.0,
+      "second_pilot": "",
+      "sim": 0.0,
+      "flight_type": "normal",
       "landings_day": 0,
       "landings_night": 0,
       "remarks": "",
@@ -406,7 +331,6 @@ Returnera ENBART ett JSON-objekt:
       "remarks_suggestion": null,
       "time_mismatch": null,
       "overall_confidence": 0.0,
-      "row_y_pct": 0,
       "field_issues": []
     }
   ],
@@ -414,14 +338,6 @@ Returnera ENBART ett JSON-objekt:
     "brought_forward": null,
     "total_this_page": null,
     "total_to_date": null
-  },
-  "page_numbers": {
-    "left": null,
-    "right": null
-  },
-  "image_layout": {
-    "orientation": "landscape",
-    "logbook_bounds": { "x_pct": 0, "y_pct": 0, "w_pct": 100, "h_pct": 100 }
   }
 }
 
@@ -572,7 +488,9 @@ export async function ocrScanPage(
   const scanProfile = useScanProfileStore.getState().profile;
   const hasProfile = useScanProfileStore.getState().hasProfile();
   if (hasProfile) {
-    contextHint += buildScanContext(scanProfile);
+    const profileContext = buildScanContext(scanProfile);
+    contextHint += profileContext;
+    console.log('[OCR] Scan profile context sent to AI:\n' + profileContext);
   }
 
   const parsed = await callAnthropicJson<any>({
@@ -630,7 +548,9 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       dep_utc: f.dep_utc ?? '',
       arr_place: (f.arr_place ?? '').toUpperCase(),
       arr_utc: f.arr_utc ?? '',
-      total_time: String(f.total_time ?? '0'),
+      total_time: f.flight_type === 'sim' && (f.sim > 0 || f.total_time === 0 || f.total_time === '0')
+        ? String(f.sim ?? f.total_time ?? '0')
+        : String(f.total_time ?? '0'),
       ifr: String(f.ifr ?? '0'),
       night: String(f.night ?? '0'),
       pic: String(f.pic ?? '0'),
@@ -639,6 +559,8 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       landings_day: String(f.landings_day ?? '1'),
       landings_night: String(f.landings_night ?? '0'),
       remarks: f.remarks ?? '',
+      flight_type: f.flight_type === 'sim' ? 'sim' : f.flight_type === 'touch_and_go' ? 'touch_and_go' : 'normal',
+      sim_category: f.sim_category !== undefined ? String(f.sim_category) : undefined,
       multi_pilot: f.multi_pilot !== undefined ? String(f.multi_pilot) : undefined,
       single_pilot: f.single_pilot !== undefined ? String(f.single_pilot) : undefined,
       instructor: f.instructor !== undefined ? String(f.instructor) : undefined,

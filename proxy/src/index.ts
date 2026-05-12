@@ -12,17 +12,19 @@ interface Env {
 // ── Quota limits per device per month ────────────────────────────────────────
 
 const MONTHLY_LIMITS: Record<string, number> = {
-  scan: 12,
+  scan: 10,
   summarize: 20,
   lookup: 20,
   import: 5,
+  flight_import: 30,
 };
 
 const PREMIUM_LIMITS: Record<string, number> = {
-  scan: 12,
+  scan: 10,
   summarize: 20,
   lookup: 20,
   import: 5,
+  flight_import: 30,
 };
 
 function currentMonth(): string {

@@ -1,5 +1,5 @@
 import type { FlightFormData, ValidationIssue, IcaoAirport } from '../types/flight';
-import { calcFlightTime, isValidIcao, isValidTime, parseFlightTime } from './format';
+import { calcFlightTime, isValidIcao, isValidPlace, isValidTime, parseFlightTime } from './format';
 import { calculateDistance } from '../db/icao';
 
 // Rimliga flygtidsintervall per luftfartygstyp (min, max timmar)
@@ -49,12 +49,12 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
     issues.push({ field: 'registration', message: 'Registration saknas', severity: 'warning' });
   }
 
-  // ICAO — varning om ogiltigt, fel bara om helt tomt
-  if (data.dep_place?.trim() && !isValidIcao(data.dep_place)) {
-    issues.push({ field: 'dep_place', message: 'Ogiltig ICAO-kod (4 bokstäver)', severity: 'warning' });
+  // Plats — varning om ogiltigt (ICAO eller tillfällig plats)
+  if (data.dep_place?.trim() && !isValidPlace(data.dep_place)) {
+    issues.push({ field: 'dep_place', message: 'Ogiltig plats', severity: 'warning' });
   }
-  if (data.arr_place?.trim() && !isValidIcao(data.arr_place)) {
-    issues.push({ field: 'arr_place', message: 'Ogiltig ICAO-kod (4 bokstäver)', severity: 'warning' });
+  if (data.arr_place?.trim() && !isValidPlace(data.arr_place)) {
+    issues.push({ field: 'arr_place', message: 'Ogiltig plats', severity: 'warning' });
   }
 
   // Tider — validera bara om de är angivna
@@ -118,7 +118,7 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
 
   // Samma dep och arr
   if (
-    isValidIcao(data.dep_place) && isValidIcao(data.arr_place) &&
+    isValidPlace(data.dep_place) && isValidPlace(data.arr_place) &&
     data.dep_place.toUpperCase() === data.arr_place.toUpperCase()
   ) {
     issues.push({

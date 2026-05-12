@@ -351,7 +351,7 @@ function AirportDetailModal({
         </View>
 
         {/* Karta */}
-        {hasCoords && !isTemporary ? (
+        {hasCoords ? (
           <View style={detailStyles.mapContainer}>
             <WebView
               source={{ html: buildMapHtml(airport.lat, airport.lon, airport.name, airport.icao), baseUrl: 'https://tile.openstreetmap.org' }}
@@ -364,7 +364,7 @@ function AirportDetailModal({
           <View style={detailStyles.noMap}>
             <Ionicons name="map-outline" size={40} color={Colors.textMuted} />
             <Text style={detailStyles.noMapText}>
-              {isTemporary ? t('temporary_no_map') : t('coordinates_missing')}
+              {t('coordinates_missing')}
             </Text>
           </View>
         )}
@@ -375,7 +375,7 @@ function AirportDetailModal({
           <InfoRow label={t('airport_name_label').replace(' *', '')} value={airport.name} />
           <InfoRow label={t('country_label')} value={airport.country || '–'} />
           <InfoRow label={t('region_label').replace(' (2 chars.)', '')} value={airport.region || '–'} />
-          {hasCoords && !isTemporary ? (
+          {hasCoords ? (
             <>
               <InfoRow label={t('latitude_label')} value={airport.lat.toFixed(4)} mono />
               <InfoRow label={t('longitude_label')} value={airport.lon.toFixed(4)} mono />

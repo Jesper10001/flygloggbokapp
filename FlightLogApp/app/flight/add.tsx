@@ -2,9 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
-  TextInput, Modal, Pressable,
+  TextInput, Modal, Pressable, Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { callAnthropicJson } from '../../services/anthropicClient';
+import { useScanQuotaStore } from '../../store/scanQuotaStore';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
@@ -14,7 +19,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -65,6 +70,7 @@ const EMPTY: FlightFormData = {
   relief_crew: '0',
   sim_category: '',
   vfr: '0',
+  max_fl: '',
 };
 
 // ── Styles ──────────────────────────────────────────────────────────────────
@@ -527,6 +533,8 @@ export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
+  const { editId, aiImport } = useLocalSearchParams<{ editId?: string; aiImport?: string }>();
+  const isEdit = !!editId;
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
@@ -563,7 +571,65 @@ export default function AddFlightScreen() {
   type CrewMember = { id: string; role: string; name: string };
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
+
+  useEffect(() => {
+    if (!editId) return;
+    getFlightById(Number(editId)).then(f => {
+      if (!f) return;
+      setForm({
+        date: f.date,
+        aircraft_type: f.aircraft_type,
+        registration: f.registration,
+        dep_place: f.dep_place,
+        dep_utc: f.dep_utc,
+        arr_place: f.arr_place,
+        arr_utc: f.arr_utc,
+        total_time: String(f.total_time),
+        ifr: String(f.ifr),
+        night: String(f.night),
+        pic: String(f.pic),
+        co_pilot: String(f.co_pilot),
+        dual: String(f.dual),
+        landings_day: String(f.landings_day),
+        landings_night: String(f.landings_night),
+        remarks: f.remarks,
+        flight_type: f.flight_type ?? 'normal',
+        stop_place: '',
+        flight_rules: f.flight_rules ?? 'VFR',
+        second_pilot: f.second_pilot ?? '',
+        nvg: String(f.nvg ?? 0),
+        tng_count: String(f.tng_count ?? 0),
+        multi_pilot: String(f.multi_pilot ?? 0),
+        single_pilot: String(f.single_pilot ?? 0),
+        instructor: String(f.instructor ?? 0),
+        picus: String(f.picus ?? 0),
+        spic: String(f.spic ?? 0),
+        examiner: String(f.examiner ?? 0),
+        safety_pilot: String(f.safety_pilot ?? 0),
+        observer: String(f.observer ?? 0),
+        ferry_pic: String(f.ferry_pic ?? 0),
+        relief_crew: String(f.relief_crew ?? 0),
+        sim_category: (f.sim_category ?? '') as any,
+        vfr: String(f.vfr ?? 0),
+        max_fl: String(f.max_fl ?? 0) === '0' ? '' : String(f.max_fl),
+        photo_uri: f.photo_uri ?? '',
+      });
+      if (f.photo_uri) setPhotoUri(f.photo_uri);
+      if (f.pic > 0) setRole('pic');
+      else if (f.co_pilot > 0) setRole('co_pilot');
+      else if (f.dual > 0) setRole('dual');
+      else if (f.picus > 0) setRole('picus');
+      else if (f.spic > 0) setRole('spic');
+      else if (f.ferry_pic > 0) setRole('ferry_pic');
+      else if (f.observer > 0) setRole('observer');
+      else if (f.relief_crew > 0) setRole('relief_crew');
+      if ((f.instructor ?? 0) > 0) setFi(true);
+      if ((f.examiner ?? 0) > 0) setExaminerOverlay(true);
+      if ((f.safety_pilot ?? 0) > 0) setSafetyPilotOverlay(true);
+    });
+  }, [editId]);
 
   const CREW_ROLES = [
     { key: 'Crew chief', label: selectedLang === 'sv' ? 'Uppdragsspecialist' : 'Crew chief', short: 'CC' },
@@ -699,10 +765,15 @@ export default function AddFlightScreen() {
       const last = flights[0] ?? null;
       if (last) {
         setLastFlight(last);
-        // Hämta registreringar bara för senaste flygets typ
         getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
-        // Förvalda flygregler baserat på senaste flygningen
-        if (last.flight_rules) {
+        if (!isEdit) {
+          setForm((prev) => ({
+            ...prev,
+            aircraft_type: last.aircraft_type,
+            registration: last.registration,
+            ...(last.flight_rules ? { flight_rules: last.flight_rules, ifr: '0', vfr: '0' } : {}),
+          }));
+        } else if (last.flight_rules) {
           setForm((prev) => ({ ...prev, flight_rules: last.flight_rules, ifr: '0', vfr: '0' }));
         }
         // Förvald roll baserat på senaste flygningen
@@ -957,6 +1028,133 @@ export default function AddFlightScreen() {
     else handleRoleChange('picus');
   };
 
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('permission_required'), 'Kameratillstånd krävs');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const importFromImage = async () => {
+    const { canFlightImport, consumeFlightImport } = useScanQuotaStore.getState();
+    if (!canFlightImport()) {
+      Alert.alert('Kvot slut', 'Du har använt alla dina AI-importer denna månad.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
+    if (result.canceled || !result.assets[0]) return;
+    setAiLoading(true);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1600 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      const base64 = await FileSystem.readAsStringAsync(manipulated.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mediaType = 'image/jpeg';
+
+      const parsed = await callAnthropicJson<Record<string, any>>({
+        system: `You extract flight data from cockpit instrument images, flight tracking app screenshots, or any aviation-related photo. Today's date is ${new Date().toISOString().split('T')[0]}. Return a JSON object with ONLY the fields you can confidently read. Use these field names:
+- date: "YYYY-MM-DD" — If the date format is ambiguous (e.g. 11-05-26 could be 2026-05-11 or 2011-05-26), pick the interpretation closest to today's date.
+- dep_place: ICAO code (4 letters)
+- arr_place: ICAO code (4 letters)
+- dep_utc: "HH:MM" (UTC)
+- arr_utc: "HH:MM" (UTC)
+- aircraft_time: decimal hours — total time engine on to engine off (block time / Hobbs)
+- flight_time: decimal hours — total time airborne (takeoff to landing)
+- aircraft_type: ICAO type designator
+- registration: aircraft registration
+- max_fl: number (flight level, no FL prefix)
+- landings_day: integer
+- flight_rules: "VFR" or "IFR"
+
+Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is shown, return it as flight_time. Omit fields you cannot determine. Never guess — only return what you can clearly read from the image.`,
+        userContent: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: 'Extract all flight data you can read from this image.' },
+        ],
+        maxTokens: 1000,
+        temperature: 0,
+      });
+
+      if (parsed) {
+        const applyImport = (timeVal: string) => {
+          const updates: Partial<FlightFormData> = {};
+          if (parsed.date) updates.date = String(parsed.date);
+          if (parsed.dep_place) updates.dep_place = String(parsed.dep_place).toUpperCase();
+          if (parsed.arr_place) updates.arr_place = String(parsed.arr_place).toUpperCase();
+          if (parsed.dep_utc) updates.dep_utc = String(parsed.dep_utc);
+          if (parsed.arr_utc) updates.arr_utc = String(parsed.arr_utc);
+
+          if (parsed.dep_utc && parsed.arr_utc && isValidTime(String(parsed.dep_utc)) && isValidTime(String(parsed.arr_utc))) {
+            const computed = calcFlightTime(String(parsed.dep_utc), String(parsed.arr_utc));
+            if (computed > 0) {
+              updates.total_time = String(computed);
+            } else if (timeVal) {
+              updates.total_time = timeVal;
+            }
+          } else if (timeVal) {
+            updates.total_time = timeVal;
+          }
+          if (parsed.aircraft_type) updates.aircraft_type = String(parsed.aircraft_type).toUpperCase();
+          if (parsed.registration) updates.registration = String(parsed.registration).toUpperCase();
+          if (parsed.max_fl) updates.max_fl = String(parsed.max_fl);
+          if (parsed.landings_day) updates.landings_day = String(parsed.landings_day);
+          if (parsed.flight_rules) updates.flight_rules = String(parsed.flight_rules).toUpperCase();
+          setForm(prev => ({ ...prev, ...updates }));
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        };
+
+        await consumeFlightImport();
+
+        const hasAircraft = parsed.aircraft_time && parsed.aircraft_time > 0;
+        const hasFlight = parsed.flight_time && parsed.flight_time > 0;
+
+        if (hasAircraft && hasFlight && String(parsed.aircraft_time) !== String(parsed.flight_time)) {
+          Alert.alert(
+            'Vilken tid?',
+            `Aircraft time: ${parsed.aircraft_time}h\nFlight time: ${parsed.flight_time}h`,
+            [
+              { text: `Aircraft ${parsed.aircraft_time}h`, onPress: () => applyImport(String(parsed.aircraft_time)) },
+              { text: `Flight ${parsed.flight_time}h`, onPress: () => applyImport(String(parsed.flight_time)) },
+            ]
+          );
+        } else {
+          applyImport(String(hasFlight ? parsed.flight_time : hasAircraft ? parsed.aircraft_time : ''));
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('AI Import', e.message || 'Kunde inte läsa bilden');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (aiImport === '1') {
+      setTimeout(() => importFromImage(), 500);
+    }
+  }, [aiImport]);
+
   const performSave = async (overrides?: Partial<FlightFormData>) => {
     setSaving(true);
     try {
@@ -964,11 +1162,30 @@ export default function AddFlightScreen() {
         .filter(m => m.role || m.name)
         .map(m => [m.role, m.name].filter(Boolean).join(': '))
         .join(', ');
+      const flStr = parseInt(form.max_fl ?? '') > 0 ? `Max FL${form.max_fl}` : '';
       const finalRemarks = [
         form.remarks,
+        flStr,
         crewStr ? `[${crewStr}]` : '',
       ].filter(Boolean).join(' · ');
-      await insertFlight({ ...form, ...(overrides ?? {}), remarks: finalRemarks }, { source: 'manual' });
+
+      let savedPhotoUri = photoUri ?? '';
+      if (photoUri && !photoUri.startsWith(FileSystem.documentDirectory ?? '___')) {
+        const dir = FileSystem.documentDirectory + 'flight_photos/';
+        await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {});
+        const ext = photoUri.split('.').pop() || 'jpg';
+        const filename = `${Date.now()}.${ext}`;
+        savedPhotoUri = dir + filename;
+        await FileSystem.copyAsync({ from: photoUri, to: savedPhotoUri });
+      }
+
+      const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri };
+
+      if (isEdit) {
+        await updateFlight(Number(editId), finalData);
+      } else {
+        await insertFlight(finalData, { source: 'manual' });
+      }
       await Promise.all([loadFlights(), loadStats()]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -1060,6 +1277,17 @@ export default function AddFlightScreen() {
           </Text>
           <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
         </View>
+        <TouchableOpacity
+          style={{ position: 'absolute', right: 16, bottom: 10 }}
+          onPress={importFromImage}
+          disabled={aiLoading}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          {aiLoading
+            ? <ActivityIndicator size="small" color={Colors.primary} />
+            : <Ionicons name="scan-outline" size={22} color={Colors.primary} />
+          }
+        </TouchableOpacity>
       </TouchableOpacity>
 
       <ScrollView
@@ -1388,9 +1616,21 @@ export default function AddFlightScreen() {
                   onTemporaryPlaceSelect={(icao) => {
                     setDepCustom(true);
                     set('dep_place', icao);
-                    setTimeout(() => depTimeRef.current?.focus(), 80);
+                    if (form.dep_utc && isValidTime(form.dep_utc)) {
+                      setActivePlace('arr');
+                      setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                    } else {
+                      setTimeout(() => depTimeRef.current?.focus(), 80);
+                    }
                   }}
-                  onConfirm={() => setTimeout(() => depTimeRef.current?.focus(), 80)}
+                  onConfirm={() => {
+                    if (form.dep_utc && isValidTime(form.dep_utc)) {
+                      setActivePlace('arr');
+                      setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                    } else {
+                      setTimeout(() => depTimeRef.current?.focus(), 80);
+                    }
+                  }}
                 />
               ) : (
                 <IcaoInput
@@ -1404,9 +1644,15 @@ export default function AddFlightScreen() {
                   onTemporaryPlaceSelect={(icao) => {
                     setArrCustom(true);
                     set('arr_place', icao);
-                    setTimeout(() => arrTimeRef.current?.focus(), 80);
+                    if (!form.arr_utc || !isValidTime(form.arr_utc)) {
+                      setTimeout(() => arrTimeRef.current?.focus(), 80);
+                    }
                   }}
-                  onConfirm={() => setTimeout(() => arrTimeRef.current?.focus(), 80)}
+                  onConfirm={() => {
+                    if (!form.arr_utc || !isValidTime(form.arr_utc)) {
+                      setTimeout(() => arrTimeRef.current?.focus(), 80);
+                    }
+                  }}
                 />
               )}
             </View>
@@ -1634,6 +1880,25 @@ export default function AddFlightScreen() {
             <View style={styles.counterDivider} />
             <Counter label={t('night')} value={form.landings_night} onChange={(v) => set('landings_night', v)} />
           </View>
+          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, gap: 8 }}>
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>FL</Text>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+                  paddingHorizontal: 10, paddingVertical: 8, color: Colors.textPrimary,
+                  fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'], width: 70, textAlign: 'center',
+                }}
+                value={form.max_fl ?? ''}
+                onChangeText={(v) => set('max_fl', v.replace(/\D/g, ''))}
+                placeholder="—"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Max FL</Text>
+            </View>
+          )}
           {(() => {
             const total = parseFloat(form.total_time) || 0;
             const pct = (v: string) => {
@@ -1927,6 +2192,52 @@ export default function AddFlightScreen() {
           );
         })()}
 
+        {/* ── Foto ── */}
+        <View style={{ marginTop: 4 }}>
+          {photoUri ? (
+            <View style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+              <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
+              <TouchableOpacity
+                style={{
+                  position: 'absolute', top: 8, right: 8,
+                  width: 28, height: 28, borderRadius: 14,
+                  backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+                }}
+                onPress={() => setPhotoUri(null)}
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+                }}
+                onPress={pickPhoto}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="image-outline" size={16} color={Colors.textMuted} />
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{t('add_photo')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+                }}
+                onPress={takePhoto}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="camera-outline" size={16} color={Colors.textMuted} />
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{t('take_photo')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* ── Spara ── */}
         {(() => {
           const needsMixedSplit = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
@@ -1947,7 +2258,7 @@ export default function AddFlightScreen() {
                 <>
                   <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
                   <Text style={styles.saveBtnText}>
-                    {mixedMissing ? t('mixed_split_required') : t('save')}
+                    {mixedMissing ? t('mixed_split_required') : isEdit ? t('save_changes') : t('save')}
                   </Text>
                 </>
               )}
@@ -2099,21 +2410,33 @@ export default function AddFlightScreen() {
               {recentTypes.length === 0 ? (
                 <Text style={styles.modalEmpty}>{t('no_saved_aircraft_types')}</Text>
               ) : (
-                recentTypes.map((type, idx) => (
+                <>
                   <TouchableOpacity
-                    key={type}
                     style={styles.modalItem}
-                    onPress={() => {
-                      onTypeSelect(type);
-                      setShowTypeModal(false);
-                    }}
+                    onPress={() => { onTypeSelect(recentTypes[0]); setShowTypeModal(false); }}
                     activeOpacity={0.7}
                   >
-                    {idx === 0 && <Ionicons name="star" size={12} color={Colors.gold} />}
-                    <Text style={styles.modalItemText}>{type}</Text>
-                    {idx === 0 && <Text style={styles.modalItemSub}>{t('most_recent')}</Text>}
+                    <Ionicons name="star" size={12} color={Colors.gold} />
+                    <Text style={styles.modalItemText}>{recentTypes[0]}</Text>
+                    <Text style={styles.modalItemSub}>{t('most_recent')}</Text>
                   </TouchableOpacity>
-                ))
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {[0, 1, 2].map(col => (
+                      <View key={col} style={{ flex: 1 }}>
+                        {recentTypes.slice(1).filter((_, i) => Math.floor(i / 9) === col).map((type) => (
+                          <TouchableOpacity
+                            key={type}
+                            style={[styles.modalItem, { paddingVertical: 10 }]}
+                            onPress={() => { onTypeSelect(type); setShowTypeModal(false); }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.modalItemText, { fontSize: 13 }]}>{type}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                </>
               )}
               <TouchableOpacity
                 style={styles.modalAddItem}
@@ -2147,21 +2470,33 @@ export default function AddFlightScreen() {
               {recentRegs.length === 0 ? (
                 <Text style={styles.modalEmpty}>{t('no_saved_registrations')}</Text>
               ) : (
-                recentRegs.map((r, idx) => (
+                <>
                   <TouchableOpacity
-                    key={r}
                     style={styles.modalItem}
-                    onPress={() => {
-                      set('registration', r);
-                      setShowRegModal(false);
-                    }}
+                    onPress={() => { set('registration', recentRegs[0]); setShowRegModal(false); }}
                     activeOpacity={0.7}
                   >
-                    {idx === 0 && <Ionicons name="star" size={12} color={Colors.gold} />}
-                    <Text style={styles.modalItemText}>{r}</Text>
-                    {idx === 0 && <Text style={styles.modalItemSub}>{t('most_recent')}</Text>}
+                    <Ionicons name="star" size={12} color={Colors.gold} />
+                    <Text style={styles.modalItemText}>{recentRegs[0]}</Text>
+                    <Text style={styles.modalItemSub}>{t('most_recent')}</Text>
                   </TouchableOpacity>
-                ))
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {[0, 1, 2].map(col => (
+                      <View key={col} style={{ flex: 1 }}>
+                        {recentRegs.slice(1).filter((_, i) => Math.floor(i / 9) === col).map((r) => (
+                          <TouchableOpacity
+                            key={r}
+                            style={[styles.modalItem, { paddingVertical: 10 }]}
+                            onPress={() => { set('registration', r); setShowRegModal(false); }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.modalItemText, { fontSize: 13 }]}>{r}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                </>
               )}
               <TouchableOpacity
                 style={styles.modalAddItem}
@@ -2208,21 +2543,40 @@ export default function AddFlightScreen() {
               {recentPilots.length === 0 ? (
                 <Text style={styles.modalEmpty}>{t('no_saved_pilots')}</Text>
               ) : (
-                recentPilots.map((p, idx) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={styles.modalItem}
-                    onPress={() => {
-                      set('second_pilot', p);
-                      setShowPilotModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    {idx === 0 && <Ionicons name="star" size={12} color={Colors.gold} />}
-                    <Text style={styles.modalItemText}>{p}</Text>
-                    {idx === 0 && <Text style={styles.modalItemSub}>{t('most_recent')}</Text>}
-                  </TouchableOpacity>
-                ))
+                (() => {
+                  const shortName = (name: string) => {
+                    const parts = name.trim().split(/\s+/);
+                    if (parts.length < 2) return name;
+                    return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+                  };
+                  return (<>
+                    <TouchableOpacity
+                      style={styles.modalItem}
+                      onPress={() => { set('second_pilot', recentPilots[0]); setShowPilotModal(false); }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="star" size={12} color={Colors.gold} />
+                      <Text style={styles.modalItemText}>{shortName(recentPilots[0])}</Text>
+                      <Text style={styles.modalItemSub}>{t('most_recent')}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {[0, 1, 2].map(col => (
+                        <View key={col} style={{ flex: 1 }}>
+                          {recentPilots.slice(1).filter((_, i) => Math.floor(i / 9) === col).map((p) => (
+                            <TouchableOpacity
+                              key={p}
+                              style={[styles.modalItem, { paddingVertical: 10 }]}
+                              onPress={() => { set('second_pilot', p); setShowPilotModal(false); }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.modalItemText, { fontSize: 13 }]}>{shortName(p)}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  </>);
+                })()
               )}
             </ScrollView>
           </Pressable>

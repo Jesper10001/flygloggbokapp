@@ -46,9 +46,15 @@ export function calcFlightTime(dep: string, arr: string): number {
   return Math.round((arrMins - depMins) / 6) / 10; // decimaltimmar, 1 decimal
 }
 
-// Validera ICAO-kod
+// Validera ICAO-kod (4 bokstäver)
 export function isValidIcao(icao: string): boolean {
   return /^[A-Z]{4}$/.test(icao.toUpperCase());
+}
+
+// Validera plats — antingen giltig ICAO eller tillfällig plats (2+ tecken)
+export function isValidPlace(place: string): boolean {
+  if (!place) return false;
+  return place.trim().length >= 2;
 }
 
 // Formatera registreringsnummer

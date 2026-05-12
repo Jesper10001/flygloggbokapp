@@ -148,7 +148,8 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
 export async function callAnthropicJson<T = any>(opts: CallAnthropicOptions): Promise<T> {
   const { text, stopReason } = await callAnthropicRaw(opts);
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error(`Kunde inte tolka svaret från Claude. Svar: "${text.slice(0, 160)}"`);
   }

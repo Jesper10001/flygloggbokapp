@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity,
-  StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView, Modal, Pressable,
+  View, Text, FlatList, TouchableOpacity, Image,
+  StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView, Modal, Pressable, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import type { Flight } from '../../types/flight';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat, formatTimeValue } from '../../hooks/useTimeFormat';
+import { FlightShareCard } from '../../components/FlightShareCard';
 import { Image as RNImage } from 'react-native';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getActiveBook, getSpreadsForBook, addBook, isBookFull, type LogbookBook, type SpreadInfo } from '../../db/logbookBooks';
@@ -30,7 +31,8 @@ import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
 import { FlightChart } from '../../components/FlightChart';
 import { RollingLoadChart } from '../../components/RollingLoadChart';
-import { EASAProgressCharts, GoalCalculator } from '../../components/EASAProgressChart';
+import { EASAProgressCharts } from '../../components/EASAProgressChart';
+import { batchPlaceNames } from '../../db/icao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
@@ -120,8 +122,8 @@ function SpecBadges({ crewType, engineType }: { crewType: string; engineType: st
 
 // ─── FlightRow (new design) ─────────────────────────────────────────────────
 
-function FlightRow({ flight, onPress, isLast }: {
-  flight: Flight; onPress: () => void; isLast?: boolean;
+function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
+  flight: Flight; onPress: () => void; isLast?: boolean; placeNames?: Record<string, string>; onPhotoPress?: (f: Flight) => void;
 }) {
   const styles = makeLogStyles();
   const { formatTime } = useTimeFormat();
@@ -151,9 +153,9 @@ function FlightRow({ flight, onPress, isLast }: {
       {/* Center */}
       <View style={styles.flightCenter}>
         <View style={styles.flightRouteRow}>
-          <Text style={styles.flightRoute}>{f.dep_place}</Text>
+          <Text style={styles.flightRoute}>{placeNames?.[f.dep_place?.toUpperCase()] ?? f.dep_place}</Text>
           <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
-          <Text style={styles.flightRoute}>{f.arr_place}</Text>
+          <Text style={styles.flightRoute}>{placeNames?.[f.arr_place?.toUpperCase()] ?? f.arr_place}</Text>
           {(isFlagged || needsReview) && (
             <Text style={{ fontSize: 13, marginLeft: 2 }}>⚠️</Text>
           )}
@@ -175,6 +177,15 @@ function FlightRow({ flight, onPress, isLast }: {
         <Text style={styles.flightTime}>{formatTime(f.total_time)}</Text>
         <Text style={styles.flightDepUtc}>{f.dep_utc ?? ''}</Text>
       </View>
+      {f.photo_uri ? (
+        <TouchableOpacity
+          style={{ width: 28, height: 28, borderRadius: 6, overflow: 'hidden', marginLeft: 6 }}
+          onPress={(e) => { e.stopPropagation(); onPhotoPress?.(f); }}
+          activeOpacity={0.8}
+        >
+          <Image source={{ uri: f.photo_uri }} style={{ width: 28, height: 28 }} resizeMode="cover" />
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -182,6 +193,7 @@ function FlightRow({ flight, onPress, isLast }: {
 // ─── AirframesView ──────────────────────────────────────────────────────────
 
 function AirframesView() {
+  const styles = makeLogStyles();
   const { t } = useTranslation();
   const [airframes, setAirframes] = useState<AircraftRegistryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1520,6 +1532,41 @@ function WeaponsView() {
 
 // ─── Main screen ────────────────────────────────────────────────────────────
 
+function ChartCarousel() {
+  const [activeChart, setActiveChart] = useState(0);
+  const chartWidth = Dimensions.get('window').width - 24; // matches parent marginHorizontal: 12
+  return (
+    <View style={{ marginTop: 16, marginBottom: 8 }}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / chartWidth);
+          setActiveChart(idx);
+        }}
+        decelerationRate="fast"
+        snapToInterval={chartWidth}
+      >
+        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
+          <FlightChart />
+        </View>
+        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
+          <RollingLoadChart />
+        </View>
+      </ScrollView>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+        {[0, 1].map(i => (
+          <View key={i} style={{
+            width: activeChart === i ? 16 : 6, height: 6, borderRadius: 3,
+            backgroundColor: activeChart === i ? Colors.primary : Colors.separator,
+          }} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function LogScreen() {
   const styles = makeLogStyles();
   const tvStyles = makeTvStyles();
@@ -1536,7 +1583,16 @@ export default function LogScreen() {
 
   // Expanded state
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+  const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+  const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
+
+  useEffect(() => {
+    const icaos = flights.flatMap(f => [f.dep_place, f.arr_place].filter(Boolean));
+    if (icaos.length > 0) batchPlaceNames(icaos).then(setPlaceNames);
+  }, [flights]);
   const [openMonthKey, setOpenMonthKey] = useState<string>('');
+  const [showOlderYears, setShowOlderYears] = useState(false);
+  const cutoffYear = new Date().getFullYear() - 2;
 
   useFocusEffect(useCallback(() => {
     loadFlights();
@@ -1624,6 +1680,8 @@ export default function LogScreen() {
                     flight={item}
                     isLast={index === searchResults.length - 1}
                     onPress={() => router.push(`/flight/${item.id}`)}
+                    placeNames={placeNames}
+                    onPhotoPress={setPhotoPreview}
                   />
                 )}
                 contentContainerStyle={styles.listContent}
@@ -1647,7 +1705,7 @@ export default function LogScreen() {
               automaticallyAdjustKeyboardInsets
             >
               {/* ── Year groups ── */}
-              {tree.map((yg) => {
+              {tree.filter(yg => yg.year >= cutoffYear).map((yg) => {
                 const yearOpen = expandedYears.has(yg.year);
                 const flightCount = yg.months.reduce((s, m) => s + m.count, 0);
                 return (
@@ -1695,6 +1753,8 @@ export default function LogScreen() {
                                   flight={flight}
                                   isLast={idx === sec.flights.length - 1}
                                   onPress={() => router.push(`/flight/${flight.id}`)}
+                                  placeNames={placeNames}
+                                  onPhotoPress={setPhotoPreview}
                                 />
                               ))}
                             </View>
@@ -1706,20 +1766,74 @@ export default function LogScreen() {
                 );
               })}
 
-              {/* Flight time chart */}
-              <View style={{ marginHorizontal: 12, marginTop: 16, marginBottom: 8 }}>
-                <FlightChart />
-              </View>
+              {/* Previous years */}
+              {tree.some(yg => yg.year < cutoffYear) && (
+                <View>
+                  <TouchableOpacity style={styles.yearHeader} onPress={() => setShowOlderYears(v => !v)} activeOpacity={0.7}>
+                    <View style={styles.yearHeaderLeft}>
+                      <Ionicons
+                        name={showOlderYears ? 'chevron-down' : 'chevron-forward'}
+                        size={16} color={Colors.textMuted}
+                      />
+                      <Text style={styles.yearTitle}>{t('previous_years') ?? 'Previous years'}</Text>
+                    </View>
+                    <View style={styles.yearHeaderRight}>
+                      <Text style={styles.yearHours}>
+                        {formatTime(tree.filter(yg => yg.year < cutoffYear).reduce((s, yg) => s + yg.totalHours, 0))}h
+                      </Text>
+                      <Text style={styles.yearCount}>
+                        {tree.filter(yg => yg.year < cutoffYear).reduce((s, yg) => s + yg.months.reduce((ms, m) => ms + m.count, 0), 0)} flights
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  {showOlderYears && tree.filter(yg => yg.year < cutoffYear).map((yg) => {
+                    const yearOpen = expandedYears.has(yg.year);
+                    const flightCount = yg.months.reduce((s, m) => s + m.count, 0);
+                    return (
+                      <View key={yg.year}>
+                        <TouchableOpacity style={[styles.yearHeader, { paddingLeft: 28 }]} onPress={() => toggleYear(yg.year)} activeOpacity={0.7}>
+                          <View style={styles.yearHeaderLeft}>
+                            <Ionicons name={yearOpen ? 'chevron-down' : 'chevron-forward'} size={14} color={Colors.textMuted} />
+                            <Text style={[styles.yearTitle, { fontSize: 15 }]}>{yg.year}</Text>
+                          </View>
+                          <View style={styles.yearHeaderRight}>
+                            <Text style={styles.yearHours}>{formatTime(yg.totalHours)}h</Text>
+                            <Text style={styles.yearCount}>{flightCount} flights</Text>
+                          </View>
+                        </TouchableOpacity>
+                        {yearOpen && yg.months.map((mg) => {
+                          const mKey = `${yg.year}-${mg.month}`;
+                          const mOpen = openMonthKey === mKey;
+                          return (
+                            <View key={mKey}>
+                              <TouchableOpacity style={styles.monthHeader} onPress={() => toggleMonth(mKey)} activeOpacity={0.7}>
+                                <Text style={styles.monthTitle}>{mg.title}</Text>
+                                <Text style={styles.monthMeta}>{formatTime(mg.totalHours)}h · {mg.count}</Text>
+                              </TouchableOpacity>
+                              {mOpen && (
+                                <View style={styles.monthCard}>
+                                  {mg.flights.map((f, fi) => (
+                                    <FlightRow key={f.id} flight={f} onPress={() => router.push(`/flight/${f.id}`)} isLast={fi === mg.flights.length - 1} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
-              {/* 14-day rolling load */}
-              <View style={{ marginHorizontal: 12, marginBottom: 8 }}>
-                <RollingLoadChart />
+              {/* Flight hours + 14-day load — swipeable */}
+              <View style={{ marginHorizontal: 12 }}>
+                <ChartCarousel />
               </View>
 
               {/* EASA CPL/ATPL progress */}
               <View style={{ marginHorizontal: 12, marginBottom: 8, gap: 8 }}>
                 <EASAProgressCharts />
-                <GoalCalculator />
               </View>
             </ScrollView>
           )}
@@ -1731,10 +1845,26 @@ export default function LogScreen() {
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')}
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            router.push('/flight/add?aiImport=1');
+          }}
+          delayLongPress={1000}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={28} color={Colors.textInverse} />
         </TouchableOpacity>
+      )}
+
+      {photoPreview && (
+        <FlightShareCard
+          flight={photoPreview}
+          depName={placeNames[photoPreview.dep_place?.toUpperCase()] ?? photoPreview.dep_place}
+          arrName={placeNames[photoPreview.arr_place?.toUpperCase()] ?? photoPreview.arr_place}
+          visible={!!photoPreview}
+          onClose={() => setPhotoPreview(null)}
+          formatTime={formatTime}
+        />
       )}
     </View>
   );

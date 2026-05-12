@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { searchAirports, getNearbyTemporaryPlaces, generateTemporaryIcao, addTemporaryPlace } from '../db/icao';
+import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, batchPlaceNames } from '../db/icao';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import type { IcaoAirport } from '../types/flight';
@@ -41,8 +41,10 @@ function makeStyles() {
       borderWidth: 1, borderColor: Colors.border,
     },
     recentChipGold: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },
+    recentChipOrange: { backgroundColor: Colors.warning + '22', borderColor: Colors.warning + '88' },
     recentChipText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
     recentChipTextGold: { color: Colors.gold },
+    recentChipTextOrange: { color: Colors.warning },
 
     inputWrapper: {
       flexDirection: 'row', alignItems: 'center',
@@ -135,6 +137,9 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const inputRef = useRef<TextInput>(null);
   useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
+  // Place status for confirmation icon color
+  const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | null>(null);
+
   // "Här"-modal state
   const [hereLoading, setHereLoading] = useState(false);
   const [hereModal, setHereModal] = useState(false);
@@ -143,29 +148,66 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [nearbyPlaces, setNearbyPlaces] = useState<IcaoAirport[]>([]);
 
   useEffect(() => {
-    setInputText(value);
     setSuggestions([]);
     setShowDropdown(false);
+    if (value.length >= 2) {
+      getAirportByIcao(value).then(a => {
+        if (!a) {
+          setPlaceStatus(/^[A-Z]{4}$/.test(value) ? 'known' : null);
+          setInputText(value);
+          return;
+        }
+        if (a.temporary) {
+          setPlaceStatus(a.lat && a.lon && (a.lat !== 0 || a.lon !== 0) ? 'temp-located' : 'temp-unlocated');
+          setInputText(a.name && a.name !== a.icao ? a.name : value);
+        } else {
+          setPlaceStatus('known');
+          setInputText(value);
+        }
+      });
+    } else {
+      setPlaceStatus(null);
+      setInputText(value);
+    }
   }, [value]);
 
-  const handleChangeText = (t: string) => {
-    const upper = t.toUpperCase();
-    setInputText(upper);
-    if (!upper) {
+  const handleChangeText = (text: string) => {
+    const display = allowHere ? text : text.toUpperCase();
+    setInputText(display);
+    if (!display) {
       onChangeText('');
       setSuggestions([]);
       setShowDropdown(false);
       return;
     }
-    searchAirports(upper).then((results) => {
-      setSuggestions(results);
-      setShowDropdown(results.length > 0);
+    searchAirports(display).then((results) => {
+      const filtered = allowHere ? results.filter(r => (r as any).temporary === 1) : results;
+      setSuggestions(filtered);
+      setShowDropdown(filtered.length > 0);
     });
+  };
+
+  const commitTempName = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const icao = await generateTemporaryIcao(trimmed);
+    await addTemporaryPlace(icao, trimmed, 0, 0);
+    onChangeText(icao);
+    setInputText(trimmed);
+    setSuggestions([]);
+    setShowDropdown(false);
+    onConfirm?.(icao);
+  };
+
+  const handleBlur = () => {
+    if (allowHere && inputText.trim() && !placeStatus) {
+      commitTempName(inputText);
+    }
   };
 
   const select = (airport: IcaoAirport) => {
     onChangeText(airport.icao);
-    setInputText(airport.icao);
+    setInputText(airport.temporary ? airport.name : airport.icao);
     setSuggestions([]);
     setShowDropdown(false);
     inputRef.current?.blur();
@@ -180,6 +222,9 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     onConfirm?.(icao);
   };
 
+  // Nearby ICAO airports (for ICAO mode "Här")
+  const [nearbyIcaoAirports, setNearbyIcaoAirports] = useState<IcaoAirport[]>([]);
+
   // ── "Här"-knapp ─────────────────────────────────────────────────────────
   const handleHere = async () => {
     setHereLoading(true);
@@ -192,22 +237,26 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude: lat, longitude: lon } = pos.coords;
 
-      // Reverse geocode — föreslå ortsnamn
-      let suggested = '';
-      try {
-        const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
-        const raw = geo?.city || geo?.district || geo?.subregion || geo?.region || '';
-        // Max 10 tecken, behåll alla unicode-bokstäver och mellanslag
-        suggested = raw.replace(/[^\p{L}\s]/gu, '').trim().slice(0, 10);
-      } catch { /* ignorera om reverse geocode misslyckas */ }
-
-      // Sök efter sparade platser inom 3 km
-      const nearby = await getNearbyTemporaryPlaces(lat, lon, 3);
-
-      setHereCoords({ lat, lon });
-      setHereName(suggested);
-      setNearbyPlaces(nearby);
-      setHereModal(true);
+      if (allowHere) {
+        let suggested = '';
+        try {
+          const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+          const raw = geo?.city || geo?.district || geo?.subregion || geo?.region || '';
+          suggested = raw.replace(/[^\p{L}\s]/gu, '').trim().slice(0, 10);
+        } catch {}
+        const nearby = await getNearbyTemporaryPlaces(lat, lon, 3);
+        setHereCoords({ lat, lon });
+        setHereName(suggested);
+        setNearbyPlaces(nearby);
+        setNearbyIcaoAirports([]);
+        setHereModal(true);
+      } else {
+        const nearby = await getNearbyAirports(lat, lon, 5);
+        setHereCoords({ lat, lon });
+        setNearbyIcaoAirports(nearby);
+        setNearbyPlaces([]);
+        setHereModal(true);
+      }
     } catch (e: any) {
       Alert.alert('Fel', e.message);
     } finally {
@@ -235,15 +284,21 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     setInputText(icao);
   };
 
-  const isConfirmed = value.length === 4 && inputText === value;
-  // Top 3 unika senaste platser. Filtrera på läget:
-  //  - ICAO-läget (!allowHere): dölj tillfälliga, så "bara 2 visas" om en av topp-3 är tillfällig.
-  //  - Temporary-läget (allowHere): visa endast tillfälliga.
-  const top3 = recentPlaces.slice(0, 3);
+  const isConfirmed = value.length >= 2 && placeStatus !== null;
+  // Resolve temp place names for recent chips
+  const [recentNames, setRecentNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const tempIcaos = recentPlaces.filter(p => p.temporary).map(p => p.icao);
+    if (tempIcaos.length > 0) batchPlaceNames(tempIcaos).then(setRecentNames);
+  }, [recentPlaces]);
+
+  const modeFiltered = allowHere
+    ? recentPlaces.filter(p => p.temporary)
+    : recentPlaces.filter(p => !p.temporary);
   const filteredRecent = (
     inputText
-      ? recentPlaces.filter((p) => p.icao.startsWith(inputText) && p.icao !== inputText)
-      : top3.filter((p) => (allowHere ? p.temporary : !p.temporary))
+      ? modeFiltered.filter((p) => p.icao.startsWith(inputText.toUpperCase()) && p.icao !== inputText.toUpperCase())
+      : modeFiltered.slice(0, 2)
   );
 
   return (
@@ -257,16 +312,23 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           value={inputText}
           onChangeText={handleChangeText}
           onFocus={onFocus}
-          placeholder={placeholder ?? t('icao_placeholder')}
+          onBlur={handleBlur}
+          onSubmitEditing={() => {
+            if (allowHere && inputText.trim() && !placeStatus) {
+              commitTempName(inputText);
+            }
+          }}
+          placeholder={placeholder ?? (allowHere ? t('search_place') : t('icao_placeholder'))}
           placeholderTextColor={Colors.textMuted}
-          autoCapitalize="characters"
+          autoCapitalize={allowHere ? 'words' : 'characters'}
           autoCorrect={false}
+          returnKeyType={allowHere ? 'done' : 'default'}
         />
         {isConfirmed && (
           <Ionicons
             name={error ? 'close-circle' : 'checkmark-circle'}
             size={18}
-            color={error ? Colors.danger : Colors.success}
+            color={error ? Colors.danger : placeStatus === 'temp-unlocated' ? Colors.warning : Colors.success}
             style={styles.icon}
           />
         )}
@@ -275,7 +337,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
           </TouchableOpacity>
         )}
-        {allowHere && !inputText && (
+        {!inputText && (
           <TouchableOpacity
             style={styles.hereBtn}
             onPress={handleHere}
@@ -297,25 +359,28 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
 
       {!inputText && filteredRecent.length > 0 && (
         <View style={[styles.recentRow, { marginTop: 6, marginBottom: 0 }]}>
-          {filteredRecent.slice(0, 3).map((place, idx) => {
-            const isRecent = idx === 0;
+          {filteredRecent.slice(0, 2).map((place, idx) => {
+            const isFirst = idx === 0;
+            const displayName = place.temporary
+              ? (recentNames[place.icao] && recentNames[place.icao] !== place.icao ? recentNames[place.icao] : place.icao)
+              : place.icao;
+            const chipHighlight = isFirst
+              ? (place.temporary ? styles.recentChipOrange : styles.recentChipGold)
+              : undefined;
+            const textHighlight = isFirst
+              ? (place.temporary ? styles.recentChipTextOrange : styles.recentChipTextGold)
+              : undefined;
             return (
               <TouchableOpacity
                 key={place.icao}
-                style={[styles.recentChip, isRecent && styles.recentChipGold]}
-                onPress={() => {
-                  if (place.temporary && onTemporaryPlaceSelect) {
-                    onTemporaryPlaceSelect(place.icao);
-                  } else {
-                    selectRecent(place.icao);
-                  }
-                }}
+                style={[styles.recentChip, chipHighlight]}
+                onPress={() => selectRecent(place.icao)}
               >
-                {isRecent && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
+                {isFirst && !place.temporary && <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />}
                 {place.temporary && (
-                  <Ionicons name="navigate-circle-outline" size={10} color={Colors.primary} style={{ marginRight: 3 }} />
+                  <Ionicons name="location" size={10} color={isFirst ? Colors.warning : Colors.primary} style={{ marginRight: 3 }} />
                 )}
-                <Text style={[styles.recentChipText, isRecent && styles.recentChipTextGold]}>{place.icao}</Text>
+                <Text style={[styles.recentChipText, textHighlight]}>{displayName}</Text>
               </TouchableOpacity>
             );
           })}
@@ -324,21 +389,29 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
 
       {showDropdown && (
         <View style={styles.dropdown}>
-          {suggestions.slice(0, 8).map((item, idx) => (
-            <View key={item.icao}>
-              {idx > 0 && <View style={styles.sep} />}
-              <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
-                <Text style={styles.suggestionIcao}>{item.icao}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.suggestionCountry}>{item.country}</Text>
-                </View>
-                {(item as any).temporary === 1 && (
-                  <Ionicons name="navigate-circle-outline" size={13} color={Colors.textMuted} />
-                )}
-              </TouchableOpacity>
-            </View>
-          ))}
+          {suggestions.slice(0, 8).map((item, idx) => {
+            const isTemp = (item as any).temporary === 1;
+            const isLocated = isTemp && item.lat !== 0 && item.lon !== 0;
+            return (
+              <View key={item.icao}>
+                {idx > 0 && <View style={styles.sep} />}
+                <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
+                  {isTemp ? (
+                    <Ionicons name="location" size={16} color={isLocated ? Colors.success : Colors.warning} style={{ width: 48, textAlign: 'center' }} />
+                  ) : (
+                    <Text style={styles.suggestionIcao}>{item.icao}</Text>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.suggestionCountry}>{isTemp ? (isLocated ? 'Sparad plats' : 'Ej placerad') : item.country}</Text>
+                  </View>
+                  {isTemp && (
+                    <Ionicons name={isLocated ? 'checkmark-circle' : 'alert-circle'} size={16} color={isLocated ? Colors.success : Colors.warning} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -352,50 +425,81 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('here')}</Text>
 
-            {/* Befintliga platser inom 3 km */}
-            {nearbyPlaces.length > 0 && (
+            {/* ICAO mode — show nearby airports */}
+            {nearbyIcaoAirports.length > 0 && (
               <View style={styles.nearbySection}>
-                <Text style={styles.nearbySectionLabel}>Sparad plats inom 3 km</Text>
-                {nearbyPlaces.map(p => (
+                <Text style={styles.nearbySectionLabel}>Närmaste flygplatser</Text>
+                {nearbyIcaoAirports.map(p => (
                   <TouchableOpacity
                     key={p.icao}
                     style={styles.nearbyRow}
-                    onPress={() => confirmHere(p.icao)}
+                    onPress={() => {
+                      setHereModal(false);
+                      onChangeText(p.icao);
+                      setInputText(p.icao);
+                      onConfirm?.(p.icao);
+                    }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="navigate-circle-outline" size={16} color={Colors.primary} />
+                    <Text style={[styles.nearbyIcao, { fontWeight: '800', fontSize: 14, color: Colors.primary }]}>{p.icao}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.nearbyName}>{p.name}</Text>
-                      <Text style={styles.nearbyIcao}>{p.icao}</Text>
+                      <Text style={styles.nearbyIcao}>{p.country}</Text>
                     </View>
                     <Ionicons name="arrow-forward-circle" size={20} color={Colors.primary} />
                   </TouchableOpacity>
                 ))}
-                <View style={styles.divider} />
-                <Text style={styles.nearbySectionLabel}>Eller spara ny plats</Text>
               </View>
             )}
 
-            {/* Namnfält */}
-            <TextInput
-              style={styles.nameInput}
-              value={hereName}
-              onChangeText={v => setHereName(v.slice(0, 10))}
-              placeholder="Namn (max 10 tecken)"
-              placeholderTextColor={Colors.textMuted}
-              maxLength={10}
-              autoFocus={nearbyPlaces.length === 0}
-            />
-            <Text style={styles.nameHint}>{hereName.length}/10 tecken</Text>
+            {/* Temp mode — nearby saved places + create new */}
+            {allowHere && (
+              <>
+                {nearbyPlaces.length > 0 && (
+                  <View style={styles.nearbySection}>
+                    <Text style={styles.nearbySectionLabel}>Sparad plats inom 3 km</Text>
+                    {nearbyPlaces.map(p => (
+                      <TouchableOpacity
+                        key={p.icao}
+                        style={styles.nearbyRow}
+                        onPress={() => confirmHere(p.icao)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="navigate-circle-outline" size={16} color={Colors.primary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.nearbyName}>{p.name}</Text>
+                          <Text style={styles.nearbyIcao}>{p.icao}</Text>
+                        </View>
+                        <Ionicons name="arrow-forward-circle" size={20} color={Colors.primary} />
+                      </TouchableOpacity>
+                    ))}
+                    <View style={styles.divider} />
+                    <Text style={styles.nearbySectionLabel}>Eller spara ny plats</Text>
+                  </View>
+                )}
 
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => confirmHere()}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="navigate-circle-outline" size={16} color="#fff" />
-              <Text style={styles.confirmBtnText}>Spara & välj</Text>
-            </TouchableOpacity>
+                <TextInput
+                  style={styles.nameInput}
+                  value={hereName}
+                  onChangeText={v => setHereName(v.slice(0, 10))}
+                  placeholder="Namn (max 10 tecken)"
+                  placeholderTextColor={Colors.textMuted}
+                  maxLength={10}
+                  autoFocus={nearbyPlaces.length === 0}
+                />
+                <Text style={styles.nameHint}>{hereName.length}/10 tecken</Text>
+
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={() => confirmHere()}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="navigate-circle-outline" size={16} color="#fff" />
+                  <Text style={styles.confirmBtnText}>Spara & välj</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setHereModal(false)}>
               <Text style={styles.cancelBtnText}>Avbryt</Text>
             </TouchableOpacity>

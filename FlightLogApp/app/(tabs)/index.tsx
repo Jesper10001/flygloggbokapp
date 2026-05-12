@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions, FlatList,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
   Alert, Linking,
 } from 'react-native';
@@ -11,10 +11,17 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
+import { FlightShareCard } from '../../components/FlightShareCard';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
-import { getStressHours, getSetting } from '../../db/flights';
+import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
+import { batchPlaceNames } from '../../db/icao';
+import { GoalCalculator } from '../../components/EASAProgressChart';
+import { formatDate } from '../../utils/format';
+
+let runwayData: Record<string, number[]> = {};
+try { runwayData = require('../../assets/runways.json'); } catch {}
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProfileStore, isOperator, type SubRole } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -106,12 +113,14 @@ function StressRing({ stress, size = 120, animKey = 0 }: { stress: StressData; s
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function LatestFlightRow({ flight, onPress, isLast }: { flight: Flight; onPress: () => void; isLast?: boolean }) {
+function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: { flight: Flight; onPress: () => void; isLast?: boolean; placeNames?: Record<string, string>; onPhotoPress?: (f: Flight) => void }) {
   const ls = makeDashStyles();
   const { formatTime } = useTimeFormat();
   const f = flight;
   const day = f.date?.split('-')[2] ?? '??';
   const mIdx = parseInt(f.date?.split('-')[1] ?? '0') - 1;
+  const depName = placeNames?.[f.dep_place?.toUpperCase()] ?? f.dep_place;
+  const arrName = placeNames?.[f.arr_place?.toUpperCase()] ?? f.arr_place;
 
   // Build flight condition segments
   const total = f.total_time || 0.01;
@@ -138,18 +147,27 @@ function LatestFlightRow({ flight, onPress, isLast }: { flight: Flight; onPress:
       <View style={{ flex: 1, marginLeft: 10, gap: 4 }}>
         {/* Route bar */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 12, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Menlo' }}>{f.dep_place}</Text>
-          <View style={{ width: 60, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{depName}</Text>
+          <View style={{ width: 40, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
             {segments.map((seg, i) => (
               <View key={i} style={{ width: `${seg.pct}%`, height: 4, backgroundColor: seg.color }} />
             ))}
           </View>
-          <Text style={{ fontSize: 12, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Menlo' }}>{f.arr_place}</Text>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{arrName}</Text>
         </View>
         {/* Meta */}
         <Text style={ls.latestMeta}>{f.aircraft_type} · {f.registration}</Text>
       </View>
       <Text style={ls.latestTime}>{formatTime(f.total_time)}</Text>
+      {f.photo_uri ? (
+        <TouchableOpacity
+          style={{ width: 24, height: 24, borderRadius: 5, overflow: 'hidden', marginLeft: 6 }}
+          onPress={() => onPhotoPress?.(f)}
+          activeOpacity={0.8}
+        >
+          <Image source={{ uri: f.photo_uri }} style={{ width: 24, height: 24 }} resizeMode="cover" />
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -264,6 +282,163 @@ function OperatorDashboard({ flights, role, formatTime: fmt }: {
 
 // ── Main screen ─────────────────────────────────────────────────────────────
 
+function MiniRunways({ icao, size = 20 }: { icao: string; size?: number }) {
+  const headings = runwayData[icao];
+  if (!headings || headings.length === 0) return null;
+  const groups: { heading: number; offset: number }[] = [];
+  const used = new Set<number>();
+  for (let i = 0; i < headings.length; i++) {
+    if (used.has(i)) continue;
+    const parallel: number[] = [i];
+    for (let j = i + 1; j < headings.length; j++) {
+      if (used.has(j)) continue;
+      const diff = Math.abs(headings[i] - headings[j]);
+      if (Math.min(diff, 360 - diff) < 30) { parallel.push(j); used.add(j); }
+    }
+    used.add(i);
+    const avg = headings[parallel[0]];
+    for (let k = 0; k < parallel.length; k++) {
+      groups.push({ heading: avg, offset: (k - (parallel.length - 1) / 2) * 3 });
+    }
+  }
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {groups.map((g, i) => {
+        const rad = (g.heading - 90) * Math.PI / 180;
+        return (
+          <View key={i} style={{
+            position: 'absolute', width: 1.5, height: size * 0.76,
+            backgroundColor: '#D4A84B', borderRadius: 1,
+            transform: [{ translateX: -Math.sin(rad) * g.offset }, { translateY: Math.cos(rad) * g.offset }, { rotate: `${g.heading}deg` }],
+          }} />
+        );
+      })}
+    </View>
+  );
+}
+
+function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<string, string>; onPress: (f: Flight) => void }) {
+  const { formatTime } = useTimeFormat();
+  const { flightCount } = useFlightStore();
+  const [photos, setPhotos] = useState<Flight[]>([]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const screenW = Dimensions.get('window').width;
+  const GAP = 12;
+  const CARD_W = screenW - 48;
+  const SNAP = CARD_W + GAP;
+  const SIDE_PAD = (screenW - CARD_W) / 2;
+
+  useEffect(() => {
+    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 10)));
+  }, [flightCount]);
+
+  if (photos.length === 0) return null;
+
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginLeft: 16 }}>
+        Flight Photos
+      </Text>
+      <FlatList
+        data={photos}
+        keyExtractor={f => String(f.id)}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={SNAP}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
+        onMomentumScrollEnd={(e) => setActiveIdx(Math.round(e.nativeEvent.contentOffset.x / SNAP))}
+        ItemSeparatorComponent={() => <View style={{ width: GAP }} />}
+        renderItem={({ item: f }) => {
+          const dep = placeNames[f.dep_place?.toUpperCase()] ?? f.dep_place;
+          const arr = placeNames[f.arr_place?.toUpperCase()] ?? f.arr_place;
+          return (
+            <TouchableOpacity style={{ width: CARD_W, height: CARD_W * 0.65, borderRadius: 14, overflow: 'hidden' }} onPress={() => onPress(f)} activeOpacity={0.9}>
+              <Image source={{ uri: f.photo_uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <MiniRunways icao={f.dep_place} size={18} />
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{dep}</Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                    <Ionicons name="airplane" size={10} color="rgba(255,255,255,0.7)" />
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <MiniRunways icao={f.arr_place} size={18} />
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{arr}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontFamily: 'Georgia' }}>
+                  {formatDate(f.date)} · {f.aircraft_type} · {formatTime(f.total_time)}h
+                </Text>
+                <Text style={{ color: '#D4A84Baa', fontSize: 7, fontWeight: '900', letterSpacing: 2, fontFamily: 'Georgia', marginTop: 4 }}>BLADES</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
+      {photos.length > 1 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 }}>
+          {photos.map((_, i) => (
+            <View key={i} style={{ width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: activeIdx === i ? Colors.primary : Colors.separator }} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function LogFlightButton({ onPress, onLongComplete, label }: { onPress: () => void; onLongComplete: () => void; label: string }) {
+  const s = makeDashStyles();
+  const fillAnim = useRef(new Animated.Value(0)).current;
+  const [pressing, setPressing] = useState(false);
+  const longFired = useRef(false);
+
+  const handlePressIn = () => {
+    setPressing(true);
+    longFired.current = false;
+    fillAnim.setValue(0);
+    Animated.timing(fillAnim, { toValue: 1, duration: 1000, useNativeDriver: false }).start(({ finished }) => {
+      if (finished) {
+        longFired.current = true;
+        onLongComplete();
+        setPressing(false);
+        fillAnim.setValue(0);
+      }
+    });
+  };
+
+  const handlePressOut = () => {
+    if (!longFired.current) {
+      fillAnim.stopAnimation();
+      fillAnim.setValue(0);
+      setPressing(false);
+    }
+  };
+
+  const fillWidth = fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  return (
+    <TouchableOpacity
+      style={[s.addBtn, { overflow: 'hidden' }]}
+      onPress={() => { if (!longFired.current) onPress(); }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={0.95}
+    >
+      <Animated.View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fillWidth, backgroundColor: '#D4A84B', borderRadius: 14 }} />
+      <Ionicons name={pressing ? 'scan-outline' : 'add-circle'} size={18} color={Colors.textInverse} style={{ zIndex: 1 }} />
+      <Text style={[s.addBtnText, { zIndex: 1 }]}>{pressing ? 'Flight data scan' : label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function DashboardScreen() {
   const s = makeDashStyles();
   const router = useRouter();
@@ -278,6 +453,8 @@ export default function DashboardScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
+  const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+  const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
 
@@ -320,6 +497,11 @@ export default function DashboardScreen() {
   const animTime = (v: number) => decimalToHHMM(v * readoutPct);
   const latestFlights = flights.slice(0, 6);
 
+  useEffect(() => {
+    const icaos = latestFlights.flatMap(f => [f.dep_place, f.arr_place].filter(Boolean));
+    if (icaos.length > 0) batchPlaceNames(icaos).then(setPlaceNames);
+  }, [flights]);
+
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     const name = profileName || '';
@@ -329,7 +511,7 @@ export default function DashboardScreen() {
 
   if (mode !== 'manned') return <View style={s.container} />;
 
-  return (
+  return (<>
     <ScrollView
       style={s.container}
       contentContainerStyle={s.content}
@@ -446,6 +628,26 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      {/* ── Latest Ops ── */}
+      <TouchableOpacity
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 10 }}
+        onPress={() => setShowLatestOps(v => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>Latest Ops</Text>
+        <Ionicons name={showLatestOps ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+      </TouchableOpacity>
+      {showLatestOps && (
+        <View style={s.card}>
+          {latestFlights.map((f, i) => (
+            <LatestFlightRow key={f.id} flight={f} isLast={i === latestFlights.length - 1} onPress={() => router.push(`/flight/${f.id}`)} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
+          ))}
+          {latestFlights.length === 0 && (
+            <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('no_flights')}</Text>
+          )}
+        </View>
+      )}
+
       {/* ── Stats ── */}
       {isOperator(useProfileStore.getState().profile) ? (
         <>
@@ -474,10 +676,7 @@ export default function DashboardScreen() {
       )}
 
       {/* ── Log new flight ── */}
-      <TouchableOpacity style={s.addBtn} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} activeOpacity={0.85}>
-        <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
-        <Text style={s.addBtnText}>{t('log_new_flight')}</Text>
-      </TouchableOpacity>
+      <LogFlightButton onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} onLongComplete={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); router.push('/flight/add?aiImport=1'); }} label={t('log_new_flight')} />
 
       {/* ── Pilot-only sections ── */}
       {!isOperator(useProfileStore.getState().profile) && (
@@ -518,6 +717,11 @@ export default function DashboardScreen() {
 
           <AirportMapWidget />
 
+          <Text style={s.sectionHeader}>{t('forecast')}</Text>
+          <GoalCalculator />
+
+          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} />
+
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
           )}
@@ -527,28 +731,20 @@ export default function DashboardScreen() {
         </>
       )}
 
-      {/* ── Latest Ops ── */}
-      <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 10 }}
-        onPress={() => setShowLatestOps(v => !v)}
-        activeOpacity={0.7}
-      >
-        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>Latest Ops</Text>
-        <Ionicons name={showLatestOps ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
-      </TouchableOpacity>
-      {showLatestOps && (
-        <View style={s.card}>
-          {latestFlights.map((f, i) => (
-            <LatestFlightRow key={f.id} flight={f} isLast={i === latestFlights.length - 1} onPress={() => router.push(`/flight/${f.id}`)} />
-          ))}
-          {latestFlights.length === 0 && (
-            <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('no_flights')}</Text>
-          )}
-        </View>
-      )}
 
     </ScrollView>
-  );
+
+    {photoPreview && (
+      <FlightShareCard
+        flight={photoPreview}
+        depName={placeNames[photoPreview.dep_place?.toUpperCase()] ?? photoPreview.dep_place}
+        arrName={placeNames[photoPreview.arr_place?.toUpperCase()] ?? photoPreview.arr_place}
+        visible={!!photoPreview}
+        onClose={() => setPhotoPreview(null)}
+        formatTime={formatTime}
+      />
+    )}
+  </>);
 }
 
 // ── Styles ───────────────────────────────────────────────────────────────────

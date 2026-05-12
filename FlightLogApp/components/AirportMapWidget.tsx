@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList,
 } from 'react-native';
@@ -103,14 +103,18 @@ window.onload = function() {
   var map = L.map('map', {
     center: [${centerLat}, ${centerLon}],
     zoom: ${zoom},
-    zoomControl: true,
+    zoomControl: false,
     attributionControl: true,
     layers: []
   });
 
   var layers = {
     'Light':    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19,attribution:'© Esri'}),
+    'Hybrid': L.layerGroup([
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})
+    ]),
     'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
   };
 
@@ -190,10 +194,10 @@ function buildCountryOverlayHtml(
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 window.onload=function(){
-  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:${zoom},zoomControl:true,attributionControl:true});
+  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:${zoom},zoomControl:false,attributionControl:true});
   var layers={
     'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
-    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Hybrid':L.layerGroup([L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})]),
     'Terrain':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OSM © OpenTopoMap'})
   };
   var ak='Light';layers[ak].addTo(map);
@@ -206,7 +210,7 @@ window.onload=function(){
 </script></body></html>`;
 }
 
-function buildPinPlacementHtml(placeName: string, centerLat = 59.3, centerLon = 18.0): string {
+function buildPinPlacementHtml(placeName: string, centerLat = 59.3, centerLon = 18.0, safeTop = 0): string {
   const pinSvg = `<svg width="28" height="40" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2E7D32" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -221,39 +225,61 @@ function buildPinPlacementHtml(placeName: string, centerLat = 59.3, centerLon = 
   #layer-switcher{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;background:rgba(15,22,38,.88);border-radius:12px;padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
   #layer-switcher button{font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;color:#9BAAC0;background:transparent;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;}
   #layer-switcher button.active{background:#2563EB;color:#fff}
-  #info{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,30,58,.92);border-radius:10px;padding:8px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;color:#fff;text-align:center;pointer-events:none;white-space:nowrap;border:1px solid rgba(255,255,255,.15)}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head><body>
 <div id="map"></div>
-<div id="info">${placeName.replace(/'/g, "\\'")} — tryck på kartan</div>
 <div id="layer-switcher"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 window.onload=function(){
-  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:6,zoomControl:true,attributionControl:true});
+  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:6,zoomControl:false,attributionControl:true});
   var layers={
     'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
-    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+    'Hybrid':L.layerGroup([L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})]),
     'Terrain':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OSM © OpenTopoMap'})
   };
-  var ak='Light';layers[ak].addTo(map);
+  var ak='Hybrid';layers[ak].addTo(map);
   var sw=document.getElementById('layer-switcher');
   Object.keys(layers).forEach(function(k){var b=document.createElement('button');b.textContent=k;if(k===ak)b.className='active';b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};sw.appendChild(b);});
 
   var pinIcon=L.divIcon({html:'${pinSvg.replace(/'/g, "\\'")}',className:'',iconSize:[28,40],iconAnchor:[14,40],popupAnchor:[0,-42]});
   var marker=null;
 
-  map.on('click',function(e){
+  function placePin(lat,lon){
     if(marker) map.removeLayer(marker);
-    marker=L.marker(e.latlng,{icon:pinIcon,draggable:true}).addTo(map);
+    marker=L.marker([lat,lon],{icon:pinIcon,draggable:true}).addTo(map);
     marker.bindPopup('${placeName.replace(/'/g, "\\'")}').openPopup();
-    window.ReactNativeWebView.postMessage(JSON.stringify({lat:e.latlng.lat,lon:e.latlng.lng}));
+    window.ReactNativeWebView.postMessage(JSON.stringify({lat:lat,lon:lon}));
     marker.on('dragend',function(){
       var p=marker.getLatLng();
       window.ReactNativeWebView.postMessage(JSON.stringify({lat:p.lat,lon:p.lng}));
     });
-  });
+  }
+
+  map.on('click',function(e){ placePin(e.latlng.lat,e.latlng.lng); });
+
+  window.searchFromNative=function(q){
+    if(!q) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q))
+      .then(function(r){return r.json()})
+      .then(function(data){
+        if(data&&data.length>0){
+          var lat=parseFloat(data[0].lat);
+          var lon=parseFloat(data[0].lon);
+          map.setView([lat,lon],14);
+          placePin(lat,lon);
+          window.ReactNativeWebView.postMessage(JSON.stringify({lat:lat,lon:lon,searchResult:data[0].display_name.slice(0,60)}));
+        } else {
+          window.ReactNativeWebView.postMessage(JSON.stringify({searchError:'Inga resultat'}));
+        }
+      })
+      .catch(function(){
+        window.ReactNativeWebView.postMessage(JSON.stringify({searchError:'Sökning misslyckades'}));
+      });
+  };
+
   setTimeout(function(){map.invalidateSize();},300);
 };
 </script></body></html>`;
@@ -306,6 +332,9 @@ export function AirportMapWidget() {
   const [unlocated, setUnlocated] = useState<IcaoAirport[]>([]);
   const [placingPlace, setPlacingPlace] = useState<IcaoAirport | null>(null);
   const [placedCoord, setPlacedCoord] = useState<{ lat: number; lon: number } | null>(null);
+  const pinWebRef = useRef<WebView>(null);
+  const [pinSearch, setPinSearch] = useState('');
+  const [pinSearching, setPinSearching] = useState(false);
   const insets = useSafeAreaInsets();
   const { isPremium } = useFlightStore();
 
@@ -409,7 +438,7 @@ export function AirportMapWidget() {
                 backgroundColor: Colors.card, borderRadius: 8, padding: 10,
                 borderWidth: 1, borderColor: Colors.cardBorder,
               }}
-              onPress={() => { setPlacingPlace(p); setPlacedCoord(null); }}
+              onPress={() => { setPlacingPlace(p); setPlacedCoord(null); setPinSearch(p.name || p.icao); }}
               activeOpacity={0.75}
             >
               <View style={{
@@ -588,32 +617,76 @@ export function AirportMapWidget() {
         <View style={styles.modal}>
           {placingPlace && (
             <WebView
+              ref={pinWebRef}
               style={styles.webview}
               source={{ html: buildPinPlacementHtml(
-                `${placingPlace.icao} — ${placingPlace.name}`,
+                placingPlace.name || placingPlace.icao,
                 airports.length > 0 ? airports[0].lat : 59.3,
                 airports.length > 0 ? airports[0].lon : 18.0,
+                insets.top,
               ), baseUrl: 'https://tile.openstreetmap.org' }}
               originWhitelist={['*']}
               javaScriptEnabled
               domStorageEnabled
               onMessage={(e) => {
                 try {
-                  const { lat, lon } = JSON.parse(e.nativeEvent.data);
-                  setPlacedCoord({ lat, lon });
+                  const msg = JSON.parse(e.nativeEvent.data);
+                  if (msg.lat !== undefined && msg.lon !== undefined) {
+                    setPlacedCoord({ lat: msg.lat, lon: msg.lon });
+                  }
+                  setPinSearching(false);
                 } catch {}
               }}
             />
           )}
 
-          {/* Save bar */}
+          {/* Search + Save bar */}
           <View style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            paddingBottom: insets.bottom + 12, paddingTop: 12, paddingHorizontal: 16,
-            backgroundColor: 'rgba(10,22,40,0.92)',
+            paddingBottom: insets.bottom + 12, paddingTop: 10, paddingHorizontal: 16,
+            backgroundColor: 'rgba(10,22,40,0.95)',
             borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)',
-            flexDirection: 'row', gap: 10, alignItems: 'center',
+            gap: 10,
           }}>
+            {/* Search row */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={{
+                  flex: 1, backgroundColor: 'rgba(255,255,255,0.08)',
+                  borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+                  color: '#fff', fontSize: 14, fontWeight: '500',
+                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+                }}
+                value={pinSearch}
+                onChangeText={setPinSearch}
+                placeholder="Sök plats..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                returnKeyType="search"
+                autoCorrect={false}
+                onSubmitEditing={() => {
+                  if (!pinSearch.trim() || !pinWebRef.current) return;
+                  setPinSearching(true);
+                  pinWebRef.current.injectJavaScript(`window.searchFromNative(${JSON.stringify(pinSearch.trim())});true;`);
+                }}
+              />
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#2E7D32', borderRadius: 10,
+                  paddingHorizontal: 14, justifyContent: 'center',
+                }}
+                onPress={() => {
+                  if (!pinSearch.trim() || !pinWebRef.current) return;
+                  setPinSearching(true);
+                  pinWebRef.current.injectJavaScript(`window.searchFromNative(${JSON.stringify(pinSearch.trim())});true;`);
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                  {pinSearching ? '...' : 'Sök'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Buttons row */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity
               style={{
                 flex: 1, paddingVertical: 13, borderRadius: 10, alignItems: 'center',
@@ -647,6 +720,7 @@ export function AirportMapWidget() {
               <Ionicons name="checkmark-circle" size={18} color="#fff" />
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Spara position</Text>
             </TouchableOpacity>
+            </View>
           </View>
 
           {/* Close button */}

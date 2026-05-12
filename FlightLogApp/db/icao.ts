@@ -51,19 +51,21 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
 
 export async function searchAirports(query: string): Promise<IcaoAirport[]> {
   const db = await getDatabase();
-  const q = `%${query.toUpperCase()}%`;
+  const upper = query.toUpperCase();
+  const lower = query.toLowerCase();
+  const q = `%${upper}%`;
   return await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
-     WHERE icao LIKE ? OR UPPER(name) LIKE ?
+     WHERE icao LIKE ? OR UPPER(name) LIKE ? OR name LIKE ? OR LOWER(name) LIKE ?
      ORDER BY
-       COALESCE(temporary, 0) ASC,
        CASE WHEN icao = ? THEN 0
             WHEN icao LIKE ? THEN 1
             ELSE 2 END,
+       COALESCE(temporary, 0) ASC,
        custom DESC,
        name ASC
      LIMIT 20`,
-    [q, `%${query}%`, query.toUpperCase(), `${query.toUpperCase()}%`]
+    [q, `%${query}%`, `%${query}%`, `%${lower}%`, upper, `${upper}%`]
   );
 }
 
@@ -73,6 +75,31 @@ export async function getAirportByIcao(icao: string): Promise<IcaoAirport | null
     'SELECT * FROM icao_airports WHERE icao=?',
     [icao.toUpperCase()]
   );
+}
+
+export async function getPlaceDisplayName(icao: string): Promise<string> {
+  if (!icao) return '';
+  const airport = await getAirportByIcao(icao);
+  if (airport?.temporary && airport.name && airport.name !== icao) return airport.name;
+  return icao;
+}
+
+export async function batchPlaceNames(icaos: string[]): Promise<Record<string, string>> {
+  if (icaos.length === 0) return {};
+  const db = await getDatabase();
+  const unique = [...new Set(icaos.filter(Boolean).map(s => s.toUpperCase()))];
+  const result: Record<string, string> = {};
+  for (const code of unique) {
+    result[code] = code;
+  }
+  const rows = await db.getAllAsync<{ icao: string; name: string; temporary: number }>(
+    `SELECT icao, name, temporary FROM icao_airports WHERE temporary = 1 AND icao IN (${unique.map(() => '?').join(',')})`,
+    unique
+  );
+  for (const r of rows) {
+    if (r.name && r.name !== r.icao) result[r.icao] = r.name;
+  }
+  return result;
 }
 
 export async function getAirportCoordinates(
@@ -85,6 +112,25 @@ export async function getAirportCoordinates(
     `SELECT icao, name, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL`,
     icaoCodes
   );
+}
+
+export async function getNearbyAirports(
+  lat: number, lon: number, limit = 5
+): Promise<IcaoAirport[]> {
+  const db = await getDatabase();
+  const degRange = 1.5;
+  const rows = await db.getAllAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+       AND (temporary IS NULL OR temporary = 0)
+       AND lat != 0 AND lon != 0
+     LIMIT 200`,
+    [lat - degRange, lat + degRange, lon - degRange, lon + degRange]
+  );
+  return rows
+    .map(r => ({ ...r, dist: calculateDistance(lat, lon, r.lat, r.lon) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, limit);
 }
 
 export async function addCustomAirport(airport: Omit<IcaoAirport, 'custom'>): Promise<void> {
@@ -153,15 +199,13 @@ export async function addTemporaryPlace(icao: string, name: string, lat = 0, lon
 
 export async function generateTemporaryIcao(name: string): Promise<string> {
   const db = await getDatabase();
-  const letters = name.toUpperCase().replace(/[^A-ZÅÄÖ]/g, '')
-    .replace(/Å/g,'A').replace(/Ä/g,'A').replace(/Ö/g,'O');
-  const base = (letters + 'ZZZZ').slice(0, 4);
+  const base = name.toUpperCase().trim();
+  if (!base) return 'TEMP';
   let candidate = base;
-  for (let i = 1; i <= 99; i++) {
+  for (let i = 2; i <= 99; i++) {
     const exists = await db.getFirstAsync('SELECT 1 FROM icao_airports WHERE icao = ?', [candidate]);
     if (!exists) return candidate;
-    const suf = String(i);
-    candidate = base.slice(0, 4 - suf.length) + suf;
+    candidate = `${base}${i}`;
   }
   return base;
 }

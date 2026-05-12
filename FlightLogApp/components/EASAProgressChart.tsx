@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, TextInput } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, TextInput, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/colors';
@@ -8,6 +8,21 @@ import { useProfileStore } from '../store/profileStore';
 import { getDatabase } from '../db/database';
 
 type Requirement = { label: string; current: number; required: number };
+
+const PPL_A: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 45 },
+  { label: 'Dual instruction', key: 'dual', required: 25 },
+  { label: 'Solo flight', key: 'pic', required: 10 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 5 },
+  { label: 'Night', key: 'night', required: 5 },
+];
+
+const PPL_H: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 45 },
+  { label: 'Dual instruction', key: 'dual', required: 25 },
+  { label: 'Solo flight', key: 'pic', required: 10 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 5 },
+];
 
 const CPL_A: { label: string; key: string; required: number }[] = [
   { label: 'Total flight time', key: 'total', required: 200 },
@@ -336,9 +351,11 @@ function LockedOverlay() {
 export function EASAProgressCharts() {
   const [totals, setTotals] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [activeIdx, setActiveIdx] = useState(0);
   const flightCount = useFlightStore(s => s.flightCount);
   const isPremium = useFlightStore(s => s.isPremium);
   const profile = useProfileStore(s => s.profile);
+  const cardWidth = Dimensions.get('window').width - 24;
 
   useEffect(() => {
     getHourTotals().then(setTotals);
@@ -348,42 +365,62 @@ export function EASAProgressCharts() {
   if (!profile || profile.mainRole !== 'pilot-manned') return null;
 
   const isRotary = profile.subRole === 'rotary';
+  const pplReqs = isRotary ? PPL_H : PPL_A;
   const cplReqs = isRotary ? CPL_H : CPL_A;
   const atplReqs = isRotary ? ATPL_H : ATPL_A;
-  const cplTitle = isRotary ? 'CPL(H) Requirements' : 'CPL(A) Requirements';
-  const atplTitle = isRotary ? 'ATPL(H) Requirements' : 'ATPL(A) Requirements';
+  const suffix = isRotary ? '(H)' : '(A)';
+  const pplRef = isRotary ? 'FCL.210.H' : 'FCL.210.A';
   const cplRef = isRotary ? 'FCL.310.H' : 'FCL.310.A';
   const atplRef = isRotary ? 'FCL.510.H' : 'FCL.510.A';
   const displayTotals = isPremium ? totals : {};
 
+  const cards = [
+    { title: `PPL${suffix} Requirements`, subtitle: `${pplRef} — Minimum flight experience`, reqs: pplReqs, isCpl: true },
+    { title: `CPL${suffix} Requirements`, subtitle: `${cplRef} — Minimum flight experience`, reqs: cplReqs, isCpl: true },
+    { title: `ATPL${suffix} Requirements`, subtitle: `${atplRef} — Minimum flight experience`, reqs: atplReqs, isCpl: false },
+  ];
+
   return (
-    <>
-      <View style={{ position: 'relative' }}>
-        <View style={!isPremium ? { opacity: 0.25 } : undefined}>
-          <ProgressCard
-            title={cplTitle}
-            subtitle={`${cplRef} — Minimum flight experience`}
-            reqs={cplReqs}
-            totals={displayTotals}
-            rates={isPremium ? rates : {}}
-            isCpl
-          />
-        </View>
-        {!isPremium && <LockedOverlay />}
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+          setActiveIdx(idx);
+        }}
+        decelerationRate="fast"
+        snapToInterval={cardWidth}
+      >
+        {cards.map((card, i) => (
+          <View key={i} style={{ width: cardWidth, position: 'relative' }}>
+            <View style={!isPremium ? { opacity: 0.25 } : undefined}>
+              <ProgressCard
+                title={card.title}
+                subtitle={card.subtitle}
+                reqs={card.reqs}
+                totals={displayTotals}
+                rates={isPremium ? rates : {}}
+                isCpl={card.isCpl}
+              />
+            </View>
+            {!isPremium && <LockedOverlay />}
+          </View>
+        ))}
+      </ScrollView>
+      {/* Page dots */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+        {cards.map((_, i) => (
+          <TouchableOpacity key={i} onPress={() => setActiveIdx(i)} activeOpacity={0.7} style={{ padding: 4 }}>
+            <View style={{
+              width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3,
+              backgroundColor: activeIdx === i ? Colors.primary : Colors.separator,
+            }} />
+          </TouchableOpacity>
+        ))}
       </View>
-      <View style={{ position: 'relative' }}>
-        <View style={!isPremium ? { opacity: 0.25 } : undefined}>
-          <ProgressCard
-            title={atplTitle}
-            subtitle={`${atplRef} — Minimum flight experience`}
-            reqs={atplReqs}
-            totals={displayTotals}
-            rates={isPremium ? rates : {}}
-          />
-        </View>
-        {!isPremium && <LockedOverlay />}
-      </View>
-    </>
+    </View>
   );
 }
 
@@ -448,7 +485,7 @@ export function GoalCalculator() {
     }}>
       <View>
         <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-          GOAL CALCULATOR · PREMIUM
+          GOAL CALCULATOR
         </Text>
         <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia', marginTop: 4 }}>
           When will I reach {goal.toLocaleString()}h?
@@ -593,7 +630,6 @@ export function GoalCalculator() {
         )}
       </View>
 
-      {!isPremium && <LockedOverlay />}
     </View>
   );
 }

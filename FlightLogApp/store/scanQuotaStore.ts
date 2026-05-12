@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { getSetting, setSetting } from '../db/flights';
 import { useFlightStore } from './flightStore';
 
-export const MONTHLY_QUOTA = 12;
+export const MONTHLY_QUOTA = 10;
+export const MONTHLY_FLIGHT_IMPORT_QUOTA = 30;
 export const FREE_SCAN_QUOTA = 1;
 export const FREE_LOOKUP_QUOTA = 10;
 export const MONTHLY_SUMMARIZE_QUOTA = 20;
@@ -27,6 +28,7 @@ interface ScanQuotaState {
   summarizeUsed: number;
   lookupUsed: number;
   importUsed: number;
+  flightImportUsed: number;
   extraScans: number;
   loaded: boolean;
   load: () => Promise<void>;
@@ -35,14 +37,17 @@ interface ScanQuotaState {
   summarizeRemaining: () => number;
   lookupRemaining: () => number;
   importRemaining: () => number;
+  flightImportRemaining: () => number;
   canScan: () => boolean;
   canSummarize: () => boolean;
   canLookup: () => boolean;
   canImport: () => boolean;
+  canFlightImport: () => boolean;
   consumeScan: () => Promise<void>;
   consumeSummarize: () => Promise<void>;
   consumeLookup: () => Promise<void>;
   consumeImport: () => Promise<void>;
+  consumeFlightImport: () => Promise<void>;
   addExtraScans: (n: number) => Promise<void>;
   topUpMonthly: () => Promise<void>;
 }
@@ -53,6 +58,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   summarizeUsed: 0,
   lookupUsed: 0,
   importUsed: 0,
+  flightImportUsed: 0,
   extraScans: 0,
   loaded: false,
 
@@ -63,20 +69,23 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     let summarizeUsed = 0;
     let lookupUsed = 0;
     let importUsed = 0;
+    let flightImportUsed = 0;
     if (storedMonth === mk) {
       scansUsed = parseInt((await getSetting('scans_used')) ?? '0', 10) || 0;
       summarizeUsed = parseInt((await getSetting('summarize_used')) ?? '0', 10) || 0;
       lookupUsed = parseInt((await getSetting('lookup_used')) ?? '0', 10) || 0;
       importUsed = parseInt((await getSetting('import_used')) ?? '0', 10) || 0;
+      flightImportUsed = parseInt((await getSetting('flight_import_used')) ?? '0', 10) || 0;
     } else {
       await setSetting('scan_month', mk);
       await setSetting('scans_used', '0');
       await setSetting('summarize_used', '0');
       await setSetting('lookup_used', '0');
       await setSetting('import_used', '0');
+      await setSetting('flight_import_used', '0');
     }
     const extraScans = parseInt((await getSetting('extra_scans')) ?? '0', 10) || 0;
-    set({ monthKey: mk, scansUsed, summarizeUsed, lookupUsed, importUsed, extraScans, loaded: true });
+    set({ monthKey: mk, scansUsed, summarizeUsed, lookupUsed, importUsed, flightImportUsed, extraScans, loaded: true });
   },
 
   monthlyRemaining: () => {
@@ -91,6 +100,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     return Math.max(0, quota - get().lookupUsed);
   },
   importRemaining: () => Math.max(0, MONTHLY_IMPORT_QUOTA - get().importUsed),
+  flightImportRemaining: () => Math.max(0, MONTHLY_FLIGHT_IMPORT_QUOTA - get().flightImportUsed),
 
   totalRemaining: () => {
     const { scansUsed, extraScans } = get();
@@ -103,6 +113,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   canLookup: () => get().lookupRemaining() > 0,
   canSummarize: () => useFlightStore.getState().isPremium || get().summarizeRemaining() > 0,
   canImport: () => useFlightStore.getState().isPremium || get().importRemaining() > 0,
+  canFlightImport: () => get().flightImportRemaining() > 0,
 
   consumeScan: async () => {
     const { scansUsed, extraScans } = get();
@@ -145,6 +156,14 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     set({ importUsed: newUsed });
   },
 
+  consumeFlightImport: async () => {
+    const { flightImportUsed } = get();
+    if (MONTHLY_FLIGHT_IMPORT_QUOTA - flightImportUsed <= 0) throw new Error('NO_FLIGHT_IMPORTS_LEFT');
+    const newUsed = flightImportUsed + 1;
+    await setSetting('flight_import_used', String(newUsed));
+    set({ flightImportUsed: newUsed });
+  },
+
   addExtraScans: async (n: number) => {
     const newExtra = get().extraScans + n;
     await setSetting('extra_scans', String(newExtra));
@@ -157,10 +176,12 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
     const newSummarize = s.summarizeUsed - MONTHLY_SUMMARIZE_QUOTA;
     const newLookup = s.lookupUsed - MONTHLY_LOOKUP_QUOTA;
     const newImport = s.importUsed - MONTHLY_IMPORT_QUOTA;
+    const newFlightImport = s.flightImportUsed - MONTHLY_FLIGHT_IMPORT_QUOTA;
     await setSetting('scans_used', String(newScans));
     await setSetting('summarize_used', String(newSummarize));
     await setSetting('lookup_used', String(newLookup));
     await setSetting('import_used', String(newImport));
+    await setSetting('flight_import_used', String(newFlightImport));
     set({ scansUsed: newScans, summarizeUsed: newSummarize, lookupUsed: newLookup, importUsed: newImport });
   },
 }));

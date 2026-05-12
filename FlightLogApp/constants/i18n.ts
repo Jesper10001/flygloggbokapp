@@ -384,6 +384,9 @@ export const translations = {
     export_to_pdf_locked: 'Requires Premium',
     manage_airports: 'Manage airports',
     add_custom_icao: 'Add custom ICAO codes',
+    flight_album: 'Flight album',
+    flight_album_sub: 'Photos from your flights',
+    no_photos: 'No flight photos yet',
     audit_log: 'Audit log',
     all_changes_logged: 'All changes logged with original value',
     clear_all_logbook_data: 'Clear all logbook data',
@@ -607,6 +610,8 @@ export const translations = {
     update_available: 'Update available',
     update_available_sub: 'A new version is available in the App Store.',
     version_up_to_date: 'You are on the latest version.',
+    previous_years: 'Previous years',
+    forecast: 'Forecast',
     website_sub: 'News, updates and more',
     privacy_policy: 'Privacy Policy',
     preview_always_label: 'Always show tour on start',
@@ -1083,9 +1088,12 @@ export const translations = {
     stress_6_action: 'Protect your rest: full sleep, reduce off-duty stress, eat and hydrate well.',
 
     // IcaoInput
-    icao_placeholder: 'ESSA or Linköping',
+    icao_placeholder: 'ESCF',
+    search_place: 'Linköping',
     here: 'Here',
     now_utc: 'Now (UTC)',
+    add_photo: 'Photo',
+    take_photo: 'Camera',
   },
 
   sv: {
@@ -1472,6 +1480,9 @@ export const translations = {
     export_to_pdf_locked: 'Kräver Premium',
     manage_airports: 'Hantera flygplatser',
     add_custom_icao: 'Lägg till egna ICAO-koder',
+    flight_album: 'Flygalbum',
+    flight_album_sub: 'Foton från dina flygningar',
+    no_photos: 'Inga flygfoton ännu',
     audit_log: 'Ändringslogg',
     all_changes_logged: 'Alla ändringar loggas med originalvärde',
     clear_all_logbook_data: 'Rensa all loggboksdata',
@@ -1695,6 +1706,8 @@ export const translations = {
     update_available: 'Uppdatering tillgänglig',
     update_available_sub: 'En ny version finns i App Store.',
     version_up_to_date: 'Du har den senaste versionen.',
+    previous_years: 'Tidigare år',
+    forecast: 'Prognos',
     website_sub: 'Nyheter, uppdateringar och mer',
     privacy_policy: 'Integritetspolicy',
     preview_always_label: 'Visa rundtur vid varje start',
@@ -2171,9 +2184,12 @@ export const translations = {
     stress_6_action: 'Värna om vilan: full natts sömn, minska annan stress, ät ordentligt och håll vätskebalansen.',
 
     // IcaoInput
-    icao_placeholder: 'ESSA eller Linköping',
+    icao_placeholder: 'ESCF',
+    search_place: 'Linköping',
     here: 'Här',
     now_utc: 'Nu (UTC)',
+    add_photo: 'Foto',
+    take_photo: 'Kamera',
   },
 } as const;
 

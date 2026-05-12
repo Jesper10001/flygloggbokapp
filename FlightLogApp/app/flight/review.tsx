@@ -1316,6 +1316,7 @@ export default function ReviewScreen() {
   const [wizardDecisions, setWizardDecisions] = useState<Record<number, 'corrected' | 'skip'>>({});
   const [wizardEdits, setWizardEdits] = useState<Record<number, Record<string, any>>>({});
   const [showAllFields, setShowAllFields] = useState(false);
+  const [previewRotation, setPreviewRotation] = useState(0);
   const [fullImage, setFullImage] = useState(false);
 
   // ── Derived wizard data ─────────────────────────────────────────────────────
@@ -1737,11 +1738,38 @@ export default function ReviewScreen() {
           for (const [key, val] of Object.entries(row.data.other_times)) {
             if (!val || val <= 0) continue;
             const label = (row.data.other_time_labels[key] ?? '').toUpperCase();
-            if (label.includes('NVG') || label.includes('NVD')) {
+            if (label.includes('NVG') || label.includes('NVD') || label.includes('NVIS')) {
               row.data.nvg = String(val);
+            } else if (label.includes('EXAM')) {
+              row.data.examiner = String(val);
+            } else if (label.includes('SAFETY') || label.includes('SÄKERHET')) {
+              row.data.safety_pilot = String(val);
+            } else if (label.includes('PICUS') || label.includes('P/US')) {
+              row.data.picus = String(val);
+            } else if (label.includes('SPIC') || label.includes('S/PIC')) {
+              row.data.spic = String(val);
+            } else if (label.includes('INSTRUCTOR') || label.includes('INSTR')) {
+              row.data.instructor = String(val);
             }
           }
         }
+        // Auto-calculate multi_pilot if not set
+        const totalTime = parseFloat(row.data.total_time) || 0;
+        const picTime = parseFloat(row.data.pic ?? '0') || 0;
+        const copilotTime = parseFloat(row.data.co_pilot ?? '0') || 0;
+        const dualTime = parseFloat(row.data.dual ?? '0') || 0;
+        const instrTime = parseFloat(row.data.instructor ?? '0') || 0;
+        const hasSecondPilot = !!(row.data.second_pilot || row.data.remarks_suggestion?.field === 'second_pilot');
+        if (!row.data.multi_pilot || parseFloat(row.data.multi_pilot) === 0) {
+          if (dualTime > 0) {
+            row.data.multi_pilot = '0';
+          } else if ((copilotTime > 0 || picTime > 0) && hasSecondPilot) {
+            row.data.multi_pilot = String(totalTime);
+          } else if (instrTime > 0) {
+            row.data.multi_pilot = String(totalTime);
+          }
+        }
+
         for (const field of ['dep_place', 'arr_place'] as const) {
           const val = (row.data[field] ?? '').toUpperCase();
           if (!val) continue;
@@ -2117,37 +2145,52 @@ export default function ReviewScreen() {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
             >
-              {/* 1. Image preview card med highlight + crop — scrollbar */}
+              {/* 1. Image preview — zoomable & pannable */}
               {(() => {
                 const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
                 if (pageIdx < 0 || !scanImages[pageIdx]) return null;
-                const imgW = 800;
-                const imgH = 260;
+                // 50% zoom: image is 2x the container, user can pan freely
+                const imgW = 1200;
+                const imgH = 800;
                 return (
-                  <View style={[styles.imageCard, { height: 220 }]}>
+                  <View style={[styles.imageCard, { height: 200 }]}>
                     <ScrollView
                       horizontal
-                      showsHorizontalScrollIndicator
-                      style={{ height: 220 }}
+                      showsHorizontalScrollIndicator={false}
+                      contentOffset={{ x: imgW * 0.15, y: 0 }}
                     >
-                      <Image
-                        source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
-                        style={{ width: imgW, height: imgH }}
-                        resizeMode="cover"
-                      />
+                      <ScrollView
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={false}
+                        contentOffset={{ x: 0, y: imgH * 0.15 }}
+                      >
+                        <Image
+                          source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
+                          style={{ width: imgW, height: imgH, transform: [{ rotate: `${previewRotation}deg` }] }}
+                          resizeMode="contain"
+                        />
+                      </ScrollView>
                     </ScrollView>
-                    <TouchableOpacity
-                      style={styles.expandBtn}
-                      onPress={() => setPopupImage({
-                        base64: scanImages[pageIdx],
-                        rowIndex: currentFlaggedRowIdx % 12,
-                        totalRows: 12,
-                      })}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="expand" size={10} color="#FFF" />
-                      <Text style={styles.expandBtnText}>{t('expand_image')}</Text>
-                    </TouchableOpacity>
+                    <View style={{ position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        style={styles.expandBtn}
+                        onPress={() => setPreviewRotation(r => (r + 90) % 360)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="refresh" size={10} color="#FFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.expandBtn}
+                        onPress={() => setPopupImage({
+                          base64: scanImages[pageIdx],
+                          rowIndex: currentFlaggedRowIdx % 12,
+                          totalRows: 12,
+                        })}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="expand" size={10} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })()}

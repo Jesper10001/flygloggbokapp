@@ -17,6 +17,7 @@ import { useScanProfileStore } from '../../store/scanProfileStore';
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
+  const sv = t('yes') === 'Ja';
   const router = useRouter();
   const { isPremium } = useFlightStore();
   const {
@@ -92,18 +93,87 @@ export default function ScanImportScreen() {
     }
   };
 
+  const checkImageQuality = async (uri: string): Promise<{ ok: boolean; reason: string }> => {
+    try {
+      // Resize to small thumbnail for fast analysis
+      const thumb = await ImageManipulator.manipulateAsync(
+        uri, [{ resize: { width: 100 } }],
+        { format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!thumb.base64) return { ok: true, reason: '' };
+
+      // Analyze brightness from base64: sample bytes, check average luminance
+      const raw = atob(thumb.base64);
+      let totalBrightness = 0;
+      let darkPixels = 0;
+      const sampleSize = Math.min(raw.length, 3000);
+      for (let i = 0; i < sampleSize; i++) {
+        const val = raw.charCodeAt(i);
+        totalBrightness += val;
+        if (val < 40) darkPixels++;
+      }
+      const avgBrightness = totalBrightness / sampleSize;
+      const darkRatio = darkPixels / sampleSize;
+
+      // Too dark: average brightness very low or >60% dark pixels
+      if (avgBrightness < 60 || darkRatio > 0.6) {
+        return { ok: false, reason: sv
+          ? 'Bilden verkar för mörk. Fotografera i bättre ljus och se till att loggboken fyller hela bilden.'
+          : 'The image appears too dark. Take the photo in better lighting and make sure the logbook fills the frame.'
+        };
+      }
+
+      // Check if logbook fills enough of the image (low content ratio)
+      const ratio = thumb.width && thumb.height ? Math.max(thumb.width, thumb.height) / Math.min(thumb.width, thumb.height) : 1;
+      if (ratio > 3) {
+        return { ok: false, reason: sv
+          ? 'Loggboken verkar ta en liten del av bilden. Gå närmare eller croppa bilden.'
+          : 'The logbook seems to take a small part of the image. Move closer or crop the image.'
+        };
+      }
+
+      return { ok: true, reason: '' };
+    } catch {
+      return { ok: true, reason: '' };
+    }
+  };
+
   const handleScan = async () => {
     if (!canScan()) { setShowBuy(true); return; }
     if (!imageUri) return;
     setWorking(true);
     try {
+      // Check image quality BEFORE consuming scan
+      const quality = await checkImageQuality(imageUri);
+      if (!quality.ok) {
+        setWorking(false);
+        Alert.alert(
+          sv ? '⚠️ Bildkvalitet' : '⚠️ Image quality',
+          quality.reason + '\n\n' + (sv ? 'Vill du skanna ändå? Det kostar en skanning.' : 'Scan anyway? This will use one scan.'),
+          [
+            { text: sv ? 'Byt bild' : 'Change image', style: 'cancel' },
+            { text: sv ? 'Skanna ändå' : 'Scan anyway', onPress: () => doScan() },
+          ],
+        );
+        return;
+      }
+      await doScan();
+    } catch (e: any) {
+      Alert.alert(t('error'), e.message);
+      setWorking(false);
+    }
+  };
+
+  const doScan = async () => {
+    setWorking(true);
+    try {
       const actions: ImageManipulator.Action[] = [];
       if (rotation !== 0) actions.push({ rotate: rotation });
-      const info = await ImageManipulator.manipulateAsync(imageUri, [], {});
+      const info = await ImageManipulator.manipulateAsync(imageUri!, [], {});
       if (info.height > info.width) actions.push({ rotate: 90 });
       actions.push({ resize: { width: 2000 } });
       const img = await ImageManipulator.manipulateAsync(
-        imageUri, actions,
+        imageUri!, actions,
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       if (!img.base64) { Alert.alert(t('error'), t('could_not_process_image')); return; }

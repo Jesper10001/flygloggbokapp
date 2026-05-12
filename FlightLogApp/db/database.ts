@@ -225,6 +225,11 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Operator-specific data (JSON) for non-pilot crew logbooks
   await addColumnIfMissing(db, 'operator_data', `TEXT NOT NULL DEFAULT ''`);
 
+  // Foto kopplat till flygpass
+  await addColumnIfMissing(db, 'photo_uri', `TEXT NOT NULL DEFAULT ''`);
+  // Max flight level (IFR/Y/Z flights)
+  await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
+
   // Papperloggböcker — referens för transkribering av digitala flygningar till papper
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS logbook_books (
