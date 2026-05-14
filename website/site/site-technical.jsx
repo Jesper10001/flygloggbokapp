@@ -314,6 +314,21 @@ function TxPricing({ t }) {
             <TxIcon name="apple" size={16} />{t.hero.cta_primary}
           </a>
         </div>
+        <div className="tx-plan">
+          <div className="tx-plan-h">
+            <h3>{t.pricing.max.name}</h3>
+            <span className="tx-plan-tag">[{t.pricing.max.badge.toUpperCase()}]</span>
+          </div>
+          <div className="tx-plan-price">
+            <span className="tx-plan-v">{t.pricing.max.price}</span>
+            <span className="tx-plan-p">{t.pricing.max.currency} / {t.pricing.max.period}</span>
+          </div>
+          <ul className="tx-plan-features">
+            {t.pricing.max.features.map((f, i) => (
+              <li key={i}><TxIcon name="check" size={14} /> {f}</li>
+            ))}
+          </ul>
+        </div>
       </div>
     </TxSection>
   );

@@ -38,39 +38,39 @@ const NavyColors = {
 };
 
 const BrightColors = {
-  background: '#F2F5F9',
+  background: '#F4EDE0',
   surface: '#FFFFFF',
   card: '#FFFFFF',
-  cardBorder: '#D8E0EB',
-  elevated: '#EAF0F7',
+  cardBorder: '#E6DCC6',
+  elevated: '#FBF6EB',
 
-  primary: '#3B82F6',
-  primaryLight: '#60A5FA',
-  primaryDark: '#2563EB',
+  primary: '#C9522C',
+  primaryLight: '#DD6E48',
+  primaryDark: '#A8401F',
 
-  accent: '#3B82F6',
-  accentLight: '#60A5FA',
+  accent: '#C9522C',
+  accentLight: '#DD6E48',
 
-  success: '#10B981',
-  warning: '#F59E0B',
-  warningLight: '#FBBF24',
-  danger: '#EF4444',
-  dangerLight: '#FCA5A5',
-  info: '#38BDF8',
+  success: '#4A7C59',
+  warning: '#C9742A',
+  warningLight: '#E89A4B',
+  danger: '#B0322E',
+  dangerLight: '#D45A4E',
+  info: '#2C5C84',
 
-  textPrimary: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
+  textPrimary: '#1B2233',
+  textSecondary: '#4A5468',
+  textMuted: '#8A8170',
   textInverse: '#FFFFFF',
 
-  border: '#D8E0EB',
-  separator: '#E2E8F0',
+  border: '#E6DCC6',
+  separator: '#EEE6D5',
 
-  gold: '#D97706',
-  goldLight: '#F59E0B',
+  gold: '#4A7C59',
+  goldLight: '#6A9B72',
 
-  tabIconDefault: '#94A3B8',
-  tabIconActive: '#3B82F6',
+  tabIconDefault: '#8A8170',
+  tabIconActive: '#C9522C',
 };
 
 // ── DRÖNAR-PALETTER ──────────────────────────────────────────────────────────

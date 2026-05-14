@@ -481,13 +481,10 @@ export function GoalCalculator() {
     <View style={{
       backgroundColor: Colors.card, borderRadius: 14,
       borderWidth: 1, borderColor: Colors.cardBorder,
-      padding: 14, gap: 12, position: 'relative',
+      padding: 14, gap: 8, position: 'relative',
     }}>
       <View>
-        <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-          GOAL CALCULATOR
-        </Text>
-        <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia', marginTop: 4 }}>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia' }}>
           When will I reach {goal.toLocaleString()}h?
         </Text>
       </View>
@@ -580,56 +577,16 @@ export function GoalCalculator() {
       </View>
 
       {/* Target date */}
-      <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: remaining <= 0 ? Colors.success : Colors.primary, fontFamily: 'Georgia' }}>
+      <View style={{ alignItems: 'center' }}>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: Colors.gold, fontFamily: 'Georgia' }}>
           {targetDateStr}
         </Text>
         {remaining > 0 && (
-          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
+          <Text style={{ fontSize: 10, color: Colors.textMuted, marginTop: 1 }}>
             {monthsLeft} months · {(monthsLeft / 12).toFixed(1)} years at {useRate}h/mo
           </Text>
         )}
       </View>
-
-      {/* Rate slider */}
-      <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' }}>
-          If I fly {useRate}h / month...
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 10, color: Colors.textMuted, fontFamily: 'Menlo' }}>5</Text>
-          <View style={{ flex: 1, height: 28, justifyContent: 'center' }}>
-            {(() => {
-              try {
-                const Slider = require('@react-native-community/slider').default;
-                return (
-                  <Slider
-                    minimumValue={5}
-                    maximumValue={100}
-                    step={5}
-                    value={useRate}
-                    onValueChange={(v: number) => setSliderRate(v)}
-                    minimumTrackTintColor={Colors.primary}
-                    maximumTrackTintColor={Colors.separator}
-                    thumbTintColor={Colors.primary}
-                  />
-                );
-              } catch {
-                return <View style={{ flex: 1, height: 4, backgroundColor: Colors.separator, borderRadius: 2 }} />;
-              }
-            })()}
-          </View>
-          <Text style={{ fontSize: 10, color: Colors.textMuted, fontFamily: 'Menlo' }}>100</Text>
-        </View>
-        {actualRate > 0 && sliderRate !== Math.round(actualRate / 5) * 5 && (
-          <TouchableOpacity onPress={() => setSliderRate(Math.round(actualRate / 5) * 5 || 5)}>
-            <Text style={{ fontSize: 10, color: Colors.primary, fontWeight: '600' }}>
-              Reset to my actual rate ({actualRate.toFixed(1)}h/mo)
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
     </View>
   );
 }

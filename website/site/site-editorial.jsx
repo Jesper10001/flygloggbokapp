@@ -525,6 +525,21 @@ function EdPricing({ t }) {
             {t.hero.cta_primary}
           </a>
         </article>
+        <article className="ed-plan">
+          <div className="ed-plan-head">
+            <h3>{t.pricing.max.name}</h3>
+            <span className="ed-plan-badge">{t.pricing.max.badge}</span>
+          </div>
+          <div className="ed-plan-price">
+            <span className="ed-plan-amount">{t.pricing.max.price}</span>
+            <span className="ed-plan-period">{t.pricing.max.currency} · {t.pricing.max.period}</span>
+          </div>
+          <ul className="ed-plan-features">
+            {t.pricing.max.features.map((f, i) => (
+              <li key={i}><Icon name="check" size={16} /> {f}</li>
+            ))}
+          </ul>
+        </article>
       </div>
     </section>
   );

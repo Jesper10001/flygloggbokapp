@@ -11,20 +11,28 @@ interface Env {
 
 // ── Quota limits per device per month ────────────────────────────────────────
 
-const MONTHLY_LIMITS: Record<string, number> = {
+const FREE_LIMITS: Record<string, number> = {
+  scan: 1,
+  summarize: 0,
+  lookup: 10,
+  import: 0,
+  flight_import: 0,
+};
+
+const PREMIUM_LIMITS: Record<string, number> = {
   scan: 10,
-  summarize: 20,
+  summarize: 10,
   lookup: 20,
   import: 5,
   flight_import: 30,
 };
 
-const PREMIUM_LIMITS: Record<string, number> = {
-  scan: 10,
+const MAX_LIMITS: Record<string, number> = {
+  scan: 50,
   summarize: 20,
-  lookup: 20,
+  lookup: 60,
   import: 5,
-  flight_import: 30,
+  flight_import: 100,
 };
 
 function currentMonth(): string {
@@ -46,6 +54,10 @@ function detectRequestType(body: string): string | null {
     )) {
       return 'scan';
     }
+    // Flight data import — cockpit instrument/app photo
+    if (hasImage && system.includes('cockpit instrument') && system.includes('flight data')) {
+      return 'flight_import';
+    }
     // Summarize — only the dedicated summarize prompt (shorter, no EASA/flygningsrad)
     if (hasImage && system.includes('summera') && !system.includes('flygningsrad') && !system.includes('EASA')) {
       return 'summarize';
@@ -64,9 +76,9 @@ function detectRequestType(body: string): string | null {
 }
 
 async function checkAndIncrementQuota(
-  kv: KVNamespace, deviceHash: string, reqType: string, isPremium: boolean
+  kv: KVNamespace, deviceHash: string, reqType: string, tier: string
 ): Promise<{ allowed: boolean; used: number; limit: number }> {
-  const limits = isPremium ? PREMIUM_LIMITS : MONTHLY_LIMITS;
+  const limits = tier === 'max' ? MAX_LIMITS : tier === 'premium' ? PREMIUM_LIMITS : FREE_LIMITS;
   const limit = limits[reqType];
   if (!limit) return { allowed: true, used: 0, limit: 0 };
 
@@ -612,11 +624,11 @@ export default {
       try { model = JSON.parse(body).model ?? 'unknown'; } catch {}
 
       // ── Server-side quota check ──
-      const isPremium = request.headers.get('X-Premium') === 'true';
+      const tierHeader = request.headers.get('X-Tier') || (request.headers.get('X-Premium') === 'true' ? 'premium' : 'free');
       if (env.QUOTA_KV) {
         const reqType = detectRequestType(body);
         if (reqType) {
-          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType, isPremium);
+          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType, tierHeader);
           if (!quota.allowed) {
             return new Response(JSON.stringify({
               error: 'quota_exceeded',

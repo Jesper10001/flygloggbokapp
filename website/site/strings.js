@@ -121,10 +121,11 @@ window.SITE_STRINGS = {
     },
     pricing: {
       eyebrow: 'Pricing',
-      title: 'One plan. No surprises.',
-      sub: 'A free tier to get you started. One subscription unlocks everything else.',
+      title: 'Two plans. No surprises.',
+      sub: 'A free tier to get you started. Premium or MAX unlocks the rest.',
       free: { name: 'Free', price: '0', period: 'forever', features: ['200 manual flights', 'CSV import & export', '1 free AI scan to try', 'Certificate tracking', 'Offline-first, no account'] },
-      premium: { name: 'Premium', price: '49', period: 'per month', currency: 'kr', badge: 'Most popular', features: ['Unlimited manual flights', '12 AI logbook scans / month', '20 smart aircraft lookups', 'PDF export — all 3 layouts', 'EASA CPL/ATPL requirement tracking', 'Global ICAO airport database', 'Priority support'] }
+      premium: { name: 'Premium', price: '49', period: 'per month', currency: 'kr', badge: 'Most popular', features: ['Unlimited manual flights', '10 AI logbook scans / month', '30 flight data imports / month', '20 aircraft lookups / month', 'EASA-format PDF export', 'EASA CPL/ATPL requirement tracking', 'Full ICAO airport database'] },
+      max: { name: 'MAX', price: '149', period: 'per month', currency: 'kr', badge: 'For high-volume', features: ['Everything in Premium', '50 AI logbook scans / month', '100 flight data imports / month', '60 aircraft lookups / month', '3 PDF templates (EASA, Modern, Editorial)', 'Flight share cards with runway diagrams'] }
     },
     footer: {
       tagline: 'Built by a pilot. In Sweden.',
@@ -258,10 +259,11 @@ window.SITE_STRINGS = {
     },
     pricing: {
       eyebrow: 'Pris',
-      title: 'En plan. Inga överraskningar.',
-      sub: 'En gratisnivå för att komma igång. Ett abonnemang låser upp resten.',
+      title: 'Två planer. Inga överraskningar.',
+      sub: 'En gratisnivå för att komma igång. Premium eller MAX låser upp resten.',
       free: { name: 'Gratis', price: '0', period: 'för alltid', features: ['200 manuella flygningar', 'CSV-import & export', '1 gratis AI-scan', 'Certifikatbevakning', 'Offline-first, inget konto'] },
-      premium: { name: 'Premium', price: '49', period: 'per månad', currency: 'kr', badge: 'Populärast', features: ['Obegränsade manuella flygningar', '12 AI-scans / månad', '20 smarta flygplans-uppslag', 'PDF-export — alla 3 layouter', 'EASA CPL/ATPL-kravspårning', 'Global ICAO flygplatsdatabas', 'Prioriterad support'] }
+      premium: { name: 'Premium', price: '49', period: 'per månad', currency: 'kr', badge: 'Populärast', features: ['Obegränsade manuella flygningar', '10 AI-loggboksscans / månad', '30 flight data imports / månad', '20 flygplansuppslag / månad', 'EASA-format PDF-export', 'EASA CPL/ATPL-kravspårning', 'Global ICAO flygplatsdatabas'] },
+      max: { name: 'MAX', price: '149', period: 'per månad', currency: 'kr', badge: 'För högvolym', features: ['Allt i Premium', '50 AI-loggboksscans / månad', '100 flight data imports / månad', '60 flygplansuppslag / månad', '3 PDF-mallar (EASA, Modern, Editorial)', 'Delningskort med bandiagram'] }
     },
     footer: {
       tagline: 'Byggd av en pilot. I Sverige.',

@@ -268,6 +268,44 @@ export async function getFlaggedFlights(): Promise<Flight[]> {
   );
 }
 
+export async function flagFlightsByRegistration(reg: string): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    `UPDATE flights SET status='flagged' WHERE registration=? AND status != 'flagged'`,
+    [reg.toUpperCase()]
+  );
+  return result.changes;
+}
+
+export async function flagFlightsBySecondPilot(name: string): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    `UPDATE flights SET status='flagged' WHERE second_pilot=? AND status != 'flagged'`,
+    [name]
+  );
+  return result.changes;
+}
+
+export async function removeRegistrationFromFlights(reg: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE flights SET registration='' WHERE registration=?`, [reg.toUpperCase()]);
+}
+
+export async function removeSecondPilotFromFlights(name: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE flights SET second_pilot='' WHERE second_pilot=?`, [name]);
+}
+
+export async function deleteRegistrationFromRegistry(reg: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM aircraft_registry WHERE registration=?`, [reg.toUpperCase()]);
+}
+
+export async function deleteSecondPilotHistory(name: string): Promise<void> {
+  // Second pilots aren't stored in a separate table — they come from flight history
+  // Nothing to delete beyond the flights themselves
+}
+
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
 
 export async function getAuditLog(flightId: number) {

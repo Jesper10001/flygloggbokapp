@@ -102,7 +102,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="drone-prep"
         options={{
-          href: isDrone ? undefined : null,
+          href: null,
           title: t('tab_prep_flight'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass" size={size} color={color} />

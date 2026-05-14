@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, Image,
+  StyleSheet, Alert, ActivityIndicator, Image, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFlightById, deleteFlight } from '../../db/flights';
 import { batchPlaceNames } from '../../db/icao';
 import { useFlightStore } from '../../store/flightStore';
@@ -22,6 +23,7 @@ export default function FlightDetailScreen() {
   const { loadFlights, loadStats } = useFlightStore();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
+  const insets = useSafeAreaInsets();
   const [flight, setFlight] = useState<Flight | null>(null);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [showShareCard, setShowShareCard] = useState(false);
@@ -61,7 +63,10 @@ export default function FlightDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <TouchableOpacity onPress={() => router.back()} style={{ paddingHorizontal: 16, paddingVertical: 8 }} hitSlop={12}>
+        <Ionicons name="close" size={24} color={Colors.textSecondary} />
+      </TouchableOpacity>
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* Header */}

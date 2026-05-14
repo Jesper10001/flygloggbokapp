@@ -1,13 +1,40 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors } from '../constants/colors';
-import { useTranslation } from '../hooks/useTranslation';
-import { useFlightStore } from '../store/flightStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PREMIUM_PRICE_MONTHLY = 49;
 export const PREMIUM_PRICE_YEARLY = 349;
 export const PREMIUM_PRICE_YEARLY_MONTHLY = Math.round(PREMIUM_PRICE_YEARLY / 12);
+
+const N = {
+  bg: '#0A1628',
+  sheet: '#102441',
+  cardBorder: '#1A3A5A',
+  goldSoft: 'rgba(255, 184, 48, 0.10)',
+  goldEdge: 'rgba(255, 184, 48, 0.35)',
+  gold: '#FFB830',
+  text: '#FFFFFF',
+  text2: '#B5C8D8',
+  text3: '#7FA8C8',
+};
+
+const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
+  camera: 'camera-outline',
+  instrument: 'speedometer-outline',
+  sparkle: 'sparkles-outline',
+  progress: 'trending-up-outline',
+  pdf: 'document-outline',
+};
+
+const PRIMARY_FEATURES = [
+  { icon: 'camera', t: 'Skanna pappersloggbok med AI' },
+  { icon: 'instrument', t: 'Logga från instrumentbild' },
+  { icon: 'sparkle', t: 'AI-uppslag av flygplan och bana' },
+  { icon: 'progress', t: 'EASA-progress med prognos för CPL/ATPL' },
+  { icon: 'pdf', t: 'PDF-export — pilot-CV som du faktiskt vill skicka' },
+];
 
 interface Props {
   visible: boolean;
@@ -16,83 +43,88 @@ interface Props {
 }
 
 export function PremiumModal({ visible, onClose, feature }: Props) {
-  const { t } = useTranslation();
   const router = useRouter();
-  const { setIsPremium } = useFlightStore();
+  const insets = useSafeAreaInsets();
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const handlePurchaseMonthly = () => {
-    // TODO: Implement actual IAP
-    setIsPremium(true);
-    onClose();
-  };
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(40);
+      opacityAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
 
-  const handlePurchaseYearly = () => {
-    // TODO: Implement actual IAP
-    setIsPremium(true);
+  const handleExplore = () => {
     onClose();
+    setTimeout(() => router.push('/settings/premium'), 200);
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={e => e.stopPropagation()}>
-          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={s.header}>
-              <TouchableOpacity onPress={onClose} hitSlop={10} style={s.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textMuted} />
+        <Animated.View style={[s.sheetWrap, { transform: [{ translateY: slideAnim }], opacity: opacityAnim }]}>
+          <Pressable style={[s.sheet, { paddingBottom: insets.bottom + 20 }]} onPress={e => e.stopPropagation()}>
+            {/* Handle + close */}
+            <View style={s.handleRow}>
+              <View style={{ width: 32 }} />
+              <View style={s.handle} />
+              <TouchableOpacity onPress={onClose} style={s.closeBtn} hitSlop={12}>
+                <Ionicons name="close" size={16} color={N.text3} />
               </TouchableOpacity>
-              <View style={s.iconCircle}>
-                <Ionicons name="star" size={28} color={Colors.gold} />
-              </View>
-              <Text style={s.title}>{t('premium_modal_title')}</Text>
-              {feature && (
-                <View style={s.featureBadge}>
-                  <Ionicons name="lock-closed" size={11} color={Colors.gold} />
-                  <Text style={s.featureBadgeText}>{feature}</Text>
-                </View>
-              )}
-              <Text style={s.desc}>{t('premium_modal_desc')}</Text>
             </View>
 
-            {/* Highlights */}
-            <View style={s.highlights}>
-              {[
-                { icon: 'camera' as const, text: t('premium_feat_scan') },
-                { icon: 'calculator' as const, text: t('premium_feat_summarize') },
-                { icon: 'sparkles' as const, text: t('premium_feat_ai') },
-                { icon: 'document-text' as const, text: t('premium_feat_pdf') },
-                { icon: 'cloud-upload' as const, text: t('premium_feat_import') },
-              ].map((h, i) => (
-                <View key={i} style={s.highlightRow}>
-                  <Ionicons name={h.icon} size={16} color={Colors.primary} />
-                  <Text style={s.highlightText}>{h.text}</Text>
+            {/* Star badge */}
+            <View style={s.starBadge}>
+              <Ionicons name="star" size={28} color={N.gold} />
+            </View>
+
+            {/* Title */}
+            <Text style={s.title}>Premium-funktion</Text>
+
+            {/* Locked feature pill */}
+            {feature ? (
+              <View style={s.pillRow}>
+                <View style={s.pill}>
+                  <Ionicons name="lock-closed-outline" size={13} color={N.gold} />
+                  <Text style={s.pillText}>{feature}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Lead */}
+            <Text style={s.lead}>
+              Premium öppnar upp <Text style={s.leadBold}>AI-loggning</Text>, <Text style={s.leadBold}>EASA-progress</Text> och en <Text style={s.leadBold}>professionell PDF-export</Text>.
+            </Text>
+
+            {/* Feature list */}
+            <View style={s.featureList}>
+              {PRIMARY_FEATURES.map((f, i) => (
+                <View key={i} style={s.featureRow}>
+                  <View style={s.featureIcon}>
+                    <Ionicons name={ICON_MAP[f.icon] ?? 'sparkles-outline'} size={15} color={N.gold} />
+                  </View>
+                  <Text style={s.featureText}>{f.t}</Text>
                 </View>
               ))}
             </View>
 
-            {/* Pricing */}
-            <TouchableOpacity style={[s.priceCard, s.priceCardBest, { marginHorizontal: 16 }]} onPress={handlePurchaseMonthly} activeOpacity={0.85}>
-              <Text style={s.priceCardLabel}>{t('premium_monthly')}</Text>
-              <View style={s.priceRow}>
-                <Text style={s.priceAmount}>{PREMIUM_PRICE_MONTHLY}</Text>
-                <Text style={s.priceCurrency}>kr/{t('premium_month_short')}</Text>
-              </View>
+            {/* Primary CTA */}
+            <TouchableOpacity style={s.ctaPrimary} onPress={handleExplore} activeOpacity={0.85}>
+              <Text style={s.ctaPrimaryText}>Upptäck allt i Premium</Text>
+              <Ionicons name="arrow-forward" size={16} color={N.bg} />
             </TouchableOpacity>
 
-            {/* Discover all */}
-            <TouchableOpacity
-              style={s.discoverBtn}
-              onPress={() => { onClose(); setTimeout(() => router.push('/settings/premium'), 300); }}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="arrow-forward-circle" size={18} color={Colors.primary} />
-              <Text style={s.discoverBtnText}>{t('premium_discover_all')}</Text>
+            {/* Secondary */}
+            <TouchableOpacity style={s.ctaSecondary} onPress={onClose}>
+              <Text style={s.ctaSecondaryText}>Inte nu</Text>
             </TouchableOpacity>
-
-            <Text style={s.legal}>{t('premium_legal')}</Text>
-          </ScrollView>
-        </Pressable>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -100,64 +132,149 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
 const s = StyleSheet.create({
   backdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center', alignItems: 'center', padding: 20,
+    flex: 1,
+    backgroundColor: 'rgba(4, 12, 24, 0.72)',
+    justifyContent: 'flex-end',
+  },
+  sheetWrap: {
+    width: '100%',
   },
   sheet: {
-    backgroundColor: Colors.surface, borderRadius: 20,
-    width: '100%', maxWidth: 380, maxHeight: '85%', overflow: 'hidden',
+    backgroundColor: N.sheet,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: N.cardBorder,
+    paddingHorizontal: 22,
+    paddingTop: 14,
   },
-  header: { alignItems: 'center', padding: 24, paddingBottom: 16 },
-  closeBtn: { position: 'absolute', top: 14, right: 14, zIndex: 1 },
-  iconCircle: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.gold + '1A', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+  handleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  title: { color: Colors.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  featureBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.gold + '18', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, marginTop: 8, borderWidth: 0.5, borderColor: Colors.gold + '44',
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: N.cardBorder,
   },
-  featureBadgeText: { color: Colors.gold, fontSize: 12, fontWeight: '700' },
-  desc: {
-    color: Colors.textSecondary, fontSize: 14, lineHeight: 20,
-    textAlign: 'center', marginTop: 10, paddingHorizontal: 8,
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  highlights: { paddingHorizontal: 24, gap: 10, marginBottom: 16 },
-  highlightRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  highlightText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '600', flex: 1 },
-
-  priceCards: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 12 },
-  priceCard: {
-    flex: 1, backgroundColor: Colors.elevated, borderRadius: 14, padding: 16,
-    alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border, gap: 4,
+  starBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: N.goldSoft,
+    borderWidth: 1,
+    borderColor: N.goldEdge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 6,
+    marginBottom: 14,
   },
-  priceCardBest: {
-    borderColor: Colors.primary, backgroundColor: Colors.primary + '0A',
+  title: {
+    fontFamily: 'Georgia',
+    fontSize: 26,
+    fontWeight: '400',
+    letterSpacing: -0.4,
+    lineHeight: 29,
+    color: N.text,
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  saveBadge: {
-    backgroundColor: Colors.primary, borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
+  pillRow: {
+    alignItems: 'center',
+    marginBottom: 14,
   },
-  saveBadgeText: { color: Colors.textInverse, fontSize: 10, fontWeight: '800' },
-  priceCardLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
-  priceAmount: { color: Colors.textPrimary, fontSize: 28, fontWeight: '800', fontFamily: 'Menlo' },
-  priceCurrency: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
-  pricePerMonth: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
-
-  discoverBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    marginHorizontal: 16, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: Colors.primary + '0E', borderWidth: 1, borderColor: Colors.primary + '33',
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 100,
+    backgroundColor: N.goldSoft,
+    borderWidth: 1,
+    borderColor: N.goldEdge,
   },
-  discoverBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
-
-  legal: {
-    color: Colors.textMuted, fontSize: 10, textAlign: 'center',
-    paddingHorizontal: 24, paddingVertical: 16, lineHeight: 14,
+  pillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: N.gold,
+    letterSpacing: -0.1,
+  },
+  lead: {
+    fontSize: 14.5,
+    color: N.text2,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 22,
+    paddingHorizontal: 6,
+  },
+  leadBold: {
+    color: N.text,
+    fontWeight: '600',
+  },
+  featureList: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  featureIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: N.goldSoft,
+    borderWidth: 1,
+    borderColor: N.goldEdge,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    fontSize: 14,
+    color: N.text,
+    fontWeight: '500',
+    lineHeight: 19,
+    flex: 1,
+  },
+  ctaPrimary: {
+    width: '100%',
+    paddingVertical: 15,
+    backgroundColor: N.gold,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  ctaPrimaryText: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    color: N.bg,
+  },
+  ctaSecondary: {
+    width: '100%',
+    marginTop: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  ctaSecondaryText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: N.text3,
   },
 });

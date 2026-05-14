@@ -9,17 +9,22 @@ import {
 } from '../db/flights';
 import { FREE_TIER_LIMIT } from '../constants/easa';
 
+export type SubscriptionTier = 'free' | 'premium' | 'max';
+
 interface FlightStore {
   flights: Flight[];
   stats: FlightStats | null;
   flightCount: number;
   manualFlightCount: number;
+  tier: SubscriptionTier;
   isPremium: boolean;
+  isMax: boolean;
   isLoading: boolean;
 
   loadFlights: () => Promise<void>;
   loadStats: () => Promise<void>;
   removeFlight: (id: number) => Promise<void>;
+  setTier: (tier: SubscriptionTier) => void;
   setIsPremium: (val: boolean) => void;
   canAddFlight: () => boolean;
 }
@@ -59,7 +64,9 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   stats: null,
   flightCount: 0,
   manualFlightCount: 0,
+  tier: 'free' as SubscriptionTier,
   isPremium: false,
+  isMax: false,
   isLoading: false,
 
   loadFlights: async () => {
@@ -93,8 +100,16 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     await get().loadStats();
   },
 
+  setTier: (t: SubscriptionTier) => {
+    set({ tier: t, isPremium: t !== 'free', isMax: t === 'max' });
+    if (t !== 'free') {
+      import('../db/icao').then(({ seedIcaoAirports }) => seedIcaoAirports(true));
+    }
+  },
+
   setIsPremium: (val: boolean) => {
-    set({ isPremium: val });
+    const t = val ? 'premium' : 'free';
+    set({ tier: t, isPremium: val, isMax: false });
     if (val) {
       import('../db/icao').then(({ seedIcaoAirports }) => seedIcaoAirports(true));
     }

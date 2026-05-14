@@ -148,7 +148,13 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
 export async function callAnthropicJson<T = any>(opts: CallAnthropicOptions): Promise<T> {
   const { text, stopReason } = await callAnthropicRaw(opts);
 
-  const cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  const cleaned = text
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+  // Try parsing the whole thing first (if AI returned pure JSON)
+  try { return JSON.parse(cleaned) as T; } catch {}
+  // Fall back to extracting first JSON object
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error(`Kunde inte tolka svaret från Claude. Svar: "${text.slice(0, 160)}"`);

@@ -12,7 +12,7 @@ function toHHMM(decimal: number): string {
 
 const DELIM = ';';
 
-function escapeCSV(val: string | number | null | undefined): string {
+function esc(val: string | number | null | undefined): string {
   const s = String(val ?? '');
   if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes(';')) {
     return `"${s.replace(/"/g, '""')}"`;
@@ -20,32 +20,51 @@ function escapeCSV(val: string | number | null | undefined): string {
   return s;
 }
 
-function droneLabel(f: DroneFlight): string {
-  const t = (f.drone_type ?? '').trim();
-  const r = (f.registration ?? '').trim();
-  if (t && r) return `${t} / ${r}`;
-  return t || r;
-}
+type Col = {
+  header: string;
+  value: (f: DroneFlight) => string | number;
+  optional?: boolean;
+  hasData?: (f: DroneFlight) => boolean;
+};
 
-// Begränsad CSV — Datum, Drönare, Flygtid + totalrad
-// Använder ';' som avgränsare (standard på Excel/Numbers i svensk locale) så
-// filen öppnas korrekt i kolumner utan manuell import.
 export async function exportDroneToCSV(): Promise<void> {
   const flights = await getDroneFlights(99999);
 
-  const headers = ['Date', 'Drone', 'Flight time'];
-  const rows = flights.map((f) =>
-    [f.date, droneLabel(f), toHHMM(f.total_time)].map(escapeCSV).join(DELIM)
+  const hasVal = (n: number | null | undefined) => !!n && n > 0;
+  const hasText = (s: string | null | undefined) => !!s && s.trim() !== '';
+
+  const cols: Col[] = [
+    { header: 'Date', value: f => f.date },
+    { header: 'Drone type', value: f => f.drone_type },
+    { header: 'Registration', value: f => f.registration },
+    { header: 'Location', value: f => f.location, optional: true, hasData: f => hasText(f.location) },
+    { header: 'Mission type', value: f => f.mission_type, optional: true, hasData: f => hasText(f.mission_type) },
+    { header: 'Category', value: f => f.category, optional: true, hasData: f => hasText(f.category) },
+    { header: 'Flight mode', value: f => f.flight_mode },
+    { header: 'Flight time', value: f => toHHMM(f.total_time) },
+    { header: 'Max altitude (m)', value: f => f.max_altitude_m || '', optional: true, hasData: f => hasVal(f.max_altitude_m) },
+    { header: 'Night', value: f => f.is_night ? 'Yes' : 'No', optional: true, hasData: f => f.is_night === 1 },
+    { header: 'Observer', value: f => f.has_observer ? (f.observer_name || 'Yes') : '', optional: true, hasData: f => f.has_observer === 1 },
+    { header: 'Remarks', value: f => f.remarks, optional: true, hasData: f => hasText(f.remarks) },
+  ];
+
+  const activeCols = cols.filter(c => !c.optional || flights.some(f => c.hasData!(f)));
+
+  const headers = activeCols.map(c => c.header);
+  const rows = flights.map(f =>
+    activeCols.map(c => esc(c.value(f))).join(DELIM)
   );
 
   const totalHours = flights.reduce((sum, f) => sum + (f.total_time || 0), 0);
-  const totalRow = ['TOTAL', `${flights.length} flights`, toHHMM(totalHours)]
-    .map(escapeCSV)
-    .join(DELIM);
+  const totalRow = activeCols.map((c, i) => {
+    if (i === 0) return esc('TOTAL');
+    if (c.header === 'Flight time') return esc(toHHMM(totalHours));
+    if (c.header === 'Drone type') return esc(`${flights.length} flights`);
+    return '';
+  }).join(DELIM);
 
-  // "sep=" hint — Excel/Numbers läser första raden för att välja avgränsare
   const sepHint = `sep=${DELIM}`;
-  const csv = [sepHint, headers.join(DELIM), ...rows, totalRow].join('\r\n');
+  const csv = [sepHint, headers.join(DELIM), ...rows, '', totalRow].join('\r\n');
   const filename = `dronelog_${new Date().toISOString().split('T')[0]}.csv`;
   const path = FileSystem.documentDirectory + filename;
 

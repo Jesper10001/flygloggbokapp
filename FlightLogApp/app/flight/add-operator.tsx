@@ -277,6 +277,11 @@ export default function AddOperatorFlightScreen() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
+        {/* Close button */}
+        <TouchableOpacity onPress={() => router.back()} style={{ alignSelf: 'flex-start', marginBottom: 4 }} hitSlop={12}>
+          <Ionicons name="close" size={24} color={Colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <Text style={{ fontSize: 28 }}>{emoji}</Text>

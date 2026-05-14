@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, batchPlaceNames } from '../db/icao';
+import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, getTempPlaceByName, batchPlaceNames } from '../db/icao';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import type { IcaoAirport } from '../types/flight';
@@ -190,6 +190,15 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const commitTempName = async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    const existing = await getTempPlaceByName(trimmed);
+    if (existing) {
+      onChangeText(existing.icao);
+      setInputText(existing.name || trimmed);
+      setSuggestions([]);
+      setShowDropdown(false);
+      onConfirm?.(existing.icao);
+      return;
+    }
     const icao = await generateTemporaryIcao(trimmed);
     await addTemporaryPlace(icao, trimmed, 0, 0);
     onChangeText(icao);

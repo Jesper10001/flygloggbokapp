@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions, FlatList,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
   Alert, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
@@ -17,7 +18,6 @@ import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
 import { batchPlaceNames } from '../../db/icao';
-import { GoalCalculator } from '../../components/EASAProgressChart';
 import { formatDate } from '../../utils/format';
 
 let runwayData: Record<string, number[]> = {};
@@ -156,7 +156,7 @@ function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: 
           <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{arrName}</Text>
         </View>
         {/* Meta */}
-        <Text style={ls.latestMeta}>{f.aircraft_type} · {f.registration}</Text>
+        <Text style={ls.latestMeta}>{f.registration}</Text>
       </View>
       <Text style={ls.latestTime}>{formatTime(f.total_time)}</Text>
       {f.photo_uri ? (
@@ -317,7 +317,45 @@ function MiniRunways({ icao, size = 20 }: { icao: string; size?: number }) {
   );
 }
 
-function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<string, string>; onPress: (f: Flight) => void }) {
+const SAMPLE_CARDS = [
+  { id: 's1', image: require('../../assets/sample-photos/sample1.jpg'), dep: 'ESSA', arr: 'ESGG', date: '2026.03.14', ac: 'AS350', time: '1:24' },
+  { id: 's2', image: require('../../assets/sample-photos/sample2.jpg'), dep: 'ENGM', arr: 'ENZV', date: '2026.02.08', ac: 'AW139', time: '2:10' },
+  { id: 's3', image: require('../../assets/sample-photos/sample3.jpg'), dep: 'LOWI', arr: 'LSZH', date: '2026.01.22', ac: 'EC135', time: '0:48' },
+];
+
+function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress }: {
+  imageSource: any; dep: string; arr: string; meta: string; cardW: number; onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity style={{ width: cardW, height: cardW * 0.65, borderRadius: 14, overflow: 'hidden' }} onPress={onPress} activeOpacity={0.9} disabled={!onPress}>
+      <Image source={imageSource} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <View style={{ alignItems: 'center' }}>
+            <MiniRunways icao={dep} size={18} />
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{dep}</Text>
+          </View>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+            <Ionicons name="airplane" size={10} color="rgba(255,255,255,0.7)" />
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+          </View>
+          <View style={{ alignItems: 'center' }}>
+            <MiniRunways icao={arr} size={18} />
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{arr}</Text>
+          </View>
+        </View>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontFamily: 'Georgia' }}>{meta}</Text>
+        <Text style={{ color: Colors.gold + 'aa', fontSize: 7, fontWeight: '900', letterSpacing: 2, fontFamily: 'Georgia', marginTop: 4 }}>BLADES</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNames: Record<string, string>; onPress: (f: Flight) => void; latestFlightId?: number }) {
+  const router = useRouter();
   const { formatTime } = useTimeFormat();
   const { flightCount } = useFlightStore();
   const [photos, setPhotos] = useState<Flight[]>([]);
@@ -332,16 +370,20 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
     getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 10)));
   }, [flightCount]);
 
-  if (photos.length === 0) return null;
+  useFocusEffect(useCallback(() => {
+    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 10)));
+  }, []));
+
+  const hasFlight = photos.length > 0;
+  const data = hasFlight ? photos : SAMPLE_CARDS;
+  const [samplePreview, setSamplePreview] = useState<typeof SAMPLE_CARDS[0] | null>(null);
 
   return (
-    <View style={{ marginTop: 12 }}>
-      <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginLeft: 16 }}>
-        Flight Photos
-      </Text>
+    <View>
+      <Text style={makeDashStyles().sectionHeader}>Flight Photos</Text>
       <FlatList
-        data={photos}
-        keyExtractor={f => String(f.id)}
+        data={data}
+        keyExtractor={(item: any) => String(item.id)}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={SNAP}
@@ -350,46 +392,89 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
         contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
         onMomentumScrollEnd={(e) => setActiveIdx(Math.round(e.nativeEvent.contentOffset.x / SNAP))}
         ItemSeparatorComponent={() => <View style={{ width: GAP }} />}
-        renderItem={({ item: f }) => {
-          const dep = placeNames[f.dep_place?.toUpperCase()] ?? f.dep_place;
-          const arr = placeNames[f.arr_place?.toUpperCase()] ?? f.arr_place;
+        renderItem={({ item }: any) => {
+          if (hasFlight) {
+            const f = item as Flight;
+            const dep = placeNames[f.dep_place?.toUpperCase()] ?? f.dep_place;
+            const arr = placeNames[f.arr_place?.toUpperCase()] ?? f.arr_place;
+            return (
+              <PhotoCard
+                imageSource={{ uri: f.photo_uri }}
+                dep={dep} arr={arr}
+                meta={`${formatDate(f.date)} · ${f.aircraft_type} · ${formatTime(f.total_time)}h`}
+                cardW={CARD_W}
+                onPress={() => onPress(f)}
+              />
+            );
+          }
+          const s = item;
           return (
-            <TouchableOpacity style={{ width: CARD_W, height: CARD_W * 0.65, borderRadius: 14, overflow: 'hidden' }} onPress={() => onPress(f)} activeOpacity={0.9}>
-              <Image source={{ uri: f.photo_uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <View style={{ alignItems: 'center' }}>
-                    <MiniRunways icao={f.dep_place} size={18} />
-                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{dep}</Text>
-                  </View>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
-                    <Ionicons name="airplane" size={10} color="rgba(255,255,255,0.7)" />
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
-                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)' }} />
-                  </View>
-                  <View style={{ alignItems: 'center' }}>
-                    <MiniRunways icao={f.arr_place} size={18} />
-                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{arr}</Text>
-                  </View>
-                </View>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontFamily: 'Georgia' }}>
-                  {formatDate(f.date)} · {f.aircraft_type} · {formatTime(f.total_time)}h
-                </Text>
-                <Text style={{ color: '#D4A84Baa', fontSize: 7, fontWeight: '900', letterSpacing: 2, fontFamily: 'Georgia', marginTop: 4 }}>BLADES</Text>
-              </View>
-            </TouchableOpacity>
+            <PhotoCard
+              imageSource={s.image}
+              dep={s.dep} arr={s.arr}
+              meta={`${s.date} · ${s.ac} · ${s.time}`}
+              cardW={CARD_W}
+              onPress={() => setSamplePreview(s)}
+            />
           );
         }}
       />
-      {photos.length > 1 && (
+      {data.length > 1 && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 }}>
-          {photos.map((_, i) => (
+          {data.map((_: any, i: number) => (
             <View key={i} style={{ width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: activeIdx === i ? Colors.primary : Colors.separator }} />
           ))}
         </View>
       )}
+
+      {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+            marginTop: 8, marginHorizontal: 40, paddingVertical: 8,
+            borderRadius: 8, borderWidth: 1, borderColor: Colors.gold + '33',
+            backgroundColor: Colors.gold + '08',
+          }}
+          onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="camera-outline" size={14} color={Colors.gold} />
+          <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '600' }}>Add picture from your latest flight</Text>
+        </TouchableOpacity>
+      )}
+
+      <Modal visible={!!samplePreview} transparent animationType="fade" onRequestClose={() => setSamplePreview(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setSamplePreview(null)}>
+          {samplePreview && (
+            <View style={{ width: screenW * 0.92, aspectRatio: 3 / 4, borderRadius: 18, overflow: 'hidden' }}>
+              <Image source={samplePreview.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 18 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <MiniRunways icao={samplePreview.dep} size={24} />
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{samplePreview.dep}</Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                    <Ionicons name="airplane" size={12} color="rgba(255,255,255,0.7)" />
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                    <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <MiniRunways icao={samplePreview.arr} size={24} />
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{samplePreview.arr}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontFamily: 'Georgia' }}>
+                  {samplePreview.date} · {samplePreview.ac} · {samplePreview.time}
+                </Text>
+                <Text style={{ color: Colors.gold + 'aa', fontSize: 8, fontWeight: '900', letterSpacing: 2, fontFamily: 'Georgia', marginTop: 6 }}>BLADES</Text>
+              </View>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -432,7 +517,7 @@ function LogFlightButton({ onPress, onLongComplete, label }: { onPress: () => vo
       onPressOut={handlePressOut}
       activeOpacity={0.95}
     >
-      <Animated.View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fillWidth, backgroundColor: '#D4A84B', borderRadius: 14 }} />
+      <Animated.View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fillWidth, backgroundColor: Colors.gold, borderRadius: 14 }} />
       <Ionicons name={pressing ? 'scan-outline' : 'add-circle'} size={18} color={Colors.textInverse} style={{ zIndex: 1 }} />
       <Text style={[s.addBtnText, { zIndex: 1 }]}>{pressing ? 'Flight data scan' : label}</Text>
     </TouchableOpacity>
@@ -668,7 +753,7 @@ export default function DashboardScreen() {
             ].map(c => (
               <View key={c.l} style={s.classCell}>
                 <Text style={s.classCellLabel}>{c.l}</Text>
-                <Text style={[s.classCellValue, { color: c.c }]}>{c.v}</Text>
+                <Text style={[s.classCellValue, { color: c.c }]} numberOfLines={1} adjustsFontSizeToFit>{c.v}</Text>
               </View>
             ))}
           </View>
@@ -717,10 +802,8 @@ export default function DashboardScreen() {
 
           <AirportMapWidget />
 
-          <Text style={s.sectionHeader}>{t('forecast')}</Text>
-          <GoalCalculator />
 
-          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} />
+          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />

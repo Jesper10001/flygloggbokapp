@@ -132,6 +132,8 @@ export default function SettingsScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const isDrone = appMode === 'drone';
+  const isOp = isOperator(useProfileStore.getState().profile);
+  const isPilot = !isDrone && !isOp;
 
   // Profildata — laddas från settings-DB
   const [profileName, setProfileName] = useState('');
@@ -253,8 +255,11 @@ export default function SettingsScreen() {
   const switchMode = async (target: 'manned' | 'drone') => {
     await setAppMode(target);
     const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
-    if (hasData) router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
-    else router.replace(target === 'drone' ? '/preview' : '/manned-preview');
+    if (hasData) {
+      router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
+    } else {
+      router.replace(target === 'drone' ? '/preview' : '/manned-preview');
+    }
   };
 
   // ── Render ──
@@ -324,7 +329,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {!isPremium && (
+        {!isPremium && isPilot && (
           <TouchableOpacity
             style={{
               flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -356,12 +361,12 @@ export default function SettingsScreen() {
       {/* ── C. Loggbok ── */}
       <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
       <Card>
-        <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />
+        {isPilot && <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />}
         {isDrone && (
           <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
         )}
-        <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />
-        <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} border={false} />
+        {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
+        {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} border={false} />}
       </Card>
 
       {/* ── D. Import ── */}
@@ -370,30 +375,29 @@ export default function SettingsScreen() {
         <Row
           icon="document-attach-outline" iconColor={Colors.primary}
           title={t('import_csv_title')}
-          subtitle={isPremium ? t('import_csv_sub') : t('export_to_pdf_locked')}
-          right={!isPremium ? <PremiumPill /> : undefined}
-          onClick={isPremium ? () => router.push('/import') : () => { setPremiumFeatureName(t('prem_feat_import_title')); setShowPremiumModal(true); }}
+          subtitle={t('import_csv_sub')}
+          onClick={() => router.push('/import')}
         />
-        <Row
+        {isPilot && <Row
           icon="camera-outline" iconColor={Colors.primary}
           title={t('import_scan_title')}
           subtitle={t('import_scan_sub')}
           right={!isPremium ? <PremiumPill /> : undefined}
           onClick={() => router.push('/import/scan')}
-        />
+        />}
         <Row
           icon="create-outline" iconColor={Colors.primary}
           title={t('import_manual_title')}
           subtitle={t('import_manual_sub')}
           onClick={() => router.push('/import/manual')}
         />
-        <Row
+        {isPilot && <Row
           icon="scan-outline" iconColor={Colors.accent}
           title={t('scan_profile_title') ?? 'Scan Profile'}
           subtitle={t('scan_profile_sub') ?? 'Help AI read your logbook'}
           onClick={() => router.push('/settings/scan-profile')}
           border={false}
-        />
+        />}
       </Card>
 
       {/* ── E. Data & Export ── */}
@@ -405,12 +409,12 @@ export default function SettingsScreen() {
           right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
           pressable={false}
         />
-        <Row
+        {isPilot && <Row
           icon="document-text-outline" iconColor={Colors.primary}
           title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
           right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
           onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
-        />
+        />}
         <Row
           icon="cloud-upload-outline" iconColor={Colors.primary}
           title={t('export_to_csv')} subtitle={t('export_to_csv_sub')}
@@ -420,8 +424,7 @@ export default function SettingsScreen() {
         <Row
           icon="options-outline" iconColor={Colors.primary}
           title={t('custom_csv_title')} subtitle={t('custom_csv_sub')}
-          right={!isPremium ? <PremiumPill /> : undefined}
-          onClick={isPremium ? () => router.push('/settings/custom-export') : () => { setPremiumFeatureName(t('custom_csv_title')); setShowPremiumModal(true); }}
+          onClick={() => router.push('/settings/custom-export')}
         />
         <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
       </Card>
@@ -525,7 +528,7 @@ export default function SettingsScreen() {
           icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
           title={t('mode_manned')} subtitle={t('mode_manned_sub')}
           right={appMode === 'manned' && !isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { switchMode('manned'); useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); }}
+          onClick={async () => { await useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); await switchMode('manned'); }}
         />
         <Row
           icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
@@ -537,7 +540,7 @@ export default function SettingsScreen() {
           icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
           title={t('mode_drone')} subtitle={t('mode_drone_sub')}
           right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => { switchMode('drone'); useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); }}
+          onClick={async () => { await useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); await switchMode('drone'); }}
           border={false}
         />
       </Card>
@@ -569,9 +572,6 @@ export default function SettingsScreen() {
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={async () => { await clearOperatorTestUser(); await loadFlights(); await loadStats(); }} />
         </>)}
 
-        {/* Rundtur */}
-        <Row icon="compass-outline" iconColor={Colors.primary} title={t('replay_tour')} subtitle={t('replay_tour_sub')}
-          onClick={() => router.push(isDrone ? '/preview' : '/manned-preview')} />
         <Row icon="refresh-circle-outline" iconColor={Colors.primary} title={t('replay_onboarding')} subtitle={t('replay_onboarding_sub')}
           onClick={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
 
@@ -630,7 +630,7 @@ function SwitchModeButton({ appMode, setAppMode }: { appMode: 'manned' | 'drone'
   const onPress = async () => {
     await setAppMode(target);
     const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
-    if (hasData) router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+    if (hasData) router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
     else router.replace(target === 'drone' ? '/preview' : '/manned-preview');
   };
 

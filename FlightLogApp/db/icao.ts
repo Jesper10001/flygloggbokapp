@@ -69,6 +69,14 @@ export async function searchAirports(query: string): Promise<IcaoAirport[]> {
   );
 }
 
+export async function getTempPlaceByName(name: string): Promise<IcaoAirport | null> {
+  const db = await getDatabase();
+  return await db.getFirstAsync<IcaoAirport>(
+    'SELECT * FROM icao_airports WHERE temporary = 1 AND UPPER(name) = ?',
+    [name.trim().toUpperCase()]
+  );
+}
+
 export async function getAirportByIcao(icao: string): Promise<IcaoAirport | null> {
   const db = await getDatabase();
   return await db.getFirstAsync<IcaoAirport>(

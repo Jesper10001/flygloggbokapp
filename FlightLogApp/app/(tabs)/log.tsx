@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
-import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry } from '../../db/flights';
+import { searchFlights, getAllAircraftTypes, updateAircraftType, deleteAircraftType, addAircraftTypeToRegistry, getFlaggedFlights } from '../../db/flights';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { Colors } from '../../constants/colors';
 import type { Flight } from '../../types/flight';
@@ -31,6 +31,7 @@ import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
 import { FlightChart } from '../../components/FlightChart';
 import { RollingLoadChart } from '../../components/RollingLoadChart';
+import { GoalCalculator } from '../../components/EASAProgressChart';
 import { EASAProgressCharts } from '../../components/EASAProgressChart';
 import { batchPlaceNames } from '../../db/icao';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -163,9 +164,7 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
         <View style={styles.flightMetaRow}>
           <Ionicons name={srcIcon} size={10} color={Colors.textMuted} />
           <Text style={styles.flightMeta} numberOfLines={1}>
-            {f.aircraft_type} · {f.registration}
-            {f.second_pilot ? ` · 2P: ${f.second_pilot}` : ''}
-            {crewText ? ` · ${crewText}` : ''}
+            {f.registration}
           </Text>
           {f.ifr > 0 && <Text style={styles.badgeIfr}>IFR</Text>}
           {f.night > 0 && <Text style={styles.badgeNight}>{(f.nvg ?? 0) > 0 ? 'NVG' : 'NIGHT'}</Text>}
@@ -175,7 +174,10 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
       {/* Right */}
       <View style={styles.flightRight}>
         <Text style={styles.flightTime}>{formatTime(f.total_time)}</Text>
-        <Text style={styles.flightDepUtc}>{f.dep_utc ?? ''}</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <Text style={styles.flightDepUtc}>T/O {f.dep_utc ?? ''}</Text>
+          <Text style={styles.flightDepUtc}>LDG {f.arr_utc ?? ''}</Text>
+        </View>
       </View>
       {f.photo_uri ? (
         <TouchableOpacity
@@ -1554,9 +1556,12 @@ function ChartCarousel() {
         <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
           <RollingLoadChart />
         </View>
+        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
+          <GoalCalculator />
+        </View>
       </ScrollView>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-        {[0, 1].map(i => (
+        {[0, 1, 2].map(i => (
           <View key={i} style={{
             width: activeChart === i ? 16 : 6, height: 6, borderRadius: 3,
             backgroundColor: activeChart === i ? Colors.primary : Colors.separator,
@@ -1592,7 +1597,13 @@ export default function LogScreen() {
   }, [flights]);
   const [openMonthKey, setOpenMonthKey] = useState<string>('');
   const [showOlderYears, setShowOlderYears] = useState(false);
+  const [flaggedFlights, setFlaggedFlights] = useState<Flight[]>([]);
+  const [showFlagged, setShowFlagged] = useState(false);
   const cutoffYear = new Date().getFullYear() - 2;
+
+  useEffect(() => {
+    getFlaggedFlights().then(setFlaggedFlights);
+  }, [flights]);
 
   useFocusEffect(useCallback(() => {
     loadFlights();
@@ -1823,6 +1834,35 @@ export default function LogScreen() {
                       </View>
                     );
                   })}
+                </View>
+              )}
+
+              {/* Needs Review */}
+              {flaggedFlights.length > 0 && (
+                <View style={{ marginHorizontal: 12, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.warning + '15', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.warning + '33' }}
+                    onPress={() => setShowFlagged(!showFlagged)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="alert-circle" size={16} color={Colors.warning} />
+                      <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                        Needs Review
+                      </Text>
+                      <View style={{ backgroundColor: Colors.warning, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>
+                        <Text style={{ color: '#0A1628', fontSize: 11, fontWeight: '800' }}>{flaggedFlights.length}</Text>
+                      </View>
+                    </View>
+                    <Ionicons name={showFlagged ? 'chevron-down' : 'chevron-forward'} size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                  {showFlagged && (
+                    <View style={styles.monthCard}>
+                      {flaggedFlights.map((f, i) => (
+                        <FlightRow key={f.id} flight={f} onPress={() => router.push(`/flight/${f.id}`)} isLast={i === flaggedFlights.length - 1} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
 

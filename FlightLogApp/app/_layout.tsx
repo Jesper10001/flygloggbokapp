@@ -95,14 +95,14 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: Colors.surface },
           headerTintColor: Colors.textPrimary,
           headerTitleStyle: { fontWeight: '700' },
-          headerBackTitle: ' ',
-          headerBackTitleVisible: false,
+          headerBackTitle: '',
           contentStyle: { backgroundColor: Colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="flight/[id]" options={{ title: 'Flight' }} />
+        <Stack.Screen name="flight/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="flight/add-operator" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
@@ -114,7 +114,7 @@ export default function RootLayout() {
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
         <Stack.Screen name="settings/scan-profile" options={{ title: 'Scan Profile' }} />
-        <Stack.Screen name="settings/premium" options={{ title: 'Premium' }} />
+        <Stack.Screen name="settings/premium" options={{ headerShown: false }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export' }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />

@@ -88,9 +88,10 @@ export default function OnboardingScreen() {
       await setTimeFormat('hhmm');
     }
     await setProfile(profile);
-    await setMode(targetForProfile(profile));
+    const target = targetForProfile(profile);
+    await setMode(target);
     await setSetting('has_onboarded', '1');
-    router.replace('/(tabs)');
+    router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
   };
 
   const handleSubRoleSelect = (sub: SubRole) => {

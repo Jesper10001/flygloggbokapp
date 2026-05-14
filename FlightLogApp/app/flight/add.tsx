@@ -19,7 +19,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -533,7 +533,7 @@ export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { editId, aiImport } = useLocalSearchParams<{ editId?: string; aiImport?: string }>();
+  const { editId, aiImport, addPhoto } = useLocalSearchParams<{ editId?: string; aiImport?: string; addPhoto?: string }>();
   const isEdit = !!editId;
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
@@ -572,6 +572,7 @@ export default function AddFlightScreen() {
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -1087,7 +1088,9 @@ export default function AddFlightScreen() {
 - landings_day: integer
 - flight_rules: "VFR" or "IFR"
 
-Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is shown, return it as flight_time. Omit fields you cannot determine. Never guess — only return what you can clearly read from the image.`,
+Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is shown, return it as flight_time. Omit fields you cannot determine. Never guess — only return what you can clearly read from the image.
+
+IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanation — just the JSON.`,
         userContent: [
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
           { type: 'text', text: 'Extract all flight data you can read from this image.' },
@@ -1153,7 +1156,10 @@ Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is
     if (aiImport === '1') {
       setTimeout(() => importFromImage(), 500);
     }
-  }, [aiImport]);
+    if (addPhoto === '1') {
+      setTimeout(() => pickPhoto(), 500);
+    }
+  }, [aiImport, addPhoto]);
 
   const performSave = async (overrides?: Partial<FlightFormData>) => {
     setSaving(true);
@@ -2488,6 +2494,23 @@ Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is
                             key={r}
                             style={[styles.modalItem, { paddingVertical: 10 }]}
                             onPress={() => { set('registration', r); setShowRegModal(false); }}
+                            onLongPress={() => {
+                              Alert.alert(
+                                `Remove ${r}?`,
+                                'Flights with this registration will be flagged for review.',
+                                [
+                                  { text: t('cancel'), style: 'cancel' },
+                                  { text: 'Remove', style: 'destructive', onPress: async () => {
+                                    const count = await flagFlightsByRegistration(r);
+                                    await deleteRegistrationFromRegistry(r);
+                                    const updated = await getRecentRegistrations(form.aircraft_type);
+                                    setRecentRegs(updated);
+                                    if (count > 0) setReviewPromptCount(count);
+                                  }},
+                                ]
+                              );
+                            }}
+                            delayLongPress={600}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.modalItemText, { fontSize: 13 }]}>{r}</Text>
@@ -2567,6 +2590,22 @@ Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is
                               key={p}
                               style={[styles.modalItem, { paddingVertical: 10 }]}
                               onPress={() => { set('second_pilot', p); setShowPilotModal(false); }}
+                              onLongPress={() => {
+                                Alert.alert(
+                                  `Remove ${shortName(p)}?`,
+                                  'Flights with this pilot will be flagged for review.',
+                                  [
+                                    { text: t('cancel'), style: 'cancel' },
+                                    { text: 'Remove', style: 'destructive', onPress: async () => {
+                                      const count = await flagFlightsBySecondPilot(p);
+                                      const updated = await getRecentSecondPilots();
+                                      setRecentPilots(updated);
+                                      if (count > 0) setReviewPromptCount(count);
+                                    }},
+                                  ]
+                                );
+                              }}
+                              delayLongPress={600}
                               activeOpacity={0.7}
                             >
                               <Text style={[styles.modalItemText, { fontSize: 13 }]}>{shortName(p)}</Text>
@@ -2594,6 +2633,31 @@ Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is
           setShowAircraftModal(false);
         }}
       />
+
+      {/* Review prompt */}
+      <Modal visible={reviewPromptCount > 0} transparent animationType="fade" onRequestClose={() => setReviewPromptCount(0)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: Colors.card, borderRadius: 16, padding: 24, marginHorizontal: 32, alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder }}>
+            <Ionicons name="alert-circle-outline" size={36} color={Colors.gold} />
+            <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, textAlign: 'center' }}>
+              Flights need review
+            </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+              {reviewPromptCount} flight{reviewPromptCount > 1 ? 's' : ''} affected. Now or later?
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 32, marginTop: 16 }}
+              onPress={() => { setReviewPromptCount(0); setShowRegModal(false); setShowPilotModal(false); router.push('/(tabs)/log' as any); }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: '#0A1628', fontSize: 15, fontWeight: '800' }}>Review</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setReviewPromptCount(0)} style={{ marginTop: 10 }}>
+              <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Later</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Military Operation modal */}
       <Modal visible={showMilOp} transparent animationType="slide" onRequestClose={() => setShowMilOp(false)}>
