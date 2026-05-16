@@ -1544,6 +1544,7 @@ function ChartCarousel() {
         ref={scrollRef}
         horizontal
         scrollEnabled={true}
+        pagingEnabled={true}
         showsHorizontalScrollIndicator={false}
       >
         <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
