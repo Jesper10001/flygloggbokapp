@@ -540,6 +540,11 @@ export default function DashboardScreen() {
     checkVersion();
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    loadStats();
+    getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
+  }, [loadStats]));
+
   useEffect(() => {
     needleAnim.setValue(0);
     Animated.timing(needleAnim, {
@@ -563,7 +568,7 @@ export default function DashboardScreen() {
     }).start();
     const listener = readoutAnim.addListener(({ value }) => setReadoutPct(value));
     return () => readoutAnim.removeListener(listener);
-  }, [stats?.total_time, refreshKey]);
+  }, [stats?.total_time, stats?.year_to_date, refreshKey]);
 
   const st = stats;
   const zc = zoneColor(stress.zone);
