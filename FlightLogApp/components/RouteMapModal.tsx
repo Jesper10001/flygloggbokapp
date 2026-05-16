@@ -64,7 +64,7 @@ function buildInteractiveHtml(legs: EnrichedLeg[]): string {
     dep: l.dep, arr: l.arr, bearing: l.bearing,
   })));
 
-  const airportsJs = uniqueAirports.map(a =>
+  const airportsJs = uniqueAirports.filter(a => a.icao !== 'ZZZZ').map(a =>
     `L.circleMarker([${a.lat},${a.lon}],{radius:6,fillColor:'#475569',color:'#fff',weight:1.5,opacity:1,fillOpacity:0.9}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px;color:#64748B">${a.name.replace(/'/g, "\\'")}</span>');`
   ).join('\n');
 

@@ -476,7 +476,7 @@ export function AirportMapWidget() {
                 <>
                   <WebView
                     style={styles.webview}
-                    source={{ html: buildCountryOverlayHtml(airports, countryApts, visitedSet), baseUrl: 'https://tile.openstreetmap.org' }}
+                    source={{ html: buildCountryOverlayHtml(airports.filter(a => a.icao !== 'ZZZZ'), countryApts, visitedSet), baseUrl: 'https://tile.openstreetmap.org' }}
                     originWhitelist={['*']}
                     javaScriptEnabled
                     domStorageEnabled
@@ -500,7 +500,7 @@ export function AirportMapWidget() {
             return (
               <WebView
                 style={styles.webview}
-                source={{ html: buildMapHtml(airports), baseUrl: 'https://tile.openstreetmap.org' }}
+                source={{ html: buildMapHtml(airports.filter(a => a.icao !== 'ZZZZ')), baseUrl: 'https://tile.openstreetmap.org' }}
                 originWhitelist={['*']}
                 javaScriptEnabled
                 domStorageEnabled
