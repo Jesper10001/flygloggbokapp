@@ -1,52 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '../constants/colors';
 import { getStressHours } from '../db/flights';
 import { getDatabase } from '../db/database';
 import { useFlightStore } from '../store/flightStore';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const CHART_COLOR = '#00C8E8'; // Cyan to match Blades theme
-
-// Helper to generate smooth curve path from points
-function generateSmoothPath(data: { x: number; maxY: number }[], width: number, height: number, padding: number = 30): string {
-  if (data.length === 0) return '';
-
-  const maxY = Math.max(...data.map(d => d.maxY || 0), 1);
-  const pointWidth = (width - padding * 2) / (data.length - 1 || 1);
-
-  // Generate points
-  const points = data.map((d, i) => ({
-    x: padding + i * pointWidth,
-    y: height - padding - (d.maxY / maxY) * (height - padding * 2),
-  }));
-
-  if (points.length === 1) {
-    return `M ${points[0].x} ${points[0].y}`;
-  }
-
-  // Generate cubic bezier curves
-  let path = `M ${points[0].x} ${points[0].y}`;
-
-  for (let i = 1; i < points.length; i++) {
-    const p0 = points[i - 1];
-    const p1 = points[i];
-    const p2 = i + 1 < points.length ? points[i + 1] : p1;
-    const p_1 = i - 2 >= 0 ? points[i - 2] : p0;
-
-    // Catmull-Rom to cubic bezier
-    const cp1x = p0.x + (p1.x - p_1.x) / 6;
-    const cp1y = p0.y + (p1.y - p_1.y) / 6;
-    const cp2x = p1.x - (p2.x - p0.x) / 6;
-    const cp2y = p1.y - (p2.y - p0.y) / 6;
-
-    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-  }
-
-  return path;
-}
 
 function makeStyles() {
   return StyleSheet.create({
@@ -55,211 +15,148 @@ function makeStyles() {
     legend: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 4 },
     dot: { width: 8, height: 8, borderRadius: 4 },
     legendText: { color: Colors.textSecondary, fontSize: 11 },
-    chartContainer: { height: 200, marginVertical: 8 },
-    statsText: { fontSize: 10, color: Colors.textMuted, textAlign: 'center', marginTop: 8 },
+    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+    column: { flex: 1, alignItems: 'center', gap: 4 },
+    bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 1, height: 80, justifyContent: 'center' },
+    bar: { width: 5, borderRadius: 2 },
+    barCur: { backgroundColor: Colors.primary },
+    barPrev: { backgroundColor: Colors.textMuted, opacity: 0.6 },
+    barEmpty: { width: 5, height: 2, backgroundColor: Colors.separator, borderRadius: 1 },
+    label: { color: Colors.textMuted, fontSize: 9, fontWeight: '600' },
+    labelActive: { color: Colors.primary },
   });
 }
 
-type DayData = { hours: number; day: string };
+type DayData = { cur: number; prev: number; day: string };
 
 export function RollingLoadChart() {
   const styles = makeStyles();
   const [days, setDays] = useState<DayData[]>([]);
   const [baseline, setBaseline] = useState(0);
-  const [weekHours, setWeekHours] = useState(0);
-  const [dayOffset, setDayOffset] = useState(0);
-  const [daysToShow, setDaysToShow] = useState(14); // 7, 14, 30, 90
-  const [periodLabel, setPeriodLabel] = useState('');
+  const [thisWeekHours, setThisWeekHours] = useState(0);
   const flightCount = useFlightStore(s => s.flightCount);
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     (async () => {
       const db = await getDatabase();
-      // Get data for the past 120 days to allow going back further
+      // Last 28 days of daily hours
       const rows = await db.getAllAsync<{ d: string; h: number }>(
         `SELECT date as d, ROUND(SUM(total_time), 2) as h FROM flights
-         WHERE date >= date('now', '-120 days')
+         WHERE date >= date('now', '-27 days')
          GROUP BY date ORDER BY date ASC`
       );
 
       const today = new Date();
-      const centerDate = new Date(today);
-      centerDate.setDate(today.getDate() - dayOffset);
-
-      // Calculate how many days before/after center date to show
-      const halfDays = Math.floor(daysToShow / 2);
       const mapped: DayData[] = [];
-
-      for (let i = halfDays; i >= -halfDays; i--) {
-        const curDate = new Date(centerDate);
-        curDate.setDate(centerDate.getDate() - i);
+      for (let i = 13; i >= 0; i--) {
+        const curDate = new Date(today);
+        curDate.setDate(today.getDate() - i);
         const curIso = curDate.toISOString().split('T')[0];
 
+        const prevDate = new Date(today);
+        prevDate.setDate(today.getDate() - i - 14);
+        const prevIso = prevDate.toISOString().split('T')[0];
+
         mapped.push({
-          hours: rows.find(r => r.d === curIso)?.h ?? 0,
+          cur: rows.find(r => r.d === curIso)?.h ?? 0,
+          prev: rows.find(r => r.d === prevIso)?.h ?? 0,
           day: DAY_LABELS[curDate.getDay()],
         });
       }
       setDays(mapped);
 
-      // Calculate label
-      if (dayOffset === 0) {
-        setPeriodLabel(`Last ${daysToShow} days (now)`);
-      } else if (dayOffset === 1) {
-        setPeriodLabel('Yesterday');
-      } else {
-        setPeriodLabel(`${dayOffset} days ago`);
-      }
-
-      // Week hours for the window
-      const dayOfWeek = centerDate.getDay();
+      // This week (Mon–Sun)
+      const dayOfWeek = today.getDay();
       const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const mondayDate = new Date(centerDate);
-      mondayDate.setDate(centerDate.getDate() - mondayOffset);
+      const mondayDate = new Date(today);
+      mondayDate.setDate(today.getDate() - mondayOffset);
       const mondayIso = mondayDate.toISOString().split('T')[0];
-      const wHours = mapped.filter((_, idx) => {
-        const d = new Date(centerDate);
-        d.setDate(centerDate.getDate() - (halfDays - idx));
+      const weekHours = mapped.filter((_, idx) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() - (13 - idx));
         return d.toISOString().split('T')[0] >= mondayIso;
-      }).reduce((s, d) => s + d.hours, 0);
-      setWeekHours(wHours);
+      }).reduce((s, d) => s + d.cur, 0);
+      setThisWeekHours(weekHours);
 
       const stress = await getStressHours();
       setBaseline(stress.yearAvg14);
     })();
-  }, [flightCount, dayOffset, daysToShow]);
+  }, [flightCount]);
 
   if (days.length === 0) return null;
 
-  // Daily baseline: average hours on days actually flown
-  const flyDays = days.filter(d => d.hours > 0);
-  const allFlyDays = flyDays.map(d => d.hours);
+  // Daily baseline: average hours on days actually flown (not calendar days)
+  const flyDaysCur = days.filter(d => d.cur > 0);
+  const flyDaysPrev = days.filter(d => d.prev > 0);
+  const allFlyDays = [...flyDaysCur.map(d => d.cur), ...flyDaysPrev.map(d => d.prev)];
   const dailyBaseline = allFlyDays.length > 0
     ? allFlyDays.reduce((s, h) => s + h, 0) / allFlyDays.length
     : 0;
+  const maxH = Math.max(...days.map(d => Math.max(d.cur, d.prev)), dailyBaseline, 0.1);
+  const BAR_MAX = 72;
+  const baselinePx = (dailyBaseline / maxH) * BAR_MAX;
 
   // Compare this 14-day period vs annual baseline
-  const thisPeriod = days.reduce((s, d) => s + d.hours, 0);
+  const thisPeriod = days.reduce((s, d) => s + d.cur, 0);
   const popPct = baseline > 0 ? Math.round(((thisPeriod - baseline) / baseline) * 100) : 0;
   const popUp = popPct >= 0;
-
-  const chartWidth = Dimensions.get('window').width - 64;
-  const maxHours = Math.max(...days.map(d => d.hours), dailyBaseline, 1);
-
-  // Generate smooth path for current period only
-  const curData = days.map((d, i) => ({ x: i, maxY: d.hours }));
-  const curPath = generateSmoothPath(curData, chartWidth, 160);
-
-  // Baseline Y position
-  const padding = 30;
-  const baselineY = dailyBaseline > 0 ? 160 - padding - (dailyBaseline / maxHours) * (160 - padding * 2) : 0;
 
   return (
     <View style={styles.card}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
         <Text style={styles.title}>14-DAY ROLLING LOAD</Text>
         <Text style={{ fontSize: 10, fontWeight: '700', fontFamily: 'Menlo', color: Colors.success }}>
-          {thisPeriod.toFixed(1)}h total
+          {thisWeekHours.toFixed(1)}h this week
         </Text>
       </View>
       <View style={styles.legend}>
-        <View style={[styles.dot, { backgroundColor: CHART_COLOR }]} />
-        <Text style={styles.legendText}>{periodLabel}</Text>
+        <View style={[styles.dot, { backgroundColor: Colors.primary }]} />
+        <Text style={styles.legendText}>This</Text>
+        <View style={[styles.dot, { backgroundColor: Colors.textMuted, marginLeft: 10 }]} />
+        <Text style={styles.legendText}>Last</Text>
       </View>
-
-      <View style={{ marginVertical: 12 }}>
-        <Svg width={chartWidth} height={160}>
-          <Defs>
-            <LinearGradient id="areaGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={CHART_COLOR} stopOpacity="0.3" />
-              <Stop offset="100%" stopColor={CHART_COLOR} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-
-          {/* Baseline dashed line */}
-          {dailyBaseline > 0 && (
-            <Path
-              d={`M 0 ${baselineY} L ${chartWidth} ${baselineY}`}
-              stroke={Colors.gold}
-              strokeWidth="1"
-              strokeDasharray="4,4"
-            />
-          )}
-
-          {/* Current period area + line */}
-          <Path d={`${curPath} L ${chartWidth - 30} 160 L 30 160 Z`} fill="url(#areaGradient2)" />
-          <Path d={curPath} stroke={CHART_COLOR} strokeWidth="2" fill="none" />
-        </Svg>
-
-        {/* X-axis labels - adaptive based on daysToShow */}
-        {days.length > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 30, marginTop: 8 }}>
-            {days.map((day, i) => {
-              const step = Math.max(1, Math.ceil(days.length / 6)); // Show ~6 labels
-              const showLabel = i % step === 0 || i === days.length - 1;
-              return (
-                <Text key={i} style={{ fontSize: 9, color: Colors.textMuted, fontWeight: '600' }}>
-                  {showLabel ? day.day : ''}
-                </Text>
-              );
-            })}
+      <View style={{ position: 'relative' }}>
+        {/* Baseline line — behind current bars, in front of prev */}
+        {dailyBaseline > 0 && (
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: baselinePx + 14, zIndex: 1 }} pointerEvents="none">
+            <View style={{ flex: 1, height: 1, backgroundColor: Colors.gold }} />
           </View>
         )}
-
-        {/* Navigation controls */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity
-              onPress={() => setDaysToShow(prev => Math.max(7, prev - 7))}
-              style={{ padding: 8 }}
-            >
-              <Ionicons name="remove-circle-outline" size={20} color={CHART_COLOR} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '600', alignSelf: 'center' }}>
-              {daysToShow}d
+        {dailyBaseline > 0 && (
+          <View style={{ position: 'absolute', right: 0, bottom: baselinePx + 16, zIndex: 10 }} pointerEvents="none">
+            <Text style={{ fontSize: 7, color: Colors.gold, fontFamily: 'Menlo', backgroundColor: Colors.card, paddingHorizontal: 3 }}>
+              {dailyBaseline.toFixed(1)}h BASELINE
             </Text>
-            <TouchableOpacity
-              onPress={() => setDaysToShow(prev => Math.min(90, prev + 7))}
-              style={{ padding: 8 }}
-            >
-              <Ionicons name="add-circle-outline" size={20} color={CHART_COLOR} />
-            </TouchableOpacity>
           </View>
-
-          <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '600' }}>
-            {periodLabel}
-          </Text>
-
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity
-              onPress={() => setDayOffset(prev => prev + 1)}
-              style={{ padding: 8 }}
-            >
-              <Ionicons name="chevron-back" size={20} color={CHART_COLOR} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => dayOffset > 0 && setDayOffset(prev => prev - 1)}
-              disabled={dayOffset === 0}
-              style={{ opacity: dayOffset === 0 ? 0.3 : 1, padding: 8 }}
-            >
-              <Ionicons name="chevron-forward" size={20} color={CHART_COLOR} />
-            </TouchableOpacity>
-          </View>
+        )}
+        <View style={styles.chart}>
+          {days.map((d, i) => {
+            const isToday = i === days.length - 1;
+            return (
+              <View key={i} style={styles.column}>
+                <View style={styles.bars}>
+                  {d.prev > 0 && (
+                    <View style={[styles.bar, styles.barPrev, { height: Math.max((d.prev / maxH) * BAR_MAX, 3), zIndex: 0 }]} />
+                  )}
+                  {d.cur > 0 && (
+                    <View style={[styles.bar, styles.barCur, { height: Math.max((d.cur / maxH) * BAR_MAX, 3), zIndex: 2 }]} />
+                  )}
+                  {d.cur === 0 && d.prev === 0 && <View style={styles.barEmpty} />}
+                </View>
+                <Text style={[styles.label, isToday && styles.labelActive]}>{d.day}</Text>
+              </View>
+            );
+          })}
         </View>
+        {baseline > 0 && (
+          <Text style={{ fontSize: 10, color: Colors.textMuted, textAlign: 'center', marginTop: 8 }}>
+            <Text style={{ color: popUp ? Colors.success : Colors.warning, fontWeight: '700' }}>
+              {popUp ? '+' : ''}{Math.abs(popPct)}%
+            </Text> {popUp ? 'over' : 'under'} annual baseline
+          </Text>
+        )}
       </View>
-
-      {dailyBaseline > 0 && (
-        <Text style={{ fontSize: 8, color: Colors.gold, marginTop: 4 }}>— baseline: {dailyBaseline.toFixed(1)}h</Text>
-      )}
-
-      {baseline > 0 && (
-        <Text style={styles.statsText}>
-          <Text style={{ color: popUp ? Colors.success : Colors.warning, fontWeight: '700' }}>
-            {popUp ? '+' : ''}{Math.abs(popPct)}%
-          </Text> {popUp ? 'over' : 'under'} annual baseline
-        </Text>
-      )}
 
       {/* Help button */}
       <TouchableOpacity
@@ -285,21 +182,64 @@ export function RollingLoadChart() {
               <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>What it measures</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  Your total flight hours over the last 14 days (cyan curve), compared to the same days two weeks ago (grey curve). This shows if you're flying more or less than your normal pace.
+                  Your total flight hours over the last 14 days, compared to your personal baseline. It tells you if you're flying more or less than your normal pace.
                 </Text>
               </View>
 
               <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>How baseline is calculated</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  The dashed line shows your average daily hours across all flying days. Inactive periods are excluded so the baseline reflects your real working pace.
+                  We look at your flight hours from the past year and calculate a daily average — but only from the days and months you actually fly. Inactive periods are excluded so the baseline reflects your real working pace.
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Inactive months</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  Months where you flew less than 30% of your monthly average are considered inactive and excluded. Example: if you average 20h/month but flew only 3h in July — July is excluded from the baseline.
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Inactive weekdays</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  Weekdays where you fly significantly less than your most active day are considered "normally off". Example: if you average 8h on Mondays but only 30 minutes on Saturdays — Saturdays are excluded from the baseline.
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>The gold line</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  Shows your average daily hours on days you actually fly. The blue bars (this period) and grey bars (previous 14 days) let you compare your current pace visually.
                 </Text>
               </View>
 
               <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Stress zones (dashboard)</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  The dashboard gauge uses your 14-day total vs annual baseline to determine a workload zone.
+                  The dashboard gauge uses your 14-day total vs baseline to determine a workload zone:
+                </Text>
+                <View style={{ gap: 4, marginTop: 4 }}>
+                  {[
+                    { color: Colors.info, label: 'LOW', desc: '0–40% of baseline — light activity' },
+                    { color: Colors.primary, label: 'MODERATE', desc: '40–70% — building up' },
+                    { color: Colors.success, label: 'OPTIMAL', desc: '70–140% — normal working pace' },
+                    { color: Colors.warning, label: 'HIGH', desc: '140–195% — above normal, monitor fatigue' },
+                    { color: Colors.danger, label: 'OVERLOAD', desc: '195%+ — significantly above baseline' },
+                  ].map((z, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: z.color }} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: z.color, width: 70 }}>{z.label}</Text>
+                      <Text style={{ fontSize: 11, color: Colors.textMuted, flex: 1 }}>{z.desc}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Example</Text>
+                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
+                  A pilot flies ~25h per 14-day period on average (baseline). This period they've flown 30h — that's +20% over baseline, placing them in the OPTIMAL zone. If they had flown 50h it would be +100%, reaching HIGH. The system adapts to each pilot's rhythm automatically.
                 </Text>
               </View>
 
