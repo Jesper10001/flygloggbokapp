@@ -502,26 +502,8 @@ export default function ImportScreen() {
         if (speedKts > 0) await updateAircraftCruiseSpeed(type, speedKts);
         if (endH > 0) await updateAircraftEndurance(type, endH);
       }
-      // Spara okända flygplatser
-      for (const ua of unknownAirports) {
-        if (ua.decision === 'temporary') {
-          await addTemporaryPlace(ua.icao, ua.icao);
-        } else if (ua.decision === 'custom') {
-          const lat = parseFloat(ua.lat.replace(',', '.'));
-          const lon = parseFloat(ua.lon.replace(',', '.'));
-          if (!isNaN(lat) && !isNaN(lon)) {
-            await addCustomAirport({
-              icao: ua.icao,
-              name: ua.name || ua.icao,
-              country: '',
-              region: '',
-              lat,
-              lon,
-            });
-          }
-        }
-        // 'pending' — lämnas utan åtgärd, platsen finns ändå i flygningens text
-      }
+      // Unknown airports are left unresolved and will appear in dashboard "visited airports"
+      // ZZZZ codes are skipped as they are generic placeholders for temporary landing sites
       for (let i = 0; i < result.flights.length; i++) {
         const f = result.flights[i];
         const ft = flightTypes[i] ?? 'normal';
@@ -649,95 +631,6 @@ export default function ImportScreen() {
             );
           })()}
 
-          {/* Okända flygplatser */}
-          {unknownAirports.length > 0 && (
-            <View style={styles.unknownSection}>
-              <View style={styles.speedHeader}>
-                <Ionicons name="location-outline" size={14} color={Colors.danger} />
-                <Text style={styles.unknownTitle}>{t('unknown_airports')} ({unknownAirports.length})</Text>
-              </View>
-              <Text style={styles.speedSubtitle}>{t('unknown_airports_sub')}</Text>
-              {unknownAirports.map((ua, idx) => {
-                const setField = (patch: Partial<typeof ua>) =>
-                  setUnknownAirports(prev => prev.map((x, i) => i === idx ? { ...x, ...patch } : x));
-                return (
-                  <View key={ua.icao} style={styles.unknownRow}>
-                    {/* Rubrikrad */}
-                    <TouchableOpacity
-                      style={styles.unknownHeader}
-                      onPress={() => setField({ expanded: !ua.expanded })}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.unknownIcao}>{ua.icao}</Text>
-                        {ua.decision !== 'pending' && (
-                          <Text style={[styles.unknownDecisionLabel, ua.decision === 'temporary' && styles.unknownDecisionTemporary]}>
-                            {ua.decision === 'temporary' ? t('temporary_badge') : t('will_be_added')}
-                          </Text>
-                        )}
-                      </View>
-                      <Ionicons
-                        name={ua.expanded ? 'chevron-up' : 'chevron-down'}
-                        size={16} color={Colors.textMuted}
-                      />
-                    </TouchableOpacity>
-
-                    {ua.expanded && (
-                      <View style={styles.unknownBody}>
-                        {/* Tillfällig-knapp */}
-                        <TouchableOpacity
-                          style={[styles.tempBtn, ua.decision === 'temporary' && styles.tempBtnActive]}
-                          onPress={() => setField({ decision: ua.decision === 'temporary' ? 'pending' : 'temporary' })}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={ua.decision === 'temporary' ? 'checkmark-circle' : 'flag-outline'}
-                            size={14}
-                            color={ua.decision === 'temporary' ? Colors.textInverse : Colors.textMuted}
-                          />
-                          <Text style={[styles.tempBtnText, ua.decision === 'temporary' && styles.tempBtnTextActive]}>
-                            {t('temporary_landing_site')}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Formulär för att lägga till i databasen */}
-                        {ua.decision !== 'temporary' && (
-                          <View style={styles.unknownForm}>
-                            <Text style={styles.unknownFormLabel}>{t('or_add_to_database')}</Text>
-                            <RNTextInput
-                              style={styles.unknownInput}
-                              placeholder={t('name_placeholder')}
-                              placeholderTextColor={Colors.textMuted}
-                              value={ua.name}
-                              onChangeText={(v) => setField({ name: v, decision: v ? 'custom' : 'pending' })}
-                            />
-                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                              <RNTextInput
-                                style={[styles.unknownInput, { flex: 1 }]}
-                                placeholder={t('latitude_placeholder')}
-                                placeholderTextColor={Colors.textMuted}
-                                keyboardType="decimal-pad"
-                                value={ua.lat}
-                                onChangeText={(v) => setField({ lat: v, decision: ua.name || v ? 'custom' : 'pending' })}
-                              />
-                              <RNTextInput
-                                style={[styles.unknownInput, { flex: 1 }]}
-                                placeholder={t('longitude_placeholder')}
-                                placeholderTextColor={Colors.textMuted}
-                                keyboardType="decimal-pad"
-                                value={ua.lon}
-                                onChangeText={(v) => setField({ lon: v, decision: ua.name || v ? 'custom' : 'pending' })}
-                              />
-                            </View>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          )}
 
           {/* Marschfart + uthållighet för nya/ofullständiga fartygstyper */}
           {typesNeedingData.length > 0 && (
