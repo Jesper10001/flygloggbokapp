@@ -359,7 +359,6 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
   const { formatTime } = useTimeFormat();
   const { flightCount } = useFlightStore();
   const [photos, setPhotos] = useState<Flight[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
   const screenW = Dimensions.get('window').width;
   const GAP = 12;
   const CARD_W = screenW - 48;
@@ -367,11 +366,11 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
   const SIDE_PAD = (screenW - CARD_W) / 2;
 
   useEffect(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 10)));
+    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 30)));
   }, [flightCount]);
 
   useFocusEffect(useCallback(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 10)));
+    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 30)));
   }, []));
 
   const hasFlight = photos.length > 0;
@@ -386,11 +385,8 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
         keyExtractor={(item: any) => String(item.id)}
         horizontal
         showsHorizontalScrollIndicator={false}
-        snapToInterval={SNAP}
-        snapToAlignment="start"
-        decelerationRate="fast"
+        scrollEventThrottle={16}
         contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
-        onMomentumScrollEnd={(e) => setActiveIdx(Math.round(e.nativeEvent.contentOffset.x / SNAP))}
         ItemSeparatorComponent={() => <View style={{ width: GAP }} />}
         renderItem={({ item }: any) => {
           if (hasFlight) {
@@ -419,13 +415,6 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
           );
         }}
       />
-      {data.length > 1 && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 }}>
-          {data.map((_: any, i: number) => (
-            <View key={i} style={{ width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: activeIdx === i ? Colors.primary : Colors.separator }} />
-          ))}
-        </View>
-      )}
 
       {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
         <TouchableOpacity
