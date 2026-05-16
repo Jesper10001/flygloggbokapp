@@ -545,12 +545,7 @@ export default function ImportScreen() {
     }
   };
 
-  if (!isPremium) {
-    return (
-      <View style={styles.container}>
-        <PremiumModal visible={true} onClose={() => router.back()} feature={t('import_csv_title')} />
-      </View>
-    );
+  if (false) { // CSV import is free
   }
 
   return (

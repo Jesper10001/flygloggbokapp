@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { callAnthropicJson } from '../../services/anthropicClient';
 import { useScanQuotaStore } from '../../store/scanQuotaStore';
+import { PremiumModal } from '../../components/PremiumModal';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -573,6 +574,7 @@ export default function AddFlightScreen() {
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
+  const [showPremiumGate, setShowPremiumGate] = useState(false);
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -1056,6 +1058,10 @@ export default function AddFlightScreen() {
   const [aiLoading, setAiLoading] = useState(false);
 
   const importFromImage = async () => {
+    if (!isPremium) {
+      setShowPremiumGate(true);
+      return;
+    }
     const { canFlightImport, consumeFlightImport } = useScanQuotaStore.getState();
     if (!canFlightImport()) {
       Alert.alert('Kvot slut', 'Du har använt alla dina AI-importer denna månad.');
@@ -2472,6 +2478,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <Text style={styles.modalTitle}>
               {t('saved_registrations')} {form.aircraft_type ? `— ${form.aircraft_type}` : ''}
             </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>Hold to edit or remove</Text>
             <ScrollView keyboardShouldPersistTaps="handled">
               {recentRegs.length === 0 ? (
                 <Text style={styles.modalEmpty}>{t('no_saved_registrations')}</Text>
@@ -2495,20 +2502,28 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                             style={[styles.modalItem, { paddingVertical: 10 }]}
                             onPress={() => { set('registration', r); setShowRegModal(false); }}
                             onLongPress={() => {
-                              Alert.alert(
-                                `Remove ${r}?`,
-                                'Flights with this registration will be flagged for review.',
-                                [
-                                  { text: t('cancel'), style: 'cancel' },
-                                  { text: 'Remove', style: 'destructive', onPress: async () => {
-                                    const count = await flagFlightsByRegistration(r);
-                                    await deleteRegistrationFromRegistry(r);
+                              Alert.alert(r, 'Edit or remove this registration?', [
+                                { text: t('cancel'), style: 'cancel' },
+                                ...(Platform.OS === 'ios' ? [{ text: 'Edit', onPress: () => {
+                                  Alert.prompt('Edit registration', '', async (newReg) => {
+                                    if (!newReg?.trim()) return;
+                                    const upper = newReg.trim().toUpperCase();
+                                    const { getDatabase } = await import('../../db/database');
+                                    const db = await getDatabase();
+                                    await db.runAsync('UPDATE flights SET registration=? WHERE registration=?', [upper, r]);
+                                    await db.runAsync('UPDATE aircraft_registry SET registration=? WHERE registration=?', [upper, r]);
                                     const updated = await getRecentRegistrations(form.aircraft_type);
                                     setRecentRegs(updated);
-                                    if (count > 0) setReviewPromptCount(count);
-                                  }},
-                                ]
-                              );
+                                  }, 'plain-text', r);
+                                }}] : []),
+                                { text: 'Remove', style: 'destructive', onPress: async () => {
+                                  const count = await flagFlightsByRegistration(r);
+                                  await deleteRegistrationFromRegistry(r);
+                                  const updated = await getRecentRegistrations(form.aircraft_type);
+                                  setRecentRegs(updated);
+                                  if (count > 0) setReviewPromptCount(count);
+                                }},
+                              ]);
                             }}
                             delayLongPress={600}
                             activeOpacity={0.7}
@@ -2562,6 +2577,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('saved_second_pilots')}</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>Hold to edit or remove</Text>
             <ScrollView keyboardShouldPersistTaps="handled">
               {recentPilots.length === 0 ? (
                 <Text style={styles.modalEmpty}>{t('no_saved_pilots')}</Text>
@@ -2591,19 +2607,26 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                               style={[styles.modalItem, { paddingVertical: 10 }]}
                               onPress={() => { set('second_pilot', p); setShowPilotModal(false); }}
                               onLongPress={() => {
-                                Alert.alert(
-                                  `Remove ${shortName(p)}?`,
-                                  'Flights with this pilot will be flagged for review.',
-                                  [
-                                    { text: t('cancel'), style: 'cancel' },
-                                    { text: 'Remove', style: 'destructive', onPress: async () => {
-                                      const count = await flagFlightsBySecondPilot(p);
+                                Alert.alert(shortName(p), 'Edit or remove this pilot?', [
+                                  { text: t('cancel'), style: 'cancel' },
+                                  ...(Platform.OS === 'ios' ? [{ text: 'Edit', onPress: () => {
+                                    Alert.prompt('Edit pilot name', '', async (newName) => {
+                                      if (!newName?.trim()) return;
+                                      const trimmed = newName.trim();
+                                      const { getDatabase } = await import('../../db/database');
+                                      const db = await getDatabase();
+                                      await db.runAsync('UPDATE flights SET second_pilot=? WHERE second_pilot=?', [trimmed, p]);
                                       const updated = await getRecentSecondPilots();
                                       setRecentPilots(updated);
-                                      if (count > 0) setReviewPromptCount(count);
-                                    }},
-                                  ]
-                                );
+                                    }, 'plain-text', p);
+                                  }}] : []),
+                                  { text: 'Remove', style: 'destructive', onPress: async () => {
+                                    const count = await flagFlightsBySecondPilot(p);
+                                    const updated = await getRecentSecondPilots();
+                                    setRecentPilots(updated);
+                                    if (count > 0) setReviewPromptCount(count);
+                                  }},
+                                ]);
                               }}
                               delayLongPress={600}
                               activeOpacity={0.7}
@@ -2633,6 +2656,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           setShowAircraftModal(false);
         }}
       />
+
+      <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="Flight data scan" />
 
       {/* Review prompt */}
       <Modal visible={reviewPromptCount > 0} transparent animationType="fade" onRequestClose={() => setReviewPromptCount(0)}>

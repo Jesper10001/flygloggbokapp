@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getMonthlyHours } from '../db/flights';
 import { Colors } from '../constants/colors';
@@ -109,14 +109,11 @@ export function FlightChart() {
     };
   });
 
-  const maxH = Math.max(...months.map(m => Math.max(m.cur, m.prev)), 0.1);
-  const BAR_MAX = 72; // px
-
   // Only render if there's any data
   const hasData = months.some(m => m.cur > 0 || m.prev > 0);
   if (!hasData) return null;
 
-  // Calculate monthly baseline (excluding inactive months: <30% of average or 0)
+  // Calculate monthly baseline
   const allMonthlyHours = months.map(m => m.cur + m.prev);
   const monthsWithData = allMonthlyHours.filter(h => h > 0);
   const rawAvg = monthsWithData.length > 0 ? monthsWithData.reduce((s, h) => s + h, 0) / monthsWithData.length : 0;
@@ -124,16 +121,19 @@ export function FlightChart() {
   const baseline = activeMonthlyHours.length > 0
     ? Math.round((activeMonthlyHours.reduce((s, h) => s + h, 0) / activeMonthlyHours.length) * 10) / 10
     : 0;
-  const baselinePct = maxH > 0 ? (baseline / maxH) * BAR_MAX : 0;
 
   const thisMonthHours = months[now.getMonth()].cur;
 
-  // Year-over-year: sum up to current month (inclusive) for both years
+  // Year-over-year
   const curMonthIdx = now.getMonth();
   const curYtd = months.slice(0, curMonthIdx + 1).reduce((s, m) => s + m.cur, 0);
   const prevYtd = months.slice(0, curMonthIdx + 1).reduce((s, m) => s + m.prev, 0);
   const yoyPct = prevYtd > 0 ? Math.round(((curYtd - prevYtd) / prevYtd) * 100) : 0;
   const yoyUp = yoyPct >= 0;
+
+  const maxH = Math.max(...months.map(m => Math.max(m.cur, m.prev)), 0.1);
+  const BAR_MAX = 72; // px
+  const baselinePct = maxH > 0 ? (baseline / maxH) * BAR_MAX : 0;
 
   return (
     <View style={styles.card}>
@@ -150,7 +150,7 @@ export function FlightChart() {
         <Text style={styles.legendText}>{prevYear}</Text>
       </View>
       <View style={{ position: 'relative' }}>
-        {/* Baseline line — between prev and current year bars */}
+        {/* Baseline line */}
         {baseline > 0 && (
           <View style={{
             position: 'absolute', left: 0, right: 0,
@@ -161,7 +161,7 @@ export function FlightChart() {
             </View>
           </View>
         )}
-        {/* Baseline label — always on top */}
+        {/* Baseline label */}
         {baseline > 0 && (
           <View style={{
             position: 'absolute', right: 0,
@@ -236,21 +236,21 @@ export function FlightChart() {
               <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>What it shows</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  A month-by-month comparison of your flight hours for the current year (blue bars) versus the previous year (grey bars). This lets you see seasonal patterns and how your flying pace compares year over year.
+                  A smooth curve showing your flight hours for the current year (cyan) versus the previous year (grey). This lets you see seasonal patterns and trends more clearly.
                 </Text>
               </View>
 
               <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>This month</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  The green number in the top right shows your total hours flown so far this month. The current month is highlighted with a blue label.
+                  The green number in the top right shows your total hours flown so far this month.
                 </Text>
               </View>
 
               <View style={{ gap: 6 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>The gold baseline</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>The dashed baseline</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  The horizontal gold line shows your average monthly hours across both years. Inactive months — where you flew less than 30% of your average — are automatically excluded from this calculation so the baseline reflects your actual working pace, not vacation months.
+                  The dashed line shows your average monthly hours across both years. Inactive months are excluded so the baseline reflects your actual working pace.
                 </Text>
               </View>
 
@@ -258,13 +258,6 @@ export function FlightChart() {
                 <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Year-over-year comparison</Text>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
                   The percentage at the bottom compares your total hours this year (up to the current month) against the same period last year. Green means you're flying more than last year, orange means less.
-                </Text>
-              </View>
-
-              <View style={{ gap: 6 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>Example</Text>
-                <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19 }}>
-                  If you flew 120h January–May this year but 100h in the same months last year, the chart shows "+20% over baseline so far". The gold line might sit at 22h if your monthly average across active months is 22 hours.
                 </Text>
               </View>
 

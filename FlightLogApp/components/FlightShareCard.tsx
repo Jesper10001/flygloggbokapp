@@ -46,14 +46,32 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [overlayScale, setOverlayScale] = useState(0.8);
   const [mode, setMode] = useState<'slim' | 'extra' | 'boarding' | 'postcard'>('extra');
+  const [layerTheme, setLayerTheme] = useState<'light' | 'dark'>('light');
   const font = 'Georgia';
+  const LT = {
+    text: layerTheme === 'light' ? '#FFFFFF' : '#0A1628',
+    muted: layerTheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(10,22,40,0.55)',
+    dot: layerTheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(10,22,40,0.5)',
+    line: layerTheme === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(10,22,40,0.35)',
+    shadow: layerTheme === 'light'
+      ? { textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }
+      : { textShadowColor: 'rgba(255,255,255,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+  } as const;
+
+  const applyModeDefaults = (m: string) => {
+    const defaults: Record<string, { x: number; y: number; s: number }> = {
+      slim:     { x: 0, y: -CARD_H * 0.35, s: 0.7 },
+      extra:    { x: 0, y: -CARD_H * 0.25, s: 0.65 },
+      postcard: { x: -CARD_W * 0.15, y: -CARD_H * 0.15, s: 0.8 },
+    };
+    const d = defaults[m] ?? { x: 0, y: 0, s: 0.8 };
+    panRef.current = { x: d.x, y: d.y };
+    pan.setValue({ x: d.x, y: d.y });
+    setOverlayScale(d.s);
+  };
 
   useEffect(() => {
-    if (visible) {
-      panRef.current = { x: 0, y: 0 };
-      pan.setValue({ x: 0, y: 0 });
-      setOverlayScale(0.8);
-    }
+    if (visible) applyModeDefaults(mode);
   }, [visible]);
 
   const panResponder = useRef(
@@ -160,36 +178,36 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                     <View style={styles.routeTextRow}>
                       <View style={{ alignItems: 'center' }}>
                         <RunwayDiagram icao={f.dep_place} size={32} />
-                        <Text style={[styles.placeText, SHADOW, { fontFamily: font }]}>{depName}</Text>
+                        <Text style={[styles.placeText, LT.shadow, { fontFamily: font, color: LT.text }]}>{depName}</Text>
                       </View>
                       <View style={styles.routeLine}>
-                        <View style={styles.dot} />
-                        <View style={styles.line} />
+                        <View style={[styles.dot, { backgroundColor: LT.dot }]} />
+                        <View style={[styles.line, { backgroundColor: LT.line }]} />
                         <View style={{ alignItems: 'center' }}>
-                          <Ionicons name="airplane" size={14} color="rgba(255,255,255,0.8)" style={SHADOW} />
-                          {distanceNm > 0 && <Text style={[{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700', fontFamily: font }, SHADOW]}>{distanceNm} NM</Text>}
+                          <Ionicons name="airplane" size={14} color={LT.muted} style={LT.shadow} />
+                          {distanceNm > 0 && <Text style={[{ color: LT.muted, fontSize: 10, fontWeight: '700', fontFamily: font }, LT.shadow]}>{distanceNm} NM</Text>}
                         </View>
-                        <View style={styles.line} />
-                        <View style={styles.dot} />
+                        <View style={[styles.line, { backgroundColor: LT.line }]} />
+                        <View style={[styles.dot, { backgroundColor: LT.dot }]} />
                       </View>
                       <View style={{ alignItems: 'center' }}>
                         <RunwayDiagram icao={f.arr_place} size={32} />
-                        <Text style={[styles.placeText, SHADOW, { fontFamily: font }]}>{arrName}</Text>
+                        <Text style={[styles.placeText, LT.shadow, { fontFamily: font, color: LT.text }]}>{arrName}</Text>
                       </View>
                     </View>
                     {mode === 'extra' && (
                       <View style={styles.statsGrid}>
-                        <StatItem label="Total Time" value={`${formatTime(f.total_time)}h`} large font={font} />
-                        <StatItem label="Aircraft" value={`${f.aircraft_type} ${f.registration}`} font={font} />
-                        <StatItem label="Date" value={dateStr} font={font} />
-                        {(f.max_fl ?? 0) > 0 && <StatItem label="Max FL" value={`FL${f.max_fl}`} font={font} />}
-                        {flightNum > 0 && <StatItem label="Flight" value={`#${flightNum} of ${f.date.slice(0, 4)}`} font={font} />}
-                        {timeOfDay ? <StatItem label="" value={timeOfDay} font={font} /> : null}
+                        <StatItem label="Total Time" value={`${formatTime(f.total_time)}h`} large font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
+                        <StatItem label="Aircraft" value={`${f.aircraft_type} ${f.registration}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
+                        <StatItem label="Date" value={dateStr} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
+                        {(f.max_fl ?? 0) > 0 && <StatItem label="Max FL" value={`FL${f.max_fl}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />}
+                        {flightNum > 0 && <StatItem label="Flight" value={`#${flightNum} of ${f.date.slice(0, 4)}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />}
+                        {timeOfDay ? <StatItem label="" value={timeOfDay} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} /> : null}
                       </View>
                     )}
                     <View style={styles.branding}>
-                      <Text style={[styles.brandText, SHADOW, { fontFamily: font }]}>BLADES</Text>
-                      <Text style={[styles.brandSub, SHADOW, { fontFamily: font }]}>Joint Logbook</Text>
+                      <Text style={[styles.brandText, LT.shadow, { fontFamily: font }]}>BLADES</Text>
+                      <Text style={[styles.brandSub, LT.shadow, { fontFamily: font }]}>Joint Logbook</Text>
                     </View>
                   </View>
                 </>)}
@@ -238,13 +256,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 {/* Postcard — only the title block is draggable */}
                 {mode === 'postcard' && (
                   <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                    <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: '#fff', letterSpacing: -0.6, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }}>
+                    <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: LT.text, letterSpacing: -0.6 }, LT.shadow]}>
                       From
                     </Text>
-                    <Text style={{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 52, color: '#fff', letterSpacing: -1, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }}>
+                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 52, color: LT.text, letterSpacing: -1 }, LT.shadow]}>
                       {depName}
                     </Text>
-                    <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: '#fff', letterSpacing: -0.6, marginTop: 6, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }}>
+                    <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: LT.text, letterSpacing: -0.6, marginTop: 6 }, LT.shadow]}>
                       to {arrName}.
                     </Text>
                   </View>
@@ -260,14 +278,14 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 </View>
                 <View style={{ position: 'absolute', left: 14, right: 14, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }} pointerEvents="none">
                   <View>
-                    <Text style={{ fontFamily: 'Menlo', fontSize: 7, color: '#FFB830', letterSpacing: 1, marginBottom: 2, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>FLIGHT TIME</Text>
-                    <Text style={{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 14, color: '#fff', letterSpacing: -0.2, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }}>
+                    <Text style={[{ fontFamily: 'Menlo', fontSize: 7, color: '#FFB830', letterSpacing: 1, marginBottom: 2 }, LT.shadow]}>FLIGHT TIME</Text>
+                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 14, color: LT.text, letterSpacing: -0.2 }, LT.shadow]}>
                       {formatTime(f.total_time)}h · {f.aircraft_type}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: 'rgba(255,255,255,0.6)', marginBottom: 1, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>logged in</Text>
-                    <Text style={{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: '#FFB830', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>BLADES</Text>
+                    <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: LT.text, marginBottom: 1 }, LT.shadow]}>logged in</Text>
+                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: '#FFB830' }, LT.shadow]}>BLADES</Text>
                   </View>
                 </View>
               </>)}
@@ -280,7 +298,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
               style={{ flex: 1, height: 30 }}
               minimumValue={0.4}
               maximumValue={2}
-              value={0.8}
+              value={overlayScale}
               onValueChange={setOverlayScale}
               minimumTrackTintColor="#2563EB"
               maximumTrackTintColor="rgba(255,255,255,0.15)"
@@ -291,12 +309,12 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
 
           <View style={{ flexDirection: 'row', alignSelf: 'center', marginTop: 10, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
             {(['slim', 'extra', 'postcard'] as const).map(m => {
-              const labels = { slim: 'Slim', extra: 'Detailed', postcard: 'Postcard' };
+              const labels = { slim: 'Minimal', extra: 'Detailed', postcard: 'Postcard' };
               return (
                 <TouchableOpacity
                   key={m}
                   style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: mode === m ? '#2563EB' : 'transparent' }}
-                  onPress={() => setMode(m)}
+                  onPress={() => { setMode(m); applyModeDefaults(m); }}
                 >
                   <Text style={{ color: mode === m ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
                     {labels[m]}
@@ -305,7 +323,18 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
               );
             })}
           </View>
-
+          <View style={{ flexDirection: 'row', alignSelf: 'center', marginTop: 8, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+            {(['light', 'dark'] as const).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={{ paddingHorizontal: 16, paddingVertical: 6, backgroundColor: layerTheme === t ? 'rgba(255,255,255,0.15)' : 'transparent' }}
+                onPress={() => setLayerTheme(t)}
+              >
+                <Ionicons name={t === 'light' ? 'sunny' : 'moon'} size={14} color={layerTheme === t ? '#fff' : 'rgba(255,255,255,0.4)'} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textAlign: 'center', marginTop: 6 }}>Drag to move · Slider to resize</Text>
         </View>
 
         {/* Actions */}
@@ -339,16 +368,16 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   );
 }
 
-function StatItem({ label, value, large, font = 'Georgia' }: { label: string; value: string; large?: boolean; font?: string }) {
+function StatItem({ label, value, large, font = 'Georgia', textColor = '#fff', mutedColor = 'rgba(255,255,255,0.6)', shadow = SHADOW }: { label: string; value: string; large?: boolean; font?: string; textColor?: string; mutedColor?: string; shadow?: any }) {
   return (
     <View style={{ marginRight: 16, marginBottom: 8 }}>
-      <Text style={[{ color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: font }, SHADOW]}>
+      <Text style={[{ color: mutedColor, fontSize: 9, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: font }, shadow]}>
         {label}
       </Text>
       <Text style={[{
-        color: '#fff', fontSize: large ? 28 : 16, fontWeight: '800',
+        color: textColor, fontSize: large ? 28 : 16, fontWeight: '800',
         fontFamily: font,
-      }, SHADOW]}>
+      }, shadow]}>
         {value}
       </Text>
     </View>

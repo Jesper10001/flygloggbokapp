@@ -149,7 +149,7 @@ export async function updateFlight(
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
       se_time=?, me_time=?, stop_place=?, photo_uri=?, max_fl=?,
-      status=CASE WHEN status='scanned' THEN 'verified' ELSE status END
+      status=CASE WHEN status IN ('scanned','flagged') THEN 'verified' ELSE status END
     WHERE id=?`,
     [
       data.date, data.aircraft_type, data.registration,

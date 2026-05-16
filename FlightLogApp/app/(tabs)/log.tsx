@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, Image,
   StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView, Modal, Pressable, Dimensions,
@@ -1537,18 +1537,31 @@ function WeaponsView() {
 function ChartCarousel() {
   const [activeChart, setActiveChart] = useState(0);
   const chartWidth = Dimensions.get('window').width - 24; // matches parent marginHorizontal: 12
+  const scrollRef = useRef<ScrollView>(null);
+
+  const handlePrev = () => {
+    if (activeChart > 0) {
+      const newIdx = activeChart - 1;
+      scrollRef.current?.scrollTo({ x: newIdx * chartWidth, animated: true });
+      setActiveChart(newIdx);
+    }
+  };
+
+  const handleNext = () => {
+    if (activeChart < 2) {
+      const newIdx = activeChart + 1;
+      scrollRef.current?.scrollTo({ x: newIdx * chartWidth, animated: true });
+      setActiveChart(newIdx);
+    }
+  };
+
   return (
     <View style={{ marginTop: 16, marginBottom: 8 }}>
       <ScrollView
+        ref={scrollRef}
         horizontal
-        pagingEnabled
+        scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / chartWidth);
-          setActiveChart(idx);
-        }}
-        decelerationRate="fast"
-        snapToInterval={chartWidth}
       >
         <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
           <FlightChart />
@@ -1560,13 +1573,34 @@ function ChartCarousel() {
           <GoalCalculator />
         </View>
       </ScrollView>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-        {[0, 1, 2].map(i => (
-          <View key={i} style={{
-            width: activeChart === i ? 16 : 6, height: 6, borderRadius: 3,
-            backgroundColor: activeChart === i ? Colors.primary : Colors.separator,
-          }} />
-        ))}
+
+      {/* Navigation Controls */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingHorizontal: 12 }}>
+        <TouchableOpacity onPress={handlePrev} disabled={activeChart === 0} style={{ opacity: activeChart === 0 ? 0.3 : 1 }}>
+          <Ionicons name="chevron-back" size={28} color={Colors.primary} />
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {[0, 1, 2].map(i => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => {
+                scrollRef.current?.scrollTo({ x: i * chartWidth, animated: true });
+                setActiveChart(i);
+              }}
+              style={{
+                width: activeChart === i ? 16 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: activeChart === i ? Colors.primary : Colors.separator,
+              }}
+            />
+          ))}
+        </View>
+
+        <TouchableOpacity onPress={handleNext} disabled={activeChart === 2} style={{ opacity: activeChart === 2 ? 0.3 : 1 }}>
+          <Ionicons name="chevron-forward" size={28} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
     </View>
   );
