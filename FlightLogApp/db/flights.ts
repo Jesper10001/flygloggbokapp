@@ -508,11 +508,7 @@ export async function getFlightStats(): Promise<FlightStats> {
   const ytd = await db.getFirstAsync<{ hours: number }>(
     `SELECT ROUND(SUM(f.total_time), 1) as hours
      FROM flights f
-     LEFT JOIN (
-       SELECT aircraft_type, MAX(endurance_h) as endurance_h
-       FROM aircraft_registry GROUP BY aircraft_type
-     ) ar ON ar.aircraft_type = f.aircraft_type
-     WHERE strftime('%Y', date) = strftime('%Y', 'now') AND NOT ${FFS_EXPR}`
+     WHERE strftime('%Y', date) = strftime('%Y', 'now') AND f.flight_type != 'sim'`
   );
 
   // Vecka med mest flygtid — sim-pass exkluderas (explicit 'sim' + otaggade som överstiger uthållighet)
