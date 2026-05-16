@@ -352,6 +352,7 @@ export function EASAProgressCharts() {
   const [totals, setTotals] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [activeIdx, setActiveIdx] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const flightCount = useFlightStore(s => s.flightCount);
   const isPremium = useFlightStore(s => s.isPremium);
   const profile = useProfileStore(s => s.profile);
@@ -383,8 +384,10 @@ export function EASAProgressCharts() {
   return (
     <View>
       <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
+        scrollEnabled={true}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
@@ -412,7 +415,15 @@ export function EASAProgressCharts() {
       {/* Page dots */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
         {cards.map((_, i) => (
-          <TouchableOpacity key={i} onPress={() => setActiveIdx(i)} activeOpacity={0.7} style={{ padding: 4 }}>
+          <TouchableOpacity
+            key={i}
+            onPress={() => {
+              scrollRef.current?.scrollTo({ x: i * cardWidth, animated: true });
+              setActiveIdx(i);
+            }}
+            activeOpacity={0.7}
+            style={{ padding: 4 }}
+          >
             <View style={{
               width: activeIdx === i ? 16 : 6, height: 6, borderRadius: 3,
               backgroundColor: activeIdx === i ? Colors.primary : Colors.separator,
