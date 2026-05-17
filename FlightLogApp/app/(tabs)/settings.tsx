@@ -27,7 +27,7 @@ import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } f
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
-
+import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
 function SectionHeader({ children }: { children: string }) {
@@ -127,6 +127,7 @@ export default function SettingsScreen() {
   const { isPremium, setIsPremium, flightCount, loadFlights, loadStats } = useFlightStore();
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
+  const { standard, setStandard } = useRegulationStandardStore();
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -145,6 +146,7 @@ export default function SettingsScreen() {
   const [certLabels, setCertLabels] = useState('');
 
   useFocusEffect(useCallback(() => {
+    useRegulationStandardStore.getState().load();
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
       const last = (await getSetting('profile_last_name')) ?? '';
@@ -473,6 +475,18 @@ export default function SettingsScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
                 <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
+              </TouchableOpacity>
+            </View>
+          } pressable={false} border={false}
+        />
+        <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
+          right={
+            <View style={styles.toggle}>
+              <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
+                <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
               </TouchableOpacity>
             </View>
           } pressable={false} border={false}

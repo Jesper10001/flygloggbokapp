@@ -58,6 +58,42 @@ const ATPL_H: { label: string; key: string; required: number }[] = [
   { label: 'Night', key: 'night', required: 100 },
 ];
 
+// FAA Requirements
+const FAA_PPL_A: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 40 },
+  { label: 'Dual instruction', key: 'dual', required: 20 },
+  { label: 'Solo flight', key: 'pic', required: 10 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 3 },
+  { label: 'Night', key: 'night', required: 3 },
+];
+
+const FAA_PPL_H: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 40 },
+  { label: 'Dual instruction', key: 'dual', required: 20 },
+  { label: 'Solo flight', key: 'pic', required: 10 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 3 },
+];
+
+const FAA_CPL_A: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 250 },
+  { label: 'PIC', key: 'pic', required: 100 },
+  { label: 'Cross-country PIC', key: 'xc_pic', required: 50 },
+  { label: 'Instrument', key: 'ifr', required: 20 },
+];
+
+const FAA_CPL_H: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 150 },
+  { label: 'Helicopter time', key: 'pic', required: 50 },
+  { label: 'Cross-country PIC', key: 'xc_pic', required: 10 },
+];
+
+const FAA_ATPL: { label: string; key: string; required: number }[] = [
+  { label: 'Total flight time', key: 'total', required: 1500 },
+  { label: 'Cross-country', key: 'xc', required: 500 },
+  { label: 'Night', key: 'night', required: 100 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 75 },
+];
+
 async function getAdaptiveRates(): Promise<Record<string, number>> {
   const db = await getDatabase();
 
@@ -414,7 +450,7 @@ function LockedOverlay() {
   );
 }
 
-export function EASAProgressCharts() {
+export function EASAProgressCharts({ standard = 'easa' }: { standard?: 'easa' | 'faa' }) {
   const [totals, setTotals] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [activeIdx, setActiveIdx] = useState(0);
@@ -432,19 +468,39 @@ export function EASAProgressCharts() {
   if (!profile || profile.mainRole !== 'pilot-manned') return null;
 
   const isRotary = profile.subRole === 'rotary';
-  const pplReqs = isRotary ? PPL_H : PPL_A;
-  const cplReqs = isRotary ? CPL_H : CPL_A;
-  const atplReqs = isRotary ? ATPL_H : ATPL_A;
-  const suffix = isRotary ? '(H)' : '(A)';
-  const pplRef = isRotary ? 'FCL.210.H' : 'FCL.210.A';
-  const cplRef = isRotary ? 'FCL.310.H' : 'FCL.310.A';
-  const atplRef = isRotary ? 'FCL.510.H' : 'FCL.510.A';
+
+  let pplReqs, cplReqs, atplReqs, suffix, pplRef, cplRef, atplRef, pplTitle, cplTitle, atplTitle;
+
+  if (standard === 'faa') {
+    pplReqs = isRotary ? FAA_PPL_H : FAA_PPL_A;
+    cplReqs = isRotary ? FAA_CPL_H : FAA_CPL_A;
+    atplReqs = FAA_ATPL;
+    suffix = isRotary ? '(H)' : '';
+    pplRef = 'FAA Private Pilot';
+    cplRef = 'FAA Commercial Pilot';
+    atplRef = 'FAA Airline Transport Pilot';
+    pplTitle = `PPL${suffix} Requirements`;
+    cplTitle = `CPL${suffix} Requirements`;
+    atplTitle = 'ATPL Requirements';
+  } else {
+    pplReqs = isRotary ? PPL_H : PPL_A;
+    cplReqs = isRotary ? CPL_H : CPL_A;
+    atplReqs = isRotary ? ATPL_H : ATPL_A;
+    suffix = isRotary ? '(H)' : '(A)';
+    pplRef = isRotary ? 'FCL.210.H' : 'FCL.210.A';
+    cplRef = isRotary ? 'FCL.310.H' : 'FCL.310.A';
+    atplRef = isRotary ? 'FCL.510.H' : 'FCL.510.A';
+    pplTitle = `PPL${suffix} Requirements`;
+    cplTitle = `CPL${suffix} Requirements`;
+    atplTitle = `ATPL${suffix} Requirements`;
+  }
+
   const displayTotals = isPremium ? totals : {};
 
   const cards = [
-    { title: `PPL${suffix} Requirements`, subtitle: `${pplRef} — Minimum flight experience`, reqs: pplReqs, isCpl: true },
-    { title: `CPL${suffix} Requirements`, subtitle: `${cplRef} — Minimum flight experience`, reqs: cplReqs, isCpl: true },
-    { title: `ATPL${suffix} Requirements`, subtitle: `${atplRef} — Minimum flight experience`, reqs: atplReqs, isCpl: false },
+    { title: pplTitle, subtitle: `${pplRef} — Minimum flight experience`, reqs: pplReqs, isCpl: true },
+    { title: cplTitle, subtitle: `${cplRef} — Minimum flight experience`, reqs: cplReqs, isCpl: true },
+    { title: atplTitle, subtitle: `${atplRef} — Minimum flight experience`, reqs: atplReqs, isCpl: false },
   ];
 
   return (

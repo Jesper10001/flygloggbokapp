@@ -30,7 +30,7 @@ import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
 import { FlightChart } from '../../components/FlightChart';
-import { RollingLoadChart } from '../../components/RollingLoadChart';
+import { useRegulationStandardStore } from '../../store/regulationStandardStore';import { RollingLoadChart } from '../../components/RollingLoadChart';
 import { GoalCalculator } from '../../components/EASAProgressChart';
 import { EASAProgressCharts } from '../../components/EASAProgressChart';
 import { batchPlaceNames } from '../../db/icao';
@@ -1569,6 +1569,7 @@ export default function LogScreen() {
   const { formatTime } = useTimeFormat();
   const mode = useAppModeStore((s) => s.mode);
   const _theme = useThemeStore((s) => s.theme);
+  const standard = useRegulationStandardStore((s) => s.standard);
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
   const [tab, setTab] = useState<'loggbok' | 'transkribering' | 'farkoster' | 'weapons'>('loggbok');
   const [query, setQuery] = useState('');
@@ -1595,8 +1596,9 @@ export default function LogScreen() {
   }, [flights]);
 
   useFocusEffect(useCallback(() => {
+    useRegulationStandardStore.getState().load();
     loadFlights();
-  }, []));
+  }, []);
 
   useEffect(() => {
     if (!query.trim()) setTree(buildTree(flights));
@@ -1860,9 +1862,9 @@ export default function LogScreen() {
                 <ChartCarousel />
               </View>
 
-              {/* EASA CPL/ATPL progress */}
+              {/* Certification progress (EASA or FAA) */}
               <View style={{ marginHorizontal: 12, marginBottom: 8, gap: 8 }}>
-                <EASAProgressCharts />
+                <EASAProgressCharts standard={standard} />
               </View>
             </ScrollView>
           )}
