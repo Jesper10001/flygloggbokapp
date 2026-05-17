@@ -174,7 +174,7 @@ export default function SettingsScreen() {
     setExportingCSV(true);
     try {
       if (isDrone) await exportDroneToCSV();
-      else await exportToCSV();
+      else await exportToCSV(standard);
     } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
     finally { setExportingCSV(false); }
   };

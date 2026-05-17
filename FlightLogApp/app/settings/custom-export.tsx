@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityIndicator, Switch,
 } from 'react-native';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { exportCustomCSV } from '../../services/export';
+import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 
 type ColumnDef = {
   key: string;
@@ -53,26 +54,50 @@ const ALL_COLUMNS: { key: string; header: string }[] = [
   { key: 'source', header: 'Source' },
 ];
 
-const DEFAULT_ENABLED = new Set([
+// EASA default columns (includes dual, day/night landings separate)
+const DEFAULT_ENABLED_EASA = new Set([
   'date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc',
-  'arr_place', 'arr_utc', 'total_time', 'pic', 'co_pilot',
+  'arr_place', 'arr_utc', 'total_time', 'pic', 'dual', 'co_pilot',
   'ifr', 'night', 'landings_day', 'landings_night', 'flight_rules', 'remarks',
 ]);
 
+// FAA default columns (flexible, includes PIC and related times)
+const DEFAULT_ENABLED_FAA = new Set([
+  'date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc',
+  'arr_place', 'arr_utc', 'total_time', 'pic', 'co_pilot', 'dual',
+  'se_time', 'me_time', 'ifr', 'night', 'landings_day', 'landings_night',
+  'flight_rules', 'remarks',
+]);
+
+const getDefaultEnabled = (standard: 'easa' | 'faa') =>
+  standard === 'easa' ? DEFAULT_ENABLED_EASA : DEFAULT_ENABLED_FAA;
+
 export default function CustomExportScreen() {
   const { t } = useTranslation();
+  const standard = useRegulationStandardStore(s => s.standard);
+  const defaultEnabled = getDefaultEnabled(standard);
+
   const [columns, setColumns] = useState<ColumnDef[]>(
     ALL_COLUMNS.map(c => ({
       key: c.key,
       defaultHeader: c.header,
       customHeader: '',
-      enabled: DEFAULT_ENABLED.has(c.key),
+      enabled: defaultEnabled.has(c.key),
     }))
   );
   const [separator, setSeparator] = useState<',' | ';' | '\\t'>(',');
   const [timeFormat, setTimeFormat] = useState<'hhmm' | 'decimal'>('hhmm');
   const [exporting, setExporting] = useState(false);
   const [editingHeader, setEditingHeader] = useState<string | null>(null);
+
+  // Update column defaults when standard changes
+  useEffect(() => {
+    const newDefaultEnabled = getDefaultEnabled(standard);
+    setColumns(prev => prev.map(c => ({
+      ...c,
+      enabled: newDefaultEnabled.has(c.key),
+    })));
+  }, [standard]);
 
   const toggleColumn = (key: string) => {
     setColumns(prev => prev.map(c =>
@@ -114,6 +139,7 @@ export default function CustomExportScreen() {
         })),
         separator: separator === '\\t' ? '\t' : separator,
         timeFormat,
+        standard,
       });
     } catch (e: any) {
       Alert.alert(t('error'), e.message);

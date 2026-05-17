@@ -38,7 +38,7 @@ function exportPlace(code: string, tempCodes: Set<string>): string {
   return tempCodes.has(code.toUpperCase()) ? 'ZZZZ' : code;
 }
 
-export async function exportToCSV(): Promise<void> {
+export async function exportToCSV(standard: 'easa' | 'faa' = 'easa'): Promise<void> {
   const flights = await getFlights(99999);
   const tempCodes = await getTempIcaoCodes();
 
@@ -97,7 +97,18 @@ export async function exportToCSV(): Promise<void> {
                                        optional: true, hasData: f => f.flight_type === 'sim' && hasText(f.sim_category) },
   ];
 
-  const activeCols = cols.filter(c => !c.optional || flights.some(f => c.hasData!(f)));
+  // Filter columns based on regulation standard
+  let filteredCols = cols;
+  if (standard === 'easa') {
+    // EASA: exclude some FAA-specific columns
+    const easa_exclude = new Set(['Enpilottid', 'Flerpilottid', 'PICUS', 'SPIC', 'Ferry PIC']);
+    filteredCols = cols.filter(c => !easa_exclude.has(c.header));
+  } else {
+    // FAA: include all columns, no exclusions
+    filteredCols = cols;
+  }
+
+  const activeCols = filteredCols.filter(c => !c.optional || flights.some(f => c.hasData!(f)));
   const headers = activeCols.map(c => c.header);
   const rows = flights.map((f: Flight) =>
     activeCols.map(c => c.value(f)).map(escapeCSV).join(',')
@@ -122,7 +133,7 @@ export async function exportToCSV(): Promise<void> {
 // ── Custom CSV export ────────────────────────────────────────────────────────
 
 type CustomColumn = { key: string; header: string };
-type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat: 'hhmm' | 'decimal' };
+type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat: 'hhmm' | 'decimal'; standard?: 'easa' | 'faa' };
 
 const timeFields = new Set([
   'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'examiner', 'safety_pilot',
