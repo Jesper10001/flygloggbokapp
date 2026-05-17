@@ -197,8 +197,8 @@ async function getHourTotals(): Promise<Record<string, number>> {
   };
 }
 
-function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
-  title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean;
+function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl, standard = 'easa' }: {
+  title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean; standard?: 'easa' | 'faa';
 }) {
   const [showHelp, setShowHelp] = useState(false);
   const [completionDate, setCompletionDate] = useState<string | null>(null);
@@ -278,7 +278,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
     }}>
       <View>
         <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-          EASA · PREMIUM
+          {standard === 'faa' ? 'FAA' : 'EASA'} · PREMIUM
         </Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia' }}>
@@ -528,6 +528,7 @@ export function EASAProgressCharts({ standard = 'easa' }: { standard?: 'easa' | 
                 totals={displayTotals}
                 rates={isPremium ? rates : {}}
                 isCpl={card.isCpl}
+                standard={standard}
               />
             </View>
             {!isPremium && <LockedOverlay />}
