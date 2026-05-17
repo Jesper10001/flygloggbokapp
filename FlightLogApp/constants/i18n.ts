@@ -470,16 +470,12 @@ export const translations = {
     prem_feat_icao_title: 'Global ICAO database',
     prem_feat_icao_desc: '34,000+ airports worldwide with coordinates. Instant autocomplete when entering departure and arrival.',
     // Military operation categories
-    mil_cat_combat: 'Combat & Tactics',
-    mil_cat_isr: 'Intelligence & Recon',
     mil_cat_rescue: 'Rescue',
     mil_cat_transport: 'Transport & Evac',
     mil_cat_refuel: 'Refueling',
     mil_cat_maritime: 'Maritime Ops',
-    mil_cat_specops: 'Special Ops',
     mil_cat_heliops: 'Heli-Ops',
     mil_cat_formation: 'Formation',
-    mil_cat_other: 'Other Operational',
     // Military operation items
     mil_cas: 'Close Air Support', mil_sead: 'Suppression of Enemy Air Defences', mil_oca: 'Offensive Counter Air', mil_dca: 'Defensive Counter Air', mil_ew: 'Electronic Warfare', mil_fac: 'Forward Air Controller',
     mil_istar: 'Intelligence, Surveillance, Target Acquisition & Recon', mil_asc: 'Airborne Surveillance & Control',
@@ -1569,16 +1565,12 @@ export const translations = {
     prem_feat_icao_title: 'Global ICAO-databas',
     prem_feat_icao_desc: '34 000+ flygplatser världen över med koordinater. Direkt autocompleteing vid inmatning av avgångs- och ankomstplats.',
     // Military operation categories
-    mil_cat_combat: 'Strid & taktik',
-    mil_cat_isr: 'Underrättelse & spaning',
     mil_cat_rescue: 'Räddning',
     mil_cat_transport: 'Transport & evakuering',
     mil_cat_refuel: 'Tankning',
     mil_cat_maritime: 'Maritima operationer',
-    mil_cat_specops: 'Specialoperationer',
     mil_cat_heliops: 'Heli-ops',
     mil_cat_formation: 'Förbandsflygning',
-    mil_cat_other: 'Övrigt operativt',
     // Military operation items
     mil_cas: 'Nära luftunderstöd', mil_sead: 'Undertryckning av fiendens luftförsvar', mil_oca: 'Offensivt luftförsvar', mil_dca: 'Defensivt luftförsvar', mil_ew: 'Elektronisk krigföring', mil_fac: 'Framskjuten flygledare',
     mil_istar: 'Underrättelse, övervakning, målutpekning & spaning', mil_asc: 'Luftburen övervakning & kontroll',

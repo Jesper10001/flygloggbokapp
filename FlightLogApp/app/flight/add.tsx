@@ -654,18 +654,6 @@ export default function AddFlightScreen() {
   const [showMilOp, setShowMilOp] = useState(false);
 
   const MIL_CATEGORIES: { title: string; items: { code: string; desc: string }[] }[] = [
-    { title: t('mil_cat_combat'), items: [
-      { code: 'CAS', desc: t('mil_cas') },
-      { code: 'SEAD', desc: t('mil_sead') },
-      { code: 'OCA', desc: t('mil_oca') },
-      { code: 'DCA', desc: t('mil_dca') },
-      { code: 'EW', desc: t('mil_ew') },
-      { code: 'FAC', desc: t('mil_fac') },
-    ]},
-    { title: t('mil_cat_isr'), items: [
-      { code: 'ISTAR', desc: t('mil_istar') },
-      { code: 'ASC', desc: t('mil_asc') },
-    ]},
     { title: t('mil_cat_rescue'), items: [
       { code: 'SAR', desc: t('mil_sar') },
       { code: 'CSAR', desc: t('mil_csar') },
@@ -693,13 +681,6 @@ export default function AddFlightScreen() {
       { code: 'HOSTAC', desc: t('mil_hostac') },
       { code: 'VERTREP', desc: t('mil_vertrep') },
     ]},
-    { title: t('mil_cat_specops'), items: [
-      { code: 'SF', desc: t('mil_sf') },
-      { code: 'HLZ', desc: t('mil_hlz') },
-      { code: 'NFZ', desc: t('mil_nfz') },
-      { code: 'TIC', desc: t('mil_tic') },
-      { code: 'CONVOY', desc: t('mil_convoy') },
-    ]},
     { title: t('mil_cat_heliops'), items: [
       { code: 'NOE', desc: t('mil_noe') },
       { code: 'CONTOUR', desc: t('mil_contour') },
@@ -714,12 +695,6 @@ export default function AddFlightScreen() {
       { code: 'ROTE', desc: t('mil_rote') },
       { code: 'GROUP', desc: t('mil_group') },
       { code: 'MIXED', desc: t('mil_mixed') },
-    ]},
-    { title: t('mil_cat_other'), items: [
-      { code: 'FFO', desc: t('mil_ffo') },
-      { code: 'AIRLOG', desc: t('mil_airlog') },
-      { code: 'ARTY', desc: t('mil_arty') },
-      { code: 'SHIPBOARD', desc: t('mil_shipboard') },
     ]},
   ];
 
@@ -2783,9 +2758,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               }}
               onPress={() => {
                 const codeOnlyCats = new Set([
-                  t('mil_cat_combat'), t('mil_cat_rescue'), t('mil_cat_refuel'),
-                  t('mil_cat_specops'), t('mil_cat_isr'), t('mil_cat_transport'),
-                  t('mil_cat_maritime'), t('mil_cat_other'),
+                  t('mil_cat_rescue'), t('mil_cat_refuel'),
+                  t('mil_cat_transport'), t('mil_cat_maritime'),
                 ]);
                 const allWithCat = MIL_CATEGORIES.flatMap(c => c.items.map(i => ({ ...i, cat: c.title })));
                 const descs = Array.from(milOps).map(code => {
