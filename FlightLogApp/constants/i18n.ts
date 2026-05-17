@@ -485,7 +485,7 @@ export const translations = {
     mil_asw: 'Anti-Submarine Warfare', mil_asuw: 'Anti-Surface Warfare', mil_mio: 'Maritime Interdiction Ops', mil_hostac: 'Helicopter Ops from Ship', mil_vertrep: 'Vertical Replenishment',
     mil_sf: 'Special Forces Support', mil_hlz: 'Helicopter Landing Zone Ops', mil_nfz: 'No Fly Zone Enforcement', mil_tic: 'Troops in Contact Support', mil_convoy: 'Convoy Escort',
     mil_noe: 'Nap of the Earth (<20 ft)', mil_contour: 'Contour Flight (20–500 ft)', mil_dgo: 'Door Gunner Ops', mil_sniper: 'Sniper Ops', mil_hoist: 'Hoist Operations', mil_hrst: 'Helicopter Rope Suspension', mil_trooptx: 'Troop Transport (seated)', mil_pix: 'Patrol Insert/Extract',
-    mil_rote: 'Rote (2 aircraft)', mil_group: 'Group (3+ aircraft)', mil_mixed: 'Mixed Formation',
+    mil_rote: '2-Ship', mil_group: 'Group (3+ aircraft)', mil_mixed: 'Mixed Formation',
     mil_ffo: 'Fire Fighting Operations', mil_airlog: 'Air Logistics', mil_arty: 'Artillery Spotting', mil_shipboard: 'Shipboard Operations',
 
     prem_pricing_title: 'Choose your plan',
