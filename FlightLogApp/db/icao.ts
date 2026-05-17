@@ -198,22 +198,105 @@ export async function updateUserAirport(
 
 export async function addTemporaryPlace(icao: string, name: string, lat = 0, lon = 0): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(
-    `INSERT OR REPLACE INTO icao_airports (icao, name, country, region, lat, lon, custom, temporary)
-     VALUES (?, ?, '', '', ?, ?, 0, 1)`,
-    [icao.toUpperCase(), name || icao.toUpperCase(), lat, lon]
+  const displayName = name || icao.toUpperCase();
+
+  // Check if a similar temporary place already exists
+  const similar = await findSimilarTemporaryPlace(displayName);
+
+  if (similar) {
+    // Update the existing similar place with new name and coordinates
+    await db.runAsync(
+      'UPDATE icao_airports SET name = ?, lat = ?, lon = ? WHERE icao = ? AND temporary = 1',
+      [displayName, lat || similar.lat, lon || similar.lon, similar.icao]
+    );
+  } else {
+    // Add as new temporary place
+    await db.runAsync(
+      `INSERT OR REPLACE INTO icao_airports (icao, name, country, region, lat, lon, custom, temporary)
+       VALUES (?, ?, '', '', ?, ?, 0, 1)`,
+      [icao.toUpperCase(), displayName, lat, lon]
+    );
+  }
+}
+
+function calculateSimilarity(a: string, b: string): number {
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+
+  if (longer.length === 0) return 1;
+  const distance = levenshteinDistance(longer, shorter);
+  return (longer.length - distance) / longer.length;
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+async function findSimilarTemporaryPlace(name: string, threshold = 0.60): Promise<IcaoAirport | null> {
+  const db = await getDatabase();
+  const allTemp = await db.getAllAsync<IcaoAirport>(
+    'SELECT * FROM icao_airports WHERE temporary = 1'
   );
+
+  const normalized = name.toUpperCase().trim();
+
+  for (const place of allTemp) {
+    const placeName = place.name?.toUpperCase() || place.icao;
+    const similarity = calculateSimilarity(normalized, placeName);
+
+    // Match if similarity is high enough, or if one is a clear prefix of the other
+    const isPrefix = placeName.startsWith(normalized) || normalized.startsWith(placeName);
+    if (similarity >= threshold || (isPrefix && similarity >= 0.50)) {
+      return place;
+    }
+  }
+
+  return null;
 }
 
 export async function generateTemporaryIcao(name: string): Promise<string> {
   const db = await getDatabase();
   const base = name.toUpperCase().trim();
   if (!base) return 'TEMP';
+
+  // Check for exact match first
   let candidate = base;
+  const exists = await db.getFirstAsync('SELECT 1 FROM icao_airports WHERE icao = ?', [candidate]);
+  if (!exists) return candidate;
+
+  // Check for similar temporary places
+  const similar = await findSimilarTemporaryPlace(name);
+  if (similar) return similar.icao;
+
+  // Fall back to numeric variants
   for (let i = 2; i <= 99; i++) {
-    const exists = await db.getFirstAsync('SELECT 1 FROM icao_airports WHERE icao = ?', [candidate]);
-    if (!exists) return candidate;
     candidate = `${base}${i}`;
+    const variantExists = await db.getFirstAsync('SELECT 1 FROM icao_airports WHERE icao = ?', [candidate]);
+    if (!variantExists) return candidate;
   }
   return base;
 }
