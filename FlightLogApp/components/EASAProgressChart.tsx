@@ -166,6 +166,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
 }) {
   const [showHelp, setShowHelp] = useState(false);
   const [completionDate, setCompletionDate] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const items: Requirement[] = reqs.map(r => ({
     label: r.label,
     current: totals[r.key] ?? 0,
@@ -197,15 +198,19 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
     }
   }, [allMet]);
 
-  if (allMet) {
+  if (allMet && !showDetails) {
     // Show completion state
     return (
-      <View style={{
-        backgroundColor: Colors.card, borderRadius: 14,
-        borderWidth: 1, borderColor: Colors.cardBorder,
-        padding: 14, gap: 10, position: 'relative',
-        overflow: 'hidden',
-      }}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => setShowDetails(true)}
+        style={{
+          backgroundColor: Colors.card, borderRadius: 14,
+          borderWidth: 1, borderColor: Colors.cardBorder,
+          padding: 14, gap: 10, position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
         {/* Dimmed background */}
         <View style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -225,7 +230,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
             {completionDate || 'Date'}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -243,8 +248,13 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
           <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia' }}>
             {title}
           </Text>
-          {allMet && (
+          {allMet && !showDetails && (
             <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.success }}>✓ COMPLETE</Text>
+          )}
+          {allMet && showDetails && (
+            <TouchableOpacity onPress={() => setShowDetails(false)} activeOpacity={0.7}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.textMuted }}>Hide</Text>
+            </TouchableOpacity>
           )}
         </View>
         <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }}>{subtitle}</Text>
