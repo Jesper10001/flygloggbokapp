@@ -174,7 +174,15 @@ export default function SettingsScreen() {
     setExportingCSV(true);
     try {
       if (isDrone) await exportDroneToCSV();
-      else await exportToCSV(standard);
+      else {
+        const standardName = standard === 'faa' ? 'FAA' : 'EASA';
+        await exportToCSV(standard);
+        Alert.alert(
+          `${standardName} Format Exported`,
+          `Your logbook has been exported in ${standardName} format.`,
+          [{ text: 'OK' }]
+        );
+      }
     } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
     finally { setExportingCSV(false); }
   };

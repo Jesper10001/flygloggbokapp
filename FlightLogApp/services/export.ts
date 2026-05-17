@@ -115,7 +115,8 @@ export async function exportToCSV(standard: 'easa' | 'faa' = 'easa'): Promise<vo
   );
 
   const csv = [headers.join(','), ...rows].join('\r\n');
-  const filename = `loggbok_${new Date().toISOString().split('T')[0]}.csv`;
+  const standardSuffix = standard === 'faa' ? '_faa' : '_easa';
+  const filename = `loggbok${standardSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
   const path = FileSystem.documentDirectory + filename;
 
   await FileSystem.writeAsStringAsync(path, '\uFEFF' + csv, {
