@@ -1598,7 +1598,7 @@ export default function LogScreen() {
   useFocusEffect(useCallback(() => {
     useRegulationStandardStore.getState().load();
     loadFlights();
-  }, []);
+  }, []));
 
   useEffect(() => {
     if (!query.trim()) setTree(buildTree(flights));
