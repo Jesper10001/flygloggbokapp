@@ -427,7 +427,7 @@ export default function SettingsScreen() {
         />}
         <Row
           icon="cloud-upload-outline" iconColor={Colors.primary}
-          title={t('export_to_csv')} subtitle={t('export_to_csv_sub')}
+          title={t('export_to_csv')} subtitle={`Always free — all fields, ${standard === 'faa' ? 'FAA' : 'EASA'} format`}
           right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
           onClick={handleExportCSV}
         />
