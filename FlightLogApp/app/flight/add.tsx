@@ -692,7 +692,7 @@ export default function AddFlightScreen() {
       { code: 'PIX', desc: t('mil_pix') },
     ]},
     { title: t('mil_cat_formation'), items: [
-      { code: 'ROTE', desc: t('mil_rote') },
+      { code: 'Section', desc: t('mil_rote') },
       { code: 'GROUP', desc: t('mil_group') },
       { code: 'MIXED', desc: t('mil_mixed') },
     ]},
