@@ -165,6 +165,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
   title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean;
 }) {
   const [showHelp, setShowHelp] = useState(false);
+  const [completionDate, setCompletionDate] = useState<string | null>(null);
   const items: Requirement[] = reqs.map(r => ({
     label: r.label,
     current: totals[r.key] ?? 0,
@@ -172,6 +173,61 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl }: {
   }));
 
   const allMet = items.every(i => i.current >= i.required);
+
+  // Calculate the date when all requirements were met
+  useEffect(() => {
+    if (allMet && !completionDate) {
+      // Get the most recent flight date that contributed to meeting all requirements
+      getDatabase().then(db => {
+        db.getFirstAsync<{ d: string }>(
+          `SELECT MAX(date) as d FROM flights WHERE flight_type != 'sim'`
+        ).then(result => {
+          if (result?.d) {
+            const date = new Date(result.d);
+            const formatted = date.toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' });
+            setCompletionDate(formatted);
+          }
+        }).catch(() => {
+          // Fallback to today if query fails
+          const today = new Date();
+          const formatted = today.toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' });
+          setCompletionDate(formatted);
+        });
+      });
+    }
+  }, [allMet]);
+
+  if (allMet) {
+    // Show completion state
+    return (
+      <View style={{
+        backgroundColor: Colors.card, borderRadius: 14,
+        borderWidth: 1, borderColor: Colors.cardBorder,
+        padding: 14, gap: 10, position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Dimmed background */}
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: Colors.background + '80',
+          borderRadius: 14,
+        }} />
+
+        {/* Completion message */}
+        <View style={{ position: 'relative', zIndex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 24 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>
+            ✓ COMPLETED
+          </Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.gold, textAlign: 'center', fontFamily: 'Georgia', marginBottom: 8 }}>
+            {title.replace(' Requirements', '')} Requirements Completed
+          </Text>
+          <Text style={{ fontSize: 12, color: Colors.textMuted }}>
+            {completionDate || 'Date'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={{
