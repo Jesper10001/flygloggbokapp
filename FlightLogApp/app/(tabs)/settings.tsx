@@ -610,6 +610,10 @@ export default function SettingsScreen() {
         <Row icon="refresh-circle-outline" iconColor={Colors.primary} title={t('replay_onboarding')} subtitle={t('replay_onboarding_sub')}
           onClick={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
 
+        {/* Reset import quota */}
+        <Row icon="checkmark-done-outline" iconColor={Colors.success} title="Reset Import Quota" subtitle="Reset CSV import counter to 0"
+          onClick={async () => { await setSetting('import_used', '0'); Alert.alert('OK', 'Import quota reset'); }} />
+
         {/* Rensa data */}
         <Row icon="trash" iconColor={Colors.danger} title={t('clear_all_logbook_data')} subtitle={t('clear_all_sub')} onClick={handleClearAll} border={false} />
       </Card>
