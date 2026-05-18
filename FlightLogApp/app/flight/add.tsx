@@ -673,6 +673,7 @@ export default function AddFlightScreen() {
     { title: t('mil_cat_refuel'), items: [
       { code: 'AAR', desc: t('mil_aar') },
       { code: 'HIFR', desc: t('mil_hifr') },
+      { code: 'HOTREFUEL', desc: 'Hot refuel' },
     ]},
     { title: t('mil_cat_maritime'), items: [
       { code: 'ASW', desc: t('mil_asw') },
