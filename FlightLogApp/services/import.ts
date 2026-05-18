@@ -558,6 +558,14 @@ export async function importFromFile(
     });
   }
   console.log('');
+  console.log('📋 Sample flights (first 3):');
+  flights.slice(0, 3).forEach((f, i) => {
+    console.log(`  Flight ${i + 1}:`);
+    console.log(`    Date: ${f.date} | Aircraft: ${f.aircraft_type} | Total: ${f.total_time}h`);
+    console.log(`    Route: ${f.dep_place || '(empty)'} → ${f.arr_place || '(empty)'}`);
+    console.log(`    Status: ${f.flight_type || 'normal'} | Rules: ${f.flight_rules || 'VFR'}`);
+  });
+  console.log('');
   console.log('═'.repeat(80));
   console.log('');
 
