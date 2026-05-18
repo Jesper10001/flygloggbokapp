@@ -1204,7 +1204,18 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         t('warning'),
         'Du har inte angett varken start- eller landningsplats. Vill du spara ändå?',
         [
-          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('cancel'),
+            style: 'cancel',
+            onPress: () => {
+              // Fokusera på det första tomma fältet
+              if (!hasDepPlace) {
+                depIcaoRef.current?.focus();
+              } else if (!hasArrPlace) {
+                arrIcaoRef.current?.focus();
+              }
+            },
+          },
           {
             text: t('save_anyway'),
             style: 'destructive',
