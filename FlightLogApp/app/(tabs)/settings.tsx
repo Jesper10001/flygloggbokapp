@@ -21,7 +21,7 @@ import { useToastStore } from '../../components/Toast';
 import { useOperatorStore } from '../../store/operatorStore';
 import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser, seedOperatorCrewChief, seedOperatorSwimmer, seedOperatorHEMS, clearOperatorTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
-import { useProfileStore, isOperator } from '../../store/profileStore';
+import { useProfileStore, isOperator, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -144,6 +144,7 @@ export default function SettingsScreen() {
   const [hasOtherModeData, setHasOtherModeData] = useState(false);
   const [certCount, setCertCount] = useState(0);
   const [certLabels, setCertLabels] = useState('');
+  const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
 
   useFocusEffect(useCallback(() => {
     useRegulationStandardStore.getState().load();
@@ -165,6 +166,15 @@ export default function SettingsScreen() {
       setCertCount(certs.length);
       const labels = certs.slice(0, 3).map(c => c.cert_type).join(', ');
       setCertLabels(labels + (certs.length > 3 ? ` +${certs.length - 3}` : ''));
+      // Load additional profiles
+      const addJson = (await getSetting('additional_profiles')) ?? '';
+      if (addJson) {
+        try {
+          setAdditionalProfiles(JSON.parse(addJson));
+        } catch {
+          setAdditionalProfiles([]);
+        }
+      }
     })();
   }, []));
 
@@ -212,8 +222,14 @@ export default function SettingsScreen() {
       { text: t('cancel'), style: 'cancel' },
       { text: t('clear_all'), style: 'destructive', onPress: async () => {
         await clearAllFlights();
-        await Promise.all([loadFlights(), loadStats()]);
-        Alert.alert(t('done'), t('all_deleted'));
+        await useProfileStore.getState().clearProfile();
+        await setSetting('profile_first_name', '');
+        await setSetting('profile_last_name', '');
+        await setSetting('profile_initials', '');
+        await setSetting('profile_credentials', '');
+        useFlightStore.getState().setIsPremium(false);
+        useFlightStore.getState().setTier('free');
+        router.replace('/onboarding');
       }},
     ]);
   };
@@ -264,12 +280,7 @@ export default function SettingsScreen() {
 
   const switchMode = async (target: 'manned' | 'drone') => {
     await setAppMode(target);
-    const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
-    if (hasData) {
-      router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
-    } else {
-      router.replace(target === 'drone' ? '/preview' : '/manned-preview');
-    }
+    router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
   };
 
   // ── Render ──
@@ -338,27 +349,6 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
-
-        {!isPremium && isPilot && (
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 10,
-              backgroundColor: Colors.gold + '12', borderRadius: 12,
-              borderWidth: 1, borderColor: Colors.gold + '33',
-              padding: 14, marginTop: 8,
-            }}
-            onPress={() => router.push('/settings/premium')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="star" size={20} color={Colors.gold} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>{t('tailwind_premium')}</Text>
-              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('premium_sub')}</Text>
-            </View>
-            <Text style={{ color: Colors.gold, fontSize: 14, fontWeight: '800' }}>49 kr</Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
-          </TouchableOpacity>
-        )}
       </View>
 
 {/* ── C. Loggbok ── */}
@@ -546,30 +536,65 @@ export default function SettingsScreen() {
       {/* ── Typ av loggbok ── */}
       <SectionHeader>{t('app_mode') ?? 'LÄGE'}</SectionHeader>
       <Card>
-        <Row
-          icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
-          title={t('mode_manned')} subtitle={t('mode_manned_sub')}
-          right={appMode === 'manned' && !isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={async () => { await useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: 'rotary' }); await switchMode('manned'); }}
-        />
-        <Row
-          icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
-          title={t('intro_operator_title')} subtitle={t('intro_operator_desc')}
-          right={isOperator(useProfileStore.getState().profile) ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={() => router.push('/onboarding')}
-        />
-        <Row
-          icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
-          title={t('mode_drone')} subtitle={t('mode_drone_sub')}
-          right={appMode === 'drone' ? <Ionicons name="checkmark" size={16} color={Colors.success} /> : undefined}
-          onClick={async () => { await useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: 'commercial' }); await switchMode('drone'); }}
-          border={false}
-        />
+        {/* Show only current logbook type */}
+        {appMode === 'manned' && !isOperator(useProfileStore.getState().profile) && (
+          <Row
+            icon="airplane" iconColor={Colors.primary} iconBg={Colors.primary + '25'}
+            title={t('mode_manned')} subtitle={t('mode_manned_sub')}
+            right={<Ionicons name="checkmark" size={16} color={Colors.success} />}
+            pressable={false}
+            border={additionalProfiles.length === 0}
+          />
+        )}
+        {isOperator(useProfileStore.getState().profile) && (
+          <Row
+            icon="shield-checkmark" iconColor={Colors.gold} iconBg={Colors.gold + '25'}
+            title={t('intro_operator_title')} subtitle={t('intro_operator_desc')}
+            right={<Ionicons name="checkmark" size={16} color={Colors.success} />}
+            pressable={false}
+            border={additionalProfiles.length === 0}
+          />
+        )}
+        {appMode === 'drone' && (
+          <Row
+            icon="hardware-chip" iconColor={Colors.warning} iconBg={Colors.warning + '25'}
+            title={t('mode_drone')} subtitle={t('mode_drone_sub')}
+            right={<Ionicons name="checkmark" size={16} color={Colors.success} />}
+            pressable={false}
+            border={additionalProfiles.length === 0}
+          />
+        )}
+
+        {/* Show additional logbooks */}
+        {additionalProfiles.map((profile, idx) => {
+          const isLastItem = idx === additionalProfiles.length - 1;
+          const isManned = profile.mainRole === 'pilot-manned';
+          const isOp = profile.mainRole === 'operator';
+          const isDrn = profile.mainRole === 'pilot-unmanned';
+
+          return (
+            <Row
+              key={idx}
+              icon={isManned ? 'airplane' : isOp ? 'shield-checkmark' : 'hardware-chip'}
+              iconColor={isManned ? Colors.primary : isOp ? Colors.gold : Colors.warning}
+              iconBg={isManned ? Colors.primary + '25' : isOp ? Colors.gold + '25' : Colors.warning + '25'}
+              title={isManned ? t('mode_manned') : isOp ? t('intro_operator_title') : t('mode_drone')}
+              subtitle={profile.subRole}
+              onClick={async () => {
+                if (isManned) await useProfileStore.getState().setProfile({ mainRole: 'pilot-manned', subRole: profile.subRole as SubRole });
+                else if (isOp) await useProfileStore.getState().setProfile({ mainRole: 'operator', subRole: profile.subRole as SubRole });
+                else await useProfileStore.getState().setProfile({ mainRole: 'pilot-unmanned', subRole: profile.subRole as SubRole });
+                await switchMode(isDrn ? 'drone' : 'manned');
+              }}
+              border={!isLastItem}
+            />
+          );
+        })}
       </Card>
 
       {/* Add additional logbook button */}
       <TouchableOpacity
-        onPress={() => router.push('/onboarding')}
+        onPress={() => router.push('/onboarding?addMode=true')}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,

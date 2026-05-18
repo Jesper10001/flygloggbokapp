@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
 import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
-import { setSetting } from '../db/flights';
+import { setSetting, getSetting } from '../db/flights';
 
-type Step = 'welcome' | 'role' | 'subrole' | 'timeformat';
+type Step = 'welcome' | 'role' | 'subrole' | 'timeformat' | 'profile';
 
 // Light palette (always light for onboarding)
 const P = {
@@ -66,17 +66,23 @@ function needsTimeFormat(mainRole: MainRole): boolean {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ addMode?: string }>();
+  const isAddMode = params.addMode === 'true';
   const { setLanguage } = useLanguageStore();
   const { setTimeFormat } = useTimeFormatStore();
   const { setMode } = useAppModeStore();
   const { setProfile } = useProfileStore();
 
-  const [step, setStep] = useState<Step>('welcome');
+  const [step, setStep] = useState<Step>(isAddMode ? 'role' : 'welcome');
   const [lang, setLang] = useState<'en' | 'sv'>('en');
   const [format, setFormat] = useState<TimeFormat>('hhmm');
   const [mainRole, setMainRole] = useState<MainRole | null>(null);
   const [pendingSub, setPendingSub] = useState<SubRole | null>(null);
-  
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [initials, setInitials] = useState('');
+  const [credentials, setCredentials] = useState('');
+
   const currentProfile = useProfileStore(s => s.profile);
 
   const sv = lang === 'sv';
@@ -87,32 +93,62 @@ export default function OnboardingScreen() {
     : MAIN_ROLES;
 
   const finalize = async (sub: SubRole) => {
-    const profile: Profile = { mainRole: mainRole!, subRole: sub };
-    await setLanguage(lang);
-    if (needsTimeFormat(mainRole!)) {
-      await setTimeFormat(format);
-    } else {
-      await setTimeFormat('hhmm');
+    try {
+      const profile: Profile = { mainRole: mainRole!, subRole: sub };
+
+      if (isAddMode) {
+        // Adding additional logbook - store in list, don't change current
+        const additionalJson = await getSetting('additional_profiles');
+        const additional = additionalJson ? JSON.parse(additionalJson) : [];
+        additional.push(profile);
+        await setSetting('additional_profiles', JSON.stringify(additional));
+        // Go back to settings
+        router.replace('/(tabs)/settings');
+      } else {
+        // Initial setup - set as primary profile
+        await setLanguage(lang);
+        if (needsTimeFormat(mainRole!)) {
+          await setTimeFormat(format);
+        } else {
+          await setTimeFormat('hhmm');
+        }
+        await setProfile(profile);
+        // Save profile data
+        await setSetting('profile_first_name', firstName);
+        await setSetting('profile_last_name', lastName);
+        await setSetting('profile_initials', initials);
+        await setSetting('profile_credentials', credentials);
+        const target = targetForProfile(profile);
+        await setMode(target);
+        // Set onboarded FIRST before navigating
+        await setSetting('has_onboarded', '1');
+        // Give a small delay to ensure setting is persisted
+        await new Promise(r => setTimeout(r, 100));
+        // Navigate to the correct tab
+        router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
+      }
+    } catch (e: any) {
+      console.error('Onboarding error:', e);
+      // Fallback: navigate to home tabs or settings
+      router.replace(isAddMode ? '/(tabs)/settings' : '/(tabs)');
     }
-    await setProfile(profile);
-    const target = targetForProfile(profile);
-    await setMode(target);
-    await setSetting('has_onboarded', '1');
-    router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
   };
 
   const handleSubRoleSelect = (sub: SubRole) => {
-    if (needsTimeFormat(mainRole!)) {
-      setPendingSub(sub);
-      setStep('timeformat');
-    } else {
-      finalize(sub);
+    setPendingSub(sub);
+    // Always go to profile step next
+    setStep('profile');
+  };
+
+  const handleProfileComplete = () => {
+    if (pendingSub) {
+      finalize(pendingSub);
     }
   };
 
   const steps = needsTimeFormat(mainRole ?? 'operator')
-    ? ['welcome', 'role', 'subrole', 'timeformat']
-    : ['welcome', 'role', 'subrole'];
+    ? ['welcome', 'role', 'subrole', 'timeformat', 'profile']
+    : ['welcome', 'role', 'subrole', 'profile'];
   const stepIdx = steps.indexOf(step);
   const totalSteps = steps.length;
 
@@ -130,7 +166,8 @@ export default function OnboardingScreen() {
         <TouchableOpacity
           style={s.backRow}
           onPress={() => {
-            if (step === 'timeformat') setStep('subrole');
+            if (step === 'profile') setStep(needsTimeFormat(mainRole ?? 'operator') ? 'timeformat' : 'subrole');
+            else if (step === 'timeformat') setStep('subrole');
             else if (step === 'subrole') setStep('role');
             else if (step === 'role') setStep('welcome');
           }}
@@ -267,10 +304,78 @@ export default function OnboardingScreen() {
             ))}
           </View>
           <View style={{ flex: 1 }} />
-          <TouchableOpacity style={s.nextBtn} onPress={() => pendingSub && finalize(pendingSub)} activeOpacity={0.85}>
-            <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
-            <Ionicons name="checkmark" size={18} color="#fff" />
+          <TouchableOpacity style={s.nextBtn} onPress={() => setStep('profile')} activeOpacity={0.85}>
+            <Text style={s.nextBtnText}>{sv ? 'Nästa' : 'Next'}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Profile setup ── */}
+      {step === 'profile' && (
+        <View style={s.stepContent}>
+          <Text style={s.eyebrow}>
+            {sv ? `Steg ${stepIdx + 1} av ${totalSteps} · Profil` : `Step ${stepIdx + 1} of ${totalSteps} · Profile`}
+          </Text>
+          <Text style={s.title}>{sv ? 'Sätt upp din profil' : 'Set up your profile'}</Text>
+          <Text style={s.subtitle}>{sv ? 'Lägg till ditt namn och inledande för din loggbok' : 'Add your name and credentials for your logbook'}</Text>
+
+          <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
+            <View>
+              <Text style={s.inputLabel}>{sv ? 'Förnamn' : 'First name'}</Text>
+              <TextInput
+                style={s.input}
+                placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholderTextColor={P.textMuted}
+              />
+            </View>
+
+            <View>
+              <Text style={s.inputLabel}>{sv ? 'Efternamn' : 'Last name'}</Text>
+              <TextInput
+                style={s.input}
+                placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholderTextColor={P.textMuted}
+              />
+            </View>
+
+            <View>
+              <Text style={s.inputLabel}>{sv ? 'Initialer' : 'Initials'}</Text>
+              <TextInput
+                style={s.input}
+                placeholder={sv ? 'T.ex. JT' : 'e.g. JD'}
+                value={initials}
+                onChangeText={setInitials}
+                placeholderTextColor={P.textMuted}
+                maxLength={3}
+              />
+            </View>
+
+            <View>
+              <Text style={s.inputLabel}>{sv ? 'Legitimation (valfritt)' : 'Credentials (optional)'}</Text>
+              <TextInput
+                style={s.input}
+                placeholder={sv ? 'T.ex. CPL(H), ATPL, FI' : 'e.g. CPL(H), ATPL, FI'}
+                value={credentials}
+                onChangeText={setCredentials}
+                placeholderTextColor={P.textMuted}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={{ alignSelf: 'stretch', gap: 8 }}>
+            <TouchableOpacity style={s.nextBtn} onPress={handleProfileComplete} activeOpacity={0.85}>
+              <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
+              <Ionicons name="checkmark" size={18} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleProfileComplete()} activeOpacity={0.7}>
+              <Text style={s.skipText}>{sv ? 'Hoppa över' : 'Skip'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -339,4 +444,12 @@ const s = StyleSheet.create({
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   footerNote: { color: P.textMuted, fontSize: 12, textAlign: 'center', paddingBottom: 8 },
+
+  inputLabel: { fontSize: 12, fontWeight: '700', color: P.text, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: {
+    paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: P.cardBorder,
+    backgroundColor: P.card, fontSize: 14, color: P.text,
+  },
+  skipText: { color: P.textMuted, fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

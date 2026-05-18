@@ -454,6 +454,39 @@ function TranscribeView() {
     setWizardStep(2);
   };
 
+  const pickImageForSummary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      base64: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      router.push({
+        pathname: '/(tabs)/scan',
+        params: { summarize: 'library', preselectedUri: result.assets[0].uri },
+      } as any);
+    }
+  };
+
+  const takePhotoForSummary = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t('permission_required'), t('camera_permission'));
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      base64: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      router.push({
+        pathname: '/(tabs)/scan',
+        params: { summarize: 'camera', preselectedUri: result.assets[0].uri },
+      } as any);
+    }
+  };
+
   const finishWizard = async () => {
     const name = bookName.trim() || 'Min loggbok';
     const pageNum = parseInt(lastPage, 10) || 1;
@@ -808,7 +841,7 @@ function TranscribeView() {
                   <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
                     <TouchableOpacity
                       style={tvStyles.wizardSecondaryBtn}
-                      onPress={() => router.push('/(tabs)/scan?summarize=library' as any)}
+                      onPress={pickImageForSummary}
                       activeOpacity={0.75}
                     >
                       <Ionicons name="images-outline" size={16} color={Colors.primary} />
@@ -816,7 +849,7 @@ function TranscribeView() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={tvStyles.wizardPrimaryBtn}
-                      onPress={() => router.push('/(tabs)/scan?summarize=camera' as any)}
+                      onPress={takePhotoForSummary}
                       activeOpacity={0.85}
                     >
                       <Ionicons name="camera" size={16} color={Colors.textInverse} />

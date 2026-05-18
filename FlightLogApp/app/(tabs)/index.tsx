@@ -518,7 +518,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const mode = useAppModeStore((st) => st.mode);
   const _theme = useThemeStore((st) => st.theme); // subscribe to force re-render on theme change
-  const { stats, flights, flightCount, isLoading, loadStats, loadFlights } = useFlightStore();
+  const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier } = useFlightStore();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const [xcMapVisible, setXcMapVisible] = useState(false);
@@ -588,6 +588,11 @@ export default function DashboardScreen() {
     return name ? `${g}, ${name}` : g;
   }, [profileName, t]);
 
+  const greetingStyle = useMemo(() => ({
+    ...s.hudGreeting,
+    color: (tier === 'premium' || tier === 'max') ? Colors.gold : Colors.textPrimary,
+  }), [tier]);
+
   if (mode !== 'manned') return <View style={s.container} />;
 
   return (<>
@@ -606,7 +611,7 @@ export default function DashboardScreen() {
       }} tintColor={Colors.primary} />}
     >
       {/* ── Header ── */}
-      <Text style={s.hudGreeting}>{greeting}</Text>
+      <Text style={greetingStyle}>{greeting}</Text>
 
       {/* ── App news / update banner ── */}
       {updateAvailable && (
@@ -688,7 +693,7 @@ export default function DashboardScreen() {
           <View style={{ flex: 1, gap: 6 }}>
             {/* Readout rows */}
             {[
-              { l: 'TOTAL', v: animTime(st?.total_time ?? 0), c: Colors.textPrimary },
+              { l: 'TOTAL', v: animTime(st?.total_time ?? 0), c: Colors.gold },
               { l: 'YTD', v: animTime(st?.year_to_date ?? 0), c: Colors.primary },
               { l: '14D / AVG', v: `${animTime(stress.hours14)} / ${animTime(stress.baseline14)}`, c: zc },
             ].map(m => (
@@ -742,8 +747,8 @@ export default function DashboardScreen() {
             {[
               { l: 'PIC', v: formatTime(st?.total_pic ?? 0), c: Colors.textPrimary },
               { l: 'CO', v: formatTime(st?.total_co_pilot ?? 0), c: Colors.textPrimary },
-              { l: 'IFR', v: formatTime(st?.total_ifr ?? 0), c: Colors.info },
-              { l: 'NIGHT', v: formatTime(st?.total_night ?? 0), c: Colors.gold },
+              { l: 'IFR', v: formatTime(st?.total_ifr ?? 0), c: Colors.textPrimary },
+              { l: 'NIGHT', v: formatTime(st?.total_night ?? 0), c: Colors.textPrimary },
             ].map(c => (
               <View key={c.l} style={s.classCell}>
                 <Text style={s.classCellLabel}>{c.l}</Text>

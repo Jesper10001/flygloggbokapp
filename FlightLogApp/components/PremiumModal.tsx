@@ -61,7 +61,6 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
   const handleExplore = () => {
     onClose();
-    setTimeout(() => router.push('/settings/premium'), 200);
   };
 
   return (

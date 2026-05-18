@@ -28,6 +28,7 @@ interface ProfileState {
   loaded: boolean;
   load: () => Promise<void>;
   setProfile: (p: Profile) => Promise<void>;
+  clearProfile: () => Promise<void>;
 }
 
 export const useProfileStore = create<ProfileState>((set) => ({
@@ -48,5 +49,11 @@ export const useProfileStore = create<ProfileState>((set) => ({
     await setSetting('profile_main_role', p.mainRole);
     await setSetting('profile_sub_role', p.subRole);
     set({ profile: p });
+  },
+
+  clearProfile: async () => {
+    await setSetting('profile_main_role', '');
+    await setSetting('profile_sub_role', '');
+    set({ profile: null });
   },
 }));

@@ -46,8 +46,6 @@ export const useAppModeStore = create<AppModeStore>((set) => ({
       if (hasExisting) {
         await setSetting('app_mode', 'manned');
         await setSetting('app_mode_chosen', '1');
-        await setSetting('manned_onboarded', '1');
-        await setSetting('manned_preview_done', '1');
       }
     }
   },

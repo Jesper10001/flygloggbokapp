@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppModeStore } from '../store/appModeStore';
 import { useTranslation } from '../hooks/useTranslation';
-import { getSetting } from '../db/flights';
 
 // Ljus palett — matchar Blades-loggans bakgrund (vit) + märkesfärger
 const P = {
@@ -29,32 +28,6 @@ export default function ModePickerScreen() {
 
   const pick = async (chosen: 'manned' | 'drone') => {
     if (chosen !== mode) await setMode(chosen);
-    if (chosen === 'drone') {
-      const previewDone = await getSetting('preview_done');
-      const alwaysShowPreview = await getSetting('preview_always_show');
-      if (previewDone !== '1' || alwaysShowPreview === '1') {
-        router.replace('/preview');
-        return;
-      }
-      const onboarded = await getSetting('drone_onboarded');
-      if (onboarded !== '1') {
-        router.replace('/drone-onboarding');
-        return;
-      }
-    }
-    if (chosen === 'manned') {
-      const previewDone = await getSetting('manned_preview_done');
-      const alwaysShowPreview = await getSetting('manned_preview_always_show');
-      if (previewDone !== '1' || alwaysShowPreview === '1') {
-        router.replace('/manned-preview');
-        return;
-      }
-      const onboarded = await getSetting('manned_onboarded');
-      if (onboarded !== '1') {
-        router.replace('/manned-onboarding');
-        return;
-      }
-    }
     router.replace('/(tabs)');
   };
 
