@@ -128,7 +128,12 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   canScan: () => get().totalRemaining() > 0,
   canLookup: () => get().lookupRemaining() > 0,
   canSummarize: () => get().summarizeRemaining() > 0,
-  canImport: () => get().importRemaining() > 0,
+  canImport: () => {
+    // Bypass quota check if premium (developer mode)
+    const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
+    if (tier === 'premium' || tier === 'max') return true;
+    return get().importRemaining() > 0;
+  },
   canFlightImport: () => get().flightImportRemaining() > 0,
 
   consumeScan: async () => {
@@ -165,6 +170,10 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   consumeImport: async () => {
+    const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
+    // Skip quota consumption for premium/developer mode
+    if (tier === 'premium' || tier === 'max') return;
+
     const { importUsed } = get();
     if (get().importRemaining() <= 0) throw new Error('NO_IMPORTS_LEFT');
     const newUsed = importUsed + 1;
