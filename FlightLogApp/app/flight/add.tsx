@@ -575,6 +575,7 @@ export default function AddFlightScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
+  const [isManualTotalTime, setIsManualTotalTime] = useState(false);
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -901,7 +902,8 @@ export default function AddFlightScreen() {
       if (key === 'dep_utc' || key === 'arr_utc') {
         const dep = key === 'dep_utc' ? val : prev.dep_utc;
         const arr = key === 'arr_utc' ? val : prev.arr_utc;
-        if (isValidTime(dep) && isValidTime(arr)) {
+        // Endast beräkna total_time automatiskt om det är inte manuellt angiven
+        if (!isManualTotalTime && isValidTime(dep) && isValidTime(arr)) {
           const tt = calcFlightTime(dep, arr);
           if (tt > 0) {
             next.total_time = String(tt);
@@ -912,6 +914,7 @@ export default function AddFlightScreen() {
       }
 
       if (key === 'total_time') {
+        setIsManualTotalTime(true);
         distribute(val);
         syncRules(val, next.flight_rules);
       }
@@ -1759,14 +1762,21 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <View style={styles.totalTimeRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardFieldLabel}>{t('total_flight_time')}</Text>
-              <View style={styles.totalTimeDisplay}>
-                <Text style={[
-                  styles.totalTimeValue,
-                  form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
-                ]}>
-                  {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '—'}
-                </Text>
-              </View>
+              <TextInput
+                style={styles.timeInput}
+                value={rawTime.total_time !== undefined ? rawTime.total_time : formatForInput(form.total_time)}
+                onChangeText={(v) => {
+                  setRawTime((r) => ({ ...r, total_time: v }));
+                  let decimal = cap(parseRaw(v));
+                  set('total_time', String(decimal));
+                }}
+                onBlur={() => {
+                  setRawTime((r) => { const n = { ...r }; delete n.total_time; return n; });
+                }}
+                placeholder="0:00"
+                keyboardType="numbers-and-punctuation"
+                placeholderTextColor={Colors.textMuted}
+              />
               {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
             </View>
             <View style={{ flex: 1 }}>
