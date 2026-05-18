@@ -420,10 +420,11 @@ export async function getRecentPlaces(): Promise<{ icao: string; temporary: bool
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ icao: string; last: string }>(
     `SELECT icao, MAX(last) as last FROM (
-       SELECT dep_place as icao, date as last FROM flights WHERE dep_place != ''
+       SELECT dep_place as icao, date as last FROM flights
        UNION ALL
-       SELECT arr_place as icao, date as last FROM flights WHERE arr_place != ''
+       SELECT arr_place as icao, date as last FROM flights
      )
+     WHERE icao IS NOT NULL AND icao != ''
      GROUP BY icao
      ORDER BY last DESC LIMIT 20`
   );
