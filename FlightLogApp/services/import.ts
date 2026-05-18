@@ -120,28 +120,55 @@ async function readExcelAsCSV(fileUri: string): Promise<string> {
   // Parsa Excel-filen
   const workbook = XLSX.read(bytes, { type: 'array' });
 
-  // Använd första arket
-  const worksheetName = workbook.SheetNames[0];
-  if (!worksheetName) {
+  if (!workbook.SheetNames.length) {
     throw new Error('Excel-filen innehåller inga ark.');
   }
 
-  const worksheet = workbook.Sheets[worksheetName];
-  if (!worksheet) {
-    throw new Error('Kunde inte läsa Excel-arket.');
+  // Läs alla ark och kombinera data (hoppa över sammanfattningsark)
+  const csvParts: string[] = [];
+  let headerLine: string | null = null;
+
+  for (const worksheetName of workbook.SheetNames) {
+    // Hoppa över sammanfattningsark
+    if (worksheetName.toLowerCase().includes('sammanställning') ||
+        worksheetName.toLowerCase().includes('summary') ||
+        worksheetName.toLowerCase().includes('totalt')) {
+      continue;
+    }
+
+    const worksheet = workbook.Sheets[worksheetName];
+    if (!worksheet) continue;
+
+    // Konvertera till CSV-format
+    const csv = XLSX.utils.sheet_to_csv(worksheet, {
+      blankrows: false,
+      defval: '',
+    });
+
+    if (!csv.trim()) continue;
+
+    const lines = csv.split('\n');
+
+    // Extrahera header från första arket
+    if (!headerLine && lines.length > 0) {
+      headerLine = lines[0];
+      csvParts.push(headerLine);
+    }
+
+    // Lägg till datarader från detta ark (hoppa över header)
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim()) {
+        csvParts.push(lines[i]);
+      }
+    }
   }
 
-  // Konvertera till CSV-format
-  const csv = XLSX.utils.sheet_to_csv(worksheet, {
-    blankrows: false,
-    defval: '',
-  });
-
-  if (!csv.trim()) {
-    throw new Error('Excel-arket verkar vara tomt.');
+  if (!csvParts.length) {
+    throw new Error('Excel-filen innehåller ingen flygdata.');
   }
 
-  return csv;
+  const combinedCsv = csvParts.join('\n');
+  return combinedCsv;
 }
 
 // ── CSV-parsning ─────────────────────────────────────────────────────────────
