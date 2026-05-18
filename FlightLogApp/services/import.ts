@@ -226,6 +226,12 @@ function convertDate(value: string, format: string): string {
     return v;
   }
 
+  // Hantera YYYY/MM/DD format (från Excel)
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(v)) {
+    const [y, m, d] = v.split('/');
+    return `${y}-${String(parseInt(m)).padStart(2, '0')}-${String(parseInt(d)).padStart(2, '0')}`;
+  }
+
   // Hantera Excel serial dates (numeriska värden från sheet_to_csv)
   // Excel serial dates är små heltal (typ 45000 för 2023)
   const numVal = parseFloat(v);
