@@ -45,7 +45,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const panRef = useRef({ x: 0, y: 0 });
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [overlayScale, setOverlayScale] = useState(0.8);
-  const [mode, setMode] = useState<'slim' | 'extra' | 'boarding' | 'postcard'>('extra');
+  const [mode, setMode] = useState<'slim' | 'extra' | 'boarding' | 'postcard'>('postcard');
   const [layerTheme, setLayerTheme] = useState<'light' | 'dark'>('light');
   const font = 'Georgia';
   const LT = {
