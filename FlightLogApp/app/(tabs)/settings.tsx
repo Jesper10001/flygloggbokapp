@@ -366,18 +366,12 @@ export default function SettingsScreen() {
       <Card>
         {/* Current logbook type */}
         <Row
-          icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'} 
+          icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
           iconColor={Colors.primary}
           title={t('logbook_type') ?? 'Logbook Type'}
           subtitle={isDrone ? 'Drone Pilot' : appMode === 'drone' ? 'Operator' : 'Manned Aircraft'}
           pressable={false}
         />
-        {isDrone && (
-          <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
-        )}
-        {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
-        {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} border={false} />}
-        
         {/* Add additional logbook button */}
         <TouchableOpacity
           onPress={() => router.push('/onboarding')}
@@ -385,12 +379,17 @@ export default function SettingsScreen() {
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
             backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 12,
-            marginTop: 12,
+            marginTop: 12, marginBottom: 8,
           }}
         >
           <Ionicons name="add-circle-outline" size={18} color={Colors.textInverse} />
           <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>Add additional logbook</Text>
         </TouchableOpacity>
+        {isDrone && (
+          <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
+        )}
+        {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
+        {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} border={false} />}
       </Card>
 
       {/* ── D. Import ── */}
