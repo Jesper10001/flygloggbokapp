@@ -23,7 +23,7 @@ const PREMIUM_LIMITS: Record<string, number> = {
   scan: 10,
   summarize: 10,
   lookup: 20,
-  import: 5,
+  import: 100,
   flight_import: 30,
 };
 
@@ -31,7 +31,7 @@ const MAX_LIMITS: Record<string, number> = {
   scan: 50,
   summarize: 20,
   lookup: 60,
-  import: 5,
+  import: 100,
   flight_import: 100,
 };
 
