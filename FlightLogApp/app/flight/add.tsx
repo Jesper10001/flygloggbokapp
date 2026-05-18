@@ -575,6 +575,8 @@ export default function AddFlightScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
+  const [editingTotalTime, setEditingTotalTime] = useState(false);
+  const [totalTimeInput, setTotalTimeInput] = useState('');
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -1759,14 +1761,21 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <View style={styles.totalTimeRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardFieldLabel}>{t('total_flight_time')}</Text>
-              <View style={styles.totalTimeDisplay}>
+              <TouchableOpacity
+                style={styles.totalTimeDisplay}
+                onPress={() => {
+                  setTotalTimeInput(form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '');
+                  setEditingTotalTime(true);
+                }}
+                activeOpacity={0.7}
+              >
                 <Text style={[
                   styles.totalTimeValue,
                   form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
                 ]}>
                   {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '—'}
                 </Text>
-              </View>
+              </TouchableOpacity>
               {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
             </View>
             <View style={{ flex: 1 }}>
@@ -2557,6 +2566,61 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 <Text style={styles.modalAddText}>{t('add_new_registration')}</Text>
               </TouchableOpacity>
             </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={editingTotalTime}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingTotalTime(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setEditingTotalTime(false)}
+        >
+          <Pressable
+            style={[styles.modalSheet, { width: '80%', maxWidth: 300 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.modalTitle}>{t('total_flight_time')}</Text>
+            <TextInput
+              style={[styles.timeInput, { marginBottom: 16, marginTop: 12 }]}
+              value={totalTimeInput}
+              onChangeText={setTotalTimeInput}
+              placeholder="0:00"
+              keyboardType="numbers-and-punctuation"
+              placeholderTextColor={Colors.textMuted}
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+              <Pressable
+                style={[styles.btn, { backgroundColor: Colors.border, paddingHorizontal: 16 }]}
+                onPress={() => setEditingTotalTime(false)}
+              >
+                <Text style={[styles.btnText, { color: Colors.textPrimary }]}>{t('cancel')}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: Colors.primary, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  // Parsera HH:MM eller decimal
+                  let decimal = 0;
+                  if (totalTimeInput.includes(':')) {
+                    const [h, m] = totalTimeInput.split(':');
+                    const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
+                    const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
+                    decimal = hh + mm / 60;
+                  } else {
+                    decimal = parseFloat(totalTimeInput) || 0;
+                  }
+                  set('total_time', String(decimal.toFixed(2)));
+                  setEditingTotalTime(false);
+                }}
+              >
+                <Text style={styles.btnText}>{t('save')}</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
