@@ -2213,7 +2213,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               color: milOps.size > 0 ? Colors.gold : Colors.textMuted, fontSize: 12, fontWeight: '900',
               letterSpacing: 0.3, textAlign: 'center', lineHeight: 16,
             }}>
-              {milOps.size > 0 ? `MIL-OP\n(${milOps.size})` : 'TACTICAL'}
+              {milOps.size > 0 ? `TACTICAL\n(${milOps.size})` : 'TACTICAL'}
             </Text>
           </TouchableOpacity>
         </View>
