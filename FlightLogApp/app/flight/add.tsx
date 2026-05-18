@@ -1762,7 +1762,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <Text style={styles.cardFieldLabel}>{t('total_flight_time')}</Text>
               {editingTotalTime ? (
                 <TextInput
-                  style={styles.timeInput}
+                  style={[styles.totalTimeValue, styles.totalTimeValueFilled, { textAlign: 'center', paddingVertical: 8 }]}
                   value={form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : ''}
                   onChangeText={(v) => {
                     // Parsera HH:MM eller decimal
