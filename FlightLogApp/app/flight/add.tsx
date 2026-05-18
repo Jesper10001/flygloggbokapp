@@ -1196,6 +1196,25 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
     }
     setWarnings(issues.filter((i) => i.severity === 'warning'));
 
+    // Kontroll: både start och landningsplats är tomma
+    const hasDepPlace = form.dep_place && form.dep_place.trim().length > 0;
+    const hasArrPlace = form.arr_place && form.arr_place.trim().length > 0;
+    if (!hasDepPlace && !hasArrPlace) {
+      Alert.alert(
+        t('warning'),
+        'Du har inte angett varken start- eller landningsplats. Vill du spara ändå?',
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('save_anyway'),
+            style: 'destructive',
+            onPress: () => performSave(),
+          },
+        ]
+      );
+      return;
+    }
+
     // Endurance-kontroll: om passets längd överstiger luftfartygets angivna uthållighet,
     // föreslå hot refuel eller låt piloten spara ändå.
     const tt = parseFloat(form.total_time) || 0;
