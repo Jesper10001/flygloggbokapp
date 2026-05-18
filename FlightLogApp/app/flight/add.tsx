@@ -1336,8 +1336,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </TouchableOpacity>
         )}
 
-        {/* ── Basic info ── */}
-        <Text style={styles.section}>{t('basic_info')}</Text>
 
         {/* Row 1: Aircraft type + Registration */}
         <View style={styles.row2}>
