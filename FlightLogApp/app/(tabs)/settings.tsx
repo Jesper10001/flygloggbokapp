@@ -364,7 +364,27 @@ export default function SettingsScreen() {
 {/* ── C. Loggbok ── */}
       <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
       <Card>
-        {isPilot && <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />}
+        {/* Current logbook type */}
+        <Row
+          icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'} 
+          iconColor={Colors.primary}
+          title={t('logbook_type') ?? 'Logbook Type'}
+          subtitle={isDrone ? 'Drone Pilot' : appMode === 'drone' ? 'Operator' : 'Manned Aircraft'}
+          pressable={false}
+        />
+        {/* Add additional logbook button */}
+        <TouchableOpacity
+          onPress={() => router.push('/onboarding')}
+          activeOpacity={0.85}
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+            backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 12,
+            marginTop: 12, marginBottom: 8,
+          }}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={Colors.textInverse} />
+          <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>Add additional logbook</Text>
+        </TouchableOpacity>
         {isDrone && (
           <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
         )}
