@@ -658,10 +658,8 @@ export default function AddFlightScreen() {
   const MIL_CATEGORIES: { title: string; items: { code: string; desc: string }[] }[] = [
     { title: t('mil_cat_rescue'), items: [
       { code: 'SAR', desc: t('mil_sar') },
-      { code: 'CSAR', desc: t('mil_csar') },
       { code: 'CR', desc: t('mil_cr') },
       { code: 'PR', desc: t('mil_pr') },
-      { code: 'SERE', desc: t('mil_sere') },
     ]},
     { title: t('mil_cat_transport'), items: [
       { code: 'MEDEVAC', desc: t('mil_medevac') },
