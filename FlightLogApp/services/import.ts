@@ -220,6 +220,19 @@ function parseRow(line: string, delimiter: string): string[] {
 function convertDate(value: string, format: string): string {
   const v = value.trim();
   if (!v) return '';
+
+  // Hantera Excel serial dates (numeriska värden från sheet_to_csv)
+  const numVal = parseFloat(v);
+  if (!isNaN(numVal) && numVal > 0 && numVal < 100000) {
+    // Excel serial date: dagar sedan 1899-12-30
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + numVal * 24 * 60 * 60 * 1000);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   try {
     if (format === 'MM/DD/YYYY') {
       const [m, d, y] = v.split('/');
