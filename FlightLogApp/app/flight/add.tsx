@@ -1762,30 +1762,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <View style={styles.totalTimeRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardFieldLabel}>{t('total_flight_time')}</Text>
-              <TextInput
-                style={styles.timeInput}
-                value={rawTime.total_time !== undefined ? rawTime.total_time : decimalToHHMM(parseFloat(form.total_time))}
-                onChangeText={(v) => {
-                  setRawTime((r) => ({ ...r, total_time: v }));
-                  // Parsera HH:MM eller decimal
-                  if (v.includes(':')) {
-                    const [h, m] = v.split(':');
-                    const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
-                    const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
-                    const decimal = hh + mm / 60;
-                    set('total_time', String(decimal.toFixed(2)));
-                  } else {
-                    const decimal = parseFloat(v) || 0;
-                    set('total_time', String(decimal.toFixed(2)));
-                  }
-                }}
-                onBlur={() => {
-                  setRawTime((r) => { const n = { ...r }; delete n.total_time; return n; });
-                }}
-                placeholder="0:00"
-                keyboardType="numbers-and-punctuation"
-                placeholderTextColor={Colors.textMuted}
-              />
+              <View style={styles.totalTimeDisplay}>
+                <Text style={[
+                  styles.totalTimeValue,
+                  form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
+                ]}>
+                  {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '—'}
+                </Text>
+              </View>
               {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
             </View>
             <View style={{ flex: 1 }}>
