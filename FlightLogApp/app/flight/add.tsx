@@ -2755,7 +2755,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           }} onPress={e => e.stopPropagation()}>
             <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginTop: 10, marginBottom: 6 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', flex: 1 }}>Military Operation</Text>
+              <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', flex: 1 }}>TACTICAL</Text>
               {milOps.size > 0 && (
                 <TouchableOpacity onPress={() => setMilOps(new Set())}>
                   <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '600' }}>{t('clear')}</Text>
