@@ -147,17 +147,34 @@ async function readExcelAsCSV(fileUri: string): Promise<string> {
 
     if (!csv.trim()) continue;
 
-    const lines = csv.split('\n');
+    const lines = csv.split('\n').filter(l => l.trim());
+    if (lines.length < 2) continue; // Behöver minst header + 1 datarad
 
-    // Extrahera header från första arket
-    if (!headerLine && lines.length > 0) {
-      headerLine = lines[0];
+    // Hitta header-raden (vanligen rad 3-4 i varje sheet)
+    // Header innehåller text som "Datum", "Aircraft", etc.
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const line = lines[i];
+      // Header-raden innehåller typiska kolumnnamn
+      if (line.includes('Datum') || line.includes('Aircraft') ||
+          line.includes('Total') || line.includes('Date')) {
+        headerIdx = i;
+        break;
+      }
+    }
+
+    if (headerIdx < 0) continue; // Ingen header hittad
+
+    // Extrahera header från första sheetet
+    if (!headerLine) {
+      headerLine = lines[headerIdx];
       csvParts.push(headerLine);
     }
 
-    // Lägg till datarader från detta ark (hoppa över header)
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].trim()) {
+    // Lägg till datarader från detta ark (hoppa över summary- och header-raderna)
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line && !line.match(/^\d{4}\s*,/) && !line.match(/^,*$/)) { // Hoppa över summaryrad (börjar med år)
         csvParts.push(lines[i]);
       }
     }
