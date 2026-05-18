@@ -76,8 +76,15 @@ export default function OnboardingScreen() {
   const [format, setFormat] = useState<TimeFormat>('hhmm');
   const [mainRole, setMainRole] = useState<MainRole | null>(null);
   const [pendingSub, setPendingSub] = useState<SubRole | null>(null);
+  
+  const currentProfile = useProfileStore(s => s.profile);
 
   const sv = lang === 'sv';
+  
+  // Filter out already selected roles when coming from settings
+  const availableMainRoles = currentProfile 
+    ? MAIN_ROLES.filter(r => r.key !== currentProfile.mainRole)
+    : MAIN_ROLES;
 
   const finalize = async (sub: SubRole) => {
     const profile: Profile = { mainRole: mainRole!, subRole: sub };
@@ -182,7 +189,7 @@ export default function OnboardingScreen() {
             {sv ? 'Anpassar loggboksfält, export och certifikat efter din roll.' : 'Tailors the logbook fields, exports and certifications to your role.'}
           </Text>
           <View style={s.optionsCol}>
-            {MAIN_ROLES.map(r => (
+            {availableMainRoles.map(r => (
               <TouchableOpacity
                 key={r.key}
                 style={s.card}
