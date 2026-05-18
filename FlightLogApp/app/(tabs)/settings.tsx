@@ -580,6 +580,20 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      {/* Add additional logbook button */}
+      <TouchableOpacity
+        onPress={() => router.push('/onboarding')}
+        activeOpacity={0.85}
+        style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+          backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 12,
+          marginHorizontal: 16, marginVertical: 12,
+        }}
+      >
+        <Ionicons name="add-circle-outline" size={18} color={Colors.textInverse} />
+        <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>Add additional logbook</Text>
+      </TouchableOpacity>
+
       {/* ── H. Utvecklare ── */}
       <SectionHeader>{t('developer_section')}</SectionHeader>
       <Card>
