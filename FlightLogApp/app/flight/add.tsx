@@ -576,6 +576,7 @@ export default function AddFlightScreen() {
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
   const [editingTotalTime, setEditingTotalTime] = useState(false);
+  const [totalTimeEditValue, setTotalTimeEditValue] = useState('');
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -1763,21 +1764,28 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               {editingTotalTime ? (
                 <TextInput
                   style={[styles.totalTimeValue, styles.totalTimeValueFilled, { textAlign: 'center', paddingVertical: 8 }]}
-                  value={form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : ''}
-                  onChangeText={(v) => {
-                    // Parsera HH:MM eller decimal
+                  value={totalTimeEditValue}
+                  onChangeText={setTotalTimeEditValue}
+                  onBlur={() => {
+                    // Parsera HH:MM eller decimal när vi är klara
                     let decimal = 0;
-                    if (v.includes(':')) {
-                      const [h, m] = v.split(':');
+                    if (totalTimeEditValue.includes(':')) {
+                      const [h, m] = totalTimeEditValue.split(':');
                       const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
                       const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
                       decimal = hh + mm / 60;
                     } else {
-                      decimal = parseFloat(v) || 0;
+                      decimal = parseFloat(totalTimeEditValue) || 0;
                     }
-                    set('total_time', String(decimal.toFixed(2)));
+                    if (decimal > 0) {
+                      set('total_time', String(decimal.toFixed(2)));
+                    }
+                    setEditingTotalTime(false);
                   }}
-                  onBlur={() => setEditingTotalTime(false)}
+                  onFocus={() => {
+                    // När vi fokuserar på fältet, sätt det till den nuvarande tiden
+                    setTotalTimeEditValue(form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '');
+                  }}
                   placeholder="0:00"
                   keyboardType="numbers-and-punctuation"
                   placeholderTextColor={Colors.textMuted}
