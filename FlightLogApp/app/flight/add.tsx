@@ -756,20 +756,22 @@ export default function AddFlightScreen() {
         } else if (last.flight_rules) {
           setForm((prev) => ({ ...prev, flight_rules: last.flight_rules, ifr: '0', vfr: '0' }));
         }
-        // Förvald roll baserat på senaste flygningen
-        const r: PrimaryRole =
-          (last.picus ?? 0) > 0 ? 'picus' :
-          (last.spic ?? 0) > 0 ? 'spic' :
-          (last.ferry_pic ?? 0) > 0 ? 'ferry_pic' :
-          (last.observer ?? 0) > 0 ? 'observer' :
-          (last.relief_crew ?? 0) > 0 ? 'relief_crew' :
-          (last.dual ?? 0) > 0 ? 'dual' :
-          (last.co_pilot ?? 0) > 0 ? 'co_pilot' :
-          'pic';
-        setRole(r);
-        setFi((last.instructor ?? 0) > 0 && ['pic','picus','spic','ferry_pic'].includes(r));
-        setExaminerOverlay((last.examiner ?? 0) > 0 && r === 'pic');
-        setSafetyPilotOverlay((last.safety_pilot ?? 0) > 0 && r === 'co_pilot');
+        // Förvald roll baserat på senaste flygningen (bara för nya flygningar)
+        if (!isEdit) {
+          const r: PrimaryRole =
+            (last.picus ?? 0) > 0 ? 'picus' :
+            (last.spic ?? 0) > 0 ? 'spic' :
+            (last.ferry_pic ?? 0) > 0 ? 'ferry_pic' :
+            (last.observer ?? 0) > 0 ? 'observer' :
+            (last.relief_crew ?? 0) > 0 ? 'relief_crew' :
+            (last.dual ?? 0) > 0 ? 'dual' :
+            (last.co_pilot ?? 0) > 0 ? 'co_pilot' :
+            'pic';
+          setRole(r);
+          setFi((last.instructor ?? 0) > 0 && ['pic','picus','spic','ferry_pic'].includes(r));
+          setExaminerOverlay((last.examiner ?? 0) > 0 && r === 'pic');
+          setSafetyPilotOverlay((last.safety_pilot ?? 0) > 0 && r === 'co_pilot');
+        }
       }
     });
   }, []);
