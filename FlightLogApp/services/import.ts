@@ -221,11 +221,18 @@ function convertDate(value: string, format: string): string {
   const v = value.trim();
   if (!v) return '';
 
+  // Om det redan är i YYYY-MM-DD format, behåll det
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return v;
+  }
+
   // Hantera Excel serial dates (numeriska värden från sheet_to_csv)
+  // Excel serial dates är små heltal (typ 45000 för 2023)
   const numVal = parseFloat(v);
-  if (!isNaN(numVal) && numVal > 0 && numVal < 100000) {
+  if (!isNaN(numVal) && Number.isInteger(numVal) && numVal > 30000 && numVal < 100000) {
     // Excel serial date: dagar sedan 1899-12-30
-    const excelEpoch = new Date(1899, 11, 30);
+    // Notering: Excel har en fel (tror 1900 är skottår) — justera för det
+    const excelEpoch = new Date(1900, 0, -1); // Jan 0, 1900 = Dec 30, 1899
     const date = new Date(excelEpoch.getTime() + numVal * 24 * 60 * 60 * 1000);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
