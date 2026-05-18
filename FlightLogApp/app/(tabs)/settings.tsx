@@ -361,14 +361,7 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* ── Byt loggbok (bara om det finns data i annat läge) ── */}
-      {hasOtherModeData && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <SwitchModeButton appMode={appMode} setAppMode={setAppMode} />
-        </View>
-      )}
-
-      {/* ── C. Loggbok ── */}
+{/* ── C. Loggbok ── */}
       <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
       <Card>
         {isPilot && <Row icon="book-outline" iconColor={Colors.primary} title={t('physical_logbooks')} subtitle={t('physical_logbooks_sub')} onClick={() => router.push('/settings/logbook-books')} />}
@@ -642,38 +635,6 @@ export default function SettingsScreen() {
 
 // ── Switch mode-knapp ──────────────────────────────────────────────────────
 
-function SwitchModeButton({ appMode, setAppMode }: { appMode: 'manned' | 'drone'; setAppMode: (m: 'manned' | 'drone') => Promise<void> }) {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const target: 'manned' | 'drone' = appMode === 'manned' ? 'drone' : 'manned';
-  const label = target === 'drone' ? t('switch_to_drone_logbook') : t('switch_to_manned_logbook');
-  const icon = target === 'drone' ? 'hardware-chip' : 'airplane';
-
-  const onPress = async () => {
-    await setAppMode(target);
-    const hasData = target === 'drone' ? (await getDroneFlightCount()) > 0 : (await getFlightCount()) > 0;
-    if (hasData) router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
-    else router.replace(target === 'drone' ? '/preview' : '/manned-preview');
-  };
-
-  return (
-    <View>
-      <TouchableOpacity
-        onPress={onPress} activeOpacity={0.85}
-        style={{
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-          backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16,
-          shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.35, shadowRadius: 10, elevation: 4,
-        }}
-      >
-        <Ionicons name={icon as any} size={20} color={Colors.textInverse} />
-        <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 }}>{label}</Text>
-        <Ionicons name="arrow-forward" size={16} color={Colors.textInverse} />
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 
