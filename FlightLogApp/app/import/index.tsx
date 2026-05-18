@@ -26,6 +26,7 @@ const SUPPORTED_FORMATS = [
   { name: 'APDL', icon: 'layers', ext: 'TXT' },
   { name: 'Eflightbook', icon: 'albums', ext: 'CSV' },
   { name: 'Generic CSV', icon: 'code', ext: 'CSV' },
+  { name: 'Excel', icon: 'grid', ext: 'XLSX/XLS' },
 ];
 
 function makeStyles() {

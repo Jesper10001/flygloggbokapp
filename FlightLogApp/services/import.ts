@@ -1,11 +1,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import type { OcrFlightResult } from '../types/flight';
+import * as XLSX from 'xlsx';
 
 import { callAnthropicJson } from './anthropicClient';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt
-const MAPPING_PROMPT = `Du är expert på flygloggboksformat (ForeFlight, LogTen Pro, MyFlightbook, mccPILOTLOG, APDL, Logbook Pro, Eflightbook, generisk CSV).
+const MAPPING_PROMPT = `Du är expert på flygloggboksformat (ForeFlight, LogTen Pro, MyFlightbook, mccPILOTLOG, APDL, Logbook Pro, Eflightbook, generisk CSV och Excel).
 
 Analysera headern OCH exempelraderna noggrant. Använd BÅDE kolumnnamnet OCH datamönstret i varje kolumn för att avgöra vad kolumnen innehåller. Returnera ENBART JSON:
 {
@@ -94,11 +95,53 @@ export interface ImportResult {
 
 export async function pickImportFile(): Promise<{ uri: string; name: string } | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['text/csv', 'text/plain', 'application/vnd.ms-excel', '*/*'],
+    type: ['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '*/*'],
     copyToCacheDirectory: true,
   });
   if (result.canceled || !result.assets?.[0]) return null;
   return { uri: result.assets[0].uri, name: result.assets[0].name ?? 'import' };
+}
+
+// ── Excel-stöd ───────────────────────────────────────────────────────────────
+
+async function readExcelAsCSV(fileUri: string): Promise<string> {
+  // Läs filen som binary data (base64)
+  const fileContent = await FileSystem.readAsStringAsync(fileUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  // Decode base64 till binary
+  const binaryString = atob(fileContent);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Parsa Excel-filen
+  const workbook = XLSX.read(bytes, { type: 'array' });
+
+  // Använd första arket
+  const worksheetName = workbook.SheetNames[0];
+  if (!worksheetName) {
+    throw new Error('Excel-filen innehåller inga ark.');
+  }
+
+  const worksheet = workbook.Sheets[worksheetName];
+  if (!worksheet) {
+    throw new Error('Kunde inte läsa Excel-arket.');
+  }
+
+  // Konvertera till CSV-format
+  const csv = XLSX.utils.sheet_to_csv(worksheet, {
+    blankrows: false,
+    defval: '',
+  });
+
+  if (!csv.trim()) {
+    throw new Error('Excel-arket verkar vara tomt.');
+  }
+
+  return csv;
 }
 
 // ── CSV-parsning ─────────────────────────────────────────────────────────────
@@ -356,12 +399,24 @@ export async function importFromFile(
 ): Promise<ImportResult> {
   onProgress?.(0, 3);
 
-  const content = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: 'utf8' as any,
-  });
+  // Detektera filtyp
+  const isExcel = fileUri.toLowerCase().endsWith('.xlsx') || fileUri.toLowerCase().endsWith('.xls');
+
+  let content: string;
+  try {
+    if (isExcel) {
+      content = await readExcelAsCSV(fileUri);
+    } else {
+      content = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: 'utf8' as any,
+      });
+    }
+  } catch (e: any) {
+    throw new Error(`Kunde inte läsa filen: ${e.message}`);
+  }
 
   if (!content?.trim()) {
-    throw new Error('Filen verkar vara tom. Kontrollera att det är en text/CSV-fil.');
+    throw new Error('Filen verkar vara tom. Kontrollera att det är en giltig CSV- eller Excel-fil.');
   }
 
   // Normalisera radslut och rensa BOM
