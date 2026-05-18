@@ -1904,6 +1904,15 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               } else if (key === 'vfr') {
                 set('ifr', String((total - parseFloat(val)).toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
+              } else if (key === 'night') {
+                // Om night är 100% av total_time, konvertera alla landningar till night landings
+                if (p >= 99.5) {
+                  const dayLandings = parseInt(form.landings_day) || 0;
+                  const nightLandings = parseInt(form.landings_night) || 0;
+                  const totalLandings = dayLandings + nightLandings;
+                  set('landings_day', '0');
+                  set('landings_night', String(totalLandings));
+                }
               } else if (key === 'nvg') {
                 const nvgN = parseFloat(val) || 0;
                 const nightN = parseFloat(form.night) || 0;
@@ -1942,6 +1951,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 const remain = Math.max(0, total - decimal);
                 set('ifr', String(remain.toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
+              } else if (key === 'night') {
+                // Om night är 100% av total_time, konvertera alla landningar till night landings
+                const pct = total > 0 ? (decimal / total) * 100 : 0;
+                if (pct >= 99.5) {
+                  const dayLandings = parseInt(form.landings_day) || 0;
+                  const nightLandings = parseInt(form.landings_night) || 0;
+                  const totalLandings = dayLandings + nightLandings;
+                  set('landings_day', '0');
+                  set('landings_night', String(totalLandings));
+                }
               } else if (key === 'nvg') {
                 const nightN = parseFloat(form.night) || 0;
                 if (decimal > nightN) {
