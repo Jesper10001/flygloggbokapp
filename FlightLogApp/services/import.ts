@@ -510,6 +510,40 @@ export async function importFromFile(
 
   onProgress?.(3, 3);
 
+  // ── Debug-loggar ────────────────────────────────────────────────────────────
+  console.log('');
+  console.log('═'.repeat(80));
+  console.log('📊 IMPORT DEBUG INFO');
+  console.log('═'.repeat(80));
+  console.log('');
+  console.log(`📋 Detected Format: ${detectedFormat}`);
+  console.log(`📄 File Type: ${isExcel ? 'Excel (.xlsx/.xls)' : 'CSV/TXT'}`);
+  console.log('');
+  console.log('🔍 Headers Detected:');
+  headers.forEach((h, i) => {
+    console.log(`  [${i}] ${h}`);
+  });
+  console.log('');
+  console.log('🔗 Column Mapping:');
+  Object.entries(colMap).forEach(([csvCol, internalField]) => {
+    const headerIdx = headers.indexOf(csvCol);
+    console.log(`  "${csvCol}" → ${internalField}${headerIdx >= 0 ? ` (column ${headerIdx})` : ''}`);
+  });
+  console.log('');
+  console.log(`📈 Data Summary:`);
+  console.log(`  Total Rows: ${dataLines.length}`);
+  console.log(`  Mapped Rows: ${flights.length}`);
+  console.log(`  Success Rate: ${dataLines.length > 0 ? ((flights.length / dataLines.length) * 100).toFixed(1) : 0}%`);
+  if (warnings.length > 0) {
+    console.log(`  Warnings: ${warnings.length}`);
+    warnings.forEach((w) => {
+      console.log(`    ⚠️  ${w}`);
+    });
+  }
+  console.log('');
+  console.log('═'.repeat(80));
+  console.log('');
+
   return {
     detectedFormat,
     totalRows: dataLines.length,
