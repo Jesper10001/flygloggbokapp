@@ -575,7 +575,6 @@ export default function AddFlightScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
-  const [isManualTotalTime, setIsManualTotalTime] = useState(false);
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -902,8 +901,7 @@ export default function AddFlightScreen() {
       if (key === 'dep_utc' || key === 'arr_utc') {
         const dep = key === 'dep_utc' ? val : prev.dep_utc;
         const arr = key === 'arr_utc' ? val : prev.arr_utc;
-        // Endast beräkna total_time automatiskt om det är inte manuellt angiven
-        if (!isManualTotalTime && isValidTime(dep) && isValidTime(arr)) {
+        if (isValidTime(dep) && isValidTime(arr)) {
           const tt = calcFlightTime(dep, arr);
           if (tt > 0) {
             next.total_time = String(tt);
@@ -914,7 +912,6 @@ export default function AddFlightScreen() {
       }
 
       if (key === 'total_time') {
-        setIsManualTotalTime(true);
         distribute(val);
         syncRules(val, next.flight_rules);
       }
