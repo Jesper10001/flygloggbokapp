@@ -5,8 +5,8 @@ import { useFlightStore } from './flightStore';
 // ── Kvoter per tier ─────────────────────────────────────────────────────────
 export const TIER_QUOTAS = {
   free:    { scan: 1,  flightImport: 0,   summarize: 0,  lookup: 10, import: 0 },
-  premium: { scan: 10, flightImport: 30,  summarize: 10, lookup: 20, import: 5 },
-  max:     { scan: 50, flightImport: 100, summarize: 20, lookup: 60, import: 5 },
+  premium: { scan: 10, flightImport: 30,  summarize: 10, lookup: 20, import: 100 },
+  max:     { scan: 50, flightImport: 100, summarize: 20, lookup: 60, import: 100 },
 } as const;
 
 // Bakåtkompatibla alias (används av befintlig kod)
