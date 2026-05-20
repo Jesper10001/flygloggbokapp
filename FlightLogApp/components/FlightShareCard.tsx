@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import * as VideoThumbnails from 'expo-video-thumbnails';
+import { Video, ResizeMode } from 'expo-av';
 import Svg, { Line, Circle, Path } from 'react-native-svg';
 import { getAirportCoordinates } from '../db/icao';
 import { getAircraftCruiseSpeed, getFlightNumberOfYear, getAllAircraftTypes } from '../db/flights';
@@ -34,12 +36,14 @@ interface Props {
 export function FlightShareCard({ flight, depName, arrName, visible, onClose, formatTime }: Props) {
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
+  const videoRef = useRef<any>(null);
   const [sharing, setSharing] = useState(false);
   const [depCoord, setDepCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [arrCoord, setArrCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [distanceNm, setDistanceNm] = useState(0);
   const [flightNum, setFlightNum] = useState(0);
   const [isHeli, setIsHeli] = useState(false);
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
 
   // Overlay pan + slider scale
   const panRef = useRef({ x: 0, y: 0 });
@@ -92,6 +96,21 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
 
   useEffect(() => {
     if (!visible) return;
+
+    // Generera thumbnail för video och starta uppspelning
+    if (flight.media_type === 'video' && flight.photo_uri) {
+      (async () => {
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(flight.photo_uri, { time: 0 });
+          setThumbnailUri(uri);
+        } catch (err) {
+          console.warn('Failed to generate video thumbnail:', err);
+        }
+      })();
+    } else {
+      setThumbnailUri(null);
+    }
+
     const codes = [flight.dep_place, flight.arr_place].filter(Boolean);
     if (codes.length) {
       getAirportCoordinates(codes).then(coords => {
@@ -113,15 +132,32 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         if (entry?.category === 'helicopter') setIsHeli(true);
       });
     }
-  }, [visible, flight.id, flight.date, flight.dep_place, flight.arr_place, flight.aircraft_type, flight.total_time]);
+  }, [visible, flight.id, flight.date, flight.dep_place, flight.arr_place, flight.aircraft_type, flight.total_time, flight.media_type, flight.photo_uri]);
+
+  // Kontrollera videouppspelning när modal öppnas/stängs
+  useEffect(() => {
+    if (visible && flight.media_type === 'video' && videoRef.current) {
+      setTimeout(() => {
+        videoRef.current?.play?.();
+      }, 50);
+    }
+  }, [visible, flight.media_type]);
 
   const handleShare = async () => {
-    if (!viewShotRef.current?.capture) return;
     setSharing(true);
     try {
-      const uri = await viewShotRef.current.capture();
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Dela flygning' });
+      // För video: dela videon direkt
+      if (f.media_type === 'video' && f.photo_uri) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Dela flygning' });
+        }
+      } else {
+        // För bild: fånga via ViewShot och dela som PNG
+        if (!viewShotRef.current?.capture) return;
+        const uri = await viewShotRef.current.capture();
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Dela flygning' });
+        }
       }
     } catch (e) {
       console.warn('Share failed', e);
@@ -147,15 +183,55 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const hasRoute = depCoord && arrCoord && (depCoord.lat !== arrCoord.lat || depCoord.lon !== arrCoord.lon);
   const routeSvg = hasRoute ? buildRouteSvg(depCoord!, arrCoord!, depName, arrName) : null;
 
+  // För video: visa och dela bara videon, ingen ViewShot/lager
+  if (f.media_type === 'video' && f.photo_uri) {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <Video
+            ref={videoRef}
+            source={{ uri: f.photo_uri }}
+            style={{ flex: 1 }}
+            resizeMode={ResizeMode.COVER}
+            isLooping
+            isMuted
+            shouldPlay
+            useNativeControls
+          />
+          <View style={{ position: 'absolute', top: insets.top + 12, right: 16, gap: 12, zIndex: 10 }}>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
+              disabled={sharing}
+            >
+              {sharing ? <ActivityIndicator color="#fff" /> : <Ionicons name="share-outline" size={20} color="#fff" />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // För bild: använd ViewShot med lager
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <View style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: 1080, height: 1440 }}>
             <View style={styles.card}>
-              {/* Static photo background */}
+              {/* Static photo/video background - använd thumbnail för video */}
               {f.photo_uri ? (
-                <Image source={{ uri: f.photo_uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <Image
+                  source={{ uri: f.media_type === 'video' ? (thumbnailUri || f.photo_uri) : f.photo_uri }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
               ) : (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0f1728' }]} />
               )}

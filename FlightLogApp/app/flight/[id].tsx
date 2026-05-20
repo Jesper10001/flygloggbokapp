@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, Image, Platform,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -135,7 +136,18 @@ export default function FlightDetailScreen() {
 
             {flight.photo_uri ? (
               <View style={{ borderRadius: 12, overflow: 'hidden' }}>
-                <Image source={{ uri: flight.photo_uri }} style={{ width: '100%', height: 220, borderRadius: 12 }} resizeMode="cover" />
+                {flight.media_type === 'video' ? (
+                  <Video
+                    source={{ uri: flight.photo_uri }}
+                    style={{ width: '100%', height: 220, borderRadius: 12 }}
+                    resizeMode={ResizeMode.COVER}
+                    isLooping
+                    isMuted
+                    shouldPlay
+                  />
+                ) : (
+                  <Image source={{ uri: flight.photo_uri }} style={{ width: '100%', height: 220, borderRadius: 12 }} resizeMode="cover" />
+                )}
               </View>
             ) : null}
 

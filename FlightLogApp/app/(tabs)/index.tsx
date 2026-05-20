@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
@@ -38,11 +39,11 @@ function computeStress(recent14: number, yearAvg14: number): StressData {
   const ratio = yearAvg14 > 0 ? recent14 / yearAvg14 : recent14 > 0 ? 2 : 0;
   const index = Math.round(ratio * 100);
   const zone: StressZone =
-    index <= 30 ? 'low' : index <= 60 ? 'light' : index <= 120 ? 'normal'
-    : index <= 160 ? 'elevated' : index <= 200 ? 'high' : 'critical';
+    index <= 29 ? 'low' : index <= 69 ? 'light' : index <= 130 ? 'normal'
+    : index <= 169 ? 'elevated' : index <= 200 ? 'high' : 'critical';
   const adviceMap: Record<StressZone, string> = {
     low: 'Low activity. Consider a refresher if returning to ops.',
-    light: 'Below average workload. Good time for training flights.',
+    light: 'Below average activity. Ideal time to refresh skills and techniques.',
     normal: 'Balanced workload. Maintaining currency well.',
     elevated: 'Above average. Ensure adequate rest between flights.',
     high: 'High workload. Monitor fatigue and plan recovery days.',
@@ -323,12 +324,36 @@ const SAMPLE_CARDS = [
   { id: 's3', image: require('../../assets/sample-photos/sample3.jpg'), dep: 'LOWI', arr: 'LSZH', date: '2026.01.22', ac: 'EC135', time: '0:48' },
 ];
 
-function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress }: {
-  imageSource: any; dep: string; arr: string; meta: string; cardW: number; onPress?: () => void;
+function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress, mediaType = 'image' }: {
+  imageSource: any; dep: string; arr: string; meta: string; cardW: number; onPress?: () => void; mediaType?: 'image' | 'video';
 }) {
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mediaType === 'video' && imageSource?.uri) {
+      (async () => {
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(imageSource.uri, { time: 0 });
+          setThumbnailUri(uri);
+        } catch (err) {
+          console.warn('Failed to generate thumbnail:', err);
+        }
+      })();
+    }
+  }, [mediaType, imageSource?.uri]);
+
+  const displaySource = mediaType === 'video' && thumbnailUri ? { uri: thumbnailUri } : imageSource;
+
   return (
     <TouchableOpacity style={{ width: cardW, height: cardW * 0.65, borderRadius: 14, overflow: 'hidden' }} onPress={onPress} activeOpacity={0.9} disabled={!onPress}>
-      <Image source={imageSource} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      <Image source={displaySource} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      {mediaType === 'video' && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="play" size={24} color="#000" />
+          </View>
+        </View>
+      )}
       <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <View style={{ alignItems: 'center' }}>
@@ -400,6 +425,7 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
                 meta={`${formatDate(f.date)} · ${f.aircraft_type} · ${formatTime(f.total_time)}h`}
                 cardW={CARD_W}
                 onPress={() => onPress(f)}
+                mediaType={f.media_type === 'video' ? 'video' : 'image'}
               />
             );
           }
@@ -548,7 +574,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     needleAnim.setValue(0);
     Animated.timing(needleAnim, {
-      toValue: Math.min((stress.index / 240) * 100, 100),
+      toValue: Math.min((stress.index / 200) * 100, 100),
       duration: 1400,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
@@ -590,7 +616,7 @@ export default function DashboardScreen() {
 
   const greetingStyle = useMemo(() => ({
     ...s.hudGreeting,
-    color: (tier === 'premium' || tier === 'max') ? Colors.gold : Colors.textPrimary,
+    color: tier === 'max' ? Colors.silver : (tier === 'premium' ? Colors.gold : Colors.textPrimary),
   }), [tier]);
 
   if (mode !== 'manned') return <View style={s.container} />;
@@ -655,11 +681,11 @@ export default function DashboardScreen() {
         <View style={s.telGaugeTrack}>
           {(() => {
             const zones = [
-              { max: 40, c: Colors.info },
-              { max: 70, c: Colors.primary },
-              { max: 140, c: Colors.success },
-              { max: 195, c: Colors.warning },
-              { max: 240, c: Colors.danger },
+              { max: 29, c: '#6B7280' },
+              { max: 69, c: Colors.primary },
+              { max: 130, c: Colors.success },
+              { max: 169, c: Colors.warning },
+              { max: 200, c: Colors.danger },
             ];
             const activeIdx = zones.findIndex((z, i) => {
               const from = i === 0 ? 0 : zones[i - 1].max;
@@ -671,11 +697,23 @@ export default function DashboardScreen() {
             return zones.map((z, i) => {
               const from = i === 0 ? 0 : zones[i - 1].max;
               const isActive = stress.index >= from && stress.index < z.max || (i === zones.length - 1 && stress.index >= from);
-              return <View key={i} style={{ flex: z.max - from, backgroundColor: z.c, opacity: isActive ? 0.75 : 0.2 }} />;
+              return (
+                <View
+                  key={i}
+                  style={{
+                    flex: z.max - from,
+                    backgroundColor: z.c,
+                    opacity: isActive ? 0.75 : 0.08,
+                    ...(isActive && {
+                      borderRadius: 5,
+                    }),
+                  }}
+                />
+              );
             });
           })()}
           <View style={{
-            position: 'absolute', left: `${(100 / 240) * 100}%`, top: -2, bottom: -2,
+            position: 'absolute', left: `${(100 / 200) * 100}%`, top: -2, bottom: -2,
             width: 1.5, backgroundColor: Colors.textPrimary, opacity: 0.4,
           }} />
           <Animated.View style={{
