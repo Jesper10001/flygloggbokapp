@@ -195,6 +195,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
             resizeMode="cover"
             isLooping
             isMuted
+            shouldPlay
           />
           <View style={{ position: 'absolute', top: insets.top + 12, right: 16, gap: 12, zIndex: 10 }}>
             <TouchableOpacity

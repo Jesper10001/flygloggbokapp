@@ -143,6 +143,7 @@ export default function FlightDetailScreen() {
                     resizeMode="cover"
                     isLooping
                     isMuted
+                    shouldPlay
                   />
                 ) : (
                   <Image source={{ uri: flight.photo_uri }} style={{ width: '100%', height: 220, borderRadius: 12 }} resizeMode="cover" />
