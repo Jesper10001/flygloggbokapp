@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
 import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
-import { setSetting, getSetting } from '../db/flights';
+import { setSetting, getSetting, getFlightCount } from '../db/flights';
 
 type Step = 'welcome' | 'role' | 'subrole' | 'timeformat' | 'profile';
 
@@ -97,7 +97,39 @@ export default function OnboardingScreen() {
       const profile: Profile = { mainRole: mainRole!, subRole: sub };
 
       if (isAddMode) {
-        // Adding additional logbook - store in list, don't change current
+        // Adding additional logbook - check data compatibility
+        const currentProfile = useProfileStore.getState().profile;
+        const flightCount = await getFlightCount();
+
+        // If there's existing flight data, check compatibility
+        if (flightCount > 0 && currentProfile) {
+          const sameMainRole = mainRole === currentProfile.mainRole;
+          const isDifferentRole = !sameMainRole;
+
+          if (isDifferentRole) {
+            // Different main role with flight data - show warning
+            return Alert.alert(
+              'Incompatible logbook type',
+              `You have ${flightCount} flights logged as ${currentProfile.mainRole === 'pilot-manned' ? 'Pilot (Manned)' : currentProfile.mainRole === 'operator' ? 'Operator' : 'Drone Pilot'}. These cannot be transferred to ${mainRole === 'pilot-manned' ? 'Pilot (Manned)' : mainRole === 'operator' ? 'Operator' : 'Drone Pilot'} logbook.\n\nCreate a new logbook anyway?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Create anyway',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const additionalJson = await getSetting('additional_profiles');
+                    const additional = additionalJson ? JSON.parse(additionalJson) : [];
+                    additional.push(profile);
+                    await setSetting('additional_profiles', JSON.stringify(additional));
+                    router.replace('/(tabs)/settings');
+                  },
+                },
+              ]
+            );
+          }
+        }
+
+        // Same main role or no existing data - proceed normally
         const additionalJson = await getSetting('additional_profiles');
         const additional = additionalJson ? JSON.parse(additionalJson) : [];
         additional.push(profile);

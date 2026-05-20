@@ -126,7 +126,11 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   canScan: () => get().totalRemaining() > 0,
-  canLookup: () => get().lookupRemaining() > 0,
+  canLookup: () => {
+    const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
+    if (tier === 'premium' || tier === 'max') return true;
+    return get().lookupRemaining() > 0;
+  },
   canSummarize: () => get().summarizeRemaining() > 0,
   canImport: () => {
     // Bypass quota check if premium (developer mode)

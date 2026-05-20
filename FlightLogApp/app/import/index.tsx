@@ -303,6 +303,7 @@ export default function ImportScreen() {
   const [engineInputs, setEngineInputs] = useState<Record<string, 'se' | 'me' | ''>>({});
   const [aiFilledByType, setAiFilledByType] = useState<Record<string, Set<string>>>({});
   const [aiLoadingTypes, setAiLoadingTypes] = useState<Set<string>>(new Set());
+  const [aiFailedTypes, setAiFailedTypes] = useState<Set<string>>(new Set());
   const lookedUpTypesRef = useRef<Set<string>>(new Set());
 
   // Auto-lookup via AI så fort en ny fartygstyp visas — fyller tomma fält
@@ -311,9 +312,23 @@ export default function ImportScreen() {
       if (!type || lookedUpTypesRef.current.has(type)) return;
       lookedUpTypesRef.current.add(type);
       setAiLoadingTypes((prev) => new Set(prev).add(type));
+
+      // Timeout på 10 sekunder för AI-lookup
+      const timeoutId = setTimeout(() => {
+        console.warn(`Aircraft lookup timeout for ${type}`);
+        setAiLoadingTypes((prev) => {
+          const n = new Set(prev); n.delete(type); return n;
+        });
+        setAiFailedTypes((prev) => new Set(prev).add(type));
+      }, 10000);
+
       lookupAircraft(type)
         .then((r) => {
-          if (r.needs_manual || !r.aircraft_type) return;
+          clearTimeout(timeoutId);
+          if (r.needs_manual || !r.aircraft_type) {
+            setAiFailedTypes((prev) => new Set(prev).add(type));
+            return;
+          }
           const filled = new Set<string>();
           if (!hasSpeed && r.cruise_speed_kts > 0) {
             setSpeedInputs((prev) => (prev[type] ? prev : { ...prev, [type]: String(r.cruise_speed_kts) }));
@@ -342,7 +357,11 @@ export default function ImportScreen() {
             setAiFilledByType((prev) => ({ ...prev, [type]: filled }));
           }
         })
-        .catch(() => { /* tyst vid fel — användaren kan fylla manuellt */ })
+        .catch((err) => {
+          clearTimeout(timeoutId);
+          console.warn(`Aircraft lookup failed for ${type}:`, err);
+          setAiFailedTypes((prev) => new Set(prev).add(type));
+        })
         .finally(() => {
           setAiLoadingTypes((prev) => {
             const n = new Set(prev); n.delete(type); return n;
@@ -656,12 +675,14 @@ export default function ImportScreen() {
                 const aiStyle = { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' } as const;
                 const aiBtn = { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' } as const;
                 const loading = aiLoadingTypes.has(type);
+                const failed = aiFailedTypes.has(type);
                 return (
                   <View key={type} style={styles.typeBlock}>
                     <View style={styles.speedRow}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
                         <Text style={styles.speedType}>{type}</Text>
                         {loading && <ActivityIndicator size="small" color={Colors.primary} />}
+                        {failed && <Ionicons name="alert-circle" size={14} color={Colors.textMuted} />}
                       </View>
                       <RNTextInput
                         style={[

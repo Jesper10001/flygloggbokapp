@@ -107,17 +107,33 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
     headers['anthropic-version'] = ANTHROPIC_VERSION;
   }
 
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: opts.model ?? 'claude-sonnet-4-6',
-      max_tokens: opts.maxTokens,
-      temperature: opts.temperature ?? 0,
-      system: systemBlocks,
-      messages: [{ role: 'user', content: userContent }],
-    }),
-  });
+  // Timeout på 30 sekunder för API-anrop
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 30000);
+
+  let response;
+  try {
+    response = await fetch(API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: opts.model ?? 'claude-sonnet-4-6',
+        max_tokens: opts.maxTokens,
+        temperature: opts.temperature ?? 0,
+        system: systemBlocks,
+        messages: [{ role: 'user', content: userContent }],
+      }),
+      signal: abortController.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('API-anrop timeout (30s). Kontrollera din internetuppkoppling.');
+    }
+    throw err;
+  }
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const errText = await response.text();

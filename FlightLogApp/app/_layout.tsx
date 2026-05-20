@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
-import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Font from 'expo-font';
 import { getDatabase } from '../db/database';
 import { seedIcaoAirports } from '../db/icao';
 import { getSetting } from '../db/flights';
@@ -24,6 +25,7 @@ import { ToastHost } from '../components/Toast';
 
 export default function RootLayout() {
   const router = useRouter();
+  const [fontsLoaded, setFontsLoaded] = useState(false);
   const { loadLanguage } = useLanguageStore();
   const { loadTimeFormat } = useTimeFormatStore();
   const { loadTheme, theme } = useThemeStore();
@@ -36,6 +38,16 @@ export default function RootLayout() {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { /* ignore */ });
     const init = async () => {
       try {
+        // Load Fraunces font from Google Fonts
+        try {
+          await Font.loadAsync({
+            'Fraunces': 'https://fonts.gstatic.com/s/fraunces/v30/6Au-c7NJY0n-FViGN8eWJ3HLUXf_RBM4s2n5A.ttf',
+          });
+        } catch (fontErr) {
+          console.warn('Font loading failed, continuing without custom font:', fontErr);
+        }
+        setFontsLoaded(true);
+
         await getDatabase();
         const { isPremium } = useFlightStore.getState();
         await seedIcaoAirports(isPremium);

@@ -521,8 +521,6 @@ export default function DashboardScreen() {
   const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier } = useFlightStore();
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
-  const [xcMapVisible, setXcMapVisible] = useState(false);
-  const [weekMapVisible, setWeekMapVisible] = useState(false);
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [refreshKey, setRefreshKey] = useState(0);
   const needleAnim = useRef(new Animated.Value(0)).current;
@@ -530,6 +528,8 @@ export default function DashboardScreen() {
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
+  const [xcMapVisible, setXcMapVisible] = useState(false);
+  const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
 
   useEffect(() => {

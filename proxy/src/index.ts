@@ -82,6 +82,11 @@ async function checkAndIncrementQuota(
   const limit = limits[reqType];
   if (!limit) return { allowed: true, used: 0, limit: 0 };
 
+  // Bypass quota check for premium/max users on lookup (development)
+  if ((tier === 'premium' || tier === 'max') && reqType === 'lookup') {
+    return { allowed: true, used: 0, limit };
+  }
+
   const month = currentMonth();
   const key = `quota:${deviceHash}:${month}:${reqType}`;
   const current = parseInt(await kv.get(key) ?? '0', 10);
