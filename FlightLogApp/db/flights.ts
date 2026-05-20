@@ -538,9 +538,10 @@ export async function getFlightStats(): Promise<FlightStats> {
     date: string; total_time: number; last_id: number;
     dep_place: string; arr_place: string;
     dep_lat: number; dep_lon: number; arr_lat: number; arr_lon: number;
+    dep_utc: string; arr_utc: string;
   }>(
     `SELECT f.date, f.total_time, f.id as last_id,
-            f.dep_place, f.arr_place,
+            f.dep_place, f.arr_place, f.dep_utc, f.arr_utc,
             dep_ap.lat as dep_lat, dep_ap.lon as dep_lon,
             arr_ap.lat as arr_lat, arr_ap.lon as arr_lon
      FROM flights f
@@ -555,7 +556,7 @@ export async function getFlightStats(): Promise<FlightStats> {
   );
 
   // Gruppera ben per datum och beräkna total distans (NM) per dag
-  const dayMap = new Map<string, { totalTime: number; totalNm: number; lastId: number; firstDep: string; lastArr: string }>();
+  const dayMap = new Map<string, { totalTime: number; totalNm: number; lastId: number; firstDep: string; lastArr: string; firstDepUtc: string; lastArrUtc: string }>();
   for (const leg of allXcLegs) {
     const nm = haversineKm(leg.dep_lat, leg.dep_lon, leg.arr_lat, leg.arr_lon) / 1.852;
     const existing = dayMap.get(leg.date);
@@ -564,6 +565,7 @@ export async function getFlightStats(): Promise<FlightStats> {
       existing.totalNm += nm;
       existing.lastId = Math.max(existing.lastId, leg.last_id);
       existing.lastArr = leg.arr_place;
+      existing.lastArrUtc = leg.arr_utc;
     } else {
       dayMap.set(leg.date, {
         totalTime: leg.total_time,
@@ -571,6 +573,8 @@ export async function getFlightStats(): Promise<FlightStats> {
         lastId: leg.last_id,
         firstDep: leg.dep_place,
         lastArr: leg.arr_place,
+        firstDepUtc: leg.dep_utc,
+        lastArrUtc: leg.arr_utc,
       });
     }
   }
@@ -593,10 +597,62 @@ export async function getFlightStats(): Promise<FlightStats> {
       xcLastArr = day.lastArr;
     }
   }
+
+  // Sök efter anslutande flygningar inom 3 timmar före eller efter längsta dagen
+  if (longestDate && dayMap.has(longestDate)) {
+    const longestDay = dayMap.get(longestDate)!;
+
+    // Konvertera UTC-tid till minuter för enklare jämförelse
+    const parseTime = (timeStr: string): number => {
+      if (!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    const firstDepMin = parseTime(longestDay.firstDepUtc);
+    const lastArrMin = parseTime(longestDay.lastArrUtc);
+    const THREE_HOURS_MIN = 180;
+
+    // Lägg till flygningar från dagen före som landar nära första flygningen
+    const prevDate = new Date(longestDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = prevDate.toISOString().split('T')[0];
+
+    if (dayMap.has(prevDateStr)) {
+      const prevDay = dayMap.get(prevDateStr)!;
+      const prevArrMin = parseTime(prevDay.lastArrUtc);
+      // Om landning dagen innan var inom 3 timmar före första flygningen nästa dag
+      const timeUntilNext = firstDepMin + 1440 - prevArrMin; // 1440 = minuter per dag
+      if (timeUntilNext >= 0 && timeUntilNext <= THREE_HOURS_MIN) {
+        xcKm += prevDay.totalNm;
+        longestDayTotal += prevDay.totalTime;
+        xcFirstDep = prevDay.firstDep; // Börja från dagen innan
+      }
+    }
+
+    // Lägg till flygningar från dagen efter som startar nära sista flygningen
+    const nextDate = new Date(longestDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDateStr = nextDate.toISOString().split('T')[0];
+
+    if (dayMap.has(nextDateStr)) {
+      const nextDay = dayMap.get(nextDateStr)!;
+      const nextDepMin = parseTime(nextDay.firstDepUtc);
+      // Om start dagen efter var inom 3 timmar efter landing samma dag
+      const timeAfterLanding = nextDepMin + 1440 - lastArrMin; // 1440 = minuter per dag
+      if (timeAfterLanding >= 0 && timeAfterLanding <= THREE_HOURS_MIN) {
+        xcKm += nextDay.totalNm;
+        longestDayTotal += nextDay.totalTime;
+        xcLastArr = nextDay.lastArr; // Sluta på dagen efter
+      }
+    }
+  }
+
   xcKm = Math.round(xcKm);
 
   // Skapa ett "longest"-objekt för nedanstående return-sats
   const longest = longestDate ? { date: longestDate, day_total: longestDayTotal, last_id: longestLastId } : null;
+  // day_total kan innehålla anslutande flygningar, därför uppdaterar vi det
 
   // Formatera veckoetiketten "v.12 · 2024"
   let bestWeekLabel = '';
