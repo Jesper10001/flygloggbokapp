@@ -9,6 +9,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { lookupAircraft } from '../services/aircraftLookup';
 import { useFlightStore } from '../store/flightStore';
 import { useScanQuotaStore } from '../store/scanQuotaStore';
+import { PremiumModal } from './PremiumModal';
 
 type CrewKey = 'sp' | 'mp';
 type Category = 'airplane' | 'helicopter' | '';
@@ -104,12 +105,13 @@ export function AircraftModal({
   const [engineType, setEngineType] = useState<EngineType>('');
   const [saving, setSaving] = useState(false);
   const [looking, setLooking] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const { isPremium } = useFlightStore();
   const [lookupInfo, setLookupInfo] = useState<{ manufacturer: string; model: string } | null>(null);
 
   const handleSmartLookup = async () => {
     if (!isPremium) {
-      Alert.alert(t('premium_modal_title'), t('premium_modal_desc'));
+      setShowPremiumModal(true);
       return;
     }
     const { canLookup, consumeLookup } = useScanQuotaStore.getState();
@@ -350,6 +352,7 @@ export function AircraftModal({
           </View>
         </View>
       </KeyboardAvoidingView>
+      <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={t('aircraft_lookup_btn')} />
     </Modal>
   );
 }
