@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { VideoView } from 'expo-video';
+import { Video, ResizeMode } from 'expo-av';
 import Svg, { Line, Circle, Path } from 'react-native-svg';
 import { getAirportCoordinates } from '../db/icao';
 import { getAircraftCruiseSpeed, getFlightNumberOfYear, getAllAircraftTypes } from '../db/flights';
@@ -188,11 +188,11 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <VideoView
+          <Video
             ref={videoRef}
             source={{ uri: f.photo_uri }}
             style={{ flex: 1 }}
-            resizeMode="cover"
+            resizeMode={ResizeMode.COVER}
             isLooping
             isMuted
             shouldPlay
