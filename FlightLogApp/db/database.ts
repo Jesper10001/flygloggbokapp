@@ -227,6 +227,8 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
 
   // Foto kopplat till flygpass
   await addColumnIfMissing(db, 'photo_uri', `TEXT NOT NULL DEFAULT ''`);
+  // Mediatyp: 'image' eller 'video' (default 'image' för bakåtkompatibilitet)
+  await addColumnIfMissing(db, 'media_type', `TEXT NOT NULL DEFAULT 'image'`);
   // Max flight level (IFR/Y/Z flights)
   await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
 

@@ -23,13 +23,6 @@ function makeStyles() {
     emptyText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
     emptySubtext: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center' },
 
-    notice: {
-      flexDirection: 'row', gap: 6, alignItems: 'center',
-      backgroundColor: Colors.card, padding: 10,
-      borderBottomWidth: 1, borderBottomColor: Colors.border,
-    },
-    noticeText: { color: Colors.textMuted, fontSize: 12, flex: 1 },
-
     row: {
       backgroundColor: Colors.card, borderRadius: 10, padding: 12,
       borderWidth: 1, borderColor: Colors.cardBorder, gap: 6,
@@ -78,11 +71,6 @@ export default function AuditLogScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.notice}>
-        <Ionicons name="lock-closed" size={14} color={Colors.textMuted} />
-        <Text style={styles.noticeText}>{t('change_log_notice')}</Text>
-      </View>
-
       <FlatList
         data={entries}
         keyExtractor={(item) => String(item.id)}

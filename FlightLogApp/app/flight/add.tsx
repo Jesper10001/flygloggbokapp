@@ -573,6 +573,7 @@ export default function AddFlightScreen() {
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
   const [editingTotalTime, setEditingTotalTime] = useState(false);
@@ -622,6 +623,7 @@ export default function AddFlightScreen() {
         photo_uri: f.photo_uri ?? '',
       });
       if (f.photo_uri) setPhotoUri(f.photo_uri);
+      if (f.media_type === 'video') setMediaType('video');
       if (f.pic > 0) setRole('pic');
       else if (f.co_pilot > 0) setRole('co_pilot');
       else if (f.dual > 0) setRole('dual');
@@ -1009,27 +1011,33 @@ export default function AddFlightScreen() {
     else handleRoleChange('picus');
   };
 
-  const pickPhoto = async () => {
+  const pickMedia = async (type: 'image' | 'video') => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: type === 'video' ? ['videos'] : ['images'],
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  };
+      const asset = result.assets[0];
 
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(t('permission_required'), 'Kameratillstånd krävs');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 1,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      // Validera videostorlek
+      if (type === 'video') {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          const sizeInMB = (fileInfo.size ?? 0) / (1024 * 1024);
+          if (sizeInMB > 80) {
+            Alert.alert(
+              'Videon är för stor',
+              `Maximal filstorlek är 80 MB (din video är ${sizeInMB.toFixed(1)} MB).`
+            );
+            return;
+          }
+        } catch (err) {
+          console.warn('Failed to check video size:', err);
+        }
+      }
+
+      setMediaType(type);
+      setPhotoUri(asset.uri);
     }
   };
 
@@ -1141,7 +1149,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       setTimeout(() => importFromImage(), 500);
     }
     if (addPhoto === '1') {
-      setTimeout(() => pickPhoto(), 500);
+      setTimeout(() => pickMedia('image'), 500);
     }
   }, [aiImport, addPhoto]);
 
@@ -1161,15 +1169,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
       let savedPhotoUri = photoUri ?? '';
       if (photoUri && !photoUri.startsWith(FileSystem.documentDirectory ?? '___')) {
-        const dir = FileSystem.documentDirectory + 'flight_photos/';
+        const folderName = mediaType === 'video' ? 'flight_videos' : 'flight_photos';
+        const dir = FileSystem.documentDirectory + folderName + '/';
         await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {});
-        const ext = photoUri.split('.').pop() || 'jpg';
+        const ext = photoUri.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'jpg');
         const filename = `${Date.now()}.${ext}`;
         savedPhotoUri = dir + filename;
         await FileSystem.copyAsync({ from: photoUri, to: savedPhotoUri });
       }
 
-      const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri };
+      const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri, media_type: mediaType };
 
       if (isEdit) {
         await updateFlight(Number(editId), finalData);
@@ -2265,18 +2274,25 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           );
         })()}
 
-        {/* ── Foto ── */}
+        {/* ── Media (Bild eller Video) ── */}
         <View style={{ marginTop: 4 }}>
           {photoUri ? (
             <View style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
-              <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
+              {mediaType === 'video' ? (
+                <View style={{ width: '100%', height: 180, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="videocam" size={48} color={Colors.primary} />
+                  <Text style={{ color: Colors.textSecondary, marginTop: 8, fontSize: 12 }}>Video valt</Text>
+                </View>
+              ) : (
+                <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
+              )}
               <TouchableOpacity
                 style={{
                   position: 'absolute', top: 8, right: 8,
                   width: 28, height: 28, borderRadius: 14,
                   backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
                 }}
-                onPress={() => setPhotoUri(null)}
+                onPress={() => { setPhotoUri(null); setMediaType('image'); }}
               >
                 <Ionicons name="close" size={16} color="#fff" />
               </TouchableOpacity>
@@ -2289,11 +2305,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   paddingVertical: 12, borderRadius: 10,
                   backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
                 }}
-                onPress={pickPhoto}
+                onPress={() => pickMedia('image')}
                 activeOpacity={0.75}
               >
                 <Ionicons name="image-outline" size={16} color={Colors.textMuted} />
-                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{t('add_photo')}</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>Bild</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -2301,11 +2317,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   paddingVertical: 12, borderRadius: 10,
                   backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
                 }}
-                onPress={takePhoto}
+                onPress={() => pickMedia('video')}
                 activeOpacity={0.75}
               >
-                <Ionicons name="camera-outline" size={16} color={Colors.textMuted} />
-                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{t('take_photo')}</Text>
+                <Ionicons name="videocam-outline" size={16} color={Colors.textMuted} />
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>Video</Text>
               </TouchableOpacity>
             </View>
           )}

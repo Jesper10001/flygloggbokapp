@@ -156,6 +156,12 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
         <View style={styles.flightRouteRow}>
           <Text style={styles.flightRoute}>{placeNames?.[f.dep_place?.toUpperCase()] ?? f.dep_place}</Text>
           <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
+          {f.stop_place && (f.flight_type === 'hot_refuel' || f.flight_type === 'touch_and_go') ? (
+            <>
+              <Text style={styles.flightRoute}>{placeNames?.[f.stop_place?.toUpperCase()] ?? f.stop_place}</Text>
+              <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
+            </>
+          ) : null}
           <Text style={styles.flightRoute}>{placeNames?.[f.arr_place?.toUpperCase()] ?? f.arr_place}</Text>
           {(isFlagged || needsReview) && (
             <Text style={{ fontSize: 13, marginLeft: 2 }}>⚠️</Text>

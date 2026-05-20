@@ -45,8 +45,8 @@ export async function insertFlight(
       flight_rules, second_pilot, nvg, tng_count, flight_type,
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
-      se_time, me_time, stop_place, photo_uri, max_fl
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      se_time, me_time, stop_place, photo_uri, media_type, max_fl
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -88,6 +88,7 @@ export async function insertFlight(
       meTime,
       (data.stop_place ?? '').toUpperCase(),
       data.photo_uri ?? '',
+      data.media_type ?? 'image',
       parseInt(data.max_fl ?? '0') || 0,
     ]
   );
@@ -148,7 +149,7 @@ export async function updateFlight(
       flight_rules=?, second_pilot=?, nvg=?, tng_count=?, flight_type=?,
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
-      se_time=?, me_time=?, stop_place=?, photo_uri=?, max_fl=?,
+      se_time=?, me_time=?, stop_place=?, photo_uri=?, media_type=?, max_fl=?,
       status=CASE WHEN status IN ('scanned','flagged') THEN 'verified' ELSE status END
     WHERE id=?`,
     [
@@ -185,6 +186,7 @@ export async function updateFlight(
       meTime,
       (data.stop_place ?? '').toUpperCase(),
       data.photo_uri ?? '',
+      data.media_type ?? 'image',
       parseInt(data.max_fl ?? '0') || 0,
       id,
     ]

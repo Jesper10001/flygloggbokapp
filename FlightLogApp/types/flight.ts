@@ -44,7 +44,9 @@ export interface Flight {
   se_time: number;
   me_time: number;
   photo_uri: string;
+  media_type: 'image' | 'video' | '';
   max_fl: number;
+  stop_place?: string;
 }
 
 export interface FlightFormData {
@@ -83,6 +85,7 @@ export interface FlightFormData {
   sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | 'CPT_PPT' | 'CBT' | '';
   vfr?: string;
   photo_uri?: string;
+  media_type?: 'image' | 'video' | '';
   max_fl?: string;
 }
 

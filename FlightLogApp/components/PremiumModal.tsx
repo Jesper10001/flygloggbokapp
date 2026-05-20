@@ -61,6 +61,7 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
   const handleExplore = () => {
     onClose();
+    router.push('/settings/premium');
   };
 
   return (

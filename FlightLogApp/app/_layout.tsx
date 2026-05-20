@@ -127,6 +127,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
         <Stack.Screen name="settings/scan-profile" options={{ title: 'Scan Profile' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export' }} />
+        <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />

@@ -66,14 +66,12 @@ function needsTimeFormat(mainRole: MainRole): boolean {
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ addMode?: string }>();
-  const isAddMode = params.addMode === 'true';
   const { setLanguage } = useLanguageStore();
   const { setTimeFormat } = useTimeFormatStore();
   const { setMode } = useAppModeStore();
   const { setProfile } = useProfileStore();
 
-  const [step, setStep] = useState<Step>(isAddMode ? 'role' : 'welcome');
+  const [step, setStep] = useState<Step>('welcome');
   const [lang, setLang] = useState<'en' | 'sv'>('en');
   const [format, setFormat] = useState<TimeFormat>('hhmm');
   const [mainRole, setMainRole] = useState<MainRole | null>(null);
@@ -96,73 +94,31 @@ export default function OnboardingScreen() {
     try {
       const profile: Profile = { mainRole: mainRole!, subRole: sub };
 
-      if (isAddMode) {
-        // Adding additional logbook - check data compatibility
-        const currentProfile = useProfileStore.getState().profile;
-        const flightCount = await getFlightCount();
-
-        // If there's existing flight data, check compatibility
-        if (flightCount > 0 && currentProfile) {
-          const sameMainRole = mainRole === currentProfile.mainRole;
-          const isDifferentRole = !sameMainRole;
-
-          if (isDifferentRole) {
-            // Different main role with flight data - show warning
-            return Alert.alert(
-              'Incompatible logbook type',
-              `You have ${flightCount} flights logged as ${currentProfile.mainRole === 'pilot-manned' ? 'Pilot (Manned)' : currentProfile.mainRole === 'operator' ? 'Operator' : 'Drone Pilot'}. These cannot be transferred to ${mainRole === 'pilot-manned' ? 'Pilot (Manned)' : mainRole === 'operator' ? 'Operator' : 'Drone Pilot'} logbook.\n\nCreate a new logbook anyway?`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Create anyway',
-                  style: 'destructive',
-                  onPress: async () => {
-                    const additionalJson = await getSetting('additional_profiles');
-                    const additional = additionalJson ? JSON.parse(additionalJson) : [];
-                    additional.push(profile);
-                    await setSetting('additional_profiles', JSON.stringify(additional));
-                    router.replace('/(tabs)/settings');
-                  },
-                },
-              ]
-            );
-          }
-        }
-
-        // Same main role or no existing data - proceed normally
-        const additionalJson = await getSetting('additional_profiles');
-        const additional = additionalJson ? JSON.parse(additionalJson) : [];
-        additional.push(profile);
-        await setSetting('additional_profiles', JSON.stringify(additional));
-        // Go back to settings
-        router.replace('/(tabs)/settings');
+      // Initial setup - set as primary profile
+      await setLanguage(lang);
+      if (needsTimeFormat(mainRole!)) {
+        await setTimeFormat(format);
       } else {
-        // Initial setup - set as primary profile
-        await setLanguage(lang);
-        if (needsTimeFormat(mainRole!)) {
-          await setTimeFormat(format);
-        } else {
-          await setTimeFormat('hhmm');
-        }
-        await setProfile(profile);
-        // Save profile data
-        await setSetting('profile_first_name', firstName);
-        await setSetting('profile_last_name', lastName);
-        await setSetting('profile_initials', initials);
-        await setSetting('profile_credentials', credentials);
-        const target = targetForProfile(profile);
-        await setMode(target);
-        // Set onboarded FIRST before navigating
-        await setSetting('has_onboarded', '1');
-        // Give a small delay to ensure setting is persisted
-        await new Promise(r => setTimeout(r, 100));
-        // Navigate to the correct tab
-        router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
+        await setTimeFormat('hhmm');
       }
+      await setProfile(profile);
+      // Save profile data
+      await setSetting('profile_first_name', firstName);
+      await setSetting('profile_last_name', lastName);
+      await setSetting('profile_initials', initials);
+      await setSetting('profile_credentials', credentials);
+      const target = targetForProfile(profile);
+      await setMode(target);
+      // Set onboarded FIRST before navigating
+      await setSetting('has_onboarded', '1');
+      // Give a small delay to ensure setting is persisted
+      await new Promise(r => setTimeout(r, 100));
+      // Navigate to the correct tab
+      router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
     } catch (e: any) {
       console.error('Onboarding error:', e);
-      // Fallback: navigate to home tabs or settings
-      router.replace(isAddMode ? '/(tabs)/settings' : '/(tabs)');
+      // Fallback: navigate to home tabs
+      router.replace('/(tabs)');
     }
   };
 

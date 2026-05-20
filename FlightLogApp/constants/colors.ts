@@ -32,6 +32,7 @@ const NavyColors = {
 
   gold: '#FFB830',
   goldLight: '#FFD080',
+  silver: '#B5C8D8',
 
   tabIconDefault: '#3A5A7A',
   tabIconActive: '#00C8E8',
@@ -68,6 +69,7 @@ const BrightColors = {
 
   gold: '#4A7C59',
   goldLight: '#6A9B72',
+  silver: '#B5C8D8',
 
   tabIconDefault: '#8A8170',
   tabIconActive: '#C9522C',
@@ -107,6 +109,7 @@ const DroneIndustrialColors = {
 
   gold: '#FFC857',
   goldLight: '#FFE09A',
+  silver: '#B5C8D8',
 
   tabIconDefault: '#5A6270',
   tabIconActive: '#FF8C42',
@@ -144,6 +147,7 @@ const DroneNeonColors = {
 
   gold: '#FBBF24',
   goldLight: '#FCD34D',
+  silver: '#B5C8D8',
 
   tabIconDefault: '#4C4A6A',
   tabIconActive: '#A855F7',
