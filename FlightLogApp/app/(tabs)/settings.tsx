@@ -403,8 +403,8 @@ export default function SettingsScreen() {
           icon="camera-outline" iconColor={Colors.primary}
           title={t('import_scan_title')}
           subtitle={t('import_scan_sub')}
-          right={!isPremium ? <PremiumPill /> : undefined}
-          onClick={() => router.push('/import/scan')}
+          right={!isPremium && !isMax ? <PremiumPill /> : undefined}
+          onClick={isPremium || isMax ? () => router.push('/import/scan') : () => { setPremiumFeatureName(t('import_scan_title')); setShowPremiumModal(true); }}
         />}
         <Row
           icon="create-outline" iconColor={Colors.primary}
