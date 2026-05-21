@@ -56,7 +56,8 @@ function computeStress(recent14: number, yearAvg14: number): StressData {
 }
 
 function zoneColor(zone: StressZone): string {
-  if (zone === 'low' || zone === 'light') return Colors.textMuted;
+  if (zone === 'low') return Colors.textMuted;
+  if (zone === 'light') return Colors.primary;
   if (zone === 'normal') return Colors.success;
   if (zone === 'elevated') return Colors.warning;
   if (zone === 'high') return Colors.danger;
