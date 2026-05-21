@@ -126,7 +126,7 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
           <View style={s.header}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={s.title}>Missing DUAL time tracking</Text>
+                <Text style={s.title}>Missing DUAL hours?</Text>
                 {displayedValue > 0 && (
                   <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
                 )}
