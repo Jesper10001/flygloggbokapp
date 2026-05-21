@@ -38,52 +38,12 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
   const [showDatePicker, setShowDatePicker] = useState(true);
   const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [showStartDateSelector, setShowStartDateSelector] = useState(false);
-  const [showEndDateSelector, setShowEndDateSelector] = useState(false);
 
   function getDefaultStartDate(): string {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
     return d.toISOString().split('T')[0];
   }
-
-  function getDateList(): string[] {
-    const dates: string[] = [];
-    const today = new Date();
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(today);
-      d.setMonth(d.getMonth() - i);
-      dates.push(d.toISOString().split('T')[0]);
-    }
-    return dates;
-  }
-
-  const DateSelector = ({ selectedDate, onDateSelect, onClose }: { selectedDate: string; onDateSelect: (date: string) => void; onClose: () => void }) => (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={onClose} activeOpacity={1}>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: Colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '60%', borderTopWidth: 1, borderTopColor: Colors.border }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {getDateList().map(date => (
-                <TouchableOpacity
-                  key={date}
-                  onPress={() => {
-                    onDateSelect(date);
-                    onClose();
-                  }}
-                  style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.separator, backgroundColor: selectedDate === date ? Colors.primary + '22' : 'transparent' }}
-                >
-                  <Text style={{ color: selectedDate === date ? Colors.primary : Colors.textPrimary, fontSize: 16, fontWeight: selectedDate === date ? '700' : '500' }}>
-                    {date}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
 
   const handleDateRangeSelected = async () => {
     setShowDatePicker(false);
@@ -162,14 +122,9 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
     }
   };
 
-  if (!visible) return null;
-
   if (showDatePicker) {
     return (
-      <>
-        <DateSelector selectedDate={startDate} onDateSelect={setStartDate} onClose={() => setShowStartDateSelector(false)} />
-        <DateSelector selectedDate={endDate} onDateSelect={setEndDate} onClose={() => setShowEndDateSelector(false)} />
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <View style={[s.backdrop, { paddingTop: insets.top }]}>
           <View style={s.container}>
             <View style={s.header}>
@@ -188,7 +143,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
             <View style={{ padding: 16, gap: 20 }}>
               <View>
                 <Text style={s.label}>Start date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowStartDateSelector(true)}>
+                <TouchableOpacity style={s.dateInput} onPress={() => {}}>
                   <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
                   <Text style={s.dateInputText}>{startDate}</Text>
                 </TouchableOpacity>
@@ -196,7 +151,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
 
               <View>
                 <Text style={s.label}>End date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowEndDateSelector(true)}>
+                <TouchableOpacity style={s.dateInput} onPress={() => {}}>
                   <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
                   <Text style={s.dateInputText}>{endDate}</Text>
                 </TouchableOpacity>
@@ -209,7 +164,6 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
           </View>
         </View>
       </Modal>
-      </>
     );
   }
 
