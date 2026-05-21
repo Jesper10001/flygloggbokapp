@@ -124,27 +124,32 @@ function CollapsibleSectionHeader({
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.6}
+      activeOpacity={0.7}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 8,
+        marginHorizontal: 20,
+        marginTop: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: Colors.card,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.cardBorder,
       }}
     >
       <Text style={{
         flex: 1,
-        fontSize: 11, fontWeight: '700', color: Colors.textMuted,
-        letterSpacing: 0.9, textTransform: 'uppercase',
+        fontSize: 12, fontWeight: '700', color: Colors.textPrimary,
+        letterSpacing: 0.8, textTransform: 'uppercase',
       }}>
         {children}
       </Text>
       <Ionicons
         name={expanded ? 'chevron-down' : 'chevron-forward'}
-        size={13}
-        color={Colors.textMuted}
-        style={{ marginRight: 4 }}
+        size={16}
+        color={Colors.primary}
+        style={{ marginLeft: 8 }}
       />
     </TouchableOpacity>
   );
