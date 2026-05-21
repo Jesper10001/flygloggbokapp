@@ -816,7 +816,7 @@ export default function DashboardScreen() {
                 { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), showAddBtn: true, addBtnKey: 'dual' },
                 { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), showAddBtn: true, addBtnKey: 'instructor' },
                 { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), showAddBtn: true, addBtnKey: 'nvg' },
-                { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0) },
+                { l: 'MULTI-PILOT', v: formatTime(st?.total_multi_pilot ?? 0) },
                 { l: 'DAY LD', v: String(st?.total_landings_day ?? 0) },
                 { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0) },
               ].map((c: any, i) => (
