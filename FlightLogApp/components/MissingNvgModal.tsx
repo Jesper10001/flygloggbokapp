@@ -25,6 +25,7 @@ export function MissingNvgModal({ visible, onClose }: MissingNvgModalProps) {
   const [loading, setLoading] = useState(false);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [nvgValues, setNvgValues] = useState<Record<number, string>>({});
   const [nvgHours, setNvgHours] = useState('');
 
   useEffect(() => {
@@ -99,47 +100,41 @@ export function MissingNvgModal({ visible, onClose }: MissingNvgModalProps) {
                     </Text>
                   </View>
 
-                  {editingId === flight.id ? (
-                    <View style={s.editContainer}>
-                      <View style={s.sliderGroup}>
-                        <Slider
-                          style={s.slider}
-                          minimumValue={0}
-                          maximumValue={flight.night}
-                          value={parseFloat(nvgHours) || 0}
-                          onValueChange={(val) => setNvgHours(val.toFixed(1))}
-                          minimumTrackTintColor={Colors.primary}
-                          maximumTrackTintColor={Colors.separator}
-                          thumbTintColor={Colors.primary}
-                        />
-                        <TouchableOpacity 
-                          style={s.max100Btn}
-                          onPress={() => setNvgHours(String(flight.night))}
-                        >
-                          <Text style={s.max100BtnText}>100%</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={s.saveSmallBtn}
-                          onPress={() => handleSaveNvg(flight.id)}
-                        >
-                          <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
-                        </TouchableOpacity>
-                      </View>
-                      <View style={s.valueDisplay}>
-                        <Text style={s.valueText}>{nvgHours || '0'} h / {flight.night} h</Text>
-                      </View>
+                  <View style={s.editContainer}>
+                    <View style={s.sliderGroup}>
+                      <Slider
+                        style={s.slider}
+                        minimumValue={0}
+                        maximumValue={flight.night}
+                        value={flight.nvg || 0}
+                        onValueChange={(val) => {
+                          setEditingId(flight.id);
+                          setNvgHours(val.toFixed(1));
+                        }}
+                        minimumTrackTintColor={Colors.primary}
+                        maximumTrackTintColor={Colors.separator}
+                        thumbTintColor={Colors.primary}
+                      />
+                      <TouchableOpacity 
+                        style={s.max100Btn}
+                        onPress={() => {
+                          setEditingId(flight.id);
+                          setNvgHours(String(flight.night));
+                        }}
+                      >
+                        <Text style={s.max100BtnText}>100%</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={s.saveSmallBtn}
+                        onPress={() => handleSaveNvg(flight.id)}
+                      >
+                        <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
+                      </TouchableOpacity>
                     </View>
-                  ) : (
-                    <TouchableOpacity 
-                      style={s.editBtn}
-                      onPress={() => {
-                        setEditingId(flight.id);
-                        setNvgHours(String(flight.nvg || 0));
-                      }}
-                    >
-                      <Ionicons name="pencil" size={16} color={Colors.primary} />
-                    </TouchableOpacity>
-                  )}
+                    <View style={s.valueDisplay}>
+                      <Text style={s.valueText}>{editingId === flight.id ? nvgHours : flight.nvg || '0'} h / {flight.night} h</Text>
+                    </View>
+                  </View>
                 </View>
               ))}
             </ScrollView>
