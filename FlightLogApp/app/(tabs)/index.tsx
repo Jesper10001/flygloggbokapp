@@ -403,7 +403,7 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
 
   return (
     <View>
-      <Text style={makeDashStyles().sectionHeader}>Flight Photos</Text>
+      <Text style={makeDashStyles().sectionHeader}>Flight media</Text>
       <FlatList
         data={data}
         keyExtractor={(item: any) => String(item.id)}
