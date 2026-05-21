@@ -70,7 +70,7 @@ function Card({
 }
 
 function Row({
-  icon, iconColor, iconBg, title, subtitle, right, onClick, border = true, pressable = true,
+  icon, iconColor, iconBg, title, subtitle, right, onClick, border = true, pressable = true, separatorColor = Colors.separator,
 }: {
   icon: string;
   iconColor?: string;
@@ -81,11 +81,12 @@ function Row({
   onClick?: () => void;
   border?: boolean;
   pressable?: boolean;
+  separatorColor?: string;
 }) {
   const content = (
     <View style={{
       flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14,
-      borderBottomWidth: border ? 0.5 : 0, borderBottomColor: Colors.separator,
+      borderBottomWidth: border ? 0.5 : 0, borderBottomColor: separatorColor,
     }}>
       {iconBg ? (
         <View style={{
@@ -444,13 +445,14 @@ export default function SettingsScreen() {
             title={t('logbook_type') ?? 'Logbook Type'}
             subtitle={isDrone ? 'Drone Pilot' : appMode === 'drone' ? 'Operator' : 'Manned Aircraft'}
             pressable={false}
+            separatorColor={Colors.background}
           />
           {isDrone && (
-            <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
+            <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} separatorColor={Colors.background} />
           )}
-          {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
-          {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} />}
-          <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
+          {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} separatorColor={Colors.background} />}
+          {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} separatorColor={Colors.background} />}
+          <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} separatorColor={Colors.background} />
         </Card>
       )}
 
