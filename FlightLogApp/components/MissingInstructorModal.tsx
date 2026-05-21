@@ -125,51 +125,6 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
     }
   };
 
-  if (showDatePicker) {
-    return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={[s.backdrop, { paddingTop: insets.top }]}>
-          <View style={s.container}>
-            <View style={s.header}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.title}>Missing instructor hours?</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} hitSlop={12}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
-              <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}>Select date range</Text>
-            </View>
-
-            <View style={{ padding: 16, gap: 20 }}>
-              <View>
-                <Text style={s.label}>Start date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowStartDateSelector(true)}>
-                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={s.dateInputText}>{startDate}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View>
-                <Text style={s.label}>End date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowEndDateSelector(true)}>
-                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={s.dateInputText}>{endDate}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity style={s.continueBtn} onPress={handleDateRangeSelected}>
-                <Text style={s.continueBtnText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
   return (
     <>
       {showStartDateSelector && Platform.OS === 'android' && (
@@ -236,6 +191,47 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
             />
           </Pressable>
         </Pressable>
+      </Modal>
+
+      <Modal visible={visible && showDatePicker} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={[s.backdrop, { paddingTop: insets.top }]}>
+          <View style={s.container}>
+            <View style={s.header}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.title}>Missing instructor hours?</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+              <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}>Select date range</Text>
+            </View>
+
+            <View style={{ padding: 16, gap: 20 }}>
+              <View>
+                <Text style={s.label}>Start date</Text>
+                <TouchableOpacity style={s.dateInput} onPress={() => setShowStartDateSelector(true)}>
+                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={s.dateInputText}>{startDate}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View>
+                <Text style={s.label}>End date</Text>
+                <TouchableOpacity style={s.dateInput} onPress={() => setShowEndDateSelector(true)}>
+                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={s.dateInputText}>{endDate}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={s.continueBtn} onPress={handleDateRangeSelected}>
+                <Text style={s.continueBtnText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
