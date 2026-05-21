@@ -167,7 +167,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
                         style={s.slider}
                         minimumValue={0}
                         maximumValue={flight.night}
-                        value={flight.nvg || 0}
+                        value={editingId === flight.id ? parseFloat(nvgHours) || 0 : flight.nvg || 0}
                         onValueChange={(val) => {
                           setEditingId(flight.id);
                           setNvgHours(val.toFixed(1));
