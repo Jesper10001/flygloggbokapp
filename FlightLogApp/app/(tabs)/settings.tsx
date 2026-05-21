@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, TextInput, Switch, Linking,
+  Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,6 +112,44 @@ function PremiumPill() {
   );
 }
 
+function CollapsibleSectionHeader({
+  children,
+  expanded,
+  onPress,
+}: {
+  children: string;
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.6}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 8,
+      }}
+    >
+      <Text style={{
+        flex: 1,
+        fontSize: 11, fontWeight: '700', color: Colors.textMuted,
+        letterSpacing: 0.9, textTransform: 'uppercase',
+      }}>
+        {children}
+      </Text>
+      <Ionicons
+        name={expanded ? 'chevron-down' : 'chevron-forward'}
+        size={13}
+        color={Colors.textMuted}
+        style={{ marginRight: 4 }}
+      />
+    </TouchableOpacity>
+  );
+}
+
 // ── Huvudskärm ─────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -132,6 +170,7 @@ export default function SettingsScreen() {
   const [exportingPDF, setExportingPDF] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [logbookExpanded, setLogbookExpanded] = useState(true);
   const isDrone = appMode === 'drone';
   const isOp = isOperator(useProfileStore.getState().profile);
   const isPilot = !isDrone && !isOp;
@@ -179,6 +218,11 @@ export default function SettingsScreen() {
   }, []));
 
   // ── Handlers ──
+
+  const toggleLogbook = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setLogbookExpanded(prev => !prev);
+  };
 
   const handleExportCSV = async () => {
     setExportingCSV(true);
@@ -373,23 +417,27 @@ export default function SettingsScreen() {
       </View>
 
 {/* ── C. Loggbok ── */}
-      <SectionHeader>{t('tab_logbook') ?? 'LOGGBOK'}</SectionHeader>
-      <Card>
-        {/* Current logbook type */}
-        <Row
-          icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
-          iconColor={Colors.primary}
-          title={t('logbook_type') ?? 'Logbook Type'}
-          subtitle={isDrone ? 'Drone Pilot' : appMode === 'drone' ? 'Operator' : 'Manned Aircraft'}
-          pressable={false}
-        />
-        {isDrone && (
-          <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
-        )}
-        {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
-        {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} />}
-        <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
-      </Card>
+      <CollapsibleSectionHeader expanded={logbookExpanded} onPress={toggleLogbook}>
+        {t('tab_logbook') ?? 'LOGGBOK'}
+      </CollapsibleSectionHeader>
+      {logbookExpanded && (
+        <Card>
+          {/* Current logbook type */}
+          <Row
+            icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
+            iconColor={Colors.primary}
+            title={t('logbook_type') ?? 'Logbook Type'}
+            subtitle={isDrone ? 'Drone Pilot' : appMode === 'drone' ? 'Operator' : 'Manned Aircraft'}
+            pressable={false}
+          />
+          {isDrone && (
+            <Row icon="hardware-chip-outline" iconColor={Colors.primary} title={t('manage_drones')} subtitle={t('manage_drones_sub')} onClick={() => router.push('/settings/drones')} />
+          )}
+          {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} />}
+          {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} />}
+          <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} />
+        </Card>
+      )}
 
       {/* ── D. Import ── */}
       <SectionHeader>{t('import_section') ?? 'IMPORT'}</SectionHeader>
