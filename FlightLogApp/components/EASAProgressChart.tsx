@@ -107,12 +107,9 @@ async function getAdaptiveRates(): Promise<Record<string, number>> {
   const now = new Date();
   const totalMonths = Math.max(1, Math.round((now.getTime() - firstDate.getTime()) / (30.4 * 86400000)));
 
-  // Adaptive window: <6 months → use 3mo, <12 months → use 6mo, else → use 12mo
-  let windowMonths: number;
-  let windowDays: number;
-  if (totalMonths < 6) { windowMonths = 3; windowDays = 90; }
-  else if (totalMonths < 12) { windowMonths = 6; windowDays = 183; }
-  else { windowMonths = 12; windowDays = 365; }
+  // Always use 12-month window for accurate baseline
+  const windowMonths = 12;
+  const windowDays = 365;
 
   const r = await db.getFirstAsync<any>(
     `SELECT
