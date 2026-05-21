@@ -105,12 +105,16 @@ async function getAdaptiveRates(): Promise<Record<string, number>> {
 
   const firstDate = new Date(first.d);
   const now = new Date();
-  const totalMonths = Math.max(1, Math.round((now.getTime() - firstDate.getTime()) / (30.4 * 86400000)));
+  const totalMonths = Math.round((now.getTime() - firstDate.getTime()) / (30.4 * 86400000));
 
-  // Adaptive window: <6 months → use 3mo, <12 months → use 6mo, else → use 12mo
+  // Less than 1 month: show message
+  if (totalMonths < 1) return { _insufficient: 1 };
+
+  // Adaptive window: <1mo → message, 1-3mo → use 1mo, 3-6mo → use 3mo, <12mo → use 6mo, else → use 12mo
   let windowMonths: number;
   let windowDays: number;
-  if (totalMonths < 6) { windowMonths = 3; windowDays = 90; }
+  if (totalMonths < 3) { windowMonths = 1; windowDays = 30; }
+  else if (totalMonths < 6) { windowMonths = 3; windowDays = 90; }
   else if (totalMonths < 12) { windowMonths = 6; windowDays = 183; }
   else { windowMonths = 12; windowDays = 365; }
 
@@ -324,7 +328,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl, standard = 
               {!met && (
                 <Text style={{ fontSize: 9, color: Colors.textMuted, marginTop: 1 }}>
                   {insufficient
-                    ? 'Log more flights for forecast'
+                    ? 'Goal calculator active after one month of flight log'
                     : forecast
                       ? `📅 ${forecast} · ${rate.toFixed(1)}h/mo avg`
                       : rate <= 0 ? 'No recent activity in this category' : ''}
