@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllAuditLog } from '../../db/flights';
 import { Colors } from '../../constants/colors';
@@ -45,11 +46,23 @@ export default function AuditLogScreen() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getAllAuditLog().then((rows) => {
+  const loadAuditLog = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await getAllAuditLog();
       setEntries(rows as AuditEntry[]);
-    }).finally(() => setLoading(false));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadAuditLog();
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadAuditLog();
+  }, [loadAuditLog]));
 
   if (loading) {
     return (
