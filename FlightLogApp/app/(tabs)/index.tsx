@@ -794,15 +794,6 @@ export default function DashboardScreen() {
               { l: 'CO', v: formatTime(st?.total_co_pilot ?? 0), c: Colors.textPrimary },
               { l: 'IFR', v: formatTime(st?.total_ifr ?? 0), c: Colors.textPrimary },
               { l: 'NIGHT', v: formatTime(st?.total_night ?? 0), c: Colors.textPrimary },
-              ...(showClassBreakdown ? [
-                { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), c: Colors.textPrimary },
-                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), c: Colors.textPrimary },
-                { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0), c: Colors.textPrimary },
-                { l: 'SP', v: formatTime(st?.total_single_pilot ?? 0), c: Colors.textPrimary },
-                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), c: Colors.textPrimary },
-                { l: 'DAY LD', v: String(st?.total_landings_day ?? 0), c: Colors.textPrimary },
-                { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0), c: Colors.textPrimary },
-              ] : []),
             ].map(c => (
               <View key={c.l} style={s.classCell}>
                 <Text style={s.classCellLabel}>{c.l}</Text>
@@ -810,6 +801,24 @@ export default function DashboardScreen() {
               </View>
             ))}
           </View>
+          {showClassBreakdown && (
+            <View style={{ paddingHorizontal: 20, gap: 8 }}>
+              {[
+                { l: 'DUAL', v: formatTime(st?.total_dual ?? 0) },
+                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0) },
+                { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0) },
+                { l: 'SP', v: formatTime(st?.total_single_pilot ?? 0) },
+                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0) },
+                { l: 'DAY LD', v: String(st?.total_landings_day ?? 0) },
+                { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0) },
+              ].map(c => (
+                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.l}</Text>
+                  <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{c.v}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </>
       )}
 
