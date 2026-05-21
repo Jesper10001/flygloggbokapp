@@ -320,6 +320,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
         </View>
       </View>
     </Modal>
+    </>
   );
 }
 
