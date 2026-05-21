@@ -187,6 +187,9 @@ export default function SettingsScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [logbookExpanded, setLogbookExpanded] = useState(true);
+  const [importExpanded, setImportExpanded] = useState(true);
+  const [exportExpanded, setExportExpanded] = useState(true);
+  const [appExpanded, setAppExpanded] = useState(true);
   const isDrone = appMode === 'drone';
   const isOp = isOperator(useProfileStore.getState().profile);
   const isPilot = !isDrone && !isOp;
@@ -238,6 +241,21 @@ export default function SettingsScreen() {
   const toggleLogbook = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setLogbookExpanded(prev => !prev);
+  };
+
+  const toggleImport = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setImportExpanded(prev => !prev);
+  };
+
+  const toggleExport = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExportExpanded(prev => !prev);
+  };
+
+  const toggleApp = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAppExpanded(prev => !prev);
   };
 
   const handleExportCSV = async () => {
@@ -457,125 +475,149 @@ export default function SettingsScreen() {
       )}
 
       {/* ── D. Import ── */}
-      <SectionHeader>{t('import_section') ?? 'IMPORT'}</SectionHeader>
-      <Card>
-        <Row
-          icon="document-attach-outline" iconColor={Colors.primary}
-          title={t('import_csv_title')}
-          subtitle={t('import_csv_sub')}
-          onClick={() => router.push('/import')}
-        />
-        {isPilot && <Row
-          icon="camera-outline" iconColor={Colors.primary}
-          title={t('import_scan_title')}
-          subtitle={t('import_scan_sub')}
-          right={!isPremium && !isMax ? <PremiumPill /> : undefined}
-          onClick={isPremium || isMax ? () => router.push('/import/scan') : () => { setPremiumFeatureName(t('import_scan_title')); setShowPremiumModal(true); }}
-        />}
-        <Row
-          icon="create-outline" iconColor={Colors.primary}
-          title={t('import_manual_title')}
-          subtitle={t('import_manual_sub')}
-          onClick={() => router.push('/import/manual')}
-        />
-        {isPilot && <Row
-          icon="scan-outline" iconColor={Colors.accent}
-          title={t('scan_profile_title') ?? 'Scan Profile'}
-          subtitle={t('scan_profile_sub') ?? 'Help AI read your logbook'}
-          onClick={() => router.push('/settings/scan-profile')}
-          border={false}
-        />}
-      </Card>
+      <CollapsibleSectionHeader expanded={importExpanded} onPress={toggleImport}>
+        {t('import_section') ?? 'IMPORT'}
+      </CollapsibleSectionHeader>
+      {importExpanded && (
+        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+          <Row
+            icon="document-attach-outline" iconColor={Colors.primary}
+            title={t('import_csv_title')}
+            subtitle={t('import_csv_sub')}
+            onClick={() => router.push('/import')}
+            separatorColor={Colors.background}
+          />
+          {isPilot && <Row
+            icon="camera-outline" iconColor={Colors.primary}
+            title={t('import_scan_title')}
+            subtitle={t('import_scan_sub')}
+            right={!isPremium && !isMax ? <PremiumPill /> : undefined}
+            onClick={isPremium || isMax ? () => router.push('/import/scan') : () => { setPremiumFeatureName(t('import_scan_title')); setShowPremiumModal(true); }}
+            separatorColor={Colors.background}
+          />}
+          <Row
+            icon="create-outline" iconColor={Colors.primary}
+            title={t('import_manual_title')}
+            subtitle={t('import_manual_sub')}
+            onClick={() => router.push('/import/manual')}
+            separatorColor={Colors.background}
+          />
+          {isPilot && <Row
+            icon="scan-outline" iconColor={Colors.accent}
+            title={t('scan_profile_title') ?? 'Scan Profile'}
+            subtitle={t('scan_profile_sub') ?? 'Help AI read your logbook'}
+            onClick={() => router.push('/settings/scan-profile')}
+            border={false}
+            separatorColor={Colors.background}
+          />}
+        </Card>
+      )}
 
       {/* ── E. Data & Export ── */}
-      <SectionHeader>{t('export') ?? 'DATA & EXPORT'}</SectionHeader>
-      <Card>
-        <Row
-          icon="cloud-outline" iconColor={Colors.info}
-          title={t('icloud_sync')} subtitle={t('coming_soon')}
-          right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
-          pressable={false}
-        />
-        {isPilot && <Row
-          icon="document-text-outline" iconColor={Colors.primary}
-          title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
-          right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
-          onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
-        />}
-        <Row
-          icon="cloud-upload-outline" iconColor={Colors.primary}
-          title={t('export_to_csv')} subtitle={`Always free — all fields, ${standard === 'faa' ? 'FAA' : 'EASA'} format`}
-          right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
-          onClick={handleExportCSV}
-        />
-        <Row
-          icon="options-outline" iconColor={Colors.primary}
-          title={t('custom_csv_title')} subtitle={t('custom_csv_sub')}
-          onClick={() => router.push('/settings/custom-export')}
-        />
-      </Card>
+      <CollapsibleSectionHeader expanded={exportExpanded} onPress={toggleExport}>
+        {t('export') ?? 'DATA & EXPORT'}
+      </CollapsibleSectionHeader>
+      {exportExpanded && (
+        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+          <Row
+            icon="cloud-outline" iconColor={Colors.info}
+            title={t('icloud_sync')} subtitle={t('coming_soon')}
+            right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+            pressable={false}
+            separatorColor={Colors.background}
+          />
+          {isPilot && <Row
+            icon="document-text-outline" iconColor={Colors.primary}
+            title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
+            right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
+            onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
+            separatorColor={Colors.background}
+          />}
+          <Row
+            icon="cloud-upload-outline" iconColor={Colors.primary}
+            title={t('export_to_csv')} subtitle={`Always free — all fields, ${standard === 'faa' ? 'FAA' : 'EASA'} format`}
+            right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+            onClick={handleExportCSV}
+            separatorColor={Colors.background}
+          />
+          <Row
+            icon="options-outline" iconColor={Colors.primary}
+            title={t('custom_csv_title')} subtitle={t('custom_csv_sub')}
+            onClick={() => router.push('/settings/custom-export')}
+            separatorColor={Colors.background}
+          />
+        </Card>
+      )}
 
-      {/* ── E. App ── */}
-      <SectionHeader>{t('app_section')}</SectionHeader>
-      <Card>
-        <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
-          right={
-            <View style={styles.toggle}>
-              <TouchableOpacity style={[styles.toggleBtn, language === 'en' && styles.toggleBtnActive]} onPress={() => setLanguage('en')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, language === 'en' && styles.toggleTextActive]}>ENG</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, language === 'sv' && styles.toggleBtnActive]} onPress={() => setLanguage('sv')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, language === 'sv' && styles.toggleTextActive]}>SWE</Text>
-              </TouchableOpacity>
-            </View>
-          } pressable={false}
-        />
-        <Row icon="contrast-outline" iconColor={Colors.primary} title={t('theme')} subtitle={t('theme_sub')}
-          right={
-            <View style={styles.toggle}>
-              {appMode === 'manned' ? (<>
-                <TouchableOpacity style={[styles.toggleBtn, theme === 'navy' && styles.toggleBtnActive]} onPress={() => setTheme('navy')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, theme === 'navy' && styles.toggleTextActive]}>{t('theme_navy')}</Text>
+      {/* ── F. App ── */}
+      <CollapsibleSectionHeader expanded={appExpanded} onPress={toggleApp}>
+        {t('app_section')}
+      </CollapsibleSectionHeader>
+      {appExpanded && (
+        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+          <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, language === 'en' && styles.toggleBtnActive]} onPress={() => setLanguage('en')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, language === 'en' && styles.toggleTextActive]}>ENG</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, theme === 'bright' && styles.toggleBtnActive]} onPress={() => setTheme('bright')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, theme === 'bright' && styles.toggleTextActive]}>{t('theme_bright')}</Text>
+                <TouchableOpacity style={[styles.toggleBtn, language === 'sv' && styles.toggleBtnActive]} onPress={() => setLanguage('sv')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, language === 'sv' && styles.toggleTextActive]}>SWE</Text>
                 </TouchableOpacity>
-              </>) : (<>
-                <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-industrial' && styles.toggleBtnActive]} onPress={() => setTheme('drone-industrial')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, theme === 'drone-industrial' && styles.toggleTextActive]}>{t('theme_matt')}</Text>
+              </View>
+            } pressable={false}
+            separatorColor={Colors.background}
+          />
+          <Row icon="contrast-outline" iconColor={Colors.primary} title={t('theme')} subtitle={t('theme_sub')}
+            right={
+              <View style={styles.toggle}>
+                {appMode === 'manned' ? (<>
+                  <TouchableOpacity style={[styles.toggleBtn, theme === 'navy' && styles.toggleBtnActive]} onPress={() => setTheme('navy')} activeOpacity={0.7}>
+                    <Text style={[styles.toggleText, theme === 'navy' && styles.toggleTextActive]}>{t('theme_navy')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.toggleBtn, theme === 'bright' && styles.toggleBtnActive]} onPress={() => setTheme('bright')} activeOpacity={0.7}>
+                    <Text style={[styles.toggleText, theme === 'bright' && styles.toggleTextActive]}>{t('theme_bright')}</Text>
+                  </TouchableOpacity>
+                </>) : (<>
+                  <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-industrial' && styles.toggleBtnActive]} onPress={() => setTheme('drone-industrial')} activeOpacity={0.7}>
+                    <Text style={[styles.toggleText, theme === 'drone-industrial' && styles.toggleTextActive]}>{t('theme_matt')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-neon' && styles.toggleBtnActive]} onPress={() => setTheme('drone-neon')} activeOpacity={0.7}>
+                    <Text style={[styles.toggleText, theme === 'drone-neon' && styles.toggleTextActive]}>{t('theme_neon')}</Text>
+                  </TouchableOpacity>
+                </>)}
+              </View>
+            } pressable={false}
+            separatorColor={Colors.background}
+          />
+          <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'decimal' && styles.toggleBtnActive]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, timeFormat === 'decimal' && styles.toggleTextActive]}>1.5</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-neon' && styles.toggleBtnActive]} onPress={() => setTheme('drone-neon')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, theme === 'drone-neon' && styles.toggleTextActive]}>{t('theme_neon')}</Text>
+                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
                 </TouchableOpacity>
-              </>)}
-            </View>
-          } pressable={false}
-        />
-        <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
-          right={
-            <View style={styles.toggle}>
-              <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'decimal' && styles.toggleBtnActive]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, timeFormat === 'decimal' && styles.toggleTextActive]}>1.5</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
-              </TouchableOpacity>
-            </View>
-          } pressable={false} border={false}
-        />
-        <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
-          right={
-            <View style={styles.toggle}>
-              <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
-                <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
-              </TouchableOpacity>
-            </View>
-          } pressable={false} border={false}
-        />
-      </Card>
+              </View>
+            } pressable={false}
+            separatorColor={Colors.background}
+          />
+          <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
+                </TouchableOpacity>
+              </View>
+            } pressable={false} border={false}
+            separatorColor={Colors.background}
+          />
+        </Card>
+      )}
 
       {/* ── G. Om ── */}
       <SectionHeader>{t('about')}</SectionHeader>
