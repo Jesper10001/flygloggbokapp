@@ -128,7 +128,10 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
         <View style={[s.backdrop, { paddingTop: insets.top }]}>
           <View style={s.container}>
             <View style={s.header}>
-              <Text style={s.title}>Select date range</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.title}>Missing Instructor hours</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Select date range</Text>
+              </View>
               <TouchableOpacity onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
