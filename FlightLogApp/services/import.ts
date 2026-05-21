@@ -551,6 +551,31 @@ export async function importFromFile(
     if (flight) flights.push(flight);
   }
 
+  // Auto-calculate multi_pilot if not provided in CSV
+  for (const flight of flights) {
+    if (!flight.multi_pilot || parseFloat(flight.multi_pilot ?? '0') === 0) {
+      const totalTime = parseFloat(flight.total_time ?? '0') || 0;
+      const picTime = parseFloat(flight.pic ?? '0') || 0;
+      const copilotTime = parseFloat(flight.co_pilot ?? '0') || 0;
+      const dualTime = parseFloat(flight.dual ?? '0') || 0;
+      const instrTime = parseFloat(flight.instructor ?? '0') || 0;
+      const hasSecondPilot = !!(flight.second_pilot);
+
+      if (dualTime > 0) {
+        flight.multi_pilot = '0';
+      } else if (copilotTime > 0) {
+        // Co-pilot time = multi-pilot flight
+        flight.multi_pilot = String(totalTime);
+      } else if (picTime > 0 && hasSecondPilot) {
+        // PIC with another pilot = multi-pilot flight
+        flight.multi_pilot = String(totalTime);
+      } else if (instrTime > 0) {
+        // Instruction flight = multi-pilot
+        flight.multi_pilot = String(totalTime);
+      }
+    }
+  }
+
   onProgress?.(3, 3);
 
   // ── Debug-loggar ────────────────────────────────────────────────────────────
