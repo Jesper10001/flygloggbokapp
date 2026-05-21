@@ -151,7 +151,7 @@ function CollapsibleSectionHeader({
     >
       <Text style={{
         flex: 1,
-        fontSize: 12, fontWeight: '700', color: Colors.textPrimary,
+        fontSize: 12, fontWeight: '700', color: expanded ? Colors.gold : Colors.textPrimary,
         letterSpacing: 0.8, textTransform: 'uppercase',
       }}>
         {children}
@@ -159,7 +159,7 @@ function CollapsibleSectionHeader({
       <Ionicons
         name={expanded ? 'chevron-down' : 'chevron-forward'}
         size={16}
-        color={Colors.primary}
+        color={expanded ? Colors.gold : Colors.primary}
         style={{ marginLeft: 8 }}
       />
     </TouchableOpacity>
