@@ -1763,9 +1763,14 @@ export default function ReviewScreen() {
         if (!row.data.multi_pilot || parseFloat(row.data.multi_pilot) === 0) {
           if (dualTime > 0) {
             row.data.multi_pilot = '0';
-          } else if ((copilotTime > 0 || picTime > 0) && hasSecondPilot) {
+          } else if (copilotTime > 0) {
+            // Co-pilot time = multi-pilot flight
+            row.data.multi_pilot = String(totalTime);
+          } else if (picTime > 0 && hasSecondPilot) {
+            // PIC with another pilot = multi-pilot flight
             row.data.multi_pilot = String(totalTime);
           } else if (instrTime > 0) {
+            // Instruction flight = multi-pilot
             row.data.multi_pilot = String(totalTime);
           }
         }
