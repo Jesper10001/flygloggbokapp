@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,8 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   const [nvgHours, setNvgHours] = useState('');
   const [remainingCount, setRemainingCount] = useState(0);
   const [totalNvgAdded, setTotalNvgAdded] = useState(0);
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const [displayedValue, setDisplayedValue] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -46,10 +48,11 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
       setRemainingCount(nightFlights.length);
       onCountUpdate?.(nightFlights.length);
       
-      // Calculate total NVG added (night - nvg = time added via this function)
-      const totalAdded = nightFlights.reduce((sum, f) => sum + Math.max(0, (f.night || 0) - (f.nvg || 0)), 0);
-      setTotalNvgAdded(totalAdded);
-      onTotalNvgUpdate?.(totalAdded);
+      // Start from 0, don't pre-fill
+      setTotalNvgAdded(0);
+      setDisplayedValue(0);
+      animatedValue.setValue(0);
+      onTotalNvgUpdate?.(0);
       
       const codes = nightFlights
         .flatMap(f => [f.dep_place, f.arr_place])
@@ -63,6 +66,20 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
     }
   };
 
+  const animateValue = (newTotal: number) => {
+    Animated.timing(animatedValue, {
+      toValue: newTotal,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+
+    const listener = animatedValue.addListener(({ value }) => {
+      setDisplayedValue(Math.round(value * 10) / 10);
+    });
+
+    return () => animatedValue.removeListener(listener);
+  };
+
   const handleSaveNvg = async (flightId: number) => {
     const hours = parseFloat(nvgHours);
     if (isNaN(hours) || hours < 0) {
@@ -73,6 +90,12 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
     try {
       await setFlightNvg(flightId, hours);
       await loadStats();
+      
+      const newTotal = totalNvgAdded + hours;
+      setTotalNvgAdded(newTotal);
+      onTotalNvgUpdate?.(newTotal);
+      animateValue(newTotal);
+      
       setFlights(flights.filter(f => f.id !== flightId));
       setEditingId(null);
       setNvgHours('');
@@ -88,8 +111,8 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
           <View style={s.header}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
               <Text style={s.title}>{t('missing_nvg_title')}</Text>
-              {totalNvgAdded > 0 && (
-                <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(totalNvgAdded)}</Text>
+              {displayedValue > 0 && (
+                <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
               )}
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
