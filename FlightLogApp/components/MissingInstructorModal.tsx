@@ -39,6 +39,8 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
   const [showDatePicker, setShowDatePicker] = useState(true);
   const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showStartDateSelector, setShowStartDateSelector] = useState(false);
+  const [showEndDateSelector, setShowEndDateSelector] = useState(false);
 
   function getDefaultStartDate(): string {
     const d = new Date();
