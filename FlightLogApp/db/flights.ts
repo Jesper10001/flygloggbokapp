@@ -389,6 +389,40 @@ export async function getNightFlightsMissingNvg(): Promise<Flight[]> {
   );
 }
 
+export async function getDualFlightsMissingPilotTracking(): Promise<Flight[]> {
+  const db = await getDatabase();
+  // Get all flights that could be dual: no PIC, instructor, examiner, etc. and no sim
+  const candidates = await db.getAllAsync<Flight>(
+    `SELECT * FROM flights
+     WHERE dual > 0
+     AND (pic IS NULL OR pic = 0)
+     AND (instructor IS NULL OR instructor = 0)
+     AND (examiner IS NULL OR examiner = 0)
+     AND (safety_pilot IS NULL OR safety_pilot = 0)
+     AND (relief_crew IS NULL OR relief_crew = 0)
+     AND (ferry_pic IS NULL OR ferry_pic = 0)
+     AND (observer IS NULL OR observer = 0)
+     AND (sim_category IS NULL OR sim_category = '')
+     ORDER BY aircraft_type, date ASC`
+  );
+
+  // Filter to only include flights within first 150h for each aircraft
+  const result: Flight[] = [];
+  const aircraftHours: Record<string, number> = {};
+
+  for (const flight of candidates) {
+    const ac = flight.aircraft_type;
+    const currentHours = aircraftHours[ac] || 0;
+
+    if (currentHours < 150) {
+      result.push(flight);
+      aircraftHours[ac] = currentHours + (flight.total_time || 0);
+    }
+  }
+
+  return result.reverse(); // Return newest first
+}
+
 export async function setFlightNvg(id: number, hours: number): Promise<void> {
   const db = await getDatabase();
   const existing = await getFlightById(id);
@@ -414,6 +448,33 @@ export async function setFlightNvg(id: number, hours: number): Promise<void> {
   }
 
   await db.runAsync('UPDATE flights SET nvg=? WHERE id=?', [hours, id]);
+}
+
+export async function setFlightDual(id: number, hours: number): Promise<void> {
+  const db = await getDatabase();
+  const existing = await getFlightById(id);
+  if (!existing) return;
+
+  const norm = (v: any) => {
+    if (v === null || v === undefined || v === '') return '';
+    const s = String(v);
+    if (s === '0' || s === '0.0' || s === '0.00') return '';
+    return s;
+  };
+
+  const oldVal = norm(existing.dual);
+  const newVal = norm(hours);
+
+  // Only log if value actually changed
+  if (oldVal !== newVal) {
+    await db.runAsync(
+      `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
+       VALUES (?,?,?,?,?)`,
+      [id, 'dual', oldVal, newVal, 'Tillagd via DUAL-modal']
+    );
+  }
+
+  await db.runAsync('UPDATE flights SET dual=? WHERE id=?', [hours, id]);
 }
 
 export async function getRecentSecondPilots(limit = 10): Promise<string[]> {
