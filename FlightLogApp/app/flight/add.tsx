@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
-  TextInput, Modal, Pressable, Image,
+  TextInput, Modal, Pressable, Image, useWindowDimensions,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { callAnthropicJson } from '../../services/anthropicClient';
@@ -72,6 +73,7 @@ const EMPTY: FlightFormData = {
   sim_category: '',
   vfr: '0',
   max_fl: '',
+  media_type: 'image',
 };
 
 // ── Styles ──────────────────────────────────────────────────────────────────
@@ -1024,10 +1026,10 @@ export default function AddFlightScreen() {
         try {
           const fileInfo = await FileSystem.getInfoAsync(asset.uri);
           const sizeInMB = (fileInfo.size ?? 0) / (1024 * 1024);
-          if (sizeInMB > 80) {
+          if (sizeInMB > 50) {
             Alert.alert(
               'Videon är för stor',
-              `Maximal filstorlek är 80 MB (din video är ${sizeInMB.toFixed(1)} MB).`
+              `Maximal filstorlek är 50 MB (din video är ${sizeInMB.toFixed(1)} MB).`
             );
             return;
           }
@@ -2279,10 +2281,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {photoUri ? (
             <View style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
               {mediaType === 'video' ? (
-                <View style={{ width: '100%', height: 180, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="videocam" size={48} color={Colors.primary} />
-                  <Text style={{ color: Colors.textSecondary, marginTop: 8, fontSize: 12 }}>Video valt</Text>
-                </View>
+                <Video
+                  source={{ uri: photoUri }}
+                  style={{ width: '100%', height: 180 }}
+                  resizeMode={ResizeMode.COVER}
+                  isLooping
+                  isMuted
+                  shouldPlay
+                />
               ) : (
                 <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
               )}
