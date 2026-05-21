@@ -394,15 +394,24 @@ export async function setFlightNvg(id: number, hours: number): Promise<void> {
   const existing = await getFlightById(id);
   if (!existing) return;
 
-  const oldVal = existing.nvg ? String(existing.nvg) : '';
-  const newVal = hours ? String(hours) : '';
+  const norm = (v: any) => {
+    if (v === null || v === undefined || v === '') return '';
+    const s = String(v);
+    if (s === '0' || s === '0.0' || s === '0.00') return '';
+    return s;
+  };
 
-  // Always log NVG changes
-  await db.runAsync(
-    `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
-     VALUES (?,?,?,?,?)`,
-    [id, 'nvg', oldVal, newVal, 'Tillagd via NVG-modal']
-  );
+  const oldVal = norm(existing.nvg);
+  const newVal = norm(hours);
+
+  // Only log if value actually changed
+  if (oldVal !== newVal) {
+    await db.runAsync(
+      `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
+       VALUES (?,?,?,?,?)`,
+      [id, 'nvg', oldVal, newVal, 'Tillagd via NVG-modal']
+    );
+  }
 
   await db.runAsync('UPDATE flights SET nvg=? WHERE id=?', [hours, id]);
 }
