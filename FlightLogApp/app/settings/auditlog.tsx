@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, ActivityIndicator,
+  View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllAuditLog } from '../../db/flights';
 import { Colors } from '../../constants/colors';
@@ -97,6 +97,7 @@ export default function AuditLogScreen() {
 
 function AuditRow({ entry }: { entry: AuditEntry }) {
   const styles = makeStyles();
+  const router = useRouter();
   const { t } = useTranslation();
   const fieldLabel = FIELD_LABELS[entry.field_name] ?? entry.field_name;
   const date = new Date(entry.changed_at).toLocaleString('sv-SE');
@@ -104,12 +105,19 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   return (
     <View style={styles.row}>
       <View style={styles.rowHeader}>
-        <Text style={styles.rowFlight}>
-          {entry.dep_place && entry.arr_place
-            ? `${entry.dep_place}→${entry.arr_place} · ${entry.date}`
-            : `Flight #${entry.flight_id}`}
-        </Text>
-        <Text style={styles.rowDate}>{date}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowFlight}>
+            {entry.dep_place && entry.arr_place
+              ? `${entry.dep_place}→${entry.arr_place} · ${entry.date}`
+              : `Flight #${entry.flight_id}`}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.rowDate}>{date}</Text>
+          <TouchableOpacity onPress={() => router.push(`/flight/add?editId=${entry.flight_id}`)} hitSlop={8}>
+            <Ionicons name="pencil" size={16} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.rowBody}>
         <Text style={styles.fieldName}>{fieldLabel}</Text>
