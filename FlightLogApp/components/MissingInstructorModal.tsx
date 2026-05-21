@@ -214,14 +214,14 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
                       onPress={() => handleSaveInstructor(flight.id, flight)}
                     >
                       <Ionicons name="checkmark" size={20} color={Colors.textInverse} />
-                      <Text style={s.actionBtnText}>Yes</Text>
+                      <Text style={[s.actionBtnText, { color: Colors.textInverse }]}>Yes</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[s.actionBtn, s.cancelBtn]}
                       onPress={() => handleSkipInstructor(flight.id)}
                     >
-                      <Ionicons name="close" size={20} color={Colors.textInverse} />
-                      <Text style={s.actionBtnText}>No</Text>
+                      <Ionicons name="close" size={20} color={Colors.textPrimary} />
+                      <Text style={[s.actionBtnText, { color: Colors.textPrimary }]}>No</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -256,7 +256,7 @@ const s = StyleSheet.create({
   meta: { color: Colors.textSecondary, fontSize: 12 },
   buttonGroup: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
-  confirmBtn: { backgroundColor: Colors.success },
-  cancelBtn: { backgroundColor: Colors.danger },
-  actionBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '600' },
+  confirmBtn: { backgroundColor: Colors.primary },
+  cancelBtn: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
+  actionBtnText: { fontSize: 14, fontWeight: '600' },
 });
