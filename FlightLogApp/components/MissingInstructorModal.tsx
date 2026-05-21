@@ -155,43 +155,47 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
         />
       )}
 
-      <Modal visible={showStartDateSelector && Platform.OS === 'ios'} transparent animationType="slide" onRequestClose={() => setShowStartDateSelector(false)}>
-        <Pressable style={s.datePickerBackdrop} onPress={() => setShowStartDateSelector(false)}>
-          <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity style={s.datePickerDone} onPress={() => setShowStartDateSelector(false)}>
-              <Text style={s.datePickerDoneText}>Done</Text>
-            </TouchableOpacity>
-            <DateTimePicker
-              value={new Date(startDate)}
-              mode="date"
-              display="inline"
-              themeVariant="dark"
-              onChange={(_, selectedDate) => {
-                if (selectedDate) setStartDate(selectedDate.toISOString().split('T')[0]);
-              }}
-            />
+      {Platform.OS === 'ios' && (
+        <Modal visible={showStartDateSelector} transparent animationType="slide" onRequestClose={() => setShowStartDateSelector(false)}>
+          <Pressable style={s.datePickerBackdrop} onPress={() => setShowStartDateSelector(false)}>
+            <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
+              <TouchableOpacity style={s.datePickerDone} onPress={() => setShowStartDateSelector(false)}>
+                <Text style={s.datePickerDoneText}>Done</Text>
+              </TouchableOpacity>
+              <DateTimePicker
+                value={new Date(startDate)}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(_, selectedDate) => {
+                  if (selectedDate) setStartDate(selectedDate.toISOString().split('T')[0]);
+                }}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      )}
 
-      <Modal visible={showEndDateSelector && Platform.OS === 'ios'} transparent animationType="slide" onRequestClose={() => setShowEndDateSelector(false)}>
-        <Pressable style={s.datePickerBackdrop} onPress={() => setShowEndDateSelector(false)}>
-          <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
-            <TouchableOpacity style={s.datePickerDone} onPress={() => setShowEndDateSelector(false)}>
-              <Text style={s.datePickerDoneText}>Done</Text>
-            </TouchableOpacity>
-            <DateTimePicker
-              value={new Date(endDate)}
-              mode="date"
-              display="inline"
-              themeVariant="dark"
-              onChange={(_, selectedDate) => {
-                if (selectedDate) setEndDate(selectedDate.toISOString().split('T')[0]);
-              }}
-            />
+      {Platform.OS === 'ios' && (
+        <Modal visible={showEndDateSelector} transparent animationType="slide" onRequestClose={() => setShowEndDateSelector(false)}>
+          <Pressable style={s.datePickerBackdrop} onPress={() => setShowEndDateSelector(false)}>
+            <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
+              <TouchableOpacity style={s.datePickerDone} onPress={() => setShowEndDateSelector(false)}>
+                <Text style={s.datePickerDoneText}>Done</Text>
+              </TouchableOpacity>
+              <DateTimePicker
+                value={new Date(endDate)}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(_, selectedDate) => {
+                  if (selectedDate) setEndDate(selectedDate.toISOString().split('T')[0]);
+                }}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      )}
 
       <Modal visible={visible && showDatePicker} transparent animationType="fade" onRequestClose={onClose}>
         <View style={[s.backdrop, { paddingTop: insets.top }]}>
