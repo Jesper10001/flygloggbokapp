@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Platform, Pressable } from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable } from 'react-native';
 import Slider from '@react-native-community/slider';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -127,75 +127,79 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
 
   return (
     <>
-      {showStartDateSelector && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={new Date(startDate)}
-          mode="date"
-          display="calendar"
-          onChange={(event, selectedDate) => {
-            setShowStartDateSelector(false);
-            if (event.type === 'set' && selectedDate) {
-              setStartDate(selectedDate.toISOString().split('T')[0]);
-            }
-          }}
-        />
-      )}
-
-      {showEndDateSelector && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={new Date(endDate)}
-          mode="date"
-          display="calendar"
-          onChange={(event, selectedDate) => {
-            setShowEndDateSelector(false);
-            if (event.type === 'set' && selectedDate) {
-              setEndDate(selectedDate.toISOString().split('T')[0]);
-            }
-          }}
-        />
-      )}
-
-      {Platform.OS === 'ios' && (
-        <Modal visible={showStartDateSelector} transparent animationType="slide" onRequestClose={() => setShowStartDateSelector(false)}>
-          <Pressable style={s.datePickerBackdrop} onPress={() => setShowStartDateSelector(false)}>
-            <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
-              <TouchableOpacity style={s.datePickerDone} onPress={() => setShowStartDateSelector(false)}>
-                <Text style={s.datePickerDoneText}>Done</Text>
+      <Modal visible={showStartDateSelector} transparent animationType="slide" onRequestClose={() => setShowStartDateSelector(false)}>
+        <Pressable style={s.datePickerBackdrop} onPress={() => setShowStartDateSelector(false)}>
+          <Pressable style={s.calendarSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={s.calendarHeader}>
+              <Text style={s.calendarTitle}>Select Start Date</Text>
+              <TouchableOpacity onPress={() => setShowStartDateSelector(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <DateTimePicker
-                value={new Date(startDate)}
-                mode="date"
-                display="inline"
-                themeVariant="dark"
-                onChange={(_, selectedDate) => {
-                  if (selectedDate) setStartDate(selectedDate.toISOString().split('T')[0]);
-                }}
-              />
-            </Pressable>
+            </View>
+            <Calendar
+              current={startDate}
+              onDayPress={(day) => {
+                setStartDate(day.dateString);
+                setShowStartDateSelector(false);
+              }}
+              markedDates={{ [startDate]: { selected: true, selectedColor: Colors.primary } }}
+              theme={{
+                backgroundColor: Colors.card,
+                calendarBackground: Colors.card,
+                textSectionTitleColor: Colors.textSecondary,
+                selectedDayBackgroundColor: Colors.primary,
+                selectedDayTextColor: Colors.textInverse,
+                todayTextColor: Colors.primary,
+                dayTextColor: Colors.textPrimary,
+                textDisabledColor: Colors.textMuted,
+                dotColor: Colors.primary,
+                selectedDotColor: Colors.textInverse,
+                monthTextColor: Colors.textPrimary,
+                textDayFontSize: 16,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 14,
+              }}
+            />
           </Pressable>
-        </Modal>
-      )}
+        </Pressable>
+      </Modal>
 
-      {Platform.OS === 'ios' && (
-        <Modal visible={showEndDateSelector} transparent animationType="slide" onRequestClose={() => setShowEndDateSelector(false)}>
-          <Pressable style={s.datePickerBackdrop} onPress={() => setShowEndDateSelector(false)}>
-            <Pressable style={s.datePickerSheet} onPress={(e) => e.stopPropagation()}>
-              <TouchableOpacity style={s.datePickerDone} onPress={() => setShowEndDateSelector(false)}>
-                <Text style={s.datePickerDoneText}>Done</Text>
+      <Modal visible={showEndDateSelector} transparent animationType="slide" onRequestClose={() => setShowEndDateSelector(false)}>
+        <Pressable style={s.datePickerBackdrop} onPress={() => setShowEndDateSelector(false)}>
+          <Pressable style={s.calendarSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={s.calendarHeader}>
+              <Text style={s.calendarTitle}>Select End Date</Text>
+              <TouchableOpacity onPress={() => setShowEndDateSelector(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <DateTimePicker
-                value={new Date(endDate)}
-                mode="date"
-                display="inline"
-                themeVariant="dark"
-                onChange={(_, selectedDate) => {
-                  if (selectedDate) setEndDate(selectedDate.toISOString().split('T')[0]);
-                }}
-              />
-            </Pressable>
+            </View>
+            <Calendar
+              current={endDate}
+              onDayPress={(day) => {
+                setEndDate(day.dateString);
+                setShowEndDateSelector(false);
+              }}
+              markedDates={{ [endDate]: { selected: true, selectedColor: Colors.primary } }}
+              theme={{
+                backgroundColor: Colors.card,
+                calendarBackground: Colors.card,
+                textSectionTitleColor: Colors.textSecondary,
+                selectedDayBackgroundColor: Colors.primary,
+                selectedDayTextColor: Colors.textInverse,
+                todayTextColor: Colors.primary,
+                dayTextColor: Colors.textPrimary,
+                textDisabledColor: Colors.textMuted,
+                dotColor: Colors.primary,
+                selectedDotColor: Colors.textInverse,
+                monthTextColor: Colors.textPrimary,
+                textDayFontSize: 16,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 14,
+              }}
+            />
           </Pressable>
-        </Modal>
-      )}
+        </Pressable>
+      </Modal>
 
       <Modal visible={visible && showDatePicker} transparent animationType="fade" onRequestClose={onClose}>
         <View style={[s.backdrop, { paddingTop: insets.top }]}>
@@ -337,9 +341,9 @@ const s = StyleSheet.create({
   continueBtn: { backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 12 },
   continueBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
   datePickerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  datePickerSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24, borderTopWidth: 1, borderTopColor: Colors.border },
-  datePickerDone: { alignSelf: 'flex-end', paddingHorizontal: 20, paddingVertical: 10 },
-  datePickerDoneText: { color: Colors.primary, fontSize: 15, fontWeight: '700' },
+  calendarSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderTopColor: Colors.border, maxHeight: '80%' },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  calendarTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '700' },
   list: { paddingHorizontal: 16 },
   emptyContainer: { padding: 32, alignItems: 'center' },
   emptyText: { color: Colors.textMuted, fontSize: 14, textAlign: 'center' },
