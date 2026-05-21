@@ -3,6 +3,7 @@ import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIn
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useTimeFormat } from '../hooks/useTimeFormat';
@@ -33,6 +34,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   const [totalNvgAdded, setTotalNvgAdded] = useState(0);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayedValue, setDisplayedValue] = useState(0);
+  const [lastHapticPercent, setLastHapticPercent] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (visible) {
@@ -83,6 +85,8 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   const animateSliderTo100 = (flightId: number, maxValue: number) => {
     setEditingId(flightId);
     setNvgHours(String(maxValue));
+    setLastHapticPercent(prev => ({ ...prev, [flightId]: 100 }));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const handleSaveNvg = async (flightId: number) => {
@@ -93,17 +97,23 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
     }
 
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await setFlightNvg(flightId, hours);
       await loadStats();
-      
+
       const newTotal = totalNvgAdded + hours;
       setTotalNvgAdded(newTotal);
       onTotalNvgUpdate?.(newTotal);
       animateValue(newTotal);
-      
+
       setFlights(flights.filter(f => f.id !== flightId));
       setEditingId(null);
       setNvgHours('');
+      setLastHapticPercent(prev => {
+        const updated = { ...prev };
+        delete updated[flightId];
+        return updated;
+      });
     } catch (err) {
       Alert.alert(t('error'), 'Kunde inte spara NVG-timmar');
     }
@@ -154,6 +164,14 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
                         onValueChange={(val) => {
                           setEditingId(flight.id);
                           setNvgHours(val.toFixed(1));
+
+                          // Trigger haptic feedback every 10%
+                          const percent = Math.floor((val / flight.night) * 10) * 10;
+                          const lastPercent = lastHapticPercent[flight.id] || 0;
+                          if (percent > lastPercent && percent > 0) {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setLastHapticPercent(prev => ({ ...prev, [flight.id]: percent }));
+                          }
                         }}
                         minimumTrackTintColor={Colors.primary}
                         maximumTrackTintColor={Colors.separator}
