@@ -186,10 +186,10 @@ export default function SettingsScreen() {
   const [exportingPDF, setExportingPDF] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
-  const [logbookExpanded, setLogbookExpanded] = useState(true);
-  const [importExpanded, setImportExpanded] = useState(true);
-  const [exportExpanded, setExportExpanded] = useState(true);
-  const [appExpanded, setAppExpanded] = useState(true);
+  const [logbookExpanded, setLogbookExpanded] = useState(false);
+  const [importExpanded, setImportExpanded] = useState(false);
+  const [exportExpanded, setExportExpanded] = useState(false);
+  const [appExpanded, setAppExpanded] = useState(false);
   const isDrone = appMode === 'drone';
   const isOp = isOperator(useProfileStore.getState().profile);
   const isPilot = !isDrone && !isOp;
