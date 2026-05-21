@@ -59,7 +59,7 @@ function zoneColor(zone: StressZone): string {
   if (zone === 'low') return Colors.textMuted;
   if (zone === 'light') return Colors.primary;
   if (zone === 'normal') return Colors.success;
-  if (zone === 'elevated') return Colors.warning;
+  if (zone === 'elevated') return Colors.danger;
   if (zone === 'high') return Colors.danger;
   if (zone === 'critical') return Colors.danger;
   return Colors.primary;
