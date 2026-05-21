@@ -802,7 +802,7 @@ export default function DashboardScreen() {
             ))}
           </View>
           {showClassBreakdown && (
-            <View style={s.card}>
+            <View style={[s.card, { marginTop: 12 }]}>
               {[
                 { l: 'DUAL', v: formatTime(st?.total_dual ?? 0) },
                 { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0) },
