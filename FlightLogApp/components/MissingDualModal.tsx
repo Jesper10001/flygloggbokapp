@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -28,13 +27,10 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
   const [loading, setLoading] = useState(false);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [dualValues, setDualValues] = useState<Record<number, string>>({});
-  const [dualHours, setDualHours] = useState('');
   const [remainingCount, setRemainingCount] = useState(0);
   const [totalDualAdded, setTotalDualAdded] = useState(0);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayedValue, setDisplayedValue] = useState(0);
-  const [lastHapticPercent, setLastHapticPercent] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (visible) {
@@ -82,41 +78,26 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
     return () => animatedValue.removeListener(listener);
   };
 
-  const animateSliderTo100 = (flightId: number, maxValue: number) => {
-    setEditingId(flightId);
-    setDualHours(String(maxValue));
-    setLastHapticPercent(prev => ({ ...prev, [flightId]: 100 }));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  const handleSaveDual = async (flightId: number) => {
-    const hours = parseFloat(dualHours);
-    if (isNaN(hours) || hours < 0) {
-      Alert.alert(t('error'), 'Ange en giltig tid');
-      return;
-    }
-
+  const handleSaveDual = async (flightId: number, flight: Flight) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await setFlightDual(flightId, hours);
+      await setFlightDual(flightId, flight.total_time);
       await loadStats();
 
-      const newTotal = totalDualAdded + hours;
+      const newTotal = totalDualAdded + flight.total_time;
       setTotalDualAdded(newTotal);
       onTotalDualUpdate?.(newTotal);
       animateValue(newTotal);
 
       setFlights(flights.filter(f => f.id !== flightId));
-      setEditingId(null);
-      setDualHours('');
-      setLastHapticPercent(prev => {
-        const updated = { ...prev };
-        delete updated[flightId];
-        return updated;
-      });
     } catch (err) {
       Alert.alert(t('error'), 'Kunde inte spara DUAL-timmar');
     }
+  };
+
+  const handleSkipDual = (flightId: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFlights(flights.filter(f => f.id !== flightId));
   };
 
   return (
@@ -157,45 +138,21 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
                     </Text>
                   </View>
 
-                  <View style={s.editContainer}>
-                    <View style={s.sliderGroup}>
-                      <Slider
-                        style={s.slider}
-                        minimumValue={0}
-                        maximumValue={flight.total_time}
-                        value={editingId === flight.id ? parseFloat(dualHours) || 0 : flight.dual || 0}
-                        onValueChange={(val) => {
-                          setEditingId(flight.id);
-                          setDualHours(val.toFixed(1));
-
-                          // Trigger haptic feedback every 10%
-                          const percent = Math.floor((val / flight.total_time) * 10) * 10;
-                          const lastPercent = lastHapticPercent[flight.id] || 0;
-                          if (percent > lastPercent && percent > 0) {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setLastHapticPercent(prev => ({ ...prev, [flight.id]: percent }));
-                          }
-                        }}
-                        minimumTrackTintColor={Colors.primary}
-                        maximumTrackTintColor={Colors.separator}
-                        thumbTintColor={Colors.primary}
-                      />
-                      <TouchableOpacity
-                        style={s.max100Btn}
-                        onPress={() => animateSliderTo100(flight.id, flight.total_time)}
-                      >
-                        <Text style={s.max100BtnText}>100%</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={s.saveSmallBtn}
-                        onPress={() => handleSaveDual(flight.id)}
-                      >
-                        <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={s.valueDisplay}>
-                      <Text style={s.valueText}>{editingId === flight.id ? dualHours : flight.dual || '0'} h / {flight.total_time} h</Text>
-                    </View>
+                  <View style={s.buttonGroup}>
+                    <TouchableOpacity
+                      style={[s.actionBtn, s.confirmBtn]}
+                      onPress={() => handleSaveDual(flight.id, flight)}
+                    >
+                      <Ionicons name="checkmark" size={20} color={Colors.textInverse} />
+                      <Text style={s.actionBtnText}>Yes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.actionBtn, s.cancelBtn]}
+                      onPress={() => handleSkipDual(flight.id)}
+                    >
+                      <Ionicons name="close" size={20} color={Colors.textInverse} />
+                      <Text style={s.actionBtnText}>No</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -219,13 +176,9 @@ const s = StyleSheet.create({
   flightInfo: { marginBottom: 12 },
   route: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
   meta: { color: Colors.textSecondary, fontSize: 12 },
-  editBtn: { paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
-  editContainer: { gap: 8 },
-  sliderGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  slider: { flex: 1, height: 40 },
-  max100Btn: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center' },
-  max100BtnText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
-  saveSmallBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  valueDisplay: { paddingTop: 4, alignItems: 'center' },
-  valueText: { color: Colors.textSecondary, fontSize: 12 },
+  buttonGroup: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
+  confirmBtn: { backgroundColor: Colors.success },
+  cancelBtn: { backgroundColor: Colors.danger },
+  actionBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '600' },
 });

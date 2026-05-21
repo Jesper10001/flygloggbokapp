@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable, TextInput } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -27,13 +26,10 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(false);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [instructorHours, setInstructorHours] = useState('');
   const [remainingCount, setRemainingCount] = useState(0);
   const [totalInstructorAdded, setTotalInstructorAdded] = useState(0);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayedValue, setDisplayedValue] = useState(0);
-  const [lastHapticPercent, setLastHapticPercent] = useState<Record<number, number>>({});
 
   const [showYearPicker, setShowYearPicker] = useState(true);
   const currentYear = new Date().getFullYear();
@@ -100,41 +96,26 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
     return () => animatedValue.removeListener(listener);
   };
 
-  const animateSliderTo100 = (flightId: number, maxValue: number) => {
-    setEditingId(flightId);
-    setInstructorHours(String(maxValue));
-    setLastHapticPercent(prev => ({ ...prev, [flightId]: 100 }));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  const handleSaveInstructor = async (flightId: number) => {
-    const hours = parseFloat(instructorHours);
-    if (isNaN(hours) || hours < 0) {
-      Alert.alert(t('error'), 'Ange en giltig tid');
-      return;
-    }
-
+  const handleSaveInstructor = async (flightId: number, flight: Flight) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await setFlightInstructor(flightId, hours);
+      await setFlightInstructor(flightId, flight.total_time);
       await loadStats();
 
-      const newTotal = totalInstructorAdded + hours;
+      const newTotal = totalInstructorAdded + flight.total_time;
       setTotalInstructorAdded(newTotal);
       onTotalInstructorUpdate?.(newTotal);
       animateValue(newTotal);
 
       setFlights(flights.filter(f => f.id !== flightId));
-      setEditingId(null);
-      setInstructorHours('');
-      setLastHapticPercent(prev => {
-        const updated = { ...prev };
-        delete updated[flightId];
-        return updated;
-      });
     } catch (err) {
       Alert.alert(t('error'), 'Kunde inte spara INSTRUCTOR-timmar');
     }
+  };
+
+  const handleSkipInstructor = (flightId: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFlights(flights.filter(f => f.id !== flightId));
   };
 
   return (
@@ -227,45 +208,21 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
                     </Text>
                   </View>
 
-                  <View style={s.editContainer}>
-                    <View style={s.sliderGroup}>
-                      <Slider
-                        style={s.slider}
-                        minimumValue={0}
-                        maximumValue={flight.total_time}
-                        value={editingId === flight.id ? parseFloat(instructorHours) || 0 : flight.instructor || 0}
-                        onValueChange={(val) => {
-                          setEditingId(flight.id);
-                          setInstructorHours(val.toFixed(1));
-
-                          // Trigger haptic feedback every 10%
-                          const percent = Math.floor((val / flight.total_time) * 10) * 10;
-                          const lastPercent = lastHapticPercent[flight.id] || 0;
-                          if (percent > lastPercent && percent > 0) {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setLastHapticPercent(prev => ({ ...prev, [flight.id]: percent }));
-                          }
-                        }}
-                        minimumTrackTintColor={Colors.primary}
-                        maximumTrackTintColor={Colors.separator}
-                        thumbTintColor={Colors.primary}
-                      />
-                      <TouchableOpacity
-                        style={s.max100Btn}
-                        onPress={() => animateSliderTo100(flight.id, flight.total_time)}
-                      >
-                        <Text style={s.max100BtnText}>100%</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={s.saveSmallBtn}
-                        onPress={() => handleSaveInstructor(flight.id)}
-                      >
-                        <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={s.valueDisplay}>
-                      <Text style={s.valueText}>{editingId === flight.id ? instructorHours : flight.instructor || '0'} h / {flight.total_time} h</Text>
-                    </View>
+                  <View style={s.buttonGroup}>
+                    <TouchableOpacity
+                      style={[s.actionBtn, s.confirmBtn]}
+                      onPress={() => handleSaveInstructor(flight.id, flight)}
+                    >
+                      <Ionicons name="checkmark" size={20} color={Colors.textInverse} />
+                      <Text style={s.actionBtnText}>Yes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.actionBtn, s.cancelBtn]}
+                      onPress={() => handleSkipInstructor(flight.id)}
+                    >
+                      <Ionicons name="close" size={20} color={Colors.textInverse} />
+                      <Text style={s.actionBtnText}>No</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -297,12 +254,9 @@ const s = StyleSheet.create({
   flightInfo: { marginBottom: 12 },
   route: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
   meta: { color: Colors.textSecondary, fontSize: 12 },
-  editContainer: { gap: 8 },
-  sliderGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  slider: { flex: 1, height: 40 },
-  max100Btn: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center' },
-  max100BtnText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
-  saveSmallBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  valueDisplay: { paddingTop: 4, alignItems: 'center' },
-  valueText: { color: Colors.textSecondary, fontSize: 12 },
+  buttonGroup: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
+  confirmBtn: { backgroundColor: Colors.success },
+  cancelBtn: { backgroundColor: Colors.danger },
+  actionBtnText: { color: Colors.textInverse, fontSize: 14, fontWeight: '600' },
 });
