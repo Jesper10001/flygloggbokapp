@@ -190,7 +190,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
         </View>
       </Modal>
 
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal visible={visible && !showYearPicker} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[s.backdrop, { paddingTop: insets.top }]}>
         <View style={s.container}>
           <View style={s.header}>
