@@ -391,10 +391,10 @@ export async function getNightFlightsMissingNvg(): Promise<Flight[]> {
 
 export async function getDualFlightsMissingPilotTracking(): Promise<Flight[]> {
   const db = await getDatabase();
-  // Get all flights that could be dual: no PIC, instructor, examiner, etc. and no sim
+  // Get all flights that could be dual: no PIC, instructor, examiner, etc. and no sim, and no dual logged yet
   const candidates = await db.getAllAsync<Flight>(
     `SELECT * FROM flights
-     WHERE dual > 0
+     WHERE (dual IS NULL OR dual = 0)
      AND (pic IS NULL OR pic = 0)
      AND (instructor IS NULL OR instructor = 0)
      AND (examiner IS NULL OR examiner = 0)
