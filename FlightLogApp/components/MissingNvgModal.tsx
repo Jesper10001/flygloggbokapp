@@ -33,7 +33,6 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   const [totalNvgAdded, setTotalNvgAdded] = useState(0);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayedValue, setDisplayedValue] = useState(0);
-  const sliderAnimValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
@@ -82,24 +81,8 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   };
 
   const animateSliderTo100 = (flightId: number, maxValue: number) => {
-    const currentValue = parseFloat(nvgHours) || 0;
     setEditingId(flightId);
-    sliderAnimValue.setValue(currentValue);
-
-    Animated.timing(sliderAnimValue, {
-      toValue: maxValue,
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
-
-    const listener = sliderAnimValue.addListener(({ value }) => {
-      setNvgHours(value.toFixed(1));
-    });
-
-    setTimeout(() => {
-      sliderAnimValue.removeListener(listener);
-      setNvgHours(String(maxValue));
-    }, 400);
+    setNvgHours(String(maxValue));
   };
 
   const handleSaveNvg = async (flightId: number) => {
