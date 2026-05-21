@@ -4,6 +4,8 @@ import {
   TouchableOpacity, Dimensions, ActivityIndicator,
   Modal, Pressable,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,12 +31,22 @@ export default function AlbumScreen() {
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Flight | null>(null);
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
 
   useEffect(() => {
     getFlightsWithPhotos().then(f => {
       setFlights(f);
       const icaos = f.flatMap(fl => [fl.dep_place, fl.arr_place].filter(Boolean));
       if (icaos.length) batchPlaceNames(icaos).then(setPlaceNames);
+
+      // Generate thumbnails for videos
+      const videos = f.filter(fl => fl.media_type === 'video' && fl.photo_uri);
+      for (const fl of videos) {
+        VideoThumbnails.getThumbnailAsync(fl.photo_uri, { time: 0 })
+          .then(({ uri }) => setThumbnails(prev => ({ ...prev, [fl.id]: uri })))
+          .catch(() => {});
+      }
+
       setLoading(false);
     });
   }, []);
@@ -69,13 +81,21 @@ export default function AlbumScreen() {
         renderItem={({ item }) => {
           const d = placeNames[item.dep_place?.toUpperCase()] ?? item.dep_place;
           const a = placeNames[item.arr_place?.toUpperCase()] ?? item.arr_place;
+          const thumbUri = item.media_type === 'video'
+            ? (thumbnails[item.id] ?? item.photo_uri)
+            : item.photo_uri;
           return (
             <TouchableOpacity
               style={styles.tile}
               onPress={() => setSelected(item)}
               activeOpacity={0.85}
             >
-              <Image source={{ uri: item.photo_uri }} style={styles.image} />
+              <Image source={{ uri: thumbUri }} style={styles.image} />
+              {item.media_type === 'video' && (
+                <View style={styles.videoIndicator}>
+                  <Ionicons name="play-circle" size={24} color="rgba(255,255,255,0.9)" />
+                </View>
+              )}
               <View style={styles.overlay}>
                 <Text style={styles.route} numberOfLines={1}>{d} → {a}</Text>
                 <Text style={styles.date}>{formatDate(item.date)}</Text>
@@ -88,11 +108,22 @@ export default function AlbumScreen() {
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {selected && (
-            <Image
-              source={{ uri: selected.photo_uri }}
-              style={{ width, height }}
-              resizeMode="contain"
-            />
+            selected.media_type === 'video' ? (
+              <Video
+                source={{ uri: selected.photo_uri }}
+                style={{ width, height }}
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping
+                shouldPlay
+                useNativeControls
+              />
+            ) : (
+              <Image
+                source={{ uri: selected.photo_uri }}
+                style={{ width, height }}
+                resizeMode="contain"
+              />
+            )
           )}
 
           {/* Top bar */}
@@ -136,6 +167,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.elevated,
   },
   image: { width: '100%', height: '100%' },
+  videoIndicator: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
   overlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: 4, paddingVertical: 3,
