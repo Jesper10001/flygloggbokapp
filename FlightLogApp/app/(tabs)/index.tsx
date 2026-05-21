@@ -553,6 +553,7 @@ export default function DashboardScreen() {
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
+  const [showClassBreakdown, setShowClassBreakdown] = useState(false);
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
@@ -779,13 +780,29 @@ export default function DashboardScreen() {
         </>
       ) : (
         <>
-          <Text style={s.sectionHeader}>Class · Time Breakdown</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
+            onPress={() => setShowClassBreakdown(v => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>Class · Time Breakdown</Text>
+            <Ionicons name={showClassBreakdown ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
           <View style={s.classGrid}>
             {[
               { l: 'PIC', v: formatTime(st?.total_pic ?? 0), c: Colors.textPrimary },
               { l: 'CO', v: formatTime(st?.total_co_pilot ?? 0), c: Colors.textPrimary },
               { l: 'IFR', v: formatTime(st?.total_ifr ?? 0), c: Colors.textPrimary },
               { l: 'NIGHT', v: formatTime(st?.total_night ?? 0), c: Colors.textPrimary },
+              ...(showClassBreakdown ? [
+                { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), c: Colors.textPrimary },
+                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), c: Colors.textPrimary },
+                { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0), c: Colors.textPrimary },
+                { l: 'SP', v: formatTime(st?.total_single_pilot ?? 0), c: Colors.textPrimary },
+                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), c: Colors.textPrimary },
+                { l: 'DAY LD', v: String(st?.total_landings_day ?? 0), c: Colors.textPrimary },
+                { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0), c: Colors.textPrimary },
+              ] : []),
             ].map(c => (
               <View key={c.l} style={s.classCell}>
                 <Text style={s.classCellLabel}>{c.l}</Text>
