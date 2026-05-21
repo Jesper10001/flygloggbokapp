@@ -43,13 +43,23 @@ function SectionHeader({ children }: { children: string }) {
   );
 }
 
-function Card({ children, padding = 0 }: { children: React.ReactNode; padding?: number }) {
+function Card({
+  children,
+  padding = 0,
+  backgroundColor = Colors.card,
+  borderColor = Colors.cardBorder,
+}: {
+  children: React.ReactNode;
+  padding?: number;
+  backgroundColor?: string;
+  borderColor?: string;
+}) {
   return (
     <View style={{
-      backgroundColor: Colors.card,
+      backgroundColor,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: Colors.cardBorder,
+      borderColor,
       padding,
       marginHorizontal: 20,
       overflow: 'hidden',
@@ -426,7 +436,7 @@ export default function SettingsScreen() {
         {t('tab_logbook') ?? 'LOGGBOK'}
       </CollapsibleSectionHeader>
       {logbookExpanded && (
-        <Card>
+        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           {/* Current logbook type */}
           <Row
             icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
