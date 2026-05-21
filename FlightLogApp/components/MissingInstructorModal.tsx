@@ -129,7 +129,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
           <View style={s.container}>
             <View style={s.header}>
               <View style={{ flex: 1 }}>
-                <Text style={s.title}>Missing Instructor hours</Text>
+                <Text style={s.title}>Missing instructor hours?</Text>
               </View>
               <TouchableOpacity onPress={onClose} hitSlop={12}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
@@ -174,7 +174,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
           <View style={s.header}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={s.title}>Missing INSTRUCTOR time</Text>
+                <Text style={s.title}>Missing instructor hours?</Text>
                 {displayedValue > 0 && (
                   <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
                 )}
