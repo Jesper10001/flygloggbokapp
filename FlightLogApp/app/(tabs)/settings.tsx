@@ -186,10 +186,7 @@ export default function SettingsScreen() {
   const [exportingPDF, setExportingPDF] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
-  const [logbookExpanded, setLogbookExpanded] = useState(false);
-  const [importExpanded, setImportExpanded] = useState(false);
-  const [exportExpanded, setExportExpanded] = useState(false);
-  const [appExpanded, setAppExpanded] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
   const isDrone = appMode === 'drone';
   const isOp = isOperator(useProfileStore.getState().profile);
   const isPilot = !isDrone && !isOp;
@@ -238,24 +235,9 @@ export default function SettingsScreen() {
 
   // ── Handlers ──
 
-  const toggleLogbook = () => {
+  const toggleSection = (section: 'logbook' | 'import' | 'export' | 'app') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setLogbookExpanded(prev => !prev);
-  };
-
-  const toggleImport = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setImportExpanded(prev => !prev);
-  };
-
-  const toggleExport = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExportExpanded(prev => !prev);
-  };
-
-  const toggleApp = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setAppExpanded(prev => !prev);
+    setExpandedSection(expandedSection === section ? null : section);
   };
 
   const handleExportCSV = async () => {
@@ -451,10 +433,10 @@ export default function SettingsScreen() {
       </View>
 
 {/* ── C. Loggbok ── */}
-      <CollapsibleSectionHeader expanded={logbookExpanded} onPress={toggleLogbook}>
+      <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>
         {t('tab_logbook') ?? 'LOGGBOK'}
       </CollapsibleSectionHeader>
-      {logbookExpanded && (
+      {expandedSection === 'logbook' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           {/* Current logbook type */}
           <Row
@@ -475,10 +457,10 @@ export default function SettingsScreen() {
       )}
 
       {/* ── D. Import ── */}
-      <CollapsibleSectionHeader expanded={importExpanded} onPress={toggleImport}>
+      <CollapsibleSectionHeader expanded={expandedSection === 'import'} onPress={() => toggleSection('import')}>
         {t('import_section') ?? 'IMPORT'}
       </CollapsibleSectionHeader>
-      {importExpanded && (
+      {expandedSection === 'import' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           <Row
             icon="document-attach-outline" iconColor={Colors.primary}
@@ -514,10 +496,10 @@ export default function SettingsScreen() {
       )}
 
       {/* ── E. Data & Export ── */}
-      <CollapsibleSectionHeader expanded={exportExpanded} onPress={toggleExport}>
+      <CollapsibleSectionHeader expanded={expandedSection === 'export'} onPress={() => toggleSection('export')}>
         {t('export') ?? 'DATA & EXPORT'}
       </CollapsibleSectionHeader>
-      {exportExpanded && (
+      {expandedSection === 'export' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           <Row
             icon="cloud-outline" iconColor={Colors.info}
@@ -550,10 +532,10 @@ export default function SettingsScreen() {
       )}
 
       {/* ── F. App ── */}
-      <CollapsibleSectionHeader expanded={appExpanded} onPress={toggleApp}>
+      <CollapsibleSectionHeader expanded={expandedSection === 'app'} onPress={() => toggleSection('app')}>
         {t('app_section')}
       </CollapsibleSectionHeader>
-      {appExpanded && (
+      {expandedSection === 'app' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
             right={
