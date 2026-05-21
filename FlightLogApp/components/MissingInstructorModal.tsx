@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable } from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -36,22 +35,35 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
   const [displayedValue, setDisplayedValue] = useState(0);
   const [lastHapticPercent, setLastHapticPercent] = useState<Record<number, number>>({});
 
-  const [showDatePicker, setShowDatePicker] = useState(true);
-  const [startDate, setStartDate] = useState(getDefaultStartDate());
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [showStartDateSelector, setShowStartDateSelector] = useState(false);
-  const [showEndDateSelector, setShowEndDateSelector] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(true);
+  const currentYear = new Date().getFullYear();
+  const [startYear, setStartYear] = useState(String(currentYear - 1));
+  const [endYear, setEndYear] = useState(String(currentYear));
 
-  function getDefaultStartDate(): string {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().split('T')[0];
-  }
+  const handleYearRangeSelected = async () => {
+    if (!startYear || !endYear) {
+      Alert.alert('Error', 'Please enter both start and end years');
+      return;
+    }
 
-  const handleDateRangeSelected = async () => {
-    setShowDatePicker(false);
+    const startYearNum = parseInt(startYear, 10);
+    const endYearNum = parseInt(endYear, 10);
+
+    if (isNaN(startYearNum) || isNaN(endYearNum)) {
+      Alert.alert('Error', 'Years must be numbers');
+      return;
+    }
+
+    if (startYearNum > endYearNum) {
+      Alert.alert('Error', 'Start year must be before end year');
+      return;
+    }
+
+    setShowYearPicker(false);
     setLoading(true);
     try {
+      const startDate = `${startYearNum}-01-01`;
+      const endDate = `${endYearNum}-12-31`;
       const flightList = await getInstructorFlightsMissingTracking(startDate, endDate);
       setFlights(flightList);
       setRemainingCount(flightList.length);
@@ -127,81 +139,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
 
   return (
     <>
-      <Modal visible={showStartDateSelector} transparent animationType="slide" onRequestClose={() => setShowStartDateSelector(false)}>
-        <Pressable style={s.datePickerBackdrop} onPress={() => setShowStartDateSelector(false)}>
-          <Pressable style={s.calendarSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={s.calendarHeader}>
-              <Text style={s.calendarTitle}>Select Start Date</Text>
-              <TouchableOpacity onPress={() => setShowStartDateSelector(false)} hitSlop={8}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <Calendar
-              current={startDate}
-              onDayPress={(day) => {
-                setStartDate(day.dateString);
-                setShowStartDateSelector(false);
-              }}
-              markedDates={{ [startDate]: { selected: true, selectedColor: Colors.primary } }}
-              theme={{
-                backgroundColor: Colors.card,
-                calendarBackground: Colors.card,
-                textSectionTitleColor: Colors.textSecondary,
-                selectedDayBackgroundColor: Colors.primary,
-                selectedDayTextColor: Colors.textInverse,
-                todayTextColor: Colors.primary,
-                dayTextColor: Colors.textPrimary,
-                textDisabledColor: Colors.textMuted,
-                dotColor: Colors.primary,
-                selectedDotColor: Colors.textInverse,
-                monthTextColor: Colors.textPrimary,
-                textDayFontSize: 16,
-                textMonthFontSize: 16,
-                textDayHeaderFontSize: 14,
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={showEndDateSelector} transparent animationType="slide" onRequestClose={() => setShowEndDateSelector(false)}>
-        <Pressable style={s.datePickerBackdrop} onPress={() => setShowEndDateSelector(false)}>
-          <Pressable style={s.calendarSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={s.calendarHeader}>
-              <Text style={s.calendarTitle}>Select End Date</Text>
-              <TouchableOpacity onPress={() => setShowEndDateSelector(false)} hitSlop={8}>
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <Calendar
-              current={endDate}
-              onDayPress={(day) => {
-                setEndDate(day.dateString);
-                setShowEndDateSelector(false);
-              }}
-              markedDates={{ [endDate]: { selected: true, selectedColor: Colors.primary } }}
-              theme={{
-                backgroundColor: Colors.card,
-                calendarBackground: Colors.card,
-                textSectionTitleColor: Colors.textSecondary,
-                selectedDayBackgroundColor: Colors.primary,
-                selectedDayTextColor: Colors.textInverse,
-                todayTextColor: Colors.primary,
-                dayTextColor: Colors.textPrimary,
-                textDisabledColor: Colors.textMuted,
-                dotColor: Colors.primary,
-                selectedDotColor: Colors.textInverse,
-                monthTextColor: Colors.textPrimary,
-                textDayFontSize: 16,
-                textMonthFontSize: 16,
-                textDayHeaderFontSize: 14,
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={visible && showDatePicker} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal visible={visible && showYearPicker} transparent animationType="fade" onRequestClose={onClose}>
         <View style={[s.backdrop, { paddingTop: insets.top }]}>
           <View style={s.container}>
             <View style={s.header}>
@@ -214,27 +152,37 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
             </View>
 
             <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
-              <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}>Select date range</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}>Select year range</Text>
             </View>
 
             <View style={{ padding: 16, gap: 20 }}>
               <View>
-                <Text style={s.label}>Start date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowStartDateSelector(true)}>
-                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={s.dateInputText}>{startDate}</Text>
-                </TouchableOpacity>
+                <Text style={s.label}>Start year</Text>
+                <TextInput
+                  style={s.yearInput}
+                  placeholder="2023"
+                  placeholderTextColor={Colors.textMuted}
+                  value={startYear}
+                  onChangeText={setStartYear}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
               </View>
 
               <View>
-                <Text style={s.label}>End date</Text>
-                <TouchableOpacity style={s.dateInput} onPress={() => setShowEndDateSelector(true)}>
-                  <Ionicons name="calendar" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={s.dateInputText}>{endDate}</Text>
-                </TouchableOpacity>
+                <Text style={s.label}>End year</Text>
+                <TextInput
+                  style={s.yearInput}
+                  placeholder={String(currentYear)}
+                  placeholderTextColor={Colors.textMuted}
+                  value={endYear}
+                  onChangeText={setEndYear}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
               </View>
 
-              <TouchableOpacity style={s.continueBtn} onPress={handleDateRangeSelected}>
+              <TouchableOpacity style={s.continueBtn} onPress={handleYearRangeSelected}>
                 <Text style={s.continueBtnText}>Continue</Text>
               </TouchableOpacity>
             </View>
@@ -338,12 +286,10 @@ const s = StyleSheet.create({
   label: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 6 },
   dateInput: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
   dateInputText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  yearInput: { paddingHorizontal: 12, paddingVertical: 12, backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   continueBtn: { backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 12 },
   continueBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
   datePickerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  calendarSheet: { backgroundColor: Colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderTopColor: Colors.border, maxHeight: '80%' },
-  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.separator },
-  calendarTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '700' },
   list: { paddingHorizontal: 16 },
   emptyContainer: { padding: 32, alignItems: 'center' },
   emptyText: { color: Colors.textMuted, fontSize: 14, textAlign: 'center' },
