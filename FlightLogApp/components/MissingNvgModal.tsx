@@ -15,9 +15,10 @@ interface MissingNvgModalProps {
   visible: boolean;
   onClose: () => void;
   onCountUpdate?: (count: number) => void;
+  onTotalNvgUpdate?: (hours: number) => void;
 }
 
-export function MissingNvgModal({ visible, onClose, onCountUpdate }: MissingNvgModalProps) {
+export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpdate }: MissingNvgModalProps) {
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const { loadStats } = useFlightStore();
@@ -29,6 +30,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate }: MissingNvgM
   const [nvgValues, setNvgValues] = useState<Record<number, string>>({});
   const [nvgHours, setNvgHours] = useState('');
   const [remainingCount, setRemainingCount] = useState(0);
+  const [totalNvgAdded, setTotalNvgAdded] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -43,6 +45,11 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate }: MissingNvgM
       setFlights(nightFlights);
       setRemainingCount(nightFlights.length);
       onCountUpdate?.(nightFlights.length);
+      
+      // Calculate total NVG added (night - nvg = time added via this function)
+      const totalAdded = nightFlights.reduce((sum, f) => sum + Math.max(0, (f.night || 0) - (f.nvg || 0)), 0);
+      setTotalNvgAdded(totalAdded);
+      onTotalNvgUpdate?.(totalAdded);
       
       const codes = nightFlights
         .flatMap(f => [f.dep_place, f.arr_place])
@@ -81,9 +88,6 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate }: MissingNvgM
           <View style={s.header}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
               <Text style={s.title}>{t('missing_nvg_title')}</Text>
-              {remainingCount > 0 && (
-                <Text style={{ color: Colors.gold, fontSize: 15, fontWeight: '700' }}>{remainingCount}</Text>
-              )}
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />
