@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
@@ -100,31 +101,32 @@ export function MissingNvgModal({ visible, onClose }: MissingNvgModalProps) {
 
                   {editingId === flight.id ? (
                     <View style={s.editContainer}>
-                      <View style={s.inputGroup}>
-                        <Text style={s.label}>NVG hours</Text>
-                        <View style={s.inputRow}>
-                          <TouchableOpacity 
-                            style={s.inputBtn} 
-                            onPress={() => setNvgHours((Math.max(0, parseFloat(nvgHours) || 0) - 0.1).toFixed(1))}
-                          >
-                            <Ionicons name="remove" size={16} color={Colors.primary} />
-                          </TouchableOpacity>
-                          <Text style={s.inputValue}>{nvgHours || '0'}</Text>
-                          <TouchableOpacity 
-                            style={s.inputBtn}
-                            onPress={() => setNvgHours(((parseFloat(nvgHours) || 0) + 0.1).toFixed(1))}
-                          >
-                            <Ionicons name="add" size={16} color={Colors.primary} />
-                          </TouchableOpacity>
-                        </View>
+                      <View style={s.sliderGroup}>
+                        <Slider
+                          style={s.slider}
+                          minimumValue={0}
+                          maximumValue={flight.night}
+                          value={parseFloat(nvgHours) || 0}
+                          onValueChange={(val) => setNvgHours(val.toFixed(1))}
+                          minimumTrackTintColor={Colors.primary}
+                          maximumTrackTintColor={Colors.separator}
+                          thumbTintColor={Colors.primary}
+                        />
+                        <TouchableOpacity 
+                          style={s.max100Btn}
+                          onPress={() => setNvgHours(String(flight.night))}
+                        >
+                          <Text style={s.max100BtnText}>100%</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={s.saveSmallBtn}
+                          onPress={() => handleSaveNvg(flight.id)}
+                        >
+                          <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
+                        </TouchableOpacity>
                       </View>
-                      <View style={s.buttonRow}>
-                        <TouchableOpacity style={s.cancelBtn} onPress={() => setEditingId(null)}>
-                          <Text style={s.cancelBtnText}>{t('cancel')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={s.saveBtn} onPress={() => handleSaveNvg(flight.id)}>
-                          <Text style={s.saveBtnText}>{t('save')}</Text>
-                        </TouchableOpacity>
+                      <View style={s.valueDisplay}>
+                        <Text style={s.valueText}>{nvgHours || '0'} h / {flight.night} h</Text>
                       </View>
                     </View>
                   ) : (
@@ -161,15 +163,12 @@ const s = StyleSheet.create({
   route: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
   meta: { color: Colors.textSecondary, fontSize: 12 },
   editBtn: { paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' },
-  editContainer: { gap: 12 },
-  inputGroup: { gap: 6 },
-  label: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inputBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '44' },
-  inputValue: { flex: 1, textAlign: 'center', color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
-  buttonRow: { flexDirection: 'row', gap: 8 },
-  cancelBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: Colors.elevated, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  cancelBtnText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 14 },
-  saveBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center' },
-  saveBtnText: { color: Colors.textInverse, fontWeight: '700', fontSize: 14 },
+  editContainer: { gap: 8 },
+  sliderGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  slider: { flex: 1, height: 40 },
+  max100Btn: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.primary + '22', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center' },
+  max100BtnText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
+  saveSmallBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  valueDisplay: { paddingTop: 4, alignItems: 'center' },
+  valueText: { color: Colors.textSecondary, fontSize: 12 },
 });
