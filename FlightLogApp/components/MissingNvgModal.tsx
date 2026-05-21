@@ -124,11 +124,14 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
       <View style={[s.backdrop, { paddingTop: insets.top }]}>
         <View style={s.container}>
           <View style={s.header}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
-              <Text style={s.title}>{t('missing_nvg_title')}</Text>
-              {displayedValue > 0 && (
-                <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
-              )}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={s.title}>{t('missing_nvg_title')}</Text>
+                {displayedValue > 0 && (
+                  <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
+                )}
+              </View>
+              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Changes visible in settings > audit log</Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />
