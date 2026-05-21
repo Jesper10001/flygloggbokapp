@@ -36,6 +36,16 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
   const [startYear, setStartYear] = useState(String(currentYear - 1));
   const [endYear, setEndYear] = useState(String(currentYear));
 
+  // Reset to year picker when modal opens
+  useEffect(() => {
+    if (visible) {
+      setShowYearPicker(true);
+      setStartYear(String(currentYear - 1));
+      setEndYear(String(currentYear));
+      setFlights([]);
+    }
+  }, [visible]);
+
   const handleYearRangeSelected = async () => {
     if (!startYear || !endYear) {
       Alert.alert('Error', 'Please enter both start and end years');
