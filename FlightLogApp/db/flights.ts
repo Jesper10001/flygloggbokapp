@@ -477,6 +477,45 @@ export async function setFlightDual(id: number, hours: number): Promise<void> {
   await db.runAsync('UPDATE flights SET dual=? WHERE id=?', [hours, id]);
 }
 
+export async function getInstructorFlightsMissingTracking(startDate: string, endDate: string): Promise<Flight[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<Flight>(
+    `SELECT * FROM flights
+     WHERE (instructor IS NULL OR instructor = 0)
+     AND pic > 0
+     AND date >= ? AND date <= ?
+     ORDER BY date DESC, dep_utc DESC`,
+    [startDate, endDate]
+  );
+}
+
+export async function setFlightInstructor(id: number, hours: number): Promise<void> {
+  const db = await getDatabase();
+  const existing = await getFlightById(id);
+  if (!existing) return;
+
+  const norm = (v: any) => {
+    if (v === null || v === undefined || v === '') return '';
+    const s = String(v);
+    if (s === '0' || s === '0.0' || s === '0.00') return '';
+    return s;
+  };
+
+  const oldVal = norm(existing.instructor);
+  const newVal = norm(hours);
+
+  // Only log if value actually changed
+  if (oldVal !== newVal) {
+    await db.runAsync(
+      `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
+       VALUES (?,?,?,?,?)`,
+      [id, 'instructor', oldVal, newVal, 'Tillagd via INSTRUCTOR-modal']
+    );
+  }
+
+  await db.runAsync('UPDATE flights SET instructor=? WHERE id=?', [hours, id]);
+}
+
 export async function getRecentSecondPilots(limit = 10): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ second_pilot: string }>(

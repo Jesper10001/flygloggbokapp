@@ -16,6 +16,7 @@ import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FlightShareCard } from '../../components/FlightShareCard';
 import { MissingNvgModal } from '../../components/MissingNvgModal';
 import { MissingDualModal } from '../../components/MissingDualModal';
+import { MissingInstructorModal } from '../../components/MissingInstructorModal';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
@@ -560,6 +561,8 @@ export default function DashboardScreen() {
   const [totalNvgAdded, setTotalNvgAdded] = useState(0);
   const [showMissingDual, setShowMissingDual] = useState(false);
   const [totalDualAdded, setTotalDualAdded] = useState(0);
+  const [showMissingInstructor, setShowMissingInstructor] = useState(false);
+  const [totalInstructorAdded, setTotalInstructorAdded] = useState(0);
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
@@ -811,7 +814,7 @@ export default function DashboardScreen() {
             <View style={[s.card, { marginTop: 12 }]}>
               {[
                 { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), showAddBtn: true, addBtnKey: 'dual' },
-                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0) },
+                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), showAddBtn: true, addBtnKey: 'instructor' },
                 { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0) },
                 { l: 'SP', v: formatTime(st?.total_single_pilot ?? 0) },
                 { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), showAddBtn: true, addBtnKey: 'nvg' },
@@ -822,7 +825,11 @@ export default function DashboardScreen() {
                   <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.l}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     {c.showAddBtn && (
-                      <TouchableOpacity onPress={() => c.addBtnKey === 'dual' ? setShowMissingDual(true) : setShowMissingNvg(true)} hitSlop={8}>
+                      <TouchableOpacity onPress={() => {
+                        if (c.addBtnKey === 'dual') setShowMissingDual(true);
+                        else if (c.addBtnKey === 'instructor') setShowMissingInstructor(true);
+                        else setShowMissingNvg(true);
+                      }} hitSlop={8}>
                         <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
                       </TouchableOpacity>
                     )}
@@ -882,6 +889,7 @@ export default function DashboardScreen() {
 
           <MissingNvgModal visible={showMissingNvg} onClose={() => setShowMissingNvg(false)} onTotalNvgUpdate={setTotalNvgAdded} />
           <MissingDualModal visible={showMissingDual} onClose={() => setShowMissingDual(false)} onTotalDualUpdate={setTotalDualAdded} />
+          <MissingInstructorModal visible={showMissingInstructor} onClose={() => setShowMissingInstructor(false)} onTotalInstructorUpdate={setTotalInstructorAdded} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
