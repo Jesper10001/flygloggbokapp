@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FlightShareCard } from '../../components/FlightShareCard';
+import { MissingNvgModal } from '../../components/MissingNvgModal';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
@@ -554,6 +555,7 @@ export default function DashboardScreen() {
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [showClassBreakdown, setShowClassBreakdown] = useState(false);
+  const [showMissingNvg, setShowMissingNvg] = useState(false);
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
@@ -808,13 +810,20 @@ export default function DashboardScreen() {
                 { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0) },
                 { l: 'MP', v: formatTime(st?.total_multi_pilot ?? 0) },
                 { l: 'SP', v: formatTime(st?.total_single_pilot ?? 0) },
-                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0) },
+                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), showAddBtn: st?.total_nvg === 0 },
                 { l: 'DAY LD', v: String(st?.total_landings_day ?? 0) },
                 { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0) },
-              ].map((c, i) => (
-                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: i < 6 ? 1 : 0, borderBottomColor: Colors.separator }}>
+              ].map((c: any, i) => (
+                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: i < 6 ? 1 : 0, borderBottomColor: Colors.separator }}>
                   <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.l}</Text>
-                  <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{c.v}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {c.showAddBtn && (
+                      <TouchableOpacity onPress={() => setShowMissingNvg(true)} hitSlop={8}>
+                        <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{c.v}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -866,6 +875,8 @@ export default function DashboardScreen() {
 
 
           <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
+
+          <MissingNvgModal visible={showMissingNvg} onClose={() => setShowMissingNvg(false)} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
