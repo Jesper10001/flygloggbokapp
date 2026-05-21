@@ -88,6 +88,9 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
           <View style={s.header}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
               <Text style={s.title}>{t('missing_nvg_title')}</Text>
+              {totalNvgAdded > 0 && (
+                <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(totalNvgAdded)}</Text>
+              )}
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />
