@@ -2529,6 +2529,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
           const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+          const hasRunwayInRemarks = new RegExp(`${form.stop_place?.toUpperCase()}.*?rwy`, 'i').test(form.remarks);
           const hasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
           const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType && hasDesignator;
 
@@ -2560,12 +2561,81 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </ScrollView>
                 </View>
               )}
-              {hasApproachType && (
+              {hasApproachType && !hasRunwayInRemarks && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.stop_place?.toUpperCase()}:
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                        paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const regex = /(2D|3D)\s+app/i;
+                        const newRemarks = currentRemarks.replace(regex, '2D app');
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.chip, styles.chipAdd]}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                        const regex = new RegExp(stopPlacePattern, 'i');
+                        const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`));
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}</Text>
+                    </TouchableOpacity>
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(stopPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}${position}`));
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {hasApproachType && hasRunwayInRemarks && !hasDesignator && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.stop_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                        paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy.*`;
+                        const regex = new RegExp(stopPlacePattern, 'i');
+                        const newRemarks = currentRemarks.replace(regex, '');
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
@@ -2642,6 +2712,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             const arrPlaceMatch = new RegExp(arrPlacePattern, 'i').exec(form.remarks);
             const arrPlaceSection = arrPlaceMatch ? arrPlaceMatch[0] : '';
             const hasApproachType = approachTypes.some(type => arrPlaceSection.includes(type));
+            const hasRunwayInRemarks = new RegExp(`${form.arr_place?.toUpperCase()}.*?rwy`, 'i').test(form.remarks);
+            const hasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks.split('\n').pop() || '');
 
           return (
             <>
@@ -2669,12 +2741,81 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </ScrollView>
                 </View>
               )}
-              {hasApproachType && (
+              {hasApproachType && !hasRunwayInRemarks && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.arr_place?.toUpperCase()}:
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                        paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const regex = /(2D|3D)\s+app/i;
+                        const newRemarks = currentRemarks.replace(regex, '2D app');
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.chip, styles.chipAdd]}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                        const regex = new RegExp(arrPlacePattern, 'i');
+                        const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`));
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}</Text>
+                    </TouchableOpacity>
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(arrPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}${position}`));
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {hasApproachType && hasRunwayInRemarks && !hasDesignator && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.arr_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                        paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                      }}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy.*`;
+                        const regex = new RegExp(arrPlacePattern, 'i');
+                        const newRemarks = currentRemarks.replace(regex, '');
+                        set('remarks', newRemarks);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
