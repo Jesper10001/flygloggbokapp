@@ -2517,8 +2517,70 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
         )}
 
-        {/* Approach type quick selection */}
-        {selectedApp && selectedRunway && (() => {
+        {/* Approach type quick selection — T&G section */}
+        {form.flight_type === 'touch_and_go' && selectedAppStop && selectedRunwayStop && !selectedRunway && (() => {
+          const approachTypes = selectedAppStop === '2d'
+            ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
+            : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
+
+          const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+
+          return (
+            <>
+              {!hasApproachType && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.stop_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                    {approachTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const regex = /(2D|3D)\s+app/i;
+                          const newRemarks = currentRemarks.replace(regex, type);
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {hasApproachType && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.stop_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const regex = /rwy (\d{2,3})[LCR]?/i;
+                          const newRemarks = currentRemarks.replace(regex, (match, runway) => `rwy ${runway}${position}`);
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </>
+          );
+        })()}
+
+        {/* Approach type quick selection — Arrival section */}
+        {(form.flight_type !== 'touch_and_go' || selectedRunwayStop !== null) && selectedApp && selectedRunway && (() => {
           const approachTypes = selectedApp === '2d'
             ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
@@ -2528,42 +2590,52 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           return (
             <>
               {!hasApproachType && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                  {approachTypes.map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[styles.chip, styles.chipAdd]}
-                      onPress={() => {
-                        const currentRemarks = form.remarks;
-                        const regex = /(2D|3D)\s+app/i;
-                        const newRemarks = currentRemarks.replace(regex, type);
-                        set('remarks', newRemarks);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.arr_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                    {approachTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const regex = /(2D|3D)\s+app/i;
+                          const newRemarks = currentRemarks.replace(regex, type);
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               )}
               {hasApproachType && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                  {['L', 'C', 'R'].map((position) => (
-                    <TouchableOpacity
-                      key={position}
-                      style={[styles.chip, styles.chipAdd]}
-                      onPress={() => {
-                        const currentRemarks = form.remarks;
-                        const regex = /rwy (\d{2,3})[LCR]?/i;
-                        const newRemarks = currentRemarks.replace(regex, (match, runway) => `rwy ${runway}${position}`);
-                        set('remarks', newRemarks);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}{position}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                    {form.arr_place?.toUpperCase()}:
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const regex = /rwy (\d{2,3})[LCR]?/i;
+                          const newRemarks = currentRemarks.replace(regex, (match, runway) => `rwy ${runway}${position}`);
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               )}
             </>
           );
