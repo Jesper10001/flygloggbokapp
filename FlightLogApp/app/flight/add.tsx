@@ -1842,7 +1842,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         >
                           <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
                         </TouchableOpacity>
-                        {stopRunways.map((heading: number) => {
+                        {runways.map((heading: number) => {
                           const oppositeHeading = (heading + 180) % 360;
                           return (
                             <View key={heading} style={{ flexDirection: 'row', gap: 6 }}>
