@@ -2566,8 +2566,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         style={[styles.chip, styles.chipAdd]}
                         onPress={() => {
                           const currentRemarks = form.remarks;
-                          const regex = /rwy (\d{2,3})[LCR]?/i;
-                          const newRemarks = currentRemarks.replace(regex, (match, runway) => `rwy ${runway}${position}`);
+                          const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(stopPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}${position}`));
                           set('remarks', newRemarks);
                         }}
                         activeOpacity={0.7}
@@ -2641,8 +2642,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         style={[styles.chip, styles.chipAdd]}
                         onPress={() => {
                           const currentRemarks = form.remarks;
-                          const regex = /rwy (\d{2,3})[LCR]?/i;
-                          const newRemarks = currentRemarks.replace(regex, (match, runway) => `rwy ${runway}${position}`);
+                          const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(arrPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}${position}`));
                           set('remarks', newRemarks);
                         }}
                         activeOpacity={0.7}
