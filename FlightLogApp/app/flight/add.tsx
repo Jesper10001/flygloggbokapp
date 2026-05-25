@@ -2565,7 +2565,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.stop_place?.toUpperCase()}:
                   </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
                     <TouchableOpacity
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
@@ -2596,6 +2596,22 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                      paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                    }}
+                    onPress={() => {
+                      const currentRemarks = form.remarks;
+                      const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]`;
+                      const regex = new RegExp(stopPlacePattern, 'i');
+                      const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/[LCR]$/i, ''));
+                      set('remarks', newRemarks);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                  </TouchableOpacity>
                 </View>
               )}
             </>
@@ -2658,7 +2674,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.arr_place?.toUpperCase()}:
                   </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipsRow, { flex: 1 }]} keyboardShouldPersistTaps="always">
                     <TouchableOpacity
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
@@ -2689,6 +2705,22 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                      paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                    }}
+                    onPress={() => {
+                      const currentRemarks = form.remarks;
+                      const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]`;
+                      const regex = new RegExp(arrPlacePattern, 'i');
+                      const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/[LCR]$/i, ''));
+                      set('remarks', newRemarks);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                  </TouchableOpacity>
                 </View>
               )}
             </>
