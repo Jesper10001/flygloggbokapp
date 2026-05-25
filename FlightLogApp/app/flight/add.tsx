@@ -1781,13 +1781,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </>
         )}
 
-        {/* Stop place for touch & go / hot refuel */}
-        {(form.flight_type === 'touch_and_go' || form.flight_type === 'hot_refuel') && (
+        {/* Stop place for touch & go */}
+        {form.flight_type === 'touch_and_go' && (
           <View style={styles.stopPlaceBlock}>
             <Text style={styles.stopPlaceLabel}>
-              {form.flight_type === 'touch_and_go'
-                ? `${t('touch_and_go')} — ${t('hot_refuel_not_destination')}`
-                : `${t('hot_refuel')} — ${t('hot_refuel_not_destination')}`}
+              {t('touch_and_go')} — {t('hot_refuel_not_destination')}
             </Text>
             <View>
               <IcaoInput
@@ -1885,6 +1883,22 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 );
               })()}
             </View>
+          </View>
+        )}
+
+        {/* Stop place for hot refuel */}
+        {form.flight_type === 'hot_refuel' && (
+          <View style={styles.stopPlaceBlock}>
+            <Text style={styles.stopPlaceLabel}>
+              {t('hot_refuel')} — {t('hot_refuel_not_destination')}
+            </Text>
+            <IcaoInput
+              label=""
+              value={form.stop_place ?? ''}
+              onChangeText={(v) => set('stop_place', v)}
+              recentPlaces={top2places}
+              placeholder="ICAO"
+            />
           </View>
         )}
 
