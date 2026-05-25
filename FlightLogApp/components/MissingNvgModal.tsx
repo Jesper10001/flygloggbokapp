@@ -131,7 +131,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
                   <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
                 )}
               </View>
-              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Changes visible in settings > audit log</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Changes visible in settings {'>'}  audit log</Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />

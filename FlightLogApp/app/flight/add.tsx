@@ -34,6 +34,7 @@ import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
 import type { Flight, FlightFormData, ValidationIssue } from '../../types/flight';
+import runwayData from '../../assets/runways.json';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -575,6 +576,7 @@ export default function AddFlightScreen() {
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [selectedApp, setSelectedApp] = useState<'2d' | '3d' | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
@@ -754,6 +756,7 @@ export default function AddFlightScreen() {
             ...prev,
             aircraft_type: last.aircraft_type,
             registration: last.registration,
+            dep_place: last.arr_place ?? '',
             ...(last.flight_rules ? { flight_rules: last.flight_rules, ifr: '0', vfr: '0' } : {}),
           }));
         } else if (last.flight_rules) {
@@ -1946,8 +1949,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <Counter label={t('night')} value={form.landings_night} onChange={(v) => set('landings_night', v)} />
           </View>
           {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, gap: 8 }}>
-              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>FL</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: -14, paddingHorizontal: 14, marginTop: 10, paddingBottom: 10, gap: 8 }}>
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>Max FL</Text>
               <TextInput
                 style={{
                   backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
@@ -1961,7 +1964,60 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 keyboardType="number-pad"
                 maxLength={3}
               />
-              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Max FL</Text>
+              <View style={{ flex: 1 }} />
+              {!selectedApp ? (
+                <>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+                      paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
+                    }}
+                    onPress={() => setSelectedApp('2d')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>2D APP</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+                      paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
+                    }}
+                    onPress={() => setSelectedApp('3d')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>3D APP</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (() => {
+                const runways = (runwayData as Record<string, number[]>)[form.arr_place?.toUpperCase() || ''] || [];
+                return (
+                  <>
+                    {runways.map((heading: number) => (
+                      <TouchableOpacity
+                        key={heading}
+                        style={{
+                          backgroundColor: Colors.primary, borderRadius: 8, borderWidth: 1, borderColor: Colors.primary,
+                          paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedApp(null)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: Colors.textInverse, fontSize: 12, fontWeight: '700' }}>{String(heading).padStart(3, '0')}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+                        paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
+                      }}
+                      onPress={() => setSelectedApp(null)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="close" size={16} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
             </View>
           )}
           {(() => {
