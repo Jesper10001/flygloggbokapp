@@ -2567,34 +2567,44 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     {form.stop_place?.toUpperCase()}:
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    {Array.from({ length: runways.length * 2 }).map((_, i) => {
-                      const heading = i < runways.length ? runways[i] : (runways[i - runways.length] + 180) % 360;
-                      return (
-                        <TouchableOpacity
-                          key={heading}
-                          style={[styles.chip, styles.chipAdd]}
-                          onPress={() => {
-                            const currentRemarks = form.remarks;
-                            const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy`;
-                            const regex = new RegExp(stopPlacePattern, 'i');
+                    <TouchableOpacity
+                      style={[styles.chip, styles.chipAdd]}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy`;
+                        const regex = new RegExp(stopPlacePattern, 'i');
 
-                            if (regex.test(currentRemarks)) {
-                              // Redan finns runway-info, ersätt den
-                              const replaceRegex = new RegExp(`${form.stop_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
-                              const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`));
-                              set('remarks', newRemarks);
-                            } else {
-                              // Ingen runway-info än, lägg till den
-                              const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
-                              set('remarks', currentRemarks ? `${currentRemarks}\n${newLine}` : newLine);
-                            }
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                        if (regex.test(currentRemarks)) {
+                          // Redan finns runway-info, ersätt den
+                          const replaceRegex = new RegExp(`${form.stop_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
+                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`));
+                          set('remarks', newRemarks);
+                        } else {
+                          // Ingen runway-info än, lägg till den
+                          const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`;
+                          set('remarks', currentRemarks ? `${currentRemarks}\n${newLine}` : newLine);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}</Text>
+                    </TouchableOpacity>
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(stopPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}${position}`));
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </ScrollView>
                 </View>
               )}
@@ -2660,37 +2670,44 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     {form.arr_place?.toUpperCase()}:
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    {(() => {
-                      const arrRunways = (runwayData as Record<string, number[]>)[form.arr_place?.toUpperCase() || ''] || [];
-                      return Array.from({ length: arrRunways.length * 2 }).map((_, i) => {
-                        const heading = i < arrRunways.length ? arrRunways[i] : (arrRunways[i - arrRunways.length] + 180) % 360;
-                        return (
-                          <TouchableOpacity
-                            key={heading}
-                            style={[styles.chip, styles.chipAdd]}
-                            onPress={() => {
-                              const currentRemarks = form.remarks;
-                              const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy`;
-                              const regex = new RegExp(arrPlacePattern, 'i');
+                    <TouchableOpacity
+                      style={[styles.chip, styles.chipAdd]}
+                      onPress={() => {
+                        const currentRemarks = form.remarks;
+                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy`;
+                        const regex = new RegExp(arrPlacePattern, 'i');
 
-                              if (regex.test(currentRemarks)) {
-                                // Redan finns runway-info, ersätt den
-                                const replaceRegex = new RegExp(`${form.arr_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
-                                const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`));
-                                set('remarks', newRemarks);
-                              } else {
-                                // Ingen runway-info än, lägg till den
-                                const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
-                                set('remarks', currentRemarks && form.flight_type === 'touch_and_go' ? `${currentRemarks}\n${newLine}` : (currentRemarks ? `${currentRemarks}\n${newLine}` : newLine));
-                              }
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
-                          </TouchableOpacity>
-                        );
-                      });
-                    })()}
+                        if (regex.test(currentRemarks)) {
+                          // Redan finns runway-info, ersätt den
+                          const replaceRegex = new RegExp(`${form.arr_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
+                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`));
+                          set('remarks', newRemarks);
+                        } else {
+                          // Ingen runway-info än, lägg till den
+                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`;
+                          set('remarks', currentRemarks && form.flight_type === 'touch_and_go' ? `${currentRemarks}\n${newLine}` : (currentRemarks ? `${currentRemarks}\n${newLine}` : newLine));
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}</Text>
+                    </TouchableOpacity>
+                    {['L', 'C', 'R'].map((position) => (
+                      <TouchableOpacity
+                        key={position}
+                        style={[styles.chip, styles.chipAdd]}
+                        onPress={() => {
+                          const currentRemarks = form.remarks;
+                          const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                          const regex = new RegExp(arrPlacePattern, 'i');
+                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}${position}`));
+                          set('remarks', newRemarks);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}{position}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </ScrollView>
                 </View>
               )}
