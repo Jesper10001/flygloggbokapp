@@ -2224,10 +2224,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={{
-                          backgroundColor: selectedRunway === oppositeHeading ? Colors.gold : Colors.elevated,
+                          backgroundColor: selectedRunway === oppositeHeading ? Colors.primary : Colors.elevated,
                           borderRadius: 8,
                           borderWidth: 1,
-                          borderColor: selectedRunway === oppositeHeading ? Colors.gold : Colors.border,
+                          borderColor: selectedRunway === oppositeHeading ? Colors.primary : Colors.border,
                           paddingHorizontal: 12,
                           paddingVertical: 8,
                           alignItems: 'center',
