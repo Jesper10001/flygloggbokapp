@@ -2618,8 +2618,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
               : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
             const tngHasApproachType = tngApproachTypes.some(type => form.remarks.includes(type));
-            const tngHasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
-            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType && tngHasDesignator;
+            const tngHasRunway = /rwy \d{2,3}([LCR])?/i.test(form.remarks);
+            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType && tngHasRunway;
 
             if (!isTngDone || !selectedApp || !selectedRunway) return null;
           } else {
