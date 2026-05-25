@@ -1728,7 +1728,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {(['normal', 'touch_and_go', 'hot_refuel', 'sim'] as const).map((ft) => {
             const labels: Record<string, string> = {
               normal: t('normal'),
-              touch_and_go: 'T&G/Low app',
+              touch_and_go: t('touch_and_go'),
               hot_refuel: t('hot_refuel'),
               sim: t('ffs_sim'),
             };
