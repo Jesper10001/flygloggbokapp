@@ -1831,6 +1831,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       </>
                     ) : (
                       <>
+                        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                         <TouchableOpacity
                           style={{
                             backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
@@ -1841,42 +1842,46 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         >
                           <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
                         </TouchableOpacity>
-                        {firstRunway !== undefined ? (
-                          <>
-                            <TouchableOpacity
-                              style={{
-                                backgroundColor: selectedRunwayStop === firstRunway ? Colors.primary : Colors.elevated,
-                                borderRadius: 6, borderWidth: 1,
-                                borderColor: selectedRunwayStop === firstRunway ? Colors.primary : Colors.border,
-                                paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                              }}
-                              onPress={() => {
-                                setSelectedRunwayStop(firstRunway);
-                                const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(firstRunway / 10).toString().padStart(2, '0')}`;
-                                set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                              }}
-                              activeOpacity={0.75}
-                            >
-                              <Text style={{ color: selectedRunwayStop === firstRunway ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{String(firstRunway).padStart(3, '0')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={{
-                                backgroundColor: selectedRunwayStop === firstOpposite ? Colors.primary : Colors.elevated,
-                                borderRadius: 6, borderWidth: 1,
-                                borderColor: selectedRunwayStop === firstOpposite ? Colors.primary : Colors.border,
-                                paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                              }}
-                              onPress={() => {
-                                setSelectedRunwayStop(firstOpposite);
-                                const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`;
-                                set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                              }}
-                              activeOpacity={0.75}
-                            >
-                              <Text style={{ color: selectedRunwayStop === firstOpposite ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{String(firstOpposite).padStart(3, '0')}</Text>
-                            </TouchableOpacity>
-                          </>
-                        ) : null}
+                        {stopRunways.map((heading: number) => {
+                          const oppositeHeading = (heading + 180) % 360;
+                          return (
+                            <View key={heading} style={{ flexDirection: 'row', gap: 6 }}>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: selectedRunwayStop === heading ? Colors.primary : Colors.elevated,
+                                  borderRadius: 6, borderWidth: 1,
+                                  borderColor: selectedRunwayStop === heading ? Colors.primary : Colors.border,
+                                  paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                }}
+                                onPress={() => {
+                                  setSelectedRunwayStop(heading);
+                                  const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
+                                  set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                                }}
+                                activeOpacity={0.75}
+                              >
+                                <Text style={{ color: selectedRunwayStop === heading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: selectedRunwayStop === oppositeHeading ? Colors.primary : Colors.elevated,
+                                  borderRadius: 6, borderWidth: 1,
+                                  borderColor: selectedRunwayStop === oppositeHeading ? Colors.primary : Colors.border,
+                                  paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                }}
+                                onPress={() => {
+                                  setSelectedRunwayStop(oppositeHeading);
+                                  const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(oppositeHeading / 10).toString().padStart(2, '0')}`;
+                                  set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                                }}
+                                activeOpacity={0.75}
+                              >
+                                <Text style={{ color: selectedRunwayStop === oppositeHeading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(oppositeHeading / 10).toString().padStart(2, '0')}</Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })}
+                        </View>
                       </>
                     )}
                   </View>
