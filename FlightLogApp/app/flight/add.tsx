@@ -2529,8 +2529,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
           const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+          const hasRunway = /rwy \d{2,3}([LCR])?/i.test(form.remarks);
           const hasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
-          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType && hasDesignator;
+          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType && hasRunway;
 
           if (isTngDone) return null;
 
@@ -2560,7 +2561,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </ScrollView>
                 </View>
               )}
-              {hasApproachType && (
+              {hasApproachType && hasDesignator && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.stop_place?.toUpperCase()}:
@@ -2635,6 +2636,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             const arrPlaceMatch = new RegExp(arrPlacePattern, 'i').exec(form.remarks);
             const arrPlaceSection = arrPlaceMatch ? arrPlaceMatch[0] : '';
             const hasApproachType = approachTypes.some(type => arrPlaceSection.includes(type));
+            const hasDesignator = /rwy \d{2,3}[LCR]/i.test(arrPlaceSection);
 
           return (
             <>
@@ -2662,7 +2664,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </ScrollView>
                 </View>
               )}
-              {hasApproachType && (
+              {hasApproachType && hasDesignator && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
                     {form.arr_place?.toUpperCase()}:
