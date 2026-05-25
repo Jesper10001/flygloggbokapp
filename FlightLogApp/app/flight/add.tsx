@@ -2122,7 +2122,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           }}
                           onPress={() => {
                             setSelectedRunway(firstRunway);
-                            set('remarks', `${selectedApp?.toUpperCase()} app rwy ${Math.round(firstRunway / 10).toString().padStart(2, '0')}`);
+                            const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstRunway / 10).toString().padStart(2, '0')}`;
+                            set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
                           }}
                           activeOpacity={0.75}
                         >
@@ -2142,7 +2143,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           }}
                           onPress={() => {
                             setSelectedRunway(firstOpposite);
-                            set('remarks', `${selectedApp?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`);
+                            const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`;
+                            set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
                           }}
                           activeOpacity={0.75}
                         >
@@ -2194,7 +2196,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         }}
                         onPress={() => {
                           setSelectedRunway(heading);
-                          set('remarks', `${selectedApp?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`);
+                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
+                          set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
                         }}
                         activeOpacity={0.75}
                       >
@@ -2214,7 +2217,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         }}
                         onPress={() => {
                           setSelectedRunway(oppositeHeading);
-                          set('remarks', `${selectedApp?.toUpperCase()} app rwy ${Math.round(oppositeHeading / 10).toString().padStart(2, '0')}`);
+                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(oppositeHeading / 10).toString().padStart(2, '0')}`;
+                          set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
                         }}
                         activeOpacity={0.75}
                       >
