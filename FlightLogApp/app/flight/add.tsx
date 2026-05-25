@@ -2518,12 +2518,15 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
         {/* Approach type quick selection — T&G section */}
-        {form.flight_type === 'touch_and_go' && selectedAppStop && selectedRunwayStop && !selectedRunway && (() => {
+        {form.flight_type === 'touch_and_go' && selectedAppStop && selectedRunwayStop && (() => {
           const approachTypes = selectedAppStop === '2d'
             ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
           const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType;
+
+          if (isTngDone) return null;
 
           return (
             <>
@@ -2580,12 +2583,25 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         })()}
 
         {/* Approach type quick selection — Arrival section */}
-        {(form.flight_type !== 'touch_and_go' || selectedRunwayStop !== null) && selectedApp && selectedRunway && (() => {
-          const approachTypes = selectedApp === '2d'
-            ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
-            : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
+        {(() => {
+          if (form.flight_type === 'touch_and_go') {
+            const tngApproachTypes = selectedAppStop === '2d'
+              ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
+              : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
+            const tngHasApproachType = tngApproachTypes.some(type => form.remarks.includes(type));
+            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType;
 
-          const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+            if (!isTngDone || !selectedApp || !selectedRunway) return null;
+          } else {
+            if (!selectedApp || !selectedRunway) return null;
+          }
+
+          return (() => {
+            const approachTypes = selectedApp === '2d'
+              ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
+              : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
+
+            const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
 
           return (
             <>
@@ -2639,6 +2655,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </>
           );
+          })();
         })()}
 
         {!selectedApp || !selectedRunway ? (() => {
