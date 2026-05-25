@@ -2517,6 +2517,184 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
         )}
 
+        {/* Quick select buttons for approach selection */}
+        {form.flight_type === 'touch_and_go' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (() => {
+          const stopRunways = form.stop_place ? ((runwayData as Record<string, number[]>)[form.stop_place.toUpperCase()] || []) : [];
+          const stopFirstRunway = stopRunways[0];
+          const stopFirstOpposite = stopFirstRunway !== undefined ? (stopFirstRunway + 180) % 360 : undefined;
+
+          return (
+            <>
+              {!selectedRunwayStop && (
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '700' }}>
+                    {form.stop_place?.toUpperCase()}:
+                  </Text>
+                  {!selectedAppStop ? (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                          paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedAppStop('2d')}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>2D APP</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                          paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedAppStop('3d')}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>3D APP</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : stopFirstRunway !== undefined ? (
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                          paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedAppStop(null)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: selectedRunwayStop === stopFirstRunway ? Colors.primary : Colors.elevated,
+                          borderRadius: 6, borderWidth: 1,
+                          borderColor: selectedRunwayStop === stopFirstRunway ? Colors.primary : Colors.border,
+                          paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => {
+                          setSelectedRunwayStop(stopFirstRunway);
+                          const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(stopFirstRunway / 10).toString().padStart(2, '0')}`;
+                          set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: selectedRunwayStop === stopFirstRunway ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(stopFirstRunway / 10).toString().padStart(2, '0')}</Text>
+                      </TouchableOpacity>
+                      {stopFirstOpposite !== undefined && (
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: selectedRunwayStop === stopFirstOpposite ? Colors.primary : Colors.elevated,
+                            borderRadius: 6, borderWidth: 1,
+                            borderColor: selectedRunwayStop === stopFirstOpposite ? Colors.primary : Colors.border,
+                            paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                          }}
+                          onPress={() => {
+                            setSelectedRunwayStop(stopFirstOpposite);
+                            const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(stopFirstOpposite / 10).toString().padStart(2, '0')}`;
+                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                          }}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={{ color: selectedRunwayStop === stopFirstOpposite ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(stopFirstOpposite / 10).toString().padStart(2, '0')}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+              )}
+              {selectedRunwayStop && (
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '700' }}>
+                    {form.arr_place?.toUpperCase()}:
+                  </Text>
+                  {!selectedApp ? (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                          paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedApp('2d')}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>2D APP</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                          paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelectedApp('3d')}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>3D APP</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : form.arr_place ? (() => {
+                    const arrRunways = (runwayData as Record<string, number[]>)[form.arr_place.toUpperCase()] || [];
+                    const arrFirstRunway = arrRunways[0];
+                    const arrFirstOpposite = arrFirstRunway !== undefined ? (arrFirstRunway + 180) % 360 : undefined;
+
+                    return (
+                      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                            paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                          }}
+                          onPress={() => setSelectedApp(null)}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                        </TouchableOpacity>
+                        {arrFirstRunway !== undefined && (
+                          <>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: selectedRunway === arrFirstRunway ? Colors.primary : Colors.elevated,
+                                borderRadius: 6, borderWidth: 1,
+                                borderColor: selectedRunway === arrFirstRunway ? Colors.primary : Colors.border,
+                                paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                              }}
+                              onPress={() => {
+                                setSelectedRunway(arrFirstRunway);
+                                const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(arrFirstRunway / 10).toString().padStart(2, '0')}`;
+                                set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                              }}
+                              activeOpacity={0.75}
+                            >
+                              <Text style={{ color: selectedRunway === arrFirstRunway ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(arrFirstRunway / 10).toString().padStart(2, '0')}</Text>
+                            </TouchableOpacity>
+                            {arrFirstOpposite !== undefined && (
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: selectedRunway === arrFirstOpposite ? Colors.primary : Colors.elevated,
+                                  borderRadius: 6, borderWidth: 1,
+                                  borderColor: selectedRunway === arrFirstOpposite ? Colors.primary : Colors.border,
+                                  paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                }}
+                                onPress={() => {
+                                  setSelectedRunway(arrFirstOpposite);
+                                  const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(arrFirstOpposite / 10).toString().padStart(2, '0')}`;
+                                  set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                                }}
+                                activeOpacity={0.75}
+                              >
+                                <Text style={{ color: selectedRunway === arrFirstOpposite ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(arrFirstOpposite / 10).toString().padStart(2, '0')}</Text>
+                              </TouchableOpacity>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    );
+                  })() : null}
+                </View>
+              )}
+            </>
+          );
+        })()}
+
         {/* Approach type quick selection */}
         {selectedApp && selectedRunway && (() => {
           const approachTypes = selectedApp === '2d'
