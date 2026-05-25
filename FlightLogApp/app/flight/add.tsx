@@ -2524,7 +2524,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
           const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
-          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType;
+          const hasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
+          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType && hasDesignator;
 
           if (isTngDone) return null;
 
@@ -2590,7 +2591,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
               : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
             const tngHasApproachType = tngApproachTypes.some(type => form.remarks.includes(type));
-            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType;
+            const tngHasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
+            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType && tngHasDesignator;
 
             if (!isTngDone || !selectedApp || !selectedRunway) return null;
           } else {
