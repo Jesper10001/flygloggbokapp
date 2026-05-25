@@ -2604,7 +2604,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
               : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
-            const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
+            const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*`;
+            const arrPlaceMatch = new RegExp(arrPlacePattern, 'i').exec(form.remarks);
+            const arrPlaceSection = arrPlaceMatch ? arrPlaceMatch[0] : '';
+            const hasApproachType = approachTypes.some(type => arrPlaceSection.includes(type));
 
           return (
             <>
