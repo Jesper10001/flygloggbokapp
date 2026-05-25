@@ -2570,10 +2570,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
                         const currentRemarks = form.remarks;
-                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy`;
                         const regex = new RegExp(stopPlacePattern, 'i');
-                        const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`));
-                        set('remarks', newRemarks);
+
+                        if (regex.test(currentRemarks)) {
+                          // Redan finns runway-info, ersätt den
+                          const replaceRegex = new RegExp(`${form.stop_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
+                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`));
+                          set('remarks', newRemarks);
+                        } else {
+                          // Ingen runway-info än, lägg till den
+                          const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`;
+                          set('remarks', currentRemarks ? `${currentRemarks}\n${newLine}` : newLine);
+                        }
                       }}
                       activeOpacity={0.7}
                     >
@@ -2663,10 +2672,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       style={[styles.chip, styles.chipAdd]}
                       onPress={() => {
                         const currentRemarks = form.remarks;
-                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
+                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy`;
                         const regex = new RegExp(arrPlacePattern, 'i');
-                        const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`));
-                        set('remarks', newRemarks);
+
+                        if (regex.test(currentRemarks)) {
+                          // Redan finns runway-info, ersätt den
+                          const replaceRegex = new RegExp(`${form.arr_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
+                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`));
+                          set('remarks', newRemarks);
+                        } else {
+                          // Ingen runway-info än, lägg till den
+                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`;
+                          set('remarks', currentRemarks && form.flight_type === 'touch_and_go' ? `${currentRemarks}\n${newLine}` : (currentRemarks ? `${currentRemarks}\n${newLine}` : newLine));
+                        }
                       }}
                       activeOpacity={0.7}
                     >
