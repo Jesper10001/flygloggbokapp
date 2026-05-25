@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "babel-preset-expo": "~54.0.10",
     "typescript": "^5.3.3"
   },
   "private": true

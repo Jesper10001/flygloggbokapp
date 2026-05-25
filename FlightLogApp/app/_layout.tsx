@@ -38,14 +38,6 @@ export default function RootLayout() {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { /* ignore */ });
     const init = async () => {
       try {
-        // Load Fraunces font from Google Fonts
-        try {
-          await Font.loadAsync({
-            'Fraunces': 'https://fonts.gstatic.com/s/fraunces/v30/6Au-c7NJY0n-FViGN8eWJ3HLUXf_RBM4s2n5A.ttf',
-          });
-        } catch (fontErr) {
-          console.warn('Font loading failed, continuing without custom font:', fontErr);
-        }
         setFontsLoaded(true);
 
         await getDatabase();

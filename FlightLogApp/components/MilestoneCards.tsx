@@ -169,7 +169,6 @@ const s = StyleSheet.create({
   },
 
   heroNumber: {
-    fontFamily: 'Fraunces',
     fontSize: 38,
     fontWeight: '500',
     lineHeight: 34,

@@ -562,6 +562,42 @@ export async function getRecentPlaces(): Promise<{ icao: string; temporary: bool
   return rows.map((r) => ({ icao: r.icao, temporary: tempMap.get(r.icao) ?? false }));
 }
 
+export async function getRecentDepartures(): Promise<{ icao: string; temporary: boolean }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; last: string }>(
+    `SELECT dep_place as icao, MAX(date) as last FROM flights
+     WHERE dep_place IS NOT NULL AND dep_place != ''
+     GROUP BY dep_place
+     ORDER BY last DESC LIMIT 20`
+  );
+  if (rows.length === 0) return [];
+  const placeholders = rows.map(() => '?').join(',');
+  const tempRows = await db.getAllAsync<{ icao: string; temporary: number }>(
+    `SELECT icao, temporary FROM icao_airports WHERE icao IN (${placeholders})`,
+    rows.map((r) => r.icao)
+  );
+  const tempMap = new Map(tempRows.map((r) => [r.icao, r.temporary === 1]));
+  return rows.map((r) => ({ icao: r.icao, temporary: tempMap.get(r.icao) ?? false }));
+}
+
+export async function getRecentArrivals(): Promise<{ icao: string; temporary: boolean }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; last: string }>(
+    `SELECT arr_place as icao, MAX(date) as last FROM flights
+     WHERE arr_place IS NOT NULL AND arr_place != ''
+     GROUP BY arr_place
+     ORDER BY last DESC LIMIT 20`
+  );
+  if (rows.length === 0) return [];
+  const placeholders = rows.map(() => '?').join(',');
+  const tempRows = await db.getAllAsync<{ icao: string; temporary: number }>(
+    `SELECT icao, temporary FROM icao_airports WHERE icao IN (${placeholders})`,
+    rows.map((r) => r.icao)
+  );
+  const tempMap = new Map(tempRows.map((r) => [r.icao, r.temporary === 1]));
+  return rows.map((r) => ({ icao: r.icao, temporary: tempMap.get(r.icao) ?? false }));
+}
+
 // ─── STATISTIK ────────────────────────────────────────────────────────────────
 
 export async function getFlightStats(): Promise<FlightStats> {
@@ -860,6 +896,29 @@ export async function getVisitedAirportIcaos(): Promise<string[]> {
      ORDER BY places.last DESC`
   );
   return rows.map(r => r.icao);
+}
+
+export async function getVisitedAirportDates(): Promise<Record<string, string>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; last: string }>(
+    `SELECT places.icao, places.last FROM (
+       SELECT dep_place as icao, MAX(date) as last FROM flights
+         WHERE length(dep_place)=4 AND flight_type != 'sim' GROUP BY dep_place
+       UNION
+       SELECT arr_place as icao, MAX(date) as last FROM flights
+         WHERE length(arr_place)=4 AND flight_type != 'sim' GROUP BY arr_place
+       UNION
+       SELECT stop_place as icao, MAX(date) as last FROM flights
+         WHERE length(stop_place)=4 AND flight_type != 'sim' GROUP BY stop_place
+     ) places
+     LEFT JOIN icao_airports ia ON ia.icao = places.icao
+     WHERE ia.icao IS NULL OR (ia.temporary IS NULL OR ia.temporary = 0)`
+  );
+  const result: Record<string, string> = {};
+  rows.forEach(r => {
+    result[r.icao] = r.last;
+  });
+  return result;
 }
 
 // ─── LUFTFARTYGSREGISTER ──────────────────────────────────────────────────────

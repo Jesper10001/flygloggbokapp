@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#0A1628"
     },
     "ios": {
       "supportsTablet": false,
@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
         "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning.",
-        "NSLocationWhenInUseUsageDescription": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser."
+        "NSLocationWhenInUseUsageDescription": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +27,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A1A33"
       },
-      "package": "com.blades.jointlogbook"
+      "package": "com.blades.jointlogbook",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -53,6 +60,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3e7e3c1a-87dd-4aff-95a3-d98170a0f924"
+      }
     }
   }
 }

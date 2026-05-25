@@ -15,15 +15,20 @@ export function getSeedAirports(): Promise<[string, string, string, string, numb
 const SEED_VERSION = '2026-04-22-global';
 
 export async function seedIcaoAirports(premium = false): Promise<void> {
-  if (!premium) return;
-
   const db = await getDatabase();
+
+  // Check if table already has data
+  const tableCount = await db.getFirstAsync<{ cnt: number }>(
+    `SELECT COUNT(*) as cnt FROM icao_airports`
+  ).catch(() => ({ cnt: 0 }));
 
   const existing = await db.getFirstAsync<{ v: string }>(
     `SELECT value as v FROM settings WHERE key = 'icao_seed_version'`
   ).catch(() => null);
 
-  if (existing?.v === SEED_VERSION) return;
+  if (existing?.v === SEED_VERSION && tableCount?.cnt && tableCount.cnt > 0) {
+    return;
+  }
 
   const data = airportData;
 

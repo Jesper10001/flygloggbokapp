@@ -1,7 +1,7 @@
 // Drönarkategorier — olika scheman beroende på pilottyp (civil eller militär).
 // Fältet lagras som fri text i drone_registry.category och drone_flights.category.
 
-export type PilotType = 'commercial' | 'military';
+export type PilotType = 'commercial' | 'military' | 'hobby';
 
 export const CIVIL_CATEGORIES = ['A1', 'A2', 'A3', 'Specific', 'Certified'] as const;
 

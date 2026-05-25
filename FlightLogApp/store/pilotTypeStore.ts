@@ -14,7 +14,7 @@ export const usePilotTypeStore = create<PilotTypeStore>((set) => ({
   loaded: false,
   load: async () => {
     const v = await getSetting('drone_pilot_type');
-    const next: PilotType = v === 'military' ? 'military' : 'commercial';
+    const next: PilotType = (v === 'military' || v === 'hobby') ? v : 'commercial';
     set({ pilotType: next, loaded: true });
   },
   setPilotType: async (p) => {

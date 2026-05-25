@@ -21,7 +21,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
 
   const isNatoValue = value?.startsWith('NATO-');
 
-  if (pilotType === 'commercial') {
+  if (pilotType === 'commercial' || pilotType === 'hobby') {
     return (
       <View style={styles.chipRow}>
         {CIVIL_CATEGORIES.map((c) => (

@@ -1,18 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, TextInput, KeyboardAvoidingView, Platform,
+  Alert, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Video, ResizeMode } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
+import { useLanguageStore } from '../../store/languageStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
-import { insertFlight, getRecentAircraftTypes, getRecentRegistrations } from '../../db/flights';
+import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentDepartures, getRecentArrivals } from '../../db/flights';
 import { FormField } from '../../components/FormField';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
+import { IcaoInput } from '../../components/IcaoInput';
+import type { IcaoInputHandle } from '../../components/IcaoInput';
 import * as Haptics from 'expo-haptics';
+
+// ── SegmentControl component ──────────────────────────────────────────────────
+function SegmentControl({ options, value, onChange }: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <View style={st.segmentRow}>
+      {options.map((opt) => (
+        <TouchableOpacity
+          key={opt.value}
+          style={[st.segmentBtn, value === opt.value && st.segmentBtnActive]}
+          onPress={() => onChange(opt.value)}
+          activeOpacity={0.7}
+        >
+          <Text style={[st.segmentText, value === opt.value && st.segmentTextActive]}>
+            {opt.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 
 // ── Role configs ────────────────────────────────────────────────────────────
 
@@ -211,12 +242,21 @@ export default function AddOperatorFlightScreen() {
   const emoji = ROLE_EMOJI[role] ?? '🎖️';
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [aircraftType, setAircraftType] = useState('');
   const [flightTime, setFlightTime] = useState('');
+  const [depPlace, setDepPlace] = useState('');
+  const [arrPlace, setArrPlace] = useState('');
   const [remarks, setRemarks] = useState('');
   const [data, setData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
+  const [recentDepartures, setRecentDepartures] = useState<{ icao: string; temporary: boolean }[]>([]);
+  const [recentArrivals, setRecentArrivals] = useState<{ icao: string; temporary: boolean }[]>([]);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const depIcaoRef = useRef<IcaoInputHandle>(null);
+  const arrIcaoRef = useRef<IcaoInputHandle>(null);
 
   const sv = (useTranslation() as any).i18n?.language === 'sv';
 
@@ -225,10 +265,39 @@ export default function AddOperatorFlightScreen() {
       setRecentTypes(types);
       if (types.length > 0 && !aircraftType) setAircraftType(types[0]);
     });
+    getRecentDepartures().then(places => setRecentDepartures(places));
+    getRecentArrivals().then(places => setRecentArrivals(places));
   }, []);
 
   const setField = (key: string, value: any) => setData(prev => ({ ...prev, [key]: value }));
   const getField = (key: string, fallback: any = '') => data[key] ?? fallback;
+
+  const pickMedia = async (type: 'image' | 'video') => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: type === 'video' ? ['videos'] : ['images'],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (type === 'video') {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          const sizeInMB = (fileInfo.size ?? 0) / (1024 * 1024);
+          if (sizeInMB > 50) {
+            Alert.alert(
+              sv ? 'Videon är för stor' : 'Video too large',
+              sv ? `Maximal filstorlek är 50 MB (din video är ${sizeInMB.toFixed(1)} MB).` : `Maximum file size is 50 MB (your video is ${sizeInMB.toFixed(1)} MB).`
+            );
+            return;
+          }
+        } catch (err) {
+          console.warn('Failed to check video size:', err);
+        }
+      }
+      setMediaType(type);
+      setPhotoUri(asset.uri);
+    }
+  };
 
   const handleSave = async () => {
     if (!aircraftType.trim()) { Alert.alert(t('error'), t('val_aircraft_type_required')); return; }
@@ -240,11 +309,23 @@ export default function AddOperatorFlightScreen() {
         ? (() => { const [h, m] = flightTime.split(':').map(Number); return h + (m || 0) / 60; })()
         : parseFloat(flightTime) || 0;
 
+      let savedPhotoUri = '';
+      if (photoUri && !photoUri.startsWith(FileSystem.documentDirectory ?? '___')) {
+        const folderName = mediaType === 'video' ? 'flight_videos' : 'flight_photos';
+        const folderPath = (FileSystem.documentDirectory ?? '') + folderName;
+        await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true }).catch(() => {});
+        const ext = photoUri.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'jpg');
+        savedPhotoUri = folderPath + '/' + Date.now() + '.' + ext;
+        await FileSystem.copyAsync({ from: photoUri, to: savedPhotoUri });
+      } else {
+        savedPhotoUri = photoUri ?? '';
+      }
+
       await insertFlight({
         date,
         aircraft_type: aircraftType.trim().toUpperCase(),
         registration: '',
-        dep_place: '', arr_place: '', dep_utc: '', arr_utc: '',
+        dep_place: depPlace.trim().toUpperCase(), arr_place: arrPlace.trim().toUpperCase(), dep_utc: '', arr_utc: '',
         total_time: String(timeDecimal),
         pic: '0', co_pilot: '0', dual: '0', ifr: '0', night: data.night_ops ? String(timeDecimal) : '0',
         landings_day: '0', landings_night: '0',
@@ -254,6 +335,8 @@ export default function AddOperatorFlightScreen() {
         nvg: '0', tng_count: '0',
         flight_type: 'normal',
         operator_data: JSON.stringify({ role, ...data }),
+        photo_uri: savedPhotoUri,
+        media_type: mediaType,
       } as any, { source: 'manual' });
 
       await Promise.all([loadFlights(), loadStats()]);
@@ -270,6 +353,27 @@ export default function AddOperatorFlightScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Custom header */}
+      <TouchableOpacity
+        style={st.customHeader}
+        onPress={() => setShowDatePicker(true)}
+        activeOpacity={0.8}
+      >
+        <TouchableOpacity style={st.headerClose} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="close" size={22} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={st.headerDate}>
+            {(() => {
+              const d = date ? new Date(date + 'T12:00:00') : new Date();
+              const lang = useLanguageStore.getState().language;
+              return d.toLocaleDateString(lang === 'sv' ? 'sv-SE' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+            })()}
+          </Text>
+          <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+
       <ScrollView
         style={{ flex: 1, backgroundColor: Colors.background }}
         contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
@@ -277,35 +381,17 @@ export default function AddOperatorFlightScreen() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
-        {/* Close button */}
-        <TouchableOpacity onPress={() => router.back()} style={{ alignSelf: 'flex-start', marginBottom: 4 }} hitSlop={12}>
-          <Ionicons name="close" size={24} color={Colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Text style={{ fontSize: 28 }}>{emoji}</Text>
-          <View>
-            <Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 }}>
-              {t(`profile_${role}` as any)}
-            </Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
-              {sv ? 'Ny loggning' : 'New log entry'}
-            </Text>
-          </View>
-        </View>
 
         {/* Base fields */}
         <View style={st.card}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <FormField label={sv ? 'Datum' : 'Date'} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+              <FormField label={t('aircraft_type')} value={aircraftType} onChangeText={v => setAircraftType(v.toUpperCase())} placeholder="EC135" autoCapitalize="characters" />
             </View>
             <View style={{ flex: 1 }}>
               <SmartTimeInput label={sv ? 'Flygtid ombord' : 'Flight time onboard'} value={flightTime} onChangeText={setFlightTime} />
             </View>
           </View>
-          <FormField label={t('aircraft_type')} value={aircraftType} onChangeText={v => setAircraftType(v.toUpperCase())} placeholder="EC135" autoCapitalize="characters" />
           {recentTypes.length > 1 && (
             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
               {recentTypes.slice(0, 4).map(type => (
@@ -324,6 +410,28 @@ export default function AddOperatorFlightScreen() {
               ))}
             </View>
           )}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <View style={{ flex: 1 }}>
+              <IcaoInput
+                ref={depIcaoRef}
+                label={sv ? 'Avgångplats' : 'Departure'}
+                value={depPlace}
+                onChangeText={(v) => setDepPlace(v)}
+                recentPlaces={recentDepartures}
+                allowHere
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <IcaoInput
+                ref={arrIcaoRef}
+                label={sv ? 'Ankomstplats' : 'Arrival'}
+                value={arrPlace}
+                onChangeText={(v) => setArrPlace(v)}
+                recentPlaces={recentArrivals}
+                allowHere
+              />
+            </View>
+          </View>
         </View>
 
         {/* Role-specific fields */}
@@ -356,23 +464,11 @@ export default function AddOperatorFlightScreen() {
               )}
 
               {f.type === 'segment' && f.options && (
-                <View style={{ flexDirection: 'row', gap: 4 }}>
-                  {f.options.map(opt => {
-                    const active = getField(f.key) === opt.key;
-                    return (
-                      <TouchableOpacity
-                        key={opt.key}
-                        style={[st.segBtn, active && { backgroundColor: accentColor, borderColor: accentColor }]}
-                        onPress={() => { Haptics.selectionAsync(); setField(f.key, opt.key); }}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[st.segText, active && { color: Colors.textInverse }]}>
-                          {sv ? opt.label_sv : opt.label_en}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                <SegmentControl
+                  options={f.options.map(opt => ({ label: sv ? opt.label_sv : opt.label_en, value: opt.key }))}
+                  value={getField(f.key, '')}
+                  onChange={(v) => { Haptics.selectionAsync(); setField(f.key, v); }}
+                />
               )}
 
               {f.type === 'chips' && f.options && (() => {
@@ -451,6 +547,66 @@ export default function AddOperatorFlightScreen() {
           ); })}
         </View>
 
+        {/* Photo/Video */}
+        <View style={st.card}>
+          <Text style={st.sectionLabel}>
+            {sv ? 'Media' : 'Media'}
+          </Text>
+          {photoUri ? (
+            <View style={{ position: 'relative', width: '100%', height: 180, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.elevated }}>
+              {mediaType === 'video' ? (
+                <Video
+                  source={{ uri: photoUri }}
+                  style={{ width: '100%', height: 180 }}
+                  resizeMode={ResizeMode.COVER}
+                  isLooping
+                  shouldPlay={false}
+                  useNativeControls={false}
+                />
+              ) : (
+                <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+              )}
+              <TouchableOpacity
+                style={{
+                  position: 'absolute', right: 8, top: 8,
+                  width: 32, height: 32, borderRadius: 16,
+                  backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+                }}
+                onPress={() => { setPhotoUri(null); setMediaType('image'); }}
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+                }}
+                onPress={() => pickMedia('image')}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="image-outline" size={16} color={Colors.textMuted} />
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{sv ? 'Bild' : 'Image'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+                }}
+                onPress={() => pickMedia('video')}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="videocam-outline" size={16} color={Colors.textMuted} />
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>{sv ? 'Video' : 'Video'}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* Remarks */}
         <FormField
           label={t('remarks')}
@@ -473,11 +629,70 @@ export default function AddOperatorFlightScreen() {
           <Text style={st.saveBtnText}>{sv ? 'Spara' : 'Save'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Date picker for Android */}
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={date ? new Date(date) : new Date()}
+          mode="date"
+          display="calendar"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+              setDate(selectedDate.toISOString().split('T')[0]);
+            }
+          }}
+        />
+      )}
+
+      {/* Date picker for iOS */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable style={st.modalBackdrop} onPress={() => setShowDatePicker(false)}>
+            <Pressable style={st.datePickerSheet} onPress={(e) => e.stopPropagation()}>
+              <TouchableOpacity
+                style={st.datePickerDone}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={st.datePickerDoneText}>{sv ? 'Klar' : 'Done'}</Text>
+              </TouchableOpacity>
+              <DateTimePicker
+                value={date ? new Date(date) : new Date()}
+                mode="date"
+                display="inline"
+                maximumDate={new Date()}
+                themeVariant="dark"
+                onChange={(_, selectedDate) => {
+                  if (selectedDate) setDate(selectedDate.toISOString().split('T')[0]);
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
 
 const st = StyleSheet.create({
+  customHeader: {
+    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 30 : 8, paddingBottom: 10,
+    backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+    justifyContent: 'flex-end', alignItems: 'center', position: 'relative',
+  },
+  headerClose: {
+    position: 'absolute', left: 16, bottom: 10,
+  },
+  headerDate: {
+    fontSize: 22, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.6,
+    textTransform: 'capitalize', fontFamily: 'Georgia',
+  },
   card: {
     backgroundColor: Colors.card, borderRadius: 12, padding: 14,
     borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
@@ -531,4 +746,27 @@ const st = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 15, marginTop: 4,
   },
   saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
+  modalBackdrop: {
+    flex: 1, backgroundColor: '#000A',
+    justifyContent: 'flex-end',
+  },
+  datePickerSheet: {
+    backgroundColor: Colors.card,
+    paddingBottom: 24, paddingTop: 8,
+    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+  },
+  datePickerDone: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  datePickerDoneText: { color: Colors.primary, fontSize: 15, fontWeight: '700' },
+  segmentRow: {
+    flexDirection: 'row', backgroundColor: Colors.elevated,
+    borderRadius: 8, padding: 3,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 6 },
+  segmentBtnActive: { backgroundColor: Colors.primary },
+  segmentText: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
+  segmentTextActive: { color: Colors.textInverse },
 });

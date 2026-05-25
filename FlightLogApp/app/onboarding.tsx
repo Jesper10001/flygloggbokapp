@@ -113,8 +113,8 @@ export default function OnboardingScreen() {
       await setSetting('has_onboarded', '1');
       // Give a small delay to ensure setting is persisted
       await new Promise(r => setTimeout(r, 100));
-      // Navigate to the correct tab
-      router.replace(target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index');
+      // Navigate to dashboard
+      router.replace('/(tabs)');
     } catch (e: any) {
       console.error('Onboarding error:', e);
       // Fallback: navigate to home tabs

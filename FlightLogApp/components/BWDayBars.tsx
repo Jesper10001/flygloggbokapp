@@ -100,7 +100,6 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   compactHours: {
-    fontFamily: 'Fraunces',
     fontSize: 12,
     fontWeight: '500',
     color: Colors.textSecondary,

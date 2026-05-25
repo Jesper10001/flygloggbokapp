@@ -152,7 +152,6 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sectionTitle: {
-    fontFamily: 'Fraunces',
     fontSize: 22,
     fontWeight: '500',
     color: Colors.textPrimary,

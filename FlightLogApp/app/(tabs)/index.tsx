@@ -59,7 +59,7 @@ function zoneColor(zone: StressZone): string {
   if (zone === 'low') return Colors.textMuted;
   if (zone === 'light') return Colors.primary;
   if (zone === 'normal') return Colors.success;
-  if (zone === 'elevated') return Colors.danger;
+  if (zone === 'elevated') return Colors.warning;
   if (zone === 'high') return Colors.danger;
   if (zone === 'critical') return Colors.danger;
   return Colors.primary;
@@ -846,6 +846,18 @@ export default function DashboardScreen() {
       {/* ── Log new flight ── */}
       <LogFlightButton onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} onLongComplete={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); router.push('/flight/add?aiImport=1'); }} label={t('log_new_flight')} />
 
+      {/* ── Visited airports (operator only) ── */}
+      {isOperator(useProfileStore.getState().profile) && (
+        <View style={{ marginTop: 16 }}>
+          <AirportMapWidget />
+        </View>
+      )}
+
+      {/* ── Flight media (operator only) ── */}
+      {isOperator(useProfileStore.getState().profile) && (
+        <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
+      )}
+
       {/* ── Pilot-only sections ── */}
       {!isOperator(useProfileStore.getState().profile) && (
         <>
@@ -884,7 +896,6 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <AirportMapWidget />
-
 
           <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
 

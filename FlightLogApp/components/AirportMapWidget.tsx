@@ -5,7 +5,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { getVisitedAirportIcaos } from '../db/flights';
+import { getVisitedAirportIcaos, getVisitedAirportDates } from '../db/flights';
 import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlaces, updateUserAirport, getSeedAirports } from '../db/icao';
 import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
@@ -41,7 +41,7 @@ function buildCountryList(data: SeedRow[]) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-type AirportPoint = { icao: string; name: string; lat: number; lon: number; temporary?: boolean };
+type AirportPoint = { icao: string; name: string; lat: number; lon: number; temporary?: boolean; visitDate?: string };
 
 // Hämta alla unika besökta ICAO-koder direkt från flygningarna
 async function getAllVisitedIcaos(): Promise<string[]> {
@@ -63,7 +63,14 @@ function buildMapHtml(airports: AirportPoint[]): string {
     .map(a => {
       const name = a.name.replace(/'/g, "\\'");
       const svg = a.temporary ? tempPinSvg : pinSvg;
-      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>');`;
+      // Format visit date as dd/mm/yy
+      let visitedHtml = '';
+      if (a.visitDate) {
+        const [year, month, day] = a.visitDate.split('-');
+        const formattedDate = `${day}/${month}/${year.slice(-2)}`;
+        visitedHtml = `<br><span style="color:#4CAF50;font-size:10px">✓ visited ${formattedDate}</span>`;
+      }
+      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>${visitedHtml}');`;
     })
     .join('\n');
 
@@ -145,7 +152,7 @@ window.onload = function() {
 }
 
 function buildCountryOverlayHtml(
-  visited: AirportPoint[],
+  visitedAirports: AirportPoint[],
   countryAirports: { icao: string; name: string; lat: number; lon: number }[],
   visitedSet: Set<string>,
 ): string {
@@ -156,6 +163,12 @@ function buildCountryOverlayHtml(
   const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
   const latSpan = Math.max(...lats) - Math.min(...lats);
   const zoom = latSpan > 20 ? 4 : latSpan > 10 ? 5 : latSpan > 5 ? 6 : 7;
+
+  // Create a map of ICAO -> visitDate for quick lookup
+  const visitDateMap: Record<string, string | undefined> = {};
+  visitedAirports.forEach(a => {
+    visitDateMap[a.icao] = a.visitDate;
+  });
 
   const pinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#D32F2F" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
 
@@ -170,7 +183,15 @@ function buildCountryOverlayHtml(
     .filter(a => visitedSet.has(a.icao))
     .map(a => {
       const name = a.name.replace(/'/g, "\\'");
-      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${pinSvg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span><br><span style="color:#4CAF50;font-size:10px">✓ Visited</span>');`;
+      let visitedHtml = '<br><span style="color:#4CAF50;font-size:10px">✓ Visited';
+      const visitDate = visitDateMap[a.icao];
+      if (visitDate) {
+        const [year, month, day] = visitDate.split('-');
+        const formattedDate = `${day}/${month}/${year.slice(-2)}`;
+        visitedHtml = `<br><span style="color:#4CAF50;font-size:10px">✓ visited ${formattedDate}`;
+      }
+      visitedHtml += '</span>';
+      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${pinSvg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>${visitedHtml}');`;
     }).join('\n');
 
   return `<!DOCTYPE html><html><head>
@@ -355,8 +376,9 @@ export function AirportMapWidget() {
       }
       setAllIcaos([...icaos, ...tempPlaces.map(p => p.icao)]);
       const coords = await getAirportCoordinates(icaos);
-      const regular = coords.filter(a => a.lat && a.lon).map(a => ({ ...a, temporary: false }));
-      const temps = tempPlaces.map(p => ({ icao: p.icao, name: p.name, lat: p.lat, lon: p.lon, temporary: true }));
+      const visitDates = await getVisitedAirportDates();
+      const regular = coords.filter(a => a.lat && a.lon).map(a => ({ ...a, temporary: false, visitDate: visitDates[a.icao] }));
+      const temps = tempPlaces.map(p => ({ icao: p.icao, name: p.name, lat: p.lat, lon: p.lon, temporary: true, visitDate: visitDates[p.icao] }));
       setAirports([...regular, ...temps]);
       const unloc = await getUnlocatedTemporaryPlaces();
       setUnlocated(unloc);
