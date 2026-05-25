@@ -1805,7 +1805,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 const firstOpposite = firstRunway !== undefined ? (firstRunway + 180) % 360 : undefined;
 
                 return (
-                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                    <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                      {form.stop_place?.toUpperCase()}:
+                    </Text>
                     {!selectedAppStop ? (
                       <>
                         <TouchableOpacity
@@ -2070,8 +2073,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 keyboardType="number-pad"
                 maxLength={3}
               />
-              <View style={{ flex: 1 }} />
-              {(() => {
+              <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
+                {form.arr_place?.toUpperCase()}:
+              </Text>
+              {(form.flight_type !== 'touch_and_go' || selectedRunwayStop !== null) && (() => {
                 const hasArrival = form.arr_place && form.arr_place.trim();
                 const runways = hasArrival ? ((runwayData as Record<string, number[]>)[form.arr_place.toUpperCase()] || []) : [];
                 const firstRunway = runways[0];
@@ -2182,6 +2187,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </>
                 );
               })()}
+              {form.flight_type === 'touch_and_go' && selectedRunwayStop === null && (
+                <Text style={{ color: Colors.textMuted, fontSize: 10 }}>Välj T&G-approach först</Text>
+              )}
             </View>
           )}
           {(() => {
