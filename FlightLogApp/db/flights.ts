@@ -679,12 +679,7 @@ export async function getFlightStats(): Promise<FlightStats> {
        date(f.date, 'weekday 1', '-7 days') as week_start,
        MAX(f.id) as last_id
      FROM flights f
-     LEFT JOIN (
-       SELECT aircraft_type, MAX(endurance_h) as endurance_h
-       FROM aircraft_registry GROUP BY aircraft_type
-     ) ar ON ar.aircraft_type = f.aircraft_type
      WHERE f.flight_type NOT IN ('sim', 'summary')
-       AND (ar.endurance_h IS NULL OR ar.endurance_h = 0 OR f.total_time <= ar.endurance_h)
      GROUP BY week_start
      ORDER BY hours DESC
      LIMIT 1`
@@ -1176,18 +1171,32 @@ export async function getDailyHours14(): Promise<{ date: string; hours: number }
 
 export async function getFlightsForWeek(weekStart: string): Promise<Flight[]> {
   const db = await getDatabase();
-  // Exkludera: explicit sim-taggade flights, SAMT otaggade flights som överstiger fartygets uthållighet
+  // Exkludera enbart simulatorpass och summary-aggregat (överförda totaler).
+  // Hot refuel / flygningar som överstiger uthålligheten SKA räknas.
   return await db.getAllAsync<Flight>(
     `SELECT f.* FROM flights f
-     LEFT JOIN (
-       SELECT aircraft_type, MAX(endurance_h) as endurance_h
-       FROM aircraft_registry GROUP BY aircraft_type
-     ) ar ON ar.aircraft_type = f.aircraft_type
      WHERE f.date >= ? AND f.date < date(?, '+7 days')
-       AND f.flight_type != 'sim'
-       AND (ar.endurance_h IS NULL OR ar.endurance_h = 0 OR f.total_time <= ar.endurance_h)
+       AND f.flight_type NOT IN ('sim', 'summary')
      ORDER BY f.date ASC, f.dep_utc ASC`,
     [weekStart, weekStart]
+  );
+}
+
+// Topp-N veckor — speglar EXAKT best_week-frågan (samma filter: endast sim och
+// summary-aggregat exkluderas) så att #1 alltid blir den lagrade "best week".
+export async function getTopWeeks(limit = 5): Promise<{ hours: number; week_start: string; last_id: number }[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<{ hours: number; week_start: string; last_id: number }>(
+    `SELECT
+       ROUND(SUM(f.total_time), 1) as hours,
+       date(f.date, 'weekday 1', '-7 days') as week_start,
+       MAX(f.id) as last_id
+     FROM flights f
+     WHERE f.flight_type NOT IN ('sim', 'summary')
+     GROUP BY week_start
+     ORDER BY hours DESC
+     LIMIT ?`,
+    [limit]
   );
 }
 

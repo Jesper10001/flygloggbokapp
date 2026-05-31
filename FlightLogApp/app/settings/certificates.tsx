@@ -374,7 +374,7 @@ function CertForm({
               style={fs.input}
               value={label}
               onChangeText={setLabel}
-              placeholder="e.g. Transportstyrelsen, AME Stockholm"
+              placeholder={t('cert_issuer_ph')}
               placeholderTextColor={Colors.textMuted}
             />
 
@@ -403,7 +403,7 @@ function CertForm({
               value={notes}
               onChangeText={setNotes}
               multiline
-              placeholder="Additional details..."
+              placeholder={t('details_ph')}
               placeholderTextColor={Colors.textMuted}
             />
           </ScrollView>

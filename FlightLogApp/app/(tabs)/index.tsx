@@ -19,6 +19,11 @@ import { MissingDualModal } from '../../components/MissingDualModal';
 import { MissingInstructorModal } from '../../components/MissingInstructorModal';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
+import { BWCardCompact } from '../../components/milestones/BWCardCompact';
+import { LXCardCompact } from '../../components/milestones/LXCardCompact';
+import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
+import { PremiumModal } from '../../components/PremiumModal';
+import { monthShort } from '../../utils/dateLabels';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
 import { batchPlaceNames } from '../../db/icao';
@@ -498,7 +503,7 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
   );
 }
 
-function LogFlightButton({ onPress, onLongComplete, label }: { onPress: () => void; onLongComplete: () => void; label: string }) {
+function LogFlightButton({ onPress, onLongComplete, label, style }: { onPress: () => void; onLongComplete: () => void; label: string; style?: any }) {
   const s = makeDashStyles();
   const fillAnim = useRef(new Animated.Value(0)).current;
   const [pressing, setPressing] = useState(false);
@@ -530,7 +535,7 @@ function LogFlightButton({ onPress, onLongComplete, label }: { onPress: () => vo
 
   return (
     <TouchableOpacity
-      style={[s.addBtn, { overflow: 'hidden' }]}
+      style={[s.addBtn, { overflow: 'hidden' }, style]}
       onPress={() => { if (!longFired.current) onPress(); }}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -543,13 +548,27 @@ function LogFlightButton({ onPress, onLongComplete, label }: { onPress: () => vo
   );
 }
 
+// Milestone card footer formatters
+function hoursToHM(dec: number): string {
+  const h = Math.floor(dec);
+  const m = Math.round((dec - h) * 60);
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+}
+function lxDateShort(iso: string | undefined, language: string): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '—';
+  return `${String(d).padStart(2, '0')} ${monthShort(language, m - 1)} ${y}`;
+}
+
 export default function DashboardScreen() {
   const s = makeDashStyles();
   const router = useRouter();
   const mode = useAppModeStore((st) => st.mode);
   const _theme = useThemeStore((st) => st.theme); // subscribe to force re-render on theme change
-  const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier } = useFlightStore();
-  const { t } = useTranslation();
+  const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier, isPremium } = useFlightStore();
+  const { t, language } = useTranslation();
+  const [milestonePremium, setMilestonePremium] = useState<string | null>(null);
   const { formatTime } = useTimeFormat();
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [refreshKey, setRefreshKey] = useState(0);
@@ -609,6 +628,14 @@ export default function DashboardScreen() {
 
   const st = stats;
   const zc = zoneColor(stress.zone);
+
+  // ── Milestone cards (side-by-side compact) ──
+  // Best Week is wider — it holds more data (7-day breakdown) than Longest XC.
+  const milestoneTotalW = Dimensions.get('window').width - 24 - 10;
+  const lxCardW = Math.round(milestoneTotalW * 0.44);
+  const bwCardW = milestoneTotalW - lxCardW;
+  const bestWeek = useBestWeekDetails(st?.best_week_start || undefined);
+  const xcLegs = useLongestXcLegs(st?.longest_xc_date || undefined);
 
   const animTime = (v: number) => decimalToHHMM(v * readoutPct);
   const latestFlights = flights.slice(0, 6);
@@ -767,7 +794,7 @@ export default function DashboardScreen() {
         onPress={() => setShowLatestOps(v => !v)}
         activeOpacity={0.7}
       >
-        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>Latest Ops</Text>
+        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>{t('ms.section_latest_ops')}</Text>
         <Ionicons name={showLatestOps ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
       </TouchableOpacity>
       {showLatestOps && (
@@ -792,37 +819,28 @@ export default function DashboardScreen() {
       ) : (
         <>
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 10 }}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 6 }}
             onPress={() => setShowClassBreakdown(v => !v)}
             activeOpacity={0.7}
           >
-            <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>Class · Time Breakdown</Text>
+            <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>{t('ms.section_class_breakdown')}</Text>
             <Ionicons name={showClassBreakdown ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
           </TouchableOpacity>
-          <View style={s.classGrid}>
-            {[
-              { l: 'PIC', v: formatTime(st?.total_pic ?? 0), c: Colors.textPrimary },
-              { l: 'CO', v: formatTime(st?.total_co_pilot ?? 0), c: Colors.textPrimary },
-              { l: 'IFR', v: formatTime(st?.total_ifr ?? 0), c: Colors.textPrimary },
-              { l: 'NIGHT', v: formatTime(st?.total_night ?? 0), c: Colors.textPrimary },
-            ].map(c => (
-              <View key={c.l} style={s.classCell}>
-                <Text style={s.classCellLabel}>{c.l}</Text>
-                <Text style={[s.classCellValue, { color: c.c }]} numberOfLines={1} adjustsFontSizeToFit>{c.v}</Text>
-              </View>
-            ))}
-          </View>
           {showClassBreakdown && (
-            <View style={[s.card, { marginTop: 12 }]}>
+            <View style={s.card}>
               {[
+                { l: 'PIC', v: formatTime(st?.total_pic ?? 0) },
+                { l: 'CO-PILOT', v: formatTime(st?.total_co_pilot ?? 0) },
+                { l: 'IFR', v: formatTime(st?.total_ifr ?? 0) },
+                { l: 'NIGHT', v: formatTime(st?.total_night ?? 0) },
                 { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), showAddBtn: true, addBtnKey: 'dual' },
                 { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), showAddBtn: true, addBtnKey: 'instructor' },
                 { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), showAddBtn: true, addBtnKey: 'nvg' },
                 { l: 'MULTI-PILOT', v: formatTime(st?.total_multi_pilot ?? 0) },
                 { l: 'DAY LD', v: String(st?.total_landings_day ?? 0) },
                 { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0) },
-              ].map((c: any, i) => (
-                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: i < 6 ? 1 : 0, borderBottomColor: Colors.separator }}>
+              ].map((c: any, i, arr) => (
+                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: Colors.separator }}>
                   <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.l}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     {c.showAddBtn && (
@@ -844,7 +862,7 @@ export default function DashboardScreen() {
       )}
 
       {/* ── Log new flight ── */}
-      <LogFlightButton onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} onLongComplete={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); router.push('/flight/add?aiImport=1'); }} label={t('log_new_flight')} />
+      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} onLongComplete={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); router.push('/flight/add?aiImport=1'); }} label={t('log_new_flight')} />
 
       {/* ── Visited airports (operator only) ── */}
       {isOperator(useProfileStore.getState().profile) && (
@@ -861,39 +879,35 @@ export default function DashboardScreen() {
       {/* ── Pilot-only sections ── */}
       {!isOperator(useProfileStore.getState().profile) && (
         <>
-          <Text style={s.sectionHeader}>Milestones</Text>
+          <Text style={s.sectionHeader}>{t('ms.section_milestones')}</Text>
 
-          <TouchableOpacity
-            style={s.milestoneCard}
-            onPress={() => st?.best_week_start && setWeekMapVisible(true)}
-            activeOpacity={0.75}
-          >
-            <View style={[s.milestoneIcon, { backgroundColor: Colors.gold + '22' }]}>
-              <Ionicons name="trophy" size={16} color={Colors.gold} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.milestoneLabel}>Best week</Text>
-              <Text style={s.milestoneValue}>{formatTime(st?.best_week_hours ?? 0)}h · {st?.best_week_label || '—'}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={s.milestoneCard}
-            onPress={() => st?.longest_xc_id && setXcMapVisible(true)}
-            activeOpacity={0.75}
-          >
-            <View style={[s.milestoneIcon, { backgroundColor: Colors.primary + '22' }]}>
-              <Ionicons name="navigate" size={16} color={Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.milestoneLabel}>Longest XC</Text>
-              <Text style={s.milestoneValue}>
-                {st?.longest_xc_km ? `${st.longest_xc_km} NM · ${st.longest_xc_first_dep} → ${st.longest_xc_last_arr}` : '—'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
+          <View style={s.milestoneRow}>
+            <BWCardCompact
+              width={bwCardW}
+              hoursLabel={decimalToHHMM(st?.best_week_hours ?? 0)}
+              weekLabel={st?.best_week_label || '—'}
+              sectors={bestWeek.sectors}
+              airports={bestWeek.airports}
+              days={bestWeek.days}
+              onPress={() => {
+                if (!isPremium) { setMilestonePremium('Best week'); return; }
+                if (st?.best_week_start) router.push('/milestones/best-week');
+              }}
+            />
+            <LXCardCompact
+              width={lxCardW}
+              distanceNm={st?.longest_xc_km ?? 0}
+              routeFrom={st?.longest_xc_first_dep || '—'}
+              routeTo={st?.longest_xc_last_arr || '—'}
+              durationLabel={hoursToHM(st?.longest_xc_hours ?? 0)}
+              dateShort={lxDateShort(st?.longest_xc_date, language)}
+              legs={xcLegs}
+              onPress={() => {
+                if (!isPremium) { setMilestonePremium('Longest XC'); return; }
+                if (st?.longest_xc_id) router.push('/milestones/longest-xc');
+              }}
+            />
+          </View>
 
           <AirportMapWidget />
 
@@ -909,6 +923,7 @@ export default function DashboardScreen() {
           {st?.best_week_start && (
             <BestWeekMapModal visible={weekMapVisible} onClose={() => setWeekMapVisible(false)} weekStart={st.best_week_start} weekLabel={st.best_week_label} hours={st.best_week_hours} />
           )}
+          <PremiumModal visible={!!milestonePremium} onClose={() => setMilestonePremium(null)} feature={milestonePremium ?? undefined} />
         </>
       )}
 
@@ -1011,6 +1026,7 @@ function makeDashStyles() { return StyleSheet.create({
   classCellLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, fontFamily: 'Menlo' },
   classCellValue: { fontSize: 17, fontWeight: '800', marginTop: 4, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
 
+  milestoneRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   milestoneCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: Colors.card, borderRadius: 12, padding: 12,

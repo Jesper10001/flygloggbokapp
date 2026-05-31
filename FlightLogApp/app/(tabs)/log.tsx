@@ -121,6 +121,37 @@ function SpecBadges({ crewType, engineType }: { crewType: string; engineType: st
   );
 }
 
+// ─── Helper: Extract T&G stops from remarks ──────────────────────────────────
+
+function extractTngStops(remarks: string): string[] {
+  const lines = remarks.split('\n');
+  const stops: string[] = [];
+  const tngLineRegex = /^([A-Z]{2,4})\s+(?:2D|3D|VOR|NDB|LOC|DME|LNAV|GBAS|GLS|ILS|PAR|RNAV)\s+app\s+rwy/i;
+
+  for (const line of lines) {
+    const match = line.match(tngLineRegex);
+    if (match) stops.push(match[1]);
+  }
+
+  return stops;
+}
+
+function extractVfrTngStops(remarks: string): string[] {
+  const lines = remarks.split('\n');
+  const stops: string[] = [];
+  // Match ICAO codes that are NOT followed by approach type
+  const ifr2d3dRegex = /^([A-Z]{2,4})\s+(?:2D|3D|VOR|NDB|LOC|DME|LNAV|GBAS|GLS|ILS|PAR|RNAV)/i;
+
+  for (const line of lines) {
+    const match = line.match(/^([A-Z]{2,4})(?:\s|$)/);
+    if (match && !ifr2d3dRegex.test(line)) {
+      stops.push(match[1]);
+    }
+  }
+
+  return stops;
+}
+
 // ─── FlightRow (new design) ─────────────────────────────────────────────────
 
 function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
@@ -139,6 +170,14 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
   const crewMatch = f.remarks?.match(/\[(.+?)\]/);
   const crewText = crewMatch ? crewMatch[1] : '';
 
+  const ifrTngStops = (f.flight_type === 'touch_and_go' || f.flight_type === 'hot_refuel') && f.remarks
+    ? extractTngStops(f.remarks)
+    : [];
+
+  // Count total T&G stops: from remarks (IFR) + stop_place (any T&G)
+  const totalTngCount = f.stop_place ? Math.max(1, ifrTngStops.length) : ifrTngStops.length;
+  const hasTng = (f.flight_type === 'touch_and_go' || f.flight_type === 'hot_refuel') && f.stop_place;
+
   return (
     <TouchableOpacity
       style={[styles.flightRow, !isLast && styles.flightRowBorder]}
@@ -156,9 +195,14 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
         <View style={styles.flightRouteRow}>
           <Text style={styles.flightRoute}>{placeNames?.[f.dep_place?.toUpperCase()] ?? f.dep_place}</Text>
           <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
-          {f.stop_place && (f.flight_type === 'hot_refuel' || f.flight_type === 'touch_and_go') ? (
+          {hasTng ? (
+            // T&G: show ICAO for single or xTNG for multiple
             <>
-              <Text style={styles.flightRoute}>{placeNames?.[f.stop_place?.toUpperCase()] ?? f.stop_place}</Text>
+              {totalTngCount > 1 ? (
+                <Text style={styles.flightRoute}>{totalTngCount}xTNG</Text>
+              ) : (
+                <Text style={styles.flightRoute}>{placeNames?.[f.stop_place?.toUpperCase()] ?? f.stop_place}</Text>
+              )}
               <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
             </>
           ) : null}

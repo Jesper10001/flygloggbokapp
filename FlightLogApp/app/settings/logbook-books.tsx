@@ -154,7 +154,7 @@ function BookFormModal({
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Bok 1"
+            placeholder={t('book_name_ph')}
             placeholderTextColor={Colors.textMuted}
             autoCapitalize="words"
           />

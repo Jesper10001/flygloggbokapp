@@ -38,6 +38,14 @@ export default function RootLayout() {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { /* ignore */ });
     const init = async () => {
       try {
+        // Ladda designtypsnitten (milestone-korten m.fl.). Variabel-fonterna
+        // registreras under stabila family-namn så de kan användas direkt.
+        await Font.loadAsync({
+          Fraunces: require('../assets/fonts/Fraunces-Variable.ttf'),
+          'Fraunces-Italic': require('../assets/fonts/Fraunces-Italic-Variable.ttf'),
+          JetBrainsMono: require('../assets/fonts/JetBrainsMono-Variable.ttf'),
+          SpaceGrotesk: require('../assets/fonts/SpaceGrotesk-Variable.ttf'),
+        }).catch(() => { /* fonter ej kritiska – fall back till system */ });
         setFontsLoaded(true);
 
         await getDatabase();
@@ -105,6 +113,8 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="flight/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add-operator" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />

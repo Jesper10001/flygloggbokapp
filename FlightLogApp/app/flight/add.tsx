@@ -77,6 +77,82 @@ const EMPTY: FlightFormData = {
   media_type: 'image',
 };
 
+// ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
+
+type TngStop = { id: string; icao: string; appType: '2d' | '3d' | null; runway: number | null };
+
+function buildStopLine(icao: string, appType: '2d' | '3d', runway: number): string {
+  const rwyStr = Math.round(runway / 10).toString().padStart(2, '0');
+  return `${icao.toUpperCase()} ${appType.toUpperCase()} app rwy ${rwyStr}`;
+}
+
+function upsertStopLine(remarks: string, icao: string, newLine: string): string {
+  const anchor = new RegExp(`^${icao.toUpperCase()}\\s+\\S+\\s+app\\s+rwy\\s+\\d{2,3}$`, 'im');
+  return anchor.test(remarks) ? remarks.replace(anchor, newLine) : (remarks ? `${remarks}\n${newLine}` : newLine);
+}
+
+function replaceApproachTypeForStop(remarks: string, icao: string, newType: string): string {
+  const regex = new RegExp(`(^${icao.toUpperCase()}\\s+)(?:2D|3D)( app rwy \\d{2,3})`, 'im');
+  return remarks.replace(regex, `$1${newType}$2`);
+}
+
+function removeStopLine(remarks: string, icao: string): string {
+  const regex = new RegExp(`\\n?${icao.toUpperCase()}\\s+[A-Z0-9]+\\s+app\\s+rwy\\s+\\d{2,3}`, 'i');
+  return remarks.replace(regex, '').trim();
+}
+
+function isStopDone(remarks: string, stop: TngStop): boolean {
+  const icao = stop.icao.toUpperCase();
+  if (!icao) return false;
+  const allTypes = ['VOR', 'NDB', 'LOC', 'DME', 'LNAV', 'GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
+  return new RegExp(`^${icao}\\s+(${allTypes.join('|')})\\s+app\\s+rwy`, 'im').test(remarks);
+}
+
+function allTngDone(remarks: string, stops: TngStop[]): boolean {
+  const filled = stops.filter(s => s.icao.trim().length > 0);
+  return filled.length > 0 && filled.every(s => isStopDone(remarks, s));
+}
+
+function parseRemarksToTngStops(remarks: string): TngStop[] {
+  const lines = remarks.split('\n');
+  const stops: TngStop[] = [];
+  const tngLineRegex = /^([A-Z]{2,4})\s+(?:(2D|3D)|(?:VOR|NDB|LOC|DME|LNAV|GBAS|GLS|ILS|PAR|RNAV))\s+app\s+rwy\s+(\d{2,3})/i;
+
+  for (const line of lines) {
+    const match = line.match(tngLineRegex);
+    if (match) {
+      const icao = match[1];
+      const appTypeRaw = match[2] || match[3]; // 2D/3D or specific type
+      let appType: '2d' | '3d' | null = null;
+      let runway: number | null = null;
+
+      // Determine if it's 2D or 3D based on the type
+      if (appTypeRaw === '2D' || appTypeRaw?.toUpperCase() === '2D') {
+        appType = '2d';
+      } else if (appTypeRaw === '3D' || appTypeRaw?.toUpperCase() === '3D') {
+        appType = '3d';
+      } else if (['VOR', 'NDB', 'LOC', 'DME', 'LNAV'].includes(appTypeRaw?.toUpperCase() || '')) {
+        appType = '2d';
+      } else if (['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'].includes(appTypeRaw?.toUpperCase() || '')) {
+        appType = '3d';
+      }
+
+      if (match[3]) {
+        runway = parseInt(match[3]) * 10;
+      }
+
+      stops.push({
+        id: icao + '_' + stops.length,
+        icao,
+        appType,
+        runway,
+      });
+    }
+  }
+
+  return stops;
+}
+
 // ── Styles ──────────────────────────────────────────────────────────────────
 
 function makeStyles() {
@@ -578,8 +654,7 @@ export default function AddFlightScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<'2d' | '3d' | null>(null);
   const [selectedRunway, setSelectedRunway] = useState<number | null>(null);
-  const [selectedAppStop, setSelectedAppStop] = useState<'2d' | '3d' | null>(null);
-  const [selectedRunwayStop, setSelectedRunwayStop] = useState<number | null>(null);
+  const [tngStops, setTngStops] = useState<TngStop[]>([{ id: '1', icao: '', appType: null, runway: null }]);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
@@ -591,6 +666,13 @@ export default function AddFlightScreen() {
     if (!editId) return;
     getFlightById(Number(editId)).then(f => {
       if (!f) return;
+
+      // Parse T&G stops from remarks
+      const parsedTngStops = parseRemarksToTngStops(f.remarks || '');
+      if (parsedTngStops.length > 0) {
+        setTngStops(parsedTngStops);
+      }
+
       setForm({
         date: f.date,
         aircraft_type: f.aircraft_type,
@@ -609,7 +691,7 @@ export default function AddFlightScreen() {
         landings_night: String(f.landings_night),
         remarks: f.remarks,
         flight_type: f.flight_type ?? 'normal',
-        stop_place: '',
+        stop_place: f.stop_place ?? '',
         flight_rules: f.flight_rules ?? 'VFR',
         second_pilot: f.second_pilot ?? '',
         nvg: String(f.nvg ?? 0),
@@ -876,6 +958,23 @@ export default function AddFlightScreen() {
     setRecentRegs(regs);
   }, []);
 
+  const syncFirstStop = (stops: TngStop[]) => set('stop_place', stops[0]?.icao ?? '');
+
+  const updateStopField = (index: number, patch: Partial<TngStop>) =>
+    setTngStops(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
+
+  const addTngStop = () =>
+    setTngStops(prev => [...prev, { id: Date.now().toString(), icao: '', appType: null, runway: null }]);
+
+  const removeTngStop = (index: number) => {
+    const stop = tngStops[index];
+    if (stop.icao) set('remarks', removeStopLine(form.remarks, stop.icao));
+    const next = tngStops.filter((_, i) => i !== index);
+    const safe = next.length > 0 ? next : [{ id: Date.now().toString(), icao: '', appType: null, runway: null }];
+    setTngStops(safe);
+    syncFirstStop(safe);
+  };
+
   const set = (key: keyof FlightFormData, val: string) => {
     setForm((prev) => {
       const next = { ...prev, [key]: val };
@@ -940,6 +1039,7 @@ export default function AddFlightScreen() {
           next.vfr = '0';
         }
       }
+
 
       return next;
     });
@@ -1739,7 +1839,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 style={[styles.flightTypeChip, active && styles.flightTypeChipActive]}
                 onPress={() => {
                   set('flight_type', ft);
-                  if (ft === 'normal' || ft === 'sim') set('stop_place', '');
+                  if (ft === 'normal' || ft === 'sim') {
+                    set('stop_place', '');
+                    setTngStops([{ id: '1', icao: '', appType: null, runway: null }]);
+                  }
                   if (ft === 'sim' && !form.sim_category) set('sim_category', 'FFS');
                   if (ft !== 'sim') set('sim_category', '');
                 }}
@@ -1787,107 +1890,145 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <Text style={styles.stopPlaceLabel}>
               {t('touch_and_go')} — {t('hot_refuel_not_destination')}
             </Text>
-            <View>
-              <IcaoInput
-                label=""
-                value={form.stop_place ?? ''}
-                onChangeText={(v) => {
-                  set('stop_place', v);
-                  setSelectedAppStop(null);
-                  setSelectedRunwayStop(null);
-                }}
-                recentPlaces={top2places}
-                placeholder="ICAO"
-              />
-              {form.stop_place && (() => {
-                const runways = (runwayData as Record<string, number[]>)[form.stop_place?.toUpperCase() || ''] || [];
-                const firstRunway = runways[0];
-                const firstOpposite = firstRunway !== undefined ? (firstRunway + 180) % 360 : undefined;
 
+            {tngStops.map((stop, index) => {
+              const isDone = isStopDone(form.remarks, stop);
+
+              if (isDone) {
                 return (
-                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-                    {!selectedAppStop ? (
-                      <>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedAppStop('2d')}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>2D APP</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedAppStop('3d')}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>3D APP</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <>
-                        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedAppStop(null)}
-                          activeOpacity={0.75}
-                        >
-                          <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
-                        </TouchableOpacity>
-                        {runways.map((heading: number) => {
-                          const oppositeHeading = (heading + 180) % 360;
-                          return (
-                            <View key={heading} style={{ flexDirection: 'row', gap: 6 }}>
-                              <TouchableOpacity
-                                style={{
-                                  backgroundColor: selectedRunwayStop === heading ? Colors.primary : Colors.elevated,
-                                  borderRadius: 6, borderWidth: 1,
-                                  borderColor: selectedRunwayStop === heading ? Colors.primary : Colors.border,
-                                  paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                                }}
-                                onPress={() => {
-                                  setSelectedRunwayStop(heading);
-                                  const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
-                                  set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                                }}
-                                activeOpacity={0.75}
-                              >
-                                <Text style={{ color: selectedRunwayStop === heading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={{
-                                  backgroundColor: selectedRunwayStop === oppositeHeading ? Colors.primary : Colors.elevated,
-                                  borderRadius: 6, borderWidth: 1,
-                                  borderColor: selectedRunwayStop === oppositeHeading ? Colors.primary : Colors.border,
-                                  paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                                }}
-                                onPress={() => {
-                                  setSelectedRunwayStop(oppositeHeading);
-                                  const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(oppositeHeading / 10).toString().padStart(2, '0')}`;
-                                  set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                                }}
-                                activeOpacity={0.75}
-                              >
-                                <Text style={{ color: selectedRunwayStop === oppositeHeading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(oppositeHeading / 10).toString().padStart(2, '0')}</Text>
-                              </TouchableOpacity>
-                            </View>
-                          );
-                        })}
-                        </View>
-                      </>
-                    )}
+                  <View key={stop.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <View style={{ backgroundColor: Colors.primary + '22', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, flex: 1 }}>
+                      <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>
+                        [{stop.icao.toUpperCase()} · {stop.appType?.toUpperCase()} · {Math.round(stop.runway! / 10).toString().padStart(2, '0')}]
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => removeTngStop(index)} hitSlop={8}>
+                      <Ionicons name="close" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
                 );
-              })()}
-            </View>
+              }
+
+              return (
+                <View key={stop.id} style={{ marginBottom: 8 }}>
+                  <IcaoInput
+                    label=""
+                    value={stop.icao}
+                    onChangeText={(v) => {
+                      updateStopField(index, { icao: v });
+                      const next = tngStops.map((s, i) => i === index ? { ...s, icao: v } : s);
+                      syncFirstStop(next);
+                    }}
+                    recentPlaces={top2places}
+                    placeholder="ICAO"
+                  />
+
+                  {stop.icao && (() => {
+                    const runways = (runwayData as Record<string, number[]>)[stop.icao?.toUpperCase() || ''] || [];
+
+                    return (
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                        {!stop.appType ? (
+                          <>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                                paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                              }}
+                              onPress={() => updateStopField(index, { appType: '2d' })}
+                              activeOpacity={0.75}
+                            >
+                              <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>2D APP</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                                paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                              }}
+                              onPress={() => updateStopField(index, { appType: '3d' })}
+                              activeOpacity={0.75}
+                            >
+                              <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>3D APP</Text>
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <>
+                            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
+                                  paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                }}
+                                onPress={() => updateStopField(index, { appType: null, runway: null })}
+                                activeOpacity={0.75}
+                              >
+                                <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
+                              </TouchableOpacity>
+                              {runways.map((heading: number) => {
+                                const oppositeHeading = (heading + 180) % 360;
+                                return (
+                                  <View key={heading} style={{ flexDirection: 'row', gap: 6 }}>
+                                    <TouchableOpacity
+                                      style={{
+                                        backgroundColor: stop.runway === heading ? Colors.primary : Colors.elevated,
+                                        borderRadius: 6, borderWidth: 1,
+                                        borderColor: stop.runway === heading ? Colors.primary : Colors.border,
+                                        paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                      onPress={() => {
+                                        updateStopField(index, { runway: heading });
+                                        const newLine = buildStopLine(stop.icao, stop.appType!, heading);
+                                        set('remarks', upsertStopLine(form.remarks, stop.icao, newLine));
+                                        set('flight_rules', 'IFR');
+                                      }}
+                                      activeOpacity={0.75}
+                                    >
+                                      <Text style={{ color: stop.runway === heading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                      style={{
+                                        backgroundColor: stop.runway === oppositeHeading ? Colors.primary : Colors.elevated,
+                                        borderRadius: 6, borderWidth: 1,
+                                        borderColor: stop.runway === oppositeHeading ? Colors.primary : Colors.border,
+                                        paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                      onPress={() => {
+                                        updateStopField(index, { runway: oppositeHeading });
+                                        const newLine = buildStopLine(stop.icao, stop.appType!, oppositeHeading);
+                                        set('remarks', upsertStopLine(form.remarks, stop.icao, newLine));
+                                        set('flight_rules', 'IFR');
+                                      }}
+                                      activeOpacity={0.75}
+                                    >
+                                      <Text style={{ color: stop.runway === oppositeHeading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(oppositeHeading / 10).toString().padStart(2, '0')}</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          </>
+                        )}
+                      </View>
+                    );
+                  })()}
+                </View>
+              );
+            })}
+
+            {tngStops.length > 0 && tngStops[tngStops.length - 1].icao.trim().length > 0 && (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: Colors.primary + '22', borderRadius: 6, borderWidth: 1, borderColor: Colors.primary + '44',
+                  paddingHorizontal: 12, paddingVertical: 8, marginTop: 8,
+                }}
+                onPress={addTngStop}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="add" size={16} color={Colors.primary} />
+                <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Lägg till T&G</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -2142,7 +2283,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           onPress={() => {
                             setSelectedRunway(firstRunway);
                             const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstRunway / 10).toString().padStart(2, '0')}`;
-                            set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
+                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
                           }}
                           activeOpacity={0.75}
                         >
@@ -2163,7 +2304,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           onPress={() => {
                             setSelectedRunway(firstOpposite);
                             const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`;
-                            set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
+                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
                           }}
                           activeOpacity={0.75}
                         >
@@ -2490,7 +2631,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               label={t('remarks')}
               value={form.remarks}
               onChangeText={(v) => set('remarks', v)}
-              placeholder="Optional free text…"
+              placeholder={t('remarks_ph')}
               multiline
               numberOfLines={2}
               style={{ minHeight: 60, textAlignVertical: 'top' }}
@@ -2523,24 +2664,27 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
         {/* Approach type quick selection — T&G section */}
-        {form.flight_type === 'touch_and_go' && selectedAppStop && selectedRunwayStop && (() => {
-          const approachTypes = selectedAppStop === '2d'
+        {form.flight_type === 'touch_and_go' && (() => {
+          const incompleteStop = tngStops.find(s => s.icao && s.appType && !isStopDone(form.remarks, s));
+          if (!incompleteStop) return null;
+
+          const approachTypes = incompleteStop.appType === '2d'
             ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
             : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
-          const hasApproachType = approachTypes.some(type => form.remarks.includes(type));
-          const hasRunway = /rwy \d{2,3}([LCR])?/i.test(form.remarks);
-          const hasDesignator = /rwy \d{2,3}[LCR]/i.test(form.remarks);
-          const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && hasApproachType && hasRunway;
+          const stopLineRegex = new RegExp(`^${incompleteStop.icao.toUpperCase()}\\s+(.*)$`, 'im');
+          const stopLine = stopLineRegex.exec(form.remarks)?.[0] || '';
+          const hasApproachType = approachTypes.some(type => stopLine.includes(type));
+          const hasRunway = /rwy \d{2,3}([LCR])?/i.test(stopLine);
 
-          if (isTngDone) return null;
+          if (hasApproachType && hasRunway) return null;
 
           return (
             <>
               {!hasApproachType && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
-                    {form.stop_place?.toUpperCase()}:
+                    {incompleteStop.icao?.toUpperCase()}:
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
                     {approachTypes.map((type) => (
@@ -2548,61 +2692,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         key={type}
                         style={[styles.chip, styles.chipAdd]}
                         onPress={() => {
-                          const currentRemarks = form.remarks;
-                          const regex = /(2D|3D)\s+app/i;
-                          const newRemarks = currentRemarks.replace(regex, type);
-                          set('remarks', newRemarks);
+                          set('remarks', replaceApproachTypeForStop(form.remarks, incompleteStop.icao, type));
                         }}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              {hasApproachType && hasDesignator && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
-                    {form.stop_place?.toUpperCase()}:
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    <TouchableOpacity
-                      style={[styles.chip, styles.chipAdd]}
-                      onPress={() => {
-                        const currentRemarks = form.remarks;
-                        const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy`;
-                        const regex = new RegExp(stopPlacePattern, 'i');
-
-                        if (regex.test(currentRemarks)) {
-                          // Redan finns runway-info, ersätt den
-                          const replaceRegex = new RegExp(`${form.stop_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
-                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`));
-                          set('remarks', newRemarks);
-                        } else {
-                          // Ingen runway-info än, lägg till den
-                          const newLine = `${form.stop_place?.toUpperCase()} ${selectedAppStop?.toUpperCase()} app rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}`;
-                          set('remarks', currentRemarks ? `${currentRemarks}\n${newLine}` : newLine);
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}</Text>
-                    </TouchableOpacity>
-                    {['L', 'C', 'R'].map((position) => (
-                      <TouchableOpacity
-                        key={position}
-                        style={[styles.chip, styles.chipAdd]}
-                        onPress={() => {
-                          const currentRemarks = form.remarks;
-                          const stopPlacePattern = `${form.stop_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
-                          const regex = new RegExp(stopPlacePattern, 'i');
-                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}${position}`));
-                          set('remarks', newRemarks);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunwayStop / 10).toString().padStart(2, '0')}{position}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -2615,14 +2709,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         {/* Approach type quick selection — Arrival section */}
         {(() => {
           if (form.flight_type === 'touch_and_go') {
-            const tngApproachTypes = selectedAppStop === '2d'
-              ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
-              : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
-            const tngHasApproachType = tngApproachTypes.some(type => form.remarks.includes(type));
-            const tngHasRunway = /rwy \d{2,3}([LCR])?/i.test(form.remarks);
-            const isTngDone = form.remarks.includes(form.stop_place?.toUpperCase() || '') && tngHasApproachType && tngHasRunway;
-
-            if (!isTngDone || !selectedApp || !selectedRunway) return null;
+            if (!allTngDone(form.remarks, tngStops) || !selectedApp || !selectedRunway) return null;
           } else {
             if (!selectedApp || !selectedRunway) return null;
           }
@@ -2632,11 +2719,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
               : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
 
-            const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*`;
-            const arrPlaceMatch = new RegExp(arrPlacePattern, 'i').exec(form.remarks);
-            const arrPlaceSection = arrPlaceMatch ? arrPlaceMatch[0] : '';
-            const hasApproachType = approachTypes.some(type => arrPlaceSection.includes(type));
-            const hasDesignator = /rwy \d{2,3}[LCR]/i.test(arrPlaceSection);
+            const arrLineRegex = new RegExp(`^${form.arr_place?.toUpperCase()}\\s+(.*)$`, 'im');
+            const arrLine = arrLineRegex.exec(form.remarks)?.[0] || '';
+            const hasApproachType = approachTypes.some(type => arrLine.includes(type));
+            const hasDesignator = /rwy \d{2,3}[LCR]/i.test(arrLine);
 
           return (
             <>
@@ -2651,10 +2737,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                         key={type}
                         style={[styles.chip, styles.chipAdd]}
                         onPress={() => {
-                          const currentRemarks = form.remarks;
-                          const regex = /(2D|3D)\s+app/i;
-                          const newRemarks = currentRemarks.replace(regex, type);
-                          set('remarks', newRemarks);
+                          const updated = replaceApproachTypeForStop(form.remarks, form.arr_place || '', type);
+                          // Om replaceApproachTypeForStop inte gjorde någon ändring (ingen befintlig rad), lägg till ny rad
+                          if (updated === form.remarks && form.arr_place) {
+                            const newLine = `${form.arr_place.toUpperCase()} ${type} app`;
+                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
+                          } else {
+                            set('remarks', updated);
+                          }
                         }}
                         activeOpacity={0.7}
                       >

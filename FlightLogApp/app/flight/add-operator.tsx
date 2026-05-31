@@ -255,6 +255,8 @@ export default function AddOperatorFlightScreen() {
   const [recentArrivals, setRecentArrivals] = useState<{ icao: string; temporary: boolean }[]>([]);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [useIcaoDeparture, setUseIcaoDeparture] = useState(false);
+  const [useIcaoArrival, setUseIcaoArrival] = useState(false);
   const depIcaoRef = useRef<IcaoInputHandle>(null);
   const arrIcaoRef = useRef<IcaoInputHandle>(null);
 
@@ -410,26 +412,100 @@ export default function AddOperatorFlightScreen() {
               ))}
             </View>
           )}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-            <View style={{ flex: 1 }}>
-              <IcaoInput
-                ref={depIcaoRef}
-                label={sv ? 'Avgångplats' : 'Departure'}
-                value={depPlace}
-                onChangeText={(v) => setDepPlace(v)}
-                recentPlaces={recentDepartures}
-                allowHere
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <IcaoInput
-                ref={arrIcaoRef}
-                label={sv ? 'Ankomstplats' : 'Arrival'}
-                value={arrPlace}
-                onChangeText={(v) => setArrPlace(v)}
-                recentPlaces={recentArrivals}
-                allowHere
-              />
+          <View style={{ gap: 10, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {sv ? 'Avgångplats' : 'Departure'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setUseIcaoDeparture(!useIcaoDeparture)}
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 4,
+                      backgroundColor: useIcaoDeparture ? Colors.primary + '22' : Colors.elevated,
+                      borderWidth: 1,
+                      borderColor: useIcaoDeparture ? Colors.primary : Colors.border,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      color: useIcaoDeparture ? Colors.primary : Colors.textSecondary,
+                    }}>
+                      ICAO
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {useIcaoDeparture ? (
+                  <IcaoInput
+                    ref={depIcaoRef}
+                    label=""
+                    value={depPlace}
+                    onChangeText={(v) => setDepPlace(v)}
+                    placeholder="ICAO"
+                    recentPlaces={recentDepartures}
+                  />
+                ) : (
+                  <IcaoInput
+                    ref={depIcaoRef}
+                    label=""
+                    value={depPlace}
+                    onChangeText={(v) => setDepPlace(v)}
+                    recentPlaces={recentDepartures}
+                    allowHere
+                  />
+                )}
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {sv ? 'Ankomstplats' : 'Arrival'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setUseIcaoArrival(!useIcaoArrival)}
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 4,
+                      backgroundColor: useIcaoArrival ? Colors.primary + '22' : Colors.elevated,
+                      borderWidth: 1,
+                      borderColor: useIcaoArrival ? Colors.primary : Colors.border,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      color: useIcaoArrival ? Colors.primary : Colors.textSecondary,
+                    }}>
+                      ICAO
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {useIcaoArrival ? (
+                  <IcaoInput
+                    ref={arrIcaoRef}
+                    label=""
+                    value={arrPlace}
+                    onChangeText={(v) => setArrPlace(v)}
+                    placeholder="ICAO"
+                    recentPlaces={recentArrivals}
+                  />
+                ) : (
+                  <IcaoInput
+                    ref={arrIcaoRef}
+                    label=""
+                    value={arrPlace}
+                    onChangeText={(v) => setArrPlace(v)}
+                    recentPlaces={recentArrivals}
+                    allowHere
+                  />
+                )}
+              </View>
             </View>
           </View>
         </View>

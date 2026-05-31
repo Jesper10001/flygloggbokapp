@@ -680,7 +680,7 @@ export function AirportMapWidget() {
                 }}
                 value={pinSearch}
                 onChangeText={setPinSearch}
-                placeholder="Sök plats..."
+                placeholder={t('search_place_ph')}
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 returnKeyType="search"
                 autoCorrect={false}

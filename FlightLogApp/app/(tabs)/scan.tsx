@@ -1091,7 +1091,7 @@ export default function ScanScreen() {
               style={styles.nameInput}
               value={saveBookName}
               onChangeText={setSaveBookName}
-              placeholder="Bok 1"
+              placeholder={t('book_name_ph')}
               placeholderTextColor={Colors.textMuted}
               autoFocus
             />
@@ -1099,7 +1099,7 @@ export default function ScanScreen() {
               style={styles.nameInput}
               value={savePageName}
               onChangeText={setSavePageName}
-              placeholder="Blad 60–61"
+              placeholder={t('sheet_ph')}
               placeholderTextColor={Colors.textMuted}
             />
             <TouchableOpacity

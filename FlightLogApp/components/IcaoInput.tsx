@@ -491,7 +491,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                   style={styles.nameInput}
                   value={hereName}
                   onChangeText={v => setHereName(v.slice(0, 10))}
-                  placeholder="Namn (max 10 tecken)"
+                  placeholder={t('name_max10_ph')}
                   placeholderTextColor={Colors.textMuted}
                   maxLength={10}
                   autoFocus={nearbyPlaces.length === 0}

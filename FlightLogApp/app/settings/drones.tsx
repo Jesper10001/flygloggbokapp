@@ -431,6 +431,7 @@ function BatteryRow({ battery, onChange, onDelete }: {
   onDelete: () => void;
 }) {
   const styles = makeStyles();
+  const { t } = useTranslation();
   const [label, setLabel] = useState(battery.label);
   const [serial, setSerial] = useState(battery.serial);
   const [cycles, setCycles] = useState(String(battery.cycle_count));
@@ -447,7 +448,7 @@ function BatteryRow({ battery, onChange, onDelete }: {
             value={serial}
             onChangeText={setSerial}
             onBlur={commit}
-            placeholder="Serial #"
+            placeholder={t('serial_ph')}
             placeholderTextColor={Colors.textMuted}
           />
           <TextInput

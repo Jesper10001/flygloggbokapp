@@ -69,6 +69,37 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
       brought_forward: true,
     },
   },
+  {
+    id: 'sv-drone-logbook',
+    name: 'Drönare Loggbok (15 rader)',
+    rows_per_spread: 15,
+    language: 'sv',
+    time_format: 'decimal',
+    left_columns: [
+      { id: 'date',         label: 'Datum',          flightKey: 'date',         format: 'date',     width: 90 },
+      { id: 'ac_type',      label: 'Dröntyp',        flightKey: 'aircraft_type',format: 'text',     width: 85 },
+      { id: 'ac_reg',       label: 'Registrering',   flightKey: 'registration', format: 'text',     width: 85 },
+      { id: 'dep_place',    label: 'Plats',          flightKey: 'dep_place',    format: 'icao',     width: 75 },
+      { id: 'dep_utc',      label: 'Start UTC',      flightKey: 'dep_utc',      format: 'time-utc', width: 65 },
+      { id: 'arr_utc',      label: 'Landning UTC',   flightKey: 'arr_utc',      format: 'time-utc', width: 75 },
+      { id: 'total_time',   label: 'Total tid',      flightKey: 'total_time',   format: 'decimal',  width: 70 },
+    ],
+    right_columns: [
+      { id: 'pic',          label: 'PIC',            flightKey: 'pic',          format: 'decimal',  width: 55 },
+      { id: 'ifr',          label: 'IFR',            flightKey: 'ifr',          format: 'decimal',  width: 50 },
+      { id: 'night',        label: 'Natt',           flightKey: 'night',        format: 'decimal',  width: 55 },
+      { id: 'distance',     label: 'Avstånd (km)',                                                  width: 85 },
+      { id: 'altitude',     label: 'Max höjd (m)',                                                  width: 85 },
+      { id: 'battery',      label: 'Batteri %',                                                    width: 75 },
+      { id: 'remarks',      label: 'Anteckningar',   flightKey: 'remarks',      format: 'text',     width: 200 },
+    ],
+    footer: {
+      this_page_total: true,
+      total_to_date: true,
+      signature: true,
+      brought_forward: true,
+    },
+  },
 ];
 
 export function getTemplate(id: string): LogbookTemplate {

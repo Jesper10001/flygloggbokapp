@@ -239,7 +239,7 @@ export default function AddDroneFlightScreen() {
             style={[styles.input, { flex: 1 }]}
             value={form.location}
             onChangeText={(v) => setForm((p) => ({ ...p, location: v }))}
-            placeholder="Field / GPS"
+            placeholder={t('location_ph')}
             placeholderTextColor={Colors.textMuted}
           />
           <TouchableOpacity style={styles.iconBtn} onPress={useHere} activeOpacity={0.7}>
@@ -431,7 +431,7 @@ export default function AddDroneFlightScreen() {
               style={styles.input}
               value={form.observer_name}
               onChangeText={(v) => setForm((p) => ({ ...p, observer_name: v }))}
-              placeholder="Name"
+              placeholder={t('name_ph')}
               placeholderTextColor={Colors.textMuted}
             />
           </>
@@ -465,7 +465,7 @@ export default function AddDroneFlightScreen() {
           style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
           value={form.remarks}
           onChangeText={(v) => setForm((p) => ({ ...p, remarks: v }))}
-          placeholder="Optional notes…"
+          placeholder={t('notes_ph')}
           placeholderTextColor={Colors.textMuted}
           multiline
         />
