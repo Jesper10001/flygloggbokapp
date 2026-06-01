@@ -879,6 +879,9 @@ export default function DashboardScreen() {
       {/* ── Pilot-only sections ── */}
       {!isOperator(useProfileStore.getState().profile) && (
         <>
+          {/* Flight media first — most relevant day to day */}
+          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
+
           <Text style={s.sectionHeader}>{t('ms.section_milestones')}</Text>
 
           <View style={s.milestoneRow}>
@@ -910,8 +913,6 @@ export default function DashboardScreen() {
           </View>
 
           <AirportMapWidget />
-
-          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
 
           <MissingNvgModal visible={showMissingNvg} onClose={() => setShowMissingNvg(false)} onTotalNvgUpdate={setTotalNvgAdded} />
           <MissingDualModal visible={showMissingDual} onClose={() => setShowMissingDual(false)} onTotalDualUpdate={setTotalDualAdded} />
