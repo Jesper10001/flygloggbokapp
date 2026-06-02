@@ -23,14 +23,16 @@ export interface SpreadInfo {
   is_current: boolean;            // om det är nästa uppslag som väntar på transkribering
 }
 
+// OBS: dessa funktioner hanterar BARA de gamla pappers-/transkriberingsböckerna
+// (kind='paper'). De digitala böckerna ligger i db/digitalBooks.ts (kind='digital').
 export async function listBooks(): Promise<LogbookBook[]> {
   const db = await getDatabase();
-  return db.getAllAsync<LogbookBook>(`SELECT * FROM logbook_books ORDER BY created_at`);
+  return db.getAllAsync<LogbookBook>(`SELECT * FROM logbook_books WHERE kind='paper' ORDER BY created_at`);
 }
 
 export async function getActiveBook(): Promise<LogbookBook | null> {
   const db = await getDatabase();
-  const row = await db.getFirstAsync<LogbookBook>(`SELECT * FROM logbook_books WHERE is_active=1 ORDER BY created_at DESC LIMIT 1`);
+  const row = await db.getFirstAsync<LogbookBook>(`SELECT * FROM logbook_books WHERE kind='paper' AND is_active=1 ORDER BY created_at DESC LIMIT 1`);
   return row ?? null;
 }
 

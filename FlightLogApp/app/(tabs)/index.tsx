@@ -26,6 +26,10 @@ import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
+import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../../db/digitalBooks';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { setScanImage } from '../../store/scanStore';
 import { batchPlaceNames } from '../../db/icao';
 import { formatDate } from '../../utils/format';
 
@@ -503,47 +507,12 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
   );
 }
 
-function LogFlightButton({ onPress, onLongComplete, label, style }: { onPress: () => void; onLongComplete: () => void; label: string; style?: any }) {
+function LogFlightButton({ onPress, label, style }: { onPress: () => void; label: string; style?: any }) {
   const s = makeDashStyles();
-  const fillAnim = useRef(new Animated.Value(0)).current;
-  const [pressing, setPressing] = useState(false);
-  const longFired = useRef(false);
-
-  const handlePressIn = () => {
-    setPressing(true);
-    longFired.current = false;
-    fillAnim.setValue(0);
-    Animated.timing(fillAnim, { toValue: 1, duration: 1000, useNativeDriver: false }).start(({ finished }) => {
-      if (finished) {
-        longFired.current = true;
-        onLongComplete();
-        setPressing(false);
-        fillAnim.setValue(0);
-      }
-    });
-  };
-
-  const handlePressOut = () => {
-    if (!longFired.current) {
-      fillAnim.stopAnimation();
-      fillAnim.setValue(0);
-      setPressing(false);
-    }
-  };
-
-  const fillWidth = fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-
   return (
-    <TouchableOpacity
-      style={[s.addBtn, { overflow: 'hidden' }, style]}
-      onPress={() => { if (!longFired.current) onPress(); }}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={0.95}
-    >
-      <Animated.View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: fillWidth, backgroundColor: Colors.gold, borderRadius: 14 }} />
-      <Ionicons name={pressing ? 'scan-outline' : 'add-circle'} size={18} color={Colors.textInverse} style={{ zIndex: 1 }} />
-      <Text style={[s.addBtnText, { zIndex: 1 }]}>{pressing ? 'Flight data scan' : label}</Text>
+    <TouchableOpacity style={[s.addBtn, style]} onPress={onPress} activeOpacity={0.9}>
+      <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
+      <Text style={s.addBtnText}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -577,16 +546,13 @@ export default function DashboardScreen() {
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
-  const [showClassBreakdown, setShowClassBreakdown] = useState(false);
-  const [showMissingNvg, setShowMissingNvg] = useState(false);
-  const [totalNvgAdded, setTotalNvgAdded] = useState(0);
-  const [showMissingDual, setShowMissingDual] = useState(false);
-  const [totalDualAdded, setTotalDualAdded] = useState(0);
-  const [showMissingInstructor, setShowMissingInstructor] = useState(false);
-  const [totalInstructorAdded, setTotalInstructorAdded] = useState(0);
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, check: checkVersion } = useVersionStore();
+  const [spreadPrompt, setSpreadPrompt] = useState<SpreadPrompt | null>(null);
+  const loadPrompt = useCallback(() => {
+    getDashboardSpreadPrompt().then(setSpreadPrompt).catch(() => setSpreadPrompt(null));
+  }, []);
 
   useEffect(() => {
     loadStats();
@@ -594,12 +560,14 @@ export default function DashboardScreen() {
     getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
     getSetting('profile_first_name').then(v => setProfileName(v ?? ''));
     checkVersion();
+    loadPrompt();
   }, []);
 
   useFocusEffect(useCallback(() => {
     loadStats();
     getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
-  }, [loadStats]));
+    loadPrompt();
+  }, [loadStats, loadPrompt]));
 
   useEffect(() => {
     needleAnim.setValue(0);
@@ -652,6 +620,41 @@ export default function DashboardScreen() {
     return name ? `${g}, ${name}` : g;
   }, [profileName, t]);
 
+  // Snabb logbook-scan: välj kamera/album → en bild → OCR-granskning.
+  const runLogbookScan = async (fromCamera: boolean) => {
+    try {
+      let result;
+      if (fromCamera) {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) { Alert.alert(t('permission_required'), t('camera_permission')); return; }
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] as any, quality: 0.85 });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any, quality: 0.85 });
+      }
+      if (result.canceled || !result.assets?.[0]) return;
+      const uri = result.assets[0].uri;
+      const info = await ImageManipulator.manipulateAsync(uri, [], {});
+      const actions: ImageManipulator.Action[] = [];
+      if (info.height > info.width) actions.push({ rotate: 90 });
+      actions.push({ resize: { width: 2000 } });
+      const out = await ImageManipulator.manipulateAsync(uri, actions, { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      if (!out.base64) return;
+      setScanImage(out.base64, 'image/jpeg');
+      router.push('/flight/review');
+    } catch (e: any) {
+      Alert.alert(t('error'), e?.message ?? 'Failed');
+    }
+  };
+  const quickLogbookScan = useCallback(() => {
+    if (!isPremium && tier !== 'max') { setMilestonePremium(t('import_scan_title')); return; }
+    Alert.alert(t('logbook_scan'), t('scan_source_prompt'), [
+      { text: t('camera'), onPress: () => runLogbookScan(true) },
+      { text: t('photo_library'), onPress: () => runLogbookScan(false) },
+      { text: t('cancel'), style: 'cancel' },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPremium, tier, t]);
+
   const greetingStyle = useMemo(() => ({
     ...s.hudGreeting,
     color: tier === 'max' ? Colors.silver : (tier === 'premium' ? Colors.gold : Colors.textPrimary),
@@ -666,6 +669,7 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setRefreshKey(k => k + 1);
+        loadPrompt();
         await Promise.all([
           loadStats(),
           loadFlights(),
@@ -705,6 +709,26 @@ export default function DashboardScreen() {
             <Text style={s.newsBannerBody}>{news.body}</Text>
           </View>
         </View>
+      )}
+
+      {/* ── Summera-uppslag-uppmaning (digital loggbok) ── */}
+      {spreadPrompt && (
+        <TouchableOpacity
+          style={[s.newsBanner, { borderColor: Colors.primary + '44', backgroundColor: Colors.primary + '08' }]}
+          activeOpacity={0.8}
+          onPress={async () => {
+            await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber);
+            setSpreadPrompt(null);
+            router.push(`/logbook?book=${spreadPrompt.bookId}&spread=latest`);
+          }}
+        >
+          <Ionicons name="book" size={18} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.newsBannerTitle}>{t('dlb_summarize_title')}</Text>
+            <Text style={s.newsBannerBody}>{t('page')} {spreadPrompt.pageLeft}–{spreadPrompt.pageRight} · {t('dlb_summarize_body')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
       )}
 
       {/* ── Telemetry Panel ── */}
@@ -816,53 +840,25 @@ export default function DashboardScreen() {
           </Text>
           <OperatorDashboard flights={flights} role={useProfileStore.getState().profile!.subRole} formatTime={formatTime} />
         </>
-      ) : (
-        <>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 6 }}
-            onPress={() => setShowClassBreakdown(v => !v)}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>{t('ms.section_class_breakdown')}</Text>
-            <Ionicons name={showClassBreakdown ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-          {showClassBreakdown && (
-            <View style={s.card}>
-              {[
-                { l: 'PIC', v: formatTime(st?.total_pic ?? 0) },
-                { l: 'CO-PILOT', v: formatTime(st?.total_co_pilot ?? 0) },
-                { l: 'IFR', v: formatTime(st?.total_ifr ?? 0) },
-                { l: 'NIGHT', v: formatTime(st?.total_night ?? 0) },
-                { l: 'DUAL', v: formatTime(st?.total_dual ?? 0), showAddBtn: true, addBtnKey: 'dual' },
-                { l: 'INSTR', v: formatTime(st?.total_instructor ?? 0), showAddBtn: true, addBtnKey: 'instructor' },
-                { l: 'NVG', v: formatTime(st?.total_nvg ?? 0), showAddBtn: true, addBtnKey: 'nvg' },
-                { l: 'MULTI-PILOT', v: formatTime(st?.total_multi_pilot ?? 0) },
-                { l: 'DAY LD', v: String(st?.total_landings_day ?? 0) },
-                { l: 'NIGHT LD', v: String(st?.total_landings_night ?? 0) },
-              ].map((c: any, i, arr) => (
-                <View key={c.l} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: Colors.separator }}>
-                  <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.l}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {c.showAddBtn && (
-                      <TouchableOpacity onPress={() => {
-                        if (c.addBtnKey === 'dual') setShowMissingDual(true);
-                        else if (c.addBtnKey === 'instructor') setShowMissingInstructor(true);
-                        else setShowMissingNvg(true);
-                      }} hitSlop={8}>
-                        <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-                      </TouchableOpacity>
-                    )}
-                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{c.v}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </>
-      )}
+      ) : null}
 
       {/* ── Log new flight ── */}
-      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} onLongComplete={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); router.push('/flight/add?aiImport=1'); }} label={t('log_new_flight')} />
+      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} label={t('log_new_flight')} />
+
+      {/* ── Tre snabbknappar: flygdata-scan · fysisk loggbok · loggboks-scan ── */}
+      <View style={s.actionRow}>
+        <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
+          <Ionicons name="scan-outline" size={20} color={Colors.primary} />
+          <Text style={s.actionBtnText} numberOfLines={1}>{t('flight_data_scan')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/logbook/fill')} activeOpacity={0.85}>
+          <Ionicons name="book" size={24} color={Colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={quickLogbookScan} activeOpacity={0.85}>
+          <Ionicons name="camera-outline" size={20} color={Colors.primary} />
+          <Text style={s.actionBtnText} numberOfLines={1}>{t('logbook_scan')}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ── Visited airports (operator only) ── */}
       {isOperator(useProfileStore.getState().profile) && (
@@ -914,9 +910,6 @@ export default function DashboardScreen() {
 
           <AirportMapWidget />
 
-          <MissingNvgModal visible={showMissingNvg} onClose={() => setShowMissingNvg(false)} onTotalNvgUpdate={setTotalNvgAdded} />
-          <MissingDualModal visible={showMissingDual} onClose={() => setShowMissingDual(false)} onTotalDualUpdate={setTotalDualAdded} />
-          <MissingInstructorModal visible={showMissingInstructor} onClose={() => setShowMissingInstructor(false)} onTotalInstructorUpdate={setTotalInstructorAdded} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
@@ -1007,6 +1000,19 @@ function makeDashStyles() { return StyleSheet.create({
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
   },
   addBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '800' },
+  physBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 16, marginTop: 4, marginBottom: 6,
+    borderWidth: 1, borderColor: Colors.primary + '55',
+  },
+  physBtnText: { color: Colors.primary, fontSize: 16, fontWeight: '800' },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 6 },
+  actionBtn: {
+    flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 12, minHeight: 60,
+    borderWidth: 1, borderColor: Colors.primary + '55',
+  },
+  actionBtnText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
 
   sectionHeader: {
     fontSize: 11, fontWeight: '700', color: Colors.textMuted,

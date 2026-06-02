@@ -23,6 +23,8 @@ export interface RenderSpreadOpts {
   margin?: number;
   /** false = statisk (PDF): inga tappbara "+"-rutor på tomma kolumner. Default true. */
   interactive?: boolean;
+  /** centrera uppslaget vertikalt (och horisontellt) i vyn — för helskärmsläget. */
+  centerVertical?: boolean;
 }
 
 function signatureSvg(sig?: { paths: string[]; w: number; h: number; x?: number; y?: number } | null, h = 34): string {
@@ -179,9 +181,11 @@ function spreadBody(opts: RenderSpreadOpts): string {
   };
 
   // Dataraderna (fyllda + tomma upp till rowsPerSpread).
+  // leadingBlanks = rader fyllda i pappersboken innan appen → ritas tomma överst.
+  const lead = spread.leadingBlanks ?? 0;
   const dataRows: string[] = [];
   for (let r = 0; r < rowsPerSpread; r++) {
-    const f = spread.flights[r];
+    const f = r < lead ? undefined : spread.flights[r - lead];
     const cells = cols
       .map((c) => {
         const align = isNumericCol(c) ? 'num' : (c.format === 'text' ? 'txt' : 'mid');
@@ -376,6 +380,11 @@ export function renderSpreadHTML(opts: RenderSpreadOpts): string {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=${viewportWidth}, user-scalable=yes" />
 <style>${spreadStyles(contentWidth, pageWidth, pagePad, margin)}</style>
+${opts.centerVertical ? `<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }
+  .page { margin: 0 !important; }
+</style>` : ''}
 </head>
 <body>
 ${spreadBody(opts)}

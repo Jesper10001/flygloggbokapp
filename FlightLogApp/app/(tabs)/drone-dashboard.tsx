@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../../db/digitalBooks';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
@@ -31,12 +32,14 @@ export default function DroneDashboard() {
   const [catMode, setCatMode] = useState<CatMode>('A1');
   const [expiring, setExpiring] = useState<DroneCertificate[]>([]);
   const [batteryGroups, setBatteryGroups] = useState<DroneBatteryStatus[]>([]);
+  const [spreadPrompt, setSpreadPrompt] = useState<SpreadPrompt | null>(null);
 
   useFocusEffect(useCallback(() => {
     loadStats();
     loadFlights();
     getExpiringCertificates(60).then(setExpiring);
     getBatteryOverview(3).then(setBatteryGroups);
+    getDashboardSpreadPrompt().then(setSpreadPrompt).catch(() => setSpreadPrompt(null));
     getSetting('drone_total_widget').then((v) => { if (v === 'total' || v === 'ytd') setTotalMode(v); });
     getSetting('drone_mode_widget').then((v) => {
       if (v === 'vlos' || v === 'evlos' || v === 'bvlos' || v === 'night') setModeMode(v as ModeMode);
@@ -159,6 +162,24 @@ export default function DroneDashboard() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {spreadPrompt && (
+        <TouchableOpacity
+          style={[styles.certBanner, { borderColor: Colors.primary + '88', backgroundColor: Colors.primary + '14' }]}
+          activeOpacity={0.8}
+          onPress={async () => {
+            await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber);
+            setSpreadPrompt(null);
+            router.push(`/logbook?book=${spreadPrompt.bookId}&spread=latest`);
+          }}
+        >
+          <Ionicons name="book" size={16} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '800' }}>{t('dlb_summarize_title')}</Text>
+            <Text style={{ color: Colors.textSecondary, fontSize: 11.5, marginTop: 1 }}>{t('page')} {spreadPrompt.pageLeft}–{spreadPrompt.pageRight} · {t('dlb_summarize_body')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
+      )}
       {expiring.length > 0 && (() => {
         const worst = expiring.reduce<'expired' | 'critical' | 'warning' | 'valid' | 'no_date'>((acc, c) => {
           const s = certStatus(c.expires_date);

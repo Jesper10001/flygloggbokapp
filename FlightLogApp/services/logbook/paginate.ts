@@ -18,6 +18,7 @@ export interface LogbookSpread {
   page_left: number;            // sidnummer vänster
   page_right: number;           // sidnummer höger
   flights: Flight[];            // upp till rowsPerSpread flygningar
+  leadingBlanks?: number;       // tomma rader överst (rader fyllda i papper innan appen)
   total_this_page: ColumnTotals;
   brought_forward: ColumnTotals;
   total_to_date: ColumnTotals;
@@ -27,6 +28,7 @@ export interface LogbookConfig {
   startingPage: number;         // sidnumret för uppslag 1:s vänstersida
   rowsPerSpread: number;
   openingBalance: ColumnTotals; // ingående balans (manuellt inmatad)
+  leadingEmptyRows?: number;    // globala rader före första flygningen (anchor-kalibrering)
 }
 
 /** De numeriska kolumner som ackumuleras (decimal/int med en flightKey). */
@@ -129,6 +131,69 @@ export function buildSpreads(
       brought_forward: broughtForward,
       total_to_date: toDate,
     });
+  }
+  return spreads;
+}
+
+/**
+ * Som buildSpreads men för EN digital bok som är förankrad i papperboken via
+ * config.leadingEmptyRows: så många globala rader är fyllda i pappersboken innan
+ * appens första flygning. Fullt tomma inledande uppslag hoppas över (men
+ * sidnumreringen behålls), och det första visade uppslaget får `leadingBlanks`
+ * tomma rader överst så att den SENASTE flygningen hamnar på rätt (sida, rad).
+ */
+export function buildBookSpreads(
+  flights: Flight[],
+  template: LogbookTemplate,
+  config: LogbookConfig,
+): LogbookSpread[] {
+  const cols = numericColumns(template);
+  const sorted = sortFlightsChrono(flights).map(deriveLogbookFields);
+  const rows = Math.max(1, config.rowsPerSpread);
+  const lead = Math.max(0, Math.floor(config.leadingEmptyRows ?? 0));
+  const firstSpreadIdx = Math.floor(lead / rows); // 0-indexerat: första icke-tomma uppslaget
+  const withinOffset = lead % rows;               // tomma rader överst i det uppslaget
+
+  // Tom bok → ett tomt uppslag så vyn alltid har något att visa.
+  if (sorted.length === 0) {
+    const bf = { ...config.openingBalance };
+    return [{
+      spread_number: 1,
+      page_left: config.startingPage,
+      page_right: config.startingPage + 1,
+      flights: [],
+      leadingBlanks: 0,
+      total_this_page: {},
+      brought_forward: bf,
+      total_to_date: bf,
+    }];
+  }
+
+  const spreads: LogbookSpread[] = [];
+  let runningToDate: ColumnTotals = { ...config.openingBalance };
+  let cursor = 0;
+  let spreadIdx = firstSpreadIdx;
+  let first = true;
+  while (cursor < sorted.length) {
+    const capacity = first ? rows - withinOffset : rows;
+    const chunk = sorted.slice(cursor, cursor + capacity);
+    cursor += capacity;
+    const thisPage = sumFlights(chunk, cols);
+    const broughtForward = { ...runningToDate };
+    const toDate = addTotals(broughtForward, thisPage);
+    runningToDate = toDate;
+    spreads.push({
+      spread_number: spreadIdx + 1,
+      page_left: config.startingPage + spreadIdx * 2,
+      page_right: config.startingPage + spreadIdx * 2 + 1,
+      flights: chunk,
+      leadingBlanks: first ? withinOffset : 0,
+      total_this_page: thisPage,
+      brought_forward: broughtForward,
+      total_to_date: toDate,
+    });
+    spreadIdx += 1;
+    first = false;
   }
   return spreads;
 }

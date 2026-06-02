@@ -33,6 +33,8 @@ import { FlightChart } from '../../components/FlightChart';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';import { RollingLoadChart } from '../../components/RollingLoadChart';
 import { GoalCalculator } from '../../components/EASAProgressChart';
 import { EASAProgressCharts } from '../../components/EASAProgressChart';
+import { ClassBreakdown } from '../../components/ClassBreakdown';
+import { FlightTimeTotals } from '../../components/FlightTimeTotals';
 import { batchPlaceNames } from '../../db/icao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -417,8 +419,21 @@ const getSummaryRows = (t: (k: any) => string) => [
   { label: `${t('landings')} ${t('night').toLowerCase()}`, field: 'landings_night' as const, isTime: false },
 ];
 
-// ─── TranscribeView ────────────────────────────────────────────────────────
+// ─── InsightsView (Insikter) ────────────────────────────────────────────────
+// Klass-tidsfördelning + analys-karusellerna (14-dygns load + EASA/FAA).
+function InsightsView() {
+  const standard = useRegulationStandardStore((s) => s.standard);
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled">
+      <FlightTimeTotals />
+      <ClassBreakdown variant="large" />
+      <ChartCarousel />
+      <EASAProgressCharts standard={standard} />
+    </ScrollView>
+  );
+}
 
+// ─── TranscribeView (utfasad — ej längre i UI, kvar som referens) ────────────
 function TranscribeView() {
   const tvStyles = makeTvStyles();
   const router = useRouter();
@@ -1753,7 +1768,7 @@ export default function LogScreen() {
         )}
       </View>
 
-      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? <TranscribeView /> : tab === 'weapons' ? <WeaponsView /> : (
+      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? <InsightsView /> : tab === 'weapons' ? <WeaponsView /> : (
         <>
           {/* ── Search field ── */}
           <View style={styles.searchRow}>
@@ -1812,6 +1827,26 @@ export default function LogScreen() {
               keyboardDismissMode="interactive"
               automaticallyAdjustKeyboardInsets
             >
+              {/* ── Dina böcker (digital loggbok) ── */}
+              <TouchableOpacity
+                onPress={() => router.push('/logbook')}
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16,
+                  backgroundColor: Colors.card, borderRadius: 16, padding: 16,
+                  borderWidth: 1, borderColor: Colors.primary + '55',
+                }}
+              >
+                <View style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="book" size={24} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{t('your_books')}</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 }}>{t('your_books_sub')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+
               {/* ── Year groups ── */}
               {tree.filter(yg => yg.year >= cutoffYear).map((yg) => {
                 const yearOpen = expandedYears.has(yg.year);
@@ -1963,15 +1998,6 @@ export default function LogScreen() {
                 </View>
               )}
 
-              {/* Flight hours + 14-day load — swipeable */}
-              <View style={{ marginHorizontal: 12 }}>
-                <ChartCarousel />
-              </View>
-
-              {/* Certification progress (EASA or FAA) */}
-              <View style={{ marginHorizontal: 12, marginBottom: 8, gap: 8 }}>
-                <EASAProgressCharts standard={standard} />
-              </View>
             </ScrollView>
           )}
         </>

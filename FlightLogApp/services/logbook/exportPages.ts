@@ -1,16 +1,18 @@
 // PDF-export av loggbokssidor: senaste siduppslaget överst, i fallande ordning,
 // ett uppslag per A4-liggande sida. Perfekt vid jobbansökan.
+// Exporterar den AKTIVA digitala boken (eller en angiven bok via bookId).
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getFlights, getSetting } from '../../db/flights';
+import { listDigitalBooks } from '../../db/digitalBooks';
 import {
   getTemplate, ASSIGNABLE_TIME_FIELDS,
   type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
-import { buildSpreads, type LogbookConfig, type ColumnTotals, type LogbookSpread } from './paginate';
+import { buildBookSpreads, type LogbookSpread } from './paginate';
+import { assignFlightsToBooks } from './books';
 import { renderSpreadsPDF } from './renderSpread';
-import { useAppModeStore } from '../../store/appModeStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 
 function applyCustomCols(template: LogbookTemplate, customCols: Record<string, string>): LogbookTemplate {
@@ -37,47 +39,52 @@ interface LoadedLogbook {
   signature: { paths: string[]; w: number; h: number; x?: number; y?: number } | null;
 }
 
-// Laddar den aktiva digitala loggboken med samma konfiguration som vyn använder.
-async function loadLogbook(): Promise<LoadedLogbook> {
-  const mode = useAppModeStore.getState().mode;
-  const defTpl = mode === 'drone' ? 'sv-drone-logbook' : 'sv-easa-standard';
-  const [tplId, sp, ob, cc, sg, fn, ln] = await Promise.all([
-    getSetting('dlb_template_id'),
-    getSetting('dlb_start_page'),
-    getSetting('dlb_opening_balance'),
-    getSetting('dlb_custom_cols'),
+// Laddar en digital bok (aktiv eller angiven) med samma konfiguration som vyn använder.
+async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
+  const [sg, fn, ln] = await Promise.all([
     getSetting('pilot_signature'),
     getSetting('profile_first_name'),
     getSetting('profile_last_name'),
   ]);
-
-  const base = getTemplate(tplId || defTpl);
-  let customCols: Record<string, string> = {};
-  try { const all = cc ? JSON.parse(cc) : {}; customCols = all[base.id] ?? {}; } catch { customCols = {}; }
-  const template = applyCustomCols(base, customCols);
-
-  let openingBalance: ColumnTotals = {};
-  try { openingBalance = ob ? JSON.parse(ob) : {}; } catch { openingBalance = {}; }
+  const pilotName = [fn, ln].filter(Boolean).join(' ');
+  const timeFormat = useTimeFormatStore.getState().timeFormat;
   let signature: LoadedLogbook['signature'] = null;
   try { signature = sg ? JSON.parse(sg) : null; } catch { signature = null; }
 
-  const startPage = Math.max(1, parseInt(sp || '1', 10) || 1);
-  const flights = await getFlights(10000);
-  const config: LogbookConfig = { startingPage: startPage, rowsPerSpread: template.rows_per_spread, openingBalance };
-  const spreads = buildSpreads(flights, template, config);
+  const books = await listDigitalBooks();
+  const active = bookId != null
+    ? books.find((b) => b.id === bookId)
+    : (books.find((b) => b.is_active === 1) ?? books[books.length - 1]);
 
-  return {
-    template,
-    spreads,
-    pilotName: [fn, ln].filter(Boolean).join(' '),
-    timeFormat: useTimeFormatStore.getState().timeFormat,
-    signature,
-  };
+  if (!active) {
+    return { template: getTemplate(''), spreads: [], pilotName, timeFormat, signature };
+  }
+
+  const base = getTemplate(active.template_id);
+  let customCols: Record<string, string> = {};
+  try { customCols = JSON.parse(active.custom_cols || '{}'); } catch { customCols = {}; }
+  const template = applyCustomCols(base, customCols);
+
+  let openingBalance: Record<string, number> = {};
+  try { openingBalance = JSON.parse(active.opening_balance || '{}'); } catch { openingBalance = {}; }
+
+  const flights = await getFlights(10000);
+  const slices = assignFlightsToBooks(books, flights);
+  const slice = slices.find((s) => s.book.id === active.id);
+
+  const spreads = buildBookSpreads(slice?.flights ?? [], template, {
+    startingPage: active.starting_page,
+    rowsPerSpread: active.rows_per_spread,
+    openingBalance,
+    leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
+  });
+
+  return { template, spreads, pilotName, timeFormat, signature };
 }
 
-/** Antal siduppslag i den aktiva loggboken (för custom-väljaren). */
-export async function getLogbookSpreadCount(): Promise<number> {
-  const { spreads } = await loadLogbook();
+/** Antal siduppslag i boken (för custom-väljaren). */
+export async function getLogbookSpreadCount(bookId?: number): Promise<number> {
+  const { spreads } = await loadLogbook(bookId);
   return spreads.length;
 }
 
@@ -85,8 +92,8 @@ export async function getLogbookSpreadCount(): Promise<number> {
  * Exporterar de senaste `count` siduppslagen som en PDF (liggande, senaste överst).
  * Returnerar antalet uppslag som faktiskt exporterades.
  */
-export async function exportLogbookPages(count: number): Promise<number> {
-  const { template, spreads, pilotName, timeFormat, signature } = await loadLogbook();
+export async function exportLogbookPages(count: number, bookId?: number): Promise<number> {
+  const { template, spreads, pilotName, timeFormat, signature } = await loadLogbook(bookId);
   if (spreads.length === 0) return 0;
   const n = Math.max(1, Math.min(Math.round(count), spreads.length));
   // Senaste N uppslagen, senaste först (fallande).
