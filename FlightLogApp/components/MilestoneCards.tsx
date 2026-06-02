@@ -97,7 +97,7 @@ export function LongestXcCard({
                 name: f.dep,
                 lat: f.depLat,
                 lon: f.depLon,
-                role: 'dep' as const,
+                role: 'dep' as 'dep' | 'arr',
               })).concat(
                 flights.length > 0
                   ? [{
@@ -105,7 +105,7 @@ export function LongestXcCard({
                       name: flights[flights.length - 1].arr,
                       lat: flights[flights.length - 1].arrLat,
                       lon: flights[flights.length - 1].arrLon,
-                      role: 'arr' as const,
+                      role: 'arr' as 'dep' | 'arr',
                     }]
                   : []
               )}

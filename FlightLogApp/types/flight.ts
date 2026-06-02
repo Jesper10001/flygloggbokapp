@@ -27,7 +27,7 @@ export interface Flight {
   second_pilot: string;
   nvg: number;
   tng_count: number;
-  flight_type: 'normal' | 'sim' | 'hot_refuel' | 'summary';
+  flight_type: 'normal' | 'sim' | 'hot_refuel' | 'touch_and_go' | 'summary';
   multi_pilot: number;
   single_pilot: number;
   instructor: number;
@@ -101,6 +101,9 @@ export interface IcaoAirport {
 }
 
 export interface OcrFlightResult extends FlightFormData {
+  se_time?: string;
+  me_time?: string;
+  sim?: string;
   other_times?: Record<string, number>;
   other_time_labels?: Record<string, string>;
   needs_review: boolean;

@@ -16,7 +16,7 @@ export function formatDate(dateStr: string): string {
 }
 
 // Konvertera flygtid — accepterar decimal (1.5) eller HH:MM (1:30)
-export function parseFlightTime(value: string): number {
+export function parseFlightTime(value: string | undefined): number {
   const v = (value ?? '').trim();
   if (!v) return 0;
   if (v.includes(':')) {

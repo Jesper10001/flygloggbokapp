@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, G, Line, Path, Circle, Text as SvgText, Filter, FeGaussianBlur } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, delay } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 
 interface DayFlight {
@@ -189,7 +189,7 @@ export function BWWeekMap({ width, height, flights, showGraticule = true, showLa
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray="1600"
-              strokeDashoffset={strokeOffsets[idx]}
+              strokeDashoffset={strokeOffsets[idx] as any}
               filter="url(#weekLineGlow)"
               opacity={idx === 0 ? '1' : '0.7'}
             />

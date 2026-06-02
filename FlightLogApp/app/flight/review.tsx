@@ -257,7 +257,7 @@ function FieldRowDate({ value, onChange, original }: { value: string; onChange: 
     <View style={s.fieldRow}>
       <Text style={s.fieldLabel}>Date</Text>
       <TouchableOpacity
-        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, { paddingVertical: 10, justifyContent: 'center' }]}
+        style={[s.fieldInput, s.fieldMono, changed && s.fieldChanged, { paddingVertical: 10, justifyContent: 'center' }] as any}
         onPress={() => setOpen(true)}
         activeOpacity={0.7}
       >
@@ -695,7 +695,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
                 'Ange namn (t.ex. "Villingsberg")',
                 [
                   { text: 'Avbryt', style: 'cancel' },
-                  { text: 'Spara', onPress: (name) => { if (onAddTemp) onAddTemp(name?.trim() || code); } },
+                  { text: 'Spara', onPress: (name?: string) => { if (onAddTemp) onAddTemp(name?.trim() || code); } },
                 ],
                 'plain-text', '', 'default',
               );

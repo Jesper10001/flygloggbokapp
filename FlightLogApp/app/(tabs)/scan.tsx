@@ -906,7 +906,7 @@ export default function ScanScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={18} color={Colors.primary} />
-          <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '700' }}>{t('back')}</Text>
+          <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '700' }}>{t('go_back')}</Text>
         </TouchableOpacity>
       )}
 

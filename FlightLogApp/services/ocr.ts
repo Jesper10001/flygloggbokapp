@@ -429,11 +429,7 @@ export async function ocrSummarizePage(base64: string, mediaType: string, timeFo
   };
 }
 
-export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageUri?: string): Promise<{
-  flights: OcrFlightResult[];
-  pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };
-  aircraftDetections: AircraftDetection[];
-}> {
+export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageUri?: string): Promise<OcrPageResult> {
   const scanImage = getScanImage();
   if (!scanImage) {
     throw new Error('Ingen bild hittades. Gå tillbaka och välj bild igen.');

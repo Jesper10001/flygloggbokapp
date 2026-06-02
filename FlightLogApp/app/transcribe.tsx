@@ -135,7 +135,7 @@ export default function TranscribeScreen() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 4 }}
         >
           <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>{t('back')}</Text>
+          <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>{t('go_back')}</Text>
         </TouchableOpacity>
         <Text style={{ color: Colors.textSecondary, fontSize: 13, fontWeight: '700', marginLeft: 10 }}>
           {book.name}

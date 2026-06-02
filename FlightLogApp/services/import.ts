@@ -142,7 +142,6 @@ async function readExcelAsCSV(fileUri: string): Promise<string> {
     // Konvertera till CSV-format
     const csv = XLSX.utils.sheet_to_csv(worksheet, {
       blankrows: false,
-      defval: '',
     });
 
     if (!csv.trim()) continue;

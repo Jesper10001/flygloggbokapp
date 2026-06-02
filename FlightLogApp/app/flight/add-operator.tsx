@@ -284,7 +284,7 @@ export default function AddOperatorFlightScreen() {
       if (type === 'video') {
         try {
           const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-          const sizeInMB = (fileInfo.size ?? 0) / (1024 * 1024);
+          const sizeInMB = (fileInfo.exists ? fileInfo.size : 0) / (1024 * 1024);
           if (sizeInMB > 50) {
             Alert.alert(
               sv ? 'Videon är för stor' : 'Video too large',

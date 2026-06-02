@@ -1131,7 +1131,7 @@ export default function AddFlightScreen() {
       if (type === 'video') {
         try {
           const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-          const sizeInMB = (fileInfo.size ?? 0) / (1024 * 1024);
+          const sizeInMB = (fileInfo.exists ? fileInfo.size : 0) / (1024 * 1024);
           if (sizeInMB > 50) {
             Alert.alert(
               'Videon är för stor',
@@ -2302,6 +2302,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                             minWidth: 70,
                           }}
                           onPress={() => {
+                            if (firstOpposite == null) return;
                             setSelectedRunway(firstOpposite);
                             const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`;
                             set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
@@ -2810,7 +2811,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           const suggestions: string[] = [];
           const rules = form.flight_rules;
           const hasIfrPortion = rules === 'IFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.ifr) || 0) > 0;
-          const hasVfrPortion = rules === 'VFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.vfr) || 0) > 0;
+          const hasVfrPortion = rules === 'VFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.vfr ?? '') || 0) > 0;
           // Flygtyp-specifika förslag (högsta prio)
           if (form.flight_type === 'sim') suggestions.push('Exercise: ');
           if (form.flight_type === 'hot_refuel') suggestions.push('Fuel stop: ');
@@ -2827,7 +2828,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           if (hasVfrPortion && !hasIfrPortion) suggestions.push('Route: ');
           // Natt / NVG
           if ((parseFloat(form.night) || 0) > 0) suggestions.push('Night ldg: ');
-          if ((parseFloat(form.nvg) || 0) > 0) suggestions.push('NVG: ');
+          if ((parseFloat(form.nvg ?? '') || 0) > 0) suggestions.push('NVG: ');
 
           const unique = [...new Set(suggestions)].slice(0, 3);
           if (unique.length === 0) return null;
@@ -2909,7 +2910,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         {(() => {
           const needsMixedSplit = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
           const totalN = parseFloat(form.total_time) || 0;
-          const sumN = (parseFloat(form.ifr) || 0) + (parseFloat(form.vfr) || 0);
+          const sumN = (parseFloat(form.ifr) || 0) + (parseFloat(form.vfr ?? '') || 0);
           const mixedMissing = needsMixedSplit && (totalN <= 0 || Math.abs(sumN - totalN) > 0.05);
           const disabled = saving || mixedMissing;
           return (

@@ -57,6 +57,16 @@ const emptyStats: FlightStats = {
   total_instructor: 0,
   total_se: 0,
   total_me: 0,
+  total_vfr: 0,
+  total_nvg: 0,
+  year_to_date: 0,
+  total_picus: 0,
+  total_spic: 0,
+  total_ferry_pic: 0,
+  total_observer: 0,
+  total_relief_crew: 0,
+  total_examiner: 0,
+  total_safety_pilot: 0,
 };
 
 export const useFlightStore = create<FlightStore>((set, get) => ({

@@ -14,10 +14,10 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 // ─── INSERT ──────────────────────────────────────────────────────────────────
 
 async function getEngineType(db: any, aircraftType: string): Promise<'se' | 'me' | ''> {
-  const row = await db.getFirstAsync<{ engine_type: string }>(
+  const row = (await db.getFirstAsync(
     `SELECT engine_type FROM aircraft_registry WHERE aircraft_type=? AND engine_type != '' LIMIT 1`,
     [aircraftType.toUpperCase()]
-  );
+  )) as { engine_type: string } | null;
   const et = row?.engine_type ?? '';
   return (et === 'se' || et === 'me') ? et : '';
 }

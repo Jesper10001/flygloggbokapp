@@ -93,13 +93,13 @@ export default function DroneDashboard() {
   const totalLabel = totalMode === 'total' ? t('total_flight_time') : t('flight_time_ytd');
 
   // Category breakdown för staplar
-  const catBreakdown: { label: CatMode; value: number }[] = [
+  const catBreakdown = ([
     { label: 'A1', value: stats?.cat_a1 ?? 0 },
     { label: 'A2', value: stats?.cat_a2 ?? 0 },
     { label: 'A3', value: stats?.cat_a3 ?? 0 },
     { label: 'Specific', value: stats?.cat_specific ?? 0 },
     { label: 'Certified', value: stats?.cat_certified ?? 0 },
-  ].filter((c) => c.value > 0);
+  ] as { label: CatMode; value: number }[]).filter((c) => c.value > 0);
   const catMax = Math.max(1, ...catBreakdown.map((c) => c.value));
 
   // Empty-state: ingen loggad flygning än — visa tydliga CTA

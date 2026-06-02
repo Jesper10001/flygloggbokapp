@@ -124,7 +124,7 @@ export function LXRouteMap({
   const animatedStrokeStyle = useAnimatedStyle(() => {
     return {
       strokeDashoffset: strokeDashoffset.value,
-    };
+    } as any;
   });
 
   return (
@@ -209,7 +209,7 @@ export function LXRouteMap({
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeDasharray="1600"
-            strokeDashoffset={strokeDashoffset}
+            strokeDashoffset={strokeDashoffset as any}
             filter="url(#lineGlow)"
             opacity="1"
           />
