@@ -22,3 +22,6 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Claude Code — personal per-machine settings (project settings.json is shared)
+.claude/settings.local.json
