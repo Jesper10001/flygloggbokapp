@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { getSetting, setSetting } from '../../db/flights';
+import { SignatureView, SignatureModal, type SignatureData } from '../../components/SignaturePad';
 
 const FIELDS = [
   { key: 'profile_first_name', label: 'first_name', placeholder: 'Johan' },
@@ -25,6 +26,8 @@ export default function ProfileScreen() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [signature, setSignature] = useState<SignatureData | null>(null);
+  const [sigModal, setSigModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -33,6 +36,8 @@ export default function ProfileScreen() {
         data[f.key] = (await getSetting(f.key)) ?? '';
       }
       setForm(data);
+      const sg = await getSetting('pilot_signature');
+      try { setSignature(sg ? JSON.parse(sg) : null); } catch { setSignature(null); }
       setLoaded(true);
     })();
   }, []);
@@ -117,6 +122,21 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        {/* Signatur */}
+        <Text style={styles.sectionHeader}>{t('signature_section')}</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={[styles.fieldRow, { borderBottomWidth: 0 }]} onPress={() => setSigModal(true)} activeOpacity={0.7}>
+            <Text style={styles.fieldLabel}>{t('signature_title')}</Text>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+              {signature
+                ? <SignatureView data={signature} height={34} color={Colors.textPrimary} />
+                : <Text style={{ color: Colors.textMuted, fontSize: 14 }}>{t('signature_add')}</Text>}
+              <Ionicons name="create-outline" size={18} color={Colors.primary} />
+            </View>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.hint}>{t('signature_sub')}</Text>
+
         <Text style={styles.hint}>{t('profile_hint')}</Text>
 
         {/* Spara */}
@@ -129,6 +149,13 @@ export default function ProfileScreen() {
           <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
           <Text style={styles.saveBtnText}>{t('save')}</Text>
         </TouchableOpacity>
+
+        <SignatureModal
+          visible={sigModal}
+          initial={signature}
+          onClose={() => setSigModal(false)}
+          onSave={(s) => { setSignature(s); setSetting('pilot_signature', s ? JSON.stringify(s) : ''); }}
+        />
       </ScrollView>
     </View>
   );

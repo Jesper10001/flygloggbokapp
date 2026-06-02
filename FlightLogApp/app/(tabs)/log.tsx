@@ -201,7 +201,7 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
               {totalTngCount > 1 ? (
                 <Text style={styles.flightRoute}>{totalTngCount}xTNG</Text>
               ) : (
-                <Text style={styles.flightRoute}>{placeNames?.[f.stop_place?.toUpperCase()] ?? f.stop_place}</Text>
+                <Text style={styles.flightRoute}>{placeNames?.[f.stop_place?.toUpperCase() ?? ''] ?? f.stop_place}</Text>
               )}
               <Ionicons name="arrow-forward" size={11} color={Colors.textMuted} />
             </>
@@ -565,6 +565,29 @@ function TranscribeView() {
       contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 20 }}
       keyboardShouldPersistTaps="handled"
     >
+      {/* ── Dina böcker (digital loggbok) ── */}
+      <TouchableOpacity
+        onPress={() => router.push('/logbook')}
+        activeOpacity={0.85}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 14,
+          backgroundColor: Colors.card, borderRadius: 16, padding: 16,
+          borderWidth: 1, borderColor: Colors.primary + '55',
+        }}
+      >
+        <View style={{
+          width: 46, height: 46, borderRadius: 12,
+          backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Ionicons name="book" size={24} color={Colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{t('your_books')}</Text>
+          <Text style={{ color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 }}>{t('your_books_sub')}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
+
       {/* ── Transkribera ── */}
       <View>
         <View style={tvStyles.sectionHeader}>

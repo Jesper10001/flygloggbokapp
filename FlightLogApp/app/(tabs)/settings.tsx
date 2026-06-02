@@ -10,6 +10,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
+import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
 import { clearAllFlights, getFlightCount } from '../../db/flights';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -186,6 +187,11 @@ export default function SettingsScreen() {
   const setProfile = useProfileStore((s) => s.setProfile);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingPages, setExportingPages] = useState(false);
+  const [pagesModal, setPagesModal] = useState(false);
+  const [pagesTotal, setPagesTotal] = useState(0);
+  const [pagesChoice, setPagesChoice] = useState<number | 'custom'>(3);
+  const [pagesCustom, setPagesCustom] = useState('');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
@@ -280,6 +286,26 @@ export default function SettingsScreen() {
     finally { setExportingPDF(false); }
   };
 
+  const openPagesExport = async () => {
+    try {
+      const total = await getLogbookSpreadCount();
+      if (total === 0) { Alert.alert(t('export_logbook_pages'), t('dlb_export_empty')); return; }
+      setPagesTotal(total);
+      setPagesChoice(total < 3 ? 'custom' : 3);
+      setPagesCustom(String(total));
+      setPagesModal(true);
+    } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
+  };
+  const runPagesExport = async () => {
+    const raw = pagesChoice === 'custom' ? parseInt(pagesCustom || '0', 10) : pagesChoice;
+    const count = Math.max(1, Math.min(raw || 1, pagesTotal || 1));
+    setPagesModal(false);
+    setExportingPages(true);
+    try { await exportLogbookPages(count); }
+    catch (e: any) { Alert.alert(t('export_failed'), e.message); }
+    finally { setExportingPages(false); }
+  };
+
   const handleClearAll = () => {
     Alert.alert(t('clear_all_data'), `${t('clear_all_data_message')} ${flightCount} ${t('clear_all_data_message2')}`, [
       { text: t('cancel'), style: 'cancel' },
@@ -370,7 +396,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
         <Text style={{ fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.8 }}>
-          {t('settings')}
+          {t('tab_settings')}
         </Text>
       </View>
 
@@ -541,7 +567,7 @@ export default function SettingsScreen() {
                 .map((p) => (
                   <TouchableOpacity
                     key={`${p.mainRole}-${p.subRole}`}
-                    onPress={() => switchProfile(p.mainRole as any, p.subRole)}
+                    onPress={() => switchProfile(p.mainRole as any, p.subRole as any)}
                     style={{
                       paddingHorizontal: 12,
                       paddingVertical: 6,
@@ -723,6 +749,13 @@ export default function SettingsScreen() {
             title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
             right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
             onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
+            separatorColor={Colors.background}
+          />}
+          {isPilot && <Row
+            icon="book-outline" iconColor={Colors.primary}
+            title={t('export_logbook_pages')} subtitle={t('export_logbook_pages_sub')}
+            right={exportingPages ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
+            onClick={openPagesExport}
             separatorColor={Colors.background}
           />}
           <Row
@@ -1020,6 +1053,70 @@ export default function SettingsScreen() {
       )}
 
       <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
+
+      {/* ── Export logbook pages: välj antal siduppslag ── */}
+      <Modal visible={pagesModal} transparent animationType="fade" onRequestClose={() => setPagesModal(false)}>
+        <Pressable
+          onPress={() => setPagesModal(false)}
+          style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{ width: '100%', maxWidth: 440, backgroundColor: Colors.surface, borderRadius: 18, padding: 20, gap: 14 }}
+          >
+            <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>{t('export_logbook_pages')}</Text>
+            <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 19 }}>{t('dlb_export_choose')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {[3, 5, 10].map((n) => {
+                const active = pagesChoice === n;
+                return (
+                  <TouchableOpacity
+                    key={n} onPress={() => setPagesChoice(n)} activeOpacity={0.8}
+                    style={{
+                      minWidth: 56, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center',
+                      backgroundColor: active ? Colors.primary : Colors.elevated,
+                      borderWidth: 1, borderColor: active ? Colors.primary : Colors.border,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: active ? Colors.textInverse : Colors.textPrimary }}>{n}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                onPress={() => setPagesChoice('custom')} activeOpacity={0.8}
+                style={{
+                  flex: 1, minWidth: 90, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center',
+                  backgroundColor: pagesChoice === 'custom' ? Colors.primary : Colors.elevated,
+                  borderWidth: 1, borderColor: pagesChoice === 'custom' ? Colors.primary : Colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'custom' ? Colors.textInverse : Colors.textPrimary }}>{t('dlb_export_custom')}</Text>
+              </TouchableOpacity>
+            </View>
+            {pagesChoice === 'custom' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TextInput
+                  value={pagesCustom}
+                  onChangeText={(v) => setPagesCustom(v.replace(/\D/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder={String(pagesTotal)}
+                  placeholderTextColor={Colors.textMuted}
+                  style={{ width: 90, backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: Colors.textPrimary, fontSize: 16, borderWidth: 1, borderColor: Colors.border, textAlign: 'center' }}
+                />
+                <Text style={{ color: Colors.textMuted, fontSize: 13 }}>{t('dlb_export_max')} {pagesTotal}</Text>
+              </View>
+            )}
+            <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 17 }}>{t('dlb_export_note')}</Text>
+            <TouchableOpacity
+              onPress={runPagesExport} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15 }}
+            >
+              <Ionicons name="share-outline" size={18} color={Colors.textInverse} />
+              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>{t('dlb_export_btn')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Logbook Type Modal */}
       <Modal visible={showLogbookTypeModal} transparent animationType="slide" onRequestClose={() => setShowLogbookTypeModal(false)}>

@@ -133,6 +133,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
+        <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="mode-picker" options={{ headerShown: false }} />
       </Stack>

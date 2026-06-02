@@ -17,6 +17,38 @@ export interface LogbookColumn {
   group?: string;             // gruppetikett som spänner över flera kolumner
 }
 
+// En cell i en explicit, nästlad tabellrubrik (rad-/kolumnspann som en riktig bok).
+// Anges per mall via header_rows; saknas den härleds rubriken från kolumnernas group.
+export interface LogbookHeaderCell {
+  label: string;
+  sub?: string;               // mindre underrubrik (t.ex. "dd/mm/yy")
+  colSpan?: number;
+  rowSpan?: number;
+  dashR?: boolean;            // streckad högerkant (t.ex. mellan SE och ME)
+  colId?: string;             // koppling till en (tom) kolumn — gör rubriken valbar
+}
+
+// Flygtidstyper som piloten kan tilldela en tom kolumn. Bara typer som inte
+// redan finns i loggboken och som piloten har data för erbjuds (filtreras i UI).
+export interface AssignableField {
+  key: string;                // flightKey i datan
+  label: string;              // rubrik i loggboken
+  format: 'decimal' | 'int';
+}
+
+export const ASSIGNABLE_TIME_FIELDS: AssignableField[] = [
+  { key: 'nvg', label: 'NVG', format: 'decimal' },
+  { key: 'picus', label: 'PICUS', format: 'decimal' },
+  { key: 'spic', label: 'SPIC', format: 'decimal' },
+  { key: 'vfr', label: 'VFR', format: 'decimal' },
+  { key: 'examiner', label: 'Examiner', format: 'decimal' },
+  { key: 'safety_pilot', label: 'Safety Pilot', format: 'decimal' },
+  { key: 'observer', label: 'Observer', format: 'decimal' },
+  { key: 'ferry_pic', label: 'Ferry PIC', format: 'decimal' },
+  { key: 'relief_crew', label: 'Relief Crew', format: 'decimal' },
+  { key: 'tng_count', label: 'Touch & Go', format: 'int' },
+];
+
 export interface LogbookTemplate {
   id: string;
   name: string;
@@ -31,9 +63,178 @@ export interface LogbookTemplate {
     signature: boolean;
     brought_forward: boolean;
   };
+  cover?: number;             // require(...) av omslagsbild — visas i väljaren
+  descriptionKey?: string;    // i18n-nyckel för detaljtext under omslaget
+  header_rows?: LogbookHeaderCell[][]; // explicit nästlad rubrik
+  dashed_after?: string[];    // kolumn-id vars högerkant ritas streckad
+  summary_layout?: 'bf-top' | 'bottom'; // var brought forward-raden hamnar
 }
 
 export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
+  {
+    id: 'easa-pilot-logbook',
+    name: 'Pilot logbook',
+    rows_per_spread: 12,
+    language: 'en',
+    time_format: 'decimal',
+    cover: require('../assets/logbooks/pilot-logbook.png'),
+    descriptionKey: 'tpl_pilot_logbook_desc',
+    summary_layout: 'bottom',
+    dashed_after: ['ifr', 'pic', 'dual', 'oft_sea', 'oft_instrument', 'ldg_day', 'ldg_night'],
+    left_columns: [
+      { id: 'date',       label: 'Date',         flightKey: 'date',          format: 'date',     width: 88, group: 'Date of flight or session' },
+      { id: 'ac_mm',      label: 'Make/mod/var', flightKey: 'aircraft_type', format: 'text',     width: 84, group: 'Aircraft or FSTD' },
+      { id: 'ac_reg',     label: 'Reg',          flightKey: 'registration',  format: 'text',     width: 78, group: 'Aircraft or FSTD' },
+      { id: 'dep_place',  label: 'Place',        flightKey: 'dep_place',     format: 'icao',     width: 56, group: 'Departure / time' },
+      { id: 'dep_utc',    label: 'UTC',          flightKey: 'dep_utc',       format: 'time-utc', width: 52, group: 'Departure / time' },
+      { id: 'arr_place',  label: 'Place',        flightKey: 'arr_place',     format: 'icao',     width: 56, group: 'Arrival / time' },
+      { id: 'arr_utc',    label: 'UTC',          flightKey: 'arr_utc',       format: 'time-utc', width: 52, group: 'Arrival / time' },
+      { id: 'total_time', label: 'Total',        flightKey: 'tt_total',      format: 'decimal',  width: 64 },
+      { id: 'ifr',        label: 'IFR',          flightKey: 'ifr',           format: 'decimal',  width: 52, group: 'Operational condition time' },
+      { id: 'night',      label: 'Night',        flightKey: 'night',         format: 'decimal',  width: 52, group: 'Operational condition time' },
+    ],
+    right_columns: [
+      { id: 'pic',            label: 'PIC',        flightKey: 'pic',           format: 'decimal', width: 52, group: 'Pilot function time' },
+      { id: 'dual',           label: 'Dual',       flightKey: 'dual',          format: 'decimal', width: 52, group: 'Pilot function time' },
+      { id: 'instructor',     label: 'Instructor', flightKey: 'instructor',    format: 'decimal', width: 64, group: 'Pilot function time' },
+      { id: 'oft_sea',        label: 'Sea',                                                       width: 56, group: 'Other type of flight time' },
+      { id: 'oft_instrument', label: 'Instrument',                                                width: 64, group: 'Other type of flight time' },
+      { id: 'oft_iri',        label: 'IRI',                                                       width: 52, group: 'Other type of flight time' },
+      { id: 'fstd',           label: 'FSTD',       flightKey: 'fstd',          format: 'decimal', width: 60 },
+      { id: 'ldg_day',        label: 'Day',        flightKey: 'landings_day',  format: 'int',     width: 46, group: 'Landings' },
+      { id: 'ldg_night',      label: 'Night',      flightKey: 'landings_night',format: 'int',     width: 48, group: 'Landings' },
+      { id: 'ldg_sea',        label: 'Sea',                                                       width: 46, group: 'Landings' },
+      { id: 'remarks',        label: 'Remarks and endorsements', flightKey: 'remarks', format: 'text', width: 220 },
+    ],
+    header_rows: [
+      [
+        { label: 'Date of flight or session', sub: 'dd/mm/yy', rowSpan: 3 },
+        { label: 'Aircraft or FSTD', colSpan: 2 },
+        { label: 'Route of flight and times', colSpan: 4 },
+        { label: 'Total time of flight', rowSpan: 3 },
+        { label: 'Operational condition time', colSpan: 2 },
+        { label: 'Pilot function time', colSpan: 3 },
+        { label: 'Other type of flight time', colSpan: 3 },
+        { label: 'FSTD session', rowSpan: 3 },
+        { label: 'Landings', colSpan: 3 },
+        { label: 'Remarks and endorsements', sub: '(solo, SPIC, name of PIC if not self etc)', rowSpan: 3 },
+      ],
+      [
+        { label: 'Make, mod, variant', rowSpan: 2 },
+        { label: 'Registration', rowSpan: 2 },
+        { label: 'Departure / time', colSpan: 2 },
+        { label: 'Arrival / time', colSpan: 2 },
+        { label: 'IFR', rowSpan: 2, dashR: true },
+        { label: 'Night', rowSpan: 2 },
+        { label: 'PIC', rowSpan: 2, dashR: true },
+        { label: 'Dual', rowSpan: 2, dashR: true },
+        { label: 'Instructor', rowSpan: 2 },
+        { label: 'Sea', rowSpan: 2, colId: 'oft_sea', dashR: true },
+        { label: 'Instrument', rowSpan: 2, colId: 'oft_instrument', dashR: true },
+        { label: 'IRI', rowSpan: 2, colId: 'oft_iri' },
+        { label: 'Day', rowSpan: 2, dashR: true },
+        { label: 'Night', rowSpan: 2, dashR: true },
+        { label: 'Sea', rowSpan: 2 },
+      ],
+      [
+        { label: 'Place' },
+        { label: 'UTC' },
+        { label: 'Place' },
+        { label: 'UTC' },
+      ],
+    ],
+    footer: {
+      this_page_total: true,
+      total_to_date: true,
+      signature: true,
+      brought_forward: true,
+    },
+  },
+  {
+    id: 'easa-professional-pilot',
+    name: 'Professional Pilot Logbook',
+    rows_per_spread: 12,
+    language: 'en',
+    time_format: 'decimal',
+    cover: require('../assets/logbooks/professional-pilot-logbook.png'),
+    descriptionKey: 'tpl_professional_desc',
+    summary_layout: 'bottom',
+    dashed_after: ['sp_se', 'ldg_day', 'ldg_night'],
+    left_columns: [
+      { id: 'date',       label: 'Date',         flightKey: 'date',          format: 'date',     width: 88 },
+      { id: 'ac_mm',      label: 'Make/mod/var', flightKey: 'aircraft_type', format: 'text',     width: 78, group: 'Aircraft or FSTD' },
+      { id: 'ac_reg',     label: 'Reg',          flightKey: 'registration',  format: 'text',     width: 72, group: 'Aircraft or FSTD' },
+      { id: 'dep_place',  label: 'Place',        flightKey: 'dep_place',     format: 'icao',     width: 52, group: 'Departure / time' },
+      { id: 'dep_utc',    label: 'UTC',          flightKey: 'dep_utc',       format: 'time-utc', width: 50, group: 'Departure / time' },
+      { id: 'arr_place',  label: 'Place',        flightKey: 'arr_place',     format: 'icao',     width: 52, group: 'Arrival / time' },
+      { id: 'arr_utc',    label: 'UTC',          flightKey: 'arr_utc',       format: 'time-utc', width: 50, group: 'Arrival / time' },
+      { id: 'total_time', label: 'Total',        flightKey: 'tt_total',      format: 'decimal',  width: 58 },
+      { id: 'multi_pilot',label: 'MP',           flightKey: 'multi_pilot',   format: 'decimal',  width: 60 },
+      { id: 'sp_se',      label: 'SE',           flightKey: 'sp_se',         format: 'decimal',  width: 44, group: 'Single-Pilot time' },
+      { id: 'sp_me',      label: 'ME',           flightKey: 'sp_me',         format: 'decimal',  width: 44, group: 'Single-Pilot time' },
+      { id: 'note_left',  label: '',                                                             width: 58 },
+      { id: 'fstd',       label: 'FSTD',         flightKey: 'fstd',          format: 'decimal',  width: 58 },
+    ],
+    right_columns: [
+      { id: 'pic',        label: 'PIC',          flightKey: 'pic',           format: 'decimal',  width: 50, group: 'Pilot function time' },
+      { id: 'co_pilot',   label: 'Co-Pilot',     flightKey: 'co_pilot',      format: 'decimal',  width: 58, group: 'Pilot function time' },
+      { id: 'dual',       label: 'Dual',         flightKey: 'dual',          format: 'decimal',  width: 50, group: 'Pilot function time' },
+      { id: 'instructor', label: 'Instructor',   flightKey: 'instructor',    format: 'decimal',  width: 64, group: 'Pilot function time' },
+      { id: 'note_right', label: '',                                                             width: 54, group: 'Pilot function time' },
+      { id: 'ifr',        label: 'IFR',          flightKey: 'ifr',           format: 'decimal',  width: 50, group: 'Operational condition time' },
+      { id: 'night',      label: 'Night',        flightKey: 'night',         format: 'decimal',  width: 52, group: 'Operational condition time' },
+      { id: 'ldg_day',    label: 'Day',          flightKey: 'landings_day',  format: 'int',      width: 42, group: 'Landings' },
+      { id: 'ldg_night',  label: 'Night',        flightKey: 'landings_night',format: 'int',      width: 44, group: 'Landings' },
+      { id: 'ldg_sea',    label: 'Sea',                                                          width: 42, group: 'Landings' },
+      { id: 'remarks',    label: 'Remarks and endorsements', flightKey: 'remarks', format: 'text', width: 210 },
+    ],
+    header_rows: [
+      [
+        { label: 'Date of flight or session', sub: 'dd/mm/yy', rowSpan: 3 },
+        { label: 'Aircraft or FSTD', colSpan: 2 },
+        { label: 'Route of flight and times', colSpan: 4 },
+        { label: 'Total time of flight', rowSpan: 3 },
+        { label: 'Multi-Pilot time', rowSpan: 3 },
+        { label: 'Single-Pilot time', colSpan: 2 },
+        { label: '', rowSpan: 3, colId: 'note_left' },
+        { label: 'FSTD session', rowSpan: 3 },
+        { label: 'Pilot function time', colSpan: 5 },
+        { label: 'Operational condition time', colSpan: 2 },
+        { label: 'Landings', colSpan: 3 },
+        { label: 'Remarks and endorsements', sub: '(I.e solo, instrument time, PICUS etc.)', rowSpan: 3 },
+      ],
+      [
+        { label: 'Make, mod, variant', rowSpan: 2 },
+        { label: 'Registration', rowSpan: 2 },
+        { label: 'Departure / time', colSpan: 2 },
+        { label: 'Arrival / time', colSpan: 2 },
+        { label: 'SE', rowSpan: 2, dashR: true },
+        { label: 'ME', rowSpan: 2 },
+        { label: 'PIC', rowSpan: 2 },
+        { label: 'Co-Pilot', rowSpan: 2 },
+        { label: 'Dual', rowSpan: 2 },
+        { label: 'Instructor', rowSpan: 2 },
+        { label: '', rowSpan: 2, colId: 'note_right' },
+        { label: 'IFR', rowSpan: 2 },
+        { label: 'Night', rowSpan: 2 },
+        { label: 'Day', rowSpan: 2, dashR: true },
+        { label: 'Night', rowSpan: 2, dashR: true },
+        { label: 'Sea', rowSpan: 2 },
+      ],
+      [
+        { label: 'Place' },
+        { label: 'UTC' },
+        { label: 'Place' },
+        { label: 'UTC' },
+      ],
+    ],
+    footer: {
+      this_page_total: true,
+      total_to_date: true,
+      signature: true,
+      brought_forward: true,
+    },
+  },
   {
     id: 'sv-easa-standard',
     name: 'Svensk EASA Pilot Logbook (12 rader)',

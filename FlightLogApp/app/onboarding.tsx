@@ -7,6 +7,7 @@ import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
 import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
 import { setSetting, getSetting, getFlightCount } from '../db/flights';
+import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
 
 type Step = 'welcome' | 'role' | 'subrole' | 'timeformat' | 'profile';
 
@@ -80,6 +81,8 @@ export default function OnboardingScreen() {
   const [lastName, setLastName] = useState('');
   const [initials, setInitials] = useState('');
   const [credentials, setCredentials] = useState('');
+  const [signature, setSignature] = useState<SignatureData | null>(null);
+  const [sigModal, setSigModal] = useState(false);
 
   const currentProfile = useProfileStore(s => s.profile);
 
@@ -107,6 +110,7 @@ export default function OnboardingScreen() {
       await setSetting('profile_last_name', lastName);
       await setSetting('profile_initials', initials);
       await setSetting('profile_credentials', credentials);
+      await setSetting('pilot_signature', signature ? JSON.stringify(signature) : '');
       const target = targetForProfile(profile);
       await setMode(target);
       // Set onboarded FIRST before navigating
@@ -353,6 +357,20 @@ export default function OnboardingScreen() {
                 placeholderTextColor={P.textMuted}
               />
             </View>
+
+            <View>
+              <Text style={s.inputLabel}>{sv ? 'Pilotsignatur (valfritt)' : 'Pilot signature (optional)'}</Text>
+              <TouchableOpacity
+                style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46 }]}
+                onPress={() => setSigModal(true)}
+                activeOpacity={0.7}
+              >
+                {signature
+                  ? <SignatureView data={signature} height={28} color={P.text} />
+                  : <Text style={{ color: P.textMuted, fontSize: 14 }}>{sv ? 'Skapa signatur' : 'Add signature'}</Text>}
+                <Ionicons name="create-outline" size={18} color={P.accent} />
+              </TouchableOpacity>
+            </View>
           </ScrollView>
 
           <View style={{ alignSelf: 'stretch', gap: 8 }}>
@@ -366,6 +384,13 @@ export default function OnboardingScreen() {
           </View>
         </View>
       )}
+
+      <SignatureModal
+        visible={sigModal}
+        initial={signature}
+        onClose={() => setSigModal(false)}
+        onSave={(sg) => setSignature(sg)}
+      />
     </SafeAreaView>
   );
 }
