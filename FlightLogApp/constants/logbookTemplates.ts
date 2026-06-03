@@ -46,6 +46,8 @@ export const ASSIGNABLE_TIME_FIELDS: AssignableField[] = [
   { key: 'observer', label: 'Observer', format: 'decimal' },
   { key: 'ferry_pic', label: 'Ferry PIC', format: 'decimal' },
   { key: 'relief_crew', label: 'Relief Crew', format: 'decimal' },
+  { key: 'cross_country', label: 'Cross-country', format: 'decimal' },
+  { key: 'solo', label: 'Solo', format: 'decimal' },
   { key: 'tng_count', label: 'Touch & Go', format: 'int' },
 ];
 
@@ -293,6 +295,49 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
       { id: 'altitude',     label: 'Max höjd (m)',                                                  width: 85 },
       { id: 'battery',      label: 'Batteri %',                                                    width: 75 },
       { id: 'remarks',      label: 'Anteckningar',   flightKey: 'remarks',      format: 'text',     width: 200 },
+    ],
+    footer: {
+      this_page_total: true,
+      total_to_date: true,
+      signature: true,
+      brought_forward: true,
+    },
+  },
+  // ── FAA Pilot Logbook ────────────────────────────────────────────────────
+  // Representativ FAA-layout som startpunkt. FAA-böcker varierar mellan förlag —
+  // användaren finjusterar via custom-skaparen. Skillnader mot EASA som speglas:
+  //  • ingen block-tid (dep/arr UTC saknas), bara "Total Duration"
+  //  • återanvänder befintliga fält: actual instrument → ifr, SIC → co_pilot
+  //  • förstklassiga: cross_country, solo. Free-kolumner (approaches, simulated
+  //    instrument) lämnas omappade tills de promotas.
+  {
+    id: 'faa-pilot-logbook',
+    name: 'FAA Pilot Logbook',
+    rows_per_spread: 10,
+    language: 'en',
+    time_format: 'decimal',
+    summary_layout: 'bottom',
+    left_columns: [
+      { id: 'date',      label: 'Date',         flightKey: 'date',          format: 'date', width: 80, group: 'Date' },
+      { id: 'ac_mm',     label: 'Make & Model', flightKey: 'aircraft_type', format: 'text', width: 90, group: 'Aircraft' },
+      { id: 'ac_id',     label: 'Ident',        flightKey: 'registration',  format: 'text', width: 78, group: 'Aircraft' },
+      { id: 'from',      label: 'From',         flightKey: 'dep_place',     format: 'icao', width: 56, group: 'Route of flight' },
+      { id: 'to',        label: 'To',           flightKey: 'arr_place',     format: 'icao', width: 56, group: 'Route of flight' },
+      { id: 'appr',      label: 'Appr',                                     format: 'int',  width: 44 },
+    ],
+    right_columns: [
+      { id: 'xc',        label: 'Cross Country', flightKey: 'cross_country', format: 'decimal', width: 60, group: 'Conditions of flight' },
+      { id: 'night',     label: 'Night',         flightKey: 'night',         format: 'decimal', width: 52, group: 'Conditions of flight' },
+      { id: 'actual',    label: 'Actual Inst',   flightKey: 'ifr',           format: 'decimal', width: 56, group: 'Conditions of flight' },
+      { id: 'simulated', label: 'Sim Inst',                                  format: 'decimal', width: 56, group: 'Conditions of flight' },
+      { id: 'dual',      label: 'Dual Rcvd',     flightKey: 'dual',          format: 'decimal', width: 56, group: 'Type of piloting time' },
+      { id: 'pic',       label: 'PIC',           flightKey: 'pic',           format: 'decimal', width: 52, group: 'Type of piloting time' },
+      { id: 'sic',       label: 'SIC',           flightKey: 'co_pilot',      format: 'decimal', width: 52, group: 'Type of piloting time' },
+      { id: 'solo',      label: 'Solo',          flightKey: 'solo',          format: 'decimal', width: 52, group: 'Type of piloting time' },
+      { id: 'ldg_day',   label: 'Day',           flightKey: 'landings_day',  format: 'int',     width: 44, group: 'Landings' },
+      { id: 'ldg_night', label: 'Night',         flightKey: 'landings_night',format: 'int',     width: 46, group: 'Landings' },
+      { id: 'total',     label: 'Total',         flightKey: 'tt_total',      format: 'decimal', width: 60 },
+      { id: 'remarks',   label: 'Remarks, Procedures, Endorsements', flightKey: 'remarks', format: 'text', width: 200 },
     ],
     footer: {
       this_page_total: true,

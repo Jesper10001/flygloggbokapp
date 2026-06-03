@@ -17,7 +17,6 @@ import { useFlightStore } from '../store/flightStore';
 import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
 import { useProfileStore } from '../store/profileStore';
-import { useScanProfileStore } from '../store/scanProfileStore';
 import { cleanupDittoEntries } from '../db/ocrLearned';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -58,7 +57,6 @@ export default function RootLayout() {
         await useOperatorStore.getState().loadOperatorId();
         await usePilotTypeStore.getState().load();
         await useProfileStore.getState().load();
-        await useScanProfileStore.getState().load();
         await cleanupDittoEntries();
         await checkVersion();
         const { mode } = useAppModeStore.getState();
@@ -127,7 +125,6 @@ export default function RootLayout() {
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
-        <Stack.Screen name="settings/scan-profile" options={{ title: 'Scan Profile' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export' }} />
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />

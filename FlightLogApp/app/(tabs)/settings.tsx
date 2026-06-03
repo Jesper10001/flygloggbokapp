@@ -722,16 +722,9 @@ export default function SettingsScreen() {
             title={t('import_manual_title')}
             subtitle={t('import_manual_sub')}
             onClick={() => router.push('/import/manual')}
-            separatorColor={Colors.background}
-          />
-          {isPilot && <Row
-            icon="scan-outline" iconColor={Colors.accent}
-            title={t('scan_profile_title') ?? 'Scan Profile'}
-            subtitle={t('scan_profile_sub') ?? 'Help AI read your logbook'}
-            onClick={() => router.push('/settings/scan-profile')}
             border={false}
             separatorColor={Colors.background}
-          />}
+          />
         </Card>
       )}
 

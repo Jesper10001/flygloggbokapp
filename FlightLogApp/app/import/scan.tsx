@@ -13,7 +13,6 @@ import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, SCAN_PACKS, MONTHLY_TOPUP_PRICE } from '../../store/scanQuotaStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
-import { useScanProfileStore } from '../../store/scanProfileStore';
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
@@ -30,7 +29,6 @@ export default function ScanImportScreen() {
   const [working, setWorking] = useState(false);
   const [showBuy, setShowBuy] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
-  const hasProfile = useScanProfileStore((s) => s.hasProfile);
 
   const hasFreeTrial = !isPremium && loaded && totalRemaining() > 0;
 
@@ -232,39 +230,13 @@ export default function ScanImportScreen() {
             ))}
           </View>
 
-          {/* Step 1 — Scan Profile */}
-          <TouchableOpacity
-            style={[s.stepCard, hasProfile() && s.stepCardDone]}
-            onPress={() => router.push('/settings/scan-profile')}
-            activeOpacity={0.8}
-          >
-            <View style={s.stepBadge}>
-              <Text style={s.stepBadgeText}>1</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.stepTitle}>{t('scan_profile_title') ?? 'Skanningsprofil'}</Text>
-              <Text style={s.stepSub}>
-                {hasProfile()
-                  ? (t('scan_profile_done') ?? 'Konfigurerad — tryck för att ändra')
-                  : (t('scan_profile_needed') ?? 'Beskriv din loggbok för bättre resultat')}
-              </Text>
-            </View>
-            {hasProfile()
-              ? <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
-              : <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-            }
-          </TouchableOpacity>
-
-          {/* Step 2 — Camera / Library */}
+          {/* Välj bild */}
           <View style={s.stepHeader}>
-            <View style={[s.stepBadge, !hasProfile() && { opacity: 0.4 }]}>
-              <Text style={s.stepBadgeText}>2</Text>
-            </View>
-            <Text style={[s.stepHeaderText, !hasProfile() && { color: Colors.textMuted }]}>
+            <Text style={s.stepHeaderText}>
               {t('scan_choose_image') ?? 'Välj bild'}
             </Text>
           </View>
-          <View style={[s.actionCards, !hasProfile() && { opacity: 0.35 }]} pointerEvents={hasProfile() ? 'auto' : 'none'}>
+          <View style={s.actionCards}>
             <TouchableOpacity style={s.actionCard} onPress={() => pickImage(true)} activeOpacity={0.8}>
               <Ionicons name="camera" size={28} color={Colors.primary} />
               <Text style={s.actionCardTitle}>{t('scan_camera')}</Text>
@@ -277,7 +249,7 @@ export default function ScanImportScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[s.batchBtn, !hasProfile() && { opacity: 0.35 }]} onPress={hasProfile() ? pickBatch : undefined} activeOpacity={0.8} disabled={!hasProfile()}>
+          <TouchableOpacity style={s.batchBtn} onPress={pickBatch} activeOpacity={0.8}>
             <Ionicons name="copy-outline" size={16} color={Colors.primary} />
             <Text style={s.batchBtnText}>{t('scan_batch')}</Text>
             <Text style={s.batchBtnSub}>{t('scan_batch_sub')}</Text>

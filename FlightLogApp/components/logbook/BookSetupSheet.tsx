@@ -2,11 +2,13 @@
 // uppslag, samt anchor (vilken sida + rad den SENASTE flygningen ligger på i
 // pappersboken) och ingående balans. Används för att skapa OCH redigera böcker.
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -14,6 +16,7 @@ import { parseTimeInput, formatTimeValue } from '../../hooks/useTimeFormat';
 import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
+import { getCustomTemplates } from '../../db/customTemplates';
 import { numericColumns, sortFlightsChrono, type ColumnTotals } from '../../services/logbook/paginate';
 import type { Flight } from '../../types/flight';
 import {
@@ -34,17 +37,32 @@ export function BookSetupSheet({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const sv = t('yes') === 'Ja';
 
+  // Custom-mallar (användarskapade böcker) — laddas och uppdateras vid fokus så
+  // en nyss skapad mall dyker upp direkt när man kommer tillbaka från skaparen.
+  const [custom, setCustom] = useState<LogbookTemplate[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getCustomTemplates().then((c) => { if (alive) setCustom(c); }).catch(() => {});
+      return () => { alive = false; };
+    }, []),
+  );
+
+  const allTemplates = useMemo(() => [...LOGBOOK_TEMPLATES, ...custom], [custom]);
+  const resolveTpl = (id: string) => allTemplates.find((x) => x.id === id) ?? getTemplate(id);
   const pickable = useMemo(
-    () => LOGBOOK_TEMPLATES.filter((tpl) => (appMode === 'drone') === tpl.id.includes('drone')),
-    [appMode],
+    () => allTemplates.filter((tpl) => (appMode === 'drone') === tpl.id.includes('drone')),
+    [allTemplates, appMode],
   );
 
   const [templateId, setTemplateId] = useState(initial?.template_id || pickable[0]?.id || 'sv-easa-standard');
   const [name, setName] = useState(initial?.name || '');
   const [firstPage, setFirstPage] = useState(String(initial?.starting_page ?? 1));
   const [lastPage, setLastPage] = useState(initial && initial.end_page > 0 ? String(initial.end_page) : '');
-  const template = useMemo(() => getTemplate(templateId), [templateId]);
+  const template = useMemo(() => resolveTpl(templateId), [allTemplates, templateId]);
   const [rows, setRows] = useState(String(initial?.rows_per_spread ?? template.rows_per_spread));
   const [anchorPage, setAnchorPage] = useState(initial && initial.anchor_page > 0 ? String(initial.anchor_page) : '');
   const [anchorRow, setAnchorRow] = useState(initial && initial.anchor_row > 0 ? String(initial.anchor_row) : '');
@@ -71,7 +89,7 @@ export function BookSetupSheet({
   const chooseTemplate = (id: string) => {
     setTemplateId(id);
     // matcha rader mot vald mall om användaren inte avvikit
-    setRows(String(getTemplate(id).rows_per_spread));
+    setRows(String(resolveTpl(id).rows_per_spread));
   };
 
   const handleSave = async () => {
@@ -133,6 +151,15 @@ export function BookSetupSheet({
         {pickable.map((tpl) => (
           <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} />
         ))}
+
+        {/* Skapa egen bok som matchar valfri fysisk loggbok (FAA, udda layout …) */}
+        <TouchableOpacity style={s.createRow} onPress={() => router.push('/logbook/create-custom')} activeOpacity={0.85}>
+          <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '14', borderStyle: 'dashed', borderColor: Colors.primary + '55' }]}>
+            <Ionicons name="add" size={20} color={Colors.primary} />
+          </View>
+          <Text style={[s.tplName, { color: Colors.primary }]} numberOfLines={1}>{sv ? 'Skapa egen bok…' : 'Create custom book…'}</Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+        </TouchableOpacity>
 
         {/* Namn */}
         <Text style={s.label}>{t('book_name')}</Text>
@@ -234,6 +261,7 @@ const s = StyleSheet.create({
   balInput: { width: 96, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border, textAlign: 'right', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   tplRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 8 },
   tplRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '0E' },
+  createRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '44', borderStyle: 'dashed', marginBottom: 8, marginTop: 2 },
   tplCover: { width: 64, height: 42, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
   tplName: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15, marginTop: 12 },

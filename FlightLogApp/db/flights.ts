@@ -217,6 +217,11 @@ export async function clearAllFlights(): Promise<void> {
   await db.runAsync('DELETE FROM aircraft_registry');
   await db.runAsync('DELETE FROM icao_airports WHERE "temporary" > 0');
   await db.runAsync('DELETE FROM ocr_learned');
+  // Böcker + custom-mallar + sid-summeringar — så "Rensa all loggboksdata" ger
+  // en helt ren slate (annars hamnar nya skanningar i en gammal bok).
+  await db.runAsync('DELETE FROM logbook_books');       // både digitala (kind='digital') och pappersböcker
+  await db.runAsync('DELETE FROM custom_templates');    // användarskapade mallar
+  await db.runAsync('DELETE FROM scan_summaries');
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────

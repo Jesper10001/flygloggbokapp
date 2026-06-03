@@ -2,9 +2,125 @@ import type { OcrFlightResult } from '../types/flight';
 import { getScanImage, clearScanImage } from '../store/scanStore';
 import type { TimeFormat } from '../store/timeFormatStore';
 
-import { callAnthropicJson } from './anthropicClient';
+import { callAnthropicJson, callAnthropicTool, callAnthropicToolStream } from './anthropicClient';
+import { getActiveDigitalBook } from '../db/digitalBooks';
+import { getAnyTemplate } from '../db/customTemplates';
+import { layoutFromTemplate, buildLayoutContext } from './logbookLayout';
+import { buildScanVocab } from './scanVocab';
+import { validateAgainstVocab } from './scanValidate';
+
+// Slå på streaming efter att CF Worker-proxyn patchats att vidarebefordra SSE.
+// Tills dess används icke-streamande tool-use (kräver ingen proxy-ändring).
+const OCR_USE_STREAM = process.env.EXPO_PUBLIC_OCR_STREAM === '1';
+
+// JSON-schema för OCR-verktyget. Alla fält valfria → modellen utelämnar tomma.
+// Fältnamnen matchar det parseOcrResponse() redan läser, så inget annat behöver ändras.
+const OCR_TOOL_SCHEMA: Record<string, any> = {
+  type: 'object',
+  properties: {
+    flights: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          date: { type: 'string' },
+          aircraft_type: { type: 'string' },
+          registration: { type: 'string' },
+          dep_place: { type: 'string' },
+          dep_utc: { type: 'string' },
+          arr_place: { type: 'string' },
+          arr_utc: { type: 'string' },
+          stop_place: { type: 'string' },
+          total_time: { type: 'number' },
+          ifr: { type: 'number' },
+          night: { type: 'number' },
+          pic: { type: 'number' },
+          co_pilot: { type: 'number' },
+          dual: { type: 'number' },
+          instructor: { type: 'number' },
+          multi_pilot: { type: 'number' },
+          single_pilot: { type: 'number' },
+          picus: { type: 'number' },
+          spic: { type: 'number' },
+          nvg: { type: 'number' },
+          sim: { type: 'number' },
+          sim_category: { type: 'string' },
+          flight_type: { type: 'string', enum: ['normal', 'sim', 'touch_and_go'] },
+          tng_count: { type: 'integer' },
+          landings_day: { type: 'integer' },
+          landings_night: { type: 'integer' },
+          second_pilot: { type: 'string' },
+          remarks: { type: 'string' },
+          other_times: { type: 'object', additionalProperties: { type: 'number' } },
+          other_time_labels: { type: 'object', additionalProperties: { type: 'string' } },
+          needs_review: { type: 'boolean' },
+          review_reason: { type: 'string' },
+          overall_confidence: { type: 'number' },
+          row_y_pct: { type: 'number' },
+          remarks_suggestion: {
+            type: 'object',
+            properties: {
+              field: { type: 'string' },
+              value: { type: 'string' },
+              original_text: { type: 'string' },
+              confidence: { type: 'number' },
+              reason: { type: 'string' },
+            },
+          },
+          time_mismatch: {
+            type: 'object',
+            properties: {
+              anchor_total_h: { type: 'number' },
+              read_dep: { type: 'string' },
+              read_arr: { type: 'string' },
+              computed_dep_if_arr_correct: { type: 'string' },
+              computed_arr_if_dep_correct: { type: 'string' },
+            },
+          },
+          field_issues: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                field: { type: 'string' },
+                reason: { type: 'string' },
+                confidence: { type: 'number' },
+                suggested_value: { type: 'string' },
+                x_pct: { type: 'number' },
+              },
+              required: ['field'],
+            },
+          },
+        },
+        required: [],
+      },
+    },
+    aircraft_detections: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          as_written: { type: 'string' },
+          resolved: { type: 'string' },
+          registration: { type: 'string' },
+          first_row: { type: 'integer' },
+          rows: { type: 'array', items: { type: 'integer' } },
+          confidence: { type: 'number' },
+        },
+      },
+    },
+    page_totals: {
+      type: 'object',
+      properties: {
+        brought_forward: { type: ['number', 'null'] },
+        total_this_page: { type: ['number', 'null'] },
+        total_to_date: { type: ['number', 'null'] },
+      },
+    },
+  },
+  required: ['flights'],
+};
 import { buildContextHint } from '../db/ocrLearned';
-import { useScanProfileStore, buildScanContext } from '../store/scanProfileStore';
 
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
@@ -464,6 +580,22 @@ export type OcrPageResult = {
   imageLayout: ImageLayout;
 };
 
+// M2e: hämtar den aktiva digitala bokens layout och bygger ett auktoritativt
+// kolumn-block till OCR-prompten. Returnerar '' om ingen aktiv bok/mall finns.
+async function getActiveBookLayoutContext(): Promise<string> {
+  try {
+    const book = await getActiveDigitalBook();
+    if (!book) return '';
+    const tpl = await getAnyTemplate(book.template_id);
+    if (!tpl) return '';
+    let customCols: Record<string, string> = {};
+    try { customCols = JSON.parse(book.custom_cols || '{}'); } catch { /* ignorera trasig JSON */ }
+    return buildLayoutContext(layoutFromTemplate(tpl, customCols));
+  } catch {
+    return '';
+  }
+}
+
 // Skanna EN sida direkt från base64 — för batch-import.
 // Accepterar kontext från föregående sida för ditto-upplösning.
 export async function ocrScanPage(
@@ -480,25 +612,39 @@ export async function ocrScanPage(
   const learnedHint = await buildContextHint();
   if (learnedHint) contextHint += `\n\n${learnedHint}`;
 
-  // Bifoga scan profile-kontext (användarens loggboksbeskrivning)
-  const scanProfile = useScanProfileStore.getState().profile;
-  const hasProfile = useScanProfileStore.getState().hasProfile();
-  if (hasProfile) {
-    const profileContext = buildScanContext(scanProfile);
-    contextHint += profileContext;
-    console.log('[OCR] Scan profile context sent to AI:\n' + profileContext);
+  // Den aktiva digitala bokens layout är AUKTORITATIV kolumnkarta för OCR.
+  // (Scan-profilen är borttagen — layouten kommer från boken/mallen.)
+  const layoutContext = await getActiveBookLayoutContext();
+  if (layoutContext) {
+    contextHint += layoutContext;
+    console.log('[OCR] Active book layout sent to AI:\n' + layoutContext);
   }
 
-  const parsed = await callAnthropicJson<any>({
+  const omitNote = ' Utelämna alla fält som är 0, tomma eller saknas — de tolkas automatiskt som 0/tom. Returnera bara fält och rader med verkligt innehåll. Schemat ovan är illustrativt, inte ett krav att fylla varje fält.';
+  const toolOpts = {
     system: SYSTEM_PROMPT,
     maxTokens: 16000,
+    toolName: 'emit_flights',
+    toolDescription: 'Returnera alla extraherade flygningsrader från loggbokssidan',
+    inputSchema: OCR_TOOL_SCHEMA,
     userContent: [
-      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-      { type: 'text', text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida. Svara ENBART med ett JSON-objekt — ingen text före eller efter.${contextHint}` },
+      { type: 'image' as const, source: { type: 'base64' as const, media_type: mediaType, data: base64 } },
+      { type: 'text' as const, text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${contextHint}` },
     ],
-  });
+  };
 
-  return parseOcrResponse(parsed);
+  const parsed = OCR_USE_STREAM
+    ? await callAnthropicToolStream<any>(toolOpts)
+    : await callAnthropicTool<any>(toolOpts);
+
+  const result = parseOcrResponse(parsed);
+  // M3: snappa mot känd flotta/flygplatser/typer + rimlighetskolla tider.
+  // Best-effort — ett fel i valideringen får aldrig fälla en lyckad skanning.
+  try {
+    const vocab = await buildScanVocab();
+    result.flights = validateAgainstVocab(result.flights, vocab);
+  } catch { /* ignorera valideringsfel */ }
+  return result;
 }
 
 // Gemensam parser — används av både ocrScanLogbook och ocrScanPage

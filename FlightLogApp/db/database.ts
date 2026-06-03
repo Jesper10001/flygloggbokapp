@@ -219,6 +219,10 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'se_time', `REAL NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'me_time', `REAL NOT NULL DEFAULT 0`);
 
+  // FAA-specifika förstklassiga fält (hybrid — övriga FAA-fält tas via custom-kolumner)
+  await addColumnIfMissing(db, 'solo',          `REAL NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'cross_country', `REAL NOT NULL DEFAULT 0`);
+
   // Mellanlandningsplats (touch & go / hot refuel)
   await addColumnIfMissing(db, 'stop_place', `TEXT NOT NULL DEFAULT ''`);
 
@@ -265,6 +269,17 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Vilken papperbok + uppslag en flygning är transkriberad till (0 = ej skriven)
   await addColumnIfMissing(db, 'book_id',       `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'spread_number', `INTEGER NOT NULL DEFAULT 0`);
+
+  // Användarskapade loggboksmallar — custom-böcker som matchar valfri fysisk
+  // loggbok (t.ex. FAA eller en udda layout). json = serialiserad LogbookTemplate.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS custom_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 
   // AI-inlärning: sparar bekräftade mappningar så nästa skanning blir bättre
   await db.execAsync(`

@@ -43,6 +43,8 @@ export interface Flight {
   vfr: number;
   se_time: number;
   me_time: number;
+  solo: number;
+  cross_country: number;
   photo_uri: string;
   media_type: 'image' | 'video' | '';
   max_fl: number;

@@ -3,10 +3,12 @@ import { getSetting, setSetting } from '../db/flights';
 import { useFlightStore } from './flightStore';
 
 // ── Kvoter per tier ─────────────────────────────────────────────────────────
+// OBS: premium/max scan tillfälligt höjda för utveckling/testning.
+// Återställ till riktiga värden (premium 10, max 50) innan release.
 export const TIER_QUOTAS = {
-  free:    { scan: 1,  flightImport: 0,   summarize: 0,  lookup: 10, import: 0 },
-  premium: { scan: 10, flightImport: 30,  summarize: 10, lookup: 20, import: 100 },
-  max:     { scan: 50, flightImport: 100, summarize: 20, lookup: 60, import: 100 },
+  free:    { scan: 1,    flightImport: 0,   summarize: 0,  lookup: 10, import: 0 },
+  premium: { scan: 1000, flightImport: 1000, summarize: 1000, lookup: 1000, import: 1000 },
+  max:     { scan: 1000, flightImport: 1000, summarize: 1000, lookup: 1000, import: 1000 },
 } as const;
 
 // Bakåtkompatibla alias (används av befintlig kod)

@@ -25,7 +25,6 @@ import { IcaoInput } from '../../components/IcaoInput';
 import { getAirportByIcao, addTemporaryPlace } from '../../db/icao';
 import type { OcrFlightResult } from '../../types/flight';
 import type { TimeFormat } from '../../store/timeFormatStore';
-import { useScanProfileStore } from '../../store/scanProfileStore';
 
 const mono = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
 
@@ -1353,9 +1352,8 @@ export default function ReviewScreen() {
 
   const autoConfirmIfAllKnown = async (dets: AircraftDetection[]): Promise<boolean> => {
     if (!dets || dets.length === 0) return true;
-    const profileTypes = useScanProfileStore.getState().profile.aircraftTypes.map(t => t.toUpperCase());
     const registryTypes = (await getAllAircraftTypes()).map(e => e.aircraft_type.toUpperCase());
-    const known = new Set([...profileTypes, ...registryTypes]);
+    const known = new Set(registryTypes);
     const allKnown = dets.every(d => known.has(d.resolved.toUpperCase()));
     if (allKnown) {
       setRows((prev) => prev.map((r) => {
@@ -2338,7 +2336,7 @@ export default function ReviewScreen() {
               </Pressable>
 
               {showAllFields && (() => {
-                const profileCols = useScanProfileStore.getState().profile.columnOrder;
+                const profileCols: string[] = [];
                 const addTempHandler = (field: 'dep_place' | 'arr_place') => (name: string) => {
                   const code = currentRow.data[field]?.toUpperCase();
                   if (code) {
