@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
-import { exportToCSV } from '../../services/export';
+import { exportToCSV, exportOperatorCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
@@ -253,6 +253,10 @@ export default function SettingsScreen() {
     setExportingCSV(true);
     try {
       if (isDrone) await exportDroneToCSV();
+      else if (isOp) {
+        await exportOperatorCSV();
+        Alert.alert(t('export_to_csv'), 'Operator log exported.', [{ text: 'OK' }]);
+      }
       else {
         const standardName = standard === 'faa' ? 'FAA' : 'EASA';
         await exportToCSV(standard);
@@ -828,7 +832,7 @@ export default function SettingsScreen() {
             } pressable={false}
             separatorColor={Colors.background}
           />
-          <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
+          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
             right={
               <View style={styles.toggle}>
                 <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
@@ -840,7 +844,7 @@ export default function SettingsScreen() {
               </View>
             } pressable={false} border={false}
             separatorColor={Colors.background}
-          />
+          />}
         </Card>
       )}
 

@@ -35,6 +35,8 @@ import { GoalCalculator } from '../../components/EASAProgressChart';
 import { EASAProgressCharts } from '../../components/EASAProgressChart';
 import { ClassBreakdown } from '../../components/ClassBreakdown';
 import { FlightTimeTotals } from '../../components/FlightTimeTotals';
+import { summarizeOperatorFlight } from '../../constants/operatorRoles';
+import { OperatorInsights } from '../../components/OperatorInsights';
 import { batchPlaceNames } from '../../db/icao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -161,7 +163,9 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
 }) {
   const styles = makeLogStyles();
   const { formatTime } = useTimeFormat();
+  const { language } = useTranslation();
   const f = flight;
+  const opSum = summarizeOperatorFlight(f, language === 'sv' ? 'sv' : 'en');
   const day = f.date?.split('-')[2] ?? '??';
   const monthIdx = parseInt(f.date?.split('-')[1] ?? '0') - 1;
   const monthAbbr = MONTH_ABBREV_SV[monthIdx] ?? '???';
@@ -218,8 +222,16 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
           <Text style={styles.flightMeta} numberOfLines={1}>
             {f.registration}
           </Text>
-          {f.ifr > 0 && <Text style={styles.badgeIfr}>IFR</Text>}
-          {f.night > 0 && <Text style={styles.badgeNight}>{(f.nvg ?? 0) > 0 ? 'NVG' : 'NIGHT'}</Text>}
+          {opSum ? (
+            <Text style={styles.flightMeta} numberOfLines={1}>
+              {opSum.emoji} {[opSum.mission, ...opSum.metrics].filter(Boolean).join(' · ')}
+            </Text>
+          ) : (
+            <>
+              {f.ifr > 0 && <Text style={styles.badgeIfr}>IFR</Text>}
+              {f.night > 0 && <Text style={styles.badgeNight}>{(f.nvg ?? 0) > 0 ? 'NVG' : 'NIGHT'}</Text>}
+            </>
+          )}
         </View>
       </View>
 
@@ -1756,11 +1768,9 @@ export default function LogScreen() {
         <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('farkoster'); }} activeOpacity={0.7}>
           <Text style={[styles.tabTextSecondary, tab === 'farkoster' && styles.tabTextSecondaryActive]}>{t('tab_airframes')}</Text>
         </TouchableOpacity>
-        {!isOperator(useProfileStore.getState().profile) && (
-          <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('transkribering'); }} activeOpacity={0.7}>
-            <Text style={[styles.tabTextSecondary, tab === 'transkribering' && styles.tabTextSecondaryActive]}>{t('tab_transcription')}</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('transkribering'); }} activeOpacity={0.7}>
+          <Text style={[styles.tabTextSecondary, tab === 'transkribering' && styles.tabTextSecondaryActive]}>{t('tab_transcription')}</Text>
+        </TouchableOpacity>
         {(useProfileStore.getState().profile?.subRole === 'crew-chief' || useProfileStore.getState().profile?.subRole === 'loadmaster') && (
           <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('weapons'); }} activeOpacity={0.7}>
             <Text style={[styles.tabTextSecondary, tab === 'weapons' && styles.tabTextSecondaryActive]}>{t('tab_weapons')}</Text>
@@ -1768,7 +1778,7 @@ export default function LogScreen() {
         )}
       </View>
 
-      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? <InsightsView /> : tab === 'weapons' ? <WeaponsView /> : (
+      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? (isOperator(useProfileStore.getState().profile) ? <OperatorInsights /> : <InsightsView />) : tab === 'weapons' ? <WeaponsView /> : (
         <>
           {/* ── Search field ── */}
           <View style={styles.searchRow}>
@@ -1827,7 +1837,8 @@ export default function LogScreen() {
               keyboardDismissMode="interactive"
               automaticallyAdjustKeyboardInsets
             >
-              {/* ── Dina böcker (digital loggbok) ── */}
+              {/* ── Dina böcker (digital loggbok) — ej operatörer ── */}
+              {!isOperator(useProfileStore.getState().profile) && (
               <TouchableOpacity
                 onPress={() => router.push('/logbook')}
                 activeOpacity={0.85}
@@ -1846,6 +1857,7 @@ export default function LogScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
               </TouchableOpacity>
+              )}
 
               {/* ── Year groups ── */}
               {tree.filter(yg => yg.year >= cutoffYear).map((yg) => {

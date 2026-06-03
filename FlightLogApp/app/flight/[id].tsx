@@ -16,13 +16,16 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FlightShareCard } from '../../components/FlightShareCard';
 import type { Flight } from '../../types/flight';
+import {
+  parseOperatorData, getRoleFields, fieldLabel, optionLabel, roleLabel, ROLE_META, type FieldDef,
+} from '../../constants/operatorRoles';
 
 export default function FlightDetailScreen() {
   const styles = makeStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { loadFlights, loadStats } = useFlightStore();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { formatTime } = useTimeFormat();
   const insets = useSafeAreaInsets();
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -63,6 +66,22 @@ export default function FlightDetailScreen() {
     );
   }
 
+  const lang: 'sv' | 'en' = language === 'sv' ? 'sv' : 'en';
+  const op = parseOperatorData(flight);
+  const opFieldValue = (def: FieldDef): string | null => {
+    const v = (op as any)?.[def.key];
+    if (v == null || v === '') return null;
+    if (def.type === 'chips') {
+      const arr = Array.isArray(v) ? v : [v];
+      return arr.length ? arr.map((k) => optionLabel(def, String(k), lang)).join(', ') : null;
+    }
+    if (def.type === 'segment') return optionLabel(def, String(v), lang);
+    if (def.type === 'toggle') return (v === true || v === 'true') ? (lang === 'sv' ? 'Ja' : 'Yes') : null;
+    if (def.type === 'counter' || def.type === 'number') { const n = Number(v) || 0; return n > 0 ? String(n) : null; }
+    if (def.type === 'text') { const u = lang === 'sv' ? def.unit_sv : def.unit_en; return `${v}${u ? ` ${u}` : ''}`; }
+    return String(v);
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <TouchableOpacity onPress={() => router.back()} style={{ paddingHorizontal: 16, paddingVertical: 8 }} hitSlop={12}>
@@ -94,6 +113,21 @@ export default function FlightDetailScreen() {
 
         {(
           <>
+            {op ? (
+            <View style={styles.detailGrid}>
+              <Detail label={t('date')} value={formatDate(flight.date)} />
+              <Detail label={t('aircraft_type')} value={flight.aircraft_type} />
+              {flight.registration ? <Detail label={t('registration')} value={flight.registration} /> : null}
+              {flight.dep_place ? <Detail label={t('departure')} value={`${flight.dep_place}${flight.dep_utc ? ` ${flight.dep_utc}` : ''}`} /> : null}
+              {flight.arr_place ? <Detail label={t('arrival')} value={`${flight.arr_place}${flight.arr_utc ? ` ${flight.arr_utc}` : ''}`} /> : null}
+              <Detail label={t('total_flight_time')} value={`${formatTime(flight.total_time)}h`} highlight />
+              <Detail label={lang === 'sv' ? 'Roll' : 'Role'} value={`${ROLE_META[op.role]?.emoji ?? ''} ${roleLabel(op.role, lang)}`} />
+              {getRoleFields(op.role).map((def) => {
+                const val = opFieldValue(def);
+                return val ? <Detail key={def.key} label={fieldLabel(def, lang)} value={val} /> : null;
+              })}
+            </View>
+            ) : (
             <View style={styles.detailGrid}>
               <Detail label={t('date')} value={formatDate(flight.date)} />
               <Detail label={t('aircraft_type')} value={flight.aircraft_type} />
@@ -127,6 +161,7 @@ export default function FlightDetailScreen() {
                 return cm ? <Detail label={t('crew_chief_label')} value={cm[1]} /> : null;
               })()}
             </View>
+            )}
             {flight.remarks ? (
               <View style={styles.remarksCard}>
                 <Text style={styles.remarksLabel}>{t('remarks')}</Text>

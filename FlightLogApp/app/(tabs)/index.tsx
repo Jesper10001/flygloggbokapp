@@ -843,9 +843,10 @@ export default function DashboardScreen() {
       ) : null}
 
       {/* ── Log new flight ── */}
-      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} label={t('log_new_flight')} />
+      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} label={isOperator(useProfileStore.getState().profile) ? t('log_new_mission') : t('log_new_flight')} />
 
-      {/* ── Tre snabbknappar: flygdata-scan · fysisk loggbok · loggboks-scan ── */}
+      {/* ── Tre snabbknappar (ej operatörer): flygdata-scan · fysisk loggbok · loggboks-scan ── */}
+      {!isOperator(useProfileStore.getState().profile) && (
       <View style={s.actionRow}>
         <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
           <Ionicons name="scan-outline" size={20} color={Colors.primary} />
@@ -859,6 +860,7 @@ export default function DashboardScreen() {
           <Text style={s.actionBtnText} numberOfLines={1}>{t('logbook_scan')}</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* ── Visited airports (operator only) ── */}
       {isOperator(useProfileStore.getState().profile) && (

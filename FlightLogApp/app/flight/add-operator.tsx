@@ -14,6 +14,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useLanguageStore } from '../../store/languageStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
+import { ROLE_FIELDS, fieldGroup, FIELD_GROUP_ORDER, groupLabel, type FieldDef } from '../../constants/operatorRoles';
 import { insertFlight, getRecentAircraftTypes, getRecentRegistrations, getRecentDepartures, getRecentArrivals } from '../../db/flights';
 import { FormField } from '../../components/FormField';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
@@ -45,162 +46,7 @@ function SegmentControl({ options, value, onChange }: {
   );
 }
 
-// ── Role configs ────────────────────────────────────────────────────────────
-
-type FieldDef = {
-  key: string;
-  label_en: string;
-  label_sv: string;
-  type: 'counter' | 'text' | 'segment' | 'toggle' | 'chips' | 'number';
-  options?: { key: string; label_en: string; label_sv: string }[];
-  unit_en?: string;
-  unit_sv?: string;
-};
-
-const ROLE_FIELDS: Record<string, FieldDef[]> = {
-  'crew-chief': [
-    { key: 'seat_position', label_en: 'Seat position', label_sv: 'Sittplats', type: 'segment',
-      options: [
-        { key: 'left', label_en: 'Left', label_sv: 'Vänster' },
-        { key: 'rear', label_en: 'Rear', label_sv: 'Bak' },
-        { key: 'right', label_en: 'Right', label_sv: 'Höger' },
-      ]},
-    { key: 'mission_type', label_en: 'Mission type', label_sv: 'Uppdragstyp', type: 'chips',
-      options: [
-        { key: 'SAR', label_en: 'SAR', label_sv: 'SAR' },
-        { key: 'CSAR', label_en: 'CSAR', label_sv: 'CSAR' },
-        { key: 'CAS', label_en: 'CAS', label_sv: 'CAS' },
-        { key: 'ISTAR', label_en: 'ISTAR', label_sv: 'ISTAR' },
-        { key: 'Transport', label_en: 'Transport', label_sv: 'Transport' },
-        { key: 'FFO', label_en: 'Fire fighting', label_sv: 'Brandbekämpning' },
-        { key: 'MEDEVAC', label_en: 'MEDEVAC', label_sv: 'MEDEVAC' },
-        { key: 'Escort', label_en: 'Escort', label_sv: 'Eskort' },
-        { key: 'Training', label_en: 'Training', label_sv: 'Utbildning' },
-      ]},
-    { key: 'equipment', label_en: 'Equipment', label_sv: 'Utrustning', type: 'chips',
-      options: [
-        { key: 'FLIR', label_en: 'FLIR', label_sv: 'FLIR' },
-        { key: 'NVG', label_en: 'NVG', label_sv: 'NVG' },
-        { key: 'Searchlight', label_en: 'Searchlight', label_sv: 'Sökljus' },
-        { key: 'Sensor', label_en: 'Sensor suite', label_sv: 'Sensorsystem' },
-        { key: 'Datalink', label_en: 'Datalink', label_sv: 'Datalänk' },
-        { key: 'Bambi', label_en: 'Bambi bucket', label_sv: 'Brandbaljé' },
-        { key: 'Hoist', label_en: 'Hoist', label_sv: 'Vinsch' },
-        { key: 'Comms', label_en: 'Comms relay', label_sv: 'Komrelä' },
-      ]},
-    { key: 'weapon_category', label_en: 'Weapon system', label_sv: 'Vapensystem', type: 'chips',
-      options: [
-        { key: 'mg', label_en: 'Machine gun', label_sv: 'Kulspruta' },
-        { key: 'precision', label_en: 'Precision weapon', label_sv: 'Precisionsvapen' },
-        { key: 'other', label_en: 'Other', label_sv: 'Övrigt' },
-        { key: 'rocket', label_en: 'Rocket / missile', label_sv: 'Raket / robot' },
-      ]},
-    { key: 'rounds_fired', label_en: 'Rounds fired', label_sv: 'Skott avfyrade', type: 'number' },
-    { key: 'fire_bucket_drops', label_en: 'Fire bucket drops', label_sv: 'Brandbaljefällningar', type: 'counter' },
-  ],
-  'swimmer': [
-    { key: 'mission_type', label_en: 'Mission type', label_sv: 'Uppdragstyp', type: 'chips',
-      options: [
-        { key: 'SAR', label_en: 'SAR', label_sv: 'SAR' },
-        { key: 'CSAR', label_en: 'CSAR', label_sv: 'CSAR' },
-        { key: 'Training', label_en: 'Training', label_sv: 'Träning' },
-        { key: 'Exercise', label_en: 'Exercise', label_sv: 'Övning' },
-      ]},
-    { key: 'equipment', label_en: 'Equipment', label_sv: 'Utrustning', type: 'chips',
-      options: [
-        { key: 'Wetsuit', label_en: 'Wetsuit', label_sv: 'Våtdräkt' },
-        { key: 'Drysuit', label_en: 'Drysuit', label_sv: 'Torrdräkt' },
-        { key: 'Fins', label_en: 'Fins', label_sv: 'Fenor' },
-        { key: 'Mask', label_en: 'Mask & snorkel', label_sv: 'Mask & snorkel' },
-        { key: 'Harness', label_en: 'Rescue harness', label_sv: 'Räddningssele' },
-        { key: 'Radio', label_en: 'Waterproof radio', label_sv: 'Vattentät radio' },
-      ]},
-    { key: 'deployments', label_en: 'Deployments', label_sv: 'Insatser', type: 'counter' },
-    { key: 'sea_state', label_en: 'Sea state', label_sv: 'Sjöhävning', type: 'segment',
-      options: [
-        { key: '1', label_en: '1', label_sv: '1' },
-        { key: '2', label_en: '2', label_sv: '2' },
-        { key: '3', label_en: '3', label_sv: '3' },
-        { key: '4', label_en: '4', label_sv: '4' },
-        { key: '5', label_en: '5', label_sv: '5' },
-        { key: '6', label_en: '6', label_sv: '6' },
-      ]},
-    { key: 'hoists_up', label_en: 'Hoists up', label_sv: 'Vinschningar upp', type: 'counter' },
-    { key: 'hoists_down', label_en: 'Hoists down', label_sv: 'Vinschningar ner', type: 'counter' },
-    { key: 'persons_rescued', label_en: 'Persons rescued', label_sv: 'Räddade personer', type: 'counter' },
-    { key: 'night_ops', label_en: 'Night', label_sv: 'Natt', type: 'toggle' },
-  ],
-  'hoist': [
-    { key: 'mission_type', label_en: 'Mission type', label_sv: 'Uppdragstyp', type: 'chips',
-      options: [
-        { key: 'SAR', label_en: 'SAR', label_sv: 'SAR' },
-        { key: 'CSAR', label_en: 'CSAR', label_sv: 'CSAR' },
-        { key: 'Cargo', label_en: 'Cargo', label_sv: 'Last' },
-        { key: 'Training', label_en: 'Training', label_sv: 'Träning' },
-        { key: 'Exercise', label_en: 'Exercise', label_sv: 'Övning' },
-      ]},
-    { key: 'hoists_up', label_en: 'Hoists up', label_sv: 'Vinschningar upp', type: 'counter' },
-    { key: 'hoists_down', label_en: 'Hoists down', label_sv: 'Vinschningar ner', type: 'counter' },
-    { key: 'load_type', label_en: 'Load type', label_sv: 'Lasttyp', type: 'chips',
-      options: [
-        { key: 'person', label_en: 'Person', label_sv: 'Person' },
-        { key: 'stretcher', label_en: 'Stretcher', label_sv: 'Bår' },
-        { key: 'equipment', label_en: 'Equipment', label_sv: 'Utrustning' },
-        { key: 'cargo', label_en: 'Cargo', label_sv: 'Last' },
-      ]},
-    { key: 'weight_kg', label_en: 'Weight', label_sv: 'Vikt', type: 'text', unit_en: 'kg', unit_sv: 'kg' },
-    { key: 'night_ops', label_en: 'Night', label_sv: 'Natt', type: 'toggle' },
-  ],
-  'hems': [
-    { key: 'mission_type', label_en: 'Mission type', label_sv: 'Uppdragstyp', type: 'chips',
-      options: [
-        { key: 'primary', label_en: 'Primary', label_sv: 'Primär' },
-        { key: 'secondary', label_en: 'Secondary', label_sv: 'Sekundär' },
-        { key: 'iht', label_en: 'IHT', label_sv: 'IHT' },
-        { key: 'sar', label_en: 'SAR', label_sv: 'SAR' },
-      ]},
-    { key: 'patients', label_en: 'Patients', label_sv: 'Patienter', type: 'counter' },
-    { key: 'priority', label_en: 'Priority', label_sv: 'Prioritet', type: 'segment',
-      options: [
-        { key: 'P1', label_en: 'P1', label_sv: 'P1' },
-        { key: 'P2', label_en: 'P2', label_sv: 'P2' },
-        { key: 'P3', label_en: 'P3', label_sv: 'P3' },
-      ]},
-    { key: 'hoists', label_en: 'Hoists', label_sv: 'Vinschningar', type: 'counter' },
-    { key: 'night_ops', label_en: 'Night', label_sv: 'Natt', type: 'toggle' },
-  ],
-  'loadmaster': [
-    { key: 'mission_type', label_en: 'Mission type', label_sv: 'Uppdragstyp', type: 'chips',
-      options: [
-        { key: 'Cargo', label_en: 'Cargo', label_sv: 'Last' },
-        { key: 'Sling', label_en: 'Sling load', label_sv: 'Hänglast' },
-        { key: 'Airdrop', label_en: 'Air drop', label_sv: 'Fällning' },
-        { key: 'Pax', label_en: 'Passengers', label_sv: 'Passagerare' },
-        { key: 'MEDEVAC', label_en: 'MEDEVAC', label_sv: 'MEDEVAC' },
-        { key: 'Training', label_en: 'Training', label_sv: 'Utbildning' },
-      ]},
-    { key: 'equipment', label_en: 'Equipment', label_sv: 'Utrustning', type: 'chips',
-      options: [
-        { key: 'Nets', label_en: 'Cargo nets', label_sv: 'Lastnät' },
-        { key: 'Straps', label_en: 'Tie-down straps', label_sv: 'Surrningsband' },
-        { key: 'Pallets', label_en: 'Pallets', label_sv: 'Pallar' },
-        { key: 'Sling', label_en: 'Sling gear', label_sv: 'Hänglastutrustning' },
-        { key: 'Chutes', label_en: 'Parachutes', label_sv: 'Fallskärmar' },
-      ]},
-    { key: 'cargo_weight', label_en: 'Cargo weight', label_sv: 'Lastvikt', type: 'text', unit_en: 'kg', unit_sv: 'kg' },
-    { key: 'sling_ops', label_en: 'Sling operations', label_sv: 'Hänglastoperationer', type: 'counter' },
-    { key: 'airdrops', label_en: 'Air drops', label_sv: 'Fällningar', type: 'counter' },
-    { key: 'weapon_category', label_en: 'Weapon system', label_sv: 'Vapensystem', type: 'chips',
-      options: [
-        { key: 'mg', label_en: 'Machine gun', label_sv: 'Kulspruta' },
-        { key: 'precision', label_en: 'Precision weapon', label_sv: 'Precisionsvapen' },
-        { key: 'other', label_en: 'Other', label_sv: 'Övrigt' },
-        { key: 'rocket', label_en: 'Rocket / missile', label_sv: 'Raket / robot' },
-      ]},
-    { key: 'rounds_fired', label_en: 'Rounds fired', label_sv: 'Skott avfyrade', type: 'number' },
-    { key: 'night_ops', label_en: 'Night', label_sv: 'Natt', type: 'toggle' },
-  ],
-};
+// ── Role configs: se constants/operatorRoles.ts (ROLE_FIELDS) ────────────────
 
 const ROLE_EMOJI: Record<string, string> = {
   'crew-chief': '🎖️', swimmer: '🏊', hoist: '⚓', hems: '🏥', loadmaster: '📦',
@@ -225,6 +71,16 @@ function Counter({ value, onChange }: { value: number; onChange: (v: number) => 
       <TouchableOpacity style={st.counterBtn} onPress={() => { Haptics.selectionAsync(); onChange(value + 1); }}>
         <Ionicons name="add" size={16} color={Colors.textPrimary} />
       </TouchableOpacity>
+    </View>
+  );
+}
+
+// Kompakt räknar-ruta (för "Antal"-rutnätet)
+function CounterTile({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <View style={st.countTile}>
+      <Text style={st.countTileLabel} numberOfLines={2}>{label}</Text>
+      <Counter value={value} onChange={onChange} />
     </View>
   );
 }
@@ -352,6 +208,81 @@ export default function AddOperatorFlightScreen() {
   };
 
   const label = (f: FieldDef) => sv ? f.label_sv : f.label_en;
+
+  // Renderar kontrollen för ett fält (allt utom counters, som ligger i rutnätet).
+  const renderControl = (f: FieldDef) => {
+    if (f.type === 'text') return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TextInput
+          style={st.fieldInput} value={String(getField(f.key))} onChangeText={v => setField(f.key, v)}
+          placeholder="—" placeholderTextColor={Colors.textMuted}
+          keyboardType={f.unit_en ? 'number-pad' : 'default'}
+        />
+        {f.unit_en && <Text style={{ color: Colors.textMuted, fontSize: 12 }}>{sv ? f.unit_sv : f.unit_en}</Text>}
+      </View>
+    );
+    if (f.type === 'segment' && f.options) return (
+      <SegmentControl
+        options={f.options.map(opt => ({ label: sv ? opt.label_sv : opt.label_en, value: opt.key }))}
+        value={getField(f.key, '')}
+        onChange={(v) => { Haptics.selectionAsync(); setField(f.key, v); }}
+      />
+    );
+    if (f.type === 'chips' && f.options) {
+      const selected: string[] = getField(f.key, []);
+      const hasCustom = selected.includes('__custom');
+      return (
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {f.options.map(opt => {
+              const active = selected.includes(opt.key);
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[st.chip, active && { backgroundColor: accentColor + '22', borderColor: accentColor }]}
+                  onPress={() => { Haptics.selectionAsync(); setField(f.key, active ? selected.filter(k => k !== opt.key) : [...selected, opt.key]); }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[st.chipText, active && { color: accentColor }]}>{sv ? opt.label_sv : opt.label_en}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={[st.chip, hasCustom && { backgroundColor: accentColor + '22', borderColor: accentColor }]}
+              onPress={() => { Haptics.selectionAsync(); setField(f.key, hasCustom ? selected.filter(k => k !== '__custom') : [...selected, '__custom']); }}
+              activeOpacity={0.75}
+            >
+              <Text style={[st.chipText, hasCustom && { color: accentColor }]}>{sv ? 'Annat...' : 'Other...'}</Text>
+            </TouchableOpacity>
+          </View>
+          {hasCustom && (
+            <TextInput
+              style={[st.fieldInput, { minWidth: 0, width: '100%', textAlign: 'left' }]}
+              value={getField(f.key + '_custom', '')} onChangeText={v => setField(f.key + '_custom', v)}
+              placeholder={sv ? 'Ange...' : 'Specify...'} placeholderTextColor={Colors.textMuted}
+            />
+          )}
+        </View>
+      );
+    }
+    if (f.type === 'toggle') return (
+      <TouchableOpacity
+        style={[st.toggleBtn, getField(f.key) && { backgroundColor: accentColor, borderColor: accentColor }]}
+        onPress={() => { Haptics.selectionAsync(); setField(f.key, !getField(f.key)); }}
+        activeOpacity={0.75}
+      >
+        <Text style={[st.toggleText, getField(f.key) && { color: Colors.textInverse }]}>{getField(f.key) ? (sv ? 'Ja' : 'Yes') : (sv ? 'Nej' : 'No')}</Text>
+      </TouchableOpacity>
+    );
+    if (f.type === 'number') return (
+      <TextInput
+        style={[st.fieldInput, { minWidth: 90 }]} value={String(getField(f.key, ''))}
+        onChangeText={v => setField(f.key, v.replace(/\D/g, ''))}
+        placeholder="0" placeholderTextColor={Colors.textMuted} keyboardType="number-pad"
+      />
+    );
+    return null;
+  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -515,112 +446,33 @@ export default function AddOperatorFlightScreen() {
           <Text style={[st.sectionLabel, { color: accentColor }]}>
             {sv ? 'Uppdragsdata' : 'Mission data'}
           </Text>
-          {fields.map(f => {
-            const isGrouped = f.type === 'chips' || f.type === 'segment';
+          {FIELD_GROUP_ORDER.map((g) => {
+            const gf = fields.filter((f) => fieldGroup(f.key) === g);
+            if (gf.length === 0) return null;
+            const isWeapons = g === 'weapons';
             return (
-            <View key={f.key} style={isGrouped ? st.fieldGrouped : st.fieldRow}>
-              <Text style={isGrouped ? st.fieldGroupLabel : st.fieldLabel}>{label(f)}</Text>
-
-              {f.type === 'counter' && (
-                <Counter value={getField(f.key, 0)} onChange={v => setField(f.key, v)} />
-              )}
-
-              {f.type === 'text' && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TextInput
-                    style={st.fieldInput}
-                    value={String(getField(f.key))}
-                    onChangeText={v => setField(f.key, v)}
-                    placeholder="—"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType={f.unit_en ? 'number-pad' : 'default'}
-                  />
-                  {f.unit_en && <Text style={{ color: Colors.textMuted, fontSize: 12 }}>{sv ? f.unit_sv : f.unit_en}</Text>}
-                </View>
-              )}
-
-              {f.type === 'segment' && f.options && (
-                <SegmentControl
-                  options={f.options.map(opt => ({ label: sv ? opt.label_sv : opt.label_en, value: opt.key }))}
-                  value={getField(f.key, '')}
-                  onChange={(v) => { Haptics.selectionAsync(); setField(f.key, v); }}
-                />
-              )}
-
-              {f.type === 'chips' && f.options && (() => {
-                const selected: string[] = getField(f.key, []);
-                const hasCustom = selected.includes('__custom');
-                return (
-                  <View style={{ gap: 6 }}>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {f.options.map(opt => {
-                        const active = selected.includes(opt.key);
-                        return (
-                          <TouchableOpacity
-                            key={opt.key}
-                            style={[st.chip, active && { backgroundColor: accentColor + '22', borderColor: accentColor }]}
-                            onPress={() => {
-                              Haptics.selectionAsync();
-                              setField(f.key, active ? selected.filter(k => k !== opt.key) : [...selected, opt.key]);
-                            }}
-                            activeOpacity={0.75}
-                          >
-                            <Text style={[st.chipText, active && { color: accentColor }]}>
-                              {sv ? opt.label_sv : opt.label_en}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                      <TouchableOpacity
-                        style={[st.chip, hasCustom && { backgroundColor: accentColor + '22', borderColor: accentColor }]}
-                        onPress={() => {
-                          Haptics.selectionAsync();
-                          setField(f.key, hasCustom ? selected.filter(k => k !== '__custom') : [...selected, '__custom']);
-                        }}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[st.chipText, hasCustom && { color: accentColor }]}>
-                          {sv ? 'Annat...' : 'Other...'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    {hasCustom && (
-                      <TextInput
-                        style={[st.fieldInput, { minWidth: 0, width: '100%', textAlign: 'left' }]}
-                        value={getField(f.key + '_custom', '')}
-                        onChangeText={v => setField(f.key + '_custom', v)}
-                        placeholder={sv ? 'Ange...' : 'Specify...'}
-                        placeholderTextColor={Colors.textMuted}
-                      />
-                    )}
+              <View key={g} style={[st.subSection, isWeapons && st.weaponBox]}>
+                <Text style={[st.subHeader, isWeapons && { color: Colors.danger }]}>{groupLabel(g, sv ? 'sv' : 'en')}</Text>
+                {g === 'counts' ? (
+                  <View style={st.countGrid}>
+                    {gf.map((f) => (
+                      <CounterTile key={f.key} label={label(f)} value={getField(f.key, 0)} onChange={(v) => setField(f.key, v)} />
+                    ))}
                   </View>
-                );
-              })()}
-
-              {f.type === 'toggle' && (
-                <TouchableOpacity
-                  style={[st.toggleBtn, getField(f.key) && { backgroundColor: accentColor, borderColor: accentColor }]}
-                  onPress={() => { Haptics.selectionAsync(); setField(f.key, !getField(f.key)); }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[st.toggleText, getField(f.key) && { color: Colors.textInverse }]}>
-                    {getField(f.key) ? (sv ? 'Ja' : 'Yes') : (sv ? 'Nej' : 'No')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {f.type === 'number' && (
-                <TextInput
-                  style={[st.fieldInput, { minWidth: 90 }]}
-                  value={String(getField(f.key, ''))}
-                  onChangeText={v => setField(f.key, v.replace(/\D/g, ''))}
-                  placeholder="0"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="number-pad"
-                />
-              )}
-            </View>
-          ); })}
+                ) : (
+                  gf.map((f) => {
+                    const grouped = f.type === 'chips' || f.type === 'segment';
+                    return (
+                      <View key={f.key} style={grouped ? st.fieldGrouped : st.fieldRow}>
+                        <Text style={grouped ? st.fieldGroupLabel : st.fieldLabel}>{label(f)}</Text>
+                        {renderControl(f)}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            );
+          })}
         </View>
 
         {/* Photo/Video */}
@@ -845,4 +697,23 @@ const st = StyleSheet.create({
   segmentBtnActive: { backgroundColor: Colors.primary },
   segmentText: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
   segmentTextActive: { color: Colors.textInverse },
+
+  subSection: { marginTop: 2 },
+  subHeader: {
+    color: Colors.textMuted, fontSize: 10, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Menlo',
+    marginTop: 10, marginBottom: 2,
+  },
+  countGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4 },
+  countTile: {
+    flexBasis: '47%', flexGrow: 1, alignItems: 'center', gap: 8,
+    backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    paddingVertical: 12, paddingHorizontal: 8,
+  },
+  countTileLabel: { color: Colors.textSecondary, fontSize: 11.5, fontWeight: '600', textAlign: 'center' },
+  weaponBox: {
+    backgroundColor: Colors.danger + '0E', borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.danger + '33',
+    paddingHorizontal: 10, paddingBottom: 6, marginTop: 8,
+  },
 });
