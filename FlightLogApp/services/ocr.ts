@@ -5,13 +5,21 @@ import type { TimeFormat } from '../store/timeFormatStore';
 import { callAnthropicJson, callAnthropicTool, callAnthropicToolStream } from './anthropicClient';
 import { getActiveDigitalBook } from '../db/digitalBooks';
 import { getAnyTemplate } from '../db/customTemplates';
-import { layoutFromTemplate, buildLayoutContext } from './logbookLayout';
+import { layoutFromTemplate, buildLayoutContext, buildSideLayoutContext, type LogbookLayout } from './logbookLayout';
 import { buildScanVocab } from './scanVocab';
 import { validateAgainstVocab } from './scanValidate';
+import { mergeSpreadParsed } from './spreadMerge';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 // Slå på streaming efter att CF Worker-proxyn patchats att vidarebefordra SSE.
 // Tills dess används icke-streamande tool-use (kräver ingen proxy-ändring).
 const OCR_USE_STREAM = process.env.EXPO_PUBLIC_OCR_STREAM === '1';
+
+// M4 rygg-delning: AV som standard. Blind delning vid bredd-% kräver att bilden
+// är ett rakt, väl beskuret liggande uppslag — skeva/roterade foton blir sämre.
+// Slå på (EXPO_PUBLIC_OCR_SPLIT=1) först när capture ger ren orientering + beskärning.
+const OCR_SPLIT_SPREAD = process.env.EXPO_PUBLIC_OCR_SPLIT === '1';
 
 // JSON-schema för OCR-verktyget. Alla fält valfria → modellen utelämnar tomma.
 // Fältnamnen matchar det parseOcrResponse() redan läser, så inget annat behöver ändras.
@@ -23,6 +31,7 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
       items: {
         type: 'object',
         properties: {
+          row_index: { type: 'integer' },
           date: { type: 'string' },
           aircraft_type: { type: 'string' },
           registration: { type: 'string' },
@@ -580,20 +589,72 @@ export type OcrPageResult = {
   imageLayout: ImageLayout;
 };
 
-// M2e: hämtar den aktiva digitala bokens layout och bygger ett auktoritativt
-// kolumn-block till OCR-prompten. Returnerar '' om ingen aktiv bok/mall finns.
-async function getActiveBookLayoutContext(): Promise<string> {
+// Hämtar den aktiva digitala bokens layout (eller null). Layouten är auktoritativ
+// kolumnkarta för OCR och avgör om uppslaget kan delas vid ryggen (M4).
+async function getActiveBookLayout(): Promise<LogbookLayout | null> {
   try {
     const book = await getActiveDigitalBook();
-    if (!book) return '';
+    if (!book) return null;
     const tpl = await getAnyTemplate(book.template_id);
-    if (!tpl) return '';
+    if (!tpl) return null;
     let customCols: Record<string, string> = {};
     try { customCols = JSON.parse(book.custom_cols || '{}'); } catch { /* ignorera trasig JSON */ }
-    return buildLayoutContext(layoutFromTemplate(tpl, customCols));
+    return layoutFromTemplate(tpl, customCols);
   } catch {
-    return '';
+    return null;
   }
+}
+
+// M4: delar ett uppslagsfoto i vänster/höger halva vid ryggen (leftWidthFraction).
+// Returnerar null vid fel → anroparen faller tillbaka på ett hela-uppslag-anrop.
+async function splitSpread(base64: string, leftFraction: number): Promise<{ left: string; right: string } | null> {
+  const tmp = `${FileSystem.cacheDirectory}ocr_spread_tmp.jpg`;
+  try {
+    await FileSystem.writeAsStringAsync(tmp, base64, { encoding: FileSystem.EncodingType.Base64 });
+    const info = await ImageManipulator.manipulateAsync(tmp, [], {});
+    const W = info.width, H = info.height;
+    if (!W || !H) return null;
+    // Dela bara ett tydligt LIGGANDE uppslag. Är bilden ~kvadratisk/stående är den
+    // troligen roterad/fel beskuren → delning vid bredd-% blir meningslös.
+    if (W < H * 1.3) return null;
+    const cut = Math.max(1, Math.min(W - 1, Math.round(W * leftFraction)));
+    const opts = { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true };
+    const left = await ImageManipulator.manipulateAsync(tmp, [{ crop: { originX: 0, originY: 0, width: cut, height: H } }], opts);
+    const right = await ImageManipulator.manipulateAsync(tmp, [{ crop: { originX: cut, originY: 0, width: W - cut, height: H } }], opts);
+    if (!left.base64 || !right.base64) return null;
+    return { left: left.base64, right: right.base64 };
+  } catch {
+    return null;
+  } finally {
+    FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
+  }
+}
+
+// Kör ETT tool-use-anrop för en bild + given prompt-text.
+async function runOcrCall(base64: string, mediaType: string, userText: string): Promise<any> {
+  const toolOpts = {
+    system: SYSTEM_PROMPT,
+    maxTokens: 16000,
+    toolName: 'emit_flights',
+    toolDescription: 'Returnera alla extraherade flygningsrader från loggbokssidan',
+    inputSchema: OCR_TOOL_SCHEMA,
+    userContent: [
+      { type: 'image' as const, source: { type: 'base64' as const, media_type: mediaType, data: base64 } },
+      { type: 'text' as const, text: userText },
+    ],
+  };
+  return OCR_USE_STREAM
+    ? callAnthropicToolStream<any>(toolOpts)
+    : callAnthropicTool<any>(toolOpts);
+}
+
+// Gemensam efterbehandling: vokabulär-validering (M3). Best-effort.
+async function finalizeResult(result: OcrPageResult): Promise<OcrPageResult> {
+  try {
+    const vocab = await buildScanVocab();
+    result.flights = validateAgainstVocab(result.flights, vocab);
+  } catch { /* ignorera valideringsfel */ }
+  return result;
 }
 
 // Skanna EN sida direkt från base64 — för batch-import.
@@ -604,47 +665,63 @@ export async function ocrScanPage(
   timeFormat: TimeFormat = 'decimal',
   prevContext?: PageContext,
 ): Promise<OcrPageResult> {
-  let contextHint = '';
+  let baseContext = '';
   if (prevContext) {
-    contextHint = `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
+    baseContext = `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
   }
   // Bifoga inlärda mappningar från tidigare skanningar
   const learnedHint = await buildContextHint();
-  if (learnedHint) contextHint += `\n\n${learnedHint}`;
-
-  // Den aktiva digitala bokens layout är AUKTORITATIV kolumnkarta för OCR.
-  // (Scan-profilen är borttagen — layouten kommer från boken/mallen.)
-  const layoutContext = await getActiveBookLayoutContext();
-  if (layoutContext) {
-    contextHint += layoutContext;
-    console.log('[OCR] Active book layout sent to AI:\n' + layoutContext);
-  }
+  if (learnedHint) baseContext += `\n\n${learnedHint}`;
 
   const omitNote = ' Utelämna alla fält som är 0, tomma eller saknas — de tolkas automatiskt som 0/tom. Returnera bara fält och rader med verkligt innehåll. Schemat ovan är illustrativt, inte ett krav att fylla varje fält.';
-  const toolOpts = {
-    system: SYSTEM_PROMPT,
-    maxTokens: 16000,
-    toolName: 'emit_flights',
-    toolDescription: 'Returnera alla extraherade flygningsrader från loggbokssidan',
-    inputSchema: OCR_TOOL_SCHEMA,
-    userContent: [
-      { type: 'image' as const, source: { type: 'base64' as const, media_type: mediaType, data: base64 } },
-      { type: 'text' as const, text: `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${contextHint}` },
-    ],
-  };
 
-  const parsed = OCR_USE_STREAM
-    ? await callAnthropicToolStream<any>(toolOpts)
-    : await callAnthropicTool<any>(toolOpts);
+  // Robusthet för verkliga foton: marginaler, rotation, kant-beskurna/svaga rader.
+  const captureNote = ' OM FOTOT: Boken fyller kanske inte hela bilden — ignorera mörk bakgrund/yta runt omkring. Bilden kan vara roterad (vänd) — läs den oavsett orientering. Läs VARJE rad i flygnings-tabellen, även svaga, ljusa eller delvis skymda kant-rader; hoppa ALDRIG över en rad bara för att en kant är beskuren — returnera raden ändå och sätt needs_review=true för det som är osäkert. Sikta på att returnera lika många rader som tabellen faktiskt har ifyllda.';
 
+  const t0 = Date.now();
+  const secs = () => ((Date.now() - t0) / 1000).toFixed(1);
+  const layout = await getActiveBookLayout();
+  console.log(`[OCR] ▶ Skanning startar. Aktiv bok-layout: ${layout ? `JA (${layout.pageMode}, ${layout.columns.length} kol)` : 'NEJ'}`);
+
+  // ── M4: dela uppslaget vid ryggen och läs en sida per anrop (parallellt) ──
+  if (OCR_SPLIT_SPREAD && layout && layout.pageMode === 'spread') {
+    const halves = await splitSpread(base64, layout.leftWidthFraction);
+    if (halves) {
+      console.log(`[OCR] ✂️  Uppslag delat vid ${Math.round(layout.leftWidthFraction * 100)}% — läser vänster+höger parallellt...`);
+      try {
+        const sideText = (side: 'left' | 'right') =>
+          `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${captureNote}${buildSideLayoutContext(layout, side)}${baseContext}`;
+        const [lp, rp] = await Promise.all([
+          runOcrCall(halves.left, mediaType, sideText('left')),
+          runOcrCall(halves.right, mediaType, sideText('right')),
+        ]);
+        const merged = mergeSpreadParsed(lp, rp);
+        if (merged) {
+          console.log(`[OCR] ✅ SPLIT-VÄG AKTIV — vänster+höger ihopslaget, ${merged.flights.length} rader, ${secs()}s`);
+          return finalizeResult(parseOcrResponse(merged));
+        }
+        console.log(`[OCR] ⚠️  Split lästes men merge blev osäker (vänster ${lp?.flights?.length ?? 0} / höger ${rp?.flights?.length ?? 0} rader) — faller tillbaka.`);
+      } catch (e) {
+        console.log('[OCR] ⚠️  Split-anrop misslyckades, faller tillbaka:', e);
+      }
+    } else {
+      console.log('[OCR] ⚠️  Bilddelning misslyckades — faller tillbaka på hela uppslaget.');
+    }
+  }
+
+  // ── Fallback / enkelsida: läs hela bilden i ett anrop ──
+  let contextHint = baseContext;
+  if (layout) {
+    contextHint += buildLayoutContext(layout);
+  }
+  const parsed = await runOcrCall(
+    base64,
+    mediaType,
+    `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${captureNote}${contextHint}`,
+  );
   const result = parseOcrResponse(parsed);
-  // M3: snappa mot känd flotta/flygplatser/typer + rimlighetskolla tider.
-  // Best-effort — ett fel i valideringen får aldrig fälla en lyckad skanning.
-  try {
-    const vocab = await buildScanVocab();
-    result.flights = validateAgainstVocab(result.flights, vocab);
-  } catch { /* ignorera valideringsfel */ }
-  return result;
+  console.log(`[OCR] 📄 HELA-UPPSLAG-VÄG (ett anrop) — ${result.flights.length} rader, ${secs()}s`);
+  return finalizeResult(result);
 }
 
 // Gemensam parser — används av både ocrScanLogbook och ocrScanPage

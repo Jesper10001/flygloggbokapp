@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ocrScanLogbook, ocrScanPage, type AircraftDetection, type PageContext } from '../../services/ocr';
 import { getScanBatch, clearScanImage } from '../../store/scanStore';
+import { getActiveDigitalBook } from '../../db/digitalBooks';
 import { insertFlight, getAllAircraftTypes, addAircraftTypeToRegistry, addToAircraftRegistry } from '../../db/flights';
 import { getDatabase } from '../../db/database';
 import { getActiveBook } from '../../db/logbookBooks';
@@ -34,6 +35,8 @@ interface ReviewRow {
   data: OcrFlightResult;
   original: OcrFlightResult;
   decision: RowDecision;
+  pageIdx: number;   // vilken skannad bild raden kom från
+  pageRow: number;   // radens 0-baserade position på den sidan
 }
 
 // ── Helper: field label mapping ──────────────────────────────────────────────
@@ -1307,6 +1310,7 @@ export default function ReviewScreen() {
   const [scannedPageNumbers, setScannedPageNumbers] = useState<{ left: number | null; right: number | null }[]>([]);
   const [scanImages, setScanImages] = useState<string[]>([]);
   const [scanLayouts, setScanLayouts] = useState<{ x_pct: number; y_pct: number; w_pct: number; h_pct: number }[]>([]);
+  const [rowsPerPage, setRowsPerPage] = useState(12);   // bokens radantal per sida — för bild-förhandsvisningens justering
   const [popupImage, setPopupImage] = useState<{ base64: string; rowIndex: number; totalRows: number; fieldXPct?: number } | null>(null);
   const [unknownIcaos, setUnknownIcaos] = useState<Set<string>>(new Set());
 
@@ -1319,7 +1323,11 @@ export default function ReviewScreen() {
   const [fullImage, setFullImage] = useState(false);
 
   // ── Derived wizard data ─────────────────────────────────────────────────────
-  const isFastTrack = (r: ReviewRow) => !r.data.needs_review && (r.data.overall_confidence ?? 0) >= 0.95;
+  // Auto-godkänn (fast-track) om modellen inte flaggat raden OCH inga field_issues
+  // finns. (overall_confidence är opålitligt sedan omit-empty infördes — modellen
+  // utelämnar det ofta → defaultar till 0 → tidigare flaggades ALLT. Vi litar nu
+  // på de explicita osäkerhetssignalerna needs_review + field_issues istället.)
+  const isFastTrack = (r: ReviewRow) => !r.data.needs_review && (r.data.field_issues?.length ?? 0) === 0;
   const flaggedIdx = rows.map((r, i) => !isFastTrack(r) ? i : -1).filter(i => i >= 0);
   const fastTrackCount = rows.length - flaggedIdx.length;
   const atEnd = wizardCursor >= flaggedIdx.length;
@@ -1395,8 +1403,8 @@ export default function ReviewScreen() {
     data.field_issues = issues;
   };
 
-  const flightsToRows = (flights: OcrFlightResult[]): ReviewRow[] =>
-    flights.map((f) => {
+  const flightsToRows = (flights: OcrFlightResult[], pageIdx: number): ReviewRow[] =>
+    flights.map((f, pageRow) => {
       const data = { ...f };
       resolveArithmetic(data);
 
@@ -1464,10 +1472,9 @@ export default function ReviewScreen() {
         data.flight_rules = ifrH > 0 ? (ifrH >= totalHvfr ? 'IFR' : 'Y') : 'VFR';
       }
 
-      const conf = data.overall_confidence ?? 0;
       const issues = (data.field_issues ?? []).length;
-      const fastTrack = conf >= 0.95 && issues === 0 && !data.needs_review;
-      return { data, original: { ...f }, decision: fastTrack ? 'keep' : (data.needs_review ? 'pending' : 'keep') };
+      const fastTrack = issues === 0 && !data.needs_review;
+      return { data, original: { ...f }, decision: fastTrack ? 'keep' : (data.needs_review ? 'pending' : 'keep'), pageIdx, pageRow };
     });
 
   useEffect(() => {
@@ -1512,6 +1519,13 @@ export default function ReviewScreen() {
     }));
   };
 
+  // Ladda aktiva bokens radantal per sida (för bild-förhandsvisningens justering)
+  useEffect(() => {
+    getActiveDigitalBook()
+      .then((b) => { if (b && b.rows_per_spread > 0) setRowsPerPage(b.rows_per_spread); })
+      .catch(() => {});
+  }, []);
+
   // ── Batch useEffect ─────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -1528,7 +1542,7 @@ export default function ReviewScreen() {
         try {
           const page = batch[0];
           const result = await ocrScanPage(page.base64, page.mediaType, timeFormat, prevContext);
-          const newPageRows = flightsToRows(result.flights);
+          const newPageRows = flightsToRows(result.flights, 0);
           setRows(newPageRows);
           setPage1RowCount(newPageRows.length);
           validateIcaoCodes(newPageRows);
@@ -1571,7 +1585,7 @@ export default function ReviewScreen() {
           const deduped = dedupeDetections(aircraftDetections);
           setDetections(deduped);
           autoConfirmIfAllKnown(deduped).then(known => { if (known) setAircraftConfirmed(true); });
-          const newRows = flightsToRows(flights);
+          const newRows = flightsToRows(flights, 0);
           setRows(newRows);
           setScannedPageNumbers([pageNumbers]);
           validateIcaoCodes(newRows);
@@ -1600,7 +1614,7 @@ export default function ReviewScreen() {
         try {
           const page = pages[i];
           const result = await ocrScanPage(page.base64, page.mediaType, timeFormat, prevContext);
-          const newPageRows = flightsToRows(result.flights);
+          const newPageRows = flightsToRows(result.flights, i + 1);
           setRows((prev) => [...prev, ...newPageRows]);
           validateIcaoCodes(newPageRows);
           setScanImages((prev) => [...prev, page.base64]);
@@ -2150,7 +2164,7 @@ export default function ReviewScreen() {
             >
               {/* 1. Image preview — zoomable & pannable */}
               {(() => {
-                const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
+                const pageIdx = Math.min(currentRow.pageIdx, scanImages.length - 1);
                 if (pageIdx < 0 || !scanImages[pageIdx]) return null;
                 // 50% zoom: image is 2x the container, user can pan freely
                 const imgW = 1200;
@@ -2186,8 +2200,8 @@ export default function ReviewScreen() {
                         style={styles.expandBtn}
                         onPress={() => setPopupImage({
                           base64: scanImages[pageIdx],
-                          rowIndex: currentFlaggedRowIdx % 12,
-                          totalRows: 12,
+                          rowIndex: currentRow.pageRow,
+                          totalRows: rowsPerPage,
                         })}
                         activeOpacity={0.75}
                       >
@@ -2277,7 +2291,7 @@ export default function ReviewScreen() {
               {(currentRow.data.field_issues ?? []).length > 0 && (
                 <View style={{ marginTop: 12, gap: 6 }}>
                   {(currentRow.data.field_issues ?? []).map((issue, i) => {
-                    const pageIdx = Math.min(Math.floor(currentFlaggedRowIdx / 12), scanImages.length - 1);
+                    const pageIdx = Math.min(currentRow.pageIdx, scanImages.length - 1);
                     return (
                       <FieldEditor
                         key={`${issue.field}-${i}`}
@@ -2290,7 +2304,7 @@ export default function ReviewScreen() {
                         }}
                         onShowImage={scanImages[pageIdx] ? () => setPopupImage({
                           base64: scanImages[pageIdx],
-                          rowIndex: currentRow.data.row_y_pct ?? (currentFlaggedRowIdx % 12) * (100 / 12),
+                          rowIndex: currentRow.data.row_y_pct ?? currentRow.pageRow * (100 / rowsPerPage),
                           totalRows: 100,
                           fieldXPct: issue.x_pct,
                         }) : undefined}

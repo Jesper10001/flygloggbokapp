@@ -71,9 +71,10 @@ export default function ScanImportScreen() {
     try {
       const images: { base64: string; mediaType: 'image/jpeg' }[] = [];
       for (const asset of result.assets) {
-        const info = await ImageManipulator.manipulateAsync(asset.uri, [], {});
+        // Ingen auto-rotation: ram-aspekten säger inget om bokens orientering
+        // (stående foto av liggande bok = rätt orienterad bok). Modellen klarar
+        // rotation, och användaren kan rotera manuellt i förhandsvisningen.
         const actions: ImageManipulator.Action[] = [];
-        if (info.height > info.width) actions.push({ rotate: 90 });
         actions.push({ resize: { width: 2000 } });
         const prepared = await ImageManipulator.manipulateAsync(
           asset.uri, actions,
@@ -165,10 +166,9 @@ export default function ScanImportScreen() {
   const doScan = async () => {
     setWorking(true);
     try {
+      // Ingen auto-rotation (se batch-vägen). Endast användarens manuella rotation.
       const actions: ImageManipulator.Action[] = [];
       if (rotation !== 0) actions.push({ rotate: rotation });
-      const info = await ImageManipulator.manipulateAsync(imageUri!, [], {});
-      if (info.height > info.width) actions.push({ rotate: 90 });
       actions.push({ resize: { width: 2000 } });
       const img = await ImageManipulator.manipulateAsync(
         imageUri!, actions,
@@ -180,6 +180,55 @@ export default function ScanImportScreen() {
       router.push('/flight/review');
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  // Native dokument-scanner (VisionKit / ML Kit): beskär till boken, rätar upp
+  // perspektiv och orienterar rätt — användaren justerar hörn + godkänner i den
+  // inbyggda skärmen. Returnerar rena bild-URI:er redo för OCR.
+  // Lazy-require så appen inte kraschar i en build UTAN modulen (före ombyggnad).
+  const scanWithDocScanner = async () => {
+    let DocumentScanner: any;
+    try {
+      DocumentScanner = require('react-native-document-scanner-plugin').default;
+    } catch {
+      Alert.alert(
+        sv ? 'Bygg om appen' : 'Rebuild needed',
+        sv
+          ? 'Dokument-scannern är en native modul och kräver att appen byggs om (EAS build) innan den kan användas.'
+          : 'The document scanner is a native module — rebuild the app (EAS build) to use it.',
+      );
+      return;
+    }
+    try {
+      const { scannedImages, status } = await DocumentScanner.scanDocument({
+        maxNumDocuments: 5,
+        croppedImageQuality: 90,
+      });
+      if (status === 'cancel' || !scannedImages || scannedImages.length === 0) return;
+      setWorking(true);
+      const images: { base64: string; mediaType: 'image/jpeg' }[] = [];
+      for (const uri of scannedImages) {
+        // Scannern har redan beskurit/rätat upp/orienterat — bara resize + base64.
+        const img = await ImageManipulator.manipulateAsync(
+          uri, [{ resize: { width: 2000 } }],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+        if (img.base64) images.push({ base64: img.base64, mediaType: 'image/jpeg' });
+      }
+      if (images.length === 0) { Alert.alert(t('error'), t('could_not_process_image')); return; }
+      if (images.length === 1) {
+        await useScanQuotaStore.getState().consumeScan();
+        setScanImage(images[0].base64, 'image/jpeg');
+        router.push('/flight/review');
+      } else {
+        setScanBatch(images);
+        router.push('/flight/review?batch=1');
+      }
+    } catch (e: any) {
+      Alert.alert(t('error'), e?.message ?? (sv ? 'Skanningen misslyckades' : 'Scan failed'));
     } finally {
       setWorking(false);
     }
@@ -237,10 +286,10 @@ export default function ScanImportScreen() {
             </Text>
           </View>
           <View style={s.actionCards}>
-            <TouchableOpacity style={s.actionCard} onPress={() => pickImage(true)} activeOpacity={0.8}>
-              <Ionicons name="camera" size={28} color={Colors.primary} />
-              <Text style={s.actionCardTitle}>{t('scan_camera')}</Text>
-              <Text style={s.actionCardSub}>{t('scan_camera_sub')}</Text>
+            <TouchableOpacity style={s.actionCard} onPress={scanWithDocScanner} activeOpacity={0.8}>
+              <Ionicons name="scan" size={28} color={Colors.primary} />
+              <Text style={s.actionCardTitle}>{sv ? 'Skanna loggbok' : 'Scan logbook'}</Text>
+              <Text style={s.actionCardSub}>{sv ? 'Beskär & rätar upp automatiskt' : 'Auto-crop & straighten'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.actionCard} onPress={() => pickImage(false)} activeOpacity={0.8}>
               <Ionicons name="images" size={28} color={Colors.primary} />

@@ -56,7 +56,8 @@
           "locationWhenInUsePermission": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "react-native-document-scanner-plugin"
     ],
     "experiments": {
       "typedRoutes": true

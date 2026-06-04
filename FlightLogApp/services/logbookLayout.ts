@@ -31,6 +31,7 @@ export interface LogbookLayout {
   rowsPerPage: number;
   timeFormat: 'decimal' | 'hhmm';
   columns: LayoutColumn[];
+  leftWidthFraction: number;   // var uppslaget delas vid ryggen (0–1, från kolumnbredder)
   summaryRows: {
     broughtForward: boolean;
     totalThisPage: boolean;
@@ -97,6 +98,10 @@ export function layoutFromTemplate(t: LogbookTemplate, customCols?: Record<strin
   const columns: LayoutColumn[] = [...mapCols(t.left_columns, 'left'), ...mapCols(t.right_columns, 'right')]
     .map((c, i) => ({ ...c, index: i + 1 }));
 
+  const lw = t.left_columns.reduce((s, c) => s + (c.width || 50), 0);
+  const rw = t.right_columns.reduce((s, c) => s + (c.width || 50), 0);
+  const leftWidthFraction = lw + rw > 0 ? lw / (lw + rw) : 0.5;
+
   return {
     source: t.id.startsWith('custom-') ? 'custom-scanned' : 'template',
     templateId: t.id,
@@ -104,6 +109,7 @@ export function layoutFromTemplate(t: LogbookTemplate, customCols?: Record<strin
     rowsPerPage: t.rows_per_spread,
     timeFormat: t.time_format,
     columns,
+    leftWidthFraction,
     summaryRows: {
       broughtForward: !!t.footer?.brought_forward,
       totalThisPage: !!t.footer?.this_page_total,
@@ -134,6 +140,26 @@ export function buildLayoutContext(layout: LogbookLayout): string {
     + `\nKolumner i ordning (vänster→höger över uppslaget):\n${lines.join('\n')}`
     + `\nAnvänd kolumnpositionen för att avgöra vilket fält ett värde tillhör — gissa ALDRIG på värdet.`
     + ` Kopiera ALDRIG ett värde mellan kolumner. Tom kolumn → utelämna fältet.`;
+}
+
+/**
+ * Auktoritativt block för OCR av EN fysisk sida (M4 — uppslaget delas vid ryggen).
+ * Listar bara den sidans kolumner och ber modellen sätta row_index efter TRYCKT
+ * radposition så att vänster/höger kan slås ihop.
+ */
+export function buildSideLayoutContext(layout: LogbookLayout, side: 'left' | 'right'): string {
+  const cols = layout.columns.filter((c) => c.page === side);
+  const lines = cols.map((c, i) => {
+    const target = c.field ?? `"${c.label}" (ej mappad — läs men lämna i remarks/utelämna)`;
+    const grp = c.group ? `, grupp: "${c.group}"` : '';
+    return `  ${i + 1}. ${target} (${c.type}${grp})`;
+  });
+  const sideName = side === 'left' ? 'VÄNSTER' : 'HÖGER';
+  return `\n\nDU LÄSER ${sideName} SIDAN av ett loggboksuppslag (${layout.rowsPerPage} rader).`
+    + ` Läs BARA dessa kolumner, i ordning vänster→höger:\n${lines.join('\n')}`
+    + `\nSätt "row_index" = den TRYCKTA radpositionen (1 = översta raden); räkna även tomma rader,`
+    + ` så att vänster och höger sida kan slås ihop korrekt rad för rad.`
+    + `\nAnvänd kolumnpositionen — gissa aldrig på värdet. Tom kolumn → utelämna fältet.`;
 }
 
 /**
