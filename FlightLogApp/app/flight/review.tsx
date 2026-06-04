@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, TextInput, Modal, Pressable, Platform, Image,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -2162,50 +2162,39 @@ export default function ReviewScreen() {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
             >
-              {/* 1. Image preview — zoomable & pannable */}
+              {/* 1. Image preview — hela sidan synlig, roterbar, tap för fullskärm */}
               {(() => {
                 const pageIdx = Math.min(currentRow.pageIdx, scanImages.length - 1);
                 if (pageIdx < 0 || !scanImages[pageIdx]) return null;
-                // 50% zoom: image is 2x the container, user can pan freely
-                const imgW = 1200;
-                const imgH = 800;
+                const cardW = Dimensions.get('window').width - 32;
+                const cardH = 280;
+                // När bilden roteras 90°/270° byter vi bredd/höjd så den fortfarande får plats.
+                const rotated = previewRotation % 180 !== 0;
+                const boxW = rotated ? cardH : cardW;
+                const boxH = rotated ? cardW : cardH;
+                const openFull = () => setPopupImage({
+                  base64: scanImages[pageIdx], rowIndex: currentRow.pageRow, totalRows: rowsPerPage,
+                });
+                const ctrlBtn = { width: 36, height: 36, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center' as const, justifyContent: 'center' as const };
                 return (
-                  <View style={[styles.imageCard, { height: 200 }]}>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentOffset={{ x: imgW * 0.15, y: 0 }}
+                  <View style={[styles.imageCard, { height: cardH, alignItems: 'center', justifyContent: 'center' }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={openFull}
+                      style={{ width: cardW, height: cardH, alignItems: 'center', justifyContent: 'center' }}
                     >
-                      <ScrollView
-                        nestedScrollEnabled
-                        showsVerticalScrollIndicator={false}
-                        contentOffset={{ x: 0, y: imgH * 0.15 }}
-                      >
-                        <Image
-                          source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
-                          style={{ width: imgW, height: imgH, transform: [{ rotate: `${previewRotation}deg` }] }}
-                          resizeMode="contain"
-                        />
-                      </ScrollView>
-                    </ScrollView>
-                    <View style={{ position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', gap: 6 }}>
-                      <TouchableOpacity
-                        style={styles.expandBtn}
-                        onPress={() => setPreviewRotation(r => (r + 90) % 360)}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons name="refresh" size={10} color="#FFF" />
+                      <Image
+                        source={{ uri: `data:image/jpeg;base64,${scanImages[pageIdx]}` }}
+                        style={{ width: boxW, height: boxH, transform: [{ rotate: `${previewRotation}deg` }] }}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                    <View style={{ position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={ctrlBtn} onPress={() => setPreviewRotation(r => (r + 90) % 360)} activeOpacity={0.75}>
+                        <Ionicons name="refresh" size={16} color="#FFF" />
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.expandBtn}
-                        onPress={() => setPopupImage({
-                          base64: scanImages[pageIdx],
-                          rowIndex: currentRow.pageRow,
-                          totalRows: rowsPerPage,
-                        })}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons name="expand" size={10} color="#FFF" />
+                      <TouchableOpacity style={ctrlBtn} onPress={openFull} activeOpacity={0.75}>
+                        <Ionicons name="expand" size={16} color="#FFF" />
                       </TouchableOpacity>
                     </View>
                   </View>
