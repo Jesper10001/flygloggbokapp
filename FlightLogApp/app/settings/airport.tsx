@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { GlobalAirportMap } from '../../components/GlobalAirportMap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports, getSeedAirports } from '../../db/icao';
 import { Colors } from '../../constants/colors';
@@ -906,13 +907,7 @@ export default function AirportScreen() {
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            {showGlobalMap && (
-              <WebView
-              source={{ html: buildGlobalMapHtml(seedData), baseUrl: 'https://tile.openstreetmap.org' }}
-              style={{ flex: 1 }}
-              originWhitelist={['*']}
-            />
-            )}
+            {showGlobalMap && <GlobalAirportMap airports={seedData} />}
             <TouchableOpacity
               onPress={() => setShowGlobalMap(false)}
               style={{
