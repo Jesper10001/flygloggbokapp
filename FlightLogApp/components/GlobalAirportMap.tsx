@@ -16,7 +16,8 @@ import { continentForCountry, flagEmoji, type Continent } from '../constants/con
 export type SeedRow = [string, string, string, string, number, number]; // icao,name,country,region,lat,lon
 
 const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
-const MAX_DOTS = 700; // tak för enskilda pluppar i vyn (prestanda)
+// Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
+// ICAO-etiketter = egna vyer (tunga) → bara få på närmsta zoomen.
 
 export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
   const mapRef = useRef<MapView>(null);
@@ -44,8 +45,10 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
   }, [airports]);
 
   const delta = region.latitudeDelta;
+  // Klustra länder längre in (delta>3.5) så pluppar bara dyker upp när vyn är
+  // liten nog att hålla få markörer → undviker Apple Maps-krasch.
   const level: 'continent' | 'country' | 'dots' | 'labels' =
-    delta > 45 ? 'continent' : delta > 5 ? 'country' : delta > 1.2 ? 'dots' : 'labels';
+    delta > 45 ? 'continent' : delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
 
   // Viewport-filtrerade enskilda flygplatser (bara på plupp-nivåerna).
   const dots = useMemo(() => {
@@ -55,10 +58,11 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
     const lonMin = region.longitude - region.longitudeDelta / 2 - 0.1;
     const lonMax = region.longitude + region.longitudeDelta / 2 + 0.1;
     const out: SeedRow[] = [];
+    const cap = level === 'labels' ? 70 : 350; // egna vyer (labels) hålls få; native-nålar tål fler
     for (const a of airports) {
       if (a[4] >= latMin && a[4] <= latMax && a[5] >= lonMin && a[5] <= lonMax) {
         out.push(a);
-        if (out.length >= MAX_DOTS) break;
+        if (out.length >= cap) break;
       }
     }
     return out;
@@ -110,7 +114,19 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
         </Marker>
       ))}
 
-      {(level === 'dots' || level === 'labels') && dots.map((a) => (
+      {/* Pluppar = lätta native-nålar (tål hundratals utan att krascha). Tap → ICAO+namn. */}
+      {level === 'dots' && dots.map((a) => (
+        <Marker
+          key={a[0]}
+          coordinate={{ latitude: a[4], longitude: a[5] }}
+          pinColor="#3b82f6"
+          title={a[0]}
+          description={a[1]}
+        />
+      ))}
+
+      {/* Närmsta zoomen: nål + alltid synlig ICAO-etikett (egna vyer, hålls få via cap). */}
+      {level === 'labels' && dots.map((a) => (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
@@ -119,14 +135,10 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
           title={a[0]}
           description={a[1]}
         >
-          {level === 'labels' ? (
-            <View style={s.dotLabelWrap}>
-              <View style={s.dot} />
-              <View style={s.labelChip}><Text style={s.labelText}>{a[0]}</Text></View>
-            </View>
-          ) : (
+          <View style={s.dotLabelWrap}>
             <View style={s.dot} />
-          )}
+            <View style={s.labelChip}><Text style={s.labelText}>{a[0]}</Text></View>
+          </View>
         </Marker>
       ))}
     </MapView>
