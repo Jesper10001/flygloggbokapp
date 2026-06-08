@@ -1,52 +1,75 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, type ImageSourcePropType } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
 import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
-import { setSetting, getSetting, getFlightCount } from '../db/flights';
+import { useRegulationStandardStore, type RegulationStandard } from '../store/regulationStandardStore';
+import { useOperatorStore } from '../store/operatorStore';
+import { useThemeStore, type Theme } from '../store/themeStore';
+import { setSetting, getSetting } from '../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
+import { NavyColors, BrightColors, DroneIndustrialColors, DroneNeonColors, type ColorPalette } from '../constants/colors';
 
-type Step = 'welcome' | 'role' | 'subrole' | 'timeformat' | 'profile';
+type Step =
+  | 'welcome' | 'role' | 'subrole'
+  | 'framework' | 'timeformat' | 'droneid'
+  | 'theme' | 'profile' | 'hours';
 
-// Light palette (always light for onboarding)
-const P = {
-  bg: '#FFFFFF',
-  card: '#FFFFFF',
-  cardBorder: '#D6DCE5',
-  text: '#1F2A44',
-  textSecondary: '#5A6B85',
-  textMuted: '#8A96A8',
-  accent: '#2FA8A5',
-  accentBg: '#2FA8A514',
-  accentBorder: '#2FA8A555',
-};
+type MCI = keyof typeof MaterialCommunityIcons.glyphMap;
 
-const MAIN_ROLES: { key: MainRole; emoji: string; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[] = [
-  { key: 'pilot-manned', emoji: '✈️', title_en: 'Pilot', title_sv: 'Pilot', desc_en: 'Manned aircraft — helicopter or airplane.', desc_sv: 'Bemannat luftfartyg — helikopter eller flygplan.' },
-  { key: 'operator', emoji: '🎖️', title_en: 'Operator', title_sv: 'Operatör', desc_en: 'Manned aircraft crew — chief, hoist, swimmer, HEMS.', desc_sv: 'Besättning bemannat — uppdragsspecialist, vinsch, ytbärgare, HEMS.' },
-  { key: 'pilot-unmanned', emoji: '🎮', title_en: 'Drone Pilot', title_sv: 'Drönaroperatör', desc_en: 'Unmanned aircraft — commercial, military, hobby.', desc_sv: 'Obemannat luftfartyg — kommersiell, militär, hobby.' },
+// Onboarding ritas alltid på navy-canvasen (appens signaturtema). Accenten
+// hintar vald roll: cyan för pilot/operatör, amber för drönare. Ikonerna hålls
+// neutralt silver och tonas i accenten först när något är valt.
+const C = NavyColors;
+const AMBER = DroneIndustrialColors.primary; // '#FF8C42'
+const accentForRole = (role: MainRole | null): string =>
+  role === 'pilot-unmanned' ? AMBER : C.primary;
+
+const MAIN_ROLES: { key: MainRole; icon: MCI; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[] = [
+  { key: 'pilot-manned', icon: 'airplane', title_en: 'Pilot', title_sv: 'Pilot', desc_en: 'Manned aircraft — helicopter or airplane.', desc_sv: 'Bemannat luftfartyg — helikopter eller flygplan.' },
+  { key: 'operator', icon: 'account-tie', title_en: 'Operator', title_sv: 'Operatör', desc_en: 'Manned aircraft crew — chief, hoist, swimmer, HEMS.', desc_sv: 'Besättning bemannat — uppdragsspecialist, vinsch, ytbärgare, HEMS.' },
+  { key: 'pilot-unmanned', icon: 'quadcopter', title_en: 'Drone Pilot', title_sv: 'Drönaroperatör', desc_en: 'Unmanned aircraft — commercial, military, hobby.', desc_sv: 'Obemannat luftfartyg — kommersiell, militär, hobby.' },
 ];
 
-const SUB_ROLES: Record<MainRole, { key: SubRole; emoji: string; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[]> = {
+const SUB_ROLES: Record<MainRole, { key: SubRole; icon: MCI; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[]> = {
   'pilot-manned': [
-    { key: 'rotary', emoji: '🚁', title_en: 'Helicopter', title_sv: 'Helikopter', desc_en: 'Helicopters and tilt-rotors.', desc_sv: 'Helikoptrar och tiltrotorer.' },
-    { key: 'fixed', emoji: '✈️', title_en: 'Airplane', title_sv: 'Flygplan', desc_en: 'Propeller, jet and glider aircraft.', desc_sv: 'Propeller-, jet- och segelflygplan.' },
+    { key: 'rotary', icon: 'helicopter', title_en: 'Helicopter', title_sv: 'Helikopter', desc_en: 'Helicopters and tilt-rotors.', desc_sv: 'Helikoptrar och tiltrotorer.' },
+    { key: 'fixed', icon: 'airplane', title_en: 'Airplane', title_sv: 'Flygplan', desc_en: 'Propeller, jet and glider aircraft.', desc_sv: 'Propeller-, jet- och segelflygplan.' },
   ],
   'operator': [
-    { key: 'crew-chief', emoji: '🎖️', title_en: 'Crew Chief / Mission Specialist', title_sv: 'Uppdragsspecialist', desc_en: 'Mission lead, equipment, sensor operator.', desc_sv: 'Uppdragsledare, utrustning, sensoroperatör.' },
-    { key: 'swimmer', emoji: '🏊', title_en: 'Rescue Swimmer', title_sv: 'Ytbärgare', desc_en: 'Water-rescue swimmer / diver.', desc_sv: 'Ytbärgare / dykare.' },
-    { key: 'hoist', emoji: '⚓', title_en: 'Hoist Operator', title_sv: 'Vinschoperatör', desc_en: 'Winch and hoist operations.', desc_sv: 'Vinsch- och hissoperationer.' },
-    { key: 'hems', emoji: '🏥', title_en: 'HEMS Operator', title_sv: 'HEMS-operatör', desc_en: 'Helicopter Emergency Medical Service.', desc_sv: 'Helikopterburen akutsjukvård.' },
-    { key: 'loadmaster', emoji: '📦', title_en: 'Loadmaster', title_sv: 'Lastmästare', desc_en: 'Cargo, sling load and air drop operations.', desc_sv: 'Last, hänglast och fällningsoperationer.' },
+    { key: 'crew-chief', icon: 'shield-account', title_en: 'Crew Chief / Mission Specialist', title_sv: 'Uppdragsspecialist', desc_en: 'Mission lead, equipment, sensor operator.', desc_sv: 'Uppdragsledare, utrustning, sensoroperatör.' },
+    { key: 'swimmer', icon: 'swim', title_en: 'Rescue Swimmer', title_sv: 'Ytbärgare', desc_en: 'Water-rescue swimmer / diver.', desc_sv: 'Ytbärgare / dykare.' },
+    { key: 'hoist', icon: 'hook', title_en: 'Hoist Operator', title_sv: 'Vinschoperatör', desc_en: 'Winch and hoist operations.', desc_sv: 'Vinsch- och hissoperationer.' },
+    { key: 'loadmaster', icon: 'package-variant', title_en: 'Loadmaster', title_sv: 'Lastmästare', desc_en: 'Cargo, sling load and air drop operations.', desc_sv: 'Last, hänglast och fällningsoperationer.' },
   ],
   'pilot-unmanned': [
-    { key: 'commercial', emoji: '🏢', title_en: 'Commercial', title_sv: 'Kommersiell', desc_en: 'Paid operations — survey, media, inspection.', desc_sv: 'Betalda uppdrag — mätning, media, inspektion.' },
-    { key: 'military', emoji: '🛡️', title_en: 'Military', title_sv: 'Militär', desc_en: 'Defence and government missions.', desc_sv: 'Försvars- och myndighetsuppdrag.' },
-    { key: 'hobby', emoji: '⭐', title_en: 'Hobby', title_sv: 'Hobby', desc_en: 'Recreational flying under A1/A3 rules.', desc_sv: 'Hobbyflygning enligt A1/A3-regler.' },
+    { key: 'hobby', icon: 'star-four-points', title_en: 'Hobby', title_sv: 'Hobby', desc_en: 'Recreational flying under A1/A3 rules.', desc_sv: 'Hobbyflygning enligt A1/A3-regler.' },
+    { key: 'commercial', icon: 'briefcase', title_en: 'Commercial', title_sv: 'Kommersiell', desc_en: 'Paid operations — survey, media, inspection.', desc_sv: 'Betalda uppdrag — mätning, media, inspektion.' },
+    { key: 'military', icon: 'shield', title_en: 'Military', title_sv: 'Militär', desc_en: 'Defence and government missions.', desc_sv: 'Försvars- och myndighetsuppdrag.' },
   ],
+};
+
+// Bild per roll/underroll (tryck på bilden för att välja). HEMS saknar bild →
+// faller tillbaka på det gamla ikon-kortet.
+const ROLE_IMG: Record<MainRole, ImageSourcePropType> = {
+  'pilot-manned': require('../assets/Pilot-helicopter.PNG'),
+  'operator': require('../assets/Operator-crewchief.PNG'),
+  'pilot-unmanned': require('../assets/Drone-hobby.PNG'),
+};
+const SUBROLE_IMG: Partial<Record<SubRole, ImageSourcePropType>> = {
+  rotary: require('../assets/Pilot-helicopter.PNG'),
+  fixed: require('../assets/Pilot-fixedwing.PNG'),
+  'crew-chief': require('../assets/Operator-crewchief.PNG'),
+  swimmer: require('../assets/Operator-rescueswimmer.PNG'),
+  hoist: require('../assets/Operator-winsch.PNG'),
+  loadmaster: require('../assets/Operator-loadmaster.PNG'),
+  commercial: require('../assets/Drone-commersial.PNG'),
+  military: require('../assets/Drone-military.PNG'),
+  hobby: require('../assets/Drone-hobby.PNG'),
 };
 
 const STEP_TITLES: Record<MainRole, { en: string; sv: string }> = {
@@ -61,8 +84,17 @@ const STEP_SUBS: Record<MainRole, { en: string; sv: string }> = {
   'pilot-unmanned': { en: 'We tailor categories, certificates and reports to your context.', sv: 'Vi anpassar kategorier, certifikat och rapporter efter ditt sammanhang.' },
 };
 
-function needsTimeFormat(mainRole: MainRole): boolean {
-  return mainRole === 'pilot-manned';
+const FRAMEWORKS: { key: RegulationStandard; region: string; title: string; desc_en: string; desc_sv: string }[] = [
+  { key: 'easa', region: 'EU', title: 'EASA', desc_en: 'EU — Part-FCL. The European standard.', desc_sv: 'EU — Part-FCL. Europeisk standard.' },
+  { key: 'faa', region: 'USA', title: 'FAA', desc_en: 'USA — US regulatory framework.', desc_sv: 'USA — amerikanskt regelverk.' },
+  { key: 'caa', region: 'UK', title: 'CAA', desc_en: 'United Kingdom — mirrors EASA.', desc_sv: 'Storbritannien — speglar EASA.' },
+];
+
+const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
+
+function buildSteps(role: MainRole | null, returning: boolean): Step[] {
+  const mid: Step[] = manned(role) ? ['framework', 'timeformat'] : ['droneid'];
+  return [...(returning ? [] : (['welcome'] as Step[])), 'role', 'subrole', ...mid, 'theme', 'profile', 'hours'];
 }
 
 export default function OnboardingScreen() {
@@ -71,12 +103,21 @@ export default function OnboardingScreen() {
   const { setTimeFormat } = useTimeFormatStore();
   const { setMode } = useAppModeStore();
   const { setProfile } = useProfileStore();
+  const { setStandard } = useRegulationStandardStore();
+  const { setOperatorId } = useOperatorStore();
+  const { setTheme } = useThemeStore();
 
-  const [step, setStep] = useState<Step>('welcome');
-  const [lang, setLang] = useState<'en' | 'sv'>('en');
-  const [format, setFormat] = useState<TimeFormat>('hhmm');
+  const currentProfile = useProfileStore(s => s.profile);
+  const returning = !!currentProfile;
+
+  const [step, setStep] = useState<Step>(returning ? 'role' : 'welcome');
+  const [lang, setLang] = useState<'en' | 'sv'>(() => useLanguageStore.getState().language);
+  const [format, setFormat] = useState<TimeFormat>(() => useTimeFormatStore.getState().timeFormat);
+  const [standard, setStandardSel] = useState<RegulationStandard>(() => useRegulationStandardStore.getState().standard);
+  const [themeSel, setThemeSel] = useState<Theme | null>(null);
   const [mainRole, setMainRole] = useState<MainRole | null>(null);
   const [pendingSub, setPendingSub] = useState<SubRole | null>(null);
+  const [droneId, setDroneId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [initials, setInitials] = useState('');
@@ -84,385 +125,488 @@ export default function OnboardingScreen() {
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [sigModal, setSigModal] = useState(false);
 
-  const currentProfile = useProfileStore(s => s.profile);
+  // Förifyll från befintlig profil (gör replay/lägg-till-roll mjukare).
+  useEffect(() => {
+    (async () => {
+      const [fn, ln, ini, cr, sig, did] = await Promise.all([
+        getSetting('profile_first_name'), getSetting('profile_last_name'),
+        getSetting('profile_initials'), getSetting('profile_credentials'),
+        getSetting('pilot_signature'), getSetting('drone_operator_id'),
+      ]);
+      if (fn) setFirstName(fn); if (ln) setLastName(ln); if (ini) setInitials(ini);
+      if (cr) setCredentials(cr); if (did) setDroneId(did);
+      if (sig) { try { setSignature(JSON.parse(sig)); } catch { /* ignore */ } }
+    })();
+  }, []);
 
   const sv = lang === 'sv';
-  
-  // Filter out already selected roles when coming from settings
-  const availableMainRoles = currentProfile 
+  const accent = accentForRole(mainRole);
+  const autoInitials = (initials || `${(firstName[0] ?? '')}${(lastName[0] ?? '')}`).toUpperCase();
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  const availableMainRoles = currentProfile
     ? MAIN_ROLES.filter(r => r.key !== currentProfile.mainRole)
     : MAIN_ROLES;
 
-  const finalize = async (sub: SubRole) => {
-    try {
-      const profile: Profile = { mainRole: mainRole!, subRole: sub };
+  const steps = buildSteps(mainRole, returning);
+  const stepIdx = Math.max(0, steps.indexOf(step));
+  const totalSteps = steps.length;
 
-      // Initial setup - set as primary profile
+  const themeOptions: { key: Theme; label_en: string; label_sv: string; palette: ColorPalette }[] =
+    mainRole === 'pilot-unmanned'
+      ? [
+          { key: 'drone-industrial', label_en: 'Dark · Industrial', label_sv: 'Mörkt · Industrial', palette: DroneIndustrialColors },
+          { key: 'drone-neon', label_en: 'Neon', label_sv: 'Neon', palette: DroneNeonColors },
+        ]
+      : [
+          { key: 'navy', label_en: 'Dark', label_sv: 'Mörkt', palette: NavyColors },
+          { key: 'bright', label_en: 'Light', label_sv: 'Ljust', palette: BrightColors },
+        ];
+
+  const finalize = async (dest?: '/import/scan' | '/import/manual' | '/import' | '/(tabs)', push = false) => {
+    try {
+      if (!mainRole || !pendingSub) { router.replace('/(tabs)'); return; }
+      const profile: Profile = { mainRole, subRole: pendingSub };
       await setLanguage(lang);
-      if (needsTimeFormat(mainRole!)) {
-        await setTimeFormat(format);
-      } else {
-        await setTimeFormat('hhmm');
-      }
+      await setTimeFormat(manned(mainRole) ? format : 'hhmm');
+      if (manned(mainRole)) await setStandard(standard);
       await setProfile(profile);
-      // Save profile data
+      if (mainRole === 'pilot-unmanned' && droneId.trim()) await setOperatorId(droneId.trim());
       await setSetting('profile_first_name', firstName);
       await setSetting('profile_last_name', lastName);
-      await setSetting('profile_initials', initials);
+      await setSetting('profile_initials', autoInitials);
       await setSetting('profile_credentials', credentials);
       await setSetting('pilot_signature', signature ? JSON.stringify(signature) : '');
-      const target = targetForProfile(profile);
-      await setMode(target);
-      // Set onboarded FIRST before navigating
+      if (themeSel) await setTheme(themeSel); // före setMode → applyForMode plockar upp valet
+      await setMode(targetForProfile(profile));
       await setSetting('has_onboarded', '1');
-      // Give a small delay to ensure setting is persisted
       await new Promise(r => setTimeout(r, 100));
-      // Navigate to dashboard
-      router.replace('/(tabs)');
+      // push: lämnar onboarding kvar i stacken så import-modalen kan svepas
+      // tillbaka hit. replace: lämnar onboarding (gör det senare → dashboard).
+      if (push && dest) router.push(dest); else router.replace(dest ?? '/(tabs)');
     } catch (e: any) {
       console.error('Onboarding error:', e);
-      // Fallback: navigate to home tabs
       router.replace('/(tabs)');
     }
   };
-
-  const handleSubRoleSelect = (sub: SubRole) => {
-    setPendingSub(sub);
-    // Always go to profile step next
-    setStep('profile');
-  };
-
-  const handleProfileComplete = () => {
-    if (pendingSub) {
-      finalize(pendingSub);
-    }
-  };
-
-  const steps = needsTimeFormat(mainRole ?? 'operator')
-    ? ['welcome', 'role', 'subrole', 'timeformat', 'profile']
-    : ['welcome', 'role', 'subrole', 'profile'];
-  const stepIdx = steps.indexOf(step);
-  const totalSteps = steps.length;
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Progress dots */}
+      {/* Progress */}
       <View style={s.dotsRow}>
         {Array.from({ length: totalSteps }).map((_, i) => (
-          <View key={i} style={[s.dot, i === stepIdx && s.dotActive]} />
+          <View key={i} style={[s.dot, i === stepIdx && [s.dotActive, { backgroundColor: accent }]]} />
         ))}
       </View>
 
-      {/* Back button (step 2+) */}
+      {/* Back */}
       {stepIdx > 0 && (
-        <TouchableOpacity
-          style={s.backRow}
-          onPress={() => {
-            if (step === 'profile') setStep(needsTimeFormat(mainRole ?? 'operator') ? 'timeformat' : 'subrole');
-            else if (step === 'timeformat') setStep('subrole');
-            else if (step === 'subrole') setStep('role');
-            else if (step === 'role') setStep('welcome');
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={18} color={P.textSecondary} />
+        <TouchableOpacity style={s.backRow} onPress={() => setStep(steps[stepIdx - 1])} activeOpacity={0.7} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color={C.textSecondary} />
           <Text style={s.backText}>{sv ? 'Tillbaka' : 'Back'}</Text>
         </TouchableOpacity>
       )}
 
-      {/* ── Welcome ── */}
-      {step === 'welcome' && (
-        <View style={s.stepContent}>
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-            <Image source={require('../assets/blades-logo.png')} style={{ width: 286, height: 112 }} resizeMode="contain" />
-            <Text style={s.welcomeTitle}>{sv ? 'Välkommen till BLADES' : 'Welcome to BLADES'}</Text>
-            <Text style={s.welcomeSub}>
-              {sv
-                ? 'Din gemensamma loggbok för bemannat, obemannat och besättning.'
-                : 'Your joint logbook for manned, unmanned and crew.'}
-            </Text>
-          </View>
-
-          {/* Language selector */}
-          <View style={s.langRow}>
-            <TouchableOpacity
-              style={[s.langBtn, lang === 'en' && s.langBtnActive]}
-              onPress={() => setLang('en')}
-              activeOpacity={0.75}
-            >
-              <Text style={{ fontSize: 18 }}>🇬🇧</Text>
-              <Text style={[s.langBtnText, lang === 'en' && s.langBtnTextActive]}>English</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.langBtn, lang === 'sv' && s.langBtnActive]}
-              onPress={() => setLang('sv')}
-              activeOpacity={0.75}
-            >
-              <Text style={{ fontSize: 18 }}>🇸🇪</Text>
-              <Text style={[s.langBtnText, lang === 'sv' && s.langBtnTextActive]}>Svenska</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={s.nextBtn} onPress={() => setStep('role')} activeOpacity={0.85}>
-            <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── Role ── */}
-      {step === 'role' && (
-        <View style={s.stepContent}>
-          <Text style={s.title}>{sv ? 'Välj din profil' : 'Choose your profile'}</Text>
-          <Text style={s.subtitle}>
-            {sv ? 'Anpassar loggboksfält, export och certifikat efter din roll.' : 'Tailors the logbook fields, exports and certifications to your role.'}
-          </Text>
-          <View style={s.optionsCol}>
-            {availableMainRoles.map(r => (
-              <TouchableOpacity
-                key={r.key}
-                style={s.card}
-                onPress={() => { setMainRole(r.key); setStep('subrole'); }}
-                activeOpacity={0.8}
-              >
-                <View style={s.emojiCircle}>
-                  <Text style={{ fontSize: 26 }}>{r.emoji}</Text>
+      <KeyboardAvoidingView style={{ flex: 1, alignSelf: 'stretch' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View key={step} entering={FadeIn.duration(220)} style={s.stepContent}>
+          {/* ── Welcome (stor logga, ingen text) ── */}
+          {step === 'welcome' && (
+            <View style={{ flex: 1, alignSelf: 'stretch' }}>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Image source={require('../assets/logo-splashscreen.PNG')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+              </View>
+              <View style={{ gap: 12, alignSelf: 'stretch' }}>
+                <Text style={s.langHint}>Choose your language · Välj språk</Text>
+                <View style={s.langRow}>
+                  {(['en', 'sv'] as const).map(l => (
+                    <TouchableOpacity
+                      key={l}
+                      style={s.langBtn}
+                      onPress={() => { setLang(l); setStep('role'); }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 18 }}>{l === 'en' ? '🇬🇧' : '🇸🇪'}</Text>
+                      <Text style={s.langBtnText}>{l === 'en' ? 'English' : 'Svenska'}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.cardTitle}>{sv ? r.title_sv : r.title_en}</Text>
-                  <Text style={s.cardDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={P.textMuted} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={{ flex: 1 }} />
-        </View>
-      )}
-
-      {/* ── Sub-role ── */}
-      {step === 'subrole' && mainRole && (
-        <View style={s.stepContent}>
-          <Text style={s.eyebrow}>
-            {sv ? `Steg ${stepIdx + 1} av ${totalSteps} · Specialisering` : `Step ${stepIdx + 1} of ${totalSteps} · Specialise`}
-          </Text>
-          <Text style={s.title}>{sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}</Text>
-          <Text style={s.subtitle}>{sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en}</Text>
-          <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ gap: mainRole === 'operator' ? 8 : 10, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-            {SUB_ROLES[mainRole].map(r => (
-              <TouchableOpacity
-                key={r.key}
-                style={[s.card, { paddingVertical: mainRole === 'operator' ? 13 : 16 }]}
-                onPress={() => handleSubRoleSelect(r.key)}
-                activeOpacity={0.8}
-              >
-                <View style={[s.emojiCircle, mainRole === 'operator' && { width: 46, height: 46 }]}>
-                  <Text style={{ fontSize: mainRole === 'operator' ? 22 : 26 }}>{r.emoji}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.cardTitle}>{sv ? r.title_sv : r.title_en}</Text>
-                  <Text style={s.cardDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={P.textMuted} />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <Text style={s.footerNote}>
-            {sv ? 'Du kan ändra detta senare i Inställningar.' : 'You can change this later in Settings.'}
-          </Text>
-        </View>
-      )}
-
-      {/* ── Time format (only for pilot-manned) ── */}
-      {step === 'timeformat' && (
-        <View style={s.stepContent}>
-          <Text style={s.title}>{sv ? 'Tidsformat' : 'Time format'}</Text>
-          <Text style={s.subtitle}>{sv ? 'Hur loggar du flygtider?' : 'How do you log flight times?'}</Text>
-          <View style={s.optionsCol}>
-            {[
-              { key: 'decimal' as TimeFormat, example: '1.5', label: 'Decimal', sub: sv ? 'T.ex. 1.5h' : 'e.g. 1.5h' },
-              { key: 'hhmm' as TimeFormat, example: '1:30', label: 'HH:MM', sub: sv ? 'T.ex. 1:30' : 'e.g. 1:30' },
-            ].map(opt => (
-              <TouchableOpacity key={opt.key} style={[s.card, format === opt.key && s.cardActive]} onPress={() => setFormat(opt.key)} activeOpacity={0.8}>
-                <View style={s.formatBox}>
-                  <Text style={s.formatText}>{opt.example}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.cardTitle, format === opt.key && { color: P.accent }]}>{opt.label}</Text>
-                  <Text style={s.cardDesc}>{opt.sub}</Text>
-                </View>
-                {format === opt.key && <Ionicons name="checkmark-circle" size={22} color={P.accent} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={{ flex: 1 }} />
-          <TouchableOpacity style={s.nextBtn} onPress={() => setStep('profile')} activeOpacity={0.85}>
-            <Text style={s.nextBtnText}>{sv ? 'Nästa' : 'Next'}</Text>
-            <Ionicons name="chevron-forward" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── Profile setup ── */}
-      {step === 'profile' && (
-        <View style={s.stepContent}>
-          <Text style={s.eyebrow}>
-            {sv ? `Steg ${stepIdx + 1} av ${totalSteps} · Profil` : `Step ${stepIdx + 1} of ${totalSteps} · Profile`}
-          </Text>
-          <Text style={s.title}>{sv ? 'Sätt upp din profil' : 'Set up your profile'}</Text>
-          <Text style={s.subtitle}>{sv ? 'Lägg till ditt namn och inledande för din loggbok' : 'Add your name and credentials for your logbook'}</Text>
-
-          <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-            <View>
-              <Text style={s.inputLabel}>{sv ? 'Förnamn' : 'First name'}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholderTextColor={P.textMuted}
-              />
+              </View>
             </View>
+          )}
 
-            <View>
-              <Text style={s.inputLabel}>{sv ? 'Efternamn' : 'Last name'}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholderTextColor={P.textMuted}
-              />
-            </View>
+          {/* ── Role ── */}
+          {step === 'role' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Din profil' : 'Your profile'} accent={accent}
+                title={sv ? 'Vad gör du?' : 'What do you do?'}
+                subtitle={sv ? 'Vi skräddarsyr loggbok, export och certifikat efter din roll.' : 'We tailor the logbook, exports and certificates to your role.'} />
+              <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={s.pickList} showsVerticalScrollIndicator={false}>
+                {availableMainRoles.map(r => (
+                  <ImageRow key={r.key} image={ROLE_IMG[r.key]}
+                    title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en}
+                    onPress={() => { setMainRole(r.key); setStep('subrole'); }} />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
-            <View>
-              <Text style={s.inputLabel}>{sv ? 'Initialer' : 'Initials'}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={sv ? 'T.ex. JT' : 'e.g. JD'}
-                value={initials}
-                onChangeText={setInitials}
-                placeholderTextColor={P.textMuted}
-                maxLength={3}
-              />
-            </View>
+          {/* ── Sub-role ── */}
+          {step === 'subrole' && mainRole && (
+            <>
+              <StepHeader eyebrow={sv ? 'Specialisering' : 'Specialise'} accent={accent}
+                title={sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}
+                subtitle={sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en} />
+              <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={s.pickList} showsVerticalScrollIndicator={false}>
+                {SUB_ROLES[mainRole].map(r => {
+                  const onPick = () => { setPendingSub(r.key); setStep(manned(mainRole) ? 'framework' : 'droneid'); };
+                  const img = SUBROLE_IMG[r.key];
+                  return img
+                    ? <ImageRow key={r.key} image={img}
+                        title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={onPick} />
+                    : <OptionCard key={r.key} mci={r.icon} accent={accent}
+                        title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={onPick} />;
+                })}
+              </ScrollView>
+            </>
+          )}
 
-            <View>
-              <Text style={s.inputLabel}>{sv ? 'Legitimation (valfritt)' : 'Credentials (optional)'}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={sv ? 'T.ex. CPL(H), ATPL, FI' : 'e.g. CPL(H), ATPL, FI'}
-                value={credentials}
-                onChangeText={setCredentials}
-                placeholderTextColor={P.textMuted}
-              />
-            </View>
+          {/* ── Framework (manned) ── */}
+          {step === 'framework' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Regelverk' : 'Framework'} accent={accent}
+                title={sv ? 'Vilket regelverk följer du?' : 'Which framework do you follow?'}
+                subtitle={sv ? 'Påverkar progresskartor, certifikat och export.' : 'Affects progress charts, certificates and exports.'} />
+              <View style={{ gap: 12, alignSelf: 'stretch' }}>
+                {FRAMEWORKS.map(f => {
+                  const selected = standard === f.key;
+                  return (
+                    <OptionCard key={f.key} accent={accent} selected={selected}
+                      title={f.title} desc={sv ? f.desc_sv : f.desc_en}
+                      leading={<View style={[s.leadBox, { backgroundColor: selected ? accent + '1A' : 'rgba(255,255,255,0.05)' }]}>
+                        <Text style={[s.regionText, { color: selected ? accent : C.silver }]}>{f.region}</Text>
+                      </View>}
+                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
+                      onPress={() => { setStandardSel(f.key); setStep('timeformat'); }} />
+                  );
+                })}
+              </View>
+            </>
+          )}
 
-            <View>
-              <Text style={s.inputLabel}>{sv ? 'Pilotsignatur (valfritt)' : 'Pilot signature (optional)'}</Text>
-              <TouchableOpacity
-                style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46 }]}
-                onPress={() => setSigModal(true)}
-                activeOpacity={0.7}
-              >
-                {signature
-                  ? <SignatureView data={signature} height={28} color={P.text} />
-                  : <Text style={{ color: P.textMuted, fontSize: 14 }}>{sv ? 'Skapa signatur' : 'Add signature'}</Text>}
-                <Ionicons name="create-outline" size={18} color={P.accent} />
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+          {/* ── Time format (manned) ── */}
+          {step === 'timeformat' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Tidsformat' : 'Time format'} accent={accent}
+                title={sv ? 'Hur vill du se flygtider?' : 'How do you log flight times?'}
+                subtitle={sv ? 'Viktigt om du ska skanna eller importera din loggbok.' : 'Important if you scan or import your logbook.'} />
+              <View style={{ gap: 12, alignSelf: 'stretch' }}>
+                {([
+                  { key: 'decimal' as TimeFormat, ex: '1.5', label: 'Decimal', sub: sv ? 'T.ex. 1.5 h' : 'e.g. 1.5h' },
+                  { key: 'hhmm' as TimeFormat, ex: '1:30', label: sv ? 'Timmar:Minuter' : 'Hours:Minutes', sub: sv ? 'T.ex. 1:30' : 'e.g. 1:30' },
+                ]).map(opt => {
+                  const selected = format === opt.key;
+                  return (
+                    <OptionCard key={opt.key} accent={accent} selected={selected} title={opt.label} desc={opt.sub}
+                      leading={<View style={[s.leadBox, { backgroundColor: selected ? accent + '1A' : 'rgba(255,255,255,0.05)' }]}>
+                        <Text style={[s.fmtText, { color: selected ? accent : C.silver }]}>{opt.ex}</Text>
+                      </View>}
+                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
+                      onPress={() => { setFormat(opt.key); setStep('theme'); }} />
+                  );
+                })}
+              </View>
+            </>
+          )}
 
-          <View style={{ alignSelf: 'stretch', gap: 8 }}>
-            <TouchableOpacity style={s.nextBtn} onPress={handleProfileComplete} activeOpacity={0.85}>
-              <Text style={s.nextBtnText}>{sv ? 'Kom igång' : 'Get started'}</Text>
-              <Ionicons name="checkmark" size={18} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleProfileComplete()} activeOpacity={0.7}>
-              <Text style={s.skipText}>{sv ? 'Hoppa över' : 'Skip'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+          {/* ── Drone operator ID (drone) ── */}
+          {step === 'droneid' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Drönare' : 'Drone'} accent={accent}
+                title={sv ? 'Operatörs-ID' : 'Operator ID'}
+                subtitle={sv ? 'Ditt EU-registrerings-ID som drönaroperatör. Valfritt — kan läggas till senare.' : 'Your EU drone operator registration ID. Optional — you can add it later.'} />
+              <View style={{ alignSelf: 'stretch' }}>
+                <Text style={s.inputLabel}>{sv ? 'Operatörs-ID' : 'Operator ID'}</Text>
+                <TextInput
+                  style={s.input}
+                  placeholder="t.ex. SWE87astrdg12k8"
+                  value={droneId}
+                  onChangeText={setDroneId}
+                  placeholderTextColor={C.textMuted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+              </View>
+              <View style={{ flex: 1 }} />
+              <PrimaryButton label={sv ? 'Nästa' : 'Next'} accent={accent} onPress={() => setStep('theme')} />
+            </>
+          )}
 
-      <SignatureModal
-        visible={sigModal}
-        initial={signature}
-        onClose={() => setSigModal(false)}
-        onSave={(sg) => setSignature(sg)}
-      />
+          {/* ── Theme ── */}
+          {step === 'theme' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Utseende' : 'Appearance'} accent={accent}
+                title={sv ? 'Välj ditt tema' : 'Pick your theme'}
+                subtitle={sv ? 'Kan ändras när som helst i Inställningar.' : 'You can change this anytime in Settings.'} />
+              <View style={{ gap: 12, alignSelf: 'stretch' }}>
+                {themeOptions.map(o => {
+                  const selected = themeSel === o.key;
+                  return (
+                    <OptionCard key={o.key} accent={accent} selected={selected} title={sv ? o.label_sv : o.label_en}
+                      leading={<ThemeSwatch palette={o.palette} />}
+                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
+                      onPress={() => { setThemeSel(o.key); setStep('profile'); }} />
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {/* ── Profile ── */}
+          {step === 'profile' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Profil' : 'Profile'} accent={accent}
+                title={sv ? 'Sätt upp din profil' : 'Set up your profile'}
+                subtitle={sv ? 'Namn och behörigheter för din loggbok och export.' : 'Name and credentials for your logbook and exports.'} />
+
+              <AvatarPreview initials={autoInitials || '?'} name={fullName || (sv ? 'Ditt namn' : 'Your name')} creds={credentials} accent={accent} />
+
+              <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'} />
+                <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
+                <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. JT' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />
+                <Field label={sv ? 'Legitimation (valfritt)' : 'Credentials (optional)'} value={credentials} onChangeText={setCredentials} placeholder="CPL(H) · IR · NVG" />
+                <View>
+                  <Text style={s.inputLabel}>{sv ? 'Pilotsignatur (valfritt)' : 'Pilot signature (optional)'}</Text>
+                  <TouchableOpacity
+                    style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46 }]}
+                    onPress={() => setSigModal(true)} activeOpacity={0.7}
+                  >
+                    {signature
+                      ? <SignatureView data={signature} height={28} color={C.textPrimary} />
+                      : <Text style={{ color: C.textMuted, fontSize: 14 }}>{sv ? 'Skapa signatur' : 'Add signature'}</Text>}
+                    <Ionicons name="create-outline" size={18} color={accent} />
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+
+              <View style={{ alignSelf: 'stretch', gap: 10 }}>
+                <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent={accent} onPress={() => setStep('hours')} />
+                <SecondaryButton label={sv ? 'Hoppa över' : 'Skip'} onPress={() => setStep('hours')} />
+              </View>
+            </>
+          )}
+
+          {/* ── Existing hours ── */}
+          {step === 'hours' && (
+            <>
+              <StepHeader eyebrow={sv ? 'Nästan klar' : 'Almost done'} accent={accent}
+                title={sv ? 'Har du redan flygtimmar?' : 'Do you already have flight hours?'}
+                subtitle={sv ? 'Få in dina tidigare timmar så att statistiken stämmer från dag ett.' : 'Bring in your previous hours so your stats are right from day one.'} />
+              <View style={{ gap: 12, alignSelf: 'stretch' }}>
+                <OptionCard mci="camera" accent={accent}
+                  title={sv ? 'Skanna pappersbok' : 'Scan paper logbook'}
+                  desc={sv ? 'Fota uppslagen — vi läser in dem' : 'Photograph the pages — we read them'}
+                  onPress={() => finalize('/import/scan', true)} />
+                <OptionCard mci="pencil-outline" accent={accent}
+                  title={sv ? 'Ange starttotal' : 'Enter starting total'}
+                  desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}
+                  onPress={() => finalize('/import/manual', true)} />
+                <OptionCard mci="file-delimited-outline" accent={accent}
+                  title={sv ? 'Importera CSV' : 'Import CSV'}
+                  desc={sv ? 'Från ForeFlight, LogTen Pro, m.fl.' : 'From ForeFlight, LogTen Pro, etc.'}
+                  onPress={() => finalize('/import', true)} />
+              </View>
+              <View style={{ flex: 1 }} />
+              <SecondaryButton label={sv ? 'Gör det senare' : "I'll do it later"} onPress={() => finalize()} />
+            </>
+          )}
+        </Animated.View>
+      </KeyboardAvoidingView>
+
+      <SignatureModal visible={sigModal} initial={signature} onClose={() => setSigModal(false)} onSave={(sg) => setSignature(sg)} />
     </SafeAreaView>
   );
 }
 
+// ── Reusable bits ────────────────────────────────────────────────────────────
+
+function StepHeader({ eyebrow, title, subtitle, accent }: { eyebrow: string; title: string; subtitle?: string; accent: string }) {
+  return (
+    <View style={{ alignSelf: 'stretch', marginBottom: 18 }}>
+      <Text style={[s.eyebrow, { color: accent }]}>{eyebrow}</Text>
+      <Text style={s.title}>{title}</Text>
+      {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+function OptionCard({ mci, leading, title, desc, accent, onPress, right, selected }: {
+  mci?: MCI; leading?: React.ReactNode;
+  title: string; desc?: string; accent: string; onPress: () => void; right?: React.ReactNode; selected?: boolean;
+}) {
+  const lead = leading ?? (
+    <View style={[s.leadBox, { backgroundColor: selected ? accent + '1A' : 'rgba(255,255,255,0.05)' }]}>
+      <MaterialCommunityIcons name={mci!} size={24} color={selected ? accent : C.silver} />
+    </View>
+  );
+  return (
+    <TouchableOpacity style={[s.card, selected && { borderColor: accent }]} onPress={onPress} activeOpacity={0.7}>
+      {lead}
+      <View style={{ flex: 1 }}>
+        <Text style={s.cardTitle}>{title}</Text>
+        {desc ? <Text style={s.cardDesc}>{desc}</Text> : null}
+      </View>
+      {right ?? <Ionicons name="chevron-forward" size={18} color={C.textMuted} />}
+    </TouchableOpacity>
+  );
+}
+
+// Genomskinligt val: stor bild till vänster, beskrivande text till höger.
+// Hela raden (inkl. bilden) är tryckbar för att välja. Raden flexar så att
+// alla val får plats på samma skärm.
+function ImageRow({ image, title, desc, onPress }: { image: ImageSourcePropType; title: string; desc: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.imgRow} onPress={onPress} activeOpacity={0.7}>
+      <Image source={image} style={s.imgRowImg} resizeMode="contain" />
+      <View style={s.imgRowText}>
+        <Text style={s.imgRowTitle}>{title}</Text>
+        <Text style={s.imgRowDesc}>{desc}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function PrimaryButton({ label, accent, onPress, icon = 'arrow-forward' }: { label: string; accent: string; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap }) {
+  return (
+    <TouchableOpacity style={[s.primaryBtn, { backgroundColor: accent }]} onPress={onPress} activeOpacity={0.88}>
+      <Text style={s.primaryBtnText}>{label}</Text>
+      <Ionicons name={icon} size={18} color={C.textInverse} />
+    </TouchableOpacity>
+  );
+}
+
+function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.secondaryBtn} onPress={onPress} activeOpacity={0.75}>
+      <Text style={s.secondaryBtnText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function AvatarPreview({ initials, name, creds, accent }: { initials: string; name: string; creds: string; accent: string }) {
+  return (
+    <View style={s.avatarWrap}>
+      <View style={[s.avatar, { backgroundColor: accent }]}>
+        <Text style={s.avatarText}>{initials}</Text>
+      </View>
+      <Text style={s.avatarName}>{name}</Text>
+      {creds ? <Text style={s.avatarCreds}>{creds}</Text> : null}
+    </View>
+  );
+}
+
+function ThemeSwatch({ palette }: { palette: ColorPalette }) {
+  return (
+    <View style={[s.swatch, { backgroundColor: palette.background, borderColor: C.cardBorder }]}>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        <View style={[s.swatchDot, { backgroundColor: palette.primary }]} />
+        <View style={[s.swatchDot, { backgroundColor: palette.accent }]} />
+      </View>
+      <View style={[s.swatchBar, { backgroundColor: palette.cardBorder }]} />
+    </View>
+  );
+}
+
+function Field(props: { label: string; value: string; onChangeText: (v: string) => void; placeholder: string; maxLength?: number; autoCapitalize?: 'none' | 'characters' | 'words' }) {
+  return (
+    <View>
+      <Text style={s.inputLabel}>{props.label}</Text>
+      <TextInput
+        style={s.input}
+        value={props.value}
+        onChangeText={props.onChangeText}
+        placeholder={props.placeholder}
+        placeholderTextColor={C.textMuted}
+        maxLength={props.maxLength}
+        autoCapitalize={props.autoCapitalize}
+      />
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: P.bg, paddingHorizontal: 22, paddingTop: 10 },
-  dotsRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: P.cardBorder },
-  dotActive: { width: 24, backgroundColor: P.accent },
+  container: { flex: 1, backgroundColor: '#000000', paddingHorizontal: 22, paddingTop: 10 },
+  dotsRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 10 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.cardBorder },
+  dotActive: { width: 24 },
 
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  backText: { color: P.textSecondary, fontSize: 14, fontWeight: '600' },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  backText: { color: C.textSecondary, fontSize: 14, fontWeight: '600' },
 
-  stepContent: { flex: 1, alignItems: 'center', gap: 6 },
+  stepContent: { flex: 1, alignItems: 'flex-start' },
 
-  welcomeTitle: { fontSize: 26, fontWeight: '800', color: P.text, letterSpacing: -0.5, textAlign: 'center' },
-  welcomeSub: { fontSize: 14, color: P.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
-
-  langRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 16 },
+  langHint: { fontSize: 12, color: C.textMuted, textAlign: 'center', letterSpacing: 0.3, marginBottom: 2 },
+  langRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch' },
   langBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 12,
-    backgroundColor: P.card, borderWidth: 1.5, borderColor: P.cardBorder,
+    paddingVertical: 14, borderRadius: 14, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.gold,
   },
-  langBtnActive: { borderColor: P.accent, backgroundColor: P.accentBg },
-  langBtnText: { fontSize: 14, fontWeight: '600', color: P.textSecondary },
-  langBtnTextActive: { color: P.accent },
+  langBtnText: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
 
-  eyebrow: {
-    fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6,
-    color: P.accent, textTransform: 'uppercase', marginBottom: 4, alignSelf: 'flex-start',
-  },
-  title: { fontSize: 20, fontWeight: '800', color: P.text, letterSpacing: -0.3, textAlign: 'center' },
-  subtitle: { fontSize: 13, color: P.textSecondary, textAlign: 'center', lineHeight: 18, paddingHorizontal: 8, marginBottom: 8 },
+  pickList: { flexGrow: 1, justifyContent: 'center', gap: 12, paddingVertical: 8 },
 
-  optionsCol: { alignSelf: 'stretch', gap: 10 },
+  eyebrow: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 },
+  title: { fontSize: 23, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.4 },
+  subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 19, marginTop: 6 },
+
+  // Navy ruta med guldig kantlinje på svart bakgrund (vald → accent-ring).
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: P.card, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: P.cardBorder,
-    shadowColor: '#1F2A44', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8,
+    backgroundColor: C.card, borderRadius: 18, padding: 16,
+    borderWidth: 1.5, borderColor: C.gold,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
   },
-  cardActive: { borderColor: P.accent, backgroundColor: P.accentBg },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: P.text, letterSpacing: -0.2 },
-  cardDesc: { fontSize: 12.5, color: P.textSecondary, lineHeight: 17, marginTop: 2 },
-
-  emojiCircle: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: P.accentBg, borderWidth: 1, borderColor: P.accentBorder,
-    alignItems: 'center', justifyContent: 'center',
+  // Navy ruta med guldkant. Bild ~40% till vänster, text ~60% till höger.
+  // Rutans mått behålls; bredare bildkolumn ger ~20% större bild (contain).
+  imgRow: {
+    flexDirection: 'row', alignItems: 'stretch', gap: 8, height: 136,
+    padding: 8,
+    backgroundColor: C.card, borderColor: C.gold, borderWidth: 1.5, borderRadius: 16,
   },
+  // Kvadratisk bildyta som fyller höjden → lika avstånd (8px) till över-/
+  // underkant, vänsterkant och text. Texten tar resten av bredden.
+  imgRowImg: { aspectRatio: 1, borderRadius: 10, transform: [{ scale: 1.15 }] },
+  imgRowText: { flex: 1, justifyContent: 'center' },
+  imgRowTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.2 },
+  imgRowDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 4 },
 
-  formatBox: {
-    width: 52, height: 52, borderRadius: 10,
-    backgroundColor: '#F0F2F6', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: P.cardBorder,
+  cardTitle: { fontSize: 16, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.2 },
+  cardDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 2 },
+
+  leadBox: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  regionText: { fontFamily: 'Menlo', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  fmtText: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+
+  swatch: { width: 50, height: 50, borderRadius: 15, borderWidth: 1, padding: 8, justifyContent: 'space-between' },
+  swatchDot: { width: 11, height: 11, borderRadius: 6 },
+  swatchBar: { height: 6, borderRadius: 3, alignSelf: 'stretch' },
+
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch', borderRadius: 14, paddingVertical: 16 },
+  primaryBtnText: { color: C.textInverse, fontSize: 16, fontWeight: '800' },
+
+  secondaryBtn: {
+    alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, paddingVertical: 15, backgroundColor: C.elevated,
+    borderWidth: 1, borderColor: C.cardBorder,
   },
-  formatText: { color: P.accent, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  secondaryBtnText: { color: C.textSecondary, fontSize: 15, fontWeight: '700' },
 
-  nextBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    alignSelf: 'stretch', backgroundColor: P.accent, borderRadius: 12, paddingVertical: 15,
-  },
-  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  avatarWrap: { alignItems: 'center', alignSelf: 'stretch', marginBottom: 16 },
+  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  avatarText: { fontSize: 24, fontWeight: '800', color: C.textInverse, letterSpacing: -0.5 },
+  avatarName: { fontSize: 17, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.2 },
+  avatarCreds: { fontSize: 12, color: C.textMuted, marginTop: 3 },
 
-  footerNote: { color: P.textMuted, fontSize: 12, textAlign: 'center', paddingBottom: 8 },
-
-  inputLabel: { fontSize: 12, fontWeight: '700', color: P.text, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    paddingVertical: 12, paddingHorizontal: 14,
-    borderRadius: 10, borderWidth: 1, borderColor: P.cardBorder,
-    backgroundColor: P.card, fontSize: 14, color: P.text,
-  },
-  skipText: { color: P.textMuted, fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: C.textPrimary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.elevated, fontSize: 15, color: C.textPrimary },
 });

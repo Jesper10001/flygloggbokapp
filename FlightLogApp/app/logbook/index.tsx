@@ -102,16 +102,18 @@ export default function LogbookScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Orientering: boken liggande, setup/böcker-sheets stående.
+  // Orientering: ENDAST den faktiska boken (böcker finns och vi är inte i
+  // setup) är liggande. Intro (inga böcker) och skapa/redigera-bok är stående.
   useEffect(() => {
     let cancelled = false;
     const task = InteractionManager.runAfterInteractions(() => {
       if (cancelled) return;
-      const lock = setup ? ScreenOrientation.OrientationLock.PORTRAIT_UP : ScreenOrientation.OrientationLock.LANDSCAPE;
+      const showingBook = books.length > 0 && !setup;
+      const lock = showingBook ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP;
       ScreenOrientation.lockAsync(lock).catch(() => {});
     });
     return () => { cancelled = true; (task as any)?.cancel?.(); };
-  }, [setup]);
+  }, [setup, books.length]);
 
   useEffect(() => () => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
@@ -234,7 +236,7 @@ export default function LogbookScreen() {
     return (
       <>
         <Intro onStart={() => setSetup({ mode: 'create', initial: null })} onBack={() => router.back()} />
-        <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setSetup(null)}>
+        <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
           <View style={styles.sheetBackdrop}>
             {setup && (
               <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
@@ -355,7 +357,7 @@ export default function LogbookScreen() {
       </Modal>
 
       {/* ── Bok-konfiguration (skapa/redigera) ── */}
-      <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setSetup(null)}>
+      <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={styles.sheetBackdrop}>
           {setup && (
             <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />

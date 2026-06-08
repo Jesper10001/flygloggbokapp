@@ -4,7 +4,7 @@ import {
   Alert, ActivityIndicator, TextInput, Modal, Pressable, Platform, Image,
   KeyboardAvoidingView, Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ocrScanLogbook, ocrScanPage, type AircraftDetection, type PageContext } from '../../services/ocr';
@@ -1286,6 +1286,7 @@ export default function ReviewScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ imp?: string; batch?: string }>();
   const { loadFlights, loadStats, canAddFlight } = useFlightStore();
   const { timeFormat } = useTimeFormatStore();
   const scrollRef = useRef<ScrollView>(null);
@@ -1724,7 +1725,11 @@ export default function ReviewScreen() {
 
   // ── Save logic (updated for wizard decisions) ───────────────────────────────
 
+  const savingRef = useRef(false);
   const doSave = async () => {
+    // Synkron spärr mot dubbeltryck (state-`disabled` hinner inte ritas om).
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     let saved = 0, skipped = 0, duplicates = 0;
     const savedFlightIds: number[] = [];
@@ -1851,12 +1856,21 @@ export default function ReviewScreen() {
       const bookNote = pageLabel ? `\n${t('linked_to_book')}: ${book?.name ?? ''} . ${t('page')} ${pageLabel}` : '';
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        t('done_exclamation'),
-        `${saved} ${t('flights_saved')}${skipped > 0 ? ` . ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` . ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
-        [{ text: 'OK', onPress: () => router.dismissAll() }]
-      );
+      // Importen klar → visa Wrapped (egen route) istället för en alert. Endast
+      // när vi kom hit från import-skanningen (imp=1), inte dashboardens
+      // enskilda foto-OCR.
+      const showWrapped = params.imp === '1' && useFlightStore.getState().flightCount > 0;
+      if (showWrapped) {
+        router.replace('/wrapped');
+      } else {
+        Alert.alert(
+          t('done_exclamation'),
+          `${saved} ${t('flights_saved')}${skipped > 0 ? ` . ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` . ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
+          [{ text: 'OK', onPress: () => router.dismissAll() }]
+        );
+      }
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

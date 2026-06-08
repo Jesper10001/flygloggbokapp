@@ -84,7 +84,7 @@ export default function ScanImportScreen() {
       }
       if (images.length === 0) { Alert.alert(t('error'), t('could_not_process_image')); return; }
       setScanBatch(images);
-      router.push('/flight/review?batch=1');
+      router.push('/flight/review?batch=1&imp=1');
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -177,7 +177,7 @@ export default function ScanImportScreen() {
       if (!img.base64) { Alert.alert(t('error'), t('could_not_process_image')); return; }
       await useScanQuotaStore.getState().consumeScan();
       setScanImage(img.base64, 'image/jpeg');
-      router.push('/flight/review');
+      router.push('/flight/review?imp=1');
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -222,10 +222,10 @@ export default function ScanImportScreen() {
       if (images.length === 1) {
         await useScanQuotaStore.getState().consumeScan();
         setScanImage(images[0].base64, 'image/jpeg');
-        router.push('/flight/review');
+        router.push('/flight/review?imp=1');
       } else {
         setScanBatch(images);
-        router.push('/flight/review?batch=1');
+        router.push('/flight/review?batch=1&imp=1');
       }
     } catch (e: any) {
       Alert.alert(t('error'), e?.message ?? (sv ? 'Skanningen misslyckades' : 'Scan failed'));

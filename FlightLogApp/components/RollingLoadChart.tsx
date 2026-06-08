@@ -29,8 +29,9 @@ function makeStyles() {
 
 type DayData = { cur: number; prev: number; day: string };
 
-export function RollingLoadChart() {
+export function RollingLoadChart({ accent }: { accent?: string } = {}) {
   const styles = makeStyles();
+  const acc = accent ?? Colors.primary;
   const [days, setDays] = useState<DayData[]>([]);
   const [baseline, setBaseline] = useState(0);
   const [thisWeekHours, setThisWeekHours] = useState(0);
@@ -111,7 +112,7 @@ export function RollingLoadChart() {
         </Text>
       </View>
       <View style={styles.legend}>
-        <View style={[styles.dot, { backgroundColor: Colors.primary }]} />
+        <View style={[styles.dot, { backgroundColor: acc }]} />
         <Text style={styles.legendText}>This</Text>
         <View style={[styles.dot, { backgroundColor: Colors.textMuted, marginLeft: 10 }]} />
         <Text style={styles.legendText}>Last</Text>
@@ -140,11 +141,11 @@ export function RollingLoadChart() {
                     <View style={[styles.bar, styles.barPrev, { height: Math.max((d.prev / maxH) * BAR_MAX, 3), zIndex: 0 }]} />
                   )}
                   {d.cur > 0 && (
-                    <View style={[styles.bar, styles.barCur, { height: Math.max((d.cur / maxH) * BAR_MAX, 3), zIndex: 2 }]} />
+                    <View style={[styles.bar, styles.barCur, { height: Math.max((d.cur / maxH) * BAR_MAX, 3), zIndex: 2, backgroundColor: acc }]} />
                   )}
                   {d.cur === 0 && d.prev === 0 && <View style={styles.barEmpty} />}
                 </View>
-                <Text style={[styles.label, isToday && styles.labelActive]}>{d.day}</Text>
+                <Text style={[styles.label, isToday && [styles.labelActive, { color: acc }]]}>{d.day}</Text>
               </View>
             );
           })}

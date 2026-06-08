@@ -39,7 +39,7 @@ function exportPlace(code: string, tempCodes: Set<string>): string {
   return tempCodes.has(code.toUpperCase()) ? 'ZZZZ' : code;
 }
 
-export async function exportToCSV(standard: 'easa' | 'faa' = 'easa'): Promise<void> {
+export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Promise<void> {
   const flights = await getFlights(99999);
   const tempCodes = await getTempIcaoCodes();
 
@@ -98,10 +98,10 @@ export async function exportToCSV(standard: 'easa' | 'faa' = 'easa'): Promise<vo
                                        optional: true, hasData: f => f.flight_type === 'sim' && hasText(f.sim_category) },
   ];
 
-  // Filter columns based on regulation standard
+  // Filter columns based on regulation standard. CAA (UK) speglar EASA.
   let filteredCols = cols;
-  if (standard === 'easa') {
-    // EASA: exclude some FAA-specific columns
+  if (standard === 'easa' || standard === 'caa') {
+    // EASA/CAA: exclude some FAA-specific columns
     const easa_exclude = new Set(['Enpilottid', 'Flerpilottid', 'PICUS', 'SPIC', 'Ferry PIC']);
     filteredCols = cols.filter(c => !easa_exclude.has(c.header));
   } else {
@@ -116,7 +116,7 @@ export async function exportToCSV(standard: 'easa' | 'faa' = 'easa'): Promise<vo
   );
 
   const csv = [headers.join(','), ...rows].join('\r\n');
-  const standardSuffix = standard === 'faa' ? '_faa' : '_easa';
+  const standardSuffix = standard === 'faa' ? '_faa' : standard === 'caa' ? '_caa' : '_easa';
   const filename = `loggbok${standardSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
   const path = FileSystem.documentDirectory + filename;
 
@@ -191,7 +191,7 @@ export async function exportOperatorCSV(): Promise<void> {
 // ── Custom CSV export ────────────────────────────────────────────────────────
 
 type CustomColumn = { key: string; header: string };
-type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat: 'hhmm' | 'decimal'; standard?: 'easa' | 'faa' };
+type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat: 'hhmm' | 'decimal'; standard?: 'easa' | 'faa' | 'caa' };
 
 const timeFields = new Set([
   'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'examiner', 'safety_pilot',

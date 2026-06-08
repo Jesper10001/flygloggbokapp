@@ -21,6 +21,7 @@ import { cleanupDittoEntries } from '../db/ocrLearned';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
+import { SplashOverlay } from '../components/SplashOverlay';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -134,8 +135,10 @@ export default function RootLayout() {
         <Stack.Screen name="logbook/fill" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="mode-picker" options={{ headerShown: false }} />
+        <Stack.Screen name="wrapped" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
       <ToastHost />
+      <SplashOverlay />
     </GestureHandlerRootView>
   );
 }

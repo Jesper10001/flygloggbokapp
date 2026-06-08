@@ -825,7 +825,7 @@ export default function SettingsScreen() {
             } pressable={false}
             separatorColor={Colors.background}
           />
-          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : 'FAA (USA)'}
+          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : standard === 'faa' ? 'FAA (USA)' : 'CAA (UK)'}
             right={
               <View style={styles.toggle}>
                 <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
@@ -833,6 +833,9 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
                   <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'caa' && styles.toggleBtnActive]} onPress={() => setStandard('caa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'caa' && styles.toggleTextActive]}>CAA</Text>
                 </TouchableOpacity>
               </View>
             } pressable={false} border={false}

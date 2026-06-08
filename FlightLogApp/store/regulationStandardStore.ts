@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '../db/flights';
 
-export type RegulationStandard = 'easa' | 'faa';
+// UK CAA speglar EASA FCL — 'caa' behandlas som EASA i alla konsumenter (export,
+// progresskartor) men sparas som eget värde så valet bevaras.
+export type RegulationStandard = 'easa' | 'faa' | 'caa';
 
 interface RegulationStandardStore {
   standard: RegulationStandard;
@@ -15,7 +17,7 @@ export const useRegulationStandardStore = create<RegulationStandardStore>((set) 
   loaded: false,
   load: async () => {
     const v = await getSetting('regulation_standard');
-    const next: RegulationStandard = v === 'faa' ? 'faa' : 'easa';
+    const next: RegulationStandard = v === 'faa' ? 'faa' : v === 'caa' ? 'caa' : 'easa';
     set({ standard: next, loaded: true });
   },
   setStandard: async (s) => {

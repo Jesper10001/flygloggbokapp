@@ -202,7 +202,7 @@ async function getHourTotals(): Promise<Record<string, number>> {
 }
 
 function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl, standard = 'easa' }: {
-  title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean; standard?: 'easa' | 'faa';
+  title: string; subtitle: string; reqs: { label: string; key: string; required: number }[]; totals: Record<string, number>; rates: Record<string, number>; isCpl?: boolean; standard?: 'easa' | 'faa' | 'caa';
 }) {
   const [showHelp, setShowHelp] = useState(false);
   const [completionDate, setCompletionDate] = useState<string | null>(null);
@@ -282,7 +282,7 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl, standard = 
     }}>
       <View>
         <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-          {standard === 'faa' ? 'FAA' : 'EASA'} · PREMIUM
+          {standard === 'faa' ? 'FAA' : standard === 'caa' ? 'CAA' : 'EASA'} · PREMIUM
         </Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, fontFamily: 'Georgia' }}>
@@ -454,13 +454,15 @@ function LockedOverlay() {
   );
 }
 
-export function EASAProgressCharts({ standard = 'easa' }: { standard?: 'easa' | 'faa' }) {
+export function EASAProgressCharts({ standard = 'easa', forceUnlock = false }: { standard?: 'easa' | 'faa' | 'caa'; forceUnlock?: boolean }) {
   const [totals, setTotals] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const flightCount = useFlightStore(s => s.flightCount);
   const isPremium = useFlightStore(s => s.isPremium);
+  // Wrapped-genomgången visar allt upplåst (forceUnlock) som teaser.
+  const unlocked = isPremium || forceUnlock;
   const profile = useProfileStore(s => s.profile);
   const cardWidth = Dimensions.get('window').width - 24;
 
@@ -499,7 +501,7 @@ export function EASAProgressCharts({ standard = 'easa' }: { standard?: 'easa' | 
     atplTitle = `ATPL${suffix} Requirements`;
   }
 
-  const displayTotals = isPremium ? totals : {};
+  const displayTotals = unlocked ? totals : {};
 
   const cards = [
     { title: pplTitle, subtitle: `${pplRef} — Minimum flight experience`, reqs: pplReqs, isCpl: true },
@@ -524,18 +526,18 @@ export function EASAProgressCharts({ standard = 'easa' }: { standard?: 'easa' | 
       >
         {cards.map((card, i) => (
           <View key={i} style={{ width: cardWidth, position: 'relative' }}>
-            <View style={!isPremium ? { opacity: 0.25 } : undefined}>
+            <View style={!unlocked ? { opacity: 0.25 } : undefined}>
               <ProgressCard
                 title={card.title}
                 subtitle={card.subtitle}
                 reqs={card.reqs}
                 totals={displayTotals}
-                rates={isPremium ? rates : {}}
+                rates={unlocked ? rates : {}}
                 isCpl={card.isCpl}
                 standard={standard}
               />
             </View>
-            {!isPremium && <LockedOverlay />}
+            {!unlocked && <LockedOverlay />}
           </View>
         ))}
       </ScrollView>

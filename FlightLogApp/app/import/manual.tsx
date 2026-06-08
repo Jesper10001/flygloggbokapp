@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
@@ -511,6 +511,7 @@ export default function ManualExperienceScreen() {
 
   const readyBlocks = blocks.filter(blockHasData);
 
+  const savingRef = useRef(false);
   const saveAll = async () => {
     if (!readyBlocks.length) {
       Alert.alert(t('nothing_to_save'), t('enter_flight_time'));
@@ -534,6 +535,9 @@ export default function ManualExperienceScreen() {
     }
     setAcTimeErrors(new Set());
     setAcOverflow(false);
+    // Synkron spärr mot dubbeltryck (state-`disabled` hinner inte ritas om).
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     let saved = 0;
     try {
@@ -589,14 +593,20 @@ export default function ManualExperienceScreen() {
       const acNames = aircraft.filter(a => a.type.trim()).map(a => a.type.toUpperCase());
 
       await Promise.all([loadFlights(), loadStats()]);
-      Alert.alert(
-        t('done_exclamation'),
-        `${saved} ${t('block_saved')}${acNames.length ? `\n${acNames.join(', ')} ${t('registered')}` : ''}`,
-        [{ text: 'OK', onPress: () => router.back() }],
-      );
+      // Importen klar → visa Wrapped (egen route) istället för en alert.
+      if (useFlightStore.getState().flightCount > 0) {
+        router.replace('/wrapped');
+      } else {
+        Alert.alert(
+          t('done_exclamation'),
+          `${saved} ${t('block_saved')}${acNames.length ? `\n${acNames.join(', ')} ${t('registered')}` : ''}`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      }
     } catch (e: any) {
       Alert.alert(t('fel'), e.message);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

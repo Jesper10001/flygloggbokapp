@@ -505,8 +505,12 @@ export default function ImportScreen() {
     }
   };
 
+  const savingRef = useRef(false);
   const saveAll = async () => {
-    if (!result) return;
+    // Synkron spärr: hindrar att snabba dubbeltryck startar två sparningar
+    // (state-baserad `disabled` hinner inte ritas om i tid → dubbla inserts).
+    if (!result || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     let saved = 0;
     try {
@@ -537,12 +541,18 @@ export default function ImportScreen() {
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
-      Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}`, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      // Importen klar → visa Wrapped-genomgången (egen route) istället för alert.
+      if (useFlightStore.getState().flightCount > 0) {
+        router.replace('/wrapped');
+      } else {
+        Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}`, [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
     } catch (e: any) {
       Alert.alert(t('save_error'), e.message);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

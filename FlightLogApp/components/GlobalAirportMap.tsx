@@ -1,7 +1,6 @@
 // Global flygplatskarta med level-of-detail-klustring (Apple Maps via
 // react-native-maps). Zoomnivån (region.latitudeDelta) avgör vad som visas:
-//   utzoomad   → en bubbla per KONTINENT med antal
-//   mellan     → en FLAGG-pin per LAND med antal
+//   utzoomad   → en FLAGG-pin per LAND med antal
 //   inzoomad   → enskilda blå PLUPPAR (viewport-filtrerat)
 //   mer inzoom → pluppar + ICAO-etikett
 //
@@ -11,7 +10,7 @@ import { useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { Colors } from '../constants/colors';
-import { continentForCountry, flagEmoji, type Continent } from '../constants/continents';
+import { flagEmoji } from '../constants/continents';
 
 export type SeedRow = [string, string, string, string, number, number]; // icao,name,country,region,lat,lon
 
@@ -23,32 +22,24 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(INITIAL);
 
-  // Aggregat per land + kontinent (centroid + antal) — beräknas en gång.
-  const { byCountry, byContinent } = useMemo(() => {
+  // Aggregat per land (centroid + antal) — beräknas en gång.
+  const byCountry = useMemo(() => {
     const ctry = new Map<string, { latSum: number; lonSum: number; count: number }>();
-    const cont = new Map<Continent, { latSum: number; lonSum: number; count: number }>();
     for (const a of airports) {
       const lat = a[4], lon = a[5];
       if (!isFinite(lat) || !isFinite(lon)) continue;
       const cc = (a[2] || '').toUpperCase();
       const c = ctry.get(cc) ?? { latSum: 0, lonSum: 0, count: 0 };
       c.latSum += lat; c.lonSum += lon; c.count++; ctry.set(cc, c);
-      const ct = continentForCountry(cc);
-      if (ct) {
-        const k = cont.get(ct) ?? { latSum: 0, lonSum: 0, count: 0 };
-        k.latSum += lat; k.lonSum += lon; k.count++; cont.set(ct, k);
-      }
     }
-    const byCountry = [...ctry.entries()].map(([cc, v]) => ({ cc, lat: v.latSum / v.count, lon: v.lonSum / v.count, count: v.count }));
-    const byContinent = [...cont.entries()].map(([name, v]) => ({ name, lat: v.latSum / v.count, lon: v.lonSum / v.count, count: v.count }));
-    return { byCountry, byContinent };
+    return [...ctry.entries()].map(([cc, v]) => ({ cc, lat: v.latSum / v.count, lon: v.lonSum / v.count, count: v.count }));
   }, [airports]);
 
   const delta = region.latitudeDelta;
   // Klustra länder längre in (delta>3.5) så pluppar bara dyker upp när vyn är
   // liten nog att hålla få markörer → undviker Apple Maps-krasch.
-  const level: 'continent' | 'country' | 'dots' | 'labels' =
-    delta > 45 ? 'continent' : delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
+  const level: 'country' | 'dots' | 'labels' =
+    delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
 
   // Viewport-filtrerade enskilda flygplatser (bara på plupp-nivåerna).
   const dots = useMemo(() => {
@@ -84,21 +75,6 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
       showsCompass={false}
       toolbarEnabled={false}
     >
-      {level === 'continent' && byContinent.map((c) => (
-        <Marker
-          key={`cont-${c.name}`}
-          coordinate={{ latitude: c.lat, longitude: c.lon }}
-          onPress={() => zoomTo(c.lat, c.lon, 28)}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-        >
-          <View style={s.contWrap}>
-            <View style={s.contBubble}><Text style={s.contCount}>{c.count}</Text></View>
-            <Text style={s.contName}>{c.name}</Text>
-          </View>
-        </Marker>
-      ))}
-
       {level === 'country' && byCountry.map((c) => (
         <Marker
           key={`ctry-${c.cc}`}
@@ -146,18 +122,6 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
 }
 
 const s = StyleSheet.create({
-  contWrap: { alignItems: 'center' },
-  contBubble: {
-    width: 50, height: 50, borderRadius: 25,
-    backgroundColor: Colors.primary, borderWidth: 2.5, borderColor: '#FFFFFF',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
-  },
-  contCount: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  contName: {
-    color: '#FFFFFF', fontSize: 10, fontWeight: '700', marginTop: 3,
-    backgroundColor: 'rgba(15,22,38,0.85)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden',
-  },
   flagPin: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 13,

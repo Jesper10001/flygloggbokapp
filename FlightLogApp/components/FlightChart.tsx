@@ -84,9 +84,10 @@ function makeStyles() {
   });
 }
 
-export function FlightChart() {
+export function FlightChart({ accent }: { accent?: string } = {}) {
   const styles = makeStyles();
   const { t } = useTranslation();
+  const acc = accent ?? Colors.primary;
   const [data, setData] = useState<{ year: number; month: number; hours: number }[]>([]);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -144,7 +145,7 @@ export function FlightChart() {
         </Text>
       </View>
       <View style={styles.legend}>
-        <View style={[styles.dot, { backgroundColor: Colors.primary }]} />
+        <View style={[styles.dot, { backgroundColor: acc }]} />
         <Text style={styles.legendText}>{curYear}</Text>
         <View style={[styles.dot, { backgroundColor: Colors.textMuted, marginLeft: 10 }]} />
         <Text style={styles.legendText}>{prevYear}</Text>
@@ -191,13 +192,13 @@ export function FlightChart() {
                     style={[
                       styles.bar,
                       styles.barCur,
-                      { height: Math.max((m.cur / maxH) * BAR_MAX, 3), zIndex: 2 },
+                      { height: Math.max((m.cur / maxH) * BAR_MAX, 3), zIndex: 2, backgroundColor: acc },
                     ]}
                   />
                 )}
                 {m.cur === 0 && m.prev === 0 && <View style={styles.barEmpty} />}
               </View>
-              <Text style={[styles.label, i === now.getMonth() && styles.labelActive]}>
+              <Text style={[styles.label, i === now.getMonth() && [styles.labelActive, { color: acc }]]}>
                 {m.label}
               </Text>
             </View>
