@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { pickImportFile, importFromFile, type ImportResult } from '../../services/import';
 import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
+import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
@@ -541,9 +542,16 @@ export default function ImportScreen() {
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
-      // Importen klar → visa Wrapped-genomgången (egen route) istället för alert.
-      if (useFlightStore.getState().flightCount > 0) {
-        router.replace('/wrapped');
+      // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.
+      if (await shouldOpenWrapped()) {
+        await markWrappedUnlocked();
+        const sv = t('yes') === 'Ja';
+        Alert.alert(
+          t('done_exclamation'),
+          sv ? `${saved} ${t('flights_imported')}\n\nDin Wrapped är redo — utforska den i Inställningar.`
+             : `${saved} ${t('flights_imported')}\n\nYour Wrapped is ready — explore it in Settings.`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
       } else {
         Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}`, [
           { text: 'OK', onPress: () => router.back() },

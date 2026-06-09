@@ -166,7 +166,28 @@ function forecastDate(remaining: number, ratePerMonth: number): string | null {
   return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-async function getHourTotals(): Promise<Record<string, number>> {
+// Returnerar de tre licens-stegen för rätt kategori (helikopter/flygplan via
+// subRole) och regelverk (EASA/FAA/CAA) — samma tabeller som progresskartan.
+// CAA speglar EASA. Återanvänds av Wrapped.
+export type WLicenceSet = { code: string; reqs: { label: string; key: string; required: number }[] };
+export function licenceSetFor(subRole: string | undefined, standard: 'easa' | 'faa' | 'caa'): { ppl: WLicenceSet; cpl: WLicenceSet; atpl: WLicenceSet } {
+  const isRotary = subRole === 'rotary';
+  if (standard === 'faa') {
+    return {
+      ppl: { code: isRotary ? 'PPL(H)' : 'PPL', reqs: isRotary ? FAA_PPL_H : FAA_PPL_A },
+      cpl: { code: isRotary ? 'CPL(H)' : 'CPL', reqs: isRotary ? FAA_CPL_H : FAA_CPL_A },
+      atpl: { code: 'ATPL', reqs: FAA_ATPL },
+    };
+  }
+  const sfx = isRotary ? '(H)' : '(A)';
+  return {
+    ppl: { code: `PPL${sfx}`, reqs: isRotary ? PPL_H : PPL_A },
+    cpl: { code: `CPL${sfx}`, reqs: isRotary ? CPL_H : CPL_A },
+    atpl: { code: `ATPL${sfx}`, reqs: isRotary ? ATPL_H : ATPL_A },
+  };
+}
+
+export async function getHourTotals(): Promise<Record<string, number>> {
   const db = await getDatabase();
   const r = await db.getFirstAsync<any>(
     `SELECT

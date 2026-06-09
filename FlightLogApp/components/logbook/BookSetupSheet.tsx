@@ -86,6 +86,36 @@ export function BookSetupSheet({
     return s.length ? s[s.length - 1] : null;
   }, [flights]);
 
+  // Har användaren redan loggat flygerfarenhet (CSV-import/skanning/manuellt)?
+  // Då ersätts ingående balans av en bekräftelse istället för inmatning.
+  const hasExperience = flights.length > 0;
+  // Visa bekräftelse-frågan vid skapande när det redan finns loggad erfarenhet —
+  // men INTE vid carry-forward (då är förifylld ingående balans avsiktlig).
+  const showConfirm = mode === 'create' && hasExperience && !carryOpeningBalance;
+  const oldestFlight = useMemo(() => {
+    const srt = sortFlightsChrono(flights);
+    return srt.length ? srt[0] : null;
+  }, [flights]);
+  const [balanceMode, setBalanceMode] = useState<'confirm' | 'logged' | 'manual'>('confirm');
+
+  const balanceInputs = (
+    <View style={{ gap: 8, marginTop: 10 }}>
+      {balCols.map((c) => (
+        <View key={c.id} style={s.balRow}>
+          <Text style={s.balLabel}>{c.group ? `${c.group} · ${c.label}` : c.label}</Text>
+          <TextInput
+            style={s.balInput}
+            value={bal[c.flightKey!] ?? ''}
+            onChangeText={(v) => setBal((p) => ({ ...p, [c.flightKey!]: v }))}
+            keyboardType={c.format === 'int' ? 'number-pad' : (timeFormat === 'decimal' ? 'decimal-pad' : 'numbers-and-punctuation')}
+            placeholder={c.format === 'int' ? '0' : (timeFormat === 'decimal' ? '0.0' : '0:00')}
+            placeholderTextColor={Colors.textMuted}
+          />
+        </View>
+      ))}
+    </View>
+  );
+
   const chooseTemplate = (id: string) => {
     setTemplateId(id);
     // matcha rader mot vald mall om användaren inte avvikit
@@ -99,18 +129,21 @@ export function BookSetupSheet({
     const ap = anchorPage.trim() ? Math.max(fp, parseInt(anchorPage, 10) || 0) : 0;
     const ar = anchorRow.trim() ? Math.max(1, Math.min(rs, parseInt(anchorRow, 10) || 0)) : 0;
 
-    // ingående balans → ColumnTotals
+    // ingående balans → ColumnTotals (hoppas över om användaren bekräftat att
+    // all flygerfarenhet redan är loggad).
     const balance: ColumnTotals = {};
-    for (const c of balCols) {
-      const raw = (bal[c.flightKey!] ?? '').trim();
-      if (!raw) continue;
-      if (c.format === 'int') {
-        const n = parseInt(raw, 10);
-        if (!isNaN(n) && n > 0) balance[c.flightKey!] = n;
-      } else {
-        const n = parseTimeInput(raw, timeFormat);
-        if (n === null) { Alert.alert(t('error'), `${c.label}: ${t('dlb_invalid_time')}`); return; }
-        if (n > 0) balance[c.flightKey!] = n;
+    if (!showConfirm || balanceMode === 'manual') {
+      for (const c of balCols) {
+        const raw = (bal[c.flightKey!] ?? '').trim();
+        if (!raw) continue;
+        if (c.format === 'int') {
+          const n = parseInt(raw, 10);
+          if (!isNaN(n) && n > 0) balance[c.flightKey!] = n;
+        } else {
+          const n = parseTimeInput(raw, timeFormat);
+          if (n === null) { Alert.alert(t('error'), `${c.label}: ${t('dlb_invalid_time')}`); return; }
+          if (n > 0) balance[c.flightKey!] = n;
+        }
       }
     }
 
@@ -204,25 +237,56 @@ export function BookSetupSheet({
           </View>
         </View>
 
-        {/* Ingående balans */}
+        {/* Ingående balans / bekräfta loggad erfarenhet */}
         <View style={s.divider} />
-        <Text style={s.section}>{t('dlb_opening_balance')}</Text>
-        <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
-        <View style={{ gap: 8, marginTop: 10 }}>
-          {balCols.map((c) => (
-            <View key={c.id} style={s.balRow}>
-              <Text style={s.balLabel}>{c.group ? `${c.group} · ${c.label}` : c.label}</Text>
-              <TextInput
-                style={s.balInput}
-                value={bal[c.flightKey!] ?? ''}
-                onChangeText={(v) => setBal((p) => ({ ...p, [c.flightKey!]: v }))}
-                keyboardType={c.format === 'int' ? 'number-pad' : (timeFormat === 'decimal' ? 'decimal-pad' : 'numbers-and-punctuation')}
-                placeholder={c.format === 'int' ? '0' : (timeFormat === 'decimal' ? '0.0' : '0:00')}
-                placeholderTextColor={Colors.textMuted}
-              />
+        {!showConfirm ? (
+          // Ingen tidigare erfarenhet → vanlig ingående balans.
+          <>
+            <Text style={s.section}>{t('dlb_opening_balance')}</Text>
+            <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
+            {balanceInputs}
+          </>
+        ) : balanceMode === 'confirm' ? (
+          <>
+            <Text style={s.section}>{sv ? 'Bekräfta att all din flygerfarenhet redan är loggad?' : 'Confirm all your flight experience already logged?'}</Text>
+            <View style={s.confirmRow}>
+              <TouchableOpacity style={[s.confirmBtn, s.confirmYes]} onPress={() => setBalanceMode('logged')} activeOpacity={0.85}>
+                <Text style={s.confirmYesTxt}>{t('yes')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.confirmBtn, s.confirmNo]} onPress={() => setBalanceMode('manual')} activeOpacity={0.85}>
+                <Text style={s.confirmNoTxt}>{t('no')}</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-        </View>
+          </>
+        ) : balanceMode === 'logged' ? (
+          <>
+            <Text style={s.section}>{sv ? 'All flygerfarenhet loggad' : 'All flight experience logged'}</Text>
+            <TouchableOpacity style={s.backRow} onPress={() => setBalanceMode('confirm')} hitSlop={8} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={16} color={Colors.textMuted} />
+              <Text style={s.backTxt}>{sv ? 'Tillbaka' : 'Back'}</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // NO → ingående balans + tydlig markering av äldsta flygningen.
+          <>
+            <Text style={s.section}>{t('dlb_opening_balance')}</Text>
+            <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
+            {oldestFlight && (
+              <View style={s.oldestCard}>
+                <Text style={s.oldestLabel}>{sv ? 'DIN ÄLDSTA LOGGADE FLYGNING' : 'YOUR OLDEST LOGGED FLIGHT'}</Text>
+                <Text style={s.oldestRoute}>{(oldestFlight.dep_place || '—')} → {(oldestFlight.arr_place || '—')}</Text>
+                <Text style={s.oldestMeta}>
+                  {oldestFlight.date}
+                  {oldestFlight.aircraft_type ? ` · ${oldestFlight.aircraft_type}` : ''}
+                  {oldestFlight.registration ? ` · ${oldestFlight.registration}` : ''}
+                  {` · ${formatTimeValue(oldestFlight.total_time ?? 0, timeFormat)}`}
+                </Text>
+                <Text style={s.hint}>{sv ? 'Lägg bara in timmar FÖRE denna flygning.' : 'Only enter hours from BEFORE this flight.'}</Text>
+              </View>
+            )}
+            {balanceInputs}
+          </>
+        )}
       </ScrollView>
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
@@ -266,4 +330,17 @@ const s = StyleSheet.create({
   tplName: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15, marginTop: 12 },
   saveTxt: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
+
+  confirmRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  confirmBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 12, borderWidth: 1.5 },
+  confirmYes: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  confirmYesTxt: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
+  confirmNo: { backgroundColor: 'transparent', borderColor: Colors.cardBorder },
+  confirmNoTxt: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, alignSelf: 'flex-start' },
+  backTxt: { color: Colors.textMuted, fontSize: 13, fontWeight: '600' },
+  oldestCard: { backgroundColor: Colors.elevated, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 12, marginTop: 10, gap: 3 },
+  oldestLabel: { color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  oldestRoute: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  oldestMeta: { color: Colors.textSecondary, fontSize: 12.5 },
 });

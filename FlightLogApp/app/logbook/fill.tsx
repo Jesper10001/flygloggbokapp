@@ -66,6 +66,12 @@ export default function FillScreen() {
       setPilotName([fn, ln].filter(Boolean).join(' '));
       setSignature(parseJson<SignatureData | null>(sg ?? undefined, null));
       const bks = await listDigitalBooks();
+      if (bks.length === 0) {
+        // Ingen bok ännu → skicka till välkomst/Intro (stående) istället för en
+        // tom liggande ifyllnadsvy.
+        router.replace('/logbook');
+        return;
+      }
       setBooks(bks);
       setBook(bks.find((b) => b.is_active === 1) ?? bks[bks.length - 1] ?? null);
       await loadFlights();
@@ -74,9 +80,14 @@ export default function FillScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Lås liggande först när en bok faktiskt visas — annars omdirigeras vi till
+  // /logbook (stående) och vill inte blinka till liggande.
   useEffect(() => {
-    const task = ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); void task; };
+    if (!book) return;
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+  }, [book]);
+  useEffect(() => () => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
   }, []);
 
   const template = useMemo(() => {

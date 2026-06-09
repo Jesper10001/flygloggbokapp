@@ -17,6 +17,7 @@ import { saveLearnedMapping, buildContextHint } from '../../db/ocrLearned';
 import * as Haptics from 'expo-haptics';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import { useFlightStore } from '../../store/flightStore';
+import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { validatePageTotals } from '../../utils/validation';
@@ -1859,15 +1860,18 @@ export default function ReviewScreen() {
       // Importen klar → visa Wrapped (egen route) istället för en alert. Endast
       // när vi kom hit från import-skanningen (imp=1), inte dashboardens
       // enskilda foto-OCR.
-      const showWrapped = params.imp === '1' && useFlightStore.getState().flightCount > 0;
+      const showWrapped = params.imp === '1' && (await shouldOpenWrapped());
+      const baseMsg = `${saved} ${t('flights_saved')}${skipped > 0 ? ` . ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` . ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`;
       if (showWrapped) {
-        router.replace('/wrapped');
-      } else {
+        await markWrappedUnlocked();
+        const sv = t('yes') === 'Ja';
         Alert.alert(
           t('done_exclamation'),
-          `${saved} ${t('flights_saved')}${skipped > 0 ? ` . ${skipped} ${t('skipped')}` : ''}${duplicates > 0 ? ` . ${duplicates} ${t('duplicates_skipped')}` : ''}${bookNote}`,
+          `${baseMsg}\n\n${sv ? 'Din Wrapped är redo — utforska den i Inställningar.' : 'Your Wrapped is ready — explore it in Settings.'}`,
           [{ text: 'OK', onPress: () => router.dismissAll() }]
         );
+      } else {
+        Alert.alert(t('done_exclamation'), baseMsg, [{ text: 'OK', onPress: () => router.dismissAll() }]);
       }
     } finally {
       savingRef.current = false;

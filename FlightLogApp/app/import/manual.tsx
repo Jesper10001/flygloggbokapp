@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { insertFlight, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
+import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
@@ -593,9 +594,16 @@ export default function ManualExperienceScreen() {
       const acNames = aircraft.filter(a => a.type.trim()).map(a => a.type.toUpperCase());
 
       await Promise.all([loadFlights(), loadStats()]);
-      // Importen klar → visa Wrapped (egen route) istället för en alert.
-      if (useFlightStore.getState().flightCount > 0) {
-        router.replace('/wrapped');
+      // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.
+      if (await shouldOpenWrapped()) {
+        await markWrappedUnlocked();
+        const sv = t('yes') === 'Ja';
+        const acLine = acNames.length ? `\n${acNames.join(', ')} ${t('registered')}` : '';
+        Alert.alert(
+          t('done_exclamation'),
+          `${saved} ${t('block_saved')}${acLine}\n\n${sv ? 'Din Wrapped är redo — utforska den i Inställningar.' : 'Your Wrapped is ready — explore it in Settings.'}`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
       } else {
         Alert.alert(
           t('done_exclamation'),

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
   Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { exportToCSV, exportOperatorCSV } from '../../services/export';
@@ -209,6 +210,7 @@ export default function SettingsScreen() {
   const [certCount, setCertCount] = useState(0);
   const [certLabels, setCertLabels] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
+  const [wrappedUnlocked, setWrappedUnlocked] = useState(false);
 
   useFocusEffect(useCallback(() => {
     useRegulationStandardStore.getState().load();
@@ -239,6 +241,7 @@ export default function SettingsScreen() {
           setAdditionalProfiles([]);
         }
       }
+      setWrappedUnlocked((await getSetting('wrapped_unlocked')) === '1');
     })();
   }, []));
 
@@ -480,6 +483,33 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── B. Wrapped (låses upp efter import; endast bemannad pilot) ── */}
+      {profile?.mainRole === 'pilot-manned' && wrappedUnlocked && (
+        <View style={{ paddingHorizontal: 20, paddingVertical: 6 }}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/wrapped')}>
+            <LinearGradient
+              colors={[Colors.primary + '2E', Colors.card, Colors.card]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: 18, borderWidth: 1, borderColor: Colors.primary + '66',
+                paddingVertical: 18, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden',
+              }}
+            >
+              <Image source={require('../../assets/blades-mark.png')} style={{ width: 38, height: 40 }} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'Fraunces', fontSize: 18, fontWeight: '600', color: Colors.textPrimary, letterSpacing: 0.3 }}>
+                  Logbook Wrapped
+                </Text>
+                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 2.5, color: Colors.primary, marginTop: 5 }}>
+                  YOUR YEAR, READ BACK ›
+                </Text>
+              </View>
+              <Ionicons name="sparkles" size={18} color={Colors.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
 
 {/* ── C. Loggbok ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>

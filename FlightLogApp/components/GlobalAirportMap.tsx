@@ -18,9 +18,12 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
 // ICAO-etiketter = egna vyer (tunga) → bara få på närmsta zoomen.
 
-export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
+// initialRegion: ramar in en specifik vy (t.ex. en pilots besökta flygplatser i
+// Wrapped). interactive=false låser gesterna (svep i Wrapped-storyn ska bläddra,
+// inte panorera kartan).
+export function GlobalAirportMap({ airports, initialRegion, interactive = true }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean }) {
   const mapRef = useRef<MapView>(null);
-  const [region, setRegion] = useState<Region>(INITIAL);
+  const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
 
   // Aggregat per land (centroid + antal) — beräknas en gång.
   const byCountry = useMemo(() => {
@@ -66,9 +69,11 @@ export function GlobalAirportMap({ airports }: { airports: SeedRow[] }) {
     <MapView
       ref={mapRef}
       style={{ flex: 1 }}
-      initialRegion={INITIAL}
+      initialRegion={initialRegion ?? INITIAL}
       onRegionChangeComplete={setRegion}
       userInterfaceStyle="dark"
+      scrollEnabled={interactive}
+      zoomEnabled={interactive}
       rotateEnabled={false}
       pitchEnabled={false}
       showsPointsOfInterest={false}

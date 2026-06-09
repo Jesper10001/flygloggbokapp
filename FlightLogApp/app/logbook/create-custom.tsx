@@ -3,7 +3,7 @@
 // bekräftar/justerar användaren mappning, sida och rader. Sparas som en
 // LogbookTemplate som dyker upp i bok-galleriet OCH används som OCR-layout.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
   ActivityIndicator, Modal, Platform,
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { LogbookColumn, LogbookTemplate } from '../../constants/logbookTemplates';
@@ -51,6 +52,11 @@ export default function CreateCustomLogbook() {
   const { t } = useTranslation();
   const router = useRouter();
   const sv = t('yes') === 'Ja';
+
+  // Att skapa en custom logbook sker i stående (bara den faktiska boken är liggande).
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
 
   const [busy, setBusy] = useState(false);
   const [detected, setDetected] = useState(false);

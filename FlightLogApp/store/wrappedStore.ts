@@ -1,5 +1,23 @@
 import { create } from 'zustand';
-import { getFlightCount } from '../db/flights';
+import { getFlightCount, setSetting } from '../db/flights';
+import { useProfileStore } from './profileStore';
+
+// Wrapped är BARA för bemannad pilot (helikopter/flygplan). Operatörer och
+// drönaroperatörer får istället en vanlig "X flygningar importerade"-bekräftelse.
+export async function shouldOpenWrapped(): Promise<boolean> {
+  try {
+    if (useProfileStore.getState().profile?.mainRole !== 'pilot-manned') return false;
+    return (await getFlightCount()) > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Låser upp Wrapped-knappen i Inställningar — sätts när en import är klar (för
+// en bemannad pilot). Wrapped launchas inte längre direkt; den nås via knappen.
+export async function markWrappedUnlocked(): Promise<void> {
+  try { await setSetting('wrapped_unlocked', '1'); } catch { /* noop */ }
+}
 
 // Styr "Wrapped"-genomgången (Spotify-Wrapped-stil) som visas efter en import
 // (CSV/skanning/manuell), oavsett om den startats under onboarding eller senare
