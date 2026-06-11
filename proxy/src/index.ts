@@ -9,6 +9,12 @@ interface Env {
   STATS_PASSWORD: string;
 }
 
+// ── HUVUDBRYTARE FÖR SERVER-KVOTER ───────────────────────────────────────────
+// false = INGA gränser: proxyn släpper igenom alla anrop och räknar ingen
+// förbrukning. Sätt till `true` för att slå på kvoterna igen (limits nedan).
+// OBS: ändringen blir live först efter `npx wrangler deploy` i proxy/.
+const QUOTAS_ENABLED = false;
+
 // ── Quota limits per device per month ────────────────────────────────────────
 
 const FREE_LIMITS: Record<string, number> = {
@@ -78,6 +84,7 @@ function detectRequestType(body: string): string | null {
 async function checkAndIncrementQuota(
   kv: KVNamespace, deviceHash: string, reqType: string, tier: string
 ): Promise<{ allowed: boolean; used: number; limit: number }> {
+  if (!QUOTAS_ENABLED) return { allowed: true, used: 0, limit: 0 };
   const limits = tier === 'max' ? MAX_LIMITS : tier === 'premium' ? PREMIUM_LIMITS : FREE_LIMITS;
   const limit = limits[reqType];
   if (!limit) return { allowed: true, used: 0, limit: 0 };

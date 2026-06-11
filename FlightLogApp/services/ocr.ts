@@ -9,6 +9,7 @@ import { layoutFromTemplate, buildLayoutContext, buildSideLayoutContext, type Lo
 import { buildScanVocab } from './scanVocab';
 import { validateAgainstVocab } from './scanValidate';
 import { mergeSpreadParsed } from './spreadMerge';
+import { reconcileBlockTime } from '../utils/flightTime';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 
@@ -16,10 +17,14 @@ import * as ImageManipulator from 'expo-image-manipulator';
 // Tills dess används icke-streamande tool-use (kräver ingen proxy-ändring).
 const OCR_USE_STREAM = process.env.EXPO_PUBLIC_OCR_STREAM === '1';
 
-// M4 rygg-delning: AV som standard. Blind delning vid bredd-% kräver att bilden
-// är ett rakt, väl beskuret liggande uppslag — skeva/roterade foton blir sämre.
-// Slå på (EXPO_PUBLIC_OCR_SPLIT=1) först när capture ger ren orientering + beskärning.
-const OCR_SPLIT_SPREAD = process.env.EXPO_PUBLIC_OCR_SPLIT === '1';
+// M4 rygg-delning: PÅ som standard (Fas 0). Läser en sida per anrop → lägre
+// glyf-densitet och högre upplösning per glyf. Guards i splitSpread() skyddar mot
+// skeva/lågupplösta foton, och merge-osäkerhet faller tillbaka på hela uppslaget.
+// Stäng av med EXPO_PUBLIC_OCR_SPLIT=0. (Full nytta + säkerhet kommer med Fas 1: dewarp-capture.)
+const OCR_SPLIT_SPREAD = process.env.EXPO_PUBLIC_OCR_SPLIT !== '0';
+
+// Fas 0: Claude Opus som primär OCR-läsare (kvalitet före kostnad). Byt här för att revertera.
+const OCR_MODEL = 'claude-opus-4-8';
 
 // JSON-schema för OCR-verktyget. Alla fält valfria → modellen utelämnar tomma.
 // Fältnamnen matchar det parseOcrResponse() redan läser, så inget annat behöver ändras.
@@ -617,6 +622,8 @@ async function splitSpread(base64: string, leftFraction: number): Promise<{ left
     // Dela bara ett tydligt LIGGANDE uppslag. Är bilden ~kvadratisk/stående är den
     // troligen roterad/fel beskuren → delning vid bredd-% blir meningslös.
     if (W < H * 1.3) return null;
+    // Härdning: kräv tillräcklig upplösning så varje halva blir användbar (>~800px).
+    if (W < 1600) return null;
     const cut = Math.max(1, Math.min(W - 1, Math.round(W * leftFraction)));
     const opts = { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true };
     const left = await ImageManipulator.manipulateAsync(tmp, [{ crop: { originX: 0, originY: 0, width: cut, height: H } }], opts);
@@ -633,6 +640,7 @@ async function splitSpread(base64: string, leftFraction: number): Promise<{ left
 // Kör ETT tool-use-anrop för en bild + given prompt-text.
 async function runOcrCall(base64: string, mediaType: string, userText: string): Promise<any> {
   const toolOpts = {
+    model: OCR_MODEL,
     system: SYSTEM_PROMPT,
     maxTokens: 16000,
     toolName: 'emit_flights',
@@ -654,6 +662,29 @@ async function finalizeResult(result: OcrPageResult): Promise<OcrPageResult> {
     const vocab = await buildScanVocab();
     result.flights = validateAgainstVocab(result.flights, vocab);
   } catch { /* ignorera valideringsfel */ }
+
+  // Deterministisk tids-avstämning (KOD, inte modellen): total_time är ankaret.
+  // Om (ankomst − avgång) avviker > 6 min flaggas raden och time_mismatch-kandidater
+  // räknas exakt här. Hoppar sim (ingen blocktid) och rader utan giltig dep/arr.
+  result.flights = result.flights.map((f) => {
+    if (f.flight_type === 'sim') return f;
+    const anchor = parseFloat(String(f.total_time ?? '').replace(',', '.'));
+    const rec = reconcileBlockTime(f.dep_utc, f.arr_utc, anchor);
+    if (!rec) return f;                                            // dep/arr saknas/ogiltig
+    if (!rec.mismatch) return f.time_mismatch ? { ...f, time_mismatch: undefined } : f; // rensa falskt larm
+    return {
+      ...f,
+      needs_review: true,
+      review_reason: f.review_reason || 'Tid: (ankomst − avgång) ≠ total — bekräfta vilken som stämmer',
+      time_mismatch: {
+        anchor_total_h: anchor,
+        read_dep: f.dep_utc,
+        read_arr: f.arr_utc,
+        computed_dep_if_arr_correct: rec.computedDepIfArrCorrect,
+        computed_arr_if_dep_correct: rec.computedArrIfDepCorrect,
+      },
+    };
+  });
   return result;
 }
 

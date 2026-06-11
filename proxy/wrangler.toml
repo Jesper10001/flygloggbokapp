@@ -2,6 +2,13 @@ name = "blades-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# Custom domain som appen anropar (EXPO_PUBLIC_PROXY_URL=https://api.blades-app.com).
+# Kopplar den till DENNA worker så att `wrangler deploy` serverar rätt (fixade) kod
+# även på api.blades-app.com — inte bara på *.workers.dev.
+routes = [
+  { pattern = "api.blades-app.com", custom_domain = true }
+]
+
 # API-nyckeln lagras som secret — aldrig i kod eller git.
 # Sätt den med: wrangler secret put ANTHROPIC_API_KEY
 

@@ -40,6 +40,32 @@ export function blockHours(dep: Date, arr: Date): number {
   return Math.round((ms / 3600000) * 10) / 10; // decimaltimmar, 1 decimal
 }
 
+// Deterministisk tids-avstämning för OCR: total_time (ankare) vs blocktid
+// (ankomst − avgång, med midnatt-rollover). Returnerar null om dep/arr ogiltiga
+// eller ankaret saknas. mismatch = avvikelse > 6 min (≈ 0.1h). Ger även de två
+// kandidaterna: rätt ankomst om avgång stämmer, och rätt avgång om ankomst stämmer.
+export function reconcileBlockTime(depUtc: string, arrUtc: string, anchorH: number): {
+  blockH: number; mismatch: boolean; computedArrIfDepCorrect: string; computedDepIfArrCorrect: string;
+} | null {
+  if (!isValidTime(depUtc) || !isValidTime(arrUtc) || !(anchorH > 0)) return null;
+  const toMin = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+  const fmt = (min: number) => {
+    const x = ((Math.round(min) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+  };
+  const dep = toMin(depUtc);
+  let arr = toMin(arrUtc);
+  if (arr < dep) arr += 1440; // passerar midnatt
+  const blockMin = arr - dep;
+  const anchorMin = anchorH * 60;
+  return {
+    blockH: Math.round((blockMin / 60) * 10) / 10,
+    mismatch: Math.abs(blockMin - anchorMin) > 6,
+    computedArrIfDepCorrect: fmt(dep + anchorMin),
+    computedDepIfArrCorrect: fmt(arr - anchorMin),
+  };
+}
+
 // Grov lokal tid (UTC→lokal via longitud, ingen DST) — endast hjälptext.
 export function localHint(utcHHMM: string, lon: number | null | undefined): string | null {
   if (!isValidTime(utcHHMM) || lon == null || !isFinite(lon)) return null;

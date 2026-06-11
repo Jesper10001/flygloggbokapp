@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { getSetting, setSetting } from '../db/flights';
 import { useFlightStore } from './flightStore';
 
+// ── HUVUDBRYTARE FÖR API-KVOTER ──────────────────────────────────────────────
+// false = INGA gränser: alla AI-anrop (scan/summarize/lookup/import) tillåts och
+// ingen förbrukning räknas. Sätt till `true` för att slå på kvoterna igen
+// (TIER_QUOTAS nedan styr då per tier). Detta är hela på/av-spaken.
+export const QUOTAS_ENABLED = false;
+
 // ── Kvoter per tier ─────────────────────────────────────────────────────────
 // OBS: premium/max scan tillfälligt höjda för utveckling/testning.
 // Återställ till riktiga värden (premium 10, max 50) innan release.
@@ -100,49 +106,58 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   monthlyRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     return Math.max(0, TIER_QUOTAS[tier].scan - get().scansUsed);
   },
   summarizeRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     return Math.max(0, TIER_QUOTAS[tier].summarize - get().summarizeUsed);
   },
   lookupRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     return Math.max(0, TIER_QUOTAS[tier].lookup - get().lookupUsed);
   },
   importRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     return Math.max(0, TIER_QUOTAS[tier].import - get().importUsed);
   },
   flightImportRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     return Math.max(0, TIER_QUOTAS[tier].flightImport - get().flightImportUsed);
   },
 
   totalRemaining: () => {
+    if (!QUOTAS_ENABLED) return 9999;
     const { scansUsed, extraScans } = get();
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     const quota = TIER_QUOTAS[tier].scan;
     return Math.max(0, quota - scansUsed) + extraScans;
   },
 
-  canScan: () => get().totalRemaining() > 0,
+  canScan: () => !QUOTAS_ENABLED || get().totalRemaining() > 0,
   canLookup: () => {
+    if (!QUOTAS_ENABLED) return true;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     if (tier === 'premium' || tier === 'max') return true;
     return get().lookupRemaining() > 0;
   },
-  canSummarize: () => get().summarizeRemaining() > 0,
+  canSummarize: () => !QUOTAS_ENABLED || get().summarizeRemaining() > 0,
   canImport: () => {
+    if (!QUOTAS_ENABLED) return true;
     // Bypass quota check if premium (developer mode)
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     if (tier === 'premium' || tier === 'max') return true;
     return get().importRemaining() > 0;
   },
-  canFlightImport: () => get().flightImportRemaining() > 0,
+  canFlightImport: () => !QUOTAS_ENABLED || get().flightImportRemaining() > 0,
 
   consumeScan: async () => {
+    if (!QUOTAS_ENABLED) return;
     const { scansUsed, extraScans } = get();
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     const quota = TIER_QUOTAS[tier].scan;
@@ -160,6 +175,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   consumeSummarize: async () => {
+    if (!QUOTAS_ENABLED) return;
     const { summarizeUsed } = get();
     if (get().summarizeRemaining() <= 0) throw new Error('NO_SUMMARIZE_LEFT');
     const newUsed = summarizeUsed + 1;
@@ -168,6 +184,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   consumeLookup: async () => {
+    if (!QUOTAS_ENABLED) return;
     const { lookupUsed } = get();
     if (get().lookupRemaining() <= 0) throw new Error('NO_LOOKUPS_LEFT');
     const newUsed = lookupUsed + 1;
@@ -176,6 +193,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   consumeImport: async () => {
+    if (!QUOTAS_ENABLED) return;
     const tier = useFlightStore.getState().tier ?? (useFlightStore.getState().isPremium ? 'premium' : 'free');
     // Skip quota consumption for premium/developer mode
     if (tier === 'premium' || tier === 'max') return;
@@ -188,6 +206,7 @@ export const useScanQuotaStore = create<ScanQuotaState>((set, get) => ({
   },
 
   consumeFlightImport: async () => {
+    if (!QUOTAS_ENABLED) return;
     const { flightImportUsed } = get();
     if (get().flightImportRemaining() <= 0) throw new Error('NO_FLIGHT_IMPORTS_LEFT');
     const newUsed = flightImportUsed + 1;
