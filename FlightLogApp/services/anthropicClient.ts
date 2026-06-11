@@ -140,7 +140,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
       body: JSON.stringify({
         model: opts.model ?? 'claude-sonnet-4-6',
         max_tokens: opts.maxTokens,
-        temperature: opts.temperature ?? 0,
+        ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
         system: systemBlocks,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -218,6 +218,11 @@ export interface ToolCallOptions extends CallAnthropicOptions {
   toolDescription?: string;
 }
 
+// Nyare modeller (t.ex. Opus 4.8) returnerar 400 om `temperature` skickas med.
+function modelDeprecatesTemperature(model: string): boolean {
+  return /^claude-opus-4-8/.test(model);
+}
+
 /** Bygger request-body för ett tvingat verktygsanrop. */
 function buildToolBody(opts: ToolCallOptions, stream: boolean): string {
   const cacheSystem = opts.cacheSystemPrompt !== false;
@@ -230,7 +235,7 @@ function buildToolBody(opts: ToolCallOptions, stream: boolean): string {
   return JSON.stringify({
     model: opts.model ?? 'claude-sonnet-4-6',
     max_tokens: opts.maxTokens,
-    temperature: opts.temperature ?? 0,
+    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
     system: systemBlocks,
     tools: [{
       name: opts.toolName,
