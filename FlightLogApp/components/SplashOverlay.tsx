@@ -18,7 +18,7 @@ export function SplashOverlay() {
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, s.wrap, { opacity }]} pointerEvents="none">
-      <Image source={require('../assets/logo-splashscreen.PNG')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={require('../assets/logo-splashscreen.png')} style={StyleSheet.absoluteFill} resizeMode="cover" />
     </Animated.View>
   );
 }

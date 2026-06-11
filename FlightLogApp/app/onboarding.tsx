@@ -213,7 +213,7 @@ export default function OnboardingScreen() {
           {step === 'welcome' && (
             <View style={{ flex: 1, alignSelf: 'stretch' }}>
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Image source={require('../assets/logo-splashscreen.PNG')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                <Image source={require('../assets/logo-splashscreen.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
               </View>
               <View style={{ gap: 12, alignSelf: 'stretch' }}>
                 <Text style={s.langHint}>Choose your language · Välj språk</Text>

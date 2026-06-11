@@ -4,11 +4,11 @@
     "slug": "blades-joint-logbook",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/Applogo-cyanonnavy.PNG",
+    "icon": "./assets/applogo-cyanonnavy.png",
     "userInterfaceStyle": "dark",
     "scheme": "blades",
     "splash": {
-      "image": "./assets/logo-splashscreen.PNG",
+      "image": "./assets/logo-splashscreen.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Applogo-cyanonnavy.PNG",
+        "foregroundImage": "./assets/applogo-cyanonnavy.png",
         "backgroundColor": "#0A1A33"
       },
       "package": "com.blades.jointlogbook",
@@ -38,7 +38,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/Applogo-cyanonnavy.PNG"
+      "favicon": "./assets/applogo-cyanonnavy.png"
     },
     "plugins": [
       "expo-router",
