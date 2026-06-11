@@ -3,6 +3,7 @@
 // getChapters(data) returns the conditional, ordered list with per-chapter durs.
 
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   WC, SERIF, MONO, fmtInt, Rise, useReveal,
@@ -20,15 +21,15 @@ import { useLongestXcLegs, useBestWeekDetails } from '../../hooks/useMilestoneDe
 
 export interface ChapterProps { active: boolean; accent: string; data: WrappedData }
 
-const TOP = 104; // clears status bar + progress bars + brand row
-
 function WChapter({ accent, children, justify = 'center', gap = 18 }: {
   accent: string; children: React.ReactNode; justify?: 'center' | 'flex-start'; gap?: number;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={StyleSheet.absoluteFill}>
       <ChapterBG accent={accent} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 28, paddingTop: TOP, paddingBottom: 40, justifyContent: justify, gap }}>
+      {/* paddingTop rensar progress-staplar + den större loggan (responsivt mot notch) */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 28, paddingTop: insets.top + 104, paddingBottom: 40, justifyContent: justify, gap }}>
         {children}
       </View>
     </View>
@@ -92,7 +93,7 @@ function WMonthly({ active, accent, data }: ChapterProps) {
       <Rise show={useReveal(active, 350)}>
         <ChapterSub>{bm?.h ?? 0} hours in a single month — your busiest stretch of the year.</ChapterSub>
       </Rise>
-      <View style={{ marginTop: 10 }}><WMonthlyBars accent={accent} active={active} data={data.monthly} /></View>
+      <View style={{ marginTop: 28 }}><WMonthlyBars accent={accent} active={active} data={data.monthly} /></View>
     </WChapter>
   );
 }
@@ -225,7 +226,8 @@ function WDayNight({ active, accent, data }: ChapterProps) {
   const dayH = Math.max(0, Math.round((s.total_time || 0) - (s.total_night || 0)));
   const nightH = Math.round(s.total_night || 0);
   const ifrH = Math.round(s.total_ifr || 0);
-  const vfrH = Math.round(s.total_vfr || 0);
+  // VFR = all icke-IFR-tid (appens total_vfr-fält loggas sällan explicit).
+  const vfrH = Math.max(0, Math.round((s.total_time || 0) - (s.total_ifr || 0)));
   const landings = (s.total_landings_day || 0) + (s.total_landings_night || 0);
   const ifrPct = ifrH + vfrH > 0 ? Math.round((ifrH / (ifrH + vfrH)) * 100) : 0;
   return (
@@ -234,7 +236,7 @@ function WDayNight({ active, accent, data }: ChapterProps) {
       <Rise show={useReveal(active, 120)}>
         <ChapterTitle>{fmtInt(nightH)} hours flown <Text style={em(accent)}>after dark</Text>.</ChapterTitle>
       </Rise>
-      <View style={{ marginTop: 14, gap: 22 }}>
+      <View style={{ marginTop: 28, gap: 22 }}>
         <WSplitMeter accent={accent} active={active} label="Day vs Night" a={dayH} b={nightH} aLabel="Day" bLabel="Night" delay={150} />
         <WSplitMeter accent={accent} active={active} label="IFR vs VFR" a={ifrH} b={vfrH} aLabel="IFR" bLabel="VFR" delay={350} />
       </View>

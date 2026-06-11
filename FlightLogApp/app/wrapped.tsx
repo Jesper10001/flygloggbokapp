@@ -11,8 +11,14 @@ export default function WrappedScreen() {
   const role = useProfileStore((s) => s.profile?.mainRole);
 
   const handleClose = () => {
-    // Wrapped nås numera via knappen i Inställningar → gå tillbaka dit.
+    // ✕ → tillbaka dit man kom ifrån (Inställningar).
     try { router.back(); } catch { try { router.replace('/(tabs)'); } catch { /* noop */ } }
+  };
+
+  const goDashboard = () => {
+    // "Return to dashboard" på slutkortet → dashboarden.
+    try { router.dismissAll(); } catch { /* inga modaler */ }
+    try { router.replace('/(tabs)'); } catch { /* noop */ }
   };
 
   // Säkerhetsspärr: om en icke-pilot på något sätt når hit, stäng direkt.
@@ -22,5 +28,5 @@ export default function WrappedScreen() {
 
   if (role && role !== 'pilot-manned') return null;
 
-  return <WrappedStories onClose={handleClose} />;
+  return <WrappedStories onClose={handleClose} onDashboard={goDashboard} />;
 }

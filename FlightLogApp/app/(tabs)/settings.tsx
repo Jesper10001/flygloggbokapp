@@ -501,8 +501,8 @@ export default function SettingsScreen() {
                 <Text style={{ fontFamily: 'Fraunces', fontSize: 18, fontWeight: '600', color: Colors.textPrimary, letterSpacing: 0.3 }}>
                   Logbook Wrapped
                 </Text>
-                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 2.5, color: Colors.primary, marginTop: 5 }}>
-                  YOUR YEAR, READ BACK ›
+                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11.5, fontWeight: '600', letterSpacing: 0.3, color: Colors.primary, marginTop: 5 }}>
+                  Your flight history - A journey
                 </Text>
               </View>
               <Ionicons name="sparkles" size={18} color={Colors.primary} />

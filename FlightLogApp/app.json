@@ -4,7 +4,7 @@
     "slug": "blades-joint-logbook",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/applogo-cyanonnavy.png",
     "userInterfaceStyle": "dark",
     "scheme": "blades",
     "splash": {

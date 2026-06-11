@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -12,6 +12,8 @@ interface Props {
   error?: string;
   showNowBtn?: boolean;
   onSubmitEditing?: () => void;
+  align?: 'left' | 'center';
+  rightAdornment?: ReactNode;
 }
 
 function getCurrentUtc(): string {
@@ -65,7 +67,7 @@ function makeStyles() {
 export type SmartTimeInputHandle = { focus: () => void };
 
 export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function SmartTimeInput(
-  { label, value, onChangeText, error, showNowBtn = false, onSubmitEditing },
+  { label, value, onChangeText, error, showNowBtn = false, onSubmitEditing, align = 'center', rightAdornment },
   ref,
 ) {
   const styles = makeStyles();
@@ -99,25 +101,34 @@ export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function S
         </View>
       ) : null}
 
-      <TextInput
-        ref={inputRef}
-        style={[
-          styles.input,
-          focused && styles.inputFocused,
-          error ? styles.inputError : null,
-          valid && !error && styles.inputValid,
-        ]}
-        value={value}
-        onChangeText={handleChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        placeholder="08:30"
-        placeholderTextColor={Colors.textMuted}
-        keyboardType="number-pad"
-        maxLength={5}
-        returnKeyType="done"
-        onSubmitEditing={onSubmitEditing}
-      />
+      <View style={{ position: 'relative', justifyContent: 'center' }}>
+        <TextInput
+          ref={inputRef}
+          style={[
+            styles.input,
+            { textAlign: align },
+            rightAdornment ? { paddingRight: 56, paddingLeft: 12 } : null,
+            focused && styles.inputFocused,
+            error ? styles.inputError : null,
+            valid && !error && styles.inputValid,
+          ]}
+          value={value}
+          onChangeText={handleChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder="08:30"
+          placeholderTextColor={Colors.textMuted}
+          keyboardType="number-pad"
+          maxLength={5}
+          returnKeyType="done"
+          onSubmitEditing={onSubmitEditing}
+        />
+        {rightAdornment ? (
+          <View style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' }} pointerEvents="box-none">
+            {rightAdornment}
+          </View>
+        ) : null}
+      </View>
 
       {showNowBtn && (
         <TouchableOpacity

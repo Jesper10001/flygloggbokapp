@@ -15,7 +15,7 @@ import { loadWrappedData, type WrappedData } from './wrappedData';
 
 const ACCENT = WC.primary; // editorial + cyan (shipped variant)
 
-export function WrappedStories({ onClose }: { onClose: () => void }) {
+export function WrappedStories({ onClose, onDashboard }: { onClose: () => void; onDashboard?: () => void }) {
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<WrappedData | null>(null);
   const [chapters, setChapters] = useState<ChapterDef[]>([]);
@@ -99,10 +99,7 @@ export function WrappedStories({ onClose }: { onClose: () => void }) {
       {!done && <Comp key={chapter.key} active accent={ACCENT} data={data} />}
 
       {/* end card */}
-      {done && <EndCard accent={ACCENT} onRestart={restart} />}
-
-      {/* top scrim for bar/header legibility */}
-      <View style={[styles.topScrim, { height: insets.top + 70 }]} pointerEvents="none" />
+      {done && <EndCard accent={ACCENT} onRestart={restart} onDashboard={onDashboard ?? onClose} />}
 
       {!done && (
         <>
@@ -138,13 +135,13 @@ export function WrappedStories({ onClose }: { onClose: () => void }) {
   );
 }
 
-function EndCard({ accent, onRestart }: { accent: string; onRestart: () => void }) {
+function EndCard({ accent, onRestart, onDashboard }: { accent: string; onRestart: () => void; onDashboard: () => void }) {
   return (
     <View style={StyleSheet.absoluteFill}>
       <ChapterBG accent={accent} />
-      <View style={[StyleSheet.absoluteFill, styles.center, { gap: 22, padding: 28 }]}>
+      <View style={[StyleSheet.absoluteFill, styles.center, { gap: 20, padding: 28 }]}>
         <Rise show delay={100}>
-          <Image source={require('../../assets/blades-mark.png')} style={{ width: 180, height: 189 }} resizeMode="contain" />
+          <Image source={require('../../assets/cyanfloatingb.png')} style={{ width: 270, height: 284 }} resizeMode="contain" />
         </Rise>
         <Rise show delay={250}>
           <Text style={{ fontFamily: SERIF, fontSize: 38, fontWeight: '400', letterSpacing: -0.6, color: WC.text, textAlign: 'center' }}>
@@ -156,6 +153,11 @@ function EndCard({ accent, onRestart }: { accent: string; onRestart: () => void 
             <Text style={{ color: WC.text2, fontSize: 14, fontWeight: '600' }}>↺ Watch again</Text>
           </Pressable>
         </Rise>
+        <Rise show delay={540}>
+          <Pressable onPress={onDashboard} hitSlop={10} style={{ paddingVertical: 6 }}>
+            <Text style={{ color: WC.muted, fontSize: 13, fontWeight: '600', letterSpacing: 0.2 }}>Return to dashboard ›</Text>
+          </Pressable>
+        </Rise>
       </View>
     </View>
   );
@@ -164,12 +166,11 @@ function EndCard({ accent, onRestart }: { accent: string; onRestart: () => void 
 const styles = StyleSheet.create({
   root: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: WC.bgDeep, overflow: 'hidden' },
   center: { alignItems: 'center', justifyContent: 'center' },
-  topScrim: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: WC.bgDeep, opacity: 0.55, zIndex: 4 },
   bars: { position: 'absolute', left: 14, right: 14, flexDirection: 'row', gap: 4, zIndex: 6 },
   barTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 2 },
   header: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 6 },
-  lockup: { height: 40, width: 210 },
+  lockup: { height: 78, width: 117 },
   closeBtn: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   zone: { position: 'absolute', bottom: 0, zIndex: 5 },
   againBtn: { paddingVertical: 13, paddingHorizontal: 22, borderRadius: 999, borderWidth: 1, borderColor: WC.border },

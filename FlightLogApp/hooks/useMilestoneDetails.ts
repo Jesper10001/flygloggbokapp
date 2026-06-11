@@ -5,6 +5,7 @@ import { useFlightStore } from '../store/flightStore';
 import { useLanguageStore } from '../store/languageStore';
 import { decimalToHHMM } from './useTimeFormat';
 import { sunTimesUTC } from '../utils/sun';
+import { computeSunWindow, type SunSeg } from '../utils/flightTime';
 import { monthShort, monthLong, dowShort } from '../utils/dateLabels';
 import type { Flight } from '../types/flight';
 import type { RouteLeg } from '../components/milestones/MiniRouteMap';
@@ -241,6 +242,7 @@ export interface LongestXcFull {
   nightLabel: string;
   sunrise?: string;     // UTC "HH:MM" at departure (undefined = polar/unknown)
   sunset?: string;
+  sunSegments: SunSeg[]; // rutt-medveten dag/skymning/natt-profil över flygfönstret
   legs: LXLeg[];
   top5: LXTop5Row[];
 }
@@ -262,7 +264,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
     ready: false, distanceNm: 0, distanceKm: 0, durationLabel: '', dateLong: '', dateShort: '',
     routeFrom: firstDep ?? '—', routeTo: lastArr ?? '—', aircraftReg: '', aircraftType: '',
     role: '', rules: undefined, altFl: undefined, cruiseKts: undefined, blockOff: '', blockOn: '',
-    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, legs: [], top5: [],
+    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, sunSegments: [], legs: [], top5: [],
   });
 
   useEffect(() => {
@@ -350,6 +352,15 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         sunset = s.sunset ?? undefined;
       }
 
+      // Rutt-medveten sol-profil (dag/skymning/natt) över hela flygfönstret.
+      const winLegs = raw
+        .map(l => {
+          const a = cmap.get(l.dep_place), b = cmap.get(l.arr_place);
+          return a && b ? { depLat: a.lat, depLon: a.lon, arrLat: b.lat, arrLon: b.lon, depUtc: l.dep_utc, arrUtc: l.arr_utc } : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      const sunWin = winLegs.length ? computeSunWindow(winLegs, date) : null;
+
       if (alive) setData({
         ready: true,
         distanceNm: km ?? 0,
@@ -371,6 +382,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         nightLabel: decimalToHHMM(nightSum),
         sunrise,
         sunset,
+        sunSegments: sunWin?.segments ?? [],
         legs,
         top5,
       });

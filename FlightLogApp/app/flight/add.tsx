@@ -30,6 +30,10 @@ import { useLanguageStore } from '../../store/languageStore';
 import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
+import { buildInstants, computeNightHours, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
+import { solarAltitudeDeg } from '../../utils/sun';
+import { localLabel, tzAbbr, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
+import { getAirportTzInfo, getNearbyAirports } from '../../db/icao';
 import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
@@ -648,6 +652,8 @@ export default function AddFlightScreen() {
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
   const [milOps, setMilOps] = useState<Set<string>>(new Set());
+  // Senast inlagda tactical-rad i remarks — för att ersätta (ej radera allt) vid ny markering.
+  const lastMilTextRef = useRef('');
   type CrewMember = { id: string; role: string; name: string };
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
@@ -660,6 +666,15 @@ export default function AddFlightScreen() {
   const [showPremiumGate, setShowPremiumGate] = useState(false);
   const [editingTotalTime, setEditingTotalTime] = useState(false);
   const [totalTimeEditValue, setTotalTimeEditValue] = useState('');
+  // Koordinater för dep/arr (natt-uträkning + lokal tid-hint) och om natt är manuellt satt.
+  const [depLatLon, setDepLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
+  const [arrLatLon, setArrLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
+  const [nightManual, setNightManual] = useState(isEdit);
+  const [landingsManual, setLandingsManual] = useState(isEdit);
+  // Tidsinmatningsläge: lokal tid (default) eller UTC. Lagrad tid är alltid UTC.
+  const [timeMode, setTimeMode] = useState<'local' | 'utc'>('utc');
+  const [depLocalBuf, setDepLocalBuf] = useState('');
+  const [arrLocalBuf, setArrLocalBuf] = useState('');
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
   useEffect(() => {
@@ -726,6 +741,118 @@ export default function AddFlightScreen() {
       if ((f.safety_pilot ?? 0) > 0) setSafetyPilotOverlay(true);
     });
   }, [editId]);
+
+  // Slå upp koordinater för dep/arr (för natt-uträkning + lokal tid-hint).
+  useEffect(() => {
+    let alive = true;
+    const dep = form.dep_place.trim().toUpperCase();
+    const arr = form.arr_place.trim().toUpperCase();
+    const resolve = async (code: string) => {
+      if (!code || code.length < 2) return null;
+      const rows = await getAirportTzInfo([code]);
+      const row = rows.find((r) => r.icao === code) ?? rows[0];
+      if (!row) return null;
+      let country = row.country;
+      let region = row.region;
+      // Tillfälliga platser saknar ofta land/region → ta tidszon från närmaste flygplats.
+      if (!country && row.lat != null && row.lon != null) {
+        const near = await getNearbyAirports(row.lat, row.lon, 1).catch(() => []);
+        if (near[0]) { country = near[0].country; region = near[0].region; }
+      }
+      return { lat: row.lat, lon: row.lon, country: country || '', region: region || '' };
+    };
+    (async () => {
+      const [d, a] = await Promise.all([resolve(dep), resolve(arr)]);
+      if (!alive) return;
+      setDepLatLon(d);
+      setArrLatLon(a);
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, [form.dep_place, form.arr_place]);
+
+  // Auto-beräkna natt-tid (borgerlig skymning −6°, samplad längs storcirkeln).
+  // Hoppas över vid redigering/efter manuell ändring (nightManual) och utan koordinater.
+  useEffect(() => {
+    if (nightManual || !depLatLon || !arrLatLon) return;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst) return;
+    const n = computeNightHours({
+      depLat: depLatLon.lat, depLon: depLatLon.lon,
+      arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
+      dep: inst.dep, arr: inst.arr,
+    });
+    setForm((prev) => (prev.night === String(n) ? prev : { ...prev, night: String(n) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.dep_utc, form.arr_utc, form.date, depLatLon, arrLatLon, nightManual]);
+
+  // Mörkerlandning: landningen räknas som natt om solen vid ANKOMSTEN står under
+  // −6° (civil skymning), dvs själva landningsskedet var i mörker. Auto, men
+  // respekterar manuell ändring av landnings-räknarna (T&G hanteras manuellt).
+  useEffect(() => {
+    if (landingsManual || form.flight_type === 'touch_and_go' || !arrLatLon) return;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst) return;
+    const dark = solarAltitudeDeg(inst.arr, arrLatLon.lat, arrLatLon.lon) < CIVIL_TWILIGHT_DEG;
+    const day = parseInt(form.landings_day) || 0;
+    const night = parseInt(form.landings_night) || 0;
+    const totalL = day + night;
+    if (totalL <= 0) return;
+    if (dark && day > 0) { set('landings_day', '0'); set('landings_night', String(totalL)); }
+    else if (!dark && night > 0) { set('landings_night', '0'); set('landings_day', String(totalL)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.dep_utc, form.arr_utc, form.date, arrLatLon, landingsManual, form.flight_type]);
+
+  // Lokal-läge: fyll lokalbuffern från lagrad UTC när den är tom (AI-import/redigering).
+  useEffect(() => {
+    if (timeMode !== 'local') return;
+    if (!depLocalBuf && depLatLon && isValidTime(form.dep_utc)) {
+      const inst = instantFromDateTime(form.date, form.dep_utc);
+      const l = inst ? utcToLocalHHMM(inst, depLatLon.country, depLatLon.region, depLatLon.lon) : null;
+      if (l) setDepLocalBuf(l);
+    }
+    if (!arrLocalBuf && arrLatLon && isValidTime(form.arr_utc)) {
+      const inst = instantFromDateTime(form.date, form.arr_utc);
+      const l = inst ? utcToLocalHHMM(inst, arrLatLon.country, arrLatLon.region, arrLatLon.lon) : null;
+      if (l) setArrLocalBuf(l);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeMode, depLatLon, arrLatLon, form.dep_utc, form.arr_utc, form.date]);
+
+  // Lokal-läge: när tidszon (flygplats) eller datum ändras → räkna om UTC från lokalbuffern.
+  useEffect(() => {
+    if (timeMode !== 'local') return;
+    if (depLocalBuf && depLatLon && isValidTime(depLocalBuf)) {
+      const u = localToUtcHHMM(form.date, depLocalBuf, depLatLon.country, depLatLon.region, depLatLon.lon);
+      if (u && u !== form.dep_utc) set('dep_utc', u);
+    }
+    if (arrLocalBuf && arrLatLon && isValidTime(arrLocalBuf)) {
+      const u = localToUtcHHMM(form.date, arrLocalBuf, arrLatLon.country, arrLatLon.region, arrLatLon.lon);
+      if (u && u !== form.arr_utc) set('arr_utc', u);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depLatLon, arrLatLon, form.date, timeMode]);
+
+  const toggleTimeMode = () => {
+    setTimeMode((m) => {
+      if (m === 'local') return 'utc';
+      const di = isValidTime(form.dep_utc) ? instantFromDateTime(form.date, form.dep_utc) : null;
+      const ai = isValidTime(form.arr_utc) ? instantFromDateTime(form.date, form.arr_utc) : null;
+      setDepLocalBuf(di && depLatLon ? (utcToLocalHHMM(di, depLatLon.country, depLatLon.region, depLatLon.lon) ?? '') : '');
+      setArrLocalBuf(ai && arrLatLon ? (utcToLocalHHMM(ai, arrLatLon.country, arrLatLon.region, arrLatLon.lon) ?? '') : '');
+      return 'local';
+    });
+  };
+
+  const onDepLocalChange = (v: string) => {
+    setDepLocalBuf(v);
+    const u = depLatLon ? localToUtcHHMM(form.date, v, depLatLon.country, depLatLon.region, depLatLon.lon) : (isValidTime(v) ? v : '');
+    set('dep_utc', u ?? '');
+  };
+  const onArrLocalChange = (v: string) => {
+    setArrLocalBuf(v);
+    const u = arrLatLon ? localToUtcHHMM(form.date, v, arrLatLon.country, arrLatLon.region, arrLatLon.lon) : (isValidTime(v) ? v : '');
+    set('arr_utc', u ?? '');
+  };
 
   const CREW_ROLES = [
     { key: 'Crew chief', label: selectedLang === 'sv' ? 'Uppdragsspecialist' : 'Crew chief', short: 'CC' },
@@ -1709,7 +1836,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={{ width: 120 }}>
+            <View style={{ width: 140 }}>
               <View style={styles.locSegment}>
                 <TouchableOpacity
                   style={[styles.locSegmentBtn, activePlace === 'dep' && styles.locSegmentBtnActive]}
@@ -1792,12 +1919,13 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </View>
             {activePlace === 'dep' ? (
-              <View style={{ width: 120 }}>
+              <View style={{ width: 140 }}>
               <SmartTimeInput
                 ref={depTimeRef}
                 label=""
-                value={form.dep_utc}
-                onChangeText={(v) => set('dep_utc', v)}
+                align="left"
+                value={timeMode === 'utc' ? form.dep_utc : depLocalBuf}
+                onChangeText={timeMode === 'utc' ? (v) => set('dep_utc', v) : onDepLocalChange}
                 error={errors.dep_utc}
                 showNowBtn={false}
                 onSubmitEditing={() => {
@@ -1806,18 +1934,63 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     setTimeout(() => arrIcaoRef.current?.focus(), 120);
                   }
                 }}
+                rightAdornment={
+                  <Pressable
+                    onPress={toggleTimeMode}
+                    hitSlop={10}
+                    style={({ pressed }) => ({
+                      backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                      borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                      paddingHorizontal: 6, paddingVertical: 2,
+                    })}
+                  >
+                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                      {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
+                    </Text>
+                  </Pressable>
+                }
               />
+              {(() => {
+                if (!isValidTime(form.dep_utc)) return null;
+                const below = timeMode === 'utc'
+                  ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
+                  : `${form.dep_utc} UTC`;
+                return below ? <Text style={{ textAlign: 'center', color: Colors.gold, fontSize: 11, marginTop: 4, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>{below}</Text> : null;
+              })()}
               </View>
             ) : (
-              <View style={{ width: 120 }}>
+              <View style={{ width: 140 }}>
               <SmartTimeInput
                 ref={arrTimeRef}
                 label=""
-                value={form.arr_utc}
-                onChangeText={(v) => set('arr_utc', v)}
+                align="left"
+                value={timeMode === 'utc' ? form.arr_utc : arrLocalBuf}
+                onChangeText={timeMode === 'utc' ? (v) => set('arr_utc', v) : onArrLocalChange}
                 error={errors.arr_utc}
                 showNowBtn={false}
+                rightAdornment={
+                  <Pressable
+                    onPress={toggleTimeMode}
+                    hitSlop={10}
+                    style={({ pressed }) => ({
+                      backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                      borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                      paddingHorizontal: 6, paddingVertical: 2,
+                    })}
+                  >
+                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                      {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
+                    </Text>
+                  </Pressable>
+                }
               />
+              {(() => {
+                if (!isValidTime(form.arr_utc)) return null;
+                const below = timeMode === 'utc'
+                  ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
+                  : `${form.arr_utc} UTC`;
+                return below ? <Text style={{ textAlign: 'center', color: Colors.gold, fontSize: 11, marginTop: 4, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>{below}</Text> : null;
+              })()}
               </View>
             )}
           </View>
@@ -2196,9 +2369,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         <Text style={styles.section}>{t('landings')}</Text>
         <View style={styles.card}>
           <View style={styles.counterGrid}>
-            <Counter label={t('day')} value={form.landings_day} onChange={(v) => set('landings_day', v)} />
+            <Counter label={t('day')} value={form.landings_day} onChange={(v) => { setLandingsManual(true); set('landings_day', v); }} />
             <View style={styles.counterDivider} />
-            <Counter label={t('night')} value={form.landings_night} onChange={(v) => set('landings_night', v)} />
+            <Counter label={t('night')} value={form.landings_night} onChange={(v) => { setLandingsManual(true); set('landings_night', v); }} />
           </View>
           {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: -14, paddingHorizontal: 14, marginTop: 10, paddingBottom: 8, gap: 8 }}>
@@ -2218,6 +2391,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               />
               <View style={{ flex: 1 }} />
               {(() => {
+                // T&G först: destinationens approach-val visas först när alla T&G är klara.
+                if (form.flight_type === 'touch_and_go' && !allTngDone(form.remarks, tngStops)) return null;
                 const hasArrival = form.arr_place && form.arr_place.trim();
                 const runways = hasArrival ? ((runwayData as Record<string, number[]>)[form.arr_place.toUpperCase()] || []) : [];
                 const firstRunway = runways[0];
@@ -2411,15 +2586,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               } else if (key === 'vfr') {
                 set('ifr', String((total - parseFloat(val)).toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
-              } else if (key === 'night') {
-                // Om night är 100% av total_time, konvertera alla landningar till night landings
-                if (p >= 99.5) {
-                  const dayLandings = parseInt(form.landings_day) || 0;
-                  const nightLandings = parseInt(form.landings_night) || 0;
-                  const totalLandings = dayLandings + nightLandings;
-                  set('landings_day', '0');
-                  set('landings_night', String(totalLandings));
-                }
               } else if (key === 'nvg') {
                 const nvgN = parseFloat(val) || 0;
                 const nightN = parseFloat(form.night) || 0;
@@ -2458,16 +2624,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 const remain = Math.max(0, total - decimal);
                 set('ifr', String(remain.toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
-              } else if (key === 'night') {
-                // Om night är 100% av total_time, konvertera alla landningar till night landings
-                const pct = total > 0 ? (decimal / total) * 100 : 0;
-                if (pct >= 99.5) {
-                  const dayLandings = parseInt(form.landings_day) || 0;
-                  const nightLandings = parseInt(form.landings_night) || 0;
-                  const totalLandings = dayLandings + nightLandings;
-                  set('landings_day', '0');
-                  set('landings_night', String(totalLandings));
-                }
               } else if (key === 'nvg') {
                 const nightN = parseFloat(form.night) || 0;
                 if (decimal > nightN) {
@@ -2560,7 +2716,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <TextInput
                     style={[styles.nvgInput, styles.sliderInput]}
                     value={valueFor('night', form.night)}
-                    onChangeText={(v) => onHhmmChange('night', v)}
+                    onChangeText={(v) => { setNightManual(true); onHhmmChange('night', v); }}
                     onBlur={() => onHhmmBlur('night')}
                     placeholder="0:00"
                     keyboardType="numbers-and-punctuation"
@@ -2573,7 +2729,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       maximumValue={100}
                       step={10}
                       value={pct(form.night)}
-                      onValueChange={(v) => setPct('night', v)}
+                      onValueChange={(v) => { setNightManual(true); setPct('night', v); }}
                       minimumTrackTintColor={Colors.primary}
                       maximumTrackTintColor={Colors.border}
                       thumbTintColor={Colors.primary}
@@ -2635,26 +2791,30 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               placeholder={t('remarks_ph')}
               multiline
               numberOfLines={2}
+              maxLength={50}
               style={{ minHeight: 60, textAlignVertical: 'top' }}
             />
           </View>
           <TouchableOpacity
             style={{
               width: 78, alignSelf: 'stretch', marginTop: 23, marginBottom: 4,
-              backgroundColor: milOps.size > 0 ? Colors.gold + '18' : Colors.elevated,
-              borderRadius: 8, borderWidth: 1.5,
+              backgroundColor: milOps.size > 0 ? Colors.gold + '1F' : Colors.elevated,
+              borderRadius: 10, borderWidth: 1.5,
               borderColor: milOps.size > 0 ? Colors.gold : Colors.border,
-              alignItems: 'center', justifyContent: 'center',
+              alignItems: 'center', justifyContent: 'center', gap: 3,
             }}
             onPress={() => setShowMilOp(true)}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <Text style={{
-              color: milOps.size > 0 ? Colors.gold : Colors.textMuted, fontSize: 12, fontWeight: '900',
-              letterSpacing: 0.3, textAlign: 'center', lineHeight: 16,
-            }}>
-              {milOps.size > 0 ? `TACTICAL\n(${milOps.size})` : 'TACTICAL'}
+            <Ionicons name="shield-half" size={18} color={milOps.size > 0 ? Colors.gold : Colors.textMuted} />
+            <Text style={{ color: milOps.size > 0 ? Colors.gold : Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>
+              TACTICAL
             </Text>
+            {milOps.size > 0 && (
+              <View style={{ backgroundColor: Colors.gold, borderRadius: 8, minWidth: 16, paddingHorizontal: 4, paddingVertical: 1, alignItems: 'center' }}>
+                <Text style={{ color: Colors.textInverse, fontSize: 9, fontWeight: '900' }}>{milOps.size}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
         {role === 'picus' && (
@@ -2807,47 +2967,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           })();
         })()}
 
-        {!selectedApp || !selectedRunway ? (() => {
-          const suggestions: string[] = [];
-          const rules = form.flight_rules;
-          const hasIfrPortion = rules === 'IFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.ifr) || 0) > 0;
-          const hasVfrPortion = rules === 'VFR' || rules === 'Y' || rules === 'Z' || rules === 'Mixed' || (parseFloat(form.vfr ?? '') || 0) > 0;
-          // Flygtyp-specifika förslag (högsta prio)
-          if (form.flight_type === 'sim') suggestions.push('Exercise: ');
-          if (form.flight_type === 'hot_refuel') suggestions.push('Fuel stop: ');
-          if (form.flight_type === 'touch_and_go') suggestions.push('T&G: ');
-          // Roll-specifika
-          if (role === 'picus') suggestions.push('PICUS u/s Capt. ');
-          else if (role === 'spic') suggestions.push('SPIC exercise: ');
-          else if (role === 'dual') suggestions.push('FI: ');
-          else if (role === 'ferry_pic') suggestions.push('Ferry: ');
-          if (examinerOverlay && role === 'pic') suggestions.push('TRE: ');
-          if (safetyPilotOverlay && role === 'co_pilot') suggestions.push('Under hood: ');
-          // Flygregler
-          if (hasIfrPortion) { suggestions.push('ILS: '); suggestions.push('MaxFL: '); }
-          if (hasVfrPortion && !hasIfrPortion) suggestions.push('Route: ');
-          // Natt / NVG
-          if ((parseFloat(form.night) || 0) > 0) suggestions.push('Night ldg: ');
-          if ((parseFloat(form.nvg ?? '') || 0) > 0) suggestions.push('NVG: ');
-
-          const unique = [...new Set(suggestions)].slice(0, 3);
-          if (unique.length === 0) return null;
-          return (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-              {unique.map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.chip, styles.chipAdd]}
-                  onPress={() => set('remarks', form.remarks ? `${form.remarks.trimEnd()} · ${r}` : r)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="add" size={10} color={Colors.primary} style={{ marginRight: 3 }} />
-                  <Text style={[styles.chipText]} numberOfLines={1}>{r.trim()}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          );
-        })() : null}
+        {/* Generiska remarks-förslag borttagna på begäran — endast approach-hjälpen (ovan) kvar. */}
 
         {/* ── Media (Bild eller Video) ── */}
         <View style={{ marginTop: 4 }}>
@@ -3449,7 +3569,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   if (codeOnlyCats.has(item.cat)) return code;
                   return item.desc.replace(/\s*\(.*?\)\s*/g, '').trim();
                 });
-                set('remarks', descs.join(' / '));
+                const newMilText = descs.join(' / ');
+                const prev = lastMilTextRef.current;
+                // Behåll allt övrigt i remarks; ersätt bara den tidigare tactical-raden.
+                let base = form.remarks;
+                if (prev) base = base.split('\n').filter((l) => l.trim() !== prev.trim()).join('\n').trim();
+                const merged = newMilText ? (base ? `${base}\n${newMilText}` : newMilText) : base;
+                set('remarks', merged);
+                lastMilTextRef.current = newMilText;
                 setShowMilOp(false);
               }}
               activeOpacity={0.85}

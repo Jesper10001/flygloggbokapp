@@ -159,10 +159,10 @@ export default function LongestXcScreen() {
               <StatBlock label={t('ms.day')} value={d.dayLabel} color={Colors.textSecondary} />
               <StatBlock label={t('ms.night')} value={d.nightLabel} color={Colors.textMuted} />
             </View>
-            {d.blockOff && d.blockOn ? (
+            {d.blockOff && d.blockOn && d.sunSegments.length > 0 ? (
               <View style={{ paddingTop: 14 }}>
                 <Text style={s.subLabel}>{t('ms.lx_sun_window').toUpperCase()}</Text>
-                <SunBar accent={accent} sunrise={d.sunrise} sunset={d.sunset} blockOff={d.blockOff} blockOn={d.blockOn} />
+                <SunBar accent={accent} segments={d.sunSegments} blockOff={d.blockOff} blockOn={d.blockOn} />
               </View>
             ) : null}
           </Card>
@@ -212,34 +212,45 @@ function legTitle(n: number, t: (k: any) => string): string {
   return n === 2 ? t('ms.lx_route_title_two') : t('ms.lx_route_title_n').replace('{n}', String(n));
 }
 
-// ── Sun & flight window bar (24h) ──
-function SunBar({ accent, sunrise, sunset, blockOff, blockOn }: {
-  accent: string; sunrise?: string; sunset?: string; blockOff: string; blockOn: string;
+// ── Sun & flight window — rutt-medveten dag/skymning/natt över hela flygningen ──
+type SunKind = 'day' | 'twilight' | 'night';
+function SunBar({ accent, segments, blockOff, blockOn }: {
+  accent: string; segments: { startFrac: number; endFrac: number; kind: SunKind }[]; blockOff: string; blockOn: string;
 }) {
-  const toMin = (s: string) => { const [h, m] = s.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
-  const DAY = 1440;
-  const pct = (m: number) => (m / DAY) * 100;
-  const bo = toMin(blockOff), bi = toMin(blockOn);
-  const fL = pct(Math.min(bo, bi)), fW = Math.max(2, pct(Math.abs(bi - bo)));
-  const hasSun = !!sunrise && !!sunset;
-  const sr = hasSun ? pct(toMin(sunrise!)) : 0;
-  const ss = hasSun ? pct(toMin(sunset!)) : 100;
-
+  const { t } = useTranslation();
+  const C: Record<SunKind, string> = { day: '#FFCB4733', twilight: '#7C6FB0AA', night: 'rgba(10,22,45,0.92)' };
+  const legend: { k: SunKind; label: string }[] = [
+    { k: 'day', label: t('ms.day') },
+    { k: 'twilight', label: 'Twilight' },
+    { k: 'night', label: t('ms.night') },
+  ];
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 8 }}>
+      {/* Hela stapeln = flygfönstret (avgång → ankomst), färgat efter solen längs rutten */}
       <View style={sb.bar}>
-        {hasSun && <View style={[sb.night, { left: 0, width: `${sr}%` }]} />}
-        {hasSun && <View style={[sb.night, { right: 0, width: `${100 - ss}%` }]} />}
-        {hasSun && <View style={[sb.marker, { left: `${sr}%` }]} />}
-        {hasSun && <View style={[sb.marker, { left: `${ss}%` }]} />}
-        <View style={[sb.flight, { left: `${fL}%`, width: `${fW}%`, backgroundColor: accent, shadowColor: accent }]} />
+        {segments.map((seg, i) => (
+          <View
+            key={i}
+            style={{
+              position: 'absolute', top: 0, bottom: 0,
+              left: `${seg.startFrac * 100}%`,
+              width: `${Math.max(0.5, (seg.endFrac - seg.startFrac) * 100)}%`,
+              backgroundColor: C[seg.kind],
+            }}
+          />
+        ))}
       </View>
       <View style={sb.ticks}>
-        <Text style={sb.tick}>00</Text>
-        {hasSun && <Text style={[sb.tick, { color: Colors.warning }]}>↑ {sunrise}</Text>}
-        <Text style={[sb.tick, { color: accent }]}>{blockOff} → {blockOn}</Text>
-        {hasSun && <Text style={[sb.tick, { color: Colors.warning }]}>↓ {sunset}</Text>}
-        <Text style={sb.tick}>24</Text>
+        <Text style={[sb.tick, { color: accent }]}>↑ {blockOff}Z</Text>
+        <Text style={[sb.tick, { color: accent }]}>{blockOn}Z ↓</Text>
+      </View>
+      <View style={sb.legend}>
+        {legend.map((it) => (
+          <View key={it.k} style={sb.legendItem}>
+            <View style={[sb.swatch, { backgroundColor: C[it.k] }]} />
+            <Text style={sb.legendText}>{it.label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -285,10 +296,11 @@ const s = StyleSheet.create({
 });
 
 const sb = StyleSheet.create({
-  bar: { height: 28, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.25)', borderWidth: 1, borderColor: Colors.cardBorder, position: 'relative' },
-  night: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(20,40,80,0.45)' },
-  marker: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: Colors.warning, opacity: 0.8 },
-  flight: { position: 'absolute', top: 6, bottom: 6, borderRadius: 4, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  bar: { height: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.25)', borderWidth: 1, borderColor: Colors.cardBorder, position: 'relative' },
   ticks: { flexDirection: 'row', justifyContent: 'space-between' },
   tick: { fontFamily: MONO, fontSize: 10, color: Colors.textMuted, letterSpacing: 0.5 },
+  legend: { flexDirection: 'row', gap: 14 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  swatch: { width: 10, height: 10, borderRadius: 2, borderWidth: 0.5, borderColor: Colors.cardBorder },
+  legendText: { fontFamily: MONO, fontSize: 9.5, color: Colors.textMuted, letterSpacing: 0.4 },
 });

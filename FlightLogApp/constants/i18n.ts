@@ -731,7 +731,7 @@ export const translations = {
     // Flight add/edit
     basic_info: 'Basic info',
     route: 'Route',
-    route_utc: 'Route (UTC)',
+    route_utc: 'Route',
     flight_times: 'Flight times',
     flight_time_section: 'Flight time',
     landings: 'Landings & Splits',
@@ -1999,7 +1999,7 @@ export const translations = {
     // Flight add/edit
     basic_info: 'Grundinfo',
     route: 'Rutt',
-    route_utc: 'Rutt (UTC)',
+    route_utc: 'Rutt',
     flight_times: 'Flygtider',
     flight_time_section: 'Flygtid',
     landings: 'Landningar & splits',

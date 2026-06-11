@@ -8,7 +8,6 @@ const J1970 = 2440588;
 const J2000 = 2451545;
 const e = rad * 23.4397; // obliquity of the Earth
 const J0 = 0.0009;
-const h0 = -0.833 * rad; // sun altitude at sunrise/sunset (refraction + radius)
 
 const toJulian = (d: Date) => d.valueOf() / dayMs - 0.5 + J1970;
 const fromJulian = (j: number) => new Date((j + 0.5 - J1970) * dayMs);
@@ -30,9 +29,10 @@ function fmtUtc(d: Date): string {
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
-export function sunTimesUTC(date: Date, lat: number, lng: number): { sunrise: string | null; sunset: string | null } {
+export function sunTimesUTC(date: Date, lat: number, lng: number, altitudeDeg = -0.833): { sunrise: string | null; sunset: string | null } {
   const lw = rad * -lng;
   const phi = rad * lat;
+  const h0 = altitudeDeg * rad; // tröskel: −0.833 = soluppgång/-nedgång, −6 = borgerlig skymning
   const d = toDays(date);
   const n = Math.round(d - J0 - lw / (2 * Math.PI));
   const ds = approxTransit(0, lw, n);
@@ -47,4 +47,22 @@ export function sunTimesUTC(date: Date, lat: number, lng: number): { sunrise: st
   const Jset = solarTransitJ(approxTransit(w, lw, n), M, L);
   const Jrise = Jnoon - (Jset - Jnoon);
   return { sunrise: fmtUtc(fromJulian(Jrise)), sunset: fmtUtc(fromJulian(Jset)) };
+}
+
+// ── Solens höjd över horisonten (grader) vid en given tidpunkt + position ──
+// Används för att avgöra om en punkt längs rutten är i "natt" (sol < −6°).
+const rightAscension = (L: number) => Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L));
+const siderealTime = (d: number, lw: number) => rad * (280.16 + 360.9856235 * d) - lw;
+
+export function solarAltitudeDeg(date: Date, lat: number, lng: number): number {
+  const lw = rad * -lng;
+  const phi = rad * lat;
+  const d = toDays(date);
+  const M = solarMeanAnomaly(d);
+  const L = eclipticLongitude(M);
+  const dec = declination(L);
+  const ra = rightAscension(L);
+  const H = siderealTime(d, lw) - ra;
+  const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+  return alt / rad;
 }

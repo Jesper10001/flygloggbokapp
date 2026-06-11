@@ -30,8 +30,9 @@ import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { setScanImage } from '../../store/scanStore';
-import { batchPlaceNames } from '../../db/icao';
-import { formatDate } from '../../utils/format';
+import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
+import { formatDate, isValidTime } from '../../utils/format';
+import { computeSunWindow } from '../../utils/flightTime';
 
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../../assets/runways.json'); } catch {}
@@ -128,6 +129,19 @@ function StressRing({ stress, size = 120, animKey = 0 }: { stress: StressData; s
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+// Slå ihop sol-fönstrets segment till binär dag/natt (skymning räknas som dag).
+type DNSeg = { startFrac: number; endFrac: number; night: boolean };
+function toDayNight(segs: { startFrac: number; endFrac: number; kind: 'day' | 'twilight' | 'night' }[]): DNSeg[] {
+  const out: DNSeg[] = [];
+  for (const s of segs) {
+    const night = s.kind === 'night';
+    const last = out[out.length - 1];
+    if (last && last.night === night) last.endFrac = s.endFrac;
+    else out.push({ startFrac: s.startFrac, endFrac: s.endFrac, night });
+  }
+  return out;
+}
+
 function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: { flight: Flight; onPress: () => void; isLast?: boolean; placeNames?: Record<string, string>; onPhotoPress?: (f: Flight) => void }) {
   const ls = makeDashStyles();
   const { formatTime } = useTimeFormat();
@@ -137,18 +151,25 @@ function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: 
   const depName = placeNames?.[f.dep_place?.toUpperCase()] ?? f.dep_place;
   const arrName = placeNames?.[f.arr_place?.toUpperCase()] ?? f.arr_place;
 
-  // Build flight condition segments
-  const total = f.total_time || 0.01;
-  const ifrH = f.ifr || 0;
-  const nightH = f.night || 0;
-  const nvgH = f.nvg || 0;
-  const vfrH = Math.max(total - ifrH - nightH, 0);
-  const segments: { color: string; pct: number; label: string }[] = [];
-  if (vfrH > 0) segments.push({ color: Colors.primary, pct: (vfrH / total) * 100, label: 'VFR' });
-  if (ifrH > 0) segments.push({ color: Colors.info, pct: (ifrH / total) * 100, label: 'IFR' });
-  if (nightH > 0) segments.push({ color: '#1A2235', pct: (nightH / total) * 100, label: 'Night' });
-  if (nvgH > 0) segments.push({ color: Colors.success, pct: (nvgH / total) * 100, label: 'NVG' });
-  if (segments.length === 0) segments.push({ color: Colors.primary, pct: 100, label: 'VFR' });
+  // Dag/natt-färgning av rutt-strecket (cyan = dag, guld = natt) längs storcirkeln.
+  const [sunSegs, setSunSegs] = useState<DNSeg[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const dep = f.dep_place?.toUpperCase();
+    const arr = f.arr_place?.toUpperCase();
+    if (!dep || !arr || !f.date || !f.dep_utc || !f.arr_utc || !isValidTime(f.dep_utc) || !isValidTime(f.arr_utc)) {
+      setSunSegs(null); return;
+    }
+    getAirportCoordinates([dep, arr]).then((rows) => {
+      if (!alive) return;
+      const a = rows.find(r => r.icao === dep);
+      const b = rows.find(r => r.icao === arr);
+      if (!a || !b) { setSunSegs(null); return; }
+      const win = computeSunWindow([{ depLat: a.lat, depLon: a.lon, arrLat: b.lat, arrLon: b.lon, depUtc: f.dep_utc, arrUtc: f.arr_utc }], f.date);
+      setSunSegs(win ? toDayNight(win.segments) : null);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [f.id, f.dep_place, f.arr_place, f.dep_utc, f.arr_utc, f.date]);
 
   return (
     <TouchableOpacity
@@ -163,10 +184,14 @@ function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: 
         {/* Route bar */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{depName}</Text>
-          <View style={{ width: 40, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
-            {segments.map((seg, i) => (
-              <View key={i} style={{ width: `${seg.pct}%`, height: 4, backgroundColor: seg.color }} />
-            ))}
+          <View style={{ width: 60, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
+            {sunSegs && sunSegs.length > 0 ? (
+              sunSegs.map((seg, i) => (
+                <View key={i} style={{ width: `${(seg.endFrac - seg.startFrac) * 100}%`, height: 4, backgroundColor: seg.night ? Colors.gold : Colors.primary }} />
+              ))
+            ) : (
+              <View style={{ width: '100%', height: 4, backgroundColor: Colors.primary }} />
+            )}
           </View>
           <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{arrName}</Text>
         </View>

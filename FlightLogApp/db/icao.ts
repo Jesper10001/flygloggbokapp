@@ -127,6 +127,19 @@ export async function getAirportCoordinates(
   );
 }
 
+// Som getAirportCoordinates men inkluderar land + region (för tidszons-uppslag).
+export async function getAirportTzInfo(
+  icaoCodes: string[]
+): Promise<{ icao: string; country: string; region: string; lat: number; lon: number }[]> {
+  if (!icaoCodes.length) return [];
+  const db = await getDatabase();
+  const placeholders = icaoCodes.map(() => '?').join(',');
+  return await db.getAllAsync<{ icao: string; country: string; region: string; lat: number; lon: number }>(
+    `SELECT icao, country, region, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL`,
+    icaoCodes
+  );
+}
+
 export async function getNearbyAirports(
   lat: number, lon: number, limit = 5
 ): Promise<IcaoAirport[]> {
