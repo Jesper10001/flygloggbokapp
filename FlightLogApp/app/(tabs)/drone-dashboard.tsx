@@ -169,7 +169,7 @@ export default function DroneDashboard() {
           onPress={async () => {
             await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber);
             setSpreadPrompt(null);
-            router.push(`/logbook?book=${spreadPrompt.bookId}&spread=latest`);
+            router.push(`/logbook?book=${spreadPrompt.bookId}&spread=latest&recent=1`);
           }}
         >
           <Ionicons name="book" size={16} color={Colors.primary} />

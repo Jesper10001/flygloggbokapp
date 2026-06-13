@@ -1187,6 +1187,10 @@ export const translations = {
     // Digital logbook — "Your books"
     your_books: 'Your books',
     your_books_sub: 'Your whole logbook, page by page — totals added up for you',
+    dlb_open_book: 'Open book',
+    dlb_modify_book: 'Modify logbook',
+    dlb_transcribe: 'Transcribe',
+    dlb_transcribe_pages: 'Transcribe pages {pages}',
     dlb_swipe_hint: 'Swipe to turn the page · pinch to zoom',
     dlb_overview: 'Page overview',
     dlb_latest: 'Latest',
@@ -2455,6 +2459,10 @@ export const translations = {
     // Digital loggbok — "Dina böcker"
     your_books: 'Dina böcker',
     your_books_sub: 'Hela din loggbok, sida för sida — summorna uträknade åt dig',
+    dlb_open_book: 'Öppna bok',
+    dlb_modify_book: 'Ändra loggbok',
+    dlb_transcribe: 'Transkribera',
+    dlb_transcribe_pages: 'Transkribera sidor {pages}',
     dlb_swipe_hint: 'Svep för att bläddra · nyp för att zooma',
     dlb_overview: 'Sidöversikt',
     dlb_latest: 'Senaste',

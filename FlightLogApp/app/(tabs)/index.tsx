@@ -736,25 +736,8 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── Summera-uppslag-uppmaning (digital loggbok) ── */}
-      {spreadPrompt && (
-        <TouchableOpacity
-          style={[s.newsBanner, { borderColor: Colors.primary + '44', backgroundColor: Colors.primary + '08' }]}
-          activeOpacity={0.8}
-          onPress={async () => {
-            await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber);
-            setSpreadPrompt(null);
-            router.push(`/logbook?book=${spreadPrompt.bookId}&spread=latest`);
-          }}
-        >
-          <Ionicons name="book" size={18} color={Colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.newsBannerTitle}>{t('dlb_summarize_title')}</Text>
-            <Text style={s.newsBannerBody}>{t('page')} {spreadPrompt.pageLeft}–{spreadPrompt.pageRight} · {t('dlb_summarize_body')}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-        </TouchableOpacity>
-      )}
+      {/* Notisen ersatt: bok-ikonen i snabbknapparna nedan blir guldfärgad när ett
+          uppslag väntar på transkribering (spreadPrompt). */}
 
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
@@ -874,15 +857,20 @@ export default function DashboardScreen() {
       {!isOperator(useProfileStore.getState().profile) && (
       <View style={s.actionRow}>
         <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
-          <Ionicons name="scan-outline" size={20} color={Colors.primary} />
-          <Text style={s.actionBtnText} numberOfLines={1}>{t('flight_data_scan')}</Text>
+          <Ionicons name="scan-outline" size={28} color={Colors.primary} />
         </TouchableOpacity>
-        <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/logbook/fill')} activeOpacity={0.85}>
-          <Ionicons name="book" size={24} color={Colors.primary} />
+        <TouchableOpacity
+          style={s.actionBtn}
+          onPress={async () => {
+            if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
+            router.push('/logbook?recent=1');
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="book" size={28} color={spreadPrompt ? Colors.gold : Colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity style={s.actionBtn} onPress={quickLogbookScan} activeOpacity={0.85}>
-          <Ionicons name="camera-outline" size={20} color={Colors.primary} />
-          <Text style={s.actionBtnText} numberOfLines={1}>{t('logbook_scan')}</Text>
+          <Ionicons name="camera-outline" size={28} color={Colors.primary} />
         </TouchableOpacity>
       </View>
       )}

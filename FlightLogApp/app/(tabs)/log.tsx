@@ -26,6 +26,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LOGBOOK_TEMPLATES } from '../../constants/logbookTemplates';
+import { LogbookPreviewCard } from '../../components/logbook/LogbookPreviewCard';
 import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
@@ -1837,27 +1838,7 @@ export default function LogScreen() {
               keyboardDismissMode="interactive"
               automaticallyAdjustKeyboardInsets
             >
-              {/* ── Dina böcker (digital loggbok) — ej operatörer ── */}
-              {!isOperator(useProfileStore.getState().profile) && (
-              <TouchableOpacity
-                onPress={() => router.push('/logbook')}
-                activeOpacity={0.85}
-                style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16,
-                  backgroundColor: Colors.card, borderRadius: 16, padding: 16,
-                  borderWidth: 1, borderColor: Colors.primary + '55',
-                }}
-              >
-                <View style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="book" size={24} color={Colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>{t('your_books')}</Text>
-                  <Text style={{ color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 }}>{t('your_books_sub')}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-              </TouchableOpacity>
-              )}
+              {/* Loggboks-kortet flyttat längre ned (under Previous years) — se LogbookPreviewCard nedan. */}
 
               {/* ── Year groups ── */}
               {tree.filter(yg => yg.year >= cutoffYear).map((yg) => {
@@ -1980,6 +1961,9 @@ export default function LogScreen() {
                   })}
                 </View>
               )}
+
+              {/* ── Loggbok (digital): preview av senaste sidan + "Modify logbook" — under Previous years ── */}
+              {!isOperator(useProfileStore.getState().profile) && <LogbookPreviewCard />}
 
               {/* Needs Review */}
               {flaggedFlights.length > 0 && (

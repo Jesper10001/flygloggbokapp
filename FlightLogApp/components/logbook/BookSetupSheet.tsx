@@ -4,7 +4,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform, Modal, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,7 +17,8 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
-import { numericColumns, sortFlightsChrono, type ColumnTotals } from '../../services/logbook/paginate';
+import { numericColumns, sortFlightsChrono, buildBookSpreads, type ColumnTotals } from '../../services/logbook/paginate';
+import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 import {
   createDigitalBook, updateDigitalBook, type DigitalBook,
@@ -38,7 +39,12 @@ export function BookSetupSheet({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: winW } = useWindowDimensions();
   const sv = t('yes') === 'Ja';
+
+  // Tom förhandsvisning av en layout (innan man väljer den).
+  const [previewTpl, setPreviewTpl] = useState<LogbookTemplate | null>(null);
+  const [previewAspect, setPreviewAspect] = useState<number | null>(null);
 
   // Custom-mallar (användarskapade böcker) — laddas och uppdateras vid fokus så
   // en nyss skapad mall dyker upp direkt när man kommer tillbaka från skaparen.
@@ -57,6 +63,14 @@ export function BookSetupSheet({
     () => allTemplates.filter((tpl) => (appMode === 'drone') === tpl.id.includes('drone')),
     [allTemplates, appMode],
   );
+
+  // Ett tomt uppslag för den layout som förhandsvisas.
+  const previewSpread = useMemo(() => {
+    if (!previewTpl) return null;
+    const sp = buildBookSpreads([], previewTpl, { startingPage: 1, rowsPerSpread: previewTpl.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 });
+    return sp[0] ?? null;
+  }, [previewTpl]);
+  const previewBoxW = Math.min(winW - 48, 560);
 
   const [templateId, setTemplateId] = useState(initial?.template_id || pickable[0]?.id || 'sv-easa-standard');
   const [name, setName] = useState(initial?.name || '');
@@ -182,7 +196,7 @@ export function BookSetupSheet({
         {/* Mall */}
         <Text style={s.label}>{t('dlb_choose_layout')}</Text>
         {pickable.map((tpl) => (
-          <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} />
+          <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} onPreview={() => { setPreviewAspect(null); setPreviewTpl(tpl); }} />
         ))}
 
         {/* Skapa egen bok som matchar valfri fysisk loggbok (FAA, udda layout …) */}
@@ -293,19 +307,44 @@ export function BookSetupSheet({
         <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
         <Text style={s.saveTxt}>{mode === 'create' ? t('dlb_create_book') : t('save')}</Text>
       </TouchableOpacity>
+
+      {/* Tom förhandsvisning av en layout (innan val) */}
+      <Modal visible={!!previewTpl} animationType="fade" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => { setPreviewTpl(null); setPreviewAspect(null); }}>
+        <View style={s.previewBackdrop}>
+          <View style={[s.previewBox, { width: previewBoxW + 24 }]}>
+            <View style={s.previewHead}>
+              <Text style={s.previewTitle} numberOfLines={1}>{previewTpl?.name}</Text>
+              <TouchableOpacity onPress={() => { setPreviewTpl(null); setPreviewAspect(null); }} hitSlop={10} activeOpacity={0.7}><Ionicons name="close" size={20} color={Colors.textSecondary} /></TouchableOpacity>
+            </View>
+            {previewSpread && previewTpl ? (
+              <View pointerEvents="none" style={{ width: previewBoxW, height: previewAspect ? Math.round(previewBoxW * previewAspect) : Math.round(previewBoxW * 0.5), borderRadius: 10, overflow: 'hidden', alignSelf: 'center' }}>
+                <SpreadWebView spread={previewSpread} template={previewTpl} pilotName="" timeFormat={timeFormat} width={previewBoxW} signature={null} interactive={false} margin={10} onAspect={setPreviewAspect} />
+              </View>
+            ) : null}
+            <TouchableOpacity style={s.previewUse} onPress={() => { if (previewTpl) chooseTemplate(previewTpl.id); setPreviewTpl(null); setPreviewAspect(null); }} activeOpacity={0.85}>
+              <Text style={s.previewUseTxt}>{sv ? 'Använd den här layouten' : 'Use this layout'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-function TemplateRow({ tpl, active, onPress }: { tpl: LogbookTemplate; active: boolean; onPress: () => void }) {
+function TemplateRow({ tpl, active, onPress, onPreview }: { tpl: LogbookTemplate; active: boolean; onPress: () => void; onPreview: () => void }) {
   return (
-    <TouchableOpacity style={[s.tplRow, active && s.tplRowActive]} onPress={onPress} activeOpacity={0.85}>
-      {tpl.cover
-        ? <Image source={tpl.cover} style={s.tplCover} resizeMode="cover" />
-        : <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.elevated }]}><Ionicons name="book-outline" size={18} color={Colors.textMuted} /></View>}
-      <Text style={[s.tplName, active && { color: Colors.primary }]} numberOfLines={1}>{tpl.name}</Text>
+    <View style={[s.tplRow, active && s.tplRowActive]}>
+      <TouchableOpacity style={s.tplMain} onPress={onPress} activeOpacity={0.85}>
+        {tpl.cover
+          ? <Image source={tpl.cover} style={s.tplCover} resizeMode="cover" />
+          : <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.elevated }]}><Ionicons name="book-outline" size={18} color={Colors.textMuted} /></View>}
+        <Text style={[s.tplName, active && { color: Colors.primary }]} numberOfLines={1}>{tpl.name}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onPreview} hitSlop={8} style={s.tplPreviewBtn} activeOpacity={0.7}>
+        <Ionicons name="eye-outline" size={18} color={Colors.primary} />
+      </TouchableOpacity>
       {active && <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />}
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -325,6 +364,14 @@ const s = StyleSheet.create({
   balInput: { width: 96, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border, textAlign: 'right', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   tplRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 8 },
   tplRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '0E' },
+  tplMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  tplPreviewBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '33' },
+  previewBackdrop: { flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  previewBox: { backgroundColor: Colors.surface, borderRadius: 16, padding: 12, gap: 10, maxWidth: '100%' },
+  previewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  previewTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', flex: 1 },
+  previewUse: { backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  previewUseTxt: { color: Colors.textInverse, fontSize: 14, fontWeight: '800' },
   createRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '44', borderStyle: 'dashed', marginBottom: 8, marginTop: 2 },
   tplCover: { width: 64, height: 42, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
   tplName: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },

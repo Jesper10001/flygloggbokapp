@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Modal, ScrollView,
   ActivityIndicator, useWindowDimensions, Platform, Alert, InteractionManager,
+  Animated, Pressable,
 } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
@@ -28,6 +29,7 @@ import {
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
 import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
+import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
 // Tomma kolumner → tilldelad flygtidstyp (per bok, {colId:flightKey}).
 function applyCustomCols(template: LogbookTemplate, customCols: Record<string, string>): LogbookTemplate {
@@ -48,7 +50,7 @@ const parseJson = <T,>(s: string | undefined, fallback: T): T => {
 
 export default function LogbookScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ book?: string; spread?: string }>();
+  const params = useLocalSearchParams<{ book?: string; spread?: string; recent?: string }>();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -69,9 +71,12 @@ export default function LogbookScreen() {
   const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [transcribe, setTranscribe] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const listRef = useRef<FlatList>(null);
   const positionedBook = useRef<number | null>(null);
+  const ovAnim = useRef(new Animated.Value(0)).current;
 
   const reloadBooks = useCallback(async () => {
     const bks = await listDigitalBooks();
@@ -108,12 +113,14 @@ export default function LogbookScreen() {
     let cancelled = false;
     const task = InteractionManager.runAfterInteractions(() => {
       if (cancelled) return;
-      const showingBook = books.length > 0 && !setup;
+      // Transcribe-overlayen är stående; när den stängs återställer detta liggande
+      // (efter att modalen animerat klart) så läsaren inte fastnar i portrait-layout.
+      const showingBook = books.length > 0 && !setup && !transcribe;
       const lock = showingBook ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP;
       ScreenOrientation.lockAsync(lock).catch(() => {});
     });
     return () => { cancelled = true; (task as any)?.cancel?.(); };
-  }, [setup, books.length]);
+  }, [setup, books.length, transcribe]);
 
   useEffect(() => () => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
@@ -138,9 +145,13 @@ export default function LogbookScreen() {
     });
   }, [selectedBook, effectiveTemplate, selectedSlice]);
 
+  // Dashboard-vägen (recent=1): visa bara innevarande + de 2 föregående uppslagen.
+  const recent = params.recent === '1';
+  const visibleSpreads = useMemo(() => (recent ? spreads.slice(-3) : spreads), [recent, spreads]);
+
   const hasFlightsInBook = (selectedSlice?.flights.length ?? 0) > 0;
-  const safeIndex = Math.min(activeIndex, Math.max(0, spreads.length - 1));
-  const current = spreads[safeIndex];
+  const safeIndex = Math.min(activeIndex, Math.max(0, visibleSpreads.length - 1));
+  const current = visibleSpreads[safeIndex];
   const sheetMax = Math.min(520, Math.round(height * 0.62));
 
   const availableTypes = useMemo(() => {
@@ -157,13 +168,13 @@ export default function LogbookScreen() {
 
   // Öppna alltid på SENASTE uppslaget när man går in i en bok (eller byter bok).
   useEffect(() => {
-    if (loading || spreads.length === 0) return;
+    if (loading || visibleSpreads.length === 0) return;
     if (positionedBook.current === activeBookId) return;
     positionedBook.current = activeBookId;
-    const last = spreads.length - 1;
+    const last = visibleSpreads.length - 1;
     setActiveIndex(last);
     setTimeout(() => { try { listRef.current?.scrollToIndex({ index: last, animated: false }); } catch {} }, 80);
-  }, [loading, spreads.length, activeBookId]);
+  }, [loading, visibleSpreads.length, activeBookId]);
 
   // Håll uppslaget i synk vid rotation/breddändring.
   useEffect(() => {
@@ -172,10 +183,25 @@ export default function LogbookScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width]);
 
+  // Sidöversikt-dropdownen "trillar ner" när den öppnas.
+  useEffect(() => {
+    if (!showOverview) return;
+    ovAnim.setValue(0);
+    Animated.timing(ovAnim, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+  }, [showOverview, ovAnim]);
+
   const goToIndex = (idx: number) => {
-    const clamped = Math.max(0, Math.min(idx, spreads.length - 1));
+    const clamped = Math.max(0, Math.min(idx, visibleSpreads.length - 1));
     setActiveIndex(clamped);
     try { listRef.current?.scrollToIndex({ index: clamped, animated: false }); } catch {}
+  };
+
+  // Lämna boken utan orienterings-frysning: töm den tunga FlatList/WebView-vyn,
+  // vänta in portrait-låset, och navigera sedan — inget tungt om-renderas under bytet.
+  const handleBack = async () => {
+    setLeaving(true);
+    try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
+    router.back();
   };
 
   const onAssign = useCallback((colId: string) => { setAssignTarget(colId); setAssignOpen(true); }, []);
@@ -232,6 +258,12 @@ export default function LogbookScreen() {
     );
   }
 
+  // På väg ut: rendera en tom vy (boken/WebViewerna avmonteras) medan orienteringen
+  // växlar till portrait och vi navigerar — undviker frysning vid orienteringsbytet.
+  if (leaving) {
+    return <View style={styles.container}><Stack.Screen options={{ headerShown: false }} /></View>;
+  }
+
   if (books.length === 0) {
     return (
       <>
@@ -250,12 +282,12 @@ export default function LogbookScreen() {
   const booksLatestFirst = [...books].sort((a, b) => (b.display_order - a.display_order) || (b.id - a.id));
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: width > height ? 0 : insets.top }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
       <View style={[styles.header, { paddingLeft: insets.left + 6, paddingRight: insets.right + 6 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={handleBack} style={styles.iconBtn} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={22} color={Colors.primary} />
         </TouchableOpacity>
 
@@ -265,16 +297,15 @@ export default function LogbookScreen() {
             <Ionicons name="chevron-down" size={12} color={Colors.textMuted} />
           </View>
           {current && hasFlightsInBook && (
-            <Text style={styles.headerSub}>{t('page')} {current.page_left}–{current.page_right} · {safeIndex + 1}/{spreads.length}</Text>
+            <Text style={styles.headerSub}>{t('page')} {current.page_left}–{current.page_right} · {safeIndex + 1}/{visibleSpreads.length}</Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setShowOverview(true)} style={styles.iconBtn} activeOpacity={0.7} disabled={!hasFlightsInBook}>
-          <Ionicons name="list-outline" size={20} color={hasFlightsInBook ? Colors.textSecondary : Colors.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => selectedBook && setSetup({ mode: 'edit', initial: selectedBook })} style={styles.iconBtn} activeOpacity={0.7}>
-          <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
+        {!recent && (
+          <TouchableOpacity onPress={() => setShowOverview((v) => !v)} style={styles.iconBtn} activeOpacity={0.7} disabled={!hasFlightsInBook}>
+            <Ionicons name="list-outline" size={20} color={hasFlightsInBook ? Colors.textSecondary : Colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {!hasFlightsInBook ? (
@@ -283,7 +314,7 @@ export default function LogbookScreen() {
         <>
           <FlatList
             ref={listRef}
-            data={spreads}
+            data={visibleSpreads}
             keyExtractor={(s) => String(s.spread_number)}
             horizontal pagingEnabled showsHorizontalScrollIndicator={false}
             key={activeBookId ?? 'none'}
@@ -295,8 +326,17 @@ export default function LogbookScreen() {
             )}
           />
           <View style={[styles.footerHint, { paddingBottom: insets.bottom + 6 }]}>
-            <Ionicons name="swap-horizontal" size={13} color={Colors.textMuted} />
-            <Text style={styles.footerHintText}>{t('dlb_swipe_hint')}</Text>
+            {recent ? (
+              <TouchableOpacity style={styles.transcribeBtn} onPress={() => current && setTranscribe(true)} activeOpacity={0.85}>
+                <Ionicons name="reader-outline" size={16} color={Colors.primary} />
+                <Text style={styles.transcribeTxt}>{current ? t('dlb_transcribe_pages').replace('{pages}', `${current.page_left}–${current.page_right}`) : t('dlb_transcribe')}</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Ionicons name="swap-horizontal" size={13} color={Colors.textMuted} />
+                <Text style={styles.footerHintText}>{t('dlb_swipe_hint')}</Text>
+              </>
+            )}
           </View>
         </>
       )}
@@ -335,26 +375,42 @@ export default function LogbookScreen() {
         </View>
       </Modal>
 
-      {/* ── Sidöversikt ── */}
-      <Modal visible={showOverview} animationType="slide" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setShowOverview(false)}>
-        <View style={styles.sheetBackdrop}>
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-            <SheetHeader title={t('dlb_overview')} onClose={() => setShowOverview(false)} />
-            <ScrollView style={{ maxHeight: sheetMax }}>
-              {spreads.map((sp, i) => (
+      {/* ── Sidöversikt: dropdown som trillar ner över boken ── */}
+      {showOverview && (
+        <>
+          <Pressable style={[styles.ovBackdrop, { top: insets.top + 48 }]} onPress={() => setShowOverview(false)} />
+          <Animated.View
+            style={[
+              styles.ovDropdown,
+              {
+                top: insets.top + 48,
+                right: insets.right + 10,
+                opacity: ovAnim,
+                transform: [{ translateY: ovAnim.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
+              },
+            ]}
+          >
+            <View style={styles.ovDropdownHeader}>
+              <Text style={styles.ovDropdownTitle}>{t('dlb_overview')}</Text>
+              <TouchableOpacity onPress={() => setShowOverview(false)} hitSlop={10} activeOpacity={0.7}>
+                <Ionicons name="close" size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: Math.round(height * 0.6) }}>
+              {visibleSpreads.map((sp, i) => (
                 <TouchableOpacity key={sp.spread_number} style={[styles.ovRow, i === safeIndex && styles.ovRowActive]} onPress={() => { setShowOverview(false); goToIndex(i); }} activeOpacity={0.7}>
                   <Ionicons name="document-text-outline" size={18} color={i === safeIndex ? Colors.primary : Colors.textMuted} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.ovTitle, i === safeIndex && { color: Colors.primary }]}>{t('page')} {sp.page_left}–{sp.page_right}</Text>
                     <Text style={styles.ovMeta}>{sp.flights.length} {t('flights').toLowerCase()}</Text>
                   </View>
-                  {i === spreads.length - 1 && <View style={styles.latestPill}><Text style={styles.latestPillText}>{t('dlb_latest')}</Text></View>}
+                  {i === visibleSpreads.length - 1 && <View style={styles.latestPill}><Text style={styles.latestPillText}>{t('dlb_latest')}</Text></View>}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+          </Animated.View>
+        </>
+      )}
 
       {/* ── Bok-konfiguration (skapa/redigera) ── */}
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
@@ -393,6 +449,18 @@ export default function LogbookScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Transkriberings-hjälp: zooma in uppslaget, panorera kolumn för kolumn ── */}
+      {transcribe && current && effectiveTemplate && (
+        <TranscribeOverlay
+          spread={current}
+          template={effectiveTemplate}
+          pilotName={pilotName}
+          timeFormat={timeFormat}
+          signature={signature}
+          onClose={() => setTranscribe(false)}
+        />
+      )}
     </View>
   );
 }
@@ -475,6 +543,8 @@ function makeStyles() {
     headerSub: { color: Colors.textSecondary, fontSize: 11, marginTop: 1 },
     footerHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 6, backgroundColor: Colors.surface, borderTopWidth: 0.5, borderTopColor: Colors.border },
     footerHintText: { color: Colors.textMuted, fontSize: 11 },
+    transcribeBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44' },
+    transcribeTxt: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
 
     introHero: { alignSelf: 'center', width: 72, height: 72, borderRadius: 20, backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center' },
     introTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800', textAlign: 'center' },
@@ -510,5 +580,17 @@ function makeStyles() {
     ovMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 1 },
     latestPill: { backgroundColor: Colors.primary + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
     latestPillText: { color: Colors.primary, fontSize: 10, fontWeight: '800' },
+
+    ovBackdrop: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 40 },
+    ovDropdown: {
+      position: 'absolute', width: 300, maxWidth: '92%', backgroundColor: Colors.surface,
+      borderRadius: 14, borderWidth: 0.5, borderColor: Colors.border, overflow: 'hidden', zIndex: 50,
+      shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 10,
+    },
+    ovDropdownHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+    },
+    ovDropdownTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
   });
 }
