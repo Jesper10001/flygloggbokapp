@@ -236,6 +236,9 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Max flight level (IFR/Y/Z flights)
   await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
 
+  // Batteri-hälsa (% state-of-health) för drönar-batterier
+  await addColumnIfMissingOnTable(db, 'drone_batteries', 'health', 'INTEGER NOT NULL DEFAULT 100');
+
   // Papperloggböcker — referens för transkribering av digitala flygningar till papper
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS logbook_books (

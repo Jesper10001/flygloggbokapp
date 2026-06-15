@@ -371,8 +371,8 @@ function DroneFormModal({
                   <BatteryRow
                     key={b.id}
                     battery={b}
-                    onChange={async (label, serial, cycles) => {
-                      await updateBattery(b.id, label, serial, cycles);
+                    onChange={async (label, serial, cycles, health) => {
+                      await updateBattery(b.id, label, serial, cycles, health);
                       setBatteries(await listBatteries(initial.id));
                     }}
                     onDelete={async () => {
@@ -427,7 +427,7 @@ function DroneFormModal({
 
 function BatteryRow({ battery, onChange, onDelete }: {
   battery: DroneBattery;
-  onChange: (label: string, serial: string, cycles: number) => Promise<void>;
+  onChange: (label: string, serial: string, cycles: number, health: number) => Promise<void>;
   onDelete: () => void;
 }) {
   const styles = makeStyles();
@@ -435,8 +435,9 @@ function BatteryRow({ battery, onChange, onDelete }: {
   const [label, setLabel] = useState(battery.label);
   const [serial, setSerial] = useState(battery.serial);
   const [cycles, setCycles] = useState(String(battery.cycle_count));
+  const [health, setHealth] = useState(String(battery.health ?? 100));
 
-  const commit = () => onChange(label, serial, parseInt(cycles, 10) || 0);
+  const commit = () => onChange(label, serial, parseInt(cycles, 10) || 0, Math.max(0, Math.min(100, parseInt(health, 10) || 100)));
 
   return (
     <View style={styles.batteryRow}>
@@ -460,6 +461,18 @@ function BatteryRow({ battery, onChange, onDelete }: {
             placeholderTextColor={Colors.textMuted}
             keyboardType="number-pad"
           />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <TextInput
+              style={[styles.inputSm, { width: 48 }]}
+              value={health}
+              onChangeText={(v) => setHealth(v.replace(/\D/g, ''))}
+              onBlur={commit}
+              placeholder="100"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+            />
+            <Text style={{ color: Colors.textMuted, fontSize: 12 }}>%</Text>
+          </View>
         </View>
       </View>
       <TouchableOpacity onPress={onDelete} style={{ padding: 6 }}>

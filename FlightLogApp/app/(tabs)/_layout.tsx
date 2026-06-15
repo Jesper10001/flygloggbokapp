@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Text } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { BladesTabIcon } from '../../components/BladesTabIcon';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { getSetting } from '../../db/flights';
+import { DR } from '../../constants/droneTheme';
+import { useDroneAccentStore } from '../../store/droneAccentStore';
 
 const PAGE_SIZE = 12; // flygningar per blad
 
@@ -19,6 +21,10 @@ export default function TabsLayout() {
   const _theme = useThemeStore(s => s.theme);
   const [scanBadge, setScanBadge] = useState(false);
   const isDrone = mode === 'drone';
+  const router = useRouter();
+  const accent = useDroneAccentStore((s) => s.color);
+  const loadAccent = useDroneAccentStore((s) => s.load);
+  useEffect(() => { loadAccent(); }, [loadAccent]);
 
   useEffect(() => {
     (async () => {
@@ -32,19 +38,19 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
+          backgroundColor: isDrone ? DR.surface : Colors.surface,
+          borderTopColor: isDrone ? DR.border : Colors.border,
           borderTopWidth: 0.5,
           height: 84,
           paddingBottom: 28,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.tabIconDefault,
+        tabBarActiveTintColor: isDrone ? accent : Colors.primary,
+        tabBarInactiveTintColor: isDrone ? DR.faint : Colors.tabIconDefault,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
         headerShown: true,
         headerTitle: '',
-        headerStyle: { backgroundColor: Colors.background, height: 50 },
+        headerStyle: { backgroundColor: isDrone ? DR.background : Colors.background, height: 50 },
         headerShadowVisible: false,
       }}
     >
@@ -100,6 +106,26 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="drone-fab"
+        options={{
+          href: isDrone ? undefined : null,
+          title: '',
+          tabBarButton: isDrone
+            ? () => <DroneFabButton accent={accent} onPress={() => router.push('/drone-flight/add')} />
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="drone-book"
+        options={{
+          href: isDrone ? undefined : null,
+          title: t('tab_book'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="drone-prep"
         options={{
           href: null,
@@ -112,6 +138,17 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
+          href: isDrone ? null : undefined,
+          title: t('tab_settings'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="drone-settings"
+        options={{
+          href: isDrone ? undefined : null,
           title: t('tab_settings'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
@@ -119,5 +156,23 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+function DroneFabButton({ accent, onPress }: { accent: string; onPress: () => void }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={{
+          width: 52, height: 52, borderRadius: 26, backgroundColor: accent,
+          alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+          shadowColor: accent, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8,
+        }}
+      >
+        <Ionicons name="add" size={30} color={DR.inkOnAccent} />
+      </TouchableOpacity>
+    </View>
   );
 }

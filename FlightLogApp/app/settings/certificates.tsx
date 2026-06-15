@@ -9,6 +9,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useAppModeStore } from '../../store/appModeStore';
+import { getCategoryRecency, type CategoryRecency } from '../../db/drones';
 import { useProfileStore, isOperator } from '../../store/profileStore';
 import {
   listCertificates, addCertificate, updateCertificate, deleteCertificate,
@@ -96,12 +97,16 @@ export default function CertificatesScreen() {
   const profile = useProfileStore(s => s.profile);
   const CERT_TYPES = getCertTypes(mode, isOperator(profile));
   const [certs, setCerts] = useState<DroneCertificate[]>([]);
+  const [recency, setRecency] = useState<CategoryRecency[]>([]);
   const [editing, setEditing] = useState<DroneCertificate | null>(null);
   const [adding, setAdding] = useState(false);
   const [renewing, setRenewing] = useState<DroneCertificate | null>(null);
   const [renewDate, setRenewDate] = useState(new Date());
 
-  const load = async () => setCerts(await listCertificates());
+  const load = async () => {
+    setCerts(await listCertificates());
+    setRecency(mode === 'drone' ? await getCategoryRecency() : []);
+  };
   useFocusEffect(useCallback(() => { load(); }, []));
 
   const active = certs.filter(c => { const s = certStatus(c.expires_date); return s === 'valid' || s === 'warning'; });
@@ -208,6 +213,36 @@ export default function CertificatesScreen() {
 
       {/* Active */}
       {renderSection('Active', [...active, ...noDate], 'checkmark-circle', Colors.success)}
+
+      {/* Recency per kategori (endast drönarläge) */}
+      {mode === 'drone' && recency.length > 0 && (
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 8 }}>
+            <Ionicons name="trending-up" size={14} color={Colors.success} />
+            <Text style={s.sectionTitle}>Recency by category</Text>
+          </View>
+          <View style={{ backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 14 }}>
+            {recency.map((r) => {
+              const color = r.isStale ? Colors.danger : r.daysAgo > 54 ? Colors.warning : Colors.success;
+              const pct = Math.max(4, Math.min(100, 100 - (r.daysAgo / 90) * 100));
+              return (
+                <View key={r.category} style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700' }}>{r.category}</Text>
+                    <Text style={{ color, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' }}>
+                      {r.isStale ? `${r.daysAgo}d · out of recency` : `${r.daysAgo}d ago`}
+                    </Text>
+                  </View>
+                  <View style={{ height: 5, backgroundColor: Colors.elevated, borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: 3 }} />
+                  </View>
+                </View>
+              );
+            })}
+            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>Stay current by flying each category within 90 days.</Text>
+          </View>
+        </View>
+      )}
 
       {/* Empty state */}
       {certs.length === 0 && (

@@ -3,6 +3,7 @@ export const translations = {
     // Tab labels
     tab_dashboard: 'Dashboard',
     tab_logbook: 'Logbook',
+    tab_book: 'Book',
     tab_scan: 'Scan',
     tab_settings: 'Settings',
 
@@ -1276,6 +1277,7 @@ export const translations = {
     // Tab labels
     tab_dashboard: 'Översikt',
     tab_logbook: 'Loggbok',
+    tab_book: 'Bok',
     tab_scan: 'Skanna',
     tab_settings: 'Inställningar',
 

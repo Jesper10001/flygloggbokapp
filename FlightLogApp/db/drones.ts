@@ -21,6 +21,7 @@ export interface DroneBattery {
   label: string;
   serial: string;
   cycle_count: number;
+  health: number; // % state-of-health (default 100)
 }
 
 export async function listDrones(): Promise<DroneRegistryEntry[]> {
@@ -112,17 +113,17 @@ export async function listBatteries(droneId: number): Promise<DroneBattery[]> {
 export async function addBattery(droneId: number, label: string, serial = ''): Promise<number> {
   const db = await getDatabase();
   const res = await db.runAsync(
-    `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count) VALUES (?,?,?,0)`,
+    `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count, health) VALUES (?,?,?,0,100)`,
     [droneId, label, serial]
   );
   return res.lastInsertRowId as number;
 }
 
-export async function updateBattery(id: number, label: string, serial: string, cycleCount: number): Promise<void> {
+export async function updateBattery(id: number, label: string, serial: string, cycleCount: number, health = 100): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE drone_batteries SET label=?, serial=?, cycle_count=? WHERE id=?`,
-    [label, serial, cycleCount, id]
+    `UPDATE drone_batteries SET label=?, serial=?, cycle_count=?, health=? WHERE id=?`,
+    [label, serial, cycleCount, Math.max(0, Math.min(100, health)), id]
   );
 }
 
@@ -248,6 +249,35 @@ export async function getExpiringCertificates(daysAhead = 60): Promise<DroneCert
     const days = Math.floor((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return days <= daysAhead;
   });
+}
+
+export interface CategoryRecency {
+  category: string;
+  daysAgo: number;
+  lastFlightDate: string;
+  isStale: boolean; // > 90 dagar sedan senaste flygning i kategorin
+}
+
+// Recency per operativ kategori: dagar sedan senaste flygning (EASA 90-dagars
+// riktmärke). Endast kategorier som faktiskt flugits returneras.
+export async function getCategoryRecency(): Promise<CategoryRecency[]> {
+  const flights = await getDroneFlights(1000);
+  const latest: Record<string, string> = {};
+  for (const f of flights) {
+    if (!f.category) continue;
+    if (!latest[f.category] || f.date > latest[f.category]) latest[f.category] = f.date;
+  }
+  const order = ['A1', 'A2', 'A3', 'Specific', 'Certified'];
+  const now = Date.now();
+  return Object.keys(latest)
+    .sort((a, b) => {
+      const ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    })
+    .map((cat) => {
+      const daysAgo = Math.floor((now - new Date(latest[cat] + 'T00:00:00').getTime()) / 86400000);
+      return { category: cat, daysAgo, lastFlightDate: latest[cat], isStale: daysAgo > 90 };
+    });
 }
 
 // ─── FLYGNINGAR ──────────────────────────────────────────────────────────────

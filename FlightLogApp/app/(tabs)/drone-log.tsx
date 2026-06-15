@@ -1,33 +1,86 @@
+// Drönar-Log — två sub-flikar: Flights (månadsgrupperat) + Fleet (drönare + batterier).
+// Navy bas + trådbar accent. Per-flygning visas i MM:SS, totaler i H:MM.
+
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors } from '../../constants/colors';
-import { useTranslation } from '../../hooks/useTranslation';
+
+import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
+import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
-import { useAppModeStore } from '../../store/appModeStore';
-import { decimalToHHMM } from '../../hooks/useTimeFormat';
+import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
-  listDrones, listBatteries, deleteDrone,
+  listDrones, listBatteries, getDroneUsage,
   type DroneFlight, type DroneRegistryEntry, type DroneBattery,
 } from '../../db/drones';
 import { categoryLabel } from '../../constants/droneCategories';
 
+const SERIF = 'Fraunces';
+const MONO = 'JetBrainsMono';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function relDate(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  const now = new Date();
+  const days = Math.round((now.setHours(0, 0, 0, 0) - d.getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} d ago`;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+const missionIcon = (m: string): any => {
+  if (m === 'Mapping' || m === 'Survey') return 'map-outline';
+  if (m === 'Film' || m === 'Photo / Video') return 'camera-outline';
+  return 'git-network-outline';
+};
 
 export default function DroneLog() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const accent = useDroneAccentStore((s) => s.color);
+  const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights, loadFlights } = useDroneFlightStore();
-  const mode = useAppModeStore((s) => s.mode);
-  const styles = makeStyles();
-  const [tab, setTab] = useState<'flights' | 'drones'>('flights');
+  const [tab, setTab] = useState<'flights' | 'fleet'>('flights');
+
+  useFocusEffect(useCallback(() => { loadAccent(); loadFlights(); }, [loadAccent, loadFlights]));
+
+  return (
+    <View style={s.container}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Text style={s.screenTitle}>Log</Text>
+        <View style={s.subTabs}>
+          {(['flights', 'fleet'] as const).map((k) => (
+            <TouchableOpacity
+              key={k}
+              style={[s.subTab, tab === k && { backgroundColor: accent }]}
+              onPress={() => setTab(k)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.subTabText, { color: tab === k ? DR.inkOnAccent : DR.text3 }]}>
+                {k === 'flights' ? 'Flights' : 'Fleet'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {tab === 'flights'
+        ? <FlightsTab flights={flights} accent={accent} onOpen={(id) => router.push(`/drone-flight/${id}`)} />
+        : <FleetTab accent={accent} onManage={() => router.push('/settings/drones')} />}
+    </View>
+  );
+}
+
+function FlightsTab({ flights, accent, onOpen }: {
+  flights: DroneFlight[]; accent: string; onOpen: (id: number) => void;
+}) {
   const [query, setQuery] = useState('');
 
-  useFocusEffect(useCallback(() => { loadFlights(); }, []));
-
-  const filteredFlights = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return flights;
     return flights.filter((f) =>
@@ -36,300 +89,235 @@ export default function DroneLog() {
       (f.registration ?? '').toLowerCase().includes(q) ||
       (f.mission_type ?? '').toLowerCase().includes(q) ||
       (f.category ?? '').toLowerCase().includes(q) ||
-      (f.flight_mode ?? '').toLowerCase().includes(q) ||
-      (f.remarks ?? '').toLowerCase().includes(q) ||
-      (f.observer_name ?? '').toLowerCase().includes(q)
-    );
+      (f.flight_mode ?? '').toLowerCase().includes(q));
   }, [flights, query]);
 
-  const grouped = useMemo(() => {
-    const groups: { key: string; title: string; totalHours: number; flights: DroneFlight[] }[] = [];
-    const map = new Map<string, { title: string; totalHours: number; flights: DroneFlight[] }>();
-    for (const f of filteredFlights) {
-      const parts = f.date?.split('-');
-      if (!parts || parts.length < 2) continue;
-      const year = parseInt(parts[0]);
-      const month = parseInt(parts[1]);
-      const key = `${year}-${String(month).padStart(2, '0')}`;
-      if (!map.has(key)) {
-        map.set(key, { title: `${MONTHS[month - 1]} ${year}`, totalHours: 0, flights: [] });
-      }
-      const g = map.get(key)!;
-      g.flights.push(f);
-      g.totalHours += f.total_time ?? 0;
+  const groups = useMemo(() => {
+    const map = new Map<string, { title: string; flights: DroneFlight[] }>();
+    for (const f of filtered) {
+      const p = f.date?.split('-'); if (!p || p.length < 2) continue;
+      const key = `${p[0]}-${p[1]}`;
+      if (!map.has(key)) map.set(key, { title: `${MONTHS[parseInt(p[1]) - 1]} ${p[0]}`, flights: [] });
+      map.get(key)!.flights.push(f);
     }
-    for (const [key, v] of map.entries()) {
-      groups.push({ key, ...v, totalHours: Math.round(v.totalHours * 100) / 100 });
-    }
-    groups.sort((a, b) => b.key.localeCompare(a.key));
-    return groups;
-  }, [filteredFlights]);
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([key, v]) => ({ key, ...v }));
+  }, [filtered]);
+
+  const totalTime = useMemo(() => flights.reduce((s2, f) => s2 + (f.total_time || 0), 0), [flights]);
+  const last30 = useMemo(() => {
+    const c = new Date(); c.setDate(c.getDate() - 30); const cut = c.toISOString().slice(0, 10);
+    return flights.filter((f) => f.date >= cut).length;
+  }, [flights]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === 'flights' && styles.tabBtnActive]}
-          onPress={() => setTab('flights')}
-          activeOpacity={0.75}
-        >
-          <Text style={[styles.tabBtnText, tab === 'flights' && styles.tabBtnTextActive]}>{t('flights')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === 'drones' && styles.tabBtnActive]}
-          onPress={() => setTab('drones')}
-          activeOpacity={0.75}
-        >
-          <Text style={[styles.tabBtnText, tab === 'drones' && styles.tabBtnTextActive]}>{t('manage_drones')}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 100, gap: 16 }} keyboardShouldPersistTaps="handled">
+        {/* Summering */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {[
+            { v: String(flights.length), k: 'TOTAL FLIGHTS', acc: true },
+            { v: decimalToHHMM(totalTime), k: 'TOTAL TIME', acc: false },
+            { v: String(last30), k: 'LAST 30 D', acc: false },
+          ].map((t2) => (
+            <View key={t2.k} style={[s.card, { flex: 1, padding: 12 }]}>
+              <Text style={[s.trioVal, t2.acc && { color: accent }]}>{t2.v}</Text>
+              <Text style={s.trioKey}>{t2.k}</Text>
+            </View>
+          ))}
+        </View>
 
-      {tab === 'flights' ? (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-        >
-          {flights.length > 0 && (
-            <View style={styles.searchRow}>
-              <Ionicons name="search" size={15} color={Colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t('search_drone_flights')}
-                placeholderTextColor={Colors.textMuted}
-              />
-              {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-                  <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-          {flights.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="hardware-chip-outline" size={48} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>{t('drone_log_title')}</Text>
-              <Text style={styles.emptyText}>{t('drone_log_placeholder')}</Text>
-            </View>
-          ) : filteredFlights.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="search-outline" size={40} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>{t('no_results')}</Text>
-            </View>
-          ) : (
-            grouped.map((g) => (
-              <View key={g.key} style={{ gap: 6 }}>
-                <View style={styles.monthHeader}>
-                  <Text style={styles.monthTitle}>{g.title.toUpperCase()}</Text>
-                  <View style={styles.monthMeta}>
-                    <Text style={styles.monthHours}>{decimalToHHMM(g.totalHours)}h</Text>
-                    <Text style={styles.monthCount}>{g.flights.length} flt.</Text>
+        {flights.length > 0 && (
+          <View style={s.searchRow}>
+            <Ionicons name="search" size={15} color={DR.muted} />
+            <TextInput style={s.searchInput} value={query} onChangeText={setQuery} placeholder="Search flights" placeholderTextColor={DR.muted} />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={16} color={DR.muted} /></TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {groups.length === 0 ? (
+          <View style={s.empty}>
+            <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
+            <Text style={s.emptyText}>No drone flights yet</Text>
+          </View>
+        ) : groups.map((g) => (
+          <View key={g.key} style={{ gap: 8 }}>
+            <Text style={s.label}>{g.title.toUpperCase()}</Text>
+            <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
+              {g.flights.map((f, i) => (
+                <TouchableOpacity key={f.id} activeOpacity={0.7} onPress={() => onOpen(f.id)}
+                  style={[s.row, i ? { borderTopWidth: 1, borderTopColor: DR.separator } : null]}>
+                  <View style={[s.rowIcon, { backgroundColor: DR.elevated }]}>
+                    <Ionicons name={missionIcon(f.mission_type)} size={18} color={accent} />
                   </View>
-                </View>
-                {g.flights.map((f) => (
-                  <DroneFlightRow key={f.id} flight={f} onPress={() => router.push(`/drone-flight/${f.id}`)} />
-                ))}
-              </View>
-            ))
-          )}
-        </ScrollView>
-      ) : (
-        <DronesList />
-      )}
-
-      {tab === 'flights' && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/drone-flight/add')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={28} color={Colors.textInverse} />
-        </TouchableOpacity>
-      )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={s.mission}>{f.mission_type || 'Flight'}</Text>
+                      <Chip text={f.flight_mode} tone={f.flight_mode === 'BVLOS' ? 'warn' : 'muted'} accent={accent} />
+                      {f.category ? <Chip text={categoryLabel(f.category)} tone="acc" accent={accent} /> : null}
+                    </View>
+                    <Text style={s.rowMeta} numberOfLines={1}>{f.registration || f.drone_type || '—'} · {f.location || '—'}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.rowTime}>{decimalToMMSS(f.total_time || 0)}</Text>
+                    <Text style={s.rowDate}>{relDate(f.date)}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
 
-function DronesList() {
-  const router = useRouter();
-  const { t } = useTranslation();
-  const styles = makeStyles();
+function FleetTab({ accent, onManage }: { accent: string; onManage: () => void }) {
   const [drones, setDrones] = useState<DroneRegistryEntry[]>([]);
-  const [batteriesByDrone, setBatteriesByDrone] = useState<Record<number, DroneBattery[]>>({});
+  const [usage, setUsage] = useState<Record<number, { h: number; c: number }>>({});
+  const [batteries, setBatteries] = useState<{ b: DroneBattery; droneLabel: string }[]>([]);
 
-  const load = async () => {
-    const ds = await listDrones();
-    setDrones(ds);
-    const map: Record<number, DroneBattery[]> = {};
-    for (const d of ds) map[d.id] = await listBatteries(d.id);
-    setBatteriesByDrone(map);
-  };
+  useFocusEffect(useCallback(() => {
+    (async () => {
+      const ds = await listDrones();
+      setDrones(ds);
+      const u = await getDroneUsage();
+      const um: Record<number, { h: number; c: number }> = {};
+      for (const row of u as any[]) um[row.id] = { h: row.total_time || 0, c: row.flight_count || 0 };
+      setUsage(um);
+      const bats: { b: DroneBattery; droneLabel: string }[] = [];
+      for (const d of ds) {
+        const list = await listBatteries(d.id);
+        for (const b of list) bats.push({ b, droneLabel: d.registration || d.model || `#${d.id}` });
+      }
+      setBatteries(bats);
+    })().catch(() => {});
+  }, []));
 
-  useFocusEffect(useCallback(() => { load(); }, []));
-
-  const handleDelete = (d: DroneRegistryEntry) => {
-    Alert.alert(t('delete'), `${d.model || d.registration}?`, [
-      { text: t('cancel'), style: 'cancel' },
-      { text: t('delete'), style: 'destructive', onPress: async () => { await deleteDrone(d.id); await load(); } },
-    ]);
-  };
+  const healthColor = (h: number) => (h >= 80 ? DR.success : h >= 50 ? DR.warning : DR.danger);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      {drones.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="hardware-chip-outline" size={40} color={Colors.textMuted} />
-          <Text style={styles.emptyTitle}>{t('drones_empty')}</Text>
-          <Text style={styles.emptyText}>{t('drones_subtitle')}</Text>
-        </View>
-      ) : (
-        drones.map((d) => {
-          const bats = batteriesByDrone[d.id] ?? [];
-          return (
-            <TouchableOpacity
-              key={d.id}
-              style={styles.droneRow}
-              onPress={() => router.push({ pathname: '/settings/drones', params: { editId: String(d.id) } })}
-              onLongPress={() => handleDelete(d)}
-              activeOpacity={0.75}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.droneTitle}>{d.model || d.drone_type || '—'}</Text>
-                <Text style={styles.droneMeta}>
-                  {d.registration ? `${d.registration} · ` : ''}{d.mtow_g}g · {categoryLabel(d.category) || 'No category'}
-                </Text>
-                {bats.length > 0 && (
-                  <Text style={styles.batteryMeta}>
-                    {bats.length} {bats.length === 1 ? t('battery') : t('batteries')} · {bats.reduce((s, b) => s + b.cycle_count, 0)} {t('cycles_total')}
+    <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 40, gap: 18 }}>
+      {/* Drönare */}
+      <View>
+        <SectionLabel accent={accent} action="+ ADD" onAction={onManage}>DRONES · {drones.length}</SectionLabel>
+        <View style={{ gap: 10 }}>
+          {drones.length === 0 ? (
+            <View style={s.empty}><Ionicons name="hardware-chip-outline" size={40} color={DR.muted} /><Text style={s.emptyText}>No drones yet</Text></View>
+          ) : drones.map((d) => {
+            const u = usage[d.id] ?? { h: 0, c: 0 };
+            const batCount = batteries.filter((x) => x.b.drone_id === d.id).length;
+            return (
+              <TouchableOpacity key={d.id} activeOpacity={0.7} onPress={onManage} style={[s.card, { flexDirection: 'row', alignItems: 'center', gap: 13 }]}>
+                <View style={[s.fleetIcon, { backgroundColor: DR.elevated }]}><Ionicons name="hardware-chip-outline" size={22} color={accent} /></View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.droneTitle} numberOfLines={1}>{d.model || d.registration || '—'}</Text>
+                  <Text style={s.droneMeta} numberOfLines={1}>
+                    {d.registration ? `${d.registration} · ` : ''}{u.c} flt · {decimalToHHMM(u.h)} h{batCount ? ` · ${batCount} batt` : ''}
                   </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-            </TouchableOpacity>
-          );
-        })
-      )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
-      <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/settings/drones')} activeOpacity={0.85}>
-        <Ionicons name="add" size={18} color={Colors.textInverse} />
-        <Text style={styles.addBtnText}>{t('add_drone')}</Text>
-      </TouchableOpacity>
+      {/* Batterier */}
+      <View>
+        <SectionLabel accent={accent} action="+ ADD" onAction={onManage}>BATTERIES · {batteries.length}</SectionLabel>
+        {batteries.length === 0 ? (
+          <View style={s.empty}><Ionicons name="battery-half-outline" size={36} color={DR.muted} /><Text style={s.emptyText}>No batteries yet</Text></View>
+        ) : (
+          <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
+            {batteries.map(({ b, droneLabel }, i) => (
+              <View key={b.id} style={[s.batRow, i ? { borderTopWidth: 1, borderTopColor: DR.separator } : null]}>
+                <Ionicons name="battery-half-outline" size={20} color={DR.text3} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.batLabel} numberOfLines={1}>{b.label || b.serial || `#${b.id}`}</Text>
+                  <Text style={s.batMeta} numberOfLines={1}>{droneLabel} · {b.cycle_count} cycles</Text>
+                </View>
+                <View style={{ width: 96 }}>
+                  <View style={{ alignItems: 'flex-end', marginBottom: 5 }}>
+                    <View style={[s.cycChip, { borderColor: healthColor(b.health) + '66', backgroundColor: healthColor(b.health) + '1F' }]}>
+                      <Text style={[s.cycChipText, { color: healthColor(b.health) }]}>{b.health}%</Text>
+                    </View>
+                  </View>
+                  <View style={s.track}>
+                    <View style={{ width: `${Math.max(0, Math.min(100, b.health))}%`, height: '100%', borderRadius: 99, backgroundColor: healthColor(b.health) }} />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
-function DroneFlightRow({ flight, onPress }: { flight: DroneFlight; onPress: () => void }) {
-  const styles = makeStyles();
+function Chip({ text, tone, accent }: { text: string; tone: 'acc' | 'warn' | 'muted'; accent: string }) {
+  const c = tone === 'acc' ? accent : tone === 'warn' ? DR.warning : DR.text3;
+  const bg = tone === 'acc' ? accentSoft(accent) : tone === 'warn' ? 'rgba(255,200,87,0.12)' : 'rgba(127,168,200,0.08)';
+  const bd = tone === 'acc' ? accentLine(accent) : tone === 'warn' ? 'rgba(255,200,87,0.4)' : DR.border;
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.routeRow}>
-        <Text style={styles.location} numberOfLines={1}>{flight.location || '—'}</Text>
-        <Text style={styles.dateText}>{flight.date}</Text>
-      </View>
-      <Text style={styles.meta}>
-        {flight.drone_type || '—'} {flight.registration ? '· ' + flight.registration : ''}{flight.mission_type ? ' · ' + flight.mission_type : ''}
-      </Text>
-      <View style={styles.tags}>
-        <Tag label={`${decimalToHHMM(flight.total_time)}h`} color={Colors.primary} />
-        <Tag label={flight.flight_mode} color={flight.flight_mode === 'BVLOS' ? Colors.gold : Colors.primaryLight} />
-        {flight.category ? <Tag label={categoryLabel(flight.category)} color={Colors.textSecondary} /> : null}
-        {flight.is_night ? <Tag label="Night" color={Colors.textMuted} /> : null}
-        {flight.has_observer ? <Tag label="Obs" color={Colors.success} /> : null}
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function Tag({ label, color }: { label: string; color: string }) {
-  const styles = makeStyles();
-  return (
-    <View style={[styles.tag, { borderColor: color + '66', backgroundColor: color + '14' }]}>
-      <Text style={[styles.tagText, { color }]}>{label}</Text>
+    <View style={[s.chip, { backgroundColor: bg, borderColor: bd }]}>
+      <Text style={[s.chipText, { color: c }]}>{text}</Text>
     </View>
   );
 }
 
-function makeStyles() {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    content: { padding: 16, gap: 12, paddingBottom: 100 },
-    empty: { alignItems: 'center', gap: 10, paddingVertical: 80 },
-    emptyTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
-    emptyText: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', paddingHorizontal: 24 },
-
-    tabRow: {
-      flexDirection: 'row',
-      marginHorizontal: 16, marginTop: 12, marginBottom: 6,
-      backgroundColor: Colors.elevated, borderRadius: 8,
-      padding: 3, borderWidth: 0.5, borderColor: Colors.border,
-    },
-    tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 6 },
-    tabBtnActive: { backgroundColor: Colors.primary },
-    tabBtnText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
-    tabBtnTextActive: { color: Colors.textInverse },
-
-    searchRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: Colors.card, borderRadius: 10,
-      paddingHorizontal: 12, paddingVertical: 8,
-      borderWidth: 1, borderColor: Colors.border,
-      marginBottom: 6,
-    },
-    searchInput: {
-      flex: 1, color: Colors.textPrimary, fontSize: 14, paddingVertical: 4,
-    },
-
-    monthHeader: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 4, paddingVertical: 4, marginTop: 2,
-    },
-    monthTitle: {
-      flex: 1, color: Colors.textSecondary, fontSize: 11,
-      fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase',
-    },
-    monthMeta: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-    monthHours: { color: Colors.primary, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' },
-    monthCount: { color: Colors.textMuted, fontSize: 11 },
-
-    row: {
-      backgroundColor: Colors.card, borderRadius: 10, padding: 12, gap: 6,
-      borderWidth: 1, borderColor: Colors.cardBorder,
-    },
-    routeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    location: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', flex: 1 },
-    dateText: { color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', marginLeft: 8 },
-    meta: { color: Colors.textSecondary, fontSize: 12 },
-    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-    tag: {
-      paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
-    },
-    tagText: { fontSize: 11, fontWeight: '700' },
-
-    droneRow: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: Colors.card, borderRadius: 10, padding: 12,
-      borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
-    },
-    droneTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-    droneMeta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-    batteryMeta: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
-
-    addBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 12, gap: 6,
-      marginTop: 4,
-    },
-    addBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
-
-    fab: {
-      position: 'absolute', right: 20, bottom: 28,
-      width: 56, height: 56, borderRadius: 28,
-      backgroundColor: Colors.primary,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
-      elevation: 6,
-    },
-  });
+function SectionLabel({ children, accent, action, onAction }: { children: React.ReactNode; accent: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+      <Text style={s.label}>{children}</Text>
+      {action ? <TouchableOpacity onPress={onAction} hitSlop={8}><Text style={[s.action, { color: accent }]}>{action}</Text></TouchableOpacity> : null}
+    </View>
+  );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: DR.background },
+  screenTitle: { fontFamily: SERIF, fontSize: 26, fontWeight: '500', letterSpacing: -0.5, color: DR.text, marginBottom: 14 },
+
+  subTabs: { flexDirection: 'row', gap: 4, backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 12, padding: 4, marginBottom: 4 },
+  subTab: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9 },
+  subTabText: { fontSize: 13, fontWeight: '700' },
+
+  card: { backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 16, padding: 16 },
+  label: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.8, color: DR.text3 },
+  action: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8 },
+
+  trioVal: { fontFamily: MONO, fontSize: 17, fontWeight: '700', color: DR.text, fontVariant: ['tabular-nums'] },
+  trioKey: { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: DR.muted, marginTop: 4 },
+
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DR.surface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: DR.border },
+  searchInput: { flex: 1, color: DR.text, fontSize: 14, paddingVertical: 4 },
+
+  empty: { alignItems: 'center', gap: 10, paddingVertical: 60 },
+  emptyText: { color: DR.text2, fontSize: 13, textAlign: 'center' },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 14 },
+  rowIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  mission: { fontSize: 14, fontWeight: '600', color: DR.text },
+  rowMeta: { fontFamily: MONO, fontSize: 10, color: DR.text3, marginTop: 3 },
+  rowTime: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: DR.text, fontVariant: ['tabular-nums'] },
+  rowDate: { fontFamily: MONO, fontSize: 9, color: DR.muted, marginTop: 2 },
+
+  chip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  chipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+
+  fleetIcon: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  droneTitle: { fontSize: 14, fontWeight: '600', color: DR.text },
+  droneMeta: { fontFamily: MONO, fontSize: 10, color: DR.text3, marginTop: 3 },
+
+  batRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
+  batLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: DR.text },
+  batMeta: { fontFamily: MONO, fontSize: 9.5, color: DR.muted, marginTop: 2 },
+  cycChip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  cycChipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  track: { height: 4, borderRadius: 99, backgroundColor: DR.separator, overflow: 'hidden' },
+
+  fab: { position: 'absolute', right: 20, bottom: 28, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
+});
