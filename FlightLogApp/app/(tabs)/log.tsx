@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Image,
   StyleSheet, TextInput, Alert, ActivityIndicator, ScrollView, Modal, Pressable, Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFlightStore } from '../../store/flightStore';
@@ -30,14 +30,8 @@ import { LogbookPreviewCard } from '../../components/logbook/LogbookPreviewCard'
 import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
-import { FlightChart } from '../../components/FlightChart';
-import { useRegulationStandardStore } from '../../store/regulationStandardStore';import { RollingLoadChart } from '../../components/RollingLoadChart';
-import { GoalCalculator } from '../../components/EASAProgressChart';
-import { EASAProgressCharts } from '../../components/EASAProgressChart';
-import { ClassBreakdown } from '../../components/ClassBreakdown';
-import { FlightTimeTotals } from '../../components/FlightTimeTotals';
+import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { summarizeOperatorFlight } from '../../constants/operatorRoles';
-import { OperatorInsights } from '../../components/OperatorInsights';
 import { batchPlaceNames } from '../../db/icao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -432,19 +426,7 @@ const getSummaryRows = (t: (k: any) => string) => [
   { label: `${t('landings')} ${t('night').toLowerCase()}`, field: 'landings_night' as const, isTime: false },
 ];
 
-// ─── InsightsView (Insikter) ────────────────────────────────────────────────
-// Klass-tidsfördelning + analys-karusellerna (14-dygns load + EASA/FAA).
-function InsightsView() {
-  const standard = useRegulationStandardStore((s) => s.standard);
-  return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled">
-      <FlightTimeTotals />
-      <ClassBreakdown variant="large" />
-      <ChartCarousel />
-      <EASAProgressCharts standard={standard} />
-    </ScrollView>
-  );
-}
+// (Insights flyttat till egen flik: app/(tabs)/insights.tsx)
 
 // ─── TranscribeView (utfasad — ej längre i UI, kvar som referens) ────────────
 function TranscribeView() {
@@ -1668,32 +1650,6 @@ function WeaponsView() {
 
 // ─── Main screen ────────────────────────────────────────────────────────────
 
-function ChartCarousel() {
-  const chartWidth = Dimensions.get('window').width - 24; // matches parent marginHorizontal: 12
-  const scrollRef = useRef<ScrollView>(null);
-
-  return (
-    <View style={{ marginTop: 16, marginBottom: 8 }}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        scrollEnabled={true}
-        pagingEnabled={true}
-        showsHorizontalScrollIndicator={false}
-      >
-        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
-          <FlightChart />
-        </View>
-        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
-          <RollingLoadChart />
-        </View>
-        <View style={{ width: chartWidth, paddingHorizontal: 0 }}>
-          <GoalCalculator />
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
 
 export default function LogScreen() {
   const styles = makeLogStyles();
@@ -1705,7 +1661,7 @@ export default function LogScreen() {
   const _theme = useThemeStore((s) => s.theme);
   const standard = useRegulationStandardStore((s) => s.standard);
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
-  const [tab, setTab] = useState<'loggbok' | 'transkribering' | 'farkoster' | 'weapons'>('loggbok');
+  const [tab, setTab] = useState<'loggbok' | 'farkoster' | 'weapons'>('loggbok');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Flight[]>([]);
   const [tree, setTree] = useState<YearGroup[]>([]);
@@ -1755,6 +1711,41 @@ export default function LogScreen() {
     setOpenMonthKey((prev) => (prev === key ? '' : key));
   };
 
+  // ── Djuplänk: centrera en specifik flight i listan (från Insights-heatmapen) ──
+  const params = useLocalSearchParams<{ focusFlightId?: string; focusYear?: string; focusMonth?: string; t?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const vpRef = useRef<View>(null);
+  const scrollYRef = useRef(0);
+  const [pendingFocus, setPendingFocus] = useState<number | null>(null);
+  const winH = Dimensions.get('window').height;
+  // Centrera target-raden via absolut measure() (Fabric-säkert, inget measureLayout):
+  // rowY−vpY = radens skärm-offset från listans topp, + aktuell scroll = content-offset.
+  const measureAndScroll = useCallback((el: any) => {
+    if (!el || typeof el.measure !== 'function') return;
+    setTimeout(() => {
+      const vp: any = vpRef.current;
+      if (!vp || typeof vp.measure !== 'function') return;
+      vp.measure((_a: number, _b: number, _c: number, _d: number, _e: number, vpY: number) => {
+        el.measure((_x: number, _y: number, _w: number, _h: number, _px: number, rowY: number) => {
+          const target = scrollYRef.current + (rowY - vpY) - winH * 0.35;
+          scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: true });
+          setPendingFocus(null);
+        });
+      });
+    }, 500);
+  }, [winH]);
+
+  useEffect(() => {
+    const fid = params.focusFlightId ? Number(params.focusFlightId) : null;
+    if (!fid || !params.focusYear || !params.focusMonth) return;
+    const fy = Number(params.focusYear), fm = Number(params.focusMonth);
+    setTab('loggbok');
+    setExpandedYears((prev) => new Set(prev).add(fy));
+    if (fy < cutoffYear) setShowOlderYears(true);
+    setOpenMonthKey(fy < cutoffYear ? `${fy}-${fm}` : `${fy}-${String(fm).padStart(2, '0')}`);
+    setPendingFocus(fid);
+  }, [params.focusFlightId, params.focusYear, params.focusMonth, params.t]);
+
   const isSearching = query.trim().length > 0;
 
   if (mode !== 'manned') return <View style={styles.container} />;
@@ -1769,9 +1760,6 @@ export default function LogScreen() {
         <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('farkoster'); }} activeOpacity={0.7}>
           <Text style={[styles.tabTextSecondary, tab === 'farkoster' && styles.tabTextSecondaryActive]}>{t('tab_airframes')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('transkribering'); }} activeOpacity={0.7}>
-          <Text style={[styles.tabTextSecondary, tab === 'transkribering' && styles.tabTextSecondaryActive]}>{t('tab_transcription')}</Text>
-        </TouchableOpacity>
         {(useProfileStore.getState().profile?.subRole === 'crew-chief' || useProfileStore.getState().profile?.subRole === 'loadmaster') && (
           <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setTab('weapons'); }} activeOpacity={0.7}>
             <Text style={[styles.tabTextSecondary, tab === 'weapons' && styles.tabTextSecondaryActive]}>{t('tab_weapons')}</Text>
@@ -1779,7 +1767,7 @@ export default function LogScreen() {
         )}
       </View>
 
-      {tab === 'farkoster' ? <AirframesView /> : tab === 'transkribering' ? (isOperator(useProfileStore.getState().profile) ? <OperatorInsights /> : <InsightsView />) : tab === 'weapons' ? <WeaponsView /> : (
+      {tab === 'farkoster' ? <AirframesView /> : tab === 'weapons' ? <WeaponsView /> : (
         <>
           {/* ── Search field ── */}
           <View style={styles.searchRow}>
@@ -1832,7 +1820,11 @@ export default function LogScreen() {
             </View>
           ) : (
             /* Main accordion view */
+            <View ref={vpRef} style={{ flex: 1 }} collapsable={false}>
             <ScrollView
+              ref={scrollRef}
+              onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+              scrollEventThrottle={32}
               contentContainerStyle={styles.listContent}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
@@ -1884,14 +1876,15 @@ export default function LogScreen() {
                           {monthOpen && (
                             <View style={styles.monthCard}>
                               {sec.flights.map((flight, idx) => (
-                                <FlightRow
-                                  key={flight.id}
-                                  flight={flight}
-                                  isLast={idx === sec.flights.length - 1}
-                                  onPress={() => router.push(`/flight/${flight.id}`)}
-                                  placeNames={placeNames}
-                                  onPhotoPress={setPhotoPreview}
-                                />
+                                <View key={flight.id} ref={flight.id === pendingFocus ? measureAndScroll : undefined}>
+                                  <FlightRow
+                                    flight={flight}
+                                    isLast={idx === sec.flights.length - 1}
+                                    onPress={() => router.push(`/flight/${flight.id}`)}
+                                    placeNames={placeNames}
+                                    onPhotoPress={setPhotoPreview}
+                                  />
+                                </View>
                               ))}
                             </View>
                           )}
@@ -1949,7 +1942,9 @@ export default function LogScreen() {
                               {mOpen && (
                                 <View style={styles.monthCard}>
                                   {mg.flights.map((f, fi) => (
-                                    <FlightRow key={f.id} flight={f} onPress={() => router.push(`/flight/${f.id}`)} isLast={fi === mg.flights.length - 1} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
+                                    <View key={f.id} ref={f.id === pendingFocus ? measureAndScroll : undefined}>
+                                      <FlightRow flight={f} onPress={() => router.push(`/flight/${f.id}`)} isLast={fi === mg.flights.length - 1} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
+                                    </View>
                                   ))}
                                 </View>
                               )}
@@ -1995,6 +1990,7 @@ export default function LogScreen() {
               )}
 
             </ScrollView>
+            </View>
           )}
         </>
       )}

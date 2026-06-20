@@ -7,11 +7,6 @@
     "icon": "./assets/applogo-cyanonnavy.png",
     "userInterfaceStyle": "dark",
     "scheme": "blades",
-    "splash": {
-      "image": "./assets/logo-splashscreen.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.blades.jointlogbook",
@@ -41,6 +36,15 @@
       "favicon": "./assets/applogo-cyanonnavy.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/Applogo-cyanonblack.PNG",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
       "expo-router",
       "expo-sqlite",
       "expo-font",

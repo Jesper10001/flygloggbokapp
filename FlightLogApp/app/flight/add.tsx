@@ -30,8 +30,8 @@ import { useLanguageStore } from '../../store/languageStore';
 import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
-import { buildInstants, computeNightHours, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
-import { solarAltitudeDeg } from '../../utils/sun';
+import { buildInstants, computeNightHours, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
+import { solarAltitudeDeg, sunTimesUTC } from '../../utils/sun';
 import { localLabel, tzAbbr, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports } from '../../db/icao';
 import { validateFlightForm } from '../../utils/validation';
@@ -2586,14 +2586,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               } else if (key === 'vfr') {
                 set('ifr', String((total - parseFloat(val)).toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
-              } else if (key === 'nvg') {
-                const nvgN = parseFloat(val) || 0;
-                const nightN = parseFloat(form.night) || 0;
-                if (nvgN > nightN) {
-                  set('night', String(nvgN.toFixed(2)));
-                  setRawTime((r) => { const n = { ...r }; delete n.night; return n; });
-                }
               }
+              // NVG är fristående — påverkar inte night.
             };
             const formatForInput = (decimal: string) => {
               const n = parseFloat(decimal);
@@ -2624,13 +2618,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 const remain = Math.max(0, total - decimal);
                 set('ifr', String(remain.toFixed(2)));
                 setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
-              } else if (key === 'nvg') {
-                const nightN = parseFloat(form.night) || 0;
-                if (decimal > nightN) {
-                  set('night', String(decimal.toFixed(2)));
-                  setRawTime((r) => { const n = { ...r }; delete n.night; return n; });
-                }
               }
+              // NVG är fristående — påverkar inte night.
             };
             const onHhmmBlur = (key: 'ifr' | 'vfr' | 'night' | 'nvg') => {
               setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
@@ -2711,7 +2700,57 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <>
                 {mixed && (vfrFirst ? <>{vfrRow}{ifrRow}</> : <>{ifrRow}{vfrRow}</>)}
 
-                <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
+                  <View style={{ flex: 1 }} />
+                  {(() => {
+                    // Mörker längs rutten under flygningen (sol < −6°, samma sampling som night-värdet).
+                    // Finns inget mörker under flyget men night är överstyrd → visa dagens mörkerfönster
+                    // (avgångsregionen) i RÖTT så man ser när mörkret faktiskt infaller. Guld = auto.
+                    if (!depLatLon || !arrLatLon || !form.date) return null;
+                    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+                    if (!inst) return null;
+                    const [Y, Mo, Da] = form.date.split('-').map(Number);
+                    if (!Y || !Mo || !Da) return null;
+                    const zone = timeMode === 'utc' ? 'UTC' : (tzAbbr(inst.dep, depLatLon.country, depLatLon.region, depLatLon.lon) ?? 'LT');
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const fmtClock = (d: Date) => timeMode === 'utc' ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+                      : (utcToLocalHHMM(d, depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+                    const fmt = (hhmm: string) => timeMode === 'utc' ? hhmm
+                      : (utcToLocalHHMM(instantFromDateTime(form.date, hhmm) ?? new Date(0), depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? hhmm);
+                    const dw = computeDarkWindow({
+                      depLat: depLatLon.lat, depLon: depLatLon.lon, arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
+                      dep: inst.dep, arr: inst.arr, altitudeDeg: CIVIL_TWILIGHT_DEG,
+                    });
+                    let txt: string; let red = nightManual;
+                    if (dw.minutes > 0 && dw.start && dw.end) {
+                      txt = `${t('civ_twilight')} ${fmtClock(dw.start)}–${fmtClock(dw.end)} ${zone}`;
+                    } else if (nightManual) {
+                      const day = sunTimesUTC(new Date(Date.UTC(Y, Mo - 1, Da, 12, 0)), depLatLon.lat, depLatLon.lon, CIVIL_TWILIGHT_DEG);
+                      if (day.sunset && day.sunrise) txt = `${t('civ_twilight')} ${fmt(day.sunset)}–${fmt(day.sunrise)} ${zone}`;
+                      else {
+                        const noonUtc = new Date(Date.UTC(Y, Mo - 1, Da, 12, 0) - Math.round((depLatLon.lon / 15) * 3600000));
+                        txt = solarAltitudeDeg(noonUtc, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG ? t('polar_dark') : t('polar_light');
+                      }
+                      red = true;
+                    } else return null;
+                    return (
+                      <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: red ? Colors.danger : Colors.gold, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
+                        {txt}
+                      </Text>
+                    );
+                  })()}
+                  {nightManual && depLatLon && arrLatLon && (
+                    <TouchableOpacity
+                      onPress={() => { Haptics.selectionAsync(); setNightManual(false); setRawTime((r) => { const n = { ...r }; delete n.night; return n; }); }}
+                      hitSlop={8}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: Colors.gold + '7A', backgroundColor: Colors.gold + '22' }}
+                    >
+                      <Ionicons name="refresh" size={11} color={Colors.gold} />
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{t('reset')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <View style={styles.sliderRow}>
                   <TextInput
                     style={[styles.nvgInput, styles.sliderInput]}
@@ -2744,7 +2783,57 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
                 {form.flight_rules !== 'IFR' && (
                   <>
-                    <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
+                      <View style={{ flex: 1 }} />
+                      {(() => {
+                        // Röd varning om NVG-tiden överstiger tiden solen är vid/under horisonten längs
+                        // rutten (sol-centrum < −0.30°). Finns inget sådant fönster under flyget (mitt på
+                        // dagen) → visa dagens fönster (avgångsregionen) så man ser när mörkret infaller.
+                        // Reset sätter NVG till rätt värde (max möjliga = ruttens fönster, 0 mitt på dagen).
+                        const nvgN = parseFloat(form.nvg ?? '0') || 0;
+                        if (nvgN <= 0 || !depLatLon || !arrLatLon || !form.date) return null;
+                        const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+                        if (!inst) return null;
+                        const [Y, Mo, Da] = form.date.split('-').map(Number);
+                        if (!Y || !Mo || !Da) return null;
+                        const dw = computeDarkWindow({
+                          depLat: depLatLon.lat, depLon: depLatLon.lon, arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
+                          dep: inst.dep, arr: inst.arr, altitudeDeg: -0.30,
+                        });
+                        const windowH = dw.minutes / 60;
+                        if (nvgN <= windowH + 0.02) return null; // ryms i fönstret → ingen varning
+                        const zone = timeMode === 'utc' ? 'UTC' : (tzAbbr(inst.dep, depLatLon.country, depLatLon.region, depLatLon.lon) ?? 'LT');
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        const fmtClock = (d: Date) => timeMode === 'utc' ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+                          : (utcToLocalHHMM(d, depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+                        const fmt = (hhmm: string) => timeMode === 'utc' ? hhmm
+                          : (utcToLocalHHMM(instantFromDateTime(form.date, hhmm) ?? new Date(0), depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? hhmm);
+                        let txt: string;
+                        if (dw.start && dw.end) {
+                          txt = `${t('sunset_lbl')} ${fmtClock(dw.start)} · ${t('dawn_lbl')} ${fmtClock(dw.end)} ${zone}`;
+                        } else {
+                          const day = sunTimesUTC(new Date(Date.UTC(Y, Mo - 1, Da, 12, 0)), depLatLon.lat, depLatLon.lon, -0.30);
+                          if (day.sunset && day.sunrise) txt = `${t('sunset_lbl')} ${fmt(day.sunset)} · ${t('dawn_lbl')} ${fmt(day.sunrise)} ${zone}`;
+                          else txt = t('polar_light');
+                        }
+                        return (
+                          <>
+                            <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: Colors.danger, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
+                              {txt}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => { Haptics.selectionAsync(); set('nvg', windowH.toFixed(2)); setRawTime((r) => { const n = { ...r }; delete n.nvg; return n; }); }}
+                              hitSlop={8}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: Colors.gold + '7A', backgroundColor: Colors.gold + '22' }}
+                            >
+                              <Ionicons name="refresh" size={11} color={Colors.gold} />
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{t('reset')}</Text>
+                            </TouchableOpacity>
+                          </>
+                        );
+                      })()}
+                    </View>
                     <View style={styles.sliderRow}>
                       <TextInput
                         style={[styles.nvgInput, styles.sliderInput]}

@@ -111,6 +111,36 @@ export function computeNightHours(opts: {
   return Math.round((night / steps) * totalH * 10) / 10;
 }
 
+// Som computeNightHours, men returnerar även själva mörker-INTERVALLET (första→sista
+// punkten under tröskeln) längs rutten + total tid. Route- & tidsmedveten (storcirkel
+// dep→arr samplas i tiden). altitudeDeg = −6 (borgerlig skymning) eller t.ex. −0.30
+// (solens nedre kant vid horisonten). coverage: none/partial/all av flygfönstret.
+export function computeDarkWindow(opts: {
+  depLat: number; depLon: number; arrLat: number; arrLon: number;
+  dep: Date; arr: Date; altitudeDeg?: number;
+}): { minutes: number; start: Date | null; end: Date | null; coverage: 'none' | 'partial' | 'all' } {
+  const { depLat, depLon, arrLat, arrLon, dep, arr, altitudeDeg = CIVIL_TWILIGHT_DEG } = opts;
+  const totalMs = arr.getTime() - dep.getTime();
+  if (!(totalMs > 0)) return { minutes: 0, start: null, end: null, coverage: 'none' };
+  const steps = Math.min(600, Math.max(12, Math.round(totalMs / 60000 / 2))); // ~2 min/steg
+  let count = 0, firstIdx = -1, lastIdx = -1;
+  for (let i = 0; i < steps; i++) {
+    const f = (i + 0.5) / steps;
+    const t = new Date(dep.getTime() + f * totalMs);
+    const p = interpLatLon(depLat, depLon, arrLat, arrLon, f);
+    if (solarAltitudeDeg(t, p.lat, p.lon) < altitudeDeg) {
+      count++;
+      if (firstIdx < 0) firstIdx = i;
+      lastIdx = i;
+    }
+  }
+  const minutes = Math.round((count / steps) * (totalMs / 60000));
+  const coverage: 'none' | 'partial' | 'all' = count === 0 ? 'none' : count === steps ? 'all' : 'partial';
+  const start = firstIdx >= 0 ? new Date(dep.getTime() + (firstIdx / steps) * totalMs) : null;
+  const end = lastIdx >= 0 ? new Date(dep.getTime() + ((lastIdx + 1) / steps) * totalMs) : null;
+  return { minutes, start, end, coverage };
+}
+
 export interface SunSeg { startFrac: number; endFrac: number; kind: 'day' | 'twilight' | 'night' }
 
 // Dag/skymning/natt-profil längs en FLERBENS-rutt över hela flygfönstret.

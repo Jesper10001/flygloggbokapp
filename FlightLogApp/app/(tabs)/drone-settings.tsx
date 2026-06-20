@@ -5,7 +5,7 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch,
-  LayoutAnimation, Platform, UIManager, Linking,
+  LayoutAnimation, Platform, UIManager, Linking, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +15,9 @@ import { DR, accentSoft, accentLine, DRONE_ACCENTS, DRONE_ACCENT_ORDER } from '.
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useLanguageStore } from '../../store/languageStore';
 import { listCertificates, certStatus } from '../../db/drones';
+import { useProfileStore, type MainRole, type SubRole } from '../../store/profileStore';
+import { useAppModeStore } from '../../store/appModeStore';
+import { getSetting, setSetting } from '../../db/flights';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -33,10 +36,14 @@ export default function DroneSettingsScreen() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
+  const profile = useProfileStore((s) => s.profile);
+  const setProfile = useProfileStore((s) => s.setProfile);
+  const setAppMode = useAppModeStore((s) => s.setMode);
 
   const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
   const [credCount, setCredCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [showSwitch, setShowSwitch] = useState(false);
 
   useFocusEffect(useCallback(() => {
     loadAccent();
@@ -51,7 +58,29 @@ export default function DroneSettingsScreen() {
     setExpanded(expanded === k ? null : k);
   };
 
+  // Byt loggbok/läge (speglar manned switchProfile): spara nuvarande profil,
+  // återställ ev. sparad profil för målrollen, sätt profil + appMode, navigera om.
+  const switchTo = async (mainRole: MainRole, defaultSub: SubRole) => {
+    setShowSwitch(false);
+    let subRole: SubRole = defaultSub;
+    try {
+      const raw = await getSetting('additional_profiles');
+      const saved: { mainRole: MainRole; subRole: SubRole }[] = raw ? JSON.parse(raw) : [];
+      const existing = saved.find((p) => p.mainRole === mainRole);
+      if (existing) subRole = existing.subRole;
+      if (profile) {
+        const next = saved.filter((p) => p.mainRole !== profile.mainRole && p.mainRole !== mainRole);
+        next.push({ mainRole: profile.mainRole, subRole: profile.subRole });
+        await setSetting('additional_profiles', JSON.stringify(next));
+      }
+    } catch {}
+    await setProfile({ mainRole, subRole });
+    await setAppMode(mainRole === 'pilot-unmanned' ? 'drone' : 'manned');
+    router.replace('/(tabs)' as any);
+  };
+
   return (
+    <>
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}>
       <Text style={s.title}>Settings</Text>
 
@@ -71,6 +100,7 @@ export default function DroneSettingsScreen() {
         {expanded === 'logbook' && (
           <View style={s.card}>
             <Row accent={accent} icon="hardware-chip-outline" title="Logbook type" subtitle="Drone · Unmanned aircraft" first />
+            <Row accent={accent} icon="swap-horizontal-outline" title="Switch logbook" subtitle="Pilot · Operator · Drone" onPress={() => setShowSwitch(true)} />
             <Row accent={accent} icon="list-outline" title="Manage drones" onPress={() => router.push('/settings/drones')} />
             <Row accent={accent} icon="book-outline" title="Your logbook" onPress={() => router.push('/drone-book')} />
             <Row accent={accent} icon="time-outline" title="Audit log" onPress={() => router.push('/settings/auditlog')} />
@@ -149,6 +179,30 @@ export default function DroneSettingsScreen() {
         </View>
       </View>
     </ScrollView>
+
+    <Modal visible={showSwitch} transparent animationType="fade" onRequestClose={() => setShowSwitch(false)}>
+      <Pressable style={s.backdrop} onPress={() => setShowSwitch(false)}>
+        <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+          <Text style={s.sheetTitle}>Switch logbook</Text>
+          <TouchableOpacity style={s.optRow} activeOpacity={0.8} onPress={() => switchTo('pilot-manned', 'fixed')}>
+            <View style={[s.optIcon, { backgroundColor: DR.elevated }]}><Ionicons name="airplane-outline" size={18} color={accent} /></View>
+            <View style={{ flex: 1 }}><Text style={s.rowTitle}>Pilot (manned)</Text><Text style={s.rowSub}>Fixed-wing / helicopter</Text></View>
+            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.optRow, s.optBorder]} activeOpacity={0.8} onPress={() => switchTo('operator', 'crew-chief')}>
+            <View style={[s.optIcon, { backgroundColor: DR.elevated }]}><Ionicons name="people-outline" size={18} color={accent} /></View>
+            <View style={{ flex: 1 }}><Text style={s.rowTitle}>Operator</Text><Text style={s.rowSub}>Crew / non-pilot</Text></View>
+            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+          </TouchableOpacity>
+          <View style={[s.optRow, s.optBorder]}>
+            <View style={[s.optIcon, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent), borderWidth: 1 }]}><Ionicons name="hardware-chip-outline" size={18} color={accent} /></View>
+            <View style={{ flex: 1 }}><Text style={s.rowTitle}>Drone</Text><Text style={s.rowSub}>Unmanned aircraft</Text></View>
+            <View style={[s.curChip, { borderColor: accentLine(accent), backgroundColor: accentSoft(accent) }]}><Text style={[s.curChipText, { color: accent }]}>CURRENT</Text></View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+    </>
   );
 }
 
@@ -200,4 +254,13 @@ const s = StyleSheet.create({
   toggleText: { fontSize: 12, fontWeight: '700' },
 
   swatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+
+  backdrop: { flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: DR.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, paddingBottom: 32, borderWidth: 1, borderColor: DR.border },
+  sheetTitle: { fontFamily: SERIF, fontSize: 18, fontWeight: '500', color: DR.text, marginBottom: 6 },
+  optRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
+  optBorder: { borderTopWidth: 1, borderTopColor: DR.separator },
+  optIcon: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  curChip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  curChipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
 });

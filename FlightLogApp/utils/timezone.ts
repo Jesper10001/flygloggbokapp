@@ -226,3 +226,12 @@ export function localLabel(instant: Date, country?: string, region?: string, lon
   const d = new Date(instant.getTime() + offH * 3600000);
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC${offH >= 0 ? '+' : ''}${offH}`;
 }
+
+// Lokal UTC-offset (minuter) för en plats vid en tidpunkt. DST-medveten via IANA
+// (land/region), annars longitud/15-fallback. null om okänt.
+export function localOffsetMinutes(instant: Date, country?: string, region?: string, lon?: number | null): number | null {
+  const iana = ianaFor(country, region);
+  if (iana && INTL_TZ_OK) { const o = offsetMinutes(iana, instant); if (o != null) return o; }
+  if (lon == null || !isFinite(lon)) return null;
+  return Math.round(lon / 15) * 60;
+}

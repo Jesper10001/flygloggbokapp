@@ -75,6 +75,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="insights"
+        options={{
+          href: isDrone ? null : undefined,
+          title: t('tab_transcription'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="analytics-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="scan"
         options={{
           href: null,

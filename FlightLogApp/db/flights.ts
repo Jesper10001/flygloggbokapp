@@ -1174,6 +1174,28 @@ export async function getDailyHours14(): Promise<{ date: string; hours: number }
   return result;
 }
 
+// Per-dag total flygtid mellan två datum (inkl.) — för 3D-månadsheatmapen.
+// Matchar getDailyHours14:s semantik (ingen sim-filtrering). Caller noll-fyller dagar.
+export async function getDailyHours(startISO: string, endISO: string): Promise<{ date: string; hours: number }[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<{ date: string; hours: number }>(
+    `SELECT date, ROUND(SUM(total_time), 2) as hours FROM flights
+     WHERE date >= ? AND date <= ? AND flight_type != 'sim'
+     GROUP BY date ORDER BY date ASC`,
+    [startISO, endISO]
+  );
+}
+
+// Flight-id:n för ett datum — för dag-popupens "öppna i loggboken".
+export async function getFlightIdsForDate(date: string): Promise<number[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ id: number }>(
+    `SELECT id FROM flights WHERE date = ? AND flight_type != 'sim' ORDER BY dep_utc`,
+    [date]
+  );
+  return rows.map((r) => r.id);
+}
+
 export async function getFlightsForWeek(weekStart: string): Promise<Flight[]> {
   const db = await getDatabase();
   // Exkludera enbart simulatorpass och summary-aggregat (överförda totaler).
