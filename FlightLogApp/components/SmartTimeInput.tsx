@@ -107,14 +107,19 @@ export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function S
           style={[
             styles.input,
             { textAlign: align },
-            rightAdornment ? { paddingRight: 56, paddingLeft: 12 } : null,
+            rightAdornment ? { paddingRight: 66, paddingLeft: 12 } : null,
             focused && styles.inputFocused,
             error ? styles.inputError : null,
             valid && !error && styles.inputValid,
           ]}
           value={value}
           onChangeText={handleChange}
-          onFocus={() => setFocused(true)}
+          onFocus={() => {
+            setFocused(true);
+            // Placera markören längst till höger (minuter) så man kan radera minuter → timmar.
+            const end = (value ?? '').length;
+            setTimeout(() => inputRef.current?.setNativeProps({ selection: { start: end, end } }), 0);
+          }}
           onBlur={() => setFocused(false)}
           placeholder="08:30"
           placeholderTextColor={Colors.textMuted}

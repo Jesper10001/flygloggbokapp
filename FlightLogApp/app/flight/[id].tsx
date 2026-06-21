@@ -15,6 +15,7 @@ import { formatDate } from '../../utils/format';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FlightShareCard } from '../../components/FlightShareCard';
+import { DayNightMap } from '../../components/DayNightMap';
 import type { Flight } from '../../types/flight';
 import {
   parseOperatorData, getRoleFields, fieldLabel, optionLabel, roleLabel, ROLE_META, type FieldDef,
@@ -162,6 +163,8 @@ export default function FlightDetailScreen() {
               })()}
             </View>
             )}
+            <DayNightMap flight={flight} />
+
             {flight.remarks ? (
               <View style={styles.remarksCard}>
                 <Text style={styles.remarksLabel}>{t('remarks')}</Text>

@@ -20,6 +20,7 @@ interface Props {
   placeholder?: string;
   recentPlaces?: RecentPlace[];
   allowHere?: boolean;
+  hideHere?: boolean;
   onTemporaryPlaceSelect?: (icao: string) => void;
   onConfirm?: (icao: string) => void;
   onFocus?: () => void;
@@ -126,7 +127,7 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, onTemporaryPlaceSelect, onConfirm, onFocus },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus },
   outerRef,
 ) {
   const styles = makeStyles();
@@ -346,7 +347,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
           </TouchableOpacity>
         )}
-        {!inputText && (
+        {!inputText && !hideHere && (
           <TouchableOpacity
             style={styles.hereBtn}
             onPress={handleHere}

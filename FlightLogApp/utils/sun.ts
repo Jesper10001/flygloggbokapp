@@ -66,3 +66,17 @@ export function solarAltitudeDeg(date: Date, lat: number, lng: number): number {
   const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
   return alt / rad;
 }
+
+// ── Subsolar-punkten: lat/lon (grader) där solen står i zenit vid en tidpunkt ──
+// Används för dag/natt-kartans terminator. lat = deklination, lon där timvinkeln = 0.
+export function subsolarPoint(date: Date): { lat: number; lon: number } {
+  const d = toDays(date);
+  const M = solarMeanAnomaly(d);
+  const L = eclipticLongitude(M);
+  const dec = declination(L);
+  const ra = rightAscension(L);
+  const gmst = rad * (280.16 + 360.9856235 * d); // = siderealTime(d, 0)
+  let lon = (ra - gmst) / rad;
+  lon = ((lon % 360) + 540) % 360 - 180; // normalisera till [-180, 180)
+  return { lat: dec / rad, lon };
+}

@@ -907,7 +907,7 @@ export default function AirportScreen() {
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            {showGlobalMap && <GlobalAirportMap airports={seedData} />}
+            {showGlobalMap && <GlobalAirportMap airports={seedData} mode="country" />}
             <TouchableOpacity
               onPress={() => setShowGlobalMap(false)}
               style={{

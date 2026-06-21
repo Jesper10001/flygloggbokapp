@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -30,8 +30,10 @@ import { useLanguageStore } from '../../store/languageStore';
 import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
-import { buildInstants, computeNightHours, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
+import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
 import { solarAltitudeDeg, sunTimesUTC } from '../../utils/sun';
+import { DayNightMap } from '../../components/DayNightMap';
+import { computeNightHoursTimed, vertexArrivalTimes } from '../../utils/dayNight';
 import { localLabel, tzAbbr, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports } from '../../db/icao';
 import { validateFlightForm } from '../../utils/validation';
@@ -83,78 +85,74 @@ const EMPTY: FlightFormData = {
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
 
-type TngStop = { id: string; icao: string; appType: '2d' | '3d' | null; runway: number | null };
+// ── Route-stopp (enad modell): Touch & go/low approach · Hot refuel · Pickup/dropoff ──
+type StopKind = 'tng' | 'lowapp' | 'pickup' | 'dropoff' | 'refuel';
+type RouteStop = { id: string; icao: string; kind: StopKind; appType: '2d' | '3d' | null; runway: number | null; navaid: string | null };
 
-function buildStopLine(icao: string, appType: '2d' | '3d', runway: number): string {
-  const rwyStr = Math.round(runway / 10).toString().padStart(2, '0');
-  return `${icao.toUpperCase()} ${appType.toUpperCase()} app rwy ${rwyStr}`;
+const KIND_TOKEN: Record<StopKind, string> = { tng: 'TnG', lowapp: 'LA', pickup: 'PU', dropoff: 'DO', refuel: 'HR' };
+const KIND_LABEL: Record<StopKind, string> = { tng: 'Touch & go', lowapp: 'Low approach', pickup: 'Pickup', dropoff: 'Drop off', refuel: 'Hot refuel' };
+const KIND_DWELL: Record<StopKind, number> = { tng: 10, lowapp: 10, pickup: 10, dropoff: 10, refuel: 20 };
+const KIND_ORDER: StopKind[] = ['tng', 'lowapp', 'pickup', 'dropoff', 'refuel'];
+const APP_2D = ['VOR', 'NDB', 'LOC', 'DME', 'LNAV'];
+const APP_3D = ['ILS', 'GLS', 'GBAS', 'PAR', 'RNAV'];
+const rwy2 = (heading: number) => Math.round(heading / 10).toString().padStart(2, '0');
+
+function appTypeForToken(token: string): '2d' | '3d' | null {
+  const u = token.toUpperCase();
+  if (u === '2D' || APP_2D.includes(u)) return '2d';
+  if (u === '3D' || APP_3D.includes(u)) return '3d';
+  return null;
 }
 
-function upsertStopLine(remarks: string, icao: string, newLine: string): string {
-  const anchor = new RegExp(`^${icao.toUpperCase()}\\s+\\S+\\s+app\\s+rwy\\s+\\d{2,3}$`, 'im');
-  return anchor.test(remarks) ? remarks.replace(anchor, newLine) : (remarks ? `${remarks}\n${newLine}` : newLine);
-}
-
+// Behålls för ankomst-approach-sektionen (byter 2D/3D → ILS/VOR osv. på arr-raden).
 function replaceApproachTypeForStop(remarks: string, icao: string, newType: string): string {
   const regex = new RegExp(`(^${icao.toUpperCase()}\\s+)(?:2D|3D)( app rwy \\d{2,3})`, 'im');
   return remarks.replace(regex, `$1${newType}$2`);
 }
 
-function removeStopLine(remarks: string, icao: string): string {
-  const regex = new RegExp(`\\n?${icao.toUpperCase()}\\s+[A-Z0-9]+\\s+app\\s+rwy\\s+\\d{2,3}`, 'i');
-  return remarks.replace(regex, '').trim();
+// "ESSV TnG ILS app rwy 01" / "ESSA PU/DO" / "ESGG HR 3D app rwy 09"
+function serializeStop(s: RouteStop): string {
+  let line = `${s.icao.toUpperCase()} ${KIND_TOKEN[s.kind]}`;
+  const app = s.navaid || (s.appType ? s.appType.toUpperCase() : null);
+  if (app && s.runway != null) line += ` ${app} app rwy ${rwy2(s.runway)}`;
+  return line;
 }
 
-function isStopDone(remarks: string, stop: TngStop): boolean {
-  const icao = stop.icao.toUpperCase();
-  if (!icao) return false;
-  const allTypes = ['VOR', 'NDB', 'LOC', 'DME', 'LNAV', 'GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
-  return new RegExp(`^${icao}\\s+(${allTypes.join('|')})\\s+app\\s+rwy`, 'im').test(remarks);
-}
+const STOP_RE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+(2D|3D|VOR|NDB|LOC|DME|LNAV|ILS|GLS|GBAS|PAR|RNAV)\s+app\s+rwy\s+(\d{2,3}))?\s*$/i;
+const kindFromToken = (t: string): StopKind => {
+  const u = t.toUpperCase();
+  if (u === 'TNG') return 'tng';
+  if (u === 'LA') return 'lowapp';
+  if (u === 'HR') return 'refuel';
+  if (u === 'DO') return 'dropoff';
+  return 'pickup'; // PU eller legacy PU/DO
+};
+const isStopLine = (line: string) => STOP_RE.test(line.trim());
 
-function allTngDone(remarks: string, stops: TngStop[]): boolean {
-  const filled = stops.filter(s => s.icao.trim().length > 0);
-  return filled.length > 0 && filled.every(s => isStopDone(remarks, s));
-}
-
-function parseRemarksToTngStops(remarks: string): TngStop[] {
-  const lines = remarks.split('\n');
-  const stops: TngStop[] = [];
-  const tngLineRegex = /^([A-Z]{2,4})\s+(?:(2D|3D)|(?:VOR|NDB|LOC|DME|LNAV|GBAS|GLS|ILS|PAR|RNAV))\s+app\s+rwy\s+(\d{2,3})/i;
-
-  for (const line of lines) {
-    const match = line.match(tngLineRegex);
-    if (match) {
-      const icao = match[1];
-      const appTypeRaw = match[2] || match[3]; // 2D/3D or specific type
-      let appType: '2d' | '3d' | null = null;
-      let runway: number | null = null;
-
-      // Determine if it's 2D or 3D based on the type
-      if (appTypeRaw === '2D' || appTypeRaw?.toUpperCase() === '2D') {
-        appType = '2d';
-      } else if (appTypeRaw === '3D' || appTypeRaw?.toUpperCase() === '3D') {
-        appType = '3d';
-      } else if (['VOR', 'NDB', 'LOC', 'DME', 'LNAV'].includes(appTypeRaw?.toUpperCase() || '')) {
-        appType = '2d';
-      } else if (['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'].includes(appTypeRaw?.toUpperCase() || '')) {
-        appType = '3d';
-      }
-
-      if (match[3]) {
-        runway = parseInt(match[3]) * 10;
-      }
-
-      stops.push({
-        id: icao + '_' + stops.length,
-        icao,
-        appType,
-        runway,
-      });
-    }
+function parseRouteStops(remarks: string): RouteStop[] {
+  const out: RouteStop[] = [];
+  for (const line of (remarks || '').split('\n')) {
+    const m = line.trim().match(STOP_RE);
+    if (!m) continue;
+    const appTok = m[3] || null;
+    const isNavaid = appTok ? !['2D', '3D'].includes(appTok.toUpperCase()) : false;
+    out.push({
+      id: `${m[1]}_${out.length}`,
+      icao: m[1].toUpperCase(),
+      kind: kindFromToken(m[2]),
+      appType: appTok ? appTypeForToken(appTok) : null,
+      runway: m[4] ? parseInt(m[4], 10) * 10 : null,
+      navaid: isNavaid ? appTok!.toUpperCase() : null,
+    });
   }
+  return out;
+}
 
-  return stops;
+// remarks = fri text (behålls) + route-stoppen i ordning
+function applyStopsToRemarks(remarks: string, stops: RouteStop[]): string {
+  const free = (remarks || '').split('\n').filter((l) => l.trim().length > 0 && !isStopLine(l));
+  const lines = stops.filter((s) => s.icao.trim().length >= 2).map(serializeStop);
+  return [...free, ...lines].join('\n');
 }
 
 // ── Styles ──────────────────────────────────────────────────────────────────
@@ -287,6 +285,10 @@ function makeStyles() {
     locSegmentBtnActive: { backgroundColor: Colors.primary },
     locSegmentText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
     locSegmentTextActive: { color: Colors.textInverse },
+
+    placeColHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 6 },
+    placeColHeaderText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+    placeColDivider: { width: 1, backgroundColor: Colors.separator, marginHorizontal: 8 },
 
     stopPlaceBlock: {
       backgroundColor: Colors.elevated,
@@ -636,7 +638,6 @@ export default function AddFlightScreen() {
   const [showSpecialRole, setShowSpecialRole] = useState(false);
   const [depCustom, setDepCustom] = useState(false);
   const [arrCustom, setArrCustom] = useState(false);
-  const [activePlace, setActivePlace] = useState<'dep' | 'arr'>('dep');
   const [showRegModal, setShowRegModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -660,7 +661,9 @@ export default function AddFlightScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<'2d' | '3d' | null>(null);
   const [selectedRunway, setSelectedRunway] = useState<number | null>(null);
-  const [tngStops, setTngStops] = useState<TngStop[]>([{ id: '1', icao: '', appType: null, runway: null }]);
+  const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
+  const [draft, setDraft] = useState<{ icao: string; kind: StopKind | null; appType: '2d' | '3d' | null; runway: number | null; navaid: string | null }>({ icao: '', kind: null, appType: null, runway: null, navaid: null });
+  const [kindMenuOpen, setKindMenuOpen] = useState(false);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
@@ -670,6 +673,46 @@ export default function AddFlightScreen() {
   const [depLatLon, setDepLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
   const [arrLatLon, setArrLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
   const [nightManual, setNightManual] = useState(isEdit);
+  const [sunRouteOpen, setSunRouteOpen] = useState(false);
+  const sunPoints = useMemo(() => (
+    [
+      depLatLon && { lat: depLatLon.lat, lon: depLatLon.lon, label: form.dep_place },
+      arrLatLon && { lat: arrLatLon.lat, lon: arrLatLon.lon, label: form.arr_place },
+    ].filter(Boolean) as { lat: number; lon: number; label: string }[]
+  ), [depLatLon, arrLatLon, form.dep_place, form.arr_place]);
+  // dep + arr (med koordinater) och giltiga tider ifyllda → ROUTE-pilen + guld visas
+  const routeReady = sunPoints.length >= 2 && !!form.date && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
+
+  // Waypoints (T&G / hot refuel) → koordinater + dwell, för kartan och night-uträkningen.
+  // Waypoints: T&G-platser (10 min) + hot refuel (30 min) — BÅDA samtidigt, oberoende av
+  // vald flygtyp, så de ligger kvar på rutten när man byter ruta (datan behålls tills man
+  // väljer normal/sim). hotRefuelIcao är separat så T&G-synken inte skriver över den.
+  const stopIcaos = useMemo(() => routeStops.map((s) => s.icao.trim().toUpperCase()).filter((c) => c.length >= 3), [routeStops]);
+  const wpKey = stopIcaos.join('|');
+  const [wpCoords, setWpCoords] = useState<Record<string, { lat: number; lon: number }>>({});
+  useEffect(() => {
+    const codes = wpKey ? [...new Set(wpKey.split('|'))] : [];
+    if (!codes.length) { setWpCoords({}); return; }
+    let alive = true;
+    getAirportTzInfo(codes).then((rows) => {
+      if (!alive) return;
+      const m: Record<string, { lat: number; lon: number }> = {};
+      for (const r of rows) if (r.lat != null && r.lon != null) m[r.icao] = { lat: r.lat, lon: r.lon };
+      setWpCoords(m);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [wpKey]);
+  const routeLegs = useMemo(() => {
+    const out: { lat: number; lon: number; label: string; dwellMin: number; kind?: StopKind }[] = [];
+    if (depLatLon) out.push({ lat: depLatLon.lat, lon: depLatLon.lon, label: form.dep_place, dwellMin: 0 });
+    for (const s of routeStops) {
+      const ic = s.icao.trim().toUpperCase();
+      const p = wpCoords[ic];
+      if (ic.length >= 3 && p) out.push({ lat: p.lat, lon: p.lon, label: ic, dwellMin: KIND_DWELL[s.kind], kind: s.kind });
+    }
+    if (arrLatLon) out.push({ lat: arrLatLon.lat, lon: arrLatLon.lon, label: form.arr_place, dwellMin: 0 });
+    return out;
+  }, [depLatLon, arrLatLon, wpCoords, routeStops, form.dep_place, form.arr_place]);
   const [landingsManual, setLandingsManual] = useState(isEdit);
   // Tidsinmatningsläge: lokal tid (default) eller UTC. Lagrad tid är alltid UTC.
   const [timeMode, setTimeMode] = useState<'local' | 'utc'>('utc');
@@ -683,10 +726,8 @@ export default function AddFlightScreen() {
       if (!f) return;
 
       // Parse T&G stops from remarks
-      const parsedTngStops = parseRemarksToTngStops(f.remarks || '');
-      if (parsedTngStops.length > 0) {
-        setTngStops(parsedTngStops);
-      }
+      const parsedStops = parseRouteStops(f.remarks || '');
+      if (parsedStops.length > 0) setRouteStops(parsedStops);
 
       setForm({
         date: f.date,
@@ -773,17 +814,14 @@ export default function AddFlightScreen() {
   // Auto-beräkna natt-tid (borgerlig skymning −6°, samplad längs storcirkeln).
   // Hoppas över vid redigering/efter manuell ändring (nightManual) och utan koordinater.
   useEffect(() => {
-    if (nightManual || !depLatLon || !arrLatLon) return;
+    if (nightManual) return;
     const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-    if (!inst) return;
-    const n = computeNightHours({
-      depLat: depLatLon.lat, depLon: depLatLon.lon,
-      arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
-      dep: inst.dep, arr: inst.arr,
-    });
+    if (!inst || routeLegs.length < 2) return;
+    // Dwell-medveten night-tid: T&G (10 min) / hot refuel (30 min) räknas in där de sker.
+    const n = computeNightHoursTimed(routeLegs, inst.dep.getTime(), inst.arr.getTime());
     setForm((prev) => (prev.night === String(n) ? prev : { ...prev, night: String(n) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.dep_utc, form.arr_utc, form.date, depLatLon, arrLatLon, nightManual]);
+  }, [form.dep_utc, form.arr_utc, form.date, routeLegs, nightManual]);
 
   // Mörkerlandning: landningen räknas som natt om solen vid ANKOMSTEN står under
   // −6° (civil skymning), dvs själva landningsskedet var i mörker. Auto, men
@@ -801,6 +839,28 @@ export default function AddFlightScreen() {
     else if (!dark && night > 0) { set('landings_night', '0'); set('landings_day', String(totalL)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.dep_utc, form.arr_utc, form.date, arrLatLon, landingsManual, form.flight_type]);
+
+  // Route: varje stopp UTOM low approach = en landning (TnG/PU/DO/Hot refuel), klassad
+  // dag/natt efter solhöjden vid stoppet när flygplanet är där, plus destinationens landning.
+  useEffect(() => {
+    if (landingsManual || form.flight_type !== 'touch_and_go') return;
+    if (!depLatLon || !arrLatLon) return;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst || routeLegs.length < 2) return;
+    const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
+    const times = vertexArrivalTimes(routeLegs, depMs, arrMs);
+    let dayL = 0, nightL = 0;
+    for (let i = 1; i < routeLegs.length - 1; i++) {
+      if (routeLegs[i].kind === 'lowapp') continue;
+      const dark = solarAltitudeDeg(new Date(times[i]), routeLegs[i].lat, routeLegs[i].lon) < CIVIL_TWILIGHT_DEG;
+      if (dark) nightL++; else dayL++;
+    }
+    const arrLeg = routeLegs[routeLegs.length - 1];
+    if (solarAltitudeDeg(new Date(arrMs), arrLeg.lat, arrLeg.lon) < CIVIL_TWILIGHT_DEG) nightL++; else dayL++;
+    set('landings_day', String(dayL));
+    set('landings_night', String(nightL));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeLegs, form.dep_utc, form.arr_utc, form.date, landingsManual, form.flight_type]);
 
   // Lokal-läge: fyll lokalbuffern från lagrad UTC när den är tom (AI-import/redigering).
   useEffect(() => {
@@ -1085,21 +1145,26 @@ export default function AddFlightScreen() {
     setRecentRegs(regs);
   }, []);
 
-  const syncFirstStop = (stops: TngStop[]) => set('stop_place', stops[0]?.icao ?? '');
-
-  const updateStopField = (index: number, patch: Partial<TngStop>) =>
-    setTngStops(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
-
-  const addTngStop = () =>
-    setTngStops(prev => [...prev, { id: Date.now().toString(), icao: '', appType: null, runway: null }]);
-
-  const removeTngStop = (index: number) => {
-    const stop = tngStops[index];
-    if (stop.icao) set('remarks', removeStopLine(form.remarks, stop.icao));
-    const next = tngStops.filter((_, i) => i !== index);
-    const safe = next.length > 0 ? next : [{ id: Date.now().toString(), icao: '', appType: null, runway: null }];
-    setTngStops(safe);
-    syncFirstStop(safe);
+  const applyStops = (stops: RouteStop[]) => {
+    setRouteStops(stops);
+    set('stop_place', stops[0]?.icao ?? '');
+    set('remarks', applyStopsToRemarks(form.remarks, stops));
+  };
+  const addRouteStop = () => {
+    const ic = draft.icao.trim().toUpperCase();
+    if (ic.length < 2 || !draft.kind) return;
+    const stop: RouteStop = { id: Date.now().toString(), icao: ic, kind: draft.kind, appType: draft.appType, runway: draft.runway, navaid: draft.navaid };
+    applyStops([...routeStops, stop]);
+    if (stop.navaid || (stop.appType && stop.runway != null)) set('flight_rules', 'IFR');
+    setDraft({ icao: '', kind: null, appType: null, runway: null, navaid: null });
+  };
+  const removeRouteStop = (index: number) => applyStops(routeStops.filter((_, i) => i !== index));
+  const moveRouteStop = (index: number, dir: -1 | 1) => {
+    const j = index + dir;
+    if (j < 0 || j >= routeStops.length) return;
+    const next = [...routeStops];
+    [next[index], next[j]] = [next[j], next[index]];
+    applyStops(next);
   };
 
   const set = (key: keyof FlightFormData, val: string) => {
@@ -1805,11 +1870,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
         </View>
 
-        {/* ── Route ── */}
-        <Text
-          style={styles.section}
+        {/* ── Route ── (pil fäller ner dag/natt-kartan; pil + guld endast när dep/arr + tider ifyllda) */}
+        <TouchableOpacity
+          onPress={() => { if (routeReady) setSunRouteOpen((o) => !o); }}
           onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}
-        >{t('route_utc')}</Text>
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 2 }}
+          activeOpacity={routeReady ? 0.7 : 1}
+        >
+          <Text style={[styles.section, { marginTop: 0, marginBottom: 0 }, routeReady && { color: Colors.gold }]}>{t('route_utc')}</Text>
+          {routeReady && <Ionicons name={sunRouteOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.gold} />}
+        </TouchableOpacity>
 
         {/* Kombinerat Departure / Arrival block */}
         <View style={styles.placeBlock}>
@@ -1836,7 +1906,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={{ width: 140 }}>
+            <View style={{ width: 155 }}>
               <View style={styles.locSegment}>
                 <TouchableOpacity
                   style={[styles.locSegmentBtn, activePlace === 'dep' && styles.locSegmentBtnActive]}
@@ -1919,7 +1989,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </View>
             {activePlace === 'dep' ? (
-              <View style={{ width: 140 }}>
+              <View style={{ width: 155 }}>
               <SmartTimeInput
                 ref={depTimeRef}
                 label=""
@@ -1935,31 +2005,33 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   }
                 }}
                 rightAdornment={
-                  <Pressable
-                    onPress={toggleTimeMode}
-                    hitSlop={10}
-                    style={({ pressed }) => ({
-                      backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                      borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                      paddingHorizontal: 6, paddingVertical: 2,
-                    })}
-                  >
-                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                      {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
-                    </Text>
-                  </Pressable>
+                  <View style={{ alignItems: 'flex-end', gap: 1 }}>
+                    <Pressable
+                      onPress={toggleTimeMode}
+                      hitSlop={10}
+                      style={({ pressed }) => ({
+                        backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                        borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                        paddingHorizontal: 6, paddingVertical: 2,
+                      })}
+                    >
+                      <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                        {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
+                      </Text>
+                    </Pressable>
+                    {(() => {
+                      if (!isValidTime(form.dep_utc)) return null;
+                      const below = timeMode === 'utc'
+                        ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
+                        : `${form.dep_utc} UTC`;
+                      return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
+                    })()}
+                  </View>
                 }
               />
-              {(() => {
-                if (!isValidTime(form.dep_utc)) return null;
-                const below = timeMode === 'utc'
-                  ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
-                  : `${form.dep_utc} UTC`;
-                return below ? <Text style={{ textAlign: 'center', color: Colors.gold, fontSize: 11, marginTop: 4, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>{below}</Text> : null;
-              })()}
               </View>
             ) : (
-              <View style={{ width: 140 }}>
+              <View style={{ width: 155 }}>
               <SmartTimeInput
                 ref={arrTimeRef}
                 label=""
@@ -1969,59 +2041,66 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 error={errors.arr_utc}
                 showNowBtn={false}
                 rightAdornment={
-                  <Pressable
-                    onPress={toggleTimeMode}
-                    hitSlop={10}
-                    style={({ pressed }) => ({
-                      backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                      borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                      paddingHorizontal: 6, paddingVertical: 2,
-                    })}
-                  >
-                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                      {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
-                    </Text>
-                  </Pressable>
+                  <View style={{ alignItems: 'flex-end', gap: 1 }}>
+                    <Pressable
+                      onPress={toggleTimeMode}
+                      hitSlop={10}
+                      style={({ pressed }) => ({
+                        backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                        borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                        paddingHorizontal: 6, paddingVertical: 2,
+                      })}
+                    >
+                      <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                        {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
+                      </Text>
+                    </Pressable>
+                    {(() => {
+                      if (!isValidTime(form.arr_utc)) return null;
+                      const below = timeMode === 'utc'
+                        ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
+                        : `${form.arr_utc} UTC`;
+                      return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
+                    })()}
+                  </View>
                 }
               />
-              {(() => {
-                if (!isValidTime(form.arr_utc)) return null;
-                const below = timeMode === 'utc'
-                  ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
-                  : `${form.arr_utc} UTC`;
-                return below ? <Text style={{ textAlign: 'center', color: Colors.gold, fontSize: 11, marginTop: 4, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>{below}</Text> : null;
-              })()}
               </View>
             )}
           </View>
         </View>
 
+        {/* ── Route-karta (dag/natt) — togglas av ROUTE-rubriken ovanför rutan ── */}
+        {sunRouteOpen && routeReady && (
+          <View style={styles.card}>
+            <DayNightMap embedded points={routeLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} />
+          </View>
+        )}
+
         {/* Flight type */}
         <View style={styles.flightTypePicker}>
-          {(['normal', 'touch_and_go', 'hot_refuel', 'sim'] as const).map((ft) => {
+          {(['normal', 'touch_and_go', 'sim'] as const).map((ft) => {
             const labels: Record<string, string> = {
               normal: t('normal'),
-              touch_and_go: t('touch_and_go'),
-              hot_refuel: t('hot_refuel'),
+              touch_and_go: t('dn_route'),
               sim: t('ffs_sim'),
             };
             const active = (form.flight_type ?? 'normal') === ft;
+            // Route behåller sina stopp även när man väljer normal/sim; chippen guldmarkeras
+            // då för att visa att det finns sparade stopp (tas bort via ✕ i Route-listan).
+            const hasStops = ft === 'touch_and_go' && routeStops.length > 0;
             return (
               <TouchableOpacity
                 key={ft}
-                style={[styles.flightTypeChip, active && styles.flightTypeChipActive]}
+                style={[styles.flightTypeChip, active && styles.flightTypeChipActive, hasStops && !active && { borderColor: Colors.gold, backgroundColor: Colors.gold + '1A' }]}
                 onPress={() => {
                   set('flight_type', ft);
-                  if (ft === 'normal' || ft === 'sim') {
-                    set('stop_place', '');
-                    setTngStops([{ id: '1', icao: '', appType: null, runway: null }]);
-                  }
                   if (ft === 'sim' && !form.sim_category) set('sim_category', 'FFS');
                   if (ft !== 'sim') set('sim_category', '');
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.flightTypeChipText, active && styles.flightTypeChipTextActive]}>
+                <Text style={[styles.flightTypeChipText, active && styles.flightTypeChipTextActive, hasStops && !active && { color: Colors.gold }]}>
                   {labels[ft]}
                 </Text>
               </TouchableOpacity>
@@ -2058,168 +2137,130 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
         {/* Stop place for touch & go */}
+        {/* ── Route stops: Touch & go/low approach · Hot refuel · Pickup/dropoff ── */}
         {form.flight_type === 'touch_and_go' && (
-          <View style={styles.stopPlaceBlock}>
-            <Text style={styles.stopPlaceLabel}>
-              {t('touch_and_go')} — {t('hot_refuel_not_destination')}
-            </Text>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* Vänster: väljare */}
+              <View style={{ width: '46%', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setKindMenuOpen(true)}
+                  activeOpacity={0.7}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 }}
+                >
+                  <Text style={{ flex: 1, color: draft.kind ? Colors.textPrimary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{draft.kind ? KIND_LABEL[draft.kind] : 'Choose type'}</Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+                </TouchableOpacity>
 
-            {tngStops.map((stop, index) => {
-              const isDone = isStopDone(form.remarks, stop);
+                <IcaoInput
+                  label=""
+                  value={draft.icao}
+                  onChangeText={(v) => setDraft((d) => ({ ...d, icao: v }))}
+                  hideHere
+                  placeholder="ICAO"
+                />
 
-              if (isDone) {
-                return (
-                  <View key={stop.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <View style={{ backgroundColor: Colors.primary + '22', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, flex: 1 }}>
-                      <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>
-                        [{stop.icao.toUpperCase()} · {stop.appType?.toUpperCase()} · {Math.round(stop.runway! / 10).toString().padStart(2, '0')}]
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => removeTngStop(index)} hitSlop={8}>
-                      <Ionicons name="close" size={16} color={Colors.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              }
-
-              return (
-                <View key={stop.id} style={{ marginBottom: 8 }}>
-                  <IcaoInput
-                    label=""
-                    value={stop.icao}
-                    onChangeText={(v) => {
-                      updateStopField(index, { icao: v });
-                      const next = tngStops.map((s, i) => i === index ? { ...s, icao: v } : s);
-                      syncFirstStop(next);
-                    }}
-                    recentPlaces={top2places}
-                    placeholder="ICAO"
-                  />
-
-                  {stop.icao && (() => {
-                    const runways = (runwayData as Record<string, number[]>)[stop.icao?.toUpperCase() || ''] || [];
-
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['2d', '3d'] as const).map((a) => {
+                    const on = draft.appType === a;
                     return (
-                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-                        {!stop.appType ? (
-                          <>
-                            <TouchableOpacity
-                              style={{
-                                backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                                paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                              }}
-                              onPress={() => updateStopField(index, { appType: '2d' })}
-                              activeOpacity={0.75}
-                            >
-                              <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>2D APP</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={{
-                                backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                                paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                              }}
-                              onPress={() => updateStopField(index, { appType: '3d' })}
-                              activeOpacity={0.75}
-                            >
-                              <Text style={{ color: Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>3D APP</Text>
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <>
-                            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <TouchableOpacity
-                                style={{
-                                  backgroundColor: Colors.elevated, borderRadius: 6, borderWidth: 1, borderColor: Colors.border,
-                                  paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                                }}
-                                onPress={() => updateStopField(index, { appType: null, runway: null })}
-                                activeOpacity={0.75}
-                              >
-                                <Ionicons name="arrow-back" size={12} color={Colors.textPrimary} />
-                              </TouchableOpacity>
-                              {runways.map((heading: number) => {
-                                const oppositeHeading = (heading + 180) % 360;
-                                return (
-                                  <View key={heading} style={{ flexDirection: 'row', gap: 6 }}>
-                                    <TouchableOpacity
-                                      style={{
-                                        backgroundColor: stop.runway === heading ? Colors.primary : Colors.elevated,
-                                        borderRadius: 6, borderWidth: 1,
-                                        borderColor: stop.runway === heading ? Colors.primary : Colors.border,
-                                        paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                                      }}
-                                      onPress={() => {
-                                        updateStopField(index, { runway: heading });
-                                        const newLine = buildStopLine(stop.icao, stop.appType!, heading);
-                                        set('remarks', upsertStopLine(form.remarks, stop.icao, newLine));
-                                        set('flight_rules', 'IFR');
-                                      }}
-                                      activeOpacity={0.75}
-                                    >
-                                      <Text style={{ color: stop.runway === heading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(heading / 10).toString().padStart(2, '0')}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                      style={{
-                                        backgroundColor: stop.runway === oppositeHeading ? Colors.primary : Colors.elevated,
-                                        borderRadius: 6, borderWidth: 1,
-                                        borderColor: stop.runway === oppositeHeading ? Colors.primary : Colors.border,
-                                        paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
-                                      }}
-                                      onPress={() => {
-                                        updateStopField(index, { runway: oppositeHeading });
-                                        const newLine = buildStopLine(stop.icao, stop.appType!, oppositeHeading);
-                                        set('remarks', upsertStopLine(form.remarks, stop.icao, newLine));
-                                        set('flight_rules', 'IFR');
-                                      }}
-                                      activeOpacity={0.75}
-                                    >
-                                      <Text style={{ color: stop.runway === oppositeHeading ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{Math.round(oppositeHeading / 10).toString().padStart(2, '0')}</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          </>
-                        )}
-                      </View>
+                      <TouchableOpacity key={a} onPress={() => setDraft((d) => ({ ...d, appType: on ? null : a, runway: null, navaid: null }))} activeOpacity={0.75}
+                        style={{ flex: 1, alignItems: 'center', backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingVertical: 6 }}>
+                        <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{a.toUpperCase()} APP</Text>
+                      </TouchableOpacity>
                     );
-                  })()}
+                  })}
                 </View>
-              );
-            })}
 
-            {tngStops.length > 0 && tngStops[tngStops.length - 1].icao.trim().length > 0 && (
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 6,
-                  backgroundColor: Colors.primary + '22', borderRadius: 6, borderWidth: 1, borderColor: Colors.primary + '44',
-                  paddingHorizontal: 12, paddingVertical: 8, marginTop: 8,
-                }}
-                onPress={addTngStop}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="add" size={16} color={Colors.primary} />
-                <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Lägg till T&G</Text>
-              </TouchableOpacity>
-            )}
+                {draft.appType && draft.icao.trim().length >= 3 && (() => {
+                  const rws = (runwayData as Record<string, number[]>)[draft.icao.trim().toUpperCase()] || [];
+                  const all = rws.flatMap((h) => [h, (h + 180) % 360]);
+                  if (!all.length) return null;
+                  return (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {all.map((h) => {
+                        const on = draft.runway === h;
+                        return (
+                          <TouchableOpacity key={h} onPress={() => setDraft((d) => ({ ...d, runway: h }))} activeOpacity={0.75}
+                            style={{ backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 }}>
+                            <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{rwy2(h)}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
+
+                {draft.appType && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {(draft.appType === '2d' ? APP_2D : APP_3D).map((n) => {
+                      const on = draft.navaid === n;
+                      return (
+                        <TouchableOpacity key={n} onPress={() => setDraft((d) => ({ ...d, navaid: on ? null : n }))} activeOpacity={0.75}
+                          style={{ backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 }}>
+                          <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{n}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {(() => {
+                  const canAdd = draft.icao.trim().length >= 2 && !!draft.kind;
+                  return (
+                    <TouchableOpacity onPress={addRouteStop} disabled={!canAdd} activeOpacity={0.8}
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 8, paddingVertical: 9, marginTop: 2, backgroundColor: !canAdd ? Colors.elevated : Colors.primary + '22', borderWidth: 1, borderColor: !canAdd ? Colors.border : Colors.primary }}>
+                      <Ionicons name="add" size={16} color={!canAdd ? Colors.textMuted : Colors.primary} />
+                      <Text style={{ color: !canAdd ? Colors.textMuted : Colors.primary, fontSize: 12, fontWeight: '700' }}>Lägg till</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+
+              {/* Höger: lista (DEP låst överst, stoppen omflyttbara, ARR låst nederst) */}
+              <View style={{ flex: 1, gap: 5 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.elevated, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 7, opacity: 0.85 }}>
+                  <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>{(form.dep_place || '—').toUpperCase()}</Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700' }}>DEP</Text>
+                </View>
+
+                {routeStops.map((s, i) => (
+                  <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingLeft: 8, paddingRight: 2, paddingVertical: 4 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{s.icao} <Text style={{ color: Colors.primary, fontSize: 10 }}>{KIND_TOKEN[s.kind]}</Text></Text>
+                      {(s.navaid || s.appType) && s.runway != null && (
+                        <Text style={{ color: Colors.textMuted, fontSize: 9, fontFamily: 'JetBrainsMono' }}>{s.navaid || s.appType?.toUpperCase()} rwy {rwy2(s.runway)}</Text>
+                      )}
+                    </View>
+                    <TouchableOpacity onPress={() => moveRouteStop(i, -1)} disabled={i === 0} hitSlop={6} style={{ padding: 3, opacity: i === 0 ? 0.3 : 1 }}><Ionicons name="chevron-up" size={15} color={Colors.textSecondary} /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} hitSlop={6} style={{ padding: 3, opacity: i === routeStops.length - 1 ? 0.3 : 1 }}><Ionicons name="chevron-down" size={15} color={Colors.textSecondary} /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeRouteStop(i)} hitSlop={6} style={{ padding: 3 }}><Ionicons name="close" size={15} color={Colors.textMuted} /></TouchableOpacity>
+                  </View>
+                ))}
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.elevated, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 7, opacity: 0.85 }}>
+                  <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>{(form.arr_place || '—').toUpperCase()}</Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700' }}>ARR</Text>
+                </View>
+              </View>
+            </View>
+
+            <Modal visible={kindMenuOpen} transparent animationType="fade" onRequestClose={() => setKindMenuOpen(false)}>
+              <Pressable style={{ flex: 1, backgroundColor: '#0009', justifyContent: 'center', padding: 28 }} onPress={() => setKindMenuOpen(false)}>
+                <View style={{ backgroundColor: Colors.card, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
+                  {KIND_ORDER.map((k, i) => (
+                    <TouchableOpacity key={k} onPress={() => { setDraft((d) => ({ ...d, kind: k })); setKindMenuOpen(false); }} activeOpacity={0.7}
+                      style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: i < KIND_ORDER.length - 1 ? 1 : 0, borderBottomColor: Colors.separator, backgroundColor: draft.kind === k ? Colors.primary + '18' : 'transparent' }}>
+                      <Text style={{ color: draft.kind === k ? Colors.primary : Colors.textPrimary, fontSize: 14, fontWeight: draft.kind === k ? '800' : '600' }}>{KIND_LABEL[k]}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Pressable>
+            </Modal>
           </View>
         )}
 
-        {/* Stop place for hot refuel */}
-        {form.flight_type === 'hot_refuel' && (
-          <View style={styles.stopPlaceBlock}>
-            <Text style={styles.stopPlaceLabel}>
-              {t('hot_refuel')} — {t('hot_refuel_not_destination')}
-            </Text>
-            <IcaoInput
-              label=""
-              value={form.stop_place ?? ''}
-              onChangeText={(v) => set('stop_place', v)}
-              recentPlaces={top2places}
-              placeholder="ICAO"
-            />
-          </View>
-        )}
+        {/* hot refuel ingår nu i Route-stoppen ovan */}
 
         {/* ── Flight time ── */}
         <Text style={styles.section}>{t('flight_time_section')}</Text>
@@ -2391,8 +2432,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               />
               <View style={{ flex: 1 }} />
               {(() => {
-                // T&G först: destinationens approach-val visas först när alla T&G är klara.
-                if (form.flight_type === 'touch_and_go' && !allTngDone(form.remarks, tngStops)) return null;
+                // Destinationens approach-val (oberoende av route-stoppen).
                 const hasArrival = form.arr_place && form.arr_place.trim();
                 const runways = hasArrival ? ((runwayData as Record<string, number[]>)[form.arr_place.toUpperCase()] || []) : [];
                 const firstRunway = runways[0];
@@ -2704,7 +2744,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
                   <View style={{ flex: 1 }} />
                   {(() => {
-                    // Mörker längs rutten under flygningen (sol < −6°, samma sampling som night-värdet).
+                    // Mörker-intervall LÄNGS RUTTEN under flygningen (sol < −6°, samma sampling som night-värdet).
                     // Finns inget mörker under flyget men night är överstyrd → visa dagens mörkerfönster
                     // (avgångsregionen) i RÖTT så man ser när mörkret faktiskt infaller. Guld = auto.
                     if (!depLatLon || !arrLatLon || !form.date) return null;
@@ -2818,19 +2858,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           else txt = t('polar_light');
                         }
                         return (
-                          <>
-                            <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: Colors.danger, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
-                              {txt}
-                            </Text>
-                            <TouchableOpacity
-                              onPress={() => { Haptics.selectionAsync(); set('nvg', windowH.toFixed(2)); setRawTime((r) => { const n = { ...r }; delete n.nvg; return n; }); }}
-                              hitSlop={8}
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: Colors.gold + '7A', backgroundColor: Colors.gold + '22' }}
-                            >
-                              <Ionicons name="refresh" size={11} color={Colors.gold} />
-                              <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{t('reset')}</Text>
-                            </TouchableOpacity>
-                          </>
+                          <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: Colors.danger, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
+                            {txt}
+                          </Text>
                         );
                       })()}
                     </View>
@@ -2913,56 +2943,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
         )}
 
-        {/* Approach type quick selection — T&G section */}
-        {form.flight_type === 'touch_and_go' && (() => {
-          const incompleteStop = tngStops.find(s => s.icao && s.appType && !isStopDone(form.remarks, s));
-          if (!incompleteStop) return null;
-
-          const approachTypes = incompleteStop.appType === '2d'
-            ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
-            : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
-
-          const stopLineRegex = new RegExp(`^${incompleteStop.icao.toUpperCase()}\\s+(.*)$`, 'im');
-          const stopLine = stopLineRegex.exec(form.remarks)?.[0] || '';
-          const hasApproachType = approachTypes.some(type => stopLine.includes(type));
-          const hasRunway = /rwy \d{2,3}([LCR])?/i.test(stopLine);
-
-          if (hasApproachType && hasRunway) return null;
-
-          return (
-            <>
-              {!hasApproachType && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
-                    {incompleteStop.icao?.toUpperCase()}:
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    {approachTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[styles.chip, styles.chipAdd]}
-                        onPress={() => {
-                          set('remarks', replaceApproachTypeForStop(form.remarks, incompleteStop.icao, type));
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </>
-          );
-        })()}
+        {/* (stoppens approach-/navaid-val sker nu i Route-väljaren ovan) */}
 
         {/* Approach type quick selection — Arrival section */}
         {(() => {
-          if (form.flight_type === 'touch_and_go') {
-            if (!allTngDone(form.remarks, tngStops) || !selectedApp || !selectedRunway) return null;
-          } else {
-            if (!selectedApp || !selectedRunway) return null;
-          }
+          if (!selectedApp || !selectedRunway) return null;
 
           return (() => {
             const approachTypes = selectedApp === '2d'

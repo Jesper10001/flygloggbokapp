@@ -21,7 +21,10 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // initialRegion: ramar in en specifik vy (t.ex. en pilots besökta flygplatser i
 // Wrapped). interactive=false låser gesterna (svep i Wrapped-storyn ska bläddra,
 // inte panorera kartan).
-export function GlobalAirportMap({ airports, initialRegion, interactive = true }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean }) {
+// mode: 'auto' = nivå efter zoom (land → pluppar → pluppar+etikett). 'pins' = alltid
+// enskilda pins + ICAO-etikett (för FÅ flygplatser, t.ex. besökta). 'country' = ALLTID
+// land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, selectedIcao, mapType = 'standard' }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; selectedIcao?: string; mapType?: 'standard' | 'hybrid' }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
 
@@ -42,10 +45,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true }
   // Klustra länder längre in (delta>3.5) så pluppar bara dyker upp när vyn är
   // liten nog att hålla få markörer → undviker Apple Maps-krasch.
   const level: 'country' | 'dots' | 'labels' =
-    delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
+    mode === 'country' ? 'country'
+      : mode === 'pins' ? 'labels'
+      : delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
 
   // Viewport-filtrerade enskilda flygplatser (bara på plupp-nivåerna).
   const dots = useMemo(() => {
+    if (mode === 'pins') return airports; // få flygplatser → visa alla enskilt
     if (level !== 'dots' && level !== 'labels') return [];
     const latMin = region.latitude - region.latitudeDelta / 2 - 0.1;
     const latMax = region.latitude + region.latitudeDelta / 2 + 0.1;
@@ -60,7 +66,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true }
       }
     }
     return out;
-  }, [airports, level, region]);
+  }, [airports, level, region, mode]);
+
+  // Vald flygplats (för guld-markeringen) — finns bara i pins/labels-läget.
+  const selRow = useMemo(
+    () => (selectedIcao ? dots.find((a) => a[0] === selectedIcao) : undefined),
+    [dots, selectedIcao],
+  );
 
   const zoomTo = (lat: number, lon: number, d: number) =>
     mapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: d, longitudeDelta: d }, 450);
@@ -71,6 +83,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true }
       style={{ flex: 1 }}
       initialRegion={initialRegion ?? INITIAL}
       onRegionChangeComplete={setRegion}
+      mapType={mapType}
       userInterfaceStyle="dark"
       scrollEnabled={interactive}
       zoomEnabled={interactive}
@@ -106,22 +119,41 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true }
         />
       ))}
 
-      {/* Närmsta zoomen: nål + alltid synlig ICAO-etikett (egna vyer, hålls få via cap). */}
+      {/* Närmsta zoomen: blå plupp PÅ flygplatsen + ICAO-etikett ovanför (egna vyer, hålls
+          få via cap). Symmetrisk kolumn [etikett][plupp][spacer] → ankaret (mitten) hamnar
+          exakt på pluppen, inte på texten. */}
       {level === 'labels' && dots.map((a) => (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
           tracksViewChanges={false}
-          title={a[0]}
-          description={a[1]}
+          title={onSelectAirport ? undefined : a[0]}
+          description={onSelectAirport ? undefined : a[1]}
+          onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
         >
-          <View style={s.dotLabelWrap}>
-            <View style={s.dot} />
+          <View style={{ alignItems: 'center' }}>
             <View style={s.labelChip}><Text style={s.labelText}>{a[0]}</Text></View>
+            <View style={s.dot} />
+            <View style={s.dotSpacer} />
           </View>
         </Marker>
       ))}
+
+      {/* Guld-markering för vald flygplats: SEPARAT markör ovanpå pluppen. Konstant key +
+          statiskt innehåll → byter bara koordinat mellan val, ingen re-snapshot (inget hopp
+          till hörnet, ingen krasch). Basmarkörerna rörs aldrig. */}
+      {level === 'labels' && selRow && (
+        <Marker
+          key="__selhl__"
+          coordinate={{ latitude: selRow[4], longitude: selRow[5] }}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+          onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
+        >
+          <View style={s.selDot} />
+        </Marker>
+      )}
     </MapView>
   );
 }
@@ -136,13 +168,19 @@ const s = StyleSheet.create({
   flagEmoji: { fontSize: 16 },
   flagCount: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   dot: {
-    width: 11, height: 11, borderRadius: 6,
+    width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',
+    marginVertical: 3,
   },
-  dotLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  selDot: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#F5C84B', borderWidth: 2, borderColor: '#FFFFFF',
+  },
+  dotSpacer: { height: 16 },
   labelChip: {
+    height: 16, justifyContent: 'center',
     backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 5,
-    paddingHorizontal: 5, paddingVertical: 1.5, borderWidth: 0.5, borderColor: Colors.border,
+    paddingHorizontal: 5, borderWidth: 0.5, borderColor: Colors.border,
   },
   labelText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700', fontFamily: 'Menlo' },
 });

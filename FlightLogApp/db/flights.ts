@@ -898,6 +898,40 @@ export async function getVisitedAirportIcaos(): Promise<string[]> {
   return rows.map(r => r.icao);
 }
 
+// Antal landningar per flygplats (ankomst + mellanlandning, ej sim).
+export async function getAirportLandingCounts(): Promise<Record<string, number>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; n: number }>(
+    `SELECT icao, COUNT(*) as n FROM (
+       SELECT arr_place as icao FROM flights WHERE length(arr_place)=4 AND flight_type != 'sim'
+       UNION ALL
+       SELECT stop_place as icao FROM flights WHERE length(stop_place)=4 AND flight_type != 'sim'
+     ) GROUP BY icao`,
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.icao] = r.n;
+  return out;
+}
+
+// Senaste flygningen per flygplats (id + datum + registrering) — för länk till loggboken.
+// Samma plats-union som getVisitedAirportDates (dep/arr/stop) så datumet matchar "senast besökt".
+export async function getAirportLastFlight(): Promise<Record<string, { id: number; date: string; reg: string }>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ icao: string; id: number; date: string; registration: string }>(
+    `WITH places AS (
+       SELECT id, date, registration, dep_place as icao FROM flights WHERE length(dep_place)=4 AND flight_type != 'sim'
+       UNION ALL
+       SELECT id, date, registration, arr_place as icao FROM flights WHERE length(arr_place)=4 AND flight_type != 'sim'
+       UNION ALL
+       SELECT id, date, registration, stop_place as icao FROM flights WHERE length(stop_place)=4 AND flight_type != 'sim'
+     )
+     SELECT icao, id, date, registration, MAX(date) FROM places GROUP BY icao`,
+  );
+  const out: Record<string, { id: number; date: string; reg: string }> = {};
+  for (const r of rows) out[r.icao] = { id: r.id, date: r.date, reg: r.registration };
+  return out;
+}
+
 export async function getVisitedAirportDates(): Promise<Record<string, string>> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ icao: string; last: string }>(

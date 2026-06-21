@@ -480,7 +480,7 @@ function HeliIcon({ size = 14, color = 'rgba(255,255,255,0.8)' }: { size?: numbe
   );
 }
 
-function RunwayDiagram({ icao, size = 32 }: { icao: string; size?: number }) {
+export function RunwayDiagram({ icao, size = 32, color = '#FFB830' }: { icao: string; size?: number; color?: string }) {
   const headings = runwayData[icao];
   if (!headings || headings.length === 0) return null;
 
@@ -519,7 +519,7 @@ function RunwayDiagram({ icao, size = 32 }: { icao: string; size?: number }) {
               position: 'absolute',
               width: 2,
               height: size * 0.76,
-              backgroundColor: '#FFB830',
+              backgroundColor: color,
               borderRadius: 1,
               transform: [
                 { translateX: perpX },
