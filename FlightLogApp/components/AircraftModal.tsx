@@ -191,6 +191,8 @@ export function AircraftModal({
     setSaving(true);
     try {
       await onSave(trimmed, parseInt(speed) || 0, parseFloat(endurance.replace(',', '.')) || 0, serializeCrewType(crewTypes), category, engineType);
+      // Steg 1 = bara grunddata. Extended Fleet-data (VNE/MTOW/consumption/bild) hämtas
+      // på begäran via hämta-knappen på Fleet-korten.
     } finally {
       setSaving(false);
     }

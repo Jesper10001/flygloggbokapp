@@ -46,8 +46,10 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
   const [showOverview, setShowOverview] = useState(false); // page-overview dropdown
   const [showBooks, setShowBooks] = useState(false);       // bok-väljare (via titeln)
   const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
-  const [ratioL, setRatioL] = useState(1.4); // höjd/bredd för vänster sida (uppdateras av onAspect)
-  const [ratioR, setRatioR] = useState(1.4);
+  // Realistisk default-ratio för en halvsida (~0.7) så containern aldrig blir dubbelt
+  // för hög innan onAspect hinner mäta → ingen lång navy-lucka mellan sidorna.
+  const [ratioL, setRatioL] = useState(0.72); // höjd/bredd för vänster sida (uppdateras av onAspect)
+  const [ratioR, setRatioR] = useState(0.72);
 
   useEffect(() => {
     (async () => {
@@ -151,7 +153,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
                 style={[ctrlBtn, { opacity: safeIdx <= 0 ? 0.4 : 1 }]}>
                 <Ionicons name="chevron-back" size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/logbook')} activeOpacity={0.7} style={ctrlBtn}>
+              <TouchableOpacity onPress={() => router.push('/logbook?recent=1')} activeOpacity={0.7} style={ctrlBtn}>
                 <Ionicons name="expand-outline" size={18} color={accent} />
               </TouchableOpacity>
               <TouchableOpacity disabled={safeIdx >= spreads.length - 1} onPress={() => setIdx((i) => Math.min(spreads.length - 1, i + 1))} activeOpacity={0.7}

@@ -15,57 +15,191 @@ import {
   listCertificates, addCertificate, updateCertificate, deleteCertificate,
   certStatus, type DroneCertificate,
 } from '../../db/drones';
+import { RatingModal } from '../../components/logbook-page/RatingModal';
 import * as Haptics from 'expo-haptics';
 
-const DRONE_CERT_TYPES = ['A1/A3', 'A2', 'STS-01', 'STS-02', 'Operational Authorization', 'Other'];
+// ── Myndighet + certifikattaxonomi ─────────────────────────────────────────────
+// Giltighetstider verifierade mot EASA Part-FCL/Part-MED, FAA 14 CFR och UK CAA.
+// months: 0 = ingen fast utgång (licens livslång / FAA-certifikat / currency-baserat).
 
-const MANNED_CERT_TYPES = [
-  'ATPL', 'CPL', 'PPL', 'IR', 'Type Rating',
-  'Medical Class 1', 'Medical Class 2', 'Medical LAPL',
-  'Proficiency Check (PC)', 'Operator Proficiency Check (OPC)',
-  'Line Check', 'CRM', 'Dangerous Goods',
-  'PBN', 'RVSM', 'ETOPS', 'LVO / CAT II/III',
-  'SEP', 'MEP', 'Instructor Rating',
-  'English Language Proficiency',
-  'Other',
+type Authority = 'EASA' | 'FAA' | 'UK CAA';
+const AUTHORITIES: Authority[] = ['EASA', 'FAA', 'UK CAA'];
+
+type CertDef = { name: string; months: number; hint: string };
+type CertGroup = { title: string; items: CertDef[] };
+
+const OTHER_GROUP: CertGroup = { title: 'Other', items: [{ name: 'Other', months: 0, hint: 'Set a custom expiry if applicable.' }] };
+
+const EASA_GROUPS: CertGroup[] = [
+  { title: 'Licences', items: [
+    { name: 'ATPL(A)', months: 0, hint: 'Licence — valid for life. Privileges depend on valid ratings & medical.' },
+    { name: 'CPL', months: 0, hint: 'Licence — valid for life.' },
+    { name: 'PPL', months: 0, hint: 'Licence — valid for life.' },
+    { name: 'LAPL', months: 0, hint: 'Light licence — valid for life.' },
+  ] },
+  { title: 'Class & instrument ratings', items: [
+    { name: 'SEP (land)', months: 24, hint: 'EASA: 24 months. Revalidate by 12h + training flight, or a proficiency check.' },
+    { name: 'SEP (sea)', months: 24, hint: 'EASA: 24 months.' },
+    { name: 'TMG', months: 24, hint: 'EASA: 24 months.' },
+    { name: 'MEP (land)', months: 12, hint: 'EASA: 12 months — proficiency check required.' },
+    { name: 'IR (Instrument Rating)', months: 12, hint: 'EASA: 12 months — Instrument Proficiency Check (IPC). Lapses independently of the class/type rating.' },
+    { name: 'BIR (Basic IR)', months: 12, hint: 'EASA: 12 months — IPC.' },
+    { name: 'Night Rating', months: 0, hint: 'No expiry — kept current by recent experience.' },
+  ] },
+  { title: 'Instructor & examiner', items: [
+    { name: 'Flight Instructor (FI)', months: 36, hint: 'EASA: 36 months.' },
+    { name: 'Class/Type Instructor (CRI/TRI)', months: 36, hint: 'EASA: 36 months.' },
+    { name: 'IR Instructor (IRI)', months: 36, hint: 'EASA: 36 months.' },
+    { name: 'Examiner (FE/TRE/CRE)', months: 36, hint: 'EASA: 36 months.' },
+  ] },
+  { title: 'Medical', items: [
+    { name: 'Medical Class 1', months: 12, hint: 'EASA: 12 months (6 months if ≥60, or ≥40 in single-pilot CAT carrying passengers).' },
+    { name: 'Medical Class 2', months: 24, hint: 'EASA: 60 mo (under 40) · 24 mo (40–50) · 12 mo (over 50).' },
+    { name: 'Medical LAPL', months: 24, hint: 'EASA: 60 mo (under 40) · 24 mo (over 40).' },
+  ] },
+  { title: 'Operational checks', items: [
+    { name: 'Proficiency Check (PC)', months: 12, hint: 'EASA: typically 12 months.' },
+    { name: 'Operator Proficiency Check (OPC)', months: 12, hint: 'EASA: 12 months (CAT usually on a 6-month cycle).' },
+    { name: 'Line Check', months: 12, hint: 'EASA: 12 months.' },
+  ] },
+  { title: 'Recurrent & endorsements', items: [
+    { name: 'Dangerous Goods', months: 24, hint: 'Recurrent every 24 months.' },
+    { name: 'CRM', months: 12, hint: 'Recurrent on the operator schedule.' },
+    { name: 'LVO / CAT II/III', months: 12, hint: 'Recurrent with OPC / line training.' },
+    { name: 'RVSM', months: 0, hint: 'Operator/aircraft approval — no personal expiry.' },
+    { name: 'PBN', months: 0, hint: 'Now embedded in the IR — no separate expiry.' },
+    { name: 'English Language Proficiency', months: 48, hint: 'Level 4: 4 years · Level 5: 6 years · Level 6: no expiry.' },
+  ] },
+  OTHER_GROUP,
 ];
 
-const OPERATOR_CERT_TYPES = [
-  'Crew Chief Qualification', 'Hoist Operator Cert', 'Rescue Swimmer Cert',
-  'HEMS Crew Member', 'Loadmaster Cert',
-  'Medical Class 2', 'Medical Class 3',
-  'CRM', 'Underwater Escape Training',
-  'Fire Fighting', 'First Aid',
-  'NVG Qualification', 'Weapons Qualification',
-  'Other',
+const FAA_GROUPS: CertGroup[] = [
+  { title: 'Certificates', items: [
+    { name: 'ATP', months: 0, hint: 'FAA certificate — never expires. Currency via Flight Review + medical.' },
+    { name: 'Commercial', months: 0, hint: 'No expiry — Flight Review every 24 months.' },
+    { name: 'Private', months: 0, hint: 'No expiry — Flight Review every 24 months.' },
+    { name: 'Sport', months: 0, hint: 'No expiry.' },
+    { name: 'Recreational', months: 0, hint: 'No expiry.' },
+  ] },
+  { title: 'Ratings', items: [
+    { name: 'Instrument Rating', months: 0, hint: 'No expiry — IPC only if instrument currency lapses.' },
+    { name: 'Multi-Engine', months: 0, hint: 'No expiry.' },
+    { name: 'CFI (Flight Instructor)', months: 24, hint: 'FAA: expires every 24 months — renew by activity, checkride or FIRC.' },
+  ] },
+  { title: 'Medical', items: [
+    { name: 'Medical First Class', months: 12, hint: 'FAA: 12 months (under 40) · 6 months (40+) for ATP privileges.' },
+    { name: 'Medical Second Class', months: 12, hint: 'FAA: 12 months for commercial privileges.' },
+    { name: 'Medical Third Class', months: 60, hint: 'FAA: 60 months (under 40) · 24 months (40+).' },
+    { name: 'BasicMed', months: 48, hint: 'FAA: medical exam every 48 months; online course every 24 months.' },
+  ] },
+  { title: 'Currency & checks', items: [
+    { name: 'Flight Review (BFR)', months: 24, hint: 'FAA: every 24 calendar months to act as PIC.' },
+    { name: 'IPC (Instrument Proficiency Check)', months: 0, hint: 'Required only when instrument currency lapses.' },
+    { name: '61.58 PIC Proficiency Check', months: 12, hint: 'FAA: 12 months for type-rated / turbojet PIC.' },
+    { name: 'Line Check', months: 12, hint: 'Part 121/135: 12 months.' },
+  ] },
+  { title: 'Recurrent & endorsements', items: [
+    { name: 'Dangerous Goods / HazMat', months: 24, hint: 'Recurrent every 24 months.' },
+    { name: 'CRM', months: 12, hint: 'Recurrent on the operator schedule.' },
+    { name: 'RVSM', months: 0, hint: 'Operator / aircraft authorization.' },
+    { name: 'English Proficient', months: 0, hint: 'FAA: endorsement on the certificate — no expiry.' },
+  ] },
+  OTHER_GROUP,
 ];
 
-function getCertTypes(mode: string, isOp: boolean): string[] {
-  if (mode === 'drone') return DRONE_CERT_TYPES;
-  if (isOp) return OPERATOR_CERT_TYPES;
-  return MANNED_CERT_TYPES;
+const CAA_GROUPS: CertGroup[] = [
+  { title: 'Licences', items: [
+    { name: 'ATPL(A)', months: 0, hint: 'UK CAA licence — valid for life.' },
+    { name: 'CPL', months: 0, hint: 'Valid for life.' },
+    { name: 'PPL', months: 0, hint: 'Valid for life.' },
+    { name: 'LAPL', months: 0, hint: 'Valid for life.' },
+    { name: 'NPPL', months: 0, hint: 'UK national PPL — valid for life.' },
+  ] },
+  { title: 'Class & instrument ratings', items: [
+    { name: 'SEP (land)', months: 24, hint: 'UK CAA: 24 months.' },
+    { name: 'SEP (sea)', months: 24, hint: 'UK CAA: 24 months.' },
+    { name: 'TMG', months: 24, hint: 'UK CAA: 24 months.' },
+    { name: 'MEP (land)', months: 12, hint: 'UK CAA: 12 months — proficiency check.' },
+    { name: 'IR (Instrument Rating)', months: 12, hint: 'UK CAA: 12 months — IPC.' },
+    { name: 'IR(R) / IMC', months: 25, hint: 'UK-only rating: 25 months.' },
+    { name: 'Night Rating', months: 0, hint: 'No expiry.' },
+  ] },
+  { title: 'Instructor & examiner', items: [
+    { name: 'Flight Instructor (FI)', months: 36, hint: 'UK CAA: 36 months.' },
+    { name: 'Class/Type Instructor', months: 36, hint: 'UK CAA: 36 months.' },
+    { name: 'Examiner', months: 36, hint: 'UK CAA: 36 months.' },
+  ] },
+  { title: 'Medical', items: [
+    { name: 'Medical Class 1', months: 12, hint: 'UK CAA: 12 months (6 months if ≥60 / ≥40 single-pilot CAT pax).' },
+    { name: 'Medical Class 2', months: 24, hint: 'UK CAA: 60 mo (under 40) · 24 mo (40–50) · 12 mo (over 50).' },
+    { name: 'Medical LAPL', months: 24, hint: 'UK CAA: 60 mo (under 40) · 24 mo (over 40).' },
+    { name: 'PMD (Pilot Medical Declaration)', months: 0, hint: 'UK self-declaration — valid until age 70, then renew.' },
+  ] },
+  { title: 'Operational checks', items: [
+    { name: 'Proficiency Check (PC)', months: 12, hint: 'UK CAA: typically 12 months.' },
+    { name: 'Operator Proficiency Check (OPC)', months: 12, hint: 'UK CAA: 12 months.' },
+    { name: 'Line Check', months: 12, hint: 'UK CAA: 12 months.' },
+  ] },
+  { title: 'Recurrent & endorsements', items: [
+    { name: 'Dangerous Goods', months: 24, hint: 'Recurrent every 24 months.' },
+    { name: 'CRM', months: 12, hint: 'Recurrent on the operator schedule.' },
+    { name: 'English Language Proficiency', months: 48, hint: 'Level 4: 4 years · Level 5: 6 years · Level 6: no expiry.' },
+  ] },
+  OTHER_GROUP,
+];
+
+// Operatörskvalifikationer (SAR/HEMS/militär) — läggs till för operatörer.
+const OPERATOR_EXTRA: CertGroup = { title: 'Crew qualifications', items: [
+  { name: 'Crew Chief Qualification', months: 24, hint: 'Operator-defined recurrent.' },
+  { name: 'Hoist Operator', months: 12, hint: 'Operator-defined recurrent.' },
+  { name: 'Rescue Swimmer', months: 12, hint: 'Operator-defined recurrent.' },
+  { name: 'HEMS Crew Member', months: 12, hint: 'Operator-defined recurrent.' },
+  { name: 'Loadmaster', months: 24, hint: 'Operator-defined recurrent.' },
+  { name: 'NVG Qualification', months: 12, hint: 'Kept current by recent experience.' },
+  { name: 'Underwater Escape (HUET)', months: 48, hint: 'Typically every 3–4 years.' },
+  { name: 'Fire Fighting', months: 36, hint: 'Recurrent.' },
+  { name: 'First Aid', months: 24, hint: 'Recurrent.' },
+] };
+
+const DRONE_GROUPS: CertGroup[] = [
+  { title: 'Certificates of competency', items: [
+    { name: 'A1/A3', months: 60, hint: 'EU Open category — 5 years.' },
+    { name: 'A2', months: 60, hint: 'EU Open category (A2 CofC) — 5 years.' },
+    { name: 'STS-01', months: 60, hint: 'EU Specific (standard scenario) — 5 years.' },
+    { name: 'STS-02', months: 60, hint: 'EU Specific (standard scenario) — 5 years.' },
+    { name: 'Operational Authorization', months: 24, hint: 'Specific category — per authorisation (often ~2 years).' },
+    { name: 'Other', months: 0, hint: 'Set a custom expiry if applicable.' },
+  ] },
+];
+
+function getGroups(mode: string, isOp: boolean, authority: Authority): CertGroup[] {
+  if (mode === 'drone') return DRONE_GROUPS;
+  const base = authority === 'FAA' ? FAA_GROUPS : authority === 'UK CAA' ? CAA_GROUPS : EASA_GROUPS;
+  if (!isOp) return base;
+  // Operatörsgrupp infogas precis före "Other".
+  return [...base.slice(0, -1), OPERATOR_EXTRA, base[base.length - 1]];
 }
 
-const CERT_DEFAULT_YEARS: Record<string, number> = {
-  'A1/A3': 5, 'A2': 5, 'STS-01': 5, 'STS-02': 5, 'Operational Authorization': 2,
-  'ATPL': 0, 'CPL': 0, 'PPL': 0, 'IR': 1, 'Type Rating': 1,
-  'Medical Class 1': 1, 'Medical Class 2': 2, 'Medical LAPL': 2, 'Medical Class 3': 2,
-  'Proficiency Check (PC)': 1, 'Operator Proficiency Check (OPC)': 1,
-  'Line Check': 1, 'CRM': 3, 'Dangerous Goods': 2,
-  'PBN': 0, 'RVSM': 0, 'ETOPS': 0, 'LVO / CAT II/III': 0,
-  'SEP': 2, 'MEP': 1, 'Instructor Rating': 3,
-  'English Language Proficiency': 4,
-  'Crew Chief Qualification': 2, 'Hoist Operator Cert': 1, 'Rescue Swimmer Cert': 1,
-  'HEMS Crew Member': 1, 'Loadmaster Cert': 2,
-  'Underwater Escape Training': 4, 'Fire Fighting': 3, 'First Aid': 2,
-  'NVG Qualification': 1, 'Weapons Qualification': 1,
-  'Other': 0,
-};
+// Plattt namn→månader för renew-knappens default (myndighetsoberoende).
+const MONTHS_BY_NAME: Record<string, number> = (() => {
+  const m: Record<string, number> = {};
+  for (const g of [...EASA_GROUPS, ...FAA_GROUPS, ...CAA_GROUPS, OPERATOR_EXTRA, ...DRONE_GROUPS]) {
+    for (const d of g.items) if (!(d.name in m)) m[d.name] = d.months;
+  }
+  m['Type Rating'] = 12; // skapas via rating-popupen
+  return m;
+})();
 
-function addYears(dateStr: string, years: number): string {
-  const d = dateStr ? new Date(dateStr) : new Date();
-  d.setFullYear(d.getFullYear() + years);
-  return d.toISOString().split('T')[0];
+function toISODate(d: Date): string { return d.toISOString().split('T')[0]; }
+function addMonthsISO(fromISO: string, months: number): string {
+  const d = fromISO ? new Date(fromISO + 'T00:00:00') : new Date();
+  d.setMonth(d.getMonth() + months);
+  return toISODate(d);
+}
+function monthsLabel(m: number): string {
+  if (m <= 0) return 'no fixed expiry';
+  if (m % 12 === 0) { const y = m / 12; return `${y} ${y === 1 ? 'year' : 'years'}`; }
+  return `${m} months`;
 }
 
 function daysUntil(dateStr: string): { text: string; days: number } {
@@ -95,11 +229,13 @@ export default function CertificatesScreen() {
   const { t } = useTranslation();
   const mode = useAppModeStore(s => s.mode);
   const profile = useProfileStore(s => s.profile);
-  const CERT_TYPES = getCertTypes(mode, isOperator(profile));
+  const isOp = isOperator(profile);
+  const [authority, setAuthority] = useState<Authority>('EASA');
   const [certs, setCerts] = useState<DroneCertificate[]>([]);
   const [recency, setRecency] = useState<CategoryRecency[]>([]);
   const [editing, setEditing] = useState<DroneCertificate | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addingRating, setAddingRating] = useState(false);
   const [renewing, setRenewing] = useState<DroneCertificate | null>(null);
   const [renewDate, setRenewDate] = useState(new Date());
 
@@ -109,9 +245,14 @@ export default function CertificatesScreen() {
   };
   useFocusEffect(useCallback(() => { load(); }, []));
 
-  const active = certs.filter(c => { const s = certStatus(c.expires_date); return s === 'valid' || s === 'warning'; });
-  const expiring = certs.filter(c => { const s = certStatus(c.expires_date); return s === 'critical'; });
-  const expired = certs.filter(c => certStatus(c.expires_date) === 'expired');
+  // Pilot-relevant ordning: närmast utgång först (mest brådskande).
+  const byExpiryAsc = (a: DroneCertificate, b: DroneCertificate) =>
+    (a.expires_date || '9999-99-99').localeCompare(b.expires_date || '9999-99-99');
+  const byExpiryDesc = (a: DroneCertificate, b: DroneCertificate) =>
+    (b.expires_date || '').localeCompare(a.expires_date || '');
+  const active = certs.filter(c => { const st = certStatus(c.expires_date); return st === 'valid' || st === 'warning'; }).sort(byExpiryAsc);
+  const expiring = certs.filter(c => certStatus(c.expires_date) === 'critical').sort(byExpiryAsc);
+  const expired = certs.filter(c => certStatus(c.expires_date) === 'expired').sort(byExpiryDesc);
   const noDate = certs.filter(c => certStatus(c.expires_date) === 'no_date');
 
   const renderCard = (c: DroneCertificate) => {
@@ -119,12 +260,7 @@ export default function CertificatesScreen() {
     const color = statusColor(status);
     const info = c.expires_date ? daysUntil(c.expires_date) : { text: 'No expiry', days: 9999 };
     return (
-      <TouchableOpacity
-        key={c.id}
-        style={s.card}
-        onPress={() => setEditing(c)}
-        activeOpacity={0.75}
-      >
+      <TouchableOpacity key={c.id} style={s.card} onPress={() => setEditing(c)} activeOpacity={0.75}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
           <Ionicons name={statusIcon(status) as any} size={18} color={color} style={{ marginTop: 1 }} />
           <View style={{ flex: 1 }}>
@@ -136,7 +272,7 @@ export default function CertificatesScreen() {
         <View style={s.cardFooter}>
           {c.issued_date ? (
             <Text style={s.cardDate}>{c.issued_date}{c.expires_date ? ` → ${c.expires_date}` : ''}</Text>
-          ) : null}
+          ) : <View />}
           <Text style={[s.cardStatus, { color }]}>{info.text}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -146,9 +282,9 @@ export default function CertificatesScreen() {
               style={s.renewBtn}
               onPress={(e) => {
                 e.stopPropagation?.();
-                const years = CERT_DEFAULT_YEARS[c.cert_type] ?? 1;
+                const months = MONTHS_BY_NAME[c.cert_type] ?? 12;
                 const def = new Date();
-                if (years > 0) def.setFullYear(def.getFullYear() + years);
+                if (months > 0) def.setMonth(def.getMonth() + months);
                 setRenewDate(def);
                 setRenewing(c);
                 Haptics.selectionAsync();
@@ -205,13 +341,9 @@ export default function CertificatesScreen() {
         </View>
       </View>
 
-      {/* Expiring soon */}
-      {renderSection('Expiring soon', expiring, 'alert-circle', Colors.warning)}
-
-      {/* Expired */}
+      {/* Sektioner i fallande brådska */}
       {renderSection('Expired', expired, 'close-circle', Colors.danger)}
-
-      {/* Active */}
+      {renderSection('Expiring soon', expiring, 'alert-circle', Colors.warning)}
       {renderSection('Active', [...active, ...noDate], 'checkmark-circle', Colors.success)}
 
       {/* Recency per kategori (endast drönarläge) */}
@@ -253,7 +385,13 @@ export default function CertificatesScreen() {
         </View>
       )}
 
-      {/* Add button */}
+      {/* Add buttons */}
+      {mode !== 'drone' && (
+        <TouchableOpacity style={s.ratingBtn} onPress={() => { setAddingRating(true); Haptics.selectionAsync(); }} activeOpacity={0.85}>
+          <Ionicons name="ribbon-outline" size={17} color={Colors.primary} />
+          <Text style={s.ratingBtnText}>Add type rating</Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity style={s.addBtn} onPress={() => { setAdding(true); Haptics.selectionAsync(); }} activeOpacity={0.85}>
         <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
         <Text style={s.addBtnText}>{t('add_certificate')}</Text>
@@ -262,16 +400,38 @@ export default function CertificatesScreen() {
       <CertForm
         visible={adding}
         initial={null}
-        certTypes={CERT_TYPES}
+        mode={mode}
+        isOp={isOp}
+        authority={authority}
+        onAuthorityChange={setAuthority}
         onClose={() => setAdding(false)}
         onSaved={async () => { await load(); setAdding(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }}
       />
       <CertForm
         visible={!!editing}
         initial={editing}
-        certTypes={CERT_TYPES}
+        mode={mode}
+        isOp={isOp}
+        authority={authority}
+        onAuthorityChange={setAuthority}
         onClose={() => setEditing(null)}
         onSaved={async () => { await load(); setEditing(null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }}
+      />
+
+      {/* Type rating — samma popup som på Fleet-korten */}
+      <RatingModal
+        visible={addingRating}
+        title="Add type rating"
+        initialName=""
+        initialExpiry=""
+        accent={Colors.primary}
+        onSave={async (name, expiryISO) => {
+          await addCertificate({ cert_type: 'Type Rating', label: name, issued_date: toISODate(new Date()), expires_date: expiryISO, notes: '' });
+          setAddingRating(false);
+          await load();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+        onClose={() => setAddingRating(false)}
       />
 
       {/* Renew date picker */}
@@ -302,13 +462,11 @@ export default function CertificatesScreen() {
                 style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, marginHorizontal: 16, marginBottom: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
                 onPress={async () => {
                   if (!renewing) return;
-                  const today = new Date().toISOString().split('T')[0];
-                  const newExpiry = renewDate.toISOString().split('T')[0];
                   await updateCertificate(renewing.id, {
                     cert_type: renewing.cert_type,
                     label: renewing.label,
-                    issued_date: today,
-                    expires_date: newExpiry,
+                    issued_date: toISODate(new Date()),
+                    expires_date: toISODate(renewDate),
                     notes: renewing.notes,
                   });
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -328,17 +486,32 @@ export default function CertificatesScreen() {
   );
 }
 
+// ── Add/Edit-formulär ──────────────────────────────────────────────────────────
+
 function CertForm({
-  visible, initial, certTypes, onClose, onSaved,
+  visible, initial, mode, isOp, authority, onAuthorityChange, onClose, onSaved,
 }: {
   visible: boolean;
   initial: DroneCertificate | null;
-  certTypes: string[];
+  mode: string;
+  isOp: boolean;
+  authority: Authority;
+  onAuthorityChange: (a: Authority) => void;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const [certType, setCertType] = useState(initial?.cert_type ?? certTypes[0] ?? 'Other');
+  const showAuthority = mode !== 'drone';
+
+  let groups = getGroups(mode, isOp, authority);
+  // Vid redigering: om typen inte finns i nuvarande grupper, visa den som "Current".
+  const known = new Set(groups.flatMap(g => g.items.map(i => i.name)));
+  if (initial && initial.cert_type && !known.has(initial.cert_type)) {
+    groups = [{ title: 'Current', items: [{ name: initial.cert_type, months: MONTHS_BY_NAME[initial.cert_type] ?? 0, hint: 'Existing entry — adjust the expiry below.' }] }, ...groups];
+  }
+  const allDefs = groups.flatMap(g => g.items);
+
+  const [certType, setCertType] = useState(initial?.cert_type ?? allDefs[0]?.name ?? 'Other');
   const [label, setLabel] = useState(initial?.label ?? '');
   const [issued, setIssued] = useState(initial?.issued_date ?? '');
   const [expires, setExpires] = useState(initial?.expires_date ?? '');
@@ -348,12 +521,18 @@ function CertForm({
 
   useEffect(() => {
     if (!visible) return;
-    setCertType(initial?.cert_type ?? certTypes[0] ?? 'Other');
+    setCertType(initial?.cert_type ?? allDefs[0]?.name ?? 'Other');
     setLabel(initial?.label ?? '');
     setIssued(initial?.issued_date ?? '');
     setExpires(initial?.expires_date ?? '');
     setNotes(initial?.notes ?? '');
-  }, [visible, initial?.id]);
+    setShowIssuedDate(false);
+    setShowExpiresDate(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initial?.id, authority]);
+
+  const selectedDef = allDefs.find(d => d.name === certType);
+  const suggestMonths = selectedDef?.months ?? 0;
 
   const save = async () => {
     const data = { cert_type: certType, label: label.trim(), issued_date: issued, expires_date: expires, notes: notes.trim() };
@@ -371,6 +550,18 @@ function CertForm({
     ]);
   };
 
+  const expiryChips: { label: string; onPress: () => void; active: boolean }[] = [
+    ...(suggestMonths > 0 ? [{
+      label: `Suggested · ${monthsLabel(suggestMonths)}`,
+      onPress: () => setExpires(addMonthsISO(issued, suggestMonths)),
+      active: !!expires && expires === addMonthsISO(issued, suggestMonths),
+    }] : []),
+    { label: '+1 yr', onPress: () => setExpires(addMonthsISO(issued, 12)), active: false },
+    { label: '+2 yr', onPress: () => setExpires(addMonthsISO(issued, 24)), active: false },
+    { label: '+5 yr', onPress: () => setExpires(addMonthsISO(issued, 60)), active: false },
+    { label: 'No expiry', onPress: () => setExpires(''), active: !expires },
+  ];
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={fs.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -379,29 +570,54 @@ function CertForm({
           <View style={fs.handle} />
           <Text style={fs.title}>{initial ? t('edit_certificate') : t('add_certificate')}</Text>
 
-          <ScrollView style={{ maxHeight: '75%' }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {/* Type picker */}
+          <ScrollView style={{ maxHeight: '78%' }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {/* Authority */}
+            {showAuthority && (
+              <>
+                <Text style={fs.label}>REGULATORY AUTHORITY</Text>
+                <View style={fs.authBar}>
+                  {AUTHORITIES.map((a) => {
+                    const on = authority === a;
+                    return (
+                      <TouchableOpacity key={a} style={[fs.authSeg, on && fs.authSegActive]} onPress={() => { onAuthorityChange(a); Haptics.selectionAsync(); }} activeOpacity={0.8}>
+                        <Text style={[fs.authText, on && fs.authTextActive]}>{a}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
+            {/* Type picker — grupperat per kategori */}
             <Text style={fs.label}>{t('cert_type')}</Text>
-            <View style={fs.typeGrid}>
-              {certTypes.map((c) => {
-                const active = certType === c;
-                return (
-                  <TouchableOpacity
-                    key={c}
-                    style={[fs.typeBtn, active && fs.typeBtnActive]}
-                    onPress={() => {
-                      setCertType(c);
-                      Haptics.selectionAsync();
-                      const years = CERT_DEFAULT_YEARS[c] ?? 0;
-                      if (years > 0 && !expires) setExpires(addYears(issued || '', years));
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[fs.typeText, active && fs.typeTextActive]}>{c}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {groups.map((g) => (
+              <View key={g.title}>
+                {groups.length > 1 && <Text style={fs.groupLabel}>{g.title}</Text>}
+                <View style={fs.typeGrid}>
+                  {g.items.map((d) => {
+                    const sel = certType === d.name;
+                    return (
+                      <TouchableOpacity
+                        key={d.name}
+                        style={[fs.typeBtn, sel && fs.typeBtnActive]}
+                        onPress={() => { setCertType(d.name); Haptics.selectionAsync(); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[fs.typeText, sel && fs.typeTextActive]}>{d.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+
+            {/* Validity hint */}
+            {selectedDef && (
+              <View style={fs.hintBox}>
+                <Ionicons name="information-circle-outline" size={15} color={Colors.primary} style={{ marginTop: 1 }} />
+                <Text style={fs.hintText}>{selectedDef.hint}</Text>
+              </View>
+            )}
 
             {/* Issuer / label */}
             <Text style={fs.label}>ISSUER / REFERENCE</Text>
@@ -413,23 +629,26 @@ function CertForm({
               placeholderTextColor={Colors.textMuted}
             />
 
-            {/* Dates */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={fs.label}>{t('issued_date')}</Text>
-                <TouchableOpacity style={fs.dateBtn} onPress={() => setShowIssuedDate(true)} activeOpacity={0.7}>
-                  <Text style={[fs.dateText, !issued && { color: Colors.textMuted }]}>{issued || 'YYYY-MM-DD'}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+            {/* Issued date */}
+            <Text style={fs.label}>{t('issued_date')}</Text>
+            <TouchableOpacity style={fs.dateBtn} onPress={() => setShowIssuedDate(true)} activeOpacity={0.7}>
+              <Text style={[fs.dateText, !issued && { color: Colors.textMuted }]}>{issued || 'Tap to choose'}</Text>
+              <Ionicons name="calendar-outline" size={15} color={Colors.primary} />
+            </TouchableOpacity>
+
+            {/* Expiry — du väljer själv */}
+            <Text style={fs.label}>EXPIRY DATE</Text>
+            <View style={fs.chipRow}>
+              {expiryChips.map((c) => (
+                <TouchableOpacity key={c.label} style={[fs.chip, c.active && fs.chipActive]} onPress={() => { c.onPress(); Haptics.selectionAsync(); }} activeOpacity={0.75}>
+                  <Text style={[fs.chipText, c.active && fs.chipTextActive]}>{c.label}</Text>
                 </TouchableOpacity>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={fs.label}>{t('expires_date')}</Text>
-                <TouchableOpacity style={fs.dateBtn} onPress={() => setShowExpiresDate(true)} activeOpacity={0.7}>
-                  <Text style={[fs.dateText, !expires && { color: Colors.textMuted }]}>{expires || 'No expiry'}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
+              ))}
             </View>
+            <TouchableOpacity style={fs.dateBtn} onPress={() => setShowExpiresDate(true)} activeOpacity={0.7}>
+              <Text style={[fs.dateText, !expires && { color: Colors.textMuted }]}>{expires || 'No expiry — tap to set a date'}</Text>
+              <Ionicons name="calendar-outline" size={15} color={Colors.primary} />
+            </TouchableOpacity>
 
             {/* Notes */}
             <Text style={fs.label}>{t('notes')}</Text>
@@ -465,22 +684,14 @@ function CertForm({
           <DateTimePicker
             value={issued ? new Date(issued) : new Date()}
             mode="date" display="calendar"
-            onChange={(e, d) => {
-              setShowIssuedDate(false);
-              if (e.type === 'set' && d) {
-                const iso = d.toISOString().split('T')[0];
-                setIssued(iso);
-                const years = CERT_DEFAULT_YEARS[certType] ?? 0;
-                if (years > 0 && !expires) setExpires(addYears(iso, years));
-              }
-            }}
+            onChange={(e, d) => { setShowIssuedDate(false); if (e.type === 'set' && d) setIssued(toISODate(d)); }}
           />
         )}
         {showExpiresDate && Platform.OS === 'android' && (
           <DateTimePicker
             value={expires ? new Date(expires) : new Date()}
             mode="date" display="calendar"
-            onChange={(e, d) => { setShowExpiresDate(false); if (e.type === 'set' && d) setExpires(d.toISOString().split('T')[0]); }}
+            onChange={(e, d) => { setShowExpiresDate(false); if (e.type === 'set' && d) setExpires(toISODate(d)); }}
           />
         )}
         {Platform.OS === 'ios' && (showIssuedDate || showExpiresDate) && (
@@ -495,12 +706,8 @@ function CertForm({
                   mode="date" display="inline" themeVariant="dark"
                   onChange={(_, d) => {
                     if (!d) return;
-                    const iso = d.toISOString().split('T')[0];
-                    if (showIssuedDate) {
-                      setIssued(iso);
-                      const years = CERT_DEFAULT_YEARS[certType] ?? 0;
-                      if (years > 0 && !expires) setExpires(addYears(iso, years));
-                    } else { setExpires(iso); }
+                    if (showIssuedDate) setIssued(toISODate(d));
+                    else setExpires(toISODate(d));
                   }}
                 />
               </Pressable>
@@ -561,6 +768,12 @@ const s = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, marginTop: 8,
   },
   addBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
+  ratingBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.primary + '14', borderRadius: 12, paddingVertical: 13, marginTop: 8,
+    borderWidth: 1, borderColor: Colors.primary + '55',
+  },
+  ratingBtnText: { color: Colors.primary, fontSize: 15, fontWeight: '700' },
 });
 
 // ── Form styles ───────────────────────────────────────────────────────────────
@@ -570,19 +783,26 @@ const fs = StyleSheet.create({
   sheet: {
     backgroundColor: Colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 36, borderWidth: 1, borderColor: Colors.border,
-    maxHeight: '90%',
+    maxHeight: '92%',
   },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 12 },
-  title: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  title: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 4 },
   label: {
     color: Colors.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 14, marginBottom: 6,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 16, marginBottom: 7,
   },
   input: {
     backgroundColor: Colors.elevated, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
     color: Colors.textPrimary, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10,
   },
+
+  authBar: { flexDirection: 'row', backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 3 },
+  authSeg: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 8 },
+  authSegActive: { backgroundColor: Colors.primary },
+  authText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  authTextActive: { color: Colors.textInverse },
+
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   typeBtn: {
     paddingHorizontal: 11, paddingVertical: 8, borderRadius: 8,
@@ -591,11 +811,26 @@ const fs = StyleSheet.create({
   typeBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   typeText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
   typeTextActive: { color: Colors.textInverse },
+  groupLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', marginTop: 12, marginBottom: 6 },
+
+  hintBox: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: Colors.primary + '12', borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '33',
+    paddingHorizontal: 11, paddingVertical: 10, marginTop: 12,
+  },
+  hintText: { flex: 1, color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  chip: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border },
+  chipActive: { backgroundColor: Colors.primary + '22', borderColor: Colors.primary },
+  chipText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  chipTextActive: { color: Colors.primary },
+
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Colors.elevated, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
-    paddingHorizontal: 12, paddingVertical: 11,
+    paddingHorizontal: 12, paddingVertical: 12,
   },
   dateText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
   deleteBtn: {

@@ -969,7 +969,7 @@ function AircraftConfirmation({
     return init;
   });
 
-  // Auto-lookup via AI nar skarmen oppnas
+  // Auto-lookup via AI nar skarmen oppnas (bara grunddata; extended Fleet-data hämtas i Fleet)
   useEffect(() => {
     detections.forEach(async (d) => {
       try {

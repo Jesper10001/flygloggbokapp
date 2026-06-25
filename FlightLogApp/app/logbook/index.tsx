@@ -145,9 +145,9 @@ export default function LogbookScreen() {
     });
   }, [selectedBook, effectiveTemplate, selectedSlice]);
 
-  // Dashboard-vägen (recent=1): visa bara innevarande + de 2 föregående uppslagen.
+  // recent=1 styr bara footern (transcribe-knappen). Man kan alltid bläddra HELA boken.
   const recent = params.recent === '1';
-  const visibleSpreads = useMemo(() => (recent ? spreads.slice(-3) : spreads), [recent, spreads]);
+  const visibleSpreads = spreads;
 
   const hasFlightsInBook = (selectedSlice?.flights.length ?? 0) > 0;
   const safeIndex = Math.min(activeIndex, Math.max(0, visibleSpreads.length - 1));
@@ -167,14 +167,16 @@ export default function LogbookScreen() {
   }, [selectedBook, flights]);
 
   // Öppna alltid på SENASTE uppslaget när man går in i en bok (eller byter bok).
+  // Vänta tills ready=true (FlatList är monterad efter orienterings-täckaren), annars
+  // körs scrollToIndex innan listan finns och man fastnar på första uppslaget.
   useEffect(() => {
-    if (loading || visibleSpreads.length === 0) return;
+    if (loading || !ready || visibleSpreads.length === 0) return;
     if (positionedBook.current === activeBookId) return;
     positionedBook.current = activeBookId;
     const last = visibleSpreads.length - 1;
     setActiveIndex(last);
     setTimeout(() => { try { listRef.current?.scrollToIndex({ index: last, animated: false }); } catch {} }, 80);
-  }, [loading, visibleSpreads.length, activeBookId]);
+  }, [loading, ready, visibleSpreads.length, activeBookId]);
 
   // Håll uppslaget i synk vid rotation/breddändring.
   useEffect(() => {
@@ -196,12 +198,13 @@ export default function LogbookScreen() {
     try { listRef.current?.scrollToIndex({ index: clamped, animated: false }); } catch {}
   };
 
-  // Lämna boken utan orienterings-frysning: töm den tunga FlatList/WebView-vyn,
-  // vänta in portrait-låset, och navigera sedan — inget tungt om-renderas under bytet.
-  const handleBack = async () => {
+  // Lämna boken utan att frysa: töm först den tunga FlatList/WebView-vyn (leaving),
+  // lås portrait FIRE-AND-FORGET (await:a aldrig lockAsync — det kan hänga och blockera
+  // navigeringen), och navigera efter en kort stund så rotationen hunnit börja.
+  const handleBack = () => {
     setLeaving(true);
-    try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
-    router.back();
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    setTimeout(() => { router.back(); }, 230);
   };
 
   const onAssign = useCallback((colId: string) => { setAssignTarget(colId); setAssignOpen(true); }, []);
@@ -230,11 +233,6 @@ export default function LogbookScreen() {
     setShowBooks(false);
   };
 
-  const startNewBook = () => {
-    const carry = spreads.length ? spreads[spreads.length - 1].total_to_date : undefined;
-    setShowBooks(false);
-    setSetup({ mode: 'create', initial: null, carry });
-  };
 
   const confirmDelete = (b: DigitalBook) => {
     Alert.alert(b.name, t('dlb_delete_book_confirm'), [
@@ -285,7 +283,9 @@ export default function LogbookScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: width > height ? 0 : insets.top }]}>
-      <Stack.Screen options={{ headerShown: false }} />
+      {/* Swipe-tillbaka avstängd: utgång sker via back-knappen (handleBack) som låser
+          portrait + tömmer tunga vyer först → ingen frysning vid orienteringsbytet. */}
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
       {/* Header */}
       <View style={[styles.header, { paddingLeft: insets.left + 6, paddingRight: insets.right + 6 }]}>
@@ -303,11 +303,9 @@ export default function LogbookScreen() {
           )}
         </TouchableOpacity>
 
-        {!recent && (
-          <TouchableOpacity onPress={() => setShowOverview((v) => !v)} style={styles.iconBtn} activeOpacity={0.7} disabled={!hasFlightsInBook}>
-            <Ionicons name="list-outline" size={20} color={hasFlightsInBook ? Colors.textSecondary : Colors.textMuted} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => setShowOverview((v) => !v)} style={styles.iconBtn} activeOpacity={0.7} disabled={!hasFlightsInBook}>
+          <Ionicons name="list-outline" size={20} color={hasFlightsInBook ? Colors.textSecondary : Colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       {!hasFlightsInBook ? (
@@ -320,6 +318,7 @@ export default function LogbookScreen() {
             keyExtractor={(s) => String(s.spread_number)}
             horizontal pagingEnabled showsHorizontalScrollIndicator={false}
             key={activeBookId ?? 'none'}
+            initialScrollIndex={Math.max(0, visibleSpreads.length - 1)}
             getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
             initialNumToRender={1} maxToRenderPerBatch={2} windowSize={3}
             onMomentumScrollEnd={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
@@ -369,10 +368,7 @@ export default function LogbookScreen() {
                 );
               })}
             </ScrollView>
-            <TouchableOpacity style={styles.primaryBtn} onPress={startNewBook} activeOpacity={0.85}>
-              <Ionicons name="add" size={18} color={Colors.textInverse} />
-              <Text style={styles.primaryBtnText}>{t('dlb_new_book')}</Text>
-            </TouchableOpacity>
+            {/* "+ New logbook" skapas numera bara utanför helskärm (Book-vyns New/Modify-knappar). */}
           </View>
         </View>
       </Modal>

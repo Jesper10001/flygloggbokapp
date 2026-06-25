@@ -34,7 +34,7 @@ export const SpreadWebView = memo(function SpreadWebView({
   );
   // Vid behov: mät uppslagets naturliga höjd/bredd och rapportera tillbaka.
   const injected = onAspect
-    ? `(function(){var p=function(){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'size',ratio:document.body.scrollHeight/window.innerWidth}));}catch(e){}};p();setTimeout(p,120);})();true;`
+    ? `(function(){var p=function(){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'size',ratio:document.body.scrollHeight/window.innerWidth}));}catch(e){}};p();setTimeout(p,120);setTimeout(p,400);})();true;`
     : undefined;
   return (
     <View style={{ width, flex: 1, backgroundColor: bgColor }}>

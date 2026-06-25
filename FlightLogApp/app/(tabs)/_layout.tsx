@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Text, View, TouchableOpacity } from 'react-native';
-import { BladesTabIcon } from '../../components/BladesTabIcon';
+import { Text, View, TouchableOpacity, Image } from 'react-native';
+import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -16,7 +16,7 @@ const PAGE_SIZE = 12; // flygningar per blad
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const { flightCount } = useFlightStore();
+  const { flightCount, isPremium, isMax } = useFlightStore();
   const { mode } = useAppModeStore();
   const _theme = useThemeStore(s => s.theme);
   const [scanBadge, setScanBadge] = useState(false);
@@ -74,6 +74,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* Center-logga = "+ Log flight" (manned). Dold i drönarläge (där drone-fab är center). */}
+      <Tabs.Screen
+        name="scan"
+        options={{
+          href: isDrone ? null : undefined,
+          title: '',
+          tabBarButton: isDrone
+            ? undefined
+            : () => <LogFlightButton premium={isPremium || isMax} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} />,
+        }}
+      />
       <Tabs.Screen
         name="insights"
         options={{
@@ -81,17 +92,6 @@ export default function TabsLayout() {
           title: t('tab_transcription'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="analytics-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scan"
-        options={{
-          href: null,
-          title: '',
-          tabBarLabel: () => null,
-          tabBarIcon: ({ size, focused }) => (
-            <BladesTabIcon size={size + 4} focused={focused} />
           ),
         }}
       />
@@ -166,6 +166,22 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+function LogFlightButton({ premium, onPress }: { premium: boolean; onPress: () => void }) {
+  // Premium/Max → guld, annars cyan. Båda är tight-beskurna (fyller ramen) → SAMMA höjd
+  // och SAMMA plats; varje bild med sin egen aspekt (resizeMode contain, ingen distorsion).
+  const h = 53;
+  const w = premium ? h * (1024 / 960) : h * (1536 / 1024);
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+        style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+        <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
+          style={{ height: h, width: w }} resizeMode="contain" />
+      </TouchableOpacity>
+    </View>
   );
 }
 

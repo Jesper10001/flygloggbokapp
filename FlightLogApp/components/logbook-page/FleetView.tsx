@@ -17,7 +17,6 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const sorted = [...fleet].sort((a, b) => (b.last_flown || '').localeCompare(a.last_flown || ''));
-  const big = sorted.length === 1;
   const totalRegs = fleet.reduce((s, a) => s + (a.reg_count || 0), 0);
 
   return (
@@ -39,11 +38,9 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
             <Text style={{ fontFamily: FONT_MONO, fontSize: 12, color: Colors.textMuted, marginTop: 10 }}>No aircraft yet</Text>
           </View>
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ gap: 12 }}>
             {sorted.map((ac, i) => (
-              <View key={ac.aircraft_type} style={{ width: big ? '100%' : '48%' }}>
-                <FleetCard ac={ac} accent={accent} current={i === 0 && !!ac.last_flown} big={big} onSaved={load} />
-              </View>
+              <FleetCard key={ac.aircraft_type} ac={ac} accent={accent} current={i === 0 && !!ac.last_flown} big onSaved={load} />
             ))}
           </View>
         )}

@@ -202,6 +202,12 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'mtow_unit', "TEXT NOT NULL DEFAULT 'kg'");
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'rating_expiry', "TEXT NOT NULL DEFAULT ''"); // ISO YYYY-MM-DD
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'rating_class', "TEXT NOT NULL DEFAULT ''");
+  // Fleet-vy del 2: bränsleförbrukning (+enhet), effekt, tjänstetak, spännvidd/rotordiameter.
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'fuel_burn', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'fuel_burn_unit', "TEXT NOT NULL DEFAULT 'l/h'");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'power_hp', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'ceiling_ft', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'wingspan_m', 'REAL NOT NULL DEFAULT 0');
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 

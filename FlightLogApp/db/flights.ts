@@ -1055,6 +1055,11 @@ export type AircraftRegistryEntry = {
   vne_unit: string;
   mtow: number;
   mtow_unit: string;
+  fuel_burn: number;
+  fuel_burn_unit: string;
+  power_hp: number;
+  ceiling_ft: number;
+  wingspan_m: number;
   rating_expiry: string; // '' eller ISO YYYY-MM-DD
   rating_class: string;
   last_flown: string; // MAX(f.date) eller '' (aldrig flugen)
@@ -1075,6 +1080,11 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.vne_unit) as vne_unit,
            MAX(ar.mtow) as mtow,
            MAX(ar.mtow_unit) as mtow_unit,
+           MAX(ar.fuel_burn) as fuel_burn,
+           MAX(ar.fuel_burn_unit) as fuel_burn_unit,
+           MAX(ar.power_hp) as power_hp,
+           MAX(ar.ceiling_ft) as ceiling_ft,
+           MAX(ar.wingspan_m) as wingspan_m,
            MAX(ar.rating_expiry) as rating_expiry,
            MAX(ar.rating_class) as rating_class,
            COALESCE(MAX(f.date), '') as last_flown,
@@ -1140,7 +1150,7 @@ export async function getRegistrationHours(
      FROM flights
      WHERE aircraft_type=? AND registration != '' AND flight_type != 'sim'
      GROUP BY registration
-     ORDER BY last_flown DESC, hours DESC`,
+     ORDER BY hours DESC, last_flown DESC`,
     [type.toUpperCase()],
   );
 }
@@ -1157,11 +1167,17 @@ export async function updateAircraftFleetFields(
     endurance_h: number;
     mtow: number;
     mtow_unit: string;
+    fuel_burn: number;
+    fuel_burn_unit: string;
+    power_hp: number;
+    ceiling_ft: number;
+    wingspan_m: number;
+    image_url: string;
     rating_expiry: string;
     rating_class: string;
   }>,
 ): Promise<void> {
-  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'rating_expiry', 'rating_class'] as const;
+  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'image_url', 'rating_expiry', 'rating_class'] as const;
   const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => allowed.includes(k as any));
   if (keys.length === 0) return;
   const db = await getDatabase();
@@ -1171,6 +1187,34 @@ export async function updateAircraftFleetFields(
     `UPDATE aircraft_registry SET ${setClause} WHERE aircraft_type=?`,
     [...values, type.toUpperCase()],
   );
+}
+
+// Spara AI-uppslagets Fleet-fält (tillverkare/VNE/MTOW) TYST på en typ — endast för
+// Fleet-korten, syns inte i pilotens ordinarie fält. Skriver bara icke-tomma värden.
+export async function persistAircraftFleetLookup(
+  type: string,
+  r: {
+    manufacturer?: string; vne_kt?: number; mtow_kg?: number;
+    consumption?: number; consumption_unit?: string; horsepower_hp?: number;
+    ceiling_ft?: number; wingspan_m?: number; image_url?: string;
+  },
+): Promise<void> {
+  const fields: Partial<{
+    maker: string; vne: number; mtow: number;
+    fuel_burn: number; fuel_burn_unit: string; power_hp: number; ceiling_ft: number; wingspan_m: number; image_url: string;
+  }> = {};
+  if (r.manufacturer && r.manufacturer.trim()) fields.maker = r.manufacturer.trim();
+  if (r.vne_kt && r.vne_kt > 0) fields.vne = r.vne_kt;
+  if (r.mtow_kg && r.mtow_kg > 0) fields.mtow = r.mtow_kg;
+  if (r.consumption && r.consumption > 0) {
+    fields.fuel_burn = r.consumption;
+    if (r.consumption_unit && r.consumption_unit.trim()) fields.fuel_burn_unit = r.consumption_unit.trim().toLowerCase();
+  }
+  if (r.horsepower_hp && r.horsepower_hp > 0) fields.power_hp = r.horsepower_hp;
+  if (r.ceiling_ft && r.ceiling_ft > 0) fields.ceiling_ft = r.ceiling_ft;
+  if (r.wingspan_m && r.wingspan_m > 0) fields.wingspan_m = r.wingspan_m;
+  if (r.image_url && r.image_url.trim()) fields.image_url = r.image_url.trim();
+  if (Object.keys(fields).length) await updateAircraftFleetFields(type, fields);
 }
 
 export async function getAircraftTypesWithoutSpeed(): Promise<{ type: string; hasSpeed: boolean; hasEndurance: boolean }[]> {
