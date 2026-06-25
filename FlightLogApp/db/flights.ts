@@ -42,11 +42,11 @@ export async function insertFlight(
       total_time, ifr, night, pic, co_pilot, dual,
       landings_day, landings_night, remarks,
       status, source, original_data,
-      flight_rules, second_pilot, nvg, tng_count, flight_type,
+      flight_rules, second_pilot, second_pilot_role, extra_pilots, nvg, tng_count, flight_type,
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
       se_time, me_time, stop_place, photo_uri, media_type, max_fl
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -69,6 +69,8 @@ export async function insertFlight(
       opts?.originalData ?? null,
       data.flight_rules ?? 'VFR',
       data.second_pilot ?? '',
+      data.second_pilot_role ?? '',
+      data.extra_pilots ?? '',
       parseFloat(data.nvg ?? '0') || 0,
       parseInt(data.tng_count ?? '0') || 0,
       data.flight_type ?? 'normal',
@@ -146,7 +148,7 @@ export async function updateFlight(
       dep_place=?, dep_utc=?, arr_place=?, arr_utc=?,
       total_time=?, ifr=?, night=?, pic=?, co_pilot=?, dual=?,
       landings_day=?, landings_night=?, remarks=?,
-      flight_rules=?, second_pilot=?, nvg=?, tng_count=?, flight_type=?,
+      flight_rules=?, second_pilot=?, second_pilot_role=?, extra_pilots=?, nvg=?, tng_count=?, flight_type=?,
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
       se_time=?, me_time=?, stop_place=?, photo_uri=?, media_type=?, max_fl=?,
@@ -167,6 +169,8 @@ export async function updateFlight(
       data.remarks ?? '',
       data.flight_rules ?? 'VFR',
       data.second_pilot ?? '',
+      data.second_pilot_role ?? '',
+      data.extra_pilots ?? '',
       parseFloat(data.nvg ?? '0') || 0,
       parseInt(data.tng_count ?? '0') || 0,
       data.flight_type ?? 'normal',
@@ -200,7 +204,7 @@ export async function verifyFlight(id: number): Promise<void> {
   );
   await db.runAsync(
     `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
-     VALUES (?, 'status', 'flagged', 'verified', 'Piloten markerade som granskad')`,
+     VALUES (?, 'status', 'flagged', 'verified', 'Pilot marked as reviewed')`,
     [id]
   );
 }
@@ -448,7 +452,7 @@ export async function setFlightNvg(id: number, hours: number): Promise<void> {
     await db.runAsync(
       `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
        VALUES (?,?,?,?,?)`,
-      [id, 'nvg', oldVal, newVal, 'Tillagd via NVG-modal']
+      [id, 'nvg', oldVal, newVal, 'Added via NVG modal']
     );
   }
 
@@ -475,7 +479,7 @@ export async function setFlightDual(id: number, hours: number): Promise<void> {
     await db.runAsync(
       `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
        VALUES (?,?,?,?,?)`,
-      [id, 'dual', oldVal, newVal, 'Tillagd via DUAL-modal']
+      [id, 'dual', oldVal, newVal, 'Added via DUAL modal']
     );
   }
 
@@ -514,7 +518,7 @@ export async function setFlightInstructor(id: number, hours: number): Promise<vo
     await db.runAsync(
       `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
        VALUES (?,?,?,?,?)`,
-      [id, 'instructor', oldVal, newVal, 'Tillagd via INSTRUCTOR-modal']
+      [id, 'instructor', oldVal, newVal, 'Added via INSTRUCTOR modal']
     );
   }
 
@@ -812,13 +816,13 @@ export async function getFlightStats(): Promise<FlightStats> {
   const longest = longestDate ? { date: longestDate, day_total: longestDayTotal, last_id: longestLastId } : null;
   // day_total kan innehålla anslutande flygningar, därför uppdaterar vi det
 
-  // Formatera veckoetiketten "v.12 · 2024"
+  // Formatera veckoetiketten "W12 · 2024"
   let bestWeekLabel = '';
   if (bestWeek?.week_start) {
     const d = new Date(bestWeek.week_start);
     const jan4 = new Date(d.getFullYear(), 0, 4);
     const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-    bestWeekLabel = `v.${weekNum} · ${d.getFullYear()}`;
+    bestWeekLabel = `W${weekNum} · ${d.getFullYear()}`;
   }
 
   return {
@@ -1045,6 +1049,15 @@ export type AircraftRegistryEntry = {
   top_registration: string;
   top_registration_hours: number;
   flight_count: number;
+  // Fleet-vy (pilot-manned)
+  maker: string;
+  vne: number;
+  vne_unit: string;
+  mtow: number;
+  mtow_unit: string;
+  rating_expiry: string; // '' eller ISO YYYY-MM-DD
+  rating_class: string;
+  last_flown: string; // MAX(f.date) eller '' (aldrig flugen)
 };
 
 export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
@@ -1057,6 +1070,14 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.category) as category,
            MAX(ar.engine_type) as engine_type,
            MAX(ar.image_url) as image_url,
+           MAX(ar.maker) as maker,
+           MAX(ar.vne) as vne,
+           MAX(ar.vne_unit) as vne_unit,
+           MAX(ar.mtow) as mtow,
+           MAX(ar.mtow_unit) as mtow_unit,
+           MAX(ar.rating_expiry) as rating_expiry,
+           MAX(ar.rating_class) as rating_class,
+           COALESCE(MAX(f.date), '') as last_flown,
            COUNT(CASE WHEN ar.registration != '' THEN 1 END) as reg_count,
            COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
            COUNT(f.id) as flight_count,
@@ -1107,6 +1128,51 @@ export async function deleteAircraftType(type: string): Promise<void> {
   await db.runAsync(`DELETE FROM aircraft_registry WHERE aircraft_type=?`, [type.toUpperCase()]);
 }
 
+// Fleet-vy: timmar per registrering för en modell (nyast flugen först). Exkl. sim.
+export async function getRegistrationHours(
+  type: string,
+): Promise<{ registration: string; hours: number; last_flown: string }[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<{ registration: string; hours: number; last_flown: string }>(
+    `SELECT registration,
+            ROUND(SUM(total_time), 1) as hours,
+            MAX(date) as last_flown
+     FROM flights
+     WHERE aircraft_type=? AND registration != '' AND flight_type != 'sim'
+     GROUP BY registration
+     ORDER BY last_flown DESC, hours DESC`,
+    [type.toUpperCase()],
+  );
+}
+
+// Fleet-vy: uppdaterar modell-nivå-fält (tillverkare, VNE, MTOW, cruise, endurance, typ-rating).
+// Skriver alla rader för typen (WHERE aircraft_type=?). Dynamisk SET, bara angivna fält.
+export async function updateAircraftFleetFields(
+  type: string,
+  fields: Partial<{
+    maker: string;
+    vne: number;
+    vne_unit: string;
+    cruise_speed_kts: number;
+    endurance_h: number;
+    mtow: number;
+    mtow_unit: string;
+    rating_expiry: string;
+    rating_class: string;
+  }>,
+): Promise<void> {
+  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'rating_expiry', 'rating_class'] as const;
+  const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => allowed.includes(k as any));
+  if (keys.length === 0) return;
+  const db = await getDatabase();
+  const setClause = keys.map((k) => `${k}=?`).join(', ');
+  const values = keys.map((k) => fields[k] as string | number);
+  await db.runAsync(
+    `UPDATE aircraft_registry SET ${setClause} WHERE aircraft_type=?`,
+    [...values, type.toUpperCase()],
+  );
+}
+
 export async function getAircraftTypesWithoutSpeed(): Promise<{ type: string; hasSpeed: boolean; hasEndurance: boolean }[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ aircraft_type: string; cruise_speed_kts: number; endurance_h: number }>(
@@ -1135,6 +1201,42 @@ export async function setSetting(key: string, value: string): Promise<void> {
     `INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
     [key, value]
   );
+}
+
+// Sparade kabinpersonalsnamn (cabin crew) — lagras som JSON-lista i settings,
+// senast använd först. Cabin crew lagras i remarks, så det finns ingen kolumn att
+// härleda namnen från (till skillnad från second_pilot).
+const SAVED_CREW_KEY = 'saved_cabin_crew';
+
+export async function getSavedCrewNames(): Promise<string[]> {
+  const raw = await getSetting(SAVED_CREW_KEY);
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addSavedCrewNames(names: string[]): Promise<void> {
+  const fresh = names.map((n) => n.trim()).filter(Boolean);
+  if (!fresh.length) return;
+  const existing = await getSavedCrewNames();
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of [...fresh, ...existing]) {
+    const k = n.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(n);
+  }
+  await setSetting(SAVED_CREW_KEY, JSON.stringify(out.slice(0, 50)));
+}
+
+export async function deleteSavedCrewName(name: string): Promise<void> {
+  const existing = await getSavedCrewNames();
+  await setSetting(SAVED_CREW_KEY, JSON.stringify(existing.filter((n) => n.toLowerCase() !== name.trim().toLowerCase())));
 }
 
 export async function getStressHours(): Promise<{ recent14: number; yearAvg14: number }> {

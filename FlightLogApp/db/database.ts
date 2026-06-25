@@ -166,6 +166,8 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'original_data',`TEXT`);
   await addColumnIfMissing(db, 'flight_rules', `TEXT NOT NULL DEFAULT 'VFR'`);
   await addColumnIfMissing(db, 'second_pilot', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissing(db, 'second_pilot_role', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissing(db, 'extra_pilots', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissing(db, 'nvg',          `REAL NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'tng_count',    `INTEGER NOT NULL DEFAULT 0`);
 
@@ -191,10 +193,19 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Motortyp: '' = okänd | 'se' = single engine | 'me' = multi engine
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'engine_type', "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'image_url', "TEXT NOT NULL DEFAULT ''");
+  // Fleet-vy (pilot-manned): tillverkare, VNE, MTOW och typ-rating per modell.
+  // Modell-nivå men lagras per (type, registration)-rad → läs med MAX(), skriv med WHERE aircraft_type=?.
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'maker', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'vne', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'vne_unit', "TEXT NOT NULL DEFAULT 'kt'");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'mtow', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'mtow_unit', "TEXT NOT NULL DEFAULT 'kg'");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'rating_expiry', "TEXT NOT NULL DEFAULT ''"); // ISO YYYY-MM-DD
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'rating_class', "TEXT NOT NULL DEFAULT ''");
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 
-  // Tillfälliga landningsplatser — markeras i icao_airports, exkluderas från karta/statistik
+  // Off-airport-platser (ZZZZ) — markeras i icao_airports, exkluderas från karta/statistik
   await addColumnIfMissingOnTable(db, 'icao_airports', 'temporary', 'INTEGER NOT NULL DEFAULT 0');
   // Flerpilottid (multi-crew operations)
   await addColumnIfMissing(db, 'multi_pilot',  `REAL NOT NULL DEFAULT 0`);

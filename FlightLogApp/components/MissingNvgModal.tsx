@@ -92,7 +92,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
   const handleSaveNvg = async (flightId: number) => {
     const hours = parseFloat(nvgHours);
     if (isNaN(hours) || hours < 0) {
-      Alert.alert(t('error'), 'Ange en giltig tid');
+      Alert.alert(t('error'), 'Enter a valid time');
       return;
     }
 
@@ -115,7 +115,7 @@ export function MissingNvgModal({ visible, onClose, onCountUpdate, onTotalNvgUpd
         return updated;
       });
     } catch (err) {
-      Alert.alert(t('error'), 'Kunde inte spara NVG-timmar');
+      Alert.alert(t('error'), 'Could not save NVG hours');
     }
   };
 

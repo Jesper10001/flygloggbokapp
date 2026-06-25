@@ -21,7 +21,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -65,6 +65,8 @@ const EMPTY: FlightFormData = {
   stop_place: '',
   flight_rules: 'VFR',
   second_pilot: '',
+  second_pilot_role: '',
+  extra_pilots: '',
   nvg: '0',
   tng_count: '0',
   multi_pilot: '0',
@@ -265,8 +267,9 @@ function makeStyles() {
     errorInline: { color: Colors.danger, fontSize: 11, marginTop: 2 },
 
     placeBlock: {
-      backgroundColor: Colors.card, borderRadius: 12, padding: 14,
+      backgroundColor: Colors.card, borderRadius: 12, padding: 14, paddingTop: 8,
       borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+      zIndex: 10, // så ICAO-autocomplete kan flyta över sektionerna under
     },
     placeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     placeLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -426,6 +429,33 @@ function makeStyles() {
     },
     regDropdownText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
     regDropdownDisabled: { opacity: 0.4 },
+
+    // Etikett som matchar FormField:s label (så cabin crew / second pilot ligger i linje
+    // med registration / aircraft type).
+    colFieldLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+    // Roll-väljare ([roll][namn] vågrätt) — delas av second pilot och cabin crew.
+    roleSelectBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+      backgroundColor: Colors.card, borderRadius: 8,
+      borderWidth: 0.5, borderColor: Colors.border,
+      paddingHorizontal: 6, paddingVertical: 12, minWidth: 44,
+    },
+    roleSelectBtnActive: { borderColor: Colors.primary },
+    roleSelectText: { fontSize: 11, fontWeight: '700' },
+    // Dropdown som flyter ovanpå övriga rutor (trycker inte ner dem).
+    rolePickerFloat: { position: 'absolute', top: 46, left: 0, right: 0, marginTop: 0, zIndex: 30, elevation: 30 },
+    roleNameInput: {
+      flex: 1, backgroundColor: Colors.card, borderRadius: 8,
+      borderWidth: 0.5, borderColor: Colors.border,
+      color: Colors.textPrimary, fontSize: 16,
+      paddingHorizontal: 10, paddingVertical: 12,
+    },
+    rolePickerDropdown: {
+      backgroundColor: Colors.surface, borderRadius: 10,
+      borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', marginTop: 4,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+    },
+    rolePickerItem: { paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
 
     modalBackdrop: {
       flex: 1, backgroundColor: '#000A',
@@ -652,11 +682,14 @@ export default function AddFlightScreen() {
   const [lastTemplate, setLastTemplate] = useState<string>('');
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
-  const [milOps, setMilOps] = useState<Set<string>>(new Set());
-  // Senast inlagda tactical-rad i remarks — för att ersätta (ej radera allt) vid ny markering.
-  const lastMilTextRef = useRef('');
   type CrewMember = { id: string; role: string; name: string };
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
+  const [spRolePickerOpen, setSpRolePickerOpen] = useState(false);
+  const [savedCrewNames, setSavedCrewNames] = useState<string[]>([]);
+  const [showCrewNameModal, setShowCrewNameModal] = useState(false);
+  // Extra piloter ombord (3:e, 4:e …) — roll + namn, sparas som JSON i extra_pilots-kolumnen.
+  const [extraPilots, setExtraPilots] = useState<{ id: string; role: string; name: string }[]>([]);
+  const [activeExtraPilotPicker, setActiveExtraPilotPicker] = useState<string | null>(null);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<'2d' | '3d' | null>(null);
@@ -750,6 +783,8 @@ export default function AddFlightScreen() {
         stop_place: f.stop_place ?? '',
         flight_rules: f.flight_rules ?? 'VFR',
         second_pilot: f.second_pilot ?? '',
+        second_pilot_role: f.second_pilot_role ?? '',
+        extra_pilots: f.extra_pilots ?? '',
         nvg: String(f.nvg ?? 0),
         tng_count: String(f.tng_count ?? 0),
         multi_pilot: String(f.multi_pilot ?? 0),
@@ -767,6 +802,12 @@ export default function AddFlightScreen() {
         max_fl: String(f.max_fl ?? 0) === '0' ? '' : String(f.max_fl),
         photo_uri: f.photo_uri ?? '',
       });
+      if (f.extra_pilots) {
+        try {
+          const arr = JSON.parse(f.extra_pilots);
+          if (Array.isArray(arr)) setExtraPilots(arr.map((p: any, i: number) => ({ id: `e${i}`, role: String(p?.role ?? ''), name: String(p?.name ?? '') })));
+        } catch {}
+      }
       if (f.photo_uri) setPhotoUri(f.photo_uri);
       if (f.media_type === 'video') setMediaType('video');
       if (f.pic > 0) setRole('pic');
@@ -795,7 +836,7 @@ export default function AddFlightScreen() {
       if (!row) return null;
       let country = row.country;
       let region = row.region;
-      // Tillfälliga platser saknar ofta land/region → ta tidszon från närmaste flygplats.
+      // Off-airport-platser saknar ofta land/region → ta tidszon från närmaste flygplats.
       if (!country && row.lat != null && row.lon != null) {
         const near = await getNearbyAirports(row.lat, row.lon, 1).catch(() => []);
         if (near[0]) { country = near[0].country; region = near[0].region; }
@@ -922,81 +963,40 @@ export default function AddFlightScreen() {
     { key: 'Loadmaster', label: selectedLang === 'sv' ? 'Lastmästare' : 'Loadmaster', short: 'LM' },
   ];
 
+  // Roller för medpiloten man flyger med. COP visas förkortat i rutan, "Copilot" i listan.
+  const SP_ROLES = [
+    { key: 'PIC', short: 'PIC', label: 'PIC' },
+    { key: 'COP', short: 'COP', label: selectedLang === 'sv' ? 'Andrepilot (Copilot)' : 'Copilot' },
+    { key: 'FI', short: 'FI', label: 'FI' },
+    { key: 'SPIC', short: 'SPIC', label: 'SPIC' },
+    { key: 'PICUS', short: 'PICUS', label: 'PICUS' },
+  ];
+
   const updateCrewMember = (id: string, field: 'role' | 'name', value: string) => {
     setCrewMembers(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   const addCrewMember = () => {
     setCrewMembers(prev => [...prev, { id: String(Date.now()), role: '', name: '' }]);
   };
+  // Fyll i sparat kabinnamn: sätt på första tomma raden, annars lägg till ny rad.
+  const applyCrewName = (name: string) => {
+    setCrewMembers((prev) => {
+      const idx = prev.findIndex((m) => !m.name.trim());
+      if (idx >= 0) return prev.map((m, i) => (i === idx ? { ...m, name } : m));
+      return [...prev, { id: String(Date.now()), role: '', name }];
+    });
+  };
+
+  // Extra piloter (3:e, 4:e …)
+  const addExtraPilot = () => setExtraPilots((prev) => [...prev, { id: String(Date.now()), role: '', name: '' }]);
+  const removeExtraPilot = (id: string) => setExtraPilots((prev) => prev.filter((p) => p.id !== id));
+  const updateExtraPilot = (id: string, field: 'role' | 'name', value: string) =>
+    setExtraPilots((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  // "second", "third", … för knappetiketten (nästa pilot = extraPilots.length + 3).
+  const ordinalPilot = (n: number) => ['', '', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth'][n] ?? `${n}th`;
   const removeCrewMember = (id: string) => {
     setCrewMembers(prev => prev.length > 1 ? prev.filter(m => m.id !== id) : prev);
   };
-  const [showMilOp, setShowMilOp] = useState(false);
-
-  const MIL_CATEGORIES: { title: string; items: { code: string; desc: string }[] }[] = [
-    { title: t('mil_cat_rescue'), items: [
-      { code: 'SAR', desc: t('mil_sar') },
-      { code: 'CR', desc: t('mil_cr') },
-      { code: 'PR', desc: t('mil_pr') },
-    ]},
-    { title: t('mil_cat_transport'), items: [
-      { code: 'MEDEVAC', desc: t('mil_medevac') },
-      { code: 'CASEVAC', desc: t('mil_casevac') },
-      { code: 'MEDT', desc: t('mil_medt') },
-      { code: 'AIRDROP', desc: t('mil_airdrop') },
-      { code: 'SLING', desc: t('mil_sling') },
-      { code: 'INFIL', desc: t('mil_infil') },
-      { code: 'EXFIL', desc: t('mil_exfil') },
-    ]},
-    { title: t('mil_cat_refuel'), items: [
-      { code: 'AAR', desc: t('mil_aar') },
-      { code: 'HIFR', desc: t('mil_hifr') },
-      { code: 'HOTREFUEL', desc: 'Hot refuel' },
-    ]},
-    { title: t('mil_cat_maritime'), items: [
-      { code: 'ASW', desc: t('mil_asw') },
-      { code: 'ASUW', desc: t('mil_asuw') },
-      { code: 'MIO', desc: t('mil_mio') },
-      { code: 'HOSTAC', desc: t('mil_hostac') },
-      { code: 'VERTREP', desc: t('mil_vertrep') },
-    ]},
-    { title: t('mil_cat_heliops'), items: [
-      { code: 'NOE', desc: t('mil_noe') },
-      { code: 'CONTOUR', desc: t('mil_contour') },
-      { code: 'DGO', desc: t('mil_dgo') },
-      { code: 'SNIPER', desc: t('mil_sniper') },
-      { code: 'HOIST', desc: t('mil_hoist') },
-      { code: 'HRST', desc: t('mil_hrst') },
-      { code: 'TROOPTX', desc: t('mil_trooptx') },
-      { code: 'PIX', desc: t('mil_pix') },
-    ]},
-    { title: t('mil_cat_formation'), items: [
-      { code: 'SECTION', desc: t('mil_rote') },
-      { code: 'GROUP', desc: t('mil_group') },
-      { code: 'MIXED', desc: t('mil_mixed') },
-    ]},
-  ];
-
-  const [expandedMilCats, setExpandedMilCats] = useState<Set<string>>(new Set());
-
-  const toggleMilOp = (op: string) => {
-    Haptics.selectionAsync();
-    setMilOps(prev => {
-      const next = new Set(prev);
-      next.has(op) ? next.delete(op) : next.add(op);
-      return next;
-    });
-  };
-
-  const toggleMilCat = (cat: string) => {
-    setExpandedMilCats(prev => {
-      const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
-      return next;
-    });
-  };
-
-  const milOpSummary = milOps.size > 0 ? Array.from(milOps).join(', ') : '';
   const scrollViewRef = useRef<ScrollView>(null);
   const routeBlockY = useRef(0);
   const depIcaoRef = useRef<IcaoInputHandle>(null);
@@ -1028,7 +1028,6 @@ export default function AddFlightScreen() {
             ...prev,
             aircraft_type: last.aircraft_type,
             registration: last.registration,
-            dep_place: last.arr_place ?? '',
             ...(last.flight_rules ? { flight_rules: last.flight_rules, ifr: '0', vfr: '0' } : {}),
           }));
         } else if (last.flight_rules) {
@@ -1053,6 +1052,42 @@ export default function AddFlightScreen() {
       }
     });
   }, []);
+
+  // Sparade kabinpersonalsnamn (cabin crew väljs ur listan och fylls på vid spara)
+  useEffect(() => { getSavedCrewNames().then(setSavedCrewNames); }, []);
+
+  // Egna roller som innebär multi-pilot-operation.
+  const MP_ROLES: PrimaryRole[] = ['co_pilot', 'picus', 'relief_crew', 'spic'];
+
+  // SP/MP avgörs automatiskt (ingen knapp): MP om farkosten är MP-only, om en second pilot
+  // är ifylld, eller om egen roll innebär multi-pilot. SP om farkosten är SP-only eller inget av ovan.
+  useEffect(() => {
+    let target: 'single' | 'multi';
+    if (mpSupported && !spSupported) target = 'multi';
+    else if (spSupported && !mpSupported) target = 'single';
+    else if ((form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim())) target = 'multi';
+    else target = MP_ROLES.includes(role) ? 'multi' : 'single';
+    setPilotMode((m) => (m === target ? m : target));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spSupported, mpSupported, form.second_pilot, role, extraPilots]);
+
+  // Det måste finnas en PIC om en medpilot är angiven (second pilot eller extra pilot).
+  // Saknas PIC → den namngivna medpiloten blir PIC. Undantag: du ensam som co-pilot utan
+  // namngiven medpilot kräver ingen PIC (då anges aldrig vem PIC är).
+  useEffect(() => {
+    const namedSecond = (form.second_pilot ?? '').trim() !== '';
+    const hasOther = namedSecond || extraPilots.some((p) => p.name.trim() !== '');
+    const anyPic = role === 'pic' || form.second_pilot_role === 'PIC' || extraPilots.some((p) => p.role === 'PIC');
+    if (hasOther && !anyPic) {
+      // Defaulta endast en medpilot som saknar vald roll → PIC (skriver inte över FI/COP/SPIC).
+      if (namedSecond && (form.second_pilot_role ?? '') === '') set('second_pilot_role', 'PIC');
+      else {
+        const firstUnroled = extraPilots.find((p) => p.name.trim() !== '' && !p.role);
+        if (firstUnroled) updateExtraPilot(firstUnroled.id, 'role', 'PIC');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, form.second_pilot, form.second_pilot_role, extraPilots]);
 
   // Uppdatera multi_pilot/single_pilot när pilotMode ändras
   useEffect(() => {
@@ -1091,11 +1126,7 @@ export default function AddFlightScreen() {
       const hasMp = !ct || ct.includes('mp');
       setSpSupported(hasSp);
       setMpSupported(hasMp);
-      // Ändra läge om det nya fartyget inte stödjer aktuellt val
-      if (!hasSp && pilotMode === 'single') setPilotMode('multi');
-      else if (!hasMp && pilotMode === 'multi') setPilotMode('single');
-      else if (hasSp && !hasMp) setPilotMode('single');
-      else if (!hasSp && hasMp) setPilotMode('multi');
+      // pilotMode sätts automatiskt av effekten ovan (spSupported/mpSupported i deps).
     });
     return () => { cancelled = true; };
   }, [form.aircraft_type]);
@@ -1130,6 +1161,7 @@ export default function AddFlightScreen() {
       aircraft_type: lastFlight.aircraft_type,
       registration: lastFlight.registration,
       second_pilot: lastFlight.second_pilot ?? '',
+      second_pilot_role: lastFlight.second_pilot_role ?? '',
       dep_place: lastFlight.arr_place ?? '',
       arr_place: lastFlight.dep_place ?? '',
       flight_rules: lastFlight.flight_rules ?? prev.flight_rules,
@@ -1189,12 +1221,7 @@ export default function AddFlightScreen() {
         next.single_pilot = isMulti ? '0' : tt;
       };
 
-      if (key === 'second_pilot') {
-        if (val && val.trim() && mpSupported && pilotMode !== 'multi') {
-          setPilotMode('multi');
-        }
-        distribute(next.total_time || '0');
-      }
+      // (SP/MP sätts automatiskt av effekten som lyssnar på form.second_pilot.)
 
       const syncRules = (tt: string, rules: string | undefined) => {
         if (rules === 'IFR') { next.ifr = tt; next.vfr = '0'; }
@@ -1277,6 +1304,28 @@ export default function AddFlightScreen() {
     setExaminerOverlay(nextExam);
     setSafetyPilotOverlay(nextSafety);
     applyDistribution(newRole, nextFi, nextExam, nextSafety, form.total_time);
+    // Bara en PIC: blir du PIC demoteras andra pilot-PIC till Co-pilot.
+    if (newRole === 'pic') {
+      if (form.second_pilot_role === 'PIC') set('second_pilot_role', 'COP');
+      setExtraPilots((prev) => prev.map((p) => (p.role === 'PIC' ? { ...p, role: 'COP' } : p)));
+    }
+  };
+
+  // Rollval för second pilot / extra pilot med PIC-exklusivitet (max en PIC totalt).
+  const selectSecondPilotRole = (key: string) => {
+    set('second_pilot_role', key);
+    if (key === 'PIC') {
+      if (role === 'pic') handleRoleChange('co_pilot');
+      setExtraPilots((prev) => prev.map((p) => (p.role === 'PIC' ? { ...p, role: 'COP' } : p)));
+    }
+  };
+  const selectExtraPilotRole = (id: string, key: string) => {
+    updateExtraPilot(id, 'role', key);
+    if (key === 'PIC') {
+      if (role === 'pic') handleRoleChange('co_pilot');
+      if (form.second_pilot_role === 'PIC') set('second_pilot_role', 'COP');
+      setExtraPilots((prev) => prev.map((p) => (p.id !== id && p.role === 'PIC' ? { ...p, role: 'COP' } : p)));
+    }
   };
 
   const toggleFi = () => {
@@ -1326,8 +1375,8 @@ export default function AddFlightScreen() {
           const sizeInMB = (fileInfo.exists ? fileInfo.size : 0) / (1024 * 1024);
           if (sizeInMB > 50) {
             Alert.alert(
-              'Videon är för stor',
-              `Maximal filstorlek är 50 MB (din video är ${sizeInMB.toFixed(1)} MB).`
+              'Video too large',
+              `Maximum file size is 50 MB (your video is ${sizeInMB.toFixed(1)} MB).`
             );
             return;
           }
@@ -1350,7 +1399,7 @@ export default function AddFlightScreen() {
     }
     const { canFlightImport, consumeFlightImport } = useScanQuotaStore.getState();
     if (!canFlightImport()) {
-      Alert.alert('Kvot slut', 'Du har använt alla dina AI-importer denna månad.');
+      Alert.alert('Quota reached', 'You have used all your AI imports this month.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
@@ -1426,7 +1475,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
         if (hasAircraft && hasFlight && String(parsed.aircraft_time) !== String(parsed.flight_time)) {
           Alert.alert(
-            'Vilken tid?',
+            'Which time?',
             `Aircraft time: ${parsed.aircraft_time}h\nFlight time: ${parsed.flight_time}h`,
             [
               { text: `Aircraft ${parsed.aircraft_time}h`, onPress: () => applyImport(String(parsed.aircraft_time)) },
@@ -1438,7 +1487,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         }
       }
     } catch (e: any) {
-      Alert.alert('AI Import', e.message || 'Kunde inte läsa bilden');
+      Alert.alert('AI Import', e.message || 'Could not read the image');
     } finally {
       setAiLoading(false);
     }
@@ -1478,13 +1527,17 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         await FileSystem.copyAsync({ from: photoUri, to: savedPhotoUri });
       }
 
-      const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri, media_type: mediaType };
+      const extraPilotsClean = extraPilots.filter((p) => p.role || p.name.trim()).map((p) => ({ role: p.role, name: p.name.trim() }));
+      const extraPilotsJson = extraPilotsClean.length ? JSON.stringify(extraPilotsClean) : '';
+      const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri, media_type: mediaType, extra_pilots: extraPilotsJson };
 
       if (isEdit) {
         await updateFlight(Number(editId), finalData);
       } else {
         await insertFlight(finalData, { source: 'manual' });
       }
+      // Spara kabinpersonalsnamn till listan (second pilot härleds från flights-tabellen).
+      await addSavedCrewNames(crewMembers.map((m) => m.name));
       await Promise.all([loadFlights(), loadStats()]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -1512,7 +1565,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
     if (!hasDepPlace && !hasArrPlace) {
       Alert.alert(
         t('warning'),
-        'Du har inte angett varken start- eller landningsplats. Vill du spara ändå?',
+        'You have not entered a departure or arrival place. Save anyway?',
         [
           {
             text: t('cancel'),
@@ -1645,8 +1698,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
 
-        {/* Row 1: Aircraft type + Registration */}
-        <View style={styles.row2}>
+        {/* Row 1: Aircraft type + Second pilot */}
+        <View style={[styles.row2, (spRolePickerOpen || activeExtraPilotPicker) ? { zIndex: 20 } : null]}>
           <View style={{ flex: 1 }}>
             <FormField
               label={t('aircraft_type')}
@@ -1677,6 +1730,124 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </View>
           </View>
+          <View style={{ flex: 1, zIndex: (spRolePickerOpen || activeExtraPilotPicker) ? 20 : 0 }}>
+            <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
+            {/* Roll på medpiloten man flyger med (PIC/COP/FI/SPIC/PICUS) + namn, vågrätt */}
+            <View style={{ position: 'relative', zIndex: 20 }}>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <TouchableOpacity
+                  style={[styles.roleSelectBtn, form.second_pilot_role ? styles.roleSelectBtnActive : null]}
+                  onPress={() => setSpRolePickerOpen((o) => !o)}
+                  activeOpacity={0.75}
+                >
+                  {form.second_pilot_role ? (
+                    <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
+                      {SP_ROLES.find((r) => r.key === form.second_pilot_role)?.short ?? form.second_pilot_role}
+                    </Text>
+                  ) : (
+                    <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
+                  )}
+                  <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.roleNameInput}
+                  value={form.second_pilot ?? ''}
+                  onChangeText={(v) => set('second_pilot', v)}
+                  placeholder={t('second_pilot_ph')}
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+              {spRolePickerOpen && (
+                <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
+                  {[{ key: '', label: `— ${t('clear')}` }, ...SP_ROLES].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key || 'clear'}
+                      style={[styles.rolePickerItem, form.second_pilot_role === opt.key && { backgroundColor: Colors.primary + '14' }]}
+                      onPress={() => { selectSecondPilotRole(opt.key); setSpRolePickerOpen(false); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: form.second_pilot_role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            {/* Extra piloter ombord (3:e, 4:e …) — samma roll+namn-rad som second pilot */}
+            {extraPilots.map((p) => (
+              <View key={p.id} style={{ flexDirection: 'row', gap: 4, marginTop: 6, position: 'relative', zIndex: activeExtraPilotPicker === p.id ? 20 : 0 }}>
+                <TouchableOpacity
+                  style={[styles.roleSelectBtn, p.role ? styles.roleSelectBtnActive : null]}
+                  onPress={() => setActiveExtraPilotPicker((cur) => (cur === p.id ? null : p.id))}
+                  activeOpacity={0.75}
+                >
+                  {p.role ? (
+                    <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
+                      {SP_ROLES.find((r) => r.key === p.role)?.short ?? p.role}
+                    </Text>
+                  ) : (
+                    <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
+                  )}
+                  <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.roleNameInput}
+                  value={p.name}
+                  onChangeText={(v) => updateExtraPilot(p.id, 'name', v)}
+                  placeholder={t('second_pilot_ph')}
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <TouchableOpacity onPress={() => removeExtraPilot(p.id)} style={{ justifyContent: 'center' }}>
+                  <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+                </TouchableOpacity>
+                {activeExtraPilotPicker === p.id && (
+                  <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
+                    {[{ key: '', label: `— ${t('clear')}` }, ...SP_ROLES].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.key || 'clear'}
+                        style={[styles.rolePickerItem, p.role === opt.key && { backgroundColor: Colors.primary + '14' }]}
+                        onPress={() => { selectExtraPilotRole(p.id, opt.key); setActiveExtraPilotPicker(null); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ color: p.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+            <View style={[styles.regRow, { marginTop: 8 }]}>
+              <TouchableOpacity
+                style={[styles.regDropdownBtn, recentPilots.length === 0 && styles.regDropdownDisabled]}
+                onPress={() => {
+                  if (recentPilots.length === 0) return;
+                  setShowPilotModal(true);
+                }}
+                activeOpacity={recentPilots.length === 0 ? 1 : 0.7}
+              >
+                <Ionicons name="bookmark" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+                <Ionicons name="chevron-down" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+              </TouchableOpacity>
+              {/* + lägg till nästa pilot ombord (3:e, 4:e …). SP/MP avgörs automatiskt. */}
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+                onPress={addExtraPilot}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
+                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>
+                  {`Add ${ordinalPilot(extraPilots.length + 3)} pilot`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Row 2: Registration + Cabin crew (side by side) */}
+        <View style={[styles.row2, activeCrewPicker ? { zIndex: 20 } : null]}>
           <View style={{ flex: 1 }}>
             <FormField
               label={t('registration')}
@@ -1732,99 +1903,30 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </View>
           </View>
-        </View>
-
-        {/* Row 2: Second pilot + Cabin crew (side by side) */}
-        <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <FormField
-              label={t('second_pilot_label')}
-              value={form.second_pilot ?? ''}
-              onChangeText={(v) => set('second_pilot', v)}
-              placeholder={t('second_pilot_ph')}
-              onPressAdd={() => {
-                Alert.prompt(
-                  t('add_second_pilot'),
-                  '',
-                  (name) => {
-                    const n = name?.trim();
-                    if (n) set('second_pilot', n);
-                  },
-                  'plain-text',
-                  '',
-                );
-              }}
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-              <TouchableOpacity
-                style={[styles.regDropdownBtn, recentPilots.length === 0 && styles.regDropdownDisabled]}
-                onPress={() => {
-                  if (recentPilots.length === 0) return;
-                  setShowPilotModal(true);
-                }}
-                activeOpacity={recentPilots.length === 0 ? 1 : 0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-              </TouchableOpacity>
-              <View style={styles.pilotModeRow}>
-              <TouchableOpacity
-                style={[
-                  styles.pilotModeBtn,
-                  pilotMode === 'single' && styles.pilotModeBtnActive,
-                  !spSupported && styles.pilotModeBtnDisabled,
-                ]}
-                disabled={!spSupported}
-                onPress={() => setPilotMode('single')}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.pilotModeText, pilotMode === 'single' && styles.pilotModeTextActive]}>SP</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.pilotModeBtn,
-                  pilotMode === 'multi' && styles.pilotModeBtnActive,
-                  !mpSupported && styles.pilotModeBtnDisabled,
-                ]}
-                disabled={!mpSupported}
-                onPress={() => setPilotMode('multi')}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.pilotModeText, pilotMode === 'multi' && styles.pilotModeTextActive]}>MP</Text>
-              </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardFieldLabel}>{t('crew_chief_label')}</Text>
-            {crewMembers.map((member) => (
-              <View key={member.id} style={{ gap: 4, marginTop: 4 }}>
+            <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
+            {crewMembers.map((member, idx) => (
+              <View key={member.id} style={{ gap: 4, marginTop: idx === 0 ? 0 : 8, position: 'relative', zIndex: activeCrewPicker === member.id ? 20 : 0 }}>
                 <View style={{ flexDirection: 'row', gap: 4 }}>
                   <TouchableOpacity
-                    style={{
-                      flexDirection: 'row', alignItems: 'center', gap: 3,
-                      backgroundColor: Colors.card, borderRadius: 8,
-                      borderWidth: 0.5, borderColor: member.role ? Colors.primary : Colors.border,
-                      paddingHorizontal: 6, paddingVertical: 12,
-                    }}
+                    style={[styles.roleSelectBtn, member.role ? styles.roleSelectBtnActive : null]}
                     onPress={() => setActiveCrewPicker(activeCrewPicker === member.id ? null : member.id)}
                     activeOpacity={0.75}
                   >
-                    <Text style={{ color: member.role ? Colors.primary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
-                      {member.role ? CREW_ROLES.find(r => r.key === member.role)?.short ?? member.role : t('crew_role_select')}
-                    </Text>
+                    {member.role ? (
+                      <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
+                        {CREW_ROLES.find(r => r.key === member.role)?.short ?? member.role}
+                      </Text>
+                    ) : (
+                      <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
+                    )}
                     <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
                   </TouchableOpacity>
                   <TextInput
-                    style={{
-                      flex: 1, backgroundColor: Colors.card, borderRadius: 8,
-                      borderWidth: 0.5, borderColor: Colors.border,
-                      color: Colors.textPrimary, fontSize: 13,
-                      paddingHorizontal: 8, paddingVertical: 12,
-                    }}
+                    style={styles.roleNameInput}
                     value={member.name}
                     onChangeText={(v) => updateCrewMember(member.id, 'name', v)}
-                    placeholder={t('crew_chief_ph')}
+                    placeholder={t('crew_name_ph')}
                     placeholderTextColor={Colors.textMuted}
                   />
                   {crewMembers.length > 1 && (
@@ -1834,11 +1936,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   )}
                 </View>
                 {activeCrewPicker === member.id && (
-                  <View style={{
-                    backgroundColor: Colors.surface, borderRadius: 10,
-                    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-                    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
-                  }}>
+                  <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
                     {[{ key: '', label: `— ${t('clear')}` }, ...CREW_ROLES].map(opt => (
                       <TouchableOpacity
                         key={opt.key}
@@ -1859,14 +1957,25 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 )}
               </View>
             ))}
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
-              onPress={addCrewMember}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
-              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>{t('crew_add_more')}</Text>
-            </TouchableOpacity>
+            {/* Bokmärke (sparade kabinnamn) + lägg till besättning till höger */}
+            <View style={[styles.regRow, { marginTop: 8 }]}>
+              <TouchableOpacity
+                style={[styles.regDropdownBtn, savedCrewNames.length === 0 && styles.regDropdownDisabled]}
+                onPress={() => { if (savedCrewNames.length === 0) return; setShowCrewNameModal(true); }}
+                activeOpacity={savedCrewNames.length === 0 ? 1 : 0.7}
+              >
+                <Ionicons name="bookmark" size={12} color={savedCrewNames.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+                <Ionicons name="chevron-down" size={12} color={savedCrewNames.length === 0 ? Colors.textMuted : Colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+                onPress={addCrewMember}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
+                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>{t('crew_add_more')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -1881,192 +1990,205 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {routeReady && <Ionicons name={sunRouteOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.gold} />}
         </TouchableOpacity>
 
-        {/* Kombinerat Departure / Arrival block */}
+        {/* Departure (vänster) / Arrival (höger) — två sektioner sida vid sida.
+            Varje sektion: rubrik → ICAO/ZZZZ (off-airport) → fritext-plats → tidsruta (UTC/lokal). */}
         <View style={styles.placeBlock}>
-          <View style={[styles.row2, { alignItems: 'stretch' }]}>
+          <View style={{ flexDirection: 'row' }}>
+            {/* ── DEPARTURE ── */}
             <View style={{ flex: 1 }}>
-              <View style={styles.locSegment}>
+              <View style={styles.placeColHeader}>
+                <Text style={styles.placeColHeaderText}>{t('departure')}</Text>
+              </View>
+              <View style={[styles.locSegment, { marginBottom: 6 }]}>
                 <TouchableOpacity
-                  style={[styles.locSegmentBtn, !(activePlace === 'dep' ? depCustom : arrCustom) && styles.locSegmentBtnActive]}
-                  onPress={() => {
-                    if (activePlace === 'dep') { setDepCustom(false); set('dep_place', ''); }
-                    else { setArrCustom(false); set('arr_place', ''); }
-                  }}
+                  style={[styles.locSegmentBtn, !depCustom && styles.locSegmentBtnActive]}
+                  onPress={() => { setDepCustom(false); set('dep_place', ''); }}
                 >
-                  <Text style={[styles.locSegmentText, !(activePlace === 'dep' ? depCustom : arrCustom) && styles.locSegmentTextActive]}>{t('icao_label')}</Text>
+                  <Text style={[styles.locSegmentText, !depCustom && styles.locSegmentTextActive]}>{t('icao_label')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.locSegmentBtn, (activePlace === 'dep' ? depCustom : arrCustom) && styles.locSegmentBtnActive]}
-                  onPress={() => {
-                    if (activePlace === 'dep') { setDepCustom(true); set('dep_place', ''); }
-                    else { setArrCustom(true); set('arr_place', ''); }
-                  }}
+                  style={[styles.locSegmentBtn, depCustom && styles.locSegmentBtnActive]}
+                  onPress={() => { setDepCustom(true); set('dep_place', ''); }}
                 >
-                  <Text style={[styles.locSegmentText, (activePlace === 'dep' ? depCustom : arrCustom) && styles.locSegmentTextActive]}>{t('temporary_label')}</Text>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.locSegmentText, depCustom && styles.locSegmentTextActive]}>{t('temporary_label')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-            <View style={{ width: 155 }}>
-              <View style={styles.locSegment}>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, activePlace === 'dep' && styles.locSegmentBtnActive]}
-                  onPress={() => setActivePlace('dep')}
-                >
-                  <Text style={[styles.locSegmentText, activePlace === 'dep' && styles.locSegmentTextActive]}>DEP</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, activePlace === 'arr' && styles.locSegmentBtnActive]}
-                  onPress={() => setActivePlace('arr')}
-                >
-                  <Text style={[styles.locSegmentText, activePlace === 'arr' && styles.locSegmentTextActive]}>ARR</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          <View style={styles.row2}>
-            <View style={{ flex: 1 }}>
-              {activePlace === 'dep' ? (
-                <IcaoInput
-                  ref={depIcaoRef}
-                  label=""
-                  value={form.dep_place}
-                  onChangeText={(v) => set('dep_place', v)}
-                  error={errors.dep_place}
-                  recentPlaces={top2places}
-                  allowHere={depCustom}
-                  onFocus={() => {
-                    const target = Math.max(0, routeBlockY.current - 8);
-                    // Skjut scroll efter att tangentbordet + auto-insets har justerats,
-                    // annars skriver RN över målet och ingen scroll syns.
-                    requestAnimationFrame(() => {
-                      scrollViewRef.current?.scrollTo({ y: target, animated: true });
-                    });
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollTo({ y: target, animated: true });
-                    }, 320);
-                  }}
-                  onTemporaryPlaceSelect={(icao) => {
-                    setDepCustom(true);
-                    set('dep_place', icao);
-                    if (form.dep_utc && isValidTime(form.dep_utc)) {
-                      setActivePlace('arr');
-                      setTimeout(() => arrIcaoRef.current?.focus(), 120);
-                    } else {
-                      setTimeout(() => depTimeRef.current?.focus(), 80);
-                    }
-                  }}
-                  onConfirm={() => {
-                    if (form.dep_utc && isValidTime(form.dep_utc)) {
-                      setActivePlace('arr');
-                      setTimeout(() => arrIcaoRef.current?.focus(), 120);
-                    } else {
-                      setTimeout(() => depTimeRef.current?.focus(), 80);
-                    }
-                  }}
-                />
-              ) : (
-                <IcaoInput
-                  ref={arrIcaoRef}
-                  label=""
-                  value={form.arr_place}
-                  onChangeText={(v) => set('arr_place', v)}
-                  error={errors.arr_place}
-                  recentPlaces={top2places}
-                  allowHere={arrCustom}
-                  onTemporaryPlaceSelect={(icao) => {
-                    setArrCustom(true);
-                    set('arr_place', icao);
-                    if (!form.arr_utc || !isValidTime(form.arr_utc)) {
-                      setTimeout(() => arrTimeRef.current?.focus(), 80);
-                    }
-                  }}
-                  onConfirm={() => {
-                    if (!form.arr_utc || !isValidTime(form.arr_utc)) {
-                      setTimeout(() => arrTimeRef.current?.focus(), 80);
-                    }
-                  }}
-                />
-              )}
-            </View>
-            {activePlace === 'dep' ? (
-              <View style={{ width: 155 }}>
-              <SmartTimeInput
-                ref={depTimeRef}
+              <IcaoInput
+                ref={depIcaoRef}
                 label=""
-                align="left"
-                value={timeMode === 'utc' ? form.dep_utc : depLocalBuf}
-                onChangeText={timeMode === 'utc' ? (v) => set('dep_utc', v) : onDepLocalChange}
-                error={errors.dep_utc}
-                showNowBtn={false}
-                onSubmitEditing={() => {
-                  if (form.dep_place.trim() && isValidTime(form.dep_utc)) {
-                    setActivePlace('arr');
-                    setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                value={form.dep_place}
+                onChangeText={(v) => set('dep_place', v)}
+                error={errors.dep_place}
+                recentPlaces={top2places}
+                allowHere={depCustom}
+                onFocus={() => {
+                  const target = Math.max(0, routeBlockY.current - 8);
+                  // Skjut scroll efter att tangentbordet + auto-insets har justerats,
+                  // annars skriver RN över målet och ingen scroll syns.
+                  requestAnimationFrame(() => {
+                    scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                  });
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                  }, 320);
+                }}
+                onTemporaryPlaceSelect={(icao) => {
+                  setDepCustom(true);
+                  set('dep_place', icao);
+                  if (form.dep_utc && isValidTime(form.dep_utc)) {
+                    if (form.arr_place.trim()) setTimeout(() => arrTimeRef.current?.focus(), 120);
+                    else setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                  } else {
+                    setTimeout(() => depTimeRef.current?.focus(), 80);
                   }
                 }}
-                rightAdornment={
-                  <View style={{ alignItems: 'flex-end', gap: 1 }}>
-                    <Pressable
-                      onPress={toggleTimeMode}
-                      hitSlop={10}
-                      style={({ pressed }) => ({
-                        backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                        borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                        paddingHorizontal: 6, paddingVertical: 2,
-                      })}
-                    >
-                      <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                        {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
-                      </Text>
-                    </Pressable>
-                    {(() => {
-                      if (!isValidTime(form.dep_utc)) return null;
-                      const below = timeMode === 'utc'
-                        ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
-                        : `${form.dep_utc} UTC`;
-                      return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
-                    })()}
-                  </View>
-                }
+                onConfirm={() => {
+                  if (form.dep_utc && isValidTime(form.dep_utc)) {
+                    if (form.arr_place.trim()) setTimeout(() => arrTimeRef.current?.focus(), 120);
+                    else setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                  } else {
+                    setTimeout(() => depTimeRef.current?.focus(), 80);
+                  }
+                }}
               />
+              <View style={{ marginTop: 6 }}>
+                <SmartTimeInput
+                  ref={depTimeRef}
+                  label=""
+                  align="left"
+                  value={timeMode === 'utc' ? form.dep_utc : depLocalBuf}
+                  onChangeText={(v) => {
+                    if (timeMode === 'utc') set('dep_utc', v); else onDepLocalChange(v);
+                    // Auto-avancera när dep-tiden är komplett (HH:MM): om arr-platsen redan är
+                    // ifylld (t.ex. reverse latest flight) → hoppa direkt till arr-tid, annars arr ICAO.
+                    if (isValidTime(v)) {
+                      if (form.arr_place.trim()) setTimeout(() => arrTimeRef.current?.focus(), 120);
+                      else setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                    }
+                  }}
+                  error={errors.dep_utc}
+                  showNowBtn={false}
+                  onSubmitEditing={() => {
+                    if (form.dep_place.trim() && isValidTime(form.dep_utc)) {
+                      if (form.arr_place.trim()) setTimeout(() => arrTimeRef.current?.focus(), 120);
+                      else setTimeout(() => arrIcaoRef.current?.focus(), 120);
+                    }
+                  }}
+                  rightAdornment={
+                    <View style={{ alignItems: 'flex-end', gap: 1 }}>
+                      <Pressable
+                        onPress={toggleTimeMode}
+                        hitSlop={10}
+                        style={({ pressed }) => ({
+                          backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                          borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                          paddingHorizontal: 6, paddingVertical: 2,
+                        })}
+                      >
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                          {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
+                        </Text>
+                      </Pressable>
+                      {(() => {
+                        if (!isValidTime(form.dep_utc)) return null;
+                        const below = timeMode === 'utc'
+                          ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
+                          : `${form.dep_utc} UTC`;
+                        return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
+                      })()}
+                    </View>
+                  }
+                />
               </View>
-            ) : (
-              <View style={{ width: 155 }}>
-              <SmartTimeInput
-                ref={arrTimeRef}
+            </View>
+
+            <View style={styles.placeColDivider} />
+
+            {/* ── ARRIVAL ── */}
+            <View style={{ flex: 1 }}>
+              <View style={styles.placeColHeader}>
+                <Text style={styles.placeColHeaderText}>{t('arrival')}</Text>
+              </View>
+              <View style={[styles.locSegment, { marginBottom: 6 }]}>
+                <TouchableOpacity
+                  style={[styles.locSegmentBtn, !arrCustom && styles.locSegmentBtnActive]}
+                  onPress={() => { setArrCustom(false); set('arr_place', ''); }}
+                >
+                  <Text style={[styles.locSegmentText, !arrCustom && styles.locSegmentTextActive]}>{t('icao_label')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.locSegmentBtn, arrCustom && styles.locSegmentBtnActive]}
+                  onPress={() => { setArrCustom(true); set('arr_place', ''); }}
+                >
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.locSegmentText, arrCustom && styles.locSegmentTextActive]}>{t('temporary_label')}</Text>
+                </TouchableOpacity>
+              </View>
+              <IcaoInput
+                ref={arrIcaoRef}
                 label=""
-                align="left"
-                value={timeMode === 'utc' ? form.arr_utc : arrLocalBuf}
-                onChangeText={timeMode === 'utc' ? (v) => set('arr_utc', v) : onArrLocalChange}
-                error={errors.arr_utc}
-                showNowBtn={false}
-                rightAdornment={
-                  <View style={{ alignItems: 'flex-end', gap: 1 }}>
-                    <Pressable
-                      onPress={toggleTimeMode}
-                      hitSlop={10}
-                      style={({ pressed }) => ({
-                        backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                        borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                        paddingHorizontal: 6, paddingVertical: 2,
-                      })}
-                    >
-                      <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                        {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
-                      </Text>
-                    </Pressable>
-                    {(() => {
-                      if (!isValidTime(form.arr_utc)) return null;
-                      const below = timeMode === 'utc'
-                        ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
-                        : `${form.arr_utc} UTC`;
-                      return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
-                    })()}
-                  </View>
-                }
+                value={form.arr_place}
+                onChangeText={(v) => set('arr_place', v)}
+                error={errors.arr_place}
+                recentPlaces={top2places}
+                allowHere={arrCustom}
+                onFocus={() => {
+                  const target = Math.max(0, routeBlockY.current - 8);
+                  requestAnimationFrame(() => {
+                    scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                  });
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: target, animated: true });
+                  }, 320);
+                }}
+                onTemporaryPlaceSelect={(icao) => {
+                  setArrCustom(true);
+                  set('arr_place', icao);
+                  if (!form.arr_utc || !isValidTime(form.arr_utc)) {
+                    setTimeout(() => arrTimeRef.current?.focus(), 80);
+                  }
+                }}
+                onConfirm={() => {
+                  if (!form.arr_utc || !isValidTime(form.arr_utc)) {
+                    setTimeout(() => arrTimeRef.current?.focus(), 80);
+                  }
+                }}
               />
+              <View style={{ marginTop: 6 }}>
+                <SmartTimeInput
+                  ref={arrTimeRef}
+                  label=""
+                  align="left"
+                  value={timeMode === 'utc' ? form.arr_utc : arrLocalBuf}
+                  onChangeText={timeMode === 'utc' ? (v) => set('arr_utc', v) : onArrLocalChange}
+                  error={errors.arr_utc}
+                  showNowBtn={false}
+                  rightAdornment={
+                    <View style={{ alignItems: 'flex-end', gap: 1 }}>
+                      <Pressable
+                        onPress={toggleTimeMode}
+                        hitSlop={10}
+                        style={({ pressed }) => ({
+                          backgroundColor: Colors.gold + (pressed ? '38' : '22'),
+                          borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
+                          paddingHorizontal: 6, paddingVertical: 2,
+                        })}
+                      >
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
+                          {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
+                        </Text>
+                      </Pressable>
+                      {(() => {
+                        if (!isValidTime(form.arr_utc)) return null;
+                        const below = timeMode === 'utc'
+                          ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
+                          : `${form.arr_utc} UTC`;
+                        return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
+                      })()}
+                    </View>
+                  }
+                />
               </View>
-            )}
+            </View>
           </View>
         </View>
 
@@ -2211,7 +2333,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     <TouchableOpacity onPress={addRouteStop} disabled={!canAdd} activeOpacity={0.8}
                       style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 8, paddingVertical: 9, marginTop: 2, backgroundColor: !canAdd ? Colors.elevated : Colors.primary + '22', borderWidth: 1, borderColor: !canAdd ? Colors.border : Colors.primary }}>
                       <Ionicons name="add" size={16} color={!canAdd ? Colors.textMuted : Colors.primary} />
-                      <Text style={{ color: !canAdd ? Colors.textMuted : Colors.primary, fontSize: 12, fontWeight: '700' }}>Lägg till</Text>
+                      <Text style={{ color: !canAdd ? Colors.textMuted : Colors.primary, fontSize: 12, fontWeight: '700' }}>Add</Text>
                     </TouchableOpacity>
                   );
                 })()}
@@ -2537,7 +2659,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                           onPress={() => setSelectedApp(null)}
                           activeOpacity={0.75}
                         >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>Tillbaka</Text>
+                          <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>Back</Text>
                         </TouchableOpacity>
                       </>
                     )}
@@ -2901,41 +3023,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         </View>
 
         {/* ── Remarks ── */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <FormField
-              label={t('remarks')}
-              value={form.remarks}
-              onChangeText={(v) => set('remarks', v)}
-              placeholder={t('remarks_ph')}
-              multiline
-              numberOfLines={2}
-              maxLength={50}
-              style={{ minHeight: 60, textAlignVertical: 'top' }}
-            />
-          </View>
-          <TouchableOpacity
-            style={{
-              width: 78, alignSelf: 'stretch', marginTop: 23, marginBottom: 4,
-              backgroundColor: milOps.size > 0 ? Colors.gold + '1F' : Colors.elevated,
-              borderRadius: 10, borderWidth: 1.5,
-              borderColor: milOps.size > 0 ? Colors.gold : Colors.border,
-              alignItems: 'center', justifyContent: 'center', gap: 3,
-            }}
-            onPress={() => setShowMilOp(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="shield-half" size={18} color={milOps.size > 0 ? Colors.gold : Colors.textMuted} />
-            <Text style={{ color: milOps.size > 0 ? Colors.gold : Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>
-              TACTICAL
-            </Text>
-            {milOps.size > 0 && (
-              <View style={{ backgroundColor: Colors.gold, borderRadius: 8, minWidth: 16, paddingHorizontal: 4, paddingVertical: 1, alignItems: 'center' }}>
-                <Text style={{ color: Colors.textInverse, fontSize: 9, fontWeight: '900' }}>{milOps.size}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        <FormField
+          label={t('remarks')}
+          value={form.remarks}
+          onChangeText={(v) => set('remarks', v)}
+          placeholder={t('remarks_ph')}
+          multiline
+          numberOfLines={2}
+          maxLength={50}
+          style={{ minHeight: 60, textAlignVertical: 'top' }}
+        />
         {role === 'picus' && (
           <View style={styles.remarksWarning}>
             <Ionicons name="warning" size={14} color={Colors.warning} />
@@ -3082,7 +3179,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 activeOpacity={0.75}
               >
                 <Ionicons name="image-outline" size={16} color={Colors.textMuted} />
-                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>Bild</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: '600' }}>Image</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -3241,7 +3338,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 style={styles.datePickerDone}
                 onPress={() => setShowDatePicker(false)}
               >
-                <Text style={styles.datePickerDoneText}>{t('done') ?? 'Klar'}</Text>
+                <Text style={styles.datePickerDoneText}>{t('done') ?? 'Done'}</Text>
               </TouchableOpacity>
               <DateTimePicker
                 value={form.date ? new Date(form.date) : new Date()}
@@ -3495,6 +3592,51 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         </Pressable>
       </Modal>
 
+      {/* Sparade kabinpersonalsnamn — välj namn (fyller tom rad / lägger till ny). */}
+      <Modal
+        visible={showCrewNameModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCrewNameModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowCrewNameModal(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t('saved_crew_names')}</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>Hold to remove</Text>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {savedCrewNames.length === 0 ? (
+                <Text style={styles.modalEmpty}>{t('no_saved_crew')}</Text>
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {[0, 1, 2].map((col) => (
+                    <View key={col} style={{ flex: 1 }}>
+                      {savedCrewNames.filter((_, i) => i % 3 === col).map((n) => (
+                        <TouchableOpacity
+                          key={n}
+                          style={[styles.modalItem, { paddingVertical: 10 }]}
+                          onPress={() => { applyCrewName(n); setShowCrewNameModal(false); }}
+                          onLongPress={() => {
+                            Alert.alert(n, 'Remove this name?', [
+                              { text: t('cancel'), style: 'cancel' },
+                              { text: 'Remove', style: 'destructive', onPress: async () => { await deleteSavedCrewName(n); setSavedCrewNames(await getSavedCrewNames()); } },
+                            ]);
+                          }}
+                          delayLongPress={600}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.modalItemText, { fontSize: 13 }]}>{n}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <AircraftModal
         visible={showAircraftModal}
         onClose={() => setShowAircraftModal(false)}
@@ -3534,134 +3676,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         </View>
       </Modal>
 
-      {/* Military Operation modal */}
-      <Modal visible={showMilOp} transparent animationType="slide" onRequestClose={() => setShowMilOp(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }} onPress={() => setShowMilOp(false)}>
-          <Pressable style={{
-            backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-            maxHeight: '80%', paddingBottom: 32,
-          }} onPress={e => e.stopPropagation()}>
-            <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginTop: 10, marginBottom: 6 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '800', flex: 1 }}>TACTICAL</Text>
-              {milOps.size > 0 && (
-                <TouchableOpacity onPress={() => setMilOps(new Set())}>
-                  <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '600' }}>{t('clear')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <View style={{ flexDirection: 'row', paddingHorizontal: 12 }}>
-                {[0, 1].map(col => (
-                  <View key={col} style={{ flex: 1, paddingHorizontal: 4 }}>
-                    {MIL_CATEGORIES.filter((_, i) => i % 2 === col).map(cat => {
-                      const open = expandedMilCats.has(cat.title);
-                      const selectedInCat = cat.items.filter(op => milOps.has(op.code));
-                      return (
-                        <View key={cat.title} style={{
-                          backgroundColor: Colors.elevated, borderRadius: 10,
-                          borderWidth: 0.5, borderColor: Colors.border,
-                          marginBottom: 8, overflow: 'hidden',
-                        }}>
-                          <TouchableOpacity
-                            style={{
-                              flexDirection: 'row', alignItems: 'center',
-                              paddingHorizontal: 10, paddingVertical: 10,
-                            }}
-                            onPress={() => toggleMilCat(cat.title)}
-                            activeOpacity={0.7}
-                          >
-                            <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={12} color={Colors.textMuted} style={{ marginRight: 6 }} />
-                            <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>{cat.title}</Text>
-                            {selectedInCat.length > 0 && (
-                              <View style={{
-                                backgroundColor: Colors.gold + '22', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5,
-                              }}>
-                                <Text style={{ color: Colors.gold, fontSize: 10, fontWeight: '700' }}>{selectedInCat.length}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                          {open && cat.items.map(op => {
-                            const active = milOps.has(op.code);
-                            return (
-                              <TouchableOpacity
-                                key={op.code}
-                                style={{
-                                  flexDirection: 'row', alignItems: 'center', gap: 6,
-                                  paddingVertical: 7, paddingHorizontal: 10,
-                                  borderTopWidth: 0.5, borderTopColor: Colors.separator,
-                                }}
-                                onPress={() => toggleMilOp(op.code)}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons
-                                  name={active ? 'checkbox' : 'square-outline'}
-                                  size={16}
-                                  color={active ? Colors.gold : Colors.textMuted}
-                                />
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{
-                                    color: active ? Colors.gold : Colors.textPrimary,
-                                    fontSize: 11, fontWeight: '800',
-                                  }}>{op.code}</Text>
-                                  <Text style={{
-                                    color: Colors.textMuted, fontSize: 9, lineHeight: 12,
-                                  }}>{op.desc}</Text>
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
-              <View style={{ height: 16 }} />
-            </ScrollView>
-            {milOps.size > 0 && (
-              <View style={{ paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: Colors.separator }}>
-                <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 8 }}>
-                  {Array.from(milOps).join(' / ')}
-                </Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={{
-                marginHorizontal: 16, paddingVertical: 14, borderRadius: 12,
-                backgroundColor: Colors.primary, alignItems: 'center',
-              }}
-              onPress={() => {
-                const codeOnlyCats = new Set([
-                  t('mil_cat_rescue'), t('mil_cat_refuel'),
-                  t('mil_cat_transport'), t('mil_cat_maritime'),
-                ]);
-                const allWithCat = MIL_CATEGORIES.flatMap(c => c.items.map(i => ({ ...i, cat: c.title })));
-                const descs = Array.from(milOps).map(code => {
-                  const item = allWithCat.find(i => i.code === code);
-                  if (!item) return code;
-                  if (codeOnlyCats.has(item.cat)) return code;
-                  return item.desc.replace(/\s*\(.*?\)\s*/g, '').trim();
-                });
-                const newMilText = descs.join(' / ');
-                const prev = lastMilTextRef.current;
-                // Behåll allt övrigt i remarks; ersätt bara den tidigare tactical-raden.
-                let base = form.remarks;
-                if (prev) base = base.split('\n').filter((l) => l.trim() !== prev.trim()).join('\n').trim();
-                const merged = newMilText ? (base ? `${base}\n${newMilText}` : newMilText) : base;
-                set('remarks', merged);
-                lastMilTextRef.current = newMilText;
-                setShowMilOp(false);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>
-                {milOps.size > 0 ? `${t('done_exclamation')} (${milOps.size})` : t('cancel')}
-              </Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }

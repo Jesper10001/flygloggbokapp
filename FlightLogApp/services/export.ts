@@ -56,16 +56,16 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   const hasText = (s: string | null | undefined) => !!s && s.trim() !== '';
 
   const cols: Col[] = [
-    { header: 'Datum',                value: f => f.date },
-    { header: 'Luftfartygstyp',       value: f => f.aircraft_type },
+    { header: 'Date',                 value: f => f.date },
+    { header: 'Aircraft type',        value: f => f.aircraft_type },
     { header: 'Registration',         value: f => f.registration },
-    { header: 'Avgångsplats',         value: f => exportPlace(f.dep_place, tempCodes) },
-    { header: 'Avgångstid UTC',       value: f => f.dep_utc },
-    { header: 'Ankomstplats',         value: f => exportPlace(f.arr_place, tempCodes) },
-    { header: 'Ankomsttid UTC',       value: f => f.arr_utc },
-    { header: 'Total flygtid',        value: f => toHHMM(f.total_time) },
-    { header: 'Flerpilottid',         value: f => toHHMM(f.multi_pilot ?? 0),  optional: true, hasData: f => hasTime(f.multi_pilot) },
-    { header: 'Enpilottid',           value: f => toHHMM(f.single_pilot ?? 0), optional: true, hasData: f => hasTime(f.single_pilot) },
+    { header: 'Departure',            value: f => exportPlace(f.dep_place, tempCodes) },
+    { header: 'Departure time UTC',   value: f => f.dep_utc },
+    { header: 'Arrival',              value: f => exportPlace(f.arr_place, tempCodes) },
+    { header: 'Arrival time UTC',     value: f => f.arr_utc },
+    { header: 'Total flight time',    value: f => toHHMM(f.total_time) },
+    { header: 'Multi-pilot time',     value: f => toHHMM(f.multi_pilot ?? 0),  optional: true, hasData: f => hasTime(f.multi_pilot) },
+    { header: 'Single-pilot time',    value: f => toHHMM(f.single_pilot ?? 0), optional: true, hasData: f => hasTime(f.single_pilot) },
     { header: 'FFS/Sim',              value: f => f.flight_type === 'sim' ? toHHMM(f.total_time) : '0:00',
                                        optional: true, hasData: f => f.flight_type === 'sim' },
     { header: 'SE (Single Engine)',   value: f => toHHMM(f.se_time ?? 0),      optional: true, hasData: f => hasTime(f.se_time) },
@@ -77,24 +77,24 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
     { header: 'Relief Crew',          value: f => toHHMM(f.relief_crew ?? 0),  optional: true, hasData: f => hasTime(f.relief_crew) },
     { header: 'Ferry PIC',            value: f => toHHMM(f.ferry_pic ?? 0),    optional: true, hasData: f => hasTime(f.ferry_pic) },
     { header: 'Observer',             value: f => toHHMM(f.observer ?? 0),     optional: true, hasData: f => hasTime(f.observer) },
-    { header: 'Dual (elev)',          value: f => toHHMM(f.dual),              optional: true, hasData: f => hasTime(f.dual) },
-    { header: 'Instruktör',           value: f => toHHMM(f.instructor ?? 0),   optional: true, hasData: f => hasTime(f.instructor) },
-    { header: 'Examinator',           value: f => toHHMM(f.examiner ?? 0),     optional: true, hasData: f => hasTime(f.examiner) },
+    { header: 'Dual (student)',       value: f => toHHMM(f.dual),              optional: true, hasData: f => hasTime(f.dual) },
+    { header: 'Instructor',           value: f => toHHMM(f.instructor ?? 0),   optional: true, hasData: f => hasTime(f.instructor) },
+    { header: 'Examiner',             value: f => toHHMM(f.examiner ?? 0),     optional: true, hasData: f => hasTime(f.examiner) },
     { header: 'Safety Pilot',         value: f => toHHMM(f.safety_pilot ?? 0), optional: true, hasData: f => hasTime(f.safety_pilot) },
     { header: 'IFR',                  value: f => toHHMM(f.ifr),               optional: true, hasData: f => hasTime(f.ifr) },
     { header: 'VFR',                  value: f => toHHMM(f.vfr ?? 0),          optional: true, hasData: f => hasTime(f.vfr) },
-    { header: 'Natt',                 value: f => toHHMM(f.night),             optional: true, hasData: f => hasTime(f.night) },
+    { header: 'Night',                value: f => toHHMM(f.night),             optional: true, hasData: f => hasTime(f.night) },
     { header: 'NVG',                  value: f => toHHMM(f.nvg ?? 0),          optional: true, hasData: f => hasTime(f.nvg) },
-    { header: 'Landningar dag',       value: f => f.landings_day },
-    { header: 'Landningar natt',      value: f => f.landings_night,            optional: true, hasData: f => (f.landings_night ?? 0) > 0 },
+    { header: 'Landings day',         value: f => f.landings_day },
+    { header: 'Landings night',       value: f => f.landings_night,            optional: true, hasData: f => (f.landings_night ?? 0) > 0 },
     { header: 'Touch & Go',           value: f => f.tng_count ?? 0,            optional: true, hasData: f => (f.tng_count ?? 0) > 0 },
-    { header: 'Flygregler',           value: f => f.flight_rules ?? 'VFR' },
-    { header: 'Andrepilot',           value: f => f.second_pilot ?? '',        optional: true, hasData: f => hasText(f.second_pilot) },
-    { header: 'Anmärkningar',         value: f => [f.second_pilot ? `2P: ${f.second_pilot}` : '', f.remarks ?? ''].filter(Boolean).join(' · '),
+    { header: 'Flight rules',         value: f => f.flight_rules ?? 'VFR' },
+    { header: 'Second pilot',         value: f => f.second_pilot ?? '',        optional: true, hasData: f => hasText(f.second_pilot) },
+    { header: 'Remarks',              value: f => [f.second_pilot ? `2P: ${f.second_pilot}` : '', f.remarks ?? ''].filter(Boolean).join(' · '),
                                        optional: true, hasData: f => hasText(f.remarks) || hasText(f.second_pilot) },
-    { header: 'Flygningstyp',         value: f => f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
+    { header: 'Flight type',          value: f => f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
                                        optional: true, hasData: f => f.flight_type && f.flight_type !== 'normal' },
-    { header: 'Sim-kategori',         value: f => f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '',
+    { header: 'Sim category',         value: f => f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '',
                                        optional: true, hasData: f => f.flight_type === 'sim' && hasText(f.sim_category) },
   ];
 
@@ -102,7 +102,7 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   let filteredCols = cols;
   if (standard === 'easa' || standard === 'caa') {
     // EASA/CAA: exclude some FAA-specific columns
-    const easa_exclude = new Set(['Enpilottid', 'Flerpilottid', 'PICUS', 'SPIC', 'Ferry PIC']);
+    const easa_exclude = new Set(['Single-pilot time', 'Multi-pilot time', 'PICUS', 'SPIC', 'Ferry PIC']);
     filteredCols = cols.filter(c => !easa_exclude.has(c.header));
   } else {
     // FAA: include all columns, no exclusions
@@ -127,7 +127,7 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(path, {
       mimeType: 'text/csv',
-      dialogTitle: 'Exportera loggbok — CSV',
+      dialogTitle: 'Export logbook — CSV',
     });
   }
 }
@@ -514,7 +514,7 @@ export async function exportToPDF(): Promise<void> {
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(path, {
       mimeType: 'text/html',
-      dialogTitle: 'Exportera loggbok — öppna i Safari → Dela → Skriv ut',
+      dialogTitle: 'Export logbook — open in Safari → Share → Print',
       UTI: 'public.html',
     });
   }

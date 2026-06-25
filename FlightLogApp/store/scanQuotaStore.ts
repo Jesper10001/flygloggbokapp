@@ -27,8 +27,8 @@ export const MONTHLY_LOOKUP_QUOTA = TIER_QUOTAS.premium.lookup;
 export const MONTHLY_IMPORT_QUOTA = TIER_QUOTAS.premium.import;
 
 export const SCAN_PACKS = [
-  { count: 10, price: 30, pricePerScan: '3 kr/skanning' },
-  { count: 50, price: 150, pricePerScan: '3 kr/skanning — en hel loggbok' },
+  { count: 10, price: 30, pricePerScan: '3 kr/scan' },
+  { count: 50, price: 150, pricePerScan: '3 kr/scan — a whole logbook' },
 ] as const;
 
 export const MONTHLY_TOPUP_PRICE = 49;

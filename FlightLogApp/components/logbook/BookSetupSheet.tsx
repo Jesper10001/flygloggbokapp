@@ -60,7 +60,9 @@ export function BookSetupSheet({
   const allTemplates = useMemo(() => [...LOGBOOK_TEMPLATES, ...custom], [custom]);
   const resolveTpl = (id: string) => allTemplates.find((x) => x.id === id) ?? getTemplate(id);
   const pickable = useMemo(
-    () => allTemplates.filter((tpl) => (appMode === 'drone') === tpl.id.includes('drone')),
+    // 'sv-easa-standard' är utfasad — visas inte längre som valbar mall (befintliga
+    // böcker som använder den fortsätter fungera via getTemplate).
+    () => allTemplates.filter((tpl) => (appMode === 'drone') === tpl.id.includes('drone') && tpl.id !== 'sv-easa-standard'),
     [allTemplates, appMode],
   );
 
@@ -72,7 +74,7 @@ export function BookSetupSheet({
   }, [previewTpl]);
   const previewBoxW = Math.min(winW - 48, 560);
 
-  const [templateId, setTemplateId] = useState(initial?.template_id || pickable[0]?.id || 'sv-easa-standard');
+  const [templateId, setTemplateId] = useState(initial?.template_id || pickable[0]?.id || 'easa-pilot-logbook');
   const [name, setName] = useState(initial?.name || '');
   const [firstPage, setFirstPage] = useState(String(initial?.starting_page ?? 1));
   const [lastPage, setLastPage] = useState(initial && initial.end_page > 0 ? String(initial.end_page) : '');

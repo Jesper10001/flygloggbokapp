@@ -317,7 +317,7 @@ function DroneFormModal({
               style={styles.input}
               value={reg}
               onChangeText={(v) => setReg(v.toUpperCase())}
-              placeholder="SE-DRÖ-XXX"
+              placeholder="SE-DRN-XXX"
               placeholderTextColor={Colors.textMuted}
               autoCapitalize="characters"
             />

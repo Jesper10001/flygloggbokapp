@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { DR, accentSoft, accentLine, DRONE_ACCENTS, DRONE_ACCENT_ORDER } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
-import { useLanguageStore } from '../../store/languageStore';
 import { listCertificates, certStatus } from '../../db/drones';
 import { useProfileStore, type MainRole, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
@@ -34,8 +33,6 @@ export default function DroneSettingsScreen() {
   const accentKey = useDroneAccentStore((s) => s.key);
   const setAccent = useDroneAccentStore((s) => s.setAccent);
   const loadAccent = useDroneAccentStore((s) => s.load);
-  const language = useLanguageStore((s) => s.language);
-  const setLanguage = useLanguageStore((s) => s.setLanguage);
   const profile = useProfileStore((s) => s.profile);
   const setProfile = useProfileStore((s) => s.setProfile);
   const setAppMode = useAppModeStore((s) => s.setMode);
@@ -138,17 +135,8 @@ export default function DroneSettingsScreen() {
         <SectionHeader accent={accent} label="APP" open={expanded === 'app'} onPress={() => toggle('app')} />
         {expanded === 'app' && (
           <View style={s.card}>
-            <Row accent={accent} icon="language-outline" title="Language" first right={
-              <View style={s.toggle}>
-                {(['en', 'sv'] as const).map((l) => (
-                  <TouchableOpacity key={l} onPress={() => setLanguage(l)} style={[s.toggleBtn, language === l && { backgroundColor: accent }]}>
-                    <Text style={[s.toggleText, { color: language === l ? DR.inkOnAccent : DR.muted }]}>{l === 'en' ? 'ENG' : 'SWE'}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            } />
             {/* Accent-väljare */}
-            <View style={[s.row, { borderTopWidth: 1, borderTopColor: DR.separator }]}>
+            <View style={s.row}>
               <View style={[s.rowIcon, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent), borderWidth: 1 }]}>
                 <Ionicons name="color-palette-outline" size={17} color={accent} />
               </View>

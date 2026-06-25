@@ -36,39 +36,39 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
 
   // Datum
   if (!data.date) {
-    issues.push({ field: 'date', message: 'Datum krävs', severity: 'error' });
+    issues.push({ field: 'date', message: 'Date required', severity: 'error' });
   } else if (new Date(data.date) > new Date()) {
-    issues.push({ field: 'date', message: 'Framtida datum', severity: 'error' });
+    issues.push({ field: 'date', message: 'Future date', severity: 'error' });
   }
 
   // Luftfartyg — frivilliga, varning om tomma
   if (!data.aircraft_type?.trim()) {
-    issues.push({ field: 'aircraft_type', message: 'Luftfartygstyp saknas', severity: 'warning' });
+    issues.push({ field: 'aircraft_type', message: 'Aircraft type missing', severity: 'warning' });
   }
   if (!data.registration?.trim()) {
-    issues.push({ field: 'registration', message: 'Registration saknas', severity: 'warning' });
+    issues.push({ field: 'registration', message: 'Registration missing', severity: 'warning' });
   }
 
-  // Plats — varning om ogiltigt (ICAO eller tillfällig plats)
+  // Plats — varning om ogiltigt (ICAO eller off-airport/ZZZZ)
   if (data.dep_place?.trim() && !isValidPlace(data.dep_place)) {
-    issues.push({ field: 'dep_place', message: 'Ogiltig plats', severity: 'warning' });
+    issues.push({ field: 'dep_place', message: 'Invalid place', severity: 'warning' });
   }
   if (data.arr_place?.trim() && !isValidPlace(data.arr_place)) {
-    issues.push({ field: 'arr_place', message: 'Ogiltig plats', severity: 'warning' });
+    issues.push({ field: 'arr_place', message: 'Invalid place', severity: 'warning' });
   }
 
   // Tider — validera bara om de är angivna
   if (data.dep_utc?.trim() && !isValidTime(data.dep_utc)) {
-    issues.push({ field: 'dep_utc', message: 'Ogiltigt tidsformat, använd HH:MM', severity: 'warning' });
+    issues.push({ field: 'dep_utc', message: 'Invalid time format, use HH:MM', severity: 'warning' });
   }
   if (data.arr_utc?.trim() && !isValidTime(data.arr_utc)) {
-    issues.push({ field: 'arr_utc', message: 'Ogiltigt tidsformat, använd HH:MM', severity: 'warning' });
+    issues.push({ field: 'arr_utc', message: 'Invalid time format, use HH:MM', severity: 'warning' });
   }
 
   // Flygtid — accepterar decimal (1.5) och HH:MM (1:30)
   const total = parseFlightTime(data.total_time);
   if (!data.total_time?.trim() || total <= 0) {
-    issues.push({ field: 'total_time', message: 'Ange flygtid (t.ex. 1.5 eller 1:30)', severity: 'error' });
+    issues.push({ field: 'total_time', message: 'Enter flight time (e.g. 1.5 or 1:30)', severity: 'error' });
   } else {
     // Jämför med beräknad tid
     if (isValidTime(data.dep_utc) && isValidTime(data.arr_utc)) {
@@ -76,7 +76,7 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
       if (calc > 0 && Math.abs(calc - total) > 0.1) {
         issues.push({
           field: 'total_time',
-          message: `Beräknad flygtid ${calc}h stämmer inte med loggad ${total}h`,
+          message: `Calculated flight time ${calc}h does not match logged ${total}h`,
           severity: 'warning',
           suggested: String(calc),
         });
@@ -89,7 +89,7 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
     if (range && (total < range[0] || total > range[1])) {
       issues.push({
         field: 'total_time',
-        message: `${total}h verkar orimligt för ${data.aircraft_type} (förväntat ${range[0]}–${range[1]}h)`,
+        message: `${total}h seems unreasonable for ${data.aircraft_type} (expected ${range[0]}–${range[1]}h)`,
         severity: 'warning',
       });
     }
@@ -104,15 +104,15 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
     if (pic + cop + dual > total + 0.01) {
       issues.push({
         field: 'pic',
-        message: `PIC+Co-pilot+Dual (${(pic+cop+dual).toFixed(1)}h) överstiger total flygtid`,
+        message: `PIC+Co-pilot+Dual (${(pic+cop+dual).toFixed(1)}h) exceeds total flight time`,
         severity: 'error',
       });
     }
     if (ifr > total + 0.01) {
-      issues.push({ field: 'ifr', message: 'IFR-tid överstiger total flygtid', severity: 'error' });
+      issues.push({ field: 'ifr', message: 'IFR time exceeds total flight time', severity: 'error' });
     }
     if (night > total + 0.01) {
-      issues.push({ field: 'night', message: 'Natttid överstiger total flygtid', severity: 'error' });
+      issues.push({ field: 'night', message: 'Night time exceeds total flight time', severity: 'error' });
     }
   }
 
@@ -123,7 +123,7 @@ export function validateFlightForm(data: FlightFormData): ValidationIssue[] {
   ) {
     issues.push({
       field: 'arr_place',
-      message: 'Avgångs- och ankomstplats är samma (cirkelflygning?)',
+      message: 'Departure and arrival place are the same (circular flight?)',
       severity: 'warning',
     });
   }
@@ -142,7 +142,7 @@ export function validateDistance(
   if (avgSpeed > MAX_SPEED_KMH) {
     return {
       field: 'total_time',
-      message: `Genomsnittshastighet ${Math.round(avgSpeed)} km/h verkar hög för sträckan ${dep.icao}→${arr.icao} (${Math.round(distKm)} km)`,
+      message: `Average speed ${Math.round(avgSpeed)} km/h seems high for the route ${dep.icao}→${arr.icao} (${Math.round(distKm)} km)`,
       severity: 'warning',
     };
   }
@@ -159,7 +159,7 @@ export function validatePageTotals(params: {
   if (Math.abs(expected - params.totalToDate) > 0.05) {
     return {
       field: 'total_time',
-      message: `Brought forward (${params.broughtForward}) + this page (${params.totalThisPage}) = ${expected.toFixed(1)}, men Total to date är ${params.totalToDate}`,
+      message: `Brought forward (${params.broughtForward}) + this page (${params.totalThisPage}) = ${expected.toFixed(1)}, but Total to date is ${params.totalToDate}`,
       severity: 'error',
     };
   }

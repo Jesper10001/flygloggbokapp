@@ -68,7 +68,7 @@ export async function corroborateWithVision(
       const v = String((f as any)[field] ?? '');
       if (!v || flagged(field)) return;            // rör inte redan-flaggade fält
       if (!corroborated(v, tokens)) {
-        issues.push({ field, reason: `Vision hittade inte "${v}" på sidan — kontrollera`, confidence: 0.4 });
+        issues.push({ field, reason: `Vision did not find "${v}" on the page — check`, confidence: 0.4 });
       }
     };
     check('dep_place');

@@ -282,7 +282,7 @@ export default function ScanImportScreen() {
           {/* Välj bild */}
           <View style={s.stepHeader}>
             <Text style={s.stepHeaderText}>
-              {t('scan_choose_image') ?? 'Välj bild'}
+              {t('scan_choose_image') ?? 'Select image'}
             </Text>
           </View>
           <View style={s.actionCards}>

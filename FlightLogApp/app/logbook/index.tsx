@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Modal, ScrollView,
-  ActivityIndicator, useWindowDimensions, Platform, Alert, InteractionManager,
+  ActivityIndicator, useWindowDimensions, Platform, Alert,
   Animated, Pressable,
 } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -65,6 +65,7 @@ export default function LogbookScreen() {
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [ready, setReady] = useState(false); // dölj innehållet tills orienteringen lagt sig (mjuk övergång)
 
   const [showBooks, setShowBooks] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
@@ -109,18 +110,17 @@ export default function LogbookScreen() {
 
   // Orientering: ENDAST den faktiska boken (böcker finns och vi är inte i
   // setup) är liggande. Intro (inga böcker) och skapa/redigera-bok är stående.
+  // Vi låser DIREKT (ingen InteractionManager-fördröjning) och håller en navy-
+  // täckare uppe tills orienteringen lagt sig → ingen portrait→landscape-flash.
   useEffect(() => {
+    if (loading) return;
     let cancelled = false;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
-      // Transcribe-overlayen är stående; när den stängs återställer detta liggande
-      // (efter att modalen animerat klart) så läsaren inte fastnar i portrait-layout.
-      const showingBook = books.length > 0 && !setup && !transcribe;
-      const lock = showingBook ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP;
-      ScreenOrientation.lockAsync(lock).catch(() => {});
-    });
-    return () => { cancelled = true; (task as any)?.cancel?.(); };
-  }, [setup, books.length, transcribe]);
+    const showingBook = books.length > 0 && !setup && !transcribe;
+    const lock = showingBook ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+    ScreenOrientation.lockAsync(lock).catch(() => {});
+    const t = setTimeout(() => { if (!cancelled) setReady(true); }, 260);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [loading, setup, books.length, transcribe]);
 
   useEffect(() => () => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
@@ -252,9 +252,11 @@ export default function LogbookScreen() {
   };
 
   // ── Render-grenar ──────────────────────────────────────────────
-  if (loading) {
+  // Täck skärmen (navy + spinner) tills data laddats OCH orienteringen lagt sig,
+  // så man aldrig ser en kort portrait-vy som sedan roterar till liggande.
+  if (loading || !ready) {
     return (
-      <View style={styles.center}><Stack.Screen options={{ headerShown: false }} /><ActivityIndicator color={Colors.primary} /></View>
+      <View style={[styles.center, { backgroundColor: Colors.background }]}><Stack.Screen options={{ headerShown: false }} /><ActivityIndicator color={Colors.primary} /></View>
     );
   }
 

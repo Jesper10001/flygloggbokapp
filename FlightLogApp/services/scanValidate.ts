@@ -56,16 +56,16 @@ export function validateAgainstVocab(flights: OcrFlightResult[], vocab: ScanVoca
       }
     };
 
-    suggest('registration', vocab.fleet, 'Liknar en känd registrering i din flotta — bekräfta');
-    suggest('aircraft_type', vocab.aircraftTypes, 'Liknar en känd flygplanstyp — bekräfta');
-    suggest('dep_place', vocab.frequentIcaos, 'Liknar en flygplats du ofta använder — bekräfta');
-    suggest('arr_place', vocab.frequentIcaos, 'Liknar en flygplats du ofta använder — bekräfta');
+    suggest('registration', vocab.fleet, 'Looks like a known registration in your fleet — confirm');
+    suggest('aircraft_type', vocab.aircraftTypes, 'Looks like a known aircraft type — confirm');
+    suggest('dep_place', vocab.frequentIcaos, 'Looks like an airport you often use — confirm');
+    suggest('arr_place', vocab.frequentIcaos, 'Looks like an airport you often use — confirm');
 
     const checkRange = (field: string, max: number) => {
       if (flagged(field)) return;
       const n = parseFloat(String((f as any)[field] ?? '').replace(',', '.'));
       if (!isNaN(n) && (n < 0 || n > max)) {
-        issues.push({ field, reason: `Osannolik tid (${n}h) — kontrollera`, confidence: 0.4 });
+        issues.push({ field, reason: `Unlikely time (${n}h) — check`, confidence: 0.4 });
       }
     };
     checkRange('total_time', 24);

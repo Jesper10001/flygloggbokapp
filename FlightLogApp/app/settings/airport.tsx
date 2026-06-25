@@ -383,7 +383,7 @@ function AirportDetailModal({
             </>
           ) : null}
 
-          {/* Redigera / Radera — gäller custom och tillfälliga platser */}
+          {/* Redigera / Radera — gäller custom och off-airport-platser */}
           {editable && !editing && (
             <>
               <TouchableOpacity
@@ -769,7 +769,7 @@ export default function AirportScreen() {
           </>
         )}
 
-        {/* ── Custom/Temporary tabs ── */}
+        {/* ── Custom/Off-airport tabs ── */}
         {tab !== 'global' && (
         <>
         {/* Sök */}

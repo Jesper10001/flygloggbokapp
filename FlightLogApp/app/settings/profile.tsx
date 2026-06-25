@@ -10,14 +10,14 @@ import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../../components/SignaturePad';
 
 const FIELDS = [
-  { key: 'profile_first_name', label: 'first_name', placeholder: 'Johan' },
-  { key: 'profile_last_name', label: 'last_name', placeholder: 'Andersson' },
-  { key: 'profile_initials', label: 'initials', placeholder: 'JA', maxLength: 4 },
+  { key: 'profile_first_name', label: 'first_name', placeholder: 'John' },
+  { key: 'profile_last_name', label: 'last_name', placeholder: 'Smith' },
+  { key: 'profile_initials', label: 'initials', placeholder: 'JS', maxLength: 4 },
   { key: 'profile_credentials', label: 'credentials', placeholder: 'CPL(H) · IR · NVG · A2 UAS' },
-  { key: 'profile_email', label: 'email', placeholder: 'namn@exempel.se', optional: true, keyboardType: 'email-address' as const },
+  { key: 'profile_email', label: 'email', placeholder: 'name@example.com', optional: true, keyboardType: 'email-address' as const },
   { key: 'profile_phone', label: 'phone', placeholder: '+46 70 123 45 67', optional: true, keyboardType: 'phone-pad' as const },
   { key: 'profile_company', label: 'company', placeholder: 'Scandinavian Helicopter AB', optional: true },
-  { key: 'profile_title', label: 'job_title', placeholder: 'Linjepilot', optional: true },
+  { key: 'profile_title', label: 'job_title', placeholder: 'Airline pilot', optional: true },
 ] as const;
 
 export default function ProfileScreen() {

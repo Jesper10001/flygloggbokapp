@@ -38,15 +38,15 @@ function toHHMM(decimal: number): string {
 type SummaryRow = { label: string; isTime: boolean; field: keyof import('../../services/ocr').PageTotals };
 
 const SUMMARY_ROWS: SummaryRow[] = [
-  { label: 'Total flygtid', isTime: true,  field: 'total_time' },
+  { label: 'Total flight time', isTime: true,  field: 'total_time' },
   { label: 'PIC',           isTime: true,  field: 'pic' },
   { label: 'Co-pilot',      isTime: true,  field: 'co_pilot' },
   { label: 'Dual',          isTime: true,  field: 'dual' },
   { label: 'Instructor',    isTime: true,  field: 'instructor' },
   { label: 'IFR',           isTime: true,  field: 'ifr' },
-  { label: 'Natt',          isTime: true,  field: 'night' },
-  { label: 'Ldg dag',       isTime: false, field: 'landings_day' },
-  { label: 'Ldg natt',      isTime: false, field: 'landings_night' },
+  { label: 'Night',         isTime: true,  field: 'night' },
+  { label: 'Ldg day',       isTime: false, field: 'landings_day' },
+  { label: 'Ldg night',     isTime: false, field: 'landings_night' },
 ];
 
 function makeStyles() {
@@ -506,9 +506,9 @@ function SummaryResult({ summary, onReset, onSave }: { summary: PageSummary; onR
       {/* Kolumnrubriker */}
       <View style={styles.resultTableHeader}>
         <Text style={styles.resultColLabel} />
-        <Text style={styles.resultColHead}>Denna sida</Text>
+        <Text style={styles.resultColHead}>This page</Text>
         <Text style={styles.resultColHead}>B/F</Text>
-        <Text style={[styles.resultColHead, styles.resultColHeadTotal]}>Totalt</Text>
+        <Text style={[styles.resultColHead, styles.resultColHeadTotal]}>Total</Text>
       </View>
 
       <View style={styles.resultTable}>
@@ -542,7 +542,7 @@ function SummaryResult({ summary, onReset, onSave }: { summary: PageSummary; onR
         {onSave && (
           <TouchableOpacity style={[styles.resetBtn, { flex: 1, borderColor: Colors.success + '55', backgroundColor: Colors.success + '12' }]} onPress={onSave} activeOpacity={0.8}>
             <Ionicons name="save-outline" size={16} color={Colors.success} />
-            <Text style={[styles.resetBtnText, { color: Colors.success }]}>Spara</Text>
+            <Text style={[styles.resetBtnText, { color: Colors.success }]}>Save</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -558,7 +558,7 @@ function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void 
     // TODO: Ersätt med riktigt köp via StoreKit/IAP när Apple Developer-konto är klart
     await addExtraScans(pack.count);
     onClose();
-    Alert.alert('Klart!', `${pack.count} skanningar har lagts till på ditt konto.`);
+    Alert.alert('Done!', `${pack.count} scans have been added to your account.`);
   };
 
   return (
@@ -566,8 +566,8 @@ function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void 
       <View style={styles.buyOverlay}>
         <View style={styles.buySheet}>
           <View style={styles.buyHandle} />
-          <Text style={styles.buyTitle}>Köp fler skanningar</Text>
-          <Text style={styles.buySub}>Köpta skanningar förfaller aldrig</Text>
+          <Text style={styles.buyTitle}>Buy more scans</Text>
+          <Text style={styles.buySub}>Purchased scans never expire</Text>
 
           {SCAN_PACKS.map(pack => (
             <TouchableOpacity
@@ -577,7 +577,7 @@ function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void 
               activeOpacity={0.8}
             >
               <View style={styles.packLeft}>
-                <Text style={styles.packCount}>{pack.count} skanningar</Text>
+                <Text style={styles.packCount}>{pack.count} scans</Text>
                 <Text style={styles.packNote}>{pack.pricePerScan}</Text>
               </View>
               <View style={styles.packPriceBox}>
@@ -587,7 +587,7 @@ function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void 
           ))}
 
           <TouchableOpacity style={styles.closeBuyBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={styles.closeBuyBtnText}>Stäng</Text>
+            <Text style={styles.closeBuyBtnText}>Close</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -755,7 +755,7 @@ export default function ScanScreen() {
 
   const handleSummarize = async () => {
     if (!canSummarize()) {
-      Alert.alert('Gränsen nådd', `Du har använt alla ${MONTHLY_SUMMARIZE_QUOTA} summerings-skanningar för denna månad.`);
+      Alert.alert('Limit reached', `You have used all ${MONTHLY_SUMMARIZE_QUOTA} summary scans for this month.`);
       return;
     }
     setWorking(true);
@@ -1066,12 +1066,12 @@ export default function ScanScreen() {
         >
           <View style={styles.buySheet}>
             <View style={styles.buyHandle} />
-            <Text style={styles.buyTitle}>Namnge blad</Text>
+            <Text style={styles.buyTitle}>Name sheet</Text>
 
             {/* Bok-val: snabbknappar för befintliga böcker */}
             {Array.from(new Set(history.map(s => s.book_name).filter(Boolean))).length > 0 && (
               <View style={{ gap: 6 }}>
-                <Text style={[styles.buySub, { marginTop: 0 }]}>Välj bok</Text>
+                <Text style={[styles.buySub, { marginTop: 0 }]}>Select book</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {Array.from(new Set(history.map(s => s.book_name).filter(Boolean))).map(book => (
                     <TouchableOpacity
@@ -1108,8 +1108,8 @@ export default function ScanScreen() {
               onPress={async () => {
                 if (!pendingSummary) return;
                 await saveScanSummary(
-                  saveBookName || 'Okänd bok',
-                  savePageName || 'Okänt blad',
+                  saveBookName || 'Unknown book',
+                  savePageName || 'Unknown sheet',
                   pendingSummary.total_this_page,
                   pendingSummary.brought_forward,
                   pendingSummary.total_to_date,
@@ -1130,10 +1130,10 @@ export default function ScanScreen() {
                 setShowNextPageModal(true);
               }}
             >
-              <Text style={styles.nextBtnText}>Spara</Text>
+              <Text style={styles.nextBtnText}>Save</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeBuyBtn} onPress={() => setShowSaveModal(false)}>
-              <Text style={styles.closeBuyBtnText}>Hoppa över</Text>
+              <Text style={styles.closeBuyBtnText}>Skip</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1144,8 +1144,8 @@ export default function ScanScreen() {
         <View style={styles.buyOverlay}>
           <View style={[styles.buySheet, { maxHeight: '80%' }]}>
             <View style={styles.buyHandle} />
-            <Text style={styles.buyTitle}>Nästa blads första flygning</Text>
-            <Text style={styles.buySub}>Välj vilken flygning som är den första på nästa blad, eller välj "Nästa jag loggar"</Text>
+            <Text style={styles.buyTitle}>First flight of next sheet</Text>
+            <Text style={styles.buySub}>Select which flight is the first on the next sheet, or choose "Next one I log"</Text>
 
             <TouchableOpacity
               style={[styles.packCard, { marginBottom: 4 }]}
@@ -1154,12 +1154,12 @@ export default function ScanScreen() {
                 await setSetting('scan_page_start_count', String(flightCount));
                 setShowNextPageModal(false);
                 checkBadge();
-                Alert.alert('Klart', 'Nästa flygning du loggar markeras som första på nästa blad.');
+                Alert.alert('Done', 'The next flight you log will be marked as the first on the next sheet.');
               }}
             >
               <View style={styles.packLeft}>
-                <Text style={styles.packCount}>Nästa flygning jag loggar</Text>
-                <Text style={styles.packNote}>Börjar räkna från nu</Text>
+                <Text style={styles.packCount}>Next flight I log</Text>
+                <Text style={styles.packNote}>Starts counting from now</Text>
               </View>
               <Ionicons name="arrow-forward-circle" size={24} color={Colors.primary} />
             </TouchableOpacity>
@@ -1188,7 +1188,7 @@ export default function ScanScreen() {
             />
 
             <TouchableOpacity style={styles.closeBuyBtn} onPress={() => setShowNextPageModal(false)}>
-              <Text style={styles.closeBuyBtnText}>Hoppa över</Text>
+              <Text style={styles.closeBuyBtnText}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>

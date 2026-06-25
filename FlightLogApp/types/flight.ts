@@ -25,6 +25,8 @@ export interface Flight {
   original_data?: string;
   flight_rules: string;
   second_pilot: string;
+  second_pilot_role: string;
+  extra_pilots: string;
   nvg: number;
   tng_count: number;
   flight_type: 'normal' | 'sim' | 'hot_refuel' | 'touch_and_go' | 'summary';
@@ -70,6 +72,8 @@ export interface FlightFormData {
   remarks: string;
   flight_rules?: string;
   second_pilot?: string;
+  second_pilot_role?: string;
+  extra_pilots?: string;
   nvg?: string;
   tng_count?: string;
   flight_type?: 'normal' | 'sim' | 'hot_refuel' | 'touch_and_go' | 'summary';
@@ -99,7 +103,7 @@ export interface IcaoAirport {
   lat: number;
   lon: number;
   custom?: boolean;
-  temporary?: number; // 1 = tillfällig landningsplats, ej på karta
+  temporary?: number; // 1 = off-airport (ZZZZ), ej på karta
 }
 
 export interface OcrFlightResult extends FlightFormData {

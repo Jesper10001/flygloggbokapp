@@ -97,7 +97,7 @@ function FieldRowClock({ label, value, onChange, original, mismatch, onAcceptAsC
           }}
         >
           <Ionicons name="checkmark" size={13} color={Colors.success} />
-          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '700' }}>Ratt</Text>
+          <Text style={{ color: Colors.success, fontSize: 10, fontWeight: '700' }}>Correct</Text>
         </TouchableOpacity>
       )}
       {changed && original ? <Text style={s.fieldOriginal}>{original}</Text> : null}
@@ -587,7 +587,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
         </Text>
         <Text style={{ flex: 1, fontSize: 10, color: Colors.textMuted }} numberOfLines={1}>{issue.reason}</Text>
         <Text style={{ fontSize: 10, fontFamily: mono, fontWeight: '700', color: isChanged ? Colors.success : Colors.warning }}>
-          {isChanged ? 'ÄNDRAD' : `${Math.round(issue.confidence * 100)}%`}
+          {isChanged ? 'CHANGED' : `${Math.round(issue.confidence * 100)}%`}
         </Text>
       </View>
       {(isSim || isOtherRole) ? (
@@ -657,7 +657,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
             {suggestedValue}?
           </Text>
           <View style={{ flex: 1 }} />
-          <Text style={{ fontSize: 10, color: Colors.textMuted }}>Tryck för att acceptera</Text>
+          <Text style={{ fontSize: 10, color: Colors.textMuted }}>Tap to accept</Text>
         </TouchableOpacity>
       )}
       {/* ICAO autocomplete */}
@@ -673,7 +673,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
         </View>
       )}
       {isTemp && (
-        <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.warning, marginTop: 2, letterSpacing: 0.3 }}>TILLFÄLLIG LANDNINGSPLATS</Text>
+        <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.warning, marginTop: 2, letterSpacing: 0.3 }}>OFF-AIRPORT (ZZZZ)</Text>
       )}
       {showTempList && (
         <View style={{ backgroundColor: Colors.card, borderRadius: 6, borderWidth: 1, borderColor: Colors.warning + '55', marginTop: 4, overflow: 'hidden' }}>
@@ -687,18 +687,18 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
               <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{t.name}</Text>
             </TouchableOpacity>
           )) : (
-            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>Inga sparade platser</Text>
+            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>No saved places</Text>
           )}
           <TouchableOpacity
             onPress={() => {
               setShowTempList(false);
               const code = value.toUpperCase();
               Alert.prompt(
-                'Ny tillfällig plats',
-                'Ange namn (t.ex. "Villingsberg")',
+                'New off-airport place (ZZZZ)',
+                'Enter a name (e.g. "Villingsberg")',
                 [
-                  { text: 'Avbryt', style: 'cancel' },
-                  { text: 'Spara', onPress: (name?: string) => { if (onAddTemp) onAddTemp(name?.trim() || code); } },
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Save', onPress: (name?: string) => { if (onAddTemp) onAddTemp(name?.trim() || code); } },
                 ],
                 'plain-text', '', 'default',
               );
@@ -707,7 +707,7 @@ function FieldEditor({ issue, value, originalValue, suggestedValue, onChangeText
             style={{ paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}
           >
             <Ionicons name="add-circle" size={14} color={Colors.primary} />
-            <Text style={{ fontSize: 11, color: Colors.primary, fontWeight: '700' }}>Ny plats...</Text>
+            <Text style={{ fontSize: 11, color: Colors.primary, fontWeight: '700' }}>New place...</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -816,7 +816,7 @@ function MiniFieldIcao({ label, value, onChangeText, onAddTemp }: {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <Text style={miniLabelStyle}>{label}</Text>
         {(isTemp || startsZZ || beyondIcao) && (
-          <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.warning, letterSpacing: 0.3 }}>TILLFÄLLIG</Text>
+          <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.warning, letterSpacing: 0.3 }}>ZZZZ</Text>
         )}
       </View>
       <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -868,10 +868,10 @@ function MiniFieldIcao({ label, value, onChangeText, onAddTemp }: {
               <Text style={{ fontSize: 9, color: Colors.textMuted }} numberOfLines={1}>{t.name}</Text>
             </TouchableOpacity>
           )) : (
-            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>Inga sparade platser</Text>
+            <Text style={{ fontSize: 10, color: Colors.textMuted, padding: 8 }}>No saved places</Text>
           )}
           <TouchableOpacity onPress={() => setShowTempDropdown(false)} style={{ padding: 6, alignItems: 'center' }}>
-            <Text style={{ fontSize: 10, color: Colors.textMuted }}>Stäng</Text>
+            <Text style={{ fontSize: 10, color: Colors.textMuted }}>Close</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1068,7 +1068,7 @@ function AircraftConfirmation({
   return (
     <ScrollView contentContainerStyle={{ padding: 14, gap: 14 }}>
       <Text style={{ color: Colors.textSecondary, fontSize: 12, lineHeight: 17, paddingHorizontal: 2 }}>
-        AI har identifierat {detections.length} {detections.length === 1 ? 'luftfartyg' : 'luftfartyg'} pa sidan. Rattar du nagot har uppdateras ALLA rader med samma handstilsform automatiskt — och fartyget sparas under Sparade luftfartyg.
+        AI identified {detections.length} {detections.length === 1 ? 'aircraft' : 'aircraft'} on the page. If you correct anything here, ALL rows with the same handwriting form are updated automatically — and the aircraft is saved under Saved aircraft.
       </Text>
 
       {detections.map((d, idx) => {
@@ -1087,7 +1087,7 @@ function AircraftConfirmation({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="speedometer-outline" size={16} color={Colors.gold} />
               <Text style={{ color: Colors.gold, fontSize: 15, fontWeight: '800' }}>
-                Flygplansdata
+                Aircraft data
               </Text>
               <View style={{ flex: 1 }} />
               <View style={{
@@ -1100,19 +1100,19 @@ function AircraftConfirmation({
                   ? <ActivityIndicator size="small" color={Colors.primary} />
                   : <Ionicons name="sparkles" size={10} color={Colors.primary} />}
                 <Text style={{ color: Colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
-                  {f.loading ? 'Hamtar...' : 'Autogenererat med AI'}
+                  {f.loading ? 'Loading...' : 'Auto-generated with AI'}
                 </Text>
               </View>
             </View>
 
             {/* Upptackt-rad */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Piloten skrev</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Pilot wrote</Text>
               <Text style={{ color: Colors.textPrimary, fontSize: 12, fontFamily: mono, fontWeight: '700' }}>
                 "{d.as_written}"
               </Text>
               <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
-                . Forst rad {d.first_row} . {d.rows.length} {d.rows.length === 1 ? 'rad' : 'rader'}
+                . First row {d.first_row} . {d.rows.length} {d.rows.length === 1 ? 'row' : 'rows'}
               </Text>
             </View>
 
@@ -1252,7 +1252,7 @@ function AircraftConfirmation({
                     }, ai && aiBtn]}
                   >
                     <Text style={{ color: active ? Colors.primary : Colors.textSecondary, fontSize: 13, fontWeight: '800' }}>
-                      {c === 'airplane' ? 'Flygplan' : 'Helikopter'}
+                      {c === 'airplane' ? 'Airplane' : 'Helicopter'}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -1272,7 +1272,7 @@ function AircraftConfirmation({
       >
         <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
         <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
-          Bekrafta & fortsatt granska flygningarna
+          Confirm & continue reviewing the flights
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -1396,11 +1396,11 @@ export default function ReviewScreen() {
       (data as any)[field] = String(sum);
       issues.push({
         field: field as string,
-        reason: `AI laste "${raw}" — summan ${sum} har beraknats. Stammer det?`,
+        reason: `AI read "${raw}" — the sum ${sum} has been calculated. Is that correct?`,
         confidence: 0.6,
       });
       data.needs_review = true;
-      data.review_reason = data.review_reason || 'Aritmetik i tidsfalt';
+      data.review_reason = data.review_reason || 'Arithmetic in time field';
     }
     data.field_issues = issues;
   };
@@ -1414,10 +1414,10 @@ export default function ReviewScreen() {
       const otherVal = parseFloat(String((data as any).other_time ?? '0')) || 0;
       if (otherVal > 0) {
         data.needs_review = true;
-        data.review_reason = data.review_reason || '"Other type of flight time" — ange vilken tid';
+        data.review_reason = data.review_reason || '"Other type of flight time" — specify which time';
         const issues = data.field_issues ? [...data.field_issues] : [];
         if (!issues.find((i) => i.field === 'other_time_role')) {
-          issues.push({ field: 'other_time_role', reason: 'Ange vilken typ av tid', confidence: 0.5 });
+          issues.push({ field: 'other_time_role', reason: 'Specify which type of time', confidence: 0.5 });
         }
         data.field_issues = issues;
       }
@@ -1432,10 +1432,10 @@ export default function ReviewScreen() {
           data.total_time = String(stdVal);
         }
         data.needs_review = true;
-        data.review_reason = data.review_reason || 'Simulator — välj typ';
+        data.review_reason = data.review_reason || 'Simulator — select type';
         const issues = data.field_issues ? [...data.field_issues] : [];
         if (!issues.find((i) => i.field === 'sim_category')) {
-          issues.push({ field: 'sim_category', reason: 'Välj typ av simulator (FFS, FTD, FNPT…)', confidence: 0.5 });
+          issues.push({ field: 'sim_category', reason: 'Select simulator type (FFS, FTD, FNPT…)', confidence: 0.5 });
         }
         data.field_issues = issues;
       }
@@ -1462,7 +1462,7 @@ export default function ReviewScreen() {
             computed_dep_if_arr_correct: computedDep,
           };
           data.needs_review = true;
-          data.review_reason = data.review_reason || 'Dep och arr har samma tid — en maste vara fel';
+          data.review_reason = data.review_reason || 'Dep and arr have the same time — one must be wrong';
         }
       }
       const totalHvfr = parseFloat(data.total_time) || 0;
@@ -1507,15 +1507,15 @@ export default function ReviewScreen() {
       if (!depUnknown && !arrUnknown) return r;
       const issues = [...(r.data.field_issues ?? [])];
       if (depUnknown && !issues.find((i) => i.field === 'dep_place')) {
-        issues.push({ field: 'dep_place', reason: `${r.data.dep_place} finns inte i ICAO-databasen — tillfallig plats?`, confidence: 0.3 });
+        issues.push({ field: 'dep_place', reason: `${r.data.dep_place} is not in the ICAO database — temporary place?`, confidence: 0.3 });
       }
       if (arrUnknown && !issues.find((i) => i.field === 'arr_place')) {
-        issues.push({ field: 'arr_place', reason: `${r.data.arr_place} finns inte i ICAO-databasen — tillfallig plats?`, confidence: 0.3 });
+        issues.push({ field: 'arr_place', reason: `${r.data.arr_place} is not in the ICAO database — temporary place?`, confidence: 0.3 });
       }
       return {
         ...r,
         data: { ...r.data, field_issues: issues, needs_review: true,
-          review_reason: r.data.review_reason || 'Okand flygplatskod' },
+          review_reason: r.data.review_reason || 'Unknown airport code' },
         decision: r.decision === 'keep' ? 'pending' : r.decision,
       };
     }));
@@ -1568,7 +1568,7 @@ export default function ReviewScreen() {
             };
           }
         } catch (e: any) {
-          setError(`Sida 1: ${e.message}`);
+          setError(`Page 1: ${e.message}`);
           setBatchRunning(false);
           clearScanImage();
           return;
@@ -1638,7 +1638,7 @@ export default function ReviewScreen() {
             };
           }
         } catch (e: any) {
-          setError(`Sida ${i + 2}: ${e.message}`);
+          setError(`Page ${i + 2}: ${e.message}`);
           break;
         }
       }
@@ -1957,8 +1957,8 @@ export default function ReviewScreen() {
       <View style={styles.container}>
         <View style={styles.acHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.acHeaderTitle}>Steg 1 av 2: Bekrafta luftfartyg</Text>
-            <Text style={styles.acHeaderSub}>Ratta innan vi gar till flygningarna — uppdaterar alla rader</Text>
+            <Text style={styles.acHeaderTitle}>Step 1 of 2: Confirm aircraft</Text>
+            <Text style={styles.acHeaderSub}>Correct before we move on to the flights — updates all rows</Text>
           </View>
         </View>
         <AircraftConfirmation
@@ -2228,7 +2228,7 @@ export default function ReviewScreen() {
                   <Text style={styles.dateText}>{currentRow.data.date}</Text>
                   <View style={{ flex: 1 }} />
                   <Text style={{ color: Colors.gold, fontSize: 13, fontWeight: '800', fontFamily: 'Menlo' }}>
-                    Rad {currentFlaggedRowIdx + 1}
+                    Row {currentFlaggedRowIdx + 1}
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
@@ -2444,7 +2444,7 @@ export default function ReviewScreen() {
                     return (
                       <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Text style={{ color: Colors.textSecondary, fontSize: 12, flex: 1 }}>
-                          "{label}" = {val}h — {label.toUpperCase().includes('NV') ? 'NVG/NVD-tid?' : 'Bekräfta typ'}
+                          "{label}" = {val}h — {label.toUpperCase().includes('NV') ? 'NVG/NVD time?' : 'Confirm type'}
                         </Text>
                       </View>
                     );
@@ -2529,7 +2529,7 @@ export default function ReviewScreen() {
                     style={{ backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 }}
                     activeOpacity={0.85}
                   >
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Stäng</Text>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Close</Text>
                   </TouchableOpacity>
                 </View>
               </Pressable>

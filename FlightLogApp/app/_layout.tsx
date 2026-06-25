@@ -82,17 +82,17 @@ export default function RootLayout() {
           <Ionicons name="arrow-up-circle" size={32} color={Colors.primary} />
         </View>
         <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 }}>
-          Uppdatering krävs
+          Update required
         </Text>
         <Text style={{ fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
-          Den här versionen stöds inte längre. Uppdatera appen för att fortsätta.
+          This version is no longer supported. Update the app to continue.
         </Text>
         <TouchableOpacity
           style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}
           onPress={() => Linking.openURL('https://apps.apple.com')}
           activeOpacity={0.85}
         >
-          <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Öppna App Store</Text>
+          <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Open App Store</Text>
         </TouchableOpacity>
       </GestureHandlerRootView>
     );

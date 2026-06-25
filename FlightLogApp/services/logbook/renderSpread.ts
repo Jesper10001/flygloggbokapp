@@ -25,6 +25,17 @@ export interface RenderSpreadOpts {
   interactive?: boolean;
   /** centrera uppslaget vertikalt (och horisontellt) i vyn — för helskärmsläget. */
   centerVertical?: boolean;
+  /** "bart" läge: ingen beige bakgrund/skugga runt sidan (för inline-vyn på navy). */
+  bare?: boolean;
+  /** rendera bara en halva av uppslaget (en fysisk sida) — för stående delad vy. */
+  side?: 'left' | 'right';
+}
+
+// Kolumnerna för en sida (eller hela uppslaget).
+function colsForSide(template: LogbookTemplate, side?: 'left' | 'right'): LogbookColumn[] {
+  if (side === 'left') return template.left_columns;
+  if (side === 'right') return template.right_columns;
+  return [...template.left_columns, ...template.right_columns];
 }
 
 function signatureSvg(sig?: { paths: string[]; w: number; h: number; x?: number; y?: number } | null, h = 34): string {
@@ -92,7 +103,7 @@ function spreadBody(opts: RenderSpreadOpts): string {
   const sigInk = signatureSvg(opts.signature);
   const interactive = opts.interactive !== false;
 
-  const cols = [...template.left_columns, ...template.right_columns];
+  const cols = colsForSide(template, opts.side);
   const leftWidth = template.left_columns.reduce((s, c) => s + c.width, 0); // bindningslinjens x-position
   const dashAfter = new Set<string>(template.dashed_after ?? []);
 
@@ -124,7 +135,9 @@ function spreadBody(opts: RenderSpreadOpts): string {
 
   // Nästlad rubrik om mallen anger header_rows (som en riktig bok),
   // annars härleds en tvåradig rubrik från kolumnernas group.
-  const headerHTML = template.header_rows
+  // Vid delad sida (side) används alltid den härledda rubriken (header_rows
+  // spänner hela uppslaget och kan inte delas).
+  const headerHTML = !opts.side && template.header_rows
     ? template.header_rows
         .map((row) =>
           `<tr>${row
@@ -213,19 +226,23 @@ function spreadBody(opts: RenderSpreadOpts): string {
     // Bokstil: pilotsignatur till vänster om Total this page / Brought forward / Total to date.
     const labelSpan = Math.min(2, firstNumericIdx) || 1;
     const sigSpan = Math.max(0, firstNumericIdx - labelSpan);
+    // Delad högersida saknar etikettkolumner (firstNumericIdx===0): rendera bara
+    // totaler per kolumn (ingen etikett/signatur) så cellantalet matchar kolumnerna.
+    const noLabels = firstNumericIdx === 0;
     const rightCells = (label: string, totals: ColumnTotals, showZero: boolean) => {
-      let h = `<td class="sum-label" colspan="${labelSpan}">${esc(label)}</td>`;
-      for (let i = firstNumericIdx; i < cols.length; i++) {
-        const c = cols[i];
-        if (isOpenCol(c)) { h += `<td class="sum-open"></td>`; continue; }
+      const cell = (c: LogbookColumn) => {
+        if (isOpenCol(c)) return `<td class="sum-open"></td>`;
         const dash = dashAfter.has(c.id) ? ' dash-r' : '';
-        h += isNumericCol(c)
+        return isNumericCol(c)
           ? `<td class="sum-num${dash}">${totalValue(c, totals, timeFormat, showZero)}</td>`
           : `<td class="sum-blank${dash}"></td>`;
-      }
+      };
+      if (noLabels) return cols.map(cell).join('');
+      let h = `<td class="sum-label" colspan="${labelSpan}">${esc(label)}</td>`;
+      for (let i = firstNumericIdx; i < cols.length; i++) h += cell(cols[i]);
       return h;
     };
-    const sigCell = sigSpan > 0
+    const sigCell = !noLabels && sigSpan > 0
       ? `<td class="sig-cell" colspan="${sigSpan}" rowspan="3"><div class="sig-cert">Certified true and correct.</div><div class="sig-line"><span class="sig-name3">Pilot's signature</span><span class="sig-fill">${sigInk}</span></div></td>`
       : '';
     bottomRows =
@@ -244,7 +261,7 @@ function spreadBody(opts: RenderSpreadOpts): string {
     </div>
 
     <div class="tbl-wrap">
-      <div class="gutter-line" style="left:${leftWidth}px"></div>
+      ${opts.side ? '' : `<div class="gutter-line" style="left:${leftWidth}px"></div>`}
       <table class="lb">
         <colgroup>${cols.map((c) => `<col style="width:${c.width}px" />`).join('')}</colgroup>
         <thead>${headerHTML}</thead>
@@ -259,16 +276,16 @@ function spreadBody(opts: RenderSpreadOpts): string {
     ${sigBlock}
 
     <div class="brand">Blades · digital logbook</div>
-    <div class="pg l">p. ${pageL}</div>
-    <div class="pg r">p. ${pageR}</div>
+    ${opts.side === 'right' ? '' : `<div class="pg l">p. ${pageL}</div>`}
+    ${opts.side === 'left' ? '' : `<div class="pg r">p. ${pageR}</div>`}
   </div>`;
 }
 
-function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, margin: number): string {
+function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, margin: number, bare = false): string {
   return `
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-text-size-adjust: 100%; }
   html, body {
-    background: #ECE3CC;
+    background: ${bare ? 'transparent' : '#ECE3CC'};
     font-family: Georgia, 'Times New Roman', serif;
     color: #2A2620;
   }
@@ -277,7 +294,7 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
     margin: ${margin}px auto;
     background: #FCF8EE;
     padding: 14px ${pagePad}px 30px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    ${bare ? '' : 'box-shadow: 0 2px 10px rgba(0,0,0,0.18);'}
     border: 1px solid #D9CEB4;
     position: relative;
   }
@@ -368,7 +385,7 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
 }
 
 export function renderSpreadHTML(opts: RenderSpreadOpts): string {
-  const cols = [...opts.template.left_columns, ...opts.template.right_columns];
+  const cols = colsForSide(opts.template, opts.side);
   const contentWidth = cols.reduce((s, c) => s + c.width, 0);
   const pagePad = 16;
   const pageWidth = contentWidth + pagePad * 2 + 2;
@@ -379,7 +396,7 @@ export function renderSpreadHTML(opts: RenderSpreadOpts): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=${viewportWidth}, user-scalable=yes" />
-<style>${spreadStyles(contentWidth, pageWidth, pagePad, margin)}</style>
+<style>${spreadStyles(contentWidth, pageWidth, pagePad, margin, opts.bare)}</style>
 ${opts.centerVertical ? `<style>
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }

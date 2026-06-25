@@ -528,14 +528,14 @@ export default function ImportScreen() {
         if (endH > 0) await updateAircraftEndurance(type, endH);
       }
       // Unknown airports are left unresolved and will appear in dashboard "visited airports"
-      // ZZZZ codes are skipped as they are generic placeholders for temporary landing sites
+      // ZZZZ codes are skipped as they are generic placeholders for off-airport places
       for (let i = 0; i < result.flights.length; i++) {
         const f = result.flights[i];
         const ft = flightTypes[i] ?? 'normal';
         const simCat = ft === 'sim' ? (simCategories[i] ?? 'FFS') : '';
         const explanation = flightExplanations[i];
         const remarksNote =
-          explanation === 'temporary' ? '[Temporary landing site]' :
+          explanation === 'temporary' ? '[Off-airport (ZZZZ)]' :
           explanation === 'refuel'    ? '[En-route refuel]' : '';
         const remarks = [f.remarks, remarksNote].filter(Boolean).join(' ');
         await insertFlight({ ...f, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
@@ -817,7 +817,7 @@ export default function ImportScreen() {
                         onPress={() => setFlightExplanations(p => ({ ...p, [idx]: p[idx] === 'temporary' ? undefined as any : 'temporary' }))}
                       >
                         <Text style={[styles.suspiciousBtnText, current === 'temporary' && styles.suspiciousBtnTextActive]}>
-                          Temporary site
+                          Off-airport
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -953,7 +953,7 @@ function FlightPreviewRow({ flight }: { flight: OcrFlightResult }) {
           {ifr > 0 && <Text style={[styles.previewChip, { color: Colors.primaryLight }]}>IFR {flight.ifr}h</Text>}
           {night > 0 && <Text style={[styles.previewChip, { color: Colors.textMuted }]}>NIGHT {flight.night}h</Text>}
           {flight.flight_rules === 'IFR' && ifr === 0 && (
-            <Text style={[styles.previewChip, { color: Colors.warning }]}>IFR-regel</Text>
+            <Text style={[styles.previewChip, { color: Colors.warning }]}>IFR RULE</Text>
           )}
         </View>
       </View>

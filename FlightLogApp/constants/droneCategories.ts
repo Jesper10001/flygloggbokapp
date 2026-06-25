@@ -26,7 +26,7 @@ export const NATO_CLASSES: { group: string; options: NatoOption[] }[] = [
   {
     group: 'NATO Class II',
     options: [
-      { value: 'NATO-CII', label: 'Class II', note: '150–600 kg, taktisk' },
+      { value: 'NATO-CII', label: 'Class II', note: '150–600 kg, tactical' },
     ],
   },
   {
@@ -34,7 +34,7 @@ export const NATO_CLASSES: { group: string; options: NatoOption[] }[] = [
     options: [
       { value: 'NATO-CIII-MALE',   label: 'Class III · MALE',   note: 'Medium Altitude Long Endurance' },
       { value: 'NATO-CIII-HALE',   label: 'Class III · HALE',   note: 'High Altitude Long Endurance' },
-      { value: 'NATO-CIII-Strike', label: 'Class III · Strike', note: 'Beväpnad strategisk plattform' },
+      { value: 'NATO-CIII-Strike', label: 'Class III · Strike', note: 'Armed strategic platform' },
     ],
   },
 ];

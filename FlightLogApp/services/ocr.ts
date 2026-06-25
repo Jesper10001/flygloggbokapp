@@ -384,7 +384,7 @@ ICAO-VALIDERING:
 - Om koden verkar felaktig eller bara 3 bokstäver, flagga för granskning
 - Det är fullt normalt att dep_place och arr_place är samma (övningsflyg, trafik­mönster, lokala rundflygningar) — flagga INTE detta
 - En plats som inte matchar ett känt 4-bokstavs ICAO-mönster kan vara en
-  tillfällig landningsplats (t.ex. ett fältnamn, en militärbas med lokal kod).
+  off-airport-plats / ZZZZ (t.ex. ett fältnamn, en militärbas med lokal kod).
   Returnera den text du ser och flagga med field_issues om du är osäker.
 
 TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → returnera 0.
@@ -675,7 +675,7 @@ async function finalizeResult(result: OcrPageResult): Promise<OcrPageResult> {
     return {
       ...f,
       needs_review: true,
-      review_reason: f.review_reason || 'Tid: (ankomst − avgång) ≠ total — bekräfta vilken som stämmer',
+      review_reason: f.review_reason || 'Time: (arrival − departure) ≠ total — confirm which is correct',
       time_mismatch: {
         anchor_total_h: anchor,
         read_dep: f.dep_utc,

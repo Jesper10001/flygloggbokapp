@@ -51,7 +51,7 @@ export function isValidIcao(icao: string): boolean {
   return /^[A-Z]{4}$/.test(icao.toUpperCase());
 }
 
-// Validera plats — antingen giltig ICAO eller tillfällig plats (2+ tecken)
+// Validera plats — antingen giltig ICAO eller off-airport/ZZZZ (2+ tecken)
 export function isValidPlace(place: string): boolean {
   if (!place) return false;
   return place.trim().length >= 2;

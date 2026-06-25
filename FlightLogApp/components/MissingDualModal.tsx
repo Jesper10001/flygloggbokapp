@@ -91,7 +91,7 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
 
       setFlights(flights.filter(f => f.id !== flightId));
     } catch (err) {
-      Alert.alert(t('error'), 'Kunde inte spara DUAL-timmar');
+      Alert.alert(t('error'), 'Could not save DUAL hours');
     }
   };
 

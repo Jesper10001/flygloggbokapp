@@ -27,6 +27,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LOGBOOK_TEMPLATES } from '../../constants/logbookTemplates';
 import { LogbookPreviewCard } from '../../components/logbook/LogbookPreviewCard';
+import { PilotLogbook } from '../../components/logbook-page/PilotLogbook';
 import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import * as Haptics from 'expo-haptics';
@@ -548,7 +549,7 @@ function TranscribeView() {
   };
 
   const finishWizard = async () => {
-    const name = bookName.trim() || 'Min loggbok';
+    const name = bookName.trim() || 'My logbook';
     const pageNum = parseInt(lastPage, 10) || 1;
     const startingPage = Math.max(1, pageNum - (pageNum % 2 === 0 ? 1 : 0));
     const ep = parseInt(endPage, 10) || 0;
@@ -1658,6 +1659,7 @@ export default function LogScreen() {
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const mode = useAppModeStore((s) => s.mode);
+  const profile = useProfileStore((s) => s.profile);
   const _theme = useThemeStore((s) => s.theme);
   const standard = useRegulationStandardStore((s) => s.standard);
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
@@ -1749,6 +1751,8 @@ export default function LogScreen() {
   const isSearching = query.trim().length > 0;
 
   if (mode !== 'manned') return <View style={styles.container} />;
+  // Pilot-manned (ej operatör) → ny List/Book/Fleet-design. Operatörer behåller nuvarande layout.
+  if (!isOperator(profile)) return <PilotLogbook />;
 
   return (
     <View style={styles.container}>

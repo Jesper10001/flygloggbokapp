@@ -74,7 +74,7 @@ export async function buildContextHint(): Promise<string> {
   }
   const icaos = clean.filter((e) => e.category === 'icao');
   if (icaos.length > 0) {
-    lines.push('KÄNDA ICAO-KODER OCH TILLFÄLLIGA PLATSER (pilotens skrivsätt → rätt kod):');
+    lines.push('KÄNDA ICAO-KODER OCH OFF-AIRPORT-PLATSER (pilotens skrivsätt → rätt kod):');
     icaos.forEach((e) => lines.push(`  "${e.raw_text}" → ${e.resolved_value}`));
   }
   return lines.join('\n');

@@ -216,20 +216,7 @@ export default function OnboardingScreen() {
                 <Image source={require('../assets/logo-splashscreen.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
               </View>
               <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                <Text style={s.langHint}>Choose your language · Välj språk</Text>
-                <View style={s.langRow}>
-                  {(['en', 'sv'] as const).map(l => (
-                    <TouchableOpacity
-                      key={l}
-                      style={s.langBtn}
-                      onPress={() => { setLang(l); setStep('role'); }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={{ fontSize: 18 }}>{l === 'en' ? '🇬🇧' : '🇸🇪'}</Text>
-                      <Text style={s.langBtnText}>{l === 'en' ? 'English' : 'Svenska'}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <PrimaryButton label="Get started" accent={accent} onPress={() => setStep('role')} />
               </View>
             </View>
           )}
@@ -328,7 +315,7 @@ export default function OnboardingScreen() {
                 <Text style={s.inputLabel}>{sv ? 'Operatörs-ID' : 'Operator ID'}</Text>
                 <TextInput
                   style={s.input}
-                  placeholder="t.ex. SWE87astrdg12k8"
+                  placeholder="e.g. SWE87astrdg12k8"
                   value={droneId}
                   onChangeText={setDroneId}
                   placeholderTextColor={C.textMuted}

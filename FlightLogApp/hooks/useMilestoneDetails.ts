@@ -28,7 +28,7 @@ function mondayOf(d: Date): Date {
 function isoWeekLabel(monday: Date): string {
   const jan4 = new Date(monday.getFullYear(), 0, 4);
   const weekNum = Math.ceil(((monday.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
-  return `v.${weekNum} · ${monday.getFullYear()}`;
+  return `W${weekNum} · ${monday.getFullYear()}`;
 }
 function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // km

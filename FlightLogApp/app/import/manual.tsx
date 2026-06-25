@@ -242,7 +242,7 @@ function FieldRow({
         autoCapitalize="none"
         selectTextOnFocus
       />
-      {!text && <Text style={styles.fieldUnit}>{integer ? 'st' : 'h'}</Text>}
+      {!text && !integer && <Text style={styles.fieldUnit}>h</Text>}
     </View>
   );
 }

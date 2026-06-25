@@ -61,18 +61,23 @@ function makeStyles() {
     errorText: { color: Colors.danger, fontSize: 11, marginTop: 4 },
 
     hereBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: Colors.primary + '18',
-      borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5,
-      borderWidth: 1, borderColor: Colors.primary + '44',
-      marginLeft: 6,
+      alignItems: 'center', justifyContent: 'center',
+      padding: 4, marginLeft: 4,
     },
-    hereBtnText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
 
+    // Statisk zIndex (INTE dynamisk) så att hela komponenten ligger över syskonen, t.ex.
+    // tidsrutan. Att toggla zIndex när listan visas får iOS att om-ordna vyerna och
+    // TextInputen tappar fokus (tangentbordet stängs) — därför alltid satt.
+    rootRaised: { zIndex: 30 },
+    // Positioneringskontext för den flytande listan.
+    inputAnchor: { position: 'relative' },
     dropdown: {
+      // Flyter ovanpå rutorna under istället för att trycka ner dem. Ingen egen zIndex —
+      // den ligger sist i flödet (ritas överst ändå) och root sköter stackningen mot syskon.
+      position: 'absolute', top: '100%', left: 0, right: 0,
       backgroundColor: Colors.elevated, borderRadius: 10,
       borderWidth: 1, borderColor: Colors.border,
-      marginTop: 4, zIndex: 100, overflow: 'hidden',
+      marginTop: 4, elevation: 20, overflow: 'hidden',
     },
     suggestion: {
       flexDirection: 'row', alignItems: 'center',
@@ -241,7 +246,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(t('permission_required'), 'Platstillstånd krävs');
+        Alert.alert(t('permission_required'), 'Location permission required');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -268,7 +273,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         setHereModal(true);
       }
     } catch (e: any) {
-      Alert.alert('Fel', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setHereLoading(false);
     }
@@ -284,7 +289,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       onConfirm?.(existingIcao);
       return;
     }
-    // Skapa ny tillfällig plats
+    // Skapa ny off-airport-plats (ZZZZ)
     const nameClean = hereName.trim().slice(0, 10) || 'TEMP';
     const icao = await generateTemporaryIcao(nameClean);
     await addTemporaryPlace(icao, nameClean, hereCoords.lat, hereCoords.lon);
@@ -312,9 +317,10 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   );
 
   return (
-    <View>
+    <View style={styles.rootRaised}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
+      <View style={styles.inputAnchor}>
       <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}
@@ -357,13 +363,38 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           >
             {hereLoading
               ? <ActivityIndicator size="small" color={Colors.primary} />
-              : <>
-                  <Ionicons name="location" size={13} color={Colors.primary} />
-                  <Text style={styles.hereBtnText}>{t('here')}</Text>
-                </>
+              : <Ionicons name="location" size={18} color={Colors.primary} />
             }
           </TouchableOpacity>
         )}
+      </View>
+      {showDropdown && (
+        <View style={styles.dropdown}>
+          {suggestions.slice(0, 8).map((item, idx) => {
+            const isTemp = (item as any).temporary === 1;
+            const isLocated = isTemp && item.lat !== 0 && item.lon !== 0;
+            return (
+              <View key={item.icao}>
+                {idx > 0 && <View style={styles.sep} />}
+                <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
+                  {isTemp ? (
+                    <Ionicons name="location" size={16} color={isLocated ? Colors.success : Colors.warning} style={{ width: 48, textAlign: 'center' }} />
+                  ) : (
+                    <Text style={styles.suggestionIcao}>{item.icao}</Text>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.suggestionCountry}>{isTemp ? (isLocated ? 'Saved place' : 'Not placed') : item.country}</Text>
+                  </View>
+                  {isTemp && (
+                    <Ionicons name={isLocated ? 'checkmark-circle' : 'alert-circle'} size={16} color={isLocated ? Colors.success : Colors.warning} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+      )}
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -397,34 +428,6 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         </View>
       )}
 
-      {showDropdown && (
-        <View style={styles.dropdown}>
-          {suggestions.slice(0, 8).map((item, idx) => {
-            const isTemp = (item as any).temporary === 1;
-            const isLocated = isTemp && item.lat !== 0 && item.lon !== 0;
-            return (
-              <View key={item.icao}>
-                {idx > 0 && <View style={styles.sep} />}
-                <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
-                  {isTemp ? (
-                    <Ionicons name="location" size={16} color={isLocated ? Colors.success : Colors.warning} style={{ width: 48, textAlign: 'center' }} />
-                  ) : (
-                    <Text style={styles.suggestionIcao}>{item.icao}</Text>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.suggestionCountry}>{isTemp ? (isLocated ? 'Sparad plats' : 'Ej placerad') : item.country}</Text>
-                  </View>
-                  {isTemp && (
-                    <Ionicons name={isLocated ? 'checkmark-circle' : 'alert-circle'} size={16} color={isLocated ? Colors.success : Colors.warning} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
       {/* ── "Här"-modal ── */}
       <Modal visible={hereModal} transparent animationType="slide" onRequestClose={() => setHereModal(false)}>
         <KeyboardAvoidingView
@@ -438,7 +441,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             {/* ICAO mode — show nearby airports */}
             {nearbyIcaoAirports.length > 0 && (
               <View style={styles.nearbySection}>
-                <Text style={styles.nearbySectionLabel}>Närmaste flygplatser</Text>
+                <Text style={styles.nearbySectionLabel}>Nearest airports</Text>
                 {nearbyIcaoAirports.map(p => (
                   <TouchableOpacity
                     key={p.icao}
@@ -467,7 +470,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
               <>
                 {nearbyPlaces.length > 0 && (
                   <View style={styles.nearbySection}>
-                    <Text style={styles.nearbySectionLabel}>Sparad plats inom 3 km</Text>
+                    <Text style={styles.nearbySectionLabel}>Saved place within 3 km</Text>
                     {nearbyPlaces.map(p => (
                       <TouchableOpacity
                         key={p.icao}
@@ -484,7 +487,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                       </TouchableOpacity>
                     ))}
                     <View style={styles.divider} />
-                    <Text style={styles.nearbySectionLabel}>Eller spara ny plats</Text>
+                    <Text style={styles.nearbySectionLabel}>Or save new place</Text>
                   </View>
                 )}
 
@@ -497,7 +500,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                   maxLength={10}
                   autoFocus={nearbyPlaces.length === 0}
                 />
-                <Text style={styles.nameHint}>{hereName.length}/10 tecken</Text>
+                <Text style={styles.nameHint}>{hereName.length}/10 characters</Text>
 
                 <TouchableOpacity
                   style={styles.confirmBtn}
@@ -505,13 +508,13 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                   activeOpacity={0.8}
                 >
                   <Ionicons name="navigate-circle-outline" size={16} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Spara & välj</Text>
+                  <Text style={styles.confirmBtnText}>Save & select</Text>
                 </TouchableOpacity>
               </>
             )}
 
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setHereModal(false)}>
-              <Text style={styles.cancelBtnText}>Avbryt</Text>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>

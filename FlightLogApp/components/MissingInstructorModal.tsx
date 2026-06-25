@@ -119,7 +119,7 @@ export function MissingInstructorModal({ visible, onClose, onCountUpdate, onTota
 
       setFlights(flights.filter(f => f.id !== flightId));
     } catch (err) {
-      Alert.alert(t('error'), 'Kunde inte spara INSTRUCTOR-timmar');
+      Alert.alert(t('error'), 'Could not save INSTRUCTOR hours');
     }
   };
 

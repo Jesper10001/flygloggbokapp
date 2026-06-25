@@ -531,7 +531,7 @@ export function AirportMapWidget() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="location-outline" size={16} color={Colors.warning} />
             <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>
-              {unlocated.length} {unlocated.length === 1 ? 'tillfällig plats' : 'tillfälliga platser'} saknar position
+              {unlocated.length} {unlocated.length === 1 ? 'off-airport place' : 'off-airport places'} missing position
             </Text>
           </View>
           {unlocated.map(p => (
@@ -555,7 +555,7 @@ export function AirportMapWidget() {
                 <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{p.icao}</Text>
                 <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{p.name}</Text>
               </View>
-              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>Placera</Text>
+              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>Place</Text>
               <Ionicons name="chevron-forward" size={12} color={Colors.textMuted} />
             </TouchableOpacity>
           ))}
@@ -854,7 +854,7 @@ export function AirportMapWidget() {
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-                  {pinSearching ? '...' : 'Sök'}
+                  {pinSearching ? '...' : 'Search'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -868,7 +868,7 @@ export function AirportMapWidget() {
               }}
               onPress={() => { setPlacingPlace(null); setPlacedCoord(null); }}
             >
-              <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Avbryt</Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{
@@ -892,7 +892,7 @@ export function AirportMapWidget() {
               activeOpacity={0.85}
             >
               <Ionicons name="checkmark-circle" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Spara position</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Save position</Text>
             </TouchableOpacity>
             </View>
           </View>

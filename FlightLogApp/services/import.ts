@@ -530,7 +530,7 @@ export async function importFromFile(
   const dateFormat: string = mapping.date_format ?? 'YYYY-MM-DD';
   const timeFormat: string = mapping.time_format ?? 'decimal';
   const colMap: Record<string, string> = mapping.column_mapping ?? {};
-  const detectedFormat: string = mapping.detected_format ?? 'Okänt';
+  const detectedFormat: string = mapping.detected_format ?? 'Unknown';
   const warnings: string[] = mapping.warnings ?? [];
 
   if (Object.keys(colMap).length === 0) {

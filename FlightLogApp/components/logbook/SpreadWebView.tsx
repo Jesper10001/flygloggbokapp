@@ -11,7 +11,7 @@ import type { LogbookSpread } from '../../services/logbook/paginate';
 import type { SignatureData } from '../SignaturePad';
 
 export const SpreadWebView = memo(function SpreadWebView({
-  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, onAssign, onAspect,
+  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onAssign, onAspect,
 }: {
   spread: LogbookSpread;
   template: LogbookTemplate;
@@ -22,23 +22,26 @@ export const SpreadWebView = memo(function SpreadWebView({
   interactive?: boolean;
   centerVertical?: boolean;
   margin?: number;
+  bare?: boolean;        // ingen beige bakgrund/skugga runt sidan
+  bgColor?: string;      // bakgrund bakom uppslaget (t.ex. navy i inline-vyn)
+  side?: 'left' | 'right'; // rendera bara en halva (en fysisk sida)
   onAssign?: (colId: string) => void;
   onAspect?: (ratio: number) => void;   // ratio = renderad höjd / bredd
 }) {
   const html = useMemo(
-    () => renderSpreadHTML({ template, spread, rowsPerSpread: template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin }),
-    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin],
+    () => renderSpreadHTML({ template, spread, rowsPerSpread: template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side }),
+    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side],
   );
   // Vid behov: mät uppslagets naturliga höjd/bredd och rapportera tillbaka.
   const injected = onAspect
     ? `(function(){var p=function(){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'size',ratio:document.body.scrollHeight/window.innerWidth}));}catch(e){}};p();setTimeout(p,120);})();true;`
     : undefined;
   return (
-    <View style={{ width, flex: 1 }}>
+    <View style={{ width, flex: 1, backgroundColor: bgColor }}>
       <WebView
         originWhitelist={['*']}
         source={{ html }}
-        style={{ flex: 1, backgroundColor: '#ECE3CC' }}
+        style={{ flex: 1, backgroundColor: bgColor }}
         showsVerticalScrollIndicator={false}
         scalesPageToFit={Platform.OS === 'android'}
         scrollEnabled

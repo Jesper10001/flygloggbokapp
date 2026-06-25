@@ -29,11 +29,11 @@ const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 const PRIMARY_FEATURES = [
-  { icon: 'camera', t: 'Skanna pappersloggbok med AI' },
-  { icon: 'instrument', t: 'Logga från instrumentbild' },
-  { icon: 'sparkle', t: 'AI-uppslag av flygplan och bana' },
-  { icon: 'progress', t: 'EASA-progress med prognos för CPL/ATPL' },
-  { icon: 'pdf', t: 'PDF-export — pilot-CV som du faktiskt vill skicka' },
+  { icon: 'camera', t: 'Scan paper logbook with AI' },
+  { icon: 'instrument', t: 'Log from instrument photo' },
+  { icon: 'sparkle', t: 'AI lookup of aircraft and runway' },
+  { icon: 'progress', t: 'EASA progress with CPL/ATPL forecast' },
+  { icon: 'pdf', t: 'PDF export — a pilot CV you actually want to send' },
 ];
 
 interface Props {
@@ -84,7 +84,7 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
             </View>
 
             {/* Title */}
-            <Text style={s.title}>Premium-funktion</Text>
+            <Text style={s.title}>Premium feature</Text>
 
             {/* Locked feature pill */}
             {feature ? (
@@ -98,7 +98,7 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
             {/* Lead */}
             <Text style={s.lead}>
-              Premium öppnar upp <Text style={s.leadBold}>AI-loggning</Text>, <Text style={s.leadBold}>EASA-progress</Text> och en <Text style={s.leadBold}>professionell PDF-export</Text>.
+              Premium unlocks <Text style={s.leadBold}>AI logging</Text>, <Text style={s.leadBold}>EASA progress</Text> and a <Text style={s.leadBold}>professional PDF export</Text>.
             </Text>
 
             {/* Feature list */}
@@ -115,13 +115,13 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
             {/* Primary CTA */}
             <TouchableOpacity style={s.ctaPrimary} onPress={handleExplore} activeOpacity={0.85}>
-              <Text style={s.ctaPrimaryText}>Upptäck allt i Premium</Text>
+              <Text style={s.ctaPrimaryText}>Discover everything in Premium</Text>
               <Ionicons name="arrow-forward" size={16} color={N.bg} />
             </TouchableOpacity>
 
             {/* Secondary */}
             <TouchableOpacity style={s.ctaSecondary} onPress={onClose}>
-              <Text style={s.ctaSecondaryText}>Inte nu</Text>
+              <Text style={s.ctaSecondaryText}>Not now</Text>
             </TouchableOpacity>
           </Pressable>
         </Animated.View>

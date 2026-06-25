@@ -20,7 +20,7 @@ const GEO_SOURCES: GeoLink[] = [
   {
     key: 'ts_se',
     country: 'SE',
-    name: 'Transportstyrelsen (Sverige)',
+    name: 'Transportstyrelsen (Sweden)',
     url: () => 'https://daim.lfv.se/echarts/dronechart/',
   },
   {

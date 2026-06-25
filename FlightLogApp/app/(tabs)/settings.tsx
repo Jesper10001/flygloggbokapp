@@ -15,7 +15,6 @@ import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logboo
 import { exportDroneToCSV } from '../../services/droneExport';
 import { clearAllFlights, getFlightCount } from '../../db/flights';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useLanguageStore } from '../../store/languageStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
@@ -174,7 +173,6 @@ export default function SettingsScreen() {
   const styles = makeSettingsStyles();
   const router = useRouter();
   const { t } = useTranslation();
-  const { language, setLanguage } = useLanguageStore();
   const { timeFormat, setTimeFormat } = useTimeFormatStore();
   const { theme, setTheme } = useThemeStore();
   const { mode: appMode, setMode: setAppMode } = useAppModeStore();
@@ -513,7 +511,7 @@ export default function SettingsScreen() {
 
 {/* ── C. Loggbok ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>
-        {t('tab_logbook') ?? 'LOGGBOK'}
+        {t('tab_logbook') ?? 'LOGBOOK'}
       </CollapsibleSectionHeader>
       {expandedSection === 'logbook' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
@@ -807,19 +805,6 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'app' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          <Row icon="language" iconColor={Colors.primary} title={t('language')} subtitle={language === 'sv' ? 'Svenska' : 'English'}
-            right={
-              <View style={styles.toggle}>
-                <TouchableOpacity style={[styles.toggleBtn, language === 'en' && styles.toggleBtnActive]} onPress={() => setLanguage('en')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, language === 'en' && styles.toggleTextActive]}>ENG</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, language === 'sv' && styles.toggleBtnActive]} onPress={() => setLanguage('sv')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, language === 'sv' && styles.toggleTextActive]}>SWE</Text>
-                </TouchableOpacity>
-              </View>
-            } pressable={false}
-            separatorColor={Colors.background}
-          />
           <Row icon="contrast-outline" iconColor={Colors.primary} title={t('theme')} subtitle={t('theme_sub')}
             right={
               <View style={styles.toggle}>
@@ -932,8 +917,8 @@ export default function SettingsScreen() {
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle={t('clear_test_user_sub')} onClick={() => applyDroneTestUser('clear')} />
         </>)}
         {!isDrone && !isOperator(useProfileStore.getState().profile) && (<>
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 1 — Airline" subtitle="A320, ~5500h" onClick={() => applyMannedTestUser(1)} />
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Testpilot 2 — Bushpilot" subtitle="B407/H125, ~3200h" onClick={() => applyMannedTestUser(2)} />
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 1 — Airline" subtitle="A320, ~5500h" onClick={() => applyMannedTestUser(1)} />
+          <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 2 — Bushpilot" subtitle="B407/H125, ~3200h" onClick={() => applyMannedTestUser(2)} />
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={() => applyMannedTestUser('clear')} />
         </>)}
         {isOperator(useProfileStore.getState().profile) && (<>

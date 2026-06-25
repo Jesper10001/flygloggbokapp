@@ -1,8 +1,10 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ReactNode } from 'react';
 import {
   View, Text, Image, StyleSheet, Dimensions, TouchableOpacity,
-  Modal, ActivityIndicator, Animated, PanResponder,
+  Modal, ActivityIndicator, Animated, PanResponder, TextInput,
+  Keyboard, InputAccessoryView, Platform, ScrollView,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +12,8 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video, ResizeMode } from 'expo-av';
-import Svg, { Line, Circle, Path } from 'react-native-svg';
+import Svg, { Line, Circle, Path, Polyline } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getAirportCoordinates } from '../db/icao';
 import { getAircraftCruiseSpeed, getFlightNumberOfYear, getAllAircraftTypes } from '../db/flights';
 import type { Flight } from '../types/flight';
@@ -18,11 +21,153 @@ import type { Flight } from '../types/flight';
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../assets/runways.json'); } catch {}
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = SCREEN_W;
-const CARD_H = CARD_W * 1.33;
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const SHADOW = {} as const;
+
+// ── Floating share-card tokens (Strava-stil overlay) ──
+const GOLD = '#FFB830';
+const SILVER = '#C9CFD9';
+const SERIF = 'Fraunces';
+const SERIF_IT = 'Fraunces-Italic';
+const MONO = 'JetBrainsMono';
+// Läsbarhetsskugga på varje flytande textnod (ingen panel bakom).
+const FSH = { textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 } as const;
+const LOCKUP = require('../assets/blades-lockup.png'); // tätt beskuren ljus lockup (1388×374)
+const LOCKUP_AR = 1388 / 374;
+const LOGO_MARK = require('../assets/logo-goldfloating.PNG'); // guld "B"-mark (1024×1536)
+const LOGO_MARK_CYAN = require('../assets/logo-cyanfloating.PNG'); // cyan "B"-mark (1024×1536)
+const LOGO_MARK_AR = 1024 / 1536;
+
+// ── Kontroll-tokens (enhetlig filterdel under kortet) ──
+const CTRL_ACCENT = '#2563EB';
+const CTRL_TRACK = 'rgba(255,255,255,0.06)';
+const CTRL_BORDER = 'rgba(255,255,255,0.12)';
+const CTRL_LABEL = 'rgba(255,255,255,0.5)';
+
+// Enhetlig segmenterad väljare (lika breda segment, samma typografi överallt).
+function Seg<T extends string>({ options, value, onChange }: {
+  options: ReadonlyArray<readonly [T, string]>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <View style={ctrl.seg}>
+      {options.map(([key, label], i) => {
+        const active = value === key;
+        return (
+          <TouchableOpacity
+            key={key}
+            activeOpacity={0.8}
+            onPress={() => onChange(key)}
+            style={[ctrl.segItem, i > 0 && ctrl.segDivider, active && ctrl.segItemActive]}
+          >
+            <Text numberOfLines={1} style={[ctrl.segText, active && ctrl.segTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// Etiketterad rad: liten versal etikett till vänster + kontroll till höger.
+function CtrlRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <View style={ctrl.row}>
+      <Text style={ctrl.rowLabel}>{label}</Text>
+      <View style={ctrl.rowBody}>{children}</View>
+    </View>
+  );
+}
+
+// Performance-lager: centrerad Strava-stat (liten etikett över ett stort fetstilt värde).
+function PerfStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={[{ fontWeight: '700', fontSize: 16, color: '#fff', letterSpacing: 0.2 }, FSH]}>{label}</Text>
+      <Text style={[{ fontWeight: '800', fontSize: 40, color: '#fff', letterSpacing: -1, lineHeight: 46 }, FSH]}>{value}</Text>
+    </View>
+  );
+}
+
+// "Klar"-bar ovanför siffertangentbordet (number-pad saknar return) — annars fastnar man.
+// Varje sifferfält får ett eget id; delat id gör accessoryn opålitlig på iOS.
+function KeyboardDoneBar({ id }: { id: string }) {
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={id}>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: '#1A2235', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.15)' }}>
+        <TouchableOpacity onPress={() => Keyboard.dismiss()} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+          <Text style={{ color: '#FFB830', fontSize: 15, fontWeight: '700' }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </InputAccessoryView>
+  );
+}
+
+// Storcirkelavstånd (NM) mellan två lat/lon — för "faktiskt avstånd".
+function greatCircleNm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const R = 3440.065; // jordens radie i NM
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const la1 = toRad(a.lat), la2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
+// Stads-snapshot via dold Leaflet-WebView (OSM/CARTO/Esri) → leaflet-image ritar kartan
+// till en canvas och postar tillbaka en PNG. Slipper Apple-branding; Ljus/Mörk/Satellit (hybrid).
+// Centreras över STADEN (geokodas från namnet via Nominatim) — faller tillbaka på flygplatsen.
+type MapStyle = 'light' | 'dark' | 'satellite';
+const cityFromName = (name?: string) => (name ?? '').split(/[\/,]|\s/).filter(Boolean)[0] ?? '';
+
+// Route-stopp ur remarks (samma rad-format som log flight: "ICAO TnG/LA/PU/DO/HR ...").
+const STOP_RE_SHARE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+\S+\s+app\s+rwy\s+\d{2,3})?\s*$/i;
+function parseStopIcaos(remarks: string): string[] {
+  const out: string[] = [];
+  for (const line of (remarks || '').split('\n')) {
+    const m = line.trim().match(STOP_RE_SHARE);
+    if (m) out.push(m[1].toUpperCase());
+  }
+  return out;
+}
+function buildCitySnapHtml(lat: number, lon: number, city: string, style: MapStyle, zoom: number): string {
+  const layersJs =
+    style === 'satellite'
+      ? `var base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}).addTo(map);`
+      : `var base=L.tileLayer('${style === 'dark' ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'}',{subdomains:'abcd',maxZoom:19,crossOrigin:true}).addTo(map);`;
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>*{margin:0;padding:0}html,body,#map{width:220px;height:220px;background:#0a1422}</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head><body><div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+<script>
+  var ZOOM=${Math.round(zoom)}, A=[${lat},${lon}], Q=${JSON.stringify(city || '')};
+  var map=L.map('map',{zoomControl:false,attributionControl:false,fadeAnimation:false,zoomAnimation:false});
+  ${layersJs}
+  var fired=false;
+  function shoot(){ if(fired)return; fired=true;
+    try {
+      leafletImage(map,function(err,canvas){
+        if(err||!canvas){ window.ReactNativeWebView.postMessage('ERR'); return; }
+        try { window.ReactNativeWebView.postMessage(canvas.toDataURL('image/png')); }
+        catch(e){ window.ReactNativeWebView.postMessage('ERR'); }
+      });
+    } catch(e){ window.ReactNativeWebView.postMessage('ERR'); }
+  }
+  function dist(a,b){var R=6371,dLat=(b[0]-a[0])*Math.PI/180,dLon=(b[1]-a[1])*Math.PI/180,la1=a[0]*Math.PI/180,la2=b[0]*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));}
+  function finish(c){ map.setView(c, ZOOM); base.on('load', function(){ setTimeout(shoot,300); }); setTimeout(shoot,3500); }
+  if(Q){
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(Q))
+      .then(function(r){return r.json();})
+      .then(function(d){ if(d&&d[0]){ var c=[parseFloat(d[0].lat),parseFloat(d[0].lon)]; if(dist(c,A)<120){ finish(c); return; } } finish(A); })
+      .catch(function(){ finish(A); });
+  } else { finish(A); }
+</script></body></html>`;
+}
 
 interface Props {
   flight: Flight;
@@ -44,13 +189,30 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const [flightNum, setFlightNum] = useState(0);
   const [isHeli, setIsHeli] = useState(false);
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  // Route ground-layer: Apple Maps-snapshots av avgångs-/ankomststaden.
+  const [depSnap, setDepSnap] = useState<string | null>(null);
+  const [arrSnap, setArrSnap] = useState<string | null>(null);
+  const [depCity, setDepCity] = useState('');
+  const [arrCity, setArrCity] = useState('');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('light');
+  const [mapZoom, setMapZoom] = useState(10);
+  // Postcard: redigerbar text före dep och mellan dep/arr (ICAO-koderna är fasta).
+  const [pcPrefix, setPcPrefix] = useState('From');
+  const [pcConnector, setPcConnector] = useState('to');
 
   // Overlay pan + slider scale
   const panRef = useRef({ x: 0, y: 0 });
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [overlayScale, setOverlayScale] = useState(0.8);
-  const [mode, setMode] = useState<'slim' | 'extra' | 'boarding' | 'postcard'>('postcard');
+  const [mode, setMode] = useState<'performance' | 'route' | 'postcard'>('performance');
   const [layerTheme, setLayerTheme] = useState<'light' | 'dark'>('light');
+  // Manuell max alt (ft). Avstånd är alltid faktiskt (great-circle).
+  const [maxAltFt, setMaxAltFt] = useState('');
+  // Taxi-tid (min) som dras av från flygtiden → avg speed blir hastighet i luften.
+  const [taxiMin, setTaxiMin] = useState('');
+  // Performance-lager: enhetssystem (metric = km/m, imperial = mi/ft).
+  const [units, setUnits] = useState<'metric' | 'imperial'>('metric');
+  const isFloating = mode === 'performance' || mode === 'route';
   const font = 'Georgia';
   const LT = {
     text: layerTheme === 'light' ? '#FFFFFF' : '#0A1628',
@@ -58,17 +220,26 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
     dot: layerTheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(10,22,40,0.5)',
     line: layerTheme === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(10,22,40,0.35)',
     shadow: layerTheme === 'light'
-      ? { textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }
-      : { textShadowColor: 'rgba(255,255,255,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+      ? { textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }
+      : { textShadowColor: 'rgba(255,255,255,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   } as const;
+
+  // Instagram-format: 'post' = 4:5 (1080×1350), 'story' = 9:16 (1080×1920).
+  const [format, setFormat] = useState<'post' | 'story'>('post');
+  const cardAspect = format === 'story' ? 9 / 16 : 4 / 5; // bredd/höjd
+  const maxCardH = SCREEN_H * 0.6;
+  const cardW = Math.min(SCREEN_W, maxCardH * cardAspect);
+  const cardH = cardW / cardAspect;
+  const exportW = 1080;
+  const exportH = format === 'story' ? 1920 : 1350;
 
   const applyModeDefaults = (m: string) => {
     const defaults: Record<string, { x: number; y: number; s: number }> = {
-      slim:     { x: 0, y: -CARD_H * 0.35, s: 0.7 },
-      extra:    { x: 0, y: -CARD_H * 0.25, s: 0.65 },
-      postcard: { x: -CARD_W * 0.15, y: -CARD_H * 0.15, s: 0.8 },
+      performance: { x: 0, y: 0, s: 1 },
+      route:    { x: 0, y: 0, s: 1 },
+      postcard: { x: -cardW * 0.15, y: -cardH * 0.15, s: 0.8 },
     };
-    const d = defaults[m] ?? { x: 0, y: 0, s: 0.8 };
+    const d = defaults[m] ?? { x: 0, y: 0, s: 1 };
     panRef.current = { x: d.x, y: d.y };
     pan.setValue({ x: d.x, y: d.y });
     setOverlayScale(d.s);
@@ -77,6 +248,19 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   useEffect(() => {
     if (visible) applyModeDefaults(mode);
   }, [visible]);
+
+  // Förifyll max alt (ft) från max_fl och nollställ avstånds-läget när kortet öppnas.
+  useEffect(() => {
+    if (!visible) return;
+    setMaxAltFt((flight.max_fl ?? 0) > 0 ? String(flight.max_fl * 100) : '');
+    setTaxiMin('');
+  }, [visible, flight.id, flight.max_fl]);
+
+  // Nollställ kart-snapshots när flygplatserna eller kartstilen ändras → fångas om.
+  useEffect(() => {
+    setDepSnap(null);
+    setArrSnap(null);
+  }, [depCoord?.lat, depCoord?.lon, arrCoord?.lat, arrCoord?.lon, mapStyle, mapZoom]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -116,8 +300,8 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
       getAirportCoordinates(codes).then(coords => {
         const d = coords.find(c => c.icao === flight.dep_place);
         const a = coords.find(c => c.icao === flight.arr_place);
-        if (d) setDepCoord({ lat: d.lat, lon: d.lon });
-        if (a) setArrCoord({ lat: a.lat, lon: a.lon });
+        if (d) { setDepCoord({ lat: d.lat, lon: d.lon }); setDepCity(cityFromName(d.name)); }
+        if (a) { setArrCoord({ lat: a.lat, lon: a.lon }); setArrCity(cityFromName(a.name)); }
       });
     }
     if (flight.aircraft_type && flight.total_time > 0) {
@@ -149,14 +333,14 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
       // För video: dela videon direkt
       if (f.media_type === 'video' && f.photo_uri) {
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Dela flygning' });
+          await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
         }
       } else {
         // För bild: fånga via ViewShot och dela som PNG
         if (!viewShotRef.current?.capture) return;
         const uri = await viewShotRef.current.capture();
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Dela flygning' });
+          await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share flight' });
         }
       }
     } catch (e) {
@@ -169,6 +353,47 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const f = flight;
   const dateStr = f.date.replace(/-/g, '.');
 
+  // ── Floating-stats: distance (uppskattad eller faktiskt great-circle), avg speed
+  //    (= distance ÷ flygtid), max alt (manuell ft eller max_fl×100). ──
+  const actualDistanceNm = depCoord && arrCoord ? greatCircleNm(depCoord, arrCoord) : 0;
+  // Alltid faktiskt avstånd; faller tillbaka på uppskattning bara om koordinater saknas.
+  const distance = actualDistanceNm > 0 ? actualDistanceNm : distanceNm;
+  // Avg speed = avstånd ÷ tid i luften (flygtid minus taxi-tid på marken).
+  const taxiHrs = (parseInt(taxiMin.replace(/\D/g, ''), 10) || 0) / 60;
+  const airborneTime = Math.max(0, f.total_time - taxiHrs);
+  const avgSpeedKt = airborneTime > 0 && distance > 0 ? Math.round(distance / airborneTime) : 0;
+  const maxAltManual = parseInt(maxAltFt.replace(/\D/g, ''), 10);
+  const maxAltVal = maxAltManual > 0 ? maxAltManual : ((f.max_fl ?? 0) > 0 ? f.max_fl * 100 : 0);
+
+  // ── Performance-lager: distans/pace/elev i metric (km, m:ss/km, m) eller imperial (mi, m:ss/mile, ft).
+  //    Pace = tid i luften ÷ distans (taxi avdraget); elev gained = max alt omräknad. ──
+  const perfDistVal = units === 'metric' ? distance * 1.852 : distance * 1.150779; // NM → km / statute miles
+  const perfDistUnit = units === 'metric' ? 'km' : 'mi';
+  const perfElevVal = units === 'metric' ? Math.round(maxAltVal * 0.3048) : maxAltVal; // ft → m / ft
+  const perfElevUnit = units === 'metric' ? 'm' : 'ft';
+  const perfPaceSec = perfDistVal > 0 && airborneTime > 0 ? Math.round((airborneTime * 3600) / perfDistVal) : 0;
+  const perfPaceStr = `${Math.floor(perfPaceSec / 60)}:${String(perfPaceSec % 60).padStart(2, '0')}`;
+  const perfPaceUnit = units === 'metric' ? '/km' : '/mile';
+
+  const floatDate = (() => {
+    const parts = f.date.split('-');
+    if (parts.length !== 3) return dateStr;
+    const mon = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][parseInt(parts[1], 10) - 1] ?? parts[1];
+    return `${parseInt(parts[2], 10)} ${mon} ${parts[0]}`;
+  })();
+  const fmtNum = (n: number) => n.toLocaleString('en-US');
+
+  // Snapshot-hörn efter platsernas inbördes orientering → diagonalt motsatta hörn.
+  // Ex: dep nordväst om arr → dep uppe-vänster, arr nere-höger.
+  const corners = (() => {
+    if (!depCoord || !arrCoord) return { dep: 'tr', arr: 'bl' };
+    const depTop = depCoord.lat >= arrCoord.lat;
+    const depLeft = depCoord.lon <= arrCoord.lon;
+    const c = (top: boolean, left: boolean) => (top ? 't' : 'b') + (left ? 'l' : 'r');
+    return { dep: c(depTop, depLeft), arr: c(!depTop, !depLeft) };
+  })();
+  // Krockar en tile med loggan i övre vänstra hörnet → flytta loggan till övre höger.
+  const brandRight = corners.dep === 'tl' || corners.arr === 'tl';
   const timeOfDay = (() => {
     const utcH = parseInt(f.dep_utc?.split(':')[0] ?? '', 10);
     if (isNaN(utcH)) return '';
@@ -222,9 +447,32 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: 1080, height: 1440 }}>
-            <View style={styles.card}>
+        {/* Dolda Leaflet-WebViews för route-snapshots (OSM/CARTO/Esri) — fångas en gång */}
+        {mode === 'route' && depCoord && !depSnap && (
+          <View style={{ position: 'absolute', width: 220, height: 220, opacity: 0, top: 0, left: 0 }} pointerEvents="none">
+            <WebView
+              source={{ html: buildCitySnapHtml(depCoord.lat, depCoord.lon, depCity, mapStyle, mapZoom), baseUrl: 'https://basemaps.cartocdn.com' }}
+              originWhitelist={['*']} javaScriptEnabled domStorageEnabled
+              style={{ flex: 1, backgroundColor: 'transparent' }}
+              onMessage={(e) => { const d = e.nativeEvent.data; if (d && d.startsWith('data:')) setDepSnap(d); }}
+            />
+          </View>
+        )}
+        {mode === 'route' && arrCoord && !arrSnap && (
+          <View style={{ position: 'absolute', width: 220, height: 220, opacity: 0, top: 0, left: 0 }} pointerEvents="none">
+            <WebView
+              source={{ html: buildCitySnapHtml(arrCoord.lat, arrCoord.lon, arrCity, mapStyle, mapZoom), baseUrl: 'https://basemaps.cartocdn.com' }}
+              originWhitelist={['*']} javaScriptEnabled domStorageEnabled
+              style={{ flex: 1, backgroundColor: 'transparent' }}
+              onMessage={(e) => { const d = e.nativeEvent.data; if (d && d.startsWith('data:')) setArrSnap(d); }}
+            />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          {/* Kortet — fast storlek/position oavsett valt lager */}
+          <View style={{ alignItems: 'center', paddingTop: insets.top + 6 }}>
+          <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: exportW, height: exportH }}>
+            <View style={[styles.card, { width: cardW, height: cardH }]}>
               {/* Static photo/video background - använd thumbnail för video */}
               {f.photo_uri ? (
                 <Image
@@ -236,7 +484,31 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0f1728' }]} />
               )}
 
-              {/* Draggable/scalable info overlay */}
+              {/* Route-lager (fasta snapshots/stats, ingen drag) */}
+              {mode === 'route' && (
+                <FloatingLayer
+                  anchor="route"
+                  dep={f.dep_place}
+                  arr={f.arr_place}
+                  date={floatDate}
+                  distance={distance}
+                  maxAlt={maxAltVal}
+                  avgSpeed={avgSpeedKt}
+                  total={formatTime(f.total_time)}
+                  type={f.aircraft_type}
+                  fmtNum={fmtNum}
+                  depSnap={depSnap}
+                  arrSnap={arrSnap}
+                  tileScale={overlayScale}
+                  corners={corners}
+                  brandRight={brandRight}
+                  mapCredit={mapStyle === 'satellite' ? '© Esri' : '© OpenStreetMap · CARTO'}
+                  cardW={cardW}
+                  cardH={cardH}
+                />
+              )}
+
+              {/* Postcard — bara titelblocket är dragbart */}
               <Animated.View
                 style={[
                   StyleSheet.absoluteFill,
@@ -244,110 +516,45 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 ]}
                 {...panResponder.panHandlers}
               >
-                {(mode === 'slim' || mode === 'extra') && (<>
-                  {routeSvg && (
-                    <View style={styles.routeOverlay}>
-                      <Image source={{ uri: `data:image/svg+xml;utf8,${encodeURIComponent(routeSvg)}` }} style={{ width: CARD_W * 0.55, height: CARD_W * 0.35 }} resizeMode="contain" />
-                    </View>
-                  )}
-                  <View style={styles.statsContainer}>
-                    <View style={styles.routeTextRow}>
-                      <View style={{ alignItems: 'center' }}>
-                        <RunwayDiagram icao={f.dep_place} size={32} />
-                        <Text style={[styles.placeText, LT.shadow, { fontFamily: font, color: LT.text }]}>{depName}</Text>
-                      </View>
-                      <View style={styles.routeLine}>
-                        <View style={[styles.dot, { backgroundColor: LT.dot }]} />
-                        <View style={[styles.line, { backgroundColor: LT.line }]} />
-                        <View style={{ alignItems: 'center' }}>
-                          <Ionicons name="airplane" size={14} color={LT.muted} style={LT.shadow} />
-                          {distanceNm > 0 && <Text style={[{ color: LT.muted, fontSize: 10, fontWeight: '700', fontFamily: font }, LT.shadow]}>{distanceNm} NM</Text>}
-                        </View>
-                        <View style={[styles.line, { backgroundColor: LT.line }]} />
-                        <View style={[styles.dot, { backgroundColor: LT.dot }]} />
-                      </View>
-                      <View style={{ alignItems: 'center' }}>
-                        <RunwayDiagram icao={f.arr_place} size={32} />
-                        <Text style={[styles.placeText, LT.shadow, { fontFamily: font, color: LT.text }]}>{arrName}</Text>
-                      </View>
-                    </View>
-                    {mode === 'extra' && (
-                      <View style={styles.statsGrid}>
-                        <StatItem label="Total Time" value={`${formatTime(f.total_time)}h`} large font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
-                        <StatItem label="Aircraft" value={`${f.aircraft_type} ${f.registration}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
-                        <StatItem label="Date" value={dateStr} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />
-                        {(f.max_fl ?? 0) > 0 && <StatItem label="Max FL" value={`FL${f.max_fl}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />}
-                        {flightNum > 0 && <StatItem label="Flight" value={`#${flightNum} of ${f.date.slice(0, 4)}`} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} />}
-                        {timeOfDay ? <StatItem label="" value={timeOfDay} font={font} textColor={LT.text} mutedColor={LT.muted} shadow={LT.shadow} /> : null}
-                      </View>
-                    )}
-                    <View style={styles.branding}>
-                      <Text style={[styles.brandText, LT.shadow, { fontFamily: font }]}>BLADES</Text>
-                      <Text style={[styles.brandSub, LT.shadow, { fontFamily: font }]}>Joint Logbook</Text>
-                    </View>
-                  </View>
-                </>)}
-
-                {/* Boarding pass layer */}
-                {mode === 'boarding' && (
-                  <View style={{ position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: '#F6F1E8', borderRadius: 8, overflow: 'hidden' }}>
-                    <View style={{ padding: 14, paddingBottom: 12 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <Text style={{ fontFamily: 'Menlo', fontSize: 8, fontWeight: '700', letterSpacing: 1.6, color: '#C9522C' }}>
-                          BOARDING · {f.aircraft_type}
-                        </Text>
-                        <Text style={{ fontFamily: 'Menlo', fontSize: 8, fontWeight: '600', color: '#8A8170', letterSpacing: 0.6 }}>
-                          #{flightNum} of {f.date.slice(0, 4)}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: 'Menlo', fontSize: 7, color: '#8A8170', letterSpacing: 1.2, fontWeight: '700' }}>FROM</Text>
-                          <Text style={{ fontSize: 28, fontWeight: '700', color: '#1B2233', letterSpacing: 1.4 }}>{depName}</Text>
-                          <Text style={{ fontSize: 9, color: '#4A5468', marginTop: 2 }}>{f.dep_utc}z</Text>
-                        </View>
-                        <View style={{ alignItems: 'center', paddingHorizontal: 4 }}>
-                          <Svg width={48} height={14} viewBox="0 0 48 14">
-                            <Line x1={2} y1={7} x2={46} y2={7} stroke="#C9522C" strokeWidth={0.6} />
-                            <Circle cx={2} cy={7} r={1.5} fill="#C9522C" />
-                            <Circle cx={46} cy={7} r={1.5} fill="#C9522C" />
-                            <Path d="M24 4 L30 7 L24 10 L25.5 7 Z" fill="#C9522C" />
-                          </Svg>
-                          {distanceNm > 0 && <Text style={{ fontFamily: 'Menlo', fontSize: 7, color: '#8A8170', marginTop: 3, letterSpacing: 0.6 }}>{distanceNm} NM</Text>}
-                        </View>
-                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                          <Text style={{ fontFamily: 'Menlo', fontSize: 7, color: '#8A8170', letterSpacing: 1.2, fontWeight: '700' }}>TO</Text>
-                          <Text style={{ fontSize: 28, fontWeight: '700', color: '#1B2233', letterSpacing: 1.4 }}>{arrName}</Text>
-                          <Text style={{ fontSize: 9, color: '#4A5468', marginTop: 2 }}>{f.arr_utc}z</Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={{ borderTopWidth: 1, borderTopColor: '#C9C2AE', borderStyle: 'dashed', paddingVertical: 7, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#EFE7D2' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.8, color: '#1B2233' }}>BLADES</Text>
-                      <Text style={{ fontFamily: 'Menlo', fontSize: 8, color: '#8A8170', letterSpacing: 0.6 }}>{dateStr} · {formatTime(f.total_time)}h</Text>
-                    </View>
+                {/* Performance — centrerade stats + cyan B-mark, dragbar + storleksändras med slidern */}
+                {mode === 'performance' && (
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+                    <PerfStat label="Distance" value={`${fmtNum(Math.round(perfDistVal))} ${perfDistUnit}`} />
+                    <PerfStat label="Pace" value={`${perfPaceStr} ${perfPaceUnit}`} />
+                    <PerfStat label="Elev gained" value={`${fmtNum(perfElevVal)} ${perfElevUnit}`} />
                   </View>
                 )}
-
-                {/* Postcard — only the title block is draggable */}
+                {/* Postcard — only the title block is draggable. Texten före/mellan ICAO redigeras nedan. */}
                 {mode === 'postcard' && (
                   <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                    <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: LT.text, letterSpacing: -0.6 }, LT.shadow]}>
-                      From
-                    </Text>
+                    {!!pcPrefix && (
+                      <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: LT.text, letterSpacing: -0.6 }, LT.shadow]}>
+                        {pcPrefix}
+                      </Text>
+                    )}
                     <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 52, color: LT.text, letterSpacing: -1 }, LT.shadow]}>
                       {depName}
                     </Text>
                     <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '500', fontSize: 36, color: LT.text, letterSpacing: -0.6, marginTop: 6 }, LT.shadow]}>
-                      to {arrName}.
+                      {pcConnector} {arrName}
                     </Text>
                   </View>
                 )}
               </Animated.View>
 
+              {/* Performance — fast "logged in BLADES Joint Logbook" nere till höger (skalas/dras ej).
+                  Samma struktur/format som de andra lagren (postcard). */}
+              {mode === 'performance' && (
+                <View style={{ position: 'absolute', right: 14, bottom: 12, alignItems: 'flex-end' }} pointerEvents="none">
+                  <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#fff', marginBottom: 1 }, FSH]}>logged in</Text>
+                  <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: GOLD }, FSH]}>BLADES</Text>
+                  <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Joint Logbook</Text>
+                </View>
+              )}
+
               {/* Postcard fixed elements — outside draggable area */}
               {mode === 'postcard' && (<>
-                <View style={{ position: 'absolute', left: -(CARD_H * 0.25) + 14, top: CARD_H / 2 - 7, width: CARD_H * 0.5, transform: [{ rotate: '-90deg' }] }} pointerEvents="none">
+                <View style={{ position: 'absolute', left: -(cardH * 0.25) + 14, top: cardH / 2 - 7, width: cardH * 0.5, transform: [{ rotate: '-90deg' }] }} pointerEvents="none">
                   <Text style={{ fontFamily: 'Menlo', fontSize: 9, color: '#FFB830', letterSpacing: 1.8, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }}>
                     No. {flightNum} · {dateStr} · {timeOfDay.toLowerCase()}
                   </Text>
@@ -362,55 +569,165 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: LT.text, marginBottom: 1 }, LT.shadow]}>logged in</Text>
                     <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: '#FFB830' }, LT.shadow]}>BLADES</Text>
+                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, LT.shadow]}>Joint Logbook</Text>
                   </View>
                 </View>
               </>)}
             </View>
           </ViewShot>
+          </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingHorizontal: 20, gap: 10 }}>
-            <Ionicons name="remove" size={16} color="rgba(255,255,255,0.4)" />
-            <Slider
-              style={{ flex: 1, height: 30 }}
-              minimumValue={0.4}
-              maximumValue={2}
-              value={overlayScale}
-              onValueChange={setOverlayScale}
-              minimumTrackTintColor="#2563EB"
-              maximumTrackTintColor="rgba(255,255,255,0.15)"
-              thumbTintColor="#fff"
+          {/* Kontroller — scrollbara så kortet aldrig ändrar storlek */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ alignItems: 'center', paddingVertical: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+          {/* Lager — primär väljare, full bredd */}
+          <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginHorizontal: 16, marginTop: 4 }}>
+            <Seg
+              options={[['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const}
+              value={mode}
+              onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') { setMapStyle('satellite'); setMapZoom(13); } }}
             />
-            <Ionicons name="add" size={16} color="rgba(255,255,255,0.4)" />
           </View>
 
-          <View style={{ flexDirection: 'row', alignSelf: 'center', marginTop: 10, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-            {(['slim', 'extra', 'postcard'] as const).map(m => {
-              const labels = { slim: 'Minimal', extra: 'Detailed', postcard: 'Postcard' };
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: mode === m ? '#2563EB' : 'transparent' }}
-                  onPress={() => { setMode(m); applyModeDefaults(m); }}
-                >
-                  <Text style={{ color: mode === m ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                    {labels[m]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* Inställningspanel — grupperade kontroller med enhetliga rader */}
+          <View style={ctrl.panel}>
+            <CtrlRow label="FORMAT">
+              <Seg
+                options={[['post', '4:5'], ['story', '9:16']] as const}
+                value={format}
+                onChange={setFormat}
+              />
+            </CtrlRow>
+
+            <CtrlRow label="SIZE">
+              <Slider
+                style={{ flex: 1, height: 30 }}
+                minimumValue={0.4}
+                maximumValue={2}
+                value={overlayScale}
+                onValueChange={setOverlayScale}
+                minimumTrackTintColor={CTRL_ACCENT}
+                maximumTrackTintColor="rgba(255,255,255,0.15)"
+                thumbTintColor="#fff"
+              />
+              <Text style={ctrl.rowValue}>{overlayScale.toFixed(1)}×</Text>
+            </CtrlRow>
+
+            {mode === 'performance' && (
+              <CtrlRow label="UNITS">
+                <Seg
+                  options={[['metric', 'Metric'], ['imperial', 'Imperial']] as const}
+                  value={units}
+                  onChange={setUnits}
+                />
+              </CtrlRow>
+            )}
+
+            {mode === 'route' && (
+              <CtrlRow label="ZOOM">
+                <Slider
+                  style={{ flex: 1, height: 30 }}
+                  minimumValue={8}
+                  maximumValue={13}
+                  step={1}
+                  value={mapZoom}
+                  onValueChange={(v) => setMapZoom(Math.round(v))}
+                  minimumTrackTintColor={CTRL_ACCENT}
+                  maximumTrackTintColor="rgba(255,255,255,0.15)"
+                  thumbTintColor="#fff"
+                />
+                <Text style={ctrl.rowValue}>{mapZoom}</Text>
+              </CtrlRow>
+            )}
+
+            {mode === 'route' && (
+              <CtrlRow label="MAP">
+                <Seg
+                  options={[['light', 'Light'], ['dark', 'Dark'], ['satellite', 'Satellite']] as const}
+                  value={mapStyle}
+                  onChange={setMapStyle}
+                />
+              </CtrlRow>
+            )}
+
+            {isFloating && (
+              <CtrlRow label="MAX ALT">
+                <View style={ctrl.inputPill}>
+                  <TextInput
+                    value={maxAltFt}
+                    onChangeText={(v) => setMaxAltFt(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    inputAccessoryViewID="maxAltDone"
+                    returnKeyType="done"
+                    blurOnSubmit
+                    placeholder="—"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    style={{ flex: 1, color: '#fff', fontSize: 15, fontWeight: '700', fontFamily: MONO }}
+                  />
+                  <Text style={{ color: GOLD, fontSize: 11, fontWeight: '700', fontFamily: MONO }}>FT</Text>
+                </View>
+              </CtrlRow>
+            )}
+
+            {isFloating && (
+              <CtrlRow label="TAXI">
+                <View style={ctrl.inputPill}>
+                  <TextInput
+                    value={taxiMin}
+                    onChangeText={(v) => setTaxiMin(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    inputAccessoryViewID="taxiDone"
+                    returnKeyType="done"
+                    blurOnSubmit
+                    placeholder="—"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    style={{ flex: 1, color: '#fff', fontSize: 15, fontWeight: '700', fontFamily: MONO }}
+                  />
+                  <Text style={{ color: GOLD, fontSize: 11, fontWeight: '700', fontFamily: MONO }}>MIN</Text>
+                </View>
+              </CtrlRow>
+            )}
           </View>
-          <View style={{ flexDirection: 'row', alignSelf: 'center', marginTop: 8, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-            {(['light', 'dark'] as const).map(t => (
-              <TouchableOpacity
-                key={t}
-                style={{ paddingHorizontal: 16, paddingVertical: 6, backgroundColor: layerTheme === t ? 'rgba(255,255,255,0.15)' : 'transparent' }}
-                onPress={() => setLayerTheme(t)}
-              >
-                <Ionicons name={t === 'light' ? 'sunny' : 'moon'} size={14} color={layerTheme === t ? '#fff' : 'rgba(255,255,255,0.4)'} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textAlign: 'center', marginTop: 6 }}>Drag to move · Slider to resize</Text>
+
+          {/* Hjälptext */}
+          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textAlign: 'center', marginTop: 10 }}>
+            {mode === 'route' ? 'The slider resizes the maps' : 'Drag to move · slider resizes'}
+          </Text>
+
+          {/* Done-knappar — egen accessory per sifferfält (delat id är opålitligt på iOS). */}
+          <KeyboardDoneBar id="maxAltDone" />
+          <KeyboardDoneBar id="taxiDone" />
+
+          {/* Postcard: redigera texten före/mellan flygplatserna (ICAO är fasta, max 30 tecken) */}
+          {mode === 'postcard' && (
+            <View style={ctrl.panel}>
+              <Text style={[ctrl.rowLabel, { width: 'auto', textAlign: 'center', marginBottom: 10 }]}>POSTCARD TEXT</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
+                <TextInput
+                  value={pcPrefix}
+                  onChangeText={(v) => setPcPrefix(v.slice(0, 30))}
+                  maxLength={30}
+                  placeholder="From"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  returnKeyType="done"
+                  style={{ minWidth: 54, color: '#fff', fontSize: 14, fontFamily: 'Georgia', fontStyle: 'italic', textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#FFB830', paddingVertical: 2, paddingHorizontal: 4 }}
+                />
+                <Text style={{ color: '#FFB830', fontSize: 15, fontWeight: '700', fontFamily: 'Georgia' }}>{depName}</Text>
+                <TextInput
+                  value={pcConnector}
+                  onChangeText={(v) => setPcConnector(v.slice(0, 30))}
+                  maxLength={30}
+                  placeholder="to"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  returnKeyType="done"
+                  style={{ minWidth: 38, color: '#fff', fontSize: 14, fontFamily: 'Georgia', fontStyle: 'italic', textAlign: 'center', borderBottomWidth: 1, borderBottomColor: '#FFB830', paddingVertical: 2, paddingHorizontal: 4 }}
+                />
+                <Text style={{ color: '#FFB830', fontSize: 15, fontWeight: '700', fontFamily: 'Georgia' }}>{arrName}</Text>
+              </View>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>Edit the text before and between the airports</Text>
+            </View>
+          )}
+          </ScrollView>
         </View>
 
         {/* Actions */}
@@ -419,13 +736,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
           flexDirection: 'row', gap: 12, alignItems: 'center',
         }}>
           <TouchableOpacity
-            style={{ flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
+            style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
             onPress={onClose}
           >
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Stäng</Text>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Close</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#2563EB', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            style={{ flex: 2, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#2563EB', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             onPress={handleShare}
             disabled={sharing}
           >
@@ -434,7 +751,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
             ) : (
               <>
                 <Ionicons name="share-outline" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Dela</Text>
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Share</Text>
               </>
             )}
           </TouchableOpacity>
@@ -456,6 +773,155 @@ function StatItem({ label, value, large, font = 'Georgia', textColor = '#fff', m
       }, shadow]}>
         {value}
       </Text>
+    </View>
+  );
+}
+
+// ── Floating share-card (Strava-stil overlay) ──────────────────────────────
+function FStat({ value, unit, label, align }: { value: string; unit: string; label: string; align?: 'flex-start' | 'center' | 'flex-end' }) {
+  return (
+    <View style={{ alignItems: align ?? 'flex-start' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
+        <Text style={[{ fontFamily: SERIF, fontWeight: '600', fontSize: 18, color: '#fff', letterSpacing: -0.5 }, FSH]}>{value}</Text>
+        {!!unit && <Text style={[{ fontFamily: MONO, fontSize: 7.5, fontWeight: '700', color: GOLD }, FSH]}>{unit}</Text>}
+      </View>
+      <Text style={[{ fontFamily: MONO, fontWeight: '700', fontSize: 8, letterSpacing: 1.4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)', marginTop: 3 }, FSH]}>{label}</Text>
+    </View>
+  );
+}
+
+function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, total, type, fmtNum, depSnap, arrSnap, tileScale = 1, corners, brandRight, mapCredit, cardW, cardH }: {
+  anchor: 'center' | 'route';
+  dep: string; arr: string; date: string;
+  distance: number; maxAlt: number; avgSpeed: number;
+  total: string; type: string; fmtNum: (n: number) => string;
+  depSnap?: string | null; arrSnap?: string | null;
+  tileScale?: number; corners?: { dep: string; arr: string }; brandRight?: boolean;
+  mapCredit?: string; cardW: number; cardH: number;
+}) {
+  const stats: { value: string; unit: string; label: string }[] = [];
+  if (distance > 0) stats.push({ value: fmtNum(distance), unit: 'NM', label: 'Distance' });
+  if (maxAlt > 0) stats.push({ value: fmtNum(maxAlt), unit: 'FT', label: 'Max alt' });
+  if (avgSpeed > 0) stats.push({ value: fmtNum(avgSpeed), unit: 'KT', label: 'Avg speed' });
+
+  const statRow = (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      {stats.map((s, i) => (
+        <FStat key={s.label} value={s.value} unit={s.unit} label={s.label}
+          align={stats.length === 1 ? 'flex-start' : i === 0 ? 'flex-start' : i === stats.length - 1 ? 'flex-end' : 'center'} />
+      ))}
+    </View>
+  );
+  // BLADES-lockup: "logged in" + BLADES (guld) + Joint Logbook (silver, mindre).
+  const brand = (
+    <View style={{ alignItems: brandRight ? 'flex-end' : 'flex-start' }}>
+      <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#fff', marginBottom: 1 }, FSH]}>logged in</Text>
+      <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: GOLD }, FSH]}>BLADES</Text>
+      <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Joint Logbook</Text>
+    </View>
+  );
+  const dateText = (
+    <Text style={[{ fontFamily: MONO, fontSize: 9.5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }, FSH]}>{date}</Text>
+  );
+  const hairline = (
+    <LinearGradient colors={['rgba(255,184,48,0.8)', 'rgba(255,184,48,0.1)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 1, marginTop: 14, marginBottom: 13 }} />
+  );
+  const routeRow = (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+      <Text style={[{ fontFamily: SERIF, fontWeight: '600', fontSize: 34, color: '#fff', letterSpacing: -1 }, FSH]}>{dep}</Text>
+      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><Path d="M5 12h14M13 6l6 6-6 6" /></Svg>
+      <Text style={[{ fontFamily: SERIF, fontWeight: '600', fontSize: 34, color: '#fff', letterSpacing: -1 }, FSH]}>{arr}</Text>
+    </View>
+  );
+
+  if (anchor === 'route') {
+    const size = Math.round(92 * tileScale);  // slider skalar snapshots + ICAO
+    const M = 22;          // samma marginal till respektive kant
+    const BOTTOM = 66;     // route-lagrets "botten" = guldlinjen
+    const regionH = cardH - BOTTOM;
+    const depCorner = corners?.dep ?? 'tr';
+    const arrCorner = corners?.arr ?? 'bl';
+    const posOf = (corner: string): any => ({
+      ...(corner[0] === 't' ? { top: M } : { bottom: M }),
+      ...(corner[1] === 'l' ? { left: M } : { right: M }),
+    });
+    const centerOf = (corner: string) => ({
+      x: corner[1] === 'l' ? M + size / 2 : cardW - M - size / 2,
+      y: corner[0] === 't' ? M + size / 2 : regionH - M - size / 2,
+    });
+    const depC = centerOf(depCorner);
+    const arrC = centerOf(arrCorner);
+    const cap = 7 * tileScale;
+    const tileBox = (corner: string, snap: string | null | undefined, icao: string, label: string) => {
+      const isTop = corner[0] === 't';
+      return (
+        <View style={[{ position: 'absolute', width: size, height: size }, posOf(corner)]}>
+          <View style={{ width: size, height: size, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,184,48,0.6)' }}>
+            {snap
+              ? <Image source={{ uri: snap }} style={{ width: size, height: size }} resizeMode="cover" />
+              : <View style={{ flex: 1, backgroundColor: 'rgba(20,30,45,0.6)' }} />}
+          </View>
+          {/* ICAO nuddar rutan på inre sidan: topp → under, botten → ovanför. */}
+          <Text style={[
+            { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontFamily: SERIF, fontSize: 21 * tileScale, fontWeight: '600', letterSpacing: -0.4, color: '#fff', textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+            isTop ? { top: size + 2 } : { bottom: size + 2 },
+          ]}>{icao}</Text>
+          {/* Departure/Arrival relativt ICAO-texten: botten-ruta (ICAO ovanför) → nedanför-vänster
+              om ICAO; topp-ruta (ICAO under) → ovanför-höger om ICAO. */}
+          <Text style={[
+            { position: 'absolute', fontFamily: MONO, fontSize: cap, fontWeight: '700', letterSpacing: 0.5, color: GOLD, textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+            isTop ? { bottom: 3, right: 5 } : { top: 3, left: 5 },
+          ]}>{label}</Text>
+        </View>
+      );
+    };
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* Tiles-region: bildens överkant ner till guldlinjen. Snapshots i diagonala hörn
+            efter platsernas orientering, samma marginal M till respektive kant. */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: regionH }}>
+          <Svg width={cardW} height={regionH} style={StyleSheet.absoluteFill}>
+            <Line x1={depC.x} y1={depC.y} x2={arrC.x} y2={arrC.y} stroke={GOLD} strokeWidth={1.4} strokeDasharray={[4, 4.6]} opacity={0.85} />
+          </Svg>
+          {tileBox(depCorner, depSnap, dep, 'Departure')}
+          {tileBox(arrCorner, arrSnap, arr, 'Arrival')}
+        </View>
+        {/* Scrims */}
+        <LinearGradient colors={['transparent', 'rgba(6,11,22,0.72)']} locations={[0, 0.8]} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '46%' }} />
+        <LinearGradient colors={['rgba(6,11,22,0.5)', 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '24%' }} />
+        {/* Lockup — flyttar till övre höger om en tile ligger i övre vänstra hörnet */}
+        <View style={{ position: 'absolute', top: 18, left: 20, right: 20, alignItems: brandRight ? 'flex-end' : 'flex-start' }}>{brand}</View>
+        {/* Kartattribution (krav för OSM/CARTO/Esri) */}
+        {mapCredit ? (
+          <Text style={{ position: 'absolute', bottom: 2, right: 8, fontSize: 6.5, color: 'rgba(255,255,255,0.55)', fontFamily: MONO }}>{mapCredit}</Text>
+        ) : null}
+        {/* Bottom: datum på guldhårlinjen + statrad (ingen stor route-text) */}
+        <View style={{ position: 'absolute', left: 20, right: 20, bottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <LinearGradient colors={['rgba(255,184,48,0.8)', 'rgba(255,184,48,0.1)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, height: 1 }} />
+            <Text style={[{ fontFamily: MONO, fontSize: 9.5, color: 'rgba(255,255,255,0.72)', letterSpacing: 0.8 }, FSH]}>{date}</Text>
+          </View>
+          <View style={{ marginTop: 10 }}>{statRow}</View>
+        </View>
+      </View>
+    );
+  }
+
+  // center — fasta delar (gradient/eyebrow/stats/lockup). Route-texten DEP/to/ARR
+  // renderas separat i det dragbara lagret så den kan flyttas + storleksändras.
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient colors={['rgba(6,11,22,0.42)', 'transparent', 'transparent', 'rgba(6,11,22,0.6)']} locations={[0, 0.3, 0.64, 1]} style={StyleSheet.absoluteFill} />
+      <View style={{ position: 'absolute', top: 18, left: 0, right: 0, alignItems: 'center' }}>
+        <Text style={[{ fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 3, color: GOLD }, FSH]}>FLIGHT LOG · {date}</Text>
+      </View>
+      <View style={{ position: 'absolute', left: 20, right: 20, bottom: 18 }}>
+        {statRow}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopColor: 'rgba(255,184,48,0.4)', borderTopWidth: 1, paddingTop: 10, marginTop: 13 }}>
+          {brand}
+          <Text style={[{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }, FSH]}>{total}h · {type}</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -564,10 +1030,86 @@ function buildRouteSvg(
   </svg>`;
 }
 
+const ctrl = StyleSheet.create({
+  panel: {
+    alignSelf: 'stretch',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    gap: 12,
+  },
+  rowLabel: {
+    width: 64,
+    color: CTRL_LABEL,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    fontFamily: MONO,
+  },
+  rowBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowValue: {
+    marginLeft: 10,
+    width: 38,
+    color: GOLD,
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: MONO,
+    textAlign: 'right',
+  },
+  inputPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: CTRL_BORDER,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  seg: {
+    flex: 1,
+    flexDirection: 'row',
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: CTRL_BORDER,
+    backgroundColor: CTRL_TRACK,
+  },
+  segItem: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segItemActive: { backgroundColor: CTRL_ACCENT },
+  segDivider: { borderLeftWidth: 1, borderLeftColor: CTRL_BORDER },
+  segText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    fontFamily: MONO,
+  },
+  segTextActive: { color: '#fff' },
+});
+
 const styles = StyleSheet.create({
   card: {
-    width: CARD_W,
-    height: CARD_H,
     overflow: 'hidden',
     backgroundColor: '#0f1728',
   },
