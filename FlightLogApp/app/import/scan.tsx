@@ -30,6 +30,8 @@ export default function ScanImportScreen() {
   const [showBuy, setShowBuy] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
 
+  useEffect(() => { load(); }, []);
+
   const hasFreeTrial = !isPremium && loaded && totalRemaining() > 0;
 
   if (!isPremium && loaded && totalRemaining() <= 0) {
@@ -39,8 +41,6 @@ export default function ScanImportScreen() {
       </View>
     );
   }
-
-  useEffect(() => { load(); }, []);
 
   const pickImage = async (fromCamera: boolean) => {
     if (fromCamera) {

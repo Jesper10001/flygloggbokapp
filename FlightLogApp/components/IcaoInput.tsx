@@ -24,6 +24,8 @@ interface Props {
   onTemporaryPlaceSelect?: (icao: string) => void;
   onConfirm?: (icao: string) => void;
   onFocus?: () => void;
+  inputFontFamily?: string; // override mono (t.ex. LED 14-seg) för ICAO-koden
+  design?: boolean; // Log Flight-design: större ICAO-text, flygplatsnamn under, 3 snabbval
 }
 
 export type IcaoInputHandle = { focus: () => void };
@@ -132,12 +134,13 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false },
   outerRef,
 ) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const [inputText, setInputText] = useState(value);
+  const [resolvedName, setResolvedName] = useState('');
   const [suggestions, setSuggestions] = useState<IcaoAirport[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -161,19 +164,23 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         if (!a) {
           setPlaceStatus(/^[A-Z]{4}$/.test(value) ? 'known' : null);
           setInputText(value);
+          setResolvedName('');
           return;
         }
         if (a.temporary) {
           setPlaceStatus(a.lat && a.lon && (a.lat !== 0 || a.lon !== 0) ? 'temp-located' : 'temp-unlocated');
           setInputText(a.name && a.name !== a.icao ? a.name : value);
+          setResolvedName('Temporary site');
         } else {
           setPlaceStatus('known');
           setInputText(value);
+          setResolvedName(a.name || '');
         }
       });
     } else {
       setPlaceStatus(null);
       setInputText(value);
+      setResolvedName('');
     }
   }, [value]);
 
@@ -324,7 +331,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null]}
           value={inputText}
           onChangeText={handleChangeText}
           onFocus={onFocus}
@@ -380,7 +387,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                   {isTemp ? (
                     <Ionicons name="location" size={16} color={isLocated ? Colors.success : Colors.warning} style={{ width: 48, textAlign: 'center' }} />
                   ) : (
-                    <Text style={styles.suggestionIcao}>{item.icao}</Text>
+                    <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{item.icao}</Text>
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
@@ -396,9 +403,35 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         </View>
       )}
       </View>
+      {/* Flygplatsnamn under ICAO-rutan (designen) — krymper vid behov, aldrig utanför sektionen */}
+      {design && resolvedName ? (
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ marginTop: 4, textAlign: 'center', color: Colors.textSecondary, fontSize: 10 }}>
+          {resolvedName}
+        </Text>
+      ) : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {!inputText && filteredRecent.length > 0 && (
+      {design ? (
+        !inputText && modeFiltered.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
+            {modeFiltered.slice(0, 3).map((place) => {
+              const sel = (value || '').toUpperCase() === place.icao.toUpperCase();
+              const label = place.temporary ? (recentNames[place.icao] || place.icao) : place.icao;
+              return (
+                <TouchableOpacity
+                  key={place.icao}
+                  onPress={() => selectRecent(place.icao)}
+                  activeOpacity={0.75}
+                  style={{ flex: 1, minWidth: 0, paddingVertical: 5, borderRadius: 7, alignItems: 'center',
+                    backgroundColor: sel ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: sel ? Colors.primary : Colors.border }}
+                >
+                  <Text numberOfLines={1} style={{ fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, color: sel ? Colors.textInverse : Colors.textSecondary }}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )
+      ) : (!inputText && filteredRecent.length > 0 && (
         <View style={[styles.recentRow, { marginTop: 6, marginBottom: 0 }]}>
           {filteredRecent.slice(0, 2).map((place, idx) => {
             const isFirst = idx === 0;
@@ -426,7 +459,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             );
           })}
         </View>
-      )}
+      ))}
 
       {/* ── "Här"-modal ── */}
       <Modal visible={hereModal} transparent animationType="slide" onRequestClose={() => setHereModal(false)}>

@@ -51,6 +51,10 @@ export interface Flight {
   media_type: 'image' | 'video' | '';
   max_fl: number;
   stop_place?: string;
+  takeoffs_day: number;
+  takeoffs_night: number;
+  app_2d: number;
+  app_3d: number;
 }
 
 export interface FlightFormData {
@@ -90,6 +94,12 @@ export interface FlightFormData {
   relief_crew?: string;
   sim_category?: 'FFS' | 'FTD' | 'FNPT_II' | 'FNPT_I' | 'BITD' | 'CPT_PPT' | 'CBT' | '';
   vfr?: string;
+  se_time?: string;
+  me_time?: string;
+  takeoffs_day?: string;
+  takeoffs_night?: string;
+  app_2d?: string;
+  app_3d?: string;
   photo_uri?: string;
   media_type?: 'image' | 'video' | '';
   max_fl?: string;
@@ -107,8 +117,6 @@ export interface IcaoAirport {
 }
 
 export interface OcrFlightResult extends FlightFormData {
-  se_time?: string;
-  me_time?: string;
   sim?: string;
   other_times?: Record<string, number>;
   other_time_labels?: Record<string, string>;

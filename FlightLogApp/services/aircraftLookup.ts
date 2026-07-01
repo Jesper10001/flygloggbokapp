@@ -16,6 +16,9 @@ export interface AircraftLookupResult {
   horsepower_hp: number;     // motoreffekt i hp/shp; 0 för jets
   ceiling_ft: number;        // tjänstetak (service ceiling) i fot
   wingspan_m: number;        // spännvidd i meter (helikopter: rotordiameter)
+  empty_weight_kg: number;   // tomvikt (OEW) i kg — endast för Fleet-kort
+  fuel_capacity_l: number;   // bränslekapacitet i liter — endast för Fleet-kort
+  range_nm: number;          // räckvidd i nautiska mil — endast för Fleet-kort
   wiki_title: string;        // bästa engelska Wikipedia-titeln — för bildhämtning
   confidence: number;        // 0–1
   evidence: string;          // kort anteckning
@@ -65,6 +68,9 @@ REGLER:
 - horsepower_hp: motoreffekt i hp/shp (heltal, per motor). Jets saknar hp → returnera 0.
 - ceiling_ft: tjänstetak (service ceiling) i fot (heltal).
 - wingspan_m: spännvidd i meter (1 decimal). För helikoptrar: huvudrotorns diameter i meter.
+- empty_weight_kg: tomvikt / OEW i kg (heltal). Referenstabellen i första hand, annars POH/TCDS.
+- fuel_capacity_l: användbar bränslekapacitet i liter (heltal). Referenstabellen i första hand.
+- range_nm: typisk maxräckvidd i nautiska mil (heltal). Referenstabellen i första hand.
 - wiki_title: den mest sannolika engelska Wikipedia-artikeltiteln för typen (t.ex. "Cessna 172",
   "Airbus A320", "Robinson R44", "Eurocopter EC135", "Bell 407"). Används för att hämta en bild.
 
@@ -138,6 +144,9 @@ OUTPUT (svara ENBART med JSON):
   "horsepower_hp": number,
   "ceiling_ft": number,
   "wingspan_m": number,
+  "empty_weight_kg": number,
+  "fuel_capacity_l": number,
+  "range_nm": number,
   "wiki_title": "string",
   "confidence": 0.0-1.0,
   "evidence": "string",
@@ -150,7 +159,7 @@ export async function lookupAircraft(query: string): Promise<AircraftLookupResul
 
   const parsed = await callAnthropicJson<any>({
     system: SYSTEM_PROMPT,
-    maxTokens: 700,
+    maxTokens: 800,
     userContent: `Identifiera luftfartyget: "${q}". Svara ENBART med JSON-objektet.`,
   });
   const confidence = Number(parsed.confidence) || 0;
@@ -176,6 +185,9 @@ export async function lookupAircraft(query: string): Promise<AircraftLookupResul
     horsepower_hp: Math.round(Number(parsed.horsepower_hp) || 0),
     ceiling_ft: Math.round(Number(parsed.ceiling_ft) || 0),
     wingspan_m: Math.round((Number(parsed.wingspan_m) || 0) * 10) / 10,
+    empty_weight_kg: Math.round(Number(parsed.empty_weight_kg) || 0),
+    fuel_capacity_l: Math.round(Number(parsed.fuel_capacity_l) || 0),
+    range_nm: Math.round(Number(parsed.range_nm) || 0),
     wiki_title: String(parsed.wiki_title ?? ''),
     confidence,
     evidence: String(parsed.evidence ?? ''),
@@ -197,6 +209,9 @@ export interface AircraftFleetEnrichment {
   horsepower_hp: number;
   ceiling_ft: number;
   wingspan_m: number;
+  empty_weight_kg: number;
+  fuel_capacity_l: number;
+  range_nm: number;
   image_url: string;
   needs_manual: boolean;
 }
@@ -249,6 +264,9 @@ export async function enrichAircraftFleet(query: string): Promise<AircraftFleetE
     horsepower_hp: r.horsepower_hp,
     ceiling_ft: r.ceiling_ft,
     wingspan_m: r.wingspan_m,
+    empty_weight_kg: r.empty_weight_kg,
+    fuel_capacity_l: r.fuel_capacity_l,
+    range_nm: r.range_nm,
     image_url,
     needs_manual: r.needs_manual,
   };

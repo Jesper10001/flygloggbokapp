@@ -3,7 +3,8 @@ import {
   View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { flagEmoji, continentForCountry } from '../constants/continents';
+import { continentForCountry } from '../constants/continents';
+import { CountryFlag } from './CountryFlag';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -699,7 +700,7 @@ export function AirportMapWidget() {
                         backgroundColor: active ? Colors.primary + '33' : 'transparent',
                       }}
                     >
-                      <Text style={{ fontSize: 16 }}>{flagEmoji(c.code)}</Text>
+                      <CountryFlag code={c.code} height={14} />
                       <Text style={{ flex: 1, color: '#fff', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>{c.name}</Text>
                       <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{c.visited}/{c.total}</Text>
                     </TouchableOpacity>

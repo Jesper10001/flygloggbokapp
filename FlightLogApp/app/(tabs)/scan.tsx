@@ -773,15 +773,6 @@ export default function ScanScreen() {
     }
   };
 
-  const monthly = monthlyRemaining();
-  const total = totalRemaining();
-  const summarize = summarizeRemaining();
-  const isImport = mode === 'import';
-  const displayTotal = isImport ? total : summarize;
-  const displayQuota = isImport ? MONTHLY_QUOTA : MONTHLY_SUMMARIZE_QUOTA;
-  const displayMonthly = isImport ? monthly : summarize;
-  const barWidth = `${(displayMonthly / displayQuota) * 100}%` as any;
-
   // Hub-state: null = visa tre val, 'scan' | 'import' | 'output' = visa undersida
   const [hubMode, setHubMode] = useState<null | 'scan' | 'digital' | 'output'>(null);
 

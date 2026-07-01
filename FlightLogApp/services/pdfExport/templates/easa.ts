@@ -26,9 +26,9 @@ export function renderEASA(cv: PilotCV): string {
   const totalsRows = [
     ['Total flight time', cv.summary.total_time, cv.last12.hours],
     ['Pilot-in-Command (PIC)', cv.summary.pic, cv.last12.pic],
-    ['Dual / Co-pilot', cv.summary.dual, cv.last12.hours > 0 ? cv.summary.dual * (cv.last12.hours / cv.summary.total_time) : 0],
-    ['Multi-engine', cv.summary.multi_engine, cv.last12.hours > 0 ? cv.summary.multi_engine * (cv.last12.hours / cv.summary.total_time) : 0],
-    ['Single-engine', cv.summary.single_engine, cv.last12.hours > 0 ? cv.summary.single_engine * (cv.last12.hours / cv.summary.total_time) : 0],
+    ['Dual / Co-pilot', cv.summary.dual, cv.summary.total_time > 0 ? cv.summary.dual * (cv.last12.hours / cv.summary.total_time) : 0],
+    ['Multi-engine', cv.summary.multi_engine, cv.summary.total_time > 0 ? cv.summary.multi_engine * (cv.last12.hours / cv.summary.total_time) : 0],
+    ['Single-engine', cv.summary.single_engine, cv.summary.total_time > 0 ? cv.summary.single_engine * (cv.last12.hours / cv.summary.total_time) : 0],
     ['Instrument (IFR)', cv.summary.ifr, cv.last12.ifr],
     ['Night', cv.summary.night, cv.last12.night],
     ...(cv.summary.nvg > 0 ? [['NVG / NVIS', cv.summary.nvg, cv.summary.nvg * 0.4]] : []),

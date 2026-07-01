@@ -7,9 +7,6 @@ import { interpLatLon, CIVIL_TWILIGHT_DEG } from './flightTime';
 
 const RAD = Math.PI / 180;
 
-export const projX = (lon: number) => lon + 180;
-export const projY = (lat: number) => 90 - lat;
-
 export type SunState = 'day' | 'dusk' | 'night' | 'dawn';
 // Klassar sol-fas vid en tidpunkt + plats. Borgerlig skymning (−0.833°..−6°) delas i
 // dusk (solen sjunker, kväll) och dawn (solen stiger, morgon) via trenden 5 min framåt.
@@ -19,26 +16,6 @@ export function classifySun(date: Date, lat: number, lon: number): SunState {
   if (alt < -6) return 'night';
   const altNext = solarAltitudeDeg(new Date(date.getTime() + 5 * 60000), lat, lon);
   return altNext > alt ? 'dawn' : 'dusk';
-}
-
-// Terminatorlatitud (grader) vid en longitud, given subsolar-punkt, vid solhöjd h0.
-// Natten ligger på sidan mot antisolar-punkten (söder om kurvan när solen står norr).
-export function terminatorLat(lonDeg: number, subLat: number, subLon: number, h0Deg = -0.833): number {
-  const dec = subLat * RAD;
-  const H = (lonDeg - subLon) * RAD;
-  const A = Math.sin(dec);
-  const B = Math.cos(dec) * Math.cos(H);
-  const C = Math.sin(h0Deg * RAD);
-  const R = Math.hypot(A, B);
-  if (R < 1e-9) return 0;
-  const ratio = Math.max(-1, Math.min(1, C / R));
-  const g = Math.atan2(B, A);
-  for (let phi of [Math.asin(ratio) - g, Math.PI - Math.asin(ratio) - g]) {
-    while (phi > Math.PI) phi -= 2 * Math.PI;
-    while (phi < -Math.PI) phi += 2 * Math.PI;
-    if (phi >= -Math.PI / 2 - 1e-6 && phi <= Math.PI / 2 + 1e-6) return Math.max(-90, Math.min(90, phi / RAD));
-  }
-  return subLat >= 0 ? -90 : 90; // kolumn helt dag/natt
 }
 
 // Stor-cirkel-avstånd (radianer) — för leg-proportionering.

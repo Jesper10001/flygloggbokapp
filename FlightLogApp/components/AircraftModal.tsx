@@ -253,7 +253,7 @@ export function AircraftModal({
             )}
           </View>
 
-          <View style={styles.row}>
+          <View style={[styles.row, { marginTop: 14 }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>{t('cruise_speed_kts')}</Text>
               <TextInput
@@ -279,7 +279,7 @@ export function AircraftModal({
           </View>
 
           {/* SP / MP  +  SE / ME */}
-          <Text style={styles.label}>{t('crew_type')}</Text>
+          <Text style={[styles.label, { marginTop: 14 }]}>{t('crew_type')}</Text>
           <View style={styles.optRow}>
             {(['sp', 'mp'] as const).map((key) => {
               const active = crewTypes.has(key);
@@ -316,7 +316,7 @@ export function AircraftModal({
           </View>
 
           {/* Airplane / Helicopter */}
-          <View style={styles.optRow}>
+          <View style={[styles.optRow, { marginTop: 8 }]}>
             {(['airplane', 'helicopter'] as const).map((cat) => {
               const active = category === cat;
               return (

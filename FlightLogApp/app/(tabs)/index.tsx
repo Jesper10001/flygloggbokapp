@@ -590,9 +590,10 @@ export default function DashboardScreen() {
 
   useFocusEffect(useCallback(() => {
     loadStats();
+    loadFlights();
     getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
     loadPrompt();
-  }, [loadStats, loadPrompt]));
+  }, [loadStats, loadFlights, loadPrompt]));
 
   useEffect(() => {
     needleAnim.setValue(0);

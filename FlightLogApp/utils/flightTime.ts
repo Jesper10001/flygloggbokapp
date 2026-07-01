@@ -34,12 +34,6 @@ export function instantFromDateTime(dateStr: string, hhmm: string): Date | null 
   return new Date(Date.UTC(y, mo - 1, da, h, m, 0));
 }
 
-export function blockHours(dep: Date, arr: Date): number {
-  const ms = arr.getTime() - dep.getTime();
-  if (!(ms > 0)) return 0;
-  return Math.round((ms / 3600000) * 10) / 10; // decimaltimmar, 1 decimal
-}
-
 // Deterministisk tids-avstämning för OCR: total_time (ankare) vs blocktid
 // (ankomst − avgång, med midnatt-rollover). Returnerar null om dep/arr ogiltiga
 // eller ankaret saknas. mismatch = avvikelse > 6 min (≈ 0.1h). Ger även de två
@@ -66,15 +60,6 @@ export function reconcileBlockTime(depUtc: string, arrUtc: string, anchorH: numb
   };
 }
 
-// Grov lokal tid (UTC→lokal via longitud, ingen DST) — endast hjälptext.
-export function localHint(utcHHMM: string, lon: number | null | undefined): string | null {
-  if (!isValidTime(utcHHMM) || lon == null || !isFinite(lon)) return null;
-  const [h, m] = utcHHMM.split(':').map(Number);
-  const offsetMin = Math.round((lon / 15) * 60);
-  const total = (((h * 60 + m + offsetMin) % 1440) + 1440) % 1440;
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
 // Storcirkel-interpolation mellan två lat/lon (grader), andel f ∈ [0,1].
 export function interpLatLon(lat1: number, lon1: number, lat2: number, lon2: number, f: number): { lat: number; lon: number } {
   const D = Math.PI / 180, R = 180 / Math.PI;
@@ -91,30 +76,9 @@ export function interpLatLon(lat1: number, lon1: number, lat2: number, lon2: num
   return { lat: Math.atan2(z, Math.hypot(x, y)) * R, lon: Math.atan2(y, x) * R };
 }
 
-// Natt-timmar: sampla rutten i tiden och räkna andelen punkter där solen < −6°.
-export function computeNightHours(opts: {
-  depLat: number; depLon: number; arrLat: number; arrLon: number;
-  dep: Date; arr: Date; altitudeDeg?: number;
-}): number {
-  const { depLat, depLon, arrLat, arrLon, dep, arr, altitudeDeg = CIVIL_TWILIGHT_DEG } = opts;
-  const totalMs = arr.getTime() - dep.getTime();
-  if (!(totalMs > 0)) return 0;
-  const totalH = totalMs / 3600000;
-  const steps = Math.min(600, Math.max(12, Math.round(totalMs / 60000 / 2))); // ~2 min/steg
-  let night = 0;
-  for (let i = 0; i < steps; i++) {
-    const f = (i + 0.5) / steps; // segmentets mittpunkt
-    const t = new Date(dep.getTime() + f * totalMs);
-    const p = interpLatLon(depLat, depLon, arrLat, arrLon, f);
-    if (solarAltitudeDeg(t, p.lat, p.lon) < altitudeDeg) night++;
-  }
-  return Math.round((night / steps) * totalH * 10) / 10;
-}
-
-// Som computeNightHours, men returnerar även själva mörker-INTERVALLET (första→sista
-// punkten under tröskeln) längs rutten + total tid. Route- & tidsmedveten (storcirkel
-// dep→arr samplas i tiden). altitudeDeg = −6 (borgerlig skymning) eller t.ex. −0.30
-// (solens nedre kant vid horisonten). coverage: none/partial/all av flygfönstret.
+// Mörker-INTERVALLET (första→sista punkten under tröskeln) längs rutten + total tid.
+// Route- & tidsmedveten (storcirkel dep→arr samplas i tiden). altitudeDeg = −6 (borgerlig
+// skymning) eller t.ex. −0.30 (solens nedre kant vid horisonten). coverage: none/partial/all.
 export function computeDarkWindow(opts: {
   depLat: number; depLon: number; arrLat: number; arrLon: number;
   dep: Date; arr: Date; altitudeDeg?: number;

@@ -14,6 +14,8 @@ interface Props {
   onSubmitEditing?: () => void;
   align?: 'left' | 'center';
   rightAdornment?: ReactNode;
+  inputFontFamily?: string; // override mono (t.ex. LED 7-seg) för tid-värdet
+  compactRight?: boolean; // liten adornment (t.ex. Z/L) → mindre höger-padding så hela tiden syns
 }
 
 function getCurrentUtc(): string {
@@ -67,7 +69,7 @@ function makeStyles() {
 export type SmartTimeInputHandle = { focus: () => void };
 
 export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function SmartTimeInput(
-  { label, value, onChangeText, error, showNowBtn = false, onSubmitEditing, align = 'center', rightAdornment },
+  { label, value, onChangeText, error, showNowBtn = false, onSubmitEditing, align = 'center', rightAdornment, inputFontFamily, compactRight = false },
   ref,
 ) {
   const styles = makeStyles();
@@ -107,7 +109,8 @@ export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function S
           style={[
             styles.input,
             { textAlign: align },
-            rightAdornment ? { paddingRight: 66, paddingLeft: 12 } : null,
+            inputFontFamily ? { fontFamily: inputFontFamily } : null,
+            rightAdornment ? { paddingRight: compactRight ? 30 : 66, paddingLeft: 12 } : null,
             focused && styles.inputFocused,
             error ? styles.inputError : null,
             valid && !error && styles.inputValid,

@@ -137,7 +137,6 @@ export function LongestXcCard({
           <Text style={s.footerStat}>
             <Text style={{ color: accent }}>{decimalToHHMM(hours)}</Text>
           </Text>
-          <Text style={s.footerStat}>DATE</Text>
         </View>
       </View>
     </Pressable>

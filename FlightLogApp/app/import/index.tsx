@@ -565,9 +565,6 @@ export default function ImportScreen() {
     }
   };
 
-  if (false) { // CSV import is free
-  }
-
   return (
     <ScrollView
       style={styles.container}

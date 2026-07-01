@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { getDroneFlightById, deleteDroneFlight, type DroneFlight } from '../../db/drones';
@@ -17,9 +18,10 @@ export default function DroneFlightDetail() {
   const [flight, setFlight] = useState<DroneFlight | null>(null);
   const styles = makeStyles();
 
-  useEffect(() => {
+  // Ladda om vid fokus så detaljvyn visar färska värden efter redigering.
+  useFocusEffect(useCallback(() => {
     if (id) getDroneFlightById(Number(id)).then(setFlight);
-  }, [id]);
+  }, [id]));
 
   const handleDelete = () => {
     if (!flight) return;

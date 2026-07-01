@@ -45,6 +45,8 @@ export default function RootLayout() {
           'Fraunces-Italic': require('../assets/fonts/Fraunces-Italic-Variable.ttf'),
           JetBrainsMono: require('../assets/fonts/JetBrainsMono-Variable.ttf'),
           SpaceGrotesk: require('../assets/fonts/SpaceGrotesk-Variable.ttf'),
+          DSEG7Classic: require('../assets/fonts/DSEG7Classic-Bold.ttf'),
+          ChakraPetch: require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
         }).catch(() => { /* fonter ej kritiska – fall back till system */ });
         setFontsLoaded(true);
 

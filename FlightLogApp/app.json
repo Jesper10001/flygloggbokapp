@@ -39,9 +39,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/Applogo-cyanonblack.PNG",
-          "imageWidth": 220,
-          "resizeMode": "contain",
+          "image": "./assets/logo-splashscreen.png",
+          "resizeMode": "cover",
           "backgroundColor": "#000000"
         }
       ],

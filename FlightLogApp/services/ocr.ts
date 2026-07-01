@@ -131,6 +131,28 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
         total_to_date: { type: ['number', 'null'] },
       },
     },
+    page_numbers: {
+      type: 'object',
+      properties: {
+        left: { type: ['integer', 'null'] },
+        right: { type: ['integer', 'null'] },
+      },
+    },
+    image_layout: {
+      type: 'object',
+      properties: {
+        orientation: { type: 'string', enum: ['landscape', 'portrait'] },
+        logbook_bounds: {
+          type: 'object',
+          properties: {
+            x_pct: { type: 'number' },
+            y_pct: { type: 'number' },
+            w_pct: { type: 'number' },
+            h_pct: { type: 'number' },
+          },
+        },
+      },
+    },
   },
   required: ['flights'],
 };
@@ -378,6 +400,8 @@ SIDVALIDERING:
 - Om sidan har radsummor: kontrollera att radsumman matchar "Total this page"
 - Kontrollera att "Brought forward" + "Total this page" = "Total to date"
 - Returnera page_totals med fälten: brought_forward, total_this_page, total_to_date (alla som decimal, null om ej synliga)
+- Returnera page_numbers: de tryckta sidnumren på uppslaget ({left, right}, heltal eller null om ej synliga)
+- Returnera image_layout: orientation ('landscape'/'portrait') och logbook_bounds (x_pct/y_pct/w_pct/h_pct, i % av bilden) för var själva loggboken sitter i fotot
 
 ICAO-VALIDERING:
 - ICAO-koder är alltid exakt 4 bokstäver
@@ -468,7 +492,9 @@ Returnera ENBART ett JSON-objekt:
     "brought_forward": null,
     "total_this_page": null,
     "total_to_date": null
-  }
+  },
+  "page_numbers": { "left": null, "right": null },
+  "image_layout": { "orientation": "landscape", "logbook_bounds": { "x_pct": 0, "y_pct": 0, "w_pct": 100, "h_pct": 100 } }
 }
 
 Returnera BARA JSON, inga förklaringar.`;

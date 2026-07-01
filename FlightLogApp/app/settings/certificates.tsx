@@ -239,11 +239,11 @@ export default function CertificatesScreen() {
   const [renewing, setRenewing] = useState<DroneCertificate | null>(null);
   const [renewDate, setRenewDate] = useState(new Date());
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setCerts(await listCertificates());
     setRecency(mode === 'drone' ? await getCategoryRecency() : []);
-  };
-  useFocusEffect(useCallback(() => { load(); }, []));
+  }, [mode]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // Pilot-relevant ordning: närmast utgång först (mest brådskande).
   const byExpiryAsc = (a: DroneCertificate, b: DroneCertificate) =>

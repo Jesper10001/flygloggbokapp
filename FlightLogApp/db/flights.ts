@@ -32,8 +32,12 @@ export async function insertFlight(
 
   const totalTime = parseFlightTime(data.total_time);
   const engineType = await getEngineType(db, data.aircraft_type);
-  const seTime = engineType === 'se' ? totalTime : 0;
-  const meTime = engineType === 'me' ? totalTime : 0;
+  // Respektera explicita SE/ME från formuläret; annars härled ur typens motorklass.
+  const explicitSe = parseFlightTime(data.se_time);
+  const explicitMe = parseFlightTime(data.me_time);
+  const hasExplicitSeMe = explicitSe > 0 || explicitMe > 0;
+  const seTime = hasExplicitSeMe ? explicitSe : (engineType === 'se' ? totalTime : 0);
+  const meTime = hasExplicitSeMe ? explicitMe : (engineType === 'me' ? totalTime : 0);
 
   const result = await db.runAsync(
     `INSERT INTO flights (
@@ -45,8 +49,9 @@ export async function insertFlight(
       flight_rules, second_pilot, second_pilot_role, extra_pilots, nvg, tng_count, flight_type,
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
-      se_time, me_time, stop_place, photo_uri, media_type, max_fl
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      se_time, me_time, stop_place, photo_uri, media_type, max_fl,
+      takeoffs_day, takeoffs_night, app_2d, app_3d
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -92,6 +97,10 @@ export async function insertFlight(
       data.photo_uri ?? '',
       data.media_type ?? 'image',
       parseInt(data.max_fl ?? '0') || 0,
+      parseInt(data.takeoffs_day ?? '0') || 0,
+      parseInt(data.takeoffs_night ?? '0') || 0,
+      parseInt(data.app_2d ?? '0') || 0,
+      parseInt(data.app_3d ?? '0') || 0,
     ]
   );
   return result.lastInsertRowId;
@@ -114,6 +123,7 @@ export async function updateFlight(
     'dep_place','dep_utc','arr_place','arr_utc',
     'total_time','ifr','night','pic','co_pilot','dual',
     'landings_day','landings_night','remarks',
+    'takeoffs_day','takeoffs_night','app_2d','app_3d',
     'multi_pilot','single_pilot','instructor','picus',
     'spic','examiner','safety_pilot','observer','ferry_pic','relief_crew','sim_category','vfr',
   ];
@@ -139,8 +149,12 @@ export async function updateFlight(
 
   const totalTime = parseFlightTime(data.total_time);
   const engineType = await getEngineType(db, data.aircraft_type);
-  const seTime = engineType === 'se' ? totalTime : 0;
-  const meTime = engineType === 'me' ? totalTime : 0;
+  // Respektera explicita SE/ME från formuläret; annars härled ur typens motorklass.
+  const explicitSe = parseFlightTime(data.se_time);
+  const explicitMe = parseFlightTime(data.me_time);
+  const hasExplicitSeMe = explicitSe > 0 || explicitMe > 0;
+  const seTime = hasExplicitSeMe ? explicitSe : (engineType === 'se' ? totalTime : 0);
+  const meTime = hasExplicitSeMe ? explicitMe : (engineType === 'me' ? totalTime : 0);
 
   await db.runAsync(
     `UPDATE flights SET
@@ -152,6 +166,7 @@ export async function updateFlight(
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
       se_time=?, me_time=?, stop_place=?, photo_uri=?, media_type=?, max_fl=?,
+      takeoffs_day=?, takeoffs_night=?, app_2d=?, app_3d=?,
       status=CASE WHEN status IN ('scanned','flagged') THEN 'verified' ELSE status END
     WHERE id=?`,
     [
@@ -192,6 +207,10 @@ export async function updateFlight(
       data.photo_uri ?? '',
       data.media_type ?? 'image',
       parseInt(data.max_fl ?? '0') || 0,
+      parseInt(data.takeoffs_day ?? '0') || 0,
+      parseInt(data.takeoffs_night ?? '0') || 0,
+      parseInt(data.app_2d ?? '0') || 0,
+      parseInt(data.app_3d ?? '0') || 0,
       id,
     ]
   );
@@ -310,11 +329,6 @@ export async function removeSecondPilotFromFlights(name: string): Promise<void> 
 export async function deleteRegistrationFromRegistry(reg: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM aircraft_registry WHERE registration=?`, [reg.toUpperCase()]);
-}
-
-export async function deleteSecondPilotHistory(name: string): Promise<void> {
-  // Second pilots aren't stored in a separate table — they come from flight history
-  // Nothing to delete beyond the flights themselves
 }
 
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
@@ -535,6 +549,19 @@ export async function getRecentSecondPilots(limit = 10): Promise<string[]> {
     [limit]
   );
   return rows.map(r => r.second_pilot);
+}
+
+// Sparade andra-piloter med den roll de senast flögs med (för auto-ifyllnad av roll).
+export async function getRecentSecondPilotsWithRole(limit = 20): Promise<{ name: string; role: string }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ second_pilot: string; second_pilot_role: string; d: string }>(
+    `SELECT second_pilot, second_pilot_role, MAX(date) as d FROM flights
+     WHERE second_pilot != '' AND second_pilot IS NOT NULL
+     GROUP BY second_pilot
+     ORDER BY d DESC LIMIT ?`,
+    [limit]
+  );
+  return rows.map(r => ({ name: r.second_pilot, role: r.second_pilot_role || '' }));
 }
 
 export async function getRecentRemarks(limit = 20): Promise<string[]> {
@@ -1019,6 +1046,16 @@ export async function getAircraftCrewType(type: string): Promise<string> {
   return row?.crew_type ?? '';
 }
 
+// Farkostkategori ('' | 'airplane' | 'helicopter') som angavs när farkosten lades till.
+export async function getAircraftCategory(type: string): Promise<string> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ category: string }>(
+    `SELECT MAX(category) as category FROM aircraft_registry WHERE aircraft_type=?`,
+    [type.toUpperCase()]
+  );
+  return row?.category ?? '';
+}
+
 export async function getAircraftEndurance(type: string): Promise<number> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<{ endurance_h: number }>(
@@ -1060,6 +1097,10 @@ export type AircraftRegistryEntry = {
   power_hp: number;
   ceiling_ft: number;
   wingspan_m: number;
+  empty_weight_kg: number;
+  fuel_capacity_l: number;
+  range_nm: number;
+  cutout_url: string; // cachad VisionKit-urklippsbild (transparent bakgrund)
   rating_expiry: string; // '' eller ISO YYYY-MM-DD
   rating_class: string;
   last_flown: string; // MAX(f.date) eller '' (aldrig flugen)
@@ -1085,6 +1126,10 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.power_hp) as power_hp,
            MAX(ar.ceiling_ft) as ceiling_ft,
            MAX(ar.wingspan_m) as wingspan_m,
+           MAX(ar.empty_weight_kg) as empty_weight_kg,
+           MAX(ar.fuel_capacity_l) as fuel_capacity_l,
+           MAX(ar.range_nm) as range_nm,
+           MAX(ar.cutout_url) as cutout_url,
            MAX(ar.rating_expiry) as rating_expiry,
            MAX(ar.rating_class) as rating_class,
            COALESCE(MAX(f.date), '') as last_flown,
@@ -1172,12 +1217,16 @@ export async function updateAircraftFleetFields(
     power_hp: number;
     ceiling_ft: number;
     wingspan_m: number;
+    empty_weight_kg: number;
+    fuel_capacity_l: number;
+    range_nm: number;
     image_url: string;
+    cutout_url: string;
     rating_expiry: string;
     rating_class: string;
   }>,
 ): Promise<void> {
-  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'image_url', 'rating_expiry', 'rating_class'] as const;
+  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'empty_weight_kg', 'fuel_capacity_l', 'range_nm', 'image_url', 'cutout_url', 'rating_expiry', 'rating_class'] as const;
   const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => allowed.includes(k as any));
   if (keys.length === 0) return;
   const db = await getDatabase();
@@ -1197,11 +1246,13 @@ export async function persistAircraftFleetLookup(
     manufacturer?: string; vne_kt?: number; mtow_kg?: number;
     consumption?: number; consumption_unit?: string; horsepower_hp?: number;
     ceiling_ft?: number; wingspan_m?: number; image_url?: string;
+    empty_weight_kg?: number; fuel_capacity_l?: number; range_nm?: number;
   },
 ): Promise<void> {
   const fields: Partial<{
     maker: string; vne: number; mtow: number;
     fuel_burn: number; fuel_burn_unit: string; power_hp: number; ceiling_ft: number; wingspan_m: number; image_url: string;
+    empty_weight_kg: number; fuel_capacity_l: number; range_nm: number;
   }> = {};
   if (r.manufacturer && r.manufacturer.trim()) fields.maker = r.manufacturer.trim();
   if (r.vne_kt && r.vne_kt > 0) fields.vne = r.vne_kt;
@@ -1213,6 +1264,9 @@ export async function persistAircraftFleetLookup(
   if (r.horsepower_hp && r.horsepower_hp > 0) fields.power_hp = r.horsepower_hp;
   if (r.ceiling_ft && r.ceiling_ft > 0) fields.ceiling_ft = r.ceiling_ft;
   if (r.wingspan_m && r.wingspan_m > 0) fields.wingspan_m = r.wingspan_m;
+  if (r.empty_weight_kg && r.empty_weight_kg > 0) fields.empty_weight_kg = r.empty_weight_kg;
+  if (r.fuel_capacity_l && r.fuel_capacity_l > 0) fields.fuel_capacity_l = r.fuel_capacity_l;
+  if (r.range_nm && r.range_nm > 0) fields.range_nm = r.range_nm;
   if (r.image_url && r.image_url.trim()) fields.image_url = r.image_url.trim();
   if (Object.keys(fields).length) await updateAircraftFleetFields(type, fields);
 }

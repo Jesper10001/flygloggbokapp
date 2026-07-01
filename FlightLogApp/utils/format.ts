@@ -4,12 +4,19 @@ export function formatHours(hours: number): string {
   return hours.toFixed(1);
 }
 
-// Formatera datum till "2024-03-15"
+// Formatera datum till "2024-03-15". Undviker UTC-skift: ett rent YYYY-MM-DD
+// returneras oförändrat (annars tolkas det som UTC-midnatt → fel dag i väst).
 export function formatDate(dateStr: string): string {
   if (!dateStr) return '';
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('sv-SE');
+    if (isNaN(d.getTime())) return dateStr;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   } catch {
     return dateStr;
   }

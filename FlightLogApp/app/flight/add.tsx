@@ -14,14 +14,13 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { FormField } from '../../components/FormField';
 import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -31,10 +30,21 @@ import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
 import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
-import { solarAltitudeDeg, sunTimesUTC } from '../../utils/sun';
+import { solarAltitudeDeg } from '../../utils/sun';
 import { DayNightMap } from '../../components/DayNightMap';
-import { computeNightHoursTimed, vertexArrivalTimes } from '../../utils/dayNight';
-import { localLabel, tzAbbr, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
+import { SlideToggle } from '../../components/logflight/SlideToggle';
+import { CondBar } from '../../components/logflight/CondBar';
+import { TolRow } from '../../components/logflight/MiniStepper';
+import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
+import { CountryFlag } from '../../components/CountryFlag';
+import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
+import { computeNightHoursTimed, vertexArrivalTimes, sampleTimedRoute, type SunState } from '../../utils/dayNight';
+import { TwilightBar } from '../../components/logflight/TwilightBar';
+import { ApproachFlow, APP_TYPES, type ApproachVal } from '../../components/logflight/ApproachFlow';
+import { SunGlobe } from '../../components/logflight/SunGlobe';
+import { MaxAltBar } from '../../components/logflight/MaxAltBar';
+import { useProfileStore } from '../../store/profileStore';
+import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports } from '../../db/icao';
 import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
@@ -83,6 +93,10 @@ const EMPTY: FlightFormData = {
   vfr: '0',
   max_fl: '',
   media_type: 'image',
+  takeoffs_day: '1',
+  takeoffs_night: '0',
+  app_2d: '0',
+  app_3d: '0',
 };
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
@@ -106,12 +120,6 @@ function appTypeForToken(token: string): '2d' | '3d' | null {
   return null;
 }
 
-// Behålls för ankomst-approach-sektionen (byter 2D/3D → ILS/VOR osv. på arr-raden).
-function replaceApproachTypeForStop(remarks: string, icao: string, newType: string): string {
-  const regex = new RegExp(`(^${icao.toUpperCase()}\\s+)(?:2D|3D)( app rwy \\d{2,3})`, 'im');
-  return remarks.replace(regex, `$1${newType}$2`);
-}
-
 // "ESSV TnG ILS app rwy 01" / "ESSA PU/DO" / "ESGG HR 3D app rwy 09"
 function serializeStop(s: RouteStop): string {
   let line = `${s.icao.toUpperCase()} ${KIND_TOKEN[s.kind]}`;
@@ -121,6 +129,9 @@ function serializeStop(s: RouteStop): string {
 }
 
 const STOP_RE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+(2D|3D|VOR|NDB|LOC|DME|LNAV|ILS|GLS|GBAS|PAR|RNAV)\s+app\s+rwy\s+(\d{2,3}))?\s*$/i;
+// Kompakt approach-rad i remarks (designens ApproachFlow): "ESSA ILS 27" / "ESGG VOR 03L".
+// Skiljd från STOP_RE (som har "app rwy") så route-stoppen inte rörs.
+const APPROACH_LINE_RE = /^([A-Z]{3,4})\s+(ILS|RNAV|GLS|VOR|NDB|LOC)(?:\s+(\d{1,2}[LCR]?))?$/i;
 const kindFromToken = (t: string): StopKind => {
   const u = t.toUpperCase();
   if (u === 'TNG') return 'tng';
@@ -232,7 +243,6 @@ function makeStyles() {
     chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
     chipRecentText: { color: Colors.gold, fontWeight: '700' },
 
-    row2: { flexDirection: 'row', gap: 10 },
     row3: { flexDirection: 'row', gap: 10 },
 
     card: {
@@ -253,45 +263,59 @@ function makeStyles() {
     },
     autoBadgeText: { color: Colors.primary, fontSize: 8, fontWeight: '700', letterSpacing: 0.5 },
 
-    totalTimeRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    totalTimeDisplay: {
-      flexDirection: 'row', alignItems: 'baseline', gap: 8,
-      paddingVertical: 8,
-    },
-    totalTimeValue: {
-      fontSize: 52, fontWeight: '900', fontFamily: 'Menlo',
-      fontVariant: ['tabular-nums'],
-    },
-    totalTimeValueFilled: { color: Colors.gold },
-    totalTimeValueEmpty: { color: Colors.textMuted },
     errorInline: { color: Colors.danger, fontSize: 11, marginTop: 2 },
 
     placeBlock: {
-      backgroundColor: Colors.card, borderRadius: 12, padding: 14, paddingTop: 8,
-      borderWidth: 1, borderColor: Colors.cardBorder, gap: 8,
+      backgroundColor: Colors.card, borderRadius: 16, padding: 14, paddingTop: 14,
+      borderWidth: 1, borderColor: Colors.cardBorder,
       zIndex: 10, // så ICAO-autocomplete kan flyta över sektionerna under
     },
-    placeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    placeLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-
-    locSegment: {
-      flexDirection: 'row',
-      backgroundColor: Colors.elevated,
-      borderRadius: 6, padding: 2,
-      borderWidth: 0.5, borderColor: Colors.border,
+    // Designens två ben-paneler: svag cyan-yta som blöder ut till kortets kant.
+    legRow: { flexDirection: 'row', alignItems: 'stretch', marginHorizontal: -14 },
+    legPanelLeft: {
+      flex: 1, gap: 8, backgroundColor: Colors.primary + '0D',
+      borderTopWidth: 1, borderBottomWidth: 1, borderRightWidth: 1, borderColor: Colors.separator,
+      borderTopRightRadius: 12, borderBottomRightRadius: 12, padding: 12, paddingBottom: 11,
     },
-    locSegmentBtn: {
-      flex: 1,
-      paddingHorizontal: 6, paddingVertical: 5,
-      borderRadius: 5, alignItems: 'center',
+    legPanelRight: {
+      flex: 1, gap: 8, backgroundColor: Colors.primary + '0D',
+      borderTopWidth: 1, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: Colors.separator,
+      borderTopLeftRadius: 12, borderBottomLeftRadius: 12, padding: 12, paddingBottom: 11,
     },
-    locSegmentBtnActive: { backgroundColor: Colors.primary },
-    locSegmentText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
-    locSegmentTextActive: { color: Colors.textInverse },
+    placeColHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 },
+    placeColHeaderText: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
 
-    placeColHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 6 },
-    placeColHeaderText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-    placeColDivider: { width: 1, backgroundColor: Colors.separator, marginHorizontal: 8 },
+    // Designens tap-ruta för aircraft type / registration (chevron → sparade + lägg till).
+    pickBox: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 11,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10,
+    },
+    pickBoxValue: { flex: 1, fontFamily: 'JetBrainsMono', fontSize: 16, fontWeight: '800', letterSpacing: 1, color: Colors.textPrimary },
+    pickBoxTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: '100%' },
+    pickBoxDivider: { width: 1, height: 20, backgroundColor: Colors.border, marginHorizontal: 6 },
+
+    // Namn-förslagslista (andre pilot / cabin crew) — inline under namn-rutan (skjuter ner innehåll).
+    nameSuggest: {
+      marginTop: 4,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, overflow: 'hidden',
+    },
+    nameSuggestItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
+    nameSuggestSep: { borderTopWidth: 0.5, borderTopColor: Colors.separator },
+    nameSuggestText: { flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '600' },
+
+    // Dropdownflik (aircraft type / registration) — flyter attached under rutan.
+    ddFlyout: {
+      position: 'absolute', top: '100%', marginTop: 4, zIndex: 50, elevation: 8,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, padding: 8,
+      shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 6 },
+    },
+    ddEmpty: { fontFamily: 'JetBrainsMono', fontSize: 10, color: Colors.textMuted, paddingVertical: 4 },
+    ddChip: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },
+    ddChipActive: { backgroundColor: Colors.primary + '24', borderColor: Colors.primary },
+    ddChipText: { fontFamily: 'JetBrainsMono', fontSize: 12, fontWeight: '800', letterSpacing: 0.5, color: Colors.textSecondary },
+    ddChipTextActive: { color: Colors.primary },
+    ddCell: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 7, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+    ddCellText: { fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '800', letterSpacing: 0.3, color: Colors.textSecondary },
 
     stopPlaceBlock: {
       backgroundColor: Colors.elevated,
@@ -308,47 +332,6 @@ function makeStyles() {
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
-
-    flightTypePicker: {
-      flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 4,
-    },
-    flightTypeChip: {
-      flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,
-      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
-    },
-    flightTypeChipActive: {
-      backgroundColor: Colors.primary, borderColor: Colors.primary,
-    },
-    flightTypeChipText: {
-      color: Colors.textMuted, fontSize: 11, fontWeight: '700',
-    },
-    flightTypeChipTextActive: {
-      color: '#fff',
-    },
-
-    segmentRow: {
-      flexDirection: 'row', backgroundColor: Colors.elevated,
-      borderRadius: 8, padding: 3,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 6 },
-    segmentBtnActive: { backgroundColor: Colors.primary },
-    segmentText: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
-    segmentTextActive: { color: Colors.textInverse },
-
-    counterGrid: { flexDirection: 'row', alignItems: 'center' },
-    counterDivider: { width: 1, height: 50, backgroundColor: Colors.separator, marginHorizontal: 8 },
-    counterWrap: { flex: 1, alignItems: 'center', gap: 8 },
-    counterLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-    counterRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    counterBtn: {
-      width: 36, height: 36, borderRadius: 18,
-      backgroundColor: Colors.elevated,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    counterBtnDisabled: { opacity: 0.4 },
-    counterValue: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700', minWidth: 30, textAlign: 'center' },
 
     extrasToggle: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -501,22 +484,23 @@ function makeStyles() {
       flexDirection: 'row', gap: 4,
     },
     roleBtn: {
-      flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 7,
+      flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 10, borderRadius: 10,
       backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
     },
     roleBtnActive: {
-      backgroundColor: Colors.primary, borderColor: Colors.primary,
+      backgroundColor: Colors.primary + '24', borderColor: Colors.primary,
     },
     roleBtnDisabled: { opacity: 0.35 },
     roleBtnText: {
-      color: Colors.textMuted, fontSize: 12, fontWeight: '700',
+      color: Colors.textSecondary, fontSize: 10.5, fontWeight: '700',
+      fontFamily: 'JetBrainsMono', letterSpacing: 0.3,
     },
-    roleBtnTextActive: { color: Colors.textInverse },
+    roleBtnTextActive: { color: Colors.primary },
     specialRoleBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: Colors.elevated, borderRadius: 7,
-      paddingHorizontal: 8, paddingVertical: 6,
-      borderWidth: 1, borderColor: Colors.primary + '44',
+      flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+      backgroundColor: Colors.elevated, borderRadius: 10,
+      paddingHorizontal: 6, paddingVertical: 10,
+      borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.border,
     },
     specialRoleBtnText: {
       color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
@@ -594,55 +578,6 @@ function ValidationWarnings({ issues }: { issues: ValidationIssue[] }) {
   );
 }
 
-function Counter({ label, value, onChange, min = 0 }: {
-  label: string; value: string; onChange: (v: string) => void; min?: number;
-}) {
-  const styles = makeStyles();
-  const n = parseInt(value) || 0;
-  return (
-    <View style={styles.counterWrap}>
-      <Text style={styles.counterLabel}>{label}</Text>
-      <View style={styles.counterRow}>
-        <TouchableOpacity
-          style={[styles.counterBtn, n <= min && styles.counterBtnDisabled]}
-          onPress={() => { Haptics.selectionAsync(); onChange(String(Math.max(min, n - 1))); }}
-          disabled={n <= min}
-        >
-          <Ionicons name="remove" size={18} color={n <= min ? Colors.textMuted : Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.counterValue}>{n}</Text>
-        <TouchableOpacity style={styles.counterBtn} onPress={() => { Haptics.selectionAsync(); onChange(String(n + 1)); }}>
-          <Ionicons name="add" size={18} color={Colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function SegmentControl({ options, value, onChange }: {
-  options: { label: string; value: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const styles = makeStyles();
-  return (
-    <View style={styles.segmentRow}>
-      {options.map((opt) => (
-        <TouchableOpacity
-          key={opt.value}
-          style={[styles.segmentBtn, value === opt.value && styles.segmentBtnActive]}
-          onPress={() => onChange(opt.value)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.segmentText, value === opt.value && styles.segmentTextActive]}>
-            {opt.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
 // ── Huvudskärm ──────────────────────────────────────────────────────────────
 
 export default function AddFlightScreen() {
@@ -659,6 +594,8 @@ export default function AddFlightScreen() {
   const [errors, setErrors] = useState<Partial<Record<keyof FlightFormData, string>>>({});
   const [warnings, setWarnings] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
+  // Lås skärm-scroll medan man drar i en bar (slider) → fingret kan glida upp/ner utan att sidan rör sig.
+  const [scrollLocked, setScrollLocked] = useState(false);
 
   type PrimaryRole = 'pic' | 'co_pilot' | 'dual' | 'picus' | 'spic' | 'ferry_pic' | 'observer' | 'relief_crew';
   const [role, setRole] = useState<PrimaryRole>('pic');
@@ -668,13 +605,19 @@ export default function AddFlightScreen() {
   const [showSpecialRole, setShowSpecialRole] = useState(false);
   const [depCustom, setDepCustom] = useState(false);
   const [arrCustom, setArrCustom] = useState(false);
-  const [showRegModal, setShowRegModal] = useState(false);
-  const [showTypeModal, setShowTypeModal] = useState(false);
+  // Inline nedfällda staplar för aircraft type / registration (ersätter de gamla pop up-modalerna).
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [regOpen, setRegOpen] = useState(false);
+  // Någon PersonPicker-dropdown (andre pilot/extra pilot/cabin crew) är öppen → lyft kortet.
+  const [personOpen, setPersonOpen] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // Log Flight-redesign: Quicklog (essentials) ↔ Full (alla sektioner). Default Full.
+  const [logFull, setLogFull] = useState(true);
 
   const [lastFlight, setLastFlight] = useState<Flight | null>(null);
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
   const [recentRegs, setRecentRegs] = useState<string[]>([]);
+  const [recentPilotsRoles, setRecentPilotsRoles] = useState<SavedPerson[]>([]);
   const [recentPlaces, setRecentPlaces] = useState<{ icao: string; temporary: boolean }[]>([]);
   const [recentRemarks, setRecentRemarks] = useState<string[]>([]);
   const [recentPilots, setRecentPilots] = useState<string[]>([]);
@@ -692,8 +635,8 @@ export default function AddFlightScreen() {
   const [activeExtraPilotPicker, setActiveExtraPilotPicker] = useState<string | null>(null);
   const [activeCrewPicker, setActiveCrewPicker] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [selectedApp, setSelectedApp] = useState<'2d' | '3d' | null>(null);
-  const [selectedRunway, setSelectedRunway] = useState<number | null>(null);
+  // Designens ApproachFlow: per ICAO {dim,app,rwy}. Synkas in i remarks som "ESSA ILS 27".
+  const [approaches, setApproaches] = useState<Record<string, ApproachVal>>({});
   const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
   const [draft, setDraft] = useState<{ icao: string; kind: StopKind | null; appType: '2d' | '3d' | null; runway: number | null; navaid: string | null }>({ icao: '', kind: null, appType: null, runway: null, navaid: null });
   const [kindMenuOpen, setKindMenuOpen] = useState(false);
@@ -715,6 +658,11 @@ export default function AddFlightScreen() {
   ), [depLatLon, arrLatLon, form.dep_place, form.arr_place]);
   // dep + arr (med koordinater) och giltiga tider ifyllda → ROUTE-pilen + guld visas
   const routeReady = sunPoints.length >= 2 && !!form.date && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
+  // Route-info (total/distans/fart/glob/dagsbar/stops) visas först när dep+arr (plats+tid) är
+  // ifyllda — och förblir sedan synlig (uppdateras, försvinner inte) även om man ändrar ett värde.
+  const routeComplete = !!depLatLon && !!arrLatLon && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
+  const [routeRevealed, setRouteRevealed] = useState(false);
+  useEffect(() => { if (routeComplete) setRouteRevealed(true); }, [routeComplete]);
 
   // Waypoints (T&G / hot refuel) → koordinater + dwell, för kartan och night-uträkningen.
   // Waypoints: T&G-platser (10 min) + hot refuel (30 min) — BÅDA samtidigt, oberoende av
@@ -746,6 +694,80 @@ export default function AddFlightScreen() {
     if (arrLatLon) out.push({ lat: arrLatLon.lat, lon: arrLatLon.lon, label: form.arr_place, dwellMin: 0 });
     return out;
   }, [depLatLon, arrLatLon, wpCoords, routeStops, form.dep_place, form.arr_place]);
+
+  // Skymnings-segment längs rutten (samma sol-modell som "Sun route"-kartan) → TwilightBar.
+  const twilightSegs = useMemo(() => {
+    if (routeLegs.length < 2 || !form.date || !isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) return [];
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst) return [];
+    const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
+    const totalMs = arrMs - depMs;
+    if (!(totalMs > 0)) return [];
+    const pts = sampleTimedRoute(routeLegs, depMs, arrMs, 120);
+    if (!pts.length) return [];
+    const stateColor = (k: SunState) => k === 'day' ? Colors.success : k === 'night' ? Colors.info : Colors.gold;
+    const runs: { k: SunState; ms: number }[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const tPrev = i === 0 ? pts[0].timeMs : (pts[i - 1].timeMs + pts[i].timeMs) / 2;
+      const tNext = i === pts.length - 1 ? pts[i].timeMs : (pts[i].timeMs + pts[i + 1].timeMs) / 2;
+      const w = Math.max(0, tNext - tPrev);
+      const st = pts[i].state;
+      if (runs.length && runs[runs.length - 1].k === st) runs[runs.length - 1].ms += w;
+      else runs.push({ k: st, ms: w });
+    }
+    return runs.map((r) => ({ k: r.k, f: (r.ms / totalMs) * 100, c: stateColor(r.k) }));
+  }, [routeLegs, form.date, form.dep_utc, form.arr_utc]);
+
+  // Connector-glyf: flygplan vs helikopter — baserat på SENAST flugna modell, annars
+  // onboarding-valet (helikopter/fixed wing). Oberoende av aktuell aircraft_type.
+  // Connector-glyf: helikopter vs flygplan från farkostens LAGRADE kategori (anges när man
+  // lägger till farkosten via smart search/manuellt). Källa: aktuell typ → senast flugna →
+  // onboarding-val (om ingen typ/kategori finns).
+  const profileSubRole = useProfileStore((s) => s.profile?.subRole);
+  const [glyphIsHeli, setGlyphIsHeli] = useState(false);
+  useEffect(() => {
+    const src = (form.aircraft_type || '').trim() || lastFlight?.aircraft_type || '';
+    if (!src) { setGlyphIsHeli(profileSubRole === 'rotary'); return; }
+    let alive = true;
+    getAircraftCategory(src)
+      .then((cat) => { if (alive) setGlyphIsHeli(cat === 'helicopter' ? true : cat === 'airplane' ? false : profileSubRole === 'rotary'); })
+      .catch(() => { if (alive) setGlyphIsHeli(profileSubRole === 'rotary'); });
+    return () => { alive = false; };
+  }, [form.aircraft_type, lastFlight, profileSubRole]);
+
+  // ApproachFlow: ICAO:n att välja approach för = ankomst + ev. route-stopp (ej avgång).
+  const approachIcaos = useMemo(() => {
+    const out: string[] = [];
+    for (const s of routeStops) { const ic = s.icao.trim().toUpperCase(); if (ic.length >= 3 && !out.includes(ic)) out.push(ic); }
+    const arr = (form.arr_place || '').trim().toUpperCase();
+    if (arr.length >= 3 && !out.includes(arr)) out.push(arr);
+    return out;
+  }, [routeStops, form.arr_place]);
+  const runwaysFor = useCallback((icao: string) => {
+    const hs = (runwayData as Record<string, number[]>)[(icao || '').toUpperCase()] || [];
+    const out: string[] = [];
+    for (const h of hs) {
+      const a = rwy2(h), b = rwy2((h + 180) % 360);
+      if (!out.includes(a)) out.push(a);
+      if (!out.includes(b)) out.push(b);
+    }
+    return out;
+  }, []);
+  // Synka valda approaches in i remarks som kompakta rader (designens "in remarks").
+  // Rör bara APPROACH_LINE_RE-rader → fri text och route-stoppen (STOP_RE) lämnas orörda.
+  useEffect(() => {
+    const lines = approachIcaos
+      .map((ic) => approaches[ic])
+      .map((v, i) => (v && v.app) ? `${approachIcaos[i]} ${v.app}${v.rwy ? ` ${v.rwy}` : ''}` : null)
+      .filter(Boolean) as string[];
+    setForm((prev) => {
+      const kept = (prev.remarks || '').split('\n').filter((ln) => ln.trim() !== '' && !APPROACH_LINE_RE.test(ln.trim()));
+      const merged = [...kept, ...lines].join('\n');
+      if (merged === (prev.remarks || '')) return prev;
+      return { ...prev, remarks: merged };
+    });
+  }, [approaches, approachIcaos]);
+
   const [landingsManual, setLandingsManual] = useState(isEdit);
   // Tidsinmatningsläge: lokal tid (default) eller UTC. Lagrad tid är alltid UTC.
   const [timeMode, setTimeMode] = useState<'local' | 'utc'>('utc');
@@ -761,6 +783,17 @@ export default function AddFlightScreen() {
       // Parse T&G stops from remarks
       const parsedStops = parseRouteStops(f.remarks || '');
       if (parsedStops.length > 0) setRouteStops(parsedStops);
+
+      // Parse kompakta approach-rader → ApproachFlow-state (designens flow visar dem igen)
+      const parsedApp: Record<string, ApproachVal> = {};
+      (f.remarks || '').split('\n').forEach((ln) => {
+        const m = APPROACH_LINE_RE.exec(ln.trim());
+        if (m) {
+          const app = m[2].toUpperCase();
+          parsedApp[m[1].toUpperCase()] = { dim: APP_TYPES['2d'].includes(app) ? '2d' : '3d', app, rwy: m[3] };
+        }
+      });
+      if (Object.keys(parsedApp).length > 0) setApproaches(parsedApp);
 
       setForm({
         date: f.date,
@@ -800,6 +833,10 @@ export default function AddFlightScreen() {
         sim_category: (f.sim_category ?? '') as any,
         vfr: String(f.vfr ?? 0),
         max_fl: String(f.max_fl ?? 0) === '0' ? '' : String(f.max_fl),
+        takeoffs_day: String(f.takeoffs_day ?? 0),
+        takeoffs_night: String(f.takeoffs_night ?? 0),
+        app_2d: String(f.app_2d ?? 0),
+        app_3d: String(f.app_3d ?? 0),
         photo_uri: f.photo_uri ?? '',
       });
       if (f.extra_pilots) {
@@ -1019,6 +1056,7 @@ export default function AddFlightScreen() {
       setRecentPlaces(places);
       setRecentRemarks(remarks);
       setRecentPilots(pilots);
+      getRecentSecondPilotsWithRole().then(setRecentPilotsRoles).catch(() => {});
       const last = flights[0] ?? null;
       if (last) {
         setLastFlight(last);
@@ -1176,6 +1214,28 @@ export default function AddFlightScreen() {
     const regs = await getRecentRegistrations(type);
     setRecentRegs(regs);
   }, []);
+
+  // Lägg till ny registrering (från "+"-knappen i registration-stapeln).
+  const promptAddRegistration = useCallback(() => {
+    if (!form.aircraft_type) { Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg')); return; }
+    Alert.prompt(
+      t('new_registration'),
+      `${t('add_registration_for')} ${form.aircraft_type}`,
+      async (reg) => {
+        const r = reg?.trim().toUpperCase();
+        if (!r) return;
+        await addToAircraftRegistry(form.aircraft_type, r);
+        setRecentRegs(await getRecentRegistrations(form.aircraft_type));
+        set('registration', r);
+      },
+      'plain-text', '',
+    );
+  }, [form.aircraft_type, t]);
+
+  // "+" i namn-rutan → skriv in ett nytt namn (blir valt; sparas i historiken när flygningen loggas).
+  const promptAddPersonName = (title: string, onName: (n: string) => void) => {
+    Alert.prompt(title, '', (v) => { const n = (v || '').trim(); if (n) onName(n); }, 'plain-text', '');
+  };
 
   const applyStops = (stops: RouteStop[]) => {
     setRouteStops(stops);
@@ -1625,15 +1685,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
   const filteredTypes = form.aircraft_type
     ? recentTypes.filter((t) => t.startsWith(form.aircraft_type.toUpperCase())).slice(0, 3)
     : recentTypes.slice(0, 3);
-  // Senaste typ (index 0 i recentTypes = senast flugna)
-  const mostRecentType = recentTypes[0] ?? null;
 
   // Alla individer för vald typ, i fallande ordning (senast flugna först)
   // Filtrera på påbörjad inmatning om registrering redan är ifylld
   const filteredRegs = form.registration
     ? recentRegs.filter((r) => r.startsWith(form.registration.toUpperCase()))
     : recentRegs;
-  const mostRecentReg = recentRegs[0] ?? null;
 
   return (
     <KeyboardAvoidingView
@@ -1672,12 +1729,34 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         </TouchableOpacity>
       </TouchableOpacity>
 
+      {/* Quicklog ↔ Full + Real ↔ Sim (Log Flight-redesign) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
+        <SlideToggle
+          sans
+          options={[{ value: 'quick', label: 'Quicklog' }, { value: 'full', label: 'Full' }]}
+          value={logFull ? 'full' : 'quick'}
+          onChange={(v) => setLogFull(v === 'full')}
+        />
+        <View style={{ flex: 1 }} />
+        <SlideToggle
+          sans
+          options={[{ value: 'real', label: 'Real flight' }, { value: 'sim', label: 'Sim' }]}
+          value={form.flight_type === 'sim' ? 'sim' : 'real'}
+          onChange={(v) => {
+            if (v === 'sim') { set('flight_type', 'sim'); if (!form.sim_category) set('sim_category', 'FFS'); }
+            else { set('flight_type', 'normal'); set('sim_category', ''); }
+          }}
+          activeColor={form.flight_type === 'sim' ? Colors.gold : Colors.primary}
+        />
+      </View>
+
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
+        scrollEnabled={!scrollLocked}
       >
 
         <ValidationWarnings issues={warnings} />
@@ -1698,324 +1777,52 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
 
-        {/* Row 1: Aircraft type + Second pilot */}
-        <View style={[styles.row2, (spRolePickerOpen || activeExtraPilotPicker) ? { zIndex: 20 } : null]}>
-          <View style={{ flex: 1 }}>
-            <FormField
-              label={t('aircraft_type')}
-              value={form.aircraft_type}
-              onChangeText={(v) => set('aircraft_type', v.toUpperCase())}
-              error={errors.aircraft_type}
-              placeholder="C172"
-              autoCapitalize="characters"
-              onPressAdd={() => setShowAircraftModal(true)}
-            />
-            <View style={styles.regRow}>
-              <TouchableOpacity
-                style={styles.regDropdownBtn}
-                onPress={() => setShowTypeModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
-              </TouchableOpacity>
-              {mostRecentType && (
-                <TouchableOpacity
-                  style={[styles.chip, styles.chipRecent]}
-                  onPress={() => onTypeSelect(mostRecentType)}
-                >
-                  <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />
-                  <Text style={[styles.chipText, styles.chipRecentText]}>{mostRecentType}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          <View style={{ flex: 1, zIndex: (spRolePickerOpen || activeExtraPilotPicker) ? 20 : 0 }}>
-            <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
-            {/* Roll på medpiloten man flyger med (PIC/COP/FI/SPIC/PICUS) + namn, vågrätt */}
-            <View style={{ position: 'relative', zIndex: 20 }}>
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                <TouchableOpacity
-                  style={[styles.roleSelectBtn, form.second_pilot_role ? styles.roleSelectBtnActive : null]}
-                  onPress={() => setSpRolePickerOpen((o) => !o)}
-                  activeOpacity={0.75}
-                >
-                  {form.second_pilot_role ? (
-                    <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
-                      {SP_ROLES.find((r) => r.key === form.second_pilot_role)?.short ?? form.second_pilot_role}
-                    </Text>
-                  ) : (
-                    <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
-                  )}
-                  <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.roleNameInput}
-                  value={form.second_pilot ?? ''}
-                  onChangeText={(v) => set('second_pilot', v)}
-                  placeholder={t('second_pilot_ph')}
-                  placeholderTextColor={Colors.textMuted}
-                />
-              </View>
-              {spRolePickerOpen && (
-                <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
-                  {[{ key: '', label: `— ${t('clear')}` }, ...SP_ROLES].map((opt) => (
-                    <TouchableOpacity
-                      key={opt.key || 'clear'}
-                      style={[styles.rolePickerItem, form.second_pilot_role === opt.key && { backgroundColor: Colors.primary + '14' }]}
-                      onPress={() => { selectSecondPilotRole(opt.key); setSpRolePickerOpen(false); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ color: form.second_pilot_role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-            {/* Extra piloter ombord (3:e, 4:e …) — samma roll+namn-rad som second pilot */}
-            {extraPilots.map((p) => (
-              <View key={p.id} style={{ flexDirection: 'row', gap: 4, marginTop: 6, position: 'relative', zIndex: activeExtraPilotPicker === p.id ? 20 : 0 }}>
-                <TouchableOpacity
-                  style={[styles.roleSelectBtn, p.role ? styles.roleSelectBtnActive : null]}
-                  onPress={() => setActiveExtraPilotPicker((cur) => (cur === p.id ? null : p.id))}
-                  activeOpacity={0.75}
-                >
-                  {p.role ? (
-                    <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
-                      {SP_ROLES.find((r) => r.key === p.role)?.short ?? p.role}
-                    </Text>
-                  ) : (
-                    <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
-                  )}
-                  <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.roleNameInput}
-                  value={p.name}
-                  onChangeText={(v) => updateExtraPilot(p.id, 'name', v)}
-                  placeholder={t('second_pilot_ph')}
-                  placeholderTextColor={Colors.textMuted}
-                />
-                <TouchableOpacity onPress={() => removeExtraPilot(p.id)} style={{ justifyContent: 'center' }}>
-                  <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
-                </TouchableOpacity>
-                {activeExtraPilotPicker === p.id && (
-                  <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
-                    {[{ key: '', label: `— ${t('clear')}` }, ...SP_ROLES].map((opt) => (
-                      <TouchableOpacity
-                        key={opt.key || 'clear'}
-                        style={[styles.rolePickerItem, p.role === opt.key && { backgroundColor: Colors.primary + '14' }]}
-                        onPress={() => { selectExtraPilotRole(p.id, opt.key); setActiveExtraPilotPicker(null); }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ color: p.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-            <View style={[styles.regRow, { marginTop: 8 }]}>
-              <TouchableOpacity
-                style={[styles.regDropdownBtn, recentPilots.length === 0 && styles.regDropdownDisabled]}
-                onPress={() => {
-                  if (recentPilots.length === 0) return;
-                  setShowPilotModal(true);
-                }}
-                activeOpacity={recentPilots.length === 0 ? 1 : 0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={recentPilots.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-              </TouchableOpacity>
-              {/* + lägg till nästa pilot ombord (3:e, 4:e …). SP/MP avgörs automatiskt. */}
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
-                onPress={addExtraPilot}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
-                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>
-                  {`Add ${ordinalPilot(extraPilots.length + 3)} pilot`}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Row 2: Registration + Cabin crew (side by side) */}
-        <View style={[styles.row2, activeCrewPicker ? { zIndex: 20 } : null]}>
-          <View style={{ flex: 1 }}>
-            <FormField
-              label={t('registration')}
-              value={form.registration}
-              onChangeText={(v) => set('registration', v.toUpperCase())}
-              error={errors.registration}
-              placeholder="SE-KXY"
-              autoCapitalize="characters"
-              onPressAdd={() => {
-                if (!form.aircraft_type) {
-                  Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg'));
-                  return;
-                }
-                Alert.prompt(
-                  t('new_registration'),
-                  `${t('add_registration_for')} ${form.aircraft_type}`,
-                  async (reg) => {
-                    const r = reg?.trim().toUpperCase();
-                    if (!r) return;
-                    await addToAircraftRegistry(form.aircraft_type, r);
-                    const updated = await getRecentRegistrations(form.aircraft_type);
-                    setRecentRegs(updated);
-                    set('registration', r);
-                  },
-                  'plain-text',
-                  '',
-                );
-              }}
-            />
-            <View style={styles.regRow}>
-              <TouchableOpacity
-                style={[styles.regDropdownBtn, !form.aircraft_type && styles.regDropdownDisabled]}
-                onPress={() => {
-                  if (!form.aircraft_type) {
-                    Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg'));
-                    return;
-                  }
-                  setShowRegModal(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
-              </TouchableOpacity>
-              {mostRecentReg && (
-                <TouchableOpacity
-                  style={[styles.chip, styles.chipRecent]}
-                  onPress={() => set('registration', mostRecentReg)}
-                >
-                  <Ionicons name="star" size={9} color={Colors.gold} style={{ marginRight: 3 }} />
-                  <Text style={[styles.chipText, styles.chipRecentText]}>{mostRecentReg}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
-            {crewMembers.map((member, idx) => (
-              <View key={member.id} style={{ gap: 4, marginTop: idx === 0 ? 0 : 8, position: 'relative', zIndex: activeCrewPicker === member.id ? 20 : 0 }}>
-                <View style={{ flexDirection: 'row', gap: 4 }}>
-                  <TouchableOpacity
-                    style={[styles.roleSelectBtn, member.role ? styles.roleSelectBtnActive : null]}
-                    onPress={() => setActiveCrewPicker(activeCrewPicker === member.id ? null : member.id)}
-                    activeOpacity={0.75}
-                  >
-                    {member.role ? (
-                      <Text style={[styles.roleSelectText, { color: Colors.primary }]} numberOfLines={1}>
-                        {CREW_ROLES.find(r => r.key === member.role)?.short ?? member.role}
-                      </Text>
-                    ) : (
-                      <Ionicons name="person-outline" size={14} color={Colors.textMuted} />
-                    )}
-                    <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
-                  </TouchableOpacity>
-                  <TextInput
-                    style={styles.roleNameInput}
-                    value={member.name}
-                    onChangeText={(v) => updateCrewMember(member.id, 'name', v)}
-                    placeholder={t('crew_name_ph')}
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                  {crewMembers.length > 1 && (
-                    <TouchableOpacity onPress={() => removeCrewMember(member.id)} style={{ justifyContent: 'center' }}>
-                      <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {activeCrewPicker === member.id && (
-                  <View style={[styles.rolePickerDropdown, styles.rolePickerFloat]}>
-                    {[{ key: '', label: `— ${t('clear')}` }, ...CREW_ROLES].map(opt => (
-                      <TouchableOpacity
-                        key={opt.key}
-                        style={{
-                          paddingHorizontal: 14, paddingVertical: 10,
-                          borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
-                          backgroundColor: member.role === opt.key ? Colors.primary + '14' : undefined,
-                        }}
-                        onPress={() => { updateCrewMember(member.id, 'role', opt.key); setActiveCrewPicker(null); }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ color: member.role === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-            {/* Bokmärke (sparade kabinnamn) + lägg till besättning till höger */}
-            <View style={[styles.regRow, { marginTop: 8 }]}>
-              <TouchableOpacity
-                style={[styles.regDropdownBtn, savedCrewNames.length === 0 && styles.regDropdownDisabled]}
-                onPress={() => { if (savedCrewNames.length === 0) return; setShowCrewNameModal(true); }}
-                activeOpacity={savedCrewNames.length === 0 ? 1 : 0.7}
-              >
-                <Ionicons name="bookmark" size={12} color={savedCrewNames.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-                <Ionicons name="chevron-down" size={12} color={savedCrewNames.length === 0 ? Colors.textMuted : Colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
-                onPress={addCrewMember}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle-outline" size={14} color={Colors.primary} />
-                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>{t('crew_add_more')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Route ── (pil fäller ner dag/natt-kartan; pil + guld endast när dep/arr + tider ifyllda) */}
-        <TouchableOpacity
-          onPress={() => { if (routeReady) setSunRouteOpen((o) => !o); }}
-          onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 2 }}
-          activeOpacity={routeReady ? 0.7 : 1}
-        >
-          <Text style={[styles.section, { marginTop: 0, marginBottom: 0 }, routeReady && { color: Colors.gold }]}>{t('route_utc')}</Text>
-          {routeReady && <Ionicons name={sunRouteOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.gold} />}
-        </TouchableOpacity>
+        {/* ── Route ── (ingen rubrik/pil; sol-rutten nås ENBART via globen i kortet) */}
+        <View style={{ marginTop: 10 }} />
 
         {/* Departure (vänster) / Arrival (höger) — två sektioner sida vid sida.
             Varje sektion: rubrik → ICAO/ZZZZ (off-airport) → fritext-plats → tidsruta (UTC/lokal). */}
-        <View style={styles.placeBlock}>
-          <View style={{ flexDirection: 'row' }}>
+        <View style={styles.placeBlock} onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}>
+          {/* Sim-typväljare högst upp i route-kortet (designen) — endast i Sim-läge */}
+          {form.flight_type === 'sim' && (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>{t('simulator_type')}</Text>
+              <View style={styles.simCatRow}>
+                {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
+                  const active = form.sim_category === cat;
+                  return (
+                    <TouchableOpacity key={cat} style={[styles.simCatBtn, active && styles.simCatBtnActive]} onPress={() => set('sim_category', cat)} activeOpacity={0.75}>
+                      <Text style={[styles.simCatText, active && styles.simCatTextActive]}>{cat.replace(/_/g, '/')}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {(form.sim_category === 'CPT_PPT' || form.sim_category === 'CBT') && (
+                <View style={[styles.remarksWarning, { marginTop: 7 }]}>
+                  <Ionicons name="warning" size={14} color={Colors.warning} />
+                  <Text style={styles.remarksWarningText}>{t('sim_no_credit_warning')}</Text>
+                </View>
+              )}
+            </View>
+          )}
+          <View style={styles.legRow}>
             {/* ── DEPARTURE ── */}
-            <View style={{ flex: 1 }}>
+            <View style={styles.legPanelLeft}>
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('departure')}</Text>
               </View>
-              <View style={[styles.locSegment, { marginBottom: 6 }]}>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, !depCustom && styles.locSegmentBtnActive]}
-                  onPress={() => { setDepCustom(false); set('dep_place', ''); }}
-                >
-                  <Text style={[styles.locSegmentText, !depCustom && styles.locSegmentTextActive]}>{t('icao_label')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, depCustom && styles.locSegmentBtnActive]}
-                  onPress={() => { setDepCustom(true); set('dep_place', ''); }}
-                >
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.locSegmentText, depCustom && styles.locSegmentTextActive]}>{t('temporary_label')}</Text>
-                </TouchableOpacity>
-              </View>
+              <SlideToggle
+                block
+                sans
+                options={[{ value: 'icao', label: t('icao_label') }, { value: 'temp', label: 'ZZZZ' }]}
+                value={depCustom ? 'temp' : 'icao'}
+                onChange={(v) => { setDepCustom(v === 'temp'); set('dep_place', ''); }}
+              />
               <IcaoInput
                 ref={depIcaoRef}
                 label=""
+                inputFontFamily={FONT_LED14}
+                design
                 value={form.dep_place}
                 onChangeText={(v) => set('dep_place', v)}
                 error={errors.dep_place}
@@ -2056,6 +1863,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   ref={depTimeRef}
                   label=""
                   align="left"
+                  inputFontFamily={FONT_LED7}
+                  compactRight
                   value={timeMode === 'utc' ? form.dep_utc : depLocalBuf}
                   onChangeText={(v) => {
                     if (timeMode === 'utc') set('dep_utc', v); else onDepLocalChange(v);
@@ -2075,57 +1884,53 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     }
                   }}
                   rightAdornment={
-                    <View style={{ alignItems: 'flex-end', gap: 1 }}>
-                      <Pressable
-                        onPress={toggleTimeMode}
-                        hitSlop={10}
-                        style={({ pressed }) => ({
-                          backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                          borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                          paddingHorizontal: 6, paddingVertical: 2,
-                        })}
-                      >
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                          {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon) ?? 'LT')}
-                        </Text>
-                      </Pressable>
-                      {(() => {
-                        if (!isValidTime(form.dep_utc)) return null;
-                        const below = timeMode === 'utc'
-                          ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
-                          : `${form.dep_utc} UTC`;
-                        return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
-                      })()}
-                    </View>
+                    <Pressable onPress={toggleTimeMode} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
+                      <Text style={{ fontFamily: FONT_LED14, fontSize: 15, fontWeight: '700', color: timeMode === 'utc' ? Colors.primary : Colors.gold }}>
+                        {timeMode === 'utc' ? 'Z' : 'L'}
+                      </Text>
+                    </Pressable>
                   }
                 />
+                {isValidTime(form.dep_utc) && (() => {
+                  const below = timeMode === 'utc'
+                    ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
+                    : `${form.dep_utc} UTC`;
+                  return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
+                })()}
               </View>
             </View>
 
-            <View style={styles.placeColDivider} />
+            {/* Connector — landsflaggor (dep→arr) + streckad linje + nedåtriktad farkost-glyf.
+                Glyf = senast flugna modell (annars onboarding-val), oberoende av aktuell typ. */}
+            <View style={{ width: 38, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
+              <CountryFlag code={depLatLon?.country} height={15} />
+              <View style={{ flex: 1, minHeight: 12, width: 0, borderLeftWidth: 2, borderColor: Colors.primary + '80', borderStyle: 'dashed' }} />
+              <Image
+                source={glyphIsHeli ? require('../../assets/Pilot-helicopter.PNG') : require('../../assets/Pilot-fixedwing.PNG')}
+                style={{ width: 48, height: 48, transform: [{ rotate: '180deg' }], tintColor: Colors.primary }}
+                resizeMode="contain"
+              />
+              <View style={{ flex: 1, minHeight: 12, width: 0, borderLeftWidth: 2, borderColor: Colors.primary + '80', borderStyle: 'dashed' }} />
+              <CountryFlag code={arrLatLon?.country} height={15} />
+            </View>
 
             {/* ── ARRIVAL ── */}
-            <View style={{ flex: 1 }}>
+            <View style={styles.legPanelRight}>
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('arrival')}</Text>
               </View>
-              <View style={[styles.locSegment, { marginBottom: 6 }]}>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, !arrCustom && styles.locSegmentBtnActive]}
-                  onPress={() => { setArrCustom(false); set('arr_place', ''); }}
-                >
-                  <Text style={[styles.locSegmentText, !arrCustom && styles.locSegmentTextActive]}>{t('icao_label')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.locSegmentBtn, arrCustom && styles.locSegmentBtnActive]}
-                  onPress={() => { setArrCustom(true); set('arr_place', ''); }}
-                >
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.locSegmentText, arrCustom && styles.locSegmentTextActive]}>{t('temporary_label')}</Text>
-                </TouchableOpacity>
-              </View>
+              <SlideToggle
+                block
+                sans
+                options={[{ value: 'icao', label: t('icao_label') }, { value: 'temp', label: 'ZZZZ' }]}
+                value={arrCustom ? 'temp' : 'icao'}
+                onChange={(v) => { setArrCustom(v === 'temp'); set('arr_place', ''); }}
+              />
               <IcaoInput
                 ref={arrIcaoRef}
                 label=""
+                inputFontFamily={FONT_LED14}
+                design
                 value={form.arr_place}
                 onChangeText={(v) => set('arr_place', v)}
                 error={errors.arr_place}
@@ -2158,110 +1963,156 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   ref={arrTimeRef}
                   label=""
                   align="left"
+                  inputFontFamily={FONT_LED7}
+                  compactRight
                   value={timeMode === 'utc' ? form.arr_utc : arrLocalBuf}
                   onChangeText={timeMode === 'utc' ? (v) => set('arr_utc', v) : onArrLocalChange}
                   error={errors.arr_utc}
                   showNowBtn={false}
                   rightAdornment={
-                    <View style={{ alignItems: 'flex-end', gap: 1 }}>
-                      <Pressable
-                        onPress={toggleTimeMode}
-                        hitSlop={10}
-                        style={({ pressed }) => ({
-                          backgroundColor: Colors.gold + (pressed ? '38' : '22'),
-                          borderColor: Colors.gold + '7A', borderWidth: 1, borderRadius: 6,
-                          paddingHorizontal: 6, paddingVertical: 2,
-                        })}
-                      >
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono', letterSpacing: 0.5 }}>
-                          {timeMode === 'utc' ? 'UTC' : (tzAbbr(instantFromDateTime(form.date, '12:00') ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon) ?? 'LT')}
-                        </Text>
-                      </Pressable>
-                      {(() => {
-                        if (!isValidTime(form.arr_utc)) return null;
-                        const below = timeMode === 'utc'
-                          ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
-                          : `${form.arr_utc} UTC`;
-                        return below ? <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{below}</Text> : null;
-                      })()}
-                    </View>
+                    <Pressable onPress={toggleTimeMode} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
+                      <Text style={{ fontFamily: FONT_LED14, fontSize: 15, fontWeight: '700', color: timeMode === 'utc' ? Colors.primary : Colors.gold }}>
+                        {timeMode === 'utc' ? 'Z' : 'L'}
+                      </Text>
+                    </Pressable>
                   }
                 />
+                {isValidTime(form.arr_utc) && (() => {
+                  const below = timeMode === 'utc'
+                    ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
+                    : `${form.arr_utc} UTC`;
+                  return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
+                })()}
               </View>
             </View>
           </View>
-        </View>
 
-        {/* ── Route-karta (dag/natt) — togglas av ROUTE-rubriken ovanför rutan ── */}
-        {sunRouteOpen && routeReady && (
-          <View style={styles.card}>
-            <DayNightMap embedded points={routeLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} />
-          </View>
-        )}
-
-        {/* Flight type */}
-        <View style={styles.flightTypePicker}>
-          {(['normal', 'touch_and_go', 'sim'] as const).map((ft) => {
-            const labels: Record<string, string> = {
-              normal: t('normal'),
-              touch_and_go: t('dn_route'),
-              sim: t('ffs_sim'),
-            };
-            const active = (form.flight_type ?? 'normal') === ft;
-            // Route behåller sina stopp även när man väljer normal/sim; chippen guldmarkeras
-            // då för att visa att det finns sparade stopp (tas bort via ✕ i Route-listan).
-            const hasStops = ft === 'touch_and_go' && routeStops.length > 0;
+          {/* Route-info visas först när allt är ifyllt; sedan uppdateras den bara (försvinner ej). */}
+          {routeRevealed && (<>
+          {/* ── Total flygtid (hero) + distans + sol-glob — designens route-card ── */}
+          {(() => {
+            const isNightFlight = (parseFloat(form.night) || 0) > 0;
+            const distNm = (depLatLon && arrLatLon) ? (() => {
+              const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
+              const dLat = toRad(arrLatLon.lat - depLatLon.lat), dLon = toRad(arrLatLon.lon - depLatLon.lon);
+              const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(depLatLon.lat)) * Math.cos(toRad(arrLatLon.lat)) * Math.sin(dLon / 2) ** 2;
+              return Math.round((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1.852);
+            })() : null;
             return (
-              <TouchableOpacity
-                key={ft}
-                style={[styles.flightTypeChip, active && styles.flightTypeChipActive, hasStops && !active && { borderColor: Colors.gold, backgroundColor: Colors.gold + '1A' }]}
-                onPress={() => {
-                  set('flight_type', ft);
-                  if (ft === 'sim' && !form.sim_category) set('sim_category', 'FFS');
-                  if (ft !== 'sim') set('sim_category', '');
-                }}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.flightTypeChipText, active && styles.flightTypeChipTextActive, hasStops && !active && { color: Colors.gold }]}>
-                  {labels[ft]}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {form.flight_type === 'sim' && (
-          <>
-            <View style={styles.simCatRow}>
-              {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
-                const active = form.sim_category === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.simCatBtn, active && styles.simCatBtnActive]}
-                    onPress={() => set('sim_category', cat)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.simCatText, active && styles.simCatTextActive]}>
-                      {cat.replace(/_/g, '/')}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {(form.sim_category === 'CPT_PPT' || form.sim_category === 'CBT') && (
-              <View style={styles.remarksWarning}>
-                <Ionicons name="warning" size={14} color={Colors.warning} />
-                <Text style={styles.remarksWarningText}>{t('sim_no_credit_warning')}</Text>
+              <View style={{ position: 'relative', marginTop: 12, minHeight: 70, alignItems: 'center', justifyContent: 'center' }}>
+                {/* distans + medelfart till vänster (vit LED), synkat med globen till höger */}
+                {form.flight_type !== 'sim' && distNm != null && (() => {
+                  const totalH = parseFloat(form.total_time) || 0;
+                  const spd = totalH > 0 ? Math.round(distNm / totalH) : null;
+                  return (
+                    <View style={{ position: 'absolute', left: 0, top: 4, gap: 9 }}>
+                      <View>
+                        <Text style={{ fontFamily: FONT_LED14, fontWeight: '800', fontSize: 20, color: '#FFFFFF' }}>
+                          {distNm}<Text style={{ fontSize: 9, color: Colors.primary, fontFamily: 'JetBrainsMono' }}>{' '}NM</Text>
+                        </Text>
+                        <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 7.5, fontWeight: '800', letterSpacing: 1.4, color: Colors.textMuted, textTransform: 'uppercase', marginTop: 2 }}>{t('distance')}</Text>
+                      </View>
+                      {spd != null && (
+                        <View>
+                          <Text style={{ fontFamily: FONT_LED14, fontWeight: '800', fontSize: 20, color: '#FFFFFF' }}>
+                            {spd}<Text style={{ fontSize: 9, color: Colors.primary, fontFamily: 'JetBrainsMono' }}>{' '}Knots</Text>
+                          </Text>
+                          <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 7.5, fontWeight: '800', letterSpacing: 1.4, color: Colors.textMuted, textTransform: 'uppercase', marginTop: 2 }}>{t('avg_speed')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+                {/* center: total flygtid (guld, redigerbar) */}
+                <View style={{ alignItems: 'center', paddingHorizontal: 18, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '88', backgroundColor: Colors.gold + '0D' }}>
+                  {editingTotalTime ? (
+                    <TextInput
+                      style={{ fontFamily: FONT_LED7, fontSize: 28, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', minWidth: 130, padding: 0 }}
+                      value={totalTimeEditValue}
+                      onChangeText={setTotalTimeEditValue}
+                      onBlur={() => {
+                        let decimal = 0;
+                        if (totalTimeEditValue.includes(':')) {
+                          const [h, m] = totalTimeEditValue.split(':');
+                          const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
+                          const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
+                          decimal = hh + mm / 60;
+                        } else {
+                          decimal = parseFloat(totalTimeEditValue) || 0;
+                        }
+                        if (decimal > 0) set('total_time', String(decimal.toFixed(2)));
+                        setEditingTotalTime(false);
+                      }}
+                      onFocus={() => setTotalTimeEditValue(form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '')}
+                      placeholder="0:00"
+                      keyboardType="numbers-and-punctuation"
+                      placeholderTextColor={Colors.textMuted}
+                      autoFocus
+                    />
+                  ) : (
+                    <TouchableOpacity onPress={() => setEditingTotalTime(true)} activeOpacity={0.7}>
+                      <Text style={{ fontFamily: FONT_LED7, fontSize: 28, fontWeight: '800', color: form.total_time ? '#FFFFFF' : Colors.textMuted }}>
+                        {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '--:--'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={{ marginTop: 5, fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, color: '#FFFFFF', textTransform: 'uppercase' }}>{t('total_flight_time')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 }}>
+                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isNightFlight ? Colors.info : Colors.gold }} />
+                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? t('night_flight') : t('day_flight')} flight</Text>
+                  </View>
+                  {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
+                </View>
+                {/* höger: designens digitala sol-glob → öppnar sun route (enda vägen dit) */}
+                {form.flight_type !== 'sim' && routeReady && (() => {
+                  const totalH = parseFloat(form.total_time) || 0;
+                  const nightH = parseFloat(form.night) || 0;
+                  const lit = totalH > 0 ? Math.max(0, Math.min(1, 1 - nightH / totalH)) : 1;
+                  return (
+                    <TouchableOpacity onPress={() => setSunRouteOpen(true)} activeOpacity={0.8} style={{ position: 'absolute', right: 0, top: 0, alignItems: 'center', gap: 3 }}>
+                      <SunGlobe size={60} lit={lit} />
+                      <Text style={{ flexDirection: 'row', fontFamily: 'JetBrainsMono', fontSize: 7.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textMuted, textTransform: 'uppercase' }}>{t('sun_route')}</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
-            )}
-          </>
-        )}
+            );
+          })()}
 
-        {/* Stop place for touch & go */}
-        {/* ── Route stops: Touch & go/low approach · Hot refuel · Pickup/dropoff ── */}
-        {form.flight_type === 'touch_and_go' && (
-          <View style={styles.card}>
+          {/* ── Dag/skymning/natt/gryning längs rutten (sol-route-data) — designens TwilightBar ── */}
+          {form.flight_type !== 'sim' && twilightSegs.length > 0 && (() => {
+            const totalH = parseFloat(form.total_time) || 0;
+            const nvgPct = totalH > 0 ? Math.min(100, ((parseFloat(form.nvg ?? '0') || 0) / totalH) * 100) : 0;
+            const nightLabel = (parseFloat(form.night) || 0) > 0 ? decimalToHHMM(parseFloat(form.night)) : undefined;
+            return (
+              <View style={{ marginTop: 13 }}>
+                <TwilightBar segs={twilightSegs} nightLabel={nightLabel} nvgPct={nvgPct} />
+              </View>
+            );
+          })()}
+          {/* Stops / via — inbakad i nedre kanten: chip på streckad skiljelinje, expanderar kortet */}
+          {logFull && form.flight_type !== 'sim' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1, marginHorizontal: -14, paddingHorizontal: 12 }}>
+              <View style={{ flex: 1, borderTopWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' }} />
+              <TouchableOpacity
+                onPress={() => { set('flight_type', form.flight_type === 'touch_and_go' ? 'normal' : 'touch_and_go'); }}
+                activeOpacity={0.75}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 8,
+                  backgroundColor: Colors.card, borderWidth: 1, borderColor: form.flight_type === 'touch_and_go' ? Colors.primary : Colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}
+              >
+                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: form.flight_type === 'touch_and_go' ? Colors.primary : Colors.textSecondary }}>{t('stops_via')}</Text>
+                {routeStops.length > 0 && (
+                  <View style={{ backgroundColor: Colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 }}>
+                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', color: Colors.textInverse }}>{routeStops.length}</Text>
+                  </View>
+                )}
+                <Ionicons name={form.flight_type === 'touch_and_go' ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              <View style={{ flex: 1, borderTopWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' }} />
+            </View>
+          )}
+          {form.flight_type === 'touch_and_go' && (
+          <View style={{ marginTop: 12 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {/* Vänster: väljare */}
               <View style={{ width: '46%', gap: 8 }}>
@@ -2380,356 +2231,68 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               </Pressable>
             </Modal>
           </View>
-        )}
+          )}
+          </>)}
+        </View>
+
+        {/* ── Sun route (dag/natt) i modal — designens route-vy, öppnas av ROUTE-rubriken ── */}
+        <Modal visible={sunRouteOpen && routeReady} transparent animationType="slide" onRequestClose={() => setSunRouteOpen(false)}>
+          <Pressable style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }} onPress={() => setSunRouteOpen(false)}>
+            <Pressable style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingTop: 10, paddingBottom: 28, paddingHorizontal: 14 }} onPress={(e) => e.stopPropagation()}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text style={{ fontFamily: 'Fraunces', fontSize: 17, fontWeight: '600', color: Colors.textPrimary }}>Sun route</Text>
+                <TouchableOpacity onPress={() => setSunRouteOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <DayNightMap embedded points={routeLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} />
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+
 
         {/* hot refuel ingår nu i Route-stoppen ovan */}
 
-        {/* ── Flight time ── */}
-        <Text style={styles.section}>{t('flight_time_section')}</Text>
-
-        <View style={styles.card}>
-          {/* Total flygtid — auto från block-off/block-on */}
-          <View style={styles.totalTimeRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardFieldLabel}>{t('total_flight_time')}</Text>
-              {editingTotalTime ? (
-                <TextInput
-                  style={[styles.totalTimeValue, styles.totalTimeValueFilled, { textAlign: 'center', paddingVertical: 8 }]}
-                  value={totalTimeEditValue}
-                  onChangeText={setTotalTimeEditValue}
-                  onBlur={() => {
-                    // Parsera HH:MM eller decimal när vi är klara
-                    let decimal = 0;
-                    if (totalTimeEditValue.includes(':')) {
-                      const [h, m] = totalTimeEditValue.split(':');
-                      const hh = parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0;
-                      const mm = Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0);
-                      decimal = hh + mm / 60;
-                    } else {
-                      decimal = parseFloat(totalTimeEditValue) || 0;
-                    }
-                    if (decimal > 0) {
-                      set('total_time', String(decimal.toFixed(2)));
-                    }
-                    setEditingTotalTime(false);
-                  }}
-                  onFocus={() => {
-                    // När vi fokuserar på fältet, sätt det till den nuvarande tiden
-                    setTotalTimeEditValue(form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '');
-                  }}
-                  placeholder="0:00"
-                  keyboardType="numbers-and-punctuation"
-                  placeholderTextColor={Colors.textMuted}
-                  autoFocus
-                />
-              ) : (
-                <TouchableOpacity
-                  style={styles.totalTimeDisplay}
-                  onPress={() => setEditingTotalTime(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.totalTimeValue,
-                    form.total_time ? styles.totalTimeValueFilled : styles.totalTimeValueEmpty,
-                  ]}>
-                    {form.total_time ? decimalToHHMM(parseFloat(form.total_time)) : '—'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardFieldLabel}>{t('your_role')}</Text>
-              <View style={styles.roleGrid}>
-                <View style={styles.roleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleBtn,
-                      role === 'pic' && styles.roleBtnActive,
-                      (role === 'dual' || role === 'picus') && styles.roleBtnDisabled,
-                    ]}
-                    disabled={role === 'dual' || role === 'picus'}
-                    onPress={() => handleRoleChange('pic')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleBtn,
-                      role === 'co_pilot' && styles.roleBtnActive,
-                      (role === 'dual' || role === 'picus') && styles.roleBtnDisabled,
-                    ]}
-                    disabled={role === 'dual' || role === 'picus'}
-                    onPress={() => handleRoleChange('co_pilot')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>{t('co_pilot')}</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.roleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleBtn,
-                      fi && role === 'pic' && styles.roleBtnActive,
-                      role !== 'pic' && styles.roleBtnDisabled,
-                    ]}
-                    disabled={role !== 'pic'}
-                    onPress={toggleFi}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>FI</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
-                    onPress={toggleDual}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, role === 'picus' && styles.roleBtnActive]}
-                    onPress={togglePicus}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'picus' && styles.roleBtnTextActive]}>PICUS</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  style={styles.specialRoleBtn}
-                  onPress={() => setShowSpecialRole(true)}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="options-outline" size={13} color={Colors.primary} />
-                  <Text style={styles.specialRoleBtnText}>
-                    {['spic','ferry_pic','observer','relief_crew'].includes(role)
-                      ? t(`role_${role}` as any)
-                      : examinerOverlay
-                        ? t('role_examiner')
-                        : safetyPilotOverlay
-                          ? t('role_safety_pilot')
-                          : t('special_role')}
-                  </Text>
-                  <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <Text style={[styles.cardFieldLabel, { marginTop: -6, marginBottom: 2 }]}>{t('flight_rules')}</Text>
-          <SegmentControl
-            options={[
-              { label: 'VFR', value: 'VFR' },
-              { label: 'IFR', value: 'IFR' },
-              { label: 'Y/Z flight', value: 'Y' },
-            ]}
-            value={(form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR')}
-            onChange={(v) => set('flight_rules', v)}
-          />
-        </View>
-
-        {/* ── Landings ── */}
-        <Text style={styles.section}>{t('landings')}</Text>
-        <View style={styles.card}>
-          <View style={styles.counterGrid}>
-            <Counter label={t('day')} value={form.landings_day} onChange={(v) => { setLandingsManual(true); set('landings_day', v); }} />
-            <View style={styles.counterDivider} />
-            <Counter label={t('night')} value={form.landings_night} onChange={(v) => { setLandingsManual(true); set('landings_night', v); }} />
-          </View>
-          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: -14, paddingHorizontal: 14, marginTop: 10, paddingBottom: 8, gap: 8 }}>
-              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>Max FL</Text>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                  paddingHorizontal: 10, paddingVertical: 8, color: Colors.textPrimary,
-                  fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'], width: 70, textAlign: 'center',
-                }}
-                value={form.max_fl ?? ''}
-                onChangeText={(v) => set('max_fl', v.replace(/\D/g, ''))}
-                placeholder="—"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={3}
-              />
-              <View style={{ flex: 1 }} />
-              {(() => {
-                // Destinationens approach-val (oberoende av route-stoppen).
-                const hasArrival = form.arr_place && form.arr_place.trim();
-                const runways = hasArrival ? ((runwayData as Record<string, number[]>)[form.arr_place.toUpperCase()] || []) : [];
-                const firstRunway = runways[0];
-                const firstOpposite = firstRunway !== undefined ? (firstRunway + 180) % 360 : undefined;
-
-                return (
-                  <>
-                    {!selectedApp ? (
-                      <>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedApp('2d')}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>2D APP</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedApp('3d')}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>3D APP</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : hasArrival && firstRunway !== undefined ? (
-                      <>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated,
-                            borderRadius: 8,
-                            borderWidth: 1,
-                            borderColor: Colors.border,
-                            paddingHorizontal: 8,
-                            paddingVertical: 8,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 40,
-                            marginLeft: -30,
-                          }}
-                          onPress={() => setSelectedApp(null)}
-                          activeOpacity={0.75}
-                        >
-                          <Ionicons name="arrow-back" size={16} color={Colors.textPrimary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: selectedRunway === firstRunway ? Colors.primary : Colors.elevated,
-                            borderRadius: 8,
-                            borderWidth: 1,
-                            borderColor: selectedRunway === firstRunway ? Colors.primary : Colors.border,
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 70,
-                          }}
-                          onPress={() => {
-                            setSelectedRunway(firstRunway);
-                            const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstRunway / 10).toString().padStart(2, '0')}`;
-                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                          }}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: selectedRunway === firstRunway ? Colors.textInverse : Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{String(firstRunway).padStart(3, '0')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: selectedRunway === firstOpposite ? Colors.primary : Colors.elevated,
-                            borderRadius: 8,
-                            borderWidth: 1,
-                            borderColor: selectedRunway === firstOpposite ? Colors.primary : Colors.border,
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 70,
-                          }}
-                          onPress={() => {
-                            if (firstOpposite == null) return;
-                            setSelectedRunway(firstOpposite);
-                            const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(firstOpposite / 10).toString().padStart(2, '0')}`;
-                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                          }}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: selectedRunway === firstOpposite ? Colors.textInverse : Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{String(firstOpposite).padStart(3, '0')}</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={{
-                            backgroundColor: Colors.elevated, borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
-                            paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center',
-                          }}
-                          onPress={() => setSelectedApp(null)}
-                          activeOpacity={0.75}
-                        >
-                          <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>Back</Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-            </View>
-          )}
+        {/* ── Flight rules (VFR / Y·Z / IFR) — visas först när rutt+tider är ifyllda (som route-info) ── */}
+        {routeRevealed && (
+        <View style={{ paddingHorizontal: 4, marginTop: 2, marginBottom: 14 }}>
           {(() => {
-            const runways = (runwayData as Record<string, number[]>)[form.arr_place?.toUpperCase() || ''] || [];
-            if (runways.length <= 1 || !selectedApp) return null;
-
+            const ruleVal = (form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR');
+            // Quicklog: bara VFR/IFR (designen) · Full: VFR/Y·Z/IFR. Y/Z visas som IFR i quicklog.
+            const qVal = ruleVal === 'Y' ? 'IFR' : ruleVal;
+            const options = logFull
+              ? [{ value: 'VFR', label: 'VFR' }, { value: 'Y', label: 'Y/Z' }, { value: 'IFR', label: 'IFR' }]
+              : [{ value: 'VFR', label: 'VFR' }, { value: 'IFR', label: 'IFR' }];
             return (
-              <View style={{ flexDirection: 'column', marginHorizontal: -14, paddingHorizontal: 14 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                  <View style={{ flexDirection: 'column', gap: 8 }}>
-                    {runways.slice(1).map((heading: number) => {
-                  const oppositeHeading = (heading + 180) % 360;
-                  return (
-                    <View key={heading} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor: selectedRunway === heading ? Colors.primary : Colors.elevated,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: selectedRunway === heading ? Colors.primary : Colors.border,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          minWidth: 70,
-                        }}
-                        onPress={() => {
-                          setSelectedRunway(heading);
-                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(heading / 10).toString().padStart(2, '0')}`;
-                          set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
-                        }}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={{ color: selectedRunway === heading ? Colors.textInverse : Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{String(heading).padStart(3, '0')}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor: selectedRunway === oppositeHeading ? Colors.primary : Colors.elevated,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: selectedRunway === oppositeHeading ? Colors.primary : Colors.border,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          minWidth: 70,
-                        }}
-                        onPress={() => {
-                          setSelectedRunway(oppositeHeading);
-                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(oppositeHeading / 10).toString().padStart(2, '0')}`;
-                          set('remarks', form.remarks && form.flight_type === 'touch_and_go' ? `${form.remarks}\n${newLine}` : newLine);
-                        }}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={{ color: selectedRunway === oppositeHeading ? Colors.textInverse : Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{String(oppositeHeading).padStart(3, '0')}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-                  </View>
-                </View>
-              </View>
+              <SlideToggle
+                block
+                sans
+                size="md"
+                options={options}
+                value={logFull ? ruleVal : qVal}
+                onChange={(v) => {
+                  set('flight_rules', v);
+                  // Knapp → barer: VFR/IFR fyller helt, Y/Z delar 50/50 (om inte redan mixad).
+                  const tot = parseFloat(form.total_time) || 0;
+                  if (v === 'VFR') { set('vfr', tot.toFixed(2)); set('ifr', '0'); }
+                  else if (v === 'IFR') { set('ifr', tot.toFixed(2)); set('vfr', '0'); }
+                  else {
+                    const ifrNow = parseFloat(form.ifr ?? '0') || 0, vfrNow = parseFloat(form.vfr ?? '0') || 0;
+                    if (ifrNow <= 0 || vfrNow <= 0) { set('ifr', (tot / 2).toFixed(2)); set('vfr', (tot / 2).toFixed(2)); }
+                  }
+                  setRawTime((r) => { const n = { ...r }; delete n.ifr; delete n.vfr; return n; });
+                }}
+                activeColor={ruleVal === 'VFR' ? Colors.success : ruleVal === 'IFR' ? Colors.primary : Colors.gold}
+              />
             );
           })()}
+        </View>
+        )}
+
+        {/* ── Conditions (VFR/IFR/Night/NVG) — visas först när rutt+tider är ifyllda + Full ── */}
+        {routeRevealed && logFull && (
+          <View style={{ marginTop: 2, marginBottom: 6 }}>
           {(() => {
             const total = parseFloat(form.total_time) || 0;
             const pct = (v: string) => {
@@ -2737,19 +2300,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               return total > 0 ? Math.round((n / total) * 100) : 0;
             };
             const cap = (n: number) => Math.min(Math.max(0, n), total || n);
+            // Barerna äger värdet; knapparna (VFR/Y·Z/IFR) härleds av barerna. EN setForm per
+            // drag-steg (ingen haptik/raw-churn per move) → mjuk, icke-laggig dragning.
             const setPct = (key: 'ifr' | 'vfr' | 'night' | 'nvg', p: number) => {
-              Haptics.selectionAsync();
-              const val = (total * p / 100).toFixed(2);
-              set(key, String(val));
-              setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
-              if (key === 'ifr') {
-                set('vfr', String((total - parseFloat(val)).toFixed(2)));
-                setRawTime((r) => { const n = { ...r }; delete n.vfr; return n; });
-              } else if (key === 'vfr') {
-                set('ifr', String((total - parseFloat(val)).toFixed(2)));
-                setRawTime((r) => { const n = { ...r }; delete n.ifr; return n; });
+              const val = (total * p / 100);
+              if (key === 'ifr' || key === 'vfr') {
+                const ifrV = key === 'ifr' ? val : Math.max(0, total - val);
+                const vfrV = Math.max(0, total - ifrV);
+                const eps = 0.01;
+                const rules = ifrV >= total - eps ? 'IFR' : (ifrV <= eps ? 'VFR' : 'Y');
+                setForm((prev) => ({ ...prev, ifr: ifrV.toFixed(2), vfr: vfrV.toFixed(2), flight_rules: rules }));
+              } else {
+                setForm((prev) => ({ ...prev, [key]: val.toFixed(2) }));
               }
-              // NVG är fristående — påverkar inte night.
             };
             const formatForInput = (decimal: string) => {
               const n = parseFloat(decimal);
@@ -2788,241 +2351,321 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             };
             const valueFor = (key: 'ifr' | 'vfr' | 'night' | 'nvg', decimal: string) =>
               rawTime[key] !== undefined ? rawTime[key]! : formatForInput(decimal);
-            const mixed = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
-            const vfrFirst = form.flight_rules === 'Z';
-            const ifrRow = (
-              <View key="ifr-block">
-                <Text style={styles.cardFieldLabel}>IFR ({pct(form.ifr)}%)</Text>
-                <View style={styles.sliderRow}>
-                  <TextInput
-                    style={[styles.nvgInput, styles.sliderInput]}
-                    value={valueFor('ifr', form.ifr)}
-                    onChangeText={(v) => onHhmmChange('ifr', v)}
-                    onBlur={() => onHhmmBlur('ifr')}
-                    placeholder="0:00"
-                    keyboardType="numbers-and-punctuation"
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                  <View style={styles.sliderTrack}>
-                    <Slider
-                      style={{ flex: 1, height: 36 }}
-                      minimumValue={0}
-                      maximumValue={100}
-                      step={10}
-                      value={pct(form.ifr)}
-                      onValueChange={(v) => setPct('ifr', v)}
-                      minimumTrackTintColor={Colors.primary}
-                      maximumTrackTintColor={Colors.border}
-                      thumbTintColor={Colors.primary}
-                    />
-                    <View style={styles.sliderDots}>
-                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
-                        <View key={d} style={[styles.sliderDot, pct(form.ifr) >= d && styles.sliderDotActive]} />
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            );
-            const vfrRow = (
-              <View key="vfr-block">
-                <Text style={styles.cardFieldLabel}>VFR ({pct(form.vfr ?? '0')}%)</Text>
-                <View style={styles.sliderRow}>
-                  <TextInput
-                    style={[styles.nvgInput, styles.sliderInput]}
-                    value={valueFor('vfr', form.vfr ?? '0')}
-                    onChangeText={(v) => onHhmmChange('vfr', v)}
-                    onBlur={() => onHhmmBlur('vfr')}
-                    placeholder="0:00"
-                    keyboardType="numbers-and-punctuation"
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                  <View style={styles.sliderTrack}>
-                    <Slider
-                      style={{ flex: 1, height: 36 }}
-                      minimumValue={0}
-                      maximumValue={100}
-                      step={10}
-                      value={pct(form.vfr ?? '0')}
-                      onValueChange={(v) => setPct('vfr', v)}
-                      minimumTrackTintColor={Colors.primary}
-                      maximumTrackTintColor={Colors.border}
-                      thumbTintColor={Colors.primary}
-                    />
-                    <View style={styles.sliderDots}>
-                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
-                        <View key={d} style={[styles.sliderDot, pct(form.vfr ?? '0') >= d && styles.sliderDotActive]} />
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            );
+            // NVG-fönster i % (sol < −0.30° längs rutten) → röd fyllning förbi fönstret (design).
+            const nvgWindowPct = (() => {
+              if (!depLatLon || !arrLatLon || !form.date || total <= 0) return 100;
+              const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+              if (!inst) return 100;
+              const dw = computeDarkWindow({ depLat: depLatLon.lat, depLon: depLatLon.lon, arrLat: arrLatLon.lat, arrLon: arrLatLon.lon, dep: inst.dep, arr: inst.arr, altitudeDeg: -0.30 });
+              return Math.min(100, (dw.minutes / 60 / total) * 100);
+            })();
+            const lock = () => setScrollLocked(true);
+            const unlock = () => setScrollLocked(false);
+            const vfrCond = <CondBar key="vfr" label="VFR" pct={pct(form.vfr ?? '0')} onPct={(p) => setPct('vfr', p)} tint={Colors.success} totalMin={total * 60} onGrab={lock} onRelease={unlock} />;
+            const ifrCond = <CondBar key="ifr" label="IFR" pct={pct(form.ifr)} onPct={(p) => setPct('ifr', p)} tint={Colors.primary} totalMin={total * 60} onGrab={lock} onRelease={unlock} />;
+            // NVG synlig endast om flighten berörde skymning→gryning (annars meningslöst).
+            const touchedTwilight = twilightSegs.some((s) => s.k !== 'day');
             return (
               <>
-                {mixed && (vfrFirst ? <>{vfrRow}{ifrRow}</> : <>{ifrRow}{vfrRow}</>)}
+                {/* VFR + IFR alltid synliga; barerna och knapparna (VFR/Y·Z/IFR) är länkade. */}
+                {vfrCond}{ifrCond}
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={styles.cardFieldLabel}>{t('night')} ({pct(form.night)}%)</Text>
-                  <View style={{ flex: 1 }} />
-                  {(() => {
-                    // Mörker-intervall LÄNGS RUTTEN under flygningen (sol < −6°, samma sampling som night-värdet).
-                    // Finns inget mörker under flyget men night är överstyrd → visa dagens mörkerfönster
-                    // (avgångsregionen) i RÖTT så man ser när mörkret faktiskt infaller. Guld = auto.
-                    if (!depLatLon || !arrLatLon || !form.date) return null;
-                    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-                    if (!inst) return null;
-                    const [Y, Mo, Da] = form.date.split('-').map(Number);
-                    if (!Y || !Mo || !Da) return null;
-                    const zone = timeMode === 'utc' ? 'UTC' : (tzAbbr(inst.dep, depLatLon.country, depLatLon.region, depLatLon.lon) ?? 'LT');
-                    const pad = (n: number) => String(n).padStart(2, '0');
-                    const fmtClock = (d: Date) => timeMode === 'utc' ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
-                      : (utcToLocalHHMM(d, depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
-                    const fmt = (hhmm: string) => timeMode === 'utc' ? hhmm
-                      : (utcToLocalHHMM(instantFromDateTime(form.date, hhmm) ?? new Date(0), depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? hhmm);
-                    const dw = computeDarkWindow({
-                      depLat: depLatLon.lat, depLon: depLatLon.lon, arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
-                      dep: inst.dep, arr: inst.arr, altitudeDeg: CIVIL_TWILIGHT_DEG,
-                    });
-                    let txt: string; let red = nightManual;
-                    if (dw.minutes > 0 && dw.start && dw.end) {
-                      txt = `${t('civ_twilight')} ${fmtClock(dw.start)}–${fmtClock(dw.end)} ${zone}`;
-                    } else if (nightManual) {
-                      const day = sunTimesUTC(new Date(Date.UTC(Y, Mo - 1, Da, 12, 0)), depLatLon.lat, depLatLon.lon, CIVIL_TWILIGHT_DEG);
-                      if (day.sunset && day.sunrise) txt = `${t('civ_twilight')} ${fmt(day.sunset)}–${fmt(day.sunrise)} ${zone}`;
-                      else {
-                        const noonUtc = new Date(Date.UTC(Y, Mo - 1, Da, 12, 0) - Math.round((depLatLon.lon / 15) * 3600000));
-                        txt = solarAltitudeDeg(noonUtc, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG ? t('polar_dark') : t('polar_light');
-                      }
-                      red = true;
-                    } else return null;
-                    return (
-                      <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: red ? Colors.danger : Colors.gold, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
-                        {txt}
-                      </Text>
-                    );
-                  })()}
-                  {nightManual && depLatLon && arrLatLon && (
-                    <TouchableOpacity
-                      onPress={() => { Haptics.selectionAsync(); setNightManual(false); setRawTime((r) => { const n = { ...r }; delete n.night; return n; }); }}
-                      hitSlop={8}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: Colors.gold + '7A', backgroundColor: Colors.gold + '22' }}
-                    >
-                      <Ionicons name="refresh" size={11} color={Colors.gold} />
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.gold, fontFamily: 'JetBrainsMono' }}>{t('reset')}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.sliderRow}>
-                  <TextInput
-                    style={[styles.nvgInput, styles.sliderInput]}
-                    value={valueFor('night', form.night)}
-                    onChangeText={(v) => { setNightManual(true); onHhmmChange('night', v); }}
-                    onBlur={() => onHhmmBlur('night')}
-                    placeholder="0:00"
-                    keyboardType="numbers-and-punctuation"
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                  <View style={styles.sliderTrack}>
-                    <Slider
-                      style={{ flex: 1, height: 36 }}
-                      minimumValue={0}
-                      maximumValue={100}
-                      step={10}
-                      value={pct(form.night)}
-                      onValueChange={(v) => { setNightManual(true); setPct('night', v); }}
-                      minimumTrackTintColor={Colors.primary}
-                      maximumTrackTintColor={Colors.border}
-                      thumbTintColor={Colors.primary}
-                    />
-                    <View style={styles.sliderDots}>
-                      {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
-                        <View key={d} style={[styles.sliderDot, pct(form.night) >= d && styles.sliderDotActive]} />
-                      ))}
-                    </View>
-                  </View>
-                </View>
+                {/* Natt — manuell dragbar som åsidosätter auto-skymningen (route-kortets TwilightBar).
+                    Real: 'auto'-pill tills man drar; reset-knappen dyker upp på samma plats. */}
+                <CondBar
+                  label={t('night')}
+                  autoLabel={(!nightManual && form.flight_type !== 'sim') ? 'auto' : undefined}
+                  onReset={(nightManual && form.flight_type !== 'sim' && depLatLon && arrLatLon) ? () => setNightManual(false) : undefined}
+                  pct={pct(form.night)} onPct={(p) => { setNightManual(true); setPct('night', p); }} tint={Colors.info} totalMin={total * 60}
+                  onGrab={lock} onRelease={unlock} />
 
-                {form.flight_rules !== 'IFR' && (
-                  <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.cardFieldLabel}>NVG ({pct(form.nvg ?? '0')}%)</Text>
-                      <View style={{ flex: 1 }} />
-                      {(() => {
-                        // Röd varning om NVG-tiden överstiger tiden solen är vid/under horisonten längs
-                        // rutten (sol-centrum < −0.30°). Finns inget sådant fönster under flyget (mitt på
-                        // dagen) → visa dagens fönster (avgångsregionen) så man ser när mörkret infaller.
-                        // Reset sätter NVG till rätt värde (max möjliga = ruttens fönster, 0 mitt på dagen).
-                        const nvgN = parseFloat(form.nvg ?? '0') || 0;
-                        if (nvgN <= 0 || !depLatLon || !arrLatLon || !form.date) return null;
-                        const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-                        if (!inst) return null;
-                        const [Y, Mo, Da] = form.date.split('-').map(Number);
-                        if (!Y || !Mo || !Da) return null;
-                        const dw = computeDarkWindow({
-                          depLat: depLatLon.lat, depLon: depLatLon.lon, arrLat: arrLatLon.lat, arrLon: arrLatLon.lon,
-                          dep: inst.dep, arr: inst.arr, altitudeDeg: -0.30,
-                        });
-                        const windowH = dw.minutes / 60;
-                        if (nvgN <= windowH + 0.02) return null; // ryms i fönstret → ingen varning
-                        const zone = timeMode === 'utc' ? 'UTC' : (tzAbbr(inst.dep, depLatLon.country, depLatLon.region, depLatLon.lon) ?? 'LT');
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        const fmtClock = (d: Date) => timeMode === 'utc' ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
-                          : (utcToLocalHHMM(d, depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
-                        const fmt = (hhmm: string) => timeMode === 'utc' ? hhmm
-                          : (utcToLocalHHMM(instantFromDateTime(form.date, hhmm) ?? new Date(0), depLatLon!.country, depLatLon!.region, depLatLon!.lon) ?? hhmm);
-                        let txt: string;
-                        if (dw.start && dw.end) {
-                          txt = `${t('sunset_lbl')} ${fmtClock(dw.start)} · ${t('dawn_lbl')} ${fmtClock(dw.end)} ${zone}`;
-                        } else {
-                          const day = sunTimesUTC(new Date(Date.UTC(Y, Mo - 1, Da, 12, 0)), depLatLon.lat, depLatLon.lon, -0.30);
-                          if (day.sunset && day.sunrise) txt = `${t('sunset_lbl')} ${fmt(day.sunset)} · ${t('dawn_lbl')} ${fmt(day.sunrise)} ${zone}`;
-                          else txt = t('polar_light');
-                        }
-                        return (
-                          <Text numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right', color: Colors.danger, fontSize: 11, fontFamily: 'JetBrainsMono', letterSpacing: 0.3 }}>
-                            {txt}
-                          </Text>
-                        );
-                      })()}
-                    </View>
-                    <View style={styles.sliderRow}>
-                      <TextInput
-                        style={[styles.nvgInput, styles.sliderInput]}
-                        value={valueFor('nvg', form.nvg ?? '0')}
-                        onChangeText={(v) => onHhmmChange('nvg', v)}
-                        onBlur={() => onHhmmBlur('nvg')}
-                        placeholder="0:00"
-                        keyboardType="numbers-and-punctuation"
-                        placeholderTextColor={Colors.textMuted}
-                      />
-                      <View style={styles.sliderTrack}>
-                        <Slider
-                          style={{ flex: 1, height: 36 }}
-                          minimumValue={0}
-                          maximumValue={100}
-                          step={10}
-                          value={pct(form.nvg ?? '0')}
-                          onValueChange={(v) => setPct('nvg', v)}
-                          minimumTrackTintColor={Colors.primary}
-                          maximumTrackTintColor={Colors.border}
-                          thumbTintColor={Colors.primary}
-                        />
-                        <View style={styles.sliderDots}>
-                          {[0,10,20,30,40,50,60,70,80,90,100].map(d => (
-                            <View key={d} style={[styles.sliderDot, pct(form.nvg ?? '0') >= d && styles.sliderDotActive]} />
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                  </>
-                )}
+                {(() => {
+                  // NVG syns om flighten berörde skymning→gryning ELLER om man manuellt satt nattid
+                  // (t.ex. dagflygning där man ändå loggar natt). Röd varning bara vid verkligt mörkerfönster.
+                  const nightSet = (parseFloat(form.night) || 0) > 0;
+                  const showNvg = form.flight_type === 'sim' ? nightSet : (touchedTwilight || nightSet);
+                  if (!showNvg) return null;
+                  const useWarn = form.flight_type !== 'sim' && touchedTwilight;
+                  return (
+                    <CondBar label="NVG" pct={pct(form.nvg ?? '0')} onPct={(p) => setPct('nvg', p)} tint="#9B8CFF" totalMin={total * 60}
+                      warnAbove={useWarn ? nvgWindowPct : undefined}
+                      notches={useWarn && nvgWindowPct < 100 ? [nvgWindowPct] : undefined}
+                      onGrab={lock} onRelease={unlock} />
+                  );
+                })()}
               </>
             );
           })()}
+          </View>
+        )}
+
+        {/* ── Aircraft & crew (designens kort) ── */}
+        <View style={[styles.card, { gap: 12, marginBottom: 12 }, (typeOpen || regOpen || personOpen) ? { zIndex: 20 } : null]}>
+          {/* Aircraft type + Registration — dropdownflikar (chevron öppnar), "+" i rutan lägger till nytt */}
+          <View style={{ position: 'relative', zIndex: (typeOpen || regOpen) ? 30 : undefined }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1.1 }}>
+                <Text style={styles.cardFieldLabel}>{t('aircraft_type')}</Text>
+                <View style={styles.pickBox}>
+                  <TouchableOpacity style={styles.pickBoxTap} onPress={() => { setRegOpen(false); setTypeOpen((o) => !o); }} activeOpacity={0.7}>
+                    <Text style={[styles.pickBoxValue, !form.aircraft_type && { color: Colors.textMuted }]} numberOfLines={1}>{form.aircraft_type || 'C172'}</Text>
+                    <Ionicons name={typeOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                  <View style={styles.pickBoxDivider} />
+                  <TouchableOpacity onPress={() => { setTypeOpen(false); setShowAircraftModal(true); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.7}>
+                    <Ionicons name="add" size={18} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                {errors.aircraft_type ? <Text style={styles.errorInline}>{errors.aircraft_type}</Text> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardFieldLabel}>{t('registration')}</Text>
+                <View style={styles.pickBox}>
+                  <TouchableOpacity style={styles.pickBoxTap} onPress={() => { if (!form.aircraft_type) { Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg')); return; } setTypeOpen(false); setRegOpen((o) => !o); }} activeOpacity={0.7}>
+                    <Text style={[styles.pickBoxValue, !form.registration && { color: Colors.textMuted }]} numberOfLines={1}>{form.registration || 'SE-KXY'}</Text>
+                    <Ionicons name={regOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                  <View style={styles.pickBoxDivider} />
+                  <TouchableOpacity onPress={() => { setRegOpen(false); promptAddRegistration(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.7}>
+                    <Ionicons name="add" size={18} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                {errors.registration ? <Text style={styles.errorInline}>{errors.registration}</Text> : null}
+              </View>
+            </View>
+
+            {/* Dropdownflik: aircraft type — vertikala kolumner som byggs på åt höger */}
+            {typeOpen && (
+              <View style={[styles.ddFlyout, { left: 0, width: '55%' }]}>
+                {recentTypes.length === 0 ? (
+                  <Text style={styles.ddEmpty}>{t('no_saved_aircraft_types')}</Text>
+                ) : (() => {
+                  const ROWS = 8;
+                  const cols: string[][] = [];
+                  for (let i = 0; i < recentTypes.length; i += ROWS) cols.push(recentTypes.slice(i, i + ROWS));
+                  return (
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {cols.map((col, ci) => (
+                        <View key={ci} style={{ flex: 1, gap: 6 }}>
+                          {col.map((tp) => {
+                            const active = form.aircraft_type === tp;
+                            return (
+                              <TouchableOpacity key={tp} style={[styles.ddChip, active && styles.ddChipActive]} onPress={() => { onTypeSelect(tp); setTypeOpen(false); }} activeOpacity={0.75}>
+                                <Text numberOfLines={1} style={[styles.ddChipText, active && styles.ddChipTextActive]}>{tp}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </View>
+            )}
+
+            {/* Dropdownflik: registration — vertikala kolumner, alfabetisk + numerisk ordning (KILO10 före KILO22) */}
+            {regOpen && (
+              <View style={[styles.ddFlyout, { left: 0, right: 0 }]}>
+                {recentRegs.length === 0 ? (
+                  <Text style={styles.ddEmpty}>{t('no_saved_registrations')}</Text>
+                ) : (() => {
+                  const sorted = [...recentRegs].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+                  const ROWS = 8;
+                  const cols: string[][] = [];
+                  for (let i = 0; i < sorted.length; i += ROWS) cols.push(sorted.slice(i, i + ROWS));
+                  return (
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {cols.map((col, ci) => (
+                        <View key={ci} style={{ flex: 1, gap: 4 }}>
+                          {col.map((rg) => {
+                            const active = form.registration === rg;
+                            return (
+                              <TouchableOpacity key={rg} style={[styles.ddCell, active && styles.ddChipActive]} onPress={() => { set('registration', rg); setRegOpen(false); }} activeOpacity={0.75}>
+                                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.ddCellText, active && styles.ddChipTextActive]}>{rg}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </View>
+            )}
+          </View>
+
+          {/* Your role */}
+          <View style={{ marginBottom: 4 }}>
+              <Text style={styles.cardFieldLabel}>{t('your_role')}</Text>
+              <View style={styles.roleGrid}>
+                {/* Designens 3×2-rutnät: PIC · CO-PILOT · INSTRUCTOR / DUAL · PICUS · Special */}
+                <View style={styles.roleRow}>
+                  <TouchableOpacity
+                    style={[styles.roleBtn, role === 'pic' && styles.roleBtnActive, (role === 'dual' || role === 'picus') && styles.roleBtnDisabled]}
+                    disabled={role === 'dual' || role === 'picus'}
+                    onPress={() => handleRoleChange('pic')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, (role === 'dual' || role === 'picus') && styles.roleBtnDisabled]}
+                    disabled={role === 'dual' || role === 'picus'}
+                    onPress={() => handleRoleChange('co_pilot')}
+                    activeOpacity={0.75}
+                  >
+                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>CO-PILOT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
+                    disabled={role !== 'pic'}
+                    onPress={toggleFi}
+                    activeOpacity={0.75}
+                  >
+                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>INSTRUCTOR</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.roleRow}>
+                  <TouchableOpacity
+                    style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
+                    onPress={toggleDual}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.roleBtn, role === 'picus' && styles.roleBtnActive]}
+                    onPress={togglePicus}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roleBtnText, role === 'picus' && styles.roleBtnTextActive]}>PICUS</Text>
+                  </TouchableOpacity>
+                  {(() => {
+                    const specialActive = ['spic', 'ferry_pic', 'observer', 'relief_crew'].includes(role) || examinerOverlay || safetyPilotOverlay;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.specialRoleBtn, specialActive && styles.roleBtnActive]}
+                        onPress={() => setShowSpecialRole(true)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>OTHER</Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                </View>
+              </View>
+          </View>
+
+          {/* Second pilot + fler piloter ombord — samma stil som aircraft type/registration */}
+          <View>
+            <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
+            <View style={{ gap: 6 }}>
+              <PersonPicker
+                name={form.second_pilot ?? ''}
+                roleKey={form.second_pilot_role ?? ''}
+                roleOptions={SP_ROLES}
+                saved={recentPilotsRoles}
+                placeholder={t('second_pilot_ph')}
+                onPick={(n, r) => { set('second_pilot', n); if (r) selectSecondPilotRole(r); }}
+                onChangeRole={(k) => selectSecondPilotRole(k)}
+                onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => set('second_pilot', n))}
+                onAddMore={addExtraPilot}
+                onToggle={setPersonOpen}
+              />
+              {extraPilots.map((p) => (
+                <PersonPicker
+                  key={p.id}
+                  name={p.name}
+                  roleKey={p.role}
+                  roleOptions={SP_ROLES}
+                  saved={recentPilotsRoles}
+                  placeholder={t('second_pilot_ph')}
+                  onPick={(n, r) => { updateExtraPilot(p.id, 'name', n); if (r) selectExtraPilotRole(p.id, r); }}
+                  onChangeRole={(k) => selectExtraPilotRole(p.id, k)}
+                  onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => updateExtraPilot(p.id, 'name', n))}
+                  onRemove={() => removeExtraPilot(p.id)}
+                  onToggle={setPersonOpen}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View>
+            <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
+            <View style={{ gap: 6 }}>
+              {crewMembers.map((member, idx) => {
+                const isLast = idx === crewMembers.length - 1;
+                return (
+                  <PersonPicker
+                    key={member.id}
+                    name={member.name}
+                    roleKey={member.role}
+                    roleOptions={CREW_ROLES}
+                    saved={savedCrewNames.map((n) => ({ name: n }))}
+                    placeholder={t('crew_name_ph')}
+                    onPick={(n) => updateCrewMember(member.id, 'name', n)}
+                    onChangeRole={(k) => updateCrewMember(member.id, 'role', k)}
+                    onAddNew={() => promptAddPersonName(t('crew_chief_label'), (n) => { updateCrewMember(member.id, 'name', n); addSavedCrewNames([n]).then(() => getSavedCrewNames().then(setSavedCrewNames)).catch(() => {}); })}
+                    onAddMore={isLast ? addCrewMember : undefined}
+                    onRemove={isLast ? undefined : () => removeCrewMember(member.id)}
+                    onToggle={setPersonOpen}
+                  />
+                );
+              })}
+            </View>
+          </View>
         </View>
 
-        {/* ── Remarks ── */}
+        {/* Take-offs · Approaches · Landings — Full: redigerbart · Quicklog: auto */}
+        {!logFull ? (
+          <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="airplane" size={14} color={Colors.success} />
+            <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '700', color: Colors.textSecondary }}>
+              Auto · 1 take-off · 1 landing{(parseFloat(form.night) || 0) > 0 ? ' · night' : ' · day'}
+            </Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14 }}>
+          <TolRow first label="Take-offs"
+            a={{ label: t('day'), value: parseInt(form.takeoffs_day ?? '0', 10) || 0, onChange: (n) => set('takeoffs_day', String(n)) }}
+            b={{ label: t('night'), value: parseInt(form.takeoffs_night ?? '0', 10) || 0, onChange: (n) => set('takeoffs_night', String(n)) }} />
+          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+            <TolRow label="Approaches"
+              a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
+              b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
+          )}
+          <TolRow label="Landings"
+            a={{ label: t('day'), value: parseInt(form.landings_day ?? '0', 10) || 0, onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
+            b={{ label: t('night'), value: parseInt(form.landings_night ?? '0', 10) || 0, onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
+        </View>
+        )}
+        {logFull && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+        <View style={styles.card}>
+          {/* Max altitude — designens barometer (fot). Lagras som flygnivå (FL = fot/100). */}
+          <MaxAltBar
+            valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
+            onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
+            onGrab={() => setScrollLocked(true)}
+            onRelease={() => setScrollLocked(false)}
+          />
+        </View>
+        )}
+
+        {/* ── Remarks · Approach · Media (endast Full) ── */}
+        {logFull && (<>
+        {/* Training approaches — designens ApproachFlow (per ICAO: 2D/3D → typ → rwy → remarks) */}
+        {form.flight_type !== 'sim' && (
+          <View style={{ marginBottom: 10 }}>
+            <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>{t('training_approaches')}</Text>
+            <ApproachFlow
+              icaos={approachIcaos}
+              value={approaches}
+              onChange={setApproaches}
+              ifr={form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z'}
+              runwaysFor={runwaysFor}
+            />
+          </View>
+        )}
         <FormField
           label={t('remarks')}
           value={form.remarks}
@@ -3040,103 +2683,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
         )}
 
-        {/* (stoppens approach-/navaid-val sker nu i Route-väljaren ovan) */}
-
-        {/* Approach type quick selection — Arrival section */}
-        {(() => {
-          if (!selectedApp || !selectedRunway) return null;
-
-          return (() => {
-            const approachTypes = selectedApp === '2d'
-              ? ['VOR', 'NDB', 'LOC', 'DME', 'LNAV']
-              : ['GBAS', 'GLS', 'ILS', 'PAR', 'RNAV'];
-
-            const arrLineRegex = new RegExp(`^${form.arr_place?.toUpperCase()}\\s+(.*)$`, 'im');
-            const arrLine = arrLineRegex.exec(form.remarks)?.[0] || '';
-            const hasApproachType = approachTypes.some(type => arrLine.includes(type));
-            const hasDesignator = /rwy \d{2,3}[LCR]/i.test(arrLine);
-
-          return (
-            <>
-              {!hasApproachType && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
-                    {form.arr_place?.toUpperCase()}:
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    {approachTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[styles.chip, styles.chipAdd]}
-                        onPress={() => {
-                          const updated = replaceApproachTypeForStop(form.remarks, form.arr_place || '', type);
-                          // Om replaceApproachTypeForStop inte gjorde någon ändring (ingen befintlig rad), lägg till ny rad
-                          if (updated === form.remarks && form.arr_place) {
-                            const newLine = `${form.arr_place.toUpperCase()} ${type} app`;
-                            set('remarks', form.remarks ? `${form.remarks}\n${newLine}` : newLine);
-                          } else {
-                            set('remarks', updated);
-                          }
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.chipText]} numberOfLines={1}>{type}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              {hasApproachType && hasDesignator && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '700', minWidth: 44 }}>
-                    {form.arr_place?.toUpperCase()}:
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} keyboardShouldPersistTaps="always">
-                    <TouchableOpacity
-                      style={[styles.chip, styles.chipAdd]}
-                      onPress={() => {
-                        const currentRemarks = form.remarks;
-                        const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy`;
-                        const regex = new RegExp(arrPlacePattern, 'i');
-
-                        if (regex.test(currentRemarks)) {
-                          // Redan finns runway-info, ersätt den
-                          const replaceRegex = new RegExp(`${form.arr_place?.toUpperCase()}.*?rwy \\d{2,3}[LCR]?`, 'i');
-                          const newRemarks = currentRemarks.replace(replaceRegex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`));
-                          set('remarks', newRemarks);
-                        } else {
-                          // Ingen runway-info än, lägg till den
-                          const newLine = `${form.arr_place?.toUpperCase()} ${selectedApp?.toUpperCase()} app rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}`;
-                          set('remarks', currentRemarks && form.flight_type === 'touch_and_go' ? `${currentRemarks}\n${newLine}` : (currentRemarks ? `${currentRemarks}\n${newLine}` : newLine));
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}</Text>
-                    </TouchableOpacity>
-                    {['L', 'C', 'R'].map((position) => (
-                      <TouchableOpacity
-                        key={position}
-                        style={[styles.chip, styles.chipAdd]}
-                        onPress={() => {
-                          const currentRemarks = form.remarks;
-                          const arrPlacePattern = `${form.arr_place?.toUpperCase()}.*?rwy (\\d{2,3})[LCR]?`;
-                          const regex = new RegExp(arrPlacePattern, 'i');
-                          const newRemarks = currentRemarks.replace(regex, (match) => match.replace(/rwy \d{2,3}[LCR]?/i, `rwy ${Math.round(selectedRunway / 10).toString().padStart(2, '0')}${position}`));
-                          set('remarks', newRemarks);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.chipText]} numberOfLines={1}>{Math.round(selectedRunway / 10).toString().padStart(2, '0')}{position}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </>
-          );
-          })();
-        })()}
 
         {/* Generiska remarks-förslag borttagna på begäran — endast approach-hjälpen (ovan) kvar. */}
 
@@ -3196,6 +2742,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             </View>
           )}
         </View>
+        </>)}
 
         {/* ── Spara ── */}
         {(() => {
@@ -3356,165 +2903,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       )}
 
       <Modal
-        visible={showTypeModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTypeModal(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowTypeModal(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>{t('saved_aircraft_types')}</Text>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {recentTypes.length === 0 ? (
-                <Text style={styles.modalEmpty}>{t('no_saved_aircraft_types')}</Text>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => { onTypeSelect(recentTypes[0]); setShowTypeModal(false); }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="star" size={12} color={Colors.gold} />
-                    <Text style={styles.modalItemText}>{recentTypes[0]}</Text>
-                    <Text style={styles.modalItemSub}>{t('most_recent')}</Text>
-                  </TouchableOpacity>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
-                    {[0, 1, 2].map(col => (
-                      <View key={col} style={{ flex: 1 }}>
-                        {recentTypes.slice(1).filter((_, i) => Math.floor(i / 9) === col).map((type) => (
-                          <TouchableOpacity
-                            key={type}
-                            style={[styles.modalItem, { paddingVertical: 10 }]}
-                            onPress={() => { onTypeSelect(type); setShowTypeModal(false); }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.modalItemText, { fontSize: 13 }]}>{type}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-              <TouchableOpacity
-                style={styles.modalAddItem}
-                onPress={() => {
-                  setShowTypeModal(false);
-                  setTimeout(() => setShowAircraftModal(true), 200);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle" size={18} color={Colors.primary} />
-                <Text style={styles.modalAddText}>{t('add_new_aircraft_type')}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={showRegModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowRegModal(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowRegModal(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>
-              {t('saved_registrations')} {form.aircraft_type ? `— ${form.aircraft_type}` : ''}
-            </Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>Hold to edit or remove</Text>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {recentRegs.length === 0 ? (
-                <Text style={styles.modalEmpty}>{t('no_saved_registrations')}</Text>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => { set('registration', recentRegs[0]); setShowRegModal(false); }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="star" size={12} color={Colors.gold} />
-                    <Text style={styles.modalItemText}>{recentRegs[0]}</Text>
-                    <Text style={styles.modalItemSub}>{t('most_recent')}</Text>
-                  </TouchableOpacity>
-                  <View style={{ flexDirection: 'row', gap: 4 }}>
-                    {[0, 1, 2].map(col => (
-                      <View key={col} style={{ flex: 1 }}>
-                        {recentRegs.slice(1).filter((_, i) => Math.floor(i / 9) === col).map((r) => (
-                          <TouchableOpacity
-                            key={r}
-                            style={[styles.modalItem, { paddingVertical: 10 }]}
-                            onPress={() => { set('registration', r); setShowRegModal(false); }}
-                            onLongPress={() => {
-                              Alert.alert(r, 'Edit or remove this registration?', [
-                                { text: t('cancel'), style: 'cancel' },
-                                ...(Platform.OS === 'ios' ? [{ text: 'Edit', onPress: () => {
-                                  Alert.prompt('Edit registration', '', async (newReg) => {
-                                    if (!newReg?.trim()) return;
-                                    const upper = newReg.trim().toUpperCase();
-                                    const { getDatabase } = await import('../../db/database');
-                                    const db = await getDatabase();
-                                    await db.runAsync('UPDATE flights SET registration=? WHERE registration=?', [upper, r]);
-                                    await db.runAsync('UPDATE aircraft_registry SET registration=? WHERE registration=?', [upper, r]);
-                                    const updated = await getRecentRegistrations(form.aircraft_type);
-                                    setRecentRegs(updated);
-                                  }, 'plain-text', r);
-                                }}] : []),
-                                { text: 'Remove', style: 'destructive', onPress: async () => {
-                                  const count = await flagFlightsByRegistration(r);
-                                  await deleteRegistrationFromRegistry(r);
-                                  const updated = await getRecentRegistrations(form.aircraft_type);
-                                  setRecentRegs(updated);
-                                  if (count > 0) setReviewPromptCount(count);
-                                }},
-                              ]);
-                            }}
-                            delayLongPress={600}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.modalItemText, { fontSize: 13 }]}>{r}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-              <TouchableOpacity
-                style={styles.modalAddItem}
-                onPress={() => {
-                  setShowRegModal(false);
-                  setTimeout(() => {
-                    Alert.prompt(
-                      t('new_registration'),
-                      `${t('add_registration_for')} ${form.aircraft_type}`,
-                      async (reg) => {
-                        const r = reg?.trim().toUpperCase();
-                        if (!r) return;
-                        await addToAircraftRegistry(form.aircraft_type, r);
-                        const updated = await getRecentRegistrations(form.aircraft_type);
-                        setRecentRegs(updated);
-                        set('registration', r);
-                      },
-                      'plain-text',
-                      '',
-                    );
-                  }, 200);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle" size={18} color={Colors.primary} />
-                <Text style={styles.modalAddText}>{t('add_new_registration')}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
         visible={showPilotModal}
         transparent
         animationType="slide"
@@ -3664,7 +3052,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             </Text>
             <TouchableOpacity
               style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 32, marginTop: 16 }}
-              onPress={() => { setReviewPromptCount(0); setShowRegModal(false); setShowPilotModal(false); router.push('/(tabs)/log' as any); }}
+              onPress={() => { setReviewPromptCount(0); setShowPilotModal(false); router.push('/(tabs)/log' as any); }}
               activeOpacity={0.85}
             >
               <Text style={{ color: '#0A1628', fontSize: 15, fontWeight: '800' }}>Review</Text>

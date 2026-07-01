@@ -208,6 +208,11 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'power_hp', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'ceiling_ft', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'wingspan_m', 'REAL NOT NULL DEFAULT 0');
+  // Fleet-vy del 3 (Ledger-kort): tomvikt, bränslekapacitet, räckvidd + cachad urklippsbild.
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'empty_weight_kg', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'fuel_capacity_l', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'range_nm', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'cutout_url', "TEXT NOT NULL DEFAULT ''");
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 
@@ -252,6 +257,11 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'media_type', `TEXT NOT NULL DEFAULT 'image'`);
   // Max flight level (IFR/Y/Z flights)
   await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
+  // Log Flight-redesign: start (dag/natt) + 2D/3D-inflygningar (utöver landningar/remarks).
+  await addColumnIfMissing(db, 'takeoffs_day', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'takeoffs_night', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'app_2d', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'app_3d', `INTEGER NOT NULL DEFAULT 0`);
 
   // Batteri-hälsa (% state-of-health) för drönar-batterier
   await addColumnIfMissingOnTable(db, 'drone_batteries', 'health', 'INTEGER NOT NULL DEFAULT 100');
