@@ -35,30 +35,27 @@ export function TwilightBar({ segs, nightLabel, nvgPct = 0 }: {
     glow = { l: wl, w: wr - wl };
   }
 
+  // T/O (start) och LDG (slut) flankerar baren och ligger i linje med SJÄLVA baren;
+  // dag/skymning/natt/gryning-etiketterna hänger under baren (offsetade så de linjerar med den).
+  const SIDE = 24, GAP = 7;
   return (
-    <View style={{ marginBottom: 12 }}>
-      <View style={{ height: 15, marginBottom: 3 }}>
-        {nightLabel && nightLabel !== '0:00' ? (
-          <Text style={{ position: 'absolute', left: `${nightL}%`, transform: [{ translateX: -18 }], fontFamily: FONT_MONO, fontSize: 11, fontWeight: '800', color: Colors.info }}>{nightLabel}</Text>
-        ) : null}
+    <View style={{ marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: GAP }}>
+        <Text style={{ width: SIDE, textAlign: 'center', fontFamily: FONT_MONO, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.5, color: Colors.textSecondary }}>T/O</Text>
+        <View style={{ flex: 1, flexDirection: 'row', height: 14, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
+          {segs.map((s, i) => <View key={i} style={{ width: `${s.f}%`, backgroundColor: s.c, opacity: s.k === 'night' ? 0.85 : 0.4 }} />)}
+          {glow ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${glow.l}%`, width: `${glow.w}%`, backgroundColor: 'rgba(255,255,255,0.5)' }} /> : null}
+          {redR > 0 ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${validR}%`, width: `${redR}%`, backgroundColor: 'rgba(255,77,106,0.7)' }} /> : null}
+          {redL > 0 ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${validL - redL}%`, width: `${redL}%`, backgroundColor: 'rgba(255,77,106,0.7)' }} /> : null}
+        </View>
+        <Text style={{ width: SIDE, textAlign: 'center', fontFamily: FONT_MONO, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.5, color: Colors.textSecondary }}>LDG</Text>
       </View>
-      <View style={{ flexDirection: 'row', height: 14, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
-        {segs.map((s, i) => <View key={i} style={{ width: `${s.f}%`, backgroundColor: s.c, opacity: s.k === 'night' ? 0.85 : 0.4 }} />)}
-        {glow ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${glow.l}%`, width: `${glow.w}%`, backgroundColor: 'rgba(255,255,255,0.5)' }} /> : null}
-        {redR > 0 ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${validR}%`, width: `${redR}%`, backgroundColor: 'rgba(255,77,106,0.7)' }} /> : null}
-        {redL > 0 ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${validL - redL}%`, width: `${redL}%`, backgroundColor: 'rgba(255,77,106,0.7)' }} /> : null}
-      </View>
-      <View style={{ flexDirection: 'row', marginTop: 3 }}>
+      <View style={{ flexDirection: 'row', marginTop: 2, marginLeft: SIDE + GAP, marginRight: SIDE + GAP }}>
         {segs.map((s, i) => (
           <Text key={i} numberOfLines={1} style={{ width: `${s.f}%`, textAlign: 'center', fontFamily: FONT_MONO, fontSize: 7, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase', color: s.k === 'night' ? Colors.info : Colors.textMuted }}>
             {s.f >= 8 ? s.k : ''}
           </Text>
         ))}
-      </View>
-      {/* Take-off (start) / Landing (slut) — visar kopplingen dep→arr */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 1 }}>
-        <Text style={{ fontFamily: FONT_MONO, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.5, color: Colors.textSecondary }}>T/O</Text>
-        <Text style={{ fontFamily: FONT_MONO, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.5, color: Colors.textSecondary }}>LDG</Text>
       </View>
     </View>
   );

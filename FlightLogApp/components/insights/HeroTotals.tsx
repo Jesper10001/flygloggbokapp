@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useInsightsTheme } from './insightsTheme';
 import { useInsightsData, fmtIntH } from './insightsData';
+import { FONT_LED7 } from '../logflight/tokens';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -49,7 +50,7 @@ export function HeroTotals() {
         <View style={{ flex: 1, padding: 14, gap: 3 }}>
           <Text style={[st.cap, { color: C.muted }]}>TOTAL FLIGHT TIME</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-            <Text style={{ fontFamily: SERIF, fontWeight: '500', fontSize: 32, letterSpacing: -1, color: C.text }}>{fmtIntH(D.total)}</Text>
+            <Text style={{ fontFamily: FONT_LED7, fontWeight: '800', fontSize: 30, color: C.text }}>{fmtIntH(D.total)}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.primary }}>h</Text>
           </View>
         </View>
@@ -57,7 +58,7 @@ export function HeroTotals() {
           style={{ flex: 1, padding: 14, gap: 3, borderLeftWidth: 1, borderLeftColor: C.separator, alignItems: 'flex-end' }}>
           <Text style={[st.cap, { color: showRange ? C.primary : C.muted }]} numberOfLines={1}>{ytdLabel}{showRange ? ' ✕' : ''}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-            <Text style={{ fontFamily: SERIF, fontWeight: '500', fontSize: 24, letterSpacing: -0.8, color: C.text2 }}>{fmtIntH(ytdVal)}</Text>
+            <Text style={{ fontFamily: FONT_LED7, fontWeight: '800', fontSize: 22, color: C.text2 }}>{fmtIntH(ytdVal)}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.muted }}>h</Text>
           </View>
         </TouchableOpacity>
@@ -67,7 +68,7 @@ export function HeroTotals() {
       <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.separator }}>
         {[{ l: '3 MO', v: D.m3 }, { l: '6 MO', v: D.m6 }, { l: '12 MO', v: D.m12 }].map((s, i) => (
           <View key={s.l} style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 8, alignItems: 'center', gap: 2, borderLeftWidth: i ? 1 : 0, borderLeftColor: C.separator }}>
-            <Text style={{ fontFamily: MONO, fontWeight: '700', fontSize: 13, color: C.text }}>{fmtIntH(s.v)}h</Text>
+            <Text style={{ fontFamily: FONT_LED7, fontWeight: '800', fontSize: 14, color: C.text }}>{fmtIntH(s.v)}<Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '700' }}>h</Text></Text>
             <Text style={[st.cap8, { color: C.muted }]}>LAST {s.l}</Text>
           </View>
         ))}

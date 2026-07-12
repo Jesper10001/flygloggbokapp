@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, useWindowDimensions,
+  View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, useWindowDimensions, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,7 +37,10 @@ export function TranscribeOverlay({
   const scrollRef = useRef<ScrollView>(null);
   const [colIndex, setColIndex] = useState(0);
   const [aspect, setAspect] = useState<number | null>(null); // höjd/bredd
-  const [scrollX, setScrollX] = useState(0);
+  // Scroll-offset som Animated.Value → rektangeln flyttas nativt i synk med scrollen (ingen JS-släpning).
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [geom, setGeom] = useState<{ top: number; botData: number; botSum: number; colX?: number[] } | null>(null);
 
   // Lås stående medan man transkriberar; återställ liggande (bok-läsaren) vid stängning.
   useEffect(() => {
@@ -60,16 +63,21 @@ export function TranscribeOverlay({
   }, [columns]);
 
   const availW = winW;
-  const headerH = 56;
+  // Ingen övre header längre — bara loggboken + nedre pil-navigering.
   const footerH = 76 + insets.bottom;
-  const availH = Math.max(240, winH - insets.top - headerH - footerH);
+  const availH = Math.max(240, winH - insets.top - footerH);
 
   const contentZoomW = Math.round(viewportWidth * ZOOM);
   const contentZoomH = aspect ? Math.round(contentZoomW * aspect) : Math.round(contentZoomW * 0.55);
 
+  // Exakta kolumnkanter (CSS-px) från DOM-mätningen; fallback till mall-beräknade lefts.
+  const colX = geom?.colX;
+  const colLeftCss = (i: number) => (colX && colX[i] != null ? colX[i] : lefts[i]);
+  const colRightCss = (i: number) => (colX && colX[i + 1] != null ? colX[i + 1] : lefts[i] + columns[i].width);
+
   const focus = (i: number) => {
     const idx = Math.max(0, Math.min(i, columns.length - 1));
-    const cx = centers[idx] * ZOOM;                        // mittpunkt i zoomad bild
+    const cx = ((colLeftCss(idx) + colRightCss(idx)) / 2) * ZOOM;  // kolumnens mitt i zoomad bild
     const x = Math.max(0, Math.min(cx - availW / 2, Math.max(0, contentZoomW - availW)));
     scrollRef.current?.scrollTo({ x, animated: true });
   };
@@ -82,37 +90,34 @@ export function TranscribeOverlay({
   const isLastCol = colIndex >= columns.length - 1;
   const isFirstCol = colIndex <= 0;
 
-  // Kolumnens vänster-/högerkant på skärmen (följer med panorering via scrollX).
-  const curLeftX = col ? lefts[colIndex] * ZOOM - scrollX : 0;
-  const curRightX = col ? (lefts[colIndex] + col.width) * ZOOM - scrollX : 0;
-  const fillL = Math.max(0, curLeftX);
-  const fillR = Math.min(availW, curRightX);
+  // Rektangel runt kolumnens datarutor (12 rader) + ev. summering. Vänster/höger följer
+  // horisontell panorering (scrollX), topp/botten följer vertikal (scrollY); containern
+  // klipper det som hamnar utanför. Bara numeriska kolumner (decimal/int) har summerings-
+  // värden till höger om etiketten → för dem når rektangeln ned till "Total to date".
+  // Text-/plats-/remarks-kolumner stannar vid sista dataraden.
+  const hasSummary = !!col && (col.format === 'decimal' || col.format === 'int');
+  // Rektangelns statiska CSS-position (zoomad); scroll-offset läggs på nativt via transform.
+  const rLeft = col ? colLeftCss(colIndex) * ZOOM : 0;
+  const rRight = col ? colRightCss(colIndex) * ZOOM : 0;
+  const rTop = geom ? geom.top * ZOOM : 0;
+  const rBot = geom ? (hasSummary ? geom.botSum : geom.botData) * ZOOM : 0;
 
   return (
     <Modal visible animationType="slide" supportedOrientations={['portrait']} onRequestClose={onClose}>
       <View style={[s.wrap, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={[s.header, { height: headerH }]}>
-          <TouchableOpacity onPress={onClose} hitSlop={10} style={s.hBtn} activeOpacity={0.7}>
-            <Ionicons name="close" size={24} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          <View style={s.hCenter}>
-            <Text style={s.hTitle} numberOfLines={1}>{colLabel}</Text>
-            <Text style={s.hSub}>{t('page')} {spread.page_left}–{spread.page_right} · {colIndex + 1}/{columns.length}</Text>
-          </View>
-          <View style={s.hBtn} />
-        </View>
-
+        {/* Ingen header — bara loggboken. Stäng sker via nedre bakåt-/avbryt-knappen. */}
         {/* Zoomat uppslag — vertikal scroll för rader, horisontell för kolumner */}
-        <View style={{ height: availH }}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ minHeight: availH }}>
-            <ScrollView
+        <View style={{ height: availH, overflow: 'hidden' }}>
+          <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ minHeight: availH }}
+            scrollEventThrottle={16}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}>
+            <Animated.ScrollView
               ref={scrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
               scrollEventThrottle={16}
-              onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
             >
               <View pointerEvents="none" style={{ width: contentZoomW, height: contentZoomH }}>
                 <SpreadWebView
@@ -125,14 +130,24 @@ export function TranscribeOverlay({
                   interactive={false}
                   margin={MARGIN}
                   onAspect={setAspect}
+                  onGeometry={setGeom}
                 />
               </View>
-            </ScrollView>
-          </ScrollView>
-          {/* Markera kolumnstrecken på vänster + höger sida om aktuell kolumn */}
-          {fillR > fillL && <View pointerEvents="none" style={[s.colFill, { left: fillL, width: fillR - fillL }]} />}
-          {curLeftX >= -2 && curLeftX <= availW + 2 && <View pointerEvents="none" style={[s.colEdge, { left: curLeftX - 1.5 }]} />}
-          {curRightX >= -2 && curRightX <= availW + 2 && <View pointerEvents="none" style={[s.colEdge, { left: curRightX - 1.5 }]} />}
+            </Animated.ScrollView>
+          </Animated.ScrollView>
+          {/* Sluten rektangel runt kolumnens datarutor + summering. Statisk CSS-position;
+              scroll läggs på nativt via transform → följer innehållet exakt utan släpning.
+              −1.5/+3 centrerar 3px-kanten på kolumnens exakta gränslinjer. */}
+          {geom && col && rRight > rLeft && rBot > rTop && (
+            <Animated.View pointerEvents="none" style={[s.rect, {
+              left: rLeft - 1.5, top: rTop - 1.5,
+              width: (rRight - rLeft) + 3, height: (rBot - rTop) + 3,
+              transform: [
+                { translateX: Animated.multiply(scrollX, -1) },
+                { translateY: Animated.multiply(scrollY, -1) },
+              ],
+            }]} />
+          )}
         </View>
 
         {/* Pil-navigering */}
@@ -170,10 +185,10 @@ const s = StyleSheet.create({
   hTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', maxWidth: 260 },
   hSub: { color: Colors.textMuted, fontSize: 11, marginTop: 1 },
 
-  colFill: { position: 'absolute', top: 0, bottom: 0, backgroundColor: Colors.primary + '14' },
-  colEdge: { position: 'absolute', top: 0, bottom: 0, width: 3, backgroundColor: Colors.primary, shadowColor: Colors.primary, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
+  // Sluten rektangel (blå kant + svag fyllning + glöd) runt kolumnens datarutor + summering.
+  rect: { position: 'absolute', borderWidth: 3, borderColor: Colors.primary, borderRadius: 5, backgroundColor: Colors.primary + '14', shadowColor: Colors.primary, shadowOpacity: 0.7, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
 
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingTop: 12, backgroundColor: Colors.surface, borderTopWidth: 0.5, borderTopColor: Colors.border },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingTop: 12, backgroundColor: Colors.surface + '80', borderTopWidth: 0.5, borderTopColor: Colors.border },
   arrow: { width: 64, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
   arrowNext: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   arrowDone: { backgroundColor: Colors.success, borderColor: Colors.success },

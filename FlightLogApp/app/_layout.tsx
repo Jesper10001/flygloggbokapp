@@ -113,7 +113,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="flight/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="flight/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
@@ -122,9 +123,12 @@ export default function RootLayout() {
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: 'modal' }} />
+        <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
+        <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports' }} />
         <Stack.Screen name="settings/drones" options={{ title: 'Manage drones' }} />
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates' }} />
+        <Stack.Screen name="currency" options={{ title: 'Current today?' }} />
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />

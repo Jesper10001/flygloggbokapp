@@ -21,7 +21,7 @@ import {
 import {
   buildBookSpreads, type ColumnTotals, type LogbookSpread,
 } from '../../services/logbook/paginate';
-import { assignFlightsToBooks, type BookSlice } from '../../services/logbook/books';
+import { assignFlightsToBooks, resolveOpeningBalance, type BookSlice } from '../../services/logbook/books';
 import { SpreadWebView } from '../../components/logbook/SpreadWebView';
 import { type SignatureData } from '../../components/SignaturePad';
 import {
@@ -140,10 +140,10 @@ export default function LogbookScreen() {
     return buildBookSpreads(selectedSlice?.flights ?? [], effectiveTemplate, {
       startingPage: selectedBook.starting_page,
       rowsPerSpread: selectedBook.rows_per_spread,
-      openingBalance: parseJson<ColumnTotals>(selectedBook.opening_balance, {}),
+      openingBalance: resolveOpeningBalance(selectedBook, flights, effectiveTemplate),
       leadingEmptyRows: selectedSlice?.leadingEmptyRows ?? 0,
     });
-  }, [selectedBook, effectiveTemplate, selectedSlice]);
+  }, [selectedBook, effectiveTemplate, selectedSlice, flights]);
 
   // recent=1 styr bara footern (transcribe-knappen). Man kan alltid bläddra HELA boken.
   const recent = params.recent === '1';

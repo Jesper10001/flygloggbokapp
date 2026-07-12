@@ -6,7 +6,7 @@ import { getDatabase } from './database';
 import { getSetting, setSetting, getFlights } from './flights';
 import { getTemplate } from '../constants/logbookTemplates';
 import { buildBookSpreads } from '../services/logbook/paginate';
-import { assignFlightsToBooks, sliceForBook } from '../services/logbook/books';
+import { assignFlightsToBooks, sliceForBook, resolveOpeningBalance } from '../services/logbook/books';
 
 export interface DigitalBook {
   id: number;
@@ -200,7 +200,7 @@ export async function getDashboardSpreadPrompt(): Promise<SpreadPrompt | null> {
   const spreads = buildBookSpreads(slice.flights, getTemplate(active.template_id), {
     startingPage: active.starting_page,
     rowsPerSpread: rows,
-    openingBalance: {},
+    openingBalance: resolveOpeningBalance(active, flights, getTemplate(active.template_id)),
     leadingEmptyRows: slice.leadingEmptyRows,
   });
 

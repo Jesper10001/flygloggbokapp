@@ -9,9 +9,9 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { HeroTotals } from '../../components/insights/HeroTotals';
 import { HoursBank } from '../../components/insights/HoursBank';
-import { ActivitySection } from '../../components/insights/ActivitySection';
 import { GoalCard } from '../../components/insights/GoalCard';
 import { LicenceJourney } from '../../components/insights/LicenceJourney';
+import { MilestonesSection } from '../../components/insights/MilestonesSection';
 import { OperatorInsights } from '../../components/OperatorInsights';
 
 export default function InsightsScreen() {
@@ -29,9 +29,9 @@ export default function InsightsScreen() {
     >
       <HeroTotals />
       <HoursBank />
-      <ActivitySection />
       <GoalCard />
       <LicenceJourney />
+      <MilestonesSection />
     </ScrollView>
   );
 }

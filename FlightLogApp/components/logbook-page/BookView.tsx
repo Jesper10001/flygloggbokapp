@@ -11,7 +11,7 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import { getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn } from '../../constants/logbookTemplates';
 import { buildBookSpreads, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
-import { assignFlightsToBooks, type BookSlice } from '../../services/logbook/books';
+import { assignFlightsToBooks, resolveOpeningBalance, type BookSlice } from '../../services/logbook/books';
 import { ensureDigitalBooksMigrated, listDigitalBooks, setActiveDigitalBook, type DigitalBook } from '../../db/digitalBooks';
 import { SpreadWebView } from '../logbook/SpreadWebView';
 import { BookSetupSheet } from '../logbook/BookSetupSheet';
@@ -72,10 +72,10 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
     return buildBookSpreads(slice?.flights ?? [], template, {
       startingPage: book.starting_page,
       rowsPerSpread: book.rows_per_spread,
-      openingBalance: parseJson<ColumnTotals>(book.opening_balance, {}),
+      openingBalance: resolveOpeningBalance(book, flights, template),
       leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
     });
-  }, [book, template, slice]);
+  }, [book, template, slice, flights]);
 
   // Hoppa till senaste uppslaget när boken/antalet uppslag ändras (t.ex. vid bokbyte).
   useEffect(() => { if (spreads.length) setIdx(spreads.length - 1); }, [spreads.length, book?.id]);

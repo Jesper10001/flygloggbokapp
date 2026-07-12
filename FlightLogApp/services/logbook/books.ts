@@ -8,7 +8,8 @@
 
 import type { Flight } from '../../types/flight';
 import type { DigitalBook } from '../../db/digitalBooks';
-import { sortFlightsChrono } from './paginate';
+import type { LogbookTemplate } from '../../constants/logbookTemplates';
+import { sortFlightsChrono, computeBroughtForward, type ColumnTotals } from './paginate';
 
 export interface BookSlice {
   book: DigitalBook;
@@ -46,10 +47,41 @@ function computeLeading(book: DigitalBook, sorted: Flight[]): number {
   return Math.max(0, ari - g);
 }
 
-/** Fördelar alla flygningar över böckerna (ordnade per display_order). */
+/** Fördelar alla flygningar över böckerna (ordnade per display_order).
+ *  Summeringsrader (flight_type='summary') är tidigare erfarenhet → de blir brought-forward,
+ *  inte bokrader, så de exkluderas här.
+ *  Ankar-driven delning: om varje bok EFTER den första har en giltig ankar-flygning delas
+ *  flygningarna vid ankaren (bokens första rad = dess ankar-flygning). Annars faller vi
+ *  tillbaka på kapacitets-fyllning (bakåtkompatibelt för äldre böcker). */
 export function assignFlightsToBooks(books: DigitalBook[], flights: Flight[]): BookSlice[] {
   const ordered = [...books].sort((a, b) => (a.display_order - b.display_order) || (a.id - b.id));
-  const sorted = sortFlightsChrono(flights);
+  // Summeringsrader + dolda backfill-poster ('[BACKFILL]') är inte bokrader.
+  const sorted = sortFlightsChrono(flights.filter((f) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]'));
+
+  const anchorDriven = ordered.length > 1 && ordered.slice(1).every(
+    (b) => b.anchor_flight_id > 0 && sorted.some((f) => f.id === b.anchor_flight_id),
+  );
+
+  if (anchorDriven) {
+    // Startindex per bok: bok 0 börjar vid 0, bok i vid sin ankar-flygnings index.
+    const starts = ordered.map((b, i) => {
+      if (i === 0) return 0;
+      const idx = sorted.findIndex((f) => f.id === b.anchor_flight_id);
+      return idx >= 0 ? idx : sorted.length;
+    });
+    return ordered.map((book, i) => {
+      const rows = Math.max(1, book.rows_per_spread);
+      const start = starts[i];
+      const end = i + 1 < ordered.length ? starts[i + 1] : sorted.length;
+      const flightsSlice = sorted.slice(start, Math.max(start, end));
+      const leading = i === 0 ? computeLeading(book, sorted) : 0;
+      const spreadCap = bookSpreadCapacity(book);
+      const isFull = spreadCap !== Infinity && leading + flightsSlice.length >= spreadCap * rows;
+      return { book, flights: flightsSlice, leadingEmptyRows: leading, isFull, overflowCount: 0 };
+    });
+  }
+
+  // ── Fallback: kapacitets-fyllning (oförändrat beteende) ──
   const slices: BookSlice[] = [];
   let cursor = 0;
   for (let i = 0; i < ordered.length; i++) {
@@ -74,6 +106,15 @@ export function assignFlightsToBooks(books: DigitalBook[], flights: Flight[]): B
     slices.push({ book, flights: slice, leadingEmptyRows: leading, isFull, overflowCount });
   }
   return slices;
+}
+
+/** Bokens ingående balans (brought-forward): användarens override (opening_balance-JSON om
+ *  ifylld = korrigering mot riktig loggbok), annars auto-härledd ur flygdata + summeringsrader. */
+export function resolveOpeningBalance(book: DigitalBook, allFlights: Flight[], template: LogbookTemplate): ColumnTotals {
+  let override: ColumnTotals = {};
+  try { override = JSON.parse(book.opening_balance || '{}'); } catch { override = {}; }
+  if (Object.keys(override).length > 0) return override;   // användarkorrigering
+  return computeBroughtForward(allFlights, template, book.anchor_flight_id);
 }
 
 /** Plocka ut en boks slice (eller bygg en tom om boken saknas i listan). */

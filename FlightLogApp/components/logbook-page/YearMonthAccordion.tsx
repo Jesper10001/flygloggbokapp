@@ -38,15 +38,24 @@ export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOp
   const years = useMemo(() => group(flights), [flights]);
   const [yearOvr, setYearOvr] = useState<Record<number, boolean>>({});
   const [monthOvr, setMonthOvr] = useState<Record<string, boolean>>({});
+  const [showAllYears, setShowAllYears] = useState(false);
 
   const yearOpen = (yr: number) => forceOpen || (yearOvr[yr] !== undefined ? yearOvr[yr] : yr === expandYear);
   const monthOpen = (key: string) => forceOpen || (monthOvr[key] !== undefined ? monthOvr[key] : key === expandMonthKey);
 
   if (years.length === 0) return null;
 
+  // Max 3 år normalt; "Previous years" expanderar resten. Sök/filter (forceOpen) och
+  // djuplänk till ett äldre år visar alla år.
+  const expandNeedsAll = expandYear != null
+    && !years.slice(0, 3).some((y) => y.year === expandYear)
+    && years.some((y) => y.year === expandYear);
+  const showAll = forceOpen || showAllYears || expandNeedsAll;
+  const visibleYears = showAll ? years : years.slice(0, 3);
+
   return (
     <View>
-      {years.map((yr) => {
+      {visibleYears.map((yr) => {
         const yOpen = yearOpen(yr.year);
         const filterLabel = filter !== 'all' && filter !== 'photo' ? ` ${filter.toUpperCase()}` : '';
         return (
@@ -85,6 +94,17 @@ export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOp
           </View>
         );
       })}
+      {/* Max 3 år visas; resten bakom "Previous years". Diskret rad i samma stil som
+          års-/månads-togglarna (chevron i accent + serif), döljs vid sök/filter. */}
+      {!forceOpen && years.length > 3 && (
+        <TouchableOpacity onPress={() => setShowAllYears((v) => !v)} activeOpacity={0.7}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 }}>
+          <Ionicons name={showAll ? 'chevron-down' : 'chevron-forward'} size={15} color={accent} />
+          <Text style={{ fontFamily: FONT_SERIF, fontSize: 15, fontWeight: '600', color: Colors.textMuted }}>
+            {showAll ? 'Fewer years' : `Previous years (${years.length - 3})`}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

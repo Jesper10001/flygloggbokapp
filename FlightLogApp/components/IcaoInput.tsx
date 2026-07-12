@@ -26,6 +26,10 @@ interface Props {
   onFocus?: () => void;
   inputFontFamily?: string; // override mono (t.ex. LED 14-seg) för ICAO-koden
   design?: boolean; // Log Flight-design: större ICAO-text, flygplatsnamn under, 3 snabbval
+  // Off-airport "halvsparade" platser: när onPendingPlace finns skjuts DB-persistensen
+  // upp tills flighten sparats. pendingPlaces används för namn/status-uppslag under tiden.
+  pendingPlaces?: { icao: string; name: string }[];
+  onPendingPlace?: (p: { icao: string; name: string }) => void;
 }
 
 export type IcaoInputHandle = { focus: () => void };
@@ -134,7 +138,7 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace },
   outerRef,
 ) {
   const styles = makeStyles();
@@ -160,6 +164,14 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     setSuggestions([]);
     setShowDropdown(false);
     if (value.length >= 2) {
+      // Halvsparad (pending) off-airport-plats: visa namn + temp-status utan DB-uppslag.
+      const pend = pendingPlaces.find((p) => p.icao === value);
+      if (pend) {
+        setPlaceStatus('temp-unlocated');
+        setInputText(pend.name);
+        setResolvedName('Temporary site');
+        return;
+      }
       getAirportByIcao(value).then(a => {
         if (!a) {
           setPlaceStatus(/^[A-Z]{4}$/.test(value) ? 'known' : null);
@@ -203,6 +215,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const commitTempName = async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    // Redan sparad plats (DB)?
     const existing = await getTempPlaceByName(trimmed);
     if (existing) {
       onChangeText(existing.icao);
@@ -212,8 +225,23 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       onConfirm?.(existing.icao);
       return;
     }
+    // Redan "halvsparad" (pending) plats med samma namn? Återanvänd — skapa ingen dubblett.
+    const pend = pendingPlaces.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
+    if (pend) {
+      onChangeText(pend.icao);
+      setInputText(pend.name);
+      setSuggestions([]);
+      setShowDropdown(false);
+      onConfirm?.(pend.icao);
+      return;
+    }
     const icao = await generateTemporaryIcao(trimmed);
-    await addTemporaryPlace(icao, trimmed, 0, 0);
+    if (onPendingPlace) {
+      // Skjut upp persistensen till flighten sparats (halvsparad) — förälder håller listan.
+      onPendingPlace({ icao, name: trimmed });
+    } else {
+      await addTemporaryPlace(icao, trimmed, 0, 0);
+    }
     onChangeText(icao);
     setInputText(trimmed);
     setSuggestions([]);
@@ -264,7 +292,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         try {
           const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
           const raw = geo?.city || geo?.district || geo?.subregion || geo?.region || '';
-          suggested = raw.replace(/[^\p{L}\s]/gu, '').trim().slice(0, 10);
+          suggested = raw.replace(/[^\p{L}\s]/gu, '').trim().slice(0, 30);
         } catch {}
         const nearby = await getNearbyTemporaryPlaces(lat, lon, 3);
         setHereCoords({ lat, lon });
@@ -297,7 +325,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       return;
     }
     // Skapa ny off-airport-plats (ZZZZ)
-    const nameClean = hereName.trim().slice(0, 10) || 'TEMP';
+    const nameClean = hereName.trim().slice(0, 30) || 'TEMP';
     const icao = await generateTemporaryIcao(nameClean);
     await addTemporaryPlace(icao, nameClean, hereCoords.lat, hereCoords.lon);
     setHereModal(false);
@@ -307,6 +335,11 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   };
 
   const isConfirmed = value.length >= 2 && placeStatus !== null;
+  // Off-airport-namn: dynamisk textstorlek så hela namnet ryms upp till 12 tecken;
+  // längre namn krymps inte mer (samma storlek som vid 12 tecken).
+  const nameOver = Math.max(0, Math.min(inputText.length, 12) - 4);
+  const nameFontSize = 19 - nameOver * 0.75; // 19 (≤4 tecken) → 13 (≥12 tecken)
+  const pendingName = (icao: string) => pendingPlaces.find((p) => p.icao === icao)?.name;
   // Resolve temp place names for recent chips
   const [recentNames, setRecentNames] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -331,7 +364,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}
-          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null]}
+          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null, allowHere ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null]}
           value={inputText}
           onChangeText={handleChangeText}
           onFocus={onFocus}
@@ -385,16 +418,21 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                 {idx > 0 && <View style={styles.sep} />}
                 <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
                   {isTemp ? (
-                    <Ionicons name="location" size={16} color={isLocated ? Colors.success : Colors.warning} style={{ width: 48, textAlign: 'center' }} />
+                    // Off-airport: bara namnet + grön checkmark (ingen pin, ingen "saved place")
+                    <>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                      </View>
+                      <Ionicons name={isLocated ? 'checkmark-circle' : 'alert-circle'} size={16} color={isLocated ? Colors.success : Colors.warning} />
+                    </>
                   ) : (
-                    <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{item.icao}</Text>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.suggestionCountry}>{isTemp ? (isLocated ? 'Saved place' : 'Not placed') : item.country}</Text>
-                  </View>
-                  {isTemp && (
-                    <Ionicons name={isLocated ? 'checkmark-circle' : 'alert-circle'} size={16} color={isLocated ? Colors.success : Colors.warning} />
+                    <>
+                      <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{item.icao}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.suggestionCountry}>{item.country}</Text>
+                      </View>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>
@@ -416,7 +454,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
             {modeFiltered.slice(0, 3).map((place) => {
               const sel = (value || '').toUpperCase() === place.icao.toUpperCase();
-              const label = place.temporary ? (recentNames[place.icao] || place.icao) : place.icao;
+              const label = place.temporary ? (pendingName(place.icao) || recentNames[place.icao] || place.icao) : place.icao;
               return (
                 <TouchableOpacity
                   key={place.icao}
@@ -436,7 +474,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           {filteredRecent.slice(0, 2).map((place, idx) => {
             const isFirst = idx === 0;
             const displayName = place.temporary
-              ? (recentNames[place.icao] && recentNames[place.icao] !== place.icao ? recentNames[place.icao] : place.icao)
+              ? (pendingName(place.icao) || (recentNames[place.icao] && recentNames[place.icao] !== place.icao ? recentNames[place.icao] : place.icao))
               : place.icao;
             const chipHighlight = isFirst
               ? (place.temporary ? styles.recentChipOrange : styles.recentChipGold)
@@ -527,13 +565,13 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                 <TextInput
                   style={styles.nameInput}
                   value={hereName}
-                  onChangeText={v => setHereName(v.slice(0, 10))}
+                  onChangeText={v => setHereName(v.slice(0, 30))}
                   placeholder={t('name_max10_ph')}
                   placeholderTextColor={Colors.textMuted}
-                  maxLength={10}
+                  maxLength={30}
                   autoFocus={nearbyPlaces.length === 0}
                 />
-                <Text style={styles.nameHint}>{hereName.length}/10 characters</Text>
+                <Text style={styles.nameHint}>{hereName.length}/30 characters</Text>
 
                 <TouchableOpacity
                   style={styles.confirmBtn}

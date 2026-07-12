@@ -1,4 +1,4 @@
-// List-vyn: sticky header (titel), sök, filterchips, latest-card, år→månad-accordion.
+// List-vyn: sticky header (titel), sök, filterchips, år→månad-accordion + årskalender.
 import { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,8 +6,8 @@ import { Colors } from '../../constants/colors';
 import type { Flight } from '../../types/flight';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { roleLabel } from './flightDisplay';
-import { LatestFlightCard } from './LatestFlightCard';
 import { YearMonthAccordion } from './YearMonthAccordion';
+import { HeatmapCalendar } from '../insights/ActivitySection';
 
 const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['photo', 'Photo']];
 
@@ -20,7 +20,6 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
   const [filter, setFilter] = useState('all');
 
   const sorted = useMemo(() => [...flights].sort((a, b) => (b.date || '').localeCompare(a.date || '')), [flights]);
-  const latest = sorted[0];
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -71,9 +70,6 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
 
       {/* body */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
-        {filter === 'all' && !q.trim() && latest && (
-          <LatestFlightCard flight={latest} accent={accent} placeNames={placeNames} onPress={() => onOpenFlight(latest)} />
-        )}
         {filtered.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 20 }}>
             <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
@@ -84,6 +80,12 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
         ) : (
           <YearMonthAccordion flights={filtered} accent={accent} filter={filter} photoMode={photoMode}
             forceOpen={forceOpen} onOpenFlight={onOpenFlight} expandYear={expandYear} expandMonthKey={expandMonthKey} />
+        )}
+        {/* Årskalender + almenacka längst ner, under äldsta årtalet (bara i ofiltrerad vy) */}
+        {filter === 'all' && !q.trim() && flights.length > 0 && (
+          <View style={{ paddingHorizontal: 14, marginTop: 14 }}>
+            <HeatmapCalendar />
+          </View>
         )}
       </ScrollView>
     </View>

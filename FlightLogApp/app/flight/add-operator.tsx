@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -483,14 +483,7 @@ export default function AddOperatorFlightScreen() {
           {photoUri ? (
             <View style={{ position: 'relative', width: '100%', height: 180, borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.elevated }}>
               {mediaType === 'video' ? (
-                <Video
-                  source={{ uri: photoUri }}
-                  style={{ width: '100%', height: 180 }}
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                  shouldPlay={false}
-                  useNativeControls={false}
-                />
+                <FlightVideo uri={photoUri} style={{ width: '100%', height: 180 }} contentFit="cover" loop />
               ) : (
                 <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
               )}

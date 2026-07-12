@@ -214,6 +214,12 @@ export interface AircraftFleetEnrichment {
   range_nm: number;
   image_url: string;
   needs_manual: boolean;
+  // Grunddata — så Fleet-hämtningen kan override:a felaktig manuell inmatning.
+  cruise_speed_kts: number;
+  endurance_h: number;
+  category: 'airplane' | 'helicopter' | '';
+  engine_type: 'se' | 'me' | '';
+  crew_type: string;
 }
 
 /** Hämtar en bild-URL (öppen källa) för en titel via Wikipedias pageimages-API. */
@@ -269,5 +275,10 @@ export async function enrichAircraftFleet(query: string): Promise<AircraftFleetE
     range_nm: r.range_nm,
     image_url,
     needs_manual: r.needs_manual,
+    cruise_speed_kts: r.cruise_speed_kts,
+    endurance_h: r.endurance_h,
+    category: r.category,
+    engine_type: r.engine_type,
+    crew_type: r.crew_type,
   };
 }

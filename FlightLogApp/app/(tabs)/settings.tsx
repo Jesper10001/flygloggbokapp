@@ -459,6 +459,25 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Current today? — currency/recency */}
+          <TouchableOpacity
+            style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            activeOpacity={0.7}
+            onPress={() => router.push('/currency')}
+          >
+            <View style={{
+              width: 32, height: 32, borderRadius: 8,
+              backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Ionicons name="today" size={15} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Current today?</Text>
+              <Text style={{ fontSize: 11, color: Colors.textMuted }}>Passenger, night, IFR, medical & rating currency</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
           {/* Premium */}
           <TouchableOpacity
             style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
@@ -750,6 +769,13 @@ export default function SettingsScreen() {
             title={t('import_manual_title')}
             subtitle={t('import_manual_sub')}
             onClick={() => router.push('/import/manual')}
+            separatorColor={Colors.background}
+          />
+          <Row
+            icon="folder-open-outline" iconColor={Colors.primary}
+            title="Imported data"
+            subtitle="Review and delete your imports"
+            onClick={() => router.push('/import/history')}
             border={false}
             separatorColor={Colors.background}
           />

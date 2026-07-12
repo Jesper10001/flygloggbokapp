@@ -1,16 +1,22 @@
-// Dragbar för en flygnings-andel (VFR/IFR/NVG). Dra var som helst på spåret för att
-// sätta hur stor del av flygningen som flögs i det villkoret. Snäpper i 5-min-steg
-// med detents; fyllning över `warnAbove` blir röd (NVG utanför mörkerfönstret).
-import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import type { GestureResponderEvent } from 'react-native';
+// Dragbar för en flygnings-andel (VFR/IFR/Night/NVG). Dra på spåret för att sätta andelen.
+// Snäpper i 5-min-steg vid commit; fyllning över `warnAbove` blir röd.
+//
+// PRESTANDA: själva dragningen (fyllning + handtag) körs på UI-tråden via react-native-reanimated
+// + gesture-handler → mjukt även när JS-tråden är upptagen (stort add.tsx-träd, Expo Go dev-läge).
+// React-state (setForm) uppdateras bara när 5-min-bucketen byts, inte varje pixel.
+import { useEffect } from 'react';
+import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors } from '../../constants/colors';
 import { FONT_MONO } from '../logbook-page/tokens';
+import { FONT_LED7 } from './tokens';
 
 const hm = (mins: number) => `${Math.floor(mins / 60)}:${String(Math.round(mins % 60)).padStart(2, '0')}`;
 
-export function CondBar({ label, pct, onPct, tint, totalMin, readOnly, warnAbove, snaps, notches, autoLabel, bare, onReset, onGrab, onRelease }: {
+export function CondBar({ label, pct, onPct, tint, totalMin, readOnly, warnAbove, snaps, notches, autoLabel, bare, onReset, onGrab, onRelease,
+  editable, timeValue, onTimeChange, onTimeBlur, onTimeFocus }: {
   label?: string;
   pct: number;
   onPct: (v: number) => void;
@@ -25,52 +31,109 @@ export function CondBar({ label, pct, onPct, tint, totalMin, readOnly, warnAbove
   onReset?: () => void; // visas i headern (där auto-pillen satt) när värdet ändrats manuellt
   onGrab?: () => void;  // drag startar → lås skärm-scroll
   onRelease?: () => void; // fingret släpper → lås upp scroll
+  editable?: boolean; // liten LED-tidsruta till höger om baren för att skriva in tid direkt
+  timeValue?: string; // HH:MM (styrt)
+  onTimeChange?: (raw: string) => void;
+  onTimeBlur?: () => void;
+  onTimeFocus?: () => void;
 }) {
-  const [w, setW] = useState(0);
-  const wref = useRef(0);
-  const mins = Math.round(totalMin * pct / 100);
+  const width = useSharedValue(0);      // spårets bredd (px) — sätts i onLayout
+  const sv = useSharedValue(pct);       // live-% under dragning (UI-tråd)
+  const dragging = useSharedValue(false);
+  const lastBucket = useSharedValue(-1);
+  const dangerCol = Colors.danger;
+  const cap = warnAbove ?? 100;
+  const snapsArr = snaps || [];
 
-  const snap = (raw: number) => {
+  // Synka visuellt värde från prop när användaren INTE drar (auto-uppdatering, redigering m.m.).
+  useEffect(() => { if (!dragging.value) sv.value = pct; }, [pct, dragging, sv]);
+
+  // JS: snäpp till 5-min-steg + detents och skicka till föräldern (setForm) — bara vid bucketbyte.
+  const commit = (rawPct: number) => {
+    if (!totalMin) { onPct(Math.round(rawPct)); return; }
+    const stepPct = (5 / totalMin) * 100;
+    let best = Math.round(rawPct / stepPct) * stepPct;
+    [50, 100, ...snapsArr].forEach((e) => { if (Math.abs(rawPct - e) < Math.abs(rawPct - best)) best = e; });
+    onPct(Math.max(0, Math.min(100, best)));
+  };
+  // UI-tråd: samma snäppning för att avgöra bucket (throttlar runOnJS till bucketbyten).
+  const bucketOf = (raw: number) => {
+    'worklet';
     if (!totalMin) return Math.round(raw);
-    const stepPct = (5 / totalMin) * 100; // 5-minutersinkrement
+    const stepPct = (5 / totalMin) * 100;
     let best = Math.round(raw / stepPct) * stepPct;
-    [50, 100, ...(snaps || [])].forEach((e) => { if (Math.abs(raw - e) < Math.abs(raw - best)) best = e; });
+    for (const e of [50, 100, ...snapsArr]) { if (Math.abs(raw - e) < Math.abs(raw - best)) best = e; }
     return Math.max(0, Math.min(100, best));
   };
-  const fromX = (e: GestureResponderEvent) => {
-    if (readOnly || !wref.current) return;
-    onPct(snap((e.nativeEvent.locationX / wref.current) * 100));
-  };
 
-  const over = !!warnAbove && pct > warnAbove;
-  const fillPct = Math.min(pct, warnAbove || 100);
+  const pan = Gesture.Pan()
+    .enabled(!readOnly)
+    .activeOffsetX([-6, 6])   // aktiveras vid horisontell rörelse …
+    .failOffsetY([-12, 12])   // … men släpper igenom vertikal scroll
+    .onStart(() => {
+      'worklet';
+      dragging.value = true;
+      lastBucket.value = -1;
+      if (onGrab) runOnJS(onGrab)();
+    })
+    .onUpdate((e) => {
+      'worklet';
+      const raw = Math.max(0, Math.min(100, (e.x / (width.value || 1)) * 100));
+      sv.value = raw;
+      const b = bucketOf(raw);
+      if (b !== lastBucket.value) { lastBucket.value = b; runOnJS(commit)(raw); }
+    })
+    .onEnd(() => { 'worklet'; runOnJS(commit)(sv.value); })
+    .onFinalize(() => {
+      'worklet';
+      if (dragging.value) { dragging.value = false; if (onRelease) runOnJS(onRelease)(); }
+    });
+
+  const tap = Gesture.Tap()
+    .enabled(!readOnly)
+    .maxDuration(250)
+    .onEnd((e) => {
+      'worklet';
+      const raw = Math.max(0, Math.min(100, (e.x / (width.value || 1)) * 100));
+      sv.value = raw;
+      runOnJS(commit)(raw);
+    });
+  const gesture = Gesture.Race(pan, tap);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: `${Math.min(sv.value, cap)}%` }));
+  const overStyle = useAnimatedStyle(() => {
+    const over = sv.value > cap;
+    return { left: `${cap}%`, width: `${over ? sv.value - cap : 0}%`, opacity: over ? 0.7 : 0 };
+  });
+  const handleStyle = useAnimatedStyle(() => {
+    const wpx = width.value;
+    const left = Math.max(0, Math.min(wpx - 10, (sv.value / 100) * wpx - 5));
+    return { left, backgroundColor: sv.value > cap ? dangerCol : tint };
+  });
 
   const track = (
-    <View
-      onLayout={(e) => { wref.current = e.nativeEvent.layout.width; setW(e.nativeEvent.layout.width); }}
-      onStartShouldSetResponder={() => !readOnly}
-      onMoveShouldSetResponder={() => !readOnly}
-      onMoveShouldSetResponderCapture={() => !readOnly}
-      onResponderGrant={(e) => { onGrab?.(); fromX(e); }}
-      onResponderMove={fromX}
-      onResponderRelease={() => onRelease?.()}
-      onResponderTerminate={() => onRelease?.()}
-      onResponderTerminationRequest={() => false}
-      hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
-      style={{ flex: bare ? 1 : undefined, position: 'relative', height: 20, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', opacity: readOnly ? 0.9 : 1 }}
-    >
-      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${fillPct}%`, backgroundColor: tint, opacity: 0.5 }} />
-      {over ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: `${warnAbove}%`, width: `${pct - (warnAbove || 0)}%`, backgroundColor: Colors.danger, opacity: 0.7 }} /> : null}
-      {(notches || []).map((n, i) => (
-        <View key={i} style={{ position: 'absolute', top: 2, bottom: 2, left: `${n}%`, width: 2, marginLeft: -1, backgroundColor: Colors.textPrimary, opacity: 0.4, borderRadius: 1 }} />
-      ))}
-      {!readOnly && w > 0 ? (
-        <View style={{ position: 'absolute', top: -2, bottom: -2, left: Math.max(0, Math.min(w - 10, (pct / 100) * w - 5)), width: 10, borderRadius: 4, backgroundColor: over ? Colors.danger : tint }} />
-      ) : null}
-    </View>
+    <GestureDetector gesture={gesture}>
+      <Animated.View
+        onLayout={(e) => { width.value = e.nativeEvent.layout.width; }}
+        hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+        style={{ flex: 1, position: 'relative', height: 20, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', opacity: readOnly ? 0.9 : 1 }}
+      >
+        <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: tint, opacity: 0.5 }, fillStyle]} />
+        <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, backgroundColor: dangerCol }, overStyle]} />
+        {(notches || []).map((n, i) => (
+          <View key={i} style={{ position: 'absolute', top: 2, bottom: 2, left: `${n}%`, width: 2, marginLeft: -1, backgroundColor: Colors.textPrimary, opacity: 0.4, borderRadius: 1 }} />
+        ))}
+        {!readOnly ? (
+          <Animated.View style={[{ position: 'absolute', top: -2, bottom: -2, width: 10, borderRadius: 4, shadowColor: tint, shadowOpacity: 0.85, shadowRadius: 4, shadowOffset: { width: 0, height: 0 }, elevation: 3 }, handleStyle]} />
+        ) : null}
+      </Animated.View>
+    </GestureDetector>
   );
 
   if (bare) return track;
+
+  const mins = Math.round(totalMin * pct / 100);
+  const over = !!warnAbove && pct > warnAbove; // för %-text + tidsrutans röda kant (commit-värdet)
 
   return (
     <View style={{ marginBottom: 12 }}>
@@ -90,10 +153,29 @@ export function CondBar({ label, pct, onPct, tint, totalMin, readOnly, warnAbove
             </TouchableOpacity>
           ) : null}
         </View>
-        <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '800', color: over ? Colors.danger : tint }}>{hm(mins)}</Text>
-        <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, marginLeft: 6, width: 30, textAlign: 'right' }}>{Math.round(pct)}%</Text>
+        <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, width: 34, textAlign: 'right' }}>{Math.round(pct)}%</Text>
       </View>
-      {track}
+      {/* spår + liten redigerbar LED-tidsruta till höger om barens slut (röd om över regeln) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {track}
+        {editable ? (
+          <View style={{ width: 58, height: 26, justifyContent: 'center', borderWidth: 1, borderColor: over ? Colors.danger : Colors.border, borderRadius: 6, backgroundColor: Colors.elevated, paddingHorizontal: 4 }}>
+            <TextInput
+              value={timeValue ?? ''}
+              onChangeText={onTimeChange}
+              onFocus={onTimeFocus}
+              onBlur={onTimeBlur}
+              placeholder="0:00"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={5}
+              style={{ textAlign: 'center', fontFamily: FONT_LED7, fontSize: 14, fontWeight: '700', color: over ? Colors.danger : tint, padding: 0 }}
+            />
+          </View>
+        ) : (
+          <Text style={{ width: 58, textAlign: 'center', fontFamily: FONT_LED7, fontSize: 14, fontWeight: '700', color: over ? Colors.danger : tint }}>{hm(mins)}</Text>
+        )}
+      </View>
     </View>
   );
 }

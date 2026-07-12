@@ -341,7 +341,7 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
     padding: 4px 2px; text-align: center; line-height: 1.1; vertical-align: middle;
   }
   td.cell { height: 21px; padding: 1px 4px; font-size: 11px; vertical-align: middle; }
-  td.num { text-align: center; font-family: 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+  td.num { text-align: center; font-variant-numeric: tabular-nums; }
   td.mid { text-align: center; }
   td.txt { text-align: left; }
   tr.odd td.cell { background: #FBF5E6; }

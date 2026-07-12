@@ -100,7 +100,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
                 <TouchableOpacity
                   key={f.id}
                   style={[s.flightRow, i < flights.length - 1 && s.flightRowBorder]}
-                  onPress={() => { onClose(); setTimeout(() => router.push(`/flight/${f.id}`), 300); }}
+                  onPress={() => { onClose(); setTimeout(() => router.push(`/flight/detail/${f.id}`), 300); }}
                   activeOpacity={0.7}
                 >
                   <View style={s.flightDate}>

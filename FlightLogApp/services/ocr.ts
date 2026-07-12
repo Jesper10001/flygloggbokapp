@@ -366,7 +366,10 @@ Mönster att känna igen:
 - "SPIC", "SP/c" → föreslå spic-fältet
 - "NVG"/"NVD" följt av tid → föreslå nvg-fältet
 - "touch and go" → överväg flight_type = 'touch_and_go'
-- Instruktörs-signatur (fullt namn) → ingen åtgärd (bör stå i remarks)
+- Fullständigt för- + efternamn som står ensamt (t.ex. "Johan Johansson", "Anna Berg")
+  → föreslå second_pilot med HELA namnet som värde. Abbreviera INTE här — appen förkortar
+  själv till "J. Johansson" på förslagsknapparna. (Namn insprängt i en mening, t.ex.
+  "check ride with John Smith", lämnas kvar i remarks.)
 
 Skicka ALLTID remarks_suggestion om du identifierar en andrepilot. Format:
 {
@@ -375,6 +378,14 @@ Skicka ALLTID remarks_suggestion om du identifierar en andrepilot. Format:
   "original_text": "SZ NDB",
   "confidence": 0.80,
   "reason": "2-bokstavskod — andrepilotens signatur, NDB kvar i remarks"
+}
+Exempel med fullt namn:
+{
+  "field": "second_pilot",
+  "value": "Johan Johansson",
+  "original_text": "Johan Johansson",
+  "confidence": 0.85,
+  "reason": "Fullt för- + efternamn = andrepilotens namn (appen förkortar till J. Johansson)"
 }
 
 Användaren får en Ja/Nej-prompt och kan välja att acceptera eller behålla

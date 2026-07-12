@@ -207,7 +207,9 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
       )}
 
-      <KeyboardAvoidingView style={{ flex: 1, alignSelf: 'stretch' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Ingen keyboard-push: Continue/Skip stannar nere (täcks av tangentbordet) istället för
+          att flyta ovanför det. Inmatningsfälten justeras istället via ScrollViewens keyboard-insets. */}
+      <KeyboardAvoidingView style={{ flex: 1, alignSelf: 'stretch' }} behavior={undefined}>
         <Animated.View key={step} entering={FadeIn.duration(220)} style={s.stepContent}>
           {/* ── Welcome (stor logga, ingen text) ── */}
           {step === 'welcome' && (
@@ -357,7 +359,7 @@ export default function OnboardingScreen() {
 
               <AvatarPreview initials={autoInitials || '?'} name={fullName || (sv ? 'Ditt namn' : 'Your name')} creds={credentials} accent={accent} />
 
-              <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'} />
                 <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
                 <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. JT' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />

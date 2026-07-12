@@ -17,7 +17,7 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
-import { numericColumns, sortFlightsChrono, buildBookSpreads, type ColumnTotals } from '../../services/logbook/paginate';
+import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals } from '../../services/logbook/paginate';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 import {
@@ -87,7 +87,12 @@ export function BookSetupSheet({
   const [bal, setBal] = useState<Record<string, string>>(() => {
     const seed: ColumnTotals = (() => {
       if (carryOpeningBalance) return carryOpeningBalance;
-      try { return initial ? JSON.parse(initial.opening_balance || '{}') : {}; } catch { return {}; }
+      // Redigerbar override: sparad korrigering om den finns, annars den auto-härledda
+      // brought-forwarden (summering av loggade flyg + importerade summeringsrader före boken).
+      let stored: ColumnTotals = {};
+      try { stored = initial ? JSON.parse(initial.opening_balance || '{}') : {}; } catch { stored = {}; }
+      if (Object.keys(stored).length > 0) return stored;
+      return computeBroughtForward(flights, template, initial?.anchor_flight_id ?? 0);
     })();
     const o: Record<string, string> = {};
     for (const c of balCols) {
@@ -96,6 +101,59 @@ export function BookSetupSheet({
     }
     return o;
   });
+
+  // Ingående balans: Imported = ALL importerad/skannad erfarenhet (source ≠ 'manual') summerad
+  // per kolumn — CSV, OCR och manuell erfarenhetslogg — så användaren ser hela sin brought-forward.
+  // Current = brought-forward (allt före boken = importerat + loggat i appen) = redigerbara `bal`.
+  const anchorId = initial?.anchor_flight_id ?? 0;
+  const importedBal = useMemo(
+    () => computeBroughtForward(flights, template, anchorId, (f) => (f as any).source !== 'manual', { noAnchorBase: 'all' }),
+    [flights, template, anchorId],
+  );
+  const importSources = useMemo(() => {
+    const sorted = sortFlightsChrono(flights);
+    const before = anchorId > 0
+      ? (() => { const idx = sorted.findIndex((f) => f.id === anchorId); return idx >= 0 ? sorted.slice(0, idx) : []; })()
+      : sorted; // första boken → all historik (CSV/OCR/manuell), inte bara summeringsrader
+    const set = new Set<string>();
+    for (const f of before) {
+      if ((f as any).source === 'manual') continue;
+      if ((f as any).flight_type === 'summary') set.add(sv ? 'Manuell logg' : 'Manual log');
+      else if ((f as any).source === 'ocr') set.add('OCR scan');
+      else if ((f as any).source === 'import') set.add(sv ? 'CSV-import' : 'CSV import');
+    }
+    return [...set];
+  }, [flights, anchorId, sv]);
+  const fmtImported = (key: string) => {
+    const col = balCols.find((c) => c.flightKey === key);
+    const v = importedBal[key] ?? 0;
+    if (!v) return '—';
+    return col?.format === 'int' ? String(Math.round(v)) : formatTimeValue(v, timeFormat);
+  };
+
+  // Current = pilotens totala erfarenhet just nu = ALLA flygningar (importerat + loggat i appen),
+  // dvs. bokens totalsumma (brought-forward + rader). Läsbar verifiering mot fysiska loggboken —
+  // sparas EJ som opening_balance (skulle dubbelräknas mot bokraderna); balansen auto-härleds.
+  const totalBal = useMemo(
+    () => computeBroughtForward(flights, template, 0, undefined, { noAnchorBase: 'all' }),
+    [flights, template],
+  );
+  // Auto-härledd brought-forward (den boken använder utan override) + ev. sparad override.
+  // Om en bok redan har en override är dess verkliga total = override + rader, inte totalBal.
+  const autoBF = useMemo(() => computeBroughtForward(flights, template, anchorId), [flights, template, anchorId]);
+  const storedOverride = useMemo(() => {
+    try { return initial ? (JSON.parse(initial.opening_balance || '{}') as ColumnTotals) : {}; } catch { return {}; }
+  }, [initial]);
+  const hasOverride = Object.keys(storedOverride).length > 0;
+  const fmtCurrent = (key: string) => {
+    const col = balCols.find((c) => c.flightKey === key);
+    // total = brought-forward + rader; rader = totalBal − autoBF (oberoende av override).
+    const v = hasOverride
+      ? (totalBal[key] ?? 0) - (autoBF[key] ?? 0) + (storedOverride[key] ?? 0)
+      : (totalBal[key] ?? 0);
+    if (!v) return '—';
+    return col?.format === 'int' ? String(Math.round(v)) : formatTimeValue(v, timeFormat);
+  };
 
   const latestFlight = useMemo(() => {
     const s = sortFlightsChrono(flights);
@@ -112,21 +170,47 @@ export function BookSetupSheet({
     const srt = sortFlightsChrono(flights);
     return srt.length ? srt[0] : null;
   }, [flights]);
-  const [balanceMode, setBalanceMode] = useState<'confirm' | 'logged' | 'manual'>('confirm');
+  // Create-flödets bekräftelse: 'asking' (Confirm + Yes/No) → 'confirmed' (Create logbook)
+  // eller 'editing' (röd "Modify above data…"). En ändring i datan återgår till 'asking'.
+  const [confirmState, setConfirmState] = useState<'asking' | 'confirmed' | 'editing'>('asking');
+  const [balEdited, setBalEdited] = useState(false);
 
   const balanceInputs = (
     <View style={{ gap: 8, marginTop: 10 }}>
+      {importSources.length > 0 && (
+        <Text style={s.hint}>{(sv ? 'Importerat från: ' : 'Imported from: ') + importSources.join(' · ')}</Text>
+      )}
+      {!carryOpeningBalance && (
+        <Text style={s.hint}>
+          {sv
+            ? 'Imported = din importerade erfarenhet · Current = dina totala timmar just nu (importerat + loggat i appen). Bekräfta att Current stämmer med din riktiga loggbok.'
+            : 'Imported = experience you brought in · Current = your total hours right now (imported + logged in the app). Confirm Current matches your actual logbook.'}
+        </Text>
+      )}
+      {/* Kolumnrubriker: Imported (all importerad data) · Current (total just nu = imported + loggat) */}
+      <View style={[s.balRow, { marginBottom: -2 }]}>
+        <View style={{ flex: 1 }} />
+        <Text style={[s.balColHead, { width: 72 }]}>{sv ? 'IMPORTERAT' : 'IMPORTED'}</Text>
+        <Text style={[s.balColHead, { width: 96 }]}>{sv ? 'NUVARANDE' : 'CURRENT'}</Text>
+      </View>
       {balCols.map((c) => (
         <View key={c.id} style={s.balRow}>
           <Text style={s.balLabel}>{c.group ? `${c.group} · ${c.label}` : c.label}</Text>
-          <TextInput
-            style={s.balInput}
-            value={bal[c.flightKey!] ?? ''}
-            onChangeText={(v) => setBal((p) => ({ ...p, [c.flightKey!]: v }))}
-            keyboardType={c.format === 'int' ? 'number-pad' : (timeFormat === 'decimal' ? 'decimal-pad' : 'numbers-and-punctuation')}
-            placeholder={c.format === 'int' ? '0' : (timeFormat === 'decimal' ? '0.0' : '0:00')}
-            placeholderTextColor={Colors.textMuted}
-          />
+          <Text style={s.balImported}>{fmtImported(c.flightKey!)}</Text>
+          {carryOpeningBalance ? (
+            // Split-bok: Current = redigerbar brought-forward för den nya boken.
+            <TextInput
+              style={s.balInput}
+              value={bal[c.flightKey!] ?? ''}
+              onChangeText={(v) => { setBal((p) => ({ ...p, [c.flightKey!]: v })); setBalEdited(true); setConfirmState('asking'); }}
+              keyboardType={c.format === 'int' ? 'number-pad' : (timeFormat === 'decimal' ? 'decimal-pad' : 'numbers-and-punctuation')}
+              placeholder={c.format === 'int' ? '0' : (timeFormat === 'decimal' ? '0.0' : '0:00')}
+              placeholderTextColor={Colors.textMuted}
+            />
+          ) : (
+            // Current = total just nu (imported + loggat i appen), läsbar verifiering.
+            <Text style={s.balCurrent}>{fmtCurrent(c.flightKey!)}</Text>
+          )}
         </View>
       ))}
     </View>
@@ -145,10 +229,10 @@ export function BookSetupSheet({
     const ap = anchorPage.trim() ? Math.max(fp, parseInt(anchorPage, 10) || 0) : 0;
     const ar = anchorRow.trim() ? Math.max(1, Math.min(rs, parseInt(anchorRow, 10) || 0)) : 0;
 
-    // ingående balans → ColumnTotals (hoppas över om användaren bekräftat att
-    // all flygerfarenhet redan är loggad).
+    // Ingående balans sparas som override ENDAST om användaren redigerat Current-kolumnen
+    // (korrigering); annars lämnas den tom → auto-härleds ur flygdata + summeringsrader.
     const balance: ColumnTotals = {};
-    if (!showConfirm || balanceMode === 'manual') {
+    if (balEdited) {
       for (const c of balCols) {
         const raw = (bal[c.flightKey!] ?? '').trim();
         if (!raw) continue;
@@ -178,7 +262,7 @@ export function BookSetupSheet({
         await updateDigitalBook(initial.id, {
           name: finalName, template_id: templateId, starting_page: fp, rows_per_spread: rs,
           end_page: lp, anchor_flight_id: anchorFlightId, anchor_page: ap, anchor_row: ar,
-          opening_balance: JSON.stringify(balance),
+          opening_balance: balEdited ? JSON.stringify(balance) : (initial.opening_balance || '{}'),
         });
       }
       onSaved();
@@ -256,59 +340,53 @@ export function BookSetupSheet({
         {/* Ingående balans / bekräfta loggad erfarenhet */}
         <View style={s.divider} />
         {!showConfirm ? (
-          // Ingen tidigare erfarenhet → vanlig ingående balans.
+          // Edit-läge eller ingen tidigare erfarenhet → vanlig ingående balans.
           <>
             <Text style={s.section}>{t('dlb_opening_balance')}</Text>
             <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
             {balanceInputs}
-          </>
-        ) : balanceMode === 'confirm' ? (
-          <>
-            <Text style={s.section}>{sv ? 'Bekräfta att all din flygerfarenhet redan är loggad?' : 'Confirm all your flight experience already logged?'}</Text>
-            <View style={s.confirmRow}>
-              <TouchableOpacity style={[s.confirmBtn, s.confirmYes]} onPress={() => setBalanceMode('logged')} activeOpacity={0.85}>
-                <Text style={s.confirmYesTxt}>{t('yes')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.confirmBtn, s.confirmNo]} onPress={() => setBalanceMode('manual')} activeOpacity={0.85}>
-                <Text style={s.confirmNoTxt}>{t('no')}</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : balanceMode === 'logged' ? (
-          <>
-            <Text style={s.section}>{sv ? 'All flygerfarenhet loggad' : 'All flight experience logged'}</Text>
-            <TouchableOpacity style={s.backRow} onPress={() => setBalanceMode('confirm')} hitSlop={8} activeOpacity={0.7}>
-              <Ionicons name="chevron-back" size={16} color={Colors.textMuted} />
-              <Text style={s.backTxt}>{sv ? 'Tillbaka' : 'Back'}</Text>
-            </TouchableOpacity>
           </>
         ) : (
-          // NO → ingående balans + tydlig markering av äldsta flygningen.
+          // Create + tidigare erfarenhet: visa Imported/Current så piloten kan jämföra mot sin
+          // riktiga loggbok och ev. korrigera, och bekräfta innan boken skapas.
           <>
             <Text style={s.section}>{t('dlb_opening_balance')}</Text>
-            <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
-            {oldestFlight && (
-              <View style={s.oldestCard}>
-                <Text style={s.oldestLabel}>{sv ? 'DIN ÄLDSTA LOGGADE FLYGNING' : 'YOUR OLDEST LOGGED FLIGHT'}</Text>
-                <Text style={s.oldestRoute}>{(oldestFlight.dep_place || '—')} → {(oldestFlight.arr_place || '—')}</Text>
-                <Text style={s.oldestMeta}>
-                  {oldestFlight.date}
-                  {oldestFlight.aircraft_type ? ` · ${oldestFlight.aircraft_type}` : ''}
-                  {oldestFlight.registration ? ` · ${oldestFlight.registration}` : ''}
-                  {` · ${formatTimeValue(oldestFlight.total_time ?? 0, timeFormat)}`}
-                </Text>
-                <Text style={s.hint}>{sv ? 'Lägg bara in timmar FÖRE denna flygning.' : 'Only enter hours from BEFORE this flight.'}</Text>
-              </View>
-            )}
             {balanceInputs}
+            {confirmState === 'asking' ? (
+              <>
+                <Text style={[s.section, { marginTop: 14 }]}>{sv ? 'Bekräfta att din flygerfarenhet stämmer med din riktiga loggbok' : 'Confirm your flight experience is correct according to your actual logbook'}</Text>
+                <View style={s.confirmRow}>
+                  <TouchableOpacity style={[s.confirmBtn, s.confirmYes]} onPress={() => setConfirmState('confirmed')} activeOpacity={0.85}>
+                    <Text style={s.confirmYesTxt}>{t('yes')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.confirmBtn, s.confirmNo]} onPress={() => setConfirmState('editing')} activeOpacity={0.85}>
+                    <Text style={s.confirmNoTxt}>{t('no')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : confirmState === 'confirmed' ? (
+              <TouchableOpacity style={[s.saveBtn, { marginTop: 14 }]} onPress={handleSave} activeOpacity={0.85}>
+                <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
+                <Text style={s.saveTxt}>{sv ? 'Skapa loggbok' : 'Create logbook'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '700', marginTop: 12, lineHeight: 18 }}>
+                {sv
+                  ? 'Se över din importerade data under Import → Imported data så att totalerna stämmer med din riktiga loggbok, och öppna sedan den här igen.'
+                  : 'Review your imported data under Import → Imported data so the totals match your actual logbook, then reopen this.'}
+              </Text>
+            )}
           </>
         )}
       </ScrollView>
 
-      <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
-        <Text style={s.saveTxt}>{mode === 'create' ? t('dlb_create_book') : t('save')}</Text>
-      </TouchableOpacity>
+      {/* Bekräftelse-flödet (create + erfarenhet) har egen "Create logbook"-knapp i sektionen. */}
+      {!showConfirm && (
+        <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
+          <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
+          <Text style={s.saveTxt}>{mode === 'create' ? t('dlb_create_book') : t('save')}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Tom förhandsvisning av en layout (innan val) */}
       <Modal visible={!!previewTpl} animationType="fade" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => { setPreviewTpl(null); setPreviewAspect(null); }}>
@@ -364,6 +442,9 @@ const s = StyleSheet.create({
   balRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   balLabel: { flex: 1, color: Colors.textSecondary, fontSize: 13 },
   balInput: { width: 96, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border, textAlign: 'right', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  balImported: { width: 72, textAlign: 'right', color: Colors.textSecondary, fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  balCurrent: { width: 96, textAlign: 'right', color: Colors.textPrimary, fontSize: 14, fontWeight: '700', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  balColHead: { textAlign: 'right', color: Colors.textMuted, fontSize: 8, fontWeight: '700', letterSpacing: 0.6 },
   tplRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 8 },
   tplRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '0E' },
   tplMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },

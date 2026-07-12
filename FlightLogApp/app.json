@@ -60,7 +60,15 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "react-native-document-scanner-plugin"
+      "react-native-document-scanner-plugin",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Your photo library is used to match photos and videos to your logged flights by time. Everything stays on your device.",
+          "savePhotosPermission": "Allow the app to save photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

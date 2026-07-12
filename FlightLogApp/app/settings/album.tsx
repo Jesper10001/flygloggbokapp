@@ -4,7 +4,7 @@ import {
   TouchableOpacity, Dimensions, ActivityIndicator,
   Modal, Pressable,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { FlightVideo } from '../../components/FlightVideo';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -109,14 +109,7 @@ export default function AlbumScreen() {
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {selected && (
             selected.media_type === 'video' ? (
-              <Video
-                source={{ uri: selected.photo_uri }}
-                style={{ width, height }}
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping
-                shouldPlay
-                useNativeControls
-              />
+              <FlightVideo uri={selected.photo_uri} style={{ width, height }} contentFit="contain" loop autoPlay nativeControls />
             ) : (
               <Image
                 source={{ uri: selected.photo_uri }}
@@ -143,7 +136,7 @@ export default function AlbumScreen() {
               </Text>
             </View>
             <TouchableOpacity
-              onPress={() => { setSelected(null); router.push(`/flight/${selected?.id}`); }}
+              onPress={() => { setSelected(null); router.push(`/flight/detail/${selected?.id}`); }}
               hitSlop={12}
             >
               <Ionicons name="open-outline" size={22} color="#fff" />

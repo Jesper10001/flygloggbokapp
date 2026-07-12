@@ -22,7 +22,7 @@ import {
   getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
 import { buildBookSpreads, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
-import { assignFlightsToBooks } from '../../services/logbook/books';
+import { assignFlightsToBooks, resolveOpeningBalance } from '../../services/logbook/books';
 import {
   ensureDigitalBooksMigrated, listDigitalBooks, type DigitalBook,
 } from '../../db/digitalBooks';
@@ -96,7 +96,7 @@ export function LogbookPreviewCard() {
     const spreads = buildBookSpreads(slice?.flights ?? [], effectiveTemplate, {
       startingPage: activeBook.starting_page,
       rowsPerSpread: activeBook.rows_per_spread,
-      openingBalance: parseJson<ColumnTotals>(activeBook.opening_balance, {}),
+      openingBalance: resolveOpeningBalance(activeBook, flights, effectiveTemplate),
       leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
     });
     return spreads.length ? spreads[spreads.length - 1] : null;

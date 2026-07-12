@@ -15,6 +15,8 @@ import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { ratingStatus, ratingMeta } from './fleetTypeRating';
 import { RatingModal } from './RatingModal';
+import { PremiumModal } from '../PremiumModal';
+import { useFlightStore } from '../../store/flightStore';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const fmtTotal = (h: number) => `${Math.floor(h || 0)}:${pad(Math.round(((h || 0) % 1) * 60))}`;
@@ -58,6 +60,8 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   const [showAll, setShowAll] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [showPremium, setShowPremium] = useState(false);
+  const { isPremium } = useFlightStore();
   const [regs, setRegs] = useState<{ registration: string; hours: number }[]>([]);
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
   const [aspect, setAspect] = useState(1.5);
@@ -137,6 +141,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   // Hämta full spec + bild (Wikipedia/AI) på begäran.
   const fetchData = async () => {
     if (fetching) return;
+    if (!isPremium) { setShowPremium(true); return; } // AI-hämtning endast för premium
     setFetching(true);
     try {
       const r = await enrichAircraftFleet(ac.aircraft_type);
@@ -338,6 +343,8 @@ export function FleetCard({ ac, accent, current, onSaved }: {
         onSave={async (name, expiry) => { await updateAircraftFleetFields(ac.aircraft_type, { rating_class: name, rating_expiry: expiry }); setShowRating(false); onSaved(); }}
         onClose={() => setShowRating(false)}
       />
+
+      <PremiumModal visible={showPremium} onClose={() => setShowPremium(false)} feature="Aircraft data lookup" />
     </View>
   );
 }

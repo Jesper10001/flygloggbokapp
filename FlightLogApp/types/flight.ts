@@ -49,12 +49,20 @@ export interface Flight {
   cross_country: number;
   photo_uri: string;
   media_type: 'image' | 'video' | '';
+  photo_local_id?: string | null; // referens till bild/video i fotobiblioteket (foto-synk)
   max_fl: number;
   stop_place?: string;
   takeoffs_day: number;
   takeoffs_night: number;
   app_2d: number;
   app_3d: number;
+  pilot_flying: number;
+  landings_fs_day: number;
+  landings_fs_night: number;
+  takeoffs_faa_night: number;
+  landings_faa_night: number;
+  landings_fs_faa_night: number;
+  holds: number;
 }
 
 export interface FlightFormData {
@@ -100,6 +108,13 @@ export interface FlightFormData {
   takeoffs_night?: string;
   app_2d?: string;
   app_3d?: string;
+  pilot_flying?: string;
+  landings_fs_day?: string;
+  landings_fs_night?: string;
+  takeoffs_faa_night?: string;
+  landings_faa_night?: string;
+  landings_fs_faa_night?: string;
+  holds?: string;
   photo_uri?: string;
   media_type?: 'image' | 'video' | '';
   max_fl?: string;

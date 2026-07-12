@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, Image, Platform,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { FlightVideo } from '../../components/FlightVideo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -85,20 +85,22 @@ export default function FlightDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <TouchableOpacity onPress={() => router.back()} style={{ paddingHorizontal: 16, paddingVertical: 8 }} hitSlop={12}>
-        <Ionicons name="close" size={24} color={Colors.textSecondary} />
-      </TouchableOpacity>
       <ScrollView contentContainerStyle={styles.content}>
 
-        {/* Header */}
+        {/* Header — X stänger (till vänster om ICAO), svep ner stänger också (modal) */}
         <View style={styles.header}>
-          <View>
-            <View style={styles.routeRow}>
-              <Text style={styles.icao}>{placeNames[flight.dep_place] ?? flight.dep_place}</Text>
-              <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
-              <Text style={styles.icao}>{placeNames[flight.arr_place] ?? flight.arr_place}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={{ paddingTop: 3 }}>
+              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.routeRow}>
+                <Text style={styles.icao}>{placeNames[flight.dep_place] ?? flight.dep_place}</Text>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+                <Text style={styles.icao}>{placeNames[flight.arr_place] ?? flight.arr_place}</Text>
+              </View>
+              <Text style={styles.meta}>{formatDate(flight.date)} · {flight.aircraft_type} {flight.registration}</Text>
             </View>
-            <Text style={styles.meta}>{formatDate(flight.date)} · {flight.aircraft_type} {flight.registration}</Text>
           </View>
           <View style={styles.headerActions}>
             {flight.photo_uri ? (
@@ -175,14 +177,7 @@ export default function FlightDetailScreen() {
             {flight.photo_uri ? (
               <View style={{ borderRadius: 12, overflow: 'hidden' }}>
                 {flight.media_type === 'video' ? (
-                  <Video
-                    source={{ uri: flight.photo_uri }}
-                    style={{ width: '100%', height: 220, borderRadius: 12 }}
-                    resizeMode={ResizeMode.COVER}
-                    isLooping
-                    isMuted
-                    shouldPlay
-                  />
+                  <FlightVideo uri={flight.photo_uri} style={{ width: '100%', height: 220, borderRadius: 12 }} contentFit="cover" loop muted autoPlay />
                 ) : (
                   <Image source={{ uri: flight.photo_uri }} style={{ width: '100%', height: 220, borderRadius: 12 }} resizeMode="cover" />
                 )}

@@ -50,8 +50,9 @@ export async function insertFlight(
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
       se_time, me_time, stop_place, photo_uri, media_type, max_fl,
-      takeoffs_day, takeoffs_night, app_2d, app_3d
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      takeoffs_day, takeoffs_night, app_2d, app_3d, pilot_flying,
+      landings_fs_day, landings_fs_night, takeoffs_faa_night, landings_faa_night, landings_fs_faa_night, holds
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -101,6 +102,13 @@ export async function insertFlight(
       parseInt(data.takeoffs_night ?? '0') || 0,
       parseInt(data.app_2d ?? '0') || 0,
       parseInt(data.app_3d ?? '0') || 0,
+      parseFloat(data.pilot_flying ?? '0') || 0,
+      parseInt(data.landings_fs_day ?? '0') || 0,
+      parseInt(data.landings_fs_night ?? '0') || 0,
+      parseInt(data.takeoffs_faa_night ?? '0') || 0,
+      parseInt(data.landings_faa_night ?? '0') || 0,
+      parseInt(data.landings_fs_faa_night ?? '0') || 0,
+      parseInt(data.holds ?? '0') || 0,
     ]
   );
   return result.lastInsertRowId;
@@ -123,7 +131,8 @@ export async function updateFlight(
     'dep_place','dep_utc','arr_place','arr_utc',
     'total_time','ifr','night','pic','co_pilot','dual',
     'landings_day','landings_night','remarks',
-    'takeoffs_day','takeoffs_night','app_2d','app_3d',
+    'takeoffs_day','takeoffs_night','app_2d','app_3d','pilot_flying',
+    'landings_fs_day','landings_fs_night','takeoffs_faa_night','landings_faa_night','landings_fs_faa_night','holds',
     'multi_pilot','single_pilot','instructor','picus',
     'spic','examiner','safety_pilot','observer','ferry_pic','relief_crew','sim_category','vfr',
   ];
@@ -166,7 +175,8 @@ export async function updateFlight(
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
       se_time=?, me_time=?, stop_place=?, photo_uri=?, media_type=?, max_fl=?,
-      takeoffs_day=?, takeoffs_night=?, app_2d=?, app_3d=?,
+      takeoffs_day=?, takeoffs_night=?, app_2d=?, app_3d=?, pilot_flying=?,
+      landings_fs_day=?, landings_fs_night=?, takeoffs_faa_night=?, landings_faa_night=?, landings_fs_faa_night=?, holds=?,
       status=CASE WHEN status IN ('scanned','flagged') THEN 'verified' ELSE status END
     WHERE id=?`,
     [
@@ -211,6 +221,13 @@ export async function updateFlight(
       parseInt(data.takeoffs_night ?? '0') || 0,
       parseInt(data.app_2d ?? '0') || 0,
       parseInt(data.app_3d ?? '0') || 0,
+      parseFloat(data.pilot_flying ?? '0') || 0,
+      parseInt(data.landings_fs_day ?? '0') || 0,
+      parseInt(data.landings_fs_night ?? '0') || 0,
+      parseInt(data.takeoffs_faa_night ?? '0') || 0,
+      parseInt(data.landings_faa_night ?? '0') || 0,
+      parseInt(data.landings_fs_faa_night ?? '0') || 0,
+      parseInt(data.holds ?? '0') || 0,
       id,
     ]
   );
@@ -233,18 +250,37 @@ export async function deleteFlight(id: number): Promise<void> {
   await db.runAsync('DELETE FROM flights WHERE id=?', [id]);
 }
 
+/** Radera flera flygningar (t.ex. en hel importbatch) i ett svep. */
+export async function deleteFlights(ids: number[]): Promise<void> {
+  if (!ids.length) return;
+  const db = await getDatabase();
+  const ph = ids.map(() => '?').join(',');
+  await db.runAsync(`DELETE FROM flights WHERE id IN (${ph})`, ids);
+}
+
+/** Koppla (eller ta bort) en fotobiblioteks-referens till en flygning. Endast referensen sparas. */
+export async function setFlightPhotoLocalId(id: number, localId: string | null): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE flights SET photo_local_id=? WHERE id=?', [localId, id]);
+}
+
 export async function clearAllFlights(): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync('DELETE FROM flights');
-  await db.runAsync('DELETE FROM audit_log');
-  await db.runAsync('DELETE FROM aircraft_registry');
-  await db.runAsync('DELETE FROM icao_airports WHERE "temporary" > 0');
-  await db.runAsync('DELETE FROM ocr_learned');
-  // Böcker + custom-mallar + sid-summeringar — så "Rensa all loggboksdata" ger
-  // en helt ren slate (annars hamnar nya skanningar i en gammal bok).
-  await db.runAsync('DELETE FROM logbook_books');       // både digitala (kind='digital') och pappersböcker
-  await db.runAsync('DELETE FROM custom_templates');    // användarskapade mallar
-  await db.runAsync('DELETE FROM scan_summaries');
+  // try/catch per sats: en saknad tabell får INTE avbryta innan böckerna (som bär
+  // opening_balance/brought-forward) hinner raderas — annars "följer timmarna med".
+  const run = async (sql: string) => { try { await db.runAsync(sql); } catch {} };
+  await run('DELETE FROM flights');
+  await run('DELETE FROM audit_log');
+  await run('DELETE FROM aircraft_registry');
+  await run('DELETE FROM icao_airports WHERE "temporary" > 0');
+  await run('DELETE FROM ocr_learned');
+  // Böcker + custom-mallar + sid-summeringar — helt ren slate (annars lever en gammal bok
+  // med sin ingående balans/brought-forward kvar).
+  await run('DELETE FROM logbook_books');       // både digitala (kind='digital') och pappersböcker
+  await run('DELETE FROM custom_templates');    // användarskapade mallar
+  await run('DELETE FROM scan_summaries');
+  // Gamla digitala-bok-inställningar som annars seedar en ny bok med stale brought-forward.
+  await run("DELETE FROM settings WHERE key IN ('dlb_opening_balance','dlb_template_id','dlb_start_page','dlb_custom_cols')");
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
@@ -562,6 +598,32 @@ export async function getRecentSecondPilotsWithRole(limit = 20): Promise<{ name:
     [limit]
   );
   return rows.map(r => ({ name: r.second_pilot, role: r.second_pilot_role || '' }));
+}
+
+// Andra-piloter grupperade per flygfarkosttyp (aircraft_type) — distinkta namn per typ,
+// ordnade efter senaste flygning. Farkosterna ordnas med senast använd först.
+export async function getSecondPilotsByAircraft(): Promise<{ aircraft: string; pilots: string[]; isHeli: boolean }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ aircraft_type: string; second_pilot: string; d: string; category: string }>(
+    `SELECT f.aircraft_type, f.second_pilot, MAX(f.date) as d, MAX(ar.category) as category
+     FROM flights f
+     LEFT JOIN aircraft_registry ar ON ar.aircraft_type = f.aircraft_type
+     WHERE f.second_pilot != '' AND f.second_pilot IS NOT NULL
+       AND f.aircraft_type != '' AND f.aircraft_type IS NOT NULL
+     GROUP BY f.aircraft_type, f.second_pilot
+     ORDER BY d DESC`,
+  );
+  const map = new Map<string, { pilots: string[]; d: string; category: string }>();
+  for (const r of rows) {
+    let e = map.get(r.aircraft_type);
+    if (!e) { e = { pilots: [], d: r.d, category: r.category || '' }; map.set(r.aircraft_type, e); }
+    if (!e.pilots.includes(r.second_pilot)) e.pilots.push(r.second_pilot);
+    if (r.d > e.d) e.d = r.d;
+    if (!e.category && r.category) e.category = r.category;
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[1].d < b[1].d ? 1 : -1))
+    .map(([aircraft, v]) => ({ aircraft, pilots: v.pilots, isHeli: v.category === 'helicopter' }));
 }
 
 export async function getRecentRemarks(limit = 20): Promise<string[]> {
@@ -1224,9 +1286,12 @@ export async function updateAircraftFleetFields(
     cutout_url: string;
     rating_expiry: string;
     rating_class: string;
+    category: string;
+    engine_type: string;
+    crew_type: string;
   }>,
 ): Promise<void> {
-  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'empty_weight_kg', 'fuel_capacity_l', 'range_nm', 'image_url', 'cutout_url', 'rating_expiry', 'rating_class'] as const;
+  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'empty_weight_kg', 'fuel_capacity_l', 'range_nm', 'image_url', 'cutout_url', 'rating_expiry', 'rating_class', 'category', 'engine_type', 'crew_type'] as const;
   const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => allowed.includes(k as any));
   if (keys.length === 0) return;
   const db = await getDatabase();
@@ -1247,16 +1312,28 @@ export async function persistAircraftFleetLookup(
     consumption?: number; consumption_unit?: string; horsepower_hp?: number;
     ceiling_ft?: number; wingspan_m?: number; image_url?: string;
     empty_weight_kg?: number; fuel_capacity_l?: number; range_nm?: number;
+    cruise_speed_kts?: number; endurance_h?: number; category?: string; engine_type?: string; crew_type?: string;
   },
 ): Promise<void> {
   const fields: Partial<{
     maker: string; vne: number; mtow: number;
     fuel_burn: number; fuel_burn_unit: string; power_hp: number; ceiling_ft: number; wingspan_m: number; image_url: string;
     empty_weight_kg: number; fuel_capacity_l: number; range_nm: number;
+    cruise_speed_kts: number; endurance_h: number; category: string; engine_type: string; crew_type: string;
   }> = {};
   if (r.manufacturer && r.manufacturer.trim()) fields.maker = r.manufacturer.trim();
   if (r.vne_kt && r.vne_kt > 0) fields.vne = r.vne_kt;
   if (r.mtow_kg && r.mtow_kg > 0) fields.mtow = r.mtow_kg;
+  // Override av grunddatan man fyllt i manuellt (AI = auktoritativ källa).
+  if (r.cruise_speed_kts && r.cruise_speed_kts > 0) fields.cruise_speed_kts = r.cruise_speed_kts;
+  if (r.endurance_h && r.endurance_h > 0) fields.endurance_h = r.endurance_h;
+  if (r.category && r.category.trim()) fields.category = r.category.trim();
+  if (r.engine_type && r.engine_type.trim()) fields.engine_type = r.engine_type.trim();
+  if (r.crew_type && r.crew_type.trim()) {
+    // Normalisera till samma sorterade format som serializeCrewType ('mp,sp').
+    const ct = r.crew_type.split(',').map((s) => s.trim()).filter((s) => s === 'sp' || s === 'mp').sort().join(',');
+    if (ct) fields.crew_type = ct;
+  }
   if (r.consumption && r.consumption > 0) {
     fields.fuel_burn = r.consumption;
     if (r.consumption_unit && r.consumption_unit.trim()) fields.fuel_burn_unit = r.consumption_unit.trim().toLowerCase();
@@ -1299,6 +1376,53 @@ export async function setSetting(key: string, value: string): Promise<void> {
     `INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
     [key, value]
   );
+}
+
+// ── Currency: full-stop backfill (dry-run FÖRST, sedan flagg-skyddad skarp körning) ──
+// Stopp-radsdetektor (spegling av add.tsx parseRouteStops, minimal & fristående).
+const CURRENCY_STOP_LINE_RE = /^[A-Z]{2,4}\s+(TnG|LA|PU\/DO|PU|DO|HR)\b/i;
+
+export interface StopDryRunRow { id: number; date: string; dep: string; arr: string; reason: string; remarks: string; }
+
+// READ-ONLY: lista flygningar där full-stop-klassning är osäker, för stickprov innan backfill.
+export async function dryRunStopParsing(): Promise<StopDryRunRow[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<any>(
+    `SELECT id, date, dep_place, arr_place, remarks, flight_type, landings_day, landings_night
+     FROM flights ORDER BY date DESC`
+  );
+  const out: StopDryRunRow[] = [];
+  for (const f of rows) {
+    const lines = String(f.remarks || '').split('\n').map((l: string) => l.trim()).filter(Boolean);
+    const stopLines = lines.filter((l: string) => CURRENCY_STOP_LINE_RE.test(l));
+    const ldgTotal = (parseInt(f.landings_day) || 0) + (parseInt(f.landings_night) || 0);
+    const reasons: string[] = [];
+    if (f.flight_type === 'touch_and_go') reasons.push('touch_and_go — full-stop per stopp okänd historiskt');
+    if (stopLines.length > 0 && f.flight_type !== 'touch_and_go') reasons.push(`${stopLines.length} stopp i remarks men flight_type=${f.flight_type}`);
+    if (stopLines.length > 0 && ldgTotal !== stopLines.length + 1) reasons.push(`stoppantal (${stopLines.length}+arr) ≠ landningar (${ldgTotal})`);
+    if (reasons.length) out.push({ id: f.id, date: f.date, dep: f.dep_place, arr: f.arr_place, reason: reasons.join('; '), remarks: f.remarks });
+  }
+  console.warn(`[currency dry-run] ${out.length} flygning(ar) med osäker full-stop-klassning`,
+    out.map((r) => `#${r.id} ${r.date} ${r.dep}->${r.arr} [${r.reason}]`));
+  return out;
+}
+
+const FS_BACKFILL_KEY = 'currency_fs_backfill_v1';
+
+// Skarp backfill (idempotent, körs en gång via flagg): icke-T&G → alla landningar är full stop.
+// T&G lämnas 0 (konservativt; syns i dry-run för manuell redigering). FAA-natt lämnas 0 = okänt.
+export async function backfillFullStopLandings(): Promise<{ updated: number; skipped: boolean }> {
+  if ((await getSetting(FS_BACKFILL_KEY)) === '1') return { updated: 0, skipped: true };
+  const db = await getDatabase();
+  const res = await db.runAsync(
+    `UPDATE flights
+       SET landings_fs_day = landings_day, landings_fs_night = landings_night
+     WHERE flight_type != 'touch_and_go'
+       AND landings_fs_day = 0 AND landings_fs_night = 0
+       AND (landings_day > 0 OR landings_night > 0)`
+  );
+  await setSetting(FS_BACKFILL_KEY, '1');
+  return { updated: res.changes ?? 0, skipped: false };
 }
 
 // Sparade kabinpersonalsnamn (cabin crew) — lagras som JSON-lista i settings,

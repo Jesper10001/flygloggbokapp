@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path, Polygon, Line as SvgLine, Circle, Defs, LinearGradient, Stop, Text as SvgText, G } from 'react-native-svg';
@@ -20,6 +21,7 @@ const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const MONTH3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
 const ord = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
@@ -31,16 +33,11 @@ export function ActivitySection() {
   const C = useInsightsTheme();
   const D = useInsightsData();
   const flights = useFlightStore((s) => s.flights);
-  const [viz, setViz] = useState<'heatmap' | 'bars' | 'line'>('heatmap');
+  // Line-only: heatmap (loggbokssidan) och bars-läget borttagna. Kortet visar
+  // årsbasis-linjen (hours/month) + tvåveckors rullande belastning (line).
   const [yearAvg14, setYearAvg14] = useState(0);
   const [tz, setTz] = useState<Record<string, TzInfo>>({});
   const now = new Date();
-  const [yearShift, setYearShift] = useState(0);
-  const [sel, setSel] = useState<{ y: number; m: number }>({ y: now.getFullYear(), m: now.getMonth() });
-  const [barsView, setBarsView] = useState<{ atPresent: boolean; curLabel: string }>({ atPresent: true, curLabel: String(now.getFullYear()) });
-  const [loadView, setLoadView] = useState<{ atPresent: boolean; curLabel: string; prevLabel: string; sum: number } | null>(null);
-  const { width } = useWindowDimensions();
-  const pageW = Math.max(180, width - 56);
 
   useFocusEffect(useCallback(() => {
     getStressHours().then((s) => setYearAvg14(s.yearAvg14)).catch(() => {});
@@ -87,7 +84,91 @@ export function ActivitySection() {
     return { hist: histWin, curArr, prevArr, baseline: flown.length ? flown.reduce((s, h) => s + h, 0) / flown.length : 0 };
   }, [D.monthly]);
 
-  // records from daily history
+  const thisMonthH = curArr[now.getMonth()] ?? 0;
+  const loadCur = dailyWin.slice(-14);
+  const loadPrev = dailyWin.slice(-28, -14);
+  const dailyBaseLoad = (() => { const f = dailyWin.map((d) => d.h).filter((h) => h > 0); return f.length ? f.reduce((s, h) => s + h, 0) / f.length : 0; })();
+  const loadSum = loadCur.reduce((s, d) => s + d.h, 0);
+  const popPct = yearAvg14 > 0 ? Math.round(((loadSum - yearAvg14) / yearAvg14) * 100) : 0;
+  const curYtd = curArr.slice(0, now.getMonth() + 1).reduce((s, h) => s + h, 0);
+  const prevYtd = prevArr.slice(0, now.getMonth() + 1).reduce((s, h) => s + h, 0);
+  const yoy = prevYtd > 0 ? Math.round(((curYtd - prevYtd) / prevYtd) * 100) : 0;
+  const lv = { curLabel: dailyWin.length ? `${fmtDM(dailyWin[112].date)}–${fmtDM(dailyWin[125].date)}` : '', prevLabel: dailyWin.length ? `${fmtDM(dailyWin[98].date)}–${fmtDM(dailyWin[111].date)}` : '', sum: loadSum };
+
+  return (
+    <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
+      {/* Header i samma profil som "Experience & projections" (ikon + serif-titel + värde) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 12 }}>
+        <Ionicons name="pulse-outline" size={17} color={C.primary} />
+        <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '500', color: C.text }}>Hours & load</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.success }}>{Math.round(thisMonthH)}h this month</Text>
+      </View>
+
+      <Text style={[st.head, { color: C.text2, marginBottom: 8 }]}>HOURS / MONTH</Text>
+      {/* legend — grå = förra året, cyan = i år */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <View style={[st.dot, { backgroundColor: C.muted, opacity: 0.6 }]} />
+        <Text style={{ fontSize: 11, color: C.text3, marginRight: 8 }}>{now.getFullYear() - 1}</Text>
+        <View style={[st.dot, { backgroundColor: C.primary }]} />
+        <Text style={{ fontSize: 11, color: C.text3 }}>{now.getFullYear()}</Text>
+      </View>
+
+      <MonthlyLine C={C} cur={curArr} prev={prevArr} />
+
+      {prevYtd > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+          <Text style={{ fontSize: 11, color: C.muted }}>
+            <Text style={{ color: yoy >= 0 ? C.success : C.warning, fontWeight: '700', fontFamily: MONO }}>{yoy >= 0 ? '+' : ''}{yoy}%</Text> vs same period last year
+          </Text>
+        </View>
+      )}
+
+      <View style={{ height: 1, backgroundColor: C.separator, marginVertical: 14 }} />
+
+      <Text style={[st.head, { color: C.text2, marginBottom: 8 }]}>14-DAY ROLLING LOAD</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <View style={[st.dot, { backgroundColor: C.muted, opacity: 0.6 }]} />
+        <Text style={{ fontSize: 11, color: C.text3, marginRight: 8 }}>{lv.prevLabel}</Text>
+        <View style={[st.dot, { backgroundColor: C.primary }]} />
+        <Text style={{ fontSize: 11, color: C.text3 }}>{lv.curLabel}</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.success }}>{lv.sum.toFixed(1)}h this period</Text>
+      </View>
+      <LoadLine C={C} cur={loadCur.map((d) => d.h)} prev={loadPrev.map((d) => d.h)} dates={loadCur.map((d) => d.date)} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+        <Text style={{ fontSize: 11, color: C.muted }}>
+          <Text style={{ color: popPct >= 0 ? C.success : C.warning, fontWeight: '700', fontFamily: MONO }}>{popPct >= 0 ? '+' : ''}{popPct}%</Text>
+          {popPct >= 0 ? ' over' : ' under'} annual baseline
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// Fristående "activity calendar" (årskalender + almenacka) för loggbokssidan.
+// Äger egen data-pipeline (flights → tz → localDaily → dailyAll/records), samma
+// som ActivitySection, men utan bars/line-ramen. Renderas längst ner i List-vyn.
+export function HeatmapCalendar() {
+  const C = useInsightsTheme();
+  const D = useInsightsData();
+  const flights = useFlightStore((s) => s.flights);
+  const now = new Date();
+  const [tz, setTz] = useState<Record<string, TzInfo>>({});
+  const [sel, setSel] = useState<{ y: number; m: number }>({ y: now.getFullYear(), m: now.getMonth() });
+
+  // tidszons-info för avgångsflygplatser → lokaltids-uppdelning av flyg över midnatt
+  useEffect(() => {
+    const deps = [...new Set(flights.filter((f) => f.flight_type !== 'sim' && f.dep_place).map((f) => f.dep_place))];
+    if (!deps.length) return;
+    getAirportTzInfo(deps).then((rows) => {
+      const m: Record<string, TzInfo> = {};
+      for (const r of rows) m[r.icao] = { country: r.country, region: r.region, lon: r.lon };
+      setTz(m);
+    }).catch(() => {});
+  }, [flights]);
+
+  const localDaily = useMemo(() => buildLocalDaily(flights, tz), [flights, tz]);
+  const dailyAll = useMemo(() => [...localDaily.hours.entries()].map(([date, hours]) => ({ date, hours })).sort((a, b) => a.date.localeCompare(b.date)), [localDaily]);
   const records = useMemo(() => {
     let allTime: { date: string; hours: number } | null = null;
     let yearBest: { date: string; hours: number } | null = null;
@@ -99,117 +180,30 @@ export function ActivitySection() {
     return { allTime, yearBest };
   }, [dailyAll]);
 
-  const thisMonthH = curArr[now.getMonth()] ?? 0;
-  const loadCur = dailyWin.slice(-14);
-  const loadPrev = dailyWin.slice(-28, -14);
-  const dailyBaseLoad = (() => { const f = dailyWin.map((d) => d.h).filter((h) => h > 0); return f.length ? f.reduce((s, h) => s + h, 0) / f.length : 0; })();
-  const loadSum = loadCur.reduce((s, d) => s + d.h, 0);
-  const popPct = yearAvg14 > 0 ? Math.round(((loadSum - yearAvg14) / yearAvg14) * 100) : 0;
-  const curYtd = curArr.slice(0, now.getMonth() + 1).reduce((s, h) => s + h, 0);
-  const prevYtd = prevArr.slice(0, now.getMonth() + 1).reduce((s, h) => s + h, 0);
-  const yoy = prevYtd > 0 ? Math.round(((curYtd - prevYtd) / prevYtd) * 100) : 0;
-  const lv = loadView ?? { atPresent: true, curLabel: dailyWin.length ? `${fmtDM(dailyWin[112].date)}–${fmtDM(dailyWin[125].date)}` : '', prevLabel: dailyWin.length ? `${fmtDM(dailyWin[98].date)}–${fmtDM(dailyWin[111].date)}` : '', sum: loadSum };
-
+  // Ingen kort-ram — årskalender + almenacka ligger fritt på loggbokssidan.
   return (
-    <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={[st.head, { color: C.text2 }]}>HOURS / MONTH</Text>
-        <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.success }}>{Math.round(thisMonthH)}h this month</Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 3, backgroundColor: C.elevated, borderRadius: 9, padding: 3, marginBottom: 10 }}>
-        {(['heatmap', 'bars', 'line'] as const).map((k) => (
-          <TouchableOpacity key={k} onPress={() => setViz(k)} style={[st.seg, viz === k && { backgroundColor: C.primary }]}>
-            <Text style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: viz === k ? C.deep : C.text3 }}>{k === 'heatmap' ? 'Heatmap' : k === 'bars' ? 'Bars' : 'Line'}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* legend (bars/line) — grå = förra året, cyan = i år / året i vy */}
-      {viz !== 'heatmap' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          {!(viz === 'bars' && !barsView.atPresent) && (
-            <>
-              <View style={[st.dot, { backgroundColor: C.muted, opacity: 0.6 }]} />
-              <Text style={{ fontSize: 11, color: C.text3, marginRight: 8 }}>{now.getFullYear() - 1}</Text>
-            </>
-          )}
-          <View style={[st.dot, { backgroundColor: C.primary }]} />
-          <Text style={{ fontSize: 11, color: C.text3 }}>{viz === 'bars' ? barsView.curLabel : now.getFullYear()}</Text>
-        </View>
-      )}
-
-      {viz === 'heatmap'
-        ? <MonthYearHeatmap C={C} monthly={D.monthly} curY={now.getFullYear()} curM={now.getMonth()} yearShift={yearShift} setYearShift={setYearShift} sel={sel} setSel={setSel} records={records} />
-        : viz === 'bars' ? <MonthlyBars C={C} months={hist} baseline={baseline} onView={setBarsView} />
-          : <MonthlyLine C={C} cur={curArr} prev={prevArr} />}
-
-      {/* monthly footer (bars/line) */}
-      {viz !== 'heatmap' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 }}>
-          {viz === 'bars' && (
-            <>
-              <Text style={{ fontFamily: MONO, fontSize: 8.5, color: C.muted }}>← Swipe to scroll back</Text>
-              {prevYtd > 0 && <View style={{ width: 1, height: 11, backgroundColor: C.border }} />}
-            </>
-          )}
-          {prevYtd > 0 && (
-            <Text style={{ fontSize: 11, color: C.muted }}>
-              <Text style={{ color: yoy >= 0 ? C.success : C.warning, fontWeight: '700', fontFamily: MONO }}>{yoy >= 0 ? '+' : ''}{yoy}%</Text> vs same period last year
-            </Text>
-          )}
-        </View>
-      )}
-
-      <View style={{ height: 1, backgroundColor: C.separator, marginVertical: 14 }} />
-
-      {viz === 'heatmap' ? (
-        <IsoMonth C={C} sel={sel} setSel={setSel} dailyAll={dailyAll} dayIds={localDaily.ids} records={records} />
-      ) : (
-        <>
-          <Text style={[st.head, { color: C.text2, marginBottom: 8 }]}>14-DAY ROLLING LOAD</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            {lv.atPresent && (
-              <>
-                <View style={[st.dot, { backgroundColor: C.muted, opacity: 0.6 }]} />
-                <Text style={{ fontSize: 11, color: C.text3, marginRight: 8 }}>{lv.prevLabel}</Text>
-              </>
-            )}
-            <View style={[st.dot, { backgroundColor: C.primary }]} />
-            <Text style={{ fontSize: 11, color: C.text3 }}>{lv.curLabel}</Text>
-            <View style={{ flex: 1 }} />
-            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.success }}>{lv.sum.toFixed(1)}h this period</Text>
-          </View>
-          {viz === 'bars'
-            ? <LoadBars C={C} dailyWin={dailyWin} baseline={dailyBaseLoad} pageW={pageW} onView={setLoadView} />
-            : <LoadLine C={C} cur={loadCur.map((d) => d.h)} prev={loadPrev.map((d) => d.h)} dates={loadCur.map((d) => d.date)} />}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 }}>
-            {viz === 'bars' && (
-              <>
-                <Text style={{ fontFamily: MONO, fontSize: 8.5, color: C.muted }}>← Swipe to scroll back</Text>
-                <View style={{ width: 1, height: 11, backgroundColor: C.border }} />
-              </>
-            )}
-            <Text style={{ fontSize: 11, color: C.muted }}>
-              <Text style={{ color: popPct >= 0 ? C.success : C.warning, fontWeight: '700', fontFamily: MONO }}>{popPct >= 0 ? '+' : ''}{popPct}%</Text>
-              {popPct >= 0 ? ' over' : ' under'} annual baseline
-            </Text>
-          </View>
-        </>
-      )}
+    <View>
+      <Text style={[st.head, { color: C.text2, marginBottom: 10 }]}>ACTIVITY CALENDAR</Text>
+      <MonthYearHeatmap C={C} monthly={D.monthly} curY={now.getFullYear()} curM={now.getMonth()} sel={sel} setSel={setSel} records={records} />
+      <View style={{ height: 1, backgroundColor: C.separator, marginVertical: 5 }} />
+      <IsoMonth C={C} sel={sel} setSel={setSel} dailyAll={dailyAll} dayIds={localDaily.ids} records={records} />
     </View>
   );
 }
 
 // ── Month × year heatmap grid ──
-function MonthYearHeatmap({ C, monthly, curY, curM, yearShift, setYearShift, sel, setSel, records }: {
+function MonthYearHeatmap({ C, monthly, curY, curM, sel, setSel, records }: {
   C: InsightsTheme; monthly: Record<string, number>; curY: number; curM: number;
-  yearShift: number; setYearShift: (f: (s: number) => number) => void;
   sel: { y: number; m: number }; setSel: (s: { y: number; m: number }) => void;
   records: { allTime: { date: string; hours: number } | null; yearBest: { date: string; hours: number } | null };
 }) {
-  const topYear = curY - yearShift;
-  const rows = [topYear, topYear - 1];
+  // Två senaste åren default; expanderknappen (nere till vänster) visar ALLA år på samma sätt.
+  const [expanded, setExpanded] = useState(false);
+  const dataYears = Object.keys(monthly).filter((k) => (monthly[k] ?? 0) > 0).map((k) => Number(k.slice(0, 4)));
+  const minYear = dataYears.length ? Math.min(...dataYears, curY - 1) : curY - 1;
+  const allYears: number[] = [];
+  for (let y = curY; y >= minYear; y--) allYears.push(y);
+  const rows = expanded ? allYears : [curY, curY - 1];
   const get = (y: number, m: number) => monthly[`${y}-${String(m + 1).padStart(2, '0')}`] ?? 0;
   const max = Math.max(...rows.flatMap((y) => Array.from({ length: 12 }, (_, m) => get(y, m))), 0.1);
   const recPurple = records.allTime ? { y: Number(records.allTime.date.slice(0, 4)), m: Number(records.allTime.date.slice(5, 7)) - 1 } : null;
@@ -217,11 +211,6 @@ function MonthYearHeatmap({ C, monthly, curY, curM, yearShift, setYearShift, sel
 
   return (
     <View style={{ gap: 5 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-        <TouchableOpacity onPress={() => setYearShift((s) => Math.min(20, s + 1))} style={[st.yArrow, { borderColor: C.border, backgroundColor: C.elevated }]}><Text style={{ color: C.text2, fontFamily: MONO, fontWeight: '700' }}>‹</Text></TouchableOpacity>
-        <Text style={{ fontFamily: MONO, fontSize: 11, color: C.text3 }}>{topYear} / {topYear - 1}</Text>
-        {yearShift > 0 && <TouchableOpacity onPress={() => setYearShift((s) => Math.max(0, s - 1))} style={[st.yArrow, { borderColor: C.border, backgroundColor: C.elevated }]}><Text style={{ color: C.text2, fontFamily: MONO, fontWeight: '700' }}>›</Text></TouchableOpacity>}
-      </View>
       {rows.map((yr) => (
         <View key={yr} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           <Text style={{ width: 24, fontFamily: MONO, fontSize: 9, fontWeight: '700', color: yr === sel.y ? C.gold : C.muted }}>{String(yr).slice(2)}</Text>
@@ -243,8 +232,18 @@ function MonthYearHeatmap({ C, monthly, curY, curM, yearShift, setYearShift, sel
           </View>
         </View>
       ))}
-      <View style={{ flexDirection: 'row', gap: 3, paddingLeft: 29 }}>
-        {MONTHS.map((m, i) => <Text key={i} style={{ flex: 1, textAlign: 'center', fontFamily: MONO, fontSize: 8.5, fontWeight: '700', color: i === sel.m ? C.gold : (i === curM ? C.primary : C.faint) }}>{m}</Text>)}
+      {/* Månadsetiketter + expanderknapp i vänstra guttern (till vänster om J, under äldsta året) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <TouchableOpacity onPress={() => setExpanded((e) => !e)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ width: 24, alignItems: 'flex-start', justifyContent: 'center' }} activeOpacity={0.7}>
+          <View style={{ width: 22, height: 18, borderRadius: 5, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: expanded ? C.primary + '22' : C.elevated, borderWidth: 1, borderColor: expanded ? C.primary : C.border }}>
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color={expanded ? C.primary : C.text2} />
+          </View>
+        </TouchableOpacity>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 3 }}>
+          {MONTHS.map((m, i) => <Text key={i} style={{ flex: 1, textAlign: 'center', fontFamily: MONO, fontSize: 8.5, fontWeight: '700', color: i === sel.m ? C.gold : (i === curM ? C.primary : C.faint) }}>{m}</Text>)}
+        </View>
       </View>
     </View>
   );
@@ -262,6 +261,8 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
   const [day, setDay] = useState<number | null>(null);
   const now = new Date();
   const { y, m } = sel;
+  // Byte av månad (via årskalendern) ska stänga en ev. öppen dagsruta.
+  useEffect(() => { setDay(null); }, [y, m]);
   const nDays = daysInMonth(y, m);
 
   const days = useMemo(() => {
@@ -276,23 +277,29 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
   let monthMaxDay = 0, monthMaxV = 0;
   days.forEach((v: number, i: number) => { if (v > monthMaxV) { monthMaxV = v; monthMaxDay = i + 1; } });
   const dateStr = (d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  // Årets bästa dag för det VISADE året (guld). Lila (all-time) tar över för det år
+  // som har längsta dagen någonsin → inget guld det året.
+  const yearBestDate = useMemo(() => {
+    let best: { date: string; hours: number } | null = null;
+    for (const r of dailyAll) if (r.date.slice(0, 4) === String(y) && (!best || r.hours > best.hours)) best = r;
+    return best && best.hours > 0 ? best.date : null;
+  }, [dailyAll, y]);
   const tierFor = (d: number): 'alltime' | 'year' | 'month' | null => {
     if (d !== monthMaxDay || monthMaxV <= 0) return null;
     if (records.allTime && records.allTime.date === dateStr(d)) return 'alltime';
-    if (records.yearBest && y === now.getFullYear() && records.yearBest.date === dateStr(d)) return 'year';
+    if (yearBestDate === dateStr(d)) return 'year';
     return 'month';
   };
   const HL = { alltime: C.purple, year: C.gold, month: C.silver };
 
   // iso projection
-  const TW = 38, TH = 19, FW = 16, FH = 8, MAXBAR = 56;
+  const TW = 38, TH = 19, FW = 16, FH = 8, MAXBAR = 28;
   const isoX = (c: number, r: number) => (c - r) * (TW / 2);
   const isoY = (c: number, r: number) => (c + r) * (TH / 2);
   const rgb = ((): [number, number, number] => { const n = parseInt(C.primary.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; })();
   const shade = (mult: number, a = 1) => `rgba(${Math.round(rgb[0] * mult)},${Math.round(rgb[1] * mult)},${Math.round(rgb[2] * mult)},${a})`;
   const shadeHex = (hex: string, mult: number, a = 1) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${Math.min(255, Math.round(((n >> 16) & 255) * mult))},${Math.min(255, Math.round(((n >> 8) & 255) * mult))},${Math.min(255, Math.round((n & 255) * mult))},${a})`; };
   const firstDow = (new Date(y, m, 1).getDay() + 6) % 7;
-  const isCur = y === now.getFullYear() && m === now.getMonth();
 
   const bars = days.map((v: number, d: number) => { const idx = firstDow + d; return { v, day: d + 1, col: idx % 7, row: Math.floor(idx / 7) }; });
   bars.sort((a, b) => (a.row + a.col) - (b.row + b.col));
@@ -302,7 +309,7 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
   bars.forEach((b, k) => {
     const bx = isoX(b.col, b.row), by = isoY(b.col, b.row);
     const intensity = b.v > 0 ? 0.32 + (b.v / max) * 0.68 : 0;
-    const bh = b.v > 0 ? 7 + (b.v / max) * MAXBAR : 0;
+    const bh = b.v > 0 ? 3.5 + (b.v / max) * MAXBAR : 0;
     const ty = by - bh;
     minX = Math.min(minX, bx - FW); maxX = Math.max(maxX, bx + FW);
     minY = Math.min(minY, ty - FH); maxY = Math.max(maxY, by + FH);
@@ -321,8 +328,8 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
       return;
     }
     const tier = tierFor(b.day);
-    const isToday = isCur && b.day === now.getDate();
-    const topFill = tier ? shadeHex(HL[tier], 1.0) : (isToday ? '#FFFFFF' : shade(0.7 + intensity * 0.55));
+    // Innevarande dag ska INTE särbehandlas — samma färg/kant som alla andra staplar.
+    const topFill = tier ? shadeHex(HL[tier], 1.0) : shade(0.7 + intensity * 0.55);
     const leftFill = tier ? shadeHex(HL[tier], 0.45) : shade(0.24 + intensity * 0.2);
     const rightFill = tier ? shadeHex(HL[tier], 0.72) : shade(0.46 + intensity * 0.32);
     const hLabel = `${b.v.toFixed(1)}h`;        // en decimal, t.ex. 2.6h / 10.9h
@@ -332,10 +339,10 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
       <G key={`b${k}`} onPress={() => setDay(b.day)}>
         <Polygon points={`${bx - FW},${by} ${bx},${by + FH} ${bx},${ty + FH} ${bx - FW},${ty}`} fill={leftFill} />
         <Polygon points={`${bx + FW},${by} ${bx},${by + FH} ${bx},${ty + FH} ${bx + FW},${ty}`} fill={rightFill} />
-        <Polygon points={`${bx - FW},${ty} ${bx},${ty - FH} ${bx + FW},${ty} ${bx},${ty + FH}`} fill={topFill} stroke={isSel ? C.gold : (tier ? shadeHex(HL[tier], 1.3) : (isToday ? C.primary : shade(1.1)))} strokeWidth={isSel ? 2 : (tier ? 1.2 : (isToday ? 1.4 : 0.5))} />
+        <Polygon points={`${bx - FW},${ty} ${bx},${ty - FH} ${bx + FW},${ty} ${bx},${ty + FH}`} fill={topFill} stroke={isSel ? C.gold : (tier ? topFill : shade(1.1))} strokeWidth={isSel ? 2 : 0.5} />
         {b.v > 0 && (
           <G transform={`matrix(0.894 0.447 -0.894 0.447 ${bx} ${ty})`}>
-            <SvgText x={0} y={2} fontSize={hFs} fontFamily={MONO} fontWeight="700" fill={tier || isToday || intensity > 0.55 ? C.deep : shade(0.2)} textAnchor="middle">{hLabel}</SvgText>
+            <SvgText x={0} y={2} fontSize={hFs} fontFamily={MONO} fontWeight="700" fill={tier || intensity > 0.55 ? C.deep : shade(0.2)} textAnchor="middle">{hLabel}</SvgText>
           </G>
         )}
       </G>,
@@ -343,13 +350,14 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
   });
 
   const pad = 8;
+  const titleH = 22; // extra topp-yta för den liggande "Month Year"-titeln ovanför kalendern
   const vbW = Math.max((maxX - minX) + pad * 2, 100);
   const vbH = Math.max((maxY - minY) + pad * 2, 100);
 
   const dayIdList = day ? (dayIds.get(dateStr(day)) ?? []) : [];
   const dayFlights = flights.filter((f) => dayIdList.includes(f.id));
   const openDay = () => {
-    if (dayFlights.length === 1) { router.push(`/flight/${dayFlights[0].id}`); return; }
+    if (dayFlights.length === 1) { router.push(`/flight/detail/${dayFlights[0].id}`); return; }
     const sorted = [...dayFlights].sort((a, b) => (a.dep_utc || '').localeCompare(b.dep_utc || '') || a.id - b.id);
     const last = sorted[sorted.length - 1];
     if (!last) return;
@@ -361,20 +369,28 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
 
   const stepMonth = (delta: number) => { const d = new Date(y, m + delta, 1); if (d.getTime() <= new Date(now.getFullYear(), now.getMonth(), 1).getTime()) { setSel({ y: d.getFullYear(), m: d.getMonth() }); setDay(null); } };
 
+  // "Month Year"-titeln ligger platt på iso-planet som en almanacksrubrik UNDER
+  // sista dagraden (front-kanten) — motsatt sida mot dagsiffrorna.
+  const titleStr = `${MONTH_FULL[m]} ${y}`;
+  const titleLen = titleStr.length * 5.8;              // grov pixel-längd vid fontSize 10 (MONO)
+  const lastRow = Math.floor((firstDow + days.length - 1) / 7);
+  const titleY = isoY(0, lastRow) + FH + 10;           // strax under sista radens rutor
+  const titleXmax = maxX + pad - titleLen * 0.894;     // klampa så titeln inte klipps i högerkanten
+  const titleX = Math.max(minX - pad + 2, Math.min(isoX(0, lastRow) - FW * 0.5, titleXmax));
+
   return (
     <View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity onPress={() => stepMonth(-1)} style={[st.mArrow, { backgroundColor: C.elevated, borderColor: C.border }]}><Text style={{ color: C.text2, fontFamily: MONO, fontWeight: '700' }}>‹</Text></TouchableOpacity>
-          <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', letterSpacing: 1.2, color: C.text2 }}>{MONTH3[m]} {y}</Text>
-        </View>
-        {!(y === now.getFullYear() && m === now.getMonth()) && <TouchableOpacity onPress={() => stepMonth(1)} style={[st.mArrow, { backgroundColor: C.elevated, borderColor: C.border }]}><Text style={{ color: C.text2, fontFamily: MONO, fontWeight: '700' }}>›</Text></TouchableOpacity>}
-      </View>
-
-      <Svg width="100%" height={Math.min(300, Math.round((vbH / vbW) * 340))} viewBox={`${minX - pad} ${minY - pad} ${vbW} ${vbH}`}>{polys}</Svg>
+      {/* Månad + år ligger på iso-planet ovanför de övre siffrorna. Inga månad-pilar —
+          navigera mellan månader via månadsrutorna vid årtalen i heatmapen. */}
+      <Svg width="100%" height={Math.min(320, Math.round(((vbH + titleH) / vbW) * 340))} viewBox={`${minX - pad} ${minY - pad} ${vbW} ${vbH + titleH}`}>
+        {polys}
+        <G transform={`matrix(0.894 0.447 -0.894 0.447 ${titleX} ${titleY})`}>
+          <SvgText x={0} y={0} fontSize={10} fontFamily={MONO} fontWeight="700" letterSpacing={0.5} fill="#FFFFFF">{titleStr}</SvgText>
+        </G>
+      </Svg>
 
       {day && (
-        <View style={{ marginTop: 8, backgroundColor: C.deep, borderWidth: 1, borderColor: C.gold, borderRadius: 12, padding: 12 }}>
+        <View style={{ marginTop: 4, backgroundColor: C.deep, borderWidth: 1, borderColor: C.gold, borderRadius: 12, padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
             <Text style={{ fontFamily: SERIF, fontSize: 16, fontWeight: '600', color: C.text }}>{MONTH3[m]} {day}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.gold }}>{(days[day - 1] ?? 0).toFixed(1)}h · {dayFlights.length} flight{dayFlights.length !== 1 ? 's' : ''}</Text>
@@ -396,7 +412,6 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
           )}
         </View>
       )}
-      <Text style={{ fontFamily: MONO, fontSize: 8.5, color: C.muted, textAlign: 'center', marginTop: 6 }}>Tap a bar for the day</Text>
     </View>
   );
 }

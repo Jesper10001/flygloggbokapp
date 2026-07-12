@@ -81,8 +81,16 @@ export const SmartTimeInput = forwardRef<SmartTimeInputHandle, Props>(function S
   const valid = isValidTime(value);
 
   const handleChange = (raw: string) => {
-    // Extrahera bara siffror och bygg HH:MM
-    const digits = raw.replace(/\D/g, '').slice(0, 4);
+    // Extrahera bara siffror och bygg HH:MM med logisk validering per siffra.
+    let digits = raw.replace(/\D/g, '').slice(0, 4);
+    // Timmar 00–23: om andra timsiffran ger >23 (t.ex. 25), sudda den sist inskrivna siffran.
+    if (digits.length >= 2 && parseInt(digits.slice(0, 2), 10) > 23) {
+      digits = digits.slice(0, 1);
+    }
+    // Minuters tiotal måste vara 0–5 (ingen 12:65): sudda den sist inskrivna siffran.
+    if (digits.length >= 3 && parseInt(digits[2], 10) > 5) {
+      digits = digits.slice(0, 2);
+    }
     if (digits.length === 0) {
       onChangeText('');
     } else if (digits.length <= 2) {

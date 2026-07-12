@@ -21,7 +21,7 @@ import {
   getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
 import { buildBookSpreads, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
-import { assignFlightsToBooks } from '../../services/logbook/books';
+import { assignFlightsToBooks, resolveOpeningBalance } from '../../services/logbook/books';
 import { listDigitalBooks, ensureDigitalBooksMigrated, type DigitalBook } from '../../db/digitalBooks';
 import { SpreadWebView } from '../../components/logbook/SpreadWebView';
 import { type SignatureData } from '../../components/SignaturePad';
@@ -101,7 +101,7 @@ export default function FillScreen() {
     return buildBookSpreads(slice?.flights ?? [], template, {
       startingPage: book.starting_page,
       rowsPerSpread: book.rows_per_spread,
-      openingBalance: parseJson<ColumnTotals>(book.opening_balance, {}),
+      openingBalance: resolveOpeningBalance(book, flights, template),
       leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
     });
   }, [book, template, books, flights]);

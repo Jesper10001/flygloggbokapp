@@ -124,7 +124,7 @@ export default function BestWeekScreen() {
                   {day.flights.map((f, fi) => (
                     <Pressable
                       key={f.id}
-                      onPress={() => router.push(`/flight/${f.id}`)}
+                      onPress={() => router.push(`/flight/detail/${f.id}`)}
                       style={({ pressed }) => [s.flightRow, fi > 0 && s.flightRowBorder, { opacity: pressed ? 0.6 : 1 }]}
                     >
                       <View style={[s.flightDot, { backgroundColor: accent }]} />

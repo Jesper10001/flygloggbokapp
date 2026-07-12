@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video, ResizeMode } from 'expo-av';
+import { FlightVideo } from './FlightVideo';
 import Svg, { Line, Circle, Path, Polyline } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getAirportCoordinates } from '../db/icao';
@@ -181,7 +181,6 @@ interface Props {
 export function FlightShareCard({ flight, depName, arrName, visible, onClose, formatTime }: Props) {
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
-  const videoRef = useRef<any>(null);
   const [sharing, setSharing] = useState(false);
   const [depCoord, setDepCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [arrCoord, setArrCoord] = useState<{ lat: number; lon: number } | null>(null);
@@ -318,14 +317,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
     }
   }, [visible, flight.id, flight.date, flight.dep_place, flight.arr_place, flight.aircraft_type, flight.total_time, flight.media_type, flight.photo_uri]);
 
-  // Kontrollera videouppspelning när modal öppnas/stängs
-  useEffect(() => {
-    if (visible && flight.media_type === 'video' && videoRef.current) {
-      setTimeout(() => {
-        videoRef.current?.play?.();
-      }, 50);
-    }
-  }, [visible, flight.media_type]);
+  // (Videouppspelning sköts av FlightVideo: autoPlay + loop när den monteras med modalen.)
 
   const handleShare = async () => {
     setSharing(true);
@@ -413,16 +405,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <Video
-            ref={videoRef}
-            source={{ uri: f.photo_uri }}
-            style={{ flex: 1 }}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            isMuted
-            shouldPlay
-            useNativeControls
-          />
+          {visible && <FlightVideo uri={f.photo_uri} style={{ flex: 1 }} contentFit="cover" loop muted autoPlay nativeControls />}
           <View style={{ position: 'absolute', top: insets.top + 12, right: 16, gap: 12, zIndex: 10 }}>
             <TouchableOpacity
               onPress={handleShare}

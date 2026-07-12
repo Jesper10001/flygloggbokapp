@@ -10,7 +10,7 @@ import { FONT_MONO } from '../logbook-page/tokens';
 
 const PAD = 2;
 
-export function SlideToggle<T extends string>({ options, value, onChange, activeColor, size = 'sm', block = false, sans = false }: {
+export function SlideToggle<T extends string>({ options, value, onChange, activeColor, size = 'sm', block = false, sans = false, soft = false, tall = false }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
@@ -18,6 +18,8 @@ export function SlideToggle<T extends string>({ options, value, onChange, active
   size?: 'sm' | 'md';
   block?: boolean;
   sans?: boolean; // använd systemets sans (samma som "Aircraft type"/"Registration") istället för mono
+  soft?: boolean; // vald del = samma look som roleBtn-active (transparent accent-fyllning + accent-text)
+  tall?: boolean; // matcha höjden på roleBtn (paddingVertical 10) — behåll liten font
 }) {
   const accent = activeColor || Colors.primary;
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
@@ -40,23 +42,26 @@ export function SlideToggle<T extends string>({ options, value, onChange, active
     const c = [...p]; c[i] = { x: l.x, w: l.width }; return c;
   });
   const fs = size === 'md' ? 12 : 9.5;
-  const py = size === 'md' ? 8 : 4;
+  const py = tall ? 10 : (size === 'md' ? 8 : 4);
 
   return (
     <View style={{ position: 'relative', flexDirection: 'row', alignSelf: block ? 'stretch' : 'flex-start', backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, padding: PAD }}>
       {cur ? (
         <Animated.View style={{
           position: 'absolute', top: PAD, bottom: PAD, left: 0, width: cur.w, borderRadius: 6,
-          backgroundColor: accent, transform: [{ translateX: animX }],
-          shadowColor: accent, shadowOpacity: 0.5, shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
+          backgroundColor: soft ? accent + '24' : accent, transform: [{ translateX: animX }],
+          borderWidth: soft ? 1 : 0, borderColor: accent,
+          shadowColor: accent, shadowOpacity: soft ? 0 : 0.5, shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
         }} />
       ) : null}
       {options.map((o, i) => {
         const on = o.value === value;
+        const onColor = soft ? accent : Colors.background;
+        const offColor = soft ? Colors.textSecondary : Colors.textMuted;
         return (
           <TouchableOpacity key={o.value} onLayout={(e) => setSeg(i, e.nativeEvent.layout)} onPress={() => onChange(o.value)} activeOpacity={0.8}
-            style={{ flex: block ? 1 : 0, paddingVertical: py, paddingHorizontal: block ? 0 : 12, alignItems: 'center', borderRadius: 6 }}>
-            <Text numberOfLines={1} style={{ fontFamily: sans ? undefined : FONT_MONO, fontSize: fs, fontWeight: '800', letterSpacing: 0.3, color: on ? Colors.background : Colors.textMuted }}>
+            style={{ flex: block ? 1 : 0, paddingVertical: py, paddingHorizontal: block ? 4 : 12, alignItems: 'center', justifyContent: 'center', borderRadius: 6 }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: sans ? undefined : FONT_MONO, fontSize: fs, fontWeight: '800', letterSpacing: 0.3, color: on ? onColor : offColor }}>
               {o.label}
             </Text>
           </TouchableOpacity>

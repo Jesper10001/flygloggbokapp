@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
-  TextInput, Modal, Pressable, Image, useWindowDimensions,
+  TextInput, Modal, Pressable, Image, useWindowDimensions, Animated, Easing,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { callAnthropicJson } from '../../services/anthropicClient';
@@ -20,7 +22,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -30,6 +32,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime } from '../../utils/format';
 import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
+import { classifyRouteEvents } from '../../utils/eventClassify';
 import { solarAltitudeDeg } from '../../utils/sun';
 import { DayNightMap } from '../../components/DayNightMap';
 import { SlideToggle } from '../../components/logflight/SlideToggle';
@@ -38,14 +41,15 @@ import { TolRow } from '../../components/logflight/MiniStepper';
 import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { CountryFlag } from '../../components/CountryFlag';
 import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
+import { AddPilotModal } from '../../components/logflight/AddPilotModal';
 import { computeNightHoursTimed, vertexArrivalTimes, sampleTimedRoute, type SunState } from '../../utils/dayNight';
 import { TwilightBar } from '../../components/logflight/TwilightBar';
-import { ApproachFlow, APP_TYPES, type ApproachVal } from '../../components/logflight/ApproachFlow';
+import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { useProfileStore } from '../../store/profileStore';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
-import { getAirportTzInfo, getNearbyAirports } from '../../db/icao';
+import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace } from '../../db/icao';
 import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
@@ -97,6 +101,8 @@ const EMPTY: FlightFormData = {
   takeoffs_night: '0',
   app_2d: '0',
   app_3d: '0',
+  pilot_flying: '',
+  holds: '0',
 };
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
@@ -109,29 +115,9 @@ const KIND_TOKEN: Record<StopKind, string> = { tng: 'TnG', lowapp: 'LA', pickup:
 const KIND_LABEL: Record<StopKind, string> = { tng: 'Touch & go', lowapp: 'Low approach', pickup: 'Pickup', dropoff: 'Drop off', refuel: 'Hot refuel' };
 const KIND_DWELL: Record<StopKind, number> = { tng: 10, lowapp: 10, pickup: 10, dropoff: 10, refuel: 20 };
 const KIND_ORDER: StopKind[] = ['tng', 'lowapp', 'pickup', 'dropoff', 'refuel'];
-const APP_2D = ['VOR', 'NDB', 'LOC', 'DME', 'LNAV'];
-const APP_3D = ['ILS', 'GLS', 'GBAS', 'PAR', 'RNAV'];
 const rwy2 = (heading: number) => Math.round(heading / 10).toString().padStart(2, '0');
 
-function appTypeForToken(token: string): '2d' | '3d' | null {
-  const u = token.toUpperCase();
-  if (u === '2D' || APP_2D.includes(u)) return '2d';
-  if (u === '3D' || APP_3D.includes(u)) return '3d';
-  return null;
-}
-
-// "ESSV TnG ILS app rwy 01" / "ESSA PU/DO" / "ESGG HR 3D app rwy 09"
-function serializeStop(s: RouteStop): string {
-  let line = `${s.icao.toUpperCase()} ${KIND_TOKEN[s.kind]}`;
-  const app = s.navaid || (s.appType ? s.appType.toUpperCase() : null);
-  if (app && s.runway != null) line += ` ${app} app rwy ${rwy2(s.runway)}`;
-  return line;
-}
-
-const STOP_RE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+(2D|3D|VOR|NDB|LOC|DME|LNAV|ILS|GLS|GBAS|PAR|RNAV)\s+app\s+rwy\s+(\d{2,3}))?\s*$/i;
-// Kompakt approach-rad i remarks (designens ApproachFlow): "ESSA ILS 27" / "ESGG VOR 03L".
-// Skiljd från STOP_RE (som har "app rwy") så route-stoppen inte rörs.
-const APPROACH_LINE_RE = /^([A-Z]{3,4})\s+(ILS|RNAV|GLS|VOR|NDB|LOC)(?:\s+(\d{1,2}[LCR]?))?$/i;
+const KIND_TOK_RE = 'TnG|LA|PU\\/DO|PU|DO|HR';
 const kindFromToken = (t: string): StopKind => {
   const u = t.toUpperCase();
   if (u === 'TNG') return 'tng';
@@ -140,32 +126,64 @@ const kindFromToken = (t: string): StopKind => {
   if (u === 'DO') return 'dropoff';
   return 'pickup'; // PU eller legacy PU/DO
 };
-const isStopLine = (line: string) => STOP_RE.test(line.trim());
+
+// Route-rad i remarks: "ESCF PU" · med approach "ESCF PU - ILS 08" · ankomst "ESSA ILS 27".
+// (Gammalt format "ESCF PU VOR app rwy 08" läses också vid redigering.)
+const STOP_LINE_RE = new RegExp(`^([A-Z]{2,4})\\s+(${KIND_TOK_RE})\\b`, 'i');
+const APPROACH_LINE_RE = new RegExp(`^([A-Z]{3,4})\\s+(?:${APP_FIRST_WORDS.join('|')})\\b`, 'i');
+const isManagedLine = (l: string) => { const t = l.trim(); return STOP_LINE_RE.test(t) || APPROACH_LINE_RE.test(t); };
+
+// Splitta "APP [RWY]" → { app, rwy } (rwy = 1–2 siffror + ev. L/C/R sist).
+function splitAppRwy(rest: string): { app: string; rwy?: string } {
+  const m = rest.trim().match(/^(.+?)(?:\s+(\d{1,2}[LCR]?))?$/);
+  if (!m) return { app: rest.trim() };
+  return { app: m[1].trim(), rwy: m[2] };
+}
+const mkApp = (app: string, rwy?: string): ApproachVal => ({ dim: dimForApp(app) ?? '3d', cat: catForApp(app), app: normApp(app), rwy });
 
 function parseRouteStops(remarks: string): RouteStop[] {
   const out: RouteStop[] = [];
   for (const line of (remarks || '').split('\n')) {
-    const m = line.trim().match(STOP_RE);
+    const m = line.trim().match(STOP_LINE_RE);
     if (!m) continue;
-    const appTok = m[3] || null;
-    const isNavaid = appTok ? !['2D', '3D'].includes(appTok.toUpperCase()) : false;
-    out.push({
-      id: `${m[1]}_${out.length}`,
-      icao: m[1].toUpperCase(),
-      kind: kindFromToken(m[2]),
-      appType: appTok ? appTypeForToken(appTok) : null,
-      runway: m[4] ? parseInt(m[4], 10) * 10 : null,
-      navaid: isNavaid ? appTok!.toUpperCase() : null,
-    });
+    out.push({ id: `${m[1]}_${out.length}`, icao: m[1].toUpperCase(), kind: kindFromToken(m[2]), appType: null, runway: null, navaid: null });
   }
   return out;
 }
 
-// remarks = fri text (behålls) + route-stoppen i ordning
-function applyStopsToRemarks(remarks: string, stops: RouteStop[]): string {
-  const free = (remarks || '').split('\n').filter((l) => l.trim().length > 0 && !isStopLine(l));
-  const lines = stops.filter((s) => s.icao.trim().length >= 2).map(serializeStop);
-  return [...free, ...lines].join('\n');
+// Parsa approach-info (redigeringsläge): merged stop, gammalt stop-format och fristående rad.
+function parseApproaches(remarks: string): Record<string, ApproachVal> {
+  const map: Record<string, ApproachVal> = {};
+  for (const raw of (remarks || '').split('\n')) {
+    const line = raw.trim();
+    let m = line.match(new RegExp(`^([A-Z]{2,4})\\s+(?:${KIND_TOK_RE})\\s+-\\s+(.+)$`, 'i'));
+    if (m) { const { app, rwy } = splitAppRwy(m[2]); if (dimForApp(app)) map[m[1].toUpperCase()] = mkApp(app, rwy); continue; }
+    m = line.match(new RegExp(`^([A-Z]{2,4})\\s+(?:${KIND_TOK_RE})\\s+([A-Z0-9/]+)\\s+app\\s+rwy\\s+(\\d{2,3})$`, 'i'));
+    if (m) { map[m[1].toUpperCase()] = mkApp(m[2], rwy2(parseInt(m[3], 10))); continue; }
+    m = line.match(new RegExp(`^([A-Z]{3,4})\\s+((?:${APP_FIRST_WORDS.join('|')})[A-Z0-9/ ]*?)(?:\\s+(\\d{1,2}[LCR]?))?$`, 'i'));
+    if (m && dimForApp(m[2].trim())) { map[m[1].toUpperCase()] = mkApp(m[2].trim(), m[3]); }
+  }
+  return map;
+}
+
+// Bygg route-rader: stopp (med ev. approach-suffix) + ankomst-approach. Fri text hanteras separat.
+function buildRouteLines(stops: RouteStop[], approaches: Record<string, ApproachVal>, arrIcao: string, withApproaches: boolean): string[] {
+  const lines: string[] = [];
+  const stopSet = new Set(stops.map((s) => s.icao.trim().toUpperCase()));
+  for (const s of stops) {
+    const ic = s.icao.trim().toUpperCase();
+    if (ic.length < 2) continue;
+    let line = `${ic} ${KIND_TOKEN[s.kind]}`;
+    const a = withApproaches ? approaches[ic] : null;
+    if (a?.app) line += ` - ${a.app}${a.rwy ? ` ${a.rwy}` : ''}`;
+    lines.push(line);
+  }
+  const arr = (arrIcao || '').trim().toUpperCase();
+  if (withApproaches && arr && !stopSet.has(arr)) {
+    const a = approaches[arr];
+    if (a?.app) lines.push(`${arr} ${a.app}${a.rwy ? ` ${a.rwy}` : ''}`);
+  }
+  return lines;
 }
 
 // ── Styles ──────────────────────────────────────────────────────────────────
@@ -602,7 +620,14 @@ export default function AddFlightScreen() {
   const [fi, setFi] = useState(false);
   const [examinerOverlay, setExaminerOverlay] = useState(false);
   const [safetyPilotOverlay, setSafetyPilotOverlay] = useState(false);
-  const [showSpecialRole, setShowSpecialRole] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false); // "Other"-roll → dropdownflik (ersätter modalen)
+  const [simInfoOpen, setSimInfoOpen] = useState(false); // info-popup: simulatortyper & currency-kreditering
+  const { height: winH } = useWindowDimensions();
+  // Svep ner på arkets header för att stänga info-popupen (gesture-callback är worklet → runOnJS).
+  const simInfoSwipe = Gesture.Pan().onEnd((e) => {
+    'worklet';
+    if (e.translationY > 60 || e.velocityY > 600) runOnJS(setSimInfoOpen)(false);
+  });
   const [depCustom, setDepCustom] = useState(false);
   const [arrCustom, setArrCustom] = useState(false);
   // Inline nedfällda staplar för aircraft type / registration (ersätter de gamla pop up-modalerna).
@@ -610,20 +635,26 @@ export default function AddFlightScreen() {
   const [regOpen, setRegOpen] = useState(false);
   // Någon PersonPicker-dropdown (andre pilot/extra pilot/cabin crew) är öppen → lyft kortet.
   const [personOpen, setPersonOpen] = useState(false);
+  const [addPilot, setAddPilot] = useState<{ visible: boolean; title: string; cb: ((n: string) => void) | null }>({ visible: false, title: '', cb: null });
   const [showDatePicker, setShowDatePicker] = useState(false);
   // Log Flight-redesign: Quicklog (essentials) ↔ Full (alla sektioner). Default Full.
-  const [logFull, setLogFull] = useState(true);
+  const [logFull, setLogFull] = useState(isEdit); // Quicklog default för nya; Full vid redigering (full editor)
 
   const [lastFlight, setLastFlight] = useState<Flight | null>(null);
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
   const [recentRegs, setRecentRegs] = useState<string[]>([]);
   const [recentPilotsRoles, setRecentPilotsRoles] = useState<SavedPerson[]>([]);
+  const [pilotsByAircraft, setPilotsByAircraft] = useState<{ aircraft: string; pilots: string[]; isHeli: boolean }[]>([]);
   const [recentPlaces, setRecentPlaces] = useState<{ icao: string; temporary: boolean }[]>([]);
+  // Nya off-airport-platser hålls "halvsparade" i minnet och persisteras först när flighten sparas.
+  const [pendingPlaces, setPendingPlaces] = useState<{ icao: string; name: string }[]>([]);
+  const handlePendingPlace = (p: { icao: string; name: string }) =>
+    setPendingPlaces((prev) => (prev.some((x) => x.icao === p.icao) ? prev : [...prev, p]));
   const [recentRemarks, setRecentRemarks] = useState<string[]>([]);
   const [recentPilots, setRecentPilots] = useState<string[]>([]);
   const [showPilotModal, setShowPilotModal] = useState(false);
   const [lastTemplate, setLastTemplate] = useState<string>('');
-  const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg', string>>>({});
+  const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
   type CrewMember = { id: string; role: string; name: string };
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
@@ -649,6 +680,8 @@ export default function AddFlightScreen() {
   const [depLatLon, setDepLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
   const [arrLatLon, setArrLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
   const [nightManual, setNightManual] = useState(isEdit);
+  // Auto-beräknad natt-tid (route-natt) för visning i total-rutan — ändras EJ av manuell override.
+  const [autoNightH, setAutoNightH] = useState(0);
   const [sunRouteOpen, setSunRouteOpen] = useState(false);
   const sunPoints = useMemo(() => (
     [
@@ -663,6 +696,27 @@ export default function AddFlightScreen() {
   const routeComplete = !!depLatLon && !!arrLatLon && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
   const [routeRevealed, setRouteRevealed] = useState(false);
   useEffect(() => { if (routeComplete) setRouteRevealed(true); }, [routeComplete]);
+  // Gap-animation: dep/arr-sektionerna dras isär och revealar connectorn (flaggor/streck/glyf)
+  // som "ligger bakom". Redigering (redan komplett) startar öppet utan animation.
+  const gapAnim = useRef(new Animated.Value(isEdit ? 1 : 0)).current;
+  useEffect(() => {
+    if (routeRevealed) Animated.timing(gapAnim, { toValue: 1, duration: 850, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [routeRevealed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gapWidth = gapAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 48] });
+  const innerRadius = gapAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 12] });
+  // Route-info nedanför "expanderar neråt" (höjd 0→uppmätt + fade) när allt fyllts i.
+  // Efter animationen växlas till auto-höjd så innehållet kan ändra storlek fritt.
+  const belowAnim = useRef(new Animated.Value(isEdit ? 1 : 0)).current;
+  const [belowH, setBelowH] = useState(0);
+  const [belowExpanded, setBelowExpanded] = useState(isEdit);
+  const belowStarted = useRef(isEdit);
+  useEffect(() => {
+    if (routeRevealed && belowH > 0 && !belowStarted.current) {
+      belowStarted.current = true;
+      Animated.timing(belowAnim, { toValue: 1, duration: 850, easing: Easing.out(Easing.cubic), useNativeDriver: false })
+        .start(({ finished }) => { if (finished) setBelowExpanded(true); });
+    }
+  }, [routeRevealed, belowH]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Waypoints (T&G / hot refuel) → koordinater + dwell, för kartan och night-uträkningen.
   // Waypoints: T&G-platser (10 min) + hot refuel (30 min) — BÅDA samtidigt, oberoende av
@@ -753,22 +807,46 @@ export default function AddFlightScreen() {
     }
     return out;
   }, []);
-  // Synka valda approaches in i remarks som kompakta rader (designens "in remarks").
-  // Rör bara APPROACH_LINE_RE-rader → fri text och route-stoppen (STOP_RE) lämnas orörda.
+  // Synka route-stopp + valda approaches till remarks som EN rad per plats:
+  // "ESCF PU" · med approach "ESCF PU - ILS 08" · ankomst "ESSA ILS 27". Fri text lämnas orörd.
+  // Approacher tas bara med vid IFR/Y/Z (VFR visar inte approach-väljaren).
   useEffect(() => {
-    const lines = approachIcaos
-      .map((ic) => approaches[ic])
-      .map((v, i) => (v && v.app) ? `${approachIcaos[i]} ${v.app}${v.rwy ? ` ${v.rwy}` : ''}` : null)
-      .filter(Boolean) as string[];
+    const withApp = form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z';
+    const lines = buildRouteLines(routeStops, approaches, form.arr_place, withApp);
     setForm((prev) => {
-      const kept = (prev.remarks || '').split('\n').filter((ln) => ln.trim() !== '' && !APPROACH_LINE_RE.test(ln.trim()));
-      const merged = [...kept, ...lines].join('\n');
+      const free = (prev.remarks || '').split('\n').filter((ln) => ln.trim() !== '' && !isManagedLine(ln));
+      const merged = [...free, ...lines].join('\n');
       if (merged === (prev.remarks || '')) return prev;
       return { ...prev, remarks: merged };
     });
-  }, [approaches, approachIcaos]);
+  }, [routeStops, approaches, form.arr_place, form.flight_rules]);
+
+  // 2D/3D approach-tickern speglar valda approaches i ApproachFlow — räknas först när TYP valts
+  // (v.app satt, t.ex. ILS CAT II), inte vid enbart 2D/3D- eller subkategori-val.
+  useEffect(() => {
+    let n2 = 0, n3 = 0;
+    for (const v of Object.values(approaches)) {
+      if (!v?.app) continue;
+      if (v.dim === '2d') n2++; else if (v.dim === '3d') n3++;
+    }
+    setForm((prev) => (prev.app_2d === String(n2) && prev.app_3d === String(n3)) ? prev : { ...prev, app_2d: String(n2), app_3d: String(n3) });
+  }, [approaches]);
+
+  // Quicklog: vid IFR/Y/Z default = 1× 3D-approach (kan togglas till 2D via chipen). VFR nollställer.
+  useEffect(() => {
+    if (logFull) return;
+    const withApp = form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z';
+    const tot = (parseInt(form.app_2d ?? '0', 10) || 0) + (parseInt(form.app_3d ?? '0', 10) || 0);
+    if (withApp && tot === 0) set('app_3d', '1');
+    else if (!withApp && tot > 0) { set('app_2d', '0'); set('app_3d', '0'); }
+  }, [form.flight_rules, logFull]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [landingsManual, setLandingsManual] = useState(isEdit);
+  const [takeoffsManual, setTakeoffsManual] = useState(isEdit);
+  // Pilot flying-tid: default 100% (hela flygtiden), sedan andel efter senaste flygningen.
+  const [pilotFlyingManual, setPilotFlyingManual] = useState(isEdit);
+  const [pfRatio, setPfRatio] = useState(1); // andel av flygtiden som auto-PF (1 = 100%), från lastFlight
+  const pfWasZero = useRef(true);            // spårar 0-övergångar för att nolla/återställa t/o & ldg
   // Tidsinmatningsläge: lokal tid (default) eller UTC. Lagrad tid är alltid UTC.
   const [timeMode, setTimeMode] = useState<'local' | 'utc'>('utc');
   const [depLocalBuf, setDepLocalBuf] = useState('');
@@ -784,16 +862,12 @@ export default function AddFlightScreen() {
       const parsedStops = parseRouteStops(f.remarks || '');
       if (parsedStops.length > 0) setRouteStops(parsedStops);
 
-      // Parse kompakta approach-rader → ApproachFlow-state (designens flow visar dem igen)
-      const parsedApp: Record<string, ApproachVal> = {};
-      (f.remarks || '').split('\n').forEach((ln) => {
-        const m = APPROACH_LINE_RE.exec(ln.trim());
-        if (m) {
-          const app = m[2].toUpperCase();
-          parsedApp[m[1].toUpperCase()] = { dim: APP_TYPES['2d'].includes(app) ? '2d' : '3d', app, rwy: m[3] };
-        }
-      });
+      // Parse approach-rader (merged/gammalt/fristående) → ApproachFlow-state (visar flowet igen)
+      const parsedApp = parseApproaches(f.remarks || '');
       if (Object.keys(parsedApp).length > 0) setApproaches(parsedApp);
+
+      // Baslinje för PF-övergångslogiken så laddade take-offs/landings inte nollas/återställs.
+      pfWasZero.current = (Number(f.pilot_flying) || 0) <= 0;
 
       setForm({
         date: f.date,
@@ -837,6 +911,8 @@ export default function AddFlightScreen() {
         takeoffs_night: String(f.takeoffs_night ?? 0),
         app_2d: String(f.app_2d ?? 0),
         app_3d: String(f.app_3d ?? 0),
+        pilot_flying: String(f.pilot_flying ?? 0),
+        holds: String(f.holds ?? 0),
         photo_uri: f.photo_uri ?? '',
       });
       if (f.extra_pilots) {
@@ -890,14 +966,14 @@ export default function AddFlightScreen() {
   }, [form.dep_place, form.arr_place]);
 
   // Auto-beräkna natt-tid (borgerlig skymning −6°, samplad längs storcirkeln).
-  // Hoppas över vid redigering/efter manuell ändring (nightManual) och utan koordinater.
+  // Beräknas ALLTID (→ autoNightH för visning); form.night skrivs bara när ej manuell.
   useEffect(() => {
-    if (nightManual) return;
     const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-    if (!inst || routeLegs.length < 2) return;
+    if (!inst || routeLegs.length < 2) { setAutoNightH(0); return; }
     // Dwell-medveten night-tid: T&G (10 min) / hot refuel (30 min) räknas in där de sker.
     const n = computeNightHoursTimed(routeLegs, inst.dep.getTime(), inst.arr.getTime());
-    setForm((prev) => (prev.night === String(n) ? prev : { ...prev, night: String(n) }));
+    setAutoNightH(typeof n === 'number' ? n : parseFloat(String(n)) || 0);
+    if (!nightManual) setForm((prev) => (prev.night === String(n) ? prev : { ...prev, night: String(n) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.dep_utc, form.arr_utc, form.date, routeLegs, nightManual]);
 
@@ -917,6 +993,61 @@ export default function AddFlightScreen() {
     else if (!dark && night > 0) { set('landings_night', '0'); set('landings_day', String(totalL)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.dep_utc, form.arr_utc, form.date, arrLatLon, landingsManual, form.flight_type]);
+
+  // Take-off dag/natt efter solhöjden vid AVGÅNG (spegling av landnings-autot ovan).
+  // Nya kolumner (takeoffs_day/night) → påverkar ej befintlig DB-output.
+  useEffect(() => {
+    if (takeoffsManual || !depLatLon) return;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst) return;
+    const dark = solarAltitudeDeg(inst.dep, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG;
+    const day = parseInt(form.takeoffs_day ?? '0') || 0;
+    const night = parseInt(form.takeoffs_night ?? '0') || 0;
+    const totalT = day + night;
+    if (totalT <= 0) return;
+    if (dark && day > 0) { set('takeoffs_day', '0'); set('takeoffs_night', String(totalT)); }
+    else if (!dark && night > 0) { set('takeoffs_night', '0'); set('takeoffs_day', String(totalT)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.dep_utc, form.arr_utc, form.date, depLatLon, takeoffsManual]);
+
+  // NVG-tid är bara möjlig om det finns nattid, och aldrig vid ren IFR. Nollställ annars
+  // så ingen NVG-tid ligger kvar i bakgrunden när baren döljs (night → 0 eller IFR valt).
+  useEffect(() => {
+    if ((parseFloat(form.nvg ?? '0') || 0) <= 0) return;
+    if ((parseFloat(form.night ?? '0') || 0) <= 0 || form.flight_rules === 'IFR') set('nvg', '0');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.night, form.flight_rules]);
+
+  // Auto-PF-andel efter senaste flygningen (default 100%). PF=0 i lastFlight = "ej registrerad" → 100%.
+  useEffect(() => {
+    if (isEdit) return;
+    if (lastFlight && lastFlight.total_time > 0 && lastFlight.pilot_flying > 0) {
+      setPfRatio(Math.max(0, Math.min(1, lastFlight.pilot_flying / lastFlight.total_time)));
+    }
+  }, [lastFlight, isEdit]);
+
+  // Pilot flying auto = flygtiden × andel (tills man justerar manuellt).
+  useEffect(() => {
+    if (pilotFlyingManual) return;
+    const tt = parseFloat(form.total_time) || 0;
+    const v = tt > 0 ? (tt * pfRatio).toFixed(2) : '';
+    setForm((prev) => (prev.pilot_flying === v ? prev : { ...prev, pilot_flying: v }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.total_time, pilotFlyingManual, pfRatio]);
+
+  // 0 pilot flying ⇒ nolla take-offs & landnings; PF tillbaka > 0 ⇒ återställ (twilight fördelar dag/natt).
+  useEffect(() => {
+    const pfZero = (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
+    if (pfZero === pfWasZero.current) return;
+    if (pfZero) {
+      setForm((prev) => ({ ...prev, takeoffs_day: '0', takeoffs_night: '0', landings_day: '0', landings_night: '0' }));
+    } else {
+      setTakeoffsManual(false); setLandingsManual(false);
+      setForm((prev) => ({ ...prev, takeoffs_day: '1', takeoffs_night: '0', landings_day: '1', landings_night: '0' }));
+    }
+    pfWasZero.current = pfZero;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.pilot_flying]);
 
   // Route: varje stopp UTOM low approach = en landning (TnG/PU/DO/Hot refuel), klassad
   // dag/natt efter solhöjden vid stoppet när flygplanet är där, plus destinationens landning.
@@ -939,6 +1070,29 @@ export default function AddFlightScreen() {
     set('landings_night', String(nightL));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeLegs, form.dep_utc, form.arr_utc, form.date, landingsManual, form.flight_type]);
+
+  // Route: en start vid avgången + en start efter varje landning-stopp (TnG/PU/DO/HR, ej low approach),
+  // klassad dag/natt efter solhöjden vid start-tillfället (dwell-medvetet). Gör EASA-takeoffs per-stopp.
+  useEffect(() => {
+    if (takeoffsManual || form.flight_type !== 'touch_and_go') return;
+    if (!depLatLon || !arrLatLon) return;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst || routeLegs.length < 2) return;
+    const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
+    const times = vertexArrivalTimes(routeLegs, depMs, arrMs);
+    let dayT = 0, nightT = 0;
+    // Avgångsstart:
+    if (solarAltitudeDeg(inst.dep, routeLegs[0].lat, routeLegs[0].lon) < CIVIL_TWILIGHT_DEG) nightT++; else dayT++;
+    // Start efter varje mellanstopp med landning (start-tid = ankomst + dwell):
+    for (let i = 1; i < routeLegs.length - 1; i++) {
+      if (routeLegs[i].kind === 'lowapp') continue;
+      const toMs = times[i] + (routeLegs[i].dwellMin ?? 0) * 60000;
+      if (solarAltitudeDeg(new Date(toMs), routeLegs[i].lat, routeLegs[i].lon) < CIVIL_TWILIGHT_DEG) nightT++; else dayT++;
+    }
+    set('takeoffs_day', String(dayT));
+    set('takeoffs_night', String(nightT));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeLegs, form.dep_utc, form.arr_utc, form.date, takeoffsManual, form.flight_type]);
 
   // Lokal-läge: fyll lokalbuffern från lagrad UTC när den är tom (AI-import/redigering).
   useEffect(() => {
@@ -1056,7 +1210,8 @@ export default function AddFlightScreen() {
       setRecentPlaces(places);
       setRecentRemarks(remarks);
       setRecentPilots(pilots);
-      getRecentSecondPilotsWithRole().then(setRecentPilotsRoles).catch(() => {});
+      getRecentSecondPilotsWithRole(100000).then(setRecentPilotsRoles).catch(() => {}); // alla piloter (ej bara 20)
+      getSecondPilotsByAircraft().then(setPilotsByAircraft).catch(() => {});
       const last = flights[0] ?? null;
       if (last) {
         setLastFlight(last);
@@ -1098,16 +1253,23 @@ export default function AddFlightScreen() {
   const MP_ROLES: PrimaryRole[] = ['co_pilot', 'picus', 'relief_crew', 'spic'];
 
   // SP/MP avgörs automatiskt (ingen knapp): MP om farkosten är MP-only, om en second pilot
-  // är ifylld, eller om egen roll innebär multi-pilot. SP om farkosten är SP-only eller inget av ovan.
+  // är ifylld, om egen roll innebär multi-pilot, eller om man loggar pilot monitoring (PM) —
+  // man kan inte vara PM ensam. SP om farkosten är SP-only eller inget av ovan.
   useEffect(() => {
     let target: 'single' | 'multi';
+    // PM = egen pilot-flying-tid är 0 (med flygtid loggad). Gäller alla egna roller utom dual,
+    // och även utan angiven second pilot → multipilot (du kan inte vara PM utan multi-crew).
+    const isPM = role !== 'dual'
+      && (parseFloat(form.total_time ?? '0') || 0) > 0
+      && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
     if (mpSupported && !spSupported) target = 'multi';
     else if (spSupported && !mpSupported) target = 'single';
     else if ((form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim())) target = 'multi';
+    else if (isPM) target = 'multi';
     else target = MP_ROLES.includes(role) ? 'multi' : 'single';
     setPilotMode((m) => (m === target ? m : target));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spSupported, mpSupported, form.second_pilot, role, extraPilots]);
+  }, [spSupported, mpSupported, form.second_pilot, role, extraPilots, form.total_time, form.pilot_flying]);
 
   // Det måste finnas en PIC om en medpilot är angiven (second pilot eller extra pilot).
   // Saknas PIC → den namngivna medpiloten blir PIC. Undantag: du ensam som co-pilot utan
@@ -1234,20 +1396,19 @@ export default function AddFlightScreen() {
 
   // "+" i namn-rutan → skriv in ett nytt namn (blir valt; sparas i historiken när flygningen loggas).
   const promptAddPersonName = (title: string, onName: (n: string) => void) => {
-    Alert.prompt(title, '', (v) => { const n = (v || '').trim(); if (n) onName(n); }, 'plain-text', '');
+    setAddPilot({ visible: true, title, cb: onName });
   };
 
+  // remarks byggs av sync-effekten (route-stopp + approach) — applyStops uppdaterar bara state.
   const applyStops = (stops: RouteStop[]) => {
     setRouteStops(stops);
     set('stop_place', stops[0]?.icao ?? '');
-    set('remarks', applyStopsToRemarks(form.remarks, stops));
   };
   const addRouteStop = () => {
     const ic = draft.icao.trim().toUpperCase();
     if (ic.length < 2 || !draft.kind) return;
-    const stop: RouteStop = { id: Date.now().toString(), icao: ic, kind: draft.kind, appType: draft.appType, runway: draft.runway, navaid: draft.navaid };
+    const stop: RouteStop = { id: Date.now().toString(), icao: ic, kind: draft.kind, appType: null, runway: null, navaid: null };
     applyStops([...routeStops, stop]);
-    if (stop.navaid || (stop.appType && stop.runway != null)) set('flight_rules', 'IFR');
     setDraft({ icao: '', kind: null, appType: null, runway: null, navaid: null });
   };
   const removeRouteStop = (index: number) => applyStops(routeStops.filter((_, i) => i !== index));
@@ -1410,6 +1571,36 @@ export default function AddFlightScreen() {
     applyDistribution(role, fi, examinerOverlay, next, form.total_time);
   };
 
+  // "Other"-rutan + stilenlig dropdownflik (samma look som aircraft type/registration).
+  // Delas av Quicklog- och Full-rollrutnätet. Innehåller special-roller + examiner/safety-overlays.
+  const renderOtherBox = () => {
+    const specialActive = ['picus', 'spic', 'ferry_pic', 'observer', 'relief_crew'].includes(role) || examinerOverlay || safetyPilotOverlay;
+    const ddRow = (key: string, label: string, on: boolean, icon: 'radio-button-on' | 'radio-button-off' | 'checkbox' | 'square-outline', onPress: () => void, disabled?: boolean, danger?: boolean) => (
+      <TouchableOpacity key={key} disabled={disabled} onPress={onPress} activeOpacity={0.7}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7, opacity: disabled ? 0.4 : 1, backgroundColor: on ? Colors.primary + '18' : undefined }}>
+        <Ionicons name={icon} size={15} color={danger ? Colors.danger : (on ? Colors.primary : Colors.textMuted)} />
+        <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '600', color: danger ? Colors.danger : (on ? Colors.primary : Colors.textPrimary) }}>{label}</Text>
+      </TouchableOpacity>
+    );
+    return (
+      <View style={{ flex: 1, position: 'relative', zIndex: otherOpen ? 40 : undefined }}>
+        <TouchableOpacity style={[styles.roleBtn, specialActive && styles.roleBtnActive]} onPress={() => setOtherOpen((o) => !o)} activeOpacity={0.75}>
+          <Text style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>OTHER</Text>
+        </TouchableOpacity>
+        {otherOpen && (
+          <View style={[styles.ddFlyout, { right: 0, width: 220 }]}>
+            {ddRow('picus', 'PICUS', role === 'picus', role === 'picus' ? 'radio-button-on' : 'radio-button-off', () => { togglePicus(); setOtherOpen(false); })}
+            {(['spic', 'ferry_pic', 'observer', 'relief_crew'] as const).map((r) =>
+              ddRow(r, t(`role_${r}` as any), role === r, role === r ? 'radio-button-on' : 'radio-button-off', () => { handleRoleChange(r); setOtherOpen(false); }))}
+            {ddRow('examiner', t('role_examiner'), examinerOverlay, examinerOverlay ? 'checkbox' : 'square-outline', toggleExaminer, role !== 'pic')}
+            {ddRow('safety', t('role_safety_pilot'), safetyPilotOverlay, safetyPilotOverlay ? 'checkbox' : 'square-outline', toggleSafetyPilot, role !== 'co_pilot')}
+            {specialActive && ddRow('reset', t('reset_special_role'), false, 'close-circle-outline' as any, () => { handleRoleChange('pic'); setExaminerOverlay(false); setSafetyPilotOverlay(false); setOtherOpen(false); }, false, true)}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const toggleDual = () => {
     if (role === 'dual') handleRoleChange('pic');
     else handleRoleChange('dual');
@@ -1525,6 +1716,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           if (parsed.landings_day) updates.landings_day = String(parsed.landings_day);
           if (parsed.flight_rules) updates.flight_rules = String(parsed.flight_rules).toUpperCase();
           setForm(prev => ({ ...prev, ...updates }));
+          // Photolog styr landningsantalet (även i Quicklog): hindra PF-återställningen från att
+          // nolla/återställa räknarna till 1 när total (→ pilot flying) sätts av importen.
+          // Twilight-effekten fördelar sedan bara antalet på dag/natt utan att ändra summan.
+          if (updates.landings_day) pfWasZero.current = false;
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         };
 
@@ -1562,7 +1757,41 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
     }
   }, [aiImport, addPhoto]);
 
-  const performSave = async (overrides?: Partial<FlightFormData>) => {
+  const performSave = async (overrides?: Partial<FlightFormData>, skipOverlap = false) => {
+    // Tidskrock-kontroll: varna om den här flygningens tid (helt/delvis) överlappar en
+    // redan loggad flygning — en pilot kan inte vara på två flyg samtidigt. Visas efter
+    // "Save"; pekar ut den berörda flygningen. Användaren kan spara ändå.
+    if (!skipOverlap) {
+      const d = { ...form, ...(overrides ?? {}) };
+      const interval = (date: string, dep: string, arr: string) => {
+        const inst = buildInstants(date, dep ?? '', arr ?? '', 0);
+        return inst ? { start: inst.dep.getTime(), end: inst.arr.getTime() } : null;
+      };
+      const iv = interval(d.date, d.dep_utc ?? '', d.arr_utc ?? '');
+      if (iv) {
+        const selfId = isEdit ? Number(editId) : -1;
+        const all = await getFlights(100000);
+        const hits = all.filter((f) => {
+          if (f.id === selfId) return false;
+          const oiv = interval(f.date, f.dep_utc, f.arr_utc);
+          return !!oiv && iv.start < oiv.end && oiv.start < iv.end; // strikt → tangerande tider räknas ej
+        });
+        if (hits.length > 0) {
+          const f = hits[0];
+          const desc = `${f.date} · ${(f.dep_place || '?')}–${(f.arr_place || '?')} · ${f.dep_utc}–${f.arr_utc}z`;
+          const more = hits.length > 1 ? `\n\n(+${hits.length - 1} more overlapping)` : '';
+          Alert.alert(
+            'Overlapping flight',
+            `This flight's time overlaps an already logged flight:\n\n${desc}${more}`,
+            [
+              { text: t('cancel'), style: 'cancel' },
+              { text: t('save_anyway'), style: 'destructive', onPress: () => performSave(overrides, true) },
+            ],
+          );
+          return;
+        }
+      }
+    }
     setSaving(true);
     try {
       const crewStr = crewMembers
@@ -1591,6 +1820,33 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       const extraPilotsJson = extraPilotsClean.length ? JSON.stringify(extraPilotsClean) : '';
       const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri, media_type: mediaType, extra_pilots: extraPilotsJson };
 
+      // Currency: dwell-aware per-stopp dubbelklassning (EASA −6° + FAA-fönster). Sätter ENDAST
+      // de nya full-stop-/FAA-natt-kolumnerna (best-effort ur rutgeometrin) — rör inte de synliga
+      // takeoffs/landings-räknarna (som kan komma från effekter, photolog-import eller manuellt).
+      if (finalData.flight_type === 'sim') {
+        // Simulator har ingen riktig sol/rutt → härled FAA/FS-natt ur användarens dag/natt-räknare
+        // (i sim är varje landning full stop). Currency-motorn krediterar bara FFS för landningar;
+        // övriga simar filtreras bort där, så det är ofarligt att sätta kolumnerna för alla simar.
+        const tn = parseInt(finalData.takeoffs_night ?? '0', 10) || 0;
+        const ld = parseInt(finalData.landings_day ?? '0', 10) || 0;
+        const ln = parseInt(finalData.landings_night ?? '0', 10) || 0;
+        finalData.takeoffs_faa_night = String(tn);
+        finalData.landings_faa_night = String(ln);
+        finalData.landings_fs_day = String(ld);
+        finalData.landings_fs_night = String(ln);
+        finalData.landings_fs_faa_night = String(ln);
+      } else if (depLatLon && arrLatLon && routeLegs.length >= 2) {
+        const inst = buildInstants(finalData.date, finalData.dep_utc ?? '', finalData.arr_utc ?? '', 0);
+        if (inst) {
+          const ev = classifyRouteEvents(routeLegs, inst.dep.getTime(), inst.arr.getTime());
+          finalData.landings_fs_day = String(ev.ldg_fs_day);
+          finalData.landings_fs_night = String(ev.ldg_fs_night);
+          finalData.takeoffs_faa_night = String(ev.to_faa_night);
+          finalData.landings_faa_night = String(ev.ldg_faa_night);
+          finalData.landings_fs_faa_night = String(ev.ldg_fs_faa_night);
+        }
+      }
+
       if (isEdit) {
         await updateFlight(Number(editId), finalData);
       } else {
@@ -1598,9 +1854,25 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       }
       // Spara kabinpersonalsnamn till listan (second pilot härleds från flights-tabellen).
       await addSavedCrewNames(crewMembers.map((m) => m.name));
+      // Halvsparade off-airport-platser persisteras FÖRST NU (efter lyckad save) — bara de
+      // som faktiskt användes som dep/arr. Avbruten flight lämnar inga föräldralösa platser.
+      const usedPending = pendingPlaces.filter((p) => p.icao === finalData.dep_place || p.icao === finalData.arr_place);
+      for (const p of usedPending) await addTemporaryPlace(p.icao, p.name, 0, 0).catch(() => {});
       await Promise.all([loadFlights(), loadStats()]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      // Uppmana att placera de nya platserna på kartan (dashboard: "Unlocated places"-bannern).
+      if (usedPending.length > 0) {
+        const one = usedPending.length === 1;
+        Alert.alert(
+          'New place saved',
+          one
+            ? `"${usedPending[0].name}" needs a position — place it on the map from the dashboard.`
+            : `${usedPending.length} new places need a position — place them on the map from the dashboard.`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else {
+        router.back();
+      }
     } catch {
       Alert.alert(t('error'), t('error_save'));
     } finally {
@@ -1678,8 +1950,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
     await performSave();
   };
 
-  // Topp 3 senaste platserna, filtrering sker inuti IcaoInput
-  const top2places = recentPlaces;
+  // Topp 3 senaste platserna, filtrering sker inuti IcaoInput. Halvsparade (pending)
+  // off-airport-platser läggs först så de går att välja som snabbval för t.ex. arrival.
+  const top2places = [
+    ...pendingPlaces.map((p) => ({ icao: p.icao, temporary: true })),
+    ...recentPlaces.filter((r) => !pendingPlaces.some((p) => p.icao === r.icao)),
+  ];
 
   // Senaste typen/reg som chips (max 3)
   const filteredTypes = form.aircraft_type
@@ -1736,6 +2012,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           options={[{ value: 'quick', label: 'Quicklog' }, { value: 'full', label: 'Full' }]}
           value={logFull ? 'full' : 'quick'}
           onChange={(v) => setLogFull(v === 'full')}
+          activeColor={logFull ? Colors.gold : Colors.primary}
         />
         <View style={{ flex: 1 }} />
         <SlideToggle
@@ -1786,9 +2063,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {/* Sim-typväljare högst upp i route-kortet (designen) — endast i Sim-läge */}
           {form.flight_type === 'sim' && (
             <View style={{ marginBottom: 12 }}>
-              <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>{t('simulator_type')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Text style={styles.cardFieldLabel}>{t('simulator_type')}</Text>
+                <TouchableOpacity onPress={() => setSimInfoOpen(true)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} activeOpacity={0.7}>
+                  <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
               <View style={styles.simCatRow}>
-                {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
+                {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT'] as const).map((cat) => {
                   const active = form.sim_category === cat;
                   return (
                     <TouchableOpacity key={cat} style={[styles.simCatBtn, active && styles.simCatBtnActive]} onPress={() => set('sim_category', cat)} activeOpacity={0.75}>
@@ -1797,7 +2079,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   );
                 })}
               </View>
-              {(form.sim_category === 'CPT_PPT' || form.sim_category === 'CBT') && (
+              {form.sim_category === 'CPT_PPT' && (
                 <View style={[styles.remarksWarning, { marginTop: 7 }]}>
                   <Ionicons name="warning" size={14} color={Colors.warning} />
                   <Text style={styles.remarksWarningText}>{t('sim_no_credit_warning')}</Text>
@@ -1805,9 +2087,57 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               )}
             </View>
           )}
+
+          {/* Info-popup: simulatortyper + hur de krediteras mot currency */}
+          <Modal visible={simInfoOpen} transparent animationType="slide" onRequestClose={() => setSimInfoOpen(false)}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setSimInfoOpen(false)}>
+              <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+                {/* Header — dra ner här för att stänga */}
+                <GestureDetector gesture={simInfoSwipe}>
+                  <View>
+                    <View style={styles.modalHandle} />
+                    <Text style={styles.modalTitle}>Simulator types & currency</Text>
+                    <Text style={{ color: Colors.textMuted, fontSize: 12.5, marginBottom: 12, paddingHorizontal: 20 }}>
+                      Sim time is never logged as flight hours. What each device credits:
+                    </Text>
+                  </View>
+                </GestureDetector>
+                <ScrollView style={{ maxHeight: winH * 0.5 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
+                  {[
+                    { code: 'FFS', name: 'Full Flight Simulator', bullets: ['Highest fidelity — motion + full cockpit', 'Counts toward ATPL hours (capped)', 'Credits take-offs, landings, night & instrument currency'] },
+                    { code: 'FTD', name: 'Flight Training Device', bullets: ['Full-size cockpit replica, little/no motion', 'Credits instrument currency', 'Not for landing / passenger currency'] },
+                    { code: 'FNPT II', name: 'Flight & Nav Procedures Trainer', bullets: ['Generic cockpit + systems', 'Credits instrument (IR) currency'] },
+                    { code: 'FNPT I', name: 'Procedures Trainer (basic)', bullets: ['Simpler procedures trainer', 'Limited credit — mostly training records'] },
+                    { code: 'BITD', name: 'Basic Instrument Training Device', bullets: ['Basic instrument trainer', 'Does not count toward currency'] },
+                    { code: 'CPT/PPT', name: 'Part-task / Procedure Trainer', bullets: ['Single-task / cockpit procedures', 'No currency credit'] },
+                  ].map((s) => (
+                    <View key={s.code} style={{ marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                        <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{s.code}</Text>
+                        <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600', flex: 1 }}>{s.name}</Text>
+                      </View>
+                      {s.bullets.map((b, i) => (
+                        <View key={i} style={{ flexDirection: 'row', gap: 7, marginTop: 4, paddingLeft: 2 }}>
+                          <Text style={{ color: Colors.textMuted, fontSize: 12.5, lineHeight: 17 }}>•</Text>
+                          <Text style={{ color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, flex: 1 }}>{b}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                    <Ionicons name="information-circle" size={16} color={Colors.primary} />
+                    <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 12, lineHeight: 17 }}>
+                      In this app: only <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS</Text> counts for landing/passenger currency; <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS, FTD & FNPT II</Text> count for instrument currency (FAA 6 HITS / IR).
+                    </Text>
+                  </View>
+                </ScrollView>
+              </Pressable>
+            </Pressable>
+          </Modal>
+
           <View style={styles.legRow}>
             {/* ── DEPARTURE ── */}
-            <View style={styles.legPanelLeft}>
+            <Animated.View style={[styles.legPanelLeft, { borderTopRightRadius: innerRadius, borderBottomRightRadius: innerRadius }]}>
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('departure')}</Text>
               </View>
@@ -1827,6 +2157,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 onChangeText={(v) => set('dep_place', v)}
                 error={errors.dep_place}
                 recentPlaces={top2places}
+                pendingPlaces={pendingPlaces}
+                onPendingPlace={handlePendingPlace}
                 allowHere={depCustom}
                 onFocus={() => {
                   const target = Math.max(0, routeBlockY.current - 8);
@@ -1898,11 +2230,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
                 })()}
               </View>
-            </View>
+            </Animated.View>
 
-            {/* Connector — landsflaggor (dep→arr) + streckad linje + nedåtriktad farkost-glyf.
-                Glyf = senast flugna modell (annars onboarding-val), oberoende av aktuell typ. */}
-            <View style={{ width: 38, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
+            {/* Connector — flaggor + streckad linje + farkost-glyf. Ligger "bakom" och revealas när
+                sektionerna dras isär: bredden animeras 0→48 och overflow:hidden gör att innehållet
+                syns i takt med att gapet växer. Glyf = senast flugna modell. */}
+            <Animated.View style={{ width: gapWidth, overflow: 'hidden', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
               <CountryFlag code={depLatLon?.country} height={15} />
               <View style={{ flex: 1, minHeight: 12, width: 0, borderLeftWidth: 2, borderColor: Colors.primary + '80', borderStyle: 'dashed' }} />
               <Image
@@ -1912,10 +2245,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               />
               <View style={{ flex: 1, minHeight: 12, width: 0, borderLeftWidth: 2, borderColor: Colors.primary + '80', borderStyle: 'dashed' }} />
               <CountryFlag code={arrLatLon?.country} height={15} />
-            </View>
+            </Animated.View>
 
             {/* ── ARRIVAL ── */}
-            <View style={styles.legPanelRight}>
+            <Animated.View style={[styles.legPanelRight, { borderTopLeftRadius: innerRadius, borderBottomLeftRadius: innerRadius }]}>
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('arrival')}</Text>
               </View>
@@ -1935,6 +2268,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 onChangeText={(v) => set('arr_place', v)}
                 error={errors.arr_place}
                 recentPlaces={top2places}
+                pendingPlaces={pendingPlaces}
+                onPendingPlace={handlePendingPlace}
                 allowHere={arrCustom}
                 onFocus={() => {
                   const target = Math.max(0, routeBlockY.current - 8);
@@ -1984,24 +2319,37 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
                 })()}
               </View>
-            </View>
+            </Animated.View>
           </View>
 
-          {/* Route-info visas först när allt är ifyllt; sedan uppdateras den bara (försvinner ej). */}
-          {routeRevealed && (<>
+          {/* Route-info "expanderar neråt" (animerad höjd + fade) när allt är ifyllt. */}
+          {routeRevealed && (
+          <Animated.View style={
+            belowExpanded ? undefined
+            : belowH === 0 ? { position: 'absolute', left: 0, right: 0, opacity: 0 } // mät-pass: naturlig höjd, ur flödet + osynlig
+            : { height: belowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, belowH] }), overflow: 'hidden', opacity: belowAnim }
+          }>
+          <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && belowH === 0 && !belowExpanded) setBelowH(h); }}>
           {/* ── Total flygtid (hero) + distans + sol-glob — designens route-card ── */}
           {(() => {
-            const isNightFlight = (parseFloat(form.night) || 0) > 0;
-            const distNm = (depLatLon && arrLatLon) ? (() => {
+            // Visning baseras på AUTO-beräknad route-natt → ändras ej när man drar night-baren.
+            const isNightFlight = autoNightH > 0;
+            // Distans = summan av storcirkel-benen dep → stopp → … → arr (stops/via inräknade).
+            const distNm = (depLatLon && arrLatLon && routeLegs.length >= 2) ? (() => {
               const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
-              const dLat = toRad(arrLatLon.lat - depLatLon.lat), dLon = toRad(arrLatLon.lon - depLatLon.lon);
-              const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(depLatLon.lat)) * Math.cos(toRad(arrLatLon.lat)) * Math.sin(dLon / 2) ** 2;
-              return Math.round((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1.852);
+              let km = 0;
+              for (let i = 1; i < routeLegs.length; i++) {
+                const p0 = routeLegs[i - 1], p1 = routeLegs[i];
+                const dLat = toRad(p1.lat - p0.lat), dLon = toRad(p1.lon - p0.lon);
+                const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(p0.lat)) * Math.cos(toRad(p1.lat)) * Math.sin(dLon / 2) ** 2;
+                km += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              }
+              return Math.round(km / 1.852);
             })() : null;
             return (
               <View style={{ position: 'relative', marginTop: 12, minHeight: 70, alignItems: 'center', justifyContent: 'center' }}>
                 {/* distans + medelfart till vänster (vit LED), synkat med globen till höger */}
-                {form.flight_type !== 'sim' && distNm != null && (() => {
+                {form.flight_type !== 'sim' && distNm != null && distNm > 0 && (() => {
                   const totalH = parseFloat(form.total_time) || 0;
                   const spd = totalH > 0 ? Math.round(distNm / totalH) : null;
                   return (
@@ -2059,7 +2407,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Text style={{ marginTop: 5, fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, color: '#FFFFFF', textTransform: 'uppercase' }}>{t('total_flight_time')}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 }}>
                     <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isNightFlight ? Colors.info : Colors.gold }} />
-                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? t('night_flight') : t('day_flight')} flight</Text>
+                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? `${decimalToHHMM(autoNightH)} during night` : `${t('day_flight')} flight`}</Text>
                   </View>
                   {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
                 </View>
@@ -2116,67 +2464,40 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {/* Vänster: väljare */}
               <View style={{ width: '46%', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => setKindMenuOpen(true)}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 }}
-                >
-                  <Text style={{ flex: 1, color: draft.kind ? Colors.textPrimary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{draft.kind ? KIND_LABEL[draft.kind] : 'Choose type'}</Text>
-                  <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
-                </TouchableOpacity>
+                {/* Choose type — dropdownflik (samma stil som aircraft type), inte popup-modal */}
+                <View style={{ position: 'relative', zIndex: kindMenuOpen ? 40 : undefined }}>
+                  <TouchableOpacity
+                    onPress={() => setKindMenuOpen((o) => !o)}
+                    activeOpacity={0.7}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 }}
+                  >
+                    <Text style={{ flex: 1, color: draft.kind ? Colors.textPrimary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{draft.kind ? KIND_LABEL[draft.kind] : 'Choose type'}</Text>
+                    <Ionicons name={kindMenuOpen ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                  {kindMenuOpen && (
+                    <View style={[styles.ddFlyout, { left: 0, right: 0 }]}>
+                      {KIND_ORDER.map((k) => {
+                        const active = draft.kind === k;
+                        return (
+                          <TouchableOpacity key={k} onPress={() => { setDraft((d) => ({ ...d, kind: k })); setKindMenuOpen(false); }} activeOpacity={0.75}
+                            style={{ paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7, backgroundColor: active ? Colors.primary + '18' : undefined }}>
+                            <Text style={{ color: active ? Colors.primary : Colors.textPrimary, fontSize: 12, fontWeight: active ? '800' : '600' }}>{KIND_LABEL[k]}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
 
+                {/* Endast ICAO + typ här; approach-typ/bana anges längre ner vid remarks (ApproachFlow) */}
                 <IcaoInput
                   label=""
                   value={draft.icao}
                   onChangeText={(v) => setDraft((d) => ({ ...d, icao: v }))}
                   hideHere
                   placeholder="ICAO"
+                  inputFontFamily={FONT_LED14}
                 />
-
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {(['2d', '3d'] as const).map((a) => {
-                    const on = draft.appType === a;
-                    return (
-                      <TouchableOpacity key={a} onPress={() => setDraft((d) => ({ ...d, appType: on ? null : a, runway: null, navaid: null }))} activeOpacity={0.75}
-                        style={{ flex: 1, alignItems: 'center', backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingVertical: 6 }}>
-                        <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{a.toUpperCase()} APP</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {draft.appType && draft.icao.trim().length >= 3 && (() => {
-                  const rws = (runwayData as Record<string, number[]>)[draft.icao.trim().toUpperCase()] || [];
-                  const all = rws.flatMap((h) => [h, (h + 180) % 360]);
-                  if (!all.length) return null;
-                  return (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {all.map((h) => {
-                        const on = draft.runway === h;
-                        return (
-                          <TouchableOpacity key={h} onPress={() => setDraft((d) => ({ ...d, runway: h }))} activeOpacity={0.75}
-                            style={{ backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 }}>
-                            <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{rwy2(h)}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  );
-                })()}
-
-                {draft.appType && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {(draft.appType === '2d' ? APP_2D : APP_3D).map((n) => {
-                      const on = draft.navaid === n;
-                      return (
-                        <TouchableOpacity key={n} onPress={() => setDraft((d) => ({ ...d, navaid: on ? null : n }))} activeOpacity={0.75}
-                          style={{ backgroundColor: on ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: on ? Colors.primary : Colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 }}>
-                          <Text style={{ color: on ? Colors.textInverse : Colors.textPrimary, fontSize: 10, fontWeight: '700' }}>{n}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
 
                 {(() => {
                   const canAdd = draft.icao.trim().length >= 2 && !!draft.kind;
@@ -2218,21 +2539,11 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               </View>
             </View>
 
-            <Modal visible={kindMenuOpen} transparent animationType="fade" onRequestClose={() => setKindMenuOpen(false)}>
-              <Pressable style={{ flex: 1, backgroundColor: '#0009', justifyContent: 'center', padding: 28 }} onPress={() => setKindMenuOpen(false)}>
-                <View style={{ backgroundColor: Colors.card, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
-                  {KIND_ORDER.map((k, i) => (
-                    <TouchableOpacity key={k} onPress={() => { setDraft((d) => ({ ...d, kind: k })); setKindMenuOpen(false); }} activeOpacity={0.7}
-                      style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: i < KIND_ORDER.length - 1 ? 1 : 0, borderBottomColor: Colors.separator, backgroundColor: draft.kind === k ? Colors.primary + '18' : 'transparent' }}>
-                      <Text style={{ color: draft.kind === k ? Colors.primary : Colors.textPrimary, fontSize: 14, fontWeight: draft.kind === k ? '800' : '600' }}>{KIND_LABEL[k]}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </Pressable>
-            </Modal>
           </View>
           )}
-          </>)}
+          </View>
+          </Animated.View>
+          )}
         </View>
 
         {/* ── Sun route (dag/natt) i modal — designens route-vy, öppnas av ROUTE-rubriken ── */}
@@ -2254,8 +2565,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
         {/* hot refuel ingår nu i Route-stoppen ovan */}
 
-        {/* ── Flight rules (VFR / Y·Z / IFR) — visas först när rutt+tider är ifyllda (som route-info) ── */}
-        {routeRevealed && (
+        {/* ── Flight rules (VFR / Y·Z / IFR) — visas alltid från start ── */}
         <View style={{ paddingHorizontal: 4, marginTop: 2, marginBottom: 14 }}>
           {(() => {
             const ruleVal = (form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR');
@@ -2288,10 +2598,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             );
           })()}
         </View>
-        )}
 
-        {/* ── Conditions (VFR/IFR/Night/NVG) — visas först när rutt+tider är ifyllda + Full ── */}
-        {routeRevealed && logFull && (
+        {/* ── Conditions (VFR/IFR/Night/NVG) — visas alltid från start (Full) ── */}
+        {logFull && (
           <View style={{ marginTop: 2, marginBottom: 6 }}>
           {(() => {
             const total = parseFloat(form.total_time) || 0;
@@ -2302,7 +2611,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             const cap = (n: number) => Math.min(Math.max(0, n), total || n);
             // Barerna äger värdet; knapparna (VFR/Y·Z/IFR) härleds av barerna. EN setForm per
             // drag-steg (ingen haptik/raw-churn per move) → mjuk, icke-laggig dragning.
-            const setPct = (key: 'ifr' | 'vfr' | 'night' | 'nvg', p: number) => {
+            const setPct = (key: 'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying', p: number) => {
               const val = (total * p / 100);
               if (key === 'ifr' || key === 'vfr') {
                 const ifrV = key === 'ifr' ? val : Math.max(0, total - val);
@@ -2319,6 +2628,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               if (!n || isNaN(n)) return '';
               return decimalToHHMM(n);
             };
+            // Auto-":" (som dep/arr) men höger-justerat för varaktighet: sista 2 siffror = minuter.
+            // "155" → "1:55", "1234" → "12:34", "45" → "45" (45 min). Ingen 5-min-avrundning.
+            const formatDur = (raw: string): string => {
+              const d = raw.replace(/\D/g, '').slice(0, 4);
+              return d.length <= 2 ? d : `${d.slice(0, -2)}:${d.slice(-2)}`;
+            };
             const parseRaw = (raw: string): number => {
               if (raw.trim() === '') return 0;
               if (raw.includes(':')) {
@@ -2329,11 +2644,15 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               }
               const d = raw.replace(/\D/g, '');
               if (d.length === 0) return 0;
-              return parseInt(d, 10) || 0;
+              if (d.length <= 2) return (Math.min(59, parseInt(d, 10) || 0)) / 60;   // enbart minuter
+              const hh = parseInt(d.slice(0, -2), 10) || 0;
+              const mm = Math.min(59, parseInt(d.slice(-2), 10) || 0);
+              return hh + mm / 60;
             };
-            const onHhmmChange = (key: 'ifr' | 'vfr' | 'night' | 'nvg', raw: string) => {
-              setRawTime((r) => ({ ...r, [key]: raw }));
-              let decimal = cap(parseRaw(raw));
+            const onHhmmChange = (key: 'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying', raw: string) => {
+              const formatted = formatDur(raw);   // auto-":" medan man skriver
+              setRawTime((r) => ({ ...r, [key]: formatted }));
+              let decimal = cap(parseRaw(formatted));
               set(key, String(decimal));
               if (key === 'ifr') {
                 const remain = Math.max(0, total - decimal);
@@ -2346,10 +2665,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               }
               // NVG är fristående — påverkar inte night.
             };
-            const onHhmmBlur = (key: 'ifr' | 'vfr' | 'night' | 'nvg') => {
+            const onHhmmBlur = (key: 'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying') => {
               setRawTime((r) => { const n = { ...r }; delete n[key]; return n; });
             };
-            const valueFor = (key: 'ifr' | 'vfr' | 'night' | 'nvg', decimal: string) =>
+            const valueFor = (key: 'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying', decimal: string) =>
               rawTime[key] !== undefined ? rawTime[key]! : formatForInput(decimal);
             // NVG-fönster i % (sol < −0.30° längs rutten) → röd fyllning förbi fönstret (design).
             const nvgWindowPct = (() => {
@@ -2361,10 +2680,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             })();
             const lock = () => setScrollLocked(true);
             const unlock = () => setScrollLocked(false);
-            const vfrCond = <CondBar key="vfr" label="VFR" pct={pct(form.vfr ?? '0')} onPct={(p) => setPct('vfr', p)} tint={Colors.success} totalMin={total * 60} onGrab={lock} onRelease={unlock} />;
-            const ifrCond = <CondBar key="ifr" label="IFR" pct={pct(form.ifr)} onPct={(p) => setPct('ifr', p)} tint={Colors.primary} totalMin={total * 60} onGrab={lock} onRelease={unlock} />;
-            // NVG synlig endast om flighten berörde skymning→gryning (annars meningslöst).
-            const touchedTwilight = twilightSegs.some((s) => s.k !== 'day');
+            const vfrCond = <CondBar key="vfr" label="VFR" pct={pct(form.vfr ?? '0')} onPct={(p) => setPct('vfr', p)} tint={Colors.success} totalMin={total * 60} onGrab={lock} onRelease={unlock}
+              editable timeValue={valueFor('vfr', form.vfr ?? '0')} onTimeChange={(raw) => onHhmmChange('vfr', raw)} onTimeBlur={() => onHhmmBlur('vfr')} />;
+            const ifrCond = <CondBar key="ifr" label="IFR" pct={pct(form.ifr)} onPct={(p) => setPct('ifr', p)} tint={Colors.primary} totalMin={total * 60} onGrab={lock} onRelease={unlock}
+              editable timeValue={valueFor('ifr', form.ifr)} onTimeChange={(raw) => onHhmmChange('ifr', raw)} onTimeBlur={() => onHhmmBlur('ifr')} />;
             return (
               <>
                 {/* VFR + IFR alltid synliga; barerna och knapparna (VFR/Y·Z/IFR) är länkade. */}
@@ -2377,20 +2696,28 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   autoLabel={(!nightManual && form.flight_type !== 'sim') ? 'auto' : undefined}
                   onReset={(nightManual && form.flight_type !== 'sim' && depLatLon && arrLatLon) ? () => setNightManual(false) : undefined}
                   pct={pct(form.night)} onPct={(p) => { setNightManual(true); setPct('night', p); }} tint={Colors.info} totalMin={total * 60}
-                  onGrab={lock} onRelease={unlock} />
+                  onGrab={lock} onRelease={unlock}
+                  editable timeValue={valueFor('night', form.night)} onTimeChange={(raw) => { setNightManual(true); onHhmmChange('night', raw); }} onTimeBlur={() => onHhmmBlur('night')} />
+
+                {/* (Pilot flying styrs nu av PF/PM-toggeln under Your role — separata baren borttagen.) */}
 
                 {(() => {
-                  // NVG syns om flighten berörde skymning→gryning ELLER om man manuellt satt nattid
-                  // (t.ex. dagflygning där man ändå loggar natt). Röd varning bara vid verkligt mörkerfönster.
+                  // NVG kräver nattid (annars ingen mening) och visas ALDRIG vid ren IFR.
                   const nightSet = (parseFloat(form.night) || 0) > 0;
-                  const showNvg = form.flight_type === 'sim' ? nightSet : (touchedTwilight || nightSet);
+                  const isIfr = form.flight_rules === 'IFR';
+                  const isYZ = form.flight_rules === 'Y' || form.flight_rules === 'Z';
+                  const showNvg = nightSet && !isIfr;
                   if (!showNvg) return null;
-                  const useWarn = form.flight_type !== 'sim' && touchedTwilight;
+                  // Rödmarkering: Y/Z → NVG-tid utöver VFR-andelen; VFR → tid utanför mörkerfönstret.
+                  const warn = form.flight_type === 'sim' ? undefined
+                    : isYZ ? pct(form.vfr ?? '0')
+                    : nvgWindowPct;
                   return (
                     <CondBar label="NVG" pct={pct(form.nvg ?? '0')} onPct={(p) => setPct('nvg', p)} tint="#9B8CFF" totalMin={total * 60}
-                      warnAbove={useWarn ? nvgWindowPct : undefined}
-                      notches={useWarn && nvgWindowPct < 100 ? [nvgWindowPct] : undefined}
-                      onGrab={lock} onRelease={unlock} />
+                      warnAbove={warn}
+                      notches={warn != null && warn < 100 ? [warn] : undefined}
+                      onGrab={lock} onRelease={unlock}
+                      editable timeValue={valueFor('nvg', form.nvg ?? '0')} onTimeChange={(raw) => onHhmmChange('nvg', raw)} onTimeBlur={() => onHhmmBlur('nvg')} />
                   );
                 })()}
               </>
@@ -2400,7 +2727,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         )}
 
         {/* ── Aircraft & crew (designens kort) ── */}
-        <View style={[styles.card, { gap: 12, marginBottom: 12 }, (typeOpen || regOpen || personOpen) ? { zIndex: 20 } : null]}>
+        <View style={[styles.card, { gap: 12, marginBottom: 12 }, (typeOpen || regOpen || personOpen || otherOpen) ? { zIndex: 20 } : null]}>
           {/* Aircraft type + Registration — dropdownflikar (chevron öppnar), "+" i rutan lägger till nytt */}
           <View style={{ position: 'relative', zIndex: (typeOpen || regOpen) ? 30 : undefined }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -2495,37 +2822,28 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           </View>
 
           {/* Your role */}
-          <View style={{ marginBottom: 4 }}>
+          <View style={[{ marginBottom: 4 }, otherOpen ? { zIndex: 30 } : null]}>
               <Text style={styles.cardFieldLabel}>{t('your_role')}</Text>
               <View style={styles.roleGrid}>
-                {/* Designens 3×2-rutnät: PIC · CO-PILOT · INSTRUCTOR / DUAL · PICUS · Special */}
+                {/* Samma layout för Quicklog och Full: PIC · CO-PILOT · DUAL · FI / PF·PM-toggle · OTHER.
+                    (Övriga roller — PICUS m.fl. — finns i OTHER-dropdownen; separata PF-baren borttagen.) */}
                 <View style={styles.roleRow}>
                   <TouchableOpacity
-                    style={[styles.roleBtn, role === 'pic' && styles.roleBtnActive, (role === 'dual' || role === 'picus') && styles.roleBtnDisabled]}
-                    disabled={role === 'dual' || role === 'picus'}
+                    style={[styles.roleBtn, role === 'pic' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
+                    disabled={role === 'dual'}
                     onPress={() => handleRoleChange('pic')}
                     activeOpacity={0.75}
                   >
                     <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, (role === 'dual' || role === 'picus') && styles.roleBtnDisabled]}
-                    disabled={role === 'dual' || role === 'picus'}
+                    style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
+                    disabled={role === 'dual'}
                     onPress={() => handleRoleChange('co_pilot')}
                     activeOpacity={0.75}
                   >
                     <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>CO-PILOT</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
-                    disabled={role !== 'pic'}
-                    onPress={toggleFi}
-                    activeOpacity={0.75}
-                  >
-                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>INSTRUCTOR</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.roleRow}>
                   <TouchableOpacity
                     style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
                     onPress={toggleDual}
@@ -2534,24 +2852,37 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.roleBtn, role === 'picus' && styles.roleBtnActive]}
-                    onPress={togglePicus}
+                    style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
+                    disabled={role !== 'pic'}
+                    onPress={toggleFi}
                     activeOpacity={0.75}
                   >
-                    <Text style={[styles.roleBtnText, role === 'picus' && styles.roleBtnTextActive]}>PICUS</Text>
+                    <Text style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>FI</Text>
                   </TouchableOpacity>
+                </View>
+                <View style={[styles.roleRow, { alignItems: 'center' }]}>
+                  {/* Pilot flying / Pilot monitoring — glidande toggle; vald del = roleBtn-active-look.
+                      Vald visas som förkortning (PF/PM), ovald utskriven (Pilot flying / Pilot monitoring). */}
                   {(() => {
-                    const specialActive = ['spic', 'ferry_pic', 'observer', 'relief_crew'].includes(role) || examinerOverlay || safetyPilotOverlay;
+                    // PF är default (även innan tider fyllts i); PM bara när den valts explicit (manuellt satt 0).
+                    const pfVal = (pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0) ? 'pm' : 'pf';
                     return (
-                      <TouchableOpacity
-                        style={[styles.specialRoleBtn, specialActive && styles.roleBtnActive]}
-                        onPress={() => setShowSpecialRole(true)}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>OTHER</Text>
-                      </TouchableOpacity>
+                      <View style={{ flex: 2 }}>
+                        <SlideToggle
+                          block soft tall size="sm"
+                          value={pfVal}
+                          options={pfVal === 'pf'
+                            ? [{ value: 'pf', label: 'PF' }, { value: 'pm', label: 'Pilot monitoring' }]
+                            : [{ value: 'pf', label: 'Pilot flying' }, { value: 'pm', label: 'PM' }]}
+                          onChange={(v) => {
+                            if (v === 'pf') { setPfRatio(1); setPilotFlyingManual(false); }
+                            else { setPilotFlyingManual(true); set('pilot_flying', '0'); }
+                          }}
+                        />
+                      </View>
                     );
                   })()}
+                  {renderOtherBox()}
                 </View>
               </View>
           </View>
@@ -2565,6 +2896,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 roleKey={form.second_pilot_role ?? ''}
                 roleOptions={SP_ROLES}
                 saved={recentPilotsRoles}
+                byAircraft={pilotsByAircraft}
+                currentAircraft={form.aircraft_type}
                 placeholder={t('second_pilot_ph')}
                 onPick={(n, r) => { set('second_pilot', n); if (r) selectSecondPilotRole(r); }}
                 onChangeRole={(k) => selectSecondPilotRole(k)}
@@ -2579,6 +2912,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   roleKey={p.role}
                   roleOptions={SP_ROLES}
                   saved={recentPilotsRoles}
+                  byAircraft={pilotsByAircraft}
+                  currentAircraft={form.aircraft_type}
                   placeholder={t('second_pilot_ph')}
                   onPick={(n, r) => { updateExtraPilot(p.id, 'name', n); if (r) selectExtraPilotRole(p.id, r); }}
                   onChangeRole={(k) => selectExtraPilotRole(p.id, k)}
@@ -2590,80 +2925,155 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             </View>
           </View>
 
+          {/* Cabin crew — endast i Full (Quicklog visar bara second pilot) */}
+          {logFull && (
           <View>
             <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
             <View style={{ gap: 6 }}>
-              {crewMembers.map((member, idx) => {
-                const isLast = idx === crewMembers.length - 1;
-                return (
-                  <PersonPicker
-                    key={member.id}
-                    name={member.name}
-                    roleKey={member.role}
-                    roleOptions={CREW_ROLES}
-                    saved={savedCrewNames.map((n) => ({ name: n }))}
-                    placeholder={t('crew_name_ph')}
-                    onPick={(n) => updateCrewMember(member.id, 'name', n)}
-                    onChangeRole={(k) => updateCrewMember(member.id, 'role', k)}
-                    onAddNew={() => promptAddPersonName(t('crew_chief_label'), (n) => { updateCrewMember(member.id, 'name', n); addSavedCrewNames([n]).then(() => getSavedCrewNames().then(setSavedCrewNames)).catch(() => {}); })}
-                    onAddMore={isLast ? addCrewMember : undefined}
-                    onRemove={isLast ? undefined : () => removeCrewMember(member.id)}
-                    onToggle={setPersonOpen}
-                  />
-                );
-              })}
+              {crewMembers.map((member, idx) => (
+                <PersonPicker
+                  key={member.id}
+                  name={member.name}
+                  roleKey={member.role}
+                  roleOptions={CREW_ROLES}
+                  saved={savedCrewNames.map((n) => ({ name: n }))}
+                  placeholder={t('crew_name_ph')}
+                  onPick={(n) => updateCrewMember(member.id, 'name', n)}
+                  onChangeRole={(k) => updateCrewMember(member.id, 'role', k)}
+                  onAddNew={() => promptAddPersonName(t('crew_chief_label'), (n) => { updateCrewMember(member.id, 'name', n); addSavedCrewNames([n]).then(() => getSavedCrewNames().then(setSavedCrewNames)).catch(() => {}); })}
+                  onAddMore={idx === 0 ? addCrewMember : undefined}
+                  onRemove={idx === 0 ? undefined : () => removeCrewMember(member.id)}
+                  onToggle={setPersonOpen}
+                />
+              ))}
             </View>
           </View>
+          )}
         </View>
 
-        {/* Take-offs · Approaches · Landings — Full: redigerbart · Quicklog: auto */}
+        {/* Take-offs · Approaches · Landings — Full: redigerbart · Quicklog: auto-chips (designen) */}
         {!logFull ? (
-          <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="airplane" size={14} color={Colors.success} />
-            <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '700', color: Colors.textSecondary }}>
-              Auto · 1 take-off · 1 landing{(parseFloat(form.night) || 0) > 0 ? ' · night' : ' · day'}
-            </Text>
-          </View>
-        ) : (
+          (() => {
+            // Take-off/landning härleds ur de faktiska räknarna → chip = sparat värde (0 om PF av).
+            const toNight = (parseInt(form.takeoffs_night ?? '0', 10) || 0) > 0;
+            const landNight = (parseInt(form.landings_night ?? '0', 10) || 0) > 0;
+            const toCount = (parseInt(form.takeoffs_day ?? '0', 10) || 0) + (parseInt(form.takeoffs_night ?? '0', 10) || 0);
+            const landCount = (parseInt(form.landings_day ?? '0', 10) || 0) + (parseInt(form.landings_night ?? '0', 10) || 0);
+            const Chip = ({ lbl, night, count }: { lbl: string; night: boolean; count: number }) => (
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11 }}>
+                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 18, fontWeight: '800', color: count ? Colors.textPrimary : Colors.textMuted }}>{count}</Text>
+                <View>
+                  <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: Colors.textSecondary }}>{lbl}</Text>
+                  <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: night ? Colors.info : Colors.success }}>{night ? t('night') : t('day')}</Text>
+                </View>
+              </View>
+            );
+            return (
+              <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Text style={styles.cardFieldLabel}>Take-off / landing</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: Colors.success + '24', borderWidth: 1, borderColor: Colors.success + '66' }}>
+                    <Ionicons name="checkmark" size={8} color={Colors.success} />
+                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.success }}>auto</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Chip lbl="Take-off" night={toNight} count={toCount} />
+                  {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (() => {
+                    // Approach-visare (samma stil som chipsen) — default 3D, tap togglar 2D/3D.
+                    const a2 = parseInt(form.app_2d ?? '0', 10) || 0;
+                    const a3 = parseInt(form.app_3d ?? '0', 10) || 0;
+                    const tot = a2 + a3;
+                    const is3d = a3 > 0 || tot === 0;
+                    const toggle = () => { const c = tot || 1; if (is3d) { set('app_2d', String(c)); set('app_3d', '0'); } else { set('app_3d', String(c)); set('app_2d', '0'); } };
+                    return (
+                      <TouchableOpacity onPress={toggle} activeOpacity={0.7}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11 }}>
+                        <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 18, fontWeight: '800', color: tot ? Colors.textPrimary : Colors.textMuted }}>{tot || 1}</Text>
+                        <View>
+                          <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: Colors.textSecondary }}>Approach</Text>
+                          <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.primary }}>{is3d ? '3D' : '2D'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                  <Chip lbl="Landing" night={landNight} count={landCount} />
+                </View>
+              </View>
+            );
+          })()
+        ) : (() => {
+          // 0 pilot flying: t/o & ldg nollställs (via effekt). Man FÅR ändå öka tickrarna manuellt,
+          // men då lyser bara varningsrutan över take-offs röd — själva fälten förblir normala.
+          const cur = (k: 'takeoffs_day' | 'takeoffs_night' | 'landings_day' | 'landings_night') => parseInt(form[k] ?? '0', 10) || 0;
+          const pfZero = (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
+          const showWarn = pfZero && (cur('takeoffs_day') + cur('takeoffs_night') + cur('landings_day') + cur('landings_night')) > 0;
+          return (
           <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14 }}>
+          {showWarn && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: Colors.danger, backgroundColor: Colors.danger + '14' }}>
+              <Ionicons name="warning" size={14} color={Colors.danger} />
+              <Text style={{ flex: 1, fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '700', color: Colors.danger }}>Zero time logged as pilot flying</Text>
+            </View>
+          )}
           <TolRow first label="Take-offs"
-            a={{ label: t('day'), value: parseInt(form.takeoffs_day ?? '0', 10) || 0, onChange: (n) => set('takeoffs_day', String(n)) }}
-            b={{ label: t('night'), value: parseInt(form.takeoffs_night ?? '0', 10) || 0, onChange: (n) => set('takeoffs_night', String(n)) }} />
+            a={{ label: t('day'), value: cur('takeoffs_day'), onChange: (n) => { setTakeoffsManual(true); set('takeoffs_day', String(n)); } }}
+            b={{ label: t('night'), value: cur('takeoffs_night'), onChange: (n) => { setTakeoffsManual(true); set('takeoffs_night', String(n)); } }} />
           {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
             <TolRow label="Approaches"
               a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
               b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
           )}
           <TolRow label="Landings"
-            a={{ label: t('day'), value: parseInt(form.landings_day ?? '0', 10) || 0, onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
-            b={{ label: t('night'), value: parseInt(form.landings_night ?? '0', 10) || 0, onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
+            a={{ label: t('day'), value: cur('landings_day'), onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
+            b={{ label: t('night'), value: cur('landings_night'), onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
+          {/* Max altitude — samma TOL-grupp som designen (egen rad med topp-linje), inte separat kort */}
+          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+            <View style={{ borderTopWidth: 1, borderTopColor: Colors.border }}>
+              <MaxAltBar
+                valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
+                onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
+                onGrab={() => setScrollLocked(true)}
+                onRelease={() => setScrollLocked(false)}
+              />
+            </View>
+          )}
         </View>
-        )}
-        {logFull && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
-        <View style={styles.card}>
-          {/* Max altitude — designens barometer (fot). Lagras som flygnivå (FL = fot/100). */}
-          <MaxAltBar
-            valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
-            onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
-            onGrab={() => setScrollLocked(true)}
-            onRelease={() => setScrollLocked(false)}
-          />
-        </View>
-        )}
+          );
+        })()}
 
         {/* ── Remarks · Approach · Media (endast Full) ── */}
         {logFull && (<>
-        {/* Training approaches — designens ApproachFlow (per ICAO: 2D/3D → typ → rwy → remarks) */}
-        {form.flight_type !== 'sim' && (
+        {/* Approaches — ApproachFlow (per ICAO: 2D/3D → subkategori → approach → rwy → remarks).
+            Visas bara vid IFR/Y/Z (VFR har inga instrument-approacher att logga). */}
+        {form.flight_type !== 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
           <View style={{ marginBottom: 10 }}>
-            <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>{t('training_approaches')}</Text>
+            <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>Approaches</Text>
             <ApproachFlow
               icaos={approachIcaos}
               value={approaches}
               onChange={setApproaches}
-              ifr={form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z'}
+              ifr
               runwaysFor={runwaysFor}
             />
+            {/* Holds (FAA 6HITS: instrumentinflygningar + hållning inom 6 mån) */}
+            {(() => {
+              const h = parseInt(form.holds ?? '0', 10) || 0;
+              return (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border }}>
+                  <Text style={{ flex: 1, fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary }}>Holding patterns</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, height: 38, paddingHorizontal: 2 }}>
+                    <TouchableOpacity onPress={() => set('holds', String(Math.max(0, h - 1)))} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.6} style={{ width: 34, height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="remove" size={22} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={{ minWidth: 16, textAlign: 'center', fontFamily: 'JetBrainsMono', fontSize: 16, fontWeight: '800', color: h ? Colors.textPrimary : Colors.textMuted }}>{h}</Text>
+                    <TouchableOpacity onPress={() => set('holds', String(h + 1))} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.6} style={{ width: 34, height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="add" size={22} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })()}
           </View>
         )}
         <FormField
@@ -2691,14 +3101,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {photoUri ? (
             <View style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
               {mediaType === 'video' ? (
-                <Video
-                  source={{ uri: photoUri }}
-                  style={{ width: '100%', height: 180 }}
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                  isMuted
-                  shouldPlay
-                />
+                <FlightVideo uri={photoUri} style={{ width: '100%', height: 180 }} contentFit="cover" loop muted autoPlay />
               ) : (
                 <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
               )}
@@ -2744,6 +3147,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         </View>
         </>)}
 
+        {/* Quicklog: streckad knapp som fäller ut resten (designens "open Full") */}
+        {!logFull && (
+          <TouchableOpacity
+            onPress={() => setLogFull(true)}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 4,
+              backgroundColor: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.border, borderRadius: 12, paddingVertical: 12 }}
+          >
+            <Ionicons name="chevron-down" size={15} color={Colors.textMuted} />
+            <Text style={{ color: Colors.textMuted, fontSize: 12.5, fontWeight: '600' }}>Conditions · approach · notes · media — open Full</Text>
+          </TouchableOpacity>
+        )}
+
         {/* ── Spara ── */}
         {(() => {
           const needsMixedSplit = form.flight_rules === 'Y' || form.flight_rules === 'Z' || form.flight_rules === 'Mixed';
@@ -2774,88 +3190,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
       </ScrollView>
 
-      <Modal
-        visible={showSpecialRole}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSpecialRole(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowSpecialRole(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>{t('special_role')}</Text>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {(['spic','ferry_pic','observer','relief_crew'] as const).map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.specialRow, role === r && styles.specialRowActive]}
-                  onPress={() => { handleRoleChange(r); setShowSpecialRole(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={role === r ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={role === r ? Colors.primary : Colors.textMuted}
-                  />
-                  <Text style={styles.specialLabel}>{t(`role_${r}` as any)}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                style={[
-                  styles.specialRow,
-                  role !== 'pic' && styles.specialDisabled,
-                  examinerOverlay && styles.specialRowActive,
-                ]}
-                disabled={role !== 'pic'}
-                onPress={toggleExaminer}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={examinerOverlay ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={examinerOverlay ? Colors.primary : Colors.textMuted}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.specialLabel}>{t('role_examiner')}</Text>
-                  <Text style={styles.specialHint}>{t('role_examiner_hint')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.specialRow,
-                  role !== 'co_pilot' && styles.specialDisabled,
-                  safetyPilotOverlay && styles.specialRowActive,
-                ]}
-                disabled={role !== 'co_pilot'}
-                onPress={toggleSafetyPilot}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={safetyPilotOverlay ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={safetyPilotOverlay ? Colors.primary : Colors.textMuted}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.specialLabel}>{t('role_safety_pilot')}</Text>
-                  <Text style={styles.specialHint}>{t('role_safety_pilot_hint')}</Text>
-                </View>
-              </TouchableOpacity>
-              {['spic','ferry_pic','observer','relief_crew'].includes(role) && (
-                <TouchableOpacity
-                  style={styles.specialRow}
-                  onPress={() => { handleRoleChange('pic'); setShowSpecialRole(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle-outline" size={18} color={Colors.danger} />
-                  <Text style={[styles.specialLabel, { color: Colors.danger }]}>
-                    {t('reset_special_role')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* "Other"-rollerna hanteras nu av dropdownfliken i renderOtherBox (ingen modal). */}
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
@@ -3038,6 +3373,13 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       />
 
       <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="Flight data scan" />
+
+      <AddPilotModal
+        visible={addPilot.visible}
+        title={addPilot.title}
+        onClose={() => setAddPilot((st) => ({ ...st, visible: false }))}
+        onSave={(n) => { addPilot.cb?.(n); setAddPilot((st) => ({ ...st, visible: false })); }}
+      />
 
       {/* Review prompt */}
       <Modal visible={reviewPromptCount > 0} transparent animationType="fade" onRequestClose={() => setReviewPromptCount(0)}>

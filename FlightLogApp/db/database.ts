@@ -255,6 +255,8 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'photo_uri', `TEXT NOT NULL DEFAULT ''`);
   // Mediatyp: 'image' eller 'video' (default 'image' för bakåtkompatibilitet)
   await addColumnIfMissing(db, 'media_type', `TEXT NOT NULL DEFAULT 'image'`);
+  // Foto-synk: referens (localIdentifier) till bild/video i fotobiblioteket. Filen kopieras aldrig.
+  await addColumnIfMissing(db, 'photo_local_id', `TEXT`);
   // Max flight level (IFR/Y/Z flights)
   await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
   // Log Flight-redesign: start (dag/natt) + 2D/3D-inflygningar (utöver landningar/remarks).
@@ -262,6 +264,16 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'takeoffs_night', `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'app_2d', `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'app_3d', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'pilot_flying', `REAL NOT NULL DEFAULT 0`);
+  // Currency/recency (BLADES): full-stop-landningar + FAA-nattfönster (solnedgång+1h→soluppgång−1h)
+  // dubbelklassade vid save; holds för FAA 6HITS. Historik = 0 tills backfill/redigering.
+  await addColumnIfMissing(db, 'landings_fs_day', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'landings_fs_night', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'takeoffs_faa_night', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'landings_faa_night', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'landings_fs_faa_night', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissing(db, 'holds', `INTEGER NOT NULL DEFAULT 0`);
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'is_tailwheel', 'INTEGER NOT NULL DEFAULT 0');
 
   // Batteri-hälsa (% state-of-health) för drönar-batterier
   await addColumnIfMissingOnTable(db, 'drone_batteries', 'health', 'INTEGER NOT NULL DEFAULT 100');

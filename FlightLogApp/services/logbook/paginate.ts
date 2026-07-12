@@ -97,6 +97,33 @@ export function deriveLogbookFields(f: Flight): Flight {
   } as Flight;
 }
 
+/** Brought-forward (ingående balans) för en bok = summan av alla flygningar (inkl.
+ *  importerade summeringsrader) kronologiskt FÖRE bokens ankar-flygning. Utan ankare
+ *  → enbart summeringsrader (importerad tidigare erfarenhet, dvs. första boken). */
+export function computeBroughtForward(
+  flights: Flight[],
+  template: LogbookTemplate,
+  anchorFlightId: number,
+  predicate?: (f: Flight) => boolean,   // valfritt filter (t.ex. bara importerad data)
+  opts?: { noAnchorBase?: 'summary' | 'all' }, // utan anchor: bara summeringsrader (default) eller ALL historik
+): ColumnTotals {
+  const cols = numericColumns(template);
+  // Sim-backfillposten ('[BACKFILL]', flight_type='sim') har total_time > 0 och skulle
+  // förorena bokens totalkolumn — exkludera den. Summary-backfillposten (total_time=0) är ok.
+  const sorted = sortFlightsChrono(
+    flights.filter((f) => !((f as any).flight_type === 'sim' && (f as any).remarks === '[BACKFILL]')).map(deriveLogbookFields),
+  );
+  let before: Flight[];
+  if (anchorFlightId > 0) {
+    const idx = sorted.findIndex((f) => f.id === anchorFlightId);
+    before = idx >= 0 ? sorted.slice(0, idx) : [];
+  } else {
+    before = opts?.noAnchorBase === 'all' ? sorted : sorted.filter((f) => (f as any).flight_type === 'summary');
+  }
+  if (predicate) before = before.filter(predicate);
+  return sumFlights(before, cols);
+}
+
 /**
  * Bygger alla uppslag från flygningarna. Tom loggbok ger ett (tomt) uppslag
  * så att vyn alltid har en sida att visa.

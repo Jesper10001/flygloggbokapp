@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { continentForCountry } from '../constants/continents';
 import { CountryFlag } from './CountryFlag';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
@@ -16,6 +18,7 @@ import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
+import { useProfileStore, isOperator } from '../store/profileStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
 import * as Haptics from 'expo-haptics';
@@ -360,6 +363,17 @@ function makeStyles() {
       borderColor: Colors.cardBorder,
       marginBottom: 8,
     },
+    compactCard: {
+      flex: 1,
+      backgroundColor: Colors.card,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: Colors.cardBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
 
     modal: {
       flex: 1,
@@ -383,7 +397,9 @@ function makeStyles() {
   });
 }
 
-export function AirportMapWidget() {
+// compact: kompakt knapp (halv bredd) så den ryms bredvid "Your matrix" på dashboard.
+// rightSlot: element som renderas till höger om den kompakta knappen (t.ex. matrix-knappen).
+export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boolean; rightSlot?: ReactNode } = {}) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
@@ -403,9 +419,26 @@ export function AirportMapWidget() {
   const [unlocated, setUnlocated] = useState<IcaoAirport[]>([]);
   const [placingPlace, setPlacingPlace] = useState<IcaoAirport | null>(null);
   const [placedCoord, setPlacedCoord] = useState<{ lat: number; lon: number } | null>(null);
-  const pinWebRef = useRef<WebView>(null);
+  const placeMapRef = useRef<MapView>(null);
+  const [pinSat, setPinSat] = useState(true); // placerings-kartan: satellit (hybrid) som default
   const [pinSearch, setPinSearch] = useState('');
   const [pinSearching, setPinSearching] = useState(false);
+  // Native geokodning (nominatim) för sök i placerings-kartan → centrera + sätt pin.
+  const geocodePin = async () => {
+    const q = pinSearch.trim();
+    if (!q) return;
+    setPinSearching(true);
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'User-Agent': 'FlightLogApp' } });
+      const data = await r.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+        setPlacedCoord({ lat, lon });
+        placeMapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 450);
+      }
+    } catch {}
+    finally { setPinSearching(false); }
+  };
   const insets = useSafeAreaInsets();
   const { isPremium } = useFlightStore();
 
@@ -470,9 +503,30 @@ export function AirportMapWidget() {
 
   if (!allIcaos.length) return null;
 
+  // Kompakt header (halv bredd) — bara ikon + antal + etikett, ryms bredvid matrix-knappen.
+  const compactHeader = (
+    <View style={{ flexDirection: 'row', gap: 10 }}>
+      <TouchableOpacity
+        style={styles.compactCard}
+        onPress={() => airports.length > 0 && setModalVisible(true)}
+        activeOpacity={airports.length > 0 ? 0.75 : 1}
+      >
+        <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: Colors.info + '22', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="location" size={16} color={Colors.info} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.info, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>{allIcaos.length}</Text>
+          <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, fontFamily: 'Menlo', marginTop: 1 }}>VISITED AIRPORTS</Text>
+        </View>
+      </TouchableOpacity>
+      {rightSlot}
+    </View>
+  );
+
   return (
     <>
-      {/* Visited airports — MC1 style */}
+      {compact ? compactHeader : (
+      /* Visited airports — MC1 style */
       <TouchableOpacity
         style={styles.widget}
         onPress={() => airports.length > 0 && setModalVisible(true)}
@@ -521,6 +575,7 @@ export function AirportMapWidget() {
           <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
         </View>
       </TouchableOpacity>
+      )}
 
       {/* Unlocated temp places banner */}
       {unlocated.length > 0 && (
@@ -653,7 +708,9 @@ export function AirportMapWidget() {
                           <TouchableOpacity
                             onPress={() => {
                               setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null);
-                              router.push(`/flight/${lf.id}` as any);
+                              // Piloter → nya detail-sidan; operatörer behåller gamla (uppdragsvyn).
+                              const op = isOperator(useProfileStore.getState().profile);
+                              router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
                             }}
                             activeOpacity={0.7}
                             hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -789,30 +846,53 @@ export function AirportMapWidget() {
         animationType="slide"
         onRequestClose={() => setPlacingPlace(null)}
       >
-        <View style={styles.modal}>
+        {/* KeyboardAvoidingView: sök/spara-baren skjuts upp ovanför tangentbordet så
+            textrutan syns medan man skriver (kartan krymper istället). */}
+        <KeyboardAvoidingView style={styles.modal} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           {placingPlace && (
-            <WebView
-              ref={pinWebRef}
-              style={styles.webview}
-              source={{ html: buildPinPlacementHtml(
-                placingPlace.name || placingPlace.icao,
-                airports.length > 0 ? airports[0].lat : 59.3,
-                airports.length > 0 ? airports[0].lon : 18.0,
-                insets.top,
-              ), baseUrl: 'https://tile.openstreetmap.org' }}
-              originWhitelist={['*']}
-              javaScriptEnabled
-              domStorageEnabled
-              onMessage={(e) => {
-                try {
-                  const msg = JSON.parse(e.nativeEvent.data);
-                  if (msg.lat !== undefined && msg.lon !== undefined) {
-                    setPlacedCoord({ lat: msg.lat, lon: msg.lon });
-                  }
-                  setPinSearching(false);
-                } catch {}
-              }}
-            />
+            <View style={styles.webview}>
+              {/* Samma karta som "visited airports" (react-native-maps / Apple Maps på iOS).
+                  Tryck för att placera pin, dra för att finjustera. */}
+              <MapView
+                ref={placeMapRef}
+                style={{ flex: 1 }}
+                initialRegion={{
+                  latitude: airports.length > 0 ? airports[0].lat : 59.3,
+                  longitude: airports.length > 0 ? airports[0].lon : 18.0,
+                  latitudeDelta: 6, longitudeDelta: 6,
+                }}
+                mapType={pinSat ? 'hybrid' : 'standard'}
+                userInterfaceStyle="dark"
+                showsPointsOfInterest={false}
+                showsCompass={false}
+                toolbarEnabled={false}
+                onPress={(e) => setPlacedCoord({ lat: e.nativeEvent.coordinate.latitude, lon: e.nativeEvent.coordinate.longitude })}
+              >
+                {placedCoord && (
+                  <Marker
+                    draggable
+                    coordinate={{ latitude: placedCoord.lat, longitude: placedCoord.lon }}
+                    onDragEnd={(e) => setPlacedCoord({ lat: e.nativeEvent.coordinate.latitude, lon: e.nativeEvent.coordinate.longitude })}
+                    pinColor="#2E7D32"
+                    title={placingPlace.name || placingPlace.icao}
+                  />
+                )}
+              </MapView>
+              {/* Kartläge-växel: standard ↔ satellit — nere till höger, ovanför sök-baren */}
+              <TouchableOpacity
+                onPress={() => setPinSat((s) => !s)}
+                activeOpacity={0.8}
+                style={{
+                  position: 'absolute', bottom: 12, right: 16, height: 36,
+                  flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12,
+                  borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)',
+                  borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)',
+                }}
+              >
+                <Ionicons name={pinSat ? 'map' : 'globe'} size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{pinSat ? 'Map' : 'Satellite'}</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Search + Save bar */}
@@ -837,22 +917,14 @@ export function AirportMapWidget() {
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 returnKeyType="search"
                 autoCorrect={false}
-                onSubmitEditing={() => {
-                  if (!pinSearch.trim() || !pinWebRef.current) return;
-                  setPinSearching(true);
-                  pinWebRef.current.injectJavaScript(`window.searchFromNative(${JSON.stringify(pinSearch.trim())});true;`);
-                }}
+                onSubmitEditing={geocodePin}
               />
               <TouchableOpacity
                 style={{
                   backgroundColor: '#2E7D32', borderRadius: 10,
                   paddingHorizontal: 14, justifyContent: 'center',
                 }}
-                onPress={() => {
-                  if (!pinSearch.trim() || !pinWebRef.current) return;
-                  setPinSearching(true);
-                  pinWebRef.current.injectJavaScript(`window.searchFromNative(${JSON.stringify(pinSearch.trim())});true;`);
-                }}
+                onPress={geocodePin}
               >
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
                   {pinSearching ? '...' : 'Search'}
@@ -906,7 +978,7 @@ export function AirportMapWidget() {
           >
             <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

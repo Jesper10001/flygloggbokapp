@@ -50,7 +50,9 @@ export function calcFlightTime(dep: string, arr: string): number {
   let depMins = dh * 60 + dm;
   let arrMins = ah * 60 + am;
   if (arrMins < depMins) arrMins += 24 * 60; // midnatt-övergång
-  return Math.round((arrMins - depMins) / 6) / 10; // decimaltimmar, 1 decimal
+  // Exakt minutupplösning: decimaltimmar avrundade till 2 decimaler (±0.3 min → round-trippar
+  // alltid till rätt minut i decimalToHHMM). Tidigare /6/10 gav 6-min-steg (5 min → 0:06).
+  return Math.round((arrMins - depMins) / 60 * 100) / 100;
 }
 
 // Validera ICAO-kod (4 bokstäver)

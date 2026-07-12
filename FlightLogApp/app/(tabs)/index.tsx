@@ -5,22 +5,24 @@ import {
   Alert, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
+import { MatrixMapWidget } from '../../components/MatrixMapWidget';
+import { CurrencyStats } from '../../components/currency/CurrencyStats';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
+import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
-import { MissingNvgModal } from '../../components/MissingNvgModal';
-import { MissingDualModal } from '../../components/MissingDualModal';
-import { MissingInstructorModal } from '../../components/MissingInstructorModal';
 import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { BWCardCompact } from '../../components/milestones/BWCardCompact';
 import { LXCardCompact } from '../../components/milestones/LXCardCompact';
+import { FlightCardRow } from '../../components/logbook-page/FlightCardRow';
+import { LatestFlightCard } from '../../components/logbook-page/LatestFlightCard';
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
@@ -76,31 +78,40 @@ function zoneColor(zone: StressZone): string {
 }
 // ── StressRing ──────────────────────────────────────────────────────────────
 
-function StressRing({ stress, size = 120, animKey = 0 }: { stress: StressData; size?: number; animKey?: number }) {
+function StressRing({ stress, size = 120, ready = false }: { stress: StressData; size?: number; ready?: boolean }) {
   const r = (size - 12) / 2;
   const circ = 2 * Math.PI * r;
   const targetPct = Math.min(stress.index, 240) / 240;
   const color = zoneColor(stress.zone);
 
-  const animVal = useRef(new Animated.Value(0)).current;
-  const [displayPct, setDisplayPct] = useState(0);
-  const [displayIndex, setDisplayIndex] = useState(0);
+  // Animera ÖKNINGEN (prev → nytt index) efter en loggad flight; visa slutvärde direkt vid
+  // första laddningen/reload (ingen uppräkning från 0).
+  const animVal = useRef(new Animated.Value(1)).current;
+  const [displayPct, setDisplayPct] = useState(targetPct);
+  const [displayIndex, setDisplayIndex] = useState(stress.index);
+  const prev = useRef({ pct: 0, index: 0 });
+  const inited = useRef(false);
 
   useEffect(() => {
+    if (!ready) return;
+    if (!inited.current) {
+      inited.current = true;
+      prev.current = { pct: targetPct, index: stress.index };
+      setDisplayPct(targetPct); setDisplayIndex(stress.index);
+      return;
+    }
+    if (prev.current.index === stress.index) return;
+    const fp = prev.current.pct, fi = prev.current.index;
     animVal.setValue(0);
-    Animated.timing(animVal, {
-      toValue: 1,
-      duration: 1400,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-
     const listener = animVal.addListener(({ value }) => {
-      setDisplayPct(value * targetPct);
-      setDisplayIndex(Math.round(value * stress.index));
+      setDisplayPct(fp + (targetPct - fp) * value);
+      setDisplayIndex(Math.round(fi + (stress.index - fi) * value));
     });
+    Animated.timing(animVal, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false })
+      .start(({ finished }) => { if (finished) prev.current = { pct: targetPct, index: stress.index }; });
     return () => animVal.removeListener(listener);
-  }, [stress.index, animKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stress.index, ready]);
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -383,7 +394,7 @@ function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress, mediaType = 'i
   const displaySource = mediaType === 'video' && thumbnailUri ? { uri: thumbnailUri } : imageSource;
 
   return (
-    <TouchableOpacity style={{ width: cardW, height: cardW * 0.65, borderRadius: 14, overflow: 'hidden' }} onPress={onPress} activeOpacity={0.9} disabled={!onPress}>
+    <TouchableOpacity style={{ width: cardW, height: 140, borderRadius: 14, overflow: 'hidden' }} onPress={onPress} activeOpacity={0.9} disabled={!onPress}>
       <Image source={displaySource} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
       {mediaType === 'video' && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
@@ -480,21 +491,32 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
         }}
       />
 
-      {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginHorizontal: 40 }}>
         <TouchableOpacity
           style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-            marginTop: 8, marginHorizontal: 40, paddingVertical: 8,
-            borderRadius: 8, borderWidth: 1, borderColor: Colors.gold + '33',
-            backgroundColor: Colors.gold + '08',
+            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8,
+            borderRadius: 8, borderWidth: 1, borderColor: Colors.primary + '33', backgroundColor: Colors.primary + '08',
           }}
-          onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
+          onPress={() => router.push('/photo-sync' as any)}
           activeOpacity={0.8}
         >
-          <Ionicons name="camera-outline" size={14} color={Colors.gold} />
-          <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '600' }}>Add picture from your latest flight</Text>
+          <Ionicons name="sync-outline" size={14} color={Colors.primary} />
+          <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>Sync photo-album</Text>
         </TouchableOpacity>
-      )}
+        {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
+          <TouchableOpacity
+            style={{
+              flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8,
+              borderRadius: 8, borderWidth: 1, borderColor: Colors.gold + '33', backgroundColor: Colors.gold + '08',
+            }}
+            onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera-outline" size={14} color={Colors.gold} />
+            <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>Add picture</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <Modal visible={!!samplePreview} transparent animationType="fade" onRequestClose={() => setSamplePreview(null)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setSamplePreview(null)}>
@@ -555,6 +577,62 @@ function lxDateShort(iso: string | undefined, language: string): string {
   return `${String(d).padStart(2, '0')} ${monthShort(language, m - 1)} ${y}`;
 }
 
+// Latest flight-hjälten: när en ny flygning blir senast glider det nya kortet in
+// från vänster medan det gamla glider ut till höger och försvinner.
+function LatestFlightSwap({ flight, accent, placeNames, onPress }: {
+  flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
+}) {
+  const W = Dimensions.get('window').width;
+  const isFocused = useIsFocused();
+  const [current, setCurrent] = useState<Flight>(flight);
+  const [outgoing, setOutgoing] = useState<Flight | null>(null);
+  const pending = useRef<Flight | null>(null); // ny flight som väntar på att skärmen ska bli synlig
+  const inX = useRef(new Animated.Value(0)).current;
+  const outX = useRef(new Animated.Value(0)).current;
+
+  const runSwap = (from: Flight, to: Flight) => {
+    setOutgoing(from);
+    setCurrent(to);
+    inX.setValue(-W);
+    outX.setValue(0);
+    // 2 s: nya kortet decelererar in från vänster, gamla accelererar ut till höger.
+    // Matchar stress-badgens 2 s-håll så siffrorna börjar räkna precis när kortet landat.
+    Animated.parallel([
+      Animated.timing(inX, { toValue: 0, duration: 2000, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(outX, { toValue: W, duration: 2000, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) setOutgoing(null); });
+  };
+
+  useEffect(() => {
+    if (flight.id === current.id) { setCurrent(flight); return; } // samma flight (ev. redigerad) → inget glid
+    // Ny senaste flight. Glid bara när skärmen är i fokus — annars spelas den bakom
+    // add-flight-modalen och är redan klar när användaren kommer tillbaka.
+    if (isFocused) runSwap(current, flight);
+    else pending.current = flight;
+  }, [flight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (isFocused && pending.current) {
+      const next = pending.current;
+      pending.current = null;
+      runSwap(current, next);
+    }
+  }, [isFocused]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <View style={{ marginHorizontal: -12, marginTop: -6, overflow: 'hidden' }}>
+      <Animated.View style={{ transform: [{ translateX: inX }] }}>
+        <LatestFlightCard flight={current} accent={accent} placeNames={placeNames} onPress={onPress} />
+      </Animated.View>
+      {outgoing && (
+        <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: 0, transform: [{ translateX: outX }] }}>
+          <LatestFlightCard flight={outgoing} accent={accent} placeNames={placeNames} onPress={onPress} />
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
 export default function DashboardScreen() {
   const s = makeDashStyles();
   const router = useRouter();
@@ -565,6 +643,7 @@ export default function DashboardScreen() {
   const [milestonePremium, setMilestonePremium] = useState<string | null>(null);
   const { formatTime } = useTimeFormat();
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
+  const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
   const [refreshKey, setRefreshKey] = useState(0);
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
@@ -582,7 +661,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadStats();
     loadFlights();
-    getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
+    getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
     getSetting('profile_first_name').then(v => setProfileName(v ?? ''));
     checkVersion();
     loadPrompt();
@@ -591,7 +670,7 @@ export default function DashboardScreen() {
   useFocusEffect(useCallback(() => {
     loadStats();
     loadFlights();
-    getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14)));
+    getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
     loadPrompt();
   }, [loadStats, loadFlights, loadPrompt]));
 
@@ -605,20 +684,54 @@ export default function DashboardScreen() {
     }).start();
   }, [stress.index, refreshKey]);
 
-  const readoutAnim = useRef(new Animated.Value(0)).current;
-  const [readoutPct, setReadoutPct] = useState(0);
+  // Stress-readouten animerar ÖKNINGEN efter en loggad flight (prev → nytt värde), inte
+  // från 0. Vid mount/reload visas slutvärdet direkt (ingen uppräkning från start).
+  const readoutAnim = useRef(new Animated.Value(1)).current;
+  const [readoutPct, setReadoutPct] = useState(1);
+  const badgeOpacity = useRef(new Animated.Value(0)).current; // "+ h:mm"-badgens opacitet
+  const [deltaTotal, setDeltaTotal] = useState(0);            // tillagd totaltid (h) för badgen
+  const prevReadout = useRef({ total: 0, ytd: 0, hours14: 0, baseline14: 0 });
+  const readoutInited = useRef(false);
 
   useEffect(() => {
-    readoutAnim.setValue(0);
-    Animated.timing(readoutAnim, {
-      toValue: 1,
-      duration: 1400,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    const target = {
+      total: stats?.total_time ?? 0,
+      ytd: stats?.year_to_date ?? 0,
+      hours14: stress.hours14,
+      baseline14: stress.baseline14,
+    };
+    if (!readoutInited.current) {
+      if (!stats || !stressReady) return; // vänta tills BÅDE stats och stress laddats
+      readoutInited.current = true;
+      prevReadout.current = target;       // första laddningen → slutvärde direkt
+      setReadoutPct(1);
+      return;
+    }
+    const p = prevReadout.current;
+    if (target.total === p.total && target.ytd === p.ytd && target.hours14 === p.hours14 && target.baseline14 === p.baseline14) return;
+    const delta = target.total - p.total;
+    readoutAnim.setValue(0);            // värdena kvar på prev tills uppräkningen börjar
     const listener = readoutAnim.addListener(({ value }) => setReadoutPct(value));
+    const countUp = Animated.timing(readoutAnim, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false });
+    if (delta > 0.0001) {
+      // Steg 1: visa "+ h:mm" till vänster om totalen i två sekunder (värden kvar på prev).
+      // Steg 2: räkna upp alla värden samtidigt som badgen tonar bort i samma takt.
+      setDeltaTotal(delta);
+      badgeOpacity.setValue(1);
+      Animated.sequence([
+        Animated.delay(2000),
+        Animated.parallel([
+          countUp,
+          Animated.timing(badgeOpacity, { toValue: 0, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        ]),
+      ]).start(({ finished }) => { if (finished) prevReadout.current = target; });
+    } else {
+      // Ingen ökning (t.ex. redigering/radering) → räkna om direkt, ingen badge.
+      badgeOpacity.setValue(0);
+      countUp.start(({ finished }) => { if (finished) prevReadout.current = target; });
+    }
     return () => readoutAnim.removeListener(listener);
-  }, [stats?.total_time, stats?.year_to_date, refreshKey]);
+  }, [stats?.total_time, stats?.year_to_date, stress.hours14, stress.baseline14, stressReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const st = stats;
   const zc = zoneColor(stress.zone);
@@ -631,8 +744,10 @@ export default function DashboardScreen() {
   const bestWeek = useBestWeekDetails(st?.best_week_start || undefined);
   const xcLegs = useLongestXcLegs(st?.longest_xc_date || undefined);
 
-  const animTime = (v: number) => decimalToHHMM(v * readoutPct);
-  const latestFlights = flights.slice(0, 6);
+  // Interpolerar från föregående värde till nytt (prev + delta·pct) → visar ökningen.
+  const animTime = (target: number, prev: number) => decimalToHHMM(prev + (target - prev) * readoutPct);
+  const pr = prevReadout.current;
+  const latestFlights = flights.slice(0, 5);
 
   useEffect(() => {
     const icaos = latestFlights.flatMap(f => [f.dep_place, f.arr_place].filter(Boolean));
@@ -699,7 +814,7 @@ export default function DashboardScreen() {
         await Promise.all([
           loadStats(),
           loadFlights(),
-          getStressHours().then(({ recent14, yearAvg14 }) => setStress(computeStress(recent14, yearAvg14))),
+          getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); }),
           checkVersion(),
         ]);
       }} tintColor={Colors.primary} />}
@@ -798,17 +913,29 @@ export default function DashboardScreen() {
 
         {/* Percentage display */}
         <View style={s.telPctRow}>
-          <StressRing stress={stress} size={110} animKey={refreshKey} />
+          <StressRing stress={stress} size={110} ready={stressReady} />
           <View style={{ flex: 1, gap: 6 }}>
             {/* Readout rows */}
             {[
-              { l: 'TOTAL', v: animTime(st?.total_time ?? 0), c: Colors.gold },
-              { l: 'YTD', v: animTime(st?.year_to_date ?? 0), c: Colors.primary },
-              { l: '14D / AVG', v: `${animTime(stress.hours14)} / ${animTime(stress.baseline14)}`, c: zc },
+              // Alla värden animerar ökningen (prev → nytt) efter en loggad flight.
+              { l: 'TOTAL', parts: [animTime(st?.total_time ?? 0, pr.total)], c: Colors.gold },
+              { l: 'YTD', parts: [animTime(st?.year_to_date ?? 0, pr.ytd)], c: Colors.primary },
+              { l: '14D / AVG', parts: [animTime(stress.hours14, pr.hours14), animTime(stress.baseline14, pr.baseline14)], c: zc },
             ].map(m => (
               <View key={m.l} style={s.telReadout}>
                 <Text style={s.telReadoutLabel}>{m.l}</Text>
-                <Text style={[s.telReadoutValue, { color: m.c }]}>{m.v}</Text>
+                {/* Värde till höger; på TOTAL-raden en "+ h:mm"-badge till vänster om totalen */}
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  {m.l === 'TOTAL' && deltaTotal > 0.0001 && (
+                    <Animated.Text style={[s.telReadoutDelta, { opacity: badgeOpacity }]}>+ {decimalToHHMM(deltaTotal)}</Animated.Text>
+                  )}
+                  {/* Timmar i LED (H:MM); ev. separator i Menlo så "/" renderar korrekt */}
+                  <Text style={[s.telReadoutValue, { color: m.c }]}>
+                    {m.parts.map((p, i) => (
+                      <Text key={i}>{i > 0 ? <Text style={s.telReadoutSep}> / </Text> : null}{p}</Text>
+                    ))}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -821,24 +948,14 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* ── Latest Ops ── */}
-      <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 10 }}
-        onPress={() => setShowLatestOps(v => !v)}
-        activeOpacity={0.7}
-      >
-        <Text style={[s.sectionHeader, { marginTop: 0, marginBottom: 0 }]} numberOfLines={1}>{t('ms.section_latest_ops')}</Text>
-        <Ionicons name={showLatestOps ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
-      </TouchableOpacity>
-      {showLatestOps && (
-        <View style={s.card}>
-          {latestFlights.map((f, i) => (
-            <LatestFlightRow key={f.id} flight={f} isLast={i === latestFlights.length - 1} onPress={() => router.push(`/flight/${f.id}`)} placeNames={placeNames} onPhotoPress={setPhotoPreview} />
-          ))}
-          {latestFlights.length === 0 && (
-            <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('no_flights')}</Text>
-          )}
-        </View>
+      {/* ── Latest flight (single hero, där Latest ops låg) ── */}
+      {!isOperator(useProfileStore.getState().profile) && flights[0] && (
+        <LatestFlightSwap
+          flight={flights[0]}
+          accent={Colors.primary}
+          placeNames={placeNames}
+          onPress={() => router.push(`/flight/detail/${flights[0].id}`)}
+        />
       )}
 
       {/* ── Stats ── */}
@@ -851,29 +968,26 @@ export default function DashboardScreen() {
         </>
       ) : null}
 
-      {/* ── Log new flight ── */}
-      <LogFlightButton style={isOperator(useProfileStore.getState().profile) ? undefined : { marginTop: 6 }} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} label={isOperator(useProfileStore.getState().profile) ? t('log_new_mission') : t('log_new_flight')} />
-
-      {/* ── Tre snabbknappar (ej operatörer): flygdata-scan · fysisk loggbok · loggboks-scan ── */}
-      {!isOperator(useProfileStore.getState().profile) && (
-      <View style={s.actionRow}>
-        <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
-          <Ionicons name="scan-outline" size={28} color={Colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.actionBtn}
-          onPress={async () => {
-            if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
-            router.push('/logbook?recent=1');
-          }}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="book" size={28} color={spreadPrompt ? Colors.gold : Colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity style={s.actionBtn} onPress={quickLogbookScan} activeOpacity={0.85}>
-          <Ionicons name="camera-outline" size={28} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
+      {/* ── Log new flight ── operatörer: full bredd · piloter: photolog vänster + fysisk loggbok höger ── */}
+      {isOperator(useProfileStore.getState().profile) ? (
+        <LogFlightButton onPress={() => router.push('/flight/add-operator')} label={t('log_new_mission')} />
+      ) : (
+        <View style={s.logRow}>
+          <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
+            <Ionicons name="scan-outline" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+          <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />
+          <TouchableOpacity
+            style={s.sideBtn}
+            onPress={async () => {
+              if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
+              router.push('/logbook?recent=1');
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : Colors.primary} />
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* ── Visited airports (operator only) ── */}
@@ -894,37 +1008,17 @@ export default function DashboardScreen() {
           {/* Flight media first — most relevant day to day */}
           <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
 
-          <Text style={s.sectionHeader}>{t('ms.section_milestones')}</Text>
+          {/* Milestones (Best Week + Longest XC) flyttade till insights botten (MilestonesSection) */}
 
-          <View style={s.milestoneRow}>
-            <BWCardCompact
-              width={bwCardW}
-              hoursLabel={decimalToHHMM(st?.best_week_hours ?? 0)}
-              weekLabel={st?.best_week_label || '—'}
-              sectors={bestWeek.sectors}
-              airports={bestWeek.airports}
-              days={bestWeek.days}
-              onPress={() => {
-                if (!isPremium) { setMilestonePremium('Best week'); return; }
-                if (st?.best_week_start) router.push('/milestones/best-week');
-              }}
-            />
-            <LXCardCompact
-              width={lxCardW}
-              distanceNm={st?.longest_xc_km ?? 0}
-              routeFrom={st?.longest_xc_first_dep || '—'}
-              routeTo={st?.longest_xc_last_arr || '—'}
-              durationLabel={hoursToHM(st?.longest_xc_hours ?? 0)}
-              dateShort={lxDateShort(st?.longest_xc_date, language)}
-              legs={xcLegs}
-              onPress={() => {
-                if (!isPremium) { setMilestonePremium('Longest XC'); return; }
-                if (st?.longest_xc_id) router.push('/milestones/longest-xc');
-              }}
-            />
+          {/* Visited airports + Your matrix sida vid sida (kompakta knappar) */}
+          <View style={{ marginTop: 16 }}>
+            <AirportMapWidget compact rightSlot={<MatrixMapWidget />} />
           </View>
 
-          <AirportMapWidget />
+          {/* Recency-statistik för senaste perioden (ren ruta, ingen titel) längst ner */}
+          <View style={{ marginTop: 16 }}>
+            <CurrencyStats flights={flights} />
+          </View>
 
 
           {st?.longest_xc_date && (
@@ -1003,7 +1097,9 @@ function makeDashStyles() { return StyleSheet.create({
     borderWidth: 1, borderColor: Colors.cardBorder,
   },
   telReadoutLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },
-  telReadoutValue: { fontSize: 16, fontWeight: '800', fontFamily: 'Menlo', fontVariant: ['tabular-nums'] },
+  telReadoutValue: { fontSize: 16, fontWeight: '800', fontFamily: FONT_LED7 },
+  telReadoutDelta: { fontSize: 16, fontWeight: '800', fontFamily: FONT_LED7, color: Colors.textPrimary },
+  telReadoutSep: { fontFamily: 'Menlo', fontWeight: '800', fontSize: 14 },
   telAdvice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     padding: 8, borderRadius: 8, borderLeftWidth: 3,
@@ -1029,6 +1125,12 @@ function makeDashStyles() { return StyleSheet.create({
     borderWidth: 1, borderColor: Colors.primary + '55',
   },
   actionBtnText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
+  // Log-flight-rad: photolog (vänster) · Log flight (mitten, flex) · fysisk loggbok (höger).
+  logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16, marginBottom: 6 },
+  sideBtn: {
+    width: 54, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55',
+  },
 
   sectionHeader: {
     fontSize: 11, fontWeight: '700', color: Colors.textMuted,

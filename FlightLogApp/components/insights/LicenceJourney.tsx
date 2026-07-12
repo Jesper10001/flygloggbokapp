@@ -115,13 +115,14 @@ export function LicenceJourney() {
   return (
     <View style={{ gap: 10 }}>
       <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.primary + '55', borderRadius: 16, padding: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.6, color: C.primary }}>NEXT LICENCE</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+          <Ionicons name="ribbon-outline" size={17} color={C.primary} />
+          <Text style={{ fontFamily: SERIF, fontSize: 18, fontWeight: '500', color: C.text }}>Next licence</Text>
+          <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={() => setChart((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: chart ? C.primary : C.border, backgroundColor: chart ? C.primary + '22' : C.elevated }}>
             <Ionicons name={chart ? 'list' : 'analytics-outline'} size={12} color={chart ? C.primary : C.text3} />
             <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '700', color: chart ? C.primary : C.text3 }}>{chart ? 'List' : 'Chart'}</Text>
           </TouchableOpacity>
-          <View style={{ flex: 1 }} />
           <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.muted }}>{metCount}/{next.reqs.length} met</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 14 }}>

@@ -11,7 +11,7 @@ import {
   type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
 import { buildBookSpreads, type LogbookSpread } from './paginate';
-import { assignFlightsToBooks } from './books';
+import { assignFlightsToBooks, resolveOpeningBalance } from './books';
 import { renderSpreadsPDF } from './renderSpread';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 
@@ -65,9 +65,6 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
   try { customCols = JSON.parse(active.custom_cols || '{}'); } catch { customCols = {}; }
   const template = applyCustomCols(base, customCols);
 
-  let openingBalance: Record<string, number> = {};
-  try { openingBalance = JSON.parse(active.opening_balance || '{}'); } catch { openingBalance = {}; }
-
   const flights = await getFlights(10000);
   const slices = assignFlightsToBooks(books, flights);
   const slice = slices.find((s) => s.book.id === active.id);
@@ -75,7 +72,7 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
   const spreads = buildBookSpreads(slice?.flights ?? [], template, {
     startingPage: active.starting_page,
     rowsPerSpread: active.rows_per_spread,
-    openingBalance,
+    openingBalance: resolveOpeningBalance(active, flights, template),
     leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
   });
 

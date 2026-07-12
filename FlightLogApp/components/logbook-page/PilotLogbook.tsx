@@ -25,8 +25,14 @@ export function PilotLogbook() {
   const { flights, isLoading, loadFlights, loadStats } = useFlightStore();
   const [view, setView] = useState<LogView>('list');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+  // Deep-link-expansion (år/månad) från heatmapen. Nollställs vid vy-byte och när
+  // fliken lämnas så att List alltid öppnas i grundform (inget år/månad intryckt).
+  const [expand, setExpand] = useState<{ year: number | null; monthKey: string | null }>({ year: null, monthKey: null });
 
-  useFocusEffect(useCallback(() => { loadFlights(); loadStats(); }, []));
+  useFocusEffect(useCallback(() => {
+    loadFlights(); loadStats();
+    return () => setExpand({ year: null, monthKey: null });
+  }, []));
 
   useEffect(() => {
     const icaos = flights.flatMap((f) => [f.dep_place, f.arr_place].filter(Boolean));
@@ -35,7 +41,6 @@ export function PilotLogbook() {
 
   // Djuplänk från Insights-heatmapen: öppna List och expandera rätt år/månad.
   const params = useLocalSearchParams<{ focusFlightId?: string; focusYear?: string; focusMonth?: string; t?: string }>();
-  const [expand, setExpand] = useState<{ year: number | null; monthKey: string | null }>({ year: null, monthKey: null });
   useEffect(() => {
     if (!params.focusYear || !params.focusMonth) return;
     const fy = Number(params.focusYear), fm = Number(params.focusMonth);
@@ -46,7 +51,9 @@ export function PilotLogbook() {
   const openFlight = (f: Flight) => router.push(`/flight/detail/${f.id}`);
 
   // Väljaren ligger i headern på samma rad som sidans titel (titel vänster, toggle höger).
-  const toggleNode = <SegmentedToggle options={OPTIONS} value={view} onChange={setView} accent={accent} />;
+  // Manuellt vy-byte rensar deep-link-expansionen → List öppnas i grundform.
+  const switchView = (v: LogView) => { setView(v); setExpand({ year: null, monthKey: null }); };
+  const toggleNode = <SegmentedToggle options={OPTIONS} value={view} onChange={switchView} accent={accent} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>

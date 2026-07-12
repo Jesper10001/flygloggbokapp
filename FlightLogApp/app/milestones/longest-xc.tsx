@@ -191,7 +191,7 @@ export default function LongestXcScreen() {
           <GhostCTA
             label={t('ms.lx_open_detail')}
             icon="document-text-outline"
-            onPress={() => stats?.longest_xc_id && router.push(`/flight/${stats.longest_xc_id}`)}
+            onPress={() => stats?.longest_xc_id && router.push(`/flight/detail/${stats.longest_xc_id}`)}
           />
         </View>
       </ScrollView>
