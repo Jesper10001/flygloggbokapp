@@ -1,6 +1,7 @@
 import { getDatabase } from './database';
 import type { Flight, FlightFormData, FlightStats } from '../types/flight';
 import { parseFlightTime } from '../utils/format';
+import { getBackfill } from './backfill';
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -258,10 +259,12 @@ export async function deleteFlights(ids: number[]): Promise<void> {
   await db.runAsync(`DELETE FROM flights WHERE id IN (${ph})`, ids);
 }
 
-/** Koppla (eller ta bort) en fotobiblioteks-referens till en flygning. Endast referensen sparas. */
-export async function setFlightPhotoLocalId(id: number, localId: string | null): Promise<void> {
+/** Koppla (eller ta bort) en fotobiblioteks-referens till en flygning. Endast referensen sparas.
+ *  mediaType lagras också (image/video) så appen vet typen utan att resolva assetet. */
+export async function setFlightPhotoLocalId(id: number, localId: string | null, mediaType?: 'image' | 'video'): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync('UPDATE flights SET photo_local_id=? WHERE id=?', [localId, id]);
+  if (mediaType) await db.runAsync('UPDATE flights SET photo_local_id=?, media_type=? WHERE id=?', [localId, mediaType, id]);
+  else await db.runAsync('UPDATE flights SET photo_local_id=? WHERE id=?', [localId, id]);
 }
 
 export async function clearAllFlights(): Promise<void> {
@@ -295,8 +298,9 @@ export async function getFlights(limit = 100, offset = 0): Promise<Flight[]> {
 
 export async function getFlightsWithPhotos(): Promise<Flight[]> {
   const db = await getDatabase();
+  // Inkluderar både uppladdade bilder (photo_uri) och synkade referenser (photo_local_id).
   return await db.getAllAsync<Flight>(
-    "SELECT * FROM flights WHERE photo_uri != '' ORDER BY date DESC, dep_utc DESC"
+    "SELECT * FROM flights WHERE photo_uri != '' OR (photo_local_id IS NOT NULL AND photo_local_id != '') ORDER BY date DESC, dep_utc DESC"
   );
 }
 
@@ -700,6 +704,9 @@ export async function getRecentArrivals(): Promise<{ icao: string; temporary: bo
 
 export async function getFlightStats(): Promise<FlightStats> {
   const db = await getDatabase();
+  // Backfill-justering laddas FÖRST (triggar migrering av ev. gamla dolda [BACKFILL]-flygningar
+  // → borttagna) så SUM-frågorna nedan inte råkar räkna dem + justeringen (dubbelräkning).
+  const bf = await getBackfill();
 
   // is_ffs = explicit 'sim' ELLER pass som överstiger luftfartygets uthållighet.
   // 'hot_refuel' och 'summary' är undantagna från uthållighetskontrollen.
@@ -917,16 +924,16 @@ export async function getFlightStats(): Promise<FlightStats> {
   return {
     total_flights: totals?.total_flights ?? 0,
     total_time: totals?.total_time ?? 0,
-    total_pic: totals?.total_pic ?? 0,
-    total_co_pilot: totals?.total_co_pilot ?? 0,
-    total_dual: totals?.total_dual ?? 0,
-    total_ifr: totals?.total_ifr ?? 0,
+    total_pic: (totals?.total_pic ?? 0) + bf.pic,
+    total_co_pilot: (totals?.total_co_pilot ?? 0) + bf.co_pilot,
+    total_dual: (totals?.total_dual ?? 0) + bf.dual,
+    total_ifr: (totals?.total_ifr ?? 0) + bf.ifr,
     total_vfr: totals?.total_vfr ?? 0,
-    total_night: totals?.total_night ?? 0,
+    total_night: (totals?.total_night ?? 0) + bf.night,
     total_nvg: totals?.total_nvg ?? 0,
-    total_sim: totals?.total_sim ?? 0,
-    total_landings_day: totals?.total_landings_day ?? 0,
-    total_landings_night: totals?.total_landings_night ?? 0,
+    total_sim: (totals?.total_sim ?? 0) + bf.sim,
+    total_landings_day: (totals?.total_landings_day ?? 0) + Math.round(bf.landings_day),
+    total_landings_night: (totals?.total_landings_night ?? 0) + Math.round(bf.landings_night),
     last_90_days: last90?.hours ?? 0,
     last_12_months: last12m?.hours ?? 0,
     year_to_date: ytd?.hours ?? 0,
@@ -940,10 +947,10 @@ export async function getFlightStats(): Promise<FlightStats> {
     longest_xc_first_dep: xcFirstDep,
     longest_xc_last_arr: xcLastArr,
     longest_xc_id: longest?.last_id ?? null,
-    total_multi_pilot: totals?.total_multi_pilot ?? 0,
+    total_multi_pilot: (totals?.total_multi_pilot ?? 0) + bf.multi_pilot,
     total_single_pilot: totals?.total_single_pilot ?? 0,
-    total_instructor: totals?.total_instructor ?? 0,
-    total_picus: totals?.total_picus ?? 0,
+    total_instructor: (totals?.total_instructor ?? 0) + bf.instructor,
+    total_picus: (totals?.total_picus ?? 0) + bf.picus,
     total_spic: totals?.total_spic ?? 0,
     total_ferry_pic: totals?.total_ferry_pic ?? 0,
     total_observer: totals?.total_observer ?? 0,

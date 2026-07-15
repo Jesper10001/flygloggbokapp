@@ -440,11 +440,11 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
   const SIDE_PAD = (screenW - CARD_W) / 2;
 
   useEffect(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 30)));
+    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // karusellen visar bara uppladdade bilder
   }, [flightCount]);
 
   useFocusEffect(useCallback(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.slice(0, 30)));
+    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // karusellen visar bara uppladdade bilder
   }, []));
 
   const hasFlight = photos.length > 0;

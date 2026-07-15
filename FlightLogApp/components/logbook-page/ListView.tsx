@@ -27,7 +27,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       if (filter === 'pic' && roleLabel(f) !== 'PIC') return false;
       if (filter === 'ifr' && !(f.ifr > 0)) return false;
       if (filter === 'night' && !(f.night > 0)) return false;
-      if (filter === 'photo' && !(f.photo_uri && f.media_type !== 'video')) return false;
+      if (filter === 'photo' && !(f.photo_uri || f.photo_local_id)) return false; // inkl. synkade + videor
       if (ql) {
         const hay = `${f.dep_place} ${f.arr_place} ${placeNames[f.dep_place] || ''} ${placeNames[f.arr_place] || ''} ${f.registration} ${f.aircraft_type} ${roleLabel(f)}`.toLowerCase();
         if (!hay.includes(ql)) return false;

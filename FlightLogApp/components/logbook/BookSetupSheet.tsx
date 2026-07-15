@@ -2,7 +2,7 @@
 // uppslag, samt anchor (vilken sida + rad den SENASTE flygningen ligger på i
 // pappersboken) och ingående balans. Används för att skapa OCH redigera böcker.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform, Modal, useWindowDimensions,
 } from 'react-native';
@@ -18,6 +18,7 @@ import {
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals } from '../../services/logbook/paginate';
+import { getBackfill } from '../../db/backfill';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 import {
@@ -138,6 +139,9 @@ export function BookSetupSheet({
     () => computeBroughtForward(flights, template, 0, undefined, { noAnchorBase: 'all' }),
     [flights, template],
   );
+  // Backfill-justering (settings, ej flight) läggs till Current så bokens total inkluderar den.
+  const [bfAdj, setBfAdj] = useState<Record<string, number>>({});
+  useEffect(() => { getBackfill().then((v) => setBfAdj(v as any)); }, []);
   // Auto-härledd brought-forward (den boken använder utan override) + ev. sparad override.
   // Om en bok redan har en override är dess verkliga total = override + rader, inte totalBal.
   const autoBF = useMemo(() => computeBroughtForward(flights, template, anchorId), [flights, template, anchorId]);
@@ -147,10 +151,10 @@ export function BookSetupSheet({
   const hasOverride = Object.keys(storedOverride).length > 0;
   const fmtCurrent = (key: string) => {
     const col = balCols.find((c) => c.flightKey === key);
-    // total = brought-forward + rader; rader = totalBal − autoBF (oberoende av override).
-    const v = hasOverride
+    // total = brought-forward + rader (+ backfill-justering); rader = totalBal − autoBF.
+    const v = (hasOverride
       ? (totalBal[key] ?? 0) - (autoBF[key] ?? 0) + (storedOverride[key] ?? 0)
-      : (totalBal[key] ?? 0);
+      : (totalBal[key] ?? 0)) + (bfAdj[key] ?? 0);
     if (!v) return '—';
     return col?.format === 'int' ? String(Math.round(v)) : formatTimeValue(v, timeFormat);
   };

@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
 import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlaces, updateUserAirport, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
+import { getRunways } from '../utils/runways';
+import { AirportInfoCard } from './AirportInfoCard';
 import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
@@ -660,78 +662,23 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
           {selectedAirport && (() => {
             const ic = selectedAirport;
             const ap = airports.find((a) => a.icao === ic);
-            const pairs = runwayPairs((runwayData as Record<string, number[]>)[ic] || []);
             const count = landingCounts[ic] ?? 0;
+            const lf = lastFlight[ic];
             return (
-              <View style={{
-                position: 'absolute', top: insets.top + 56, left: 12, right: 12,
-                flexDirection: 'row', backgroundColor: 'rgba(15,22,38,0.96)',
-                borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden',
-              }}>
-                {/* ICAO-kort — 2/5 av rutan, namnet radbryter vid behov */}
-                <View style={{
-                  flex: 2, backgroundColor: Colors.info + '22', paddingHorizontal: 14, paddingVertical: 12,
-                  justifyContent: 'center',
-                  borderRightWidth: 1, borderRightColor: Colors.cardBorder,
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: Colors.info, fontSize: 20, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 1 }}>{ic}</Text>
-                    <RunwayDiagram icao={ic} size={28} color={Colors.info} />
-                  </View>
-                  {!!ap?.name && <Text style={{ color: Colors.textMuted, fontSize: 10, fontWeight: '600', marginTop: 2, lineHeight: 14 }}>{ap.name}</Text>}
-                </View>
-                {/* Detaljer — 3/5 av rutan */}
-                <View style={{ flex: 3, paddingLeft: 14, paddingRight: 30, paddingVertical: 10, gap: 9, justifyContent: 'center' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo', width: 26 }}>RWY</Text>
-                    {pairs.length ? pairs.map((p) => (
-                      <View key={p} style={{
-                        backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 5,
-                        paddingHorizontal: 7, paddingVertical: 2,
-                        borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)',
-                      }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' }}>{p}</Text>
-                      </View>
-                    )) : <Text style={{ color: Colors.textMuted, fontSize: 12 }}>—</Text>}
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 18 }}>
-                    <View>
-                      <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' }}>LANDINGS</Text>
-                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{count}</Text>
-                    </View>
-                    <View style={{ flexShrink: 1 }}>
-                      <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' }}>LAST</Text>
-                      {(() => {
-                        const lf = lastFlight[ic];
-                        if (!lf) return <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{fmtVisit(ap?.visitDate)}</Text>;
-                        return (
-                          <TouchableOpacity
-                            onPress={() => {
-                              setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null);
-                              // Piloter → nya detail-sidan; operatörer behåller gamla (uppdragsvyn).
-                              const op = isOperator(useProfileStore.getState().profile);
-                              router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
-                            }}
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                          >
-                            <Text style={{ color: Colors.info, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }} numberOfLines={1}>{fmtVisit(lf.date)}</Text>
-                            <Ionicons name="open-outline" size={11} color={Colors.info} />
-                          </TouchableOpacity>
-                        );
-                      })()}
-                    </View>
-                  </View>
-                </View>
-                {/* Stäng — absolut i hörnet så den inte äter av 2/5–3/5-proportionen */}
-                <TouchableOpacity
-                  onPress={() => setSelectedAirport(null)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={{ position: 'absolute', top: 8, right: 10, padding: 2 }}
-                >
-                  <Ionicons name="close" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
+              <View style={{ position: 'absolute', top: insets.top + 56, left: 12, right: 12 }}>
+                <AirportInfoCard
+                  icao={ic}
+                  name={ap?.name}
+                  landingCount={count}
+                  lastText={lf ? fmtVisit(lf.date) : fmtVisit(ap?.visitDate)}
+                  onLastPress={lf ? () => {
+                    setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null);
+                    // Piloter → nya detail-sidan; operatörer behåller gamla (uppdragsvyn).
+                    const op = isOperator(useProfileStore.getState().profile);
+                    router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
+                  } : undefined}
+                  onClose={() => setSelectedAirport(null)}
+                />
               </View>
             );
           })()}

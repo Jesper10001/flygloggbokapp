@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, TextInput, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { GlobalAirportMap } from '../../components/GlobalAirportMap';
+import { CountryAirportList } from '../../components/CountryAirportList';
+import { AirportInfoCard } from '../../components/AirportInfoCard';
+import { getRunways } from '../../utils/runways';
+import { useRouter } from 'expo-router';
+import { useProfileStore, isOperator } from '../../store/profileStore';
+import { getAirportLandingCounts, getAirportLastFlight } from '../../db/flights';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports, getSeedAirports } from '../../db/icao';
 import { Colors } from '../../constants/colors';
@@ -315,6 +321,7 @@ function AirportDetailModal({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const hasCoords = airport.lat && airport.lon && !(airport.lat === 0 && airport.lon === 0);
+  const runways = getRunways(airport.icao);
   const isTemporary = airport.temporary === 1;
   const editable = !!airport.custom || isTemporary;
   const [editing, setEditing] = useState(false);
@@ -382,6 +389,18 @@ function AirportDetailModal({
               <InfoRow label={t('longitude_label')} value={airport.lon.toFixed(4)} mono />
             </>
           ) : null}
+          {runways.length > 0 && (
+            <View style={[detailStyles.infoRow, { alignItems: 'flex-start' }]}>
+              <Text style={detailStyles.infoLabel}>{runways.length > 1 ? 'Runways' : 'Runway'}</Text>
+              <View style={{ flex: 1, gap: 4 }}>
+                {runways.map((rw, i) => (
+                  <Text key={i} style={[detailStyles.infoValue, detailStyles.infoMono, { fontSize: 14 }, rw.closed && { color: Colors.textMuted, textDecorationLine: 'line-through' }]}>
+                    {rw.ident}{rw.lengthM ? ` · ${rw.lengthM} m` : ''}{rw.surface ? ` · ${rw.surface}` : ''}{rw.lighted ? ' · Lit' : ''}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Redigera / Radera — gäller custom och off-airport-platser */}
           {editable && !editing && (
@@ -500,10 +519,36 @@ function getPreviewForCountry(data: SeedRow[], countryCode: string, limit = 10) 
   return { sample: all.slice(0, limit), total: all.length, remaining: Math.max(0, all.length - limit) };
 }
 
+function fmtVisit(d?: string): string {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${(y || '').slice(-2)}`;
+}
+
+// Flygplatstyper härledda ur namnet (exkl. vanliga "Airport", ~21k st) → filtrerar kartan.
+const AIRPORT_TYPES: { key: string; re: RegExp }[] = [
+  { key: 'Seaplane', re: /sea ?plane|float ?plane|water aerodrome|hydroba/i },
+  { key: 'Heliport', re: /heliport/i },
+  { key: 'Hospital', re: /hospital|medical|clinic/i },
+  { key: 'Helicopter', re: /helipad|helicopter|helibase/i },
+  { key: 'Airfield', re: /airfield|air field/i },
+  { key: 'Airstrip', re: /airstrip|air strip|landing strip/i },
+  { key: 'Aerodrome', re: /aerodrome/i },
+  { key: 'Airpark', re: /airpark|air park/i },
+  { key: 'Air Base', re: /air ?base|\bAFB\b|\bRAF\b|naval air|air force|military/i },
+  { key: 'Glider', re: /glider|gliding|segelflug/i },
+  { key: 'Ultralight', re: /ultralight|microlight/i },
+  { key: 'Balloon', re: /balloon/i },
+  { key: 'Farm/Ranch', re: /ranch|farm(?!ington)/i },
+];
+
 export default function AirportScreen() {
   const { t } = useTranslation();
   const { isPremium } = useFlightStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
+  const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [form, setForm] = useState(EMPTY);
@@ -514,6 +559,10 @@ export default function AirportScreen() {
   const [globalQuery, setGlobalQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [showGlobalMap, setShowGlobalMap] = useState(false);
+  const [mapCountry, setMapCountry] = useState<string | null>(null); // vald land-flagga → flygplatslista
+  const [mapSearch, setMapSearch] = useState('');                    // sökruta på kartan
+  const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null); // flygplats visad på kartan
+  const [typeFilter, setTypeFilter] = useState<string | null>(null); // kartfilter på flygplatstyp
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [countryIndex, setCountryIndex] = useState<CountryEntry[]>([]);
 
@@ -522,6 +571,8 @@ export default function AirportScreen() {
       setSeedData(data);
       setCountryIndex(buildCountryIndex(data));
     });
+    getAirportLandingCounts().then(setLandingCounts);
+    getAirportLastFlight().then(setLastFlightMap);
   }, []);
 
   useEffect(() => {
@@ -583,6 +634,43 @@ export default function AirportScreen() {
     setResults((prev) => prev.map((a) => a.icao === airport.icao ? { ...a, name, lat, lon } : a));
     setSelected({ ...airport, name, lat, lon });
   };
+
+  // Kart-sök (in-memory över seed): ICAO-exakt → ICAO-prefix → namn-träff, som i Log Flight.
+  const searchResults = useMemo(() => {
+    const q = mapSearch.trim().toUpperCase();
+    if (q.length < 2) return [];
+    const exact: SeedRow[] = [], pre: SeedRow[] = [], nameM: SeedRow[] = [];
+    for (const r of seedData) {
+      const icao = r[0].toUpperCase();
+      if (icao === q) exact.push(r);
+      else if (icao.startsWith(q)) { if (pre.length < 30) pre.push(r); }
+      else if (r[1].toUpperCase().includes(q)) { if (nameM.length < 30) nameM.push(r); }
+    }
+    return [...exact, ...pre, ...nameM].slice(0, 20);
+  }, [mapSearch, seedData]);
+
+  // Stäng kartan + nollställ ALLA overlay-lägen (annars kan ett gammalt fönster ligga kvar).
+  const closeMap = () => {
+    setShowGlobalMap(false); setMapCountry(null); setMapSearch('');
+    setFocusAirport(null); setTypeFilter(null); setSelected(null);
+  };
+  const openAirportDetailByIcao = (icao: string) => {
+    const r = seedData.find((x) => x[0] === icao);
+    if (r) setSelected({ icao: r[0], name: r[1], country: r[2], region: r[3], lat: r[4], lon: r[5], custom: false, temporary: 0 });
+  };
+  const focusByIcao = (icao: string) => {
+    const r = seedData.find((x) => x[0] === icao);
+    if (r) setFocusAirport(r);
+  };
+
+  // Typfilter: filtrera seed på flygplatstyp (för kart-flaggornas antal + pins vid inzoom).
+  const typeRe = useMemo(() => AIRPORT_TYPES.find((t) => t.key === typeFilter)?.re ?? null, [typeFilter]);
+  const typedSeed = useMemo(() => (typeRe ? seedData.filter((r) => typeRe.test(r[1])) : seedData), [typeRe, seedData]);
+  // Filtrerat land → alla dess flygplatser (av vald typ), visas som ICAO-boxar på kartan.
+  const countryPins = useMemo(
+    () => (typeFilter && mapCountry ? typedSeed.filter((r) => r[2] === mapCountry) : []),
+    [typeFilter, mapCountry, typedSeed],
+  );
 
   return (
     <KeyboardAvoidingView
@@ -890,7 +978,7 @@ export default function AirportScreen() {
       <PremiumModal visible={showPremium} onClose={() => setShowPremium(false)} feature={t('prem_feat_icao_title')} />
 
       {/* Global map modal */}
-      <Modal visible={showGlobalMap} animationType="slide" onRequestClose={() => setShowGlobalMap(false)}>
+      <Modal visible={showGlobalMap} animationType="slide" onRequestClose={closeMap}>
         <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: insets.top }}>
           <View style={{
             flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -902,24 +990,138 @@ export default function AirportScreen() {
             <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '700', flex: 1 }}>
               {t('global_map_title')}
             </Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 11 }}>
-              {seedData.length.toLocaleString()} {t('global_db_airports')}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            {showGlobalMap && <GlobalAirportMap airports={seedData} mode="country" />}
-            <TouchableOpacity
-              onPress={() => setShowGlobalMap(false)}
-              style={{
-                position: 'absolute', top: 10, right: 10, zIndex: 10,
-                width: 36, height: 36, borderRadius: 18,
-                backgroundColor: 'rgba(15,22,38,0.85)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="close" size={20} color="#fff" />
+            <TouchableOpacity onPress={closeMap} hitSlop={8} activeOpacity={0.8}>
+              <Ionicons name="close" size={22} color={Colors.textPrimary} />
             </TouchableOpacity>
+          </View>
+
+          {/* Sökruta — bara på kartöversikten (ej i en landslista) */}
+          {!mapCountry && (
+            <View style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.border }}>
+              <View style={styles.searchRow}>
+                <Ionicons name="search" size={16} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search airport (ICAO or name)"
+                  placeholderTextColor={Colors.textMuted}
+                  value={mapSearch}
+                  onChangeText={(v) => { setMapSearch(v); if (focusAirport) setFocusAirport(null); }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                {(mapSearch.length > 0 || focusAirport) && (
+                  <TouchableOpacity onPress={() => { setMapSearch(''); setFocusAirport(null); Keyboard.dismiss(); }}>
+                    <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Typfilter — filtrera kartan på flygplatstyp (exkl. de ~21k vanliga "Airport") */}
+          {!mapCountry && (
+            <View style={{ backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.border, paddingTop: 10, paddingBottom: 8 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12 }} keyboardShouldPersistTaps="handled">
+                {AIRPORT_TYPES.map((tp) => {
+                  const sel = typeFilter === tp.key;
+                  return (
+                    <TouchableOpacity key={tp.key} activeOpacity={0.8}
+                      onPress={() => { setTypeFilter(sel ? null : tp.key); setFocusAirport(null); setMapSearch(''); }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: sel ? Colors.primary : Colors.border, backgroundColor: sel ? Colors.primary : Colors.card }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: sel ? Colors.textInverse : Colors.textSecondary }}>{tp.key}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {typeFilter && (
+                <Text style={{ color: Colors.textMuted, fontSize: 11, paddingHorizontal: 12, paddingTop: 6 }}>
+                  Tap a country flag to zoom in and reveal its {typeFilter.toLowerCase()} locations
+                </Text>
+              )}
+            </View>
+          )}
+
+          <View style={{ flex: 1 }}>
+            {showGlobalMap && (
+              <GlobalAirportMap
+                airports={typedSeed}
+                mode="country"
+                onSelectCountry={setMapCountry}
+                onSelectAirport={focusByIcao}
+                focus={focusAirport}
+                hideCountries={!!focusAirport || mapSearch.trim().length >= 2}
+                showLayerToggle
+                pins={countryPins}
+              />
+            )}
+
+            {/* Sökresultat */}
+            {!mapCountry && !focusAirport && searchResults.length > 0 && (
+              <View style={styles.searchDropdown}>
+                <ScrollView keyboardShouldPersistTaps="handled">
+                  {searchResults.map((r) => (
+                    <TouchableOpacity key={r[0]} style={styles.searchResult} activeOpacity={0.7}
+                      onPress={() => { setFocusAirport(r); setMapSearch(''); Keyboard.dismiss(); }}>
+                      <Text style={styles.searchResultIcao}>{r[0]}</Text>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{r[1]}</Text>
+                      <Ionicons name="location" size={13} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Tillbaka till landslistan (från listflödet) */}
+            {mapCountry && !typeFilter && focusAirport && (
+              <TouchableOpacity onPress={() => setFocusAirport(null)} activeOpacity={0.85} style={styles.backBar}>
+                <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+                <Text style={styles.backBarText}>Back to list</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Tillbaka till länderna (från typfilter-pins) */}
+            {mapCountry && typeFilter && !focusAirport && (
+              <TouchableOpacity onPress={() => setMapCountry(null)} activeOpacity={0.85} style={styles.backBar}>
+                <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+                <Text style={styles.backBarText}>Back to countries</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Vald flygplats → infokort i botten (samma design som visited airports;
+                LANDINGS/LAST bara om man landat där) */}
+            {focusAirport && (() => {
+              const lc = landingCounts[focusAirport[0]] ?? 0;
+              const lf = lastFlightMap[focusAirport[0]];
+              return (
+                <View style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, zIndex: 15 }}>
+                  <AirportInfoCard
+                    icao={focusAirport[0]}
+                    name={focusAirport[1]}
+                    landingCount={lc > 0 ? lc : undefined}
+                    lastText={lf ? fmtVisit(lf.date) : undefined}
+                    onLastPress={lf ? () => {
+                      closeMap();
+                      const op = isOperator(useProfileStore.getState().profile);
+                      router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
+                    } : undefined}
+                    onClose={() => setFocusAirport(null)}
+                  />
+                </View>
+              );
+            })()}
+
+            {/* Land-flagga vald (utan typfilter) → flygplatslista (bottom-sheet, ~halva skärmen).
+                Döljs (ej avmonteras) vid fokus så expanderat region-läge bevaras tillbaka. */}
+            {mapCountry && !typeFilter && (
+              <View style={{ position: 'absolute', top: '45%', left: 0, right: 0, bottom: 0, zIndex: 20, display: focusAirport ? 'none' : 'flex' }}>
+                <CountryAirportList
+                  country={mapCountry}
+                  rows={seedData}
+                  onClose={() => setMapCountry(null)}
+                  onSelectAirport={(r) => setFocusAirport(r)}
+                />
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1004,6 +1206,38 @@ const styles = StyleSheet.create({
   },
   moreText: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
   moreUnlock: { color: Colors.gold, fontSize: 12, fontWeight: '700' },
+
+  searchDropdown: {
+    position: 'absolute', top: 8, left: 12, right: 12, maxHeight: 300, zIndex: 30,
+    backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+  },
+  searchResult: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+  },
+  searchResultIcao: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 1, width: 52 },
+  searchResultName: { color: Colors.textSecondary, fontSize: 12.5, flex: 1 },
+  backBar: {
+    position: 'absolute', top: 10, left: 10, zIndex: 25,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderWidth: 1, borderColor: Colors.primary + '66',
+  },
+  backBarText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
+
+  focusCard: {
+    position: 'absolute', left: 12, right: 12, zIndex: 15,
+    backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder,
+    padding: 14,
+  },
+  focusIcao: { color: Colors.textPrimary, fontSize: 20, fontWeight: '900', letterSpacing: 1.5, fontFamily: 'Menlo' },
+  focusName: { color: Colors.textSecondary, fontSize: 13, marginTop: 1 },
+  focusCoord: { color: Colors.textMuted, fontSize: 11.5, fontFamily: 'Menlo', marginTop: 4 },
+  focusRwyLabel: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
+  focusRwy: { color: Colors.textPrimary, fontSize: 13.5, fontFamily: 'Menlo' },
+  focusRwyNone: { color: Colors.textMuted, fontSize: 12.5, fontStyle: 'italic' },
 
   empty: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   emptyText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },

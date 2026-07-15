@@ -5,6 +5,7 @@
 // OBS: expo-media-library är en NATIVE-modul. Den lazy-laddas (require i funktion) så att
 // importen inte kraschar i builds som saknar den — funktionen degraderar tills nästa dev build.
 import type * as ML from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getFlights, getSetting, setSetting } from '../db/flights';
 import { buildInstants } from '../utils/flightTime';
 import type { Flight } from '../types/flight';
@@ -132,26 +133,39 @@ export async function getFlightPhotoCandidates(f: Flight): Promise<ML.Asset[]> {
   return found.sort((x, y) => ctMs(x) - ctMs(y));
 }
 
-/** Löser upp en localIdentifier till en visningsbar URI (null om bilden raderats). */
-export async function getAssetDisplayUri(localId: string): Promise<string | null> {
+// iOS Photos-videor: getAssetInfoAsync().localUri kan vara en skyddad sökväg som varken
+// expo-video eller VideoThumbnails kan läsa → kopiera till app-cachen (TEMPORÄRT, ej persistent)
+// för en garanterat spelbar file://-uri. Cacheas per asset (kopieras bara en gång).
+async function ensurePlayableVideo(src: string, filename: string | undefined, localId: string): Promise<string> {
+  if (!src.startsWith('file://') && !src.startsWith('/')) return src; // ph:// e.d. — kan ej kopieras
+  try {
+    const ext = (filename?.split('.').pop() || 'mov').toLowerCase();
+    const dest = `${FileSystem.cacheDirectory}bfvid_${localId.replace(/[^a-zA-Z0-9]/g, '')}.${ext}`;
+    const info = await FileSystem.getInfoAsync(dest);
+    if (!info.exists) await FileSystem.copyAsync({ from: src, to: dest });
+    return dest;
+  } catch {
+    return src;
+  }
+}
+
+/** Uri + mediatyp (+ ev. GPS-position för kartvyn) för en localIdentifier (null om mediet
+ *  inte finns). Videor kopieras till cachen för spelbarhet. */
+export async function getAssetDisplay(localId: string): Promise<{ uri: string; isVideo: boolean; location?: { latitude: number; longitude: number } | null } | null> {
   const M = ml(); if (!M) return null;
   try {
     const info = await M.getAssetInfoAsync(localId);
-    return info?.localUri || info?.uri || null;
+    let uri = info?.localUri || info?.uri;
+    if (!uri) return null;
+    const isVideo = info.mediaType === 'video';
+    if (isVideo) uri = await ensurePlayableVideo(uri, info.filename, localId);
+    return { uri, isVideo, location: info.location ?? null };
   } catch {
     return null;
   }
 }
 
-/** Uri + mediatyp för en localIdentifier (null om bilden inte längre finns). */
-export async function getAssetDisplay(localId: string): Promise<{ uri: string; isVideo: boolean } | null> {
-  const M = ml(); if (!M) return null;
-  try {
-    const info = await M.getAssetInfoAsync(localId);
-    const uri = info?.localUri || info?.uri;
-    if (!uri) return null;
-    return { uri, isVideo: info.mediaType === 'video' };
-  } catch {
-    return null;
-  }
+/** Löser upp en localIdentifier till en visningsbar/spelbar URI (null om mediet raderats). */
+export async function getAssetDisplayUri(localId: string): Promise<string | null> {
+  return (await getAssetDisplay(localId))?.uri ?? null;
 }

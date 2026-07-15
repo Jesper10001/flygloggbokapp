@@ -16,6 +16,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FlightShareCard } from '../../components/FlightShareCard';
 import { DayNightMap } from '../../components/DayNightMap';
+import { FlightSyncedPhoto } from '../../components/FlightSyncedPhoto';
 import type { Flight } from '../../types/flight';
 import {
   parseOperatorData, getRoleFields, fieldLabel, optionLabel, roleLabel, ROLE_META, type FieldDef,
@@ -183,6 +184,11 @@ export default function FlightDetailScreen() {
                 )}
               </View>
             ) : null}
+
+            {/* Synkad bild/video från fotobiblioteket (photo_local_id) + byt/välj */}
+            <View style={{ marginTop: 12 }}>
+              <FlightSyncedPhoto flight={flight} onChanged={() => getFlightById(Number(id)).then((ff) => ff && setFlight(ff))} />
+            </View>
 
             <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.8}>
               <Ionicons name="trash-outline" size={18} color={Colors.danger} />

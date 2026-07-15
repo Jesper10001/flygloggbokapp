@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, ScrollView, ActivityIndicator, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FlightVideo } from './FlightVideo';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import type * as MediaLibrary from 'expo-media-library';
 import { Colors } from '../constants/colors';
 import { setFlightPhotoLocalId } from '../db/flights';
@@ -15,6 +16,7 @@ const fmtDur = (s: number) => `${Math.floor((s || 0) / 60)}:${String(Math.round(
 export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }: { flight: Flight; accent?: string; onChanged?: () => void }) {
   const [uri, setUri] = useState<string | null | undefined>(undefined); // undefined=laddar, null=ingen/raderad
   const [isVideo, setIsVideo] = useState(false);
+  const [videoThumb, setVideoThumb] = useState<string | null>(null); // frame-thumbnail för video
   const [full, setFull] = useState(false);
   const [picking, setPicking] = useState(false);
   const [cands, setCands] = useState<MediaLibrary.Asset[] | null>(null);
@@ -22,7 +24,9 @@ export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }
   const resolve = useCallback(async () => {
     if (!flight.photo_local_id) { setUri(null); return; }
     const d = await getAssetDisplay(flight.photo_local_id);
-    if (d) { setUri(d.uri); setIsVideo(d.isVideo); } else { setUri(null); }
+    if (!d) { setUri(null); return; }
+    setUri(d.uri); setIsVideo(d.isVideo); setVideoThumb(null);
+    if (d.isVideo) VideoThumbnails.getThumbnailAsync(d.uri, { time: 0 }).then(({ uri }) => setVideoThumb(uri)).catch(() => {});
   }, [flight.photo_local_id]);
   useEffect(() => { resolve(); }, [resolve]);
 
@@ -34,7 +38,7 @@ export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }
     setCands(await getFlightPhotoCandidates(flight));
   };
   const choose = async (a: MediaLibrary.Asset) => {
-    await setFlightPhotoLocalId(flight.id, a.id);
+    await setFlightPhotoLocalId(flight.id, a.id, a.mediaType === 'video' ? 'video' : 'image');
     setPicking(false);
     onChanged?.();
     resolve();
@@ -110,9 +114,17 @@ export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }
         <View style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 8 }}>
           <TouchableOpacity activeOpacity={0.9} onPress={() => setFull(true)}>
             {isVideo
-              ? <FlightVideo uri={uri!} style={{ width: '100%', height: 220 }} contentFit="cover" loop muted autoPlay />
+              ? (videoThumb
+                  ? <Image source={{ uri: videoThumb }} style={{ width: '100%', height: 220 }} resizeMode="cover" />
+                  : <View style={{ width: '100%', height: 220, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="videocam" size={26} color="rgba(255,255,255,0.5)" /></View>)
               : <Image source={{ uri: uri! }} style={{ width: '100%', height: 220 }} resizeMode="cover" />}
-            {isVideo && <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 }}><Ionicons name="play" size={12} color="#fff" /></View>}
+            {isVideo && (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 26, width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="play" size={26} color="#fff" />
+                </View>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       )}

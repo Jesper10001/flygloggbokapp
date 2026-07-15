@@ -125,17 +125,18 @@ export default function RootLayout() {
         <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: 'modal' }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="settings/airport" options={{ title: 'Manage airports' }} />
-        <Stack.Screen name="settings/drones" options={{ title: 'Manage drones' }} />
-        <Stack.Screen name="settings/certificates" options={{ title: 'Certificates' }} />
-        <Stack.Screen name="currency" options={{ title: 'Current today?' }} />
+        <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
+        <Stack.Screen name="settings/album" options={{ title: 'Flight album', presentation: 'modal' }} />
+        <Stack.Screen name="settings/drones" options={{ title: 'Manage drones', presentation: 'modal' }} />
+        <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
+        <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
-        <Stack.Screen name="settings/auditlog" options={{ title: 'Change log' }} />
-        <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export' }} />
+        <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
+        <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export', presentation: 'modal' }} />
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
-        <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
-        <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks' }} />
+        <Stack.Screen name="settings/profile" options={{ title: 'Profile', presentation: 'modal' }} />
+        <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="logbook/fill" options={{ headerShown: false }} />

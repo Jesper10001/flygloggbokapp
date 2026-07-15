@@ -247,6 +247,11 @@ function FlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: {
         >
           <Image source={{ uri: f.photo_uri }} style={{ width: 28, height: 28 }} resizeMode="cover" />
         </TouchableOpacity>
+      ) : f.photo_local_id ? (
+        // Synkad bild/video — indikator; tryck på raden öppnar detaljsidan som visar den.
+        <View style={{ width: 28, height: 28, borderRadius: 6, marginLeft: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="image" size={14} color={Colors.textMuted} />
+        </View>
       ) : null}
     </TouchableOpacity>
   );

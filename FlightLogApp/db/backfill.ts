@@ -1,15 +1,12 @@
 // Backfill missing hours — lump sum per fält (oberoende av total flygtid).
 //
-// Lagras som DOLDA "justerings-flygningar" (remarks = BF_MARKER, source='manual') så att
-// värdena flödar automatiskt in i getFlightStats (app-övergripande totaler) OCH
-// computeBroughtForward (bokens Current). Två poster:
-//   • summary-post (flight_type='summary', total_time=0): alla icke-sim-fält.
-//   • sim-post (flight_type='sim', total_time=FSTD-timmar): FSTD/simulator → total_sim.
-// Bägge exkluderas från bokrader (assignFlightsToBooks) och import-batchlistan (source='manual').
+// Lagras som en JUSTERING i settings (JSON), INTE som en flygning. Värdena adderas till de
+// app-övergripande totalerna (getFlightStats → insights/projektioner) men skapar INGEN flight
+// i loggboken/tidslinjer, så statistik och tidslinjer inte snedvrids av en fejkad flygning.
 import { getDatabase } from './database';
-import type { Flight } from '../types/flight';
 
-export const BF_MARKER = '[BACKFILL]';
+const KEY = 'backfill_hours';
+const BF_MARKER = '[BACKFILL]'; // gamla dolda backfill-flygningar (migreras bort)
 
 export type BackfillValues = {
   pic: number; co_pilot: number; dual: number; picus: number; instructor: number;
@@ -21,82 +18,49 @@ export const ZERO_BACKFILL: BackfillValues = {
   cross_country: 0, multi_pilot: 0, landings_day: 0, landings_night: 0, sim: 0,
 };
 
-async function getRecord(db: any, flightType: string): Promise<Flight | null> {
-  return (await db.getFirstAsync(
-    `SELECT * FROM flights WHERE flight_type=? AND source='manual' AND remarks=? LIMIT 1`,
-    [flightType, BF_MARKER],
-  )) as Flight | null;
+async function getVal(db: any, key: string): Promise<string | null> {
+  const r = await db.getFirstAsync('SELECT value FROM settings WHERE key=?', [key]);
+  return (r as any)?.value ?? null;
+}
+async function setVal(db: any, key: string, value: string): Promise<void> {
+  await db.runAsync('INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, value]);
 }
 
-// Full-kolumns-INSERT (speglar insertFlight) med nolldefaults + våra backfill-värden.
-async function insertRecord(db: any, flightType: string, totalTime: number, v: BackfillValues): Promise<void> {
-  await db.runAsync(
-    `INSERT INTO flights (
-      date, aircraft_type, registration, dep_place, dep_utc, arr_place, arr_utc,
-      total_time, ifr, night, pic, co_pilot, dual, landings_day, landings_night, remarks,
-      status, source, original_data, flight_rules, second_pilot, second_pilot_role, extra_pilots,
-      nvg, tng_count, flight_type, multi_pilot, single_pilot, instructor, picus, spic, examiner,
-      safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr, se_time, me_time,
-      stop_place, photo_uri, media_type, max_fl, takeoffs_day, takeoffs_night, app_2d, app_3d, pilot_flying,
-      landings_fs_day, landings_fs_night, takeoffs_faa_night, landings_faa_night, landings_fs_faa_night, holds,
-      cross_country
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [
-      '2000-01-01', '', '', '', '', '', '',
-      totalTime, v.ifr, v.night, v.pic, v.co_pilot, v.dual, Math.round(v.landings_day), Math.round(v.landings_night), BF_MARKER,
-      'verified', 'manual', null, 'VFR', '', '', '',
-      0, 0, flightType, v.multi_pilot, 0, v.instructor, v.picus, 0, 0,
-      0, 0, 0, 0, '', 0, 0, 0,
-      '', '', 'image', 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      v.cross_country,
-    ],
-  );
+// Migrera bort gamla dolda backfill-flygningar ([BACKFILL]) → settings-justering, EN gång.
+let migrated = false;
+async function migrateLegacy(db: any): Promise<void> {
+  if (migrated) return;
+  migrated = true;
+  const rows = (await db.getAllAsync('SELECT * FROM flights WHERE remarks=?', [BF_MARKER])) as any[];
+  if (!rows.length) return;
+  const existing = await getVal(db, KEY);
+  if (!existing) {
+    const v = { ...ZERO_BACKFILL };
+    for (const r of rows) {
+      if (r.flight_type === 'sim') v.sim += r.total_time || 0;
+      else {
+        v.pic += r.pic || 0; v.co_pilot += r.co_pilot || 0; v.dual += r.dual || 0; v.picus += r.picus || 0;
+        v.instructor += r.instructor || 0; v.ifr += r.ifr || 0; v.night += r.night || 0;
+        v.cross_country += r.cross_country || 0; v.multi_pilot += r.multi_pilot || 0;
+        v.landings_day += r.landings_day || 0; v.landings_night += r.landings_night || 0;
+      }
+    }
+    await setVal(db, KEY, JSON.stringify(v));
+  }
+  await db.runAsync('DELETE FROM flights WHERE remarks=?', [BF_MARKER]);
 }
 
-/** Läser aktuella backfill-värden (0 om ingen post finns). */
+/** Läser aktuella backfill-värden (0 om inget satts). */
 export async function getBackfill(): Promise<BackfillValues> {
   const db = await getDatabase();
-  const s = await getRecord(db, 'summary');
-  const sim = await getRecord(db, 'sim');
-  return {
-    pic: s?.pic ?? 0, co_pilot: s?.co_pilot ?? 0, dual: s?.dual ?? 0, picus: s?.picus ?? 0,
-    instructor: s?.instructor ?? 0, ifr: s?.ifr ?? 0, night: s?.night ?? 0,
-    cross_country: (s as any)?.cross_country ?? 0, multi_pilot: s?.multi_pilot ?? 0,
-    landings_day: s?.landings_day ?? 0, landings_night: s?.landings_night ?? 0,
-    sim: sim?.total_time ?? 0,
-  };
+  await migrateLegacy(db);
+  const raw = await getVal(db, KEY);
+  if (!raw) return { ...ZERO_BACKFILL };
+  try { return { ...ZERO_BACKFILL, ...(JSON.parse(raw) as Partial<BackfillValues>) }; } catch { return { ...ZERO_BACKFILL }; }
 }
 
-/** Sätter (upsert) backfill-värdena. Poster med enbart nollor tas bort. */
+/** Sparar backfill-justeringen (settings-JSON). */
 export async function setBackfill(v: BackfillValues): Promise<void> {
   const db = await getDatabase();
-
-  // Summary-posten (icke-sim-fält, total_time=0).
-  const summaryHasValue = v.pic || v.co_pilot || v.dual || v.picus || v.instructor || v.ifr
-    || v.night || v.cross_country || v.multi_pilot || v.landings_day || v.landings_night;
-  const summary = await getRecord(db, 'summary');
-  if (summaryHasValue) {
-    if (summary) {
-      await db.runAsync(
-        `UPDATE flights SET pic=?, co_pilot=?, dual=?, picus=?, instructor=?, ifr=?, night=?,
-          cross_country=?, multi_pilot=?, landings_day=?, landings_night=? WHERE id=?`,
-        [v.pic, v.co_pilot, v.dual, v.picus, v.instructor, v.ifr, v.night,
-         v.cross_country, v.multi_pilot, Math.round(v.landings_day), Math.round(v.landings_night), summary.id],
-      );
-    } else {
-      await insertRecord(db, 'summary', 0, v);
-    }
-  } else if (summary) {
-    await db.runAsync('DELETE FROM flights WHERE id=?', [summary.id]);
-  }
-
-  // Sim-posten (FSTD → total_sim).
-  const sim = await getRecord(db, 'sim');
-  if (v.sim > 0) {
-    if (sim) await db.runAsync('UPDATE flights SET total_time=? WHERE id=?', [v.sim, sim.id]);
-    else await insertRecord(db, 'sim', v.sim, ZERO_BACKFILL);
-  } else if (sim) {
-    await db.runAsync('DELETE FROM flights WHERE id=?', [sim.id]);
-  }
+  await setVal(db, KEY, JSON.stringify(v));
 }

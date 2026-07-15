@@ -64,8 +64,9 @@ export default function PhotoSyncScreen() {
 
   const openPreview = async (a: MediaLibrary.Asset) => {
     setPreview(a);
-    setPreviewUri(a.uri);
-    const uri = await getAssetDisplayUri(a.id); // file:// för video / säker uri
+    // Bild: ph:// funkar i <Image> → visa direkt. Video: vänta på spelbar file:// (kopieras).
+    setPreviewUri(a.mediaType === 'video' ? null : a.uri);
+    const uri = await getAssetDisplayUri(a.id);
     if (uri) setPreviewUri(uri);
   };
 
@@ -74,7 +75,11 @@ export default function PhotoSyncScreen() {
     else { loadFlights(); setPhase('done'); }
   };
   const saveNext = async () => {
-    if (cur && selectedId) { await setFlightPhotoLocalId(cur.flight.id, selectedId); setSavedCount((c) => c + 1); }
+    if (cur && selectedId) {
+      const asset = cur.assets.find((a) => a.id === selectedId);
+      await setFlightPhotoLocalId(cur.flight.id, selectedId, asset?.mediaType === 'video' ? 'video' : 'image');
+      setSavedCount((c) => c + 1);
+    }
     advance();
   };
 
@@ -212,6 +217,7 @@ export default function PhotoSyncScreen() {
       {/* Fullskärmsförhandsvisning */}
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'center' }}>
+          {preview && !previewUri && <ActivityIndicator size="large" color="#fff" />}
           {preview && previewUri && (preview.mediaType === 'video' ? (
             <FlightVideo uri={previewUri} style={{ width: '100%', height: '70%' }} contentFit="contain" nativeControls autoPlay />
           ) : (
