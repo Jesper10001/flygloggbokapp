@@ -12,7 +12,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
-import { MatrixMapWidget } from '../../components/MatrixMapWidget';
+import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { CurrencyStats } from '../../components/currency/CurrencyStats';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
@@ -1010,9 +1010,9 @@ export default function DashboardScreen() {
 
           {/* Milestones (Best Week + Longest XC) flyttade till insights botten (MilestonesSection) */}
 
-          {/* Visited airports + Your matrix sida vid sida (kompakta knappar) */}
+          {/* Visited airports + Global map sida vid sida */}
           <View style={{ marginTop: 16 }}>
-            <AirportMapWidget compact rightSlot={<MatrixMapWidget />} />
+            <AirportMapWidget compact rightSlot={<GlobalMapButton />} />
           </View>
 
           {/* Recency-statistik för senaste perioden (ren ruta, ingen titel) längst ner */}

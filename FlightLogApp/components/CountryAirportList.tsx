@@ -1,30 +1,88 @@
-// Lista över ett lands flygplatser (öppnas från flagg-pin på GlobalAirportMap). Länder med
-// ≥300 flygplatser regionindelas i expanderbara sektioner (t.ex. USA per delstat) via ISO
-// 3166-2-koder; mindre länder visas i en platt bokstavsordnad lista.
-import { useMemo, useState } from 'react';
-import { View, Text, SectionList, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+// Lista över ett lands flygplatser (öppnas från flagg-pin på GlobalAirportMap) som en dragbar
+// bottom-sheet: dra i baren överst för att ändra storlek (snap: full / halv / peek). Länder med
+// ≥100 flygplatser regionindelas i expanderbara sektioner (t.ex. USA per delstat); mindre länder
+// visas i en platt bokstavsordnad lista. När `minimized` (en flygplats är vald) dras arket ner
+// till peek — pilen till vänster expanderar det igen.
+import { useMemo, useState, useRef, useEffect } from 'react';
+import { View, Text, SectionList, FlatList, TouchableOpacity, StyleSheet, Animated, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { regionName } from '../constants/isoRegions';
 import type { SeedRow } from './GlobalAirportMap';
 
 const REGION_THRESHOLD = 100; // ≥ detta → regionindela
+const PEEK_VISIBLE = 64;      // synlig höjd i peek-läge (grabber + header)
 
-// Land-namn via ICU (Expo/Hermes). Faller tillbaka till koden om Intl.DisplayNames saknas.
 let _dn: Intl.DisplayNames | null | undefined;
 function countryName(cc: string): string {
   if (_dn === undefined) { try { _dn = new (Intl as any).DisplayNames(['en'], { type: 'region' }); } catch { _dn = null; } }
   try { return _dn?.of(cc.toUpperCase()) || cc; } catch { return cc; }
 }
 
-export function CountryAirportList({ country, rows, onClose, onSelectAirport }: {
+export function CountryAirportList({ country, rows, onClose, onSelectAirport, containerHeight, minimized }: {
   country: string; rows: SeedRow[]; onClose: () => void; onSelectAirport: (row: SeedRow) => void;
+  containerHeight: number; minimized?: boolean;
 }) {
+  const insets = useSafeAreaInsets();
   const mine = useMemo(() => rows.filter((r) => r[2] === country), [rows, country]);
   const grouped = mine.length >= REGION_THRESHOLD;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+  // ── Sheet-geometri + drag ──────────────────────────────────────────────────
+  const H = containerHeight || 600;
+  const FULL = 0;
+  const HALF = Math.round(H * 0.45);
+  const PEEK = Math.max(0, H - PEEK_VISIBLE - insets.bottom);
+  const snaps = useRef({ FULL, HALF, PEEK });
+  snaps.current = { FULL, HALF, PEEK }; // håll aktuell (containerHeight kan mätas efter mount)
+
+  const topAnim = useRef(new Animated.Value(HALF)).current;
+  const currentTop = useRef(HALF);
+  const [snapState, setSnapState] = useState<'full' | 'half' | 'peek'>('half');
+
+  const snapTo = (state: 'full' | 'half' | 'peek') => {
+    const target = state === 'full' ? snaps.current.FULL : state === 'peek' ? snaps.current.PEEK : snaps.current.HALF;
+    currentTop.current = target;
+    setSnapState(state);
+    Animated.spring(topAnim, { toValue: target, useNativeDriver: false, bounciness: 3, speed: 16 }).start();
+  };
+
+  // Extern styrning: flygplats vald → peek; avvald → halv (kör bara vid ändring).
+  const minRef = useRef(minimized);
+  useEffect(() => {
+    if (minimized === minRef.current) return;
+    minRef.current = minimized;
+    snapTo(minimized ? 'peek' : 'half');
+  }, [minimized]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Snap-punkterna ändras när containerHeight mäts först → håll aktuellt läge.
+  useEffect(() => {
+    const target = snapState === 'full' ? FULL : snapState === 'peek' ? PEEK : HALF;
+    currentTop.current = target;
+    topAnim.setValue(target);
+  }, [containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+    // Capture: fånga vertikala drag ÖVERALLT på headern (även över pil/X-knapparna), så hela
+    // headern går att ta tag i och dra. Rena tryck (utan rörelse) släpps till knapparna.
+    onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => {
+      const next = Math.min(snaps.current.PEEK, Math.max(snaps.current.FULL, currentTop.current + g.dy));
+      topAnim.setValue(next);
+    },
+    onPanResponderRelease: (_, g) => {
+      const final = Math.min(snaps.current.PEEK, Math.max(snaps.current.FULL, currentTop.current + g.dy));
+      const pts: [number, 'full' | 'half' | 'peek'][] = [[snaps.current.FULL, 'full'], [snaps.current.HALF, 'half'], [snaps.current.PEEK, 'peek']];
+      let best = pts[1], bd = Infinity;
+      for (const p of pts) { const d = Math.abs(final - p[0]); if (d < bd) { bd = d; best = p; } }
+      snapTo(best[1]);
+    },
+  })).current;
+
+  // ── Data ────────────────────────────────────────────────────────────────────
   const sections = useMemo(() => {
     if (!grouped) return [] as { code: string; title: string; count: number; data: SeedRow[] }[];
     const byReg = new Map<string, SeedRow[]>();
@@ -52,27 +110,36 @@ export function CountryAirportList({ country, rows, onClose, onSelectAirport }: 
   );
 
   return (
-    <View style={s.container}>
-      <View style={s.grab} />
-      <View style={s.header}>
-        <TouchableOpacity onPress={onClose} hitSlop={10} style={{ padding: 2 }}>
-          <Ionicons name="chevron-down" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={s.flag}>{flagEmoji(country)}</Text>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.title} numberOfLines={1}>{countryName(country)}</Text>
-          <Text style={s.sub}>{mine.length.toLocaleString()} airports{grouped ? ` · ${sections.length} regions` : ''}</Text>
+    <Animated.View style={[s.sheet, { top: topAnim }]}>
+      {/* Grabber + header — dragbar för att ändra storlek */}
+      <View {...pan.panHandlers}>
+        <View style={s.grab} />
+        <View style={s.header}>
+          {/* Vänster: pil som växlar peek ⇄ full */}
+          <TouchableOpacity onPress={() => snapTo(snapState === 'peek' ? 'full' : 'peek')} hitSlop={10} style={{ padding: 2 }}>
+            <Ionicons name={snapState === 'peek' ? 'chevron-up' : 'chevron-down'} size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={s.flag}>{flagEmoji(country)}</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.title} numberOfLines={1}>{countryName(country)}</Text>
+            <Text style={s.sub}>{mine.length.toLocaleString()} airports{grouped ? ` · ${sections.length} regions` : ''}</Text>
+          </View>
+          {/* Höger: stäng landet → tillbaka till översikten */}
+          <TouchableOpacity onPress={onClose} hitSlop={10} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}>
+            <Ionicons name="close" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </View>
 
       {grouped ? (
         <SectionList
+          style={{ flex: 1 }}
           sections={sections.map((sec) => ({ ...sec, data: expanded.has(sec.code) ? sec.data : [] }))}
           keyExtractor={(item) => item[0]}
           stickySectionHeadersEnabled={false}
           initialNumToRender={25}
           windowSize={11}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           renderSectionHeader={({ section }) => {
             const code = (section as any).code as string;
             const open = expanded.has(code);
@@ -88,24 +155,31 @@ export function CountryAirportList({ country, rows, onClose, onSelectAirport }: 
         />
       ) : (
         <FlatList
+          style={{ flex: 1 }}
           data={flat}
           keyExtractor={(item) => item[0]}
           initialNumToRender={25}
           windowSize={11}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           renderItem={({ item }) => renderAirport(item)}
         />
       )}
-    </View>
+    </Animated.View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
-  grab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginTop: 8, marginBottom: 2 },
+  sheet: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden',
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 12,
+  },
+  grab: { alignSelf: 'center', width: 54, height: 6, borderRadius: 3, backgroundColor: Colors.textMuted, marginTop: 12, marginBottom: 10 },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
     borderBottomWidth: 0.5, borderBottomColor: Colors.border, backgroundColor: Colors.surface,
   },
   flag: { fontSize: 26 },

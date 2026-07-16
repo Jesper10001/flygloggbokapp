@@ -9,7 +9,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, type Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, Polygon, type Region } from 'react-native-maps';
 import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
@@ -26,13 +26,15 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // mode: 'auto' = nivå efter zoom (land → pluppar → pluppar+etikett). 'pins' = alltid
 // enskilda pins + ICAO-etikett (för FÅ flygplatser, t.ex. besökta). 'country' = ALLTID
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: 'standard' | 'satellite' | 'hybrid'; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[] }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, matrixStroke, matrixFill }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: 'standard' | 'satellite' | 'hybrid'; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; matrixStroke?: { latitude: number; longitude: number }[]; matrixFill?: { latitude: number; longitude: number }[] }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<'standard' | 'satellite' | 'hybrid'>(mapType);
+  useEffect(() => { setLayer(mapType); }, [mapType]); // följ extern mapType-prop (t.ex. visited-kartans satellitknapp)
   const showPins = !!pins && pins.length > 0; // visa en exakt uppsättning flygplatser (filtrerat land)
   const prevRegionRef = useRef<Region | null>(null); // vy före fokus → återställs när kortet stängs
   const prevLayerRef = useRef<'standard' | 'satellite' | 'hybrid' | null>(null);
+  const prePinsRef = useRef<Region | null>(null); // översikt före pins → animeras tillbaka
 
   // Aggregat per land (centroid + antal) — beräknas en gång.
   const byCountry = useMemo(() => {
@@ -93,25 +95,34 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       const km = longestM > 0 ? longestM / 1000 : 0.9;
       const delta = Math.min(0.11, Math.max(0.018, (km / 111) * 2.2));
       zoomTo(focus[4], focus[5], delta);
-      setLayer('satellite');
+      // Byt lager (mapType) FÖRST efter att zoom-animationen körts klart — ändras mapType under
+      // animationen avbryter iOS den (kartan zoomar då in först vid nästa val).
+      const id = setTimeout(() => setLayer('satellite'), 550);
+      return () => clearTimeout(id);
     } else if (prevRegionRef.current) {
       const p = prevRegionRef.current, pl = prevLayerRef.current;
       prevRegionRef.current = null; prevLayerRef.current = null;
       mapRef.current?.animateToRegion(p, 450);
-      if (pl) setLayer(pl);
+      const id = setTimeout(() => { if (pl) setLayer(pl); }, 550);
+      return () => clearTimeout(id);
     }
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Filtrerade pins för ett land → rama in dem alla på en gång.
+  // Filtrerat land: animera IN till landet när pins sätts, och UT till översikten när de rensas.
   useEffect(() => {
-    if (!pins || pins.length === 0) return;
-    let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
-    for (const a of pins) { minLa = Math.min(minLa, a[4]); maxLa = Math.max(maxLa, a[4]); minLo = Math.min(minLo, a[5]); maxLo = Math.max(maxLo, a[5]); }
-    mapRef.current?.animateToRegion({
-      latitude: (minLa + maxLa) / 2, longitude: (minLo + maxLo) / 2,
-      latitudeDelta: Math.max(0.4, (maxLa - minLa) * 1.4 + 0.3),
-      longitudeDelta: Math.max(0.4, (maxLo - minLo) * 1.4 + 0.3),
-    }, 500);
+    if (pins && pins.length > 0) {
+      if (!prePinsRef.current) prePinsRef.current = region; // spara översiktsvyn innan inzoomning
+      let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
+      for (const a of pins) { minLa = Math.min(minLa, a[4]); maxLa = Math.max(maxLa, a[4]); minLo = Math.min(minLo, a[5]); maxLo = Math.max(maxLo, a[5]); }
+      mapRef.current?.animateToRegion({
+        latitude: (minLa + maxLa) / 2, longitude: (minLo + maxLo) / 2,
+        latitudeDelta: Math.max(0.4, (maxLa - minLa) * 1.4 + 0.3),
+        longitudeDelta: Math.max(0.4, (maxLo - minLo) * 1.4 + 0.3),
+      }, 550);
+    } else if (prePinsRef.current) {
+      const p = prePinsRef.current; prePinsRef.current = null;
+      mapRef.current?.animateToRegion(p, 550); // zooma ut till översikten
+    }
   }, [pins]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -131,6 +142,14 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       showsCompass={false}
       toolbarEnabled={false}
     >
+      {/* Matrix-hölje (largest-area convex hull): svagt cyan-lager som målas fram. Ligger först = bakom pins. */}
+      {matrixFill && matrixFill.length >= 3 && (
+        <Polygon coordinates={matrixFill} fillColor="rgba(103,232,249,0.20)" strokeColor="rgba(103,232,249,0.5)" strokeWidth={1.5} />
+      )}
+      {matrixStroke && matrixStroke.length >= 2 && (
+        <Polyline coordinates={matrixStroke} strokeColor="#67E8F9" strokeWidth={3} />
+      )}
+
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
         <Marker
           key={`ctry-${c.cc}`}
@@ -193,8 +212,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         </Marker>
       )}
 
-      {/* Filtrerat land: ALLA filtrerade flygplatser som ICAO-boxar (samma stil som landsflaggan). */}
-      {showPins && pins!.slice(0, 350).map((a) => (
+      {/* Filtrerat land: filtrerade flygplatser som ICAO-boxar (samma stil som landsflaggan). Tak
+          för att inte krascha Apple Maps med för många egna markörvyer. */}
+      {showPins && pins!.slice(0, 150).map((a) => (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
@@ -206,8 +226,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         </Marker>
       ))}
 
-      {/* Sökt/vald flygplats: guld-markör + ICAO-etikett (tryck → detalj). */}
-      {focus && (
+      {/* Sökt/vald flygplats: guld-markör + ICAO-etikett. Döljs i pins-läge (filter) — där är den
+          valda flygplatsen redan en blå ICAO-box, annars blir det dubbla markörer. */}
+      {focus && !showPins && (
         <Marker
           key="__focus__"
           coordinate={{ latitude: focus[4], longitude: focus[5] }}
@@ -241,13 +262,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 
 const s = StyleSheet.create({
   flagPin: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 13,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 9,
     borderWidth: 1, borderColor: Colors.primary,
-    paddingLeft: 4, paddingRight: 8, paddingVertical: 3,
+    paddingLeft: 3, paddingRight: 6, paddingVertical: 2,
   },
-  flagEmoji: { fontSize: 16 },
-  flagCount: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  flagEmoji: { fontSize: 11 },
+  flagCount: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '800' },
   dot: {
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',
