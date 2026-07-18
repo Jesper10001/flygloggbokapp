@@ -273,7 +273,7 @@ export default function AlbumScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={mapRegion} mapType={mapType} userInterfaceStyle="dark" showsPointsOfInterest={false} showsCompass={false} toolbarEnabled={false}
-            rotateEnabled={false} pitchEnabled={false} onRegionChange={() => { if (pin) updateOverlay(); }} onRegionChangeComplete={setRegion}>
+            rotateEnabled={mapType !== 'standard'} pitchEnabled={mapType !== 'standard'} onRegionChange={() => { if (pin) updateOverlay(); }} onRegionChangeComplete={setRegion}>
             {/* Media grupperade i kluster — döljs när en är vald */}
             {!pin && clusters.map((c) => c.items.length === 1
               ? <PhotoMarker key={c.key} coordinate={c.items[0].pos} thumb={thumbFor(c.items[0].f)} isVideo={isVideoFor(c.items[0].f)} onPress={() => selectPin(c.items[0].f)} />

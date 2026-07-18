@@ -36,8 +36,8 @@ export function AirportInfoCard({ icao, name, accent = Colors.info, landingCount
   const rwyInfo = getRunways(icao).filter((r) => !r.closed);
   const pairs = runwayPairs((runwayData as Record<string, number[]>)[icao] || []);
   const rwyRows = (rwyInfo.length
-    ? rwyInfo.map((r) => ({ ident: r.ident, lengthM: r.lengthM, surface: r.surface }))
-    : pairs.map((p) => ({ ident: p, lengthM: 0, surface: '' }))
+    ? rwyInfo.map((r) => ({ ident: r.ident, lengthM: r.lengthM, surface: r.surface, lit: r.lighted }))
+    : pairs.map((p) => ({ ident: p, lengthM: 0, surface: '', lit: false }))
   ).slice(0, 5);
   const showLandings = landingCount !== undefined;
 
@@ -70,6 +70,11 @@ export function AirportInfoCard({ icao, name, accent = Colors.info, landingCount
               {!!r.surface && (
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1.5, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)' }}>
                   <Text style={{ color: Colors.textSecondary, fontSize: 9.5, fontWeight: '600', fontFamily: 'Menlo' }}>{r.surface}</Text>
+                </View>
+              )}
+              {r.lit && (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1.5, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)' }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 9.5, fontWeight: '600', fontFamily: 'Menlo' }}>Lit</Text>
                 </View>
               )}
             </View>

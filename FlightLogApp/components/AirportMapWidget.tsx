@@ -706,7 +706,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
                 mode="pins"
                 onSelectAirport={setSelectedAirport}
                 selectedIcao={selectedAirport ?? undefined}
-                mapType={matrixOn ? 'standard' : (satellite ? 'hybrid' : 'standard')}
+                mapType={matrixOn ? 'standard' : (satellite ? 'hybridFlyover' : 'standard')}
                 matrixFill={matrixFill}
               />
             );
