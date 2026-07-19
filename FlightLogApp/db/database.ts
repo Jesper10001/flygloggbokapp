@@ -218,6 +218,11 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
 
   // Off-airport-platser (ZZZZ) — markeras i icao_airports, exkluderas från karta/statistik
   await addColumnIfMissingOnTable(db, 'icao_airports', 'temporary', 'INTEGER NOT NULL DEFAULT 0');
+  // Berikad flygplatsdata (airportmap.de): IATA, elevation, kategori, ort
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'iata', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'alt', 'INTEGER');
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'type', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'municipality', `TEXT NOT NULL DEFAULT ''`);
   // Flerpilottid (multi-crew operations)
   await addColumnIfMissing(db, 'multi_pilot',  `REAL NOT NULL DEFAULT 0`);
   // Enpilottid (single pilot operations)

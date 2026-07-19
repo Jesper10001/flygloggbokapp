@@ -2,7 +2,7 @@
 // upptill; flervals-filterbox (kategori → undertyper → yta) + "Properties" (banlängd-slider, yta,
 // Lit) nere till vänster; land-val → region-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner
 // tills ICAO-pins) i stället för lista; infokort i botten vid val. Öppnas från Manage airports + dashboard.
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,11 +21,12 @@ import {
   FILTER_TREE, leavesFor, activeCountUnder, keysNeedRunway, propsActive, matchProps,
   filterCountLabel, EMPTY_PROPS, type FilterNode, type MapProps,
 } from '../constants/mapFilters';
-import { countryRoot, buildChildren, nodeAirports, DRILL_CAP, type DrillNode } from '../utils/regionDrill';
+import { countryRoot, buildChildren, nodeAirports, nodeRings, DRILL_CAP, type DrillNode } from '../utils/regionDrill';
 import { neighborCountries } from '../utils/neighbors';
+import { countryBorder } from '../utils/borders';
 import { Colors } from '../constants/colors';
 
-type SeedRow = [string, string, string, string, number, number];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 const WORLD: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 const MAX_LEN = 4000; // slider-tak för banlängd (m)
@@ -76,6 +77,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [filterNav, setFilterNav] = useState<FilterNode[]>([]);
   const [showProps, setShowProps] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false); // filterboxen börjar hopfälld; kvar tills man fäller ihop / lämnar
+  const [closedMode, setClosedMode] = useState<'hide' | 'include' | 'only'>('hide'); // closed döljs som standard
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
@@ -91,29 +93,29 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const typedSeed = useMemo(() => {
     const leaves = leavesFor(activeKeys);
     const pActive = propsActive(mapProps);
-    if (!leaves.length && !pActive) return seedData;
+    // Closed-läge: standard (hide) döljer closed ur originalpresentationen; 'only' visar bara closed;
+    // 'include' behåller alla. Appliceras före kategori-/Properties-filtren.
+    const base = closedMode === 'include' ? seedData
+      : closedMode === 'only' ? seedData.filter((r) => r[8] === 'closed')
+      : seedData.filter((r) => r[8] !== 'closed');
+    if (!leaves.length && !pActive) return base;
     const idx = (pActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
-    return seedData.filter((r) => {
+    return base.filter((r) => {
       const rwy = idx?.get(r[0]);
       if (leaves.length && !leaves.some((l) => l.match(r, rwy))) return false;
       if (pActive && !matchProps(rwy, mapProps)) return false;
       return true;
     });
-  }, [seedData, activeKeys, mapProps]);
+  }, [seedData, activeKeys, mapProps, closedMode]);
 
-  // Remounta kartan (ny key) bara i VÄRLDSVYN när filtret ändras — då byggs flaggornas koordinater
-  // om helt (native-krasch annars). Medan man är nedborrad fryses nyckeln → kartan remountar INTE
-  // vid filterändring, så man stannar kvar på platsen. (Flaggor visas inte i drill-läget → ingen krasch.)
-  const filterSig = useMemo(
-    () => [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}`,
-    [activeKeys, mapProps],
+  // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
+  // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
+  // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
+  // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
+  const mapKey = useMemo(
+    () => [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}`,
+    [activeKeys, mapProps, closedMode],
   );
-  // Remounta kartan bara i VÄRLDSVYN när filtret ändras (flaggornas koordinater byggs om → krasch
-  // annars). Medan man är nedborrad fryses nyckeln → INGEN remount vid landval/nedborrning/filter →
-  // frameRegion-effekten sköter en mjuk animateToRegion (zoom in vid landval, ut vid Back).
-  const mapKeyRef = useRef(filterSig);
-  if (drillStack.length === 0) mapKeyRef.current = filterSig;
-  const mapKey = mapKeyRef.current;
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
   const currentNode = drillStack.length ? drillStack[drillStack.length - 1] : null;
@@ -127,7 +129,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const regionMarkers = isBranch
     ? childrenData.map((c) => ({ key: c.node.key, label: c.node.label, count: c.count, lat: c.lat, lon: c.lon }))
     : undefined;
-  const hulls = isBranch ? childrenData.map((c) => c.hull).filter((h) => h.length >= 3) : undefined;
+  // Gränser: gren → varje delregions gräns som egen KLICKBAR yta (nyckel per shape); löv → den valda
+  // nodens egen kontur runt pins (ej klickbar — man är redan här).
+  const regionShapes = isBranch ? childrenData.map((c) => ({ key: c.node.key, rings: c.rings })) : undefined;
+  const hulls = currentNode && !isBranch ? nodeRings(currentNode, currentAirports) : undefined;
   // Ingen träff på platsen med aktuellt filter → varningsruta (försvinner vid Back / bredare filter).
   const noMatches = !!currentNode && !focusAirport && currentAirports.length === 0;
   // Rama in noden bara vid NAVIGERING (dep: currentNode) — INTE vid filterändring → kartan står still.
@@ -158,10 +163,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [country, typedSeed, atRegion]);
 
   const neighbors = useMemo(() => {
-    if (!currentNode || focusAirport) return { markers: undefined as RegionMarker[] | undefined, hulls: undefined as { latitude: number; longitude: number }[][] | undefined };
-    let entries: { key: string; label: string; count: number; lat: number; lon: number; hull: { latitude: number; longitude: number }[] }[];
+    if (!currentNode || focusAirport) return { markers: undefined as RegionMarker[] | undefined, shapes: undefined as { key: string; rings: { latitude: number; longitude: number }[][] }[] | undefined };
+    let entries: { key: string; label: string; count: number; lat: number; lon: number; rings: { latitude: number; longitude: number }[][] }[];
     if (currentNode.kind === 'country') {
-      entries = neighborCountries(seedData, currentNode.cc, 8).map((n) => ({ key: `nbc:${n.cc}`, label: n.label, count: n.count, lat: n.lat, lon: n.lon, hull: n.hull }));
+      entries = neighborCountries(seedData, currentNode.cc, 8).map((n) => ({ key: `nbc:${n.cc}`, label: n.label, count: n.count, lat: n.lat, lon: n.lon, rings: countryBorder(n.cc) ?? [n.hull] }));
     } else {
       const regKey = drillStack.length >= 2 ? drillStack[1].key : null;
       const cur = countryChildren.find((c) => c.node.key === regKey);
@@ -169,32 +174,34 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
       const ranked = cur
         ? [...sibs].sort((a, b) => ((a.lat - cur.lat) ** 2 + (a.lon - cur.lon) ** 2) - ((b.lat - cur.lat) ** 2 + (b.lon - cur.lon) ** 2))
         : sibs;
-      entries = ranked.slice(0, 8).map((c) => ({ key: c.node.key, label: c.node.label, count: c.count, lat: c.lat, lon: c.lon, hull: c.hull }));
+      entries = ranked.slice(0, 8).map((c) => ({ key: c.node.key, label: c.node.label, count: c.count, lat: c.lat, lon: c.lon, rings: c.rings }));
     }
     return {
       markers: entries.map(({ key, label, count, lat, lon }) => ({ key, label, count, lat, lon })),
-      hulls: entries.map((e) => e.hull).filter((h) => h.length >= 3),
+      shapes: entries.map((e) => ({ key: e.key, rings: e.rings })).filter((s) => s.rings.length > 0),
     };
   }, [currentNode, focusAirport, seedData, countryChildren, drillStack]);
   const neighborMarkers = neighbors.markers;
-  const neighborHulls = neighbors.hulls;
+  const neighborShapes = neighbors.shapes;
 
   const searchResults = useMemo(() => {
     const q = mapSearch.trim().toUpperCase();
     if (q.length < 2) return [];
-    const exact: SeedRow[] = [], pre: SeedRow[] = [], nameM: SeedRow[] = [];
+    // Prioritet: exakt ICAO → exakt IATA → ICAO-prefix → namn/ort innehåller.
+    const exact: SeedRow[] = [], iataM: SeedRow[] = [], pre: SeedRow[] = [], nameM: SeedRow[] = [];
     for (const r of seedData) {
       const icao = r[0].toUpperCase();
       if (icao === q) exact.push(r);
+      else if ((r[6] || '').toUpperCase() === q) { if (iataM.length < 10) iataM.push(r); }
       else if (icao.startsWith(q)) { if (pre.length < 30) pre.push(r); }
-      else if (r[1].toUpperCase().includes(q)) { if (nameM.length < 30) nameM.push(r); }
+      else if (r[1].toUpperCase().includes(q) || (r[9] || '').toUpperCase().includes(q)) { if (nameM.length < 30) nameM.push(r); }
     }
-    return [...exact, ...pre, ...nameM].slice(0, 20);
+    return [...exact, ...iataM, ...pre, ...nameM].slice(0, 20);
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
     setDrillStack([]); setFocusAirport(null); setMapSearch('');
-    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false);
+    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false); setClosedMode('hide');
     onClose();
   };
   // Fäll ihop → tillbaka till rotnivån (så expandering alltid öppnar på kategori-listan).
@@ -228,12 +235,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // ── Filter-box-hjälpare ──────────────────────────────────────────────────────
   const currentFilterNodes = filterNav.length ? filterNav[filterNav.length - 1].children ?? [] : FILTER_TREE;
   const toggleKey = (k: string) => setActiveKeys((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const clearAll = () => { setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); };
+  const clearAll = () => { setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide'); };
   const setMinLen = (v: number) => setMapProps((p) => ({ ...p, minLenM: v > 0 ? Math.min(v, p.maxLenM ?? MAX_LEN) : null }));
   const setMaxLen = (v: number) => setMapProps((p) => ({ ...p, maxLenM: v < MAX_LEN ? Math.max(v, p.minLenM ?? 0) : null }));
   const toggleSurface = (sfc: 'asphalt' | 'grass') => setMapProps((p) => ({ ...p, surface: p.surface === sfc ? null : sfc }));
 
-  const anyFilter = activeKeys.size > 0 || propsActive(mapProps);
+  const anyFilter = activeKeys.size > 0 || propsActive(mapProps) || closedMode !== 'hide';
   const showFilterBox = !focusAirport;
   const hideCountries = !!focusAirport || mapSearch.trim().length >= 2 || drillStack.length > 0;
   const showBack = !!focusAirport || drillStack.length > 0;
@@ -256,8 +263,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             pins={pins}
             regionMarkers={regionMarkers}
             hulls={hulls}
+            regionShapes={regionShapes}
             neighborMarkers={neighborMarkers}
-            neighborHulls={neighborHulls}
+            neighborShapes={neighborShapes}
             onSelectNeighbor={handleSelectNeighbor}
             frameRegion={frameRegion}
             showCompass
@@ -334,7 +342,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <TouchableOpacity key={r[0]} style={styles.searchResult} activeOpacity={0.7}
                       onPress={() => { setFocusAirport(r); setMapSearch(''); Keyboard.dismiss(); }}>
                       <Text style={styles.searchResultIcao}>{r[0]}</Text>
-                      <Text style={styles.searchResultName} numberOfLines={1}>{r[1]}</Text>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{r[6] ? `${r[1]} · ${r[6]}` : r[1]}</Text>
                       <Ionicons name="location" size={13} color={Colors.textMuted} />
                     </TouchableOpacity>
                   ))}
@@ -424,6 +432,22 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
                   </TouchableOpacity>
                 )}
+                {/* Closed-läge: Hide (standard, exkl. ur presentation) · Show (inkl.) · Only (endast closed) */}
+                {filterNav.length === 0 && (
+                  <View style={[styles.filterRow, { borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', justifyContent: 'space-between' }]}>
+                    <Text style={[styles.filterRowTxt, { flex: 0 }, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {(['hide', 'include', 'only'] as const).map((m) => (
+                        <TouchableOpacity key={m} onPress={() => setClosedMode(m)} activeOpacity={0.7}
+                          style={[styles.closedPill, closedMode === m && styles.closedPillOn]}>
+                          <Text style={[styles.closedPillTxt, closedMode === m && { color: Colors.primary }]}>
+                            {m === 'hide' ? 'Hide' : m === 'include' ? 'Show' : 'Only'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </ScrollView>
             ))}
           </View>
@@ -447,6 +471,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               <AirportInfoCard
                 icao={focusAirport[0]}
                 name={focusAirport[1]}
+                iata={focusAirport[6]}
+                alt={focusAirport[7]}
+                type={focusAirport[8]}
                 landingCount={lc > 0 ? lc : undefined}
                 lastText={lf ? fmtVisit(lf.date) : undefined}
                 onLastPress={lf ? () => {
@@ -513,6 +540,12 @@ const styles = StyleSheet.create({
   },
   propPillOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
   propPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  closedPill: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  closedPillOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+  closedPillTxt: { color: '#fff', fontSize: 10.5, fontWeight: '700' },
   noMatchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 14,

@@ -9,9 +9,11 @@ import type { SeedRow } from '../components/GlobalAirportMap';
 import { concaveHull, smoothRing } from './geoHull';
 import { regionName } from '../constants/isoRegions';
 import { REGION_OVERRIDES, HULL_EXCLUDE } from '../constants/regionFixes';
+import { countryBorder, regionBorder, airportRegionFix } from './borders';
 
-/** Regionkod med kurerad override (rättar äkta mislabels, ex FANX → ZA-WC). */
-export function regionOf(r: SeedRow): string { return REGION_OVERRIDES[r[0]] ?? r[3]; }
+/** Regionkod: kurerad override (äkta mislabels, ex FANX → ZA-WC) → geo-fix (pseudo/gamla koder utan
+ *  border, ex BR-U-A/NO-XX → rätt region via punkt-i-polygon) → seedens kod. */
+export function regionOf(r: SeedRow): string { return REGION_OVERRIDES[r[0]] ?? airportRegionFix(r[0]) ?? r[3]; }
 
 // Under detta → visa ICAO-pins direkt. Över → dela geografiskt: ≤ 2·CAP → North/South, annars kvadranter
 // (ex Ontario 613 → ~153×4, ligger under 160 → 4 löv). Håller antalet samtidiga egna markörvyer säkert.
@@ -28,7 +30,7 @@ export type DrillNode = {
   region: string | null;                          // ISO-regionkod-begränsning (r[3]); null = ingen
   cuts: Cut[];                                     // geografiska halvplans-snitt
 };
-export type DrillChild = { node: DrillNode; count: number; lat: number; lon: number; hull: LL[] };
+export type DrillChild = { node: DrillNode; count: number; lat: number; lon: number; rings: LL[][] };
 
 /** Predikat: hör raden till nodens scope? (land + ev. regionkod + alla cuts). */
 export function nodeScope(node: DrillNode): (r: SeedRow) => boolean {
@@ -107,7 +109,46 @@ export function hullOf(rows: SeedRow[]): LL[] {
 }
 function toChild(node: DrillNode, rows: SeedRow[]): DrillChild {
   const c = centroid(rows);
-  return { node, count: rows.length, lat: c.lat, lon: c.lon, hull: hullOf(rows) };
+  return { node, count: rows.length, lat: c.lat, lon: c.lon, rings: nodeRings(node, rows) };
+}
+
+// Klipp en ring mot ett halvplan (Sutherland–Hodgman). axis 4=lat, 5=lon; gte → behåll coord >= value.
+function clipHalf(ring: LL[], axis: 4 | 5, gte: boolean, value: number): LL[] {
+  const co = (p: LL) => (axis === 4 ? p.latitude : p.longitude);
+  const inside = (p: LL) => (gte ? co(p) >= value : co(p) < value);
+  const cross = (a: LL, b: LL): LL => {
+    const t = (value - co(a)) / (co(b) - co(a));
+    return { latitude: a.latitude + (b.latitude - a.latitude) * t, longitude: a.longitude + (b.longitude - a.longitude) * t };
+  };
+  const out: LL[] = [];
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const cur = ring[i], prev = ring[(i - 1 + n) % n];
+    const ci = inside(cur), pi = inside(prev);
+    if (ci) { if (!pi) out.push(cross(prev, cur)); out.push(cur); }
+    else if (pi) out.push(cross(prev, cur));
+  }
+  return out;
+}
+/** Klipp gräns-ringar mot nodens cuts → geometrisk deldel som tesslerar regionen exakt. */
+function clipRingsByCuts(rings: LL[][], cuts: Cut[]): LL[][] {
+  let res = rings;
+  for (const c of cuts) res = res.map((r) => clipHalf(r, c.axis, c.gte, c.value)).filter((r) => r.length >= 3);
+  return res;
+}
+
+/** Nodens gräns-ringar: exakt gräns (borders.json) om den finns, annars convex-hull-fallback.
+ *  Land → countryBorder; region → regionBorder; geo-del (quad) → KLIPP moderns exakta gräns mot nodens
+ *  cuts (rena snitt som täcker hela regionen + delar gräns), annars hull. */
+export function nodeRings(node: DrillNode, rows: SeedRow[]): LL[][] {
+  if (node.kind === 'country') { const b = countryBorder(node.cc); if (b) return b; }
+  else if (node.kind === 'region' && node.region) { const b = regionBorder(node.region); if (b) return b; }
+  else if (node.kind === 'quad') {
+    const b = (node.region && regionBorder(node.region)) || countryBorder(node.cc);
+    if (b) { const clip = clipRingsByCuts(b, node.cuts); if (clip.length) return clip; }
+  }
+  const h = hullOf(rows);
+  return h.length >= 3 ? [h] : [];
 }
 function median(vals: number[]): number {
   const s = [...vals].sort((a, b) => a - b); const m = s.length >> 1;

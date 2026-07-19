@@ -82,7 +82,7 @@ function fmtVisit(d?: string): string {
   return `${day}/${m}/${y.slice(-2)}`;
 }
 
-type SeedRow = [string, string, string, string, number, number];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
 
 function buildCountryList(data: SeedRow[]) {
   const map = new Map<string, number>();

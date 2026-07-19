@@ -67,6 +67,9 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "babel-preset-expo": "~54.0.10",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3",
     "typescript": "^5.3.3"
   },
   "private": true

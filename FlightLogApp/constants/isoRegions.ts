@@ -2,7 +2,8 @@
 // länder med ≥300 flygplatser (t.ex. USA per delstat, Kanada per provins). Koderna kommer från
 // seed-datan (assets/icao-airports.json, fältet `region`). Endast de 15 länder som faktiskt
 // regionindelas täcks: US, BR, CA, AU, RU, CL, DE, PG, ID, FR, VE, ZA, CN, EC, KR.
-// Okända koder faller tillbaka till suffixet efter bindestrecket via regionName().
+// Okända koder faller tillbaka till geoBoundaries-namn (borders.json) → suffixet via regionName().
+import { regionDisplayName } from '../utils/borders';
 
 export const REGION_NAMES: Record<string, string> = {
   // ── USA (delstater) ──
@@ -314,7 +315,7 @@ export const REGION_NAMES: Record<string, string> = {
   'FI-18': 'Uusimaa', 'FI-19': 'Southwest Finland',
 };
 
-/** Läsbart regionnamn för en ISO 3166-2-kod; okänd kod → suffixet efter bindestrecket. */
+/** Läsbart regionnamn: kurerad karta → geoBoundaries-namn (borders.json) → suffixet efter bindestrecket. */
 export function regionName(code: string): string {
-  return REGION_NAMES[code] || code.split('-').slice(1).join('-') || code || 'Unknown';
+  return REGION_NAMES[code] || regionDisplayName(code) || code.split('-').slice(1).join('-') || code || 'Unknown';
 }

@@ -25,3 +25,9 @@ expo-env.d.ts
 
 # Claude Code — personal per-machine settings (project settings.json is shared)
 .claude/settings.local.json
+
+# Natural Earth-cache för border-bygget (scripts/build-borders.mjs) — buntas ej
+scripts/ne-data/
+
+# airportmap.de-cache för build-airports.mjs — buntas ej
+scripts/am-data/

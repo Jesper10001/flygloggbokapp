@@ -24,15 +24,25 @@ function runwayPairs(headings: number[]): string[] {
   return out;
 }
 
-export function AirportInfoCard({ icao, name, accent = Colors.info, landingCount, lastText, onLastPress, onClose }: {
+// airportmap.de-typ → läsbar etikett.
+const TYPE_LABEL: Record<string, string> = {
+  large: 'Large', medium: 'Medium', small: 'Airfield', heliport: 'Heliport',
+  seaplane: 'Seaplane', altiport: 'Altiport', balloonport: 'Balloonport', closed: 'Closed',
+};
+
+export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.info, landingCount, lastText, onLastPress, onClose }: {
   icao: string;
   name?: string;
+  iata?: string;              // IATA-kod (airportmap.de)
+  alt?: number | null;        // elevation (ft)
+  type?: string;              // airportmap.de-kategori
   accent?: string;
   landingCount?: number;      // undefined → dölj LANDINGS + LAST (t.ex. flygplats man inte landat på)
   lastText?: string;
   onLastPress?: () => void;   // om satt → LAST blir en länk (öppna flygningen)
   onClose: () => void;
 }) {
+  const meta = [iata || null, alt != null ? `${alt} ft` : null, type ? (TYPE_LABEL[type] || type) : null].filter(Boolean).join('  ·  ');
   const rwyInfo = getRunways(icao).filter((r) => !r.closed);
   const pairs = runwayPairs((runwayData as Record<string, number[]>)[icao] || []);
   const rwyRows = (rwyInfo.length
@@ -50,6 +60,7 @@ export function AirportInfoCard({ icao, name, accent = Colors.info, landingCount
           <RunwayDiagram icao={icao} size={28} color={accent} />
         </View>
         {!!name && <Text style={{ color: Colors.textMuted, fontSize: 10, fontWeight: '600', marginTop: 2, lineHeight: 14 }}>{name}</Text>}
+        {!!meta && <Text style={{ color: accent, fontSize: 9, fontWeight: '700', marginTop: 3, letterSpacing: 0.3 }} numberOfLines={1}>{meta}</Text>}
       </View>
 
       {/* Detaljer — 3/5 av rutan */}

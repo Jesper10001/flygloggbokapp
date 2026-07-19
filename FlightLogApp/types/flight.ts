@@ -127,6 +127,10 @@ export interface IcaoAirport {
   region: string;
   lat: number;
   lon: number;
+  iata?: string;         // IATA-kod (airportmap.de), '' om saknas
+  alt?: number | null;   // fältelevation (ft)
+  type?: string;         // airportmap.de-kategori: large/medium/small/heliport/seaplane/altiport/balloonport/closed
+  municipality?: string; // närmaste ort
   custom?: boolean;
   temporary?: number; // 1 = off-airport (ZZZZ), ej på karta
 }

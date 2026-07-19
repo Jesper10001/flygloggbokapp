@@ -13,7 +13,6 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
-import { CurrencyStats } from '../../components/currency/CurrencyStats';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
@@ -490,32 +489,36 @@ function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNam
         }}
       />
 
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginHorizontal: 40 }}>
+      {/* Sync (övre vänstra hörnet) + Add (övre högra hörnet) — små pill-knappar som hovrar över den
+          visade bilden. Vänster/höger = SIDE_PAD (kortets kant) + 8. */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute', top: 8, left: SIDE_PAD + 8, zIndex: 10,
+          flexDirection: 'row', alignItems: 'center', gap: 4,
+          paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
+          backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.primary + '66',
+        }}
+        onPress={() => router.push('/photo-sync' as any)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="sync-outline" size={13} color={Colors.primary} />
+        <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700' }}>Sync</Text>
+      </TouchableOpacity>
+      {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
         <TouchableOpacity
           style={{
-            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8,
-            borderRadius: 8, borderWidth: 1, borderColor: Colors.primary + '33', backgroundColor: Colors.primary + '08',
+            position: 'absolute', top: 8, right: SIDE_PAD + 8, zIndex: 10,
+            flexDirection: 'row', alignItems: 'center', gap: 4,
+            paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
+            backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.gold + '66',
           }}
-          onPress={() => router.push('/photo-sync' as any)}
-          activeOpacity={0.8}
+          onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
+          activeOpacity={0.85}
         >
-          <Ionicons name="sync-outline" size={14} color={Colors.primary} />
-          <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>Sync photo-album</Text>
+          <Ionicons name="camera-outline" size={13} color={Colors.gold} />
+          <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '700' }}>Add</Text>
         </TouchableOpacity>
-        {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
-          <TouchableOpacity
-            style={{
-              flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8,
-              borderRadius: 8, borderWidth: 1, borderColor: Colors.gold + '33', backgroundColor: Colors.gold + '08',
-            }}
-            onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="camera-outline" size={14} color={Colors.gold} />
-            <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>Add picture</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      )}
 
       <Modal visible={!!samplePreview} transparent animationType="fade" onRequestClose={() => setSamplePreview(null)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setSamplePreview(null)}>
@@ -1013,12 +1016,6 @@ export default function DashboardScreen() {
           <View style={{ marginTop: 16 }}>
             <AirportMapWidget compact rightSlot={<GlobalMapButton />} />
           </View>
-
-          {/* Recency-statistik för senaste perioden (ren ruta, ingen titel) längst ner */}
-          <View style={{ marginTop: 16 }}>
-            <CurrencyStats flights={flights} />
-          </View>
-
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />

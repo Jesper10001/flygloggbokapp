@@ -1,18 +1,19 @@
 import { getDatabase } from './database';
 import type { IcaoAirport } from '../types/flight';
+import type { SeedRow } from '../components/GlobalAirportMap';
 
-let airportData: [string, string, string, string, number, number][] = [];
+let airportData: SeedRow[] = [];
 try {
   airportData = require('../assets/icao-airports.json');
 } catch {
   console.warn('[ICAO] icao-airports.json not found — airport database unavailable');
 }
 
-export function getSeedAirports(): Promise<[string, string, string, string, number, number][]> {
+export function getSeedAirports(): Promise<SeedRow[]> {
   return Promise.resolve(airportData);
 }
 
-const SEED_VERSION = '2026-04-22-global';
+const SEED_VERSION = '2026-07-19-airportmap'; // airportmap.de-berikad seed (83k, inkl. closed) → tvingar om-seed
 
 export async function seedIcaoAirports(premium = false): Promise<void> {
   const db = await getDatabase();
@@ -34,14 +35,16 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
 
   const BATCH = 200;
   await db.withTransactionAsync(async () => {
+    // Version bytt → rensa gamla seed-rader (behåll användarens custom + off-airport) och skriv om berikat.
+    await db.runAsync(`DELETE FROM icao_airports WHERE custom = 0 AND COALESCE(temporary, 0) = 0`);
     for (let i = 0; i < data.length; i += BATCH) {
       const chunk = data.slice(i, i + BATCH);
-      const placeholders = chunk.map(() => '(?,?,?,?,?,?,0)').join(',');
-      const params = chunk.flatMap(([icao, name, country, region, lat, lon]) =>
-        [icao, name, country, region, lat, lon]
+      const placeholders = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?,0)').join(',');
+      const params = chunk.flatMap(([icao, name, country, region, lat, lon, iata, alt, type, municipality]) =>
+        [icao, name, country, region, lat, lon, iata ?? '', alt ?? null, type ?? '', municipality ?? '']
       );
       await db.runAsync(
-        `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, custom)
+        `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, iata, alt, type, municipality, custom)
          VALUES ${placeholders}`,
         params
       );
@@ -61,16 +64,17 @@ export async function searchAirports(query: string): Promise<IcaoAirport[]> {
   const q = `%${upper}%`;
   return await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
-     WHERE icao LIKE ? OR UPPER(name) LIKE ? OR name LIKE ? OR LOWER(name) LIKE ?
+     WHERE icao LIKE ? OR UPPER(iata) = ? OR UPPER(name) LIKE ? OR name LIKE ? OR LOWER(name) LIKE ?
      ORDER BY
        CASE WHEN icao = ? THEN 0
-            WHEN icao LIKE ? THEN 1
-            ELSE 2 END,
+            WHEN UPPER(iata) = ? THEN 1
+            WHEN icao LIKE ? THEN 2
+            ELSE 3 END,
        COALESCE(temporary, 0) ASC,
        custom DESC,
        name ASC
      LIMIT 20`,
-    [q, `%${query}%`, `%${query}%`, `%${lower}%`, upper, `${upper}%`]
+    [q, upper, `%${query}%`, `%${query}%`, `%${lower}%`, upper, upper, `${upper}%`]
   );
 }
 

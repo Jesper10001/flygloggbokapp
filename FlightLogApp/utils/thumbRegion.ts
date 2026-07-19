@@ -2,7 +2,7 @@
 // in den + raderna i den kontinenten. Används för de små kart-thumbnailsen på dashboard-knapparna.
 import { continentForCountry } from '../constants/continents';
 
-type SeedRow = [string, string, string, string, number, number];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
 export type ThumbRegion = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 
 const DEFAULT: ThumbRegion = { latitude: 20, longitude: 0, latitudeDelta: 80, longitudeDelta: 80 };

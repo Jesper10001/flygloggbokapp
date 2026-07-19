@@ -1,7 +1,7 @@
-// Filter-träd för globala kartan: kategori → undernivåer → löv (flervalsbara predikat). Ersätter
-// det gamla enkelval-typfiltret. Löv matchar på flygplatsnamnet (r[1]); ytlöven (Fields → Asphalt/
-// Grass/Unknown) och "Properties" slår även upp banindexet (getRunwayIndex). Air Base delas i
-// Naval/Air Force/RAF/Army/Other; Fields (Airfield/Airstrip/Aerodrome/Airpark) delas per yta.
+// Filter-träd för globala kartan: kategori → undernivåer → löv (flervalsbara predikat). Bygger på
+// airportmap.de:s EGEN klassning — INTE på flygplatsnamnet: type (large/medium/small/heliport/seaplane/
+// altiport/balloonport) i SeedRow[8] och restriction (military = "air base", public/private/joint_use) i
+// SeedRow[10]. "Properties" (banlängd/yta/lit) och closed-läget hanteras separat i GlobalMapModal.
 import type { SeedRow } from '../components/GlobalAirportMap';
 import { type RwyInfo } from '../utils/runways';
 
@@ -12,69 +12,31 @@ export type FilterNode = {
   children?: FilterNode[];                            // finns → nedborrningsbar
 };
 
-// ── Namn-regexar (samma som gamla AIRPORT_TYPES) ─────────────────────────────
-const RE = {
-  seaplane: /sea ?plane|float ?plane|water aerodrome|hydroba/i,
-  heliport: /heliport/i,
-  hospital: /hospital|medical|clinic/i,
-  helipad: /helipad|helicopter|helibase/i,
-  airfield: /airfield|air field/i,
-  airstrip: /airstrip|air strip|landing strip/i,
-  aerodrome: /aerodrome/i,
-  airpark: /airpark|air park/i,
-  glider: /glider|gliding|segelflug/i,
-  ultralight: /ultralight|microlight/i,
-  balloon: /balloon/i,
-  farm: /ranch|farm(?!ington)/i,
-  // Air Base-undertyper
-  naval: /naval air|marine corps air|\bMCAS\b|naval station/i,
-  airforce: /air ?force|\bAFB\b/i,
-  raf: /\bRAF\b|royal air force/i,
-  army: /army (air)?field|\bAAF\b|army air/i,
-  airbase: /air ?base|\bAFB\b|\bRAF\b|naval air|air force|military|\bMCAS\b|army air/i, // paraply
-};
+const rtype = (r: SeedRow) => r[8] ?? '';   // airportmap.de type-kategori
+const rrestr = (r: SeedRow) => r[10] ?? ''; // airportmap.de restriction (access)
 
-// Air Base "Other" = allt inom paraplyet som inte är Naval/Air Force/RAF/Army.
-const abOther = (r: SeedRow) =>
-  RE.airbase.test(r[1]) && !RE.naval.test(r[1]) && !RE.airforce.test(r[1]) && !RE.raf.test(r[1]) && !RE.army.test(r[1]);
-
+// airportmap.de-kategorier: large+medium = "Airports", small = "Airfields", military = "Air Bases".
+// (closed hanteras EJ här — det är ett separat läge; standardvyn döljer closed.)
 export const FILTER_TREE: FilterNode[] = [
   {
-    key: 'airbase', label: 'Air Base',
+    key: 'airports', label: 'Airports',
     children: [
-      { key: 'ab:naval', label: 'Naval', match: (r) => RE.naval.test(r[1]) },
-      { key: 'ab:airforce', label: 'Air Force', match: (r) => RE.airforce.test(r[1]) },
-      { key: 'ab:raf', label: 'RAF', match: (r) => RE.raf.test(r[1]) },
-      { key: 'ab:army', label: 'Army', match: (r) => RE.army.test(r[1]) },
-      { key: 'ab:other', label: 'Other', match: abOther },
+      { key: 't:large', label: 'Large', match: (r) => rtype(r) === 'large' },
+      { key: 't:medium', label: 'Medium', match: (r) => rtype(r) === 'medium' },
     ],
   },
+  { key: 't:small', label: 'Airfields', match: (r) => rtype(r) === 'small' },
+  { key: 't:heliport', label: 'Heliports', match: (r) => rtype(r) === 'heliport' },
+  { key: 't:seaplane', label: 'Seaplane Bases', match: (r) => rtype(r) === 'seaplane' },
+  { key: 'r:military', label: 'Air Bases', match: (r) => rrestr(r) === 'military' },
+  { key: 't:altiport', label: 'Altiports', match: (r) => rtype(r) === 'altiport' },
+  { key: 't:balloonport', label: 'Balloonports', match: (r) => rtype(r) === 'balloonport' },
   {
-    key: 'helicopter', label: 'Helicopter',
+    key: 'access', label: 'Access',
     children: [
-      { key: 'heli:heliport', label: 'Heliport', match: (r) => RE.heliport.test(r[1]) },
-      { key: 'heli:hospital', label: 'Hospital', match: (r) => RE.hospital.test(r[1]) },
-      { key: 'heli:helipad', label: 'Helipad', match: (r) => RE.helipad.test(r[1]) },
-    ],
-  },
-  {
-    // Ytan (asphalt/grass) väljs via Properties (minst en registrerad hård/gräs-bana), inte här.
-    key: 'fields', label: 'Fields',
-    children: [
-      { key: 'field:airfield', label: 'Airfield', match: (r) => RE.airfield.test(r[1]) },
-      { key: 'field:airstrip', label: 'Airstrip', match: (r) => RE.airstrip.test(r[1]) },
-      { key: 'field:aerodrome', label: 'Aerodrome', match: (r) => RE.aerodrome.test(r[1]) },
-      { key: 'field:airpark', label: 'Airpark', match: (r) => RE.airpark.test(r[1]) },
-    ],
-  },
-  {
-    key: 'other', label: 'Other',
-    children: [
-      { key: 'other:glider', label: 'Glider', match: (r) => RE.glider.test(r[1]) },
-      { key: 'other:ultralight', label: 'Ultralight', match: (r) => RE.ultralight.test(r[1]) },
-      { key: 'other:balloon', label: 'Balloon', match: (r) => RE.balloon.test(r[1]) },
-      { key: 'other:farm', label: 'Farm/Ranch', match: (r) => RE.farm.test(r[1]) },
-      { key: 'other:seaplane', label: 'Seaplane', match: (r) => RE.seaplane.test(r[1]) },
+      { key: 'r:public', label: 'Public', match: (r) => rrestr(r) === 'public' },
+      { key: 'r:private', label: 'Private', match: (r) => rrestr(r) === 'private' },
+      { key: 'r:joint', label: 'Joint Use', match: (r) => rrestr(r) === 'joint_use' },
     ],
   },
 ];
@@ -101,11 +63,11 @@ export function filterCountLabel(activeKeys: Set<string>): string {
   const leaves = leavesFor(activeKeys);
   if (leaves.length !== 1) return 'Airports';
   const special: Record<string, string> = {
-    Naval: 'Naval Bases', 'Air Force': 'Air Force Bases', RAF: 'RAF Bases',
-    Army: 'Army Bases', Other: 'Air Bases', 'Farm/Ranch': 'Farm/Ranch Fields',
+    Large: 'Large Airports', Medium: 'Medium Airports',
+    Public: 'Public Airports', Private: 'Private Airports', 'Joint Use': 'Joint-Use Airports',
   };
-  const label = leaves[0].label;
-  return special[label] ?? `${label}s`;
+  const l = leaves[0].label;
+  return special[l] ?? (l.endsWith('s') ? l : `${l}s`);
 }
 
 /** Antal aktiva löv under en nod (för att visa gren-räknare i filter-boxen). */

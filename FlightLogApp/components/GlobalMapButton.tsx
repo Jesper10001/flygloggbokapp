@@ -11,7 +11,7 @@ import { getSeedAirports } from '../db/icao';
 import { topContinentThumb, type ThumbRegion } from '../utils/thumbRegion';
 import { GlobalMapModal } from './GlobalMapModal';
 
-type SeedRow = [string, string, string, string, number, number];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
 const WORLD: ThumbRegion = { latitude: 25, longitude: 5, latitudeDelta: 130, longitudeDelta: 130 };
 
 export function GlobalMapButton() {

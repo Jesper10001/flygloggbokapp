@@ -14,7 +14,9 @@ import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
 
-export type SeedRow = [string, string, string, string, number, number]; // icao,name,country,region,lat,lon
+// icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
+// Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
+export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
 
 const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 // Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
@@ -28,7 +30,7 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, matrixStroke, matrixFill, hulls, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborHulls, neighborMarkers, onSelectNeighbor }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; matrixStroke?: { latitude: number; longitude: number }[]; matrixFill?: { latitude: number; longitude: number }[]; hulls?: { latitude: number; longitude: number }[][]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborHulls?: { latitude: number; longitude: number }[][]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, matrixStroke, matrixFill, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; matrixStroke?: { latitude: number; longitude: number }[]; matrixFill?: { latitude: number; longitude: number }[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
@@ -84,6 +86,20 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     () => (selectedIcao ? dots.find((a) => a[0] === selectedIcao) : undefined),
     [dots, selectedIcao],
   );
+
+  // Platta ut region-/grann-ytor till [{nyckel, ring}] (nyckel per ring → hela ytan klickbar) med
+  // hårt tak (kraschsäkerhet). Löv-konturen (hulls) ritas separat, ej klickbar.
+  type FlatPoly = { key: string; ring: { latitude: number; longitude: number }[] };
+  const regionPolys = useMemo<FlatPoly[]>(() => {
+    const out: FlatPoly[] = [];
+    for (const sh of regionShapes ?? []) for (const ring of sh.rings) if (ring.length >= 3) { out.push({ key: sh.key, ring }); if (out.length >= 240) return out; }
+    return out;
+  }, [regionShapes]);
+  const neighborPolys = useMemo<FlatPoly[]>(() => {
+    const out: FlatPoly[] = [];
+    for (const sh of neighborShapes ?? []) for (const ring of sh.rings) if (ring.length >= 3) { out.push({ key: sh.key, ring }); if (out.length >= 70) return out; }
+    return out;
+  }, [neighborShapes]);
 
   const zoomTo = (lat: number, lon: number, d: number) =>
     mapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: d, longitudeDelta: d }, 450);
@@ -160,14 +176,23 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         <Polyline coordinates={matrixStroke} strokeColor="#67E8F9" strokeWidth={3} />
       )}
 
-      {/* Grann-gränser (kringliggande länder/regioner): dämpad outline, ligger bakom allt. */}
-      {neighborHulls && neighborHulls.slice(0, 10).map((ring, i) => ring.length >= 3 && (
-        <Polygon key={`nb-${i}`} coordinates={ring} fillColor="rgba(103,232,249,0.04)" strokeColor="rgba(103,232,249,0.4)" strokeWidth={1} />
+      {/* Grann-ytor (kringliggande länder/regioner): FYLLD dämpad cyan, HELA ytan klickbar → hoppa dit
+          (inte bara chippen). tappable-polygonen träffar hela geometrin oavsett fyllnadsopacitet. */}
+      {neighborPolys.map(({ key, ring }, i) => (
+        <Polygon key={`nb-${key}-${i}`} coordinates={ring} tappable onPress={() => onSelectNeighbor?.(key)}
+          fillColor="rgba(103,232,249,0.12)" strokeColor="rgba(103,232,249,0.5)" strokeWidth={1} />
       ))}
 
-      {/* Region-drill: cyan convex-hull-gränser runt varje delnod (bakom pins). Tak för säkerhet. */}
-      {hulls && hulls.slice(0, 60).map((ring, i) => ring.length >= 3 && (
-        <Polygon key={`hull-${i}`} coordinates={ring} fillColor="rgba(103,232,249,0.10)" strokeColor="rgba(103,232,249,0.85)" strokeWidth={1.5} />
+      {/* Aktuell nod (löv): BARA kontur (ingen fyllning → cyan täcker inte flygplatserna), EJ klickbar
+          — man är redan här. Exakta gränser (borders.json) eller convex-hull-fallback. Tak för säkerhet. */}
+      {hulls && hulls.slice(0, 240).map((ring, i) => ring.length >= 3 && (
+        <Polygon key={`hull-${i}`} coordinates={ring} fillColor="rgba(0,0,0,0)" strokeColor="rgba(103,232,249,0.85)" strokeWidth={1.5} />
+      ))}
+
+      {/* Delregioner (gren): kontur per delnod, HELA ytan klickbar → borra ner (inte bara chippen). */}
+      {regionPolys.map(({ key, ring }, i) => (
+        <Polygon key={`rs-${key}-${i}`} coordinates={ring} tappable onPress={() => onSelectRegion?.(key)}
+          fillColor="rgba(0,0,0,0)" strokeColor="rgba(103,232,249,0.85)" strokeWidth={1.5} />
       ))}
 
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
@@ -363,20 +388,20 @@ const s = StyleSheet.create({
   },
   icaoPinTxt: { color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.5 },
   regionChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(8,20,28,0.94)', borderRadius: 9,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(8,20,28,0.94)', borderRadius: 8,
     borderWidth: 1, borderColor: '#67E8F9',
-    paddingLeft: 6, paddingRight: 4, paddingVertical: 2,
+    paddingLeft: 5, paddingRight: 3, paddingVertical: 1.5,
   },
-  regionChipLabel: { color: '#fff', fontSize: 11, fontWeight: '800', maxWidth: 130 },
+  regionChipLabel: { color: '#fff', fontSize: 9.5, fontWeight: '800', maxWidth: 110 },
   regionChipCount: {
-    color: '#062024', fontSize: 8.5, fontWeight: '900',
-    backgroundColor: '#67E8F9', borderRadius: 7, paddingHorizontal: 5, paddingVertical: 0.5, overflow: 'hidden',
+    color: '#062024', fontSize: 7.5, fontWeight: '900',
+    backgroundColor: '#67E8F9', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 0.5, overflow: 'hidden',
   },
   neighborChip: {
-    backgroundColor: 'rgba(8,20,28,0.7)', borderRadius: 9,
+    backgroundColor: 'rgba(8,20,28,0.7)', borderRadius: 8,
     borderWidth: 1, borderColor: 'rgba(103,232,249,0.45)',
-    paddingHorizontal: 8, paddingVertical: 3,
+    paddingHorizontal: 7, paddingVertical: 2.5,
   },
-  neighborChipLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 10.5, fontWeight: '700', maxWidth: 120 },
+  neighborChipLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 9, fontWeight: '700', maxWidth: 102 },
 });
