@@ -30,7 +30,7 @@ const TYPE_LABEL: Record<string, string> = {
   seaplane: 'Seaplane', altiport: 'Altiport', balloonport: 'Balloonport', closed: 'Closed',
 };
 
-export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.info, landingCount, lastText, onLastPress, onClose }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite }: {
   icao: string;
   name?: string;
   iata?: string;              // IATA-kod (airportmap.de)
@@ -41,6 +41,8 @@ export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.i
   lastText?: string;
   onLastPress?: () => void;   // om satt → LAST blir en länk (öppna flygningen)
   onClose: () => void;
+  isFavorite?: boolean;       // om onToggleFavorite satt → visa stjärna under X
+  onToggleFavorite?: () => void;
 }) {
   const meta = [iata || null, alt != null ? `${alt} ft` : null, type ? (TYPE_LABEL[type] || type) : null].filter(Boolean).join('  ·  ');
   const rwyInfo = getRunways(icao).filter((r) => !r.closed);
@@ -119,6 +121,14 @@ export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.i
         style={{ position: 'absolute', top: 6, right: 6, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="close" size={19} color="#fff" />
       </TouchableOpacity>
+
+      {/* Favoritmarkering — under X-knappen */}
+      {onToggleFavorite && (
+        <TouchableOpacity onPress={onToggleFavorite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ position: 'absolute', top: 42, right: 6, width: 30, height: 30, borderRadius: 15, backgroundColor: isFavorite ? Colors.gold + '2e' : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: isFavorite ? Colors.gold : 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={isFavorite ? 'star' : 'star-outline'} size={17} color={isFavorite ? Colors.gold : '#fff'} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

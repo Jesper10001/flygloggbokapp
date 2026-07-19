@@ -12,6 +12,7 @@ import { useProfileStore, isOperator } from '../store/profileStore';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
 import { AirportInfoCard } from './AirportInfoCard';
 import { getSeedAirports } from '../db/icao';
+import { getFavoriteIcaos, setFavorite } from '../db/favorites';
 import { getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
 import { getRunwayIndex } from '../utils/runways';
 import { countryNameFull } from '../constants/countryNames';
@@ -78,6 +79,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [showProps, setShowProps] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false); // filterboxen börjar hopfälld; kvar tills man fäller ihop / lämnar
   const [closedMode, setClosedMode] = useState<'hide' | 'include' | 'only'>('hide'); // closed döljs som standard
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
@@ -89,15 +92,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     getAirportLastFlight().then(setLastFlightMap);
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { if (visible) getFavoriteIcaos().then((ids) => setFavorites(new Set(ids))); }, [visible]);
+
   // ── Filtrerat urval (union av aktiva löv, AND Properties) ────────────────────
   const typedSeed = useMemo(() => {
     const leaves = leavesFor(activeKeys);
     const pActive = propsActive(mapProps);
+    // Favorites-läge: begränsa till favoriter först (går att filtrera vidare bland dem).
+    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
     // Closed-läge: standard (hide) döljer closed ur originalpresentationen; 'only' visar bara closed;
     // 'include' behåller alla. Appliceras före kategori-/Properties-filtren.
-    const base = closedMode === 'include' ? seedData
-      : closedMode === 'only' ? seedData.filter((r) => r[8] === 'closed')
-      : seedData.filter((r) => r[8] !== 'closed');
+    const base = closedMode === 'include' ? favBase
+      : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed')
+      : favBase.filter((r) => r[8] !== 'closed');
     if (!leaves.length && !pActive) return base;
     const idx = (pActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
     return base.filter((r) => {
@@ -106,15 +113,15 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
       if (pActive && !matchProps(rwy, mapProps)) return false;
       return true;
     });
-  }, [seedData, activeKeys, mapProps, closedMode]);
+  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites]);
 
   // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
   // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
   // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
-    () => [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}`,
-    [activeKeys, mapProps, closedMode],
+    () => [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : ''),
+    [activeKeys, mapProps, closedMode, favMode, favorites],
   );
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
@@ -125,7 +132,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     [currentNode, currentAirports],
   );
   const isBranch = childrenData.length > 1; // >1 delnod → gren (region-markörer); annars löv (pins)
-  const pins = currentNode && !isBranch ? currentAirports : undefined;
+  // Favorites i världsvyn → visa favoriterna som pins direkt (inte landsflaggor). Annars normal drill.
+  const pins = favMode && !currentNode ? typedSeed : currentNode && !isBranch ? currentAirports : undefined;
   const regionMarkers = isBranch
     ? childrenData.map((c) => ({ key: c.node.key, label: c.node.label, count: c.count, lat: c.lat, lon: c.lon }))
     : undefined;
@@ -201,9 +209,23 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
   const closeMap = () => {
     setDrillStack([]); setFocusAirport(null); setMapSearch('');
-    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false); setClosedMode('hide');
+    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     onClose();
   };
+  // Favorites-knapp: nollställ filter + drill, zooma ut till världen, visa bara favoriter (går att
+  // filtrera vidare bland dem). Tryck igen → av. (Favoriterna sparas i DB och överlever om-seed.)
+  const toggleFavMode = () => {
+    if (favMode) { setFavMode(false); return; }
+    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide');
+    setDrillStack([]); setFocusAirport(null); setMapSearch(''); setFilterNav([]); setShowProps(false);
+    setFavMode(true);
+  };
+  const toggleFavorite = (icao: string) => setFavorites((prev) => {
+    const n = new Set(prev); const fav = !n.has(icao);
+    if (fav) n.add(icao); else n.delete(icao);
+    setFavorite(icao, fav);
+    return n;
+  });
   // Fäll ihop → tillbaka till rotnivån (så expandering alltid öppnar på kategori-listan).
   const toggleFilterOpen = () => setFilterOpen((o) => { if (o) { setFilterNav([]); setShowProps(false); } return !o; });
   const focusByIcao = (icao: string) => {
@@ -335,6 +357,13 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 </TouchableOpacity>
               )}
             </View>
+            {/* Favorites — under sökfältet: nollställ filter, zooma ut, visa bara favoriter (filtrerbart) */}
+            {searchResults.length === 0 && (
+              <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn, { marginTop: 8 }]}>
+                <Ionicons name={favMode ? 'star' : 'star-outline'} size={14} color={favMode ? '#062024' : Colors.gold} />
+                <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
+              </TouchableOpacity>
+            )}
             {searchResults.length > 0 && (
               <View style={[styles.searchDropdown, { marginTop: 8 }]}>
                 <ScrollView keyboardShouldPersistTaps="handled">
@@ -482,6 +511,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
                 } : undefined}
                 onClose={() => setFocusAirport(null)}
+                isFavorite={favorites.has(focusAirport[0])}
+                onToggleFavorite={() => toggleFavorite(focusAirport[0])}
               />
             </View>
           );
@@ -498,6 +529,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', gap: 8,
   },
   searchInput: { flex: 1, color: '#fff', fontSize: 15, paddingVertical: 10 },
+  favBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.gold + '66', paddingHorizontal: 12, paddingVertical: 8,
+  },
+  favBtnOn: { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  favBtnTxt: { color: Colors.gold, fontSize: 12.5, fontWeight: '800', letterSpacing: 0.3 },
   searchDropdown: {
     maxHeight: 280, backgroundColor: 'rgba(15,22,38,0.97)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden',

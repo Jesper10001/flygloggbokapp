@@ -73,6 +73,15 @@ function derive(p) {
   return FIX[code] || code;
 }
 
+// Läsbart regionnamn för en NE-feature. Sammanslagna regioner (IT/FR/ES via region_cod, GB via nation)
+// → förälderns namn; annars subdivisionens eget namn.
+function deriveName(p, code) {
+  const cc = code.split('-')[0];
+  if (p.admin === 'United Kingdom') return p.geonunit || p.name || '';
+  if (cc === 'IT' || cc === 'FR' || cc === 'ES') return p.region || p.name || '';
+  return p.name || '';
+}
+
 const iso2 = (p) => (p.ISO_A2_EH && p.ISO_A2_EH !== '-99' ? p.ISO_A2_EH : p.ISO_A2 && p.ISO_A2 !== '-99' ? p.ISO_A2 : p.iso_a2) || '';
 
 async function load(name, url) {
@@ -165,6 +174,9 @@ async function main() {
 
   // Regioner (Natural Earth): tagga varje relevant admin-1-feature med seedens kod (_k). Hoppa över
   // GEOBOUNDARIES-länder (föråldrade i NE) — de byggs från geoBoundaries nedan.
+  // Läsbara regionnamn (kod → namn) för alla byggda regioner → borders.json. regionName() i appen
+  // faller tillbaka hit så inga regioner visas som bara siffror (ex UA-30 → "Kyiv").
+  const regionNames = {};
   const regFeatures = [];
   for (const f of a1.features) {
     const code = derive(f.properties);
@@ -174,6 +186,7 @@ async function main() {
     const want = needed.get(cc);
     if (!want || !want.has(code)) continue;
     regFeatures.push({ geometry: f.geometry, properties: { _k: code } });
+    if (!regionNames[code]) { const nm = deriveName(f.properties, code); if (nm) regionNames[code] = nm; }
   }
   const regions = topoLayer(regFeatures);
 
@@ -181,7 +194,6 @@ async function main() {
   // (ej filtrerat på seed-koder, som kan ha annan vintage) → flygplatser tilldelas via PIP nedan.
   // Egen topologi/simplify per land → interna gränser delas (inga glapp). Samla även läsbara namn.
   const gbFeats = [];
-  const regionNames = {};
   for (const cc of GEOBOUNDARIES) {
     if (!needed.has(cc)) continue; // bygg bara om landet är över cap
     const gj = await load(`geoBoundaries-${cc}-ADM1.geojson`, GB_URL(GB_ISO3[cc] || cc));

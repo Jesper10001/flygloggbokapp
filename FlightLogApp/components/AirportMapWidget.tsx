@@ -16,7 +16,7 @@ import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlac
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
 import { convexHull, sphericalAreaKm2, formatArea, ringFromNorth, sweepPolygon } from '../utils/geoHull';
-import { topContinentThumb } from '../utils/thumbRegion';
+import { topCountryThumb } from '../utils/thumbRegion';
 import { AirportInfoCard } from './AirportInfoCard';
 import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
@@ -377,11 +377,11 @@ function makeStyles() {
       borderColor: Colors.cardBorder,
     },
     thumbLabel: {
-      position: 'absolute', top: 0, left: 0, right: 0,
+      position: 'absolute', bottom: 0, left: 0, right: 0,
       paddingHorizontal: 10, paddingVertical: 6,
-      backgroundColor: 'rgba(15,22,38,0.72)',
+      backgroundColor: 'rgba(15,22,38,0.85)',
     },
-    thumbLabelTxt: { color: '#fff', fontSize: 13, fontWeight: '800' },
+    thumbLabelTxt: { color: '#fff', fontSize: 13, fontWeight: '800', textAlign: 'center' },
     thumbPin: {
       backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 3,
       paddingHorizontal: 3, paddingVertical: 1, borderWidth: 0.5, borderColor: Colors.info,
@@ -545,7 +545,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
   }, [matrixOn, matrixReady, matrixRing, matrixProgress]);
 
   // Thumbnail: centrera över kontinenten man landat mest på + små ICAO-pins där.
-  const thumb = useMemo(() => topContinentThumb(visitedSeedRows), [visitedSeedRows]);
+  const thumb = useMemo(() => topCountryThumb(visitedSeedRows), [visitedSeedRows]);
 
   if (!allIcaos.length) return null;
 

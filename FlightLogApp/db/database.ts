@@ -61,6 +61,11 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS favorite_airports (
+      icao TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS scan_summaries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       book_name TEXT NOT NULL DEFAULT '',

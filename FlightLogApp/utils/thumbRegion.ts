@@ -28,3 +28,23 @@ export function topContinentThumb(rows: SeedRow[]): { region: ThumbRegion; rows:
   };
   return { region, rows: best };
 }
+
+// Landet där flest (besökta) flygplatser ligger → centrerad region som ramar in det landets flygplatser.
+export function topCountryThumb(rows: SeedRow[]): { region: ThumbRegion; rows: SeedRow[] } {
+  const valid = rows.filter((r) => isFinite(r[4]) && isFinite(r[5]) && !(r[4] === 0 && r[5] === 0));
+  if (!valid.length) return { region: DEFAULT, rows: [] };
+
+  const byCountry = new Map<string, SeedRow[]>();
+  for (const r of valid) { const arr = byCountry.get(r[2]); if (arr) arr.push(r); else byCountry.set(r[2], [r]); }
+  let best: SeedRow[] = valid, bestN = -1;
+  for (const arr of byCountry.values()) if (arr.length > bestN) { bestN = arr.length; best = arr; }
+
+  let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
+  for (const r of best) { minLa = Math.min(minLa, r[4]); maxLa = Math.max(maxLa, r[4]); minLo = Math.min(minLo, r[5]); maxLo = Math.max(maxLo, r[5]); }
+  const region: ThumbRegion = {
+    latitude: (minLa + maxLa) / 2, longitude: (minLo + maxLo) / 2,
+    latitudeDelta: Math.max(3, (maxLa - minLa) * 1.4 + 3),
+    longitudeDelta: Math.max(3, (maxLo - minLo) * 1.4 + 3),
+  };
+  return { region, rows: best };
+}

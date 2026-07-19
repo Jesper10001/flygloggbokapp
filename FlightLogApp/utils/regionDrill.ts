@@ -171,13 +171,22 @@ function geoChild(parent: DrillNode, id: string, label: string, extra: Cut[], ro
   return toChild(node, rows);
 }
 
+// Första geo-splitten av en REGION → väderstreck (NW/NE/SW/SE California). Djupare split (föräldern är
+// redan en geo-del) → "<förälderns etikett> sector N" så väderstrecksnamnen inte upprepas (undviker t.ex.
+// dubbla "NW California"). Numreras EFTER filtrering av tomma delar så inga hål uppstår.
+function sectorize(node: DrillNode, kids: DrillChild[]): DrillChild[] {
+  // Radbryt så väderstrecket står överst och "Section N" på egen rad under (ex "NW California\nSection 1").
+  if (node.kind === 'quad') kids.forEach((c, i) => { c.node.label = `${node.label}\nSection ${i + 1}`; });
+  return kids;
+}
+
 function northSouth(node: DrillNode, airports: SeedRow[]): DrillChild[] {
   const med = median(airports.map((r) => r[4]));
   const north = airports.filter((r) => r[4] >= med), south = airports.filter((r) => r[4] < med);
-  return [
+  return sectorize(node, [
     geoChild(node, 'N', `North ${node.base}`, [{ axis: 4, gte: true, value: med }], north),
     geoChild(node, 'S', `South ${node.base}`, [{ axis: 4, gte: false, value: med }], south),
-  ].filter((c) => c.count > 0);
+  ].filter((c) => c.count > 0));
 }
 
 function quadrants(node: DrillNode, airports: SeedRow[]): DrillChild[] {
@@ -187,12 +196,12 @@ function quadrants(node: DrillNode, airports: SeedRow[]): DrillChild[] {
   const medLonS = south.length ? median(south.map((r) => r[5])) : 0;
   const nw = north.filter((r) => r[5] < medLonN), ne = north.filter((r) => r[5] >= medLonN);
   const sw = south.filter((r) => r[5] < medLonS), se = south.filter((r) => r[5] >= medLonS);
-  return [
+  return sectorize(node, [
     geoChild(node, 'NW', `NW ${node.base}`, [{ axis: 4, gte: true, value: medLat }, { axis: 5, gte: false, value: medLonN }], nw),
     geoChild(node, 'NE', `NE ${node.base}`, [{ axis: 4, gte: true, value: medLat }, { axis: 5, gte: true, value: medLonN }], ne),
     geoChild(node, 'SW', `SW ${node.base}`, [{ axis: 4, gte: false, value: medLat }, { axis: 5, gte: false, value: medLonS }], sw),
     geoChild(node, 'SE', `SE ${node.base}`, [{ axis: 4, gte: false, value: medLat }, { axis: 5, gte: true, value: medLonS }], se),
-  ].filter((c) => c.count > 0);
+  ].filter((c) => c.count > 0));
 }
 
 // Geografisk split: antal avgör 2 (North/South) eller 4 (kvadranter) så varje del hamnar ~≤ CAP.

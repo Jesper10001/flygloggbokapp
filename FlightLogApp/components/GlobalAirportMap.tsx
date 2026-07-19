@@ -281,7 +281,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           onPress={onSelectRegion ? () => onSelectRegion(m.key) : undefined}
         >
           <View style={s.regionChip}>
-            <Text style={s.regionChipLabel} numberOfLines={1}>{m.label}</Text>
+            <Text style={s.regionChipLabel} numberOfLines={2}>{m.label}</Text>
             <Text style={s.regionChipCount}>{m.count}</Text>
           </View>
         </Marker>
@@ -393,7 +393,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#67E8F9',
     paddingLeft: 5, paddingRight: 3, paddingVertical: 1.5,
   },
-  regionChipLabel: { color: '#fff', fontSize: 9.5, fontWeight: '800', maxWidth: 110 },
+  regionChipLabel: { color: '#fff', fontSize: 9.5, fontWeight: '800', maxWidth: 110, textAlign: 'center' },
   regionChipCount: {
     color: '#062024', fontSize: 7.5, fontWeight: '900',
     backgroundColor: '#67E8F9', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 0.5, overflow: 'hidden',
