@@ -97,7 +97,7 @@ export default function DroneSettingsScreen() {
         {expanded === 'logbook' && (
           <View style={s.card}>
             <Row accent={accent} icon="hardware-chip-outline" title="Logbook type" subtitle="Drone · Unmanned aircraft" first />
-            <Row accent={accent} icon="swap-horizontal-outline" title="Switch logbook" subtitle="Pilot · Operator · Drone" onPress={() => setShowSwitch(true)} />
+            <Row accent={accent} icon="swap-horizontal-outline" title="Switch logbook" subtitle="Pilot · Drone" onPress={() => setShowSwitch(true)} />
             <Row accent={accent} icon="list-outline" title="Manage drones" onPress={() => router.push('/settings/drones')} />
             <Row accent={accent} icon="book-outline" title="Your logbook" onPress={() => router.push('/drone-book')} />
             <Row accent={accent} icon="time-outline" title="Audit log" onPress={() => router.push('/settings/auditlog')} />
@@ -175,11 +175,6 @@ export default function DroneSettingsScreen() {
           <TouchableOpacity style={s.optRow} activeOpacity={0.8} onPress={() => switchTo('pilot-manned', 'fixed')}>
             <View style={[s.optIcon, { backgroundColor: DR.elevated }]}><Ionicons name="airplane-outline" size={18} color={accent} /></View>
             <View style={{ flex: 1 }}><Text style={s.rowTitle}>Pilot (manned)</Text><Text style={s.rowSub}>Fixed-wing / helicopter</Text></View>
-            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.optRow, s.optBorder]} activeOpacity={0.8} onPress={() => switchTo('operator', 'crew-chief')}>
-            <View style={[s.optIcon, { backgroundColor: DR.elevated }]}><Ionicons name="people-outline" size={18} color={accent} /></View>
-            <View style={{ flex: 1 }}><Text style={s.rowTitle}>Operator</Text><Text style={s.rowSub}>Crew / non-pilot</Text></View>
             <Ionicons name="chevron-forward" size={16} color={DR.muted} />
           </TouchableOpacity>
           <View style={[s.optRow, s.optBorder]}>

@@ -30,7 +30,7 @@ export default function RootLayout() {
   const { loadTimeFormat } = useTimeFormatStore();
   const { loadTheme, theme } = useThemeStore();
   const { loadMode } = useAppModeStore();
-  const { forceUpdate, check: checkVersion } = useVersionStore();
+  const { forceUpdate, storeUrl, check: checkVersion } = useVersionStore();
 
   useEffect(() => {
     // Lås rotation till portrait som default — bara transkriberingsvyn
@@ -91,7 +91,7 @@ export default function RootLayout() {
         </Text>
         <TouchableOpacity
           style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}
-          onPress={() => Linking.openURL('https://apps.apple.com')}
+          onPress={() => Linking.openURL(storeUrl)}
           activeOpacity={0.85}
         >
           <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Open App Store</Text>
@@ -118,7 +118,6 @@ export default function RootLayout() {
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="flight/add-operator" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />

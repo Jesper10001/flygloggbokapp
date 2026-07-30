@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
-import { exportToCSV, exportOperatorCSV } from '../../services/export';
+import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
@@ -20,9 +20,9 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useToastStore } from '../../components/Toast';
 import { useOperatorStore } from '../../store/operatorStore';
-import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser, seedOperatorCrewChief, seedOperatorSwimmer, seedOperatorHEMS, clearOperatorTestUser } from '../../services/testUserSeed';
+import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
-import { useProfileStore, isOperator, type SubRole } from '../../store/profileStore';
+import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -194,10 +194,8 @@ export default function SettingsScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
-  const [showLogbookTypeModal, setShowLogbookTypeModal] = useState(false);
   const isDrone = appMode === 'drone';
-  const isOp = isOperator(profile);
-  const isPilot = !isDrone && !isOp;
+  const isPilot = !isDrone;
 
   // Profildata — laddas från settings-DB
   const [profileName, setProfileName] = useState('');
@@ -254,10 +252,6 @@ export default function SettingsScreen() {
     setExportingCSV(true);
     try {
       if (isDrone) await exportDroneToCSV();
-      else if (isOp) {
-        await exportOperatorCSV();
-        Alert.alert(t('export_to_csv'), 'Operator log exported.', [{ text: 'OK' }]);
-      }
       else {
         const standardName = standard === 'faa' ? 'FAA' : 'EASA';
         await exportToCSV(standard);
@@ -371,7 +365,7 @@ export default function SettingsScreen() {
     router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
   };
 
-  const switchProfile = async (mainRole: 'pilot-manned' | 'pilot-unmanned' | 'operator', subRole: SubRole) => {
+  const switchProfile = async (mainRole: 'pilot-manned' | 'pilot-unmanned', subRole: SubRole) => {
     // Save current profile to additional_profiles before switching
     if (profile) {
       // Remove any existing profile from the same mainRole to ensure only one per category
@@ -384,7 +378,6 @@ export default function SettingsScreen() {
     }
 
     // Switch to new profile and mode before navigating
-    setShowLogbookTypeModal(false);
     await setProfile({ mainRole, subRole });
     const targetMode = mainRole === 'pilot-unmanned' ? 'drone' : 'manned';
     await setAppMode(targetMode);
@@ -539,164 +532,37 @@ export default function SettingsScreen() {
             icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
             iconColor={Colors.primary}
             title={t('logbook_type') ?? 'Logbook Type'}
-            subtitle={isDrone ? 'Pilot Unmanned Aircraft' : isOp ? 'Operator Manned Aircraft' : 'Pilot Manned Aircraft'}
+            subtitle={isDrone ? 'Pilot Unmanned Aircraft' : 'Pilot Manned Aircraft'}
             pressable={false}
             separatorColor={Colors.background}
           />
 
-          {/* Logbook type selector */}
+          {/* Logbook type — enkel växlingsknapp mellan pilot och drönare */}
           <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.background }}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 30 }}>
-              {/* Current profile button */}
-              {!isDrone && !isOp && (
-                <TouchableOpacity
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    backgroundColor: Colors.primary,
-                    borderWidth: 1,
-                    borderColor: Colors.primary,
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: Colors.textInverse,
-                  }}>
-                    Pilot fixed/rotary
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {isDrone && (
-                <TouchableOpacity
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    backgroundColor: Colors.primary,
-                    borderWidth: 1,
-                    borderColor: Colors.primary,
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: Colors.textInverse,
-                  }}>
-                    Drone
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {isOp && (
-                <TouchableOpacity
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    backgroundColor: Colors.primary,
-                    borderWidth: 1,
-                    borderColor: Colors.primary,
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: Colors.textInverse,
-                  }}>
-                    Operator
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Additional profile buttons - only show profiles from different categories */}
-              {additionalProfiles
-                .filter(p => p.mainRole !== profile?.mainRole)
-                .map((p) => (
-                  <TouchableOpacity
-                    key={`${p.mainRole}-${p.subRole}`}
-                    onPress={() => switchProfile(p.mainRole as any, p.subRole as any)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 6,
-                      backgroundColor: Colors.elevated,
-                      borderWidth: 1,
-                      borderColor: Colors.border,
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={{
-                      fontSize: 12,
-                      fontWeight: '600',
-                      color: Colors.textPrimary,
-                    }}>
-                      {p.mainRole === 'pilot-unmanned' ? 'Drone' : p.mainRole === 'operator' ? 'Operator' : 'Pilot fixed/rotary'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-              {/* Add button - show to add missing profile types */}
-              {!additionalProfiles.some(p => p.mainRole === 'pilot-unmanned') || !additionalProfiles.some(p => p.mainRole === 'operator') || !additionalProfiles.some(p => p.mainRole === 'pilot-manned') ? (
-                <TouchableOpacity
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: Colors.elevated,
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  activeOpacity={0.75}
-                  onPress={() => setShowLogbookTypeModal(true)}
-                >
-                  <Ionicons name="add" size={18} color={Colors.primary} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (isDrone) {
+                  const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
+                  switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
+                } else {
+                  const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
+                  switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
+                }
+              }}
+              activeOpacity={0.8}
+              style={{
+                marginLeft: 30, alignSelf: 'flex-start',
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
+                backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+              }}
+            >
+              <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={16} color={Colors.primary} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary }}>
+                {isDrone ? 'Shift to Pilot logbook' : 'Shift to Drone logbook'}
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Operator role selector */}
-          {isOperator(profile) && (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.background }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <Ionicons name="person-outline" size={18} color={Colors.primary} />
-                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>
-                  {t('operator_role')}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 30 }}>
-                {(['crew-chief', 'swimmer', 'hoist', 'hems', 'loadmaster'] as SubRole[]).map((role) => (
-                  <TouchableOpacity
-                    key={role}
-                    onPress={() => profile && setProfile({ ...profile, subRole: role })}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 6,
-                      backgroundColor: profile?.subRole === role ? Colors.primary : Colors.elevated,
-                      borderWidth: 1,
-                      borderColor: profile?.subRole === role ? Colors.primary : Colors.border,
-                    }}
-                  >
-                    <Text style={{
-                      fontSize: 12,
-                      fontWeight: '600',
-                      color: profile?.subRole === role ? Colors.textInverse : Colors.textPrimary,
-                      textTransform: 'capitalize',
-                    }}>
-                      {role === 'crew-chief' ? 'Crew Chief' : role === 'swimmer' ? 'Rescue Swimmer' : role.charAt(0).toUpperCase() + role.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
 
           {/* Drone pilot type selector */}
           {isDrone && (
@@ -904,7 +770,7 @@ export default function SettingsScreen() {
               if (useVersionStore.getState().updateAvailable) {
                 Alert.alert(t('update_available'), t('update_available_sub'), [
                   { text: t('cancel'), style: 'cancel' },
-                  { text: 'App Store', onPress: () => require('react-native').Linking.openURL('https://apps.apple.com') },
+                  { text: 'App Store', onPress: () => Linking.openURL(useVersionStore.getState().storeUrl) },
                 ]);
               } else {
                 Alert.alert(t('version'), t('version_up_to_date') ?? 'You are on the latest version.');
@@ -942,16 +808,10 @@ export default function SettingsScreen() {
           <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 2`} subtitle={t('test_user_2_sub')} onClick={() => applyDroneTestUser(2)} />
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle={t('clear_test_user_sub')} onClick={() => applyDroneTestUser('clear')} />
         </>)}
-        {!isDrone && !isOperator(useProfileStore.getState().profile) && (<>
+        {!isDrone && (<>
           <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 1 — Airline" subtitle="A320, ~5500h" onClick={() => applyMannedTestUser(1)} />
           <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 2 — Bushpilot" subtitle="B407/H125, ~3200h" onClick={() => applyMannedTestUser(2)} />
           <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={() => applyMannedTestUser('clear')} />
-        </>)}
-        {isOperator(useProfileStore.getState().profile) && (<>
-          <Row icon="flask-outline" iconColor={Colors.gold} title="🎖️ Crew Chief" subtitle="HKP16/14, ~620h" onClick={async () => { await seedOperatorCrewChief(); await loadFlights(); await loadStats(); Alert.alert('OK', 'Crew Chief loaded'); }} />
-          <Row icon="flask-outline" iconColor={Colors.info} title="🏊 Rescue Swimmer" subtitle="HKP16, ~280h" onClick={async () => { await seedOperatorSwimmer(); await loadFlights(); await loadStats(); Alert.alert('OK', 'Swimmer loaded'); }} />
-          <Row icon="flask-outline" iconColor={Colors.danger} title="🏥 HEMS Operator" subtitle="EC135, ~340h" onClick={async () => { await seedOperatorHEMS(); await loadFlights(); await loadStats(); Alert.alert('OK', 'HEMS loaded'); }} />
-          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={async () => { await clearOperatorTestUser(); await loadFlights(); await loadStats(); }} />
         </>)}
 
         <Row icon="refresh-circle-outline" iconColor={Colors.primary} title={t('replay_onboarding')} subtitle={t('replay_onboarding_sub')}
@@ -981,9 +841,6 @@ export default function SettingsScreen() {
                     'rotary': ['Rotary (Helicopter)'],
                     'fixed': ['Fixed Wing (Airplane)']
                   }
-                },
-                'operator': {
-                  label: '🛡️ Operator'
                 },
                 'pilot-unmanned': {
                   label: '🚁 Pilot (Unmanned)',
@@ -1159,91 +1016,6 @@ export default function SettingsScreen() {
         </Pressable>
       </Modal>
 
-      {/* Logbook Type Modal */}
-      <Modal visible={showLogbookTypeModal} transparent animationType="slide" onRequestClose={() => setShowLogbookTypeModal(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }} onPress={() => setShowLogbookTypeModal(false)}>
-          <Pressable style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 18, paddingBottom: 32, borderTopWidth: 0.5, borderTopColor: Colors.border }} onPress={(e) => e.stopPropagation()}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 10 }} />
-            <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 14, letterSpacing: 0.3 }}>
-              {t('switch_profile') ?? 'Switch Profile'}
-            </Text>
-
-            <View style={{ gap: 8 }}>
-              {/* Available profiles to add - only show if not already added */}
-              {!additionalProfiles.some(p => p.mainRole === 'pilot-unmanned') && (
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.cardBorder }}
-                  onPress={() => switchProfile('pilot-unmanned', 'commercial')}
-                  activeOpacity={0.75}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>Drone</Text>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>Pilot Unmanned Aircraft</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-
-              {!additionalProfiles.some(p => p.mainRole === 'operator') && !isDrone && !isOp && (
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.cardBorder }}
-                  onPress={() => switchProfile('operator', 'crew-chief')}
-                  activeOpacity={0.75}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>Operator</Text>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>Operator Manned Aircraft</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-
-              {!additionalProfiles.some(p => p.mainRole === 'pilot-manned') && isDrone && (
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.cardBorder }}
-                  onPress={() => switchProfile('pilot-manned', 'fixed')}
-                  activeOpacity={0.75}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>Pilot fixed/rotary</Text>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>Pilot Manned Aircraft</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-
-              {!additionalProfiles.some(p => p.mainRole === 'operator') && isDrone && (
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.cardBorder }}
-                  onPress={() => switchProfile('operator', 'crew-chief')}
-                  activeOpacity={0.75}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>Operator</Text>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>Operator Manned Aircraft</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-
-              {!additionalProfiles.some(p => p.mainRole === 'pilot-manned') && isOp && (
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.cardBorder }}
-                  onPress={() => switchProfile('pilot-manned', 'fixed')}
-                  activeOpacity={0.75}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>Pilot fixed/rotary</Text>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>Pilot Manned Aircraft</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </ScrollView>
   );
 }

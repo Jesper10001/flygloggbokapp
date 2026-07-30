@@ -1,13 +1,22 @@
 import * as SQLite from 'expo-sqlite';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbInit: Promise<SQLite.SQLiteDatabase> | null = null;
 
+// Delad init-promise: db exponeras FÖRST när schema + migrationer körts klart. Utan detta kan en
+// parallell anropare (komponent/store på mount) få en halv-initierad db och köra frågor innan nya
+// kolumner lagts till (t.ex. "table icao_airports has no column named gps").
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!db) {
-    db = await SQLite.openDatabaseAsync('flightlog.db');
-    await initializeDatabase(db);
+  if (db) return db;
+  if (!dbInit) {
+    dbInit = (async () => {
+      const d = await SQLite.openDatabaseAsync('flightlog.db');
+      await initializeDatabase(d);
+      db = d;
+      return d;
+    })().catch((e) => { dbInit = null; throw e; });
   }
-  return db;
+  return dbInit;
 }
 
 async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -228,6 +237,7 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'icao_airports', 'alt', 'INTEGER');
   await addColumnIfMissingOnTable(db, 'icao_airports', 'type', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissingOnTable(db, 'icao_airports', 'municipality', `TEXT NOT NULL DEFAULT ''`);
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'gps', `TEXT NOT NULL DEFAULT ''`);
   // Flerpilottid (multi-crew operations)
   await addColumnIfMissing(db, 'multi_pilot',  `REAL NOT NULL DEFAULT 0`);
   // Enpilottid (single pilot operations)

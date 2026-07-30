@@ -15,14 +15,12 @@ import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts
 import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlaces, updateUserAirport, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
-import { convexHull, sphericalAreaKm2, formatArea, ringFromNorth, sweepPolygon } from '../utils/geoHull';
 import { topCountryThumb } from '../utils/thumbRegion';
 import { AirportInfoCard } from './AirportInfoCard';
 import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
-import { useProfileStore, isOperator } from '../store/profileStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
 import * as Haptics from 'expo-haptics';
@@ -82,7 +80,7 @@ function fmtVisit(d?: string): string {
   return `${day}/${m}/${y.slice(-2)}`;
 }
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 
 function buildCountryList(data: SeedRow[]) {
   const map = new Map<string, number>();
@@ -410,9 +408,10 @@ function makeStyles() {
   });
 }
 
-// compact: kompakt knapp (halv bredd) så den ryms bredvid "Your matrix" på dashboard.
-// rightSlot: element som renderas till höger om den kompakta knappen (t.ex. matrix-knappen).
-export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boolean; rightSlot?: ReactNode } = {}) {
+// compact: kompakt knapp (halv bredd) för dashboard.
+// rightSlot: element som renderas till höger om den kompakta knappen.
+// asButton: liten pill-knapp (öppnar samma modal) — används i globens övre hörn på dashboarden.
+export function AirportMapWidget({ compact = false, rightSlot, asButton = false }: { compact?: boolean; rightSlot?: ReactNode; asButton?: boolean } = {}) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
@@ -423,7 +422,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
   const [selectedAirport, setSelectedAirport] = useState<string | null>(null);
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlight, setLastFlight] = useState<Record<string, { id: number; date: string; reg: string }>>({});
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState(false); // kartläge (standard) förvalt
   const [period, setPeriod] = useState<'all' | 'year' | 'custom'>('all');
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -514,42 +513,12 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
       .sort((a, b) => b.visited - a.visited);
   }, [periodAirports, seedByIcao, countryList]);
 
-  // ── Matrix (convex hull = största area) — animeras hörn-för-hörn från nordligaste punkten ──
-  const [matrixOn, setMatrixOn] = useState(false);
-  const [matrixProgress, setMatrixProgress] = useState(0);
-  const matrixRing = useMemo(() => {
-    const rows = selectedCountry ? visitedSeedRows.filter((r) => r[2] === selectedCountry) : visitedSeedRows;
-    return ringFromNorth(convexHull(rows.map((r) => ({ lat: r[4], lon: r[5] }))));
-  }, [visitedSeedRows, selectedCountry]);
-  const matrixReady = matrixRing.length >= 3;
-  const matrixArea = useMemo(() => sphericalAreaKm2(matrixRing), [matrixRing]);
-  const matrixKey = useMemo(() => matrixRing.map((p) => `${p.lat.toFixed(2)},${p.lon.toFixed(2)}`).join('|'), [matrixRing]);
-
-  // Cyan-lagret målas fram mjukt: en tidsbaserad svep (0→1) med easing över ~2,2 s.
-  useEffect(() => {
-    if (!matrixOn || !matrixReady) { setMatrixProgress(0); return; }
-    const start = Date.now(), DURATION = 2200;
-    setMatrixProgress(0);
-    const id = setInterval(() => {
-      const t = Math.min(1, (Date.now() - start) / DURATION);
-      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // easeInOutQuad
-      setMatrixProgress(eased);
-      if (t >= 1) clearInterval(id);
-    }, 55);
-    return () => clearInterval(id);
-  }, [matrixOn, matrixKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const matrixFill = useMemo(() => {
-    if (!matrixOn || !matrixReady || matrixProgress <= 0) return [];
-    return sweepPolygon(matrixRing, matrixProgress).map((p) => ({ latitude: p.lat, longitude: p.lon }));
-  }, [matrixOn, matrixReady, matrixRing, matrixProgress]);
-
   // Thumbnail: centrera över kontinenten man landat mest på + små ICAO-pins där.
   const thumb = useMemo(() => topCountryThumb(visitedSeedRows), [visitedSeedRows]);
 
   if (!allIcaos.length) return null;
 
-  // Kompakt header (halv bredd) — bara ikon + antal + etikett, ryms bredvid matrix-knappen.
+  // Kompakt header (halv bredd) — bara ikon + antal + etikett.
   const compactHeader = (
     <View style={{ flexDirection: 'row', gap: 10 }}>
       <View style={styles.compactCard}>
@@ -578,9 +547,21 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
     </View>
   );
 
+  // Liten pill-knapp (globens övre vänstra hörn på dashboarden) — öppnar samma modal.
+  const buttonPill = (
+    <TouchableOpacity
+      onPress={() => airports.length > 0 && setModalVisible(true)}
+      activeOpacity={airports.length > 0 ? 0.85 : 1}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.info + '66' }}
+    >
+      <Ionicons name="location" size={14} color={Colors.info} />
+      <Text style={{ color: Colors.info, fontSize: 12, fontWeight: '700' }}>Visited airports</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <>
-      {compact ? compactHeader : (
+      {asButton ? buttonPill : compact ? compactHeader : (
       /* Visited airports — MC1 style */
       <TouchableOpacity
         style={styles.widget}
@@ -706,8 +687,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
                 mode="pins"
                 onSelectAirport={setSelectedAirport}
                 selectedIcao={selectedAirport ?? undefined}
-                mapType={matrixOn ? 'standard' : (satellite ? 'hybridFlyover' : 'standard')}
-                matrixFill={matrixFill}
+                mapType={satellite ? 'hybridFlyover' : 'standard'}
               />
             );
           })()}
@@ -727,9 +707,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
                   lastText={lf ? fmtVisit(lf.date) : fmtVisit(ap?.visitDate)}
                   onLastPress={lf ? () => {
                     setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null);
-                    // Piloter → nya detail-sidan; operatörer behåller gamla (uppdragsvyn).
-                    const op = isOperator(useProfileStore.getState().profile);
-                    router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
+                    router.push(`/flight/detail/${lf.id}` as any);
                   } : undefined}
                   onClose={() => setSelectedAirport(null)}
                 />
@@ -768,31 +746,12 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
             </View>
           )}
 
-          {/* Matrix enclosed area — symmetriskt till höger om landsväljaren */}
-          {matrixOn && matrixReady && (
-            <View style={{
-              position: 'absolute', bottom: 24, left: 16 + 190 + 10,
-              backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12,
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-              paddingHorizontal: 14, paddingVertical: 10,
-            }}>
-              <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' }}>ENCLOSED AREA</Text>
-              <Text style={{ color: '#67E8F9', fontSize: 18, fontWeight: '800', fontFamily: 'Menlo', marginTop: 2 }}>{formatArea(matrixArea)}</Text>
-            </View>
-          )}
-
-          {/* Matrix-knapp (vänster) + period-väljare (All time / This year / Custom) */}
+          {/* Period-väljare (All time / This year / Custom) */}
           <View style={{
             position: 'absolute', top: insets.top + 12, left: 0, right: 64,
             alignItems: 'center', pointerEvents: 'box-none',
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {/* Matrix — egen knapp till vänster om All time */}
-              <TouchableOpacity onPress={() => matrixReady && setMatrixOn((m) => !m)} activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: matrixOn ? Colors.primary : 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', opacity: matrixReady ? 1 : 0.4 }}>
-                <Ionicons name="shapes" size={14} color={matrixOn ? Colors.textInverse : '#fff'} />
-                <Text style={{ color: matrixOn ? Colors.textInverse : '#fff', fontSize: 11, fontWeight: '700' }}>Matrix</Text>
-              </TouchableOpacity>
               {/* Period-pills */}
               <View style={{ flexDirection: 'row', backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 10, padding: 3, gap: 2 }}>
                 {([['all', 'All time'], ['year', 'This year'], ['custom', 'Custom']] as const).map(([p, label]) => {
@@ -813,8 +772,7 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
             </View>
           </View>
 
-          {/* Kartläge-växel: standard (default) ↔ satellit (hybrid) — dold när matrix är på */}
-          {!matrixOn && (
+          {/* Kartläge-växel: standard (default) ↔ satellit (hybrid) */}
           <TouchableOpacity
             onPress={() => setSatellite((s) => !s)}
             activeOpacity={0.8}
@@ -828,7 +786,6 @@ export function AirportMapWidget({ compact = false, rightSlot }: { compact?: boo
             <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{satellite ? 'Map' : 'Satellite'}</Text>
           </TouchableOpacity>
-          )}
 
           {/* Close button */}
           <TouchableOpacity

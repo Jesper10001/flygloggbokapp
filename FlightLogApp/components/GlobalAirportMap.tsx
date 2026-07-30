@@ -9,14 +9,14 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, Polygon, type Region, type MapType } from 'react-native-maps';
+import MapView, { Marker, Polygon, type Region, type MapType } from 'react-native-maps';
 import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
 
 // icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
 // Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
-export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
+export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 
 const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 // Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
@@ -30,13 +30,17 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, matrixStroke, matrixFill, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; matrixStroke?: { latitude: number; longitude: number }[]; matrixFill?: { latitude: number; longitude: number }[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
   useEffect(() => { setLayer(mapType); }, [mapType]); // följ extern mapType-prop (t.ex. visited-kartans satellitknapp)
   const [heading, setHeading] = useState(0); // kartans rotation (0 = norr uppåt) → styr kompassrosen
   const [pitch, setPitch] = useState(0);     // kartans lutning (0 = platt)
+  // Pin-markörerna måste fångas (renderas) medan kartan initieras — i satellit/flyover hinner de
+  // annars inte renderas och syns först efter att man panorerat. Spåra i ~2,5 s, frys sedan (prestanda).
+  const [tracks, setTracks] = useState(true);
+  useEffect(() => { const id = setTimeout(() => setTracks(false), 2500); return () => clearTimeout(id); }, [mapType]);
   const showPins = !!pins && pins.length > 0; // visa en exakt uppsättning flygplatser (filtrerat land)
   const prevRegionRef = useRef<Region | null>(null); // vy före fokus → återställs när kortet stängs
   const prevLayerRef = useRef<MapType | null>(null);
@@ -168,14 +172,6 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       showsCompass={interactive && !showCompass}
       toolbarEnabled={false}
     >
-      {/* Matrix-hölje (largest-area convex hull): svagt cyan-lager som målas fram. Ligger först = bakom pins. */}
-      {matrixFill && matrixFill.length >= 3 && (
-        <Polygon coordinates={matrixFill} fillColor="rgba(103,232,249,0.20)" strokeColor="rgba(103,232,249,0.5)" strokeWidth={1.5} />
-      )}
-      {matrixStroke && matrixStroke.length >= 2 && (
-        <Polyline coordinates={matrixStroke} strokeColor="#67E8F9" strokeWidth={3} />
-      )}
-
       {/* Grann-ytor (kringliggande länder/regioner): FYLLD dämpad cyan, HELA ytan klickbar → hoppa dit
           (inte bara chippen). tappable-polygonen träffar hela geometrin oavsett fyllnadsopacitet. */}
       {neighborPolys.map(({ key, ring }, i) => (
@@ -201,7 +197,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           coordinate={{ latitude: c.lat, longitude: c.lon }}
           onPress={() => onSelectCountry ? onSelectCountry(c.cc) : zoomTo(c.lat, c.lon, 3.5)}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
         >
           <View style={s.flagPin}>
             <Text style={s.flagEmoji}>{flagEmoji(c.cc)}</Text>
@@ -229,7 +225,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           title={onSelectAirport ? undefined : a[0]}
           description={onSelectAirport ? undefined : a[1]}
           onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
@@ -250,7 +246,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key="__selhl__"
           coordinate={{ latitude: selRow[4], longitude: selRow[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
         >
           <View style={s.selDot} />
@@ -264,7 +260,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
         >
           <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>
@@ -277,7 +273,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={`${m.key}:${m.count}`}
           coordinate={{ latitude: m.lat, longitude: m.lon }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           onPress={onSelectRegion ? () => onSelectRegion(m.key) : undefined}
         >
           <View style={s.regionChip}>
@@ -293,7 +289,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={`nb:${m.key}`}
           coordinate={{ latitude: m.lat, longitude: m.lon }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           onPress={onSelectNeighbor ? () => onSelectNeighbor(m.key) : undefined}
         >
           <View style={s.neighborChip}>
@@ -309,7 +305,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key="__focus__"
           coordinate={{ latitude: focus[4], longitude: focus[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
+          tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(focus[0]) : undefined}
         >
           <View style={{ alignItems: 'center' }}>

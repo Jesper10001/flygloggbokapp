@@ -49,6 +49,7 @@ function guessType(name) {
   if (/sea ?plane|float ?plane|water aerodrome|hydro/.test(s)) return 'seaplane';
   return 'small'; // legacy-ident (obskyra fält) → rimlig default så de syns under Airfields
 }
+const normName = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 async function main() {
   // Engångs-backup av original-seed/runways (för deterministisk merge vid om-körning).
@@ -60,29 +61,43 @@ async function main() {
   const air = parseCSV(await load('airport.csv', `${BASE}/airport.csv`));
   const ix = {}; air[0].forEach((h, i) => (ix[h.trim()] = i));
   const seed = new Map();
+  const amCodes = new Set();      // alla koder (ICAO/GPS/LOCAL) → undvik legacy-dubbletter under annan kod
+  const amByName = new Map();     // land|normaliserat namn → [[lat,lon]] → fånga dubbletter utan gemensam kod
   const typeCount = {};
   for (let i = 1; i < air.length; i++) {
     const r = air[i];
-    const icao = nn(r[ix.ICAO]); if (!icao) continue;
+    const icao = nn(r[ix.ICAO]);
+    for (const c of [icao, nn(r[ix.GPS]), nn(r[ix.LOCAL])]) if (c) amCodes.add(c);
+    if (!icao) continue;
+    if (icao === 'ZZZZ') continue; // reserverad off-airport-kod → aldrig en riktig flygplats i seeden
     const lat = parseFloat(r[ix.lat]), lon = parseFloat(r[ix.lon]);
     if (!isFinite(lat) || !isFinite(lon)) continue;
     const altN = parseInt(r[ix.alt], 10);
     const type = nn(r[ix.type]);
+    const country = nn(r[ix.country]), name = nn(r[ix.name]) || icao;
     typeCount[type] = (typeCount[type] || 0) + 1;
     seed.set(icao, [
-      icao, nn(r[ix.name]) || icao, nn(r[ix.country]), nn(r[ix.region]), round(lat), round(lon),
-      nn(r[ix.IATA]), isFinite(altN) ? altN : null, type, nn(r[ix.municipality]), nn(r[ix.restriction]),
+      icao, name, country, nn(r[ix.region]), round(lat), round(lon),
+      nn(r[ix.IATA]), isFinite(altN) ? altN : null, type, nn(r[ix.municipality]), nn(r[ix.restriction]), nn(r[ix.GPS]),
     ]);
+    const nk = `${country}|${normName(name)}`;
+    let arr = amByName.get(nk); if (!arr) { arr = []; amByName.set(nk, arr); } arr.push([round(lat), round(lon)]);
   }
   const fromAm = seed.size;
 
-  // Merge: behåll nuvarande ident som airportmap.de saknar (inga brutna uppslag).
-  let kept = 0;
+  // Merge: behåll nuvarande ident som airportmap.de saknar HELT. Hoppa över dubbletter — dvs samma kod
+  // (ICAO/GPS/LOCAL) ELLER samma land+namn nära en airportmap.de-flygplats (ex OKKK = dubblett av OKBK
+  // Kuwait International; legacy blir annars "small"/airfield + dubbel pin).
+  let kept = 0, skipped = 0;
   try {
     const legacy = JSON.parse(readFileSync(LEGACY_AIR, 'utf8'));
     for (const r of legacy) {
       if (seed.has(r[0])) continue;
-      seed.set(r[0], [r[0], r[1], r[2], r[3], r[4], r[5], '', null, guessType(r[1]), '', '']);
+      if (r[0] === 'ZZZZ') continue; // reserverad off-airport-kod
+      const near = amByName.get(`${r[2]}|${normName(r[1])}`);
+      const nameDup = near && near.some(([la, lo]) => Math.abs(la - r[4]) < 0.1 && Math.abs(lo - r[5]) < 0.1);
+      if (amCodes.has(r[0]) || nameDup) { skipped++; continue; }
+      seed.set(r[0], [r[0], r[1], r[2], r[3], r[4], r[5], '', null, guessType(r[1]), '', '', '']);
       kept++;
     }
   } catch {}
@@ -111,7 +126,7 @@ async function main() {
   writeFileSync(OUT_RWY, JSON.stringify(byApt));
 
   const kb = (f) => Math.round(readFileSync(f).length / 1024);
-  console.log(`\nSkrev ${OUT_AIR}: ${airOut.length} flygplatser (${fromAm} airportmap.de + ${kept} behållna legacy), ~${(kb(OUT_AIR) / 1024).toFixed(1)} MB`);
+  console.log(`\nSkrev ${OUT_AIR}: ${airOut.length} flygplatser (${fromAm} airportmap.de + ${kept} behållna legacy, ${skipped} legacy-dubbletter skippade), ~${(kb(OUT_AIR) / 1024).toFixed(1)} MB`);
   console.log('  typer:', JSON.stringify(typeCount));
   console.log(`Skrev ${OUT_RWY}: ${Object.keys(byApt).length} med banor (${rwyKept} legacy), ~${(kb(OUT_RWY) / 1024).toFixed(1)} MB`);
 }

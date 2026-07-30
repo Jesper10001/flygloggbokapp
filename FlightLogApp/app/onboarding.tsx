@@ -31,7 +31,6 @@ const accentForRole = (role: MainRole | null): string =>
 
 const MAIN_ROLES: { key: MainRole; icon: MCI; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[] = [
   { key: 'pilot-manned', icon: 'airplane', title_en: 'Pilot', title_sv: 'Pilot', desc_en: 'Manned aircraft — helicopter or airplane.', desc_sv: 'Bemannat luftfartyg — helikopter eller flygplan.' },
-  { key: 'operator', icon: 'account-tie', title_en: 'Operator', title_sv: 'Operatör', desc_en: 'Manned aircraft crew — chief, hoist, swimmer, HEMS.', desc_sv: 'Besättning bemannat — uppdragsspecialist, vinsch, ytbärgare, HEMS.' },
   { key: 'pilot-unmanned', icon: 'quadcopter', title_en: 'Drone Pilot', title_sv: 'Drönaroperatör', desc_en: 'Unmanned aircraft — commercial, military, hobby.', desc_sv: 'Obemannat luftfartyg — kommersiell, militär, hobby.' },
 ];
 
@@ -39,12 +38,6 @@ const SUB_ROLES: Record<MainRole, { key: SubRole; icon: MCI; title_en: string; t
   'pilot-manned': [
     { key: 'rotary', icon: 'helicopter', title_en: 'Helicopter', title_sv: 'Helikopter', desc_en: 'Helicopters and tilt-rotors.', desc_sv: 'Helikoptrar och tiltrotorer.' },
     { key: 'fixed', icon: 'airplane', title_en: 'Airplane', title_sv: 'Flygplan', desc_en: 'Propeller, jet and glider aircraft.', desc_sv: 'Propeller-, jet- och segelflygplan.' },
-  ],
-  'operator': [
-    { key: 'crew-chief', icon: 'shield-account', title_en: 'Crew Chief / Mission Specialist', title_sv: 'Uppdragsspecialist', desc_en: 'Mission lead, equipment, sensor operator.', desc_sv: 'Uppdragsledare, utrustning, sensoroperatör.' },
-    { key: 'swimmer', icon: 'swim', title_en: 'Rescue Swimmer', title_sv: 'Ytbärgare', desc_en: 'Water-rescue swimmer / diver.', desc_sv: 'Ytbärgare / dykare.' },
-    { key: 'hoist', icon: 'hook', title_en: 'Hoist Operator', title_sv: 'Vinschoperatör', desc_en: 'Winch and hoist operations.', desc_sv: 'Vinsch- och hissoperationer.' },
-    { key: 'loadmaster', icon: 'package-variant', title_en: 'Loadmaster', title_sv: 'Lastmästare', desc_en: 'Cargo, sling load and air drop operations.', desc_sv: 'Last, hänglast och fällningsoperationer.' },
   ],
   'pilot-unmanned': [
     { key: 'hobby', icon: 'star-four-points', title_en: 'Hobby', title_sv: 'Hobby', desc_en: 'Recreational flying under A1/A3 rules.', desc_sv: 'Hobbyflygning enligt A1/A3-regler.' },
@@ -57,16 +50,11 @@ const SUB_ROLES: Record<MainRole, { key: SubRole; icon: MCI; title_en: string; t
 // faller tillbaka på det gamla ikon-kortet.
 const ROLE_IMG: Record<MainRole, ImageSourcePropType> = {
   'pilot-manned': require('../assets/Pilot-helicopter.PNG'),
-  'operator': require('../assets/Operator-crewchief.PNG'),
   'pilot-unmanned': require('../assets/Drone-hobby.PNG'),
 };
 const SUBROLE_IMG: Partial<Record<SubRole, ImageSourcePropType>> = {
   rotary: require('../assets/Pilot-helicopter.PNG'),
   fixed: require('../assets/Pilot-fixedwing.PNG'),
-  'crew-chief': require('../assets/Operator-crewchief.PNG'),
-  swimmer: require('../assets/Operator-rescueswimmer.PNG'),
-  hoist: require('../assets/Operator-winsch.PNG'),
-  loadmaster: require('../assets/Operator-loadmaster.PNG'),
   commercial: require('../assets/Drone-commersial.PNG'),
   military: require('../assets/Drone-military.PNG'),
   hobby: require('../assets/Drone-hobby.PNG'),
@@ -74,13 +62,11 @@ const SUBROLE_IMG: Partial<Record<SubRole, ImageSourcePropType>> = {
 
 const STEP_TITLES: Record<MainRole, { en: string; sv: string }> = {
   'pilot-manned': { en: 'What do you fly?', sv: 'Vad flyger du?' },
-  'operator': { en: 'Which crew role?', sv: 'Vilken besättningsroll?' },
   'pilot-unmanned': { en: 'How do you fly?', sv: 'Hur flyger du?' },
 };
 
 const STEP_SUBS: Record<MainRole, { en: string; sv: string }> = {
   'pilot-manned': { en: 'Pick your primary aircraft category.', sv: 'Välj din primära farkostkategori.' },
-  'operator': { en: 'Sets duty-time fields and mission roles in your logbook.', sv: 'Ställer in tjänstetidsfält och uppdragsroller i din loggbok.' },
   'pilot-unmanned': { en: 'We tailor categories, certificates and reports to your context.', sv: 'Vi anpassar kategorier, certifikat och rapporter efter ditt sammanhang.' },
 };
 

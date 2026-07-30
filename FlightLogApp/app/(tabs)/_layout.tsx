@@ -3,7 +3,6 @@ import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Text, View, TouchableOpacity, Image } from 'react-native';
-import { useProfileStore, isOperator } from '../../store/profileStore';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -82,7 +81,7 @@ export default function TabsLayout() {
           title: '',
           tabBarButton: isDrone
             ? undefined
-            : () => <LogFlightButton premium={isPremium || isMax} onPress={() => router.push(isOperator(useProfileStore.getState().profile) ? '/flight/add-operator' : '/flight/add')} />,
+            : () => <LogFlightButton premium={isPremium || isMax} onPress={() => router.push('/flight/add')} />,
         }}
       />
       <Tabs.Screen

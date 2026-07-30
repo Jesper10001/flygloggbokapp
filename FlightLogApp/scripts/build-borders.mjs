@@ -126,7 +126,7 @@ function bboxCenter(geom) {
   return [(mnx + mxx) / 2, (mny + mxy) / 2];
 }
 // Merge-resultat (GeoJSON Polygon/MultiPolygon) → platta yttre ringar (avrundade, småöar bort, tak).
-function geomToRings(geom) {
+function geomToRings(geom, maxRings = MAX_RINGS) {
   if (!geom) return [];
   const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
   const out = [];
@@ -138,12 +138,12 @@ function geomToRings(geom) {
     if (flat.length >= 6) out.push(flat);
   }
   out.sort((a, b) => b.length - a.length);
-  return out.slice(0, MAX_RINGS);
+  return out.slice(0, maxRings);
 }
 
 // Bygg en topologi av taggade features (properties._k = grupp-nyckel), förenkla topologi-bevarande,
-// slå ihop per nyckel → { nyckel: rings }.
-function topoLayer(features) {
+// slå ihop per nyckel → { nyckel: rings }. maxRings höjs för multidelade länder (ex RU: Kaliningrad + öar).
+function topoLayer(features, maxRings = MAX_RINGS) {
   if (!features.length) return {};
   const fc = { type: 'FeatureCollection', features: features.map((f) => ({ type: 'Feature', geometry: f.geometry, properties: f.properties })) };
   let topo = topology({ r: fc });
@@ -156,7 +156,7 @@ function topoLayer(features) {
   }
   const out = {};
   for (const [k, geoms] of groups) {
-    const rings = geomToRings(merge(topo, geoms));
+    const rings = geomToRings(merge(topo, geoms), maxRings);
     if (rings.length) out[k] = rings;
   }
   return out;
@@ -217,6 +217,17 @@ async function main() {
     c0Features.push({ geometry: f.geometry, properties: { _k: cc } });
   }
   const countries = topoLayer(c0Features);
+
+  // Krim-korrigering: NE admin-0 lägger Krim i Ryssland (de facto). Seeden + ISO 3166-2 (UA-43/UA-40)
+  // har Krim som Ukraina. Bygg därför RU:s och UA:s landgräns från admin-1 (grupperat på iso-landsprefix)
+  // så Krim hamnar i Ukraina, inte Ryssland (annars ringas halvön in som rysk vid land-kontur).
+  for (const cc of ['RU', 'UA']) {
+    const feats = a1.features
+      .filter((f) => (f.properties.iso_3166_2 || '').toUpperCase().startsWith(`${cc}-`))
+      .map((f) => ({ geometry: f.geometry, properties: { _k: cc } }));
+    const built = topoLayer(feats, 40); // högt ring-tak → behåll Kaliningrad + öar
+    if (built[cc]) countries[cc] = built[cc];
+  }
 
   if (!existsSync(dirname(OUT))) mkdirSync(dirname(OUT), { recursive: true });
   const payload = { countries, regions, regionNames };

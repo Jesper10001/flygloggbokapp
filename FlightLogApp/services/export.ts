@@ -2,7 +2,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getFlights, getFlightStats } from '../db/flights';
 import type { Flight } from '../types/flight';
-import { parseOperatorData, getRoleFields } from '../constants/operatorRoles';
 
 // ── Tidsformatering ──────────────────────────────────────────────────────────
 
@@ -129,62 +128,6 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
       mimeType: 'text/csv',
       dialogTitle: 'Export logbook — CSV',
     });
-  }
-}
-
-// ── Operatörsexport (uppdragsdata) ───────────────────────────────────────────
-
-export async function exportOperatorCSV(): Promise<void> {
-  const flights = await getFlights(99999);
-  const tempCodes = await getTempIcaoCodes();
-  const ops = flights
-    .map((f) => ({ f, op: parseOperatorData(f) }))
-    .filter((x) => x.op !== null) as { f: Flight; op: any }[];
-
-  // Union av rollfält i rollens ordning (exkl. mission_type → egen kolumn).
-  const keyOrder: string[] = [];
-  const seen = new Set<string>();
-  const defByKey: Record<string, any> = {};
-  for (const { op } of ops) {
-    for (const def of getRoleFields(op.role)) {
-      defByKey[def.key] = def;
-      if (def.key !== 'mission_type' && !seen.has(def.key)) { seen.add(def.key); keyOrder.push(def.key); }
-    }
-  }
-
-  const cell = (op: any, key: string): string => {
-    const v = op[key];
-    if (v == null) return '';
-    if (Array.isArray(v)) return v.join('; ');
-    if (v === true) return 'yes';
-    if (v === false) return '';
-    return String(v);
-  };
-  const missionCell = (op: any): string => {
-    const mt = op.mission_type;
-    return Array.isArray(mt) ? mt.join('; ') : (mt ?? '');
-  };
-
-  const headers = [
-    'Date', 'Aircraft', 'Reg', 'Departure', 'Arrival', 'Duty time', 'Night', 'Role', 'Mission',
-    ...keyOrder.map((k) => (defByKey[k] ? defByKey[k].label_en : k)),
-    'Remarks',
-  ];
-  const rows = ops.map(({ f, op }) => [
-    f.date, f.aircraft_type, f.registration,
-    exportPlace(f.dep_place, tempCodes), exportPlace(f.arr_place, tempCodes),
-    toHHMM(Number(f.total_time) || 0), toHHMM(Number(f.night) || 0),
-    op.role, missionCell(op),
-    ...keyOrder.map((k) => cell(op, k)),
-    f.remarks ?? '',
-  ].map(escapeCSV).join(','));
-
-  const csv = [headers.join(','), ...rows].join('\r\n');
-  const filename = `operator_log_${new Date().toISOString().split('T')[0]}.csv`;
-  const path = FileSystem.documentDirectory + filename;
-  await FileSystem.writeAsStringAsync(path, '﻿' + csv, { encoding: FileSystem.EncodingType.UTF8 });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export operator log — CSV' });
   }
 }
 

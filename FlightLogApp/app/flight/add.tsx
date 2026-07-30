@@ -1043,7 +1043,21 @@ export default function AddFlightScreen() {
       setForm((prev) => ({ ...prev, takeoffs_day: '0', takeoffs_night: '0', landings_day: '0', landings_night: '0' }));
     } else {
       setTakeoffsManual(false); setLandingsManual(false);
-      setForm((prev) => ({ ...prev, takeoffs_day: '1', takeoffs_night: '0', landings_day: '1', landings_night: '0' }));
+      // Återställ 1 start + 1 landning, men klassa dag/natt DIREKT via solhöjden — annars skrev detta
+      // över mörkerlandnings-/take-off-autona (de körs före denna effekt) och landningen blev "day"
+      // trots ankomst i mörker. T&G sköts av route-autona nedan.
+      if (form.flight_type === 'touch_and_go') {
+        setForm((prev) => ({ ...prev, takeoffs_day: '1', takeoffs_night: '0', landings_day: '1', landings_night: '0' }));
+      } else {
+        const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+        const depDark = !!(inst && depLatLon && solarAltitudeDeg(inst.dep, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG);
+        const arrDark = !!(inst && arrLatLon && solarAltitudeDeg(inst.arr, arrLatLon.lat, arrLatLon.lon) < CIVIL_TWILIGHT_DEG);
+        setForm((prev) => ({
+          ...prev,
+          takeoffs_day: depDark ? '0' : '1', takeoffs_night: depDark ? '1' : '0',
+          landings_day: arrDark ? '0' : '1', landings_night: arrDark ? '1' : '0',
+        }));
+      }
     }
     pfWasZero.current = pfZero;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2144,7 +2158,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <SlideToggle
                 block
                 sans
-                options={[{ value: 'icao', label: t('icao_label') }, { value: 'temp', label: 'ZZZZ' }]}
+                options={[{ value: 'icao', label: 'Airport' }, { value: 'temp', label: 'Off-airport' }]}
                 value={depCustom ? 'temp' : 'icao'}
                 onChange={(v) => { setDepCustom(v === 'temp'); set('dep_place', ''); }}
               />
@@ -2255,7 +2269,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <SlideToggle
                 block
                 sans
-                options={[{ value: 'icao', label: t('icao_label') }, { value: 'temp', label: 'ZZZZ' }]}
+                options={[{ value: 'icao', label: 'Airport' }, { value: 'temp', label: 'Off-airport' }]}
                 value={arrCustom ? 'temp' : 'icao'}
                 onChange={(v) => { setArrCustom(v === 'temp'); set('arr_place', ''); }}
               />

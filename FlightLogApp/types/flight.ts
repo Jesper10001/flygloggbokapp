@@ -131,6 +131,7 @@ export interface IcaoAirport {
   alt?: number | null;   // fältelevation (ft)
   type?: string;         // airportmap.de-kategori: large/medium/small/heliport/seaplane/altiport/balloonport/closed
   municipality?: string; // närmaste ort
+  gps?: string;          // GPS-kod (airportmap.de), '' om saknas
   custom?: boolean;
   temporary?: number; // 1 = off-airport (ZZZZ), ej på karta
 }

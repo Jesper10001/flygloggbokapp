@@ -8,7 +8,6 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useProfileStore, isOperator } from '../store/profileStore';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
 import { AirportInfoCard } from './AirportInfoCard';
 import { getSeedAirports } from '../db/icao';
@@ -27,7 +26,7 @@ import { neighborCountries } from '../utils/neighbors';
 import { countryBorder } from '../utils/borders';
 import { Colors } from '../constants/colors';
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 const WORLD: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 const MAX_LEN = 4000; // slider-tak för banlängd (m)
@@ -68,7 +67,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [mapSearch, setMapSearch] = useState('');
   const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null);
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState(true); // satellitläge förvalt
+  useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
 
@@ -81,6 +81,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [closedMode, setClosedMode] = useState<'hide' | 'include' | 'only'>('hide'); // closed döljs som standard
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
+  const [liveMin, setLiveMin] = useState<number | null>(null); // runway-slidrarnas live-värde medan man drar
+  const [liveMax, setLiveMax] = useState<number | null>(null);
+  const [liveMinAlt, setLiveMinAlt] = useState<number | null>(null); // elevation-slidrarnas live-värde
+  const [liveMaxAlt, setLiveMaxAlt] = useState<number | null>(null);
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
@@ -97,7 +101,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // ── Filtrerat urval (union av aktiva löv, AND Properties) ────────────────────
   const typedSeed = useMemo(() => {
     const leaves = leavesFor(activeKeys);
-    const pActive = propsActive(mapProps);
+    // Runway-props kräver banindex; elevation (alt, r[7]) ligger på seed-raden → separat filter.
+    const runwayActive = mapProps.minLenM != null || mapProps.maxLenM != null || mapProps.surface != null || mapProps.lit;
+    const altActive = mapProps.minAltFt != null || mapProps.maxAltFt != null;
+    const pActive = runwayActive || altActive;
     // Favorites-läge: begränsa till favoriter först (går att filtrera vidare bland dem).
     const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
     // Closed-läge: standard (hide) döljer closed ur originalpresentationen; 'only' visar bara closed;
@@ -106,14 +113,57 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
       : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed')
       : favBase.filter((r) => r[8] !== 'closed');
     if (!leaves.length && !pActive) return base;
-    const idx = (pActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
+    const idx = (runwayActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
     return base.filter((r) => {
       const rwy = idx?.get(r[0]);
       if (leaves.length && !leaves.some((l) => l.match(r, rwy))) return false;
-      if (pActive && !matchProps(rwy, mapProps)) return false;
+      if (runwayActive && !matchProps(rwy, mapProps)) return false;
+      if (altActive) {
+        const a = r[7];
+        if (a == null || (mapProps.minAltFt != null && a < mapProps.minAltFt) || (mapProps.maxAltFt != null && a > mapProps.maxAltFt)) return false;
+      }
       return true;
     });
   }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites]);
+
+  // Runway-längdintervall för nuvarande urval (kategori/closed/fav — EJ längdfiltret självt) → sätter
+  // slidrarnas gränser + default (kortaste/längsta bana som finns). Beräknas bara när Properties är öppet.
+  const lenRange = useMemo(() => {
+    if (!showProps) return { min: 0, max: MAX_LEN };
+    const leaves = leavesFor(activeKeys);
+    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
+    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
+    const idx = getRunwayIndex();
+    let mn = Infinity, mx = 0;
+    for (const r of base) {
+      const rwy = idx.get(r[0]);
+      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;
+      if (rwy.maxLenM < mn) mn = rwy.maxLenM;
+      if (rwy.maxLenM > mx) mx = rwy.maxLenM;
+    }
+    if (mn === Infinity || mx <= 0) return { min: 0, max: MAX_LEN };
+    const lo = Math.floor(mn / 50) * 50;
+    return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
+  }, [showProps, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Elevation-intervall (alt, ft) för nuvarande urval → sätter elevation-slidrarnas gränser + default.
+  const altRange = useMemo(() => {
+    if (!showProps) return { min: 0, max: 1000 };
+    const leaves = leavesFor(activeKeys);
+    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
+    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
+    let mn = Infinity, mx = -Infinity;
+    for (const r of base) {
+      if (leaves.length && !leaves.some((l) => l.match(r, undefined))) continue;
+      const a = r[7];
+      if (a == null) continue;
+      if (a < mn) mn = a; if (a > mx) mx = a;
+    }
+    if (mn === Infinity) return { min: 0, max: 1000 };
+    const lo = Math.floor(mn / 50) * 50;
+    return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
+  }, [showProps, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
   // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
@@ -258,8 +308,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const currentFilterNodes = filterNav.length ? filterNav[filterNav.length - 1].children ?? [] : FILTER_TREE;
   const toggleKey = (k: string) => setActiveKeys((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const clearAll = () => { setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide'); };
-  const setMinLen = (v: number) => setMapProps((p) => ({ ...p, minLenM: v > 0 ? Math.min(v, p.maxLenM ?? MAX_LEN) : null }));
-  const setMaxLen = (v: number) => setMapProps((p) => ({ ...p, maxLenM: v < MAX_LEN ? Math.max(v, p.minLenM ?? 0) : null }));
+  // null = ingen begränsning (= intervallets kant). Ligger man på kanten → null, annars det valda värdet.
+  const setMinLen = (v: number) => setMapProps((p) => ({ ...p, minLenM: v <= lenRange.min ? null : Math.min(v, p.maxLenM ?? lenRange.max) }));
+  const setMaxLen = (v: number) => setMapProps((p) => ({ ...p, maxLenM: v >= lenRange.max ? null : Math.max(v, p.minLenM ?? lenRange.min) }));
+  const setMinAlt = (v: number) => setMapProps((p) => ({ ...p, minAltFt: v <= altRange.min ? null : Math.min(v, p.maxAltFt ?? altRange.max) }));
+  const setMaxAlt = (v: number) => setMapProps((p) => ({ ...p, maxAltFt: v >= altRange.max ? null : Math.max(v, p.minAltFt ?? altRange.min) }));
   const toggleSurface = (sfc: 'asphalt' | 'grass') => setMapProps((p) => ({ ...p, surface: p.surface === sfc ? null : sfc }));
 
   const anyFilter = activeKeys.size > 0 || propsActive(mapProps) || closedMode !== 'hide';
@@ -409,13 +462,26 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             {filterOpen && (showProps ? (
               <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
                 <Text style={styles.propLabel}>Runway length</Text>
-                <Text style={styles.propVal}>Min: {mapProps.minLenM != null ? `${mapProps.minLenM} m` : 'Any'}</Text>
-                <Slider style={{ height: 30 }} minimumValue={0} maximumValue={MAX_LEN} step={100}
-                  value={mapProps.minLenM ?? 0} onSlidingComplete={setMinLen}
+                <Text style={styles.propVal}>Min: {Math.round(liveMin ?? mapProps.minLenM ?? lenRange.min)} m</Text>
+                <Slider style={{ height: 30 }} minimumValue={lenRange.min} maximumValue={lenRange.max} step={50}
+                  value={mapProps.minLenM ?? lenRange.min}
+                  onValueChange={setLiveMin} onSlidingComplete={(v) => { setLiveMin(null); setMinLen(v); }}
                   minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
-                <Text style={styles.propVal}>Max: {mapProps.maxLenM != null ? `${mapProps.maxLenM} m` : 'Any'}</Text>
-                <Slider style={{ height: 30 }} minimumValue={0} maximumValue={MAX_LEN} step={100}
-                  value={mapProps.maxLenM ?? MAX_LEN} onSlidingComplete={setMaxLen}
+                <Text style={styles.propVal}>Max: {Math.round(liveMax ?? mapProps.maxLenM ?? lenRange.max)} m</Text>
+                <Slider style={{ height: 30 }} minimumValue={lenRange.min} maximumValue={lenRange.max} step={50}
+                  value={mapProps.maxLenM ?? lenRange.max}
+                  onValueChange={setLiveMax} onSlidingComplete={(v) => { setLiveMax(null); setMaxLen(v); }}
+                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
+                <Text style={[styles.propLabel, { marginTop: 8 }]}>Elevation</Text>
+                <Text style={styles.propVal}>Min: {Math.round(liveMinAlt ?? mapProps.minAltFt ?? altRange.min)} ft</Text>
+                <Slider style={{ height: 30 }} minimumValue={altRange.min} maximumValue={altRange.max} step={50}
+                  value={mapProps.minAltFt ?? altRange.min}
+                  onValueChange={setLiveMinAlt} onSlidingComplete={(v) => { setLiveMinAlt(null); setMinAlt(v); }}
+                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
+                <Text style={styles.propVal}>Max: {Math.round(liveMaxAlt ?? mapProps.maxAltFt ?? altRange.max)} ft</Text>
+                <Slider style={{ height: 30 }} minimumValue={altRange.min} maximumValue={altRange.max} step={50}
+                  value={mapProps.maxAltFt ?? altRange.max}
+                  onValueChange={setLiveMaxAlt} onSlidingComplete={(v) => { setLiveMaxAlt(null); setMaxAlt(v); }}
                   minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 4 }}>
                   {(['asphalt', 'grass'] as const).map((sfc) => (
@@ -507,8 +573,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 lastText={lf ? fmtVisit(lf.date) : undefined}
                 onLastPress={lf ? () => {
                   closeMap();
-                  const op = isOperator(useProfileStore.getState().profile);
-                  router.push((op ? `/flight/${lf.id}` : `/flight/detail/${lf.id}`) as any);
+                  router.push(`/flight/detail/${lf.id}` as any);
                 } : undefined}
                 onClose={() => setFocusAirport(null)}
                 isFavorite={favorites.has(focusAirport[0])}

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { getAirportLandingCounts } from '../db/flights';
@@ -11,11 +12,12 @@ import { getSeedAirports } from '../db/icao';
 import { topContinentThumb, type ThumbRegion } from '../utils/thumbRegion';
 import { GlobalMapModal } from './GlobalMapModal';
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 // Hela globen (utzoomat) → satelliteFlyover renderar 3D-jordklotet.
 const WORLD: ThumbRegion = { latitude: 20, longitude: 10, latitudeDelta: 150, longitudeDelta: 150 };
 
-export function GlobalMapButton() {
+// asButton: liten pill-knapp (öppnar samma modal) — används i globens övre högra hörn på dashboarden.
+export function GlobalMapButton({ asButton = false }: { asButton?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [region, setRegion] = useState<ThumbRegion>(WORLD);
   const [flags, setFlags] = useState<{ cc: string; lat: number; lon: number; count: number }[]>([]);
@@ -52,6 +54,23 @@ export function GlobalMapButton() {
       setFlags(fl);
     })();
   }, []);
+
+  // Liten pill-knapp (globens övre högra hörn på dashboarden) — öppnar samma modal.
+  if (asButton) {
+    return (
+      <>
+        <TouchableOpacity
+          onPress={() => setOpen(true)}
+          activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.primary + '66' }}
+        >
+          <Ionicons name="globe" size={14} color={Colors.primary} />
+          <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Global map</Text>
+        </TouchableOpacity>
+        <GlobalMapModal visible={open} onClose={() => setOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <>

@@ -13,10 +13,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FlightVideo } from '../../components/FlightVideo';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFlightsWithPhotos } from '../../db/flights';
 import { getAssetDisplay } from '../../services/photoSync';
+import { FlightShareCard } from '../../components/FlightShareCard';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -122,11 +123,16 @@ export default function AlbumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { formatTime } = useTimeFormat();
+  // share=1 → "share mode": tryck på en bild öppnar delningsfönstret (performance/route/postcard)
+  // i stället för fullskärmsvisning. Nås via Share-knappen i dashboardens fotokarusell.
+  const { share } = useLocalSearchParams<{ share?: string }>();
+  const shareMode = share === '1';
   const mapRef = useRef<MapView>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Flight | null>(null); // fullskärm
+  const [shareFlight, setShareFlight] = useState<Flight | null>(null); // valt media för delning
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [media, setMedia] = useState<Record<number, Media>>({});
   const [airports, setAirports] = useState<Record<string, LatLon>>({});
@@ -222,7 +228,7 @@ export default function AlbumScreen() {
     try { setOverlayPt(await mapRef.current.pointForCoordinate(pos)); } catch {}
   };
   useEffect(() => { if (pin) updateOverlay(); else setOverlayPt(null); }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openTile = useCallback((f: Flight) => setSelected(f), []);
+  const openTile = useCallback((f: Flight) => { if (shareMode) setShareFlight(f); else setSelected(f); }, [shareMode]);
 
   // Tryck på ett kluster → zooma in mot dess centrum (delar upp det).
   const zoomToCluster = (c: { lat: number; lon: number }) => {
@@ -243,18 +249,28 @@ export default function AlbumScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Grid / Map-växlare */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 }}>
-        {(['grid', 'map'] as const).map((v) => (
-          <TouchableOpacity key={v} onPress={() => { setView(v); setPin(null); }} activeOpacity={0.8}
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: view === v ? Colors.primary : Colors.border, backgroundColor: view === v ? Colors.primary + '18' : Colors.surface }}>
-            <Ionicons name={v === 'grid' ? 'grid' : 'map'} size={15} color={view === v ? Colors.primary : Colors.textSecondary} />
-            <Text style={{ color: view === v ? Colors.primary : Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>{v === 'grid' ? 'Grid' : 'Map'}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Share-läge: liten instruktion högst upp */}
+      {shareMode && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44' }}>
+          <Ionicons name="share-outline" size={15} color={Colors.primary} />
+          <Text style={{ flex: 1, color: Colors.primary, fontSize: 12.5, fontWeight: '700' }}>Pick a photo to share</Text>
+        </View>
+      )}
 
-      {view === 'grid' ? (
+      {/* Grid / Map-växlare — döljs i share-läge (då visas bara rutnätet) */}
+      {!shareMode && (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 }}>
+          {(['grid', 'map'] as const).map((v) => (
+            <TouchableOpacity key={v} onPress={() => { setView(v); setPin(null); }} activeOpacity={0.8}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: view === v ? Colors.primary : Colors.border, backgroundColor: view === v ? Colors.primary + '18' : Colors.surface }}>
+              <Ionicons name={v === 'grid' ? 'grid' : 'map'} size={15} color={view === v ? Colors.primary : Colors.textSecondary} />
+              <Text style={{ color: view === v ? Colors.primary : Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>{v === 'grid' ? 'Grid' : 'Map'}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {(shareMode || view === 'grid') ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
           {groups.map((yg) => (
             <View key={yg.year}>
@@ -306,7 +322,7 @@ export default function AlbumScreen() {
           {/* Översiktsruta i botten (som loggbokens rad) — tryck → flight detail, X → avmarkera */}
           {pin && (
             <View style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, paddingLeft: 14, paddingRight: 8 }}>
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/flight/detail/${pin.id}`)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
+              <TouchableOpacity activeOpacity={0.85} onPress={() => { if (shareMode) setShareFlight(pin); else router.push(`/flight/detail/${pin.id}`); }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                     <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700', color: Colors.textPrimary }}>{pin.dep_place} → {pin.arr_place}</Text>
@@ -345,6 +361,18 @@ export default function AlbumScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delningsfönster (performance/route/postcard) — öppnas i share-läge */}
+      {shareFlight && (
+        <FlightShareCard
+          flight={shareFlight}
+          depName={placeNames[shareFlight.dep_place?.toUpperCase()] ?? shareFlight.dep_place}
+          arrName={placeNames[shareFlight.arr_place?.toUpperCase()] ?? shareFlight.arr_place}
+          visible={!!shareFlight}
+          onClose={() => setShareFlight(null)}
+          formatTime={formatTime}
+        />
+      )}
     </View>
   );
 }

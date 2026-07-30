@@ -12,8 +12,10 @@ import { roleLabel, isPicFlight, arrUtc, parseDate } from './flightDisplay';
 import { NightRoute } from './NightRoute';
 import { useNightFraction } from './useNightFraction';
 
-export function LatestFlightCard({ flight: f, accent, placeNames, onPress }: {
+export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, showLabel = true }: {
   flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
+  onAddPhoto?: (flight: Flight) => void; // snabbknapp för att lägga till media (visas bara utan befintligt media)
+  showLabel?: boolean; // false på icke-senaste kort i karusellen → strecket går hela vägen vänster
 }) {
   const { formatTime, timeFormat } = useTimeFormat();
   const { nightFrac, darkOnsetUtc } = useNightFraction(f);
@@ -51,7 +53,19 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress }: {
         <LinearGradient colors={[accent + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
         {/* header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>
+          {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
+          {/* Add media: till höger om "Latest flight" (senaste kortet) resp. i övre vänstra hörnet
+              (övriga kort utan label). Ligger i headern så flygplatsnamn nedan slipper radbrytas. */}
+          {onAddPhoto && !f.photo_uri && (
+            <TouchableOpacity
+              onPress={() => onAddPhoto(f)}
+              activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.gold + '1A', borderWidth: 1, borderColor: Colors.gold + '66' }}
+            >
+              <Ionicons name="camera-outline" size={12} color={Colors.gold} />
+              <Text style={{ fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', color: Colors.gold }}>Add media</Text>
+            </TouchableOpacity>
+          )}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>
         </View>

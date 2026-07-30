@@ -147,7 +147,9 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [resolvedName, setResolvedName] = useState('');
   const [suggestions, setSuggestions] = useState<IcaoAirport[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dismissed, setDismissed] = useState(false); // efter ett val: dölj listan tills man skriver igen
   const inputRef = useRef<TextInput>(null);
+  const searchSeq = useRef(0); // ogiltigförklarar stale sök-resultat (async-race vid val)
   useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   // Place status for confirmation icon color
@@ -159,8 +161,17 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [hereName, setHereName] = useState('');
   const [hereCoords, setHereCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<IcaoAirport[]>([]);
+  // ZZZZ: ort-/stadsförslag via geokodning (Apple-geokodaren) → located temp-plats utan kartplacering.
+  const [placeSuggestions, setPlaceSuggestions] = useState<{ name: string; lat: number; lon: number }[]>([]);
+
+  // Vilken kod som visas i listan: skriver man en IATA-kod (prefixmatchar iata) → visa IATA, annars ICAO.
+  const displayCode = (a: IcaoAirport) => {
+    const q = inputText.trim().toUpperCase();
+    return q && a.iata && a.iata.toUpperCase().startsWith(q) ? a.iata : a.icao;
+  };
 
   useEffect(() => {
+    searchSeq.current++; // en value-ändring (t.ex. efter val) ogiltigförklarar stale sökresultat
     setSuggestions([]);
     setShowDropdown(false);
     if (value.length >= 2) {
@@ -194,27 +205,63 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       setInputText(value);
       setResolvedName('');
     }
-  }, [value]);
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ZZZZ: geokoda den skrivna texten (debouncat) → ort-/stadsförslag med koordinater. Inga flygplatser.
+  useEffect(() => {
+    const q = inputText.trim();
+    if (!allowHere || placeStatus || q.length < 3 || q.toUpperCase() === 'ZZZZ') { setPlaceSuggestions([]); return; }
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      try {
+        const results = await Location.geocodeAsync(q);
+        const labeled = await Promise.all(results.slice(0, 4).map(async (r) => {
+          let name = q;
+          try {
+            const [g] = await Location.reverseGeocodeAsync({ latitude: r.latitude, longitude: r.longitude });
+            name = g?.city || g?.district || g?.subregion || g?.name || q;
+          } catch {}
+          return { name, lat: r.latitude, lon: r.longitude };
+        }));
+        const seen = new Set<string>();
+        const dedup = labeled.filter((p) => { const k = p.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 3);
+        if (!cancelled) setPlaceSuggestions(dedup);
+      } catch { if (!cancelled) setPlaceSuggestions([]); }
+    }, 700);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [inputText, allowHere, placeStatus]);
 
   const handleChangeText = (text: string) => {
     const display = allowHere ? text : text.toUpperCase();
     setInputText(display);
+    setDismissed(false); // användaren skriver → tillåt förslag igen
     if (!display) {
       onChangeText('');
       setSuggestions([]);
       setShowDropdown(false);
       return;
     }
-    searchAirports(display).then((results) => {
-      const filtered = allowHere ? results.filter(r => (r as any).temporary === 1) : results;
-      setSuggestions(filtered);
+    // Airport-läget: sökningen matchar ICAO + IATA direkt; flygplatsnamn först från 5 tecken (de fyra
+    // första reserverade för koder). Off-airport: namnsök alltid (för egna sparade temp-platser).
+    const seq = ++searchSeq.current;
+    searchAirports(display, allowHere ? 1 : 5).then((results) => {
+      if (seq !== searchSeq.current) return; // nyare sökning eller ett val har skett → ignorera stale resultat
+      const filtered = allowHere ? results.filter((r) => (r as any).temporary === 1) : results;
+      setSuggestions(filtered); // alltid lista — användaren väljer själv (inget auto-val)
       setShowDropdown(filtered.length > 0);
     });
   };
 
   const commitTempName = async (name: string) => {
+    searchSeq.current++;
+    setDismissed(true);
     const trimmed = name.trim();
     if (!trimmed) return;
+    // Literal "ZZZZ" → ren platshållare, ingen plats sparas (koordinater anges ev. i remarks).
+    if (trimmed.toUpperCase() === 'ZZZZ') {
+      onChangeText('ZZZZ'); setInputText('ZZZZ'); setSuggestions([]); setShowDropdown(false); onConfirm?.('ZZZZ');
+      return;
+    }
     // Redan sparad plats (DB)?
     const existing = await getTempPlaceByName(trimmed);
     if (existing) {
@@ -252,23 +299,49 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const handleBlur = () => {
     if (allowHere && inputText.trim() && !placeStatus) {
       commitTempName(inputText);
+      return;
     }
+    // Airport-läge: dölj förslagslistan när fältet lämnas (fördröjt så ett förslagstryck hinner
+    // registreras först) — annars kan listan ligga kvar över tidsrutan.
+    setTimeout(() => setShowDropdown(false), 150);
   };
 
   const select = (airport: IcaoAirport) => {
-    onChangeText(airport.icao);
+    searchSeq.current++; // ogiltigförklara ev. pågående sökning så listan inte åter-dyker upp
+    setDismissed(true);
+    onChangeText(airport.icao); // lagra alltid kanonisk ICAO-ident
     setInputText(airport.temporary ? airport.name : airport.icao);
     setSuggestions([]);
+    setPlaceSuggestions([]);
     setShowDropdown(false);
     inputRef.current?.blur();
     onConfirm?.(airport.icao);
   };
 
   const selectRecent = (icao: string) => {
+    searchSeq.current++;
+    setDismissed(true);
     onChangeText(icao);
     setInputText(icao);
     setSuggestions([]);
+    setPlaceSuggestions([]);
     setShowDropdown(false);
+    onConfirm?.(icao);
+  };
+
+  // Välj ett geokodat ortförslag → located temp-plats (koordinater direkt, ingen kartplacering behövs).
+  const selectPlace = async (p: { name: string; lat: number; lon: number }) => {
+    searchSeq.current++;
+    setDismissed(true);
+    const name = p.name.slice(0, 30);
+    const icao = await generateTemporaryIcao(name);
+    await addTemporaryPlace(icao, name, p.lat, p.lon);
+    onChangeText(icao);
+    setInputText(name);
+    setSuggestions([]);
+    setPlaceSuggestions([]);
+    setShowDropdown(false);
+    inputRef.current?.blur();
     onConfirm?.(icao);
   };
 
@@ -408,14 +481,27 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           </TouchableOpacity>
         )}
       </View>
-      {showDropdown && (
+      {(showDropdown || placeSuggestions.length > 0) && !dismissed && (
         <View style={styles.dropdown}>
+          {placeSuggestions.map((p, idx) => (
+            <View key={`pl-${idx}`}>
+              {idx > 0 && <View style={styles.sep} />}
+              <TouchableOpacity style={styles.suggestion} onPress={() => selectPlace(p)}>
+                <Ionicons name="location" size={16} color={Colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.suggestionCountry}>Place · located</Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={15} color={Colors.success} />
+              </TouchableOpacity>
+            </View>
+          ))}
           {suggestions.slice(0, 8).map((item, idx) => {
             const isTemp = (item as any).temporary === 1;
             const isLocated = isTemp && item.lat !== 0 && item.lon !== 0;
             return (
               <View key={item.icao}>
-                {idx > 0 && <View style={styles.sep} />}
+                {(idx > 0 || placeSuggestions.length > 0) && <View style={styles.sep} />}
                 <TouchableOpacity style={styles.suggestion} onPress={() => select(item)}>
                   {isTemp ? (
                     // Off-airport: bara namnet + grön checkmark (ingen pin, ingen "saved place")
@@ -427,7 +513,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     </>
                   ) : (
                     <>
-                      <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{item.icao}</Text>
+                      <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{displayCode(item)}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
                         <Text style={styles.suggestionCountry}>{item.country}</Text>

@@ -125,6 +125,17 @@ export async function syncPhotos(onProgress?: (done: number, total: number) => v
   return { matches, scanned: cands.length };
 }
 
+/** Finns det något att synka? Sant om aldrig synkat, eller om det finns ännu okopplade
+ *  flygningar skapade efter senaste synk (dvs. "nya flighter har tillkommit"). Falskt om
+ *  native-modulen saknas (då är synk inte möjlig alls). Styr utgråning av Sync-knappen. */
+export async function hasPendingSync(): Promise<boolean> {
+  if (!ml()) return false;
+  const lastSync = parseInt((await getSetting(LAST_SYNC_KEY)) || '0', 10) || 0;
+  if (!lastSync) return true; // aldrig synkat
+  const flights = await getFlights(100000);
+  return flights.some((f) => !f.photo_local_id && !!flightInterval(f) && flightCreatedMs(f) > lastSync);
+}
+
 /** Full fönstersökning för EN flygning (manuell om-koppling från detaljsidan — inte inkrementell). */
 export async function getFlightPhotoCandidates(f: Flight): Promise<ML.Asset[]> {
   const iv = flightInterval(f);

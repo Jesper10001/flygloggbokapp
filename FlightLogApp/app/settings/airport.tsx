@@ -500,7 +500,7 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
 
 // ── Huvudskärm ────────────────────────────────────────────────────────────────
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 type CountryEntry = { code: string; count: number };
 
 function buildCountryIndex(data: SeedRow[]): CountryEntry[] {

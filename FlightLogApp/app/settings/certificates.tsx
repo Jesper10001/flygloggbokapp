@@ -10,7 +10,6 @@ import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useAppModeStore } from '../../store/appModeStore';
 import { getCategoryRecency, type CategoryRecency } from '../../db/drones';
-import { useProfileStore, isOperator } from '../../store/profileStore';
 import {
   listCertificates, addCertificate, updateCertificate, deleteCertificate,
   certStatus, type DroneCertificate,
@@ -148,19 +147,6 @@ const CAA_GROUPS: CertGroup[] = [
   OTHER_GROUP,
 ];
 
-// Operatörskvalifikationer (SAR/HEMS/militär) — läggs till för operatörer.
-const OPERATOR_EXTRA: CertGroup = { title: 'Crew qualifications', items: [
-  { name: 'Crew Chief Qualification', months: 24, hint: 'Operator-defined recurrent.' },
-  { name: 'Hoist Operator', months: 12, hint: 'Operator-defined recurrent.' },
-  { name: 'Rescue Swimmer', months: 12, hint: 'Operator-defined recurrent.' },
-  { name: 'HEMS Crew Member', months: 12, hint: 'Operator-defined recurrent.' },
-  { name: 'Loadmaster', months: 24, hint: 'Operator-defined recurrent.' },
-  { name: 'NVG Qualification', months: 12, hint: 'Kept current by recent experience.' },
-  { name: 'Underwater Escape (HUET)', months: 48, hint: 'Typically every 3–4 years.' },
-  { name: 'Fire Fighting', months: 36, hint: 'Recurrent.' },
-  { name: 'First Aid', months: 24, hint: 'Recurrent.' },
-] };
-
 const DRONE_GROUPS: CertGroup[] = [
   { title: 'Certificates of competency', items: [
     { name: 'A1/A3', months: 60, hint: 'EU Open category — 5 years.' },
@@ -172,18 +158,15 @@ const DRONE_GROUPS: CertGroup[] = [
   ] },
 ];
 
-function getGroups(mode: string, isOp: boolean, authority: Authority): CertGroup[] {
+function getGroups(mode: string, authority: Authority): CertGroup[] {
   if (mode === 'drone') return DRONE_GROUPS;
-  const base = authority === 'FAA' ? FAA_GROUPS : authority === 'UK CAA' ? CAA_GROUPS : EASA_GROUPS;
-  if (!isOp) return base;
-  // Operatörsgrupp infogas precis före "Other".
-  return [...base.slice(0, -1), OPERATOR_EXTRA, base[base.length - 1]];
+  return authority === 'FAA' ? FAA_GROUPS : authority === 'UK CAA' ? CAA_GROUPS : EASA_GROUPS;
 }
 
 // Plattt namn→månader för renew-knappens default (myndighetsoberoende).
 const MONTHS_BY_NAME: Record<string, number> = (() => {
   const m: Record<string, number> = {};
-  for (const g of [...EASA_GROUPS, ...FAA_GROUPS, ...CAA_GROUPS, OPERATOR_EXTRA, ...DRONE_GROUPS]) {
+  for (const g of [...EASA_GROUPS, ...FAA_GROUPS, ...CAA_GROUPS, ...DRONE_GROUPS]) {
     for (const d of g.items) if (!(d.name in m)) m[d.name] = d.months;
   }
   m['Type Rating'] = 12; // skapas via rating-popupen
@@ -228,8 +211,6 @@ function statusIcon(status: string): string {
 export default function CertificatesScreen() {
   const { t } = useTranslation();
   const mode = useAppModeStore(s => s.mode);
-  const profile = useProfileStore(s => s.profile);
-  const isOp = isOperator(profile);
   const [authority, setAuthority] = useState<Authority>('EASA');
   const [certs, setCerts] = useState<DroneCertificate[]>([]);
   const [recency, setRecency] = useState<CategoryRecency[]>([]);
@@ -401,7 +382,6 @@ export default function CertificatesScreen() {
         visible={adding}
         initial={null}
         mode={mode}
-        isOp={isOp}
         authority={authority}
         onAuthorityChange={setAuthority}
         onClose={() => setAdding(false)}
@@ -411,7 +391,6 @@ export default function CertificatesScreen() {
         visible={!!editing}
         initial={editing}
         mode={mode}
-        isOp={isOp}
         authority={authority}
         onAuthorityChange={setAuthority}
         onClose={() => setEditing(null)}
@@ -489,12 +468,11 @@ export default function CertificatesScreen() {
 // ── Add/Edit-formulär ──────────────────────────────────────────────────────────
 
 function CertForm({
-  visible, initial, mode, isOp, authority, onAuthorityChange, onClose, onSaved,
+  visible, initial, mode, authority, onAuthorityChange, onClose, onSaved,
 }: {
   visible: boolean;
   initial: DroneCertificate | null;
   mode: string;
-  isOp: boolean;
   authority: Authority;
   onAuthorityChange: (a: Authority) => void;
   onClose: () => void;
@@ -503,7 +481,7 @@ function CertForm({
   const { t } = useTranslation();
   const showAuthority = mode !== 'drone';
 
-  let groups = getGroups(mode, isOp, authority);
+  let groups = getGroups(mode, authority);
   // Vid redigering: om typen inte finns i nuvarande grupper, visa den som "Current".
   const known = new Set(groups.flatMap(g => g.items.map(i => i.name)));
   if (initial && initial.cert_type && !known.has(initial.cert_type)) {

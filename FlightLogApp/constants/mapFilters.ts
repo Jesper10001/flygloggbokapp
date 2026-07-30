@@ -85,11 +85,11 @@ export function keysNeedRunway(activeKeys: Set<string>): boolean {
 }
 
 // ── Properties (AND-refinering) ──────────────────────────────────────────────
-export type MapProps = { minLenM: number | null; maxLenM: number | null; surface: 'asphalt' | 'grass' | null; lit: boolean };
-export const EMPTY_PROPS: MapProps = { minLenM: null, maxLenM: null, surface: null, lit: false };
+export type MapProps = { minLenM: number | null; maxLenM: number | null; surface: 'asphalt' | 'grass' | null; lit: boolean; minAltFt: number | null; maxAltFt: number | null };
+export const EMPTY_PROPS: MapProps = { minLenM: null, maxLenM: null, surface: null, lit: false, minAltFt: null, maxAltFt: null };
 
 export function propsActive(p: MapProps): boolean {
-  return p.minLenM != null || p.maxLenM != null || p.surface != null || p.lit;
+  return p.minLenM != null || p.maxLenM != null || p.surface != null || p.lit || p.minAltFt != null || p.maxAltFt != null;
 }
 
 /** Uppfyller en flygplats (via dess banindex) de aktiva Properties? Utan bandata → faller bort. */

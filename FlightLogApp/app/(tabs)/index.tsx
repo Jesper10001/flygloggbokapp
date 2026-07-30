@@ -1,18 +1,20 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions, FlatList,
+  View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
   Alert, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
+import { DashboardGlobe } from '../../components/DashboardGlobe';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
@@ -26,6 +28,7 @@ import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDe
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
 import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
+import { hasPendingSync } from '../../services/photoSync';
 import { useVersionStore } from '../../store/versionStore';
 import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../../db/digitalBooks';
 import * as ImagePicker from 'expo-image-picker';
@@ -38,7 +41,6 @@ import { computeSunWindow } from '../../utils/flightTime';
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../../assets/runways.json'); } catch {}
 import { useTranslation } from '../../hooks/useTranslation';
-import { useProfileStore, isOperator, type SubRole } from '../../store/profileStore';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
 import Svg, { Circle } from 'react-native-svg';
@@ -222,113 +224,6 @@ function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: 
   );
 }
 
-// ── Operator stats helper ────────────────────────────────────────────────────
-
-function computeOperatorStats(flights: Flight[], role: SubRole) {
-  const opFlights = flights.filter(f => {
-    if (!f.operator_data) return false;
-    try { return JSON.parse(f.operator_data).role === role; } catch { return false; }
-  });
-  const parsed = opFlights.map(f => ({ ...f, op: JSON.parse(f.operator_data || '{}') }));
-  const totalTime = opFlights.reduce((s, f) => s + (f.total_time ?? 0), 0);
-  const nightTime = opFlights.reduce((s, f) => s + (f.night ?? 0), 0);
-  const flightCount = opFlights.length;
-
-  const sum = (key: string) => parsed.reduce((s, f) => s + (Number(f.op[key]) || 0), 0);
-  const countChips = (key: string, val: string) => parsed.filter(f => Array.isArray(f.op[key]) && f.op[key].includes(val)).length;
-
-  return { totalTime, nightTime, flightCount, parsed, sum, countChips };
-}
-
-const ROLE_EMOJI: Record<string, string> = {
-  'crew-chief': '🎖️', swimmer: '🏊', hoist: '⚓', hems: '🏥', loadmaster: '📦',
-};
-
-function OperatorDashboard({ flights, role, formatTime: fmt }: {
-  flights: Flight[]; role: SubRole; formatTime: (v: number) => string;
-}) {
-  const s = makeDashStyles();
-  const st = computeOperatorStats(flights, role);
-  const emoji = ROLE_EMOJI[role] ?? '🎖️';
-  const sv = useTranslation().t('yes') === 'Ja'; // quick lang check
-
-  const StatBox = ({ label, value, color = Colors.textPrimary }: { label: string; value: string; color?: string }) => (
-    <View style={s.classCell}>
-      <Text style={s.classCellLabel}>{label}</Text>
-      <Text style={[s.classCellValue, { color }]}>{value}</Text>
-    </View>
-  );
-
-  return (
-    <View style={{ gap: 10 }}>
-      {/* Hero stats */}
-      <View style={s.classGrid}>
-        <StatBox label={sv ? 'FLYGNINGAR' : 'FLIGHTS'} value={String(st.flightCount)} />
-        <StatBox label={sv ? 'TOTAL' : 'TOTAL'} value={fmt(st.totalTime)} color={Colors.primary} />
-        <StatBox label={sv ? 'NATT' : 'NIGHT'} value={fmt(st.nightTime)} color={Colors.gold} />
-      </View>
-
-      {/* Role-specific stats */}
-      {role === 'crew-chief' && (
-        <>
-          <View style={s.classGrid}>
-            <StatBox label={sv ? 'SKOTT' : 'ROUNDS'} value={String(st.sum('rounds_fired'))} color={Colors.danger} />
-            <StatBox label={sv ? 'BALJEFÄLL' : 'BUCKET'} value={String(st.sum('fire_bucket_drops'))} color={Colors.info} />
-          </View>
-          <View style={[s.card, { padding: 12, gap: 6 }]}>
-            <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' }}>
-              {sv ? 'KABINPLATS SENASTE 3 MÅN' : 'CABIN POSITIONS LAST 3 MONTHS'}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {['left', 'rear', 'right'].map(pos => {
-                const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                const cutoff = threeMonthsAgo.toISOString().split('T')[0];
-                const count = st.parsed.filter(f => f.op.seat_position === pos && f.date >= cutoff).length;
-                const label = pos === 'left' ? (sv ? 'Vänster' : 'Left') : pos === 'right' ? (sv ? 'Höger' : 'Right') : (sv ? 'Bak' : 'Rear');
-                return (
-                  <View key={pos} style={{ flex: 1, alignItems: 'center', paddingVertical: 8, backgroundColor: Colors.elevated, borderRadius: 8 }}>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo' }}>{count}</Text>
-                    <Text style={{ color: Colors.textMuted, fontSize: 10, marginTop: 2 }}>{label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </>
-      )}
-
-      {role === 'swimmer' && (
-        <View style={s.classGrid}>
-          <StatBox label={sv ? 'INSATSER' : 'DEPLOYS'} value={String(st.sum('deployments'))} color={Colors.info} />
-          <StatBox label={sv ? 'VINSCH ↑' : 'HOIST ↑'} value={String(st.sum('hoists_up'))} />
-          <StatBox label={sv ? 'RÄDDADE' : 'RESCUED'} value={String(st.sum('persons_rescued'))} color={Colors.success} />
-        </View>
-      )}
-
-      {role === 'hoist' && (
-        <View style={s.classGrid}>
-          <StatBox label={sv ? 'VINSCH ↑' : 'HOIST ↑'} value={String(st.sum('hoists_up'))} color={Colors.primary} />
-          <StatBox label={sv ? 'VINSCH ↓' : 'HOIST ↓'} value={String(st.sum('hoists_down'))} color={Colors.primary} />
-        </View>
-      )}
-
-      {role === 'hems' && (
-        <View style={s.classGrid}>
-          <StatBox label={sv ? 'PATIENTER' : 'PATIENTS'} value={String(st.sum('patients'))} color={Colors.danger} />
-          <StatBox label={sv ? 'VINSCH' : 'HOISTS'} value={String(st.sum('hoists'))} />
-          <StatBox label="P1" value={String(st.parsed.filter(f => f.op.priority === 'P1').length)} color={Colors.danger} />
-        </View>
-      )}
-
-      {role === 'loadmaster' && (
-        <View style={s.classGrid}>
-          <StatBox label={sv ? 'HÄNGLAST' : 'SLING'} value={String(st.sum('sling_ops'))} color={Colors.primary} />
-          <StatBox label={sv ? 'FÄLLN.' : 'DROPS'} value={String(st.sum('airdrops'))} color={Colors.info} />
-        </View>
-      )}
-    </View>
-  );
-}
 
 // ── Main screen ─────────────────────────────────────────────────────────────
 
@@ -427,98 +322,116 @@ function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress, mediaType = 'i
   );
 }
 
-function FlightPhotoCarousel({ placeNames, onPress, latestFlightId }: { placeNames: Record<string, string>; onPress: (f: Flight) => void; latestFlightId?: number }) {
+// Actions-sida (sida 2 i karusellen): tre snabbknappar. Sync gråas ut när inget finns att synka.
+function CarouselActions({ cardW, canSync, hasPhoto, onAlbum, onSync, onShare }: {
+  cardW: number; canSync: boolean; hasPhoto: boolean;
+  onAlbum: () => void; onSync: () => void; onShare: () => void;
+}) {
+  const tiles: { key: string; icon: any; color: string; label: string; sub?: string; disabled: boolean; onPress: () => void }[] = [
+    { key: 'album', icon: 'images-outline', color: Colors.gold, label: 'Flight album', disabled: false, onPress: onAlbum },
+    { key: 'sync', icon: 'sync-outline', color: Colors.primary, label: 'Sync album', sub: canSync ? undefined : 'Up to date', disabled: !canSync, onPress: onSync },
+    { key: 'share', icon: 'share-outline', color: Colors.info, label: 'Share', sub: hasPhoto ? undefined : 'No photos', disabled: !hasPhoto, onPress: onShare },
+  ];
+  return (
+    <View style={{ width: cardW, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row' }}>
+      {tiles.map((tile, i) => (
+        <TouchableOpacity
+          key={tile.key}
+          disabled={tile.disabled}
+          activeOpacity={0.85}
+          onPress={tile.onPress}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: Colors.border, opacity: tile.disabled ? 0.38 : 1 }}
+        >
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: tile.color + '1A', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={tile.icon} size={21} color={tile.color} />
+          </View>
+          <Text style={{ color: Colors.textPrimary, fontSize: 11.5, fontWeight: '700', textAlign: 'center' }}>{tile.label}</Text>
+          {tile.sub ? <Text style={{ color: Colors.textMuted, fontSize: 8.5, fontWeight: '700', marginTop: -4 }}>{tile.sub}</Text> : null}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<string, string>; onPress: (f: Flight) => void }) {
   const router = useRouter();
   const { formatTime } = useTimeFormat();
   const { flightCount } = useFlightStore();
   const [photos, setPhotos] = useState<Flight[]>([]);
+  const [canSync, setCanSync] = useState(false);
+  const [page, setPage] = useState(0);
   const screenW = Dimensions.get('window').width;
   const GAP = 12;
-  const CARD_W = screenW - 48;
+  // Full innehållsbredd (= "Visited airports" + "Global map" tillsammans): skärmbredd minus
+  // dashboardens content-padding (12px per sida). SIDE_PAD = 0 → sidorna ligger kant-i-kant
+  // med korten nedanför (parenten ger redan 12px), ingen peek.
+  const CARD_W = screenW - 24;
   const SNAP = CARD_W + GAP;
-  const SIDE_PAD = (screenW - CARD_W) / 2;
+  const SIDE_PAD = 0;
 
-  useEffect(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // karusellen visar bara uppladdade bilder
-  }, [flightCount]);
-
-  useFocusEffect(useCallback(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // karusellen visar bara uppladdade bilder
-  }, []));
+  const reload = useCallback(() => {
+    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // bara uppladdade bilder
+    hasPendingSync().then(setCanSync).catch(() => setCanSync(false));
+  }, []);
+  useEffect(() => { reload(); }, [flightCount, reload]);
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
   const hasFlight = photos.length > 0;
-  const data = hasFlight ? photos : SAMPLE_CARDS;
+  const latest = photos[0]; // karusellen visar bara den senast sparade bilden
   const [samplePreview, setSamplePreview] = useState<typeof SAMPLE_CARDS[0] | null>(null);
 
   return (
     <View>
-      <FlatList
-        data={data}
-        keyExtractor={(item: any) => String(item.id)}
+      {/* Sida 1: senaste bilden · Sida 2 (svep vänster): album/sync/share */}
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        snapToInterval={SNAP}
+        decelerationRate="fast"
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
-        ItemSeparatorComponent={() => <View style={{ width: GAP }} />}
-        renderItem={({ item }: any) => {
-          if (hasFlight) {
-            const f = item as Flight;
-            const dep = placeNames[f.dep_place?.toUpperCase()] ?? f.dep_place;
-            const arr = placeNames[f.arr_place?.toUpperCase()] ?? f.arr_place;
-            return (
-              <PhotoCard
-                imageSource={{ uri: f.photo_uri }}
-                dep={dep} arr={arr}
-                meta={`${formatDate(f.date)} · ${f.aircraft_type} · ${formatTime(f.total_time)}h`}
-                cardW={CARD_W}
-                onPress={() => onPress(f)}
-                mediaType={f.media_type === 'video' ? 'video' : 'image'}
-              />
-            );
-          }
-          const s = item;
-          return (
-            <PhotoCard
-              imageSource={s.image}
-              dep={s.dep} arr={s.arr}
-              meta={`${s.date} · ${s.ac} · ${s.time}`}
-              cardW={CARD_W}
-              onPress={() => setSamplePreview(s)}
-            />
-          );
-        }}
-      />
-
-      {/* Sync (övre vänstra hörnet) + Add (övre högra hörnet) — små pill-knappar som hovrar över den
-          visade bilden. Vänster/höger = SIDE_PAD (kortets kant) + 8. */}
-      <TouchableOpacity
-        style={{
-          position: 'absolute', top: 8, left: SIDE_PAD + 8, zIndex: 10,
-          flexDirection: 'row', alignItems: 'center', gap: 4,
-          paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
-          backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.primary + '66',
-        }}
-        onPress={() => router.push('/photo-sync' as any)}
-        activeOpacity={0.85}
+        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / SNAP))}
       >
-        <Ionicons name="sync-outline" size={13} color={Colors.primary} />
-        <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700' }}>Sync</Text>
-      </TouchableOpacity>
-      {latestFlightId && !photos.some(p => p.id === latestFlightId) && (
-        <TouchableOpacity
-          style={{
-            position: 'absolute', top: 8, right: SIDE_PAD + 8, zIndex: 10,
-            flexDirection: 'row', alignItems: 'center', gap: 4,
-            paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
-            backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.gold + '66',
-          }}
-          onPress={() => router.push(`/flight/add?editId=${latestFlightId}&addPhoto=1` as any)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="camera-outline" size={13} color={Colors.gold} />
-          <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '700' }}>Add</Text>
-        </TouchableOpacity>
-      )}
+        <View style={{ width: CARD_W }}>
+          {hasFlight ? (
+            <PhotoCard
+              imageSource={{ uri: latest.photo_uri }}
+              dep={placeNames[latest.dep_place?.toUpperCase()] ?? latest.dep_place}
+              arr={placeNames[latest.arr_place?.toUpperCase()] ?? latest.arr_place}
+              meta={`${formatDate(latest.date)} · ${latest.aircraft_type} · ${formatTime(latest.total_time)}h`}
+              cardW={CARD_W}
+              onPress={() => onPress(latest)}
+              mediaType={latest.media_type === 'video' ? 'video' : 'image'}
+            />
+          ) : (
+            <PhotoCard
+              imageSource={SAMPLE_CARDS[0].image}
+              dep={SAMPLE_CARDS[0].dep} arr={SAMPLE_CARDS[0].arr}
+              meta={`${SAMPLE_CARDS[0].date} · ${SAMPLE_CARDS[0].ac} · ${SAMPLE_CARDS[0].time}`}
+              cardW={CARD_W}
+              onPress={() => setSamplePreview(SAMPLE_CARDS[0])}
+            />
+          )}
+        </View>
+        <View style={{ width: GAP }} />
+        <View style={{ width: CARD_W }}>
+          <CarouselActions
+            cardW={CARD_W}
+            canSync={canSync}
+            hasPhoto={hasFlight}
+            onAlbum={() => router.push('/settings/album' as any)}
+            onSync={() => router.push('/photo-sync' as any)}
+            onShare={() => router.push('/settings/album?share=1' as any)}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Sidindikator (2 sidor) */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+        {[0, 1].map((i) => (
+          <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? Colors.primary : Colors.border }} />
+        ))}
+      </View>
 
       <Modal visible={!!samplePreview} transparent animationType="fade" onRequestClose={() => setSamplePreview(null)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setSamplePreview(null)}>
@@ -560,7 +473,9 @@ function LogFlightButton({ onPress, label, style }: { onPress: () => void; label
   const s = makeDashStyles();
   return (
     <TouchableOpacity style={[s.addBtn, style]} onPress={onPress} activeOpacity={0.9}>
-      <Ionicons name="add-circle" size={18} color={Colors.textInverse} />
+      {/* Samma bakgrund som latest flight-korten: subtil gradient (accent → surface) */}
+      <LinearGradient colors={[Colors.primary + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <Ionicons name="add-circle" size={18} color={Colors.primary} />
       <Text style={s.addBtnText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -579,57 +494,46 @@ function lxDateShort(iso: string | undefined, language: string): string {
   return `${String(d).padStart(2, '0')} ${monthShort(language, m - 1)} ${y}`;
 }
 
-// Latest flight-hjälten: när en ny flygning blir senast glider det nya kortet in
-// från vänster medan det gamla glider ut till höger och försvinner.
-function LatestFlightSwap({ flight, accent, placeNames, onPress }: {
-  flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
+// Latest flight-karusell: svep vänster för att bläddra genom de senaste 5 flygningarna
+// (samma svep-känsla som fotokarusellen). Sida 1 = senaste (rubrik "Latest flight");
+// följande kort saknar rubrik → strecket löper hela vägen till vänster i stället.
+function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto }: {
+  flights: Flight[]; accent: string; placeNames: Record<string, string>;
+  onPress: (flight: Flight) => void; onAddPhoto?: (flight: Flight) => void;
 }) {
   const W = Dimensions.get('window').width;
-  const isFocused = useIsFocused();
-  const [current, setCurrent] = useState<Flight>(flight);
-  const [outgoing, setOutgoing] = useState<Flight | null>(null);
-  const pending = useRef<Flight | null>(null); // ny flight som väntar på att skärmen ska bli synlig
-  const inX = useRef(new Animated.Value(0)).current;
-  const outX = useRef(new Animated.Value(0)).current;
-
-  const runSwap = (from: Flight, to: Flight) => {
-    setOutgoing(from);
-    setCurrent(to);
-    inX.setValue(-W);
-    outX.setValue(0);
-    // 2 s: nya kortet decelererar in från vänster, gamla accelererar ut till höger.
-    // Matchar stress-badgens 2 s-håll så siffrorna börjar räkna precis när kortet landat.
-    Animated.parallel([
-      Animated.timing(inX, { toValue: 0, duration: 2000, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(outX, { toValue: W, duration: 2000, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-    ]).start(({ finished }) => { if (finished) setOutgoing(null); });
-  };
-
-  useEffect(() => {
-    if (flight.id === current.id) { setCurrent(flight); return; } // samma flight (ev. redigerad) → inget glid
-    // Ny senaste flight. Glid bara när skärmen är i fokus — annars spelas den bakom
-    // add-flight-modalen och är redan klar när användaren kommer tillbaka.
-    if (isFocused) runSwap(current, flight);
-    else pending.current = flight;
-  }, [flight]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (isFocused && pending.current) {
-      const next = pending.current;
-      pending.current = null;
-      runSwap(current, next);
-    }
-  }, [isFocused]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [page, setPage] = useState(0);
+  const recent = flights.slice(0, 5); // de senaste 5 flygningarna
 
   return (
-    <View style={{ marginHorizontal: -12, marginTop: -6, overflow: 'hidden' }}>
-      <Animated.View style={{ transform: [{ translateX: inX }] }}>
-        <LatestFlightCard flight={current} accent={accent} placeNames={placeNames} onPress={onPress} />
-      </Animated.View>
-      {outgoing && (
-        <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: 0, transform: [{ translateX: outX }] }}>
-          <LatestFlightCard flight={outgoing} accent={accent} placeNames={placeNames} onPress={onPress} />
-        </Animated.View>
+    <View style={{ marginHorizontal: -12, marginTop: -6 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={W}
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
+      >
+        {recent.map((f, i) => (
+          <View key={f.id} style={{ width: W }}>
+            <LatestFlightCard
+              flight={f}
+              accent={accent}
+              placeNames={placeNames}
+              onPress={() => onPress(f)}
+              onAddPhoto={onAddPhoto}
+              showLabel={i === 0}
+            />
+          </View>
+        ))}
+      </ScrollView>
+      {recent.length > 1 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 2 }}>
+          {recent.map((_, i) => (
+            <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? accent : Colors.border }} />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -647,6 +551,7 @@ export default function DashboardScreen() {
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
   const [refreshKey, setRefreshKey] = useState(0);
+  const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausar sid-scroll medan globen snurras
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
@@ -654,7 +559,7 @@ export default function DashboardScreen() {
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
-  const { updateAvailable, news, check: checkVersion } = useVersionStore();
+  const { updateAvailable, news, storeUrl, check: checkVersion } = useVersionStore();
   const [spreadPrompt, setSpreadPrompt] = useState<SpreadPrompt | null>(null);
   const loadPrompt = useCallback(() => {
     getDashboardSpreadPrompt().then(setSpreadPrompt).catch(() => setSpreadPrompt(null));
@@ -809,6 +714,7 @@ export default function DashboardScreen() {
     <ScrollView
       style={s.container}
       contentContainerStyle={s.content}
+      scrollEnabled={!globeGrabbed}
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setRefreshKey(k => k + 1);
@@ -832,7 +738,7 @@ export default function DashboardScreen() {
           onPress={() => {
             Alert.alert(t('update_available'), t('update_available_sub'), [
               { text: t('cancel'), style: 'cancel' },
-              { text: 'App Store', onPress: () => Linking.openURL('https://apps.apple.com') },
+              { text: 'App Store', onPress: () => Linking.openURL(storeUrl) },
             ]);
           }}
         >
@@ -950,71 +856,60 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* ── Latest flight (single hero, där Latest ops låg) ── */}
-      {!isOperator(useProfileStore.getState().profile) && flights[0] && (
-        <LatestFlightSwap
-          flight={flights[0]}
+      {/* ── Latest flight (svep vänster → senaste 5 flygningarna) ── */}
+      {flights[0] && (
+        <LatestFlightCarousel
+          flights={flights}
           accent={Colors.primary}
           placeNames={placeNames}
-          onPress={() => router.push(`/flight/detail/${flights[0].id}`)}
+          onPress={(f) => router.push(`/flight/detail/${f.id}`)}
+          onAddPhoto={(fl) => router.push(`/flight/add?editId=${fl.id}&addPhoto=1` as any)}
         />
       )}
 
-      {/* ── Stats ── */}
-      {isOperator(useProfileStore.getState().profile) ? (
-        <>
-          <Text style={s.sectionHeader}>
-            {ROLE_EMOJI[useProfileStore.getState().profile?.subRole ?? ''] ?? ''} {t(`profile_${useProfileStore.getState().profile?.subRole}` as any)}
-          </Text>
-          <OperatorDashboard flights={flights} role={useProfileStore.getState().profile!.subRole} formatTime={formatTime} />
-        </>
-      ) : null}
+      {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
+      <View style={s.logRow}>
+        <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
+          <Ionicons name="scan-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity>
+        <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />
+        <TouchableOpacity
+          style={s.sideBtn}
+          onPress={async () => {
+            if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
+            router.push('/logbook?recent=1');
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : Colors.primary} />
+        </TouchableOpacity>
+      </View>
 
-      {/* ── Log new flight ── operatörer: full bredd · piloter: photolog vänster + fysisk loggbok höger ── */}
-      {isOperator(useProfileStore.getState().profile) ? (
-        <LogFlightButton onPress={() => router.push('/flight/add-operator')} label={t('log_new_mission')} />
-      ) : (
-        <View style={s.logRow}>
-          <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
-            <Ionicons name="scan-outline" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />
-          <TouchableOpacity
-            style={s.sideBtn}
-            onPress={async () => {
-              if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
-              router.push('/logbook?recent=1');
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : Colors.primary} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── Visited airports (operator only) ── */}
-      {isOperator(useProfileStore.getState().profile) && (
-        <View style={{ marginTop: 16 }}>
-          <AirportMapWidget />
-        </View>
-      )}
-
-      {/* ── Flight media (operator only) ── */}
-      {isOperator(useProfileStore.getState().profile) && (
-        <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
-      )}
-
-      {/* ── Pilot-only sections ── */}
-      {!isOperator(useProfileStore.getState().profile) && (
+      {/* ── Pilot / drone sections ── */}
+      {(
         <>
           {/* Flight media first — most relevant day to day */}
-          <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} latestFlightId={flights[0]?.id} />
+          <View style={{ marginTop: 16 }}>
+            <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} />
+          </View>
 
           {/* Milestones (Best Week + Longest XC) flyttade till insights botten (MilestonesSection) */}
 
-          {/* Visited airports + Global map sida vid sida */}
-          <View style={{ marginTop: 16 }}>
-            <AirportMapWidget compact rightSlot={<GlobalMapButton />} />
+          {/* Globe-sektion: snurrbar 3D-glob med Visited airports (övre vänster) + Global map
+              (övre höger) som knappar i globens tomma hörn. Symmetriskt avstånd under media. */}
+          <View style={{ marginTop: 16, marginHorizontal: -12, alignItems: 'center' }}>
+            <View style={{ width: '100%', alignItems: 'center' }}>
+              {/* Globen nedflyttad så den inte skär med hörn-knapparna */}
+              <View style={{ marginTop: 28 }}>
+                <DashboardGlobe onGrab={setGlobeGrabbed} />
+              </View>
+              <View style={{ position: 'absolute', top: 0, left: 16 }}>
+                <AirportMapWidget asButton />
+              </View>
+              <View style={{ position: 'absolute', top: 0, right: 16 }}>
+                <GlobalMapButton asButton />
+              </View>
+            </View>
           </View>
 
           {st?.longest_xc_date && (
@@ -1104,10 +999,10 @@ function makeDashStyles() { return StyleSheet.create({
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 6,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
+    backgroundColor: Colors.surface, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 6,
+    borderWidth: 1, borderColor: Colors.primary + '55', overflow: 'hidden',
   },
-  addBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '800' },
+  addBtnText: { color: Colors.primary, fontSize: 16, fontWeight: '800' },
   physBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 16, marginTop: 4, marginBottom: 6,
@@ -1122,7 +1017,7 @@ function makeDashStyles() { return StyleSheet.create({
   },
   actionBtnText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
   // Log-flight-rad: photolog (vänster) · Log flight (mitten, flex) · fysisk loggbok (höger).
-  logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16, marginBottom: 6 },
+  logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16, marginBottom: 0 },
   sideBtn: {
     width: 54, alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55',

@@ -13,7 +13,7 @@ export function getSeedAirports(): Promise<SeedRow[]> {
   return Promise.resolve(airportData);
 }
 
-const SEED_VERSION = '2026-07-19-airportmap'; // airportmap.de-berikad seed (83k, inkl. closed) → tvingar om-seed
+const SEED_VERSION = '2026-07-30-no-zzzz'; // ZZZZ borttagen (off-airport-kod) → tvingar om-seed
 
 export async function seedIcaoAirports(premium = false): Promise<void> {
   const db = await getDatabase();
@@ -39,12 +39,12 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
     await db.runAsync(`DELETE FROM icao_airports WHERE custom = 0 AND COALESCE(temporary, 0) = 0`);
     for (let i = 0; i < data.length; i += BATCH) {
       const chunk = data.slice(i, i + BATCH);
-      const placeholders = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?,0)').join(',');
-      const params = chunk.flatMap(([icao, name, country, region, lat, lon, iata, alt, type, municipality]) =>
-        [icao, name, country, region, lat, lon, iata ?? '', alt ?? null, type ?? '', municipality ?? '']
+      const placeholders = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?,?,0)').join(',');
+      const params = chunk.flatMap(([icao, name, country, region, lat, lon, iata, alt, type, municipality, , gps]) =>
+        [icao, name, country, region, lat, lon, iata ?? '', alt ?? null, type ?? '', municipality ?? '', gps ?? '']
       );
       await db.runAsync(
-        `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, iata, alt, type, municipality, custom)
+        `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, iata, alt, type, municipality, gps, custom)
          VALUES ${placeholders}`,
         params
       );
@@ -57,24 +57,31 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
   );
 }
 
-export async function searchAirports(query: string): Promise<IcaoAirport[]> {
+// Söker på BÅDE ICAO och IATA + flygplatsnamn. Prioritering överst: exakt ICAO → exakt IATA →
+// ICAO-prefix → IATA-prefix → namnträff. nameMinLen: flygplatsnamn matchas först från så många tecken
+// (default 5 → de fyra första tecknen reserverade för koder, så IATA/ICAO inte begravs av namnträffar).
+export async function searchAirports(query: string, nameMinLen = 5): Promise<IcaoAirport[]> {
   const db = await getDatabase();
   const upper = query.toUpperCase();
-  const lower = query.toLowerCase();
-  const q = `%${upper}%`;
+  const like = `%${upper}%`, pre = `${upper}%`;
+  // Koderna matchas som PREFIX (det man skriver är början av ICAO/IATA-koden), namn som delsträng.
+  const clauses = ['UPPER(icao) LIKE ?', 'UPPER(iata) LIKE ?'];
+  const whereParams: string[] = [pre, pre];
+  if (upper.length >= nameMinLen) { clauses.push('UPPER(name) LIKE ?'); whereParams.push(like); }
   return await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
-     WHERE icao LIKE ? OR UPPER(iata) = ? OR UPPER(name) LIKE ? OR name LIKE ? OR LOWER(name) LIKE ?
+     WHERE ${clauses.join(' OR ')}
      ORDER BY
-       CASE WHEN icao = ? THEN 0
+       CASE WHEN UPPER(icao) = ? THEN 0
             WHEN UPPER(iata) = ? THEN 1
-            WHEN icao LIKE ? THEN 2
-            ELSE 3 END,
+            WHEN UPPER(icao) LIKE ? THEN 2
+            WHEN UPPER(iata) LIKE ? THEN 3
+            ELSE 4 END,
        COALESCE(temporary, 0) ASC,
        custom DESC,
        name ASC
      LIMIT 20`,
-    [q, upper, `%${query}%`, `%${query}%`, `%${lower}%`, upper, upper, `${upper}%`]
+    [...whereParams, upper, upper, pre, pre]
   );
 }
 
