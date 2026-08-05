@@ -71,7 +71,10 @@ const isNumericCol = (c: LogbookColumn) => c.format === 'decimal' || c.format ==
 /** En enskild flygnings värde i en kolumn. */
 function cellValue(flight: any, c: LogbookColumn, timeFormat: 'decimal' | 'hhmm'): string {
   if (!c.flightKey) return '';
-  const raw = flight[c.flightKey];
+  // Dep/arr: visa den inskrivna koden (IATA/GPS/ICAO/okänt), inte den kanoniska ICAO.
+  let raw = flight[c.flightKey];
+  if (c.flightKey === 'dep_place') raw = flight.dep_place_raw || flight.dep_place;
+  else if (c.flightKey === 'arr_place') raw = flight.arr_place_raw || flight.arr_place;
   if (raw === undefined || raw === null || raw === '') return '';
   switch (c.format) {
     case 'icao': return esc(String(raw).toUpperCase());

@@ -547,15 +547,21 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
     </View>
   );
 
-  // Liten pill-knapp (globens övre vänstra hörn på dashboarden) — öppnar samma modal.
+  // Rektangulärt val-kort (globens tap-meny på dashboarden) — öppnar samma modal.
   const buttonPill = (
     <TouchableOpacity
       onPress={() => airports.length > 0 && setModalVisible(true)}
       activeOpacity={airports.length > 0 ? 0.85 : 1}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.info + '66' }}
+      style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: Colors.info + '66' }}
     >
-      <Ionicons name="location" size={14} color={Colors.info} />
-      <Text style={{ color: Colors.info, fontSize: 12, fontWeight: '700' }}>Visited airports</Text>
+      <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.info + '22' }}>
+        <Ionicons name="location" size={18} color={Colors.info} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: Colors.info, fontSize: 14, fontWeight: '800' }}>Visited airports</Text>
+        <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '500', marginTop: 1 }}>Airports you've landed at, mapped</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
     </TouchableOpacity>
   );
 

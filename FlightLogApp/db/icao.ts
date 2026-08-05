@@ -101,6 +101,48 @@ export async function getAirportByIcao(icao: string): Promise<IcaoAirport | null
   );
 }
 
+// Kod-matchning mot ICAO / IATA / GPS (för fritext-inmatningen i Log Flight). Hela koden måste
+// stämma (ingen prefix-matchning), men skiljetecken ignoreras: "RU0626" matchar "RU-0626".
+// Matchar riktiga flygplatser (seed/custom) OCH registrerade off-airport-platser (temporary=1);
+// riktiga flygplatser prioriteras före off-airport vid krock. Prioritet: ICAO → IATA → GPS.
+export async function getAirportByAnyCode(code: string): Promise<IcaoAirport | null> {
+  const c = code.trim().toUpperCase();
+  if (!c) return null;
+  const db = await getDatabase();
+  // 1) Exakt matchning först (indexerad → snabb, täcker de allra flesta koderna).
+  const exact = await db.getFirstAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE UPPER(icao) = ? OR UPPER(iata) = ? OR UPPER(gps) = ?
+     ORDER BY COALESCE(temporary,0) ASC, CASE WHEN UPPER(icao) = ? THEN 0 WHEN UPPER(iata) = ? THEN 1 ELSE 2 END
+     LIMIT 1`,
+    [c, c, c, c, c]
+  );
+  if (exact) return exact;
+  // 2) Fallback: normalisera bort skiljetecken (bindestreck/mellanslag/./ /) på BÅDA sidor, så att
+  //    användaren slipper skriva "-" (t.ex. "RU0626" ↔ lagrad "RU-0626"). Körs bara när exakt missar.
+  const cn = c.replace(/[^A-Z0-9]/g, '');
+  if (!cn) return null;
+  const strip = (col: string) => `REPLACE(REPLACE(REPLACE(REPLACE(UPPER(${col}), '-', ''), ' ', ''), '.', ''), '/', '')`;
+  return await db.getFirstAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE ${strip('icao')} = ? OR ${strip('iata')} = ? OR ${strip('gps')} = ?
+     ORDER BY COALESCE(temporary,0) ASC, CASE WHEN ${strip('icao')} = ? THEN 0 WHEN ${strip('iata')} = ? THEN 1 ELSE 2 END
+     LIMIT 1`,
+    [cn, cn, cn, cn, cn]
+  );
+}
+
+// Off-airport-plats (från Manage airports > Off-airport): temporary=1 men med land + koordinater.
+// Koden (icao) = den bokstavskombination användaren skrev i Log Flight, så den matchar nästa gång.
+export async function addOffAirportPlace(icao: string, name: string, country: string, lat = 0, lon = 0): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT OR REPLACE INTO icao_airports (icao, name, country, region, lat, lon, custom, temporary)
+     VALUES (?, ?, ?, '', ?, ?, 0, 1)`,
+    [icao.toUpperCase(), name || icao.toUpperCase(), country || '', lat, lon]
+  );
+}
+
 export async function getPlaceDisplayName(icao: string): Promise<string> {
   if (!icao) return '';
   const airport = await getAirportByIcao(icao);

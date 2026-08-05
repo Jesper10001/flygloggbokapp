@@ -15,11 +15,19 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
+        "EXPO_PUBLIC_OPENAIP_API_KEY": "9c8b71c108719c101f5e5af6e8d8a173"
       }
     },
     "production": {
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
+        "EXPO_PUBLIC_OPENAIP_API_KEY": "9c8b71c108719c101f5e5af6e8d8a173"
       }
     }
   },
@@ -27,7 +35,7 @@
     "production": {
       "ios": {
         "appleId": "toreldjesper@gmail.com",
-        "ascAppId": "1234567890",
+        "ascAppId": "6798360464",
         "appleTeamId": "8KLT4DPJ55"
       }
     }

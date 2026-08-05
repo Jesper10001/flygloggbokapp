@@ -15,6 +15,7 @@ import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
+import { OpenAipMapModal } from '../../components/OpenAipMapModal';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
@@ -27,9 +28,11 @@ import { LatestFlightCard } from '../../components/logbook-page/LatestFlightCard
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
-import { getStressHours, getSetting, getFlightsWithPhotos } from '../../db/flights';
+import { getStressHours, getSetting, getFlightsWithPhotos, updateFlightNight } from '../../db/flights';
 import { hasPendingSync } from '../../services/photoSync';
 import { useVersionStore } from '../../store/versionStore';
+import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
+import { useNightUpdateStore } from '../../store/nightUpdateStore';
 import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../../db/digitalBooks';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -542,6 +545,10 @@ function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto
 export default function DashboardScreen() {
   const s = makeDashStyles();
   const router = useRouter();
+  const pendingCodes = usePendingPlaceStore((st) => st.codes); // okända dep/arr-koder → "add place"-notiser
+  const removePendingCode = usePendingPlaceStore((st) => st.remove);
+  const nightUpdates = useNightUpdateStore((st) => st.items); // föreslagna natt-uppdateringar efter placerad plats
+  const removeNightUpdate = useNightUpdateStore((st) => st.remove);
   const mode = useAppModeStore((st) => st.mode);
   const _theme = useThemeStore((st) => st.theme); // subscribe to force re-render on theme change
   const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier, isPremium } = useFlightStore();
@@ -552,6 +559,18 @@ export default function DashboardScreen() {
   const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
   const [refreshKey, setRefreshKey] = useState(0);
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausar sid-scroll medan globen snurras
+  const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tryck på globen → val-meny
+  const globeMenuAnim = useRef(new Animated.Value(0)).current; // 0=dold, 1=synlig → mjuk fade/slide av alla tre knappar samtidigt
+  // Globe-menyn: fade + liten slide in/ut (alla tre knappar samtidigt) vid enkel-tryck på globen.
+  useEffect(() => {
+    Animated.timing(globeMenuAnim, {
+      toValue: globeMenuOpen ? 1 : 0,
+      duration: globeMenuOpen ? 240 : 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [globeMenuOpen, globeMenuAnim]);
+  const [openAipVisible, setOpenAipVisible] = useState(false); // OpenAIP-overlay-kartan
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
@@ -867,6 +886,56 @@ export default function DashboardScreen() {
         />
       )}
 
+      {/* ── Okänd-plats-notiser: en per okänd dep/arr-kod från senaste sparade flighter ── */}
+      {pendingCodes.map((code) => (
+        <View key={code} style={s.unknownCard}>
+          <Ionicons name="help-circle" size={20} color={Colors.warning} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.unknownTitle}>{code} does not exist in local database.</Text>
+            <Text style={s.unknownSub}>Add place and name?</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => { removePendingCode(code); router.push(`/settings/airport?addCode=${encodeURIComponent(code)}` as any); }}
+            hitSlop={8}
+            style={[s.unknownBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '66' }]}
+          >
+            <Ionicons name="checkmark" size={18} color={Colors.success} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => removePendingCode(code)}
+            hitSlop={8}
+            style={[s.unknownBtn, { backgroundColor: Colors.danger + '18', borderColor: Colors.danger + '55' }]}
+          >
+            <Ionicons name="close" size={18} color={Colors.danger} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      {/* ── Natt-uppdaterings-notiser: auto-natt ändrades när en plats fick koordinater ── */}
+      {nightUpdates.map((u) => (
+        <View key={u.flightId} style={[s.unknownCard, { borderColor: Colors.info + '55', backgroundColor: Colors.info + '12' }]}>
+          <Ionicons name="moon" size={18} color={Colors.info} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.unknownTitle}>Update night time for {u.label}</Text>
+            <Text style={s.unknownSub}>to {decimalToHHMM(u.newNight)}?</Text>
+          </View>
+          <TouchableOpacity
+            onPress={async () => { await updateFlightNight(u.flightId, u.newNight); removeNightUpdate(u.flightId); loadFlights(); loadStats(); }}
+            hitSlop={8}
+            style={[s.unknownBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '66' }]}
+          >
+            <Ionicons name="checkmark" size={18} color={Colors.success} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => removeNightUpdate(u.flightId)}
+            hitSlop={8}
+            style={[s.unknownBtn, { backgroundColor: Colors.danger + '18', borderColor: Colors.danger + '55' }]}
+          >
+            <Ionicons name="close" size={18} color={Colors.danger} />
+          </TouchableOpacity>
+        </View>
+      ))}
+
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
       <View style={s.logRow}>
         <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
@@ -888,29 +957,61 @@ export default function DashboardScreen() {
       {/* ── Pilot / drone sections ── */}
       {(
         <>
-          {/* Flight media first — most relevant day to day */}
-          <View style={{ marginTop: 16 }}>
+          {/* Flight media first — most relevant day to day. Högre zIndex än globen så att globen,
+              när den förstoras/bleeder uppåt, hamnar BAKOM bildkarusellen (inte ovanpå). */}
+          <View style={{ marginTop: 16, zIndex: 2 }}>
             <FlightPhotoCarousel placeNames={placeNames} onPress={setPhotoPreview} />
           </View>
 
           {/* Milestones (Best Week + Longest XC) flyttade till insights botten (MilestonesSection) */}
 
-          {/* Globe-sektion: snurrbar 3D-glob med Visited airports (övre vänster) + Global map
-              (övre höger) som knappar i globens tomma hörn. Symmetriskt avstånd under media. */}
-          <View style={{ marginTop: 16, marginHorizontal: -12, alignItems: 'center' }}>
+          {/* Globe-sektion: snurrbar 3D-glob. Enkel-tryck fäller ut tre kart-val; läget cyklas auto.
+              Lägre zIndex än bildkarusellen → globen bleeder UPP bakom karusellen, inte framför. */}
+          <View style={{ marginTop: 8, marginHorizontal: -12, alignItems: 'center', zIndex: 1 }}>
             <View style={{ width: '100%', alignItems: 'center' }}>
-              {/* Globen nedflyttad så den inte skär med hörn-knapparna */}
-              <View style={{ marginTop: 28 }}>
-                <DashboardGlobe onGrab={setGlobeGrabbed} />
-              </View>
-              <View style={{ position: 'absolute', top: 0, left: 16 }}>
-                <AirportMapWidget asButton />
-              </View>
-              <View style={{ position: 'absolute', top: 0, right: 16 }}>
-                <GlobalMapButton asButton />
-              </View>
+              <DashboardGlobe onGrab={setGlobeGrabbed} onTap={() => setGlobeMenuOpen((v) => !v)} />
+              {/* Val-meny (enkel-tryck): tre rektangulära kort, centrerade över globen.
+                  Alltid monterad men fadar/glider in/ut samtidigt via globeMenuAnim. */}
+              <Animated.View
+                pointerEvents={globeMenuOpen ? 'auto' : 'none'}
+                style={{
+                  position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+                  alignItems: 'center', justifyContent: 'center',
+                  opacity: globeMenuAnim,
+                  transform: [{ translateY: globeMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+                }}
+              >
+                  <View style={{ width: '82%', maxWidth: 320, gap: 10 }}>
+                    {/* Stäng-knapp (överst till vänster om korten) */}
+                    <TouchableOpacity
+                      onPress={() => setGlobeMenuOpen(false)}
+                      activeOpacity={0.85}
+                      hitSlop={10}
+                      style={{ alignSelf: 'flex-start', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}
+                    >
+                      <Ionicons name="close" size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <AirportMapWidget asButton />
+                    <GlobalMapButton asButton />
+                    <TouchableOpacity
+                      onPress={() => { setOpenAipVisible(true); setGlobeMenuOpen(false); }}
+                      activeOpacity={0.85}
+                      style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: Colors.primary + '66' }}
+                    >
+                      <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '22' }}>
+                        <Ionicons name="layers-outline" size={18} color={Colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>OpenAIP</Text>
+                        <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '500', marginTop: 1 }}>Airspaces & airfields overlay</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
+                    </TouchableOpacity>
+                  </View>
+              </Animated.View>
             </View>
           </View>
+          <OpenAipMapModal visible={openAipVisible} onClose={() => setOpenAipVisible(false)} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
@@ -1018,6 +1119,14 @@ function makeDashStyles() { return StyleSheet.create({
   actionBtnText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
   // Log-flight-rad: photolog (vänster) · Log flight (mitten, flex) · fysisk loggbok (höger).
   logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16, marginBottom: 0 },
+  unknownCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16,
+    paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: Colors.warning + '14', borderWidth: 1, borderColor: Colors.warning + '55',
+  },
+  unknownTitle: { color: Colors.textPrimary, fontSize: 12.5, fontWeight: '700' },
+  unknownSub: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', marginTop: 1 },
+  unknownBtn: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   sideBtn: {
     width: 54, alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55',

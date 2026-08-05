@@ -29,7 +29,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       if (filter === 'night' && !(f.night > 0)) return false;
       if (filter === 'photo' && !(f.photo_uri || f.photo_local_id)) return false; // inkl. synkade + videor
       if (ql) {
-        const hay = `${f.dep_place} ${f.arr_place} ${placeNames[f.dep_place] || ''} ${placeNames[f.arr_place] || ''} ${f.registration} ${f.aircraft_type} ${roleLabel(f)}`.toLowerCase();
+        const hay = `${f.dep_place} ${f.arr_place} ${f.dep_place_raw || ''} ${f.arr_place_raw || ''} ${placeNames[f.dep_place] || ''} ${placeNames[f.arr_place] || ''} ${f.registration} ${f.aircraft_type} ${roleLabel(f)}`.toLowerCase();
         if (!hay.includes(ql)) return false;
       }
       return true;

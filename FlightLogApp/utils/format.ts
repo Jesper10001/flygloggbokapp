@@ -66,6 +66,12 @@ export function isValidPlace(place: string): boolean {
   return place.trim().length >= 2;
 }
 
+// Kod som ska VISAS för en dep/arr-plats: den råa inskrivna koden (IATA/GPS/ICAO/okänt) om den
+// finns, annars den kanoniska ICAO. Används i loggbok/uppslag/detalj/export/dashboard.
+export function placeCode(place?: string | null, raw?: string | null): string {
+  return raw && raw.trim() ? raw : (place ?? '');
+}
+
 // Formatera registreringsnummer
 export function formatRegistration(reg: string): string {
   return reg.toUpperCase().replace(/[^A-Z0-9-]/g, '');

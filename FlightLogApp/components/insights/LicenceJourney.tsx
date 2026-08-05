@@ -2,7 +2,7 @@
 // List/Chart-toggle. Klara licenser fälls in; tryck för att se uppfyllda krav +
 // DATUM de uppfylldes, samt samma chart. Data: licenceSetFor + haveFor/rateFor/metDateFor.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInsightsTheme, type InsightsTheme } from './insightsTheme';
@@ -11,6 +11,8 @@ import { LicenceChart } from './LicenceChart';
 import { licenceSetFor, type WLicenceSet } from '../EASAProgressChart';
 import { useProfileStore } from '../../store/profileStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
+import { useFlightStore } from '../../store/flightStore';
+import { getAircraftCategory } from '../../db/flights';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
@@ -101,10 +103,43 @@ export function LicenceJourney() {
   const D = useInsightsData();
   const subRole = useProfileStore((s) => s.profile?.subRole);
   const standard = useRegulationStandardStore((s) => s.standard);
+  const flights = useFlightStore((s) => s.flights);
   const [chart, setChart] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const set = licenceSetFor(subRole, standard);
+  // Licenskategori (H/A) baseras på FLOTTAN, inte profilens subRole: har man bara rotary → H, bara
+  // fixed → A, båda → kategorin på den senast flugna farkosten. Faller tillbaka på subRole om
+  // ingen farkostkategori är känd (t.ex. inga loggade flygningar / okategoriserade farkoster).
+  const [fleetCat, setFleetCat] = useState<'rotary' | 'fixed' | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const real = flights.filter((f) => f.flight_type !== 'sim' && f.aircraft_type?.trim());
+      if (!real.length) { if (alive) setFleetCat(null); return; }
+      const types = [...new Set(real.map((f) => f.aircraft_type.trim().toUpperCase()))];
+      const cat = new Map<string, string>();
+      await Promise.all(types.map(async (t) => cat.set(t, await getAircraftCategory(t))));
+      let hasRotary = false, hasFixed = false;
+      for (const t of types) {
+        const c = cat.get(t);
+        if (c === 'helicopter') hasRotary = true;
+        else if (c === 'airplane') hasFixed = true;
+      }
+      let result: 'rotary' | 'fixed' | null = null;
+      if (hasRotary && !hasFixed) result = 'rotary';
+      else if (hasFixed && !hasRotary) result = 'fixed';
+      else if (hasRotary && hasFixed) {
+        const latest = [...real].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        const lc = cat.get(latest.aircraft_type.trim().toUpperCase());
+        result = lc === 'helicopter' ? 'rotary' : lc === 'airplane' ? 'fixed' : null;
+      }
+      if (alive) setFleetCat(result);
+    })();
+    return () => { alive = false; };
+  }, [flights]);
+
+  // Flottan styr; annars profilens subRole.
+  const set = licenceSetFor(fleetCat ?? subRole, standard);
   const list: WLicenceSet[] = [set.ppl, set.cpl, set.atpl];
   const isMet = (lic: WLicenceSet) => lic.reqs.every((r) => D.haveFor(r.key) >= r.required);
   const next = list.find((l) => !isMet(l)) ?? set.atpl;

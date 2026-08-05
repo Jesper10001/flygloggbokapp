@@ -62,10 +62,16 @@ export function GlobalMapButton({ asButton = false }: { asButton?: boolean } = {
         <TouchableOpacity
           onPress={() => setOpen(true)}
           activeOpacity={0.85}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: Colors.primary + '66' }}
+          style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: Colors.primary + '66' }}
         >
-          <Ionicons name="globe" size={14} color={Colors.primary} />
-          <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Global map</Text>
+          <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '22' }}>
+            <Ionicons name="globe" size={18} color={Colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>Global map</Text>
+            <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '500', marginTop: 1 }}>All the worlds airports & airfields</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
         </TouchableOpacity>
         <GlobalMapModal visible={open} onClose={() => setOpen(false)} />
       </>

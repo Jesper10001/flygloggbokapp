@@ -52,8 +52,9 @@ export async function insertFlight(
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
       se_time, me_time, stop_place, photo_uri, media_type, max_fl,
       takeoffs_day, takeoffs_night, app_2d, app_3d, pilot_flying,
-      landings_fs_day, landings_fs_night, takeoffs_faa_night, landings_faa_night, landings_fs_faa_night, holds
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      landings_fs_day, landings_fs_night, takeoffs_faa_night, landings_faa_night, landings_fs_faa_night, holds,
+      dep_place_raw, arr_place_raw
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -110,6 +111,8 @@ export async function insertFlight(
       parseInt(data.landings_faa_night ?? '0') || 0,
       parseInt(data.landings_fs_faa_night ?? '0') || 0,
       parseInt(data.holds ?? '0') || 0,
+      (data.dep_place_raw ?? '').trim() || null,
+      (data.arr_place_raw ?? '').trim() || null,
     ]
   );
   return result.lastInsertRowId;
@@ -129,7 +132,7 @@ export async function updateFlight(
   // Logga varje ändrat fält
   const fields: (keyof FlightFormData)[] = [
     'date','aircraft_type','registration',
-    'dep_place','dep_utc','arr_place','arr_utc',
+    'dep_place','dep_utc','arr_place','arr_utc','dep_place_raw','arr_place_raw',
     'total_time','ifr','night','pic','co_pilot','dual',
     'landings_day','landings_night','remarks',
     'takeoffs_day','takeoffs_night','app_2d','app_3d','pilot_flying',
@@ -169,7 +172,7 @@ export async function updateFlight(
   await db.runAsync(
     `UPDATE flights SET
       date=?, aircraft_type=?, registration=?,
-      dep_place=?, dep_utc=?, arr_place=?, arr_utc=?,
+      dep_place=?, dep_utc=?, arr_place=?, arr_utc=?, dep_place_raw=?, arr_place_raw=?,
       total_time=?, ifr=?, night=?, pic=?, co_pilot=?, dual=?,
       landings_day=?, landings_night=?, remarks=?,
       flight_rules=?, second_pilot=?, second_pilot_role=?, extra_pilots=?, nvg=?, tng_count=?, flight_type=?,
@@ -184,6 +187,8 @@ export async function updateFlight(
       data.date, data.aircraft_type, data.registration,
       (data.dep_place ?? '').toUpperCase(), data.dep_utc ?? '',
       (data.arr_place ?? '').toUpperCase(), data.arr_utc ?? '',
+      (data.dep_place_raw ?? '').trim() || null,
+      (data.arr_place_raw ?? '').trim() || null,
       totalTime,
       parseFlightTime(data.ifr),
       parseFlightTime(data.night),
@@ -511,6 +516,20 @@ export async function setFlightNvg(id: number, hours: number): Promise<void> {
   }
 
   await db.runAsync('UPDATE flights SET nvg=? WHERE id=?', [hours, id]);
+}
+
+// Uppdatera natt-tiden för en flight (från dashboardens "Update night time"-notis efter att en
+// plats fått koordinater → auto-natten kunde beräknas). Loggas i audit-loggen.
+export async function updateFlightNight(id: number, hours: number): Promise<void> {
+  const db = await getDatabase();
+  const existing = await getFlightById(id);
+  if (!existing) return;
+  await db.runAsync(
+    `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason)
+     VALUES (?, 'night', ?, ?, 'Recomputed after place located')`,
+    [id, String(existing.night ?? 0), String(hours)]
+  );
+  await db.runAsync('UPDATE flights SET night=? WHERE id=?', [hours, id]);
 }
 
 export async function setFlightDual(id: number, hours: number): Promise<void> {

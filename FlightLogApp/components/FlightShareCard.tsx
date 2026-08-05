@@ -525,13 +525,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 )}
               </Animated.View>
 
-              {/* Performance — fast "logged in BLADES Joint Logbook" nere till höger (skalas/dras ej).
+              {/* Performance — fast "logged in BLADES Pilot Logbook" nere till höger (skalas/dras ej).
                   Samma struktur/format som de andra lagren (postcard). */}
               {mode === 'performance' && (
                 <View style={{ position: 'absolute', right: 14, bottom: 12, alignItems: 'flex-end' }} pointerEvents="none">
                   <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#fff', marginBottom: 1 }, FSH]}>logged in</Text>
                   <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: GOLD }, FSH]}>BLADES</Text>
-                  <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Joint Logbook</Text>
+                  <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Pilot Logbook</Text>
                 </View>
               )}
 
@@ -552,7 +552,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: LT.text, marginBottom: 1 }, LT.shadow]}>logged in</Text>
                     <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: '#FFB830' }, LT.shadow]}>BLADES</Text>
-                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, LT.shadow]}>Joint Logbook</Text>
+                    <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, LT.shadow]}>Pilot Logbook</Text>
                   </View>
                 </View>
               </>)}
@@ -795,12 +795,12 @@ function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, tot
       ))}
     </View>
   );
-  // BLADES-lockup: "logged in" + BLADES (guld) + Joint Logbook (silver, mindre).
+  // BLADES-lockup: "logged in" + BLADES (guld) + Pilot Logbook (silver, mindre).
   const brand = (
     <View style={{ alignItems: brandRight ? 'flex-end' : 'flex-start' }}>
       <Text style={[{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#fff', marginBottom: 1 }, FSH]}>logged in</Text>
       <Text style={[{ fontFamily: 'Georgia', fontWeight: '700', fontSize: 10, letterSpacing: 2.4, color: GOLD }, FSH]}>BLADES</Text>
-      <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Joint Logbook</Text>
+      <Text style={[{ fontFamily: 'Georgia', fontWeight: '600', fontSize: 7, letterSpacing: 1.4, color: SILVER, marginTop: 1 }, FSH]}>Pilot Logbook</Text>
     </View>
   );
   const dateText = (

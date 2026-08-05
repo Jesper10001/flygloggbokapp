@@ -10,6 +10,8 @@ export interface Flight {
   dep_utc: string;
   arr_place: string;
   arr_utc: string;
+  dep_place_raw?: string | null; // exakt inskriven kod (IATA/GPS/ICAO/okänt) → visas i loggbok/export
+  arr_place_raw?: string | null;
   total_time: number;
   ifr: number;
   night: number;
@@ -73,6 +75,8 @@ export interface FlightFormData {
   dep_utc: string;
   arr_place: string;
   arr_utc: string;
+  dep_place_raw?: string;
+  arr_place_raw?: string;
   total_time: string;
   ifr: string;
   night: string;

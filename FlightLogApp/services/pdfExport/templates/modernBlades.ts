@@ -121,7 +121,7 @@ export function renderModern(cv: PilotCV): string {
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <div style="width:22px;height:22px;border-radius:5px;background:${accent};display:grid;place-items:center;color:${navy};font-weight:800;font-size:13px">B</div>
-          <div style="font-size:10px;letter-spacing:3px;font-weight:700;color:#7FA8C8">BLADES · JOINT LOGBOOK</div>
+          <div style="font-size:10px;letter-spacing:3px;font-weight:700;color:#7FA8C8">BLADES · PILOT LOGBOOK</div>
         </div>
         <div style="font-size:32px;font-weight:700;letter-spacing:-0.6px;line-height:1.05">${cv.pilot.name}</div>
         <div style="font-size:14px;color:#7FA8C8;margin-top:4px">${cv.pilot.title}</div>

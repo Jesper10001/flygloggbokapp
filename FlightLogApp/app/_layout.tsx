@@ -113,7 +113,6 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="flight/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />

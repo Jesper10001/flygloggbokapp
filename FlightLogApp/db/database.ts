@@ -184,6 +184,9 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'extra_pilots', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissing(db, 'nvg',          `REAL NOT NULL DEFAULT 0`);
   await addColumnIfMissing(db, 'tng_count',    `INTEGER NOT NULL DEFAULT 0`);
+  // Rå inskriven dep/arr-kod (IATA/GPS/ICAO/okänt) — det som visas i loggbok/export. NULL = använd dep_place.
+  await addColumnIfMissing(db, 'dep_place_raw', `TEXT`);
+  await addColumnIfMissing(db, 'arr_place_raw', `TEXT`);
 
   // Luftfartygsregister — sparar kända typer och individer oberoende av loggade flygningar
   await db.execAsync(`

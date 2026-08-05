@@ -22,6 +22,16 @@ const PRIMARY = ['total', 'pic', 'ifr', 'nvg', 'vfr+night', 'multi_pilot', 'pic+
 const OTHER = ['co_pilot', 'dual', 'picus', 'night', 'xc', 'instructor', 'sim'];
 const ALL_KEYS = [...PRIMARY, ...OTHER];
 
+// Reaktiva projektionsmål (gäller både Total och PIC): de två närmaste tröskelvärdena över nuvarande
+// timmar. Trösklar: 100, 250, 500, sedan 500-steg (1000, 1500, 2000, …).
+// <100 → [100,250] · 100–250 → [250,500] · 250–500 → [500,1000] · 500–1000 → [1000,1500] · 1000–1500 → [1500,2000] …
+function projectionTargets(h: number): number[] {
+  const list = [100, 250, 500];
+  let t = 1000;
+  while (list.filter((x) => x > h).length < 2) { list.push(t); t += 500; }
+  return list.filter((x) => x > h).slice(0, 2);
+}
+
 export function GoalCard() {
   const C = useInsightsTheme();
   const D = useInsightsData();
@@ -36,8 +46,7 @@ export function GoalCard() {
   const series = metric === 'pic' ? D.journeyPic : D.journey;
   const rate = D.rateFor(metric);
   const now = series.length ? series[series.length - 1].cum : (metric === 'pic' ? D.cats.pic : D.total);
-  const base = Math.floor(now / 500) * 500;
-  const presets = [base + 500, base + 1000];
+  const presets = projectionTargets(now);
 
   const goalNum = (!customMode && typeof goal === 'number') ? goal : null;
   const remaining = goalNum ? Math.max(0, goalNum - now) : 0;
@@ -83,7 +92,6 @@ export function GoalCard() {
         </>
       ) : (
         <View style={{ marginTop: 8 }}>
-          <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.muted, marginBottom: 8 }}>Multi-category target · e.g. a job's hour requirements</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {cats.map((c, i) => (
               <View key={c.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: 8, borderRadius: 8, backgroundColor: C.primary + '22', borderWidth: 1, borderColor: C.primary + '55' }}>
@@ -91,7 +99,6 @@ export function GoalCard() {
                 <TouchableOpacity onPress={() => setCats(cats.filter((_, j) => j !== i))}><Text style={{ color: C.muted, fontFamily: MONO, fontSize: 12 }}>✕</Text></TouchableOpacity>
               </View>
             ))}
-            {cats.length === 0 && <Text style={{ fontFamily: MONO, fontSize: 10, color: C.faint }}>Add a category below.</Text>}
           </View>
           {/* category picker — primära + "Other…" (speglar designens två-stegs-dropdown) */}
           <View style={{ marginBottom: 8, gap: 6 }}>

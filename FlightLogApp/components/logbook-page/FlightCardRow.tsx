@@ -6,6 +6,7 @@ import type { Flight } from '../../types/flight';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FONT_SERIF, FONT_MONO, NIGHT_BADGE } from './tokens';
 import { roleLabel, isPicFlight, arrUtc, dayOfMonth, weekdayShort } from './flightDisplay';
+import { placeCode } from '../../utils/format';
 
 function Badge({ color, label, icon }: { color: string; label?: string; icon?: boolean }) {
   return (
@@ -31,7 +32,7 @@ export function FlightCardRow({ flight: f, accent, onPress, first }: { flight: F
       {/* main */}
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.3 }}>{f.dep_place} → {f.arr_place}</Text>
+          <Text style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.3 }}>{placeCode(f.dep_place, f.dep_place_raw)} → {placeCode(f.arr_place, f.arr_place_raw)}</Text>
           {f.ifr > 0 ? <Badge color={accent} label="IFR" /> : null}
           {f.night > 0 ? <Badge color={NIGHT_BADGE} icon /> : null}
           {(f.photo_local_id || f.photo_uri) ? (

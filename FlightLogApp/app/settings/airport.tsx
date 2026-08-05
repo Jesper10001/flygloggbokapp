@@ -5,18 +5,20 @@ import {
   KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import { useLocalSearchParams } from 'expo-router';
+import MapView, { Marker } from 'react-native-maps';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
+import { AddPlaceModal } from '../../components/AddPlaceModal';
+import { queueNightUpdatesForPlace } from '../../services/placeUpdates';
 import { getRunways } from '../../utils/runways';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { searchAirports, addCustomAirport, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports, getSeedAirports } from '../../db/icao';
+import { searchAirports, deleteCustomAirport, deleteTemporaryPlace, renameCustomAirport, updateUserAirport, getAllUserAirports, getSeedAirports } from '../../db/icao';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import type { IcaoAirport } from '../../types/flight';
 
-const EMPTY = { icao: '', name: '', country: '', region: '', lat: '', lon: '' };
 
 function buildGlobalMapHtml(airports: [string, string, string, string, number, number][]): string {
   const pts = airports.map(([icao, name, , , lat, lon]) =>
@@ -79,74 +81,6 @@ window.onload=function(){
 }
 
 // ── Mini-karta ────────────────────────────────────────────────────────────────
-
-function buildMapHtml(lat: number, lon: number, name: string, icao: string): string {
-  const safeName = name.replace(/'/g, "\\'").replace(/`/g, '\\`');
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body, #map { width:100%; height:100%; background:#f5f5f5; }
-  #layer-switcher {
-    position:absolute; top:10px; right:10px; z-index:1000;
-    display:flex; gap:4px;
-  }
-  #layer-switcher button {
-    background:rgba(30,30,40,0.85); color:#fff; border:none;
-    border-radius:6px; padding:5px 10px; font-size:12px; font-weight:600;
-    cursor:pointer; backdrop-filter:blur(4px);
-  }
-  #layer-switcher button.active { background:#4f7cff; }
-</style>
-</head>
-<body>
-<div id="map"></div>
-<div id="layer-switcher"></div>
-<script>
-window.onload = function() {
-  var map = L.map('map', { zoomControl:true, attributionControl:false }).setView([${lat},${lon}], 12);
-
-  var layers = {
-    'Light':     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true}),
-    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}),
-    'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true}),
-  };
-
-  var activeKey = 'Light';
-  layers[activeKey].addTo(map);
-
-  var sw = document.getElementById('layer-switcher');
-  Object.keys(layers).forEach(function(key) {
-    var btn = document.createElement('button');
-    btn.textContent = key;
-    if (key === activeKey) btn.className = 'active';
-    btn.onclick = function() {
-      map.removeLayer(layers[activeKey]);
-      activeKey = key;
-      layers[activeKey].addTo(map);
-      sw.querySelectorAll('button').forEach(function(b){ b.className = ''; });
-      btn.className = 'active';
-    };
-    sw.appendChild(btn);
-  });
-
-  var icon = L.divIcon({
-    html: '<div style="font-size:24px;line-height:1;filter:drop-shadow(0 1px 4px rgba(0,0,0,0.7))">✈</div>',
-    iconSize:[24,24], iconAnchor:[12,12], className:''
-  });
-  L.marker([${lat},${lon}], { icon }).addTo(map)
-    .bindPopup('<b>${icao}</b><br>${safeName}').openPopup();
-
-  setTimeout(function(){ map.invalidateSize(); }, 200);
-};
-</script>
-</body>
-</html>`;
-}
 
 // ── Stilar ────────────────────────────────────────────────────────────────────
 
@@ -242,6 +176,12 @@ function makeDetailStyles() {
     badgeText: { color: Colors.textMuted, fontSize: 10, fontWeight: '700' },
 
     mapContainer: { height: 260, backgroundColor: Colors.elevated },
+    mapTypeBtn: {
+      position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+      backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+    },
+    mapTypeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     noMap: {
       height: 120, alignItems: 'center', justifyContent: 'center',
       gap: 8, backgroundColor: Colors.elevated,
@@ -323,6 +263,7 @@ function AirportDetailModal({
   const [editName, setEditName] = useState(airport.name);
   const [editLat, setEditLat] = useState(String(airport.lat || ''));
   const [editLon, setEditLon] = useState(String(airport.lon || ''));
+  const [sat, setSat] = useState(false); // Apple-kartans läge: false = map, true = satellite
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
@@ -353,15 +294,24 @@ function AirportDetailModal({
           </View>
         </View>
 
-        {/* Karta */}
+        {/* Karta (Apple) — pinch-zoom + map/satellite-toggle */}
         {hasCoords ? (
           <View style={detailStyles.mapContainer}>
-            <WebView
-              source={{ html: buildMapHtml(airport.lat, airport.lon, airport.name, airport.icao), baseUrl: 'https://tile.openstreetmap.org' }}
+            <MapView
               style={{ flex: 1 }}
-              scrollEnabled={false}
-              originWhitelist={['*']}
-            />
+              initialRegion={{ latitude: airport.lat, longitude: airport.lon, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
+              mapType={sat ? 'hybridFlyover' : 'standard'}
+              userInterfaceStyle="dark"
+              showsPointsOfInterest={false}
+              showsCompass={false}
+              toolbarEnabled={false}
+            >
+              <Marker coordinate={{ latitude: airport.lat, longitude: airport.lon }} title={airport.icao} description={airport.name} />
+            </MapView>
+            <TouchableOpacity style={detailStyles.mapTypeBtn} onPress={() => setSat((s) => !s)} activeOpacity={0.85}>
+              <Ionicons name={sat ? 'map' : 'globe'} size={14} color="#fff" />
+              <Text style={detailStyles.mapTypeText}>{sat ? 'Map' : 'Satellite'}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={detailStyles.noMap}>
@@ -520,8 +470,6 @@ export default function AirportScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
-  const [form, setForm] = useState(EMPTY);
-  const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<IcaoAirport | null>(null);
   const [tab, setTab] = useState<'custom' | 'temporary' | 'global'>('global');
   const [showPremium, setShowPremium] = useState(false);
@@ -530,6 +478,14 @@ export default function AirportScreen() {
   const [showGlobalMap, setShowGlobalMap] = useState(false);
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [countryIndex, setCountryIndex] = useState<CountryEntry[]>([]);
+  const params = useLocalSearchParams<{ addCode?: string }>();
+  const [addPlaceOpen, setAddPlaceOpen] = useState(false);
+  const [addPlaceMode, setAddPlaceMode] = useState<'custom' | 'offairport'>('custom');
+  const [addPlaceCode, setAddPlaceCode] = useState<string | undefined>(undefined);
+
+  const reloadUserAirports = () => {
+    getAllUserAirports().then((r) => setResults(r.filter((a) => tab === 'temporary' ? a.temporary === 1 : (!!a.custom && a.temporary !== 1))));
+  };
 
   useEffect(() => {
     getSeedAirports().then(data => {
@@ -537,6 +493,12 @@ export default function AirportScreen() {
       setCountryIndex(buildCountryIndex(data));
     });
   }, []);
+
+  // Öppnad från dashboardens "does not exist"-notis → förifyll koden i Custom-läget.
+  useEffect(() => {
+    const code = typeof params.addCode === 'string' ? params.addCode : undefined;
+    if (code) { setTab('custom'); setAddPlaceCode(code.toUpperCase()); setAddPlaceMode('custom'); setAddPlaceOpen(true); }
+  }, [params.addCode]);
 
   useEffect(() => {
     if (query.length >= 2) {
@@ -550,29 +512,6 @@ export default function AirportScreen() {
       ));
     }
   }, [query, tab]);
-
-  const handleAdd = async () => {
-    if (!form.icao || form.icao.length !== 4) {
-      Alert.alert(t('error'), t('error_icao_4'));
-      return;
-    }
-    if (!form.name.trim()) {
-      Alert.alert(t('error'), t('error_name_required'));
-      return;
-    }
-    await addCustomAirport({
-      icao: form.icao.toUpperCase(),
-      name: form.name,
-      country: form.country || 'Unknown',
-      region: form.region || form.icao.slice(0, 2).toUpperCase(),
-      lat: parseFloat(form.lat) || 0,
-      lon: parseFloat(form.lon) || 0,
-    });
-    setForm(EMPTY);
-    setShowForm(false);
-    getAllUserAirports().then((r) => setResults(r.filter((a) => !!a.custom && a.temporary !== 1)));
-    Alert.alert(t('added'), `${form.icao.toUpperCase()} ${t('has_been_added')}`);
-  };
 
   const handleDelete = (airport: IcaoAirport) => {
     Alert.alert(t('delete'), `Delete ${airport.icao} — ${airport.name}?`, [
@@ -854,48 +793,16 @@ export default function AirportScreen() {
           </View>
         )}
 
-        {/* Lägg till — bara i custom-tab */}
-        {tab === 'custom' && (
+        {/* Lägg till plats (Custom / Off-airport med kartväljare) — i custom- och off-airport-tabbarna */}
+        {(tab === 'custom' || tab === 'temporary') && (
           <TouchableOpacity
             style={styles.addBtn}
-            onPress={() => setShowForm(!showForm)}
+            onPress={() => { setAddPlaceCode(undefined); setAddPlaceMode(tab === 'temporary' ? 'offairport' : 'custom'); setAddPlaceOpen(true); }}
             activeOpacity={0.8}
           >
-            <Ionicons name={showForm ? 'close' : 'add'} size={18} color={Colors.textInverse} />
-            <Text style={styles.addBtnText}>{showForm ? t('cancel') : t('add_airport')}</Text>
+            <Ionicons name="add" size={18} color={Colors.textInverse} />
+            <Text style={styles.addBtnText}>{t('add_airport')}</Text>
           </TouchableOpacity>
-        )}
-
-        {tab === 'custom' && showForm && (
-          <View style={styles.form}>
-            <Text style={styles.formTitle}>{t('new_airport')}</Text>
-            {[
-              { label: t('icao_code'), key: 'icao', placeholder: 'ESSA', maxLength: 4, caps: true },
-              { label: t('airport_name_label'), key: 'name', placeholder: 'Stockholm Arlanda' },
-              { label: t('country_label'), key: 'country', placeholder: 'Sweden' },
-              { label: t('region_label'), key: 'region', placeholder: 'ES', maxLength: 2, caps: true },
-              { label: t('latitude_label'), key: 'lat', placeholder: '59.6519', keyboard: 'decimal-pad' },
-              { label: t('longitude_label'), key: 'lon', placeholder: '17.9186', keyboard: 'decimal-pad' },
-            ].map(({ label, key, placeholder, maxLength, caps, keyboard }) => (
-              <View key={key} style={styles.formField}>
-                <Text style={styles.formLabel}>{label}</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={(form as any)[key]}
-                  onChangeText={(v) => setForm((p) => ({ ...p, [key]: v }))}
-                  placeholder={placeholder}
-                  placeholderTextColor={Colors.textMuted}
-                  maxLength={maxLength}
-                  autoCapitalize={caps ? 'characters' : 'none'}
-                  keyboardType={(keyboard as any) ?? 'default'}
-                />
-              </View>
-            ))}
-            <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
-              <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
-              <Text style={styles.saveBtnText}>{t('save_airport')}</Text>
-            </TouchableOpacity>
-          </View>
         )}
         </>
         )}
@@ -905,6 +812,15 @@ export default function AirportScreen() {
 
       {/* Global map modal — delad komponent (öppnas även från dashboarden) */}
       <GlobalMapModal visible={showGlobalMap} onClose={() => setShowGlobalMap(false)} />
+
+      {/* Lägg till plats: Custom / Off-airport + Apple-kartväljare */}
+      <AddPlaceModal
+        visible={addPlaceOpen}
+        onClose={() => setAddPlaceOpen(false)}
+        initialCode={addPlaceCode}
+        initialMode={addPlaceMode}
+        onAdded={(code) => { reloadUserAirports(); queueNightUpdatesForPlace(code); }}
+      />
 
       {/* Detaljmodal */}
       {selected && (

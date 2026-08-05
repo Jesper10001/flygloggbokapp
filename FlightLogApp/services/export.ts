@@ -58,9 +58,9 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
     { header: 'Date',                 value: f => f.date },
     { header: 'Aircraft type',        value: f => f.aircraft_type },
     { header: 'Registration',         value: f => f.registration },
-    { header: 'Departure',            value: f => exportPlace(f.dep_place, tempCodes) },
+    { header: 'Departure',            value: f => exportPlace(f.dep_place_raw || f.dep_place, tempCodes) },
     { header: 'Departure time UTC',   value: f => f.dep_utc },
-    { header: 'Arrival',              value: f => exportPlace(f.arr_place, tempCodes) },
+    { header: 'Arrival',              value: f => exportPlace(f.arr_place_raw || f.arr_place, tempCodes) },
     { header: 'Arrival time UTC',     value: f => f.arr_utc },
     { header: 'Total flight time',    value: f => toHHMM(f.total_time) },
     { header: 'Multi-pilot time',     value: f => toHHMM(f.multi_pilot ?? 0),  optional: true, hasData: f => hasTime(f.multi_pilot) },
@@ -144,7 +144,9 @@ const timeFields = new Set([
 
 function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal', tempCodes: Set<string>): string | number {
   const raw = (f as any)[key];
-  if (key === 'dep_place' || key === 'arr_place') return exportPlace(String(raw ?? ''), tempCodes);
+  // Dep/arr: exportera den inskrivna koden (IATA/GPS/ICAO/okänt), inte den kanoniska ICAO.
+  if (key === 'dep_place') return exportPlace(f.dep_place_raw || f.dep_place, tempCodes);
+  if (key === 'arr_place') return exportPlace(f.arr_place_raw || f.arr_place, tempCodes);
   if (key === 'flight_type') return f.flight_type === 'sim' ? 'Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal';
   if (key === 'sim_category') return f.flight_type === 'sim' ? (f.sim_category ?? '').replace(/_/g, '/') : '';
   if (timeFields.has(key)) {
@@ -439,7 +441,7 @@ export async function exportToPDF(): Promise<void> {
   </div>
 
   <div class="footer">
-    <span>Generated from BLADES — Joint Logbook</span>
+    <span>Generated from BLADES — Pilot Logbook</span>
     <span>${exportDate} · Period: ${firstDate} – ${lastDate}</span>
   </div>
 

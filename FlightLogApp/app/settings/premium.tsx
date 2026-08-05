@@ -452,7 +452,7 @@ export default function PremiumScreen() {
           </View>
           <View>
             <Text style={{ fontFamily: 'Georgia', fontSize: 12, fontWeight: '700', letterSpacing: 3, color: N.text, lineHeight: 14 }}>BLADES</Text>
-            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 10, color: N.text3, marginTop: 1 }}>Joint Logbook</Text>
+            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 10, color: N.text3, marginTop: 1 }}>Pilot Logbook</Text>
           </View>
         </View>
         <TouchableOpacity style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: N.elevated, alignItems: 'center', justifyContent: 'center' }} onPress={() => router.back()}>

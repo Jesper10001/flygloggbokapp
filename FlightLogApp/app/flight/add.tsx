@@ -30,7 +30,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useLanguageStore } from '../../store/languageStore';
 import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
-import { calcFlightTime, isValidTime } from '../../utils/format';
+import { calcFlightTime, isValidTime, placeCode } from '../../utils/format';
 import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
 import { classifyRouteEvents } from '../../utils/eventClassify';
 import { solarAltitudeDeg } from '../../utils/sun';
@@ -49,7 +49,8 @@ import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { useProfileStore } from '../../store/profileStore';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
-import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace } from '../../db/icao';
+import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode } from '../../db/icao';
+import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
 import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
@@ -66,13 +67,15 @@ const EMPTY: FlightFormData = {
   dep_utc: '',
   arr_place: '',
   arr_utc: '',
+  dep_place_raw: '',
+  arr_place_raw: '',
   total_time: '',
   ifr: '0',
   night: '0',
   pic: '',
   co_pilot: '0',
   dual: '0',
-  landings_day: '1',
+  landings_day: '0',
   landings_night: '0',
   remarks: '',
   flight_type: 'normal',
@@ -97,7 +100,7 @@ const EMPTY: FlightFormData = {
   vfr: '0',
   max_fl: '',
   media_type: 'image',
-  takeoffs_day: '1',
+  takeoffs_day: '0',
   takeoffs_night: '0',
   app_2d: '0',
   app_3d: '0',
@@ -131,7 +134,21 @@ const kindFromToken = (t: string): StopKind => {
 // (Gammalt format "ESCF PU VOR app rwy 08" läses också vid redigering.)
 const STOP_LINE_RE = new RegExp(`^([A-Z]{2,4})\\s+(${KIND_TOK_RE})\\b`, 'i');
 const APPROACH_LINE_RE = new RegExp(`^([A-Z]{3,4})\\s+(?:${APP_FIRST_WORDS.join('|')})\\b`, 'i');
-const isManagedLine = (l: string) => { const t = l.trim(); return STOP_LINE_RE.test(t) || APPROACH_LINE_RE.test(t); };
+// Pilot-/cabin-rader i remarks visas som ren "roll: namn, …" (utan tagg). Känns igen på att VARJE
+// post börjar med en känd roll → så de kan regenereras (inga dubbletter) och round-trippas.
+const SP_SHORTS = ['PIC', 'SIC', 'FI', 'SPIC', 'PICUS'];
+const CREW_KEYS = ['Crew chief', 'Rescue swimmer', 'Winch operator', 'HEMS operator', 'Loadmaster'];
+const PILOT_ENTRY_RE = new RegExp(`^(?:${SP_SHORTS.join('|')}): `);
+const CREW_ENTRY_RE = new RegExp(`^(?:${CREW_KEYS.join('|')}): `);
+const isPilotLine = (t: string) => { const ps = t.split(', ').map((s) => s.trim()).filter(Boolean); return ps.length > 0 && ps.every((p) => PILOT_ENTRY_RE.test(p)); };
+const isCabinLine = (t: string) => { const ps = t.split(', ').map((s) => s.trim()).filter(Boolean); return ps.length > 0 && ps.every((p) => CREW_ENTRY_RE.test(p)); };
+// Hanterade rader = route/approach + auto-genererade pilot-/cabin-/Max FL-rader. Dessa regenereras
+// av sync-effekten (stripas ur fri text) → visas live och dubbleras aldrig.
+const isManagedLine = (l: string) => {
+  const t = l.trim();
+  return STOP_LINE_RE.test(t) || APPROACH_LINE_RE.test(t)
+    || /^Max FL\d+/i.test(t) || isPilotLine(t) || isCabinLine(t);
+};
 
 // Splitta "APP [RWY]" → { app, rwy } (rwy = 1–2 siffror + ev. L/C/R sist).
 function splitAppRwy(rest: string): { app: string; rwy?: string } {
@@ -580,6 +597,57 @@ function makeStyles() {
 
 // ── Hjälpkomponenter ────────────────────────────────────────────────────────
 
+// Vertikal "modern flat"-toggle: val ovan/under en cyan-tonad pill; en vit prick fjädrar
+// upp/ned mellan valen och aktivt val markeras i accentfärg. Etiketterna skrivs ut i sina hela
+// ord på två rader. Spåret är flexibelt (mäts) så kolumnen behåller samma höjd/bredd som förut
+// och de övriga rutorna inte påverkas.
+const AV_DOT = 22, AV_PAD = 4;
+function AvSwitch({ top, bottom, value, onChange }: {
+  top: string[]; bottom: string[]; value: 'top' | 'bottom'; onChange: (v: 'top' | 'bottom') => void;
+}) {
+  const isTop = value === 'top';
+  const anim = useRef(new Animated.Value(isTop ? 0 : 1)).current; // 0 = topp, 1 = botten
+  const [trackH, setTrackH] = useState(0);
+  useEffect(() => {
+    Animated.spring(anim, { toValue: isTop ? 0 : 1, useNativeDriver: true, friction: 7, tension: 130 }).start();
+  }, [isTop, anim]);
+  const travel = Math.max(0, trackH - AV_DOT - AV_PAD * 2);
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, travel] });
+  const lbl = (lines: string[], active: boolean, side: 'top' | 'bottom') => (
+    <TouchableOpacity activeOpacity={0.7} onPress={() => onChange(side)} style={avStyles.lblBox}>
+      {lines.map((l, i) => (
+        <Text key={i} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
+          style={[avStyles.lblText, { color: active ? Colors.primary : Colors.textMuted }]}>{l}</Text>
+      ))}
+    </TouchableOpacity>
+  );
+  return (
+    <View style={avStyles.col}>
+      {lbl(top, isTop, 'top')}
+      <TouchableOpacity activeOpacity={0.85} onPress={() => onChange(isTop ? 'bottom' : 'top')}
+        onLayout={(e) => setTrackH(e.nativeEvent.layout.height)}
+        style={[avStyles.track, { backgroundColor: Colors.elevated, borderColor: Colors.primary + '66' }]}>
+        <View style={[avStyles.fill, { backgroundColor: Colors.primary }]} />
+        <Animated.View style={[avStyles.dot, { transform: [{ translateY }] }]} />
+      </TouchableOpacity>
+      {lbl(bottom, !isTop, 'bottom')}
+    </View>
+  );
+}
+
+const avStyles = StyleSheet.create({
+  col: { width: 48, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 },
+  lblBox: { width: 48, alignItems: 'center', paddingHorizontal: 1 },
+  lblText: { fontSize: 8, lineHeight: 10, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 0, textAlign: 'center' },
+  track: { flex: 1, width: 30, minHeight: 40, borderRadius: 15, borderWidth: 1, marginVertical: 5, overflow: 'hidden', alignItems: 'center' },
+  fill: { position: 'absolute', top: 2, left: 2, right: 2, bottom: 2, borderRadius: 13, opacity: 0.18 },
+  dot: {
+    position: 'absolute', top: AV_PAD, width: AV_DOT, height: AV_DOT, borderRadius: AV_DOT / 2, backgroundColor: '#fff',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.12)',
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+});
+
 function ValidationWarnings({ issues }: { issues: ValidationIssue[] }) {
   const styles = makeStyles();
   const warnings = issues.filter((i) => i.severity === 'warning');
@@ -628,8 +696,6 @@ export default function AddFlightScreen() {
     'worklet';
     if (e.translationY > 60 || e.velocityY > 600) runOnJS(setSimInfoOpen)(false);
   });
-  const [depCustom, setDepCustom] = useState(false);
-  const [arrCustom, setArrCustom] = useState(false);
   // Inline nedfällda staplar för aircraft type / registration (ersätter de gamla pop up-modalerna).
   const [typeOpen, setTypeOpen] = useState(false);
   const [regOpen, setRegOpen] = useState(false);
@@ -656,6 +722,7 @@ export default function AddFlightScreen() {
   const [lastTemplate, setLastTemplate] = useState<string>('');
   const [rawTime, setRawTime] = useState<Partial<Record<'ifr' | 'vfr' | 'night' | 'nvg' | 'pilot_flying', string>>>({});
   const [pilotMode, setPilotMode] = useState<'single' | 'multi'>('single');
+  const [pilotModeManual, setPilotModeManual] = useState(false); // true = användaren har överstyrt SP/MP-togglen
   type CrewMember = { id: string; role: string; name: string };
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([{ id: '1', role: '', name: '' }]);
   const [spRolePickerOpen, setSpRolePickerOpen] = useState(false);
@@ -694,8 +761,12 @@ export default function AddFlightScreen() {
   // Route-info (total/distans/fart/glob/dagsbar/stops) visas först när dep+arr (plats+tid) är
   // ifyllda — och förblir sedan synlig (uppdateras, försvinner inte) även om man ändrar ett värde.
   const routeComplete = !!depLatLon && !!arrLatLon && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
+  // Okänd flygplats (utan koordinater): visa SAMMA route-presentation (flygtid-hero + reveal) när
+  // båda platser + tider är ifyllda. Distans/fart/sol-rutt/twilight döljer sig själva (kräver
+  // koordinater); natt fylls i manuellt av användaren.
+  const routeRevealNoCoords = form.dep_place.trim().length >= 2 && form.arr_place.trim().length >= 2 && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
   const [routeRevealed, setRouteRevealed] = useState(false);
-  useEffect(() => { if (routeComplete) setRouteRevealed(true); }, [routeComplete]);
+  useEffect(() => { if (routeComplete || routeRevealNoCoords) setRouteRevealed(true); }, [routeComplete, routeRevealNoCoords]);
   // Gap-animation: dep/arr-sektionerna dras isär och revealar connectorn (flaggor/streck/glyf)
   // som "ligger bakom". Redigering (redan komplett) startar öppet utan animation.
   const gapAnim = useRef(new Animated.Value(isEdit ? 1 : 0)).current;
@@ -812,14 +883,36 @@ export default function AddFlightScreen() {
   // Approacher tas bara med vid IFR/Y/Z (VFR visar inte approach-väljaren).
   useEffect(() => {
     const withApp = form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z';
-    const lines = buildRouteLines(routeStops, approaches, form.arr_place, withApp);
+    const routeLines = buildRouteLines(routeStops, approaches, form.arr_place, withApp);
+
+    // Piloter (second + extra), cabin crew och Max FL som egna hanterade rader → syns live i remarks.
+    const spShort = (k: string) => SP_ROLES.find((r) => r.key === k)?.short ?? k;
+    const pilotStr = [
+      form.second_pilot?.trim() ? { role: form.second_pilot_role ?? '', name: form.second_pilot.trim() } : null,
+      ...extraPilots.filter((p) => p.name.trim()).map((p) => ({ role: p.role, name: p.name.trim() })),
+    ]
+      .filter((p): p is { role: string; name: string } => !!p)
+      .map((p) => [p.role ? spShort(p.role) : '', p.name].filter(Boolean).join(': '))
+      .join(', ');
+    const cabinStr = crewMembers
+      .filter((m) => m.role || m.name)
+      .map((m) => [m.role, m.name].filter(Boolean).join(': '))
+      .join(', ');
+    const flStr = parseInt(form.max_fl ?? '') > 0 ? `Max FL${form.max_fl}` : '';
+
+    const extra: string[] = [];
+    if (pilotStr) extra.push(pilotStr);   // ren "roll: namn, …" (ingen tagg)
+    if (cabinStr) extra.push(cabinStr);   // ren "roll: namn, …" (ingen tagg)
+    if (flStr) extra.push(flStr);
+
     setForm((prev) => {
       const free = (prev.remarks || '').split('\n').filter((ln) => ln.trim() !== '' && !isManagedLine(ln));
-      const merged = [...free, ...lines].join('\n');
+      const merged = [...free, ...routeLines, ...extra].join('\n');
       if (merged === (prev.remarks || '')) return prev;
       return { ...prev, remarks: merged };
     });
-  }, [routeStops, approaches, form.arr_place, form.flight_rules]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeStops, approaches, form.arr_place, form.flight_rules, form.second_pilot, form.second_pilot_role, extraPilots, crewMembers, form.max_fl]);
 
   // 2D/3D approach-tickern speglar valda approaches i ApproachFlow — räknas först när TYP valts
   // (v.app satt, t.ex. ILS CAT II), inte vid enbart 2D/3D- eller subkategori-val.
@@ -846,7 +939,6 @@ export default function AddFlightScreen() {
   // Pilot flying-tid: default 100% (hela flygtiden), sedan andel efter senaste flygningen.
   const [pilotFlyingManual, setPilotFlyingManual] = useState(isEdit);
   const [pfRatio, setPfRatio] = useState(1); // andel av flygtiden som auto-PF (1 = 100%), från lastFlight
-  const pfWasZero = useRef(true);            // spårar 0-övergångar för att nolla/återställa t/o & ldg
   // Tidsinmatningsläge: lokal tid (default) eller UTC. Lagrad tid är alltid UTC.
   const [timeMode, setTimeMode] = useState<'local' | 'utc'>('utc');
   const [depLocalBuf, setDepLocalBuf] = useState('');
@@ -866,8 +958,7 @@ export default function AddFlightScreen() {
       const parsedApp = parseApproaches(f.remarks || '');
       if (Object.keys(parsedApp).length > 0) setApproaches(parsedApp);
 
-      // Baslinje för PF-övergångslogiken så laddade take-offs/landings inte nollas/återställs.
-      pfWasZero.current = (Number(f.pilot_flying) || 0) <= 0;
+      // (landingsManual/takeoffsManual = isEdit = true → laddade take-offs/landings rörs inte av autot.)
 
       setForm({
         date: f.date,
@@ -877,6 +968,8 @@ export default function AddFlightScreen() {
         dep_utc: f.dep_utc,
         arr_place: f.arr_place,
         arr_utc: f.arr_utc,
+        dep_place_raw: f.dep_place_raw ?? f.dep_place,
+        arr_place_raw: f.arr_place_raw ?? f.arr_place,
         total_time: String(f.total_time),
         ifr: String(f.ifr),
         night: String(f.night),
@@ -920,6 +1013,17 @@ export default function AddFlightScreen() {
           const arr = JSON.parse(f.extra_pilots);
           if (Array.isArray(arr)) setExtraPilots(arr.map((p: any, i: number) => ({ id: `e${i}`, role: String(p?.role ?? ''), name: String(p?.name ?? '') })));
         } catch {}
+      }
+      // Cabin crew tillbaka ur remarks-raden "roll: namn, …" (innehållsmatchad) → round-trippar vid redigering.
+      const cabinLine = (f.remarks || '').split('\n').map((l) => l.trim()).find((l) => isCabinLine(l));
+      if (cabinLine) {
+        const members = cabinLine.split(', ').map((e, i) => {
+          const idx = e.indexOf(': ');
+          const role = idx >= 0 ? e.slice(0, idx).trim() : '';
+          const name = idx >= 0 ? e.slice(idx + 2).trim() : e.trim();
+          return { id: `c${i}`, role, name };
+        }).filter((m) => m.role || m.name);
+        if (members.length) setCrewMembers(members);
       }
       if (f.photo_uri) setPhotoUri(f.photo_uri);
       if (f.media_type === 'video') setMediaType('video');
@@ -1035,33 +1139,27 @@ export default function AddFlightScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.total_time, pilotFlyingManual, pfRatio]);
 
-  // 0 pilot flying ⇒ nolla take-offs & landnings; PF tillbaka > 0 ⇒ återställ (twilight fördelar dag/natt).
+  // Take-off & landning auto-fylls (1 start + 1 landning) FÖRST när avgång+ankomst (plats & tid) är
+  // ifyllda OCH pilot flying är valt. Dessförinnan: 0. Respekterar manuell ändring (och autofyll/
+  // edit som sätter *Manual=true → egna räknare bevaras). T&G sköts av route-autona nedan.
   useEffect(() => {
-    const pfZero = (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
-    if (pfZero === pfWasZero.current) return;
-    if (pfZero) {
-      setForm((prev) => ({ ...prev, takeoffs_day: '0', takeoffs_night: '0', landings_day: '0', landings_night: '0' }));
-    } else {
-      setTakeoffsManual(false); setLandingsManual(false);
-      // Återställ 1 start + 1 landning, men klassa dag/natt DIREKT via solhöjden — annars skrev detta
-      // över mörkerlandnings-/take-off-autona (de körs före denna effekt) och landningen blev "day"
-      // trots ankomst i mörker. T&G sköts av route-autona nedan.
-      if (form.flight_type === 'touch_and_go') {
-        setForm((prev) => ({ ...prev, takeoffs_day: '1', takeoffs_night: '0', landings_day: '1', landings_night: '0' }));
-      } else {
-        const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-        const depDark = !!(inst && depLatLon && solarAltitudeDeg(inst.dep, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG);
-        const arrDark = !!(inst && arrLatLon && solarAltitudeDeg(inst.arr, arrLatLon.lat, arrLatLon.lon) < CIVIL_TWILIGHT_DEG);
-        setForm((prev) => ({
-          ...prev,
-          takeoffs_day: depDark ? '0' : '1', takeoffs_night: depDark ? '1' : '0',
-          landings_day: arrDark ? '0' : '1', landings_night: arrDark ? '1' : '0',
-        }));
-      }
-    }
-    pfWasZero.current = pfZero;
+    if (form.flight_type === 'touch_and_go') return;
+    const ready = !!form.dep_place.trim() && !!form.arr_place.trim()
+      && isValidTime(form.dep_utc) && isValidTime(form.arr_utc)
+      && (parseFloat(form.pilot_flying ?? '0') || 0) > 0;
+    const inst = ready ? buildInstants(form.date, form.dep_utc, form.arr_utc, 0) : null;
+    const depDark = !!(inst && depLatLon && solarAltitudeDeg(inst.dep, depLatLon.lat, depLatLon.lon) < CIVIL_TWILIGHT_DEG);
+    const arrDark = !!(inst && arrLatLon && solarAltitudeDeg(inst.arr, arrLatLon.lat, arrLatLon.lon) < CIVIL_TWILIGHT_DEG);
+    const toD = !ready ? '0' : depDark ? '0' : '1', toN = !ready ? '0' : depDark ? '1' : '0';
+    const ldD = !ready ? '0' : arrDark ? '0' : '1', ldN = !ready ? '0' : arrDark ? '1' : '0';
+    setForm((prev) => {
+      let next = prev;
+      if (!takeoffsManual && (prev.takeoffs_day !== toD || prev.takeoffs_night !== toN)) next = { ...next, takeoffs_day: toD, takeoffs_night: toN };
+      if (!landingsManual && (prev.landings_day !== ldD || prev.landings_night !== ldN)) next = { ...next, landings_day: ldD, landings_night: ldN };
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.pilot_flying]);
+  }, [form.dep_place, form.arr_place, form.dep_utc, form.arr_utc, form.pilot_flying, form.flight_type, depLatLon, arrLatLon, form.date, takeoffsManual, landingsManual]);
 
   // Route: varje stopp UTOM low approach = en landning (TnG/PU/DO/Hot refuel), klassad
   // dag/natt efter solhöjden vid stoppet när flygplanet är där, plus destinationens landning.
@@ -1168,10 +1266,10 @@ export default function AddFlightScreen() {
     { key: 'Loadmaster', label: selectedLang === 'sv' ? 'Lastmästare' : 'Loadmaster', short: 'LM' },
   ];
 
-  // Roller för medpiloten man flyger med. COP visas förkortat i rutan, "Copilot" i listan.
+  // Roller för medpiloten man flyger med. Nyckeln 'COP' behålls internt (DB/parse) men visas som SIC.
   const SP_ROLES = [
     { key: 'PIC', short: 'PIC', label: 'PIC' },
-    { key: 'COP', short: 'COP', label: selectedLang === 'sv' ? 'Andrepilot (Copilot)' : 'Copilot' },
+    { key: 'COP', short: 'SIC', label: 'SIC' },
     { key: 'FI', short: 'FI', label: 'FI' },
     { key: 'SPIC', short: 'SPIC', label: 'SPIC' },
     { key: 'PICUS', short: 'PICUS', label: 'PICUS' },
@@ -1266,16 +1364,15 @@ export default function AddFlightScreen() {
   // Egna roller som innebär multi-pilot-operation.
   const MP_ROLES: PrimaryRole[] = ['co_pilot', 'picus', 'relief_crew', 'spic'];
 
-  // SP/MP avgörs automatiskt (ingen knapp): MP om farkosten är MP-only, om en second pilot
-  // är ifylld, om egen roll innebär multi-pilot, eller om man loggar pilot monitoring (PM) —
-  // man kan inte vara PM ensam. SP om farkosten är SP-only eller inget av ovan.
+  // SP/MP avgörs automatiskt: MP om farkosten är MP-only, om en second pilot är ifylld, om egen
+  // roll innebär multi-pilot, eller om man loggar pilot monitoring (PM) — man kan inte vara PM ensam.
+  // SP om farkosten är SP-only eller inget av ovan. Hoppas över när användaren överstyrt via togglen.
   useEffect(() => {
+    if (pilotModeManual) return; // manuell SP/MP-override → rör inte
     let target: 'single' | 'multi';
-    // PM = egen pilot-flying-tid är 0 (med flygtid loggad). Gäller alla egna roller utom dual,
-    // och även utan angiven second pilot → multipilot (du kan inte vara PM utan multi-crew).
-    const isPM = role !== 'dual'
-      && (parseFloat(form.total_time ?? '0') || 0) > 0
-      && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
+    // PM = pilot monitoring valt via togglen (pilot-flying = 0). Gäller alla egna roller utom dual;
+    // man kan inte vara PM ensam → multipilot. Reagerar direkt (kräver ingen loggad tid).
+    const isPM = role !== 'dual' && pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
     if (mpSupported && !spSupported) target = 'multi';
     else if (spSupported && !mpSupported) target = 'single';
     else if ((form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim())) target = 'multi';
@@ -1283,7 +1380,7 @@ export default function AddFlightScreen() {
     else target = MP_ROLES.includes(role) ? 'multi' : 'single';
     setPilotMode((m) => (m === target ? m : target));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spSupported, mpSupported, form.second_pilot, role, extraPilots, form.total_time, form.pilot_flying]);
+  }, [spSupported, mpSupported, form.second_pilot, role, extraPilots, form.total_time, form.pilot_flying, pilotFlyingManual, pilotModeManual]);
 
   // Det måste finnas en PIC om en medpilot är angiven (second pilot eller extra pilot).
   // Saknas PIC → den namngivna medpiloten blir PIC. Undantag: du ensam som co-pilot utan
@@ -1328,6 +1425,7 @@ export default function AddFlightScreen() {
   }, [role, examinerOverlay]);
 
   useEffect(() => {
+    setPilotModeManual(false); // nytt flygplan → SP/MP-constraints/härledning gäller igen
     const type = form.aircraft_type.trim().toUpperCase();
     if (!type) { setRecentRegs([]); setSpSupported(true); setMpSupported(true); return; }
     let cancelled = false;
@@ -1378,6 +1476,8 @@ export default function AddFlightScreen() {
       second_pilot_role: lastFlight.second_pilot_role ?? '',
       dep_place: lastFlight.arr_place ?? '',
       arr_place: lastFlight.dep_place ?? '',
+      dep_place_raw: lastFlight.arr_place_raw ?? lastFlight.arr_place ?? '',
+      arr_place_raw: lastFlight.dep_place_raw ?? lastFlight.dep_place ?? '',
       flight_rules: lastFlight.flight_rules ?? prev.flight_rules,
       ifr: '0',
       vfr: '0',
@@ -1530,6 +1630,7 @@ export default function AddFlightScreen() {
   };
 
   const handleRoleChange = (newRole: PrimaryRole) => {
+    setPilotModeManual(false); // ny roll → SP/MP härleds automatiskt igen
     const instrEligible: PrimaryRole[] = ['pic','picus','spic','ferry_pic'];
     const nextFi = instrEligible.includes(newRole) ? fi : false;
     const nextExam = newRole === 'pic' ? examinerOverlay : false;
@@ -1589,6 +1690,12 @@ export default function AddFlightScreen() {
   // Delas av Quicklog- och Full-rollrutnätet. Innehåller special-roller + examiner/safety-overlays.
   const renderOtherBox = () => {
     const specialActive = ['picus', 'spic', 'ferry_pic', 'observer', 'relief_crew'].includes(role) || examinerOverlay || safetyPilotOverlay;
+    // Knappen visar vald special-roll (annars "OTHER") så det tydligt syns vad man valt.
+    let otherLabel = 'OTHER';
+    if (role === 'picus') otherLabel = 'PICUS';
+    else if (role === 'spic' || role === 'ferry_pic' || role === 'observer' || role === 'relief_crew') otherLabel = t(`role_${role}` as any).toUpperCase();
+    else if (examinerOverlay) otherLabel = t('role_examiner').toUpperCase();
+    else if (safetyPilotOverlay) otherLabel = t('role_safety_pilot').toUpperCase();
     const ddRow = (key: string, label: string, on: boolean, icon: 'radio-button-on' | 'radio-button-off' | 'checkbox' | 'square-outline', onPress: () => void, disabled?: boolean, danger?: boolean) => (
       <TouchableOpacity key={key} disabled={disabled} onPress={onPress} activeOpacity={0.7}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7, opacity: disabled ? 0.4 : 1, backgroundColor: on ? Colors.primary + '18' : undefined }}>
@@ -1599,7 +1706,7 @@ export default function AddFlightScreen() {
     return (
       <View style={{ flex: 1, position: 'relative', zIndex: otherOpen ? 40 : undefined }}>
         <TouchableOpacity style={[styles.roleBtn, specialActive && styles.roleBtnActive]} onPress={() => setOtherOpen((o) => !o)} activeOpacity={0.75}>
-          <Text style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>OTHER</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>{otherLabel}</Text>
         </TouchableOpacity>
         {otherOpen && (
           <View style={[styles.ddFlyout, { right: 0, width: 220 }]}>
@@ -1709,8 +1816,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         const applyImport = (timeVal: string) => {
           const updates: Partial<FlightFormData> = {};
           if (parsed.date) updates.date = String(parsed.date);
-          if (parsed.dep_place) updates.dep_place = String(parsed.dep_place).toUpperCase();
-          if (parsed.arr_place) updates.arr_place = String(parsed.arr_place).toUpperCase();
+          if (parsed.dep_place) { updates.dep_place = String(parsed.dep_place).toUpperCase(); updates.dep_place_raw = updates.dep_place; }
+          if (parsed.arr_place) { updates.arr_place = String(parsed.arr_place).toUpperCase(); updates.arr_place_raw = updates.arr_place; }
           if (parsed.dep_utc) updates.dep_utc = String(parsed.dep_utc);
           if (parsed.arr_utc) updates.arr_utc = String(parsed.arr_utc);
 
@@ -1727,13 +1834,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           if (parsed.aircraft_type) updates.aircraft_type = String(parsed.aircraft_type).toUpperCase();
           if (parsed.registration) updates.registration = String(parsed.registration).toUpperCase();
           if (parsed.max_fl) updates.max_fl = String(parsed.max_fl);
-          if (parsed.landings_day) updates.landings_day = String(parsed.landings_day);
+          if (parsed.landings_day) {
+            // Autofyll: noterade landningar fylls i — och lika många take-offs (man måste starta
+            // för att kunna landa). Twilight-effekterna fördelar sedan dag/natt utan att ändra summan.
+            updates.landings_day = String(parsed.landings_day);
+            updates.takeoffs_day = String(parsed.landings_day);
+          }
           if (parsed.flight_rules) updates.flight_rules = String(parsed.flight_rules).toUpperCase();
           setForm(prev => ({ ...prev, ...updates }));
-          // Photolog styr landningsantalet (även i Quicklog): hindra PF-återställningen från att
-          // nolla/återställa räknarna till 1 när total (→ pilot flying) sätts av importen.
-          // Twilight-effekten fördelar sedan bara antalet på dag/natt utan att ändra summan.
-          if (updates.landings_day) pfWasZero.current = false;
+          // Lås importerade take-offs/landningar (readiness-autot rör bara icke-manuella räknare).
+          if (updates.landings_day) { setLandingsManual(true); setTakeoffsManual(true); }
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         };
 
@@ -1808,16 +1918,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
     }
     setSaving(true);
     try {
-      const crewStr = crewMembers
-        .filter(m => m.role || m.name)
-        .map(m => [m.role, m.name].filter(Boolean).join(': '))
-        .join(', ');
-      const flStr = parseInt(form.max_fl ?? '') > 0 ? `Max FL${form.max_fl}` : '';
-      const finalRemarks = [
-        form.remarks,
-        flStr,
-        crewStr ? `[${crewStr}]` : '',
-      ].filter(Boolean).join(' · ');
+      // Remarks byggs nu live av sync-effekten (route + [Pilots] + [Cabin] + Max FL) → spara som är.
+      const finalRemarks = (form.remarks || '').trim();
 
       let savedPhotoUri = photoUri ?? '';
       if (photoUri && !photoUri.startsWith(FileSystem.documentDirectory ?? '___')) {
@@ -1873,6 +1975,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       const usedPending = pendingPlaces.filter((p) => p.icao === finalData.dep_place || p.icao === finalData.arr_place);
       for (const p of usedPending) await addTemporaryPlace(p.icao, p.name, 0, 0).catch(() => {});
       await Promise.all([loadFlights(), loadStats()]);
+      // Okänd dep/arr-kod (matchar ingen flygplats/off-airport)? → köa till dashboardens
+      // "does not exist in local database"-notis så man kan lägga till platsen.
+      for (const code of [finalData.dep_place_raw, finalData.arr_place_raw]) {
+        const c = (code ?? '').trim();
+        if (c.length >= 2 && !(await getAirportByAnyCode(c))) usePendingPlaceStore.getState().add(c);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Uppmana att placera de nya platserna på kartan (dashboard: "Unlocated places"-bannern).
       if (usedPending.length > 0) {
@@ -2059,7 +2167,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <Text style={styles.lastFlightText}>
               {t('reverse_route')}{' '}
               <Text style={styles.lastFlightBold}>
-                {lastFlight.arr_place} → {lastFlight.dep_place}
+                {placeCode(lastFlight.arr_place, lastFlight.arr_place_raw)} → {placeCode(lastFlight.dep_place, lastFlight.dep_place_raw)}
               </Text>
               {lastFlight.second_pilot ? <> · <Text style={styles.lastFlightBold}>{lastFlight.second_pilot}</Text></> : null}
             </Text>
@@ -2155,25 +2263,17 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('departure')}</Text>
               </View>
-              <SlideToggle
-                block
-                sans
-                options={[{ value: 'icao', label: 'Airport' }, { value: 'temp', label: 'Off-airport' }]}
-                value={depCustom ? 'temp' : 'icao'}
-                onChange={(v) => { setDepCustom(v === 'temp'); set('dep_place', ''); }}
-              />
               <IcaoInput
                 ref={depIcaoRef}
                 label=""
                 inputFontFamily={FONT_LED14}
                 design
-                value={form.dep_place}
+                freeText
+                value={form.dep_place_raw ?? ''}
                 onChangeText={(v) => set('dep_place', v)}
+                onResolve={(raw, icao) => setForm((f) => ({ ...f, dep_place_raw: raw, dep_place: icao ?? raw.trim().toUpperCase() }))}
                 error={errors.dep_place}
                 recentPlaces={top2places}
-                pendingPlaces={pendingPlaces}
-                onPendingPlace={handlePendingPlace}
-                allowHere={depCustom}
                 onFocus={() => {
                   const target = Math.max(0, routeBlockY.current - 8);
                   // Skjut scroll efter att tangentbordet + auto-insets har justerats,
@@ -2184,16 +2284,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   setTimeout(() => {
                     scrollViewRef.current?.scrollTo({ y: target, animated: true });
                   }, 320);
-                }}
-                onTemporaryPlaceSelect={(icao) => {
-                  setDepCustom(true);
-                  set('dep_place', icao);
-                  if (form.dep_utc && isValidTime(form.dep_utc)) {
-                    if (form.arr_place.trim()) setTimeout(() => arrTimeRef.current?.focus(), 120);
-                    else setTimeout(() => arrIcaoRef.current?.focus(), 120);
-                  } else {
-                    setTimeout(() => depTimeRef.current?.focus(), 80);
-                  }
                 }}
                 onConfirm={() => {
                   if (form.dep_utc && isValidTime(form.dep_utc)) {
@@ -2241,7 +2331,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   const below = timeMode === 'utc'
                     ? localLabel(instantFromDateTime(form.date, form.dep_utc) ?? new Date(0), depLatLon?.country, depLatLon?.region, depLatLon?.lon)
                     : `${form.dep_utc} UTC`;
-                  return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
+                  // Centrerad under rutan + samma font/storlek som flygplatsnamnet (IcaoInput design-namn).
+                  return below ? <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 10, marginTop: 4 }}>{below}</Text> : null;
                 })()}
               </View>
             </Animated.View>
@@ -2266,25 +2357,17 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <View style={styles.placeColHeader}>
                 <Text style={styles.placeColHeaderText}>{t('arrival')}</Text>
               </View>
-              <SlideToggle
-                block
-                sans
-                options={[{ value: 'icao', label: 'Airport' }, { value: 'temp', label: 'Off-airport' }]}
-                value={arrCustom ? 'temp' : 'icao'}
-                onChange={(v) => { setArrCustom(v === 'temp'); set('arr_place', ''); }}
-              />
               <IcaoInput
                 ref={arrIcaoRef}
                 label=""
                 inputFontFamily={FONT_LED14}
                 design
-                value={form.arr_place}
+                freeText
+                value={form.arr_place_raw ?? ''}
                 onChangeText={(v) => set('arr_place', v)}
+                onResolve={(raw, icao) => setForm((f) => ({ ...f, arr_place_raw: raw, arr_place: icao ?? raw.trim().toUpperCase() }))}
                 error={errors.arr_place}
                 recentPlaces={top2places}
-                pendingPlaces={pendingPlaces}
-                onPendingPlace={handlePendingPlace}
-                allowHere={arrCustom}
                 onFocus={() => {
                   const target = Math.max(0, routeBlockY.current - 8);
                   requestAnimationFrame(() => {
@@ -2293,13 +2376,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   setTimeout(() => {
                     scrollViewRef.current?.scrollTo({ y: target, animated: true });
                   }, 320);
-                }}
-                onTemporaryPlaceSelect={(icao) => {
-                  setArrCustom(true);
-                  set('arr_place', icao);
-                  if (!form.arr_utc || !isValidTime(form.arr_utc)) {
-                    setTimeout(() => arrTimeRef.current?.focus(), 80);
-                  }
                 }}
                 onConfirm={() => {
                   if (!form.arr_utc || !isValidTime(form.arr_utc)) {
@@ -2330,7 +2406,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   const below = timeMode === 'utc'
                     ? localLabel(instantFromDateTime(form.date, form.arr_utc) ?? new Date(0), arrLatLon?.country, arrLatLon?.region, arrLatLon?.lon)
                     : `${form.arr_utc} UTC`;
-                  return below ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginTop: 3, paddingLeft: 2 }}>{below}</Text> : null;
+                  // Centrerad under rutan + samma font/storlek som flygplatsnamnet (IcaoInput design-namn).
+                  return below ? <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 10, marginTop: 4 }}>{below}</Text> : null;
                 })()}
               </View>
             </Animated.View>
@@ -2346,8 +2423,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && belowH === 0 && !belowExpanded) setBelowH(h); }}>
           {/* ── Total flygtid (hero) + distans + sol-glob — designens route-card ── */}
           {(() => {
-            // Visning baseras på AUTO-beräknad route-natt → ändras ej när man drar night-baren.
-            const isNightFlight = autoNightH > 0;
+            // Med koordinater: AUTO-beräknad route-natt (ändras ej när man drar night-baren).
+            // Utan koordinater (okänd flygplats): ingen auto → spegla den manuellt ifyllda natten.
+            const heroNightH = (depLatLon && arrLatLon) ? autoNightH : (parseFloat(form.night) || 0);
+            const isNightFlight = heroNightH > 0;
             // Distans = summan av storcirkel-benen dep → stopp → … → arr (stops/via inräknade).
             const distNm = (depLatLon && arrLatLon && routeLegs.length >= 2) ? (() => {
               const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
@@ -2421,7 +2500,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Text style={{ marginTop: 5, fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, color: '#FFFFFF', textTransform: 'uppercase' }}>{t('total_flight_time')}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 }}>
                     <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: isNightFlight ? Colors.info : Colors.gold }} />
-                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? `${decimalToHHMM(autoNightH)} during night` : `${t('day_flight')} flight`}</Text>
+                    <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? `${decimalToHHMM(heroNightH)} during night` : `${t('day_flight')} flight`}</Text>
                   </View>
                   {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
                 </View>
@@ -2707,7 +2786,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                     Real: 'auto'-pill tills man drar; reset-knappen dyker upp på samma plats. */}
                 <CondBar
                   label={t('night')}
-                  autoLabel={(!nightManual && form.flight_type !== 'sim') ? 'auto' : undefined}
+                  autoLabel={(!nightManual && form.flight_type !== 'sim' && depLatLon && arrLatLon) ? 'auto' : undefined}
                   onReset={(nightManual && form.flight_type !== 'sim' && depLatLon && arrLatLon) ? () => setNightManual(false) : undefined}
                   pct={pct(form.night)} onPct={(p) => { setNightManual(true); setPct('night', p); }} tint={Colors.info} totalMin={total * 60}
                   onGrab={lock} onRelease={unlock}
@@ -2839,64 +2918,67 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <View style={[{ marginBottom: 4 }, otherOpen ? { zIndex: 30 } : null]}>
               <Text style={styles.cardFieldLabel}>{t('your_role')}</Text>
               <View style={styles.roleGrid}>
-                {/* Samma layout för Quicklog och Full: PIC · CO-PILOT · DUAL · FI / PF·PM-toggle · OTHER.
-                    (Övriga roller — PICUS m.fl. — finns i OTHER-dropdownen; separata PF-baren borttagen.) */}
-                <View style={styles.roleRow}>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, role === 'pic' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
-                    disabled={role === 'dual'}
-                    onPress={() => handleRoleChange('pic')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
-                    disabled={role === 'dual'}
-                    onPress={() => handleRoleChange('co_pilot')}
-                    activeOpacity={0.75}
-                  >
-                    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>CO-PILOT</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
-                    onPress={toggleDual}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
-                    disabled={role !== 'pic'}
-                    onPress={toggleFi}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>FI</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={[styles.roleRow, { alignItems: 'center' }]}>
-                  {/* Pilot flying / Pilot monitoring — glidande toggle; vald del = roleBtn-active-look.
-                      Vald visas som förkortning (PF/PM), ovald utskriven (Pilot flying / Pilot monitoring). */}
+                {/* Vänster: 2×2 roll-rutnät (PIC·CO-PILOT / DUAL·FI). Höger om det: vertikal PF/PM-toggle,
+                    därefter vertikal SP/MP-toggle. (Övriga roller — PICUS m.fl. — i OTHER-dropdownen.) */}
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'stretch' }}>
+                  {/* 2×2 roller */}
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={styles.roleRow}>
+                      <TouchableOpacity
+                        style={[styles.roleBtn, role === 'pic' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
+                        disabled={role === 'dual'} onPress={() => handleRoleChange('pic')} activeOpacity={0.75}
+                      >
+                        <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
+                        disabled={role === 'dual'} onPress={() => handleRoleChange('co_pilot')} activeOpacity={0.75}
+                      >
+                        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>SIC</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.roleRow}>
+                      <TouchableOpacity
+                        style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
+                        onPress={toggleDual} activeOpacity={0.75}
+                      >
+                        <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
+                        disabled={role !== 'pic'} onPress={toggleFi} activeOpacity={0.75}
+                      >
+                        <Text style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>FI</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* OTHER — full bredd under DUAL/FI (placering TBD) */}
+                    <View style={styles.roleRow}>
+                      {renderOtherBox()}
+                    </View>
+                  </View>
+
+                  {/* Aviation-toggle PF/PM (samma funktion som förr) */}
                   {(() => {
                     // PF är default (även innan tider fyllts i); PM bara när den valts explicit (manuellt satt 0).
-                    const pfVal = (pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0) ? 'pm' : 'pf';
+                    const isPf = !(pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0);
                     return (
-                      <View style={{ flex: 2 }}>
-                        <SlideToggle
-                          block soft tall size="sm"
-                          value={pfVal}
-                          options={pfVal === 'pf'
-                            ? [{ value: 'pf', label: 'PF' }, { value: 'pm', label: 'Pilot monitoring' }]
-                            : [{ value: 'pf', label: 'Pilot flying' }, { value: 'pm', label: 'PM' }]}
-                          onChange={(v) => {
-                            if (v === 'pf') { setPfRatio(1); setPilotFlyingManual(false); }
-                            else { setPilotFlyingManual(true); set('pilot_flying', '0'); }
-                          }}
-                        />
-                      </View>
+                      <AvSwitch
+                        top={['Pilot', 'Flying']} bottom={['Pilot', 'Monitoring']}
+                        value={isPf ? 'top' : 'bottom'}
+                        onChange={(side) => {
+                          if (side === 'top') { setPfRatio(1); setPilotFlyingManual(false); }
+                          else { setPilotFlyingManual(true); set('pilot_flying', '0'); }
+                        }}
+                      />
                     );
                   })()}
-                  {renderOtherBox()}
+
+                  {/* Aviation-toggle SP/MP — visar härlett läge men går att överstyra */}
+                  <AvSwitch
+                    top={['Single', 'Pilot']} bottom={['Multi', 'Pilot']}
+                    value={pilotMode === 'single' ? 'top' : 'bottom'}
+                    onChange={(side) => { setPilotModeManual(true); setPilotMode(side === 'top' ? 'single' : 'multi'); }}
+                  />
                 </View>
               </View>
           </View>
@@ -3033,7 +3115,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <TolRow first label="Take-offs"
             a={{ label: t('day'), value: cur('takeoffs_day'), onChange: (n) => { setTakeoffsManual(true); set('takeoffs_day', String(n)); } }}
             b={{ label: t('night'), value: cur('takeoffs_night'), onChange: (n) => { setTakeoffsManual(true); set('takeoffs_night', String(n)); } }} />
-          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+          {/* Approaches-ticker: för sim ligger den kvar här (sim saknar approach-flow/holding nedan);
+              för övriga flygningar flyttad till precis ovanför Holding patterns. */}
+          {form.flight_type === 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
             <TolRow label="Approaches"
               a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
               b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
@@ -3070,6 +3154,10 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ifr
               runwaysFor={runwaysFor}
             />
+            {/* Approaches-ticker (2D/3D) — flyttad hit, precis ovanför Holding patterns. first = ingen topplinje. */}
+            <TolRow first label="Approaches"
+              a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
+              b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
             {/* Holds (FAA 6HITS: instrumentinflygningar + hållning inom 6 mån) */}
             {(() => {
               const h = parseInt(form.holds ?? '0', 10) || 0;

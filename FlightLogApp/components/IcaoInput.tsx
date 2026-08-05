@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, getTempPlaceByName, batchPlaceNames } from '../db/icao';
+import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, getAirportByAnyCode, getTempPlaceByName, batchPlaceNames } from '../db/icao';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import type { IcaoAirport } from '../types/flight';
@@ -26,6 +26,12 @@ interface Props {
   onFocus?: () => void;
   inputFontFamily?: string; // override mono (t.ex. LED 14-seg) för ICAO-koden
   design?: boolean; // Log Flight-design: större ICAO-text, flygplatsnamn under, 3 snabbval
+  // Fritext-läge (pilot airport): ingen förslagslista. Live-matchar mot ICAO/IATA/GPS → grön bock +
+  // namn vid träff, frågetecken + "Unknown airport/airfield" annars (efter 0,5 s). Rapporterar via
+  // onResolve(raw, icao): raw = exakt inskriven kod (visas i loggbok/export), icao = kanonisk ICAO
+  // vid träff (för koordinater) eller null. Off-airport-läget (allowHere) påverkas inte.
+  freeText?: boolean;
+  onResolve?: (raw: string, icao: string | null) => void;
   // Off-airport "halvsparade" platser: när onPendingPlace finns skjuts DB-persistensen
   // upp tills flighten sparats. pendingPlaces används för namn/status-uppslag under tiden.
   pendingPlaces?: { icao: string; name: string }[];
@@ -104,6 +110,10 @@ function makeStyles() {
       padding: 24, paddingBottom: 44, gap: 12,
       borderWidth: 1, borderColor: Colors.border,
     },
+    // Sök-popupen: centrerat kort (alla hörn rundade + sidomarginaler) i stället för bottensheet.
+    searchSheet: {
+      marginHorizontal: 16, borderRadius: 20, paddingBottom: 24,
+    },
     modalHandle: {
       width: 40, height: 4, backgroundColor: Colors.border,
       borderRadius: 2, alignSelf: 'center', marginBottom: 4,
@@ -138,9 +148,11 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace, freeText = false, onResolve },
   outerRef,
 ) {
+  // Pilot airport-fritextläge: bara när freeText och INTE off-airport (allowHere).
+  const airportFree = freeText && !allowHere;
   const styles = makeStyles();
   const { t } = useTranslation();
   const [inputText, setInputText] = useState(value);
@@ -152,8 +164,44 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const searchSeq = useRef(0); // ogiltigförklarar stale sök-resultat (async-race vid val)
   useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
-  // Place status for confirmation icon color
-  const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | null>(null);
+  // Place status for confirmation icon color ('unknown' = fritext-kod utan träff → frågetecken)
+  const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | 'unknown' | null>(null);
+  const unknownTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // 0,5 s fördröjning för frågetecknet
+  const freeSeq = useRef(0); // ogiltigförklarar stale fritext-matchningar
+
+  // Fritext-matchning: slå upp koden mot ICAO/IATA/GPS. Träff → grön bock + namn direkt.
+  // Ingen träff → dölj ikon i 0,5 s (så man hinner skriva klart), sätt sedan frågetecken.
+  const runFreeMatch = (text: string) => {
+    const seq = ++freeSeq.current;
+    if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
+    const code = text.trim().toUpperCase();
+    if (code.length < 2) { setPlaceStatus(null); setResolvedName(''); onResolve?.(text, null); return; }
+    getAirportByAnyCode(code).then((a) => {
+      if (seq !== freeSeq.current) return; // nyare tangenttryckning
+      if (a) {
+        setPlaceStatus('known'); setResolvedName(a.name || ''); onResolve?.(text, a.icao);
+      } else {
+        setResolvedName(''); setPlaceStatus(null); onResolve?.(text, null);
+        unknownTimer.current = setTimeout(() => { if (seq === freeSeq.current) setPlaceStatus('unknown'); }, 500);
+      }
+    });
+  };
+
+  // En känd flygplats valdes (snabbchip / närmaste-flygplats-modal / sök) i fritextläget.
+  // rawCode = koden som VISAS/lagras (ICAO eller IATA); icao = kanonisk ICAO för koordinater.
+  const commitAirportCode = (icao: string, rawCode?: string, nm?: string) => {
+    freeSeq.current++;
+    if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
+    const raw = (rawCode ?? icao).toUpperCase();
+    setDismissed(true);
+    setInputText(raw);
+    setSuggestions([]); setPlaceSuggestions([]); setShowDropdown(false);
+    setPlaceStatus('known');
+    if (nm !== undefined) setResolvedName(nm);
+    else getAirportByIcao(icao).then((a) => setResolvedName(a?.name || ''));
+    onResolve?.(raw, icao);
+    onConfirm?.(icao);
+  };
 
   // "Här"-modal state
   const [hereLoading, setHereLoading] = useState(false);
@@ -163,6 +211,29 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [nearbyPlaces, setNearbyPlaces] = useState<IcaoAirport[]>([]);
   // ZZZZ: ort-/stadsförslag via geokodning (Apple-geokodaren) → located temp-plats utan kartplacering.
   const [placeSuggestions, setPlaceSuggestions] = useState<{ name: string; lat: number; lon: number }[]>([]);
+
+  // Sök-popup (fritextsök på namn/ICAO/IATA → bred lista → fyll dep/arr). Ersätter auto-dropdownen.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sQuery, setSQuery] = useState('');
+  const [sResults, setSResults] = useState<IcaoAirport[]>([]);
+  const [sChoice, setSChoice] = useState<IcaoAirport | null>(null); // vald flygplats med BÅDE ICAO+IATA → välj kod
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const q = sQuery.trim();
+    if (q.length < 2) { setSResults([]); return; }
+    let alive = true;
+    // nameMinLen=2 → namnsök redan från 2 tecken (man söker ju för att man är osäker på koden).
+    searchAirports(q, 2).then((r) => { if (alive) setSResults(r.filter((a) => (a as any).temporary !== 1).slice(0, 40)); });
+    return () => { alive = false; };
+  }, [sQuery, searchOpen]);
+
+  const openSearch = () => { setSQuery(''); setSResults([]); setSChoice(null); setSearchOpen(true); };
+  const pickFromSearch = (airport: IcaoAirport, useIata: boolean) => {
+    const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : airport.icao.toUpperCase();
+    setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
+    commitAirportCode(airport.icao, chosen, airport.name);
+  };
 
   // Vilken kod som visas i listan: skriver man en IATA-kod (prefixmatchar iata) → visa IATA, annars ICAO.
   const displayCode = (a: IcaoAirport) => {
@@ -174,6 +245,12 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     searchSeq.current++; // en value-ändring (t.ex. efter val) ogiltigförklarar stale sökresultat
     setSuggestions([]);
     setShowDropdown(false);
+    // Fritextläge: value = den råa inskrivna koden. Synka bara vid EXTERN ändring (reset, reverse
+    // latest) — egna tangenttryck (value === inputText) hoppas över så vi inte dubbelmatchar.
+    if (airportFree) {
+      if (value !== inputText) { setInputText(value); runFreeMatch(value); }
+      return;
+    }
     if (value.length >= 2) {
       // Halvsparad (pending) off-airport-plats: visa namn + temp-status utan DB-uppslag.
       const pend = pendingPlaces.find((p) => p.icao === value);
@@ -235,6 +312,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     const display = allowHere ? text : text.toUpperCase();
     setInputText(display);
     setDismissed(false); // användaren skriver → tillåt förslag igen
+    // Fritextläge: ingen förslagslista — bara live-matchning + rapport via onResolve.
+    if (airportFree) { runFreeMatch(display); return; }
     if (!display) {
       onChangeText('');
       setSuggestions([]);
@@ -319,6 +398,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   };
 
   const selectRecent = (icao: string) => {
+    if (airportFree) { commitAirportCode(icao); return; }
     searchSeq.current++;
     setDismissed(true);
     onChangeText(icao);
@@ -437,7 +517,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}
-          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null, allowHere ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null]}
+          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null, airportFree ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null, allowHere ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null]}
           value={inputText}
           onChangeText={handleChangeText}
           onFocus={onFocus}
@@ -445,6 +525,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           onSubmitEditing={() => {
             if (allowHere && inputText.trim() && !placeStatus) {
               commitTempName(inputText);
+            } else if (airportFree && inputText.trim()) {
+              onConfirm?.(inputText.trim().toUpperCase()); // Retur → flytta fokus vidare (parent hanterar)
             }
           }}
           placeholder={placeholder ?? (allowHere ? t('search_place') : t('icao_placeholder'))}
@@ -453,7 +535,19 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           autoCorrect={false}
           returnKeyType={allowHere ? 'done' : 'default'}
         />
-        {isConfirmed && (
+        {/* Fritextläge: grön bock vid träff, frågetecken (samma stil) vid ingen träff */}
+        {airportFree && placeStatus === 'known' && (
+          <Ionicons name="checkmark-circle" size={18} color={Colors.success} style={styles.icon} />
+        )}
+        {airportFree && placeStatus === 'unknown' && (
+          <Ionicons name="help-circle" size={18} color={Colors.warning} style={styles.icon} />
+        )}
+        {airportFree && placeStatus !== 'known' && placeStatus !== 'unknown' && inputText.length > 0 && (
+          <TouchableOpacity onPress={() => { setInputText(''); runFreeMatch(''); }} hitSlop={8}>
+            <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
+          </TouchableOpacity>
+        )}
+        {!airportFree && isConfirmed && (
           <Ionicons
             name={error ? 'close-circle' : 'checkmark-circle'}
             size={18}
@@ -461,7 +555,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             style={styles.icon}
           />
         )}
-        {inputText.length > 0 && !isConfirmed && (
+        {!airportFree && inputText.length > 0 && !isConfirmed && (
           <TouchableOpacity onPress={() => { onChangeText(''); setInputText(''); }} hitSlop={8}>
             <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
           </TouchableOpacity>
@@ -481,7 +575,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           </TouchableOpacity>
         )}
       </View>
-      {(showDropdown || placeSuggestions.length > 0) && !dismissed && (
+      {!airportFree && (showDropdown || placeSuggestions.length > 0) && !dismissed && (
         <View style={styles.dropdown}>
           {placeSuggestions.map((p, idx) => (
             <View key={`pl-${idx}`}>
@@ -527,8 +621,13 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         </View>
       )}
       </View>
-      {/* Flygplatsnamn under ICAO-rutan (designen) — krymper vid behov, aldrig utanför sektionen */}
-      {design && resolvedName ? (
+      {/* Text under ICAO-rutan (designen): flygplatsnamn vid träff, "Unknown airport/airfield" vid
+          fritext utan träff. Krymper vid behov, aldrig utanför sektionen. */}
+      {design && airportFree && placeStatus === 'unknown' ? (
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ marginTop: 4, textAlign: 'center', color: Colors.warning, fontSize: 10, fontWeight: '600' }}>
+          Unknown airport/airfield
+        </Text>
+      ) : design && resolvedName ? (
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ marginTop: 4, textAlign: 'center', color: Colors.textSecondary, fontSize: 10 }}>
           {resolvedName}
         </Text>
@@ -536,23 +635,34 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {design ? (
-        !inputText && modeFiltered.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
-            {modeFiltered.slice(0, 3).map((place) => {
-              const sel = (value || '').toUpperCase() === place.icao.toUpperCase();
-              const label = place.temporary ? (pendingName(place.icao) || recentNames[place.icao] || place.icao) : place.icao;
-              return (
-                <TouchableOpacity
-                  key={place.icao}
-                  onPress={() => selectRecent(place.icao)}
-                  activeOpacity={0.75}
-                  style={{ flex: 1, minWidth: 0, paddingVertical: 5, borderRadius: 7, alignItems: 'center',
-                    backgroundColor: sel ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: sel ? Colors.primary : Colors.border }}
-                >
-                  <Text numberOfLines={1} style={{ fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, color: sel ? Colors.textInverse : Colors.textSecondary }}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+        !inputText && (
+          // Rad under rutan: senaste 2 platser (vänster) + sökikon (höger, under "Här"-pinnen).
+          <View style={{ flexDirection: 'row', gap: 4, marginTop: 6, alignItems: 'stretch' }}>
+            <View style={{ flex: 1, flexDirection: 'row', gap: 4 }}>
+              {modeFiltered.slice(0, 2).map((place) => {
+                const sel = (value || '').toUpperCase() === place.icao.toUpperCase();
+                const label = place.temporary ? (pendingName(place.icao) || recentNames[place.icao] || place.icao) : place.icao;
+                return (
+                  <TouchableOpacity
+                    key={place.icao}
+                    onPress={() => selectRecent(place.icao)}
+                    activeOpacity={0.75}
+                    style={{ flex: 1, minWidth: 0, paddingVertical: 5, borderRadius: 7, alignItems: 'center',
+                      backgroundColor: sel ? Colors.primary : Colors.elevated, borderWidth: 1, borderColor: sel ? Colors.primary : Colors.border }}
+                  >
+                    <Text numberOfLines={1} style={{ fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, color: sel ? Colors.textInverse : Colors.textSecondary }}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              onPress={openSearch}
+              activeOpacity={0.75}
+              style={{ width: 40, paddingVertical: 5, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.primary + '66' }}
+            >
+              <Ionicons name="search" size={14} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
         )
       ) : (!inputText && filteredRecent.length > 0 && (
@@ -585,6 +695,85 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
         </View>
       ))}
 
+      {/* ── Sök-popup: fritextsök på namn/ICAO/IATA → bred lista → fyll dep/arr ── */}
+      <Modal visible={searchOpen} transparent animationType="fade" onRequestClose={() => setSearchOpen(false)}>
+        {/* Centrerad vertikalt (mitten av skärmen), inte bottensheet — så sökfältet inte hamnar högst upp. */}
+        <KeyboardAvoidingView style={[styles.modalOverlay, { justifyContent: 'center' }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalSheet, styles.searchSheet]}>
+            <View style={styles.modalHandle} />
+            {sChoice ? (
+              // Steg 2: flygplatsen har både ICAO och IATA → välj vilken kod som fylls i.
+              <>
+                <Text style={styles.modalTitle} numberOfLines={2}>{sChoice.name}</Text>
+                <Text style={[styles.suggestionCountry, { marginTop: 2 }]}>{sChoice.country}</Text>
+                <Text style={{ color: Colors.textSecondary, fontSize: 13, marginTop: 10 }}>Fill departure/arrival with:</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                  <TouchableOpacity style={[styles.confirmBtn, { flex: 1 }]} onPress={() => pickFromSearch(sChoice, false)} activeOpacity={0.85}>
+                    <Text style={styles.confirmBtnText}>{sChoice.icao}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', opacity: 0.8 }}>ICAO</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.confirmBtn, { flex: 1, backgroundColor: Colors.info }]} onPress={() => pickFromSearch(sChoice, true)} activeOpacity={0.85}>
+                    <Text style={styles.confirmBtnText}>{sChoice.iata}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', opacity: 0.8 }}>IATA</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setSChoice(null)}>
+                  <Text style={styles.cancelBtnText}>Back</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>Search airport</Text>
+                <View style={[styles.inputWrapper, { marginTop: 12 }]}>
+                  <Ionicons name="search" size={16} color={Colors.textMuted} />
+                  <TextInput
+                    style={[styles.input, { paddingVertical: 12 }]}
+                    value={sQuery}
+                    onChangeText={setSQuery}
+                    placeholder="Name, ICAO or IATA"
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    autoFocus
+                  />
+                  {sQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSQuery('')} hitSlop={8}>
+                      <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {/* Fast höjd på list-området → sökfältet ligger stilla; alternativen dyker upp/scrollar här. */}
+                <ScrollView keyboardShouldPersistTaps="handled" style={{ height: 320, marginTop: 10 }}>
+                  {sResults.map((a, idx) => (
+                    <View key={a.icao}>
+                      {idx > 0 && <View style={styles.sep} />}
+                      <TouchableOpacity style={styles.suggestion} activeOpacity={0.8}
+                        onPress={() => (a.iata && a.iata.trim() ? setSChoice(a) : pickFromSearch(a, false))}>
+                        <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{a.icao}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.suggestionName} numberOfLines={1}>{a.name}</Text>
+                          <Text style={styles.suggestionCountry}>{a.country}{a.iata && a.iata.trim() ? ` · ${a.iata}` : ''}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {sQuery.trim().length < 2 && (
+                    <Text style={{ color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 24 }}>Type at least 2 characters</Text>
+                  )}
+                  {sQuery.trim().length >= 2 && sResults.length === 0 && (
+                    <Text style={{ color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 24 }}>No matches</Text>
+                  )}
+                </ScrollView>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setSearchOpen(false)}>
+                  <Text style={styles.cancelBtnText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* ── "Här"-modal ── */}
       <Modal visible={hereModal} transparent animationType="slide" onRequestClose={() => setHereModal(false)}>
         <KeyboardAvoidingView
@@ -605,6 +794,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     style={styles.nearbyRow}
                     onPress={() => {
                       setHereModal(false);
+                      if (airportFree) { commitAirportCode(p.icao); return; }
                       onChangeText(p.icao);
                       setInputText(p.icao);
                       onConfirm?.(p.icao);

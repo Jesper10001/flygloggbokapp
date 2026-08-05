@@ -6,7 +6,7 @@ export function roleLabel(f: Flight): string {
   if ((f.pic ?? 0) > 0) return 'PIC';
   if ((f.picus ?? 0) > 0) return 'PICUS';
   if ((f.spic ?? 0) > 0) return 'SPIC';
-  if ((f.co_pilot ?? 0) > 0) return 'CO-PI';
+  if ((f.co_pilot ?? 0) > 0) return 'SIC';
   if ((f.dual ?? 0) > 0) return 'DUAL';
   if ((f.instructor ?? 0) > 0) return 'INSTR';
   return '—';

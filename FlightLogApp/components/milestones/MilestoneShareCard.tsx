@@ -124,7 +124,7 @@ export function MilestoneShareCard({ visible, onClose, data, accent = Colors.acc
                 {/* brand row */}
                 <View style={{ position: 'absolute', top: sc(58), left: sc(64), right: sc(64) }}>
                   <Text style={{ fontFamily: SERIF, fontWeight: '600', fontSize: sc(30), letterSpacing: sc(8.4), color: accent }}>BLADES</Text>
-                  <Text style={{ fontFamily: SERIF, fontWeight: '500', fontSize: sc(17), letterSpacing: sc(2), color: '#fff', marginTop: sc(6) }}>Joint Logbook</Text>
+                  <Text style={{ fontFamily: SERIF, fontWeight: '500', fontSize: sc(17), letterSpacing: sc(2), color: '#fff', marginTop: sc(6) }}>Pilot Logbook</Text>
                 </View>
 
                 {/* content */}

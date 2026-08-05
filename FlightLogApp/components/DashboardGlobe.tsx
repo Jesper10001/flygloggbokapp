@@ -8,7 +8,8 @@
 // OBS (prototyp): three.js/globe.gl + jord-texturerna laddas från unpkg (CDN) → kräver internet
 // vid första laddning. Görs den permanent bör biblioteken/texturerna bäddas in lokalt (offline).
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Dimensions, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAirportCoordinates } from '../db/icao';
@@ -20,7 +21,9 @@ type Ring = { lat: number; lng: number; maxR: number; propagationSpeed: number; 
 type Arc = { startLat: number; startLng: number; endLat: number; endLng: number };
 type Heat = { lat: number; lng: number; weight: number };
 
-function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
+type ViewCfg = { altitude: number; minDistance: number; maxDistance: number };
+
+function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg): string {
   const ringData = JSON.stringify(rings);
   const arcData = JSON.stringify(arcs);
   const heatData = JSON.stringify(heat);
@@ -82,7 +85,7 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
       .heatmapTopAltitude(0.15)
       .heatmapsTransitionDuration(500);
 
-    // Visningsläge: 'rings' (default) → 'arcs' → 'heatmap'. Dubbel-tap växlar (cyklar).
+    // Visningsläge: 'rings' (default) → 'arcs' → 'heatmap'. Cyklas AUTOMATISKT var 15:e sekund.
     var mode = 'rings';
     function applyMode(){
       world.ringsData(mode === 'rings' ? RINGS : []);
@@ -90,6 +93,8 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
       world.heatmapsData(mode === 'heatmap' ? [HEAT] : []);
     }
     applyMode();
+    // Auto-cykla läget var 15:e sekund — ingen dubbel-tap behövs.
+    setInterval(function(){ mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); }, 15000);
 
     // Låter RN uppdatera globens data i realtid (utan att ladda om) när nya flighter läggs till.
     window.__updateGlobe = function(r, a, h){
@@ -101,11 +106,17 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
     window.addEventListener('resize', size);
 
     var c = world.controls();
-    c.enableZoom = false;      // ingen zoom
+    c.enableZoom = true;       // pinch-zoom (två fingrar) som på en karta
+    c.zoomSpeed = 1.4;
+    // Canvasen är större än skärmen → globen bleeder ut över kanterna som en bakgrund.
+    // minDistance hålls > 100/tan(fov/2) så globen ALDRIG växer utanför canvasen (ingen hård
+    // kant klipper halon, ens vid maximal inzoomning); maxDistance = hur litet man får zooma ut.
+    c.minDistance = ${view.minDistance};
+    c.maxDistance = ${view.maxDistance};
     c.autoRotate = true;       // snurrar av sig själv
     c.autoRotateSpeed = 0.55;
     c.enablePan = false;
-    world.pointOfView({ lat: 20, lng: 10, altitude: 1.65 }); // ~20% större glob (närmare kamera)
+    world.pointOfView({ lat: 20, lng: 10, altitude: ${view.altitude} }); // kamera tillbakadragen → luft runt globen i den större canvasen
     // Ingen ljus-override → globe.gls standardljus (riktljus + ambient) ger samma look som hemsidan.
 
     // Skärpa: rendera i enhetens pixeltäthet (retina) + max anisotropi på jord-texturen.
@@ -122,10 +133,10 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
     } catch(e){}
 
     // Meddela RN när globen rörs → dashboardens vertikala scroll pausas medan man snurrar.
-    // Dessutom: dubbel-tap (två snabba tapp utan att dra) cyklar rings → arcs → heatmap.
+    // Enkel-tap → öppna kart-val-menyn i RN. Dubbel-tap → cykla effekt manuellt (utöver auto var 15:e s).
+    // Enkel-tappen fördröjs 340 ms för att kunna skiljas från en dubbel-tap.
     function post(m){ try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(m); } catch(e){} }
-    post('mode:' + mode); // meddela RN startläget → läges-etiketten under globen
-    var sX = 0, sY = 0, sT = 0, lastTap = 0;
+    var sX = 0, sY = 0, sT = 0, lastTap = 0, tapTimer = null;
     document.addEventListener('touchstart', function(e){
       post('grab');
       var t = e.touches[0]; if (t){ sX = t.clientX; sY = t.clientY; sT = Date.now(); }
@@ -137,11 +148,32 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
       var moved = Math.abs(ct.clientX - sX) > 12 || Math.abs(ct.clientY - sY) > 12;
       var isTap = !moved && (now - sT) < 300;
       if (isTap){
-        if (now - lastTap < 320){ mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); post('mode:' + mode); lastTap = 0; }
-        else { lastTap = now; }
-      } else { lastTap = 0; }
+        if (now - lastTap < 320){
+          if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; } // avbryt väntande enkel-tap
+          mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); lastTap = 0;
+        } else {
+          lastTap = now;
+          if (tapTimer) clearTimeout(tapTimer);
+          tapTimer = setTimeout(function(){ tapTimer = null; post('tap'); }, 340); // ingen andra-tap → enkel-tap
+        }
+      } else { lastTap = 0; if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; } }
     }, { passive: true });
-    document.addEventListener('touchcancel', function(){ post('release'); lastTap = 0; }, { passive: true });
+    document.addEventListener('touchcancel', function(){ post('release'); lastTap = 0; if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; } }, { passive: true });
+
+    // Rapportera globens synliga radie (px) till RN vid zoom → connector-strecken följer konturen.
+    function radiusPx(){
+      try {
+        var cam = world.camera();
+        var dist = cam.position.length();          // kameraavstånd till globcentrum (origo)
+        var h = document.body.clientHeight;
+        var fov = cam.fov * Math.PI / 180;
+        return 100 * (h / 2) / (dist * Math.tan(fov / 2)); // 100 = globe.gls GLOBE_RADIUS
+      } catch(e){ return 0; }
+    }
+    var lastR = 0;
+    function reportR(){ var r = radiusPx(); if (r > 0 && Math.abs(r - lastR) > 0.5){ lastR = r; post('radius:' + Math.round(r)); } }
+    c.addEventListener('change', reportR);   // fyras vid zoom/rotation; guarden postar bara vid radie-ändring
+    setTimeout(reportR, 200); setTimeout(reportR, 900);
   })();
   true;
 </script>
@@ -149,8 +181,8 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[]): string {
 </html>`;
 }
 
-// Läser flighter → bygger rings (besökta flygplatser) + arcs (unika dep→arr-rutter) + heat
-// (en punkt per besökt flygplats → heatmap-tätheten per land speglar antal flygplatser).
+// Läser alla flighter → bygger rings (besökta flygplatser) + arcs (unika dep→arr-rutter) +
+// heat (en punkt per besökt flygplats → heatmap-tätheten per land ∝ antal).
 async function loadGlobeData(): Promise<{ rings: Ring[]; arcs: Arc[]; heat: Heat[] }> {
   const flights = await getFlights(100000);
   const icaos = new Set<string>();
@@ -190,15 +222,23 @@ async function loadGlobeData(): Promise<{ rings: Ring[]; arcs: Arc[]; heat: Heat
   return { rings, arcs: arcs.slice(0, 500), heat };
 }
 
-export function DashboardGlobe({ onGrab }: { onGrab?: (grabbing: boolean) => void } = {}) {
+export function DashboardGlobe({ onGrab, onMetrics, onTap }: { onGrab?: (grabbing: boolean) => void; onMetrics?: (radiusPx: number) => void; onTap?: () => void } = {}) {
   const W = Dimensions.get('window').width;
-  // 30% större än ursprungliga 0.8·W → 1.04·W, kapad till skärmbredden så den inte går utanför.
-  const size = Math.min(W, Math.round(W * 0.8 * 1.3));
+  // Canvasen görs 50% bredare/högre än skärmen så globen kan bleeda ut över alla kanter (som en
+  // bakgrund) — den hårda WebView-kanten hamnar utanför skärmen och klipper aldrig halon.
+  const canvas = Math.round(W * 1.5);
+  const visibleH = Math.round(W * 1.06);           // sektionens synliga höjd i scroll-flödet
+  const centerY = Math.round(visibleH * 0.5);      // globens mittpunkt → uppflyttad så globens topp nästan nuddar bildkarusellen ovanför
+  const left = Math.round((W - canvas) / 2);       // centrerad horisontellt → sido-halo bleeder av skärmen (klipps vid skärmkanten, sömlöst)
+  const top = centerY - Math.round(canvas / 2);    // negativ → globen svävar upp bakom sektionen, botten bleeder nedåt
+  // Kamerakonfig: altitude 2.61 håller globens diameter ≈ 1.1·W i den 1.5·W-stora canvasen.
+  // minDistance sänkt till 200 → man kan zooma in betydligt närmare (globen växer förbi canvasen
+  // och fyller vyn; kanterna som klipps ligger utanför skärmen). maxDistance = minsta utzoomning.
+  const VIEW: ViewCfg = { altitude: 2.61, minDistance: 200, maxDistance: 520 };
   const flightCount = useFlightStore((st) => st.flightCount); // ändras när flighter läggs till/tas bort
   const webRef = useRef<any>(null); // WebView-instans (injectJavaScript)
   const ready = useRef(false); // WebViewn har laddat klart → säkert att injicera
   const [initial, setInitial] = useState<{ rings: Ring[]; arcs: Arc[]; heat: Heat[] } | null>(null);
-  const [mode, setMode] = useState<'rings' | 'arcs' | 'heatmap'>('rings'); // aktivt lager → etikett under globen
 
   // Initial data → byggs in i HTML:n en gång (source ändras aldrig efteråt → ingen reload).
   useEffect(() => {
@@ -219,13 +259,15 @@ export function DashboardGlobe({ onGrab }: { onGrab?: (grabbing: boolean) => voi
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
 
   return (
-    <View style={{ width: size, alignSelf: 'center' }}>
-      <View style={[styles.wrap, { width: size, height: size }]}>
-        {initial ? (
+    // Sektionen reserverar bara visibleH i scroll-flödet; själva canvasen är absolut placerad och
+    // större → globen bleeder ut över kanterna (bakgrundskänsla) utan att sträcka layouten.
+    <View style={{ width: W, height: visibleH, alignSelf: 'center' }}>
+      {initial ? (
+        <View style={{ position: 'absolute', left, top, width: canvas, height: canvas }}>
           <WebView
             ref={webRef}
             originWhitelist={['*']}
-            source={{ html: buildHtml(initial.rings, initial.arcs, initial.heat) }}
+            source={{ html: buildHtml(initial.rings, initial.arcs, initial.heat, VIEW) }}
             style={styles.web}
             containerStyle={styles.web}
             opaque={false}
@@ -237,25 +279,28 @@ export function DashboardGlobe({ onGrab }: { onGrab?: (grabbing: boolean) => voi
               const d = e.nativeEvent.data;
               if (d === 'grab') onGrab?.(true);
               else if (d === 'release') onGrab?.(false);
-              else if (d.indexOf('mode:') === 0) {
-                const m = d.slice(5);
-                if (m === 'rings' || m === 'arcs' || m === 'heatmap') setMode(m);
+              else if (d.indexOf('radius:') === 0) {
+                const r = parseFloat(d.slice(7));
+                if (isFinite(r) && r > 0) onMetrics?.(r);
+              } else if (d === 'tap') {
+                onTap?.();
               }
             }}
           />
-        ) : (
+        </View>
+      ) : (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={Colors.primary} />
-        )}
-      </View>
-      {/* Info-rutor UNDER globen (tuckade upp i den tomma zonen under sfären så de inte skär den):
-          aktivt lager överst, "double-tap"-hinten under, båda högerställda. */}
+        </View>
+      )}
+      {/* Info-överlägg pinnat vid sektionens botten (över globens nedre del som bleeder av skärmen). */}
       {initial && (
-        <View pointerEvents="none" style={styles.labelCol}>
-          <View style={styles.modeBox}>
-            <Text style={styles.modeText}>{MODE_LABELS[mode]}</Text>
-          </View>
-          <View style={styles.hintBox}>
-            <Text style={styles.hintText}>Double-tap globe for effect</Text>
+        <View pointerEvents="box-none" style={styles.bottomRow}>
+          <View pointerEvents="none" style={styles.labelCol}>
+            <View style={styles.hintBox}>
+              <Text style={styles.hintText}>Tap globe once for maps</Text>
+              <Text style={styles.hintText}>Double-tap for effect</Text>
+            </View>
           </View>
         </View>
       )}
@@ -263,29 +308,18 @@ export function DashboardGlobe({ onGrab }: { onGrab?: (grabbing: boolean) => voi
   );
 }
 
-const MODE_LABELS: Record<'rings' | 'arcs' | 'heatmap', string> = {
-  rings: 'Ripples',
-  arcs: 'Paths',
-  heatmap: 'Heatmap',
-};
-
 const styles = StyleSheet.create({
-  wrap: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   web: { flex: 1, width: '100%', height: '100%', backgroundColor: 'transparent' },
-  // Kolumn under globen (högerställd); negativ marginTop tuckar upp rutorna i den tomma zonen
-  // under sfären. Aktivt lager överst, "double-tap"-hint under.
-  labelCol: {
-    alignItems: 'flex-end', gap: 6,
-    paddingHorizontal: 12, marginTop: -22,
+  // Info-rad som absolut overlay längst ned i sektionen (globen bleeder av under den).
+  // Lager/hint-rutor högerställda, botteninriktade.
+  bottomRow: {
+    position: 'absolute', left: 0, right: 0, bottom: 4,
+    flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end',
+    paddingHorizontal: 12,
   },
+  labelCol: { alignItems: 'flex-end', gap: 6 },
   hintBox: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: 'rgba(6,11,22,0.55)',
+    paddingHorizontal: 10, paddingVertical: 5, // ingen border, ingen bakgrund → texten står fritt
   },
-  hintText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600' },
-  modeBox: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: 'rgba(6,11,22,0.55)',
-  },
-  modeText: { color: Colors.primary, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5 },
+  hintText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600', textAlign: 'right' },
 });

@@ -16,8 +16,24 @@ import { DayNightMap } from '../../../components/DayNightMap';
 import { FlightSyncedPhoto } from '../../../components/FlightSyncedPhoto';
 import { FONT_SERIF, FONT_MONO, NIGHT_BADGE } from '../../../components/logbook-page/tokens';
 import { arrUtc, parseDate } from '../../../components/logbook-page/flightDisplay';
+import { placeCode } from '../../../utils/format';
+import { isCabinLine } from '../../../utils/remarksManaged';
 
 const DASH = '—';
+
+// Ordbryt ett långt flygplatsnamn så ingen rad överstiger max tecken (default 30).
+function wrapName(text: string, max = 30): string {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if (!cur) cur = w;
+    else if ((cur + ' ' + w).length <= max) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines.join('\n');
+}
 
 export default function FlightDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -77,16 +93,18 @@ export default function FlightDetailScreen() {
       if (p?.name && String(p.name).trim()) crew.push([String(p.role || 'Pilot').trim(), String(p.name).trim()]);
     }
   } catch {}
-  const cabinMatch = f.remarks?.match(/\[([^\]]*)\]/);
-  if (cabinMatch) {
-    for (const entry of cabinMatch[1].split(',')) {
+  // Cabin crew ligger som en ren "roll: namn, …"-rad i remarks (innehållsmatchad).
+  const cabinLine = (f.remarks || '').split('\n').map((l) => l.trim()).find((l) => isCabinLine(l));
+  if (cabinLine) {
+    for (const entry of cabinLine.split(', ')) {
       const s = entry.trim();
       if (!s) continue;
-      const ci = s.indexOf(':');
-      if (ci >= 0) crew.push([s.slice(0, ci).trim(), s.slice(ci + 1).trim()]);
+      const ci = s.indexOf(': ');
+      if (ci >= 0) crew.push([s.slice(0, ci).trim(), s.slice(ci + 2).trim()]);
       else crew.push(['Crew', s]);
     }
   }
+  const notes = (f.remarks || '').trim(); // hela remarks (inkl. auto-rader: approach, piloter, cabin, Max FL)
 
   const sections: { title: string; rows: [string, string][] }[] = [
     { title: 'Aircraft', rows: [
@@ -96,8 +114,8 @@ export default function FlightDetailScreen() {
       ['Operation', f.multi_pilot > 0 ? 'Multi-pilot' : f.single_pilot > 0 ? 'Single-pilot' : DASH],
     ]},
     ...(crew.length > 0 ? [{ title: 'Crew', rows: crew }] : []),
-    { title: 'Departure', rows: [['Place', `${f.dep_place}${full.dep ? ` · ${full.dep}` : ''}`], ['Time (UTC)', (f.dep_utc || DASH) + (f.dep_utc ? 'z' : '')]] },
-    { title: 'Arrival', rows: [['Place', `${f.arr_place}${full.arr ? ` · ${full.arr}` : ''}`], ['Time (UTC)', (arrUtc(f) || DASH) + (arrUtc(f) ? 'z' : '')]] },
+    { title: 'Departure', rows: [['Place', `${placeCode(f.dep_place, f.dep_place_raw)}${full.dep ? ` · ${wrapName(full.dep)}` : ''}`], ['Time (UTC)', (f.dep_utc || DASH) + (f.dep_utc ? 'z' : '')]] },
+    { title: 'Arrival', rows: [['Place', `${placeCode(f.arr_place, f.arr_place_raw)}${full.arr ? ` · ${wrapName(full.arr)}` : ''}`], ['Time (UTC)', (arrUtc(f) || DASH) + (arrUtc(f) ? 'z' : '')]] },
     { title: 'Pilot function time', rows: [
       ['PIC', time(f.pic, true)], ['Co-pilot', time(f.co_pilot, true)], ['Dual', time(f.dual, true)], ['Instructor', time(f.instructor, true)],
     ]},
@@ -106,6 +124,12 @@ export default function FlightDetailScreen() {
     ]},
     { title: 'Landings', rows: [['Day', String(f.landings_day ?? 0)], ['Night', String(f.landings_night ?? 0)]] },
   ];
+
+  // Visa bara fält som har data (dölj tomma rader), och dölj hela sektioner utan data → kompakt vy.
+  const hasData = (v: string) => { const t = (v ?? '').trim(); return t !== '' && t !== DASH && t !== '0'; };
+  const visibleSections = sections
+    .map((s) => ({ ...s, rows: s.rows.filter(([, v]) => hasData(v)) }))
+    .filter((s) => s.rows.length > 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -118,7 +142,7 @@ export default function FlightDetailScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary }}>{f.dep_place} → {f.arr_place}</Text>
+              <Text style={{ fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary }}>{placeCode(f.dep_place, f.dep_place_raw)} → {placeCode(f.arr_place, f.arr_place_raw)}</Text>
               {f.ifr > 0 ? <DetailBadge color={accent} label="IFR" /> : null}
               {f.night > 0 ? <DetailBadge color={NIGHT_BADGE} label="NGT" /> : null}
             </View>
@@ -132,17 +156,26 @@ export default function FlightDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: insets.bottom + 30 }}>
-        {sections.map((s) => (
+        {visibleSections.map((s) => (
           <View key={s.title} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card }}>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: accent, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 4 }}>{s.title}</Text>
             {s.rows.map(([k, v]) => (
-              <View key={k} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.separator }}>
+              <View key={k} style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.separator }}>
                 <Text style={{ fontSize: 13, color: Colors.textSecondary }}>{k}</Text>
-                <Text style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: v === DASH ? Colors.textMuted : Colors.textPrimary }}>{v}</Text>
+                <Text style={{ flexShrink: 1, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: v === DASH ? Colors.textMuted : Colors.textPrimary }}>{v}</Text>
               </View>
             ))}
           </View>
         ))}
+
+        {/* Remarks — hela texten inkl. auto-rader (approach, piloter, cabin, Max FL) så allt kan föras
+            in i den fysiska loggboken */}
+        <View style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card }}>
+          <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: accent, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 4 }}>Remarks</Text>
+          <View style={{ paddingHorizontal: 14, paddingVertical: 9, borderTopWidth: 1, borderTopColor: Colors.separator }}>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 13, lineHeight: 19, color: notes ? Colors.textPrimary : Colors.textMuted }}>{notes || DASH}</Text>
+          </View>
+        </View>
 
         {/* Sun route */}
         <View style={{ marginBottom: 12 }}>
@@ -168,12 +201,6 @@ export default function FlightDetailScreen() {
           <Ionicons name="create-outline" size={16} color={accent} />
           <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Open full editor</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/logbook')} activeOpacity={0.8}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface }}>
-          <Ionicons name="book-outline" size={16} color={Colors.textSecondary} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textSecondary }}>See this row in the book</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity onPress={handleDelete} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1.5, borderColor: Colors.danger + '66', backgroundColor: Colors.danger + '12', marginTop: 20 }}>
           <Ionicons name="trash-outline" size={16} color={Colors.danger} />
