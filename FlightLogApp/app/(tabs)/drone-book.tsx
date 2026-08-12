@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTemplate } from '../../constants/logbookTemplates';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
-import { buildDroneSpreads } from '../../services/logbook/droneSpread';
+import { buildDroneSpreads, loadDroneMetaById } from '../../services/logbook/droneSpread';
 import { SpreadWebView } from '../../components/logbook/SpreadWebView';
 import { DR } from '../../constants/droneTheme';
 
@@ -24,13 +24,17 @@ export default function DroneBookScreen() {
   const { flights, loadFlights } = useDroneFlightStore();
   const timeFormat = useTimeFormatStore((s) => s.timeFormat);
   const [aspect, setAspect] = useState(0.62);
+  const [dronesById, setDronesById] = useState<Map<number, { model: string; klass: string }>>(new Map());
 
-  useFocusEffect(useCallback(() => { loadFlights(); }, [loadFlights]));
+  useFocusEffect(useCallback(() => {
+    loadFlights();
+    loadDroneMetaById().then(setDronesById).catch(() => {});
+  }, [loadFlights]));
 
   const template = useMemo(() => getTemplate('sv-drone-logbook'), []);
   const spreads = useMemo(
-    () => buildDroneSpreads(flights, { startingPage: 1, rowsPerSpread: template.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 }),
-    [flights, template],
+    () => buildDroneSpreads(flights, { startingPage: 1, rowsPerSpread: template.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 }, dronesById),
+    [flights, template, dronesById],
   );
   const spread = spreads[spreads.length - 1];
 

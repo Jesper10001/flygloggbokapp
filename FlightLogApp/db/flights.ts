@@ -50,11 +50,11 @@ export async function insertFlight(
       flight_rules, second_pilot, second_pilot_role, extra_pilots, nvg, tng_count, flight_type,
       multi_pilot, single_pilot, instructor, picus,
       spic, examiner, safety_pilot, observer, ferry_pic, relief_crew, sim_category, vfr,
-      se_time, me_time, stop_place, photo_uri, media_type, max_fl,
+      se_time, me_time, solo, cross_country, stop_place, photo_uri, media_type, max_fl,
       takeoffs_day, takeoffs_night, app_2d, app_3d, pilot_flying,
       landings_fs_day, landings_fs_night, takeoffs_faa_night, landings_faa_night, landings_fs_faa_night, holds,
       dep_place_raw, arr_place_raw
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.aircraft_type,
@@ -96,6 +96,8 @@ export async function insertFlight(
       parseFlightTime(data.vfr),
       seTime,
       meTime,
+      parseFlightTime(data.solo),
+      parseFlightTime(data.cross_country),
       (data.stop_place ?? '').toUpperCase(),
       data.photo_uri ?? '',
       data.media_type ?? 'image',
@@ -287,8 +289,13 @@ export async function clearAllFlights(): Promise<void> {
   await run('DELETE FROM logbook_books');       // både digitala (kind='digital') och pappersböcker
   await run('DELETE FROM custom_templates');    // användarskapade mallar
   await run('DELETE FROM scan_summaries');
-  // Gamla digitala-bok-inställningar som annars seedar en ny bok med stale brought-forward.
-  await run("DELETE FROM settings WHERE key IN ('dlb_opening_balance','dlb_template_id','dlb_start_page','dlb_custom_cols')");
+  // Gamla digitala-bok-inställningar som annars seedar en ny bok med stale brought-forward,
+  // + backfill-justeringen ('backfill_hours' — lump-sum-timmar under "Backfill missing hours").
+  // Utan detta hänger backfill-timmar (och därmed stats/bokens Current) med till nästa import.
+  await run("DELETE FROM settings WHERE key IN ('dlb_opening_balance','dlb_template_id','dlb_start_page','dlb_custom_cols','backfill_hours')");
+  // Defensivt: ev. kvarvarande gamla dolda backfill-flygningar (raderas redan av DELETE flights,
+  // men säkerställ att inget [BACKFILL]-spår lever kvar).
+  await run("DELETE FROM flights WHERE remarks='[BACKFILL]'");
 }
 
 // ─── READ ─────────────────────────────────────────────────────────────────────
@@ -721,21 +728,29 @@ export async function getRecentArrivals(): Promise<{ icao: string; temporary: bo
 
 // ─── STATISTIK ────────────────────────────────────────────────────────────────
 
+// Dubblettkontroll för import: finns redan en flygning med samma datum + rutt + tider?
+// Matchar på date + dep/arr + dep_utc/arr_utc (versalnormaliserat) → hindrar att en om-import
+// av samma fil skapar dubbletter.
+export async function flightExists(date: string, dep: string, arr: string, depUtc: string, arrUtc: string): Promise<boolean> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ c: number }>(
+    `SELECT COUNT(*) as c FROM flights
+     WHERE date = ? AND UPPER(dep_place) = ? AND UPPER(arr_place) = ? AND dep_utc = ? AND arr_utc = ?`,
+    [date, (dep || '').toUpperCase(), (arr || '').toUpperCase(), depUtc || '', arrUtc || ''],
+  );
+  return (row?.c ?? 0) > 0;
+}
+
 export async function getFlightStats(): Promise<FlightStats> {
   const db = await getDatabase();
   // Backfill-justering laddas FÖRST (triggar migrering av ev. gamla dolda [BACKFILL]-flygningar
   // → borttagna) så SUM-frågorna nedan inte råkar räkna dem + justeringen (dubbelräkning).
   const bf = await getBackfill();
 
-  // is_ffs = explicit 'sim' ELLER pass som överstiger luftfartygets uthållighet.
-  // 'hot_refuel' och 'summary' är undantagna från uthållighetskontrollen.
-  // 'summary' = manuellt registrerad erfarenhetssammanfattning — ska aldrig klassas som FFS.
-  const FFS_EXPR = `(
-    f.flight_type = 'sim'
-    OR (f.flight_type NOT IN ('hot_refuel', 'summary')
-        AND ar.endurance_h > 0
-        AND f.total_time > ar.endurance_h)
-  )`;
+  // is_ffs = ENBART explicit 'sim'. flight_type är enda sanningen: sätts vid import (explicit
+  // sim/FSTD-fält, annars endurance-pickern som FALLBACK). Ingen körnings-heuristik längre, så
+  // en äkta lång flygning som lämnats 'normal' aldrig felklassas som simulator i statistiken.
+  const FFS_EXPR = `(f.flight_type = 'sim')`;
 
   const totals = await db.getFirstAsync<any>(`
     SELECT

@@ -10,10 +10,12 @@ import { HoursBank } from '../../components/insights/HoursBank';
 import { GoalCard } from '../../components/insights/GoalCard';
 import { LicenceJourney } from '../../components/insights/LicenceJourney';
 import { MilestonesSection } from '../../components/insights/MilestonesSection';
+import { DroneInsights } from '../../components/insights/DroneInsights';
 
 export default function InsightsScreen() {
   const mode = useAppModeStore((s) => s.mode);
 
+  if (mode === 'drone') return <DroneInsights />;
   if (mode !== 'manned') return <View style={{ flex: 1, backgroundColor: Colors.background }} />;
 
   return (

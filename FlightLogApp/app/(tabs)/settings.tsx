@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFlightStore } from '../../store/flightStore';
+import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { Colors } from '../../constants/colors';
 import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
@@ -207,9 +208,12 @@ export default function SettingsScreen() {
   const [certLabels, setCertLabels] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
   const [wrappedUnlocked, setWrappedUnlocked] = useState(false);
+  // AI-tokenförbrukning (delad store — samma siffra som gate-kollarna i övriga appen)
+  const tokenUsage = useTokenQuotaStore((s) => s.usage);
 
   useFocusEffect(useCallback(() => {
     useRegulationStandardStore.getState().load();
+    useTokenQuotaStore.getState().load();
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
       const last = (await getSetting('profile_last_name')) ?? '';
@@ -329,8 +333,8 @@ export default function SettingsScreen() {
       { text: t('cancel'), style: 'cancel' },
       { text: t('apply'), style: 'destructive', onPress: async () => {
         try {
-          if (which === 1) { await seedTestUser1(); await setTheme('drone-industrial'); }
-          else if (which === 2) { await seedTestUser2(); await setTheme('drone-neon'); }
+          if (which === 1) { await seedTestUser1(); }
+          else if (which === 2) { await seedTestUser2(); }
           else { await clearTestUser(); }
           await loadOperatorId(); await loadDroneFlights(); await loadDroneStats();
           useToastStore.getState().show(label);
@@ -362,7 +366,10 @@ export default function SettingsScreen() {
 
   const switchMode = async (target: 'manned' | 'drone') => {
     await setAppMode(target);
-    router.replace((target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)/index') as any);
+    // Navigera EXPLICIT till respektive dashboard, EFTER att layouten re-renderat/remountat
+    // (rAF). '/(tabs)' löser sig annars till ankaret 'index' som är href:null i drönarläge → svart.
+    const dest = target === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)';
+    requestAnimationFrame(() => router.replace(dest as any));
   };
 
   const switchProfile = async (mainRole: 'pilot-manned' | 'pilot-unmanned', subRole: SubRole) => {
@@ -382,8 +389,9 @@ export default function SettingsScreen() {
     const targetMode = mainRole === 'pilot-unmanned' ? 'drone' : 'manned';
     await setAppMode(targetMode);
 
-    // Navigate to tabs container (layout will render correct dashboard based on mode)
-    router.replace('/(tabs)' as any);
+    // Navigera explicit till rätt dashboard efter re-render (annars → href:null-ankaret = svart).
+    const dest = targetMode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)';
+    requestAnimationFrame(() => router.replace(dest as any));
   };
 
   // ── Render ──
@@ -493,6 +501,37 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── AI-tokenmätare: månadens förbrukning (server-räknad per device) ── */}
+      {tokenUsage && (() => {
+        const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
+        const barColor = pct >= 90 ? Colors.danger : pct >= 75 ? Colors.warning : Colors.primary;
+        return (
+          <View style={{ paddingHorizontal: 20, paddingVertical: 6 }}>
+            <View style={{ backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="flash" size={15} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 5 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>AI tokens</Text>
+                  <Text style={{ fontSize: 11.5, color: Colors.textMuted, fontFamily: 'Menlo' }}>
+                    {tokenUsage.used.toLocaleString('en-US')} / {tokenUsage.limit.toLocaleString('en-US')}
+                  </Text>
+                </View>
+                <View style={{ height: 5, borderRadius: 3, backgroundColor: Colors.elevated, overflow: 'hidden' }}>
+                  <View style={{ height: 5, borderRadius: 3, width: `${pct}%`, backgroundColor: barColor }} />
+                </View>
+                <Text style={{ fontSize: 10.5, color: Colors.textMuted }}>
+                  {tokenUsage.month === 'lifetime'
+                    ? 'Free one-time AI allowance · upgrade for monthly tokens'
+                    : 'AI usage this month · resets monthly'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* ── B. Wrapped (låses upp efter import; endast bemannad pilot) ── */}
       {profile?.mainRole === 'pilot-manned' && wrappedUnlocked && (
@@ -697,28 +736,7 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'app' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          <Row icon="contrast-outline" iconColor={Colors.primary} title={t('theme')} subtitle={t('theme_sub')}
-            right={
-              <View style={styles.toggle}>
-                {appMode === 'manned' ? (<>
-                  <TouchableOpacity style={[styles.toggleBtn, theme === 'navy' && styles.toggleBtnActive]} onPress={() => setTheme('navy')} activeOpacity={0.7}>
-                    <Text style={[styles.toggleText, theme === 'navy' && styles.toggleTextActive]}>{t('theme_navy')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.toggleBtn, theme === 'bright' && styles.toggleBtnActive]} onPress={() => setTheme('bright')} activeOpacity={0.7}>
-                    <Text style={[styles.toggleText, theme === 'bright' && styles.toggleTextActive]}>{t('theme_bright')}</Text>
-                  </TouchableOpacity>
-                </>) : (<>
-                  <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-industrial' && styles.toggleBtnActive]} onPress={() => setTheme('drone-industrial')} activeOpacity={0.7}>
-                    <Text style={[styles.toggleText, theme === 'drone-industrial' && styles.toggleTextActive]}>{t('theme_matt')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.toggleBtn, theme === 'drone-neon' && styles.toggleBtnActive]} onPress={() => setTheme('drone-neon')} activeOpacity={0.7}>
-                    <Text style={[styles.toggleText, theme === 'drone-neon' && styles.toggleTextActive]}>{t('theme_neon')}</Text>
-                  </TouchableOpacity>
-                </>)}
-              </View>
-            } pressable={false}
-            separatorColor={Colors.background}
-          />
+          {/* Tema-väljaren borttagen — appen har ett enda navy-tema. */}
           <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
             right={
               <View style={styles.toggle}>

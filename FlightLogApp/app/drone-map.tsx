@@ -2,7 +2,7 @@
 // Drönarlägets motsvarighet till manned "besökta flygplatser".
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Marker, type Region } from 'react-native-maps';
@@ -81,15 +81,31 @@ export default function DroneMapScreen() {
           <Text style={s.emptyHint}>Use "Here" when logging a flight to drop it on the map.</Text>
         </View>
       ) : (
-        <MapView style={{ flex: 1 }} initialRegion={region}>
-          {sites.map((st) => (
-            <Marker key={st.key} coordinate={{ latitude: st.lat, longitude: st.lon }} title={st.name} description={`${st.count} ${st.count === 1 ? 'flight' : 'flights'}`}>
-              <View style={[s.pin, { backgroundColor: accent + '33', borderColor: accent }]}>
-                <View style={[s.pinDot, { backgroundColor: accent }]} />
+        <View style={{ flex: 1 }}>
+          <MapView style={{ flex: 1 }} initialRegion={region}>
+            {sites.map((st) => (
+              <Marker key={st.key} coordinate={{ latitude: st.lat, longitude: st.lon }} title={st.name} description={`${st.count} ${st.count === 1 ? 'flight' : 'flights'}`}>
+                <View style={[s.pin, { backgroundColor: accent + '33', borderColor: accent }]}>
+                  <View style={[s.pinDot, { backgroundColor: accent }]} />
+                </View>
+              </Marker>
+            ))}
+          </MapView>
+          {/* Enkla visited-kort (drönar-motsvarighet till manned besökta-flygplatser-kort) */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={[s.cardStrip, { bottom: insets.bottom + 12 }]}
+            contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
+            {sites.sort((a, b) => b.count - a.count).map((st) => (
+              <View key={st.key} style={s.siteCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="location" size={13} color={accent} />
+                  <Text style={s.siteName} numberOfLines={1}>{st.name}</Text>
+                </View>
+                <Text style={s.siteCount}>{st.count} {st.count === 1 ? 'flight' : 'flights'}</Text>
               </View>
-            </Marker>
-          ))}
-        </MapView>
+            ))}
+          </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -109,4 +125,8 @@ const s = StyleSheet.create({
   emptyHint: { color: DR.text3, fontSize: 12.5, textAlign: 'center' },
   pin: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   pinDot: { width: 8, height: 8, borderRadius: 4 },
+  cardStrip: { position: 'absolute', left: 0, right: 0, maxHeight: 60 },
+  siteCard: { backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, minWidth: 130, justifyContent: 'center', gap: 3 },
+  siteName: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: DR.text, flexShrink: 1 },
+  siteCount: { fontFamily: MONO, fontSize: 10, color: DR.text3 },
 });

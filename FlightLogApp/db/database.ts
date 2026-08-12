@@ -301,6 +301,27 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   // Batteri-hälsa (% state-of-health) för drönar-batterier
   await addColumnIfMissingOnTable(db, 'drone_batteries', 'health', 'INTEGER NOT NULL DEFAULT 100');
 
+  // Drönar-flygningar: klockslag (för natt-auto), separat landningspunkt (BVLOS/korridor)
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'takeoff_time', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'landing_location', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'landing_lat', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'landing_lon', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'wind_ms', 'REAL NOT NULL DEFAULT 0');
+  // Officiell drönar-loggbok (Transportstyrelsen): pilot-funktion, landningar, IFR, PRI/COM
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'co_pilot_fpv', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'dual', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'instructor', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'ifr', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'landings_day', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'landings_night', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'operation_type', "TEXT NOT NULL DEFAULT ''"); // PRI | COM
+  // Kondition-tid (timmar) + flygregler — VFR/IFR-barer + natt-bar i Log Flight (Full).
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'night_time', 'REAL NOT NULL DEFAULT 0'); // nattandel i timmar
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'vfr', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'flight_rules', "TEXT NOT NULL DEFAULT 'VFR'");
+  // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
+
   // Papperloggböcker — referens för transkribering av digitala flygningar till papper
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS logbook_books (

@@ -28,7 +28,8 @@ export default function ModePickerScreen() {
 
   const pick = async (chosen: 'manned' | 'drone') => {
     if (chosen !== mode) await setMode(chosen);
-    router.replace('/(tabs)');
+    // Drönarläge → explicit drönar-dashboard ('/(tabs)' = ankaret index = manned, href:null → svart).
+    router.replace((chosen === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)') as any);
   };
 
   return (

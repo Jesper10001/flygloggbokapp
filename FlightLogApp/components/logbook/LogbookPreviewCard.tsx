@@ -96,7 +96,7 @@ export function LogbookPreviewCard() {
     const spreads = buildBookSpreads(slice?.flights ?? [], effectiveTemplate, {
       startingPage: activeBook.starting_page,
       rowsPerSpread: activeBook.rows_per_spread,
-      openingBalance: resolveOpeningBalance(activeBook, flights, effectiveTemplate),
+      openingBalance: resolveOpeningBalance(activeBook, books, flights, effectiveTemplate),
       leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
     });
     return spreads.length ? spreads[spreads.length - 1] : null;

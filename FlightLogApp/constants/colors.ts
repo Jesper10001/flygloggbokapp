@@ -1,6 +1,3 @@
-import { useThemeStore } from '../store/themeStore';
-import { useAppModeStore } from '../store/appModeStore';
-
 const NavyColors = {
   background: '#0A1628',
   surface: '#0F1E3A',
@@ -155,17 +152,11 @@ const DroneNeonColors = {
 
 export type ColorPalette = typeof NavyColors;
 
+// EN enda palett i hela appen (pilot + drönare): mörkt navy-tema. Bright- och
+// drönar-paletterna (industrial/neon) är utfasade — behålls som exports för
+// bakåtkompat men används inte längre.
 function currentPalette(): ColorPalette {
-  const mode = useAppModeStore.getState().mode;
-  const theme = useThemeStore.getState().theme;
-  if (mode === 'drone') {
-    switch (theme) {
-      case 'drone-industrial': return DroneIndustrialColors;
-      case 'drone-neon':       return DroneNeonColors;
-      default:                 return DroneIndustrialColors;
-    }
-  }
-  return theme === 'bright' ? BrightColors : NavyColors;
+  return NavyColors;
 }
 
 export const Colors = new Proxy({} as ColorPalette, {

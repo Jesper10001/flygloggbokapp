@@ -464,3 +464,49 @@ export async function exportToPDF(): Promise<void> {
     });
   }
 }
+
+// ── Drone CSV export ─────────────────────────────────────────────────────────
+// Exporterar drone_flights (helt separat loggbok — rör aldrig flights-tabellen).
+// EASA-orienterade kolumner: datum, UAS, plats, kategori, flygläge, tid, höjd m.m.
+
+export async function exportDroneFlightsToCSV(): Promise<void> {
+  const { getDroneFlights } = require('../db/drones');
+  const flights = await getDroneFlights(99999);
+
+  type DCol = { header: string; value: (f: any) => string | number; optional?: boolean; hasData?: (f: any) => boolean };
+  const hasText = (s: string | null | undefined) => !!s && String(s).trim() !== '';
+
+  const cols: DCol[] = [
+    { header: 'Date',              value: f => f.date },
+    { header: 'UAS type',          value: f => f.drone_type ?? '' },
+    { header: 'Registration',      value: f => f.registration ?? '' },
+    { header: 'Take-off time',     value: f => f.takeoff_time ?? '', optional: true, hasData: f => hasText(f.takeoff_time) },
+    { header: 'Location',          value: f => f.location ?? '' },
+    { header: 'Latitude',          value: f => f.lat || '', optional: true, hasData: f => !!f.lat },
+    { header: 'Longitude',         value: f => f.lon || '', optional: true, hasData: f => !!f.lon },
+    { header: 'Landing point',     value: f => f.landing_location ?? '', optional: true, hasData: f => hasText(f.landing_location) },
+    { header: 'Mission',           value: f => f.mission_type ?? '', optional: true, hasData: f => hasText(f.mission_type) },
+    { header: 'Category',          value: f => f.category ?? '', optional: true, hasData: f => hasText(f.category) },
+    { header: 'Flight mode',       value: f => f.flight_mode ?? 'VLOS' },
+    { header: 'Total time (h)',    value: f => f.total_time ?? 0 },
+    { header: 'Max altitude (m)',  value: f => f.max_altitude_m || '', optional: true, hasData: f => !!f.max_altitude_m },
+    { header: 'Night',             value: f => (f.is_night ? 'Yes' : ''), optional: true, hasData: f => !!f.is_night },
+    { header: 'Wind (m/s)',        value: f => f.wind_ms || '', optional: true, hasData: f => !!f.wind_ms },
+    { header: 'Observer',          value: f => f.observer_name ?? '', optional: true, hasData: f => hasText(f.observer_name) },
+    { header: 'Remarks',           value: f => f.remarks ?? '', optional: true, hasData: f => hasText(f.remarks) },
+  ];
+
+  const activeCols = cols.filter(c => !c.optional || flights.some((f: any) => c.hasData!(f)));
+  const headers = activeCols.map(c => c.header);
+  const rows = flights.map((f: any) => activeCols.map(c => c.value(f)).map(escapeCSV).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\r\n');
+  const filename = `drone_logbook_${new Date().toISOString().split('T')[0]}.csv`;
+  const path = FileSystem.documentDirectory + filename;
+
+  await FileSystem.writeAsStringAsync(path, '﻿' + csv, { encoding: FileSystem.EncodingType.UTF8 });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export drone logbook — CSV' });
+  }
+}

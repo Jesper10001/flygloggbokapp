@@ -101,7 +101,7 @@ export default function FillScreen() {
     return buildBookSpreads(slice?.flights ?? [], template, {
       startingPage: book.starting_page,
       rowsPerSpread: book.rows_per_spread,
-      openingBalance: resolveOpeningBalance(book, flights, template),
+      openingBalance: resolveOpeningBalance(book, books, flights, template),
       leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
     });
   }, [book, template, books, flights]);

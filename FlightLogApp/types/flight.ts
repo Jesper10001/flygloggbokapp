@@ -108,6 +108,8 @@ export interface FlightFormData {
   vfr?: string;
   se_time?: string;
   me_time?: string;
+  solo?: string;
+  cross_country?: string;
   takeoffs_day?: string;
   takeoffs_night?: string;
   app_2d?: string;
@@ -142,6 +144,9 @@ export interface IcaoAirport {
 
 export interface OcrFlightResult extends FlightFormData {
   sim?: string;
+  // Varaktighet per tids-kandidatkolumn (kolumnrubrik → timmar) → låter import-sidan byta
+  // vilken kolumn (Block/Air/Flight) som blir loggbokens total_time utan att läsa om filen.
+  timeOptions?: Record<string, string>;
   other_times?: Record<string, number>;
   other_time_labels?: Record<string, string>;
   needs_review: boolean;

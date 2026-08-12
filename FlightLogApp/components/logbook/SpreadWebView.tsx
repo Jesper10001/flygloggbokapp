@@ -33,7 +33,7 @@ export const SpreadWebView = memo(function SpreadWebView({
   onGeometry?: (g: { top: number; botData: number; botSum: number; colX?: number[] }) => void;
 }) {
   const html = useMemo(
-    () => renderSpreadHTML({ template, spread, rowsPerSpread: template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side }),
+    () => renderSpreadHTML({ template, spread, rowsPerSpread: spread.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side }),
     [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side],
   );
   // Vid behov: mät uppslagets naturliga höjd/bredd + datarutornas Y-gränser och rapportera tillbaka.

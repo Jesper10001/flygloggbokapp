@@ -8,7 +8,7 @@ import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { lookupAircraft } from '../services/aircraftLookup';
 import { useFlightStore } from '../store/flightStore';
-import { useScanQuotaStore } from '../store/scanQuotaStore';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
 
 type CrewKey = 'sp' | 'mp';
@@ -106,17 +106,13 @@ export function AircraftModal({
   const [saving, setSaving] = useState(false);
   const [looking, setLooking] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const { isPremium } = useFlightStore();
+  const { isPremium, isMax } = useFlightStore();
   const [lookupInfo, setLookupInfo] = useState<{ manufacturer: string; model: string } | null>(null);
 
   const handleSmartLookup = async () => {
-    if (!isPremium) {
-      setShowPremiumModal(true);
-      return;
-    }
-    const { canLookup, consumeLookup } = useScanQuotaStore.getState();
-    if (!canLookup()) {
-      Alert.alert(t('quota_exceeded_title'), t('lookup_quota_exceeded'));
+    // Token-styrt, inte premium-låst: fri nivå får slå upp tills engångspotten tar slut.
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
       return;
     }
     const q = type.trim();
@@ -126,7 +122,6 @@ export function AircraftModal({
     }
     setLooking(true);
     try {
-      await consumeLookup();
       const r = await lookupAircraft(q);
       if (r.needs_manual || !r.aircraft_type) {
         Alert.alert(t('aircraft_lookup_unclear_title'), t('aircraft_lookup_unclear_body'));
@@ -157,7 +152,11 @@ export function AircraftModal({
         ],
       );
     } catch (e: any) {
-      Alert.alert(t('error'), e.message || String(e));
+      if (isTokenQuotaError(e)) {
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+      } else {
+        Alert.alert(t('error'), e.message || String(e));
+      }
     } finally {
       setLooking(false);
     }

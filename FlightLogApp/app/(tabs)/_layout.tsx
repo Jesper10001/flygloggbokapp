@@ -35,6 +35,9 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Lägesbytet navigerar EXPLICIT till rätt dashboard (settings/drone-settings, deferred
+      // efter re-render) → ingen remount-key behövs. /(tabs) löser sig till manned-ankaret
+      // 'index'; drönarläget navigeras explicit till '/(tabs)/drone-dashboard'.
       screenOptions={{
         tabBarStyle: {
           backgroundColor: isDrone ? DR.surface : Colors.surface,
@@ -120,19 +123,24 @@ export default function TabsLayout() {
           href: isDrone ? undefined : null,
           title: '',
           tabBarButton: isDrone
-            ? () => <DroneFabButton accent={accent} onPress={() => router.push('/drone-flight/add')} />
+            ? () => <DroneFabButton premium={isPremium || isMax} onPress={() => router.push('/drone-flight/add')} />
             : undefined,
         }}
       />
       <Tabs.Screen
-        name="drone-book"
+        name="drone-insights"
         options={{
           href: isDrone ? undefined : null,
-          title: t('tab_book'),
+          title: t('tab_transcription'),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
+            <Ionicons name="analytics-outline" size={size} color={color} />
           ),
         }}
+      />
+      {/* Book flyttad till settings ("Your logbook") för manned-paritet — ej tab */}
+      <Tabs.Screen
+        name="drone-book"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="drone-prep"
@@ -184,19 +192,16 @@ function LogFlightButton({ premium, onPress }: { premium: boolean; onPress: () =
   );
 }
 
-function DroneFabButton({ accent, onPress }: { accent: string; onPress: () => void }) {
+// Drönar-center = SAMMA B-logga som manned (guld om premium/max, annars cyan) — visuell paritet.
+function DroneFabButton({ premium, onPress }: { premium: boolean; onPress: () => void }) {
+  const h = 53;
+  const w = premium ? h * (1024 / 960) : h * (1536 / 1024);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.85}
-        style={{
-          width: 52, height: 52, borderRadius: 26, backgroundColor: accent,
-          alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-          shadowColor: accent, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8,
-        }}
-      >
-        <Ionicons name="add" size={30} color={DR.inkOnAccent} />
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+        style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+        <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
+          style={{ height: h, width: w }} resizeMode="contain" />
       </TouchableOpacity>
     </View>
   );

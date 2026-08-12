@@ -109,12 +109,22 @@ export function assignFlightsToBooks(books: DigitalBook[], flights: Flight[]): B
 }
 
 /** Bokens ingående balans (brought-forward): användarens override (opening_balance-JSON om
- *  ifylld = korrigering mot riktig loggbok), annars auto-härledd ur flygdata + summeringsrader. */
-export function resolveOpeningBalance(book: DigitalBook, allFlights: Flight[], template: LogbookTemplate): ColumnTotals {
+ *  ifylld = korrigering mot riktig loggbok), annars auto-härledd.
+ *
+ *  VIKTIGT: brought-forward = erfarenhet FÖRE bokens EGNA flighter (summeringsrader + tidigare
+ *  böckers flighter). Gränsen är bokens FÖRSTA slice-flight — INTE `anchor_flight_id`, som är
+ *  den SENASTE flygningen (används bara för layout-positionering via leadingEmptyRows). Om man
+ *  använder ankaret här summeras nästan alla bokens EGNA flighter som "tidigare erfarenhet" och
+ *  läggs sedan till EN GÅNG TILL som siduppslags-rader → total to date fördubblas. */
+export function resolveOpeningBalance(book: DigitalBook, allBooks: DigitalBook[], allFlights: Flight[], template: LogbookTemplate): ColumnTotals {
   let override: ColumnTotals = {};
   try { override = JSON.parse(book.opening_balance || '{}'); } catch { override = {}; }
   if (Object.keys(override).length > 0) return override;   // användarkorrigering
-  return computeBroughtForward(allFlights, template, book.anchor_flight_id);
+  // Gräns = bokens första EGNA flight → allt kronologiskt före den (summeringsrader + tidigare
+  // böcker) blir brought-forward. Första boken → oftast tomt (0), vilket är korrekt.
+  const slice = assignFlightsToBooks(allBooks, allFlights).find((s) => s.book.id === book.id);
+  const firstOwnFlightId = slice?.flights?.[0]?.id ?? 0;
+  return computeBroughtForward(allFlights, template, firstOwnFlightId);
 }
 
 /** Plocka ut en boks slice (eller bygg en tom om boken saknas i listan). */

@@ -5,17 +5,22 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch,
-  LayoutAnimation, Platform, UIManager, Linking, Modal, Pressable,
+  LayoutAnimation, Platform, UIManager, Linking, Modal, Pressable, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { DR, accentSoft, accentLine, DRONE_ACCENTS, DRONE_ACCENT_ORDER } from '../../constants/droneTheme';
+import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
-import { listCertificates, certStatus } from '../../db/drones';
+import { listCertificates, certStatus, getDroneFlightCount } from '../../db/drones';
+import { exportDroneFlightsToCSV } from '../../services/export';
+import { useToastStore } from '../../components/Toast';
 import { useProfileStore, type MainRole, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
+import { useFlightStore } from '../../store/flightStore';
+import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
+import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting, setSetting } from '../../db/flights';
 
 const SERIF = 'Fraunces';
@@ -30,25 +35,58 @@ type SectionKey = 'logbook' | 'import' | 'data' | 'app';
 export default function DroneSettingsScreen() {
   const router = useRouter();
   const accent = useDroneAccentStore((s) => s.color);
-  const accentKey = useDroneAccentStore((s) => s.key);
-  const setAccent = useDroneAccentStore((s) => s.setAccent);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const profile = useProfileStore((s) => s.profile);
   const setProfile = useProfileStore((s) => s.setProfile);
   const setAppMode = useAppModeStore((s) => s.setMode);
 
+  const { isPremium, isMax } = useFlightStore();
+  const tokenUsage = useTokenQuotaStore((s) => s.usage);
+  const timeFormat = useTimeFormatStore((s) => s.timeFormat);
+  const setTimeFormat = useTimeFormatStore((s) => s.setTimeFormat);
+
   const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
   const [credCount, setCredCount] = useState(0);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [flightCount, setFlightCount] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [showSwitch, setShowSwitch] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileInitials, setProfileInitials] = useState('');
 
   useFocusEffect(useCallback(() => {
     loadAccent();
+    useTokenQuotaStore.getState().load();
     listCertificates().then((cs) => {
       setCredCount(cs.length);
       setExpiringCount(cs.filter((c) => ['critical', 'warning'].includes(certStatus(c.expires_date))).length);
     }).catch(() => {});
+    getDroneFlightCount().then(setFlightCount).catch(() => {});
+    (async () => {
+      const first = (await getSetting('profile_first_name')) ?? '';
+      const last = (await getSetting('profile_last_name')) ?? '';
+      const initials = (await getSetting('profile_initials')) ?? '';
+      setProfileName(`${first} ${last}`.trim());
+      setProfileInitials(initials || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase());
+    })().catch(() => {});
   }, [loadAccent]));
+
+  // Exportera BARA drone_flights (aldrig pilot-datat). Speglar manned-exportens flöde.
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    if (flightCount === 0) {
+      useToastStore.getState().show('No drone flights to export yet');
+      return;
+    }
+    setExporting(true);
+    try {
+      await exportDroneFlightsToCSV();
+    } catch (e: any) {
+      useToastStore.getState().show(e?.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const toggle = (k: SectionKey) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -72,8 +110,11 @@ export default function DroneSettingsScreen() {
       }
     } catch {}
     await setProfile({ mainRole, subRole });
-    await setAppMode(mainRole === 'pilot-unmanned' ? 'drone' : 'manned');
-    router.replace('/(tabs)' as any);
+    const targetMode = mainRole === 'pilot-unmanned' ? 'drone' : 'manned';
+    await setAppMode(targetMode);
+    // Navigera explicit till rätt dashboard efter re-render (annars → href:null-ankaret = svart).
+    const dest = targetMode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)';
+    requestAnimationFrame(() => router.replace(dest as any));
   };
 
   return (
@@ -81,15 +122,60 @@ export default function DroneSettingsScreen() {
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}>
       <Text style={s.title}>Settings</Text>
 
-      {/* Profilkort */}
+      {/* Profilkort — avatar-header (= manned) */}
       <View style={s.card}>
-        <Row accent={accent} icon="person-circle-outline" title="Drone pilot" subtitle="Unmanned aircraft" onPress={() => router.push('/settings/profile')} first />
-        <Row accent={accent} icon="shield-checkmark-outline"
+        <TouchableOpacity
+          style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 0.5, borderBottomColor: DR.separator }}
+          activeOpacity={0.7}
+          onPress={() => router.push('/settings/profile')}
+        >
+          <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: isMax ? DR.text2 : (isPremium ? DR.warning : accent), alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: DR.inkOnAccent, letterSpacing: -0.5 }}>{profileInitials || '?'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: DR.text, letterSpacing: -0.2 }}>{profileName || 'Your name'}</Text>
+            <Text style={{ fontSize: 12, color: DR.muted, marginTop: 2 }}>
+              {credCount ? `${credCount} credentials${expiringCount ? ` · ${expiringCount} expiring` : ''}` : 'Tap to edit profile'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+        </TouchableOpacity>
+        <Row accent={accent} icon="shield-checkmark-outline" iconColor={DR.success}
           title="Certificates & competency"
           subtitle={`${credCount} credentials${expiringCount ? ` · ${expiringCount} expiring` : ''}`}
           onPress={() => router.push('/settings/certificates')} />
-        <Row accent={accent} icon="star-outline" title="Blades Premium" subtitle="Manage subscription" onPress={() => router.push('/settings/premium')} />
+        <Row accent={accent} icon="today-outline"
+          title="Current today?" subtitle="Night, category recency & certificate currency"
+          onPress={() => router.push('/currency')} />
+        <Row accent={accent} icon="star-outline" iconColor={DR.warning} title="Blades Premium" subtitle="Manage subscription" onPress={() => router.push('/settings/premium')} />
       </View>
+
+      {/* AI-token-mätare (= manned) */}
+      {tokenUsage && (() => {
+        const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
+        const barColor = pct >= 90 ? DR.danger : pct >= 75 ? DR.warning : accent;
+        return (
+          <View style={[s.card, { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }]}>
+            <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: accentSoft(accent), borderWidth: 1, borderColor: accentLine(accent), alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="flash" size={15} color={accent} />
+            </View>
+            <View style={{ flex: 1, gap: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DR.text }}>AI tokens</Text>
+                <Text style={{ fontSize: 11.5, color: DR.text3, fontFamily: MONO }}>
+                  {tokenUsage.used.toLocaleString('en-US')} / {tokenUsage.limit.toLocaleString('en-US')}
+                </Text>
+              </View>
+              <View style={{ height: 5, borderRadius: 3, backgroundColor: DR.elevated, overflow: 'hidden' }}>
+                <View style={{ height: 5, borderRadius: 3, width: `${pct}%`, backgroundColor: barColor }} />
+              </View>
+              <Text style={{ fontSize: 10.5, color: DR.muted }}>
+                {tokenUsage.month === 'lifetime' ? 'Free one-time AI allowance · upgrade for monthly tokens' : 'AI usage this month · resets monthly'}
+              </Text>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* Logbook */}
       <View style={s.group}>
@@ -99,33 +185,38 @@ export default function DroneSettingsScreen() {
             <Row accent={accent} icon="hardware-chip-outline" title="Logbook type" subtitle="Drone · Unmanned aircraft" first />
             <Row accent={accent} icon="swap-horizontal-outline" title="Switch logbook" subtitle="Pilot · Drone" onPress={() => setShowSwitch(true)} />
             <Row accent={accent} icon="list-outline" title="Manage drones" onPress={() => router.push('/settings/drones')} />
-            <Row accent={accent} icon="book-outline" title="Your logbook" onPress={() => router.push('/drone-book')} />
-            <Row accent={accent} icon="time-outline" title="Audit log" onPress={() => router.push('/settings/auditlog')} />
+            <Row accent={accent} icon="book-outline" title="Your logbook" onPress={() => router.push('/drone-logbook')} />
           </View>
         )}
       </View>
 
-      {/* Import */}
+      {/* Import — endast drönar-säkra vägar. CSV/controller-import bygger på egna
+          drönar-parsers (kommer); tills dess bara manuell inmatning så inget hamnar
+          i pilot-loggboken. */}
       <View style={s.group}>
         <SectionHeader accent={accent} label="IMPORT" open={expanded === 'import'} onPress={() => toggle('import')} />
         {expanded === 'import' && (
           <View style={s.card}>
-            <Row accent={accent} icon="document-text-outline" title="Import CSV" onPress={() => router.push('/import')} first />
-            <Row accent={accent} icon="scan-outline" title="Scan controller log" subtitle="DJI / Autel export" onPress={() => router.push('/import/scan')} />
-            <Row accent={accent} icon="add-circle-outline" title="Add manually" onPress={() => router.push('/drone-flight/add')} />
+            <Row accent={accent} icon="add-circle-outline" title="Add manually" onPress={() => router.push('/drone-flight/add')} first />
+            <Row accent={accent} icon="scan-outline" title="Scan controller log" subtitle="DJI / Autel — coming soon"
+              right={<Text style={s.soon}>SOON</Text>} />
+            <Row accent={accent} icon="document-text-outline" title="Import CSV" subtitle="Drone log CSV — coming soon"
+              right={<Text style={s.soon}>SOON</Text>} />
           </View>
         )}
       </View>
 
-      {/* Data & Export */}
+      {/* Data & Export — exporterar BARA drone_flights (aldrig pilot-datat) */}
       <View style={s.group}>
         <SectionHeader accent={accent} label="DATA & EXPORT" open={expanded === 'data'} onPress={() => toggle('data')} />
         {expanded === 'data' && (
           <View style={s.card}>
             <Row accent={accent} icon="cloud-outline" title="iCloud sync" subtitle="Coming soon" first
               right={<Switch value={false} disabled trackColor={{ true: accent, false: DR.elevated }} />} />
-            <Row accent={accent} icon="download-outline" title="Export CSV" subtitle="EASA format" onPress={() => router.push('/settings/custom-export')} />
-            <Row accent={accent} icon="options-outline" title="Custom export" onPress={() => router.push('/settings/custom-export')} />
+            <Row accent={accent} icon="download-outline" title="Export CSV"
+              subtitle={flightCount > 0 ? `${flightCount} drone ${flightCount === 1 ? 'flight' : 'flights'}` : 'No flights yet'}
+              onPress={handleExportCsv}
+              right={exporting ? <ActivityIndicator size="small" color={accent} /> : undefined} />
           </View>
         )}
       </View>
@@ -135,35 +226,39 @@ export default function DroneSettingsScreen() {
         <SectionHeader accent={accent} label="APP" open={expanded === 'app'} onPress={() => toggle('app')} />
         {expanded === 'app' && (
           <View style={s.card}>
-            {/* Accent-väljare */}
+            {/* Tidsformat-toggle (= manned APP) */}
             <View style={s.row}>
-              <View style={[s.rowIcon, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent), borderWidth: 1 }]}>
-                <Ionicons name="color-palette-outline" size={17} color={accent} />
+              <View style={[s.rowIcon, { backgroundColor: DR.elevated }]}>
+                <Ionicons name="time-outline" size={17} color={accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.rowTitle}>Accent</Text>
-                <Text style={s.rowSub}>Drone signature colour</Text>
+                <Text style={s.rowTitle}>Time format</Text>
+                <Text style={s.rowSub}>Decimal or hours:minutes</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {DRONE_ACCENT_ORDER.map((k) => (
-                  <TouchableOpacity key={k} onPress={() => setAccent(k)} activeOpacity={0.8}
-                    style={[s.swatch, { backgroundColor: DRONE_ACCENTS[k], borderColor: accentKey === k ? DR.text : 'transparent' }]}>
-                    {accentKey === k && <Ionicons name="checkmark" size={15} color={DR.inkOnAccent} />}
-                  </TouchableOpacity>
-                ))}
+              <View style={s.toggle}>
+                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'decimal' && { backgroundColor: accent }]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
+                  <Text style={[s.toggleText, { color: timeFormat === 'decimal' ? DR.inkOnAccent : DR.text3 }]}>1.5</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'hhmm' && { backgroundColor: accent }]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
+                  <Text style={[s.toggleText, { color: timeFormat === 'hhmm' ? DR.inkOnAccent : DR.text3 }]}>1:30</Text>
+                </TouchableOpacity>
               </View>
             </View>
+            {/* Accent-väljaren borttagen — förenat navy-tema med fast accent. */}
           </View>
         )}
       </View>
 
-      {/* About */}
+      {/* About — neutrala (ej accent-tonade) ikoner, + Version/Local storage (= manned) */}
       <View style={s.group}>
         <Text style={[s.sectionLabel, { paddingHorizontal: 4, paddingBottom: 10 }]}>ABOUT</Text>
         <View style={s.card}>
-          <Row accent={accent} icon="mail-outline" title="Support" subtitle="toreldjesper@gmail.com" onPress={() => Linking.openURL('mailto:toreldjesper@gmail.com')} first />
-          <Row accent={accent} icon="globe-outline" title="Website" onPress={() => Linking.openURL('https://blades-app.com')} />
-          <Row accent={accent} icon="lock-closed-outline" title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy')} />
+          <Row accent={accent} iconColor={DR.text3} icon="information-circle-outline" title="Version"
+            right={<Text style={{ fontFamily: 'Menlo', fontSize: 13, color: DR.muted }}>1.0.0</Text>} first />
+          <Row accent={accent} iconColor={DR.text3} icon="phone-portrait-outline" title="Local storage" subtitle="All data stored on this device" />
+          <Row accent={accent} iconColor={DR.text3} icon="mail-outline" title="Support" subtitle="toreldjesper@gmail.com" onPress={() => Linking.openURL('mailto:toreldjesper@gmail.com')} />
+          <Row accent={accent} iconColor={DR.text3} icon="globe-outline" title="Website" onPress={() => Linking.openURL('https://blades-app.com')} />
+          <Row accent={accent} iconColor={DR.text3} icon="lock-closed-outline" title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy')} />
         </View>
       </View>
     </ScrollView>
@@ -189,13 +284,14 @@ export default function DroneSettingsScreen() {
   );
 }
 
-function Row({ accent, icon, title, subtitle, right, onPress, first }: {
-  accent: string; icon: any; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; first?: boolean;
+function Row({ accent, icon, iconColor, title, subtitle, right, onPress, first }: {
+  accent: string; icon: any; iconColor?: string; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; first?: boolean;
 }) {
+  const ic = iconColor ?? accent;
   const body = (
     <View style={[s.row, !first && { borderTopWidth: 1, borderTopColor: DR.separator }]}>
-      <View style={[s.rowIcon, { backgroundColor: DR.elevated }]}>
-        <Ionicons name={icon} size={17} color={accent} />
+      <View style={[s.rowIcon, { backgroundColor: ic + '1A' }]}>
+        <Ionicons name={icon} size={17} color={ic} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.rowTitle}>{title}</Text>
@@ -208,23 +304,27 @@ function Row({ accent, icon, title, subtitle, right, onPress, first }: {
   return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{body}</TouchableOpacity>;
 }
 
+// Kort-knapp-rubrik (= manned CollapsibleSectionHeader): rundad DR.surface-knapp,
+// accent-färgad etikett/chevron när öppen.
 function SectionHeader({ accent, label, open, onPress }: { accent: string; label: string; open: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity style={s.sectionHeader} onPress={onPress} activeOpacity={0.7}>
-      <Text style={[s.sectionLabel, open && { color: accent }]}>{label}</Text>
-      <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={16} color={open ? accent : DR.muted} />
+    <TouchableOpacity style={s.sectionBtn} onPress={onPress} activeOpacity={0.7}>
+      <Text style={[s.sectionBtnLabel, { color: open ? accent : DR.text }]}>{label}</Text>
+      <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={16} color={open ? accent : DR.text3} />
     </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: DR.background },
-  title: { fontFamily: SERIF, fontSize: 26, fontWeight: '500', letterSpacing: -0.5, color: DR.text },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.8, color: DR.text },
 
   card: { backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 16, overflow: 'hidden' },
   group: { gap: 0 },
 
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingVertical: 10 },
+  // Kort-knapp-rubrik (= manned): rundad DR.surface-knapp
+  sectionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border },
+  sectionBtnLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   sectionLabel: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.8, color: DR.text3 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
@@ -237,6 +337,7 @@ const s = StyleSheet.create({
   toggleText: { fontSize: 12, fontWeight: '700' },
 
   swatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  soon: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, color: DR.muted, borderWidth: 1, borderColor: DR.border, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, overflow: 'hidden' },
 
   backdrop: { flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' },
   sheet: { backgroundColor: DR.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, paddingBottom: 32, borderWidth: 1, borderColor: DR.border },

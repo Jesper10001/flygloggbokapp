@@ -18,6 +18,8 @@ import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
 import { useProfileStore } from '../store/profileStore';
 import { cleanupDittoEntries } from '../db/ocrLearned';
+import { logLogbookDiagnostics } from '../services/logbook/diagnostics';
+import { useTokenQuotaStore } from '../store/tokenQuotaStore';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
@@ -61,14 +63,18 @@ export default function RootLayout() {
         await usePilotTypeStore.getState().load();
         await useProfileStore.getState().load();
         await cleanupDittoEntries();
+        logLogbookDiagnostics(); // TILLFÄLLIG felsökning → loggbokstotaler till Metro-terminalen vid varje start
+        useTokenQuotaStore.getState().load(); // fire-and-forget — får inte blockera app-starten på nätverk
         await checkVersion();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
         const onboarded = await getSetting('has_onboarded');
         // Wait for layout to mount before navigating
         await new Promise(r => setTimeout(r, 500));
-        const dest = !onboarded ? '/onboarding' : '/(tabs)';
-        router.replace(dest);
+        // Drönarläge → navigera EXPLICIT till drönar-dashboarden. '/(tabs)' löser sig annars
+        // till ankaret 'index' (manned, href:null i drönarläge) → svart skärm vid omstart.
+        const dest = !onboarded ? '/onboarding' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+        router.replace(dest as any);
       } catch (err) {
         console.error('DB init error:', err);
       }
@@ -79,7 +85,7 @@ export default function RootLayout() {
   if (forceUpdate) {
     return (
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <StatusBar style={theme === 'bright' ? 'dark' : 'light'} />
+        <StatusBar style={'light'} />
         <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
           <Ionicons name="arrow-up-circle" size={32} color={Colors.primary} />
         </View>
@@ -102,7 +108,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
-      <StatusBar style={theme === 'bright' ? 'dark' : 'light'} />
+      <StatusBar style={'light'} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: Colors.surface },
@@ -137,6 +143,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
+        <Stack.Screen name="drone-logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="logbook/fill" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="mode-picker" options={{ headerShown: false }} />

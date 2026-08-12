@@ -12,6 +12,7 @@ export interface DroneRegistryEntry {
   registration: string;
   mtow_g: number;
   category: DroneCategory;
+  drone_class?: string; // 'military' | 'civil' | '' — anges själv i drönar-modalen
   notes: string;
 }
 
@@ -59,9 +60,9 @@ export async function addDrone(
 ): Promise<number> {
   const db = await getDatabase();
   const res = await db.runAsync(
-    `INSERT INTO drone_registry (drone_type, model, registration, mtow_g, category, notes)
-     VALUES (?,?,?,?,?,?)`,
-    [data.drone_type, data.model, data.registration.toUpperCase(), data.mtow_g, data.category, data.notes]
+    `INSERT INTO drone_registry (drone_type, model, registration, mtow_g, category, drone_class, notes)
+     VALUES (?,?,?,?,?,?,?)`,
+    [data.drone_type, data.model, data.registration.toUpperCase(), data.mtow_g, data.category, data.drone_class ?? '', data.notes]
   );
   const id = res.lastInsertRowId as number;
   for (let i = 1; i <= batteryCount; i++) {
@@ -77,9 +78,9 @@ export async function updateDrone(id: number, data: Omit<DroneRegistryEntry, 'id
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE drone_registry
-     SET drone_type=?, model=?, registration=?, mtow_g=?, category=?, notes=?
+     SET drone_type=?, model=?, registration=?, mtow_g=?, category=?, drone_class=?, notes=?
      WHERE id=?`,
-    [data.drone_type, data.model, data.registration.toUpperCase(), data.mtow_g, data.category, data.notes, id]
+    [data.drone_type, data.model, data.registration.toUpperCase(), data.mtow_g, data.category, data.drone_class ?? '', data.notes, id]
   );
 }
 
@@ -293,16 +294,31 @@ export interface DroneFlight {
   location: string;
   lat: number;
   lon: number;
+  takeoff_time: string;       // "HH:MM" lokal — driver natt-auto (tom = okänt)
+  landing_location: string;   // separat landningspunkt (BVLOS/korridor); tom = samma som start
+  landing_lat: number;
+  landing_lon: number;
   mission_type: string;
   category: string;
   flight_mode: DroneFlightMode;
   total_time: number;
   max_altitude_m: number;
   is_night: number;
+  night_time: number;     // nattandel i timmar (kondition-bar)
+  vfr: number;            // VFR-tid i timmar
+  flight_rules: string;   // 'VFR' | 'Y' | 'Z' | 'IFR'
   has_observer: number;
   observer_name: string;
   battery_id: number | null;
   battery_start_cycles: number;
+  wind_ms: number;
+  co_pilot_fpv: number;   // FPV/andrepilot-tid
+  dual: number;           // elevtid (student)
+  instructor: number;     // instruktörstid
+  ifr: number;
+  landings_day: number;
+  landings_night: number;
+  operation_type: string; // 'PRI' | 'COM' — privat vs kommersiell (Type of mission)
   remarks: string;
   created_at: string;
 }
@@ -315,16 +331,31 @@ export interface DroneFlightFormData {
   location: string;
   lat?: number;
   lon?: number;
+  takeoff_time?: string;
+  landing_location?: string;
+  landing_lat?: number;
+  landing_lon?: number;
   mission_type: string;
   category: string;
   flight_mode: DroneFlightMode;
   total_time: string;
   max_altitude_m: string;
   is_night: boolean;
+  night_time?: string;    // nattandel i timmar (kondition-bar)
+  vfr?: string;
+  flight_rules?: string;  // 'VFR' | 'Y' | 'Z' | 'IFR'
   has_observer: boolean;
   observer_name: string;
   battery_id: number | null;
   battery_start_cycles: string;
+  wind_ms?: string;
+  co_pilot_fpv?: string;
+  dual?: string;
+  instructor?: string;
+  ifr?: string;
+  landings_day?: string;
+  landings_night?: string;
+  operation_type?: string; // 'PRI' | 'COM'
   remarks: string;
 }
 
@@ -333,9 +364,11 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
   const res = await db.runAsync(
     `INSERT INTO drone_flights (
       date, drone_id, drone_type, registration, location, lat, lon,
+      takeoff_time, landing_location, landing_lat, landing_lon,
       mission_type, category, flight_mode, total_time, max_altitude_m,
-      is_night, has_observer, observer_name, battery_id, battery_start_cycles, remarks
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      is_night, night_time, vfr, flight_rules, has_observer, observer_name, battery_id, battery_start_cycles, wind_ms,
+      co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -344,16 +377,31 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       data.location,
       data.lat ?? 0,
       data.lon ?? 0,
+      data.takeoff_time ?? '',
+      data.landing_location ?? '',
+      data.landing_lat ?? 0,
+      data.landing_lon ?? 0,
       data.mission_type,
       data.category,
       data.flight_mode,
       parseFloat(data.total_time) || 0,
       parseInt(data.max_altitude_m, 10) || 0,
       data.is_night ? 1 : 0,
+      parseFloat(data.night_time ?? '') || 0,
+      parseFloat(data.vfr ?? '') || 0,
+      data.flight_rules ?? 'VFR',
       data.has_observer ? 1 : 0,
       data.observer_name,
       data.battery_id,
       parseInt(data.battery_start_cycles, 10) || 0,
+      parseFloat(data.wind_ms ?? '') || 0,
+      parseFloat(data.co_pilot_fpv ?? '') || 0,
+      parseFloat(data.dual ?? '') || 0,
+      parseFloat(data.instructor ?? '') || 0,
+      parseFloat(data.ifr ?? '') || 0,
+      parseInt(data.landings_day ?? '', 10) || 0,
+      parseInt(data.landings_night ?? '', 10) || 0,
+      data.operation_type ?? '',
       data.remarks,
     ]
   );
@@ -383,8 +431,10 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
   await db.runAsync(
     `UPDATE drone_flights SET
       date=?, drone_id=?, drone_type=?, registration=?, location=?, lat=?, lon=?,
+      takeoff_time=?, landing_location=?, landing_lat=?, landing_lon=?,
       mission_type=?, category=?, flight_mode=?, total_time=?, max_altitude_m=?,
-      is_night=?, has_observer=?, observer_name=?, battery_id=?, battery_start_cycles=?, remarks=?
+      is_night=?, night_time=?, vfr=?, flight_rules=?, has_observer=?, observer_name=?, battery_id=?, battery_start_cycles=?, wind_ms=?,
+      co_pilot_fpv=?, dual=?, instructor=?, ifr=?, landings_day=?, landings_night=?, operation_type=?, remarks=?
      WHERE id=?`,
     [
       data.date,
@@ -394,16 +444,31 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       data.location,
       data.lat ?? 0,
       data.lon ?? 0,
+      data.takeoff_time ?? '',
+      data.landing_location ?? '',
+      data.landing_lat ?? 0,
+      data.landing_lon ?? 0,
       data.mission_type,
       data.category,
       data.flight_mode,
       parseFloat(data.total_time) || 0,
       parseInt(data.max_altitude_m, 10) || 0,
       data.is_night ? 1 : 0,
+      parseFloat(data.night_time ?? '') || 0,
+      parseFloat(data.vfr ?? '') || 0,
+      data.flight_rules ?? 'VFR',
       data.has_observer ? 1 : 0,
       data.observer_name,
       data.battery_id,
       parseInt(data.battery_start_cycles, 10) || 0,
+      parseFloat(data.wind_ms ?? '') || 0,
+      parseFloat(data.co_pilot_fpv ?? '') || 0,
+      parseFloat(data.dual ?? '') || 0,
+      parseFloat(data.instructor ?? '') || 0,
+      parseFloat(data.ifr ?? '') || 0,
+      parseInt(data.landings_day ?? '', 10) || 0,
+      parseInt(data.landings_night ?? '', 10) || 0,
+      data.operation_type ?? '',
       data.remarks,
       id,
     ]
@@ -476,3 +541,54 @@ export async function getDroneStats(): Promise<DroneStats> {
   };
 }
 
+
+// Drönar-arbetsbelastning (14d vs baslinje) — speglar getStressHours (db/flights.ts)
+// men på drone_flights. Driver stressindikatorn på drönar-dashboarden.
+export async function getDroneStressHours(): Promise<{ recent14: number; yearAvg14: number }> {
+  const db = await getDatabase();
+  const r14 = await db.getFirstAsync<{ h: number }>(
+    `SELECT ROUND(SUM(total_time), 2) as h FROM drone_flights WHERE date >= date('now', '-14 days')`
+  );
+  const monthRows = await db.getAllAsync<{ m: string; h: number }>(
+    `SELECT strftime('%m', date) as m, ROUND(SUM(total_time), 2) as h FROM drone_flights
+     WHERE date >= date('now', '-379 days') AND date < date('now', '-14 days')
+     GROUP BY strftime('%m', date)`
+  );
+  if (monthRows.length === 0) return { recent14: r14?.h ?? 0, yearAvg14: 0 };
+
+  const avgMonthly = monthRows.reduce((s, r) => s + r.h, 0) / monthRows.length;
+  const inactiveMonths = new Set(monthRows.filter(r => r.h < avgMonthly * 0.3).map(r => r.m));
+  for (let m = 1; m <= 12; m++) {
+    const key = String(m).padStart(2, '0');
+    if (!monthRows.find(r => r.m === key)) inactiveMonths.add(key);
+  }
+  const weekdayRows = await db.getAllAsync<{ wd: number; cnt: number }>(
+    `SELECT CAST(strftime('%w', date) AS INTEGER) as wd, COUNT(*) as cnt FROM drone_flights
+     WHERE date >= date('now', '-379 days') AND date < date('now', '-14 days')
+     GROUP BY strftime('%w', date)`
+  );
+  const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+  for (const r of weekdayRows) weekdayCounts[r.wd] = r.cnt;
+  const maxWeekday = Math.max(...weekdayCounts);
+  const activeWeekdays = weekdayCounts.filter(c => c >= maxWeekday * 0.2).length;
+  const activeDaysPerWeek = Math.max(activeWeekdays, 1);
+  const activeHours = monthRows.filter(r => !inactiveMonths.has(r.m)).reduce((s, r) => s + r.h, 0);
+  const activeMonths = 12 - inactiveMonths.size;
+  const activeDays = activeMonths * 30.4 * (activeDaysPerWeek / 7);
+  const avg14 = activeDays > 0 ? Math.round((activeHours / activeDays * 14) * 100) / 100 : 0;
+  return { recent14: r14?.h ?? 0, yearAvg14: avg14 };
+}
+
+/** Distinkta senaste startplatser (för snabbvals-chips i Log Flight), senast använda först. */
+export async function getRecentDroneLocations(limit = 6): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ location: string }>(
+    `SELECT location FROM drone_flights
+     WHERE TRIM(COALESCE(location, '')) != ''
+     GROUP BY location
+     ORDER BY MAX(date) DESC, MAX(id) DESC
+     LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => r.location);
+}

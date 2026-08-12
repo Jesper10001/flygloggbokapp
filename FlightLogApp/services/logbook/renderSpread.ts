@@ -69,6 +69,24 @@ function fmtDecimal(v: number, timeFormat: 'decimal' | 'hhmm'): string {
 const isNumericCol = (c: LogbookColumn) => c.format === 'decimal' || c.format === 'int';
 
 /** En enskild flygnings värde i en kolumn. */
+const DATE_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Formaterar ett lagrat datum (YYYY-MM-DD) i vald ordning dag/månad/år.
+function formatDateStr(iso: string, fmt?: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  if (!m) return iso || '';
+  const [, Y, M, D] = m;
+  const yy = Y.slice(2);
+  const mon = DATE_MON[parseInt(M, 10) - 1] || M;
+  switch (fmt) {
+    case 'dmy': return `${D}/${M}/${Y}`;
+    case 'mdy': return `${M}/${D}/${Y}`;
+    case 'dmy2': return `${D}/${M}/${yy}`;
+    case 'mdy2': return `${M}/${D}/${yy}`;
+    case 'dmon': return `${D} ${mon} ${Y}`;
+    default: return `${Y}-${M}-${D}`; // 'iso'
+  }
+}
+
 function cellValue(flight: any, c: LogbookColumn, timeFormat: 'decimal' | 'hhmm'): string {
   if (!c.flightKey) return '';
   // Dep/arr: visa den inskrivna koden (IATA/GPS/ICAO/okänt), inte den kanoniska ICAO.
@@ -77,6 +95,7 @@ function cellValue(flight: any, c: LogbookColumn, timeFormat: 'decimal' | 'hhmm'
   else if (c.flightKey === 'arr_place') raw = flight.arr_place_raw || flight.arr_place;
   if (raw === undefined || raw === null || raw === '') return '';
   switch (c.format) {
+    case 'date': return esc(formatDateStr(String(raw), c.date_format));
     case 'icao': return esc(String(raw).toUpperCase());
     case 'int': {
       const n = parseInt(String(raw), 10);
@@ -113,7 +132,8 @@ function spreadBody(opts: RenderSpreadOpts): string {
   const firstNumericIdx = cols.findIndex(isNumericCol);
   const labelColIdx = Math.max(0, firstNumericIdx - 1);
   // Endast fri-text-kolumnen (Remarks) lämnas öppen i totals — Sea m.fl. stannar i rutnätet.
-  const isOpenCol = (c: LogbookColumn) => c.format === 'text';
+  // Guarda mot undefined (en sida kan sakna numeriska kolumner → index-glapp).
+  const isOpenCol = (c?: LogbookColumn) => c?.format === 'text';
 
   // Gruppera intilliggande kolumner med samma group-etikett.
   type Seg = { group?: string; span: number };
@@ -231,9 +251,12 @@ function spreadBody(opts: RenderSpreadOpts): string {
     const sigSpan = Math.max(0, firstNumericIdx - labelSpan);
     // Delad högersida saknar etikettkolumner (firstNumericIdx===0): rendera bara
     // totaler per kolumn (ingen etikett/signatur) så cellantalet matchar kolumnerna.
-    const noLabels = firstNumericIdx === 0;
+    // firstNumericIdx <= 0 (0 = numeriskt först, -1 = inga numeriska på sidan): rendera bara
+    // per-kolumn-celler utan etikett/signatur → inget index-glapp (cols[-1]).
+    const noLabels = firstNumericIdx <= 0;
     const rightCells = (label: string, totals: ColumnTotals, showZero: boolean) => {
-      const cell = (c: LogbookColumn) => {
+      const cell = (c?: LogbookColumn) => {
+        if (!c) return `<td class="sum-blank"></td>`;
         if (isOpenCol(c)) return `<td class="sum-open"></td>`;
         const dash = dashAfter.has(c.id) ? ' dash-r' : '';
         return isNumericCol(c)
@@ -436,7 +459,8 @@ export function renderSpreadsPDF(opts: RenderSpreadsPdfOpts): RenderedPdf {
   const contentWidth = cols.reduce((s, c) => s + c.width, 0);
   const pagePad = 16;
   const pageWidth = contentWidth + pagePad * 2 + 2;
-  const pageHeightPx = 320 + template.rows_per_spread * 22; // generöst — uppslaget klipps aldrig
+  const rps = spreads[0]?.rowsPerSpread ?? template.rows_per_spread; // bokens radantal (ej mallens)
+  const pageHeightPx = 320 + rps * 22; // generöst — uppslaget klipps aldrig
   // Sidbredden låses till standard A4-liggande bredd (842 pt). En bredare sida
   // ger en enorm renderingsyta i WKWebView → segt. WKWebView skalar innehållet
   // till sidbredden automatiskt (samma som CV-PDF:en), så höjden blir proportionell.
@@ -444,7 +468,7 @@ export function renderSpreadsPDF(opts: RenderSpreadsPdfOpts): RenderedPdf {
   const heightPt = Math.round(pageHeightPx * (widthPt / pageWidth));
 
   const bodies = spreads.map((s) =>
-    spreadBody({ template, spread: s, rowsPerSpread: template.rows_per_spread, pilotName, timeFormat, signature, interactive: false }),
+    spreadBody({ template, spread: s, rowsPerSpread: s.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive: false }),
   );
 
   const html = `<!DOCTYPE html>

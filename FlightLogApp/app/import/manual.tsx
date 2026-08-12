@@ -12,7 +12,7 @@ import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
-import { useScanQuotaStore } from '../../store/scanQuotaStore';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 
 // ── Typdef ────────────────────────────────────────────────────────────────────
 
@@ -401,7 +401,7 @@ export default function ManualExperienceScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { loadFlights, loadStats, isPremium } = useFlightStore();
+  const { loadFlights, loadStats, isPremium, isMax } = useFlightStore();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const currentYear = String(new Date().getFullYear());
@@ -459,16 +459,17 @@ export default function ManualExperienceScreen() {
     ct.size === 0 ? '' : [...ct].sort().join(',');
 
   const handleSmartLookup = async (acId: string) => {
-    if (!isPremium) { setShowPremiumModal(true); return; }
-    const { canLookup, consumeLookup } = useScanQuotaStore.getState();
-    if (!canLookup()) { Alert.alert(t('quota_exceeded_title'), t('lookup_quota_exceeded')); return; }
+    // Token-styrt, inte premium-låst: fri nivå får slå upp tills engångspotten tar slut.
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
+      return;
+    }
     const ac = aircraft.find(a => a.id === acId);
     if (!ac) return;
     const q = ac.type.trim();
     if (!q) { Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body')); return; }
     updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'loading' } }));
     try {
-      await consumeLookup();
       const r = await lookupAircraft(q);
       if (r.needs_manual || !r.aircraft_type) {
         updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'unknown' } }));
@@ -492,6 +493,9 @@ export default function ManualExperienceScreen() {
         return updated;
       });
     } catch (e: any) {
+      if (isTokenQuotaError(e)) {
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+      }
       updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'unknown' } }));
     }
   };

@@ -72,7 +72,7 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
   const spreads = buildBookSpreads(slice?.flights ?? [], template, {
     startingPage: active.starting_page,
     rowsPerSpread: active.rows_per_spread,
-    openingBalance: resolveOpeningBalance(active, flights, template),
+    openingBalance: resolveOpeningBalance(active, books, flights, template),
     leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
   });
 

@@ -17,6 +17,7 @@ import { ratingStatus, ratingMeta } from './fleetTypeRating';
 import { RatingModal } from './RatingModal';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const fmtTotal = (h: number) => `${Math.floor(h || 0)}:${pad(Math.round(((h || 0) % 1) * 60))}`;
@@ -61,7 +62,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   const [showRating, setShowRating] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
-  const { isPremium } = useFlightStore();
+  const { isPremium, isMax } = useFlightStore();
   const [regs, setRegs] = useState<{ registration: string; hours: number }[]>([]);
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
   const [aspect, setAspect] = useState(1.5);
@@ -141,14 +142,22 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   // Hämta full spec + bild (Wikipedia/AI) på begäran.
   const fetchData = async () => {
     if (fetching) return;
-    if (!isPremium) { setShowPremium(true); return; } // AI-hämtning endast för premium
+    // Token-styrt, inte premium-låst: fri nivå får hämta tills engångspotten tar slut.
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremium(true); }
+      return;
+    }
     setFetching(true);
     try {
       const r = await enrichAircraftFleet(ac.aircraft_type);
       await persistAircraftFleetLookup(ac.aircraft_type, r);
       onSaved();
     } catch (e: any) {
-      Alert.alert('Lookup failed', e?.message || 'Could not fetch aircraft data. Check your connection and try again.');
+      if (isTokenQuotaError(e)) {
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremium(true);
+      } else {
+        Alert.alert('Lookup failed', e?.message || 'Could not fetch aircraft data. Check your connection and try again.');
+      }
     } finally {
       setFetching(false);
     }

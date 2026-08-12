@@ -3,7 +3,6 @@
 // djup diagram-bakgrund). Allt övrigt mappas mot befintliga Colors så Insights
 // adapterar till temat. Subscribar på themeStore → re-render vid temabyte.
 
-import { useThemeStore } from '../../store/themeStore';
 import { Colors } from '../../constants/colors';
 
 export interface InsightsTheme {
@@ -15,8 +14,7 @@ export interface InsightsTheme {
 }
 
 export function useInsightsTheme(): InsightsTheme {
-  const theme = useThemeStore((s) => s.theme);
-  const bright = theme === 'bright';
+  const bright = false; // förenat navy-tema — inget bright-läge längre
   return {
     bg: Colors.background,
     deep: bright ? '#EFE7D2' : '#06101E',     // diagram-/scrim-bakgrund

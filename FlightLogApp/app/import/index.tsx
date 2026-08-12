@@ -6,29 +6,42 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { pickImportFile, importFromFile, type ImportResult } from '../../services/import';
-import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry } from '../../db/flights';
+import { pickImportFile, importFromFile, generateImportSummary, type ImportResult } from '../../services/import';
+import { CountryFlag } from '../../components/CountryFlag';
+import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, flightExists } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
-import { useScanQuotaStore } from '../../store/scanQuotaStore';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
 
-const SUPPORTED_FORMATS = [
-  { name: 'ForeFlight', icon: 'airplane', ext: 'CSV' },
-  { name: 'LogTen Pro', icon: 'document-text', ext: 'TXT' },
-  { name: 'MyFlightbook', icon: 'book', ext: 'CSV' },
-  { name: 'mccPILOTLOG', icon: 'grid', ext: 'CSV/XLS' },
-  { name: 'Logbook Pro', icon: 'document', ext: 'CSV' },
-  { name: 'APDL', icon: 'layers', ext: 'TXT' },
-  { name: 'Eflightbook', icon: 'albums', ext: 'CSV' },
-  { name: 'Generic CSV', icon: 'code', ext: 'CSV' },
-  { name: 'Excel', icon: 'grid', ext: 'XLSX/XLS' },
+// Roterande statustexter under AI-mappningen (den längsta fasen) — byts varannan sekund
+const ANALYZE_STEPS = [
+  'Identifying your logbook format…',
+  'Mapping columns to logbook fields…',
+  'Detecting date & time formats…',
+  'Locating duration columns…',
+  'Checking boolean flags & landings…',
+  'Reviewing sample flights…',
 ];
+
+// Introsidans innehåll — hur importen funkar + tillförlitlighet (i stället för app-lista)
+const HOW_IT_WORKS = [
+  { n: '1', t: 'Pick your export file', d: 'Export from your current logbook app and choose the file above.' },
+  { n: '2', t: 'AI maps your columns', d: 'Claude identifies the format and maps dates, times, roles and landings. Only a small sample of rows is sent — every flight is parsed locally on your device.' },
+  { n: '3', t: 'Review before saving', d: 'You get a full preview with statistics and an AI analysis. Nothing is saved until you approve.' },
+];
+
+const ACCEPTED_FORMATS = [
+  { icon: 'document-text-outline', t: '.csv', d: 'comma, semicolon, tab or pipe separated' },
+  { icon: 'grid-outline', t: '.xlsx / .xls', d: 'Excel workbooks' },
+  { icon: 'document-outline', t: '.txt', d: 'plain text exports' },
+];
+
 
 function makeStyles() {
   return StyleSheet.create({
@@ -37,6 +50,55 @@ function makeStyles() {
 
     title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
     subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+
+    hero: { gap: 4, marginBottom: 2 },
+    uploadCard: {
+      alignItems: 'center', gap: 8, paddingVertical: 26, paddingHorizontal: 18,
+      borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.primary + '80',
+      backgroundColor: Colors.primary + '0D',
+    },
+    uploadIconWrap: {
+      width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '33',
+    },
+    uploadTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 2 },
+    uploadSub: { color: Colors.textSecondary, fontSize: 12.5, textAlign: 'center', lineHeight: 17 },
+    // Introsidans info-kort (How it works / formats / trust)
+    infoCard: {
+      backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder,
+      padding: 14, gap: 12,
+    },
+    infoTitle: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+    stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    stepBubble: {
+      width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.primary + '1C', borderWidth: 1, borderColor: Colors.primary + '33', marginTop: 1,
+    },
+    stepNum: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
+    stepTitle: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
+    stepDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+    bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    bulletTerm: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
+    bulletDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17 },
+
+    // AI-analys-kortet (fritextsammanfattning efter importanalysen)
+    aiCard: {
+      backgroundColor: Colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: Colors.primary + '33',
+      padding: 14,
+      gap: 10,
+    },
+    aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    aiCardTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+    aiCardText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
+    aiLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+    aiLoadingText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic' },
+    aiReadMore: { color: Colors.primary, fontSize: 12, fontWeight: '700', marginTop: -2 },
+    tokenUsedText: { color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', marginTop: 3 },
+    chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, marginTop: 2 },
+    chooseOtherText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
 
     freeNotice: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -50,16 +112,6 @@ function makeStyles() {
       textTransform: 'uppercase', letterSpacing: 1,
       marginTop: 8, marginBottom: 4,
     },
-
-    formatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    formatChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: Colors.card, borderRadius: 8,
-      paddingHorizontal: 10, paddingVertical: 7,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    formatName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '600' },
-    formatExt: { color: Colors.textMuted, fontSize: 10 },
 
     pickBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -183,6 +235,19 @@ function makeStyles() {
     },
     crewBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
     crewBtnLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700' },
+    timeColSection: {
+      backgroundColor: Colors.primary + '10',
+      borderRadius: 10, padding: 12,
+      borderWidth: 1, borderColor: Colors.primary + '44', gap: 4,
+    },
+    timeColBtn: {
+      flexGrow: 1, minWidth: 90, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10,
+      borderRadius: 9, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated,
+    },
+    timeColBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+    timeColBtnLabel: { color: Colors.textSecondary, fontSize: 12.5, fontWeight: '700' },
+    timeColBtnLabelActive: { color: Colors.primary },
+    timeColBtnSub: { color: Colors.textMuted, fontSize: 9.5, marginTop: 1, maxWidth: 120 },
     crewBtnLabelActive: { color: Colors.primary },
     crewBtnSub: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
 
@@ -256,13 +321,33 @@ export default function ImportScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { loadFlights, loadStats, isPremium } = useFlightStore();
+  const { loadFlights, loadStats, isPremium, isMax } = useFlightStore();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  // Roterande stegtext under importen (byts varannan sekund)
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    if (!importing) { setStepIdx(0); return; }
+    const id = setInterval(() => setStepIdx((i) => i + 1), 2000);
+    return () => clearInterval(id);
+  }, [importing]);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [totalTimeCol, setTotalTimeCol] = useState(''); // vald varaktighetskolumn (Block/Air/Flight) → total_time
+  // AI-sammanfattning av importen (fritext) — laddas asynkront efter analysen, även vid fel
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad förhandsvisning som standard
+  const [importError, setImportError] = useState<string | null>(null);
+  // Expanderbara sektioner i förhandsvisningen (samma mönster som Imported data-sidan)
+  const [openAirports, setOpenAirports] = useState(false);
+  const [openAircraft, setOpenAircraft] = useState(false);
+  const [openPilots, setOpenPilots] = useState(false);
+  const [airportMeta, setAirportMeta] = useState<Record<string, { name: string; country: string; known: boolean }>>({});
   // Marschfart + uthållighet för fartygstyper utan registrerade värden
   const [speedInputs, setSpeedInputs] = useState<Record<string, string>>({});
   const [enduranceInputs, setEnduranceInputs] = useState<Record<string, string>>({});
@@ -386,6 +471,7 @@ export default function ImportScreen() {
     return result.flights
       .map((f, idx) => ({ f, idx }))
       .filter(({ f }) => {
+        if ((f as any).flight_type === 'sim') return false; // explicit sim från filen → ingen endurance-fråga
         const raw = enduranceInputs[f.aircraft_type] ?? '';
         if (raw.endsWith('.')) return false; // fortfarande inmatning, vänta
         const endH = parseFloat(raw) || 0;
@@ -424,14 +510,13 @@ export default function ImportScreen() {
   }, [result, airportCoords, speedInputs, enduranceInputs, dbTypeData]);
 
   const handlePick = async () => {
-    const { canImport, consumeImport } = useScanQuotaStore.getState();
-    if (!canImport()) {
-      Alert.alert(t('quota_exceeded_title'), t('import_quota_exceeded'));
+    // Token-styrt, inte premium-låst: fri nivå får importera tills engångspotten tar slut.
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
       return;
     }
     const file = await pickImportFile();
     if (!file) return;
-    await consumeImport();
 
     setFileName(file.name);
     setImporting(true);
@@ -441,12 +526,46 @@ export default function ImportScreen() {
     setAirportCoords({});
     setDbTypeData({});
     setFlightExplanations({});
+    setAiSummary(null);
+    setSummaryLoading(false);
+    setSummaryExpanded(false);
+    setImportError(null);
+    setOpenAirports(false);
+    setOpenAircraft(false);
+    setOpenPilots(false);
+    setAirportMeta({});
 
     try {
-      const res = await importFromFile(file.uri, (current, total) => {
-        setProgress({ current, total });
-      });
+      const res = await importFromFile(file.uri, (current, total) => setProgress({ current, total }));
       setResult(res);
+      setTotalTimeCol(res.totalTimeColumn || ''); // vilken tidskolumn som används som total_time
+
+      // AI-sammanfattning (fritext) — asynkront, blockerar inte förhandsvisningen
+      setSummaryLoading(true);
+      const sumDates = res.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
+      generateImportSummary({
+        fileName: file.name,
+        detectedFormat: res.detectedFormat,
+        totalRows: res.totalRows,
+        parsedFlights: res.flights.length,
+        totalHours: Math.round(res.flights.reduce((s, f) => s + (parseFloat(f.total_time) || 0), 0) * 10) / 10,
+        dateRange: sumDates.length ? `${sumDates[0]} – ${sumDates[sumDates.length - 1]}` : undefined,
+        aircraft: [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))],
+        airports: [...new Set(res.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))].slice(0, 40) as string[],
+        pilots: [...new Set(res.flights.map((f) => f.second_pilot).filter(Boolean))] as string[],
+        timeCandidates: res.timeCandidates,
+        totalTimeColumn: res.totalTimeColumn,
+        warnings: res.warnings,
+      })
+        .then((s) => setAiSummary(s))
+        .catch(() => setAiSummary(''))
+        .finally(() => setSummaryLoading(false));
+
+      // Förifyll sim-klassning från EXPLICIT sim/FSTD-fält i filen (flight_type='sim' satt i mapRow).
+      // Då slipper användaren endurance-pickern för dessa — de är redan kända simulatorpass.
+      const preSim: Record<number, 'sim' | 'hot_refuel'> = {};
+      res.flights.forEach((f, i) => { if ((f as any).flight_type === 'sim') preSim[i] = 'sim'; });
+      if (Object.keys(preSim).length > 0) setFlightTypes((p) => ({ ...preSim, ...p }));
 
       // Kolla vilka fartygstyper i importen som saknar marschfart eller uthållighet
       const types = [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))];
@@ -500,7 +619,18 @@ export default function ImportScreen() {
       }
       setDbTypeData(dbData);
     } catch (e: any) {
-      Alert.alert(t('import_failed'), e.message);
+      if (isTokenQuotaError(e)) {
+        // Race: tokens tog slut mellan gate-kollen och själva anropet — samma gate som ovan.
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+        return;
+      }
+      // Trasig fil → inline-felkort med AI-förklaring i stället för en Alert
+      setImportError(e.message);
+      setSummaryLoading(true);
+      generateImportSummary({ fileName: file.name, error: e.message })
+        .then((s) => setAiSummary(s))
+        .catch(() => setAiSummary(''))
+        .finally(() => setSummaryLoading(false));
     } finally {
       setImporting(false);
     }
@@ -514,6 +644,7 @@ export default function ImportScreen() {
     savingRef.current = true;
     setSaving(true);
     let saved = 0;
+    let skipped = 0; // dubbletter som redan finns i loggboken
     try {
       // Spara marschfart och uthållighet för fartygstyper som saknade värden
       for (const { type } of typesNeedingData) {
@@ -538,22 +669,27 @@ export default function ImportScreen() {
           explanation === 'temporary' ? '[Off-airport (ZZZZ)]' :
           explanation === 'refuel'    ? '[En-route refuel]' : '';
         const remarks = [f.remarks, remarksNote].filter(Boolean).join(' ');
+        // Dubblettkontroll: hoppa över flighter som redan finns (samma datum + rutt + tider) →
+        // en om-import av samma fil skapar inga dubbletter.
+        if (await flightExists(f.date, f.dep_place, f.arr_place, f.dep_utc, f.arr_utc)) { skipped++; continue; }
         await insertFlight({ ...f, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
+      // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
+      const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
       // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.
       if (await shouldOpenWrapped()) {
         await markWrappedUnlocked();
         const sv = t('yes') === 'Ja';
         Alert.alert(
           t('done_exclamation'),
-          sv ? `${saved} ${t('flights_imported')}\n\nDin Wrapped är redo — utforska den i Inställningar.`
-             : `${saved} ${t('flights_imported')}\n\nYour Wrapped is ready — explore it in Settings.`,
+          (sv ? `${saved} ${t('flights_imported')}\n\nDin Wrapped är redo — utforska den i Inställningar.`
+              : `${saved} ${t('flights_imported')}\n\nYour Wrapped is ready — explore it in Settings.`) + dupNote,
           [{ text: 'OK', onPress: () => router.back() }],
         );
       } else {
-        Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}`, [
+        Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}${dupNote}`, [
           { text: 'OK', onPress: () => router.back() },
         ]);
       }
@@ -565,7 +701,69 @@ export default function ImportScreen() {
     }
   };
 
+  // Sammanställning för "vad filen innehåller"-kortet (samma presentation som Imported data)
+  const insideData = useMemo(() => {
+    if (!result) return null;
+    const CATS: { key: string; label: string }[] = [
+      { key: 'total_time', label: 'Total' },
+      { key: 'pic', label: 'PIC' },
+      { key: 'co_pilot', label: 'Co-pilot' },
+      { key: 'dual', label: 'Dual' },
+      { key: 'instructor', label: 'Instructor' },
+      { key: 'ifr', label: 'IFR' },
+      { key: 'night', label: 'Night' },
+    ];
+    const cats: Record<string, number> = {};
+    for (const f of result.flights) {
+      for (const c of CATS) cats[c.key] = (cats[c.key] || 0) + (parseFloat((f as any)[c.key]) || 0);
+    }
+    const icaos = [...new Set(result.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))] as string[];
+    const aircraft = [...new Set(result.flights.map((f) => (f.aircraft_type || '').trim()).filter(Boolean))];
+    const pilots = [...new Set(result.flights.map((f) => (f.second_pilot || '').trim()).filter(Boolean))];
+    const dates = result.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
+    return { CATS, cats, icaos, aircraft, pilots, dateRange: dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : '' };
+  }, [result]);
+
+  // Expandera flygplatslistan → resolva namn + land för koder som saknas (samma som Imported data)
+  const toggleAirportsPreview = () => {
+    setOpenAirports((prev) => {
+      const next = !prev;
+      if (next && insideData) {
+        const missing = insideData.icaos.filter((ic) => !airportMeta[ic]);
+        if (missing.length) {
+          Promise.all(missing.map((ic) => getAirportByIcao(ic))).then((rows) => {
+            setAirportMeta((m) => {
+              const merged = { ...m };
+              missing.forEach((ic, i) => {
+                const r = rows[i];
+                merged[ic] = { name: r?.name || ic, country: r?.country || '', known: !!r && !r.temporary };
+              });
+              return merged;
+            });
+          }).catch(() => {});
+        }
+      }
+      return next;
+    });
+  };
+
+  // Byt vilken varaktighetskolumn (Block/Air/Flight) som blir loggbokens total_time — sker lokalt
+  // (ingen om-läsning): varje flights total_time byts mot dess timeOptions[col].
+  const applyTimeColumn = (col: string) => {
+    if (!result) return;
+    setTotalTimeCol(col);
+    setResult({
+      ...result,
+      totalTimeColumn: col,
+      flights: result.flights.map((f) => {
+        const h = f.timeOptions?.[col];
+        return h != null && h !== '' ? { ...f, total_time: h } : f;
+      }),
+    });
+  };
+
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -573,51 +771,86 @@ export default function ImportScreen() {
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets
     >
-      <Text style={styles.title}>{t('import_logbook')}</Text>
-      <Text style={styles.subtitle}>{t('import_logbook_sub')}</Text>
-
-      {/* Free notice */}
-      <View style={styles.freeNotice}>
-        <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-        <Text style={styles.freeNoticeText}>{t('import_always_free')}</Text>
+      {/* Hero */}
+      <View style={styles.hero}>
+        <Text style={styles.title}>{t('import_logbook')}</Text>
+        <Text style={styles.subtitle}>{t('import_logbook_sub')}</Text>
       </View>
 
-      {/* Format list */}
-      <Text style={styles.section}>{t('supported_formats')}</Text>
-      <View style={styles.formatGrid}>
-        {SUPPORTED_FORMATS.map((f) => (
-          <View key={f.name} style={styles.formatChip}>
-            <Ionicons name={f.icon as any} size={14} color={Colors.primary} />
-            <Text style={styles.formatName}>{f.name}</Text>
-            <Text style={styles.formatExt}>{f.ext}</Text>
+      {/* Upload-dropzone (hela kortet är tryckytan) — döljs när en analys visas */}
+      {!result && (
+        <TouchableOpacity
+          style={[styles.uploadCard, importing && { opacity: 0.85 }]}
+          onPress={handlePick}
+          disabled={importing}
+          activeOpacity={0.9}
+        >
+          <View style={styles.uploadIconWrap}>
+            {importing
+              ? <ActivityIndicator color={Colors.primary} size="large" />
+              : <Ionicons name="cloud-upload-outline" size={32} color={Colors.primary} />}
           </View>
-        ))}
-      </View>
+          <Text style={styles.uploadTitle}>
+            {importing
+              ? (progress.current === 0 ? t('reading_file') :
+                 progress.current === 1 ? ANALYZE_STEPS[stepIdx % ANALYZE_STEPS.length] :
+                 progress.current === 2 ? t('parsing_rows') :
+                 t('done_exclamation'))
+              : t('choose_file')}
+          </Text>
+          {!importing && (
+            <Text style={styles.uploadSub}>CSV, Excel or text export — from any logbook app</Text>
+          )}
+        </TouchableOpacity>
+      )}
 
-      {/* Välj fil */}
-      <TouchableOpacity
-        style={[styles.pickBtn, importing && { opacity: 0.6 }]}
-        onPress={handlePick}
-        disabled={importing}
-        activeOpacity={0.8}
-      >
-        {importing ? (
-          <>
-            <ActivityIndicator color={Colors.textInverse} size="small" />
-            <Text style={styles.pickBtnText}>
-              {progress.current === 0 ? t('reading_file') :
-               progress.current === 1 ? t('claude_identifying') :
-               progress.current === 2 ? t('parsing_rows') :
-               t('done_exclamation')}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Ionicons name="cloud-upload" size={20} color={Colors.textInverse} />
-            <Text style={styles.pickBtnText}>{t('choose_file')}</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {/* Hur importen funkar + tillförlitlighet — visas före filval */}
+      {!importing && !result && (
+        <>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>How it works</Text>
+            {HOW_IT_WORKS.map((s) => (
+              <View key={s.n} style={styles.stepRow}>
+                <View style={styles.stepBubble}><Text style={styles.stepNum}>{s.n}</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>{s.t}</Text>
+                  <Text style={styles.stepDesc}>{s.d}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Accepted file formats</Text>
+            {ACCEPTED_FORMATS.map((f) => (
+              <View key={f.t} style={styles.bulletRow}>
+                <Ionicons name={f.icon as any} size={15} color={Colors.primary} />
+                <Text style={styles.bulletTerm}>{f.t}</Text>
+                <Text style={[styles.bulletDesc, { flex: 1 }]}>{f.d}</Text>
+              </View>
+            ))}
+          </View>
+
+        </>
+      )}
+
+      {/* Importfel — inline-kort med AI-förklaring (i stället för Alert) */}
+      {importError && !result && !importing && (
+        <View style={[styles.aiCard, { borderColor: Colors.danger + '55' }]}>
+          <View style={styles.aiCardHeader}>
+            <Ionicons name="alert-circle" size={15} color={Colors.danger} />
+            <Text style={[styles.aiCardTitle, { color: Colors.danger }]}>Import failed</Text>
+          </View>
+          {summaryLoading ? (
+            <View style={styles.aiLoadingRow}>
+              <ActivityIndicator size="small" color={Colors.danger} />
+              <Text style={styles.aiLoadingText}>Analyzing imported data…</Text>
+            </View>
+          ) : (
+            <Text style={styles.aiCardText}>{aiSummary || importError}</Text>
+          )}
+        </View>
+      )}
 
       {/* Förhandsvisning */}
       {result && (
@@ -626,45 +859,192 @@ export default function ImportScreen() {
             <View style={styles.resultInfo}>
               <Text style={styles.resultFormat}>{result.detectedFormat}</Text>
               <Text style={styles.resultFile} numberOfLines={1}>{fileName}</Text>
+              {result.tokensUsed > 0 && (
+                <Text style={styles.tokenUsedText}>{result.tokensUsed.toLocaleString('en-US')} tokens used for import</Text>
+              )}
             </View>
             <View style={styles.resultStats}>
               <StatPill label="Rows" value={String(result.totalRows)} />
               <StatPill label="Mapped" value={String(result.mappedRows)} color={Colors.success} />
-              {result.warnings.length > 0 && (
-                <StatPill label="Warnings" value={String(result.warnings.length)} color={Colors.warning} />
-              )}
             </View>
           </View>
 
-          {/* Varningar */}
-          {result.warnings.length > 0 && (
-            <View style={styles.warningBox}>
-              {result.warnings.map((w, i) => (
-                <View key={i} style={styles.warningRow}>
-                  <Ionicons name="warning" size={12} color={Colors.warning} />
-                  <Text style={styles.warningText}>{w}</Text>
+          {/* AI-analys — kollapsbar fritextsammanfattning (2 rader syns, tryck för allt) */}
+          <TouchableOpacity
+            style={styles.aiCard}
+            onPress={() => setSummaryExpanded((v) => !v)}
+            activeOpacity={0.8}
+            disabled={summaryLoading || aiSummary === null}
+          >
+            <View style={styles.aiCardHeader}>
+              <Ionicons name="sparkles" size={14} color={Colors.primary} />
+              <Text style={styles.aiCardTitle}>Import analysis</Text>
+              {!summaryLoading && aiSummary !== null && (
+                <Ionicons
+                  name={summaryExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={15}
+                  color={Colors.textMuted}
+                  style={{ marginLeft: 'auto' }}
+                />
+              )}
+            </View>
+            {summaryLoading || aiSummary === null ? (
+              <View style={styles.aiLoadingRow}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.aiLoadingText}>Analyzing imported data…</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.aiCardText} numberOfLines={summaryExpanded ? undefined : 2}>
+                  {aiSummary || 'Analysis unavailable — the data below is still ready to import.'}
+                </Text>
+                {!summaryExpanded && (
+                  <Text style={styles.aiReadMore}>Read more</Text>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Vad filen innehåller — samma presentation som Settings → Imported data */}
+          {insideData && (
+            <View style={{ backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '18', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="document-attach-outline" size={18} color={Colors.primary} />
                 </View>
-              ))}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                    {result.flights.length} {result.flights.length === 1 ? 'flight' : 'flights'} · {(insideData.cats.total_time || 0).toFixed(1)} h
+                  </Text>
+                  {!!insideData.dateRange && (
+                    <Text style={{ color: Colors.textMuted, fontSize: 11.5, marginTop: 2 }}>{insideData.dateRange}</Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Kategoriserad tid (bara > 0 utom Total) */}
+              <View style={{ paddingHorizontal: 14, paddingVertical: 8 }}>
+                {insideData.CATS.filter((c) => c.key === 'total_time' || (insideData.cats[c.key] || 0) > 0).map((c) => (
+                  <View key={c.key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.label}</Text>
+                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{(insideData.cats[c.key] || 0).toFixed(1)} h</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Flygplatser — expanderbar med flaggor */}
+              <TouchableOpacity onPress={toggleAirportsPreview} activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
+                <Ionicons name="location-outline" size={15} color={Colors.primary} />
+                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Airports</Text>
+                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.icaos.length}</Text>
+                <Ionicons name={openAirports ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
+              {openAirports && (() => {
+                const resolved = insideData.icaos.every((ic) => airportMeta[ic]);
+                if (!resolved) return (
+                  <View style={{ paddingVertical: 16 }}><ActivityIndicator color={Colors.primary} /></View>
+                );
+                const known = insideData.icaos.filter((ic) => airportMeta[ic].known);
+                const unknown = insideData.icaos.filter((ic) => !airportMeta[ic].known);
+                const row = (ic: string) => {
+                  const meta = airportMeta[ic];
+                  return (
+                    <View key={ic} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      {meta.known
+                        ? <CountryFlag code={meta.country} height={14} />
+                        : <View style={{ width: Math.round((14 * 4) / 3), height: 14, borderRadius: 2, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="help" size={10} color={Colors.textMuted} />
+                          </View>}
+                      <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', width: 52 }}>{ic}</Text>
+                      <Text numberOfLines={1} style={{ flex: 1, color: Colors.textMuted, fontSize: 12 }}>{meta.name === ic ? '' : meta.name}</Text>
+                    </View>
+                  );
+                };
+                return (
+                  <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
+                    {known.map(row)}
+                    {unknown.length > 0 && (
+                      <>
+                        {known.length > 0 && <View style={{ height: 1, backgroundColor: Colors.separator, marginVertical: 2 }} />}
+                        <Text style={{ color: Colors.textMuted, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>Off-airport & unknown</Text>
+                        {unknown.map(row)}
+                      </>
+                    )}
+                  </View>
+                );
+              })()}
+
+              {/* Flygfarkoster — expanderbar */}
+              <TouchableOpacity onPress={() => setOpenAircraft((v) => !v)} activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
+                <Ionicons name="airplane-outline" size={15} color={Colors.primary} />
+                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Aircraft</Text>
+                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.aircraft.length}</Text>
+                <Ionicons name={openAircraft ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
+              {openAircraft && (
+                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
+                  {insideData.aircraft.length === 0
+                    ? <Text style={{ color: Colors.textMuted, fontSize: 12 }}>None</Text>
+                    : insideData.aircraft.map((a) => (
+                      <View key={a} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Ionicons name="airplane" size={13} color={Colors.textMuted} />
+                        <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{a}</Text>
+                      </View>
+                    ))}
+                </View>
+              )}
+
+              {/* Second pilots — expanderbar */}
+              <TouchableOpacity onPress={() => setOpenPilots((v) => !v)} activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
+                <Ionicons name="people-outline" size={15} color={Colors.primary} />
+                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Second pilots</Text>
+                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.pilots.length}</Text>
+                <Ionicons name={openPilots ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
+              {openPilots && (
+                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
+                  {insideData.pilots.length === 0
+                    ? <Text style={{ color: Colors.textMuted, fontSize: 12 }}>None</Text>
+                    : insideData.pilots.map((p) => (
+                      <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Ionicons name="person" size={13} color={Colors.textMuted} />
+                        <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13 }}>{p}</Text>
+                      </View>
+                    ))}
+                </View>
+              )}
             </View>
           )}
 
-          {/* Flight summary */}
-          {(() => {
-            const totalHours = result.flights.reduce((sum, f) => sum + (parseFloat(f.total_time) || 0), 0);
-            return (
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{result.flights.length}</Text>
-                  <Text style={styles.summaryLabel}>{t('flights_label')}</Text>
-                </View>
-                <View style={styles.summarySep} />
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{totalHours.toFixed(1)}h</Text>
-                  <Text style={styles.summaryLabel}>{t('total_flight_time')}</Text>
-                </View>
+          {/* Tidskolumn-väljare — visas bara om filen har flera varaktighetskolumner (Block/Air/Flight) */}
+          {result.timeCandidates.length > 1 && (
+            <View style={styles.timeColSection}>
+              <View style={styles.speedHeader}>
+                <Ionicons name="time-outline" size={14} color={Colors.primary} />
+                <Text style={[styles.speedTitle, { color: Colors.primary }]}>Which time goes in the logbook?</Text>
               </View>
-            );
-          })()}
+              <Text style={styles.speedSubtitle}>Your file has more than one flight-time column. Pick the one to use as total time.</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {result.timeCandidates.map((c) => {
+                  const active = totalTimeCol === c.column;
+                  return (
+                    <TouchableOpacity
+                      key={c.column}
+                      style={[styles.timeColBtn, active && styles.timeColBtnActive]}
+                      onPress={() => applyTimeColumn(c.column)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.timeColBtnLabel, active && styles.timeColBtnLabelActive]}>{c.label}</Text>
+                      <Text style={styles.timeColBtnSub} numberOfLines={1}>{c.column}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
 
           {/* Marschfart + uthållighet för nya/ofullständiga fartygstyper */}
@@ -910,23 +1290,23 @@ export default function ImportScreen() {
           <Text style={styles.hint}>
             All imported data is saved with source "import" and can be reviewed in the audit log.
           </Text>
+
+          {/* Byt fil — uploadkortet är dolt när en analys visas, så ge en väg tillbaka */}
+          <TouchableOpacity
+            style={styles.chooseOtherBtn}
+            onPress={handlePick}
+            disabled={importing || saving}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="swap-horizontal-outline" size={15} color={Colors.textSecondary} />
+            <Text style={styles.chooseOtherText}>Choose a different file</Text>
+          </TouchableOpacity>
         </>
       )}
 
-      {/* Instruktioner */}
-      <Text style={styles.section}>How do I export?</Text>
-      {[
-        { app: 'ForeFlight', steps: 'Logbook → Export → CSV' },
-        { app: 'LogTen Pro', steps: 'File → Export → LogTen Pro' },
-        { app: 'MyFlightbook', steps: 'Profile → Download → CSV' },
-        { app: 'mccPILOTLOG', steps: 'Logbook → Export → CSV/Excel' },
-      ].map(({ app, steps }) => (
-        <View key={app} style={styles.instructionRow}>
-          <Text style={styles.instructionApp}>{app}</Text>
-          <Text style={styles.instructionSteps}>{steps}</Text>
-        </View>
-      ))}
     </ScrollView>
+    <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature="CSV / Excel import" />
+    </>
   );
 }
 

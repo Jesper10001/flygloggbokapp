@@ -20,8 +20,18 @@ const API_URL = PROXY_URL || 'https://api.anthropic.com/v1/messages';
 const USE_PROXY = !!PROXY_URL;
 const ANTHROPIC_VERSION = '2023-06-01';
 
-// Anonym device-ID för telemetri — inte personuppgift
-function getDeviceId(): string {
+// Anonym device-ID för telemetri/kvoter — inte personuppgift.
+// iOS: identifierForVendor (unikt per enhet) hämtas asynkront en gång och cachas.
+// Utan detta föll iOS tillbaka på bundle-id → ALLA iOS-användare delade samma id.
+let cachedDeviceId: string | null = null;
+try {
+  if (Platform.OS === 'ios') {
+    Application.getIosIdForVendorAsync?.().then((id) => { if (id) cachedDeviceId = id; }).catch(() => {});
+  }
+} catch { /* ignore */ }
+
+export function getDeviceId(): string {
+  if (cachedDeviceId) return cachedDeviceId;
   try {
     return Application.getAndroidId?.() ?? Application.applicationId ?? Platform.OS;
   } catch {
@@ -43,6 +53,8 @@ export interface CallAnthropicOptions {
   maxTokens: number;
   temperature?: number;                  // default 0
   cacheSystemPrompt?: boolean;           // default true
+  timeoutMs?: number;                    // default 30000 — höj för långsamma anrop (t.ex. import-mappning)
+  onUsage?: (u: { inputTokens: number; outputTokens: number }) => void; // faktisk tokenförbrukning när svaret är klart
 }
 
 export interface AnthropicRawResult {
@@ -79,6 +91,17 @@ export function repairTruncatedJson(s: string): string {
   return out;
 }
 
+// Rapporterar EVERY AI-anrops tokenförbrukning till den lokala kvot-storen
+// (oavsett anropstyp — OCR, lookup, import, flightscan, allt delar samma pott).
+// Lazy require undviker en cirkulär import (storen importerar inget härifrån).
+function reportTokenUsage(total: number): void {
+  if (total <= 0) return;
+  try {
+    const { useTokenQuotaStore } = require('../store/tokenQuotaStore');
+    useTokenQuotaStore.getState().recordUsage(total);
+  } catch { /* storen är valfri — får aldrig fälla ett AI-anrop */ }
+}
+
 /** Bygger HTTP-headers — via proxy behövs ingen API-nyckel från appen. */
 function buildHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -86,7 +109,9 @@ function buildHeaders(): Record<string, string> {
     headers['X-Device-ID'] = getDeviceId();
     try {
       const { useFlightStore } = require('../store/flightStore');
-      if (useFlightStore.getState().isPremium) headers['X-Premium'] = 'true';
+      const st = useFlightStore.getState();
+      if (st.isMax) headers['X-Tier'] = 'max';
+      else if (st.isPremium) headers['X-Premium'] = 'true';
     } catch { /* ignore */ }
   } else {
     headers['x-api-key'] = API_KEY;
@@ -104,8 +129,11 @@ async function throwForErrorResponse(response: { status: number; text: () => Pro
       if (quota.error === 'quota_exceeded') {
         throw new Error(`QUOTA_EXCEEDED:${quota.type}:${quota.used}:${quota.limit}`);
       }
+      if (quota.error === 'token_quota_exceeded') {
+        throw new Error(`TOKEN_QUOTA_EXCEEDED:${quota.used}:${quota.limit}`);
+      }
     } catch (e: any) {
-      if (e.message?.startsWith('QUOTA_EXCEEDED')) throw e;
+      if (e.message?.startsWith('QUOTA_EXCEEDED') || e.message?.startsWith('TOKEN_QUOTA_EXCEEDED')) throw e;
     }
   }
   throw new Error(`API-fel ${response.status}: ${errText}`);
@@ -128,9 +156,10 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
 
   const headers = buildHeaders();
 
-  // Timeout på 30 sekunder för API-anrop
+  // Timeout för API-anrop — 30s som standard, höjbart per anrop via timeoutMs
+  const timeoutMs = opts.timeoutMs ?? 30000;
   const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), 30000);
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
   let response;
   try {
@@ -149,7 +178,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('API-anrop timeout (30s). Kontrollera din internetuppkoppling.');
+      throw new Error(`API-anrop timeout (${Math.round(timeoutMs / 1000)}s). Kontrollera din internetuppkoppling.`);
     }
     throw err;
   }
@@ -163,6 +192,12 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   const data = await response.json();
   const text = data.content?.[0]?.text ?? '';
   const stopReason = data.stop_reason ?? null;
+  const inputTokens = data.usage?.input_tokens ?? 0;
+  const outputTokens = data.usage?.output_tokens ?? 0;
+  reportTokenUsage(inputTokens + outputTokens);
+  try {
+    opts.onUsage?.({ inputTokens, outputTokens });
+  } catch { /* usage-rapportering får aldrig fälla anropet */ }
   return { text, stopReason };
 }
 
@@ -173,7 +208,11 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
  */
 export async function callAnthropicJson<T = any>(opts: CallAnthropicOptions): Promise<T> {
   const { text, stopReason } = await callAnthropicRaw(opts);
+  return parseJsonText<T>(text, stopReason);
+}
 
+/** Extraherar och parsar JSON ur ett textsvar (delad av vanligt + streamande anrop). */
+function parseJsonText<T>(text: string, stopReason: string | null): T {
   const cleaned = text
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
@@ -202,6 +241,122 @@ export async function callAnthropicJson<T = any>(opts: CallAnthropicOptions): Pr
       throw new Error(`JSON-fel: ${e.message}. Svaret kan ha trunkerats — prova igen.`);
     }
   }
+}
+
+/**
+ * Som callAnthropicJson men STREAMAR svaret (SSE via expo/fetch) och rapporterar
+ * live-tokenförbrukning under genereringen. onTokens(outputTokens, maxTokens)
+ * anropas löpande — uppskattat från textlängd (~3.8 tecken/token) under streamen,
+ * exakt siffra från API:ets usage när meddelandet är klart. Kasta-fallet
+ * "Strömning stöds inte" låter anroparen falla tillbaka på callAnthropicJson.
+ */
+export async function callAnthropicJsonStream<T = any>(
+  opts: CallAnthropicOptions & {
+    onTokens?: (outputTokens: number, maxTokens: number) => void;
+    inactivityMs?: number;
+  },
+): Promise<T> {
+  if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
+    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+  }
+  // Lazy require så web-bundlen inte tvingas dra in expo/fetch i onödan.
+  const { fetch: streamFetch } = require('expo/fetch');
+  const headers = buildHeaders();
+
+  const userContent = typeof opts.userContent === 'string'
+    ? [{ type: 'text' as const, text: opts.userContent }]
+    : opts.userContent;
+  const cacheSystem = opts.cacheSystemPrompt !== false;
+  const systemBlocks = cacheSystem
+    ? [{ type: 'text', text: opts.system, cache_control: { type: 'ephemeral' } }]
+    : opts.system;
+  const body = JSON.stringify({
+    model: opts.model ?? 'claude-sonnet-4-6',
+    max_tokens: opts.maxTokens,
+    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
+    system: systemBlocks,
+    messages: [{ role: 'user', content: userContent }],
+    stream: true,
+  });
+
+  // Inaktivitetstimer i stället för hård timeout — så länge deltan kommer lever anropet
+  const abortController = new AbortController();
+  const inactivityMs = opts.inactivityMs ?? 25000;
+  let timer: any;
+  const arm = () => { clearTimeout(timer); timer = setTimeout(() => abortController.abort(), inactivityMs); };
+  arm();
+
+  let response: any;
+  try {
+    response = await streamFetch(API_URL, { method: 'POST', headers, body, signal: abortController.signal });
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`API-anrop avbröts — ingen respons på ${Math.round(inactivityMs / 1000)}s.`);
+    }
+    throw err;
+  }
+  if (!response.ok) {
+    clearTimeout(timer);
+    await throwForErrorResponse(response);
+  }
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    clearTimeout(timer);
+    throw new Error('Strömning stöds inte i denna miljö (response.body saknas). Använd icke-streamande läge.');
+  }
+
+  const reader = response.body.getReader();
+  const TD = (globalThis as any).TextDecoder;
+  const decoder = TD ? new TD() : null;
+  const decode = (b: Uint8Array) => (decoder ? decoder.decode(b, { stream: true }) : utf8FromBytes(b));
+
+  let buffer = '';
+  let acc = '';
+  let stopReason: string | null = null;
+  let lastReported = -1;
+  let usageIn = 0;
+  let usageOut = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      arm();
+      buffer += decode(value);
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const rawEvent = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of rawEvent.split('\n')) {
+          const m = line.match(/^data:\s?(.*)$/);
+          if (!m) continue;
+          const payload = m[1];
+          if (!payload || payload === '[DONE]') continue;
+          let evt: any;
+          try { evt = JSON.parse(payload); } catch { continue; }
+          if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+            acc += evt.delta.text ?? '';
+            const est = Math.round(acc.length / 3.8); // live-uppskattning under generering
+            if (est !== lastReported) { lastReported = est; opts.onTokens?.(est, opts.maxTokens); }
+          } else if (evt.type === 'message_start') {
+            usageIn = evt.message?.usage?.input_tokens ?? 0;
+          } else if (evt.type === 'message_delta') {
+            if (evt.delta?.stop_reason) stopReason = evt.delta.stop_reason;
+            const exact = evt.usage?.output_tokens;
+            if (typeof exact === 'number') { usageOut = exact; lastReported = exact; opts.onTokens?.(exact, opts.maxTokens); }
+          } else if (evt.type === 'error') {
+            throw new Error(`API-fel (stream): ${evt.error?.message ?? 'okänt fel'}`);
+          }
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+
+  reportTokenUsage(usageIn + usageOut);
+  try { opts.onUsage?.({ inputTokens: usageIn, outputTokens: usageOut }); } catch { /* aldrig fälla anropet */ }
+  return parseJsonText<T>(acc, stopReason);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,6 +434,7 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   }
 
   const data = await response.json();
+  reportTokenUsage((data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0));
   const content = Array.isArray(data.content) ? data.content : [];
   const toolBlock = content.find((c: any) => c.type === 'tool_use');
   if (toolBlock?.input !== undefined) {

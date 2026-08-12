@@ -2,9 +2,9 @@
 // uppslag, samt anchor (vilken sida + rad den SENASTE flygningen ligger på i
 // pappersboken) och ingående balans. Används för att skapa OCH redigera böcker.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform, Modal, useWindowDimensions,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform, Modal, useWindowDimensions, ActivityIndicator, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,8 +22,11 @@ import { getBackfill } from '../../db/backfill';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 import {
-  createDigitalBook, updateDigitalBook, type DigitalBook,
+  createDigitalBook, updateDigitalBook, listDigitalBooks, type DigitalBook, type BookKind,
 } from '../../db/digitalBooks';
+
+// Ordningstal → "1st Logbook", "2nd Logbook" … (auto-namn, ingen manuell döpning).
+const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export function BookSetupSheet({
   mode, appMode, initial, flights, carryOpeningBalance, timeFormat, onClose, onSaved,
@@ -35,7 +38,7 @@ export function BookSetupSheet({
   carryOpeningBalance?: ColumnTotals;
   timeFormat: 'decimal' | 'hhmm';
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -43,9 +46,13 @@ export function BookSetupSheet({
   const { width: winW } = useWindowDimensions();
   const sv = t('yes') === 'Ja';
 
-  // Tom förhandsvisning av en layout (innan man väljer den).
-  const [previewTpl, setPreviewTpl] = useState<LogbookTemplate | null>(null);
-  const [previewAspect, setPreviewAspect] = useState<number | null>(null);
+  // Helskärms-förhandsvisning: bläddra mellan alla valbara böcker (previewIdx = startindex).
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [curPreview, setCurPreview] = useState(0);
+  const [previewTestData, setPreviewTestData] = useState(false); // fyll bladet med egna (senaste) flygningar
+  const [previewTimeFormat, setPreviewTimeFormat] = useState<'decimal' | 'hhmm'>(timeFormat);
+  const previewListRef = useRef<FlatList>(null);
+  const [saving, setSaving] = useState(false); // spinner medan boken skapas + laddas fram
 
   // Custom-mallar (användarskapade böcker) — laddas och uppdateras vid fokus så
   // en nyss skapad mall dyker upp direkt när man kommer tillbaka från skaparen.
@@ -67,22 +74,50 @@ export function BookSetupSheet({
     [allTemplates, appMode],
   );
 
-  // Ett tomt uppslag för den layout som förhandsvisas.
-  const previewSpread = useMemo(() => {
-    if (!previewTpl) return null;
-    const sp = buildBookSpreads([], previewTpl, { startingPage: 1, rowsPerSpread: previewTpl.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 });
-    return sp[0] ?? null;
-  }, [previewTpl]);
-  const previewBoxW = Math.min(winW - 48, 560);
 
   const [templateId, setTemplateId] = useState(initial?.template_id || pickable[0]?.id || 'easa-pilot-logbook');
-  const [name, setName] = useState(initial?.name || '');
   const [firstPage, setFirstPage] = useState(String(initial?.starting_page ?? 1));
   const [lastPage, setLastPage] = useState(initial && initial.end_page > 0 ? String(initial.end_page) : '');
   const template = useMemo(() => resolveTpl(templateId), [allTemplates, templateId]);
   const [rows, setRows] = useState(String(initial?.rows_per_spread ?? template.rows_per_spread));
   const [anchorPage, setAnchorPage] = useState(initial && initial.anchor_page > 0 ? String(initial.anchor_page) : '');
   const [anchorRow, setAnchorRow] = useState(initial && initial.anchor_row > 0 ? String(initial.anchor_row) : '');
+  // Anchor auto-fylls (page/row där senaste flygningen hamnar) tills användaren själv ändrar.
+  const [anchorEdited, setAnchorEdited] = useState(mode === 'edit');
+  // Flera loggböcker: om flighterna inte får plats i en bok → fråga om tidigare böcker samma design.
+  const [prevSameDesign, setPrevSameDesign] = useState<boolean | null>(null);
+
+  // Antal riktiga bokrader (ej summeringsrader/backfill) → kapacitet & anchor-förslag.
+  const numFlights = useMemo(
+    () => flights.filter((f) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]').length,
+    [flights],
+  );
+  const design = useMemo(() => {
+    const fp = Math.max(1, parseInt(firstPage, 10) || 1);
+    const lp = lastPage.trim() ? Math.max(fp, parseInt(lastPage, 10) || 0) : 0;
+    const rs = Math.max(1, parseInt(rows, 10) || template.rows_per_spread);
+    const spreads = lp > 0 ? Math.floor((lp - fp) / 2) + 1 : Infinity;
+    const capacity = spreads * rs; // rader per bok
+    const overflow = lp > 0 && numFlights > capacity;
+    const booksNeeded = overflow ? Math.ceil(numFlights / capacity) : 1;
+    const flightsInCurrent = overflow ? numFlights - (booksNeeded - 1) * capacity : numFlights;
+    // Position (1-indexerad rad uppifrån) för senaste flygningen i AKTUELLA boken.
+    const pos = Math.max(1, Math.min(flightsInCurrent, capacity === Infinity ? flightsInCurrent : capacity));
+    const spreadIdx = Math.ceil(pos / rs); // 1-indexerat uppslag
+    const suggestPage = fp + (spreadIdx - 1) * 2;
+    const suggestRow = ((pos - 1) % rs) + 1;
+    return { fp, lp, rs, capacity, overflow, booksNeeded, flightsInCurrent, suggestPage, suggestRow };
+  }, [firstPage, lastPage, rows, template.rows_per_spread, numFlights]);
+
+  // Auto-fyll anchor (page/row där senaste flygningen hamnar) tills användaren själv ändrar.
+  useEffect(() => {
+    if (anchorEdited || numFlights <= 0) return;
+    setAnchorPage(String(design.suggestPage));
+    setAnchorRow(String(design.suggestRow));
+  }, [design.suggestPage, design.suggestRow, numFlights, anchorEdited]);
+
+  // Vid överspill måste användaren svara på flerboks-frågan innan spar.
+  const needsOverflowAnswer = mode === 'create' && design.overflow && prevSameDesign === null;
 
   const balCols = useMemo(() => numericColumns(template), [template]);
   const [bal, setBal] = useState<Record<string, string>>(() => {
@@ -251,26 +286,42 @@ export function BookSetupSheet({
       }
     }
 
-    // anchor knyts till den SENASTE flygningen (den användaren pekar ut)
+    // anchor knyts till den SENASTE flygningen (den användaren pekar ut / auto-förslaget)
     const anchorFlightId = ap > 0 && ar > 0 && latestFlight ? latestFlight.id : 0;
-    const finalName = name.trim() || (mode === 'create' ? t('dlb_book_default_name') : initial?.name || 'Logbook');
-
+    const bookKind: BookKind = appMode === 'drone' ? 'drone' : 'digital';
+    setSaving(true); // visa spinner tills boken skapats OCH föräldern laddat om + stängt arket
     try {
       if (mode === 'create') {
-        await createDigitalBook({
-          name: finalName, templateId, startingPage: fp, rowsPerSpread: rs,
-          endPage: lp, anchorFlightId, anchorPage: ap, anchorRow: ar,
-          openingBalance: balance, customCols: {},
-        });
+        // Auto-namn (1st/2nd/… Logbook) fortsätter från ev. befintliga böcker.
+        const existing = await listDigitalBooks(bookKind);
+        const base = existing.length;
+        // Flera böcker: bara när flighterna spiller över OCH användaren bekräftat samma design.
+        const multi = design.overflow && prevSameDesign === true;
+        const total = multi ? design.booksNeeded : 1;
+        for (let i = 0; i < total; i++) {
+          const isCurrent = i === total - 1;
+          await createDigitalBook({
+            name: `${ordinal(base + i + 1)} Logbook`,
+            templateId, startingPage: fp, rowsPerSpread: rs, endPage: lp,
+            // Flera böcker = kapacitetsfyllning (inga ankare, brought-forward auto-härleds).
+            // Enskild bok = anchor för senaste flygningen (auto-förslag/redigerat).
+            anchorFlightId: multi ? 0 : anchorFlightId,
+            anchorPage: multi ? 0 : ap,
+            anchorRow: multi ? 0 : ar,
+            openingBalance: (!multi && isCurrent) ? balance : {},
+            customCols: {},
+          }, bookKind);
+        }
       } else if (initial) {
         await updateDigitalBook(initial.id, {
-          name: finalName, template_id: templateId, starting_page: fp, rows_per_spread: rs,
+          name: initial.name, template_id: templateId, starting_page: fp, rows_per_spread: rs,
           end_page: lp, anchor_flight_id: anchorFlightId, anchor_page: ap, anchor_row: ar,
           opening_balance: balEdited ? JSON.stringify(balance) : (initial.opening_balance || '{}'),
         });
       }
-      onSaved();
+      await onSaved(); // await:as → spinnern täcker även omladdning + stängning (arket avmonteras sen)
     } catch (e: any) {
+      setSaving(false);
       Alert.alert(t('error'), e?.message ?? 'Failed');
     }
   };
@@ -286,11 +337,11 @@ export function BookSetupSheet({
         {/* Mall */}
         <Text style={s.label}>{t('dlb_choose_layout')}</Text>
         {pickable.map((tpl) => (
-          <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} onPreview={() => { setPreviewAspect(null); setPreviewTpl(tpl); }} />
+          <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} onPreview={() => { const i = Math.max(0, pickable.findIndex((x) => x.id === tpl.id)); setCurPreview(i); setPreviewIdx(i); }} />
         ))}
 
         {/* Skapa egen bok som matchar valfri fysisk loggbok (FAA, udda layout …) */}
-        <TouchableOpacity style={s.createRow} onPress={() => router.push('/logbook/create-custom')} activeOpacity={0.85}>
+        <TouchableOpacity style={s.createRow} onPress={() => { onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
           <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '14', borderStyle: 'dashed', borderColor: Colors.primary + '55' }]}>
             <Ionicons name="add" size={20} color={Colors.primary} />
           </View>
@@ -298,9 +349,7 @@ export function BookSetupSheet({
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
         </TouchableOpacity>
 
-        {/* Namn */}
-        <Text style={s.label}>{t('book_name')}</Text>
-        <TextInput style={s.input} value={name} onChangeText={setName} placeholder={t('dlb_book_default_name')} placeholderTextColor={Colors.textMuted} />
+        {/* Böcker döps automatiskt (1st/2nd… Logbook) — inget namnfält. */}
 
         {/* Sidor */}
         <View style={s.row2}>
@@ -319,27 +368,63 @@ export function BookSetupSheet({
         </View>
         <Text style={s.hint}>{t('dlb_last_page_hint')}</Text>
 
-        {/* Anchor */}
+        {/* Anchor / flera böcker */}
         <View style={s.divider} />
         <Text style={s.section}>{t('dlb_anchor_title')}</Text>
-        <Text style={s.hint}>{t('dlb_anchor_hint')}</Text>
-        {latestFlight ? (
-          <Text style={s.anchorFlight}>
-            {t('dlb_anchor_latest')}: {latestFlight.date} · {(latestFlight.dep_place || '').toUpperCase()}–{(latestFlight.arr_place || '').toUpperCase()}
-          </Text>
-        ) : (
-          <Text style={s.anchorFlight}>{t('dlb_anchor_no_flights')}</Text>
+
+        {/* Överspill: fler flygningar än en bok rymmer → erbjud flera böcker (samma design). */}
+        {mode === 'create' && design.overflow && (
+          <View style={{ marginTop: 6, marginBottom: 2 }}>
+            <Text style={s.hint}>
+              {sv
+                ? `Du har ${numFlights} flygningar, men en bok med den här designen rymmer ${design.capacity}.`
+                : `You have ${numFlights} flights, but one book with this design holds ${design.capacity}.`}
+            </Text>
+            <Text style={[s.section, { fontSize: 13.5, marginTop: 10 }]}>
+              {sv ? 'Hade tidigare loggböcker samma design (antal sidor och uppslag) som denna?' : 'Previous logbooks same design (amount of pages and spreads) as current?'}
+            </Text>
+            <View style={s.confirmRow}>
+              <TouchableOpacity style={[s.confirmBtn, prevSameDesign === true ? s.confirmYes : s.confirmNo]} onPress={() => setPrevSameDesign(true)} activeOpacity={0.85}>
+                <Text style={prevSameDesign === true ? s.confirmYesTxt : s.confirmNoTxt}>{t('yes')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.confirmBtn, prevSameDesign === false ? s.confirmYes : s.confirmNo]} onPress={() => setPrevSameDesign(false)} activeOpacity={0.85}>
+                <Text style={prevSameDesign === false ? s.confirmYesTxt : s.confirmNoTxt}>{t('no')}</Text>
+              </TouchableOpacity>
+            </View>
+            {prevSameDesign === true && (
+              <Text style={[s.hint, { marginTop: 8 }]}>
+                {sv
+                  ? `Skapar ${design.booksNeeded} loggböcker (1st … ${ordinal(design.booksNeeded)} Logbook). Senaste flygningen hamnar på sida ${design.suggestPage}, rad ${design.suggestRow} i den aktuella boken.`
+                  : `Creating ${design.booksNeeded} logbooks (1st … ${ordinal(design.booksNeeded)} Logbook). Your latest flight lands on page ${design.suggestPage}, row ${design.suggestRow} in the current book.`}
+              </Text>
+            )}
+          </View>
         )}
-        <View style={s.row2}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.label}>{t('dlb_anchor_page')}</Text>
-            <TextInput style={s.input} value={anchorPage} onChangeText={(v) => setAnchorPage(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="—" placeholderTextColor={Colors.textMuted} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.label}>{t('dlb_anchor_row')}</Text>
-            <TextInput style={s.input} value={anchorRow} onChangeText={(v) => setAnchorRow(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="—" placeholderTextColor={Colors.textMuted} />
-          </View>
-        </View>
+
+        {/* Tie to paper book: anchor auto-fylls till där senaste flygningen hamnar (redigerbart).
+            Döljs i flerboks-läget — då sköter kapacitetsfyllningen placeringen. */}
+        {!(design.overflow && prevSameDesign === true) && (
+          <>
+            <Text style={s.hint}>{t('dlb_anchor_hint')}</Text>
+            {latestFlight ? (
+              <Text style={s.anchorFlight}>
+                {t('dlb_anchor_latest')}: {latestFlight.date} · {(latestFlight.dep_place || '').toUpperCase()}–{(latestFlight.arr_place || '').toUpperCase()}
+              </Text>
+            ) : (
+              <Text style={s.anchorFlight}>{t('dlb_anchor_no_flights')}</Text>
+            )}
+            <View style={s.row2}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.label}>{t('dlb_anchor_page')}</Text>
+                <TextInput style={s.input} value={anchorPage} onChangeText={(v) => { setAnchorEdited(true); setAnchorPage(v.replace(/\D/g, '')); }} keyboardType="number-pad" placeholder="—" placeholderTextColor={Colors.textMuted} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.label}>{t('dlb_anchor_row')}</Text>
+                <TextInput style={s.input} value={anchorRow} onChangeText={(v) => { setAnchorEdited(true); setAnchorRow(v.replace(/\D/g, '')); }} keyboardType="number-pad" placeholder="—" placeholderTextColor={Colors.textMuted} />
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Ingående balans / bekräfta loggad erfarenhet */}
         <View style={s.divider} />
@@ -369,9 +454,9 @@ export function BookSetupSheet({
                 </View>
               </>
             ) : confirmState === 'confirmed' ? (
-              <TouchableOpacity style={[s.saveBtn, { marginTop: 14 }]} onPress={handleSave} activeOpacity={0.85}>
-                <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
-                <Text style={s.saveTxt}>{sv ? 'Skapa loggbok' : 'Create logbook'}</Text>
+              <TouchableOpacity style={[s.saveBtn, { marginTop: 14 }, (saving || needsOverflowAnswer) && { opacity: 0.5 }]} onPress={handleSave} disabled={saving || needsOverflowAnswer} activeOpacity={0.85}>
+                {saving ? <ActivityIndicator color={Colors.textInverse} /> : <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />}
+                <Text style={s.saveTxt}>{saving ? (sv ? 'Skapar…' : 'Creating…') : needsOverflowAnswer ? (sv ? 'Svara på frågan ovan' : 'Answer the question above') : (design.overflow && prevSameDesign ? (sv ? `Skapa ${design.booksNeeded} loggböcker` : `Create ${design.booksNeeded} logbooks`) : (sv ? 'Skapa loggbok' : 'Create logbook'))}</Text>
               </TouchableOpacity>
             ) : (
               <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '700', marginTop: 12, lineHeight: 18 }}>
@@ -386,31 +471,121 @@ export function BookSetupSheet({
 
       {/* Bekräftelse-flödet (create + erfarenhet) har egen "Create logbook"-knapp i sektionen. */}
       {!showConfirm && (
-        <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
-          <Text style={s.saveTxt}>{mode === 'create' ? t('dlb_create_book') : t('save')}</Text>
+        <TouchableOpacity style={[s.saveBtn, (saving || needsOverflowAnswer) && { opacity: 0.5 }]} onPress={handleSave} disabled={saving || needsOverflowAnswer} activeOpacity={0.85}>
+          {saving ? <ActivityIndicator color={Colors.textInverse} /> : <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />}
+          <Text style={s.saveTxt}>{saving ? (sv ? 'Skapar…' : 'Creating…') : needsOverflowAnswer ? (sv ? 'Svara på frågan ovan' : 'Answer the question above') : (mode === 'create' ? (design.overflow && prevSameDesign ? (sv ? `Skapa ${design.booksNeeded} loggböcker` : `Create ${design.booksNeeded} logbooks`) : t('dlb_create_book')) : t('save'))}</Text>
         </TouchableOpacity>
       )}
 
-      {/* Tom förhandsvisning av en layout (innan val) */}
-      <Modal visible={!!previewTpl} animationType="fade" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => { setPreviewTpl(null); setPreviewAspect(null); }}>
-        <View style={s.previewBackdrop}>
-          <View style={[s.previewBox, { width: previewBoxW + 24 }]}>
-            <View style={s.previewHead}>
-              <Text style={s.previewTitle} numberOfLines={1}>{previewTpl?.name}</Text>
-              <TouchableOpacity onPress={() => { setPreviewTpl(null); setPreviewAspect(null); }} hitSlop={10} activeOpacity={0.7}><Ionicons name="close" size={20} color={Colors.textSecondary} /></TouchableOpacity>
+      {/* Helskärms-förhandsvisning: bläddra i sidled mellan alla valbara böcker för att
+          hitta den som ser ut som din egen. Varje sida = boken som två stående sidor. */}
+      <Modal visible={previewIdx !== null} animationType="slide" supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setPreviewIdx(null)}>
+        <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: Platform.OS === 'ios' ? 44 : 8 }}>
+          <View style={s.previewTopBar}>
+            <TouchableOpacity onPress={() => setPreviewIdx(null)} hitSlop={10} style={s.previewTopBtn} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={s.previewTopTitle} numberOfLines={1}>{pickable[curPreview]?.name ?? ''}</Text>
+              <Text style={s.previewTopSub}>{sv ? `Svep i sidled · ${curPreview + 1}/${pickable.length}` : `Swipe to compare · ${curPreview + 1}/${pickable.length}`}</Text>
             </View>
-            {previewSpread && previewTpl ? (
-              <View pointerEvents="none" style={{ width: previewBoxW, height: previewAspect ? Math.round(previewBoxW * previewAspect) : Math.round(previewBoxW * 0.5), borderRadius: 10, overflow: 'hidden', alignSelf: 'center' }}>
-                <SpreadWebView spread={previewSpread} template={previewTpl} pilotName="" timeFormat={timeFormat} width={previewBoxW} signature={null} interactive={false} margin={10} onAspect={setPreviewAspect} />
-              </View>
-            ) : null}
-            <TouchableOpacity style={s.previewUse} onPress={() => { if (previewTpl) chooseTemplate(previewTpl.id); setPreviewTpl(null); setPreviewAspect(null); }} activeOpacity={0.85}>
-              <Text style={s.previewUseTxt}>{sv ? 'Använd den här layouten' : 'Use this layout'}</Text>
+            <TouchableOpacity onPress={() => { const tpl = pickable[curPreview]; if (tpl) { chooseTemplate(tpl.id); setPreviewIdx(null); } }} hitSlop={10} style={s.previewTopBtn} activeOpacity={0.7}>
+              <Ionicons name="checkmark" size={22} color={Colors.primary} />
             </TouchableOpacity>
           </View>
+          <FlatList
+            ref={previewListRef}
+            data={pickable}
+            keyExtractor={(tpl) => tpl.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={previewIdx ?? 0}
+            extraData={`${previewTestData}-${previewTimeFormat}`}
+            getItemLayout={(_, index) => ({ length: winW, offset: winW * index, index })}
+            onMomentumScrollEnd={(e) => setCurPreview(Math.round(e.nativeEvent.contentOffset.x / winW))}
+            renderItem={({ item, index }) => (
+              <PreviewPage
+                tpl={item} index={index} total={pickable.length} width={winW}
+                flights={flights} testData={previewTestData} timeFormat={previewTimeFormat}
+                onUse={() => { chooseTemplate(item.id); setPreviewIdx(null); }}
+                onToggleTest={() => setPreviewTestData((v) => !v)}
+                onSetTimeFormat={setPreviewTimeFormat}
+                onNav={(dir) => { const to = index + dir; if (to >= 0 && to < pickable.length) { previewListRef.current?.scrollToIndex({ index: to, animated: true }); setCurPreview(to); } }}
+                sv={sv}
+              />
+            )}
+          />
         </View>
       </Modal>
+    </View>
+  );
+}
+
+// En sida i helskärms-förhandsvisningen: boken som två stående sidor, full bredd — så man ser
+// exakt hur kolumnerna ser ut. "Test your data" fyller bladet med de SENASTE flygningarna +
+// totaler; decimal/hh:mm-toggle; fram/bak-pilar som alternativ till svep.
+function PreviewPage({ tpl, index, total, width, flights, testData, timeFormat, onUse, onToggleTest, onSetTimeFormat, onNav, sv }: {
+  tpl: LogbookTemplate; index: number; total: number; width: number; flights: Flight[];
+  testData: boolean; timeFormat: 'decimal' | 'hhmm';
+  onUse: () => void; onToggleTest: () => void; onSetTimeFormat: (f: 'decimal' | 'hhmm') => void;
+  onNav: (dir: -1 | 1) => void; sv: boolean;
+}) {
+  const [ratioL, setRatioL] = useState(0.72);
+  const [ratioR, setRatioR] = useState(0.72);
+  const spread = useMemo(() => {
+    const cfg = { startingPage: 1, rowsPerSpread: tpl.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 };
+    if (testData && flights.length) {
+      const sp = buildBookSpreads(flights, tpl, cfg);
+      return sp[sp.length - 1] ?? null; // senaste uppslaget (dina senaste flygningar + totaler)
+    }
+    return buildBookSpreads([], tpl, cfg)[0] ?? null;
+  }, [tpl, testData, flights]);
+  return (
+    <View style={{ width }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 34 }} showsVerticalScrollIndicator={false}>
+        {spread ? (
+          <>
+            <View style={{ width, height: width * ratioL, backgroundColor: Colors.background }}>
+              <SpreadWebView spread={spread} template={tpl} pilotName="" timeFormat={timeFormat} width={width} signature={null} interactive={false} bare bgColor={Colors.background} side="left" margin={0} onAspect={(r) => { if (r > 0 && Math.abs(r - ratioL) > 0.01) setRatioL(r); }} />
+            </View>
+            <View style={{ width, height: width * ratioR, backgroundColor: Colors.background, marginTop: 6 }}>
+              <SpreadWebView spread={spread} template={tpl} pilotName="" timeFormat={timeFormat} width={width} signature={null} interactive={false} bare bgColor={Colors.background} side="right" margin={0} onAspect={(r) => { if (r > 0 && Math.abs(r - ratioR) > 0.01) setRatioR(r); }} />
+            </View>
+          </>
+        ) : null}
+
+        <View style={{ paddingHorizontal: 16, marginTop: 14, gap: 10 }}>
+          {/* Fram/bak-pilar (alternativ till svep) */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 28 }}>
+            <TouchableOpacity disabled={index <= 0} onPress={() => onNav(-1)} activeOpacity={0.7} style={[s.previewArrow, index <= 0 && { opacity: 0.3 }]}>
+              <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity disabled={index >= total - 1} onPress={() => onNav(1)} activeOpacity={0.7} style={[s.previewArrow, index >= total - 1 && { opacity: 0.3 }]}>
+              <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={s.previewUse} onPress={onUse} activeOpacity={0.85}>
+            <Text style={s.previewUseTxt}>{sv ? 'Använd den här layouten' : 'Use this layout'}</Text>
+          </TouchableOpacity>
+
+          {/* Testa dina flygningar i boken (senaste flygningarna + totaler) */}
+          <TouchableOpacity style={[s.previewTest, testData && s.previewTestOn]} onPress={onToggleTest} activeOpacity={0.8}>
+            <Ionicons name={testData ? 'checkbox' : 'square-outline'} size={16} color={testData ? Colors.primary : Colors.textSecondary} />
+            <Text style={[s.previewTestTxt, testData && { color: Colors.primary }]}>{sv ? 'Testa dina flygningar i boken' : 'Test your data on logbook'}</Text>
+          </TouchableOpacity>
+
+          {/* Decimal ↔ hh:mm */}
+          <View style={s.previewFmtRow}>
+            {(['decimal', 'hhmm'] as const).map((k) => (
+              <TouchableOpacity key={k} style={[s.previewFmtBtn, timeFormat === k && s.previewFmtOn]} onPress={() => onSetTimeFormat(k)} activeOpacity={0.8}>
+                <Text style={[s.previewFmtTxt, timeFormat === k && { color: Colors.textInverse }]}>{k === 'decimal' ? '1.5' : '1:30'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -459,6 +634,18 @@ const s = StyleSheet.create({
   previewTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', flex: 1 },
   previewUse: { backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   previewUseTxt: { color: Colors.textInverse, fontSize: 14, fontWeight: '800' },
+  previewTopBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
+  previewTopBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
+  previewTopTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', maxWidth: 240 },
+  previewTopSub: { color: Colors.textMuted, fontSize: 11, marginTop: 1 },
+  previewArrow: { width: 48, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  previewTest: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated },
+  previewTestOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '14' },
+  previewTestTxt: { color: Colors.textSecondary, fontSize: 13.5, fontWeight: '700' },
+  previewFmtRow: { flexDirection: 'row', gap: 6, alignSelf: 'center', backgroundColor: Colors.elevated, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, padding: 3 },
+  previewFmtBtn: { paddingHorizontal: 18, paddingVertical: 7, borderRadius: 7 },
+  previewFmtOn: { backgroundColor: Colors.primary },
+  previewFmtTxt: { color: Colors.textSecondary, fontSize: 13, fontWeight: '800', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   createRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '44', borderStyle: 'dashed', marginBottom: 8, marginTop: 2 },
   tplCover: { width: 64, height: 42, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
   tplName: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },

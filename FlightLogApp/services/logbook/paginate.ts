@@ -19,6 +19,7 @@ export interface LogbookSpread {
   page_right: number;           // sidnummer höger
   flights: Flight[];            // upp till rowsPerSpread flygningar
   leadingBlanks?: number;       // tomma rader överst (rader fyllda i papper innan appen)
+  rowsPerSpread?: number;       // antal rader uppslaget ska ritas med (bokens inställning)
   total_this_page: ColumnTotals;
   brought_forward: ColumnTotals;
   total_to_date: ColumnTotals;
@@ -154,6 +155,7 @@ export function buildSpreads(
       page_left: config.startingPage + (n - 1) * 2,
       page_right: config.startingPage + (n - 1) * 2 + 1,
       flights: chunk,
+      rowsPerSpread: rows,
       total_this_page: thisPage,
       brought_forward: broughtForward,
       total_to_date: toDate,
@@ -190,6 +192,7 @@ export function buildBookSpreads(
       page_right: config.startingPage + 1,
       flights: [],
       leadingBlanks: 0,
+      rowsPerSpread: rows,
       total_this_page: {},
       brought_forward: bf,
       total_to_date: bf,
@@ -215,6 +218,7 @@ export function buildBookSpreads(
       page_right: config.startingPage + spreadIdx * 2 + 1,
       flights: chunk,
       leadingBlanks: first ? withinOffset : 0,
+      rowsPerSpread: rows,
       total_this_page: thisPage,
       brought_forward: broughtForward,
       total_to_date: toDate,

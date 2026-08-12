@@ -13,4 +13,32 @@ for (const ext of upperImageExts) {
   }
 }
 
+// Web: expo-sqlite kör via wa-sqlite.wasm — Metro måste behandla .wasm som asset,
+// och dev-servern måste skicka COOP/COEP-headers (SharedArrayBuffer i sqlite-workern).
+if (!config.resolver.assetExts.includes('wasm')) {
+  config.resolver.assetExts.push('wasm');
+}
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware) => (req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    middleware(req, res, next);
+  },
+};
+
+// Web-förhandsvisning: react-native-maps är native-only och stoppar hela
+// web-bundlingen. Stubba den (och undermoduler) med en placeholder på web —
+// kartskärmar renderar då utan karta i stället för att krascha.
+const path = require('path');
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && (moduleName === 'react-native-maps' || moduleName.startsWith('react-native-maps/'))) {
+    return { type: 'sourceFile', filePath: path.resolve(__dirname, 'web-mocks/react-native-maps.js') };
+  }
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;

@@ -10,7 +10,7 @@ import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { callAnthropicJson } from '../../services/anthropicClient';
-import { useScanQuotaStore } from '../../store/scanQuotaStore';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { PremiumModal } from '../../components/PremiumModal';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -672,7 +672,7 @@ export default function AddFlightScreen() {
   const router = useRouter();
   const { editId, aiImport, addPhoto } = useLocalSearchParams<{ editId?: string; aiImport?: string; addPhoto?: string }>();
   const isEdit = !!editId;
-  const { canAddFlight, loadFlights, loadStats, flightCount, isPremium } = useFlightStore();
+  const { canAddFlight, loadFlights, loadStats, flightCount, isPremium, isMax } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
 
@@ -1764,29 +1764,124 @@ export default function AddFlightScreen() {
 
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Flightscan-review: AI-lästa fält granskas/godkänns innan de fylls i formuläret
+  type ScanField = { key: string; label: string; value: string; apply: boolean; warn?: string };
+  const [scanReview, setScanReview] = useState<null | {
+    fields: ScanField[];
+    timeOptions: { aircraft?: number; flight?: number };
+    timeChoice: 'aircraft' | 'flight' | null;
+  }>(null);
+  const [scanDatePicker, setScanDatePicker] = useState(false); // kalender för snabbrättning av datum
+
+  // Sätt datum-fältet i review-kortet (Today-knappen / kalendern) — rensar varningen
+  const setScanDate = (iso: string) => {
+    setScanReview((r) => r && ({
+      ...r,
+      fields: r.fields.map((x) => x.key === 'date' ? { ...x, value: iso, apply: true, warn: undefined } : x),
+    }));
+  };
+  const todayIso = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  // Fyll i formuläret från de godkända review-fälten
+  const applyScanReview = () => {
+    if (!scanReview) return;
+    const p: Record<string, string> = {};
+    for (const f of scanReview.fields) if (f.apply) p[f.key] = f.value;
+    const t = scanReview.timeChoice;
+    const timeVal = t === 'aircraft' ? scanReview.timeOptions.aircraft
+      : t === 'flight' ? scanReview.timeOptions.flight : undefined;
+
+    const updates: Partial<FlightFormData> = {};
+    if (p.date) updates.date = p.date;
+    if (p.dep_place) { updates.dep_place = p.dep_place; updates.dep_place_raw = p.dep_place; }
+    if (p.arr_place) { updates.arr_place = p.arr_place; updates.arr_place_raw = p.arr_place; }
+    if (p.dep_utc) updates.dep_utc = p.dep_utc;
+    if (p.arr_utc) updates.arr_utc = p.arr_utc;
+    // UTC-tider vinner över avläst varaktighet (samma prioritet som tidigare)
+    if (p.dep_utc && p.arr_utc && isValidTime(p.dep_utc) && isValidTime(p.arr_utc)) {
+      const computed = calcFlightTime(p.dep_utc, p.arr_utc);
+      if (computed > 0) updates.total_time = String(computed);
+      else if (timeVal) updates.total_time = String(timeVal);
+    } else if (timeVal) {
+      updates.total_time = String(timeVal);
+    }
+    if (p.aircraft_type) updates.aircraft_type = p.aircraft_type;
+    if (p.registration) updates.registration = p.registration;
+    if (p.max_fl) updates.max_fl = p.max_fl;
+    if (p.landings_day) {
+      // Autofyll: noterade landningar fylls i — och lika många take-offs (man måste starta
+      // för att kunna landa). Twilight-effekterna fördelar sedan dag/natt utan att ändra summan.
+      updates.landings_day = p.landings_day;
+      updates.takeoffs_day = p.landings_day;
+    }
+    if (p.flight_rules) updates.flight_rules = p.flight_rules;
+    setForm(prev => ({ ...prev, ...updates }));
+    // Lås importerade take-offs/landningar (readiness-autot rör bara icke-manuella räknare).
+    if (updates.landings_day) { setLandingsManual(true); setTakeoffsManual(true); }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setScanReview(null);
+    setScanDatePicker(false);
+  };
+
   const importFromImage = async () => {
-    if (!isPremium) {
-      setShowPremiumGate(true);
+    // Token-styrt, inte premium-låst: fri nivå får skanna tills engångspotten (50k) tar
+    // slut, sedan visas premium-erbjudandet. Redan betalande som nått sin månadspott
+    // får bara ett besked (ingen upsell).
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumGate(true); }
       return;
     }
-    const { canFlightImport, consumeFlightImport } = useScanQuotaStore.getState();
-    if (!canFlightImport()) {
-      Alert.alert('Quota reached', 'You have used all your AI imports this month.');
-      return;
+
+    // Kamera eller bibliotek
+    const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+      Alert.alert('Scan flight data', 'Photograph your instruments or pick an existing image.', [
+        { text: 'Camera', onPress: () => resolve('camera') },
+        { text: 'Photo library', onPress: () => resolve('library') },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+      ]);
+    });
+    if (!source) return;
+
+    let picked: ImagePicker.ImagePickerResult;
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Camera', 'Camera permission is needed to scan your instruments.');
+        return;
+      }
+      picked = await ImagePicker.launchCameraAsync({ quality: 1 });
+    } else {
+      picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
-    if (result.canceled || !result.assets[0]) return;
+    if (picked.canceled || !picked.assets[0]) return;
     setAiLoading(true);
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
+        picked.assets[0].uri,
         [{ resize: { width: 1600 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
       );
       const base64 = await FileSystem.readAsStringAsync(manipulated.uri, { encoding: FileSystem.EncodingType.Base64 });
       const mediaType = 'image/jpeg';
 
+      // ── Debug: logga vad som skickas in (Metro-terminalen) ──────────────────
+      const imgKB = Math.round((base64.length * 0.75) / 1024);
+      console.log('📸 FLIGHT SCAN → AI');
+      console.log(`   Bild in: ${manipulated.width}×${manipulated.height}px · ${imgKB} KB (JPEG q0.6, resize 1600)`);
+      // Anthropic skalar ner till ~1,15 Mpx innan tokenisering (verifierat mot verklig usage)
+      console.log(`   Uppskattade bildtokens: ~${Math.round(Math.min(manipulated.width * manipulated.height, 1_150_000) / 750)}`);
+
       const parsed = await callAnthropicJson<Record<string, any>>({
+        onUsage: (u) => {
+          const costUsd = (u.inputTokens * 3 + u.outputTokens * 15) / 1e6;
+          console.log(
+            `📸 FLIGHT SCAN ← klart: ${u.inputTokens} in + ${u.outputTokens} ut = ${u.inputTokens + u.outputTokens} tokens` +
+            ` (~$${costUsd.toFixed(4)} ≈ ${(costUsd * 10.5).toFixed(2)} kr)`
+          );
+        },
         system: `You extract flight data from cockpit instrument images, flight tracking app screenshots, or any aviation-related photo. Today's date is ${new Date().toISOString().split('T')[0]}. Return a JSON object with ONLY the fields you can confidently read. Use these field names:
 - date: "YYYY-MM-DD" — If the date format is ambiguous (e.g. 11-05-26 could be 2026-05-11 or 2011-05-26), pick the interpretation closest to today's date.
 - dep_place: ICAO code (4 letters)
@@ -1813,60 +1908,56 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       });
 
       if (parsed) {
-        const applyImport = (timeVal: string) => {
-          const updates: Partial<FlightFormData> = {};
-          if (parsed.date) updates.date = String(parsed.date);
-          if (parsed.dep_place) { updates.dep_place = String(parsed.dep_place).toUpperCase(); updates.dep_place_raw = updates.dep_place; }
-          if (parsed.arr_place) { updates.arr_place = String(parsed.arr_place).toUpperCase(); updates.arr_place_raw = updates.arr_place; }
-          if (parsed.dep_utc) updates.dep_utc = String(parsed.dep_utc);
-          if (parsed.arr_utc) updates.arr_utc = String(parsed.arr_utc);
+        console.log('📸 FLIGHT SCAN — tolkade fält: ' + JSON.stringify(parsed));
 
-          if (parsed.dep_utc && parsed.arr_utc && isValidTime(String(parsed.dep_utc)) && isValidTime(String(parsed.arr_utc))) {
-            const computed = calcFlightTime(String(parsed.dep_utc), String(parsed.arr_utc));
-            if (computed > 0) {
-              updates.total_time = String(computed);
-            } else if (timeVal) {
-              updates.total_time = timeVal;
-            }
-          } else if (timeVal) {
-            updates.total_time = timeVal;
-          }
-          if (parsed.aircraft_type) updates.aircraft_type = String(parsed.aircraft_type).toUpperCase();
-          if (parsed.registration) updates.registration = String(parsed.registration).toUpperCase();
-          if (parsed.max_fl) updates.max_fl = String(parsed.max_fl);
-          if (parsed.landings_day) {
-            // Autofyll: noterade landningar fylls i — och lika många take-offs (man måste starta
-            // för att kunna landa). Twilight-effekterna fördelar sedan dag/natt utan att ändra summan.
-            updates.landings_day = String(parsed.landings_day);
-            updates.takeoffs_day = String(parsed.landings_day);
-          }
-          if (parsed.flight_rules) updates.flight_rules = String(parsed.flight_rules).toUpperCase();
-          setForm(prev => ({ ...prev, ...updates }));
-          // Lås importerade take-offs/landningar (readiness-autot rör bara icke-manuella räknare).
-          if (updates.landings_day) { setLandingsManual(true); setTakeoffsManual(true); }
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // ── Bygg review-kortet — inget fylls i förrän användaren godkänt ──────
+        const fields: ScanField[] = [];
+        const push = (key: string, label: string, value: any, warn?: string) => {
+          if (value === undefined || value === null || value === '') return;
+          fields.push({ key, label, value: String(value), apply: !warn, warn });
         };
-
-        await consumeFlightImport();
-
-        const hasAircraft = parsed.aircraft_time && parsed.aircraft_time > 0;
-        const hasFlight = parsed.flight_time && parsed.flight_time > 0;
-
-        if (hasAircraft && hasFlight && String(parsed.aircraft_time) !== String(parsed.flight_time)) {
-          Alert.alert(
-            'Which time?',
-            `Aircraft time: ${parsed.aircraft_time}h\nFlight time: ${parsed.flight_time}h`,
-            [
-              { text: `Aircraft ${parsed.aircraft_time}h`, onPress: () => applyImport(String(parsed.aircraft_time)) },
-              { text: `Flight ${parsed.flight_time}h`, onPress: () => applyImport(String(parsed.flight_time)) },
-            ]
-          );
-        } else {
-          applyImport(String(hasFlight ? parsed.flight_time : hasAircraft ? parsed.aircraft_time : ''));
+        if (parsed.date) {
+          // Datum-sanity: äldre än 2 dagar (eller i framtiden) → varna + avmarkera
+          const d = new Date(String(parsed.date));
+          const ageDays = (Date.now() - d.getTime()) / 86400000;
+          const warn = isNaN(d.getTime()) ? 'Unreadable date'
+            : ageDays > 2 ? 'More than 2 days old — double-check'
+            : ageDays < -1 ? 'In the future — double-check'
+            : undefined;
+          push('date', 'Date', parsed.date, warn);
         }
+        push('dep_place', 'From', parsed.dep_place && String(parsed.dep_place).toUpperCase());
+        push('arr_place', 'To', parsed.arr_place && String(parsed.arr_place).toUpperCase());
+        push('dep_utc', 'Off blocks (UTC)', parsed.dep_utc);
+        push('arr_utc', 'On blocks (UTC)', parsed.arr_utc);
+        push('aircraft_type', 'Aircraft type', parsed.aircraft_type && String(parsed.aircraft_type).toUpperCase());
+        push('registration', 'Registration', parsed.registration && String(parsed.registration).toUpperCase());
+        push('max_fl', 'Max FL', parsed.max_fl);
+        push('landings_day', 'Landings', parsed.landings_day);
+        push('flight_rules', 'Rules', parsed.flight_rules && String(parsed.flight_rules).toUpperCase());
+
+        const hasAircraft = Number(parsed.aircraft_time) > 0;
+        const hasFlight = Number(parsed.flight_time) > 0;
+        if (fields.length === 0 && !hasAircraft && !hasFlight) {
+          Alert.alert('AI Import', 'No flight data could be read from the image.');
+          return;
+        }
+        setScanReview({
+          fields,
+          timeOptions: {
+            aircraft: hasAircraft ? Number(parsed.aircraft_time) : undefined,
+            flight: hasFlight ? Number(parsed.flight_time) : undefined,
+          },
+          // Blocktid (aircraft time) är loggbokens totaltid när båda finns
+          timeChoice: hasAircraft ? 'aircraft' : hasFlight ? 'flight' : null,
+        });
       }
     } catch (e: any) {
-      Alert.alert('AI Import', e.message || 'Could not read the image');
+      if (isTokenQuotaError(e)) {
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumGate(true);
+      } else {
+        Alert.alert('AI Import', e.message || 'Could not read the image');
+      }
     } finally {
       setAiLoading(false);
     }
@@ -3055,13 +3146,44 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             const landNight = (parseInt(form.landings_night ?? '0', 10) || 0) > 0;
             const toCount = (parseInt(form.takeoffs_day ?? '0', 10) || 0) + (parseInt(form.takeoffs_night ?? '0', 10) || 0);
             const landCount = (parseInt(form.landings_day ?? '0', 10) || 0) + (parseInt(form.landings_night ?? '0', 10) || 0);
-            const Chip = ({ lbl, night, count }: { lbl: string; night: boolean; count: number }) => (
+            // VFR-steppers: + på endera ökar BÅDA (en landning = en start); − påverkar bara sin egen ruta.
+            const isVfr = form.flight_rules === 'VFR';
+            const step = (field: 'takeoffs' | 'landings', delta: 1 | -1) => {
+              setTakeoffsManual(true);
+              setLandingsManual(true);
+              setForm((prev) => {
+                const next: any = { ...prev };
+                const adjust = (base: 'takeoffs' | 'landings') => {
+                  const isN = base === 'takeoffs'
+                    ? (parseInt(prev.takeoffs_night ?? '0', 10) || 0) > 0
+                    : (parseInt(prev.landings_night ?? '0', 10) || 0) > 0;
+                  const key = `${base}_${isN ? 'night' : 'day'}`;
+                  next[key] = String(Math.max(0, (parseInt((prev as any)[key] ?? '0', 10) || 0) + delta));
+                };
+                if (delta > 0) { adjust('takeoffs'); adjust('landings'); } // + → båda ökar
+                else adjust(field);                                        // − → bara den egna
+                return next;
+              });
+            };
+            const Chip = ({ lbl, night, count, onMinus, onPlus }: { lbl: string; night: boolean; count: number; onMinus?: () => void; onPlus?: () => void }) => (
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11 }}>
                 <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 18, fontWeight: '800', color: count ? Colors.textPrimary : Colors.textMuted }}>{count}</Text>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: Colors.textSecondary }}>{lbl}</Text>
                   <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '700', color: night ? Colors.info : Colors.success }}>{night ? t('night') : t('day')}</Text>
                 </View>
+                {!!onMinus && !!onPlus && (
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    <TouchableOpacity onPress={onMinus} hitSlop={8} activeOpacity={0.6}
+                      style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '800', lineHeight: 16 }}>−</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onPlus} hitSlop={8} activeOpacity={0.6}
+                      style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: Colors.primary + '14', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800', lineHeight: 16 }}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             );
             return (
@@ -3074,7 +3196,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Chip lbl="Take-off" night={toNight} count={toCount} />
+                  <Chip lbl="Take-off" night={toNight} count={toCount}
+                    onMinus={isVfr ? () => step('takeoffs', -1) : undefined}
+                    onPlus={isVfr ? () => step('takeoffs', 1) : undefined} />
                   {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (() => {
                     // Approach-visare (samma stil som chipsen) — default 3D, tap togglar 2D/3D.
                     const a2 = parseInt(form.app_2d ?? '0', 10) || 0;
@@ -3093,7 +3217,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                       </TouchableOpacity>
                     );
                   })()}
-                  <Chip lbl="Landing" night={landNight} count={landCount} />
+                  <Chip lbl="Landing" night={landNight} count={landCount}
+                    onMinus={isVfr ? () => step('landings', -1) : undefined}
+                    onPlus={isVfr ? () => step('landings', 1) : undefined} />
                 </View>
               </View>
             );
@@ -3503,6 +3629,129 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setReviewPromptCount(0)} style={{ marginTop: 10 }}>
               <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Later</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Flightscan-review — godkänn AI-lästa fält innan de fylls i formuläret */}
+      <Modal visible={!!scanReview} transparent animationType="fade" onRequestClose={() => setScanReview(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: Colors.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.cardBorder, maxHeight: '80%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>AI read these fields</Text>
+            </View>
+            <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 10 }}>
+              Tap a row to include or exclude it, then apply.
+            </Text>
+            <ScrollView style={{ flexGrow: 0 }}>
+              {scanReview?.fields.map((f, i) => (
+                <TouchableOpacity
+                  key={f.key}
+                  activeOpacity={0.7}
+                  onPress={() => setScanReview((r) => r && ({
+                    ...r,
+                    fields: r.fields.map((x) => x.key === f.key ? { ...x, apply: !x.apply } : x),
+                  }))}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: Colors.separator }}
+                >
+                  <Ionicons name={f.apply ? 'checkmark-circle' : 'ellipse-outline'} size={19} color={f.apply ? Colors.success : Colors.textMuted} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.textSecondary, fontSize: 11 }}>{f.label}</Text>
+                    <Text style={{ color: f.apply ? Colors.textPrimary : Colors.textMuted, fontSize: 14, fontWeight: '700', fontFamily: 'Menlo' }}>{f.value}</Text>
+                    {!!f.warn && (
+                      <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 1 }}>⚠ {f.warn}</Text>
+                    )}
+                  </View>
+                  {/* Snabbrättning av datum: Today + kalender */}
+                  {f.key === 'date' && (
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => { setScanDate(todayIso()); setScanDatePicker(false); }}
+                        hitSlop={6}
+                        style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: Colors.primary + '14' }}
+                      >
+                        <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Today</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setScanDatePicker((v) => !v)}
+                        hitSlop={6}
+                        style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: scanDatePicker ? Colors.primary : Colors.border, backgroundColor: scanDatePicker ? Colors.primary + '14' : 'transparent' }}
+                      >
+                        <Ionicons name="calendar-outline" size={15} color={scanDatePicker ? Colors.primary : Colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {/* Kalender för datum-rättning */}
+              {scanDatePicker && (
+                <DateTimePicker
+                  value={(() => {
+                    const f = scanReview?.fields.find((x) => x.key === 'date');
+                    const d = f ? new Date(f.value) : new Date();
+                    return isNaN(d.getTime()) ? new Date() : d;
+                  })()}
+                  mode="date"
+                  display="calendar"
+                  maximumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    setScanDatePicker(false);
+                    if (event.type === 'set' && selectedDate) {
+                      setScanDate(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Tidsval — blocktid vs flygtid när båda lästs */}
+              {scanReview && (scanReview.timeOptions.aircraft != null || scanReview.timeOptions.flight != null) && (
+                <View style={{ borderTopWidth: 1, borderTopColor: Colors.separator, paddingVertical: 9, gap: 6 }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 11 }}>Total time</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {scanReview.timeOptions.aircraft != null && (
+                      <TouchableOpacity
+                        onPress={() => setScanReview((r) => r && ({ ...r, timeChoice: 'aircraft' }))}
+                        style={{
+                          flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 8, alignItems: 'center',
+                          borderColor: scanReview.timeChoice === 'aircraft' ? Colors.primary : Colors.border,
+                          backgroundColor: scanReview.timeChoice === 'aircraft' ? Colors.primary + '1C' : 'transparent',
+                        }}
+                      >
+                        <Text style={{ color: scanReview.timeChoice === 'aircraft' ? Colors.primary : Colors.textSecondary, fontWeight: '700', fontSize: 13 }}>
+                          Block {scanReview.timeOptions.aircraft}h
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {scanReview.timeOptions.flight != null && (
+                      <TouchableOpacity
+                        onPress={() => setScanReview((r) => r && ({ ...r, timeChoice: 'flight' }))}
+                        style={{
+                          flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 8, alignItems: 'center',
+                          borderColor: scanReview.timeChoice === 'flight' ? Colors.primary : Colors.border,
+                          backgroundColor: scanReview.timeChoice === 'flight' ? Colors.primary + '1C' : 'transparent',
+                        }}
+                      >
+                        <Text style={{ color: scanReview.timeChoice === 'flight' ? Colors.primary : Colors.textSecondary, fontWeight: '700', fontSize: 13 }}>
+                          Flight {scanReview.timeOptions.flight}h
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={applyScanReview}
+              style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginTop: 14 }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Apply to flight</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setScanReview(null); setScanDatePicker(false); }} style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Discard</Text>
             </TouchableOpacity>
           </View>
         </View>

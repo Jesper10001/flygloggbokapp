@@ -8,6 +8,11 @@ import { getTemplate } from '../constants/logbookTemplates';
 import { buildBookSpreads } from '../services/logbook/paginate';
 import { assignFlightsToBooks, sliceForBook, resolveOpeningBalance } from '../services/logbook/books';
 
+// Bok-typ: manned digitala böcker (kind='digital') och drönarböcker (kind='drone')
+// delar SAMMA tabell + motor. Manned-anropen passerar inget kind (→ 'digital') och
+// är därför helt oförändrade; drönarskärmen passerar 'drone'.
+export type BookKind = 'digital' | 'drone';
+
 export interface DigitalBook {
   id: number;
   name: string;
@@ -61,24 +66,25 @@ export async function ensureDigitalBooksMigrated(): Promise<void> {
   await setSetting(MIGRATED_KEY, '1');
 }
 
-export async function listDigitalBooks(): Promise<DigitalBook[]> {
-  await ensureDigitalBooksMigrated();
+export async function listDigitalBooks(kind: BookKind = 'digital'): Promise<DigitalBook[]> {
+  if (kind === 'digital') await ensureDigitalBooksMigrated(); // migrationen gäller bara manned
   const db = await getDatabase();
   return db.getAllAsync<DigitalBook>(
-    `SELECT * FROM logbook_books WHERE kind='digital' ORDER BY display_order ASC, id ASC`,
+    `SELECT * FROM logbook_books WHERE kind=? ORDER BY display_order ASC, id ASC`,
+    [kind],
   );
 }
 
-export async function getActiveDigitalBook(): Promise<DigitalBook | null> {
-  const books = await listDigitalBooks();
+export async function getActiveDigitalBook(kind: BookKind = 'digital'): Promise<DigitalBook | null> {
+  const books = await listDigitalBooks(kind);
   if (books.length === 0) return null;
   return books.find((b) => b.is_active === 1) ?? books[books.length - 1];
 }
 
-export async function setActiveDigitalBook(id: number): Promise<void> {
+export async function setActiveDigitalBook(id: number, kind: BookKind = 'digital'): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(`UPDATE logbook_books SET is_active=0 WHERE kind='digital'`);
-  await db.runAsync(`UPDATE logbook_books SET is_active=1 WHERE id=? AND kind='digital'`, [id]);
+  await db.runAsync(`UPDATE logbook_books SET is_active=0 WHERE kind=?`, [kind]);
+  await db.runAsync(`UPDATE logbook_books SET is_active=1 WHERE id=?`, [id]);
 }
 
 export interface CreateDigitalBookInput {
@@ -95,19 +101,19 @@ export interface CreateDigitalBookInput {
   customCols?: Record<string, string>;
 }
 
-export async function createDigitalBook(input: CreateDigitalBookInput): Promise<number> {
-  await ensureDigitalBooksMigrated();
+export async function createDigitalBook(input: CreateDigitalBookInput, kind: BookKind = 'digital'): Promise<number> {
+  if (kind === 'digital') await ensureDigitalBooksMigrated();
   const db = await getDatabase();
   const max = await db.getFirstAsync<{ m: number }>(
-    `SELECT MAX(display_order) as m FROM logbook_books WHERE kind='digital'`,
+    `SELECT MAX(display_order) as m FROM logbook_books WHERE kind=?`, [kind],
   );
   const order = (max?.m ?? -1) + 1;
-  await db.runAsync(`UPDATE logbook_books SET is_active=0 WHERE kind='digital'`);
+  await db.runAsync(`UPDATE logbook_books SET is_active=0 WHERE kind=?`, [kind]);
   const r = await db.runAsync(
     `INSERT INTO logbook_books
       (name, template_id, starting_page, rows_per_spread, is_active, end_page, end_row,
        kind, opening_balance, custom_cols, anchor_flight_id, anchor_page, anchor_row, display_order, acked_spread)
-     VALUES (?, ?, ?, ?, 1, ?, ?, 'digital', ?, ?, ?, ?, ?, ?, 0)`,
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     [
       input.name.trim() || 'Logbook',
       input.templateId,
@@ -115,6 +121,7 @@ export async function createDigitalBook(input: CreateDigitalBookInput): Promise<
       Math.max(1, input.rowsPerSpread),
       input.endPage ?? 0,
       input.endRow ?? 0,
+      kind,
       JSON.stringify(input.openingBalance ?? {}),
       JSON.stringify(input.customCols ?? {}),
       input.anchorFlightId ?? 0,
@@ -146,32 +153,36 @@ export async function updateDigitalBook(id: number, fields: UpdateDigitalBookFie
   const db = await getDatabase();
   const set = keys.map((k) => `${k}=?`).join(', ');
   const vals = keys.map((k) => fields[k] as string | number);
-  await db.runAsync(`UPDATE logbook_books SET ${set} WHERE id=? AND kind='digital'`, [...vals, id]);
+  // id är PK → inget kind-filter behövs; fungerar för både 'digital' och 'drone'.
+  await db.runAsync(`UPDATE logbook_books SET ${set} WHERE id=?`, [...vals, id]);
 }
 
 export async function renameDigitalBook(id: number, name: string): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(`UPDATE logbook_books SET name=? WHERE id=? AND kind='digital'`, [name.trim(), id]);
+  await db.runAsync(`UPDATE logbook_books SET name=? WHERE id=?`, [name.trim(), id]);
 }
 
 export async function deleteDigitalBook(id: number): Promise<void> {
   const db = await getDatabase();
-  const wasActive = await db.getFirstAsync<{ a: number }>(
-    `SELECT is_active as a FROM logbook_books WHERE id=? AND kind='digital'`, [id],
+  const row = await db.getFirstAsync<{ a: number; kind: string }>(
+    `SELECT is_active as a, kind FROM logbook_books WHERE id=?`, [id],
   );
-  await db.runAsync(`DELETE FROM logbook_books WHERE id=? AND kind='digital'`, [id]);
-  if (wasActive?.a === 1) {
+  await db.runAsync(`DELETE FROM logbook_books WHERE id=?`, [id]);
+  if (row?.a === 1) {
+    // Nästa aktiva bok måste vara av SAMMA typ (annars aktiveras en manned-bok när
+    // en drönarbok raderas och vice versa).
     const next = await db.getFirstAsync<{ id: number }>(
-      `SELECT id FROM logbook_books WHERE kind='digital' ORDER BY display_order DESC, id DESC LIMIT 1`,
+      `SELECT id FROM logbook_books WHERE kind=? ORDER BY display_order DESC, id DESC LIMIT 1`,
+      [row.kind],
     );
-    if (next) await setActiveDigitalBook(next.id);
+    if (next) await setActiveDigitalBook(next.id, row.kind as BookKind);
   }
 }
 
 export async function setAckedSpread(bookId: number, spreadNumber: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE logbook_books SET acked_spread=? WHERE id=? AND kind='digital'`,
+    `UPDATE logbook_books SET acked_spread=? WHERE id=?`,
     [spreadNumber, bookId],
   );
 }
@@ -200,7 +211,7 @@ export async function getDashboardSpreadPrompt(): Promise<SpreadPrompt | null> {
   const spreads = buildBookSpreads(slice.flights, getTemplate(active.template_id), {
     startingPage: active.starting_page,
     rowsPerSpread: rows,
-    openingBalance: resolveOpeningBalance(active, flights, getTemplate(active.template_id)),
+    openingBalance: resolveOpeningBalance(active, books, flights, getTemplate(active.template_id)),
     leadingEmptyRows: slice.leadingEmptyRows,
   });
 

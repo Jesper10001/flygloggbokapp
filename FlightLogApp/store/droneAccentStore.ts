@@ -2,30 +2,26 @@
 // dashboard, chips, barer, FAB, total-bar och aktiv flik. Persistas i settings.
 
 import { create } from 'zustand';
-import { getSetting, setSetting } from '../db/flights';
-import { DRONE_ACCENTS, DEFAULT_DRONE_ACCENT, type DroneAccentKey } from '../constants/droneTheme';
+import { type DroneAccentKey } from '../constants/droneTheme';
+import { NavyColors } from '../constants/colors';
+
+// FÖRENAT FÄRGSCHEMA: drönarläget använder samma accent som pilot manned (navy-temats
+// primary, cyan). Ingen accent-växling längre — behåller store-API:t så befintliga
+// skärmar (som läser .color) fungerar, men färgen är fast.
+const UNIFIED_ACCENT = NavyColors.primary; // '#00C8E8'
 
 interface DroneAccentState {
   key: DroneAccentKey;
-  color: string;        // upplöst hex för aktuell accent
+  color: string;
   loaded: boolean;
   load: () => Promise<void>;
   setAccent: (key: DroneAccentKey) => Promise<void>;
 }
 
 export const useDroneAccentStore = create<DroneAccentState>((set) => ({
-  key: DEFAULT_DRONE_ACCENT,
-  color: DRONE_ACCENTS[DEFAULT_DRONE_ACCENT],
-  loaded: false,
-
-  load: async () => {
-    const saved = (await getSetting('drone_accent')) as DroneAccentKey | null;
-    const key = saved && DRONE_ACCENTS[saved] ? saved : DEFAULT_DRONE_ACCENT;
-    set({ key, color: DRONE_ACCENTS[key], loaded: true });
-  },
-
-  setAccent: async (key: DroneAccentKey) => {
-    await setSetting('drone_accent', key);
-    set({ key, color: DRONE_ACCENTS[key] });
-  },
+  key: 'cyan',
+  color: UNIFIED_ACCENT,
+  loaded: true,
+  load: async () => { set({ color: UNIFIED_ACCENT, loaded: true }); },
+  setAccent: async () => { set({ color: UNIFIED_ACCENT }); }, // no-op — färgen är fast
 }));

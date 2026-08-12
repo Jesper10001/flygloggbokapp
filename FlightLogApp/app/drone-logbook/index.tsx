@@ -1,3 +1,8 @@
+// Drönar-loggbok (fysisk bok) — KLON av manned app/logbook/index.tsx, samma stil,
+// samma motor, samma bokhantering. Enda skillnaden: datakällan är drönarflygningar
+// (adapterade till mall-kolumnerna via droneToFlightRow) och böckerna lagras med
+// kind='drone' (skild pott från manned). Principen är exakt densamma som pilot-manned.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Modal, ScrollView,
@@ -11,51 +16,36 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useAppModeStore } from '../../store/appModeStore';
-import { useFlightStore } from '../../store/flightStore';
+import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
+import { getTemplate } from '../../constants/logbookTemplates';
+import type { Flight } from '../../types/flight';
 import {
-  getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn,
-} from '../../constants/logbookTemplates';
-import {
-  buildBookSpreads, type ColumnTotals, type LogbookSpread,
+  buildBookSpreads, type LogbookSpread,
 } from '../../services/logbook/paginate';
 import { assignFlightsToBooks, resolveOpeningBalance, type BookSlice } from '../../services/logbook/books';
+import { droneToFlightRow, loadDroneMetaById } from '../../services/logbook/droneSpread';
 import { SpreadWebView } from '../../components/logbook/SpreadWebView';
 import { type SignatureData } from '../../components/SignaturePad';
 import {
-  ensureDigitalBooksMigrated, listDigitalBooks, setActiveDigitalBook,
+  listDigitalBooks, setActiveDigitalBook,
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
 import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
 import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
-// Tomma kolumner → tilldelad flygtidstyp (per bok, {colId:flightKey}).
-function applyCustomCols(template: LogbookTemplate, customCols: Record<string, string>): LogbookTemplate {
-  if (!customCols || Object.keys(customCols).length === 0) return template;
-  const apply = (c: LogbookColumn): LogbookColumn => {
-    const fk = customCols[c.id];
-    if (!fk) return c;
-    const f = ASSIGNABLE_TIME_FIELDS.find((a) => a.key === fk);
-    if (!f) return c;
-    return { ...c, flightKey: f.key, format: f.format, label: f.label };
-  };
-  return { ...template, left_columns: template.left_columns.map(apply), right_columns: template.right_columns.map(apply) };
-}
-
 const parseJson = <T,>(s: string | undefined, fallback: T): T => {
   try { return s ? JSON.parse(s) : fallback; } catch { return fallback; }
 };
 
-export default function LogbookScreen() {
+export default function DroneLogbookScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ book?: string; spread?: string; recent?: string }>();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { mode } = useAppModeStore();
-  const { flights, loadFlights } = useFlightStore();
+  const { flights: droneFlights, loadFlights } = useDroneFlightStore();
   const { timeFormat } = useTimeFormatStore();
   const styles = makeStyles();
 
@@ -64,14 +54,13 @@ export default function LogbookScreen() {
   const [activeBookId, setActiveBookId] = useState<number | null>(null);
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
+  const [dronesById, setDronesById] = useState<Map<number, { model: string; klass: string }>>(new Map());
   const [activeIndex, setActiveIndex] = useState(0);
   const [ready, setReady] = useState(false); // dölj innehållet tills orienteringen lagt sig (mjuk övergång)
 
   const [showBooks, setShowBooks] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
-  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
-  const [assignTarget, setAssignTarget] = useState<string | null>(null);
-  const [assignOpen, setAssignOpen] = useState(false);
+  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null } | null>(null);
   const [transcribe, setTranscribe] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
@@ -80,14 +69,13 @@ export default function LogbookScreen() {
   const ovAnim = useRef(new Animated.Value(0)).current;
 
   const reloadBooks = useCallback(async () => {
-    const bks = await listDigitalBooks();
+    const bks = await listDigitalBooks('drone');
     setBooks(bks);
     return bks;
   }, []);
 
   useEffect(() => {
     (async () => {
-      await ensureDigitalBooksMigrated();
       const [fn, ln, sg] = await Promise.all([
         getSetting('profile_first_name'),
         getSetting('profile_last_name'),
@@ -95,6 +83,7 @@ export default function LogbookScreen() {
       ]);
       setPilotName([fn, ln].filter(Boolean).join(' '));
       setSignature(parseJson<SignatureData | null>(sg ?? undefined, null));
+      loadDroneMetaById().then(setDronesById).catch(() => {});
       const bks = await reloadBooks();
       await loadFlights();
       const paramBook = params.book ? parseInt(String(params.book), 10) : null;
@@ -108,31 +97,35 @@ export default function LogbookScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Orientering: ENDAST den faktiska boken (böcker finns och vi är inte i
-  // setup) är liggande. Intro (inga böcker) och skapa/redigera-bok är stående.
-  // Vi låser DIREKT (ingen InteractionManager-fördröjning) och håller en navy-
-  // täckare uppe tills orienteringen lagt sig → ingen portrait→landscape-flash.
+  // Orientering: ENDAST den faktiska boken (böcker finns och vi är inte i setup) är
+  // liggande. Intro (inga böcker) och skapa/redigera-bok är stående.
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
     const showingBook = books.length > 0 && !setup && !transcribe;
     const lock = showingBook ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP;
     ScreenOrientation.lockAsync(lock).catch(() => {});
-    const t = setTimeout(() => { if (!cancelled) setReady(true); }, 260);
-    return () => { cancelled = true; clearTimeout(t); };
+    const to = setTimeout(() => { if (!cancelled) setReady(true); }, 260);
+    return () => { cancelled = true; clearTimeout(to); };
   }, [loading, setup, books.length, transcribe]);
 
   useEffect(() => () => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
   }, []);
 
-  const slices = useMemo<BookSlice[]>(() => assignFlightsToBooks(books, flights), [books, flights]);
+  // Drönarflygningar → mall-rader (Flight-form) EN gång; matas till motorn precis som manned.
+  const flightRows = useMemo<Flight[]>(
+    () => droneFlights.map((d) => droneToFlightRow(d, d.drone_id != null ? dronesById.get(d.drone_id) : undefined)),
+    [droneFlights, dronesById],
+  );
+
+  const slices = useMemo<BookSlice[]>(() => assignFlightsToBooks(books, flightRows), [books, flightRows]);
   const selectedBook = useMemo(() => books.find((b) => b.id === activeBookId) ?? null, [books, activeBookId]);
   const selectedSlice = useMemo(() => slices.find((s) => s.book.id === activeBookId) ?? null, [slices, activeBookId]);
 
   const effectiveTemplate = useMemo(() => {
     if (!selectedBook) return null;
-    return applyCustomCols(getTemplate(selectedBook.template_id), parseJson<Record<string, string>>(selectedBook.custom_cols, {}));
+    return getTemplate(selectedBook.template_id);
   }, [selectedBook]);
 
   const spreads = useMemo<LogbookSpread[]>(() => {
@@ -140,12 +133,11 @@ export default function LogbookScreen() {
     return buildBookSpreads(selectedSlice?.flights ?? [], effectiveTemplate, {
       startingPage: selectedBook.starting_page,
       rowsPerSpread: selectedBook.rows_per_spread,
-      openingBalance: resolveOpeningBalance(selectedBook, books, flights, effectiveTemplate),
+      openingBalance: resolveOpeningBalance(selectedBook, books, flightRows, effectiveTemplate),
       leadingEmptyRows: selectedSlice?.leadingEmptyRows ?? 0,
     });
-  }, [selectedBook, effectiveTemplate, selectedSlice, flights]);
+  }, [selectedBook, effectiveTemplate, selectedSlice, flightRows, books]);
 
-  // recent=1 styr bara footern (transcribe-knappen). Man kan alltid bläddra HELA boken.
   const recent = params.recent === '1';
   const visibleSpreads = spreads;
 
@@ -154,21 +146,7 @@ export default function LogbookScreen() {
   const current = visibleSpreads[safeIndex];
   const sheetMax = Math.min(520, Math.round(height * 0.62));
 
-  const availableTypes = useMemo(() => {
-    if (!selectedBook) return [];
-    const base = getTemplate(selectedBook.template_id);
-    const used = new Set<string>();
-    for (const c of [...base.left_columns, ...base.right_columns]) if (c.flightKey) used.add(c.flightKey);
-    if (used.has('tt_total')) used.add('total_time');
-    if (used.has('sp_se')) used.add('se_time');
-    if (used.has('sp_me')) used.add('me_time');
-    const hasData = (key: string) => flights.some((f) => (parseFloat(String((f as any)[key])) || 0) > 0);
-    return ASSIGNABLE_TIME_FIELDS.filter((a) => !used.has(a.key) && hasData(a.key));
-  }, [selectedBook, flights]);
-
   // Öppna alltid på SENASTE uppslaget när man går in i en bok (eller byter bok).
-  // Vänta tills ready=true (FlatList är monterad efter orienterings-täckaren), annars
-  // körs scrollToIndex innan listan finns och man fastnar på första uppslaget.
   useEffect(() => {
     if (loading || !ready || visibleSpreads.length === 0) return;
     if (positionedBook.current === activeBookId) return;
@@ -178,14 +156,12 @@ export default function LogbookScreen() {
     setTimeout(() => { try { listRef.current?.scrollToIndex({ index: last, animated: false }); } catch {} }, 80);
   }, [loading, ready, visibleSpreads.length, activeBookId]);
 
-  // Håll uppslaget i synk vid rotation/breddändring.
   useEffect(() => {
     const id = setTimeout(() => { try { listRef.current?.scrollToIndex({ index: safeIndex, animated: false }); } catch {} }, 60);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width]);
 
-  // Sidöversikt-dropdownen "trillar ner" när den öppnas.
   useEffect(() => {
     if (!showOverview) return;
     ovAnim.setValue(0);
@@ -198,28 +174,14 @@ export default function LogbookScreen() {
     try { listRef.current?.scrollToIndex({ index: clamped, animated: false }); } catch {}
   };
 
-  // Lämna boken utan att frysa: töm först den tunga FlatList/WebView-vyn (leaving),
-  // lås portrait FIRE-AND-FORGET (await:a aldrig lockAsync — det kan hänga och blockera
-  // navigeringen), och navigera efter en kort stund så rotationen hunnit börja.
   const handleBack = () => {
     setLeaving(true);
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     setTimeout(() => { router.back(); }, 230);
   };
 
-  const onAssign = useCallback((colId: string) => { setAssignTarget(colId); setAssignOpen(true); }, []);
-
-  const applyAssign = async (flightKey: string | null) => {
-    if (!assignTarget || !selectedBook) return;
-    const cur = parseJson<Record<string, string>>(selectedBook.custom_cols, {});
-    if (flightKey) cur[assignTarget] = flightKey; else delete cur[assignTarget];
-    await updateDigitalBook(selectedBook.id, { custom_cols: JSON.stringify(cur) });
-    await reloadBooks();
-    setAssignOpen(false); setAssignTarget(null);
-  };
-
   const switchBook = async (id: number) => {
-    await setActiveDigitalBook(id);
+    await setActiveDigitalBook(id, 'drone');
     await reloadBooks();
     setActiveBookId(id);
     setShowBooks(false);
@@ -232,7 +194,6 @@ export default function LogbookScreen() {
     setSetup(null);
     setShowBooks(false);
   };
-
 
   const confirmDelete = (b: DigitalBook) => {
     Alert.alert(b.name, t('dlb_delete_book_confirm'), [
@@ -250,16 +211,12 @@ export default function LogbookScreen() {
   };
 
   // ── Render-grenar ──────────────────────────────────────────────
-  // Täck skärmen (navy + spinner) tills data laddats OCH orienteringen lagt sig,
-  // så man aldrig ser en kort portrait-vy som sedan roterar till liggande.
   if (loading || !ready) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}><Stack.Screen options={{ headerShown: false }} /><ActivityIndicator color={Colors.primary} /></View>
     );
   }
 
-  // På väg ut: rendera en tom vy (boken/WebViewerna avmonteras) medan orienteringen
-  // växlar till portrait och vi navigerar — undviker frysning vid orienteringsbytet.
   if (leaving) {
     return <View style={styles.container}><Stack.Screen options={{ headerShown: false }} /></View>;
   }
@@ -271,7 +228,7 @@ export default function LogbookScreen() {
         <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
           <View style={styles.sheetBackdrop}>
             {setup && (
-              <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+              <BookSetupSheet mode={setup.mode} appMode="drone" initial={setup.initial} flights={flightRows} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
             )}
           </View>
         </Modal>
@@ -283,8 +240,6 @@ export default function LogbookScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: width > height ? 0 : insets.top }]}>
-      {/* Swipe-tillbaka avstängd: utgång sker via back-knappen (handleBack) som låser
-          portrait + tömmer tunga vyer först → ingen frysning vid orienteringsbytet. */}
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
       {/* Header */}
@@ -309,7 +264,7 @@ export default function LogbookScreen() {
       </View>
 
       {!hasFlightsInBook ? (
-        <Empty onAdd={() => router.push('/flight/add')} />
+        <Empty onAdd={() => router.push('/drone-flight/add')} />
       ) : (
         <>
           <FlatList
@@ -323,7 +278,7 @@ export default function LogbookScreen() {
             initialNumToRender={1} maxToRenderPerBatch={2} windowSize={3}
             onMomentumScrollEnd={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
             renderItem={({ item }) => (
-              <SpreadWebView spread={item} template={effectiveTemplate!} pilotName={pilotName} timeFormat={timeFormat} width={width} signature={signature} onAssign={onAssign} />
+              <SpreadWebView spread={item} template={effectiveTemplate!} pilotName={pilotName} timeFormat={timeFormat} width={width} signature={signature} />
             )}
           />
           <View style={[styles.footerHint, { paddingBottom: insets.bottom + 6 }]}>
@@ -368,7 +323,10 @@ export default function LogbookScreen() {
                 );
               })}
             </ScrollView>
-            {/* "+ New logbook" skapas numera bara utanför helskärm (Book-vyns New/Modify-knappar). */}
+            <TouchableOpacity style={styles.newBookRow} onPress={() => { setShowBooks(false); setSetup({ mode: 'create', initial: null }); }} activeOpacity={0.85}>
+              <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+              <Text style={styles.newBookTxt}>{t('dlb_new_book')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -414,37 +372,8 @@ export default function LogbookScreen() {
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={styles.sheetBackdrop}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+            <BookSetupSheet mode={setup.mode} appMode="drone" initial={setup.initial} flights={flightRows} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
           )}
-        </View>
-      </Modal>
-
-      {/* ── Välj flygtidstyp för en tom kolumn ── */}
-      <Modal visible={assignOpen} animationType="slide" transparent supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setAssignOpen(false)}>
-        <View style={styles.sheetBackdrop}>
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-            <SheetHeader title={t('dlb_pick_time_type')} onClose={() => setAssignOpen(false)} />
-            <Text style={styles.sheetHint}>{t('dlb_pick_time_type_sub')}</Text>
-            <ScrollView style={{ maxHeight: sheetMax }}>
-              {assignTarget && parseJson<Record<string, string>>(selectedBook?.custom_cols, {})[assignTarget] ? (
-                <TouchableOpacity style={styles.ovRow} onPress={() => applyAssign(null)} activeOpacity={0.7}>
-                  <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} />
-                  <Text style={[styles.ovTitle, { color: Colors.textSecondary }]}>{t('dlb_remove_type')}</Text>
-                </TouchableOpacity>
-              ) : null}
-              {availableTypes.length === 0 ? (
-                <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('dlb_no_types')}</Text>
-              ) : availableTypes.map((a) => {
-                const active = !!assignTarget && parseJson<Record<string, string>>(selectedBook?.custom_cols, {})[assignTarget] === a.key;
-                return (
-                  <TouchableOpacity key={a.key} style={[styles.ovRow, active && styles.ovRowActive]} onPress={() => applyAssign(a.key)} activeOpacity={0.7}>
-                    <Ionicons name="time-outline" size={18} color={active ? Colors.primary : Colors.textMuted} />
-                    <Text style={[styles.ovTitle, active && { color: Colors.primary }]}>{a.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
         </View>
       </Modal>
 
@@ -513,7 +442,7 @@ function Empty({ onAdd }: { onAdd: () => void }) {
       <Text style={styles.emptyBody}>{t('dlb_empty_body')}</Text>
       <TouchableOpacity style={styles.primaryBtn} onPress={onAdd} activeOpacity={0.85}>
         <Ionicons name="add" size={18} color={Colors.textInverse} />
-        <Text style={styles.primaryBtnText}>{t('import_manual_title')}</Text>
+        <Text style={styles.primaryBtnText}>{t('log_drone_flight')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -563,7 +492,6 @@ function makeStyles() {
     sheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 14 },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
     sheetTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
-    sheetHint: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 18, marginBottom: 10 },
 
     bookRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
     bookRowActive: { backgroundColor: Colors.primary + '0E' },
@@ -571,6 +499,8 @@ function makeStyles() {
     bookMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 1 },
     fullPill: { backgroundColor: Colors.warning + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
     fullPillText: { color: Colors.warning, fontSize: 10, fontWeight: '800' },
+    newBookRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, marginTop: 4 },
+    newBookTxt: { color: Colors.primary, fontSize: 15, fontWeight: '800' },
 
     ovRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
     ovRowActive: { backgroundColor: Colors.primary + '0E' },

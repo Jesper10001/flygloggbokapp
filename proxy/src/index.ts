@@ -41,6 +41,36 @@ const MAX_LIMITS: Record<string, number> = {
   flight_import: 100,
 };
 
+// ── Token-baserad AI-kvot (input+output per device) ──────────────────────────
+// Räknas ALLTID (syns i appens Settings); spärras när TOKEN_QUOTAS_ENABLED=true.
+// Egen brytare, separat från QUOTAS_ENABLED (som styr de GAMLA per-typ-kvoterna
+// för OCR-skanning ovan — den funktionen är inte klar/prissatt än). Token-kvoten
+// är den nya, enda spärren för CSV-import, flight-scan och aircraft/drone-lookup:
+// dessa funktioner är INTE längre premium-låsta, bara token-låsta.
+// FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM/MAX = per månad.
+const TOKEN_QUOTAS_ENABLED = true;
+const TOKEN_LIMITS: Record<string, number> = {
+  free: 50_000,     // engångspott ≈ 2,10 kr värsta fall — 2 importer eller ~25 flightscans totalt
+  premium: 100_000, // per månad
+  max: 250_000,     // per månad
+};
+
+// Free = lifetime-nyckel (ingen TTL); premium/max = månadsnyckel (löper ut)
+function tokenKey(deviceHash: string, tier: string): string {
+  return tier === 'free'
+    ? `tokens:${deviceHash}:lifetime`
+    : `tokens:${deviceHash}:${currentMonth()}`;
+}
+
+async function addTokens(kv: KVNamespace, deviceHash: string, tier: string, tokens: number): Promise<void> {
+  if (!kv || tokens <= 0) return;
+  try {
+    const key = tokenKey(deviceHash, tier);
+    const cur = parseInt(await kv.get(key) ?? '0', 10);
+    await kv.put(key, String(cur + tokens), tier === 'free' ? {} : { expirationTtl: 60 * 60 * 24 * 40 });
+  } catch { /* räkningen får aldrig fälla ett anrop */ }
+}
+
 function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -535,7 +565,7 @@ ${devices.length > 0 ? `
 // ── Huvudlogik ─────────────────────────────────────────────────────────────
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin');
 
@@ -595,6 +625,21 @@ export default {
       return new Response(termsPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
+    // ── Token-saldo: månadens AI-förbrukning för denna device (Settings-mätaren) ──
+    if (url.pathname === '/tokens' && request.method === 'GET') {
+      const devId = request.headers.get('X-Device-ID') ?? 'unknown';
+      const devHash = hashDevice(devId);
+      const tier = request.headers.get('X-Tier') || (request.headers.get('X-Premium') === 'true' ? 'premium' : 'free');
+      const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
+      const used = env.QUOTA_KV
+        ? parseInt(await env.QUOTA_KV.get(tokenKey(devHash, tier)) ?? '0', 10)
+        : 0;
+      const period = tier === 'free' ? 'lifetime' : currentMonth();
+      return new Response(JSON.stringify({ used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED }), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
     // ── Version / app news endpoint ──
     if (url.pathname === '/version') {
       const versionData = {
@@ -637,6 +682,24 @@ export default {
 
       // ── Server-side quota check ──
       const tierHeader = request.headers.get('X-Tier') || (request.headers.get('X-Premium') === 'true' ? 'premium' : 'free');
+
+      // ── Token-tak (spärras när TOKEN_QUOTAS_ENABLED=true) — den nya, enda
+      // spärren för CSV-import/flight-scan/lookup. Oberoende av QUOTAS_ENABLED. ──
+      if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
+        const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
+        const tUsed = parseInt(await env.QUOTA_KV.get(tokenKey(deviceHash, tierHeader)) ?? '0', 10);
+        if (tUsed >= tLimit) {
+          return new Response(JSON.stringify({
+            error: 'token_quota_exceeded',
+            used: tUsed,
+            limit: tLimit,
+            message: `Monthly AI token quota exceeded (${tUsed}/${tLimit})`,
+          }), {
+            status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       if (env.QUOTA_KV) {
         const reqType = detectRequestType(body);
         if (reqType) {
@@ -662,6 +725,43 @@ export default {
         body,
       });
 
+      // ── SSE-passthrough för streamande anrop ────────────────────────────────
+      // Appens live-tokenräknare kräver att deltan når klienten löpande — buffra
+      // INTE svaret. Telemetrin läser en tee:ad kopia i bakgrunden (waitUntil).
+      let wantsStream = false;
+      try { wantsStream = JSON.parse(body).stream === true; } catch {}
+      if (wantsStream && resp.ok && resp.body) {
+        const [toClient, toTelemetry] = resp.body.tee();
+        ctx.waitUntil((async () => {
+          try {
+            const text = await new Response(toTelemetry).text();
+            const ms = Date.now() - t0;
+            // message_start bär input_tokens; sista message_delta bär slutgiltiga output_tokens
+            const mIn = text.match(/"input_tokens":\s*(\d+)/);
+            const mOutAll = [...text.matchAll(/"output_tokens":\s*(\d+)/g)];
+            const inTok = mIn ? parseInt(mIn[1], 10) : 0;
+            const outTok = mOutAll.length ? parseInt(mOutAll[mOutAll.length - 1][1], 10) : 0;
+            const cost = Math.round((inTok * 0.3 + outTok * 1.5) / 1000) / 100;
+            if (env.TELEMETRY) {
+              env.TELEMETRY.writeDataPoint({
+                blobs: [model, deviceHash, country, 'ok'],
+                doubles: [ms, inTok, outTok, cost],
+                indexes: [deviceHash],
+              });
+            }
+            await addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok);
+          } catch {}
+        })());
+        return new Response(toClient, {
+          status: resp.status,
+          headers: {
+            ...corsHeaders(origin),
+            'Content-Type': resp.headers.get('Content-Type') ?? 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
+
       const respBody = await resp.text();
       const ms = Date.now() - t0;
       let inTok = 0, outTok = 0;
@@ -675,6 +775,8 @@ export default {
           indexes: [deviceHash],
         });
       }
+      // Token-räkning i bakgrunden — blockerar inte svaret till appen
+      ctx.waitUntil(addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok));
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

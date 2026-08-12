@@ -9,10 +9,9 @@ import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
 import { useRegulationStandardStore, type RegulationStandard } from '../store/regulationStandardStore';
 import { useOperatorStore } from '../store/operatorStore';
-import { useThemeStore, type Theme } from '../store/themeStore';
 import { setSetting, getSetting } from '../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
-import { NavyColors, BrightColors, DroneIndustrialColors, DroneNeonColors, type ColorPalette } from '../constants/colors';
+import { NavyColors } from '../constants/colors';
 
 type Step =
   | 'welcome' | 'role' | 'subrole'
@@ -25,9 +24,8 @@ type MCI = keyof typeof MaterialCommunityIcons.glyphMap;
 // hintar vald roll: cyan för pilot/operatör, amber för drönare. Ikonerna hålls
 // neutralt silver och tonas i accenten först när något är valt.
 const C = NavyColors;
-const AMBER = DroneIndustrialColors.primary; // '#FF8C42'
-const accentForRole = (role: MainRole | null): string =>
-  role === 'pilot-unmanned' ? AMBER : C.primary;
+// Förenat färgschema: samma accent (navy primary) oavsett roll.
+const accentForRole = (_role: MainRole | null): string => C.primary;
 
 const MAIN_ROLES: { key: MainRole; icon: MCI; title_en: string; title_sv: string; desc_en: string; desc_sv: string }[] = [
   { key: 'pilot-manned', icon: 'airplane', title_en: 'Pilot', title_sv: 'Pilot', desc_en: 'Manned aircraft — helicopter or airplane.', desc_sv: 'Bemannat luftfartyg — helikopter eller flygplan.' },
@@ -80,7 +78,7 @@ const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
 
 function buildSteps(role: MainRole | null, returning: boolean): Step[] {
   const mid: Step[] = manned(role) ? ['framework', 'timeformat'] : ['droneid'];
-  return [...(returning ? [] : (['welcome'] as Step[])), 'role', 'subrole', ...mid, 'theme', 'profile', 'hours'];
+  return [...(returning ? [] : (['welcome'] as Step[])), 'role', 'subrole', ...mid, 'profile', 'hours'];
 }
 
 export default function OnboardingScreen() {
@@ -91,7 +89,6 @@ export default function OnboardingScreen() {
   const { setProfile } = useProfileStore();
   const { setStandard } = useRegulationStandardStore();
   const { setOperatorId } = useOperatorStore();
-  const { setTheme } = useThemeStore();
 
   const currentProfile = useProfileStore(s => s.profile);
   const returning = !!currentProfile;
@@ -100,7 +97,6 @@ export default function OnboardingScreen() {
   const [lang, setLang] = useState<'en' | 'sv'>(() => useLanguageStore.getState().language);
   const [format, setFormat] = useState<TimeFormat>(() => useTimeFormatStore.getState().timeFormat);
   const [standard, setStandardSel] = useState<RegulationStandard>(() => useRegulationStandardStore.getState().standard);
-  const [themeSel, setThemeSel] = useState<Theme | null>(null);
   const [mainRole, setMainRole] = useState<MainRole | null>(null);
   const [pendingSub, setPendingSub] = useState<SubRole | null>(null);
   const [droneId, setDroneId] = useState('');
@@ -138,17 +134,6 @@ export default function OnboardingScreen() {
   const stepIdx = Math.max(0, steps.indexOf(step));
   const totalSteps = steps.length;
 
-  const themeOptions: { key: Theme; label_en: string; label_sv: string; palette: ColorPalette }[] =
-    mainRole === 'pilot-unmanned'
-      ? [
-          { key: 'drone-industrial', label_en: 'Dark · Industrial', label_sv: 'Mörkt · Industrial', palette: DroneIndustrialColors },
-          { key: 'drone-neon', label_en: 'Neon', label_sv: 'Neon', palette: DroneNeonColors },
-        ]
-      : [
-          { key: 'navy', label_en: 'Dark', label_sv: 'Mörkt', palette: NavyColors },
-          { key: 'bright', label_en: 'Light', label_sv: 'Ljust', palette: BrightColors },
-        ];
-
   const finalize = async (dest?: '/import/scan' | '/import/manual' | '/import' | '/(tabs)', push = false) => {
     try {
       if (!mainRole || !pendingSub) { router.replace('/(tabs)'); return; }
@@ -163,7 +148,6 @@ export default function OnboardingScreen() {
       await setSetting('profile_initials', autoInitials);
       await setSetting('profile_credentials', credentials);
       await setSetting('pilot_signature', signature ? JSON.stringify(signature) : '');
-      if (themeSel) await setTheme(themeSel); // före setMode → applyForMode plockar upp valet
       await setMode(targetForProfile(profile));
       await setSetting('has_onboarded', '1');
       await new Promise(r => setTimeout(r, 100));
@@ -286,7 +270,7 @@ export default function OnboardingScreen() {
                         <Text style={[s.fmtText, { color: selected ? accent : C.silver }]}>{opt.ex}</Text>
                       </View>}
                       right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
-                      onPress={() => { setFormat(opt.key); setStep('theme'); }} />
+                      onPress={() => { setFormat(opt.key); setStep('profile'); }} />
                   );
                 })}
               </View>
@@ -312,27 +296,7 @@ export default function OnboardingScreen() {
                 />
               </View>
               <View style={{ flex: 1 }} />
-              <PrimaryButton label={sv ? 'Nästa' : 'Next'} accent={accent} onPress={() => setStep('theme')} />
-            </>
-          )}
-
-          {/* ── Theme ── */}
-          {step === 'theme' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Utseende' : 'Appearance'} accent={accent}
-                title={sv ? 'Välj ditt tema' : 'Pick your theme'}
-                subtitle={sv ? 'Kan ändras när som helst i Inställningar.' : 'You can change this anytime in Settings.'} />
-              <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                {themeOptions.map(o => {
-                  const selected = themeSel === o.key;
-                  return (
-                    <OptionCard key={o.key} accent={accent} selected={selected} title={sv ? o.label_sv : o.label_en}
-                      leading={<ThemeSwatch palette={o.palette} />}
-                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
-                      onPress={() => { setThemeSel(o.key); setStep('profile'); }} />
-                  );
-                })}
-              </View>
+              <PrimaryButton label={sv ? 'Nästa' : 'Next'} accent={accent} onPress={() => setStep('profile')} />
             </>
           )}
 
@@ -476,18 +440,6 @@ function AvatarPreview({ initials, name, creds, accent }: { initials: string; na
       </View>
       <Text style={s.avatarName}>{name}</Text>
       {creds ? <Text style={s.avatarCreds}>{creds}</Text> : null}
-    </View>
-  );
-}
-
-function ThemeSwatch({ palette }: { palette: ColorPalette }) {
-  return (
-    <View style={[s.swatch, { backgroundColor: palette.background, borderColor: C.cardBorder }]}>
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        <View style={[s.swatchDot, { backgroundColor: palette.primary }]} />
-        <View style={[s.swatchDot, { backgroundColor: palette.accent }]} />
-      </View>
-      <View style={[s.swatchBar, { backgroundColor: palette.cardBorder }]} />
     </View>
   );
 }

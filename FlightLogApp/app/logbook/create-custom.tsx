@@ -18,7 +18,7 @@ import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { LogbookColumn, LogbookTemplate } from '../../constants/logbookTemplates';
 import {
-  analyzeLogbookStructure, templateFromStructure, FIELD_OPTIONS,
+  analyzeLogbookStructure,
   labelForField, formatForField, flightKeyForField, type StructureScan,
 } from '../../services/logbookStructure';
 import { saveCustomTemplate, makeUniqueCustomTemplateId } from '../../db/customTemplates';
@@ -29,7 +29,17 @@ interface EditCol {
   label: string;
   fieldKey: string;          // '' = omappad fri kolumn
   page: 'left' | 'right';
+  dateFormat?: string;       // bara för date-kolumn: ordning dag/månad/år
 }
+
+// Datumformat (ordning dag/månad/år) för date-kolumnen.
+const DATE_FORMATS: { key: string; ex: string }[] = [
+  { key: 'iso', ex: '2026-08-11' },
+  { key: 'dmy', ex: '11/08/2026' },
+  { key: 'mdy', ex: '08/11/2026' },
+  { key: 'dmy2', ex: '11/08/26' },
+  { key: 'dmon', ex: '11 Aug 2026' },
+];
 
 function widthFor(format: NonNullable<LogbookColumn['format']>): number {
   switch (format) {
@@ -48,6 +58,21 @@ function splitIndex(struct: StructureScan, n: number): number {
   return Math.ceil(n / 2);
 }
 
+// Bygg-från-tomt: förvalda grundkolumner (resten lägger användaren till själv).
+const BASE_FIELDS = ['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time'];
+const BASE_LEFT = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc']);
+
+// Kolumner väljs kategorivis ur appens datafält (inga egna namn).
+const FIELD_CATEGORIES: { en: string; sv: string; keys: string[] }[] = [
+  { en: 'Basics', sv: 'Grunddata', keys: ['date', 'aircraft_type', 'registration'] },
+  { en: 'Route & time', sv: 'Rutt & tid', keys: ['dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'cross_country'] },
+  { en: 'Pilot function', sv: 'Pilotfunktion', keys: ['pic', 'co_pilot', 'dual', 'instructor', 'picus', 'spic', 'solo'] },
+  { en: 'Operational conditions', sv: 'Operativa förhållanden', keys: ['ifr', 'vfr', 'night', 'nvg'] },
+  { en: 'Aircraft class', sv: 'Luftfartygsklass', keys: ['single_pilot', 'multi_pilot', 'se_time', 'me_time', 'sim'] },
+  { en: 'Landings', sv: 'Landningar', keys: ['landings_day', 'landings_night'] },
+  { en: 'Notes', sv: 'Anteckningar', keys: ['remarks'] },
+];
+
 export default function CreateCustomLogbook() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -62,10 +87,9 @@ export default function CreateCustomLogbook() {
   const [detected, setDetected] = useState(false);
   const [name, setName] = useState('');
   const [rows, setRows] = useState(12);
-  const [timeFormat, setTimeFormat] = useState<'decimal' | 'hhmm'>('decimal');
   const [cols, setCols] = useState<EditCol[]>([]);
   const [footer, setFooter] = useState({ brought_forward: true, this_page_total: true, total_to_date: true });
-  const [pickerFor, setPickerFor] = useState<number | null>(null);
+  const [pickerFor, setPickerFor] = useState<number | 'add' | null>(null); // uid = ändra kolumn, 'add' = ny
 
   const runDetection = async (uri: string) => {
     setBusy(true);
@@ -124,7 +148,9 @@ export default function CreateCustomLogbook() {
 
   const startBlank = () => {
     setDetected(true);
-    setCols([]);
+    let seq = 0;
+    // Förval: date, make/mod/var, reg, dep place/time, arr place/time, total flight time.
+    setCols(BASE_FIELDS.map((k) => ({ uid: seq++, label: labelForField(k), fieldKey: k, page: BASE_LEFT.has(k) ? 'left' : 'right' })));
   };
 
   const updateCol = (uid: number, patch: Partial<EditCol>) =>
@@ -139,12 +165,20 @@ export default function CreateCustomLogbook() {
       [next[i], next[j]] = [next[j], next[i]];
       return next;
     });
-  const addCol = () => {
-    Haptics.selectionAsync();
-    setCols((p) => {
-      const uid = p.reduce((m, c) => Math.max(m, c.uid), -1) + 1;
-      return [...p, { uid, label: sv ? 'Ny kolumn' : 'New column', fieldKey: '', page: p.length && p[p.length - 1].page === 'right' ? 'right' : 'left' }];
-    });
+  const addCol = () => { Haptics.selectionAsync(); setPickerFor('add'); };
+
+  // Väljer ett fält i kategori-väljaren: 'add' → ny kolumn; uid → byt fält på befintlig.
+  const pickField = (key: string) => {
+    const label = labelForField(key);
+    if (pickerFor === 'add') {
+      setCols((p) => {
+        const uid = p.reduce((m, c) => Math.max(m, c.uid), -1) + 1;
+        return [...p, { uid, label, fieldKey: key, page: p.length && p[p.length - 1].page === 'right' ? 'right' : 'left' }];
+      });
+    } else if (pickerFor !== null) {
+      updateCol(pickerFor, { fieldKey: key, label });
+    }
+    setPickerFor(null);
   };
 
   const save = async () => {
@@ -160,6 +194,7 @@ export default function CreateCustomLogbook() {
           flightKey: e.fieldKey ? flightKeyForField(e.fieldKey) : undefined,
           format,
           width: widthFor(format),
+          ...(format === 'date' ? { date_format: e.dateFormat || 'iso' } : {}),
         };
       };
       const id = await makeUniqueCustomTemplateId(finalName);
@@ -168,7 +203,7 @@ export default function CreateCustomLogbook() {
         name: finalName,
         rows_per_spread: Math.max(1, rows),
         language: 'en',
-        time_format: timeFormat,
+        time_format: 'decimal', // tidsformat styrs globalt (ingen toggle här)
         left_columns: cols.filter((c) => c.page === 'left').map(toCol),
         right_columns: cols.filter((c) => c.page === 'right').map(toCol),
         summary_layout: 'bottom',
@@ -219,35 +254,28 @@ export default function CreateCustomLogbook() {
         <Text style={s.label}>{sv ? 'Bokens namn' : 'Book name'}</Text>
         <TextInput style={s.input} value={name} onChangeText={setName} placeholder={sv ? 'Min loggbok' : 'My logbook'} placeholderTextColor={Colors.textMuted} />
 
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.label}>{sv ? 'Rader per uppslag' : 'Rows per spread'}</Text>
-            <View style={s.stepper}>
-              <TouchableOpacity style={s.stepBtn} onPress={() => setRows((r) => Math.max(1, r - 1))}><Ionicons name="remove" size={16} color={Colors.textPrimary} /></TouchableOpacity>
-              <Text style={s.stepVal}>{rows}</Text>
-              <TouchableOpacity style={s.stepBtn} onPress={() => setRows((r) => r + 1)}><Ionicons name="add" size={16} color={Colors.textPrimary} /></TouchableOpacity>
-            </View>
-          </View>
-          <View style={{ flex: 1.4 }}>
-            <Text style={s.label}>{sv ? 'Tidsformat' : 'Time format'}</Text>
-            <View style={s.segRow}>
-              {(['decimal', 'hhmm'] as const).map((k) => (
-                <TouchableOpacity key={k} style={[s.segBtn, timeFormat === k && s.segActive]} onPress={() => setTimeFormat(k)}>
-                  <Text style={[s.segTxt, timeFormat === k && s.segTxtActive]}>{k === 'decimal' ? '1.5' : '1:30'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        <View style={{ marginTop: 14 }}>
+          <Text style={s.label}>{sv ? 'Rader per uppslag' : 'Rows per spread'}</Text>
+          <View style={s.stepper}>
+            <TouchableOpacity style={s.stepBtn} onPress={() => setRows((r) => Math.max(1, r - 1))}><Ionicons name="remove" size={16} color={Colors.textPrimary} /></TouchableOpacity>
+            <Text style={s.stepVal}>{rows}</Text>
+            <TouchableOpacity style={s.stepBtn} onPress={() => setRows((r) => r + 1)}><Ionicons name="add" size={16} color={Colors.textPrimary} /></TouchableOpacity>
           </View>
         </View>
 
         <Text style={[s.label, { marginTop: 18 }]}>{sv ? `Kolumner (${cols.length})` : `Columns (${cols.length})`}</Text>
-        <Text style={s.hint}>{sv ? 'Tryck på fältet för att ändra vad kolumnen innehåller. L/H = vänster/höger sida.' : 'Tap the field to change what the column holds. L/R = left/right page.'}</Text>
+        <Text style={s.hint}>{sv ? 'Lägg till kolumner från den kategoriserade listan. Tryck på ett fält för att byta. V/H = vänster/höger sida.' : 'Add columns from the categorised list. Tap a field to swap it. L/R = left/right page.'}</Text>
 
         {cols.map((c, i) => (
           <View key={c.uid} style={s.colCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.colNum}>{i + 1}</Text>
-              <TextInput style={s.colLabel} value={c.label} onChangeText={(v) => updateCol(c.uid, { label: v })} placeholder="Label" placeholderTextColor={Colors.textMuted} />
+              {/* Fältnamnet kommer från datalistan (tryck för att byta) — inga egna namn. */}
+              <TouchableOpacity style={s.fieldBtnFlex} onPress={() => setPickerFor(c.uid)} activeOpacity={0.8}>
+                <Ionicons name="pricetag-outline" size={13} color={c.fieldKey ? Colors.primary : Colors.textMuted} />
+                <Text style={[s.fieldTxt, !c.fieldKey && { color: Colors.textMuted }]} numberOfLines={1}>{c.fieldKey ? labelForField(c.fieldKey) : (sv ? 'Välj fält' : 'Choose field')}</Text>
+                <Ionicons name="chevron-down" size={13} color={Colors.textMuted} />
+              </TouchableOpacity>
               <View style={s.pageSeg}>
                 {(['left', 'right'] as const).map((pg) => (
                   <TouchableOpacity key={pg} style={[s.pageBtn, c.page === pg && s.pageBtnActive]} onPress={() => updateCol(c.uid, { page: pg })}>
@@ -256,11 +284,23 @@ export default function CreateCustomLogbook() {
                 ))}
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <TouchableOpacity style={s.fieldBtn} onPress={() => setPickerFor(c.uid)} activeOpacity={0.8}>
-                <Ionicons name="pricetag-outline" size={13} color={c.fieldKey ? Colors.primary : Colors.textMuted} />
-                <Text style={[s.fieldTxt, !c.fieldKey && { color: Colors.textMuted }]}>{c.fieldKey ? labelForField(c.fieldKey) : (sv ? 'Omappad (fri)' : 'Unmapped (free)')}</Text>
-              </TouchableOpacity>
+            {/* Datumformat — ordning dag/månad/år (bara date-kolumnen) */}
+            {c.fieldKey === 'date' && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={s.dateFmtLabel}>{sv ? 'Datumformat' : 'Date format'}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
+                  {DATE_FORMATS.map((df) => {
+                    const active = (c.dateFormat || 'iso') === df.key;
+                    return (
+                      <TouchableOpacity key={df.key} style={[s.dfChip, active && s.dfChipActive]} onPress={() => updateCol(c.uid, { dateFormat: df.key })} activeOpacity={0.8}>
+                        <Text style={[s.dfChipTxt, active && s.dfChipTxtActive]}>{df.ex}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={() => moveCol(c.uid, -1)} hitSlop={6} style={s.iconBtn}><Ionicons name="chevron-up" size={16} color={Colors.textSecondary} /></TouchableOpacity>
               <TouchableOpacity onPress={() => moveCol(c.uid, 1)} hitSlop={6} style={s.iconBtn}><Ionicons name="chevron-down" size={16} color={Colors.textSecondary} /></TouchableOpacity>
@@ -278,20 +318,28 @@ export default function CreateCustomLogbook() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Fält-väljare */}
+      {/* Kategori-väljare: välj kolumn ur appens datafält (grupperat, redan använda döljs) */}
       <Modal visible={pickerFor !== null} transparent animationType="slide" onRequestClose={() => setPickerFor(null)}>
         <TouchableOpacity style={s.modalBg} activeOpacity={1} onPress={() => setPickerFor(null)}>
           <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>{sv ? 'Vad innehåller kolumnen?' : 'What does this column hold?'}</Text>
-            <ScrollView style={{ maxHeight: 420 }}>
-              <TouchableOpacity style={s.optRow} onPress={() => { if (pickerFor !== null) updateCol(pickerFor, { fieldKey: '' }); setPickerFor(null); }}>
-                <Text style={[s.optTxt, { color: Colors.textMuted }]}>{sv ? 'Omappad (fri kolumn)' : 'Unmapped (free column)'}</Text>
-              </TouchableOpacity>
-              {FIELD_OPTIONS.map((o) => (
-                <TouchableOpacity key={o.key} style={s.optRow} onPress={() => { if (pickerFor !== null) updateCol(pickerFor, { fieldKey: o.key, label: o.label }); setPickerFor(null); }}>
-                  <Text style={s.optTxt}>{o.label}</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={s.modalTitle}>{sv ? 'Välj kolumn' : 'Add column'}</Text>
+            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
+              {FIELD_CATEGORIES.map((cat) => {
+                const usedKeys = new Set(cols.filter((c) => pickerFor === 'add' || c.uid !== pickerFor).map((c) => c.fieldKey));
+                const keys = cat.keys.filter((k) => !usedKeys.has(k));
+                if (keys.length === 0) return null;
+                return (
+                  <View key={cat.en} style={{ marginBottom: 8 }}>
+                    <Text style={s.catTitle}>{sv ? cat.sv : cat.en}</Text>
+                    {keys.map((k) => (
+                      <TouchableOpacity key={k} style={s.optRow} onPress={() => pickField(k)} activeOpacity={0.7}>
+                        <Text style={s.optTxt}>{labelForField(k)}</Text>
+                        <Ionicons name="add" size={16} color={Colors.primary} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                );
+              })}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -348,7 +396,8 @@ const s = StyleSheet.create({
   pageTxt: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800' },
   pageTxtActive: { color: Colors.textInverse },
   fieldBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '12', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.primary + '33' },
-  fieldTxt: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
+  fieldBtnFlex: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary + '12', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderColor: Colors.primary + '33' },
+  fieldTxt: { flex: 1, color: Colors.primary, fontSize: 13, fontWeight: '700' },
   iconBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
 
   addColBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '44', borderStyle: 'dashed', marginTop: 4 },
@@ -357,6 +406,12 @@ const s = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: '#0008', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, paddingBottom: 28 },
   modalTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
-  optRow: { paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
+  optRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
   optTxt: { color: Colors.textPrimary, fontSize: 14.5 },
+  catTitle: { color: Colors.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 10, marginBottom: 2 },
+  dateFmtLabel: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 },
+  dfChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border },
+  dfChipActive: { backgroundColor: Colors.primary + '22', borderColor: Colors.primary },
+  dfChipTxt: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  dfChipTxtActive: { color: Colors.primary },
 });

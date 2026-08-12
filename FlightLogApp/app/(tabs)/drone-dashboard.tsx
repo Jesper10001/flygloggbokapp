@@ -1,33 +1,84 @@
-// Drönar-dashboard — layout A (editorial stack), navy bas + trådbar accent.
-// Hero total-tid → kategori-mix (donut) → flygmoder → kartkort → senaste flygningar.
-// (Kartkortet är en preview i Fas 1; native-kartan kopplas in i Fas 2.)
+// Drönar-dashboard — VISUELL TVILLING till manned (app/(tabs)/index.tsx). Exakt samma
+// sektioner i samma ordning: greeting → stressindikator (workload-telemetripanel) →
+// Latest flight-karusell → log-flight-rad (scan · B-logga · fysisk bok) → fotokarusell
+// → glob (heatmap + ripples). Navy via DR (= NavyColors) + användarens accent.
+// Fonter = manned dashboard: Georgia (serif) · Menlo (mono) · DSEG7 (LED).
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions,
+  Dimensions, Alert, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 
 import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
+import { Colors } from '../../constants/colors'; // stress-panelen använder EXAKT manned-tokens (paritet)
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
-import { listDrones, type DroneFlight } from '../../db/drones';
+import { getDroneStressHours, type DroneFlight } from '../../db/drones';
+import { getSetting } from '../../db/flights';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import { useTranslation } from '../../hooks/useTranslation';
+import { FONT_LED7, ledGlow } from '../../components/logflight/tokens';
+import { categoryLabel } from '../../constants/droneCategories';
+import { DroneDashboardGlobe } from '../../components/DroneDashboardGlobe';
+import { GlobalMapModal } from '../../components/GlobalMapModal';
+import { OpenAipMapModal } from '../../components/OpenAipMapModal';
 
-const SERIF = 'Fraunces';
-const MONO = 'JetBrainsMono';
+const SERIF = 'Georgia';
+const MONO = 'Menlo';
 
-const CAT_COLORS: Record<string, string> = {
-  Specific: '#FF8C42', A2: '#FFC857', A3: '#7FA8C8', A1: '#5A7FA0', Certified: '#A855F7',
-};
-const CAT_ORDER = ['Specific', 'A2', 'A3', 'A1', 'Certified'];
-const CAT_FALLBACK = ['#5A7FA0', '#7FA8C8', '#A8BFD6', '#FFC857', '#A855F7'];
-const MODE_ORDER: ('VLOS' | 'EVLOS' | 'BVLOS')[] = ['VLOS', 'EVLOS', 'BVLOS'];
+// ── Stress-helpers (klon av manned) ─────────────────────────────────────────
+type StressZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
+type StressData = { index: number; zone: StressZone; hours14: number; baseline14: number; advice: string };
+
+function computeStress(recent14: number, yearAvg14: number): StressData {
+  const ratio = yearAvg14 > 0 ? recent14 / yearAvg14 : recent14 > 0 ? 2 : 0;
+  const index = Math.round(ratio * 100);
+  const zone: StressZone =
+    index <= 29 ? 'low' : index <= 69 ? 'light' : index <= 130 ? 'normal'
+    : index <= 169 ? 'elevated' : index <= 200 ? 'high' : 'critical';
+  const adviceMap: Record<StressZone, string> = {
+    low: 'Low activity. Consider a refresher if returning to ops.',
+    light: 'Below average activity. Ideal time to refresh skills and techniques.',
+    normal: 'Balanced workload. Maintaining currency well.',
+    elevated: 'Above average. Ensure adequate rest between flights.',
+    high: 'High workload. Monitor fatigue and plan recovery days.',
+    critical: 'Very high workload. Consider reducing tempo to manage fatigue risk.',
+  };
+  return { index, zone, hours14: recent14, baseline14: yearAvg14, advice: adviceMap[zone] };
+}
+// Zonfärger = EXAKT manned (Colors), inte DR/accent → identisk stress-panel.
+function zoneColor(zone: StressZone): string {
+  if (zone === 'low') return Colors.textMuted;
+  if (zone === 'light') return Colors.primary;
+  if (zone === 'normal') return Colors.success;
+  if (zone === 'elevated') return Colors.warning;
+  return Colors.danger; // high / critical
+}
+
+function StressRing({ stress, size = 110 }: { stress: StressData; size?: number }) {
+  const r = (size - 12) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(stress.index, 240) / 240;
+  const color = zoneColor(stress.zone);
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={Colors.separator} strokeWidth={6} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={6} fill="none"
+          strokeDasharray={`${circ * pct} ${circ * (1 - pct)}`} strokeDashoffset={circ * 0.25}
+          strokeLinecap="round" rotation={-90} origin={`${size / 2}, ${size / 2}`} />
+      </Svg>
+      <Text style={{ fontSize: size > 100 ? 26 : 20, fontWeight: '900', color, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>{stress.index}%</Text>
+      <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginTop: 2 }}>{stress.zone.toUpperCase()}</Text>
+    </View>
+  );
+}
 
 function relDate(iso: string): string {
   if (!iso) return '';
@@ -40,74 +91,47 @@ function relDate(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
-const missionIcon = (m: string): any => {
-  if (m === 'Mapping' || m === 'Survey') return 'map-outline';
-  if (m === 'Film' || m === 'Photo / Video') return 'camera-outline';
-  return 'git-network-outline';
-};
-
 export default function DroneDashboardScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights, stats, loadFlights, loadStats } = useDroneFlightStore();
-  const [droneCount, setDroneCount] = useState(0);
+  const [profileName, setProfileName] = useState('');
+  const [stress, setStress] = useState<StressData>(computeStress(0, 0));
+  const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
+  const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
+  const [globalMapOpen, setGlobalMapOpen] = useState(false);
+  const [openAipOpen, setOpenAipOpen] = useState(false);
+  const globeMenuAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(globeMenuAnim, { toValue: globeMenuOpen ? 1 : 0, duration: globeMenuOpen ? 240 : 160, useNativeDriver: true }).start();
+  }, [globeMenuOpen, globeMenuAnim]);
 
   useFocusEffect(useCallback(() => {
     loadAccent();
     loadFlights();
     loadStats();
-    listDrones().then((d) => setDroneCount(d.length)).catch(() => {});
+    getSetting('profile_first_name').then((n) => setProfileName(n ?? '')).catch(() => {});
+    getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14))).catch(() => {});
   }, [loadAccent, loadFlights, loadStats]));
 
-  const droneById = useMemo(() => {
-    // Visningsetikett per flygning (registrering › modell › fri text).
-    return (f: DroneFlight) => f.registration || f.drone_type || '—';
-  }, []);
-
-  // ── Aggregat ur flights ──
-  const last30Decimal = useMemo(() => {
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-    const cut = cutoff.toISOString().slice(0, 10);
-    return flights.filter((f) => f.date >= cut).reduce((s, f) => s + (f.total_time || 0), 0);
-  }, [flights]);
-
-  const categories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const f of flights) { const k = f.category || '—'; counts[k] = (counts[k] || 0) + 1; }
-    const keys = Object.keys(counts).sort((a, b) => {
-      const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
-    let fb = 0;
-    return keys.map((k) => ({ key: k, count: counts[k], color: CAT_COLORS[k] || CAT_FALLBACK[fb++ % CAT_FALLBACK.length] }));
-  }, [flights]);
-
-  const modes = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const f of flights) { const k = f.flight_mode || 'VLOS'; counts[k] = (counts[k] || 0) + 1; }
-    const total = flights.length || 1;
-    return MODE_ORDER.map((k) => ({ key: k, count: counts[k] || 0, pct: Math.round(((counts[k] || 0) / total) * 100) }))
-      .filter((m) => m.count > 0);
-  }, [flights]);
-
-  const siteCount = useMemo(() => {
-    const set = new Set(flights.map((f) => (f.location || '').trim().toLowerCase()).filter(Boolean));
-    return set.size;
-  }, [flights]);
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    const g = h < 12 ? t('good_morning') : h < 18 ? t('good_afternoon') : t('good_evening');
+    return profileName ? `${g}, ${profileName}` : g;
+  }, [profileName, t]);
 
   const recent = flights.slice(0, 5);
-  const totalFlights = stats?.total_flights ?? flights.length;
+  const zc = zoneColor(stress.zone);
 
   // ── Tom-läge ──
   if ((stats?.total_flights ?? flights.length) === 0) {
     return (
-      <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
+      <View style={[s.screen, s.center]}>
         <View style={[s.iconCircle, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent) }]}>
-          <Ionicons name="airplane-outline" size={30} color={accent} />
+          <Ionicons name="hardware-chip-outline" size={30} color={accent} />
         </View>
         <Text style={s.emptyTitle}>{t('no_flights') ?? 'No drone flights yet'}</Text>
         <TouchableOpacity style={[s.cta, { backgroundColor: accent }]} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.85}>
@@ -118,171 +142,236 @@ export default function DroneDashboardScreen() {
     );
   }
 
+  // Zon-färger = EXAKT manned (index.tsx), inte DR/accent.
+  const zones = [
+    { max: 29, c: '#6B7280' }, { max: 69, c: Colors.primary }, { max: 130, c: Colors.success },
+    { max: 169, c: Colors.warning }, { max: 200, c: Colors.danger },
+  ];
+  const needlePct = Math.min(stress.index, 200) / 200;
+
   return (
-    <ScrollView style={s.screen} contentContainerStyle={{ padding: 16, paddingBottom: 28, gap: 10 }}>
-      {/* ── Hero total-tid ── */}
-      <View style={[s.card, s.heroGlow, { borderColor: accentLine(accent), shadowColor: accent }]}>
-        <View style={[s.glowBlob, { backgroundColor: accentSoft(accent) }]} pointerEvents="none" />
-        <View style={s.rowBetween}>
-          <Text style={s.label}>TOTAL FLIGHT TIME</Text>
-          <View style={[s.chip, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent) }]}>
-            <Ionicons name="hardware-chip-outline" size={11} color={accent} />
-            <Text style={[s.chipText, { color: accent }]}>{droneCount} ACTIVE</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
-          <Text style={s.heroNum}>{decimalToHHMM(stats?.total_time ?? 0)}</Text>
-          <Text style={[s.heroUnit, { color: accent }]}>H:MM</Text>
-        </View>
-        <View style={{ flexDirection: 'row', marginTop: 16 }}>
-          {[
-            { v: decimalToHHMM(stats?.year_to_date ?? 0), k: 'THIS YEAR' },
-            { v: String(totalFlights), k: 'FLIGHTS' },
-            { v: decimalToHHMM(last30Decimal), k: 'LAST 30 D' },
-          ].map((c, i) => (
-            <View key={c.k} style={{ flex: 1, paddingLeft: i ? 14 : 0, borderLeftWidth: i ? 1 : 0, borderLeftColor: DR.separator }}>
-              <Text style={s.trioVal}>{c.v}</Text>
-              <Text style={s.trioKey}>{c.k}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+    <ScrollView style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed}>
+      {/* ── 1. Greeting ── */}
+      <Text style={s.greeting}>{greeting}</Text>
 
-      {/* ── Kategori-mix ── */}
-      {categories.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.label}>CATEGORY MIX</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12 }}>
-            <Donut segments={categories} centerTop={String(categories.length)} centerBottom="CATS" />
-            <View style={{ flex: 1, gap: 8 }}>
-              {categories.map((c) => {
-                const tot = categories.reduce((s2, x) => s2 + x.count, 0) || 1;
-                return (
-                  <View key={c.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: c.color }} />
-                    <Text style={[s.legendKey, { flex: 1 }]} numberOfLines={1}>{c.key}</Text>
-                    <Text style={s.legendPct}>{Math.round((c.count / tot) * 100)}%</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+      {/* ── 1b. Stressindikator (workload-telemetripanel, klon av manned) ── */}
+      <View style={s.telPanel}>
+        <View style={s.telGaugeHeader}>
+          <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+          <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
         </View>
-      )}
-
-      {/* ── Flygmoder ── */}
-      {modes.length > 0 && (
-        <View style={s.card}>
-          <Text style={s.label}>FLIGHT MODES</Text>
-          <View style={{ gap: 13, marginTop: 12 }}>
-            {modes.map((m) => (
-              <View key={m.key} style={{ gap: 6 }}>
-                <View style={s.rowBetween}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                    <Ionicons name={m.key === 'BVLOS' ? 'cellular-outline' : 'eye-outline'} size={13} color={accent} />
-                    <Text style={s.modeKey}>{m.key}</Text>
-                    <Text style={s.modeCount}>{m.count} flt</Text>
-                  </View>
-                  <Text style={[s.modePct, { color: accent }]}>{m.pct}%</Text>
-                </View>
-                <View style={s.track}>
-                  <View style={{ width: `${m.pct}%`, height: '100%', borderRadius: 99, backgroundColor: accent }} />
-                </View>
+        {/* Zon-bar med nål */}
+        <View style={s.telGaugeTrack}>
+          {zones.map((z, i) => {
+            const from = i === 0 ? 0 : zones[i - 1].max;
+            const isActive = (stress.index >= from && stress.index < z.max) || (i === zones.length - 1 && stress.index >= from);
+            return <View key={i} style={{ flex: z.max - from, backgroundColor: z.c, opacity: isActive ? 0.75 : 0.08, borderRadius: isActive ? 5 : 0 }} />;
+          })}
+          <View style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 1.5, backgroundColor: Colors.textPrimary, opacity: 0.4 }} />
+          <View style={{ position: 'absolute', left: `${needlePct * 100}%`, top: -3, width: 14, height: 14, borderRadius: 7, marginLeft: -7, backgroundColor: zc, borderWidth: 2, borderColor: Colors.background, shadowColor: zc, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 4 }} />
+        </View>
+        {/* Ring + readouts */}
+        <View style={s.telPctRow}>
+          <StressRing stress={stress} size={110} />
+          <View style={{ flex: 1, gap: 6 }}>
+            {[
+              { l: 'TOTAL', v: decimalToHHMM(stats?.total_time ?? 0), c: Colors.gold },
+              { l: 'YTD', v: decimalToHHMM(stats?.year_to_date ?? 0), c: Colors.primary },
+              { l: '14D / AVG', v: `${decimalToHHMM(stress.hours14)} / ${decimalToHHMM(stress.baseline14)}`, c: zc },
+            ].map((m) => (
+              <View key={m.l} style={s.telReadout}>
+                <Text style={s.telReadoutLabel}>{m.l}</Text>
+                <Text style={[s.telReadoutValue, { color: m.c }]}>{m.v}</Text>
               </View>
             ))}
           </View>
         </View>
-      )}
-
-      {/* ── Kartkort (preview; native karta i Fas 2) ── */}
-      <TouchableOpacity style={[s.card, { padding: 0, overflow: 'hidden' }]} onPress={() => router.push('/drone-map')} activeOpacity={0.85}>
-        <View style={{ height: 120, backgroundColor: DR.bgDeep, justifyContent: 'flex-end' }}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: accentSoft(accent), opacity: 0.5 }]} pointerEvents="none" />
-          <View style={{ position: 'absolute', top: 10, left: 12 }}>
-            <View style={[s.chip, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent) }]}>
-              <Ionicons name="location-outline" size={11} color={accent} />
-              <Text style={[s.chipText, { color: accent }]}>{siteCount} SITES</Text>
-            </View>
-          </View>
-          <View style={{ padding: 14, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={s.mapTitle}>Where you've flown</Text>
-              <Text style={s.mapSub}>GPS PER FLIGHT</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={DR.text3} />
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* ── Senaste flygningar ── */}
-      <View style={{ marginTop: 4 }}>
-        <View style={[s.rowBetween, { marginBottom: 10 }]}>
-          <Text style={s.label}>RECENT FLIGHTS</Text>
-          <TouchableOpacity onPress={() => router.push('/drone-log')} activeOpacity={0.7}>
-            <Text style={[s.allLink, { color: accent }]}>ALL →</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
-          {recent.map((f, i) => (
-            <TouchableOpacity
-              key={f.id}
-              activeOpacity={0.7}
-              onPress={() => router.push(`/drone-flight/${f.id}`)}
-              style={[s.recentRow, i ? { borderTopWidth: 1, borderTopColor: DR.separator } : null]}
-            >
-              <View style={[s.recentIcon, { backgroundColor: DR.elevated }]}>
-                <Ionicons name={missionIcon(f.mission_type)} size={17} color={accent} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  <Text style={s.recentMission}>{f.mission_type || 'Flight'}</Text>
-                  <View style={[s.miniChip, f.flight_mode === 'BVLOS'
-                    ? { backgroundColor: 'rgba(255,200,87,0.12)', borderColor: 'rgba(255,200,87,0.4)' }
-                    : { backgroundColor: 'rgba(127,168,200,0.08)', borderColor: DR.border }]}>
-                    <Text style={[s.miniChipText, { color: f.flight_mode === 'BVLOS' ? DR.warning : DR.text3 }]}>{f.flight_mode}</Text>
-                  </View>
-                </View>
-                <Text style={s.recentMeta} numberOfLines={1}>{droneById(f)} · {f.location || '—'}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={s.recentTime}>{decimalToMMSS(f.total_time || 0)}</Text>
-                <Text style={s.recentDate}>{relDate(f.date)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+        {/* Advice */}
+        <View style={[s.telAdvice, { borderLeftColor: zc, backgroundColor: zc + '10' }]}>
+          <Ionicons name="pulse" size={12} color={zc} />
+          <Text style={s.telAdviceText}>{stress.advice}</Text>
         </View>
       </View>
+
+      {/* ── 2. Latest flight-karusell ── */}
+      {recent.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={width - 24} decelerationRate="fast">
+            {recent.map((f, idx) => (
+              <View key={f.id} style={{ width: width - 24 }}>
+                <DroneLatestFlightCard flight={f} accent={accent} showLabel={idx === 0} onPress={() => router.push(`/drone-flight/${f.id}`)} />
+              </View>
+            ))}
+          </ScrollView>
+          {recent.length > 1 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 2 }}>
+              {recent.map((_, i) => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: i === 0 ? accent : DR.border }} />)}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
+      <View style={s.logRow}>
+        <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
+          onPress={() => Alert.alert('Instrument scan', 'Coming soon — scan your controller/app screen to auto-fill a flight.')}>
+          <Ionicons name="scan-outline" size={22} color={accent} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>
+          <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <Ionicons name="add-circle" size={18} color={accent} />
+          <Text style={[s.addBtnText, { color: accent }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} onPress={() => router.push('/drone-logbook?recent=1')} activeOpacity={0.85}>
+          <Ionicons name="book" size={22} color={accent} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── 4. Fotokarusell ── */}
+      <View style={{ marginTop: 16 }}>
+        <DronePhotoCarousel accent={accent} />
+      </View>
+
+      {/* ── 5. Glob (heatmap + ripples, drönar-GPS) + kart-val-meny (= manned) ── */}
+      <View style={{ marginTop: 8, marginHorizontal: -12, alignItems: 'center' }}>
+        <View style={{ width: '100%', alignItems: 'center' }}>
+          <DroneDashboardGlobe onGrab={setGlobeGrabbed} onTap={() => setGlobeMenuOpen((v) => !v)} />
+          <Animated.View
+            pointerEvents={globeMenuOpen ? 'auto' : 'none'}
+            style={{
+              position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+              alignItems: 'center', justifyContent: 'center',
+              opacity: globeMenuAnim,
+              transform: [{ translateY: globeMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+            }}
+          >
+            <View style={{ width: '82%', maxWidth: 320, gap: 10 }}>
+              <TouchableOpacity onPress={() => setGlobeMenuOpen(false)} activeOpacity={0.85} hitSlop={10}
+                style={{ alignSelf: 'flex-start', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+                <Ionicons name="close" size={18} color="#fff" />
+              </TouchableOpacity>
+              <MapMenuButton accent={accent} icon="navigate" title="Visited sites" sub="Where you've flown"
+                onPress={() => { setGlobeMenuOpen(false); router.push('/drone-map'); }} />
+              <MapMenuButton accent={accent} icon="globe" title="Global map" sub="All the worlds airports & airfields"
+                onPress={() => { setGlobeMenuOpen(false); setGlobalMapOpen(true); }} />
+              <MapMenuButton accent={accent} icon="layers-outline" title="OpenAIP" sub="Airspaces & airfields overlay"
+                onPress={() => { setGlobeMenuOpen(false); setOpenAipOpen(true); }} />
+            </View>
+          </Animated.View>
+        </View>
+      </View>
+
+      {/* Återanvända kartor (identiska med manned) */}
+      <GlobalMapModal visible={globalMapOpen} onClose={() => setGlobalMapOpen(false)} />
+      <OpenAipMapModal visible={openAipOpen} onClose={() => setOpenAipOpen(false)} />
     </ScrollView>
   );
 }
 
-function Donut({ segments, centerTop, centerBottom }: { segments: { key: string; count: number; color: string }[]; centerTop: string; centerBottom: string }) {
-  const size = 116, stroke = 13;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const total = segments.reduce((s2, x) => s2 + x.count, 0) || 1;
-  let offset = 0;
+// Kart-val-knapp i globmenyn (= manned AirportMapWidget/GlobalMapButton-pill, DR-accent).
+function MapMenuButton({ accent, icon, title, sub, onPress }: { accent: string; icon: any; title: string; sub: string; onPress: () => void }) {
   return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={DR.separator} strokeWidth={stroke} />
-        {segments.map((seg) => {
-          const dash = circ * (seg.count / total);
-          const el = (
-            <Circle
-              key={seg.key}
-              cx={size / 2} cy={size / 2} r={r} fill="none"
-              stroke={seg.color} strokeWidth={stroke}
-              strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset}
-            />
-          );
-          offset += dash;
-          return el;
-        })}
-      </Svg>
-      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ fontFamily: SERIF, fontSize: 26, fontWeight: '500', color: DR.text }}>{centerTop}</Text>
-        <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, color: DR.muted, marginTop: 3 }}>{centerBottom}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}
+      style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: accent + '66' }}>
+      <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: accent + '22' }}>
+        <Ionicons name={icon} size={18} color={accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: accent, fontSize: 14, fontWeight: '800' }}>{title}</Text>
+        <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '500', marginTop: 1 }}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
+    </TouchableOpacity>
+  );
+}
+
+// Latest flight-hero — klon av LatestFlightCard med drönar-data.
+function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress }: {
+  flight: DroneFlight; accent: string; showLabel: boolean; onPress: () => void;
+}) {
+  const d = new Date((f.date || '') + 'T00:00:00');
+  const dateLabel = isNaN(d.getTime()) ? '' :
+    `${String(d.getDate()).padStart(2, '0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+  const strip: [string, string][] = [
+    ['Category', f.category ? categoryLabel(f.category) : '—'],
+    ['Drone', f.registration || f.drone_type || '—'],
+    ['Mode', f.flight_mode || 'VLOS'],
+    ['Mission', f.mission_type || '—'],
+    ['Night', f.is_night ? 'Yes' : 'No'],
+  ];
+  return (
+    <View style={{ paddingHorizontal: 2, paddingBottom: 4 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
+        <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
+          {showLabel && <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
+          <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
+          <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
+          <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: '600', color: DR.text }} numberOfLines={1}>{f.mission_type || 'Flight'}</Text>
+          <View style={{ flex: 1 }} />
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontFamily: MONO, fontSize: 17, fontWeight: '700', color: DR.text }}>{decimalToMMSS(f.total_time || 0)}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 9, color: DR.muted }}>FLIGHT TIME</Text>
+          </View>
+        </View>
+        <Text numberOfLines={1} style={{ fontSize: 11.5, color: DR.text3, paddingHorizontal: 14, paddingBottom: 10 }}>
+          {(f.registration || f.drone_type || '—')} · {f.location || '—'}
+        </Text>
+        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: accent + '33' }}>
+          {strip.map(([k, v], i) => (
+            <View key={k} style={{ flex: 1, paddingVertical: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: accent + '22', alignItems: 'center' }}>
+              <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: DR.warning }}>{k}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: DR.text, marginTop: 3 }}>{v}</Text>
+            </View>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// Fotokarusell — klon av manned FlightPhotoCarousel-struktur. Drönar-flygningar lagrar
+// inga foton ännu → visar platshållar-kort + sida 2 (drönar-media kommer). Samma chrome.
+function DronePhotoCarousel({ accent }: { accent: string }) {
+  const [page, setPage] = useState(0);
+  const screenW = Dimensions.get('window').width;
+  const GAP = 12;
+  const CARD_W = screenW - 24;
+  const SNAP = CARD_W + GAP;
+  return (
+    <View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={SNAP} decelerationRate="fast"
+        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / SNAP))}>
+        <View style={{ width: CARD_W }}>
+          <View style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <Ionicons name="images-outline" size={30} color={accent} />
+            <Text style={{ fontFamily: SERIF, fontSize: 15, color: DR.text }}>Flight media</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: DR.muted }}>ATTACH PHOTOS — COMING SOON</Text>
+          </View>
+        </View>
+        <View style={{ width: GAP }} />
+        <View style={{ width: CARD_W }}>
+          <View style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, flexDirection: 'row' }}>
+            {[
+              { icon: 'images-outline', label: 'Album' },
+              { icon: 'sync-outline', label: 'Photo sync' },
+              { icon: 'share-social-outline', label: 'Share card' },
+            ].map((a, i) => (
+              <View key={a.label} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, borderLeftWidth: i ? 1 : 0, borderLeftColor: DR.separator }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: accent + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={a.icon as any} size={21} color={accent} />
+                </View>
+                <Text style={{ color: DR.text, fontSize: 11.5, fontWeight: '700' }}>{a.label}</Text>
+                <Text style={{ color: DR.muted, fontSize: 8.5, fontWeight: '700' }}>SOON</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+        {[0, 1].map((i) => <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? accent : DR.border }} />)}
       </View>
     </View>
   );
@@ -296,39 +385,23 @@ const s = StyleSheet.create({
   cta: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 22 },
   ctaText: { fontSize: 15, fontWeight: '800' },
 
-  card: { backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 16, padding: 16, position: 'relative' },
-  heroGlow: { overflow: 'hidden', shadowOpacity: 0.35, shadowRadius: 30, shadowOffset: { width: 0, height: 14 } },
-  glowBlob: { position: 'absolute', top: -50, right: -30, width: 180, height: 180, borderRadius: 90 },
+  greeting: { fontSize: 28, fontWeight: '700', color: DR.text, letterSpacing: -0.8, marginBottom: 16, fontFamily: SERIF },
 
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.8, color: DR.text3 },
+  // Telemetripanel = EXAKT manned telPanel (index.tsx): fonter/färger/borders identiska.
+  telPanel: { borderRadius: 16, overflow: 'hidden', backgroundColor: Colors.background, borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },
+  telGaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  telGaugeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1.2, fontFamily: 'Menlo' },
+  telGaugeZone: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' },
+  telGaugeTrack: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'visible', backgroundColor: Colors.separator, position: 'relative' },
+  telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  telReadout: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: Colors.background + 'CC', borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder },
+  telReadoutLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },
+  telReadoutValue: { fontSize: 16, fontWeight: '800', fontFamily: FONT_LED7 },
+  telAdvice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 8, borderRadius: 8, borderLeftWidth: 3 },
+  telAdviceText: { flex: 1, fontSize: 11, color: Colors.textPrimary, lineHeight: 16 },
 
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  chipText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1 },
-
-  heroNum: { fontFamily: SERIF, fontSize: 56, fontWeight: '500', letterSpacing: -1.5, color: DR.text, fontVariant: ['tabular-nums'] },
-  heroUnit: { fontFamily: MONO, fontSize: 14, fontWeight: '700', letterSpacing: 1 },
-  trioVal: { fontFamily: MONO, fontSize: 16, fontWeight: '700', color: DR.text, fontVariant: ['tabular-nums'] },
-  trioKey: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1, color: DR.muted, marginTop: 3 },
-
-  legendKey: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: DR.text2 },
-  legendPct: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: DR.text, fontVariant: ['tabular-nums'] },
-
-  modeKey: { fontFamily: MONO, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.4, color: DR.text },
-  modeCount: { fontSize: 11, color: DR.muted },
-  modePct: { fontFamily: MONO, fontSize: 11, fontWeight: '700' },
-  track: { height: 5, borderRadius: 99, backgroundColor: DR.separator, overflow: 'hidden' },
-
-  mapTitle: { fontFamily: SERIF, fontSize: 15, fontWeight: '500', color: DR.text },
-  mapSub: { fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: DR.muted, marginTop: 2 },
-
-  allLink: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8 },
-  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
-  recentIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  recentMission: { fontSize: 13.5, fontWeight: '600', color: DR.text },
-  miniChip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  miniChipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
-  recentMeta: { fontFamily: MONO, fontSize: 10, color: DR.text3, marginTop: 2 },
-  recentTime: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: DR.text, fontVariant: ['tabular-nums'] },
-  recentDate: { fontFamily: MONO, fontSize: 9, color: DR.muted, marginTop: 2 },
+  logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16 },
+  sideBtn: { width: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border },
+  addBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: DR.border, overflow: 'hidden' },
+  addBtnText: { fontSize: 15, fontWeight: '800' },
 });
