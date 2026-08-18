@@ -8,14 +8,14 @@
 //   <DayNightMap embedded points={[...]} date depUtc arrUtc />   — bara kartan (inbäddad i formulär)
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Image } from 'react-native';
 import MapView, { Marker, Polyline, Polygon, type Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { getAirportCoordinates } from '../db/icao';
 import { buildInstants } from '../utils/flightTime';
-import { nightRings, sampleTimedRoute, positionAtMs, vertexArrivalTimes, classifySun, type SunState } from '../utils/dayNight';
+import { nightRings, sampleTimedRoute, positionAtMs, vertexArrivalTimes, classifySun, destPointDeg, type SunState } from '../utils/dayNight';
 import type { Flight } from '../types/flight';
 
 const MONO = 'JetBrainsMono';
@@ -39,7 +39,29 @@ export interface DayNightMapProps {
   arrUtc?: string;
   flightType?: string;
   embedded?: boolean;
+  /** Out-and-back-radie (NM) runt EN plats (dep = arr) → ritas som cirkel = flygenvelop. */
+  circleNM?: number;
+  /** Cirkelns centrum (flygplatsen) — annars används första punkten. */
+  circleCenter?: { lat: number; lon: number };
+  /** Valt väderstreck (bäring 0–315°) i cirkeln; highlightas. */
+  selectedBearing?: number | null;
+  /** Callback när man klickar en väderstreck-sektor i cirkeln. */
+  onPickBearing?: (bearing: number) => void;
+  /** Farkost-glyf som "flyger" rutten (nosen mot färdriktningen). Samma bild som dep/arr-connectorn. */
+  vehicle?: 'heli' | 'plane';
 }
+
+const COMPASS: [string, number][] = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
+const RAD = Math.PI / 180;
+// Initial bäring A→B (grader, 0 = norr) för att rotera farkosten mot färdriktningen.
+function bearingDeg(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const p1 = aLat * RAD, p2 = bLat * RAD, dl = (bLon - aLon) * RAD;
+  const y = Math.sin(dl) * Math.cos(p2);
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.atan2(y, x) / RAD + 360) % 360;
+}
+// Samma bilder som dep/arr-connectorn; nosen pekar UPP (norr) vid 0° → rotera med bäringen.
+const VEHICLE_IMG = { heli: require('../assets/Pilot-helicopter.PNG'), plane: require('../assets/Pilot-fixedwing.PNG') };
 
 function DayNightMapBase(props: DayNightMapProps) {
   const { t } = useTranslation();
@@ -48,6 +70,9 @@ function DayNightMapBase(props: DayNightMapProps) {
   const depUtc = props.depUtc ?? props.flight?.dep_utc ?? '';
   const arrUtc = props.arrUtc ?? props.flight?.arr_utc ?? '';
   const flightType = props.flightType ?? props.flight?.flight_type;
+  const circleNM = props.circleNM ?? 0;
+  const onPickBearing = props.onPickBearing;
+  const selectedBearing = props.selectedBearing ?? null;
   const placeCodes = props.flight
     ? ([props.flight.dep_place, props.flight.stop_place, props.flight.arr_place].filter(Boolean) as string[])
     : [];
@@ -91,6 +116,19 @@ function DayNightMapBase(props: DayNightMapProps) {
     return seq.filter((p, i) => i === 0 || p.icao !== seq[i - 1].icao);
   }, [props.points, coords, codeKey, stopDwell]);
 
+  // Cirkelns centrum (flygplatsen) + öst/väst-radie i grader → för cirkel + väderstreck-sektorer.
+  const cCenter = props.circleCenter ?? (legs[0] ? { lat: legs[0].lat, lon: legs[0].lon } : null);
+  const rDeg = circleNM / 60;
+  const showSectors = circleNM > 0 && !!cCenter && !!onPickBearing;
+  const sectorCoords = (bearing: number) => {
+    const pts = [{ latitude: cCenter!.lat, longitude: normLon(cCenter!.lon) }];
+    for (let a = bearing - 22.5; a <= bearing + 22.5 + 0.001; a += 7.5) {
+      const p = destPointDeg(cCenter!.lat, cCenter!.lon, a, rDeg);
+      pts.push({ latitude: p.lat, longitude: normLon(p.lon) });
+    }
+    return pts;
+  };
+
   const times = useMemo(() => buildInstants(dateStr, depUtc, arrUtc, 0), [dateStr, depUtc, arrUtc]);
   const depMs = times ? times.dep.getTime() : 0;
   const arrMs = times ? times.arr.getTime() : 0;
@@ -108,13 +146,18 @@ function DayNightMapBase(props: DayNightMapProps) {
       umin = Math.min(umin, u); umax = Math.max(umax, u);
       latmin = Math.min(latmin, route[i].lat); latmax = Math.max(latmax, route[i].lat);
     }
-    return {
-      latitude: (latmin + latmax) / 2,
-      longitude: normLon((umin + umax) / 2),
-      latitudeDelta: Math.max(2, Math.min(150, (latmax - latmin) * 1.25 + 3)),
-      longitudeDelta: Math.max(2, Math.min(330, (umax - umin) * 1.25 + 4)),
-    };
-  }, [route]);
+    const latC = (latmin + latmax) / 2;
+    let latD = Math.max(2, Math.min(150, (latmax - latmin) * 1.25 + 3));
+    let lonD = Math.max(2, Math.min(330, (umax - umin) * 1.25 + 4));
+    // Rama in out-and-back-cirkeln (radie NM → grader) med marginal.
+    if (circleNM > 0) {
+      const rDeg = circleNM / 60;
+      const cosl = Math.max(0.2, Math.cos(latC * Math.PI / 180));
+      latD = Math.min(150, Math.max(latD, rDeg * 2.6));
+      lonD = Math.min(330, Math.max(lonD, (rDeg * 2.6) / cosl));
+    }
+    return { latitude: latC, longitude: normLon((umin + umax) / 2), latitudeDelta: latD, longitudeDelta: lonD };
+  }, [route, circleNM]);
 
   // färgade rutt-segment per soltillstånd (bryt vid datumlinje)
   const runs = useMemo(() => {
@@ -142,7 +185,8 @@ function DayNightMapBase(props: DayNightMapProps) {
       if (i === 0) m.dep = true; if (i === legs.length - 1) m.arr = true;
       map.set(key, m);
     });
-    return [...map.values()];
+    // Släng vändpunkter utan riktig etikett (t.ex. out-and-back-kantens index "1").
+    return [...map.values()].filter((m) => m.dep || m.arr || !/^\d+$/.test(m.icao));
   }, [legs]);
 
   const scrubMs = depMs + frac * dur;
@@ -168,6 +212,16 @@ function DayNightMapBase(props: DayNightMapProps) {
   const nightPolys = useMemo(() => night ? night.rings.map((r) => r.map((p) => ({ latitude: p.lat, longitude: normLon(p.lon) }))) : [], [night]);
   const sub = night?.sub ?? twilight?.sub ?? null;
   const plane = useMemo(() => positionAtMs(legs, dur, frac * dur), [legs, dur, frac]);
+  // Färdriktning = bäringen på det ben figuren är på just nu (glitchfritt vid vändpunkten).
+  const planeHeading = useMemo(() => {
+    if (legs.length < 2 || dur <= 0) return 0;
+    const vt = vertexArrivalTimes(legs, depMs, arrMs);
+    let seg = 0;
+    for (let i = 0; i < legs.length - 1; i++) if (scrubMs >= vt[i]) seg = i;
+    const a = legs[seg], b = legs[seg + 1];
+    if (a.lat === b.lat && a.lon === b.lon) return 0;
+    return bearingDeg(a.lat, a.lon, b.lat, b.lon);
+  }, [legs, depMs, arrMs, scrubMs, dur]);
 
   // Tidslinjens färg (day/dusk/night) över TID — inkl. dwell vid stopp. Oberoende av frac.
   const timeSegs = useMemo(() => {
@@ -237,6 +291,25 @@ function DayNightMapBase(props: DayNightMapProps) {
           {nightPolys.map((coordinates, i) => (
             <Polygon key={'n' + i} coordinates={coordinates} fillColor="rgba(6,11,22,0.62)" strokeColor="transparent" strokeWidth={0} zIndex={2} />
           ))}
+          {/* Väderstreck-sektorer (klickbara) = flygenvelopen (radie = flygtid × marschfart / 2 NM).
+              Välj hållet du flög → figuren flyger ut till kanten och hem. */}
+          {showSectors ? COMPASS.map(([, b]) => {
+            const sel = selectedBearing === b;
+            return (
+              <Polygon key={'sec' + b} coordinates={sectorCoords(b)} tappable onPress={() => onPickBearing!(b)}
+                fillColor={sel ? 'rgba(63,224,255,0.26)' : 'rgba(63,224,255,0.05)'}
+                strokeColor={sel ? C_PLANE : 'rgba(63,224,255,0.30)'} strokeWidth={sel ? 1.4 : 0.6} zIndex={2} />
+            );
+          }) : null}
+          {showSectors ? COMPASS.map(([lbl, b]) => {
+            const p = destPointDeg(cCenter!.lat, cCenter!.lon, b, rDeg * 0.72);
+            const sel = selectedBearing === b;
+            return (
+              <Marker key={'secl' + b} coordinate={{ latitude: p.lat, longitude: normLon(p.lon) }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={5} onPress={() => onPickBearing!(b)}>
+                <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '800', color: sel ? C_PLANE : '#9FB4C8' }}>{lbl}</Text>
+              </Marker>
+            );
+          }) : null}
           {runs.map((r, i) => (
             <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3} zIndex={3} />
           ))}
@@ -258,8 +331,13 @@ function DayNightMapBase(props: DayNightMapProps) {
               <Text style={{ fontSize: 20 }}>☀️</Text>
             </Marker>
           ) : null}
-          <Marker coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} flat zIndex={6}>
-            <View style={s.planeDiamond} />
+          {/* Farkosten "flyger" rutten; nosen roteras mot färdriktningen via bild-transform.
+              key inkluderar bäringen (avrundad) → ny snapshot tas när riktningen ändras (vändpunkten),
+              annars är den fryst för prestanda medan positionen uppdateras nativt. */}
+          <Marker key={`${props.vehicle ?? 'plane'}-${Math.round(planeHeading / 3)}`} coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={6}>
+            <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Image source={VEHICLE_IMG[props.vehicle ?? 'plane']} style={{ width: 30, height: 30, tintColor: C_PLANE, transform: [{ rotate: `${planeHeading}deg` }] }} resizeMode="contain" />
+            </View>
           </Marker>
         </MapView>
       </View>

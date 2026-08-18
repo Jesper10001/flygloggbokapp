@@ -13,8 +13,6 @@ import { getRegistrationHours, updateAircraftFleetFields, persistAircraftFleetLo
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
-import { ratingStatus, ratingMeta } from './fleetTypeRating';
-import { RatingModal } from './RatingModal';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
@@ -59,9 +57,10 @@ export function FleetCard({ ac, accent, current, onSaved }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [showRating, setShowRating] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
+  // Bibliotek-väljaren visas FÖRST efter en hämtning som inte hittade någon bild online.
+  const [triedFetch, setTriedFetch] = useState(false);
   const { isPremium, isMax } = useFlightStore();
   const [regs, setRegs] = useState<{ registration: string; hours: number }[]>([]);
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
@@ -151,11 +150,13 @@ export function FleetCard({ ac, accent, current, onSaved }: {
     try {
       const r = await enrichAircraftFleet(ac.aircraft_type);
       await persistAircraftFleetLookup(ac.aircraft_type, r);
+      if (!r.image_url) setTriedFetch(true); // ingen bild online → visa bibliotek-väljaren som reserv
       onSaved();
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremium(true);
       } else {
+        setTriedFetch(true); // hämtning misslyckades → erbjud bibliotek-väljaren
         Alert.alert('Lookup failed', e?.message || 'Could not fetch aircraft data. Check your connection and try again.');
       }
     } finally {
@@ -175,10 +176,8 @@ export function FleetCard({ ac, accent, current, onSaved }: {
     }
   };
 
-  const hasRating = !!(ac.rating_class || ac.rating_expiry);
-  const rt = ratingMeta(ratingStatus(ac.rating_expiry), Colors);
   const shownRegs = showAll ? regs : regs.slice(0, 3);
-  const makerLine = [ac.maker, ac.rating_class].filter(Boolean).join(' · ');
+  const makerLine = ac.maker || '';
 
   // Lätt utzoomning (1.05×) så hela farkosten syns; vertikalt centrerad med liten
   // uppåt-bias så motivet (cutout) ändå spiller något nedåt över kortkanten.
@@ -236,12 +235,15 @@ export function FleetCard({ ac, accent, current, onSaved }: {
           </View>
         ) : null}
 
-        {/* bild-knappar uppe till höger: byt foto + hämta */}
+        {/* bild-knappar uppe till höger: hämta (alltid) + bibliotek-väljare
+            (visas FÖRST efter en hämtning utan träff online). */}
         <View style={{ position: 'absolute', top: 10, right: 12, zIndex: 4, flexDirection: 'row', gap: 6 }}>
-          <TouchableOpacity onPress={pickImage} activeOpacity={0.8}
-            style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="image-outline" size={15} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          {triedFetch && !ac.image_url ? (
+            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}
+              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="image-outline" size={15} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={fetchData} disabled={fetching} activeOpacity={0.8}
             style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
             {fetching ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name={ac.image_url ? 'refresh' : 'cloud-download-outline'} size={15} color={accent} />}
@@ -251,28 +253,10 @@ export function FleetCard({ ac, accent, current, onSaved }: {
 
       {/* ── Innehåll ── */}
       <View style={{ paddingHorizontal: 15, paddingBottom: 14, paddingTop: cutout ? 26 : 13, position: 'relative', zIndex: 1 }}>
-        {/* header: modell + maker·class · rating */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 13 }}>
-          <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-            <Text style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
-            {makerLine ? <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text> : null}
-          </View>
-          <TouchableOpacity onPress={() => setShowRating(true)} activeOpacity={0.7} style={{ alignItems: 'flex-end', gap: 3 }}>
-            {hasRating ? (
-              <>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: rt.color + '1F', borderWidth: 1, borderColor: rt.color + '66' }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: rt.color }} />
-                  <Text style={{ fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', color: rt.color }}>{rt.label}</Text>
-                </View>
-                {ac.rating_expiry ? <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted }}>Rating exp {ac.rating_expiry}</Text> : null}
-              </>
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: accent + '66', borderRadius: 999, paddingLeft: 7, paddingRight: 10, paddingVertical: 4 }}>
-                <Ionicons name="add" size={11} color={accent} />
-                <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', color: accent }}>Add rating</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        {/* header: modell + maker·class (typ-rating borttagen inför lansering) */}
+        <View style={{ marginBottom: 13 }}>
+          <Text style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
+          {makerLine ? <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text> : null}
         </View>
 
         {/* total on type */}
@@ -342,16 +326,6 @@ export function FleetCard({ ac, accent, current, onSaved }: {
           </TouchableOpacity>
         </View>
       </View>
-
-      <RatingModal
-        visible={showRating}
-        title={`${ac.aircraft_type} rating`}
-        initialName={ac.rating_class || `${ac.aircraft_type} type rating`}
-        initialExpiry={ac.rating_expiry || ''}
-        accent={accent}
-        onSave={async (name, expiry) => { await updateAircraftFleetFields(ac.aircraft_type, { rating_class: name, rating_expiry: expiry }); setShowRating(false); onSaved(); }}
-        onClose={() => setShowRating(false)}
-      />
 
       <PremiumModal visible={showPremium} onClose={() => setShowPremium(false)} feature="Aircraft data lookup" />
     </View>

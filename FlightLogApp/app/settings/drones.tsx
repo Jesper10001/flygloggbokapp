@@ -11,11 +11,11 @@ import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
   listDrones, addDrone, updateDrone, deleteDrone, getDroneUsage,
-  listBatteries, addBattery, updateBattery, deleteBattery,
-  type DroneRegistryEntry, type DroneBattery, type DroneCategory, type DroneType,
+  type DroneRegistryEntry, type DroneCategory, type DroneType,
 } from '../../db/drones';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
 import { DroneCategoryPicker } from '../../components/DroneCategoryPicker';
+import { DroneModal } from '../../components/DroneModal';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { categoryLabel } from '../../constants/droneCategories';
 import * as ImagePicker from 'expo-image-picker';
@@ -109,11 +109,12 @@ export default function DronesScreen() {
         <Text style={styles.addBtnText}>{t('add_drone')}</Text>
       </TouchableOpacity>
 
-      <DroneFormModal
+      {/* Add drone → smart search (samma modal som Log Flight). Registrering/kategori
+          fylls i efteråt genom att öppna drönaren i redigeraren nedan. */}
+      <DroneModal
         visible={adding}
-        initial={null}
         onClose={() => setAdding(false)}
-        onSaved={async () => { await load(); setAdding(false); }}
+        onSave={async (data) => { await addDrone(data); await load(); setAdding(false); }}
       />
       <DroneFormModal
         visible={!!editing}
@@ -142,7 +143,6 @@ function DroneFormModal({
   const [mtow, setMtow] = useState('');
   const [category, setCategory] = useState<DroneCategory>(pilotType === 'military' ? '' : 'A1');
   const [notes, setNotes] = useState('');
-  const [batteries, setBatteries] = useState<DroneBattery[]>([]);
   const [scanning, setScanning] = useState(false);
   const { isPremium, isMax } = useFlightStore();
 
@@ -220,7 +220,6 @@ function DroneFormModal({
       setMtow(String(initial.mtow_g || ''));
       setCategory(initial.category || (pilotType === 'military' ? '' : 'A1'));
       setNotes(initial.notes);
-      listBatteries(initial.id).then(setBatteries);
     } else {
       setDroneType('multirotor');
       setModel('');
@@ -228,7 +227,6 @@ function DroneFormModal({
       setMtow('');
       setCategory(pilotType === 'military' ? '' : 'A1');
       setNotes('');
-      setBatteries([]);
     }
   }, [visible, initial?.id]);
 
@@ -247,7 +245,7 @@ function DroneFormModal({
       return;
     }
     if (initial) await updateDrone(initial.id, data);
-    else await addDrone(data, 2);
+    else await addDrone(data);
     onSaved();
   };
 
@@ -257,13 +255,6 @@ function DroneFormModal({
       { text: t('cancel'), style: 'cancel' },
       { text: t('delete'), style: 'destructive', onPress: async () => { await deleteDrone(initial.id); onSaved(); } },
     ]);
-  };
-
-  const addBat = async () => {
-    if (!initial) return;
-    const idx = batteries.length + 1;
-    await addBattery(initial.id, `Battery #${idx}`);
-    setBatteries(await listBatteries(initial.id));
   };
 
   return (
@@ -366,35 +357,6 @@ function DroneFormModal({
               placeholderTextColor={Colors.textMuted}
               multiline
             />
-
-            {initial && (
-              <>
-                <Text style={[styles.label, { marginTop: 16 }]}>{t('batteries')}</Text>
-                {batteries.map((b) => (
-                  <BatteryRow
-                    key={b.id}
-                    battery={b}
-                    onChange={async (label, serial, cycles, health) => {
-                      await updateBattery(b.id, label, serial, cycles, health);
-                      setBatteries(await listBatteries(initial.id));
-                    }}
-                    onDelete={async () => {
-                      Alert.alert(t('delete'), b.label, [
-                        { text: t('cancel'), style: 'cancel' },
-                        { text: t('delete'), style: 'destructive', onPress: async () => {
-                          await deleteBattery(b.id);
-                          setBatteries(await listBatteries(initial.id));
-                        } },
-                      ]);
-                    }}
-                  />
-                ))}
-                <TouchableOpacity style={styles.secondaryBtn} onPress={addBat} activeOpacity={0.8}>
-                  <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.secondaryBtnText}>{t('add_battery')}</Text>
-                </TouchableOpacity>
-              </>
-            )}
           </ScrollView>
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
@@ -425,63 +387,6 @@ function DroneFormModal({
         </InputAccessoryView>
       )}
     </Modal>
-  );
-}
-
-function BatteryRow({ battery, onChange, onDelete }: {
-  battery: DroneBattery;
-  onChange: (label: string, serial: string, cycles: number, health: number) => Promise<void>;
-  onDelete: () => void;
-}) {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const [label, setLabel] = useState(battery.label);
-  const [serial, setSerial] = useState(battery.serial);
-  const [cycles, setCycles] = useState(String(battery.cycle_count));
-  const [health, setHealth] = useState(String(battery.health ?? 100));
-
-  const commit = () => onChange(label, serial, parseInt(cycles, 10) || 0, Math.max(0, Math.min(100, parseInt(health, 10) || 100)));
-
-  return (
-    <View style={styles.batteryRow}>
-      <View style={{ flex: 1, gap: 4 }}>
-        <TextInput style={styles.inputSm} value={label} onChangeText={setLabel} onBlur={commit} placeholderTextColor={Colors.textMuted} />
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <TextInput
-            style={[styles.inputSm, { flex: 1 }]}
-            value={serial}
-            onChangeText={setSerial}
-            onBlur={commit}
-            placeholder={t('serial_ph')}
-            placeholderTextColor={Colors.textMuted}
-          />
-          <TextInput
-            style={[styles.inputSm, { width: 60 }]}
-            value={cycles}
-            onChangeText={(v) => setCycles(v.replace(/\D/g, ''))}
-            onBlur={commit}
-            placeholder="0"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="number-pad"
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-            <TextInput
-              style={[styles.inputSm, { width: 48 }]}
-              value={health}
-              onChangeText={(v) => setHealth(v.replace(/\D/g, ''))}
-              onBlur={commit}
-              placeholder="100"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-            />
-            <Text style={{ color: Colors.textMuted, fontSize: 12 }}>%</Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity onPress={onDelete} style={{ padding: 6 }}>
-        <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-      </TouchableOpacity>
-    </View>
   );
 }
 
@@ -518,11 +423,6 @@ function makeStyles() {
       borderWidth: 1, borderColor: Colors.border,
       color: Colors.textPrimary, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9,
     },
-    inputSm: {
-      backgroundColor: Colors.elevated, borderRadius: 7,
-      borderWidth: 0.5, borderColor: Colors.border,
-      color: Colors.textPrimary, fontSize: 13, paddingHorizontal: 8, paddingVertical: 6,
-    },
     segRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     segBtn: {
       paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7,
@@ -531,18 +431,6 @@ function makeStyles() {
     segBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
     segText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
     segTextActive: { color: Colors.textInverse },
-
-    batteryRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      marginTop: 6,
-    },
-    secondaryBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-      paddingVertical: 10, borderRadius: 8, marginTop: 8,
-      backgroundColor: Colors.primary + '14',
-      borderWidth: 1, borderColor: Colors.primary + '44',
-    },
-    secondaryBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
 
     saveBtn: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

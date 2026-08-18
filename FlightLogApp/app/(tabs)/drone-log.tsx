@@ -1,4 +1,4 @@
-// Drönar-Log — två sub-flikar: Flights (månadsgrupperat) + Fleet (drönare + batterier).
+// Drönar-Log — två sub-flikar: Flights (månadsgrupperat) + Fleet (drönare).
 // Navy bas + trådbar accent. Per-flygning visas i MM:SS, totaler i H:MM.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,12 +15,13 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
-  listDrones, listBatteries, getDroneUsage,
-  type DroneFlight, type DroneRegistryEntry, type DroneBattery,
+  getDroneFleetByModel, addDrone,
+  type DroneFlight, type DroneModelFleet,
 } from '../../db/drones';
 import { categoryLabel } from '../../constants/droneCategories';
-import { batteryCondition, DEFAULT_RATED_CYCLES, type BatteryConditionKey } from '../../constants/droneBattery';
 import { DroneBookView } from '../../components/logbook-page/DroneBookView';
+import { DroneFleetCard } from '../../components/logbook-page/DroneFleetCard';
+import { DroneModal } from '../../components/DroneModal';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -283,9 +284,10 @@ function DroneMonthYearHeatmap({ flights, accent, sel, setSel }: {
   flights: DroneFlight[]; accent: string; sel: { y: number; m: number }; setSel: (s: { y: number; m: number }) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Timmar per månad (= pilot MonthYearHeatmap) — inte antal flygningar.
   const monthly = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const f of flights) { const k = (f.date || '').slice(0, 7); if (k.length === 7) m[k] = (m[k] || 0) + 1; }
+    for (const f of flights) { const k = (f.date || '').slice(0, 7); if (k.length === 7) m[k] = (m[k] || 0) + (f.total_time || 0); }
     return m;
   }, [flights]);
   const curY = new Date().getFullYear();
@@ -314,7 +316,7 @@ function DroneMonthYearHeatmap({ flights, accent, sel, setSel }: {
                   style={{ flex: 1, aspectRatio: 1, borderRadius: 4, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: v > 0 ? accent + Math.round(intensity * 255).toString(16).padStart(2, '0') : DR.separator,
                     borderWidth: active ? 1.5 : 0, borderColor: active ? DR.text : 'transparent' }}>
-                  {v > 0 ? <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', color: intensity > 0.5 ? DR.inkOnAccent : DR.text2 }}>{v}</Text> : null}
+                  {v > 0 ? <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', color: intensity > 0.55 ? DR.inkOnAccent : DR.text2 }}>{Math.round(v)}</Text> : null}
                 </TouchableOpacity>
               );
             })}
@@ -331,7 +333,8 @@ function DroneMonthYearHeatmap({ flights, accent, sel, setSel }: {
 }
 
 // Isometrisk almanacka (klon av manned IsoMonth) — 3D-dagstaplar för vald månad,
-// stapelhöjd = antal flygningar den dagen. Tap på en dag → detaljpanel.
+// stapelhöjd + etikett = flugna TIMMAR den dagen (X.Xh). Tier-färg på rekorddagar
+// (all-time=lila, årets=guld, månadens=silver), = pilot. Tap på en dag → detaljpanel.
 const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
 const ordDay = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accent: string; sel: { y: number; m: number } }) {
@@ -340,18 +343,36 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
   useEffect(() => { setDay(null); }, [y, m]);
   const nDays = daysInMonth(y, m);
 
-  // Flugna MINUTER per dag i vald månad (stapelhöjd + etikett = min/dag).
-  const counts = useMemo(() => {
+  // Flugna TIMMAR per dag i vald månad (stapelhöjd + etikett = h/dag), = pilot IsoMonth.
+  const days = useMemo(() => {
     const out = Array(nDays).fill(0);
     const prefix = `${y}-${String(m + 1).padStart(2, '0')}`;
     for (const f of flights) {
-      if ((f.date || '').slice(0, 7) === prefix) { const d = Number((f.date || '').slice(8, 10)); if (d >= 1 && d <= nDays) out[d - 1] += (f.total_time || 0) * 60; }
+      if ((f.date || '').slice(0, 7) === prefix) { const d = Number((f.date || '').slice(8, 10)); if (d >= 1 && d <= nDays) out[d - 1] += (f.total_time || 0); }
     }
-    return out.map((v) => Math.round(v));
+    return out;
   }, [flights, y, m, nDays]);
-  const max = Math.max(...counts, 1);
+  const max = Math.max(...days, 0.1);
   let maxDay = 0, maxV = 0;
-  counts.forEach((v: number, i: number) => { if (v > maxV) { maxV = v; maxDay = i + 1; } });
+  days.forEach((v: number, i: number) => { if (v > maxV) { maxV = v; maxDay = i + 1; } });
+
+  // Rekord-dagar (all-time + årets bästa) för tier-färgning (= pilot: purple/gold/silver).
+  const dailyAll = useMemo(() => {
+    const mm: Record<string, number> = {};
+    for (const f of flights) { const d = (f.date || '').slice(0, 10); if (d.length === 10) mm[d] = (mm[d] || 0) + (f.total_time || 0); }
+    return mm;
+  }, [flights]);
+  const allTimeBestDate = useMemo(() => { let bd: string | null = null, bv = 0; for (const [d, h] of Object.entries(dailyAll)) if (h > bv) { bv = h; bd = d; } return bv > 0 ? bd : null; }, [dailyAll]);
+  const yearBestDate = useMemo(() => { let bd: string | null = null, bv = 0; for (const [d, h] of Object.entries(dailyAll)) if (d.slice(0, 4) === String(y) && h > bv) { bv = h; bd = d; } return bv > 0 ? bd : null; }, [dailyAll, y]);
+  const dateStr = (d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const tierFor = (d: number): 'alltime' | 'year' | 'month' | null => {
+    if (d !== maxDay || maxV <= 0) return null;
+    if (allTimeBestDate === dateStr(d)) return 'alltime';
+    if (yearBestDate === dateStr(d)) return 'year';
+    return 'month';
+  };
+  const HL: Record<'alltime' | 'year' | 'month', string> = { alltime: '#A855F7', year: '#FFB830', month: '#B5C8D8' };
+  const NOTE: Record<'alltime' | 'year' | 'month', string> = { alltime: 'Most all time', year: 'Most this year', month: 'Most this month' };
 
   // iso-projektion (= manned)
   const TW = 38, TH = 19, FW = 16, FH = 8, MAXBAR = 28;
@@ -359,9 +380,10 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
   const isoY = (c: number, r: number) => (c + r) * (TH / 2);
   const rgb = ((): [number, number, number] => { const n = parseInt(accent.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; })();
   const shade = (mult: number, a = 1) => `rgba(${Math.min(255, Math.round(rgb[0] * mult))},${Math.min(255, Math.round(rgb[1] * mult))},${Math.min(255, Math.round(rgb[2] * mult))},${a})`;
+  const shadeHex = (hex: string, mult: number, a = 1) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${Math.min(255, Math.round(((n >> 16) & 255) * mult))},${Math.min(255, Math.round(((n >> 8) & 255) * mult))},${Math.min(255, Math.round((n & 255) * mult))},${a})`; };
   const firstDow = (new Date(y, m, 1).getDay() + 6) % 7;
 
-  const bars = counts.map((v: number, d: number) => { const idx = firstDow + d; return { v, day: d + 1, col: idx % 7, row: Math.floor(idx / 7) }; });
+  const bars = days.map((v: number, d: number) => { const idx = firstDow + d; return { v, day: d + 1, col: idx % 7, row: Math.floor(idx / 7) }; });
   bars.sort((a, b) => (a.row + a.col) - (b.row + b.col));
 
   let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
@@ -386,18 +408,20 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
       );
       return;
     }
-    const isBest = b.day === maxDay && maxV > 0;
-    const topFill = isBest ? DR.warning : shade(0.7 + intensity * 0.55);
-    const leftFill = isBest ? shade(0.45) : shade(0.24 + intensity * 0.2);
-    const rightFill = isBest ? shade(0.72) : shade(0.46 + intensity * 0.32);
+    const tier = tierFor(b.day);
+    const topFill = tier ? shadeHex(HL[tier], 1.0) : shade(0.7 + intensity * 0.55);
+    const leftFill = tier ? shadeHex(HL[tier], 0.45) : shade(0.24 + intensity * 0.2);
+    const rightFill = tier ? shadeHex(HL[tier], 0.72) : shade(0.46 + intensity * 0.32);
+    const hLabel = `${b.v.toFixed(1)}h`;         // en decimal, t.ex. 2.6h (= pilot)
+    const hFs = hLabel.length <= 4 ? 7.5 : 6.5;  // krymp så 3 siffror får plats
     const isSel = day === b.day;
     polys.push(
       <G key={`b${k}`} onPress={() => setDay(b.day)}>
         <Polygon points={`${bx - FW},${by} ${bx},${by + FH} ${bx},${ty + FH} ${bx - FW},${ty}`} fill={leftFill} />
         <Polygon points={`${bx + FW},${by} ${bx},${by + FH} ${bx},${ty + FH} ${bx + FW},${ty}`} fill={rightFill} />
-        <Polygon points={`${bx - FW},${ty} ${bx},${ty - FH} ${bx + FW},${ty} ${bx},${ty + FH}`} fill={topFill} stroke={isSel ? DR.text : shade(1.1)} strokeWidth={isSel ? 2 : 0.5} />
+        <Polygon points={`${bx - FW},${ty} ${bx},${ty - FH} ${bx + FW},${ty} ${bx},${ty + FH}`} fill={topFill} stroke={isSel ? DR.text : (tier ? topFill : shade(1.1))} strokeWidth={isSel ? 2 : 0.5} />
         <G transform={`matrix(0.894 0.447 -0.894 0.447 ${bx} ${ty})`}>
-          <SvgText x={0} y={2} fontSize={7.5} fontFamily={MONO} fontWeight="700" fill={intensity > 0.55 || isBest ? DR.inkOnAccent : shade(0.2)} textAnchor="middle">{b.v}</SvgText>
+          <SvgText x={0} y={2} fontSize={hFs} fontFamily={MONO} fontWeight="700" fill={tier || intensity > 0.55 ? DR.inkOnAccent : shade(0.2)} textAnchor="middle">{hLabel}</SvgText>
         </G>
       </G>,
     );
@@ -427,10 +451,11 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
         <View style={{ marginTop: 4, backgroundColor: DR.bgDeep, borderWidth: 1, borderColor: accent, borderRadius: 12, padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
             <Text style={{ fontFamily: SERIF, fontSize: 16, fontWeight: '600', color: DR.text }}>{MONTHS[m]} {day}</Text>
-            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: accent }}>{Math.round(dayFlights.reduce((sm, f) => sm + (f.total_time || 0) * 60, 0))} min · {dayFlights.length} flight{dayFlights.length !== 1 ? 's' : ''}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: accent }}>{dayFlights.reduce((sm, f) => sm + (f.total_time || 0), 0).toFixed(1)}h · {dayFlights.length} flight{dayFlights.length !== 1 ? 's' : ''}</Text>
             <View style={{ flex: 1 }} />
             <TouchableOpacity onPress={() => setDay(null)}><Text style={{ color: DR.muted, fontFamily: MONO, fontSize: 12 }}>✕</Text></TouchableOpacity>
           </View>
+          {tierFor(day) && <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: HL[tierFor(day)!], marginBottom: 6 }}>● {NOTE[tierFor(day)!]}</Text>}
           {dayFlights.slice(0, 6).map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 }}>
               <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: accent, width: 60 }} numberOfLines={1}>{f.registration || f.drone_type || '—'}</Text>
@@ -445,99 +470,51 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
 }
 
 function FleetTab({ accent, onManage }: { accent: string; onManage: () => void }) {
-  const [drones, setDrones] = useState<DroneRegistryEntry[]>([]);
-  const [usage, setUsage] = useState<Record<number, { h: number; c: number }>>({});
-  const [batteries, setBatteries] = useState<{ b: DroneBattery; droneLabel: string }[]>([]);
+  const [models, setModels] = useState<DroneModelFleet[]>([]);
+  const [showAdd, setShowAdd] = useState(false); // "Add drone" → smart search (= Log Flight)
 
-  useFocusEffect(useCallback(() => {
-    (async () => {
-      const ds = await listDrones();
-      setDrones(ds);
-      const u = await getDroneUsage();
-      const um: Record<number, { h: number; c: number }> = {};
-      for (const row of u as any[]) um[row.id] = { h: row.total_time || 0, c: row.flight_count || 0 };
-      setUsage(um);
-      const bats: { b: DroneBattery; droneLabel: string }[] = [];
-      for (const d of ds) {
-        const list = await listBatteries(d.id);
-        for (const b of list) bats.push({ b, droneLabel: d.registration || d.model || `#${d.id}` });
-      }
-      setBatteries(bats);
-    })().catch(() => {});
-  }, []));
+  const load = useCallback(() => {
+    getDroneFleetByModel().then(setModels).catch(() => {});
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Kondition härleds ur cykler (självuppdaterande), inte det statiska health-fältet.
-  const condColor = (k: BatteryConditionKey) =>
-    k === 'good' ? DR.success : k === 'ageing' ? DR.warning : DR.danger;
-  const attention = batteries.filter(({ b }) => batteryCondition(b.cycle_count).needsAttention).length;
+  // getDroneFleetByModel sorterar redan senast-flugen först (nuvarande = index 0).
+  const totalH = models.reduce((sum, m) => sum + (m.total_hours || 0), 0);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 40, gap: 18 }}>
-      {/* Drönare */}
-      <View>
-        <SectionLabel accent={accent} action="+ ADD" onAction={onManage}>DRONES · {drones.length}</SectionLabel>
-        <View style={{ gap: 10 }}>
-          {drones.length === 0 ? (
-            <View style={s.empty}><Ionicons name="hardware-chip-outline" size={40} color={DR.muted} /><Text style={s.emptyText}>No drones yet</Text></View>
-          ) : drones.map((d) => {
-            const u = usage[d.id] ?? { h: 0, c: 0 };
-            const batCount = batteries.filter((x) => x.b.drone_id === d.id).length;
-            return (
-              <TouchableOpacity key={d.id} activeOpacity={0.7} onPress={onManage} style={[s.card, { flexDirection: 'row', alignItems: 'center', gap: 13 }]}>
-                <View style={[s.fleetIcon, { backgroundColor: DR.elevated }]}><Ionicons name="hardware-chip-outline" size={22} color={accent} /></View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.droneTitle} numberOfLines={1}>{d.model || d.registration || '—'}</Text>
-                  <Text style={s.droneMeta} numberOfLines={1}>
-                    {d.registration ? `${d.registration} · ` : ''}{u.c} flt · {decimalToHHMM(u.h)} h{batCount ? ` · ${batCount} batt` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={DR.muted} />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+    <>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
+      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: DR.muted, letterSpacing: 0.4, marginBottom: 12 }}>
+        {models.length} {models.length === 1 ? 'model' : 'models'} · {decimalToHHMM(totalH)} h total · by last flown
+      </Text>
 
-      {/* Batterier — kondition ur cykler (självuppdaterande), pension nära ~200 cykler */}
-      <View>
-        <SectionLabel accent={accent} action="+ ADD" onAction={onManage}>BATTERIES · {batteries.length}</SectionLabel>
-        {attention > 0 && (
-          <View style={s.attnBanner}>
-            <Ionicons name="warning-outline" size={14} color={DR.warning} />
-            <Text style={s.attnText}>{attention} {attention === 1 ? 'battery is' : 'batteries are'} near end of life — consider retiring</Text>
-          </View>
-        )}
-        {batteries.length === 0 ? (
-          <View style={s.empty}><Ionicons name="battery-half-outline" size={36} color={DR.muted} /><Text style={s.emptyText}>No batteries yet</Text></View>
-        ) : (
-          <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
-            {batteries.map(({ b, droneLabel }, i) => {
-              const cond = batteryCondition(b.cycle_count);
-              const col = condColor(cond.key);
-              return (
-                <View key={b.id} style={[s.batRow, i ? { borderTopWidth: 1, borderTopColor: DR.separator } : null]}>
-                  <Ionicons name={cond.key === 'good' ? 'battery-full-outline' : cond.key === 'retire' ? 'battery-dead-outline' : 'battery-half-outline'} size={20} color={col} />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={s.batLabel} numberOfLines={1}>{b.label || b.serial || `#${b.id}`}</Text>
-                    <Text style={s.batMeta} numberOfLines={1}>{droneLabel} · {b.cycle_count}/{DEFAULT_RATED_CYCLES} cycles</Text>
-                  </View>
-                  <View style={{ width: 104 }}>
-                    <View style={{ alignItems: 'flex-end', marginBottom: 5 }}>
-                      <View style={[s.cycChip, { borderColor: col + '66', backgroundColor: col + '1F' }]}>
-                        <Text style={[s.cycChipText, { color: col }]}>{cond.label}</Text>
-                      </View>
-                    </View>
-                    <View style={s.track}>
-                      <View style={{ width: `${cond.usedPct}%`, height: '100%', borderRadius: 99, backgroundColor: col }} />
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
+      {models.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 50 }}>
+          <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
+          <Text style={{ fontFamily: MONO, fontSize: 12, color: DR.muted, marginTop: 10 }}>No drones yet</Text>
+        </View>
+      ) : (
+        <View style={{ gap: 12 }}>
+          {models.map((m, i) => (
+            <DroneFleetCard key={m.model || m.id} m={m} accent={accent} current={i === 0 && !!m.last_flown} onSaved={load} onManage={onManage} />
+          ))}
+        </View>
+      )}
+
+      {/* Add drone → smart search direkt (samma modal som Log Flight) */}
+      <TouchableOpacity onPress={() => setShowAdd(true)} activeOpacity={0.8}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}>
+        <Ionicons name="add" size={18} color={accent} />
+        <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Add drone</Text>
+      </TouchableOpacity>
     </ScrollView>
+
+    <DroneModal
+      visible={showAdd}
+      onClose={() => setShowAdd(false)}
+      onSave={async (data) => { await addDrone(data); await load(); setShowAdd(false); }}
+    />
+    </>
   );
 }
 
@@ -548,15 +525,6 @@ function Chip({ text, tone, accent }: { text: string; tone: 'acc' | 'warn' | 'mu
   return (
     <View style={[s.chip, { backgroundColor: bg, borderColor: bd }]}>
       <Text style={[s.chipText, { color: c }]}>{text}</Text>
-    </View>
-  );
-}
-
-function SectionLabel({ children, accent, action, onAction }: { children: React.ReactNode; accent: string; action?: string; onAction?: () => void }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-      <Text style={s.label}>{children}</Text>
-      {action ? <TouchableOpacity onPress={onAction} hitSlop={8}><Text style={[s.action, { color: accent }]}>{action}</Text></TouchableOpacity> : null}
     </View>
   );
 }
@@ -593,19 +561,6 @@ const s = StyleSheet.create({
 
   chip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   chipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-
-  fleetIcon: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  droneTitle: { fontSize: 14, fontWeight: '600', color: DR.text },
-  droneMeta: { fontFamily: MONO, fontSize: 10, color: DR.text3, marginTop: 3 },
-
-  attnBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: DR.warning + '55', backgroundColor: DR.warning + '14' },
-  attnText: { flex: 1, color: DR.warning, fontSize: 11.5, fontWeight: '600', lineHeight: 15 },
-  batRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
-  batLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: DR.text },
-  batMeta: { fontFamily: MONO, fontSize: 9.5, color: DR.muted, marginTop: 2 },
-  cycChip: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  cycChipText: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
-  track: { height: 4, borderRadius: 99, backgroundColor: DR.separator, overflow: 'hidden' },
 
   fab: { position: 'absolute', right: 20, bottom: 28, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
 });

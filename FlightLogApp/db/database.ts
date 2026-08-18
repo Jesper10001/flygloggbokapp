@@ -102,15 +102,6 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
       UNIQUE(drone_type, registration)
     );
 
-    CREATE TABLE IF NOT EXISTS drone_batteries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      drone_id INTEGER NOT NULL,
-      label TEXT NOT NULL,
-      serial TEXT NOT NULL DEFAULT '',
-      cycle_count INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY (drone_id) REFERENCES drone_registry(id) ON DELETE CASCADE
-    );
-
     CREATE TABLE IF NOT EXISTS drone_certificates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cert_type TEXT NOT NULL,
@@ -137,16 +128,12 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
       is_night INTEGER NOT NULL DEFAULT 0,
       has_observer INTEGER NOT NULL DEFAULT 0,
       observer_name TEXT NOT NULL DEFAULT '',
-      battery_id INTEGER,
-      battery_start_cycles INTEGER NOT NULL DEFAULT 0,
       remarks TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (drone_id) REFERENCES drone_registry(id) ON DELETE SET NULL,
-      FOREIGN KEY (battery_id) REFERENCES drone_batteries(id) ON DELETE SET NULL
+      FOREIGN KEY (drone_id) REFERENCES drone_registry(id) ON DELETE SET NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_drone_flights_date ON drone_flights(date);
-    CREATE INDEX IF NOT EXISTS idx_drone_batteries_drone ON drone_batteries(drone_id);
   `);
 
   // Steg 2: Migrationer — lägg till nya kolumner om de saknas
@@ -298,9 +285,6 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'holds', `INTEGER NOT NULL DEFAULT 0`);
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'is_tailwheel', 'INTEGER NOT NULL DEFAULT 0');
 
-  // Batteri-hälsa (% state-of-health) för drönar-batterier
-  await addColumnIfMissingOnTable(db, 'drone_batteries', 'health', 'INTEGER NOT NULL DEFAULT 100');
-
   // Drönar-flygningar: klockslag (för natt-auto), separat landningspunkt (BVLOS/korridor)
   await addColumnIfMissingOnTable(db, 'drone_flights', 'takeoff_time', "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissingOnTable(db, 'drone_flights', 'landing_location', "TEXT NOT NULL DEFAULT ''");
@@ -321,6 +305,17 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'flight_rules', "TEXT NOT NULL DEFAULT 'VFR'");
   // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
+  // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'image_url', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'cutout_url', "TEXT NOT NULL DEFAULT ''");
+  // Fleet-specar (hämtas via AI-uppslag): tillverkare, C-klass (C0–C6), max flygtid (min),
+  // max hastighet (km/h), tjänstetak (m), länkräckvidd (km). Lagras per rad, grupperas per modell.
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'manufacturer', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'c_class', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'max_flight_min', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'max_speed_kmh', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'ceiling_m', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'range_km', 'REAL NOT NULL DEFAULT 0');
 
   // Papperloggböcker — referens för transkribering av digitala flygningar till papper
   await db.execAsync(`

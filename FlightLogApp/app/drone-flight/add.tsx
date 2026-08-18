@@ -10,9 +10,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
-  listDrones, listBatteries, insertDroneFlight, getDroneFlights,
+  listDrones, insertDroneFlight, getDroneFlights,
   getDroneFlightById, updateDroneFlight, getRecentDroneLocations, addDrone, updateDrone,
-  type DroneRegistryEntry, type DroneBattery, type DroneFlightFormData, type DroneFlightMode,
+  type DroneRegistryEntry, type DroneFlightFormData, type DroneFlightMode,
 } from '../../db/drones';
 import { DroneModal } from '../../components/DroneModal';
 import { SlideToggle } from '../../components/logflight/SlideToggle';
@@ -32,7 +32,6 @@ import { useLanguageStore } from '../../store/languageStore';
 import { classifySun, computeNightHoursTimed, type SunState } from '../../utils/dayNight';
 import { buildInstants } from '../../utils/flightTime';
 import { CondBar } from '../../components/logflight/CondBar';
-import { RETIRE_SOON_CYCLES } from '../../constants/droneBattery';
 
 const today = new Date().toISOString().split('T')[0];
 const nowHHMM = () => {
@@ -87,8 +86,8 @@ const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n
 // Dynamisk platstext-storlek (= pilot log flight): 19 (≤4 tecken) → 13 (≥12 tecken).
 const placeFontSize = (v: string) => 19 - Math.max(0, Math.min(v.length, 12) - 4) * 0.75;
 
-// Förvalda mission-typer. "Other" är INTE med här — den renderas som en egen chip som
-// öppnar en fritextruta (mission_type = valfri text). isOtherMission = !MISSION_TYPES.includes(...).
+// Förvalda mission-typer — snabbval i Mission-dropdownen överst. Fritextrutan tillåter
+// valfri egen text (mission_type = valfri sträng), så "Other" behövs inte längre.
 const MISSION_TYPES = ['Inspection', 'Mapping', 'Photo / Video', 'SAR', 'Training', 'Testing', 'Recreation'];
 const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 
@@ -120,8 +119,6 @@ export default function AddDroneFlightScreen() {
     is_night: false,
     has_observer: false,
     observer_name: '',
-    battery_id: null,
-    battery_start_cycles: '0',
     wind_ms: '',
     operation_type: '',
     landings_day: '',
@@ -137,11 +134,9 @@ export default function AddDroneFlightScreen() {
   });
 
   const [drones, setDrones] = useState<DroneRegistryEntry[]>([]);
-  const [batteries, setBatteries] = useState<DroneBattery[]>([]);
   const [saving, setSaving] = useState(false);
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
-  const [showBatteryPicker, setShowBatteryPicker] = useState(false);
   // Drönar-box (typ + registrering) — dropdown-flikar + "+" öppnar drönar-modalen.
   const [typeOpen, setTypeOpen] = useState(false);
   const [regOpen, setRegOpen] = useState(false);
@@ -150,45 +145,32 @@ export default function AddDroneFlightScreen() {
   // Pilot function (som pilot log flight): PIC / SIC / DUAL / INSTRUCTOR.
   const [role, setRole] = useState<'pic' | 'sic' | 'dual' | 'instructor'>('pic');
   const [passes, setPasses] = useState<string[]>(['']); // MM:SS per pass, max 5
-  // Mission "Other" = fritext: sant när mission_type inte är en förvald typ (inkl. tom vid nyval).
-  const isOtherMission = !MISSION_TYPES.includes(form.mission_type);
+  // Mission (överst): fritextruta + dropdown med förval (MISSION_TYPES).
+  const [showMissionPicker, setShowMissionPicker] = useState(false);
   // Log Flight-lyft: Quicklog (default nya) ↔ Full · natt-auto (override via manuell tap)
   const [logFull, setLogFull] = useState(isEdit);
   const [nightManual, setNightManual] = useState(isEdit);
   const [nightAuto, setNightAuto] = useState<SunState | null>(null);
   const [showLandingPoint, setShowLandingPoint] = useState(false);
-  // Full-läge route-hero: ankomst-/landningstid (HH:MM) driver total flygtid (dep→arr),
-  // exakt som pilot-manned. Redigerbar total (tap) speglar pilot-heron.
-  const [arrTime, setArrTime] = useState(''); // ankomsttid i UTC (loggbokens värde)
-  const [editingTotal, setEditingTotal] = useState(false);
-  const [totalEdit, setTotalEdit] = useState('');
+  // Full-läge route-hero: enskild plats (Location) + take-off-tid + FLYGTID per flygning.
+  // fullLegs[0] = 1:a flygningens varaktighet ("Flight time"); [1..] = extra flygningar (MM:SS).
+  const [fullLegs, setFullLegs] = useState<string[]>(['']);
   // Z (UTC) ↔ L (lokal): tider lagras alltid som UTC; L visar/matar lokalbuffert.
   const [timeMode, setTimeMode] = useState<'utc' | 'local'>('utc');
   const [depLocalBuf, setDepLocalBuf] = useState('');
-  const [arrLocalBuf, setArrLocalBuf] = useState('');
-  const [arrSuggest, setArrSuggest] = useState(false); // visar dep-plats som förslag i arrival
-  const [arrTouched, setArrTouched] = useState(false); // förslaget auto-fylls bara en gång
   const [showRegInput, setShowRegInput] = useState(false);
   const [regInput, setRegInput] = useState('');
   // Kondition-barer (VFR/IFR/Night): rå tid-inmatningsbuffert + scroll-lås under drag + natt-auto.
   const [condRaw, setCondRaw] = useState<Record<string, string>>({});
   const [scrollLocked, setScrollLocked] = useState(false);
   const [nightAutoLoading, setNightAutoLoading] = useState(false);
-  const [timeBoxH, setTimeBoxH] = useState(48); // uppmätt höjd på tidrutan → place-rutorna matchar exakt
-  const [barsH, setBarsH] = useState(0);        // uppmätt höjd på kondition-barerna (för reveal-animation)
+  const [timeBoxH, setTimeBoxH] = useState(48); // uppmätt höjd på tidrutan → matchande rutor
+  const [barsH, setBarsH] = useState(0);        // uppmätt höjd på kondition-barerna (reveal)
   const barsAnim = useRef(new Animated.Value(0)).current;
   const [recentPlaces, setRecentPlaces] = useState<string[]>([]);
   const [showDepDropdown, setShowDepDropdown] = useState(false);
-  // "+ Add Nth flight": snabb-logg av flera korta flygningar som en. Varje tillägg
-  // lägger sin flygtid ovanpå ankomsttiden → total uppdateras. extraFlights = antal tillagda.
-  const [extraFlights, setExtraFlights] = useState(0);
-  const [showAddFlight, setShowAddFlight] = useState(false);
-  const [addDur, setAddDur] = useState('');
-  // Auto-skifte mellan fälten (som pilot): dep place → dep time → arr place → arr time.
   const depPlaceRef = useRef<TextInput>(null);
   const depTimeRef = useRef<SmartTimeInputHandle>(null);
-  const arrPlaceRef = useRef<TextInput>(null);
-  const arrTimeRef = useRef<SmartTimeInputHandle>(null);
 
   // MM:SS → timmar. Ett halvinmatat pass ("5", inga siffror efter kolon ännu) tolkas
   // som minuter så totalen växer direkt och save inte blockeras felaktigt (review-fynd #5).
@@ -202,27 +184,23 @@ export default function AddDroneFlightScreen() {
 
   const totalDecimal = passesToDecimal(passes);
   const totalDisplay = decimalToMMSS(totalDecimal);
-  // Full: total = ankomst − take-off (som pilot-manned). Quick: summan av passen.
-  const routeTotal = calcFlightTime(form.takeoff_time ?? '', arrTime);
+  // Varaktighet (MM:SS, eller bara minuter innan kolon skrivits) → timmar.
+  const durToDec = (d: string) => { if (!d) return 0; if (d.includes(':')) return mmssToDecimal(d); const n = parseInt(d, 10) || 0; return n / 60; };
+  // Full: total = summan av flygningarnas varaktigheter (fullLegs). Quick: summan av passen.
+  const fullTotalDecimal = fullLegs.reduce((s, d) => s + durToDec(d), 0);
+  // Härledd ankomsttid (take-off + total) — bara för natt-auto-fönstret.
+  const derivedArr = (isValidTime(form.takeoff_time ?? '') && fullTotalDecimal > 0)
+    ? addHHMM(form.takeoff_time ?? '', fullTotalDecimal) : '';
 
   useEffect(() => {
-    if (logFull) {
-      // Skriv bara över total när en giltig rutt finns (dep- + ankomsttid). Annars behåll
-      // befintlig total — annars nollas t.ex. en äldre flygning utan take-off-tid vid redigering.
-      if (!(isValidTime(form.takeoff_time ?? '') && isValidTime(arrTime))) return;
-      const next = String(routeTotal);
-      setForm((p) => (p.total_time === next ? p : { ...p, total_time: next }));
-    } else {
-      const next = String(totalDecimal);
-      setForm((p) => (p.total_time === next ? p : { ...p, total_time: next }));
-    }
-  }, [logFull, routeTotal, totalDecimal, form.takeoff_time, arrTime]);
+    const next = logFull ? String(fullTotalDecimal) : String(totalDecimal);
+    setForm((p) => (p.total_time === next ? p : { ...p, total_time: next }));
+  }, [logFull, fullTotalDecimal, totalDecimal]);
 
-  // Lokalläge: när flygdatum ändras → räkna om UTC ur lokalbuffertarna (DST kan skifta).
+  // Lokalläge: när flygdatum ändras → räkna om UTC ur lokalbufferten (DST kan skifta).
   useEffect(() => {
     if (timeMode !== 'local') return;
     if (isValidTime(depLocalBuf)) setForm((p) => ({ ...p, takeoff_time: localToUtc(form.date, depLocalBuf) }));
-    if (isValidTime(arrLocalBuf)) setArrTime(localToUtc(form.date, arrLocalBuf));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.date]);
 
@@ -242,20 +220,23 @@ export default function AddDroneFlightScreen() {
   useEffect(() => {
     const tt = parseFloat(form.total_time) || 0;
     setForm((p) => {
-      const isNight = (parseFloat(p.night_time ?? '0') || 0) > 0;
+      // Natt får ALDRIG överstiga total flygtid — klamp (t.ex. när ankomsttiden kortas).
+      let night_time = p.night_time;
+      const nt = parseFloat(p.night_time ?? '0') || 0;
+      if (tt > 0 && nt > tt + 1e-6) night_time = String(tt);
+      const isNight = (parseFloat(night_time ?? '0') || 0) > 0;
       let vfr = p.vfr, ifr = p.ifr;
       if (p.flight_rules === 'VFR') { vfr = tt ? String(tt) : ''; ifr = ''; }
       else if (p.flight_rules === 'IFR') { ifr = tt ? String(tt) : ''; vfr = ''; }
-      if (p.is_night === isNight && p.vfr === vfr && p.ifr === ifr) return p;
-      return { ...p, is_night: isNight, vfr, ifr };
+      if (p.is_night === isNight && p.vfr === vfr && p.ifr === ifr && p.night_time === night_time) return p;
+      return { ...p, is_night: isNight, vfr, ifr, night_time };
     });
   }, [form.total_time, form.flight_rules, form.night_time]);
 
-  // Kondition-barerna animeras in när alla fyra fält (dep/arr plats + tid) är ifyllda.
+  // Kondition-barerna animeras in när plats + take-off-tid + flygtid (>0) är ifyllda.
   const routeComplete = form.location.trim().length > 0
-    && (form.landing_location ?? '').trim().length > 0
     && isValidTime(form.takeoff_time ?? '')
-    && isValidTime(arrTime);
+    && fullTotalDecimal > 0;
   useEffect(() => {
     Animated.timing(barsAnim, { toValue: routeComplete ? 1 : 0, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
   }, [routeComplete, barsAnim]);
@@ -282,11 +263,6 @@ export default function AddDroneFlightScreen() {
       if (isEdit && editId) {
         const f = await getDroneFlightById(editId);
         if (!f) return;
-        const drone = ds.find((d) => d.id === f.drone_id);
-        if (drone) {
-          const bats = await listBatteries(drone.id);
-          setBatteries(bats);
-        }
         setForm({
           date: f.date,
           drone_id: f.drone_id,
@@ -307,8 +283,6 @@ export default function AddDroneFlightScreen() {
           is_night: !!f.is_night,
           has_observer: !!f.has_observer,
           observer_name: f.observer_name || (f.remarks.match(/Observer:\s*([^\n]+)/i)?.[1]?.trim() ?? ''),
-          battery_id: f.battery_id,
-          battery_start_cycles: String(f.battery_start_cycles),
           wind_ms: f.wind_ms ? String(f.wind_ms) : '',
           operation_type: f.operation_type ?? '',
           landings_day: f.landings_day ? String(f.landings_day) : '',
@@ -325,8 +299,8 @@ export default function AddDroneFlightScreen() {
         });
         if (f.landing_location) setShowLandingPoint(true);
         if (f.total_time > 0) setPasses([decimalToMMSS(f.total_time)]);
-        // Full-heron: härled ankomsttid ur take-off + total så den visas vid redigering.
-        setArrTime(f.takeoff_time && f.total_time > 0 ? addHHMM(f.takeoff_time, f.total_time) : '');
+        // Full-heron: visa hela totalen som 1:a flygningens varaktighet (splitten är okänd vid redigering).
+        setFullLegs([f.total_time > 0 ? decimalToMMSS(f.total_time) : '']);
         setRole(f.co_pilot_fpv ? 'sic' : f.dual ? 'dual' : f.instructor ? 'instructor' : 'pic');
         return;
       }
@@ -362,20 +336,6 @@ export default function AddDroneFlightScreen() {
       registration: d.registration,
       category: d.category || p.category,
     }));
-    const bats = await listBatteries(d.id);
-    setBatteries(bats);
-    if (bats.length > 0) {
-      setForm((p) => ({
-        ...p,
-        battery_id: bats[0].id,
-        battery_start_cycles: String(bats[0].cycle_count),
-      }));
-    }
-  };
-
-  const pickBattery = (b: DroneBattery) => {
-    setForm((p) => ({ ...p, battery_id: b.id, battery_start_cycles: String(b.cycle_count) }));
-    setShowBatteryPicker(false);
   };
 
   const useHere = async (target: 'start' | 'landing' = 'start') => {
@@ -405,8 +365,8 @@ export default function AddDroneFlightScreen() {
 
   // Natt-AUTO: hämta enhetens plats + räkna nattandel ur dep/arr-tid (UTC) för flygdagen.
   const computeNightAuto = async () => {
-    if (!isValidTime(form.takeoff_time ?? '') || !isValidTime(arrTime)) {
-      Alert.alert('Set times first', 'Enter take-off and arrival time before auto night.');
+    if (!isValidTime(form.takeoff_time ?? '') || !derivedArr) {
+      Alert.alert('Set times first', 'Enter take-off time and flight time before auto night.');
       return;
     }
     setNightAutoLoading(true);
@@ -419,7 +379,7 @@ export default function AddDroneFlightScreen() {
         lat = pos.coords.latitude; lon = pos.coords.longitude;
         setForm((p) => ({ ...p, lat, lon }));
       }
-      const inst = buildInstants(form.date, form.takeoff_time ?? '', arrTime, 0);
+      const inst = buildInstants(form.date, form.takeoff_time ?? '', derivedArr, 0);
       if (!inst) return;
       const legs = [{ lat, lon }, { lat, lon }];
       const n = computeNightHoursTimed(legs, inst.dep.getTime(), inst.arr.getTime());
@@ -431,21 +391,18 @@ export default function AddDroneFlightScreen() {
     }
   };
 
-  // "+ Add Nth flight": lägg nästa (korta) flygnings tid ovanpå ankomsttiden → total växer.
-  // Duration matas i MM:SS (t.ex. 20:00 = 20 min). Basen är ankomsttiden om giltig, annars take-off.
-  const confirmAddFlight = () => {
-    const durH = addDur.includes(':') ? mmssToDecimal(addDur) : (parseInt(addDur, 10) || 0) / 60;
-    if (!(durH > 0)) { setShowAddFlight(false); setAddDur(''); return; }
-    const base = isValidTime(arrTime) ? arrTime : (form.takeoff_time ?? '');
-    const newArr = addHHMM(base, durH);
-    if (newArr) setArrTime(newArr);
-    setExtraFlights((n) => n + 1);
-    setAddDur('');
-    setShowAddFlight(false);
+  // Flygningarna matas som varaktighet (MM:SS) i fullLegs; totalen = summan. fullLegs[0] är
+  // 1:a flygningen ("Flight time"); addLeg lägger till en extra flygning (redigerbar/ta bort).
+  const addLeg = () => setFullLegs((ls) => [...ls, '']);
+  const updateLeg = (i: number, raw: string) => {
+    const d = raw.replace(/\D/g, '').slice(0, 4);
+    const mmss = d.length === 0 ? '' : d.length <= 2 ? d : `${d.slice(0, d.length - 2)}:${d.slice(-2)}`;
+    setFullLegs((ls) => ls.map((v, k) => (k === i ? mmss : v)));
   };
+  const removeLeg = (i: number) => setFullLegs((ls) => ls.filter((_, k) => k !== i));
 
   // sameSession = spara och logga nästa flygning i samma pass: behåll drönare/plats/
-  // uppdrag/kategori/läge, nollställ tid + bumpa batteriets startcykel, stanna kvar.
+  // uppdrag/kategori/läge, nollställ tid, stanna kvar.
   const save = async (sameSession = false) => {
     if (!form.drone_id) { Alert.alert(t('error'), t('drone_pick_required')); return; }
     if ((parseFloat(form.total_time) || 0) <= 0) { Alert.alert(t('error'), t('time_required')); return; }
@@ -457,32 +414,19 @@ export default function AddDroneFlightScreen() {
         await updateDroneFlight(editId, dataToSave);
       } else {
         await insertDroneFlight(dataToSave);
-        const bat = batteries.find((b) => b.id === form.battery_id);
-        if (bat) {
-          const newCycles = bat.cycle_count + 1;
-          if (newCycles >= RETIRE_SOON_CYCLES && bat.cycle_count < RETIRE_SOON_CYCLES) {
-            useToastStore.getState().show(`⚠️ ${bat.label}: ${newCycles} ${t('cycles_high_warning')}`);
-          }
-        }
       }
       await Promise.all([loadFlights(), loadStats()]);
 
       if (sameSession && !isEdit) {
-        // Uppdatera batterilistan så cykel-räkningen stämmer, förvälj samma batteri
-        const bats = form.drone_id ? await listBatteries(form.drone_id) : [];
-        setBatteries(bats);
-        const sameBat = bats.find((b) => b.id === form.battery_id);
         setPasses(['']);
-        setArrTime(''); // route-heron: rensa ankomsttid → nästa flygning i passet börjar tomt
-        setExtraFlights(0); setShowAddFlight(false); setAddDur(''); setShowDepDropdown(false);
-        setArrSuggest(false); setArrTouched(false); setDepLocalBuf(''); setArrLocalBuf(''); setCondRaw({});
+        setFullLegs(['']); // route-heron: rensa flygtider → nästa flygning i passet börjar tomt
+        setShowDepDropdown(false); setDepLocalBuf(''); setCondRaw({});
         setForm((p) => ({
           ...p,
           takeoff_time: nowHHMM(),
           total_time: '0',
           max_altitude_m: '',
           night_time: '', vfr: '', // ny flygning i passet → nollställ kondition-tider
-          battery_start_cycles: sameBat ? String(sameBat.cycle_count) : p.battery_start_cycles,
           remarks: '',
         }));
         useToastStore.getState().show('Flight saved — logging next in session');
@@ -497,7 +441,6 @@ export default function AddDroneFlightScreen() {
   };
 
   const selectedDrone = drones.find((d) => d.id === form.drone_id);
-  const selectedBattery = batteries.find((b) => b.id === form.battery_id);
 
   // Drönar-box: distinkta modeller + registreringar för vald modell (som pilotens typ→reg).
   const droneModels = [...new Set(drones.map((d) => d.model).filter(Boolean))];
@@ -515,22 +458,17 @@ export default function AddDroneFlightScreen() {
     const entry = drones.find((d) => d.model === curModel && d.registration === rg);
     if (entry) { setPendingModel(null); await setDrone(entry); }
   };
-  // Z/L-växling: fyll lokalbuffertarna ur UTC vid byte till local.
+  // Z/L-växling: fyll lokalbufferten ur UTC vid byte till local.
   const toggleTimeMode = () => {
     setTimeMode((m) => {
       if (m === 'local') return 'utc';
       setDepLocalBuf(utcToLocal(form.date, form.takeoff_time ?? ''));
-      setArrLocalBuf(utcToLocal(form.date, arrTime));
       return 'local';
     });
   };
   const onDepLocalChange = (v: string) => {
     setDepLocalBuf(v);
     setForm((p) => ({ ...p, takeoff_time: isValidTime(v) ? localToUtc(form.date, v) : '' }));
-  };
-  const onArrLocalChange = (v: string) => {
-    setArrLocalBuf(v);
-    setArrTime(isValidTime(v) ? localToUtc(form.date, v) : '');
   };
 
   // Lägg registrering under Registration-fältet: sätt basentryts reg om tom, annars ny kopia med specarna.
@@ -548,7 +486,7 @@ export default function AddDroneFlightScreen() {
     if (!((base.registration ?? '').trim())) {
       await updateDrone(base.id, { ...spec, registration: rg });
     } else if (!drones.some((d) => d.model === curModel && d.registration === rg)) {
-      await addDrone({ ...spec, registration: rg }, 2);
+      await addDrone({ ...spec, registration: rg });
     }
     const ds = await listDrones();
     setDrones(ds);
@@ -558,7 +496,7 @@ export default function AddDroneFlightScreen() {
   };
 
   const onDroneModalSave = async (data: Omit<DroneRegistryEntry, 'id'>) => {
-    const id = await addDrone(data, 2);
+    const id = await addDrone(data);
     const ds = await listDrones();
     setDrones(ds);
     setShowDroneModal(false);
@@ -613,14 +551,50 @@ export default function AddDroneFlightScreen() {
           </View>
         )}
 
-        {/* ── Route-hero (Full): Departure/Arrival fritext + take-off/ankomsttid + total flygtid.
-            Speglar pilot-manned men UTAN ICAO-sök/here/förslag, distans/knop, glob och dag-natt-bar. ── */}
+        {/* Mission — överst (under Quicklog/Full): label + fritextruta + dropdown med förval.
+            Fritexten ersätter den gamla "Other"-knappen; dropdownen ger snabbval. */}
+        <View style={[styles.missionRow, showMissionPicker && { zIndex: 200 }]}>
+          <Text style={styles.missionLabel}>Mission</Text>
+          <View style={{ flex: 1, position: 'relative' }}>
+            <View style={styles.missionInputWrap}>
+              <TextInput
+                style={styles.missionInput}
+                value={form.mission_type}
+                onChangeText={(v) => setForm((p) => ({ ...p, mission_type: v }))}
+                onFocus={() => setShowMissionPicker(false)}
+                placeholder="Type of mission"
+                placeholderTextColor={DR.muted}
+                autoCapitalize="sentences"
+              />
+              <TouchableOpacity style={styles.missionDropBtn} onPress={() => { Keyboard.dismiss(); setShowMissionPicker((v) => !v); }} hitSlop={8} activeOpacity={0.7}>
+                <Ionicons name={showMissionPicker ? 'chevron-up' : 'chevron-down'} size={16} color={accent} />
+              </TouchableOpacity>
+            </View>
+            {showMissionPicker && (
+              <View style={styles.missionDropdown}>
+                <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 260 }}>
+                  {MISSION_TYPES.map((m) => (
+                    <TouchableOpacity key={m} style={styles.missionDropItem} onPress={() => { setForm((p) => ({ ...p, mission_type: m })); setShowMissionPicker(false); }} activeOpacity={0.7}>
+                      <Text style={styles.missionDropItemText} numberOfLines={1}>{m}</Text>
+                      {form.mission_type === m && <Ionicons name="checkmark" size={15} color={accent} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* ── Route-hero (Full): 2×2-rutnät — Location + Flight time (uppe), Departure time +
+            Total flight time (nere) — plus en Add-flight-rad med redigerbara extra-flight-chip. ── */}
         {logFull && (
           <View style={styles.routeCard}>
-            <View style={styles.legRow}>
-              {/* DEPARTURE */}
-              <View style={[styles.legPanelLeft, showDepDropdown && { zIndex: 100 }]}>
-                <Text style={styles.placeColHeaderText}>{t('departure')}</Text>
+
+            {/* Route-hero (Full): 2×2 — Location + Flight time (uppe), Departure time + Total (nere) */}
+            <View style={[styles.legRow, showDepDropdown && { zIndex: 100 }]}>
+              {/* Vänster kolumn: Location + Departure time */}
+              <View style={styles.gridCol}>
+                <Text style={styles.placeColHeaderText}>{t('location')}</Text>
                 <View style={styles.depWrap}>
                   <View style={[styles.legPlaceBox, { height: timeBoxH }, recentPlaces.length > 0 && { paddingRight: 26 }]}>
                     <TextInput
@@ -640,7 +614,6 @@ export default function AddDroneFlightScreen() {
                       onSubmitEditing={() => depTimeRef.current?.focus()}
                     />
                   </View>
-                  {/* Dropdown-knapp inuti rutan → lista med senaste 10 platserna */}
                   {recentPlaces.length > 0 && (
                     <TouchableOpacity style={styles.depDropBtn} onPress={() => { Keyboard.dismiss(); setShowDepDropdown((v) => !v); }} hitSlop={8} activeOpacity={0.7}>
                       <Ionicons name={showDepDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={accent} />
@@ -664,8 +637,9 @@ export default function AddDroneFlightScreen() {
                     </View>
                   )}
                 </View>
-                <View style={{ marginTop: 6 }}>
-                  <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && Math.abs(h - timeBoxH) > 1) setTimeBoxH(h); }}>
+                <Text style={[styles.placeColHeaderText, { marginTop: 8 }]}>Departure time</Text>
+                {/* onLayout mäter BARA tidrutan (ej lokaltid-texten) → alla fyra rutor lika höga. */}
+                <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && Math.abs(h - timeBoxH) > 1) setTimeBoxH(h); }}>
                   <SmartTimeInput
                     ref={depTimeRef}
                     label=""
@@ -673,173 +647,78 @@ export default function AddDroneFlightScreen() {
                     compactRight
                     inputFontFamily={FONT_LED7}
                     value={timeMode === 'utc' ? (form.takeoff_time ?? '') : depLocalBuf}
-                    onChangeText={(v) => {
-                      if (timeMode === 'utc') setForm((p) => ({ ...p, takeoff_time: v })); else onDepLocalChange(v);
-                      if (isValidTime(v)) setTimeout(() => arrPlaceRef.current?.focus(), 120);
-                    }}
+                    onChangeText={(v) => { if (timeMode === 'utc') setForm((p) => ({ ...p, takeoff_time: v })); else onDepLocalChange(v); }}
                     rightAdornment={
                       <Pressable onPress={toggleTimeMode} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
                         <Text style={{ fontFamily: FONT_LED14, fontSize: 15, fontWeight: '700', color: accent }}>{timeMode === 'utc' ? 'Z' : 'L'}</Text>
                       </Pressable>
                     }
                   />
-                  </View>
-                  {isValidTime(form.takeoff_time ?? '') && (
-                    <Text style={styles.timeBelow} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                      {timeMode === 'utc' ? `${utcToLocal(form.date, form.takeoff_time ?? '')} local` : `${form.takeoff_time} UTC`}
-                    </Text>
-                  )}
                 </View>
-              </View>
-
-              {/* Connector — endast pil-noden (streckad linje borttagen på begäran) */}
-              <View style={styles.legConnector}>
-                <View style={styles.legNode}><Ionicons name="arrow-forward" size={12} color={accent} /></View>
-              </View>
-
-              {/* ARRIVAL */}
-              <View style={styles.legPanelRight}>
-                <Text style={styles.placeColHeaderText}>{t('arrival')}</Text>
-                <View style={styles.depWrap}>
-                  <View style={[styles.legPlaceBox, { height: timeBoxH }, arrSuggest && { paddingRight: 50 }]}>
-                    <TextInput
-                      ref={arrPlaceRef}
-                      style={[styles.legPlaceText, { fontSize: placeFontSize(form.landing_location ?? '') }]}
-                      value={form.landing_location ?? ''}
-                      onChangeText={(v) => { setArrSuggest(false); setArrTouched(true); setForm((p) => ({ ...p, landing_location: v })); }}
-                      onFocus={() => {
-                        // Autofyll departure som förslag EN gång när man navigerar hit och arr är tom.
-                        if (!arrTouched && !(form.landing_location ?? '').trim() && form.location.trim()) {
-                          setForm((p) => ({ ...p, landing_location: p.location }));
-                          setArrSuggest(true);
-                        }
-                      }}
-                      placeholder="—"
-                      placeholderTextColor={DR.muted}
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                      multiline={false}
-                      numberOfLines={1}
-                      onSubmitEditing={() => arrTimeRef.current?.focus()}
-                    />
-                  </View>
-                  {arrSuggest && (
-                    <View style={styles.arrSuggestBtns}>
-                      <TouchableOpacity onPress={() => { setArrSuggest(false); setArrTouched(true); setTimeout(() => arrTimeRef.current?.focus(), 60); }} hitSlop={6} activeOpacity={0.7} style={styles.arrSuggestBtn}>
-                        <Ionicons name="checkmark" size={15} color={accent} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => { setForm((p) => ({ ...p, landing_location: '' })); setArrSuggest(false); setArrTouched(true); setTimeout(() => arrPlaceRef.current?.focus(), 60); }} hitSlop={6} activeOpacity={0.7} style={styles.arrSuggestBtn}>
-                        <Ionicons name="close" size={15} color={DR.muted} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-                <View style={{ marginTop: 6 }}>
-                  <SmartTimeInput
-                    ref={arrTimeRef}
-                    label=""
-                    align="center"
-                    compactRight
-                    inputFontFamily={FONT_LED7}
-                    value={timeMode === 'utc' ? arrTime : arrLocalBuf}
-                    onChangeText={(v) => {
-                      if (timeMode === 'utc') setArrTime(v); else onArrLocalChange(v);
-                      if (isValidTime(v)) setTimeout(() => Keyboard.dismiss(), 120);
-                    }}
-                    rightAdornment={
-                      <Pressable onPress={toggleTimeMode} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
-                        <Text style={{ fontFamily: FONT_LED14, fontSize: 15, fontWeight: '700', color: accent }}>{timeMode === 'utc' ? 'Z' : 'L'}</Text>
-                      </Pressable>
-                    }
-                  />
-                  {isValidTime(arrTime) && (
-                    <Text style={styles.timeBelow} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                      {timeMode === 'utc' ? `${utcToLocal(form.date, arrTime)} local` : `${arrTime} UTC`}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* Total flygtid (vänster, under departure) + "Add Nth flight" (höger, under arrival).
-                Total visas ALLTID. Distans/knop/glob/dag-natt-bar utelämnas medvetet. */}
-            <View style={[styles.legRow, { marginTop: 12 }]}>
-              <View style={styles.heroCol}>
-                <View style={styles.totalHero}>
-                  {editingTotal ? (
-                    <TextInput
-                      style={styles.totalHeroInput}
-                      value={totalEdit}
-                      onChangeText={setTotalEdit}
-                      onBlur={() => {
-                        let dec = 0;
-                        if (totalEdit.includes(':')) {
-                          const [h, m] = totalEdit.split(':');
-                          dec = (parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0)
-                            + Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0) / 60;
-                        } else {
-                          dec = parseFloat(totalEdit) || 0;
-                        }
-                        if (dec > 0) setForm((p) => ({ ...p, total_time: dec.toFixed(2) }));
-                        setEditingTotal(false);
-                      }}
-                      placeholder="0:00"
-                      keyboardType="numbers-and-punctuation"
-                      placeholderTextColor={DR.muted}
-                      autoFocus
-                    />
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => { setEditingTotal(true); setTotalEdit(form.total_time && parseFloat(form.total_time) > 0 ? decimalToHHMM(parseFloat(form.total_time)) : ''); }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.totalHeroValue}>
-                        {form.total_time && parseFloat(form.total_time) > 0 ? decimalToHHMM(parseFloat(form.total_time)) : '--:--'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  <Text style={styles.totalHeroLabel}>{t('total_flight_time')}</Text>
-                </View>
-              </View>
-
-              <View style={{ width: 34 }} />
-
-              <View style={styles.heroCol}>
-                {showAddFlight ? (
-                  <View style={styles.totalHero}>
-                    <TextInput
-                      style={styles.totalHeroInput}
-                      value={addDur}
-                      onChangeText={(raw) => {
-                        const d = raw.replace(/\D/g, '').slice(0, 4);
-                        setAddDur(d.length === 0 ? '' : d.length <= 2 ? d : `${d.slice(0, d.length - 2)}:${d.slice(-2)}`);
-                      }}
-                      onSubmitEditing={confirmAddFlight}
-                      placeholder="MM:SS"
-                      keyboardType="number-pad"
-                      placeholderTextColor={DR.muted}
-                      autoFocus
-                      inputAccessoryViewID="drone-add-done"
-                    />
-                    {/* Bock-knapp: lägger till flighten (tiden ovanpå ankomsttiden) */}
-                    <TouchableOpacity onPress={confirmAddFlight} disabled={!addDur.trim()} activeOpacity={0.85}
-                      style={[styles.addConfirmBtn, !addDur.trim() && { opacity: 0.4 }]}>
-                      <Ionicons name="checkmark" size={14} color={DR.inkOnAccent} />
-                      <Text style={styles.addConfirmText}>Add</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.totalHero} onPress={() => setShowAddFlight(true)} activeOpacity={0.8}>
-                    <Ionicons name="add" size={26} color={accent} />
-                    <Text style={styles.totalHeroLabel}>{`Add ${ordinal(extraFlights + 2)} flight`}</Text>
-                  </TouchableOpacity>
+                {isValidTime(form.takeoff_time ?? '') && (
+                  <Text style={styles.timeBelow} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                    {timeMode === 'utc' ? `${utcToLocal(form.date, form.takeoff_time ?? '')} local` : `${form.takeoff_time} UTC`}
+                  </Text>
                 )}
               </View>
+
+              <View style={{ width: 12 }} />
+
+              {/* Höger kolumn: Flight time (1:a flygningen) + Total flight time (display) */}
+              <View style={styles.gridCol}>
+                <Text style={styles.placeColHeaderText}>Flight time</Text>
+                <View style={[styles.flightTimeBox, { height: timeBoxH }]}>
+                  <TextInput
+                    style={styles.flightTimeInput}
+                    value={fullLegs[0]}
+                    onChangeText={(raw) => updateLeg(0, raw)}
+                    keyboardType="number-pad"
+                    inputAccessoryViewID="drone-add-done"
+                  />
+                  {/* Ren placeholder (DSEG7-fonten kan inte rendera bokstäver → egen "mm:ss") */}
+                  {!fullLegs[0] ? (
+                    <View style={styles.flightTimePh} pointerEvents="none"><Text style={styles.flightTimePhText}>mm:ss</Text></View>
+                  ) : null}
+                </View>
+                <Text style={[styles.placeColHeaderText, { marginTop: 8 }]}>Total flight time</Text>
+                <View style={[styles.totalDisplayBox, { height: timeBoxH }]}>
+                  <Text style={styles.totalDisplayValue}>{fullTotalDecimal > 0 ? decimalToHHMM(fullTotalDecimal) : '--:--'}</Text>
+                </View>
+              </View>
             </View>
 
-            {/* ── Flygregler (VFR / Y·Z / IFR) alltid synlig; barerna animeras in när alla fyra fält ifyllda ── */}
+            {/* Under: "Add Nth flight" (vänster, halv höjd) + extra-flight-chip (höger, redigerbara/tag bort) */}
+            <View style={[styles.legRow, { marginTop: 10, alignItems: 'flex-start' }]}>
+              <TouchableOpacity style={styles.addFlightBtn} onPress={addLeg} activeOpacity={0.85}>
+                <Ionicons name="add" size={16} color={accent} />
+                <Text style={styles.addFlightBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{`Add ${ordinal(fullLegs.length + 1)} flight`}</Text>
+              </TouchableOpacity>
+              <View style={{ width: 8 }} />
+              <View style={styles.extraChipsWrap}>
+                {fullLegs.slice(1).map((leg, idx) => {
+                  const i = idx + 1;
+                  return (
+                    <View key={i} style={styles.extraChip}>
+                      <Text style={styles.extraChipOrd}>{ordinal(i + 1)}</Text>
+                      <TextInput
+                        style={styles.extraChipInput}
+                        value={leg}
+                        onChangeText={(raw) => updateLeg(i, raw)}
+                        placeholder="MM:SS"
+                        keyboardType="number-pad"
+                        placeholderTextColor={DR.muted}
+                        inputAccessoryViewID="drone-add-done"
+                      />
+                      <TouchableOpacity onPress={() => removeLeg(i)} hitSlop={6} activeOpacity={0.7}>
+                        <Ionicons name="close-circle" size={16} color={DR.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ── Flygregler (VFR / Y·Z / IFR) alltid synlig; barerna animeras in när plats + tid + flygtid ifyllda ── */}
             <View style={{ marginTop: 16 }}>
               <SlideToggle
                 block sans size="md"
@@ -1006,32 +885,35 @@ export default function AddDroneFlightScreen() {
           )}
         </View>
 
-        {/* Pilot function (= pilot log flight): PIC / SIC / DUAL / INSTRUCTOR */}
+        {/* Pilot function (= pilot log flight): PIC / SIC / DUAL / INSTRUCTOR (vänster, smalare)
+            + vertikal flygläge-toggle (VLOS/EVLOS/BVLOS) till höger om SIC/INSTRUCTOR. */}
         <Text style={[styles.cardFieldLabel, { marginTop: 10 }]}>Pilot function</Text>
-        <View style={styles.roleGrid}>
-          <View style={styles.roleRow}>
-            {(['pic', 'sic'] as const).map((r) => (
-              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
-                <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r.toUpperCase()}</Text>
-              </TouchableOpacity>
-            ))}
+        <View style={styles.pfRow}>
+          <View style={[styles.roleGrid, { flex: 2 }]}>
+            <View style={styles.roleRow}>
+              {(['pic', 'sic'] as const).map((r) => (
+                <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r.toUpperCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.roleRow}>
+              {(['dual', 'instructor'] as const).map((r) => (
+                <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r === 'instructor' ? 'INSTRUCTOR' : 'DUAL'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          <View style={styles.roleRow}>
-            {(['dual', 'instructor'] as const).map((r) => (
-              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r === 'instructor' ? 'INSTRUCTOR' : 'DUAL'}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {/* Flygläge — glidande toggle (ersätter de gamla knapparna under Operation) */}
-          <View style={{ marginTop: 4 }}>
-            <SlideToggle
-              block soft tall
-              options={FLIGHT_MODES.map((m) => ({ value: m, label: m }))}
-              value={form.flight_mode}
-              onChange={(v) => setForm((p) => ({ ...p, flight_mode: v }))}
-              activeColor={accent}
-            />
+          <View style={styles.modeVToggle}>
+            {FLIGHT_MODES.map((m) => {
+              const active = form.flight_mode === m;
+              return (
+                <TouchableOpacity key={m} style={[styles.modeVBtn, active && styles.modeVBtnActive]} onPress={() => setForm((p) => ({ ...p, flight_mode: m }))} activeOpacity={0.8}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.modeVBtnText, active && styles.modeVBtnTextActive]}>{m}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -1102,41 +984,6 @@ export default function AddDroneFlightScreen() {
         </>)}
 
         <Text style={styles.section}>{t('operation')}</Text>
-        {logFull && (
-          <>
-            <Text style={styles.label}>{t('mission_type')}</Text>
-            <View style={styles.segRow}>
-              {MISSION_TYPES.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.chip, !isOtherMission && form.mission_type === m && styles.chipActive]}
-                  onPress={() => setForm((p) => ({ ...p, mission_type: m }))}
-                >
-                  <Text style={[styles.chipText, !isOtherMission && form.mission_type === m && styles.chipTextActive]}>{m}</Text>
-                </TouchableOpacity>
-              ))}
-              {/* Other → fritextläge: rensa till tomt så rutan visas; texten blir mission_type */}
-              <TouchableOpacity
-                style={[styles.chip, isOtherMission && styles.chipActive]}
-                onPress={() => { if (!isOtherMission) setForm((p) => ({ ...p, mission_type: '' })); }}
-              >
-                <Text style={[styles.chipText, isOtherMission && styles.chipTextActive]}>Other</Text>
-              </TouchableOpacity>
-            </View>
-            {isOtherMission && (
-              <TextInput
-                style={[styles.input, { marginTop: 8 }]}
-                value={form.mission_type}
-                onChangeText={(v) => setForm((p) => ({ ...p, mission_type: v }))}
-                placeholder="Describe mission type"
-                placeholderTextColor={DR.muted}
-                autoCapitalize="sentences"
-                autoFocus
-              />
-            )}
-          </>
-        )}
-
         <Text style={styles.label}>{t('drone_category')}</Text>
         <DroneCategoryPicker
           pilotType={pilotType}
@@ -1355,29 +1202,6 @@ export default function AddDroneFlightScreen() {
           </>
         )}
 
-        {logFull && selectedDrone && batteries.length > 0 && (
-          <>
-            <Text style={styles.section}>{t('battery')}</Text>
-            <TouchableOpacity style={styles.field} onPress={() => setShowBatteryPicker(true)} activeOpacity={0.7}>
-              <Text style={styles.fieldText}>
-                {selectedBattery
-                  ? `${selectedBattery.label} · ${selectedBattery.cycle_count} cycles`
-                  : t('select_battery')}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={DR.text2} />
-            </TouchableOpacity>
-            <Text style={styles.label}>{t('start_cycles')}</Text>
-            <TextInput
-              style={styles.input}
-              value={form.battery_start_cycles}
-              onChangeText={(v) => setForm((p) => ({ ...p, battery_start_cycles: v.replace(/\D/g, '') }))}
-              keyboardType="number-pad"
-              placeholderTextColor={DR.muted}
-              inputAccessoryViewID="drone-add-done"
-            />
-          </>
-        )}
-
         {logFull && (<>
         <Text style={styles.section}>{t('remarks')}</Text>
         <TextInput
@@ -1540,31 +1364,6 @@ export default function AddDroneFlightScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={showBatteryPicker} transparent animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowBatteryPicker(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.handle} />
-            <Text style={styles.modalTitle}>{t('select_battery')}</Text>
-            <ScrollView>
-              {batteries.map((b) => (
-                <TouchableOpacity
-                  key={b.id}
-                  style={styles.modalRow}
-                  onPress={() => pickBattery(b)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="battery-half-outline" size={18} color={accent} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalRowTitle}>{b.label}</Text>
-                    <Text style={styles.modalRowMeta}>{b.serial ? b.serial + ' · ' : ''}{b.cycle_count} cycles</Text>
-                  </View>
-                  {form.battery_id === b.id && <Ionicons name="checkmark" size={16} color={accent} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </KeyboardAvoidingView>
     {Platform.OS === 'ios' && (
       <InputAccessoryView nativeID="drone-add-done">
@@ -1628,6 +1427,20 @@ function makeStyles(accent: string) {
     // ── Route-hero (Full) — speglar pilot-manned legRow/panels + total-hero ──
     routeCard: { marginTop: 4 },
     legRow: { flexDirection: 'row', alignItems: 'stretch' },
+    // Route-hero 2×2-rutnät (Location/Dep-time | Flight-time/Total) + Add-flight-rad.
+    gridCol: { flex: 1, minWidth: 0 },
+    flightTimeBox: { justifyContent: 'center', alignItems: 'center', backgroundColor: DR.surface, borderRadius: 10, borderWidth: 1, borderColor: DR.border, paddingHorizontal: 8 },
+    flightTimeInput: { fontFamily: FONT_LED7, fontSize: 24, fontWeight: '800', color: DR.text, textAlign: 'center', padding: 0, width: '100%' },
+    flightTimePh: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+    flightTimePhText: { fontFamily: 'JetBrainsMono', fontSize: 14, fontWeight: '700', letterSpacing: 1.5, color: DR.muted },
+    totalDisplayBox: { justifyContent: 'center', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: accent + '88', backgroundColor: accent + '0D' },
+    totalDisplayValue: { fontFamily: FONT_LED7, fontSize: 26, fontWeight: '800', color: DR.text },
+    addFlightBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 34, borderRadius: 10, borderWidth: 1, borderColor: accent + '66', backgroundColor: accent + '10' },
+    addFlightBtnText: { color: accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+    extraChipsWrap: { flex: 1.35, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    extraChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 8, paddingRight: 6, height: 34, borderRadius: 9, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface },
+    extraChipOrd: { fontFamily: 'JetBrainsMono', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.4, color: DR.muted },
+    extraChipInput: { fontFamily: FONT_LED7, fontSize: 15, fontWeight: '800', color: DR.text, minWidth: 42, padding: 0 },
     legPanelLeft: {
       flex: 1, gap: 6, backgroundColor: accent + '0D',
       borderWidth: 1, borderColor: DR.separator,
@@ -1638,7 +1451,10 @@ function makeStyles(accent: string) {
       borderWidth: 1, borderColor: DR.separator,
       borderTopRightRadius: 12, borderBottomRightRadius: 12, padding: 12,
     },
-    legConnector: { width: 34, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, backgroundColor: accent + '0D', borderTopWidth: 1, borderBottomWidth: 1, borderColor: DR.separator },
+    // paddingTop 12 = panelernas padding → "1st flight" hamnar i höjd med DEPARTURE/ARRIVAL-texten.
+    legConnector: { width: 58, alignItems: 'center', paddingTop: 12, paddingBottom: 0, paddingHorizontal: 2, backgroundColor: accent + '0D', borderTopWidth: 1, borderBottomWidth: 1, borderColor: DR.separator },
+    legFlightLabel: { fontSize: 11, fontWeight: '800', color: accent, letterSpacing: 0.2, textAlign: 'center', textTransform: 'uppercase' },
+    legNodeWrap: { flex: 1, justifyContent: 'center' },
     legNode: { width: 22, height: 22, borderRadius: 11, backgroundColor: DR.surface, borderWidth: 1, borderColor: accent + '88', alignItems: 'center', justifyContent: 'center' },
     placeColHeaderText: { color: DR.text, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', textAlign: 'center', marginBottom: 2 },
     // Place-ruta: en View med FAST höjd + overflow:hidden (klipper texten säkert, till skillnad
@@ -1675,6 +1491,12 @@ function makeStyles(accent: string) {
     depDropItemText: { flex: 1, color: DR.text, fontSize: 14, fontWeight: '600' },
     // Total- och Add-rutan delar stil (samma bg/storlek). Fast höjd → båda lika höga.
     totalHero: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 76, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: accent + '88', backgroundColor: accent + '0D', alignSelf: 'stretch' },
+    // Halv-höjd + rad-layout när extra flygningar lagts till (räknare tar övre halvan).
+    totalHeroHalf: { flex: 0, minHeight: 0, height: 38, paddingVertical: 4 },
+    totalHeroRow: { flexDirection: 'row', gap: 6 },
+    totalHeroInputHalf: { fontSize: 18, minWidth: 0, flex: 1, textAlign: 'left' },
+    flightsCountWrap: { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+    flightsCountText: { fontFamily: 'JetBrainsMono', fontSize: 12, fontWeight: '800', letterSpacing: 1, color: DR.text, textTransform: 'uppercase' },
     totalHeroValue: { fontFamily: FONT_LED7, fontSize: 28, fontWeight: '800', color: DR.text },
     totalHeroInput: { fontFamily: FONT_LED7, fontSize: 28, fontWeight: '800', color: DR.text, textAlign: 'center', minWidth: 130, padding: 0 },
     totalHeroLabel: { marginTop: 5, fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, color: DR.text, textTransform: 'uppercase' },
@@ -1706,6 +1528,22 @@ function makeStyles(accent: string) {
     roleBtnActive: { backgroundColor: accent + '24', borderColor: accent },
     roleBtnText: { color: DR.text2, fontSize: 10.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 0.3 },
     roleBtnTextActive: { color: accent },
+    // Pilot function (vänster) + vertikal flygläge-toggle (höger)
+    pfRow: { flexDirection: 'row', gap: 6, alignItems: 'stretch' },
+    modeVToggle: { flex: 1, gap: 4 },
+    modeVBtn: { flex: 1, minHeight: 30, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border },
+    modeVBtnActive: { backgroundColor: accent + '24', borderColor: accent },
+    modeVBtnText: { color: DR.text2, fontSize: 10.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 0.5 },
+    modeVBtnTextActive: { color: accent },
+    // Mission (överst): label + fritextruta + dropdown
+    missionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+    missionLabel: { color: DR.text2, fontSize: 13, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+    missionInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: DR.surface, borderRadius: 10, borderWidth: 1, borderColor: DR.border, paddingLeft: 12, paddingRight: 4 },
+    missionInput: { flex: 1, color: DR.text, fontSize: 14, paddingVertical: 10 },
+    missionDropBtn: { padding: 6 },
+    missionDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: DR.elevated, borderRadius: 10, borderWidth: 1, borderColor: DR.border, zIndex: 200, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+    missionDropItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 0.5, borderBottomColor: DR.separator },
+    missionDropItemText: { color: DR.text, fontSize: 14, fontWeight: '600' },
     // Arrival-förslag (autofyllt dep): ✓/x inuti rutan
     arrSuggestBtns: { position: 'absolute', right: 4, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 2 },
     arrSuggestBtn: { width: 22, height: '100%', alignItems: 'center', justifyContent: 'center' },

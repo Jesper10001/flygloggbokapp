@@ -1,17 +1,24 @@
 // En flygningsrad i listan: datumchip · DEP→ARR + IFR/Night-badges · roll · typ/reg · block-tid + off/on-block UTC.
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import type { Flight } from '../../types/flight';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
-import { FONT_SERIF, FONT_MONO, NIGHT_BADGE } from './tokens';
+import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, REFUEL_BADGE, NVG_BADGE } from './tokens';
 import { roleLabel, isPicFlight, arrUtc, dayOfMonth, weekdayShort } from './flightDisplay';
 import { placeCode } from '../../utils/format';
 
-function Badge({ color, label, icon }: { color: string; label?: string; icon?: boolean }) {
+// Liten pill-badge; ikonen kan vara en Ionicon (t.ex. natt-måne) eller en MaterialCommunityIcon
+// (t.ex. tankning/NVG). Håll storlekarna små så alla badges linjerar med natt-månen.
+function Badge({ color, label, ion, mci }: {
+  color: string; label?: string;
+  ion?: keyof typeof Ionicons.glyphMap;
+  mci?: keyof typeof MaterialCommunityIcons.glyphMap;
+}) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: color + '1F', borderColor: color + '55', borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
-      {icon ? <Ionicons name="moon" size={9} color={color} /> : null}
+      {ion ? <Ionicons name={ion} size={9} color={color} /> : null}
+      {mci ? <MaterialCommunityIcons name={mci} size={10} color={color} /> : null}
       {label ? <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.7, color }}>{label}</Text> : null}
     </View>
   );
@@ -34,7 +41,9 @@ export function FlightCardRow({ flight: f, accent, onPress, first }: { flight: F
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <Text style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.3 }}>{placeCode(f.dep_place, f.dep_place_raw)} → {placeCode(f.arr_place, f.arr_place_raw)}</Text>
           {f.ifr > 0 ? <Badge color={accent} label="IFR" /> : null}
-          {f.night > 0 ? <Badge color={NIGHT_BADGE} icon /> : null}
+          {f.night > 0 ? <Badge color={NIGHT_BADGE} ion="moon" /> : null}
+          {f.nvg > 0 ? <Badge color={NVG_BADGE} mci="binoculars" /> : null}
+          {f.flight_type === 'hot_refuel' ? <Badge color={REFUEL_BADGE} mci="gas-station" /> : null}
           {(f.photo_local_id || f.photo_uri) ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.textMuted + '1F', borderColor: Colors.textMuted + '55', borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
               <Ionicons name="image" size={9} color={Colors.textMuted} />

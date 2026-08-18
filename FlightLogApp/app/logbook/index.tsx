@@ -271,7 +271,7 @@ export default function LogbookScreen() {
         <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
           <View style={styles.sheetBackdrop}>
             {setup && (
-              <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+              <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
             )}
           </View>
         </Modal>
@@ -414,7 +414,7 @@ export default function LogbookScreen() {
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={styles.sheetBackdrop}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+            <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
           )}
         </View>
       </Modal>

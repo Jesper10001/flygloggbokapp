@@ -49,6 +49,7 @@ export default function RootLayout() {
           SpaceGrotesk: require('../assets/fonts/SpaceGrotesk-Variable.ttf'),
           DSEG7Classic: require('../assets/fonts/DSEG7Classic-Bold.ttf'),
           ChakraPetch: require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
+          'ChakraPetch-SemiBold': require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
         }).catch(() => { /* fonter ej kritiska – fall back till system */ });
         setFontsLoaded(true);
 

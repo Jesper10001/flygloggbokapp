@@ -111,7 +111,45 @@ export function computeNightHoursTimed(legs: RouteLeg[], depMs: number, arrMs: n
     const p = positionAtMs(legs, totalMs, t);
     if (solarAltitudeDeg(new Date(depMs + t), p.lat, p.lon) < CIVIL_TWILIGHT_DEG) night++;
   }
-  return Math.round((night / steps) * totalH * 10) / 10;
+  // Natt-tid får ALDRIG överstiga flygfönstret. 0.1h-avrundningen kan annars runda UPP
+  // (t.ex. en helnatts-flygning på 28 min → 0.5h = 30 min) → klamp till totalH.
+  return Math.min(totalH, Math.round((night / steps) * totalH * 10) / 10);
+}
+
+// Destinationspunkt (storcirkel) på vinkelavstånd distDeg° i bäring bearingDeg° från (lat,lon).
+export function destPointDeg(latDeg: number, lonDeg: number, bearingDeg: number, distDeg: number): { lat: number; lon: number } {
+  const f1 = latDeg * RAD, l1 = lonDeg * RAD, th = bearingDeg * RAD, d = distDeg * RAD;
+  const sinF2 = Math.sin(f1) * Math.cos(d) + Math.cos(f1) * Math.sin(d) * Math.cos(th);
+  const f2 = Math.asin(Math.max(-1, Math.min(1, sinF2)));
+  const l2 = l1 + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(f1), Math.cos(d) - Math.sin(f1) * sinF2);
+  return { lat: f2 / RAD, lon: ((l2 / RAD + 540) % 360) - 180 };
+}
+
+// Natt-tid för en flygning som utgår OCH landar på samma plats (dep = arr). Flygningen kan ha
+// gått ut i valfri riktning och tillbaka, så flygenvelopen är en CIRKEL med radie radiusNM
+// (= flygtid × marschfart / 2) runt flygplatsen.
+//
+// Natt räknas så snart natt (solhöjd < −6°) faller in NÅGONSTANS i cirkeln. Måttstocken är
+// cirkelns mest ÖSTLIGA resp. mest VÄSTLIGA punkt: natten sveper i longitud, så östkanten
+// mörknar FÖRST (kvällen) och västkanten är SIST att ljusna (gryningen). "Öst i natt ELLER
+// väst i natt" täcker därför exakt hela fönstret då någon del av cirkeln är i natt. Reduceras
+// till punkt-fallet (solhöjd i centrum < −6°) när radien är 0.
+export function computeNightHoursCircle(
+  center: { lat: number; lon: number }, radiusNM: number, depMs: number, arrMs: number, steps = 300,
+): number {
+  const totalMs = arrMs - depMs;
+  if (!(totalMs > 0)) return 0;
+  const totalH = totalMs / 3600000;
+  const radiusDeg = Math.max(0, radiusNM) / 60;                 // 1 NM ≈ 1 bågminut
+  const east = destPointDeg(center.lat, center.lon, 90, radiusDeg);
+  const west = destPointDeg(center.lat, center.lon, 270, radiusDeg);
+  let night = 0;
+  for (let k = 0; k < steps; k++) {
+    const dt = new Date(depMs + (k + 0.5) / steps * totalMs);
+    if (solarAltitudeDeg(dt, east.lat, east.lon) < CIVIL_TWILIGHT_DEG
+      || solarAltitudeDeg(dt, west.lat, west.lon) < CIVIL_TWILIGHT_DEG) night++;
+  }
+  return Math.min(totalH, Math.round((night / steps) * totalH * 10) / 10);
 }
 
 // Natt-region(er) som ribbon-polygoner (lon/lat) vid en tidpunkt. Universell metod:

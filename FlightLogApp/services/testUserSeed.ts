@@ -1,11 +1,10 @@
 import { getDatabase } from '../db/database';
-import { addDrone, addBattery, updateBattery, addCertificate, insertDroneFlight } from '../db/drones';
+import { addDrone, addCertificate, insertDroneFlight } from '../db/drones';
 import { setSetting } from '../db/flights';
 
 async function wipeDroneData() {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM drone_flights');
-  await db.runAsync('DELETE FROM drone_batteries');
   await db.runAsync('DELETE FROM drone_registry');
   await db.runAsync('DELETE FROM drone_certificates');
 }
@@ -35,7 +34,7 @@ export async function seedTestUser1() {
     mtow_g: 920,
     category: 'A2',
     notes: 'Primary inspection drone',
-  }, 0);
+  });
   const matrice30 = await addDrone({
     drone_type: 'multirotor',
     model: 'DJI Matrice 30T',
@@ -43,7 +42,7 @@ export async function seedTestUser1() {
     mtow_g: 3770,
     category: 'Specific',
     notes: 'Thermal + zoom, powerline inspections',
-  }, 0);
+  });
   const mini4 = await addDrone({
     drone_type: 'multirotor',
     model: 'DJI Mini 4 Pro',
@@ -51,26 +50,8 @@ export async function seedTestUser1() {
     mtow_g: 249,
     category: 'A1',
     notes: 'Recce / marketing content',
-  }, 0);
+  });
 
-  // Batterier (manuellt — realistiska serier + cykelantal)
-  const db = await getDatabase();
-  const addBat = async (droneId: number, label: string, serial: string, cycles: number) => {
-    const r = await db.runAsync(
-      `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count) VALUES (?,?,?,?)`,
-      [droneId, label, serial, cycles]
-    );
-    return r.lastInsertRowId as number;
-  };
-  const m3e_b1 = await addBat(mavic3e, 'Battery #1', 'TB30-001', 142);
-  const m3e_b2 = await addBat(mavic3e, 'Battery #2', 'TB30-002', 138);
-  const m3e_b3 = await addBat(mavic3e, 'Battery #3', 'TB30-003', 89);
-  const m30_b1 = await addBat(matrice30, 'Battery #1', 'TB30-M-1', 97);
-  const m30_b2 = await addBat(matrice30, 'Battery #2', 'TB30-M-2', 92);
-  const m30_b3 = await addBat(matrice30, 'Battery #3', 'TB30-M-3', 65);
-  const m30_b4 = await addBat(matrice30, 'Battery #4', 'TB30-M-4', 58);
-  const mini_b1 = await addBat(mini4, 'Battery #1', 'MINI4-A', 45);
-  const mini_b2 = await addBat(mini4, 'Battery #2', 'MINI4-B', 42);
 
   // Certifikat
   await addCertificate({
@@ -92,48 +73,48 @@ export async function seedTestUser1() {
 
   // Flygningar — ~95h total över 1 år, spread över drönare
   const plan: Array<{
-    droneId: number; droneType: string; reg: string; bat: number; batCycles: number;
+    droneId: number; droneType: string; reg: string;
     days: number; time: number; loc: string; mission: string; cat: string; mode: 'VLOS'|'EVLOS'|'BVLOS';
     alt: number; night?: boolean; observer?: boolean;
   }> = [
     // Mavic 3E — inspektioner
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 12, days: 340, time: 0.35, loc: 'Västerås solpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 80 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b2, batCycles: 14, days: 335, time: 0.45, loc: 'Västerås solpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 85 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 22, days: 320, time: 0.42, loc: 'Uppsala vindkraftverk', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 120 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b3, batCycles: 8, days: 300, time: 0.5, loc: 'Arlanda hangar 7', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 45 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b2, batCycles: 28, days: 280, time: 0.3, loc: 'Stockholm Stadion', mission: 'Photo / Video', cat: 'A2', mode: 'VLOS', alt: 60 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 40, days: 260, time: 0.4, loc: 'Solna broinspektion', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 30 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b3, batCycles: 20, days: 240, time: 0.48, loc: 'Linköping vattenverk', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 90 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b2, batCycles: 60, days: 220, time: 0.35, loc: 'Örebro tak', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 25 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 80, days: 200, time: 0.5, loc: 'Gävle hamnkran', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 70 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b3, batCycles: 50, days: 170, time: 0.4, loc: 'Karlstad kraftledning', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 110 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b2, batCycles: 100, days: 140, time: 0.45, loc: 'Sundsvall takinsp.', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 35 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 120, days: 110, time: 0.6, loc: 'Umeå broinspektion', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 40 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b3, batCycles: 75, days: 80, time: 0.35, loc: 'Malmö marknadsfilm', mission: 'Photo / Video', cat: 'A2', mode: 'VLOS', alt: 80 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b2, batCycles: 125, days: 60, time: 0.4, loc: 'Halmstad vindpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 120 },
-    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', bat: m3e_b1, batCycles: 140, days: 30, time: 0.55, loc: 'Trollhättan turbininsp.', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 95 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 340, time: 0.35, loc: 'Västerås solpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 80 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 335, time: 0.45, loc: 'Västerås solpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 85 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 320, time: 0.42, loc: 'Uppsala vindkraftverk', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 120 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 300, time: 0.5, loc: 'Arlanda hangar 7', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 45 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 280, time: 0.3, loc: 'Stockholm Stadion', mission: 'Photo / Video', cat: 'A2', mode: 'VLOS', alt: 60 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 260, time: 0.4, loc: 'Solna broinspektion', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 30 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 240, time: 0.48, loc: 'Linköping vattenverk', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 90 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 220, time: 0.35, loc: 'Örebro tak', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 25 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 200, time: 0.5, loc: 'Gävle hamnkran', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 70 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 170, time: 0.4, loc: 'Karlstad kraftledning', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 110 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 140, time: 0.45, loc: 'Sundsvall takinsp.', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 35 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 110, time: 0.6, loc: 'Umeå broinspektion', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 40 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 80, time: 0.35, loc: 'Malmö marknadsfilm', mission: 'Photo / Video', cat: 'A2', mode: 'VLOS', alt: 80 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 60, time: 0.4, loc: 'Halmstad vindpark', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 120 },
+    { droneId: mavic3e, droneType: 'multirotor', reg: 'SWE-RP-2241', days: 30, time: 0.55, loc: 'Trollhättan turbininsp.', mission: 'Inspection', cat: 'A2', mode: 'VLOS', alt: 95 },
 
     // Matrice 30T — Specific, EVLOS/BVLOS
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b1, batCycles: 5, days: 310, time: 0.7, loc: 'E4 kraftledning Uppland', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 150, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b2, batCycles: 7, days: 290, time: 0.8, loc: 'Dalälven powerline', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 140, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b3, batCycles: 10, days: 270, time: 0.85, loc: 'Sandviken kraftstation', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 130, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b4, batCycles: 12, days: 250, time: 0.6, loc: 'Bollnäs skogsinventering', mission: 'Mapping', cat: 'Specific', mode: 'BVLOS', alt: 120, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b1, batCycles: 35, days: 220, time: 0.75, loc: 'Ljusdal vindkraftpark', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 160, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b2, batCycles: 40, days: 190, time: 0.9, loc: 'Sundsvall powerline', mission: 'Inspection', cat: 'Specific', mode: 'BVLOS', alt: 150, observer: true, night: false },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b3, batCycles: 45, days: 160, time: 0.8, loc: 'Östersund skogsinv.', mission: 'Mapping', cat: 'Specific', mode: 'BVLOS', alt: 140, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b1, batCycles: 70, days: 125, time: 0.7, loc: 'Gällivare kraftledning', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 155, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b4, batCycles: 35, days: 95, time: 0.85, loc: 'Luleå hamn thermal', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b2, batCycles: 75, days: 70, time: 0.75, loc: 'Skellefteå industri', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b3, batCycles: 55, days: 45, time: 0.9, loc: 'Piteå vindkraftpark', mission: 'Inspection', cat: 'Specific', mode: 'BVLOS', alt: 150, observer: true },
-    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', bat: m30_b1, batCycles: 95, days: 15, time: 0.7, loc: 'Kiruna powerline', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 140, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 310, time: 0.7, loc: 'E4 kraftledning Uppland', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 150, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 290, time: 0.8, loc: 'Dalälven powerline', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 140, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 270, time: 0.85, loc: 'Sandviken kraftstation', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 130, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 250, time: 0.6, loc: 'Bollnäs skogsinventering', mission: 'Mapping', cat: 'Specific', mode: 'BVLOS', alt: 120, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 220, time: 0.75, loc: 'Ljusdal vindkraftpark', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 160, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 190, time: 0.9, loc: 'Sundsvall powerline', mission: 'Inspection', cat: 'Specific', mode: 'BVLOS', alt: 150, observer: true, night: false },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 160, time: 0.8, loc: 'Östersund skogsinv.', mission: 'Mapping', cat: 'Specific', mode: 'BVLOS', alt: 140, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 125, time: 0.7, loc: 'Gällivare kraftledning', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 155, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 95, time: 0.85, loc: 'Luleå hamn thermal', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 70, time: 0.75, loc: 'Skellefteå industri', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 45, time: 0.9, loc: 'Piteå vindkraftpark', mission: 'Inspection', cat: 'Specific', mode: 'BVLOS', alt: 150, observer: true },
+    { droneId: matrice30, droneType: 'multirotor', reg: 'SWE-RP-8877', days: 15, time: 0.7, loc: 'Kiruna powerline', mission: 'Inspection', cat: 'Specific', mode: 'EVLOS', alt: 140, observer: true },
 
     // Mini 4 — recce/marknadsföring
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b1, batCycles: 5, days: 300, time: 0.2, loc: 'Gamla stan Stockholm', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 60 },
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b2, batCycles: 8, days: 250, time: 0.3, loc: 'Öresundsbron', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 80 },
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b1, batCycles: 20, days: 200, time: 0.25, loc: 'Gotland klippor', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 90 },
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b2, batCycles: 25, days: 150, time: 0.3, loc: 'Visby stadsbilder', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 70 },
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b1, batCycles: 40, days: 90, time: 0.2, loc: 'Åre skidbacke', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 50 },
-    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', bat: mini_b2, batCycles: 40, days: 40, time: 0.25, loc: 'Uppsala domkyrka', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 65 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 300, time: 0.2, loc: 'Gamla stan Stockholm', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 60 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 250, time: 0.3, loc: 'Öresundsbron', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 80 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 200, time: 0.25, loc: 'Gotland klippor', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 90 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 150, time: 0.3, loc: 'Visby stadsbilder', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 70 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 90, time: 0.2, loc: 'Åre skidbacke', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 50 },
+    { droneId: mini4, droneType: 'multirotor', reg: 'SWE-RP-1102', days: 40, time: 0.25, loc: 'Uppsala domkyrka', mission: 'Photo / Video', cat: 'A1', mode: 'VLOS', alt: 65 },
   ];
 
   for (const p of plan) {
@@ -151,8 +132,6 @@ export async function seedTestUser1() {
       is_night: !!p.night,
       has_observer: !!p.observer,
       observer_name: p.observer ? 'Johan Berg' : '',
-      battery_id: p.bat,
-      battery_start_cycles: String(p.batCycles),
       remarks: '',
     });
   }
@@ -163,14 +142,6 @@ export async function seedTestUser2() {
   await wipeDroneData();
   await setSetting('drone_operator_id', 'SWE-MIL-0042');
 
-  const db = await getDatabase();
-  const addBat = async (droneId: number, label: string, serial: string, cycles: number) => {
-    const r = await db.runAsync(
-      `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count) VALUES (?,?,?,?)`,
-      [droneId, label, serial, cycles]
-    );
-    return r.lastInsertRowId as number;
-  };
 
   // Drönare — militär typ-mix
   const puma = await addDrone({
@@ -180,7 +151,7 @@ export async function seedTestUser2() {
     mtow_g: 6300,
     category: 'Specific',
     notes: 'ISR, hand-launched fixed-wing',
-  }, 0);
+  });
   const blackHornet = await addDrone({
     drone_type: 'helicopter',
     model: 'FLIR Black Hornet 3',
@@ -188,7 +159,7 @@ export async function seedTestUser2() {
     mtow_g: 33,
     category: 'Specific',
     notes: 'Nano UAS pocket recce',
-  }, 0);
+  });
   const switchblade = await addDrone({
     drone_type: 'fixedwing',
     model: 'Switchblade 300 (training variant)',
@@ -196,7 +167,7 @@ export async function seedTestUser2() {
     mtow_g: 2500,
     category: 'Specific',
     notes: 'Inert training rounds',
-  }, 0);
+  });
   const quad = await addDrone({
     drone_type: 'multirotor',
     model: 'Skydio X10D',
@@ -204,20 +175,8 @@ export async function seedTestUser2() {
     mtow_g: 2200,
     category: 'Specific',
     notes: 'Autonomous recce',
-  }, 0);
+  });
 
-  // Batterier
-  const puma_b1 = await addBat(puma, 'Battery #1', 'PUMA-L1', 62);
-  const puma_b2 = await addBat(puma, 'Battery #2', 'PUMA-L2', 58);
-  const puma_b3 = await addBat(puma, 'Battery #3', 'PUMA-L3', 51);
-  const bh_b1 = await addBat(blackHornet, 'Base #1', 'BH3-A1', 180);
-  const bh_b2 = await addBat(blackHornet, 'Base #2', 'BH3-A2', 165);
-  const sb_b1 = await addBat(switchblade, 'Battery #1', 'SB300-01', 18);
-  const sb_b2 = await addBat(switchblade, 'Battery #2', 'SB300-02', 15);
-  const sx_b1 = await addBat(quad, 'Battery #1', 'SX10-A', 112);
-  const sx_b2 = await addBat(quad, 'Battery #2', 'SX10-B', 108);
-  const sx_b3 = await addBat(quad, 'Battery #3', 'SX10-C', 95);
-  const sx_b4 = await addBat(quad, 'Battery #4', 'SX10-D', 88);
 
   // Certifikat
   await addCertificate({
@@ -239,53 +198,53 @@ export async function seedTestUser2() {
 
   // Flygningar — ~170h över 1 år, mix VLOS/EVLOS/BVLOS
   const plan: Array<{
-    droneId: number; droneType: string; reg: string; bat: number; batCycles: number;
+    droneId: number; droneType: string; reg: string;
     days: number; time: number; loc: string; mission: string; cat: string; mode: 'VLOS'|'EVLOS'|'BVLOS';
     alt: number; night?: boolean; observer?: boolean;
   }> = [
     // Puma AE — lång ISR
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b1, batCycles: 4, days: 350, time: 1.5, loc: 'Revingehed övningsfält', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b2, batCycles: 6, days: 330, time: 1.8, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b3, batCycles: 3, days: 310, time: 2.0, loc: 'Norra Kvarken', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b1, batCycles: 18, days: 280, time: 1.6, loc: 'Visby FMV-område', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 350, observer: true, night: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b2, batCycles: 22, days: 240, time: 1.7, loc: 'Boden norra zon', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 450, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b3, batCycles: 18, days: 200, time: 1.9, loc: 'Luleå ÖÖS', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true, night: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b1, batCycles: 38, days: 165, time: 2.0, loc: 'Gotska Sandön', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b2, batCycles: 42, days: 130, time: 1.5, loc: 'Uppsalagarnison', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 350, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b3, batCycles: 35, days: 90, time: 1.8, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true, night: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b1, batCycles: 55, days: 50, time: 1.6, loc: 'Östgötaslätten', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 380, observer: true },
-    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', bat: puma_b2, batCycles: 55, days: 15, time: 1.9, loc: 'Nordkalotten', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 350, time: 1.5, loc: 'Revingehed övningsfält', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 330, time: 1.8, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 310, time: 2.0, loc: 'Norra Kvarken', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 280, time: 1.6, loc: 'Visby FMV-område', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 350, observer: true, night: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 240, time: 1.7, loc: 'Boden norra zon', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 450, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 200, time: 1.9, loc: 'Luleå ÖÖS', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true, night: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 165, time: 2.0, loc: 'Gotska Sandön', mission: 'SAR', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 130, time: 1.5, loc: 'Uppsalagarnison', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 350, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 90, time: 1.8, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 400, observer: true, night: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 50, time: 1.6, loc: 'Östgötaslätten', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 380, observer: true },
+    { droneId: puma, droneType: 'fixedwing', reg: 'FMV-UAS-103', days: 15, time: 1.9, loc: 'Nordkalotten', mission: 'Training', cat: 'Specific', mode: 'BVLOS', alt: 500, observer: true },
 
     // Black Hornet — nano recce, många korta
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b1, batCycles: 6, days: 340, time: 0.25, loc: 'MOUT-anläggning Kvarn', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 15, observer: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b2, batCycles: 8, days: 330, time: 0.3, loc: 'Kvarn', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b1, batCycles: 40, days: 290, time: 0.25, loc: 'FMV Enköping', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 18, observer: true, night: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b2, batCycles: 42, days: 260, time: 0.28, loc: 'Enköping', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true, night: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b1, batCycles: 85, days: 210, time: 0.3, loc: 'Ledningsövning Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 25, observer: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b2, batCycles: 88, days: 180, time: 0.25, loc: 'Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 22, observer: true, night: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b1, batCycles: 130, days: 140, time: 0.28, loc: 'Mältet övningsplats', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 18, observer: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b2, batCycles: 130, days: 100, time: 0.3, loc: 'Kungsängen', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true, night: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b1, batCycles: 170, days: 60, time: 0.25, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 15, observer: true },
-    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', bat: bh_b2, batCycles: 160, days: 20, time: 0.3, loc: 'Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 25, observer: true, night: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 340, time: 0.25, loc: 'MOUT-anläggning Kvarn', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 15, observer: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 330, time: 0.3, loc: 'Kvarn', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 290, time: 0.25, loc: 'FMV Enköping', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 18, observer: true, night: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 260, time: 0.28, loc: 'Enköping', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true, night: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 210, time: 0.3, loc: 'Ledningsövning Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 25, observer: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 180, time: 0.25, loc: 'Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 22, observer: true, night: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 140, time: 0.28, loc: 'Mältet övningsplats', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 18, observer: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 100, time: 0.3, loc: 'Kungsängen', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 20, observer: true, night: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 60, time: 0.25, loc: 'Revingehed', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 15, observer: true },
+    { droneId: blackHornet, droneType: 'helicopter', reg: 'FMV-NANO-22', days: 20, time: 0.3, loc: 'Boden', mission: 'Training', cat: 'Specific', mode: 'VLOS', alt: 25, observer: true, night: true },
 
     // Switchblade — få men längre
-    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', bat: sb_b1, batCycles: 2, days: 300, time: 0.5, loc: 'Vidsel Test Range', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 250, observer: true },
-    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', bat: sb_b2, batCycles: 2, days: 250, time: 0.55, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 280, observer: true },
-    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', bat: sb_b1, batCycles: 8, days: 180, time: 0.6, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
-    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', bat: sb_b2, batCycles: 8, days: 110, time: 0.55, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 280, observer: true },
-    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', bat: sb_b1, batCycles: 15, days: 40, time: 0.6, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
+    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', days: 300, time: 0.5, loc: 'Vidsel Test Range', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 250, observer: true },
+    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', days: 250, time: 0.55, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 280, observer: true },
+    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', days: 180, time: 0.6, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
+    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', days: 110, time: 0.55, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 280, observer: true },
+    { droneId: switchblade, droneType: 'fixedwing', reg: 'FMV-SB-07', days: 40, time: 0.6, loc: 'Vidsel', mission: 'Testing', cat: 'Specific', mode: 'BVLOS', alt: 300, observer: true },
 
     // Skydio X10D — autonom recce
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b1, batCycles: 10, days: 320, time: 0.55, loc: 'Skärgården övning', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b2, batCycles: 12, days: 290, time: 0.5, loc: 'Arholma', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 110, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b3, batCycles: 8, days: 260, time: 0.6, loc: 'Berga', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b4, batCycles: 10, days: 230, time: 0.55, loc: 'Karlskrona', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b1, batCycles: 45, days: 190, time: 0.65, loc: 'Ronneby garnison', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 130, observer: true, night: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b2, batCycles: 48, days: 150, time: 0.55, loc: 'Halmstad Lv6', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 110, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b3, batCycles: 50, days: 120, time: 0.6, loc: 'Skövde P4', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b4, batCycles: 52, days: 80, time: 0.55, loc: 'Eksjö Ing2', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 105, observer: true, night: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b1, batCycles: 105, days: 40, time: 0.5, loc: 'Kvarn', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
-    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', bat: sx_b2, batCycles: 105, days: 10, time: 0.6, loc: 'Enköping', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 320, time: 0.55, loc: 'Skärgården övning', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 290, time: 0.5, loc: 'Arholma', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 110, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 260, time: 0.6, loc: 'Berga', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 230, time: 0.55, loc: 'Karlskrona', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 190, time: 0.65, loc: 'Ronneby garnison', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 130, observer: true, night: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 150, time: 0.55, loc: 'Halmstad Lv6', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 110, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 120, time: 0.6, loc: 'Skövde P4', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 80, time: 0.55, loc: 'Eksjö Ing2', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 105, observer: true, night: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 40, time: 0.5, loc: 'Kvarn', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 100, observer: true },
+    { droneId: quad, droneType: 'multirotor', reg: 'FMV-SX-14', days: 10, time: 0.6, loc: 'Enköping', mission: 'Training', cat: 'Specific', mode: 'EVLOS', alt: 120, observer: true, night: true },
   ];
 
   for (const p of plan) {
@@ -303,8 +262,6 @@ export async function seedTestUser2() {
       is_night: !!p.night,
       has_observer: !!p.observer,
       observer_name: p.observer ? 'Lt. Karlsson' : '',
-      battery_id: p.bat,
-      battery_start_cycles: String(p.batCycles),
       remarks: '',
     });
   }

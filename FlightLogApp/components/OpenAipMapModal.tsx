@@ -10,22 +10,44 @@ import { Colors } from '../constants/colors';
 import {
   OPENAIP_KEY, AIRSPACE_CATEGORIES, MAX_BBOX_DEG,
   fetchAirspacesInBbox, fetchRestrictedForCountry, colorForType, categoryForType, formatLimit, boundsOf,
+  showAtSpanForType, priorityForType,
   type Airspace,
 } from '../services/openaip';
 
 const INITIAL: Region = { latitude: 59.3, longitude: 18.0, latitudeDelta: 2.2, longitudeDelta: 2.2 };
 const withAlpha = (hex: string, aa: string) => hex + aa;
 
+// Tak för antal samtidigt ritade polygoner — skyddsnät mot MapKit-krasch i täta områden.
+const MAX_POLYGONS = 400;
+
+// Kartvidd i grader (största av lat/lon-delta). NaN/0/Inf (kan hända i 3D-globläge) → Infinity,
+// dvs "helt utzoomad" → inget ritas. Detta är kärnan i kraschskyddet vid utzoomning.
+function spanOf(r: Region): number {
+  const s = Math.max(Math.abs(r.latitudeDelta), Math.abs(r.longitudeDelta));
+  return Number.isFinite(s) && s > 0 ? s : Infinity;
+}
+
+// Detaljnivåer (samma trösklar som kategoriernas showAtSpan). tierOf(-1) = för utzoomad → inget ritas.
+// Används bara för att avgöra NÄR den kontinuerliga region-lyssnaren ska trigga en re-render (vid
+// tröskelpassering), så vi slipper setState varje frame under en zoom-gest.
+const SPAN_STEPS = [0.5, 1.2, 2.5, MAX_BBOX_DEG * 0.95];
+function tierOf(s: number): number {
+  for (let i = 0; i < SPAN_STEPS.length; i++) if (s <= SPAN_STEPS[i]) return i;
+  return -1;
+}
+
 export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const hasKey = OPENAIP_KEY.trim().length > 0;
   const mapRef = useRef<MapView>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTier = useRef<number>(tierOf(spanOf(INITIAL))); // senast renderade detaljnivå (för live-lyssnaren)
 
   const [mapType, setMapType] = useState<'standard' | 'hybridFlyover'>('standard');
   const [airspaces, setAirspaces] = useState<Airspace[]>([]);
   const [loading, setLoading] = useState(false);
   const [tooZoomedOut, setTooZoomedOut] = useState(false);
+  const [span, setSpan] = useState(spanOf(INITIAL)); // aktuell kartvidd → styr progressiv detaljnivå
   const [country, setCountry] = useState<string>('SE');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tapped, setTapped] = useState<Airspace | null>(null);
@@ -40,13 +62,9 @@ export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClos
   const [rAreas, setRAreas] = useState<Airspace[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // Hämta luftrum för aktuell kartvy (om tillräckligt inzoomad).
+  // Hämta luftrum för aktuell kartvy. Anropas bara när vyn är tillräckligt inzoomad (se onRegionSettle).
   const loadForRegion = useCallback(async (region: Region) => {
     if (!hasKey) return;
-    if (region.longitudeDelta > MAX_BBOX_DEG * 0.95 || region.latitudeDelta > MAX_BBOX_DEG * 0.95) {
-      setTooZoomedOut(true); setAirspaces([]); return;
-    }
-    setTooZoomedOut(false);
     const lonHalf = region.longitudeDelta / 2, latHalf = region.latitudeDelta / 2;
     const bbox = {
       lonMin: region.longitude - lonHalf, latMin: region.latitude - latHalf,
@@ -64,14 +82,38 @@ export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClos
     } catch { /* nätfel → behåll tidigare */ } finally { setLoading(false); }
   }, [hasKey]);
 
-  const onRegionChange = useCallback((region: Region) => {
+  // Under pågående pan/zoom: uppdatera detaljnivån direkt vid tröskelpassering så polygoner rensas
+  // REDAN under utzoomnings-gesten (inte först när den landar) → kraschskydd på globen. Ingen hämtning här.
+  const onRegionLive = useCallback((region: Region) => {
+    const s = spanOf(region);
+    const t = tierOf(s);
+    if (t === lastTier.current) return; // samma nivå → hoppa (annars setState varje frame)
+    lastTier.current = t;
+    setSpan(t < 0 ? Infinity : s); // för vid vy → Infinity ⇒ inget passerar render-gaten (kraschskydd)
+    setTooZoomedOut(t < 0);
+  }, []);
+
+  // När kartan landat: sätt exakt span + hämta (debounced) om vi är inzoomade nog.
+  const onRegionSettle = useCallback((region: Region) => {
+    const s = spanOf(region);
+    const wide = s > MAX_BBOX_DEG * 0.95; // över API:ts bbox-gräns → hämta inte (render-gate döljer ändå)
+    lastTier.current = tierOf(s);
+    setSpan(wide ? Infinity : s);
+    setTooZoomedOut(wide);
     if (debounce.current) clearTimeout(debounce.current);
+    if (!hasKey || wide) return;
     debounce.current = setTimeout(() => loadForRegion(region), 350);
-  }, [loadForRegion]);
+  }, [hasKey, loadForRegion]);
 
   // Initial hämtning när modalen öppnas.
   useEffect(() => {
-    if (visible) { setMapType('standard'); loadForRegion(INITIAL); }
+    if (visible) {
+      setMapType('standard');
+      setSpan(spanOf(INITIAL));
+      lastTier.current = tierOf(spanOf(INITIAL));
+      setTooZoomedOut(false);
+      loadForRegion(INITIAL);
+    }
   }, [visible, loadForRegion]);
 
   // Ladda landets R-områden när sök används (cachas i servicen).
@@ -86,9 +128,13 @@ export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClos
     return rAreas.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 30);
   }, [search, rAreas]);
 
-  const visibleAirspaces = useMemo(
-    () => airspaces.filter((a) => enabled[categoryForType(a.type)]),
-    [airspaces, enabled]);
+  const visibleAirspaces = useMemo(() => {
+    // Progressiv detaljnivå: rita bara kategorier som (a) är påslagna och (b) tillåts vid aktuell zoom.
+    const list = airspaces.filter((a) => enabled[categoryForType(a.type)] && span <= showAtSpanForType(a.type));
+    if (list.length <= MAX_POLYGONS) return list;
+    // Skyddsnät i täta områden: kapa till taket, viktigast (lägst prioritetsindex) först.
+    return [...list].sort((a, b) => priorityForType(a.type) - priorityForType(b.type)).slice(0, MAX_POLYGONS);
+  }, [airspaces, enabled, span]);
 
   const selectAirspace = (a: Airspace) => {
     setEnabled((e) => ({ ...e, restricted: true })); // se till att R-lagret är på
@@ -109,7 +155,8 @@ export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClos
           showsPointsOfInterest={false}
           showsCompass={false}
           toolbarEnabled={false}
-          onRegionChangeComplete={onRegionChange}
+          onRegionChange={onRegionLive}
+          onRegionChangeComplete={onRegionSettle}
           onPress={() => { setTapped(null); setSelectedId(null); }}
         >
           {visibleAirspaces.map((a) => {
@@ -191,13 +238,18 @@ export function OpenAipMapModal({ visible, onClose }: { visible: boolean; onClos
         {hasKey && showLayers && (
           <View style={[styles.layersPanel, { bottom: insets.bottom + 76 }]}>
             <Text style={styles.panelTitle}>Layers</Text>
-            {AIRSPACE_CATEGORIES.map((c) => (
-              <TouchableOpacity key={c.key} style={styles.layerRow} activeOpacity={0.8} onPress={() => setEnabled((e) => ({ ...e, [c.key]: !e[c.key] }))}>
-                <View style={[styles.swatch, { backgroundColor: withAlpha(c.color, '33'), borderColor: c.color }]} />
-                <Text style={styles.layerLabel}>{c.label}</Text>
-                <Ionicons name={enabled[c.key] ? 'checkbox' : 'square-outline'} size={18} color={enabled[c.key] ? Colors.primary : Colors.textMuted} />
-              </TouchableOpacity>
-            ))}
+            {AIRSPACE_CATEGORIES.map((c) => {
+              const on = enabled[c.key];
+              const gated = on && span > c.showAtSpan; // påslagen men dold pga för utzoomad vy
+              return (
+                <TouchableOpacity key={c.key} style={styles.layerRow} activeOpacity={0.8} onPress={() => setEnabled((e) => ({ ...e, [c.key]: !e[c.key] }))}>
+                  <View style={[styles.swatch, { backgroundColor: withAlpha(c.color, '33'), borderColor: c.color }]} />
+                  <Text style={[styles.layerLabel, gated && { color: Colors.textMuted }]}>{c.label}</Text>
+                  {gated && <Text style={styles.zoomHint}>Zoom in</Text>}
+                  <Ionicons name={on ? 'checkbox' : 'square-outline'} size={18} color={on ? Colors.primary : Colors.textMuted} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -263,6 +315,7 @@ const styles = StyleSheet.create({
   layerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   swatch: { width: 20, height: 14, borderRadius: 4, borderWidth: 1.5 },
   layerLabel: { flex: 1, color: Colors.textPrimary, fontSize: 12.5, fontWeight: '600' },
+  zoomHint: { color: Colors.textMuted, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase', marginRight: 2 },
 
   infoCard: { position: 'absolute', left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: Colors.surface + 'F2', borderWidth: 1, borderColor: Colors.border },
   infoName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },

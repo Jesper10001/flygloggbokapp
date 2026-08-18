@@ -173,10 +173,14 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
                 <Ionicons name="create-outline" size={16} color={accent} />
                 <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>Modify logbook</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null, carry: spreads.length ? spreads[spreads.length - 1].total_to_date : undefined })} activeOpacity={0.8} style={secBtn}>
-                <Ionicons name="add" size={18} color={accent} />
-                <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>New logbook</Text>
-              </TouchableOpacity>
+              {/* "New logbook" visas bara när nuvarande bok är full (kapacitet nådd / overflow) — man ska
+                  inte kunna skapa nästa bok innan den förra fyllts. Böcker utan sidgräns fylls aldrig → döljs alltid. */}
+              {(slice?.isFull || (slice?.overflowCount ?? 0) > 0) && (
+                <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null, carry: spreads.length ? spreads[spreads.length - 1].total_to_date : undefined })} activeOpacity={0.8} style={secBtn}>
+                  <Ionicons name="add" size={18} color={accent} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>New logbook</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         ) : (
@@ -235,7 +239,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode="manned" initial={setup.initial} flights={flights} carryOpeningBalance={setup.carry} timeFormat={timeFormat}
+            <BookSetupSheet mode={setup.mode} appMode="manned" initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat}
               onClose={() => setSetup(null)} onSaved={() => { setSetup(null); listDigitalBooks().then(setBooks); }} />
           )}
         </View>

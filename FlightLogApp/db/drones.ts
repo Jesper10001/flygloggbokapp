@@ -14,15 +14,36 @@ export interface DroneRegistryEntry {
   category: DroneCategory;
   drone_class?: string; // 'military' | 'civil' | '' — anges själv i drönar-modalen
   notes: string;
+  image_url?: string;   // Fleet-foto (valt ur bibliotek)
+  cutout_url?: string;  // VisionKit-urklipp för pop-out-effekten
+  manufacturer?: string;
+  c_class?: string;        // EU-klass C0–C6
+  max_flight_min?: number; // max flygtid (min)
+  max_speed_kmh?: number;  // max hastighet (km/h)
+  ceiling_m?: number;      // tjänstetak (m)
+  range_km?: number;       // länkräckvidd (km)
 }
 
-export interface DroneBattery {
-  id: number;
-  drone_id: number;
-  label: string;
-  serial: string;
-  cycle_count: number;
-  health: number; // % state-of-health (default 100)
+// Fleet-vy grupperad per modell (= pilot getAllAircraftTypes): en post per modell med
+// aggregerade specar (MAX över radernas värden), total flygtid och antal registreringar.
+export interface DroneModelFleet {
+  id: number;            // representativ rad-id (MIN) — stabil nyckel
+  model: string;
+  drone_type: DroneType;
+  mtow_g: number;
+  category: DroneCategory;
+  drone_class: string;
+  manufacturer: string;
+  c_class: string;
+  max_flight_min: number;
+  max_speed_kmh: number;
+  ceiling_m: number;
+  range_km: number;
+  image_url: string;
+  cutout_url: string;
+  total_hours: number;   // summa flygtid över modellens alla registreringar
+  last_flown: string;
+  reg_count: number;
 }
 
 export async function listDrones(): Promise<DroneRegistryEntry[]> {
@@ -32,18 +53,122 @@ export async function listDrones(): Promise<DroneRegistryEntry[]> {
   );
 }
 
-export interface DroneUsage { drone_id: number; total_time: number; flight_count: number }
+export interface DroneUsage { drone_id: number; total_time: number; flight_count: number; last_flown: string }
 
 export async function getDroneUsage(): Promise<DroneUsage[]> {
   const db = await getDatabase();
   return db.getAllAsync<DroneUsage>(
     `SELECT drone_id,
             ROUND(SUM(total_time), 2) AS total_time,
-            COUNT(*) AS flight_count
+            COUNT(*) AS flight_count,
+            MAX(date) AS last_flown
        FROM drone_flights
       WHERE drone_id IS NOT NULL
       GROUP BY drone_id`
   );
+}
+
+// Fleet-foto per drönare (valt ur bibliotek) + cachat VisionKit-urklipp.
+export async function updateDroneImage(id: number, fields: { image_url?: string; cutout_url?: string }): Promise<void> {
+  const db = await getDatabase();
+  const sets: string[] = []; const vals: any[] = [];
+  if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
+  if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
+  if (!sets.length) return;
+  vals.push(id);
+  await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE id=?`, vals);
+}
+
+// ── Fleet grupperad per modell (= pilot getAllAircraftTypes / getRegistrationHours) ──
+
+export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<DroneModelFleet>(
+    `SELECT MIN(dr.id) AS id,
+            dr.model AS model,
+            MAX(dr.drone_type) AS drone_type,
+            MAX(dr.mtow_g) AS mtow_g,
+            MAX(dr.category) AS category,
+            MAX(dr.drone_class) AS drone_class,
+            MAX(dr.manufacturer) AS manufacturer,
+            MAX(dr.c_class) AS c_class,
+            MAX(dr.max_flight_min) AS max_flight_min,
+            MAX(dr.max_speed_kmh) AS max_speed_kmh,
+            MAX(dr.ceiling_m) AS ceiling_m,
+            MAX(dr.range_km) AS range_km,
+            MAX(dr.image_url) AS image_url,
+            MAX(dr.cutout_url) AS cutout_url,
+            COALESCE(ROUND(SUM(f.total_time), 2), 0) AS total_hours,
+            COALESCE(MAX(f.date), '') AS last_flown,
+            COUNT(DISTINCT CASE WHEN dr.registration != '' THEN dr.id END) AS reg_count
+       FROM drone_registry dr
+       LEFT JOIN drone_flights f ON f.drone_id = dr.id
+      GROUP BY dr.model
+      ORDER BY last_flown DESC, total_hours DESC`
+  );
+}
+
+export async function getDroneModelRegistrations(model: string): Promise<{ registration: string; drone_id: number; hours: number; last_flown: string }[]> {
+  const db = await getDatabase();
+  return db.getAllAsync(
+    `SELECT dr.registration AS registration,
+            dr.id AS drone_id,
+            COALESCE(ROUND(SUM(f.total_time), 2), 0) AS hours,
+            COALESCE(MAX(f.date), '') AS last_flown
+       FROM drone_registry dr
+       LEFT JOIN drone_flights f ON f.drone_id = dr.id
+      WHERE dr.model = ? AND dr.registration != ''
+      GROUP BY dr.id
+      ORDER BY hours DESC, last_flown DESC`,
+    [model]
+  );
+}
+
+// Sätt foto/urklipp på ALLA rader för en modell → modell-kortet blir konsekvent.
+export async function updateDroneModelImage(model: string, fields: { image_url?: string; cutout_url?: string }): Promise<void> {
+  const db = await getDatabase();
+  const sets: string[] = []; const vals: any[] = [];
+  if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
+  if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
+  if (!sets.length) return;
+  vals.push(model);
+  await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE model=?`, vals);
+}
+
+// Persist AI-uppslag på modellnivå: sätt bara icke-tomma värden (skriv inte över med blanka).
+export async function persistDroneModelLookup(model: string, fields: {
+  manufacturer?: string; drone_type?: string; mtow_g?: number; c_class?: string;
+  max_flight_min?: number; max_speed_kmh?: number; ceiling_m?: number; range_km?: number; image_url?: string; cutout_url?: string;
+}): Promise<void> {
+  const db = await getDatabase();
+  const sets: string[] = []; const vals: any[] = [];
+  const nonEmptyStr = (x: any) => typeof x === 'string' && x.trim().length > 0;
+  const positive = (x: any) => typeof x === 'number' && x > 0;
+  const put = (col: string, v: any, keep: (x: any) => boolean) => { if (v !== undefined && keep(v)) { sets.push(`${col}=?`); vals.push(v); } };
+  put('manufacturer', fields.manufacturer, nonEmptyStr);
+  put('drone_type', fields.drone_type, nonEmptyStr);
+  put('mtow_g', fields.mtow_g, positive);
+  put('c_class', fields.c_class, nonEmptyStr);
+  put('max_flight_min', fields.max_flight_min, positive);
+  put('max_speed_kmh', fields.max_speed_kmh, positive);
+  put('ceiling_m', fields.ceiling_m, positive);
+  put('range_km', fields.range_km, positive);
+  if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
+  if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
+  if (!sets.length) return;
+  vals.push(model);
+  await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE model=?`, vals);
+}
+
+// Ta bort en enskild registrering, resp. hela modellen (alla dess registreringar).
+export async function deleteDroneRegistration(id: number): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM drone_registry WHERE id=?`, [id]);
+}
+
+export async function deleteDroneModel(model: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM drone_registry WHERE model=?`, [model]);
 }
 
 export async function getDrone(id: number): Promise<DroneRegistryEntry | null> {
@@ -54,24 +179,14 @@ export async function getDrone(id: number): Promise<DroneRegistryEntry | null> {
   );
 }
 
-export async function addDrone(
-  data: Omit<DroneRegistryEntry, 'id'>,
-  batteryCount = 2,
-): Promise<number> {
+export async function addDrone(data: Omit<DroneRegistryEntry, 'id'>): Promise<number> {
   const db = await getDatabase();
   const res = await db.runAsync(
     `INSERT INTO drone_registry (drone_type, model, registration, mtow_g, category, drone_class, notes)
      VALUES (?,?,?,?,?,?,?)`,
     [data.drone_type, data.model, data.registration.toUpperCase(), data.mtow_g, data.category, data.drone_class ?? '', data.notes]
   );
-  const id = res.lastInsertRowId as number;
-  for (let i = 1; i <= batteryCount; i++) {
-    await db.runAsync(
-      `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count) VALUES (?,?,?,?)`,
-      [id, `Battery #${i}`, '', 0]
-    );
-  }
-  return id;
+  return res.lastInsertRowId as number;
 }
 
 export async function updateDrone(id: number, data: Omit<DroneRegistryEntry, 'id'>): Promise<void> {
@@ -85,7 +200,7 @@ export async function updateDrone(id: number, data: Omit<DroneRegistryEntry, 'id
 }
 
 // Tömmer bara kategori-fältet på alla drönare i registret så användaren måste
-// klassa om dem till den nya pilot-typen. Drönarna själva, batterier,
+// klassa om dem till den nya pilot-typen. Drönarna själva,
 // flygtid och historiska flight.category behålls orörda.
 export async function getDroneFlightCount(): Promise<number> {
   const db = await getDatabase();
@@ -101,88 +216,6 @@ export async function clearDroneRegistryCategories(): Promise<void> {
 export async function deleteDrone(id: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM drone_registry WHERE id=?`, [id]);
-}
-
-export async function listBatteries(droneId: number): Promise<DroneBattery[]> {
-  const db = await getDatabase();
-  return db.getAllAsync<DroneBattery>(
-    `SELECT * FROM drone_batteries WHERE drone_id=? ORDER BY id`,
-    [droneId]
-  );
-}
-
-export async function addBattery(droneId: number, label: string, serial = ''): Promise<number> {
-  const db = await getDatabase();
-  const res = await db.runAsync(
-    `INSERT INTO drone_batteries (drone_id, label, serial, cycle_count, health) VALUES (?,?,?,0,100)`,
-    [droneId, label, serial]
-  );
-  return res.lastInsertRowId as number;
-}
-
-export async function updateBattery(id: number, label: string, serial: string, cycleCount: number, health = 100): Promise<void> {
-  const db = await getDatabase();
-  await db.runAsync(
-    `UPDATE drone_batteries SET label=?, serial=?, cycle_count=?, health=? WHERE id=?`,
-    [label, serial, cycleCount, Math.max(0, Math.min(100, health)), id]
-  );
-}
-
-export async function incrementBatteryCycles(id: number, delta = 1): Promise<void> {
-  const db = await getDatabase();
-  await db.runAsync(
-    `UPDATE drone_batteries SET cycle_count = cycle_count + ? WHERE id=?`,
-    [delta, id]
-  );
-}
-
-export async function deleteBattery(id: number): Promise<void> {
-  const db = await getDatabase();
-  await db.runAsync(`DELETE FROM drone_batteries WHERE id=?`, [id]);
-}
-
-// ─── BATTERI-ÖVERBLICK FÖR DASHBOARD ────────────────────────────────────────
-
-export interface DroneBatteryStatus {
-  drone_id: number;
-  drone_model: string;
-  drone_reg: string;
-  batteries: (DroneBattery & { recent_flights: number })[];
-}
-
-/** Hämta batterier grupperade per drönare för drönare med ≥N flygningar senaste 90 dagarna */
-export async function getBatteryOverview(minRecentFlights = 3): Promise<DroneBatteryStatus[]> {
-  const db = await getDatabase();
-  const drones = await db.getAllAsync<DroneRegistryEntry & { recent_flights: number }>(
-    `SELECT dr.*, (
-       SELECT COUNT(*) FROM drone_flights df
-       WHERE df.drone_id = dr.id
-       AND df.date >= date('now', '-90 days')
-     ) as recent_flights
-     FROM drone_registry dr
-     ORDER BY dr.model, dr.registration`
-  );
-  const active = drones.filter((d) => d.recent_flights >= minRecentFlights);
-  const out: DroneBatteryStatus[] = [];
-  for (const d of active) {
-    const bats = await db.getAllAsync<DroneBattery>(
-      `SELECT * FROM drone_batteries WHERE drone_id=? ORDER BY id`, [d.id]
-    );
-    const withRecent = await Promise.all(bats.map(async (b) => {
-      const row = await db.getFirstAsync<{ c: number }>(
-        `SELECT COUNT(*) as c FROM drone_flights
-         WHERE battery_id=? AND date >= date('now', '-90 days')`, [b.id]
-      );
-      return { ...b, recent_flights: row?.c ?? 0 };
-    }));
-    out.push({
-      drone_id: d.id,
-      drone_model: d.model || d.drone_type || '—',
-      drone_reg: d.registration,
-      batteries: withRecent,
-    });
-  }
-  return out;
 }
 
 // ─── CERTIFIKAT ──────────────────────────────────────────────────────────────
@@ -309,8 +342,6 @@ export interface DroneFlight {
   flight_rules: string;   // 'VFR' | 'Y' | 'Z' | 'IFR'
   has_observer: number;
   observer_name: string;
-  battery_id: number | null;
-  battery_start_cycles: number;
   wind_ms: number;
   co_pilot_fpv: number;   // FPV/andrepilot-tid
   dual: number;           // elevtid (student)
@@ -346,8 +377,6 @@ export interface DroneFlightFormData {
   flight_rules?: string;  // 'VFR' | 'Y' | 'Z' | 'IFR'
   has_observer: boolean;
   observer_name: string;
-  battery_id: number | null;
-  battery_start_cycles: string;
   wind_ms?: string;
   co_pilot_fpv?: string;
   dual?: string;
@@ -366,9 +395,9 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       date, drone_id, drone_type, registration, location, lat, lon,
       takeoff_time, landing_location, landing_lat, landing_lon,
       mission_type, category, flight_mode, total_time, max_altitude_m,
-      is_night, night_time, vfr, flight_rules, has_observer, observer_name, battery_id, battery_start_cycles, wind_ms,
+      is_night, night_time, vfr, flight_rules, has_observer, observer_name, wind_ms,
       co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -392,8 +421,6 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       data.flight_rules ?? 'VFR',
       data.has_observer ? 1 : 0,
       data.observer_name,
-      data.battery_id,
-      parseInt(data.battery_start_cycles, 10) || 0,
       parseFloat(data.wind_ms ?? '') || 0,
       parseFloat(data.co_pilot_fpv ?? '') || 0,
       parseFloat(data.dual ?? '') || 0,
@@ -405,9 +432,6 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       data.remarks,
     ]
   );
-  if (data.battery_id) {
-    await db.runAsync(`UPDATE drone_batteries SET cycle_count = cycle_count + 1 WHERE id=?`, [data.battery_id]);
-  }
   return res.lastInsertRowId as number;
 }
 
@@ -426,14 +450,12 @@ export async function getDroneFlightById(id: number): Promise<DroneFlight | null
 
 export async function updateDroneFlight(id: number, data: DroneFlightFormData): Promise<void> {
   const db = await getDatabase();
-  // Hämta originalet för att justera batteri-cykel-räkning om batteri-kopplingen ändrats
-  const prev = await getDroneFlightById(id);
   await db.runAsync(
     `UPDATE drone_flights SET
       date=?, drone_id=?, drone_type=?, registration=?, location=?, lat=?, lon=?,
       takeoff_time=?, landing_location=?, landing_lat=?, landing_lon=?,
       mission_type=?, category=?, flight_mode=?, total_time=?, max_altitude_m=?,
-      is_night=?, night_time=?, vfr=?, flight_rules=?, has_observer=?, observer_name=?, battery_id=?, battery_start_cycles=?, wind_ms=?,
+      is_night=?, night_time=?, vfr=?, flight_rules=?, has_observer=?, observer_name=?, wind_ms=?,
       co_pilot_fpv=?, dual=?, instructor=?, ifr=?, landings_day=?, landings_night=?, operation_type=?, remarks=?
      WHERE id=?`,
     [
@@ -459,8 +481,6 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       data.flight_rules ?? 'VFR',
       data.has_observer ? 1 : 0,
       data.observer_name,
-      data.battery_id,
-      parseInt(data.battery_start_cycles, 10) || 0,
       parseFloat(data.wind_ms ?? '') || 0,
       parseFloat(data.co_pilot_fpv ?? '') || 0,
       parseFloat(data.dual ?? '') || 0,
@@ -473,18 +493,6 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       id,
     ]
   );
-  // Om batteriet ändrats: sänk räknaren på förra, höj på nya. Om samma batteri → inget.
-  if (prev && prev.battery_id !== data.battery_id) {
-    if (prev.battery_id) {
-      await db.runAsync(
-        `UPDATE drone_batteries SET cycle_count = MAX(0, cycle_count - 1) WHERE id=?`,
-        [prev.battery_id]
-      );
-    }
-    if (data.battery_id) {
-      await db.runAsync(`UPDATE drone_batteries SET cycle_count = cycle_count + 1 WHERE id=?`, [data.battery_id]);
-    }
-  }
 }
 
 export async function deleteDroneFlight(id: number): Promise<void> {

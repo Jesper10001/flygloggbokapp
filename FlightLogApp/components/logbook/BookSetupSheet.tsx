@@ -18,6 +18,7 @@ import {
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals } from '../../services/logbook/paginate';
+import { assignFlightsToBooks } from '../../services/logbook/books';
 import { getBackfill } from '../../db/backfill';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
@@ -29,12 +30,13 @@ import {
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export function BookSetupSheet({
-  mode, appMode, initial, flights, carryOpeningBalance, timeFormat, onClose, onSaved,
+  mode, appMode, initial, flights, allBooks, carryOpeningBalance, timeFormat, onClose, onSaved,
 }: {
   mode: 'create' | 'edit';
   appMode: 'manned' | 'drone';
   initial?: DigitalBook | null;
   flights: Flight[];
+  allBooks?: DigitalBook[];   // alla böcker → för att härleda bokens FÖRSTA egna flight (brought-forward-gräns)
   carryOpeningBalance?: ColumnTotals;
   timeFormat: 'decimal' | 'hhmm';
   onClose: () => void;
@@ -120,6 +122,14 @@ export function BookSetupSheet({
   const needsOverflowAnswer = mode === 'create' && design.overflow && prevSameDesign === null;
 
   const balCols = useMemo(() => numericColumns(template), [template]);
+  // Brought-forward-gräns = bokens FÖRSTA egna flight (samma som resolveOpeningBalance vid rendering),
+  // INTE anchor_flight_id (senaste flighten) — annars blev "Modify" uppblåst mot "New"/den ritade boken.
+  // Create (ingen bok än) → 0, dvs. bara summeringsrader / medförd balans (hanteras separat nedan).
+  const bfBoundaryId = useMemo(() => {
+    if (mode !== 'edit' || !initial || !allBooks?.length) return 0;
+    const slice = assignFlightsToBooks(allBooks, flights).find((s) => s.book.id === initial.id);
+    return slice?.flights?.[0]?.id ?? 0;
+  }, [mode, initial, allBooks, flights]);
   const [bal, setBal] = useState<Record<string, string>>(() => {
     const seed: ColumnTotals = (() => {
       if (carryOpeningBalance) return carryOpeningBalance;
@@ -128,7 +138,7 @@ export function BookSetupSheet({
       let stored: ColumnTotals = {};
       try { stored = initial ? JSON.parse(initial.opening_balance || '{}') : {}; } catch { stored = {}; }
       if (Object.keys(stored).length > 0) return stored;
-      return computeBroughtForward(flights, template, initial?.anchor_flight_id ?? 0);
+      return computeBroughtForward(flights, template, bfBoundaryId);
     })();
     const o: Record<string, string> = {};
     for (const c of balCols) {
@@ -141,15 +151,14 @@ export function BookSetupSheet({
   // Ingående balans: Imported = ALL importerad/skannad erfarenhet (source ≠ 'manual') summerad
   // per kolumn — CSV, OCR och manuell erfarenhetslogg — så användaren ser hela sin brought-forward.
   // Current = brought-forward (allt före boken = importerat + loggat i appen) = redigerbara `bal`.
-  const anchorId = initial?.anchor_flight_id ?? 0;
   const importedBal = useMemo(
-    () => computeBroughtForward(flights, template, anchorId, (f) => (f as any).source !== 'manual', { noAnchorBase: 'all' }),
-    [flights, template, anchorId],
+    () => computeBroughtForward(flights, template, bfBoundaryId, (f) => (f as any).source !== 'manual', { noAnchorBase: 'all' }),
+    [flights, template, bfBoundaryId],
   );
   const importSources = useMemo(() => {
     const sorted = sortFlightsChrono(flights);
-    const before = anchorId > 0
-      ? (() => { const idx = sorted.findIndex((f) => f.id === anchorId); return idx >= 0 ? sorted.slice(0, idx) : []; })()
+    const before = bfBoundaryId > 0
+      ? (() => { const idx = sorted.findIndex((f) => f.id === bfBoundaryId); return idx >= 0 ? sorted.slice(0, idx) : []; })()
       : sorted; // första boken → all historik (CSV/OCR/manuell), inte bara summeringsrader
     const set = new Set<string>();
     for (const f of before) {
@@ -159,7 +168,7 @@ export function BookSetupSheet({
       else if ((f as any).source === 'import') set.add(sv ? 'CSV-import' : 'CSV import');
     }
     return [...set];
-  }, [flights, anchorId, sv]);
+  }, [flights, bfBoundaryId, sv]);
   const fmtImported = (key: string) => {
     const col = balCols.find((c) => c.flightKey === key);
     const v = importedBal[key] ?? 0;
@@ -179,7 +188,7 @@ export function BookSetupSheet({
   useEffect(() => { getBackfill().then((v) => setBfAdj(v as any)); }, []);
   // Auto-härledd brought-forward (den boken använder utan override) + ev. sparad override.
   // Om en bok redan har en override är dess verkliga total = override + rader, inte totalBal.
-  const autoBF = useMemo(() => computeBroughtForward(flights, template, anchorId), [flights, template, anchorId]);
+  const autoBF = useMemo(() => computeBroughtForward(flights, template, bfBoundaryId), [flights, template, bfBoundaryId]);
   const storedOverride = useMemo(() => {
     try { return initial ? (JSON.parse(initial.opening_balance || '{}') as ColumnTotals) : {}; } catch { return {}; }
   }, [initial]);

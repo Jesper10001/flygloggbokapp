@@ -22,7 +22,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCruiseSpeed, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
@@ -42,7 +42,7 @@ import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { CountryFlag } from '../../components/CountryFlag';
 import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
-import { computeNightHoursTimed, vertexArrivalTimes, sampleTimedRoute, type SunState } from '../../utils/dayNight';
+import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, sampleTimedRoute, type SunState } from '../../utils/dayNight';
 import { TwilightBar } from '../../components/logflight/TwilightBar';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
@@ -749,6 +749,10 @@ export default function AddFlightScreen() {
   const [nightManual, setNightManual] = useState(isEdit);
   // Auto-beräknad natt-tid (route-natt) för visning i total-rutan — ändras EJ av manuell override.
   const [autoNightH, setAutoNightH] = useState(0);
+  // Marschfart (kts) för vald flygplanstyp → radie på cirkeln vid dep = arr (out-and-back).
+  const [acCruiseKts, setAcCruiseKts] = useState(0);
+  // Valt väderstreck (bäring 0–315°) man flög åt i out-and-back-cirkeln; null = ej valt än.
+  const [circleBearing, setCircleBearing] = useState<number | null>(null);
   const [sunRouteOpen, setSunRouteOpen] = useState(false);
   const sunPoints = useMemo(() => (
     [
@@ -820,15 +824,36 @@ export default function AddFlightScreen() {
     return out;
   }, [depLatLon, arrLatLon, wpCoords, routeStops, form.dep_place, form.arr_place]);
 
+  // Samma dep/arr utan distinkta waypoints → rutten är EN punkt (out-and-back). Då blir
+  // flygenvelopen en cirkel med radie = flygtid × marschfart / 2 (NM) runt flygplatsen.
+  const isStationaryRoute = !!depLatLon && !!arrLatLon && routeLegs.length >= 2
+    && routeLegs.every((l) => l.lat === routeLegs[0].lat && l.lon === routeLegs[0].lon);
+  const circleRadiusNM = (isStationaryRoute && acCruiseKts > 0)
+    ? ((parseFloat(form.total_time) || 0) * acCruiseKts) / 2 : 0;
+  // Nytt väderstreck/plats/flygplan → nollställ valt håll.
+  useEffect(() => { setCircleBearing(null); }, [depLatLon, arrLatLon, form.aircraft_type]);
+  // Valt väderstreck → flygningen blir dep → cirkelns kant (i det hållet) → dep. Då beräknas
+  // natt EXAKT som en tur mellan två flygplatser (figuren flyger ut till kanten och hem).
+  const circleLegs = useMemo(() => {
+    if (!(isStationaryRoute && circleRadiusNM > 0 && circleBearing != null)) return routeLegs;
+    const c = routeLegs[0];
+    const b = destPointDeg(c.lat, c.lon, circleBearing, circleRadiusNM / 60);
+    return [
+      { lat: c.lat, lon: c.lon, label: form.dep_place, dwellMin: 0 },
+      { lat: b.lat, lon: b.lon, label: '', dwellMin: 0 },
+      { lat: c.lat, lon: c.lon, label: form.arr_place, dwellMin: 0 },
+    ];
+  }, [isStationaryRoute, circleRadiusNM, circleBearing, routeLegs, form.dep_place, form.arr_place]);
+
   // Skymnings-segment längs rutten (samma sol-modell som "Sun route"-kartan) → TwilightBar.
   const twilightSegs = useMemo(() => {
-    if (routeLegs.length < 2 || !form.date || !isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) return [];
+    if (circleLegs.length < 2 || !form.date || !isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) return [];
     const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
     if (!inst) return [];
     const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
     const totalMs = arrMs - depMs;
     if (!(totalMs > 0)) return [];
-    const pts = sampleTimedRoute(routeLegs, depMs, arrMs, 120);
+    const pts = sampleTimedRoute(circleLegs, depMs, arrMs, 120);
     if (!pts.length) return [];
     const stateColor = (k: SunState) => k === 'day' ? Colors.success : k === 'night' ? Colors.info : Colors.gold;
     const runs: { k: SunState; ms: number }[] = [];
@@ -841,7 +866,7 @@ export default function AddFlightScreen() {
       else runs.push({ k: st, ms: w });
     }
     return runs.map((r) => ({ k: r.k, f: (r.ms / totalMs) * 100, c: stateColor(r.k) }));
-  }, [routeLegs, form.date, form.dep_utc, form.arr_utc]);
+  }, [circleLegs, form.date, form.dep_utc, form.arr_utc]);
 
   // Connector-glyf: flygplan vs helikopter — baserat på SENAST flugna modell, annars
   // onboarding-valet (helikopter/fixed wing). Oberoende av aktuell aircraft_type.
@@ -1073,13 +1098,22 @@ export default function AddFlightScreen() {
   // Beräknas ALLTID (→ autoNightH för visning); form.night skrivs bara när ej manuell.
   useEffect(() => {
     const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-    if (!inst || routeLegs.length < 2) { setAutoNightH(0); return; }
-    // Dwell-medveten night-tid: T&G (10 min) / hot refuel (30 min) räknas in där de sker.
-    const n = computeNightHoursTimed(routeLegs, inst.dep.getTime(), inst.arr.getTime());
+    if (!inst || circleLegs.length < 2) { setAutoNightH(0); return; }
+    // circleLegs = vanliga rutten, ELLER dep → cirkelns kant → dep när ett väderstreck valts
+    // (out-and-back). Samma dwell-medvetna sol-modell längs vägen som mellan två flygplatser.
+    const n = computeNightHoursTimed(circleLegs, inst.dep.getTime(), inst.arr.getTime());
     setAutoNightH(typeof n === 'number' ? n : parseFloat(String(n)) || 0);
     if (!nightManual) setForm((prev) => (prev.night === String(n) ? prev : { ...prev, night: String(n) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.dep_utc, form.arr_utc, form.date, routeLegs, nightManual]);
+  }, [form.dep_utc, form.arr_utc, form.date, circleLegs, nightManual]);
+
+  // Natt får ALDRIG överstiga total flygtid — klamp när totalen ändras (t.ex. kortare block).
+  useEffect(() => {
+    const tot = parseFloat(form.total_time) || 0;
+    const nt = parseFloat(form.night || '0') || 0;
+    if (tot > 0 && nt > tot + 1e-6) setForm((prev) => (prev.night === String(tot) ? prev : { ...prev, night: String(tot) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.total_time]);
 
   // Mörkerlandning: landningen räknas som natt om solen vid ANKOMSTEN står under
   // −6° (civil skymning), dvs själva landningsskedet var i mörker. Auto, men
@@ -1427,11 +1461,12 @@ export default function AddFlightScreen() {
   useEffect(() => {
     setPilotModeManual(false); // nytt flygplan → SP/MP-constraints/härledning gäller igen
     const type = form.aircraft_type.trim().toUpperCase();
-    if (!type) { setRecentRegs([]); setSpSupported(true); setMpSupported(true); return; }
+    if (!type) { setRecentRegs([]); setSpSupported(true); setMpSupported(true); setAcCruiseKts(0); return; }
     let cancelled = false;
     getRecentRegistrations(type).then((regs) => {
       if (!cancelled) setRecentRegs(regs);
     });
+    getAircraftCruiseSpeed(type).then((s) => { if (!cancelled) setAcCruiseKts(s || 0); }).catch(() => {});
     getAircraftCrewType(type).then((ct) => {
       if (cancelled) return;
       const hasSp = !ct || ct.includes('sp');
@@ -2740,7 +2775,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   <Ionicons name="close" size={22} color={Colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              <DayNightMap embedded points={routeLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} />
+              <DayNightMap embedded points={circleLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} circleNM={circleRadiusNM} circleCenter={isStationaryRoute ? { lat: routeLegs[0].lat, lon: routeLegs[0].lon } : undefined} selectedBearing={circleBearing} onPickBearing={setCircleBearing} vehicle={glyphIsHeli ? 'heli' : 'plane'} />
             </Pressable>
           </Pressable>
         </Modal>

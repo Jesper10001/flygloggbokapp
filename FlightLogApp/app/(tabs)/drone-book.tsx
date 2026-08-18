@@ -74,7 +74,7 @@ export default function DroneBookScreen() {
           ) : null}
         </View>
         <Text style={s.note}>
-          Drone-specific columns (distance, max altitude, battery) are free-text on the
+          Drone-specific columns (distance, max altitude, mission) are free-text on the
           paper spread. Full multi-page book & PDF export coming next.
         </Text>
       </ScrollView>

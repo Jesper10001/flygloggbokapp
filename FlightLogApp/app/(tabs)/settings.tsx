@@ -439,45 +439,7 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
 
-          {/* Certifikat-rad */}
-          <TouchableOpacity
-            style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            activeOpacity={0.7}
-            onPress={() => router.push('/settings/certificates')}
-          >
-            <View style={{
-              width: 32, height: 32, borderRadius: 8,
-              backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Ionicons name="shield-checkmark" size={15} color={Colors.success} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{t('certificates')}</Text>
-              <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {certCount > 0 ? `${certCount} ${t('certificates_count')}` : t('certificates_sub')}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-
-          {/* Current today? — currency/recency */}
-          <TouchableOpacity
-            style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            activeOpacity={0.7}
-            onPress={() => router.push('/currency')}
-          >
-            <View style={{
-              width: 32, height: 32, borderRadius: 8,
-              backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Ionicons name="today" size={15} color={Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Current today?</Text>
-              <Text style={{ fontSize: 11, color: Colors.textMuted }}>Passenger, night, IFR, medical & rating currency</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
+          {/* Certifikat + "Current today?" borttagna inför lansering (dolda från UI). */}
 
           {/* Premium */}
           <TouchableOpacity
@@ -661,12 +623,13 @@ export default function SettingsScreen() {
             onClick={() => router.push('/import')}
             separatorColor={Colors.background}
           />
+          {/* Scan logbook images — pausad inför lansering, visas som "coming soon". */}
           {isPilot && <Row
-            icon="camera-outline" iconColor={Colors.primary}
+            icon="camera-outline" iconColor={Colors.textMuted}
             title={t('import_scan_title')}
-            subtitle={t('import_scan_sub')}
-            right={!isPremium && !isMax ? <PremiumPill /> : undefined}
-            onClick={isPremium || isMax ? () => router.push('/import/scan') : () => { setPremiumFeatureName(t('import_scan_title')); setShowPremiumModal(true); }}
+            subtitle={t('coming_soon')}
+            right={<Text style={styles.soonPill}>SOON</Text>}
+            pressable={false}
             separatorColor={Colors.background}
           />}
           <Row
@@ -700,11 +663,12 @@ export default function SettingsScreen() {
             pressable={false}
             separatorColor={Colors.background}
           />
+          {/* Export to PDF — pausad inför lansering, visas som "coming soon". */}
           {isPilot && <Row
-            icon="document-text-outline" iconColor={Colors.primary}
-            title={t('export_to_pdf')} subtitle={t('export_to_pdf_premium')}
-            right={exportingPDF ? <ActivityIndicator size="small" color={Colors.primary} /> : !isPremium ? <PremiumPill /> : undefined}
-            onClick={isPremium ? handleExportPDF : () => { setPremiumFeatureName(t('export_to_pdf')); setShowPremiumModal(true); }}
+            icon="document-text-outline" iconColor={Colors.textMuted}
+            title={t('export_to_pdf')} subtitle={t('coming_soon')}
+            right={<Text style={styles.soonPill}>SOON</Text>}
+            pressable={false}
             separatorColor={Colors.background}
           />}
           {isPilot && <Row
@@ -1056,4 +1020,5 @@ function makeSettingsStyles() { return StyleSheet.create({
   toggleBtnActive: { backgroundColor: Colors.primary },
   toggleText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   toggleTextActive: { color: Colors.textInverse },
+  soonPill: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, color: Colors.textMuted, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, overflow: 'hidden' },
 }); }

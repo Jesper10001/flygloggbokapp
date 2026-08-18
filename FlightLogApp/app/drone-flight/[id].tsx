@@ -74,12 +74,6 @@ export default function DroneFlightDetail() {
         {flight.has_observer && flight.observer_name ? (
           <Detail label={t('observer')} value={flight.observer_name} />
         ) : null}
-        {flight.battery_id ? (
-          <Detail
-            label={t('battery')}
-            value={`${flight.battery_start_cycles} ${t('cycles_at_start')}`}
-          />
-        ) : null}
         {flight.lat !== 0 || flight.lon !== 0 ? (
           <Detail
             label={t('location')}

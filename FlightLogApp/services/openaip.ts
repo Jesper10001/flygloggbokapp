@@ -26,27 +26,45 @@ export type Airspace = {
 // ── Kategorier (grupperar OpenAIP:s ~25 typkoder till hanterbara lager i UI:t) ──
 // Färgerna är fasta (fungerar som legend) men valda i Blades-anda. FIR/UIR (10/11) exkluderas helt
 // eftersom de är landsstora och meningslösa som overlay.
-export type AirspaceCategory = { key: string; label: string; color: string; types: number[]; defaultOn: boolean };
+//
+// showAtSpan = största kartvidd (grader lat/lon) där kategorin ritas. Mindre span = mer inzoomad.
+// Detta ger progressiv detaljnivå (LOD): stora/viktiga områden (R/P/D) syns tidigt, småzoner (ATZ,
+// Other) först när man zoomat in. Samma mekanism hindrar kraschen vid utzoomning: inget ritas när
+// span > 5° (API:ts bbox-gräns), så kartan är tom på globen även om gammal data ligger kvar i state.
+export type AirspaceCategory = { key: string; label: string; color: string; types: number[]; defaultOn: boolean; showAtSpan: number };
 
 export const AIRSPACE_CATEGORIES: AirspaceCategory[] = [
-  { key: 'restricted', label: 'Restricted (R)', color: '#FF4D6A', types: [1], defaultOn: true },
-  { key: 'danger', label: 'Danger (D)', color: '#FFB830', types: [2], defaultOn: true },
-  { key: 'prohibited', label: 'Prohibited (P)', color: '#E01040', types: [3], defaultOn: true },
-  { key: 'ctr', label: 'CTR', color: '#3B82F6', types: [4], defaultOn: true },
-  { key: 'tma', label: 'TMA', color: '#A855F7', types: [7], defaultOn: true },
-  { key: 'mz', label: 'TMZ / RMZ', color: '#14B8A6', types: [5, 6], defaultOn: false },
-  { key: 'tiz', label: 'TIZ / TIA', color: '#34D399', types: [23, 24], defaultOn: false },
-  { key: 'military', label: 'TRA / TSA / Gliding', color: '#EC4899', types: [8, 9, 21], defaultOn: false },
-  { key: 'atz', label: 'ATZ / MATZ / HTZ', color: '#60A5FA', types: [13, 14, 20], defaultOn: false },
-  { key: 'other', label: 'Other', color: '#94A3B8', types: [0, 12, 15, 16, 17, 18, 19, 22, 25, 26], defaultOn: false },
+  { key: 'restricted', label: 'Restricted (R)', color: '#FF4D6A', types: [1], defaultOn: true, showAtSpan: 5.0 },
+  { key: 'danger', label: 'Danger (D)', color: '#FFB830', types: [2], defaultOn: true, showAtSpan: 5.0 },
+  { key: 'prohibited', label: 'Prohibited (P)', color: '#E01040', types: [3], defaultOn: true, showAtSpan: 5.0 },
+  { key: 'ctr', label: 'CTR', color: '#3B82F6', types: [4], defaultOn: true, showAtSpan: 2.5 },
+  { key: 'tma', label: 'TMA', color: '#A855F7', types: [7], defaultOn: true, showAtSpan: 2.5 },
+  { key: 'military', label: 'TRA / TSA / Gliding', color: '#EC4899', types: [8, 9, 21], defaultOn: true, showAtSpan: 1.2 },
+  { key: 'mz', label: 'TMZ / RMZ', color: '#14B8A6', types: [5, 6], defaultOn: true, showAtSpan: 1.2 },
+  { key: 'tiz', label: 'TIZ / TIA', color: '#34D399', types: [23, 24], defaultOn: true, showAtSpan: 1.2 },
+  { key: 'atz', label: 'ATZ / MATZ / HTZ', color: '#60A5FA', types: [13, 14, 20], defaultOn: true, showAtSpan: 0.5 },
+  { key: 'other', label: 'Other', color: '#94A3B8', types: [0, 12, 15, 16, 17, 18, 19, 22, 25, 26], defaultOn: false, showAtSpan: 0.5 },
 ];
 
 const TYPE_TO_COLOR = new Map<number, string>();
 const TYPE_TO_CATEGORY = new Map<number, string>();
-for (const c of AIRSPACE_CATEGORIES) for (const t of c.types) { TYPE_TO_COLOR.set(t, c.color); TYPE_TO_CATEGORY.set(t, c.key); }
+const TYPE_TO_SPAN = new Map<number, number>();
+const TYPE_TO_PRIORITY = new Map<number, number>();
+AIRSPACE_CATEGORIES.forEach((c, i) => {
+  for (const t of c.types) {
+    TYPE_TO_COLOR.set(t, c.color);
+    TYPE_TO_CATEGORY.set(t, c.key);
+    TYPE_TO_SPAN.set(t, c.showAtSpan);
+    TYPE_TO_PRIORITY.set(t, i); // lägre index = viktigare (överlever kapning först)
+  }
+});
 
 export function colorForType(type: number): string { return TYPE_TO_COLOR.get(type) ?? '#94A3B8'; }
 export function categoryForType(type: number): string { return TYPE_TO_CATEGORY.get(type) ?? 'other'; }
+// Största kartvidd (grader) där typen ska ritas — hjärtat i den progressiva detaljnivån.
+export function showAtSpanForType(type: number): number { return TYPE_TO_SPAN.get(type) ?? 0.5; }
+// Prioritet vid polygon-kapning (lägre = viktigare, ritas hellre än småzoner).
+export function priorityForType(type: number): number { return TYPE_TO_PRIORITY.get(type) ?? 99; }
 
 // FIR/UIR ritas aldrig (landsstora boxar).
 const EXCLUDED_TYPES = new Set([10, 11]);
@@ -70,6 +88,8 @@ function parse(item: any): Airspace | null {
   const g = item?.geometry;
   if (!g || g.type !== 'Polygon' || !Array.isArray(g.coordinates) || !g.coordinates.length) return null;
   const rings: number[][][] = g.coordinates;
+  // Degenererad yttre ring (< 3 punkter) → hoppa över; MapKit kan krascha på tomma/linje-polygoner.
+  if (!Array.isArray(rings[0]) || rings[0].length < 3) return null;
   return {
     id: item._id,
     name: item.name ?? '',

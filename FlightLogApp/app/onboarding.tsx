@@ -305,15 +305,15 @@ export default function OnboardingScreen() {
             <>
               <StepHeader eyebrow={sv ? 'Profil' : 'Profile'} accent={accent}
                 title={sv ? 'Sätt upp din profil' : 'Set up your profile'}
-                subtitle={sv ? 'Namn och behörigheter för din loggbok och export.' : 'Name and credentials for your logbook and exports.'} />
+                subtitle={sv ? 'Namn för din loggbok och export.' : 'Name for your logbook and exports.'} />
 
-              <AvatarPreview initials={autoInitials || '?'} name={fullName || (sv ? 'Ditt namn' : 'Your name')} creds={credentials} accent={accent} />
+              <AvatarPreview initials={autoInitials || '?'} name={fullName || (sv ? 'Ditt namn' : 'Your name')} creds="" accent={accent} />
 
               <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'} />
                 <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
                 <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. JT' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />
-                <Field label={sv ? 'Legitimation (valfritt)' : 'Credentials (optional)'} value={credentials} onChangeText={setCredentials} placeholder="CPL(H) · IR · NVG" />
+                {/* Legitimation/credentials-fält borttaget inför lansering. */}
                 <View>
                   <Text style={s.inputLabel}>{sv ? 'Pilotsignatur (valfritt)' : 'Pilot signature (optional)'}</Text>
                   <TouchableOpacity

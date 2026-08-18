@@ -38,11 +38,22 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { setScanImage } from '../../store/scanStore';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
+import { fetchDecodedWx, type DecodedWx, type WxStatus } from '../../services/weather';
+import { Marquee } from '../../components/Marquee';
+import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { formatDate, isValidTime } from '../../utils/format';
 import { computeSunWindow } from '../../utils/flightTime';
 
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../../assets/runways.json'); } catch {}
+
+// Hälsningsfrasen ("Good afternoon …") är tillfälligt dold och ersatt av väder-tickern överst.
+// Koden för hälsningen finns kvar (greeting/greetingStyle) — sätt denna till true för att återaktivera.
+const SHOW_GREETING = false;
+
+// Färgkod för hur aktuell METAR/TAF är: grön=ny, orange=på väg ut, röd=utgången.
+// Samma nyanser som stressindikatorns zoner (zoneColor) så dashboarden matchar.
+const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
@@ -574,6 +585,10 @@ export default function DashboardScreen() {
   const needleAnim = useRef(new Animated.Value(0)).current;
   const [profileName, setProfileName] = useState('');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+  const [wx, setWx] = useState<DecodedWx | null>(null); // tolkad METAR+TAF (ticker överst)
+  const [wxLoading, setWxLoading] = useState(false);
+  const [wxOverride, setWxOverride] = useState<string | null>(null); // manuellt vald flygplats (annars destinationen)
+  const [wxPickerOpen, setWxPickerOpen] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [xcMapVisible, setXcMapVisible] = useState(false);
@@ -599,6 +614,23 @@ export default function DashboardScreen() {
     getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
     loadPrompt();
   }, [loadStats, loadFlights, loadPrompt]));
+
+  // Tolkad METAR + TAF för senaste destinationsflygplatsen — hämtas vid mount och vid varje pull-to-refresh
+  // (refreshKey), samt när destinationen ändras. Närmaste-fält-fallbacken sköts inne i servicen.
+  const lastDest = flights[0]?.arr_place ?? '';
+  const wxTarget = wxOverride || lastDest; // manuellt vald flygplats vinner över destinationen
+  useEffect(() => {
+    if (mode !== 'manned' || !wxTarget) { setWx(null); return; }
+    let alive = true;
+    (async () => {
+      setWxLoading(true);
+      try {
+        const r = await fetchDecodedWx(wxTarget);
+        if (alive) setWx(r);
+      } finally { if (alive) setWxLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [wxTarget, refreshKey, mode]);
 
   useEffect(() => {
     needleAnim.setValue(0);
@@ -747,7 +779,39 @@ export default function DashboardScreen() {
       }} tintColor={Colors.primary} />}
     >
       {/* ── Header ── */}
-      <Text style={greetingStyle}>{greeting}</Text>
+      {/* Hälsningsfrasen är tillfälligt dold (SHOW_GREETING=false) men koden behålls nedan. */}
+      {SHOW_GREETING && <Text style={greetingStyle}>{greeting}</Text>}
+
+      {/* ── Väder-ticker: två rader (METAR + TAF). Tryck någonstans → välj annan flygplats. ── */}
+      {mode === 'manned' && (wx || wxLoading || isLoading || wxTarget) && (
+        <TouchableOpacity activeOpacity={0.7} style={[s.wxBlock, s.wxTap]} onPress={() => setWxPickerOpen(true)}>
+          <View style={{ flex: 1 }}>
+            {wx ? (<>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? wx.destIcao}</Text>
+                <Marquee
+                  text={wx.metarStation
+                    ? [wx.metarStationName, wx.metarIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ')
+                    : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? wx.destIcao}</Text>
+                <Marquee
+                  text={wx.tafStation
+                    ? [wx.tafStationName, wx.tafIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.tafText || 'no data'].filter(Boolean).join('   ·   ')
+                    : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+            </>) : (
+              <Text style={s.wxScroll} numberOfLines={1}>{(wxLoading || isLoading) ? 'Fetching weather…' : 'Weather unavailable'}</Text>
+            )}
+          </View>
+          <Ionicons name="chevron-down" size={16} color={wxOverride ? Colors.primary : Colors.textMuted} style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+      )}
 
       {/* ── App news / update banner ── */}
       {updateAvailable && (
@@ -1020,6 +1084,14 @@ export default function DashboardScreen() {
             <BestWeekMapModal visible={weekMapVisible} onClose={() => setWeekMapVisible(false)} weekStart={st.best_week_start} weekLabel={st.best_week_label} hours={st.best_week_hours} />
           )}
           <PremiumModal visible={!!milestonePremium} onClose={() => setMilestonePremium(null)} feature={milestonePremium ?? undefined} />
+          <AirportPickerModal
+            visible={wxPickerOpen}
+            onClose={() => setWxPickerOpen(false)}
+            currentIcao={wx?.metarStation ?? wx?.tafStation ?? null}
+            usingOverride={!!wxOverride}
+            onPick={(icao) => { setWxOverride(icao); setWxPickerOpen(false); }}
+            onUseDestination={() => { setWxOverride(null); setWxPickerOpen(false); }}
+          />
         </>
       )}
 
@@ -1048,6 +1120,12 @@ function makeDashStyles() { return StyleSheet.create({
   hudHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hudLabel: { fontSize: 10, fontWeight: '700', color: Colors.primary, letterSpacing: 1.6, fontFamily: 'Menlo' },
   hudGreeting: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.8, marginBottom: 16, fontFamily: 'Georgia' },
+  wxBlock: { marginBottom: 16 },
+  wxTap: { flexDirection: 'row', alignItems: 'center' },
+  wxLine: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 21 },
+  wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
+  wxScrollWrap: { flex: 1, height: 21 },
+  wxScroll: { fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', color: Colors.textPrimary },
 
   newsBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
