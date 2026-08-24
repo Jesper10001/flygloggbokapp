@@ -151,9 +151,10 @@ export default function OnboardingScreen() {
       await setMode(targetForProfile(profile));
       await setSetting('has_onboarded', '1');
       await new Promise(r => setTimeout(r, 100));
-      // push: lämnar onboarding kvar i stacken så import-modalen kan svepas
-      // tillbaka hit. replace: lämnar onboarding (gör det senare → dashboard).
-      if (push && dest) router.push(dest); else router.replace(dest ?? '/(tabs)');
+      // push: lämnar onboarding kvar i stacken så import-vyn kan svepas tillbaka hit. Vi skickar
+      // from=onboarding så import-vyn efter lyckad import går DIREKT till dashboarden (inte tillbaka hit).
+      // replace: lämnar onboarding (gör det senare → dashboard).
+      if (push && dest) router.push(`${dest}?from=onboarding` as any); else router.replace(dest ?? '/(tabs)');
     } catch (e: any) {
       console.error('Onboarding error:', e);
       router.replace('/(tabs)');
@@ -342,10 +343,7 @@ export default function OnboardingScreen() {
                 title={sv ? 'Har du redan flygtimmar?' : 'Do you already have flight hours?'}
                 subtitle={sv ? 'Få in dina tidigare timmar så att statistiken stämmer från dag ett.' : 'Bring in your previous hours so your stats are right from day one.'} />
               <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                <OptionCard mci="camera" accent={accent}
-                  title={sv ? 'Skanna pappersbok' : 'Scan paper logbook'}
-                  desc={sv ? 'Fota uppslagen — vi läser in dem' : 'Photograph the pages — we read them'}
-                  onPress={() => finalize('/import/scan', true)} />
+                {/* "Scan paper logbook" borttaget (väntande projekt). */}
                 <OptionCard mci="pencil-outline" accent={accent}
                   title={sv ? 'Ange starttotal' : 'Enter starting total'}
                   desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}

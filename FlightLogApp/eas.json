@@ -17,8 +17,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
-        "EXPO_PUBLIC_OPENAIP_API_KEY": "9c8b71c108719c101f5e5af6e8d8a173"
+        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com"
       }
     },
     "production": {
@@ -26,8 +25,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
-        "EXPO_PUBLIC_OPENAIP_API_KEY": "9c8b71c108719c101f5e5af6e8d8a173"
+        "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com"
       }
     }
   },

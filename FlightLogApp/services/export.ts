@@ -80,15 +80,25 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
     { header: 'Instructor',           value: f => toHHMM(f.instructor ?? 0),   optional: true, hasData: f => hasTime(f.instructor) },
     { header: 'Examiner',             value: f => toHHMM(f.examiner ?? 0),     optional: true, hasData: f => hasTime(f.examiner) },
     { header: 'Safety Pilot',         value: f => toHHMM(f.safety_pilot ?? 0), optional: true, hasData: f => hasTime(f.safety_pilot) },
+    { header: 'Pilot flying',         value: f => toHHMM(f.pilot_flying ?? 0), optional: true, hasData: f => hasTime(f.pilot_flying) },
     { header: 'IFR',                  value: f => toHHMM(f.ifr),               optional: true, hasData: f => hasTime(f.ifr) },
     { header: 'VFR',                  value: f => toHHMM(f.vfr ?? 0),          optional: true, hasData: f => hasTime(f.vfr) },
     { header: 'Night',                value: f => toHHMM(f.night),             optional: true, hasData: f => hasTime(f.night) },
     { header: 'NVG',                  value: f => toHHMM(f.nvg ?? 0),          optional: true, hasData: f => hasTime(f.nvg) },
+    { header: 'Takeoffs day',         value: f => f.takeoffs_day ?? 0,         optional: true, hasData: f => (f.takeoffs_day ?? 0) > 0 },
+    { header: 'Takeoffs night',       value: f => f.takeoffs_night ?? 0,       optional: true, hasData: f => (f.takeoffs_night ?? 0) > 0 },
+    // FAA-natt (striktare currency-definition) — bara i FAA-exporten (se easa_exclude).
+    { header: 'Takeoffs night (FAA)', value: f => f.takeoffs_faa_night ?? 0,   optional: true, hasData: f => (f.takeoffs_faa_night ?? 0) > 0 },
     { header: 'Landings day',         value: f => f.landings_day },
     { header: 'Landings night',       value: f => f.landings_night,            optional: true, hasData: f => (f.landings_night ?? 0) > 0 },
     { header: 'Touch & Go',           value: f => f.tng_count ?? 0,            optional: true, hasData: f => (f.tng_count ?? 0) > 0 },
+    { header: 'Approaches 2D',        value: f => f.app_2d ?? 0,               optional: true, hasData: f => (f.app_2d ?? 0) > 0 },
+    { header: 'Approaches 3D',        value: f => f.app_3d ?? 0,               optional: true, hasData: f => (f.app_3d ?? 0) > 0 },
+    { header: 'Holds',                value: f => f.holds ?? 0,                optional: true, hasData: f => (f.holds ?? 0) > 0 },
+    { header: 'Max FL',               value: f => f.max_fl ?? 0,               optional: true, hasData: f => (f.max_fl ?? 0) > 0 },
     { header: 'Flight rules',         value: f => f.flight_rules ?? 'VFR' },
     { header: 'Second pilot',         value: f => f.second_pilot ?? '',        optional: true, hasData: f => hasText(f.second_pilot) },
+    { header: 'Second pilot role',    value: f => f.second_pilot_role ?? '',   optional: true, hasData: f => hasText(f.second_pilot_role) },
     { header: 'Remarks',              value: f => [f.second_pilot ? `2P: ${f.second_pilot}` : '', f.remarks ?? ''].filter(Boolean).join(' · '),
                                        optional: true, hasData: f => hasText(f.remarks) || hasText(f.second_pilot) },
     { header: 'Flight type',          value: f => f.flight_type === 'sim' ? 'FFS/Sim' : f.flight_type === 'hot_refuel' ? 'Hot refuel' : 'Normal',
@@ -101,7 +111,7 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   let filteredCols = cols;
   if (standard === 'easa' || standard === 'caa') {
     // EASA/CAA: exclude some FAA-specific columns
-    const easa_exclude = new Set(['Single-pilot time', 'Multi-pilot time', 'PICUS', 'SPIC', 'Ferry PIC']);
+    const easa_exclude = new Set(['Single-pilot time', 'Multi-pilot time', 'PICUS', 'SPIC', 'Ferry PIC', 'Takeoffs night (FAA)']);
     filteredCols = cols.filter(c => !easa_exclude.has(c.header));
   } else {
     // FAA: include all columns, no exclusions
@@ -115,8 +125,8 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   );
 
   const csv = [headers.join(','), ...rows].join('\r\n');
-  const standardSuffix = standard === 'faa' ? '_faa' : standard === 'caa' ? '_caa' : '_easa';
-  const filename = `loggbok${standardSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
+  const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const filename = `Blades logbook CSV export ${dateStamp}.csv`;
   const path = FileSystem.documentDirectory + filename;
 
   await FileSystem.writeAsStringAsync(path, '\uFEFF' + csv, {
@@ -139,7 +149,7 @@ type CustomExportOpts = { columns: CustomColumn[]; separator: string; timeFormat
 const timeFields = new Set([
   'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'examiner', 'safety_pilot',
   'ifr', 'vfr', 'night', 'nvg', 'multi_pilot', 'single_pilot', 'se_time', 'me_time',
-  'picus', 'spic', 'ferry_pic', 'observer', 'relief_crew',
+  'picus', 'spic', 'ferry_pic', 'observer', 'relief_crew', 'pilot_flying',
 ]);
 
 function getFlightValue(f: Flight, key: string, fmt: 'hhmm' | 'decimal', tempCodes: Set<string>): string | number {

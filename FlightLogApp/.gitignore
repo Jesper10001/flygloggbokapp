@@ -31,3 +31,5 @@ scripts/ne-data/
 
 # airportmap.de-cache för build-airports.mjs — buntas ej
 scripts/am-data/
+scripts/runways.csv
+scripts/freq.csv

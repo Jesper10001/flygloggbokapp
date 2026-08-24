@@ -2,6 +2,8 @@
 // så vi kan förstå varför "total to date" ≠ faktiskt importerade timmar. Loggas till Metro-
 // terminalen vid app-start (logLogbookDiagnostics) → kopiera därifrån. Ta bort när buggen är löst.
 import { getFlights, getFlightStats } from '../../db/flights';
+import { getAirportCoordinates } from '../../db/icao';
+import { estimateNightForImport } from '../importNight';
 import { listDigitalBooks } from '../../db/digitalBooks';
 import { getBackfill } from '../../db/backfill';
 import { getTemplate } from '../../constants/logbookTemplates';
@@ -48,6 +50,50 @@ export async function buildLogbookDiagnostics(): Promise<string> {
     p(`SUM pic ALL:  ${sumField(flights, 'pic')} | night ALL: ${sumField(flights, 'night')} | ifr ALL: ${sumField(flights, 'ifr')}`);
     p(`[BACKFILL] flights present: ${backfillFlights.length}`);
     p('');
+
+    // ── DISKREPANS-KOLL: exakt var varje fälts timmar kommer ifrån ──────────────
+    // "real" = riktiga flygningar (ej sim/summary/backfill) → EXAKT det loggboken + CSV-exporten visar.
+    // Hours bank (stats) = real + backfill + summary. Om hours bank ≠ real finns diskrepansen där.
+    const realFlights = nonSummaryNonBF.filter((f) => (f as any).flight_type !== 'sim');
+    const bfVals: any = await getBackfill().catch(() => ({}));
+    const statsVals: any = await getFlightStats().catch(() => ({}));
+    const fields: [string, string, string | null][] = [
+      // [flight-kolumn, stats-nyckel, backfill-nyckel|null]
+      ['total_time', 'total_time', null], ['night', 'total_night', 'night'], ['ifr', 'total_ifr', 'ifr'],
+      ['pic', 'total_pic', 'pic'], ['co_pilot', 'total_co_pilot', 'co_pilot'], ['dual', 'total_dual', 'dual'],
+      ['picus', 'total_picus', 'picus'], ['instructor', 'total_instructor', 'instructor'],
+      ['landings_day', 'total_landings_day', 'landings_day'], ['landings_night', 'total_landings_night', 'landings_night'],
+    ];
+    p('[DISCREPANCY CHECK]  real-flights + backfill  vs  hours bank (stats)');
+    p('  field            real   backfill   hoursbank   verdict');
+    for (const [col, sk, bk] of fields) {
+      const a = sumField(realFlights, col);
+      const b = bk ? r1(Number(bfVals[bk]) || 0) : 0;
+      const c = r1(Number(statsVals[sk]) || 0);
+      const mismatch = Math.abs(c - a) > 0.15; // hours bank skiljer sig från riktiga flygningar
+      const bad = Math.abs((a + b) - c) > 0.6;  // stämmer inte ens real+backfill (summary-rader?)
+      p(`  ${col.padEnd(15)} ${String(a).padStart(6)} ${String(b).padStart(9)} ${String(c).padStart(10)}   ${bad ? '✗ CHECK SUMMARY' : mismatch ? `≠ (from backfill${b ? ` ${b}` : ''}/summary)` : 'ok'}`);
+    }
+    const nightFlts = realFlights.filter((f) => (parseFloat(String((f as any).night)) || 0) > 0);
+    p(`  → night flights in logbook/export (real, night>0): ${nightFlts.length} flights, ${sumField(nightFlts, 'night')} h`);
+    p(`  → imported flights (source=import): ${flights.filter((f) => (f as any).source === 'import').length}  · their night sum: ${sumField(flights.filter((f) => (f as any).source === 'import'), 'night')} h`);
+    p('');
+
+    // ── NIGHT ESTIMATE: vad importens nattid-uträkning ger för DE AKTUELLA flygningarna ──────────
+    // (sol längs rutten + tider). Jämför mot "stored night" ovan. Local vs UTC visas separat.
+    try {
+      const places = [...new Set(realFlights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))] as string[];
+      const coordArr = await getAirportCoordinates(places);
+      const coords: Record<string, { lat: number; lon: number }> = {};
+      for (const c of coordArr) coords[c.icao] = { lat: c.lat, lon: c.lon };
+      const u = estimateNightForImport(realFlights as any, coords, 'utc');
+      const l = estimateNightForImport(realFlights as any, coords, 'local');
+      p('[NIGHT ESTIMATE] (computed from routes + times — compare to stored night above)');
+      p(`  computable: ${u.computed} flights   ·   skipped: ${u.skipped} (missing coords/time)   ·   places with coords: ${Object.keys(coords).length}/${places.length}`);
+      p(`  if times are UTC (Z):   ${u.totalNight} h  over ${u.nightFlights} flights`);
+      p(`  if times are LOCAL:     ${l.totalNight} h  over ${l.nightFlights} flights`);
+      p('');
+    } catch (e: any) { p('[NIGHT ESTIMATE] ERR ' + (e?.message ?? e)); p(''); }
 
     p('[SUMMARY ROWS] (flight_type=summary → feeds brought-forward)');
     if (!summaryRows.length) p('  (none)');

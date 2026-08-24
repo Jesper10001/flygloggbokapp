@@ -35,8 +35,9 @@ function wrapName(text: string, max = 30): string {
   return lines.join('\n');
 }
 
-export default function FlightDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+// Återanvändbar flight-detaljvy. Route-skärmen nedan är en tunn wrapper; kan även visas i en
+// overlay-modal (t.ex. ovanpå kartan) via onBack (stäng overlay) och valfri onEdit.
+export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: () => void; onEdit?: (flightId: number) => void }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const accent = Colors.primary;
@@ -51,16 +52,17 @@ export default function FlightDetailScreen() {
     Alert.alert('Delete flight', "This can't be undone.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteFlight(Number(id));
+        await deleteFlight(id);
         await Promise.all([loadFlights(), loadStats()]);
-        router.back();
+        onBack();
       } },
     ]);
   };
+  const openEditor = () => (onEdit ? onEdit(id) : router.push(`/flight/add?editId=${id}`));
 
   useEffect(() => {
     if (!id) return;
-    getFlightById(Number(id)).then((f) => {
+    getFlightById(id).then((f) => {
       setFlight(f);
       if (f) {
         batchPlaceNames([f.dep_place, f.arr_place].filter(Boolean)).then(setNames);
@@ -136,7 +138,7 @@ export default function FlightDetailScreen() {
       {/* header */}
       <View style={{ paddingTop: 12, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}
+          <TouchableOpacity onPress={onBack} activeOpacity={0.7}
             style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -194,9 +196,9 @@ export default function FlightDetailScreen() {
         ) : null}
 
         {/* Synkad bild/video från fotobiblioteket (photo_local_id) + byt/välj */}
-        <FlightSyncedPhoto flight={f} accent={accent} onChanged={() => getFlightById(Number(id)).then(setFlight)} />
+        <FlightSyncedPhoto flight={f} accent={accent} onChanged={() => getFlightById(id).then(setFlight)} />
 
-        <TouchableOpacity onPress={() => router.push(`/flight/add?editId=${f.id}`)} activeOpacity={0.8}
+        <TouchableOpacity onPress={openEditor} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1, borderColor: accent, backgroundColor: accent + '18', marginBottom: 10 }}>
           <Ionicons name="create-outline" size={16} color={accent} />
           <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Open full editor</Text>
@@ -209,6 +211,14 @@ export default function FlightDetailScreen() {
       </ScrollView>
     </View>
   );
+}
+
+// Route-skärm: /flight/detail/[id] → tunn wrapper runt FlightDetailView.
+export default function FlightDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  if (!id) return null;
+  return <FlightDetailView id={Number(id)} onBack={() => router.back()} />;
 }
 
 function DetailBadge({ color, label }: { color: string; label: string }) {

@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
-import { getRegistrationHours, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType } from '../../db/flights';
+import { getRegistrationHours, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
@@ -56,6 +56,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   ac: AircraftRegistryEntry; accent: string; current: boolean; big?: boolean; onSaved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [typeName, setTypeName] = useState(ac.aircraft_type); // redigerbart typnamn (styr loggbok + export)
   const [showAll, setShowAll] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
@@ -78,6 +79,8 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   useEffect(() => {
     getRegistrationHours(ac.aircraft_type).then(setRegs);
   }, [ac.aircraft_type]);
+
+  useEffect(() => { if (!editing) setTypeName(ac.aircraft_type); }, [ac.aircraft_type, editing]);
 
   // Resynka redigerbara fält när ac ändras (t.ex. efter "hämta") — kortet remountas inte.
   useEffect(() => {
@@ -109,7 +112,12 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   }, [ac.image_url, ac.aircraft_type]);
 
   const savePerf = async () => {
-    await updateAircraftFleetFields(ac.aircraft_type, {
+    // Namnbyte: uppdaterar registret OCH alla flighter (loggbok/export följer med).
+    const newType = typeName.trim().toUpperCase();
+    const renamed = !!newType && newType !== ac.aircraft_type;
+    if (renamed) await renameAircraftType(ac.aircraft_type, newType);
+    const target = renamed ? newType : ac.aircraft_type;
+    await updateAircraftFleetFields(target, {
       vne: parseFloat(s.vne) || 0, cruise_speed_kts: parseInt(s.cruise) || 0, ceiling_ft: parseInt(s.ceiling) || 0,
       mtow: parseFloat(s.mtow) || 0, empty_weight_kg: parseFloat(s.empty) || 0, fuel_capacity_l: parseFloat(s.fuel) || 0,
       range_nm: parseFloat(s.range) || 0, endurance_h: parseFloat(s.endur) || 0, fuel_burn: parseFloat(s.consum) || 0,
@@ -255,8 +263,18 @@ export function FleetCard({ ac, accent, current, onSaved }: {
       <View style={{ paddingHorizontal: 15, paddingBottom: 14, paddingTop: cutout ? 26 : 13, position: 'relative', zIndex: 1 }}>
         {/* header: modell + maker·class (typ-rating borttagen inför lansering) */}
         <View style={{ marginBottom: 13 }}>
-          <Text style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
-          {makerLine ? <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text> : null}
+          {editing ? (
+            <TextInput value={typeName} onChangeText={(v) => setTypeName(v.toUpperCase())} autoCapitalize="characters" autoCorrect={false}
+              placeholder={ac.aircraft_type} placeholderTextColor={Colors.textMuted}
+              style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
+          ) : (
+            <Text style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
+          )}
+          {editing ? (
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginTop: 4, letterSpacing: 0.3 }}>Renaming updates the logbook & export for all flights on this type</Text>
+          ) : makerLine ? (
+            <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text>
+          ) : null}
         </View>
 
         {/* total on type */}
@@ -313,7 +331,8 @@ export function FleetCard({ ac, accent, current, onSaved }: {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 11 }}>
           <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
           <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, marginLeft: 5, flex: 1 }}>Last flown {relMonth(ac.last_flown)}</Text>
-          {editing ? (
+          {/* Remove type visas BARA om inga loggade flighter finns (annars skulle det påverka loggboken). */}
+          {editing && ac.flight_count === 0 ? (
             <TouchableOpacity onPress={removeType} activeOpacity={0.8}
               style={{ height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.danger + '1A', borderWidth: 1, borderColor: Colors.danger + '88', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, marginRight: 8 }}>
               <Ionicons name="trash-outline" size={13} color={Colors.danger} />

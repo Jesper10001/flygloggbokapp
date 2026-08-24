@@ -20,6 +20,7 @@ import { useProfileStore } from '../store/profileStore';
 import { cleanupDittoEntries } from '../db/ocrLearned';
 import { logLogbookDiagnostics } from '../services/logbook/diagnostics';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
+import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
@@ -66,6 +67,7 @@ export default function RootLayout() {
         await cleanupDittoEntries();
         logLogbookDiagnostics(); // TILLFÄLLIG felsökning → loggbokstotaler till Metro-terminalen vid varje start
         useTokenQuotaStore.getState().load(); // fire-and-forget — får inte blockera app-starten på nätverk
+        useRegulationStandardStore.getState().load(); // EASA/FAA-val → styr insights hours bank m.m.
         await checkVersion();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);

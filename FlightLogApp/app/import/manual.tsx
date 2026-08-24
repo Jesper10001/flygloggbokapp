@@ -4,7 +4,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { insertFlight, addAircraftTypeToRegistry } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
@@ -401,6 +401,9 @@ export default function ManualExperienceScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
+  // Från onboarding → efter sparad starttotal gå DIREKT till dashboarden (inte tillbaka till onboarding).
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
   const { loadFlights, loadStats, isPremium, isMax } = useFlightStore();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
@@ -606,13 +609,13 @@ export default function ManualExperienceScreen() {
         Alert.alert(
           t('done_exclamation'),
           `${saved} ${t('block_saved')}${acLine}\n\n${sv ? 'Din Wrapped är redo — utforska den i Inställningar.' : 'Your Wrapped is ready — explore it in Settings.'}`,
-          [{ text: 'OK', onPress: () => router.back() }],
+          [{ text: 'OK', onPress: finishNav }],
         );
       } else {
         Alert.alert(
           t('done_exclamation'),
           `${saved} ${t('block_saved')}${acNames.length ? `\n${acNames.join(', ')} ${t('registered')}` : ''}`,
-          [{ text: 'OK', onPress: () => router.back() }],
+          [{ text: 'OK', onPress: finishNav }],
         );
       }
     } catch (e: any) {

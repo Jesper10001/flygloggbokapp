@@ -34,6 +34,8 @@ const TAF_URL = 'https://aviationweather.gov/api/data/taf';
 function num(v: any): number { const n = typeof v === 'number' ? v : parseFloat(String(v)); return Number.isFinite(n) ? n : NaN; }
 function pad2(n: number): string { return String(n).padStart(2, '0'); }
 function zulu(epochSec: number): string { const d = new Date(epochSec * 1000); return `${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}Z`; }
+// Som zulu men med UTC-dag i parentes → "1800Z (18)", så TAF-perioder visar vilket dygn de gäller.
+function zuluDay(epochSec: number): string { const d = new Date(epochSec * 1000); return `${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}Z (${pad2(d.getUTCDate())})`; }
 
 function parseVis(v: any): number | null {
   if (typeof v === 'number') return v;
@@ -57,12 +59,13 @@ function windProse(wdir: any, wspd: any, wgst: any): string {
 }
 
 function visProse(v: any): string {
-  const n = parseVis(v);
-  if (n == null) return '';
-  const more = typeof v === 'string' && v.includes('+');
-  if (more || n >= 6) return `visibility ${more ? 'more than ' : ''}${Math.round(n)} SM`;
-  const val = n < 1 ? String(n) : String(Math.round(n * 10) / 10);
-  return `visibility ${val} SM`;
+  const sm = parseVis(v); // API:t rapporterar sikt i statute miles
+  if (sm == null) return '';
+  const km = sm * 1.609344;
+  // "+"-värden och allt ≥10 km visas som "10 km or more" (motsvarar metriska 9999 / CAVOK).
+  if ((typeof v === 'string' && v.includes('+')) || km >= 10) return 'visibility 10 km or more';
+  const val = Math.round(km * 10) / 10; // en decimal
+  return `visibility ${val} km`;
 }
 
 const WX_PHEN: Record<string, string> = {
@@ -172,9 +175,18 @@ function metarProse(m: any): string {
   return parts.filter(Boolean).join(', ');
 }
 
+// Kort tolkad sammanfattning: BARA vind · sikt · moln · QNH (utan temp/daggpunkt/väderfenomen).
+function metarBrief(m: any): string {
+  const cavok = typeof m?.rawOb === 'string' && /\bCAVOK\b/.test(m.rawOb);
+  const parts = cavok
+    ? [windProse(m.wdir, m.wspd, m.wgst), 'CAVOK', altProse(m.altim)]
+    : [windProse(m.wdir, m.wspd, m.wgst), visProse(m.visib), cloudsProse(m.clouds), altProse(m.altim)];
+  return parts.filter(Boolean).join('  ·  ');
+}
+
 function tafPeriodPrefix(f: any, isFirst: boolean): string {
-  const from = f.timeFrom ? zulu(f.timeFrom) : '';
-  const to = f.timeTo ? zulu(f.timeTo) : '';
+  const from = f.timeFrom ? zuluDay(f.timeFrom) : '';
+  const to = f.timeTo ? zuluDay(f.timeTo) : '';
   const prob = num(f.probability) > 0 ? `${num(f.probability)}% probability ` : '';
   switch (f.fcstChange) {
     case 'TEMPO': return `${prob}temporarily ${from}–${to}: `;
@@ -225,24 +237,9 @@ async function batchFetch(url: string, ids: string[]): Promise<Map<string, any>>
 }
 
 // ── Publikt: tolkad METAR + TAF för destinationen (med närmaste-fält-fallback) ─
-export async function fetchDecodedWx(destIcao: string): Promise<DecodedWx | null> {
-  const dest = destIcao.trim().toUpperCase();
-  if (!dest) return null;
-
-  // Kandidater: destinationen först, sedan närmaste flygplatser (för fallback när METAR/TAF saknas).
-  const candidates: string[] = [dest];
-  const names = new Map<string, string>();
-  try {
-    const ap = await getAirportByIcao(dest);
-    if (ap?.name) names.set(dest, ap.name);
-    if (ap && (ap.lat || ap.lon)) {
-      const near = await getNearbyAirports(ap.lat, ap.lon, 20);
-      for (const n of near) {
-        const ic = n.icao?.toUpperCase();
-        if (ic && !candidates.includes(ic)) { candidates.push(ic); if (n.name) names.set(ic, n.name); }
-      }
-    }
-  } catch { /* fortsätt med enbart destinationen */ }
+// Kärna: gör METAR/TAF-uppslag för en ordnad kandidatlista (närmast/viktigast först). `primary` är
+// referensfältet (destination för pilot, närmaste för drönare) → styr "alternate"-flaggan.
+async function decodeFromCandidates(candidates: string[], names: Map<string, string>, primary: string): Promise<DecodedWx | null> {
   // aviationweather.gov kräver giltiga 4-bokstavs-ICAO. Filtrera bort custom/GPS-koder (t.ex. "SE-0065")
   // — annars svarar API:t 400 på HELA batchen ("Must specify station IDs …") och inget väder visas.
   const ids = candidates.filter((c) => /^[A-Z]{4}$/.test(c)).slice(0, 20);
@@ -252,7 +249,7 @@ export async function fetchDecodedWx(destIcao: string): Promise<DecodedWx | null
   const metars = await batchFetch(METAR_URL, ids);
   const tafs = await batchFetch(TAF_URL, ids);
 
-  // Oberoende val: närmaste station (destination först) med METAR resp. med TAF. De kan vara olika fält.
+  // Oberoende val: närmaste station (primary först) med METAR resp. med TAF. De kan vara olika fält.
   const metarStation = ids.find((ic) => metars.has(ic)) ?? null;
   const tafStation = ids.find((ic) => tafs.has(ic)) ?? null;
   console.log(`[weather] metar=${metarStation ?? '—'} taf=${tafStation ?? '—'} (m:${metars.size} t:${tafs.size})`);
@@ -285,12 +282,84 @@ export async function fetchDecodedWx(destIcao: string): Promise<DecodedWx | null
   }
 
   return {
-    destIcao: dest,
-    metarStation, metarStationName, metarIsAlternate: !!metarStation && metarStation !== dest,
+    destIcao: primary,
+    metarStation, metarStationName, metarIsAlternate: !!metarStation && metarStation !== primary,
     metarText, metarTimeZ, metarStatus, category,
-    tafStation, tafStationName, tafIsAlternate: !!tafStation && tafStation !== dest,
+    tafStation, tafStationName, tafIsAlternate: !!tafStation && tafStation !== primary,
     tafText, tafStatus,
     rawMetar, rawTaf,
+  };
+}
+
+// Pilot: väder för destinationen, med närmaste-fält-fallback när dest saknar METAR/TAF.
+export async function fetchDecodedWx(destIcao: string): Promise<DecodedWx | null> {
+  const dest = destIcao.trim().toUpperCase();
+  if (!dest) return null;
+  const candidates: string[] = [dest];
+  const names = new Map<string, string>();
+  try {
+    const ap = await getAirportByIcao(dest);
+    if (ap?.name) names.set(dest, ap.name);
+    if (ap && (ap.lat || ap.lon)) {
+      const near = await getNearbyAirports(ap.lat, ap.lon, 20);
+      for (const n of near) {
+        const ic = n.icao?.toUpperCase();
+        if (ic && !candidates.includes(ic)) { candidates.push(ic); if (n.name) names.set(ic, n.name); }
+      }
+    }
+  } catch { /* fortsätt med enbart destinationen */ }
+  return decodeFromCandidates(candidates, names, dest);
+}
+
+// Drönare: väder för NÄRMASTE tillgängliga station från en position (de flyger inte mellan flygplatser).
+export async function fetchDecodedWxNear(lat: number, lon: number): Promise<DecodedWx | null> {
+  const candidates: string[] = [];
+  const names = new Map<string, string>();
+  try {
+    const near = await getNearbyAirports(lat, lon, 25); // sorterade på avstånd (närmast först)
+    for (const n of near) {
+      const ic = n.icao?.toUpperCase();
+      if (ic && /^[A-Z]{4}$/.test(ic) && !candidates.includes(ic)) { candidates.push(ic); if (n.name) names.set(ic, n.name); }
+    }
+  } catch { /* ingen position/närhet → inget väder */ }
+  if (!candidates.length) return null;
+  return decodeFromCandidates(candidates, names, candidates[0]);
+}
+
+// ── En enskild flygplats EGNA METAR (ingen närmaste-fält-fallback) ────────────
+// Används av moln-knappen på infokortet: molnet visas bara om flygplatsen SJÄLV har METAR.
+export type AirportMetar = {
+  icao: string;
+  text: string;    // tolkad prosa (fullständig)
+  brief: string;   // kort tolkad: bara vind · sikt · moln · QNH
+  raw: string;     // rå METAR
+  timeZ: string;   // "1550Z"
+  status: WxStatus;
+  category: FlightCat | null;
+  windDir: number | null; // vindriktning (grader, varifrån). null = variabel/saknas → ingen aktiv bana
+  windSpeed: number | null; // vindstyrka (kt)
+};
+
+export async function fetchAirportMetar(icao: string): Promise<AirportMetar | null> {
+  const id = (icao || '').trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(id)) return null; // METAR keyas på 4-bokstavs-ICAO
+  const metars = await batchFetch(METAR_URL, [id]);
+  const m = metars.get(id);
+  if (!m) return null; // ingen EGEN METAR → ingen molnsymbol
+  const obsMs = typeof m.obsTime === 'number' ? m.obsTime * 1000 : m.reportTime ? Date.parse(m.reportTime) : NaN;
+  const category: FlightCat | null =
+    m.fltCat === 'VFR' || m.fltCat === 'MVFR' || m.fltCat === 'IFR' || m.fltCat === 'LIFR' ? m.fltCat : categoryOf(m.clouds, m.visib);
+  return {
+    icao: id,
+    text: metarProse(m) || 'No data',
+    brief: metarBrief(m) || 'No data',
+    raw: typeof m.rawOb === 'string' ? m.rawOb : '',
+    timeZ: Number.isFinite(obsMs) ? zulu(obsMs / 1000) : '',
+    status: metarStatusOf(obsMs),
+    category,
+    // wdir kan komma som tal ELLER sträng ("300"); 'VRB'/saknas → null (ingen aktiv bana).
+    windDir: Number.isFinite(num(m.wdir)) ? num(m.wdir) : null,
+    windSpeed: Number.isFinite(num(m.wspd)) ? num(m.wspd) : null,
   };
 }
 

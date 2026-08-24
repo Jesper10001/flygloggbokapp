@@ -7,13 +7,15 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions,
-  Dimensions, Alert, Animated,
+  Dimensions, Alert, Animated, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
+import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 
 import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { Colors } from '../../constants/colors'; // stress-panelen använder EXAKT manned-tokens (paritet)
@@ -27,10 +29,14 @@ import { FONT_LED7, ledGlow } from '../../components/logflight/tokens';
 import { categoryLabel } from '../../constants/droneCategories';
 import { DroneDashboardGlobe } from '../../components/DroneDashboardGlobe';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
-import { OpenAipMapModal } from '../../components/OpenAipMapModal';
+import { AirportQuickSearch } from '../../components/AirportQuickSearch';
+import { AirportPickerModal } from '../../components/AirportPickerModal';
+import { Marquee } from '../../components/Marquee';
+import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 
 const SERIF = 'Georgia';
 const MONO = 'Menlo';
+const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 
 // ── Stress-helpers (klon av manned) ─────────────────────────────────────────
 type StressZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
@@ -103,8 +109,22 @@ export default function DroneDashboardScreen() {
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
   const [globalMapOpen, setGlobalMapOpen] = useState(false);
-  const [openAipOpen, setOpenAipOpen] = useState(false);
   const globeMenuAnim = useRef(new Animated.Value(0)).current;
+  const kbShift = useRef(new Animated.Value(0)).current; // temporär uppflytt när flygplatssökrutan fokuseras
+  const [wx, setWx] = useState<DecodedWx | null>(null);   // METAR/TAF för närmaste station från positionen
+  const [wxLoading, setWxLoading] = useState(false);
+  const [wxPickerOpen, setWxPickerOpen] = useState(false);
+
+  // Drönare flyger inte mellan flygplatser → hämta väder för NÄRMASTE station från nuvarande position.
+  const loadWeatherNear = useCallback(async () => {
+    setWxLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setWx(null); return; }
+      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setWx(await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude));
+    } catch { setWx(null); } finally { setWxLoading(false); }
+  }, []);
   useEffect(() => {
     Animated.timing(globeMenuAnim, { toValue: globeMenuOpen ? 1 : 0, duration: globeMenuOpen ? 240 : 160, useNativeDriver: true }).start();
   }, [globeMenuOpen, globeMenuAnim]);
@@ -115,6 +135,7 @@ export default function DroneDashboardScreen() {
     loadStats();
     getSetting('profile_first_name').then((n) => setProfileName(n ?? '')).catch(() => {});
     getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14))).catch(() => {});
+    return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
 
   const greeting = useMemo(() => {
@@ -150,14 +171,51 @@ export default function DroneDashboardScreen() {
   const needlePct = Math.min(stress.index, 200) / 200;
 
   return (
-    <ScrollView style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed}>
+    <View style={{ flex: 1, backgroundColor: DR.background }}>
+    <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
+    <ScrollView style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={false} tintColor="transparent" onRefresh={async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // tydlig vibration när pull triggar (= manned)
+        await loadWeatherNear();
+      }} />}>
       {/* ── 1. Greeting ── */}
       <Text style={s.greeting}>{greeting}</Text>
 
       {/* ── 1b. Stressindikator (workload-telemetripanel, klon av manned) ── */}
       <View style={s.telPanel}>
+        {/* Väder-ticker (närmaste station från positionen) ovanför WORKLOAD — bara när hämtat. */}
+        {wx && (
+          <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
+            <View style={{ flex: 1 }}>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? '—'}</Text>
+                <Marquee
+                  text={wx.metarStation ? [wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ') : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? '—'}</Text>
+                <Marquee
+                  text={wx.tafStation ? (wx.tafText || 'no data') : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+            </View>
+            <Ionicons name="search" size={15} color={Colors.textMuted} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        )}
         <View style={s.telGaugeHeader}>
           <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+          {!wx && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              {wxLoading ? (
+                <><ActivityIndicator size="small" color={accent} /><Text style={s.wxFetchHint}>Fetching weather…</Text></>
+              ) : (
+                <><Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} /></>
+              )}
+            </View>
+          )}
           <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
         </View>
         {/* Zon-bar med nål */}
@@ -254,8 +312,8 @@ export default function DroneDashboardScreen() {
                 onPress={() => { setGlobeMenuOpen(false); router.push('/drone-map'); }} />
               <MapMenuButton accent={accent} icon="globe" title="Global map" sub="All the worlds airports & airfields"
                 onPress={() => { setGlobeMenuOpen(false); setGlobalMapOpen(true); }} />
-              <MapMenuButton accent={accent} icon="layers-outline" title="OpenAIP" sub="Airspaces & airfields overlay"
-                onPress={() => { setGlobeMenuOpen(false); setOpenAipOpen(true); }} />
+              <AirportQuickSearch accent={accent} onPick={() => setGlobeMenuOpen(false)}
+                onFocusShift={(dy) => Animated.timing(kbShift, { toValue: -dy, duration: 260, useNativeDriver: true }).start()} />
             </View>
           </Animated.View>
         </View>
@@ -263,8 +321,10 @@ export default function DroneDashboardScreen() {
 
       {/* Återanvända kartor (identiska med manned) */}
       <GlobalMapModal visible={globalMapOpen} onClose={() => setGlobalMapOpen(false)} />
-      <OpenAipMapModal visible={openAipOpen} onClose={() => setOpenAipOpen(false)} />
+      <AirportPickerModal visible={wxPickerOpen} onClose={() => setWxPickerOpen(false)} initialIcao={wx?.metarStation ?? wx?.tafStation ?? null} />
     </ScrollView>
+    </Animated.View>
+    </View>
   );
 }
 
@@ -389,9 +449,16 @@ const s = StyleSheet.create({
 
   // Telemetripanel = EXAKT manned telPanel (index.tsx): fonter/färger/borders identiska.
   telPanel: { borderRadius: 16, overflow: 'hidden', backgroundColor: Colors.background, borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },
-  telGaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  telGaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 20 },
   telGaugeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1.2, fontFamily: 'Menlo' },
   telGaugeZone: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' },
+  // Väder-ticker (närmaste station) — samma stil som manned dashboard.
+  wxTap: { flexDirection: 'row', alignItems: 'center' },
+  wxFetchHint: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary, fontFamily: 'ChakraPetch-SemiBold' },
+  wxLine: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 21 },
+  wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
+  wxScrollWrap: { flex: 1, height: 21 },
+  wxScroll: { fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', color: Colors.textPrimary },
   telGaugeTrack: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'visible', backgroundColor: Colors.separator, position: 'relative' },
   telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   telReadout: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: Colors.background + 'CC', borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder },

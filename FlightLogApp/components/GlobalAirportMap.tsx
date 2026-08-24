@@ -7,9 +7,14 @@
 // 34k flygplatser kan inte renderas samtidigt — därför aggregat + viewport-cap.
 
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polygon, type Region, type MapType } from 'react-native-maps';
+import { getRunwayGeo, runwayCorners, runwaySideLabelPoint, runwayLabelRotation, runwayBearing } from '../constants/runwayGeo';
+import { clusterIndexFor, regionToZoom, regionToBbox } from '../services/airportClusters';
+
+// En post från supercluster: antingen ett kluster (properties.cluster) eller en flygplats (properties.row).
+type ClusterFeature = { id?: number | string; geometry: { coordinates: [number, number] }; properties: any };
 import { Colors } from '../constants/colors';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
@@ -30,7 +35,7 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
@@ -59,12 +64,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   }, [airports]);
 
   const delta = region.latitudeDelta;
-  // Klustra länder längre in (delta>3.5) så pluppar bara dyker upp när vyn är
-  // liten nog att hålla få markörer → undviker Apple Maps-krasch.
+  // Land-flaggor vid utzoomad vy; klustring/pluppar tar över när man zoomat in tillräckligt.
+  // I klustringsläge skiftar vi tidigare (större delta) → man slipper zooma in så långt för att få kluster.
+  const countryMax = clustering ? 16 : 3.5;
   const level: 'country' | 'dots' | 'labels' =
     mode === 'country' ? 'country'
       : mode === 'pins' ? 'labels'
-      : delta > 3.5 ? 'country' : delta > 0.8 ? 'dots' : 'labels';
+      : delta > countryMax ? 'country' : delta > 0.8 ? 'dots' : 'labels';
 
   // Viewport-filtrerade enskilda flygplatser (bara på plupp-nivåerna).
   const dots = useMemo(() => {
@@ -84,6 +90,76 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     }
     return out;
   }, [airports, level, region, mode]);
+
+  // ── Geografisk klustring (nytt läge; "pausar" land/region-drillen) ────────────
+  // Land-översikten (delta > 3.5) är oförändrad; när man zoomat in tar klustringen över och delas
+  // successivt i mindre kluster → till slut enskilda flygplatser. Bara zoom behövs för att navigera.
+  const clusterIdx = useRef<any>(null);
+  const [clusterReady, setClusterReady] = useState(false);
+  const [clusters, setClusters] = useState<ClusterFeature[]>([]);
+  const clusterZoom = !!clustering && level !== 'country'; // klustring aktiv (inte i land-översikten)
+  // Bygg klusterindexet LAT — först när man faktiskt zoomat in till klusternivå. Vid öppning står man på
+  // världsvyn (land-flaggor), så bygget behövs inte då → kartan öppnas direkt utan att frysa JS-tråden.
+  // Körs efter interaktionerna (runAfterInteractions) och bara EN gång per montering (ref-guard). Byggs
+  // från `airports` (redan filtrerat i modalen) → klustren RESPEKTERAR filtret; clusterKey = filter-
+  // signatur → clusterIndexFor cachar så att samma filter inte byggs om i onödan.
+  useEffect(() => {
+    if (!clustering || !clusterZoom || clusterIdx.current) return;
+    let alive = true;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!alive) return;
+      try { clusterIdx.current = clusterIndexFor(airports, clusterKey ?? ''); setClusterReady(true); } catch {}
+    });
+    return () => { alive = false; task.cancel(); };
+  }, [clustering, clusterZoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!clusterZoom || !clusterIdx.current) { setClusters([]); return; } // lämna klusternivån → töm direkt
+    // DEBOUNCE: vid SNABB zoom/panorering avfyras region-ändringar tätt. Utan detta beräknas klustren om
+    // för varje delsteg → pluppar mount/unmount:as i snabb följd (markör-churn) → Apple Maps kraschar,
+    // särskilt vid snabb utzoomning. Vänta tills vyn lugnat sig (140 ms) och beräkna EN gång.
+    const id = setTimeout(() => {
+      try { setClusters(clusterIdx.current.getClusters(regionToBbox(region), regionToZoom(region)) as ClusterFeature[]); }
+      catch { setClusters([]); }
+    }, 140);
+    return () => clearTimeout(id);
+  }, [clusterZoom, region, clusterReady]);
+  // iOS rasteriserar egna markörvyer bara medan tracksViewChanges=true → tick när klustren ändras.
+  useEffect(() => {
+    if (!clusterZoom || !clusters.length) return;
+    setTracks(true);
+    const id = setTimeout(() => setTracks(false), 800);
+    return () => clearTimeout(id);
+  }, [clusters, clusterZoom]);
+
+  // Tryck på ett kluster → zooma in så det expanderar (delas i mindre kluster/flygplatser).
+  const zoomToCluster = (c: ClusterFeature) => {
+    const idx = clusterIdx.current;
+    if (!idx) return;
+    const [lon, lat] = c.geometry.coordinates;
+    let z = regionToZoom(region) + 2;
+    try { z = Math.min(16, idx.getClusterExpansionZoom(Number(c.id))); } catch {}
+    const d = Math.max(0.008, 360 / Math.pow(2, z));
+    mapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: d, longitudeDelta: d }, 400);
+  };
+  const fmtCount = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+
+  // Landningsbanor ritas ENDAST för den flygplats man tryckt på (focus → inforuta + inzoomning).
+  // Gejtat på focus, INTE på zoom/region → inget räknas om eller re-renderas under zoom/panorering,
+  // vilket tidigare fick Apple Maps att krascha. PoC: bara ICAO som finns i RUNWAY_GEO (ESSA).
+  const runwayShapes = useMemo(() => {
+    const icao = focus?.[0];
+    if (!icao) return [];
+    return getRunwayGeo(icao).map((rw) => ({ key: `${icao}-${rw.leIdent}`, rw, corners: runwayCorners(rw) }));
+  }, [focus]);
+  const showRunwayLabels = runwayShapes.length > 0;
+
+  // En spårnings-tick när en flygplats fokuseras så iOS rasteriserar de roterade etikett-vyerna.
+  useEffect(() => {
+    if (!focus) return;
+    setTracks(true);
+    const id = setTimeout(() => setTracks(false), 2000);
+    return () => clearTimeout(id);
+  }, [focus]);
 
   // Vald flygplats (för guld-markeringen) — finns bara i pins/labels-läget.
   const selRow = useMemo(
@@ -160,7 +236,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       style={{ flex: 1 }}
       initialRegion={initialRegion ?? INITIAL}
       onRegionChange={syncCamera}
-      onRegionChangeComplete={(r) => { setRegion(r); syncCamera(); }}
+      onRegionChangeComplete={(r) => { setRegion(r); syncCamera(); onRegionChange?.(r); }}
       mapType={layer}
       userInterfaceStyle="dark"
       scrollEnabled={interactive}
@@ -191,6 +267,35 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           fillColor="rgba(0,0,0,0)" strokeColor="rgba(103,232,249,0.85)" strokeWidth={1.5} />
       ))}
 
+      {/* Landningsbanor på faktisk plats (mörk asfalt + vit kant) — syns när man zoomat in på flygplatsen. */}
+      {runwayShapes.map((r) => (
+        <Polygon key={`rwy-${r.key}`} coordinates={r.corners}
+          fillColor="rgba(24,24,27,0.82)" strokeColor="rgba(255,255,255,0.9)" strokeWidth={1.2} zIndex={5} />
+      ))}
+
+      {/* Bannummer vid trösklarna + längd i mitten, roterade så de löper längs banan (AeroWeather-stil). */}
+      {showRunwayLabels && runwayShapes.flatMap((r) => {
+        const bearing = runwayBearing(r.rw);            // le→he (grader från norr)
+        const dimRot = runwayLabelRotation(r.rw);        // måttet: löper LÄNGS banan, alltid läsbart
+        const dimPt = runwaySideLabelPoint(r.rw, r.rw.widthM / 2 + 80); // mått bredvid banan, inte ovanpå
+        // flat=true → markören ligger på kartytan och roterar MED kartan. Själva vinkeln sätts via en
+        // child-transform (rotation-PROPEN ignoreras för egna vyer på Apple Maps) → bakas in i snapshoten,
+        // och flat roterar sedan hela snapshoten med kartan → etiketterna sitter fast i linje med banan.
+        // Bannumren orienteras "uppför banan" per ände (le = bäring, he = bäring+180) precis som på asfalten;
+        // måttet löper längs banan (normaliserat så det aldrig blir upp-och-ner).
+        return [
+          <Marker key={`rwl-le-${r.key}`} coordinate={{ latitude: r.rw.le.lat, longitude: r.rw.le.lon }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
+            <View style={{ transform: [{ rotate: `${bearing}deg` }] }}><Text style={s.rwyIdent}>{r.rw.leIdent}</Text></View>
+          </Marker>,
+          <Marker key={`rwl-he-${r.key}`} coordinate={{ latitude: r.rw.he.lat, longitude: r.rw.he.lon }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
+            <View style={{ transform: [{ rotate: `${(bearing + 180) % 360}deg` }] }}><Text style={s.rwyIdent}>{r.rw.heIdent}</Text></View>
+          </Marker>,
+          <Marker key={`rwl-dim-${r.key}`} coordinate={dimPt} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
+            <View style={{ transform: [{ rotate: `${dimRot}deg` }] }}><Text style={s.rwyDim}>{r.rw.lengthM} m × {r.rw.widthM} m</Text></View>
+          </Marker>,
+        ];
+      })}
+
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
         <Marker
           key={`ctry-${c.cc}`}
@@ -206,8 +311,33 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         </Marker>
       ))}
 
+      {/* ── Geografiska kluster (klustringsläge) ── kluster-plupp med antal (tap = zooma in så det delas)
+          + enskilda flygplatser när klustret är litet nog. Bara zoom behövs för att navigera. */}
+      {clusterZoom && clusters.slice(0, 150).map((c) => {
+        const [lon, lat] = c.geometry.coordinates;
+        if (c.properties?.cluster) {
+          return (
+            <Marker key={`cl-${c.id}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} onPress={() => zoomToCluster(c)} tracksViewChanges={tracks}>
+              <View style={s.clusterPin}><Text style={s.clusterCount}>{fmtCount(c.properties.point_count)}</Text></View>
+            </Marker>
+          );
+        }
+        const icao = c.properties?.icao as string;
+        if (showRunwayLabels && icao === focus?.[0]) return null; // dölj ICAO-boxen under utritade banor
+        return (
+          <Marker key={`ca-${icao}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}
+            onPress={onSelectAirport ? () => onSelectAirport(icao) : undefined}>
+            <View style={{ alignItems: 'center' }}>
+              <View style={s.labelChip}><Text style={s.labelText}>{icao}</Text></View>
+              <View style={s.dot} />
+              <View style={s.dotSpacer} />
+            </View>
+          </Marker>
+        );
+      })}
+
       {/* Pluppar = lätta native-nålar (tål hundratals utan att krascha). Tap → ICAO+namn. */}
-      {!showPins && level === 'dots' && dots.map((a) => (
+      {!clustering && !showPins && level === 'dots' && dots.map((a) => (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
@@ -220,7 +350,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       {/* Närmsta zoomen: blå plupp PÅ flygplatsen + ICAO-etikett ovanför (egna vyer, hålls
           få via cap). Symmetrisk kolumn [etikett][plupp][spacer] → ankaret (mitten) hamnar
           exakt på pluppen, inte på texten. */}
-      {!showPins && level === 'labels' && dots.map((a) => (
+      {!clustering && !showPins && level === 'labels' && dots.map((a) => (
+        // Hoppa över ICAO-boxen för den flygplats vars banor ritas ut (chippen skymmer annars banan).
+        (showRunwayLabels && a[0] === focus?.[0]) ? null : (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
@@ -236,12 +368,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
             <View style={s.dotSpacer} />
           </View>
         </Marker>
+        )
       ))}
 
       {/* Guld-markering för vald flygplats: SEPARAT markör ovanpå pluppen. Konstant key +
           statiskt innehåll → byter bara koordinat mellan val, ingen re-snapshot (inget hopp
           till hörnet, ingen krasch). Basmarkörerna rörs aldrig. */}
-      {level === 'labels' && selRow && (
+      {!clustering && level === 'labels' && selRow && !(showRunwayLabels && selRow[0] === focus?.[0]) && (
         <Marker
           key="__selhl__"
           coordinate={{ latitude: selRow[4], longitude: selRow[5] }}
@@ -255,7 +388,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 
       {/* Filtrerat land: filtrerade flygplatser som ICAO-boxar (samma stil som landsflaggan). Tak
           för att inte krascha Apple Maps med för många egna markörvyer. */}
-      {showPins && pins!.slice(0, 170).map((a) => (
+      {!clustering && showPins && pins!.slice(0, 170).map((a) => (
+        // Dölj ICAO-boxen för den flygplats vars banor ritas ut (chippen skymmer annars banan).
+        (showRunwayLabels && a[0] === focus?.[0]) ? null : (
         <Marker
           key={a[0]}
           coordinate={{ latitude: a[4], longitude: a[5] }}
@@ -265,6 +400,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         >
           <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>
         </Marker>
+        )
       ))}
 
       {/* Region-drill: text-chip (etikett + antal) per delnod → tryck borrar ner. */}
@@ -298,9 +434,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         </Marker>
       ))}
 
-      {/* Sökt/vald flygplats: guld-markör + ICAO-etikett. Döljs i pins-läge (filter) — där är den
-          valda flygplatsen redan en blå ICAO-box, annars blir det dubbla markörer. */}
-      {focus && !showPins && (
+      {/* Sökt/vald flygplats: guld-markör + ICAO-etikett. Döljs i pins-läge (filter), och när banor
+          ritas ut för flygplatsen (annars skymmer chippen/cirkeln en bana — banorna räcker som markör). */}
+      {focus && !showPins && !showRunwayLabels && (
         <Marker
           key="__focus__"
           coordinate={{ latitude: focus[4], longitude: focus[5] }}
@@ -341,6 +477,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 }
 
 const s = StyleSheet.create({
+  // Bana-etiketter: vit text med mörk skugga → läsbar mot den mörka asfaltsremsan/satelliten.
+  rwyIdent: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
+  rwyDim: { color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
   flagPin: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 9,
@@ -349,6 +488,13 @@ const s = StyleSheet.create({
   },
   flagEmoji: { fontSize: 11 },
   flagCount: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '800' },
+  // Kluster-plupp: cyan cirkel med antal (tap → zooma in så klustret delas).
+  clusterPin: {
+    minWidth: 38, height: 38, borderRadius: 19, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary + 'E6', borderWidth: 2, borderColor: '#FFFFFF',
+  },
+  clusterCount: { color: Colors.textInverse, fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
   dot: {
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',

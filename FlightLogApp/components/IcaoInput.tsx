@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Keyboard, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -217,6 +217,20 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [sQuery, setSQuery] = useState('');
   const [sResults, setSResults] = useState<IcaoAirport[]>([]);
   const [sChoice, setSChoice] = useState<IcaoAirport | null>(null); // vald flygplats med BÅDE ICAO+IATA → välj kod
+
+  // Tangentbordshöjd → anpassa sök-listans höjd så HELA rutan (sökfält + lista + Close) får plats ovanför
+  // tangentbordet när den centreras (annars klipps toppen på mindre skärmar).
+  const { height: winH } = useWindowDimensions();
+  const [kbH, setKbH] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKbH(e.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbH(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  // Rutans fasta delar (handtag+titel+sökfält+Close+padding) ≈ 220 px. Dra av ytterligare ~80 så rutan
+  // centreras med ~40 px topp/botten-margin ovanför tangentbordet → toppen (sökfältet) klar av notchen
+  // och tangentbordet syns precis under. Listan får resten.
+  const searchListH = Math.max(150, Math.min(320, winH - kbH - 300));
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -742,8 +756,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     </TouchableOpacity>
                   )}
                 </View>
-                {/* Fast höjd på list-området → sökfältet ligger stilla; alternativen dyker upp/scrollar här. */}
-                <ScrollView keyboardShouldPersistTaps="handled" style={{ height: 320, marginTop: 10 }}>
+                {/* Tangentbords-anpassad höjd → sökfältet (topp) + Close syns alltid ovanför tangentbordet. */}
+                <ScrollView keyboardShouldPersistTaps="handled" style={{ height: searchListH, marginTop: 10 }}>
                   {sResults.map((a, idx) => (
                     <View key={a.icao}>
                       {idx > 0 && <View style={styles.sep} />}

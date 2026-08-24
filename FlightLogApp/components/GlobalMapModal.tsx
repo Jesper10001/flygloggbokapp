@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
 import { AirportInfoCard } from './AirportInfoCard';
+import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
 import { getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
@@ -71,6 +72,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
+  const [detailFlightId, setDetailFlightId] = useState<number | null>(null); // flight-detalj som overlay ovanpå kartan
 
   // Filter: flervals-löv (Set) + Properties. Filter-boxens nedborrning = nod-stack (filterNav).
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
@@ -88,6 +90,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
+  // Klustringsläge (nytt): land-översikt vid låg zoom → geografiska kluster som delas när man zoomar in.
+  // Den gamla land/region-drillen "pausas" (koden är kvar, men triggas inte i detta läge).
+  const clusterMode = true;
+  // Kartans nuvarande vy (rapporteras från GlobalAirportMap i klusterläge) → används för center-landrutan
+  // och för att BEHÅLLA positionen när kartan monteras om vid filterändring (i st f att hoppa till världen).
+  const [mapRegion, setMapRegion] = useState<Region>(WORLD);
 
   useEffect(() => {
     if (!visible || seedData.length) return;
@@ -200,8 +208,28 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     return rows.length ? boundsRegion(rows) : undefined;
   }, [currentNode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Landruta. Nedborrad i en region → visa regionens namn + antal (annars landets totala).
-  const country = drillStack.length ? drillStack[0].cc : null;
+  // Center-landruta (klusterläge): vilket land ligger kartans MITT över? Uppdateras när man panorerar/
+  // zoomar och göms när man valt en flygplats. Visas bara när man zoomat in förbi flagg-nivån (delta ≤ 16
+  // = countryMax) → krockar inte med sökrutan som ligger kvar på flagg-nivån.
+  // Metod: landet för NÄRMASTE flygplats till kartans mitt (robust även vid kuster, där landsgräns-
+  // polygonerna är för grova för punkt-i-polygon). null om ingen flygplats inom ~3° (öppet hav).
+  const atFlagLevel = mapRegion.latitudeDelta > 16;
+  const centerCountry = useMemo(() => {
+    if (!clusterMode || focusAirport || atFlagLevel) return null;
+    const lat = mapRegion.latitude, lon = mapRegion.longitude, R = 3; // sökruta ±3° (~330 km)
+    let bestCc: string | null = null, bestD = Infinity;
+    for (const r of seedData) {
+      const dLa = r[4] - lat, dLo = r[5] - lon;
+      if (dLa < -R || dLa > R || dLo < -R || dLo > R) continue;
+      const d = dLa * dLa + dLo * dLo;
+      if (d < bestD) { bestD = d; bestCc = r[2]; }
+    }
+    return bestCc;
+  }, [clusterMode, focusAirport, atFlagLevel, mapRegion.latitude, mapRegion.longitude, seedData]);
+
+  // Landruta. Nedborrad i en region → visa regionens namn + antal (annars landets totala). I klusterläge
+  // = center-landet (ingen drill).
+  const country = clusterMode ? centerCountry : (drillStack.length ? drillStack[0].cc : null);
   const countryAirportCount = useMemo(
     () => (country ? typedSeed.filter((r) => r[2] === country).length : 0),
     [country, typedSeed],
@@ -258,7 +286,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
-    setDrillStack([]); setFocusAirport(null); setMapSearch('');
+    setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     onClose();
   };
@@ -327,9 +355,14 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           <GlobalAirportMap
             key={mapKey}
             airports={typedSeed}
-            initialRegion={frameRegion}
-            mode="country"
-            onSelectCountry={handleSelectCountry}
+            // Klusterläge: montera på SENAST kända vyn (mapRegion) → filterändring (mapKey-remount) hoppar
+            // inte till världen. frameRegion lämnas otilldelad (annars animerar den tillbaka till WORLD).
+            initialRegion={clusterMode ? mapRegion : frameRegion}
+            mode={clusterMode ? 'auto' : 'country'}
+            clustering={clusterMode}
+            clusterKey={mapKey}
+            onRegionChange={clusterMode ? setMapRegion : undefined}
+            onSelectCountry={clusterMode ? undefined : handleSelectCountry}
             onSelectAirport={focusByIcao}
             onSelectRegion={handleSelectRegion}
             focus={focusAirport}
@@ -342,7 +375,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             neighborMarkers={neighborMarkers}
             neighborShapes={neighborShapes}
             onSelectNeighbor={handleSelectNeighbor}
-            frameRegion={frameRegion}
+            frameRegion={clusterMode ? undefined : frameRegion}
             showCompass
             compassTop={insets.top + 60}
           />
@@ -390,8 +423,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </View>
         )}
 
-        {/* Sökruta — bara i världsvyn (utan fokus) */}
-        {drillStack.length === 0 && !focusAirport && (
+        {/* Sökruta — bara på flagg-nivån (utzoomat) utan fokus. Zoomar man in tar center-landrutan över
+            samma yta (de krockar annars), och man navigerar med zoom i klusterläget. */}
+        {(clusterMode ? atFlagLevel : drillStack.length === 0) && !focusAirport && (
           <View style={{ position: 'absolute', top: insets.top + 12, left: 12, right: 60, pointerEvents: 'box-none' }}>
             <View style={styles.searchRow}>
               <Ionicons name="search" size={16} color={Colors.textMuted} />
@@ -571,10 +605,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 type={focusAirport[8]}
                 landingCount={lc > 0 ? lc : undefined}
                 lastText={lf ? fmtVisit(lf.date) : undefined}
-                onLastPress={lf ? () => {
-                  closeMap();
-                  router.push(`/flight/detail/${lf.id}` as any);
-                } : undefined}
+                onLastPress={lf ? () => setDetailFlightId(lf.id) : undefined}
                 onClose={() => setFocusAirport(null)}
                 isFavorite={favorites.has(focusAirport[0])}
                 onToggleFavorite={() => toggleFavorite(focusAirport[0])}
@@ -582,6 +613,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             </View>
           );
         })()}
+
+        {/* Flight-detalj som overlay OVANPÅ kartan (nästlad Modal) → stäng återgår hit, kartan bevaras. */}
+        {detailFlightId != null && (
+          <Modal visible animationType="slide" onRequestClose={() => setDetailFlightId(null)}>
+            <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: insets.top }}>
+              <FlightDetailView
+                id={detailFlightId}
+                onBack={() => setDetailFlightId(null)}
+                onEdit={(fid) => { setDetailFlightId(null); closeMap(); router.push(`/flight/add?editId=${fid}` as any); }}
+              />
+            </View>
+          </Modal>
+        )}
       </View>
     </Modal>
   );

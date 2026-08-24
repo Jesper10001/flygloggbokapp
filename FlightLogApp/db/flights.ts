@@ -1132,6 +1132,29 @@ export async function getAircraftCruiseSpeed(type: string): Promise<number> {
   return row?.cruise_speed_kts ?? 0;
 }
 
+// Senast loggade flygplanstyp (för avstånd→tid/bränsle-uppskattning i flygplatssökningen).
+export async function getLastFlownAircraftType(): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ aircraft_type: string }>(
+    `SELECT aircraft_type FROM flights WHERE aircraft_type != '' ORDER BY date DESC, dep_utc DESC LIMIT 1`
+  );
+  return row?.aircraft_type ?? null;
+}
+
+// Prestanda för en flygplanstyp: cruise (kt) + bränsleförbrukning per timme + enhet ('l/h'→liter, 'kg/h'→kg).
+// Väljer registreringsraden som har ifyllda värden (specarna är typnivå, konsekventa mellan reg).
+export async function getAircraftPerf(type: string): Promise<{ cruiseKts: number; fuelBurn: number; fuelUnit: string }> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ cruise: number; burn: number; unit: string }>(
+    `SELECT cruise_speed_kts as cruise, fuel_burn as burn, fuel_burn_unit as unit
+       FROM aircraft_registry WHERE aircraft_type=?
+      ORDER BY (cruise_speed_kts > 0) DESC, (fuel_burn > 0) DESC
+      LIMIT 1`,
+    [type.toUpperCase()]
+  );
+  return { cruiseKts: row?.cruise ?? 0, fuelBurn: row?.burn ?? 0, fuelUnit: row?.unit ?? 'l/h' };
+}
+
 export async function updateAircraftCruiseSpeed(type: string, speedKts: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
@@ -1284,6 +1307,20 @@ export async function updateAircraftType(
 export async function deleteAircraftType(type: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM aircraft_registry WHERE aircraft_type=?`, [type.toUpperCase()]);
+}
+
+// Byt namn på en farkosttyp → uppdaterar BÅDE registret OCH alla flighter (så loggbok/export följer med).
+// Slås ihop tyst om målnamnet redan finns (UPDATE OR IGNORE + städa bort kvarvarande gamla rader).
+export async function renameAircraftType(oldType: string, newType: string): Promise<void> {
+  const from = oldType.trim().toUpperCase();
+  const to = newType.trim().toUpperCase();
+  if (!from || !to || from === to) return;
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE flights SET aircraft_type=? WHERE UPPER(aircraft_type)=?`, [to, from]);
+    await db.runAsync(`UPDATE OR IGNORE aircraft_registry SET aircraft_type=? WHERE aircraft_type=?`, [to, from]);
+    await db.runAsync(`DELETE FROM aircraft_registry WHERE aircraft_type=?`, [from]);
+  });
 }
 
 // Fleet-vy: timmar per registrering för en modell (nyast flugen först). Exkl. sim.

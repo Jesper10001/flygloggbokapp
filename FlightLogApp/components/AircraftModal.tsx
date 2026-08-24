@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Keyboard, ScrollView,
@@ -6,7 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
-import { lookupAircraft } from '../services/aircraftLookup';
+import { lookupAircraft, type AircraftLookupResult } from '../services/aircraftLookup';
+import { enrichFleetInBackground, enrichFromLookup } from '../services/fleetEnrich';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
@@ -108,6 +109,7 @@ export function AircraftModal({
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const { isPremium, isMax } = useFlightStore();
   const [lookupInfo, setLookupInfo] = useState<{ manufacturer: string; model: string } | null>(null);
+  const lastLookup = useRef<AircraftLookupResult | null>(null); // fullt smart-search-resultat → berika utan extra AI
 
   const handleSmartLookup = async () => {
     // Token-styrt, inte premium-låst: fri nivå får slå upp tills engångspotten tar slut.
@@ -147,6 +149,8 @@ export function AircraftModal({
               if (r.engine_type) setEngineType(r.engine_type);
               if (r.crew_type) setCrewTypes(parseCrewType(r.crew_type));
               setLookupInfo({ manufacturer: r.manufacturer, model: r.model });
+              lastLookup.current = r; // spara hela resultatet → full Fleet-berikning vid save utan ny AI
+
             },
           },
         ],
@@ -173,6 +177,7 @@ export function AircraftModal({
       const eng = initialEngineType ?? '';
       setEngineType(eng === 'se' || eng === 'me' ? eng : '');
       setLookupInfo(null);
+      lastLookup.current = null;
     }
   }, [visible, initialType, initialSpeedKts, initialEnduranceH, initialCrewType, initialCategory, initialEngineType]);
 
@@ -190,8 +195,14 @@ export function AircraftModal({
     setSaving(true);
     try {
       await onSave(trimmed, parseInt(speed) || 0, parseFloat(endurance.replace(',', '.')) || 0, serializeCrewType(crewTypes), category, engineType);
-      // Steg 1 = bara grunddata. Extended Fleet-data (VNE/MTOW/consumption/bild) hämtas
-      // på begäran via hämta-knappen på Fleet-korten.
+      // Hämta resten av Fleet-datan (VNE/MTOW/consumption/bild) i BAKGRUNDEN så kortet är komplett när
+      // man öppnar Fleet. Gäller bara nya farkoster (ej redigering). Har smart search redan körts återanvänds
+      // dess resultat (ingen ny AI); annars full uppslagning. Fire-and-forget, tyst, token-gated.
+      if (!editMode) {
+        const lk = lastLookup.current;
+        if (lk && lk.aircraft_type?.toUpperCase() === trimmed) enrichFromLookup(trimmed, lk);
+        else enrichFleetInBackground([trimmed]);
+      }
     } finally {
       setSaving(false);
     }

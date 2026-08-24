@@ -15,7 +15,7 @@ import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
-import { OpenAipMapModal } from '../../components/OpenAipMapModal';
+import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
@@ -568,7 +568,6 @@ export default function DashboardScreen() {
   const { formatTime } = useTimeFormat();
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
-  const [refreshKey, setRefreshKey] = useState(0);
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausar sid-scroll medan globen snurras
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tryck på globen → val-meny
   const globeMenuAnim = useRef(new Animated.Value(0)).current; // 0=dold, 1=synlig → mjuk fade/slide av alla tre knappar samtidigt
@@ -581,14 +580,13 @@ export default function DashboardScreen() {
       useNativeDriver: true,
     }).start();
   }, [globeMenuOpen, globeMenuAnim]);
-  const [openAipVisible, setOpenAipVisible] = useState(false); // OpenAIP-overlay-kartan
   const needleAnim = useRef(new Animated.Value(0)).current;
+  const kbShift = useRef(new Animated.Value(0)).current; // temporär uppflytt när flygplatssökrutan fokuseras
   const [profileName, setProfileName] = useState('');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [wx, setWx] = useState<DecodedWx | null>(null); // tolkad METAR+TAF (ticker överst)
   const [wxLoading, setWxLoading] = useState(false);
-  const [wxOverride, setWxOverride] = useState<string | null>(null); // manuellt vald flygplats (annars destinationen)
-  const [wxPickerOpen, setWxPickerOpen] = useState(false);
+  const [wxPickerOpen, setWxPickerOpen] = useState(false); // väder-uppslagsvyn (ändrar EJ tickern)
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [xcMapVisible, setXcMapVisible] = useState(false);
@@ -613,24 +611,22 @@ export default function DashboardScreen() {
     loadFlights();
     getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
     loadPrompt();
+    // Göm vädret när man LÄMNAR dashboarden (blur) — off-screen, så det syns aldrig försvinna och inget
+    // hoppar under scroll. Nästa gång man kommer tillbaka är det redan dolt → måste dra ner och hämta igen.
+    return () => setWx(null);
   }, [loadStats, loadFlights, loadPrompt]));
 
-  // Tolkad METAR + TAF för senaste destinationsflygplatsen — hämtas vid mount och vid varje pull-to-refresh
-  // (refreshKey), samt när destinationen ändras. Närmaste-fält-fallbacken sköts inne i servicen.
+  // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
+  // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
   const lastDest = flights[0]?.arr_place ?? '';
-  const wxTarget = wxOverride || lastDest; // manuellt vald flygplats vinner över destinationen
-  useEffect(() => {
-    if (mode !== 'manned' || !wxTarget) { setWx(null); return; }
-    let alive = true;
-    (async () => {
-      setWxLoading(true);
-      try {
-        const r = await fetchDecodedWx(wxTarget);
-        if (alive) setWx(r);
-      } finally { if (alive) setWxLoading(false); }
-    })();
-    return () => { alive = false; };
-  }, [wxTarget, refreshKey, mode]);
+  const loadWeather = useCallback(async () => {
+    if (mode !== 'manned' || !lastDest) { setWx(null); return; }
+    setWxLoading(true);
+    try { setWx(await fetchDecodedWx(lastDest)); }
+    finally { setWxLoading(false); }
+  }, [mode, lastDest]);
+  // Göm WX igen om destinationen (eller läget) ändras → dra ner för att hämta på nytt.
+  useEffect(() => { setWx(null); }, [lastDest, mode]);
 
   useEffect(() => {
     needleAnim.setValue(0);
@@ -640,7 +636,7 @@ export default function DashboardScreen() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [stress.index, refreshKey]);
+  }, [stress.index]);
 
   // Stress-readouten animerar ÖKNINGEN efter en loggad flight (prev → nytt värde), inte
   // från 0. Vid mount/reload visas slutvärdet direkt (ingen uppräkning från start).
@@ -762,56 +758,23 @@ export default function DashboardScreen() {
   if (mode !== 'manned') return <View style={s.container} />;
 
   return (<>
+    {/* Mörk yttre bakgrund som ALLTID fyller skärmen → när inre vyn flyttas upp vid tangentbord syns
+        ingen vit scen bakom (bara mörk dashboard-bakgrund). */}
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
     <ScrollView
       style={s.container}
       contentContainerStyle={s.content}
       scrollEnabled={!globeGrabbed}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setRefreshKey(k => k + 1);
-        loadPrompt();
-        await Promise.all([
-          loadStats(),
-          loadFlights(),
-          getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); }),
-          checkVersion(),
-        ]);
-      }} tintColor={Colors.primary} />}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={false} onRefresh={async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // tydlig vibration när pull triggar
+        await loadWeather(); // pull = "Fetch WX"; refreshing=false → ingen native-spinner, bara hint-spinnern nedan
+      }} tintColor="transparent" />}
     >
       {/* ── Header ── */}
       {/* Hälsningsfrasen är tillfälligt dold (SHOW_GREETING=false) men koden behålls nedan. */}
       {SHOW_GREETING && <Text style={greetingStyle}>{greeting}</Text>}
-
-      {/* ── Väder-ticker: två rader (METAR + TAF). Tryck någonstans → välj annan flygplats. ── */}
-      {mode === 'manned' && (wx || wxLoading || isLoading || wxTarget) && (
-        <TouchableOpacity activeOpacity={0.7} style={[s.wxBlock, s.wxTap]} onPress={() => setWxPickerOpen(true)}>
-          <View style={{ flex: 1 }}>
-            {wx ? (<>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? wx.destIcao}</Text>
-                <Marquee
-                  text={wx.metarStation
-                    ? [wx.metarStationName, wx.metarIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ')
-                    : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? wx.destIcao}</Text>
-                <Marquee
-                  text={wx.tafStation
-                    ? [wx.tafStationName, wx.tafIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.tafText || 'no data'].filter(Boolean).join('   ·   ')
-                    : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-            </>) : (
-              <Text style={s.wxScroll} numberOfLines={1}>{(wxLoading || isLoading) ? 'Fetching weather…' : 'Weather unavailable'}</Text>
-            )}
-          </View>
-          <Ionicons name="chevron-down" size={16} color={wxOverride ? Colors.primary : Colors.textMuted} style={{ marginLeft: 8 }} />
-        </TouchableOpacity>
-      )}
 
       {/* ── App news / update banner ── */}
       {updateAvailable && (
@@ -848,9 +811,45 @@ export default function DashboardScreen() {
 
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
-        {/* Top: stress gauge bar */}
+        {/* Väder-ticker ovanför WORKLOAD (BARA när hämtat; annars ligger "Fetch WX" inline på WORKLOAD-raden). */}
+        {mode === 'manned' && !!lastDest && wx && (
+          <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
+            <View style={{ flex: 1 }}>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? wx.destIcao}</Text>
+                <Marquee
+                  text={wx.metarStation
+                    ? [wx.metarIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ')
+                    : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+              <View style={s.wxLine}>
+                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? wx.destIcao}</Text>
+                <Marquee
+                  text={wx.tafStation
+                    ? [wx.tafIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.tafText || 'no data'].filter(Boolean).join('   ·   ')
+                    : 'not available'}
+                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
+                />
+              </View>
+            </View>
+            <Ionicons name="search" size={15} color={Colors.textMuted} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        )}
+
+        {/* WORKLOAD-rad — "Fetch WX ↓" (eller "Fetching…") ligger INLINE här när vädret inte hämtats. */}
         <View style={s.telGaugeHeader}>
           <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+          {mode === 'manned' && !!lastDest && !wx && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              {wxLoading ? (
+                <><ActivityIndicator size="small" color={Colors.primary} /><Text style={s.wxFetchHint}>Fetching weather…</Text></>
+              ) : (
+                <><Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} /></>
+              )}
+            </View>
+          )}
           <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
         </View>
 
@@ -932,11 +931,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Advice inline */}
-        <View style={[s.telAdvice, { borderLeftColor: zc, backgroundColor: zc + '10' }]}>
-          <Ionicons name="pulse" size={12} color={zc} />
-          <Text style={s.telAdviceText}>{stress.advice}</Text>
-        </View>
+        {/* Advice/tips-rutan borttagen (test). Koden finns kvar: stress.advice + adviceMap + s.telAdvice/telAdviceText. */}
       </View>
 
       {/* ── Latest flight (svep vänster → senaste 5 flygningarna) ── */}
@@ -1057,25 +1052,14 @@ export default function DashboardScreen() {
                     </TouchableOpacity>
                     <AirportMapWidget asButton />
                     <GlobalMapButton asButton />
-                    <TouchableOpacity
-                      onPress={() => { setOpenAipVisible(true); setGlobeMenuOpen(false); }}
-                      activeOpacity={0.85}
-                      style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: Colors.primary + '66' }}
-                    >
-                      <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '22' }}>
-                        <Ionicons name="layers-outline" size={18} color={Colors.primary} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800' }}>OpenAIP</Text>
-                        <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '500', marginTop: 1 }}>Airspaces & airfields overlay</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
-                    </TouchableOpacity>
+                    <AirportQuickSearch
+                      onPick={() => setGlobeMenuOpen(false)}
+                      onFocusShift={(dy) => Animated.timing(kbShift, { toValue: -dy, duration: 260, useNativeDriver: true }).start()}
+                    />
                   </View>
               </Animated.View>
             </View>
           </View>
-          <OpenAipMapModal visible={openAipVisible} onClose={() => setOpenAipVisible(false)} />
 
           {st?.longest_xc_date && (
             <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
@@ -1087,16 +1071,15 @@ export default function DashboardScreen() {
           <AirportPickerModal
             visible={wxPickerOpen}
             onClose={() => setWxPickerOpen(false)}
-            currentIcao={wx?.metarStation ?? wx?.tafStation ?? null}
-            usingOverride={!!wxOverride}
-            onPick={(icao) => { setWxOverride(icao); setWxPickerOpen(false); }}
-            onUseDestination={() => { setWxOverride(null); setWxPickerOpen(false); }}
+            initialIcao={lastDest || null}
           />
         </>
       )}
 
 
     </ScrollView>
+    </Animated.View>
+    </View>
 
     {photoPreview && (
       <FlightShareCard
@@ -1115,13 +1098,15 @@ export default function DashboardScreen() {
 
 function makeDashStyles() { return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 32 },
+  content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 32 },
 
   hudHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hudLabel: { fontSize: 10, fontWeight: '700', color: Colors.primary, letterSpacing: 1.6, fontFamily: 'Menlo' },
   hudGreeting: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.8, marginBottom: 16, fontFamily: 'Georgia' },
-  wxBlock: { marginBottom: 16 },
+  wxBlock: { marginBottom: 8 }, // tätt ovanför stressindikatorn
   wxTap: { flexDirection: 'row', alignItems: 'center' },
+  wxFetch: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  wxFetchHint: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary, fontFamily: 'ChakraPetch-SemiBold' },
   wxLine: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 21 },
   wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
   wxScrollWrap: { flex: 1, height: 21 },
@@ -1145,10 +1130,10 @@ function makeDashStyles() { return StyleSheet.create({
   telPanel: {
     borderRadius: 16, overflow: 'hidden',
     backgroundColor: Colors.background, borderWidth: 0,
-    padding: 4, gap: 14, marginBottom: 14,
+    padding: 4, gap: 8, marginBottom: 14,
   },
   telGaugeHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 20,
   },
   telGaugeLabel: {
     fontSize: 9, fontWeight: '700', color: Colors.textMuted,

@@ -1,53 +1,75 @@
-// Flygplatsväljare för väder-tickern: fritext-sök (ICAO/IATA/namn) + rullbar lista. Väljer man en
-// flygplats visas METAR/TAF för den i stället för destinationen. Bara riktiga 4-bokstavs-ICAO listas
-// (det är de som kan ha METAR/TAF). "Use last destination" återställer till automatiskt läge.
+// Väder-visare: sök flygplats (ICAO/IATA/namn) och se dess METAR + TAF direkt under namnet.
+// Växla mellan tolkad prosa och original-rapporten. Öppnas förvald på destinationen. Ändrar INTE
+// den rullande tickern på dashboarden (den visar alltid destinationen) — detta är bara en uppslagsvy.
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, StyleSheet, Keyboard, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, StyleSheet, Keyboard, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
-import { searchAirports } from '../db/icao';
+import { searchAirports, getAirportByIcao } from '../db/icao';
+import { fetchDecodedWx, type DecodedWx, type WxStatus } from '../services/weather';
 import type { IcaoAirport } from '../types/flight';
 
 const isIcao = (s?: string) => /^[A-Z]{4}$/.test((s ?? '').toUpperCase());
+const STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 
-export function AirportPickerModal({ visible, onClose, onPick, onUseDestination, currentIcao, usingOverride }: {
+export function AirportPickerModal({ visible, onClose, initialIcao }: {
   visible: boolean;
   onClose: () => void;
-  onPick: (icao: string) => void;
-  onUseDestination: () => void;
-  currentIcao?: string | null;   // markeras med bock i listan
-  usingOverride?: boolean;       // true = en annan flygplats än destinationen visas nu
+  initialIcao?: string | null; // förvald flygplats (destinationen) att visa direkt vid öppning
 }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedName, setSelectedName] = useState('');
+  const [wx, setWx] = useState<DecodedWx | null>(null);
+  const [wxLoading, setWxLoading] = useState(false);
+  const [view, setView] = useState<'decoded' | 'raw'>('decoded');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { if (!visible) { setQuery(''); setResults([]); } }, [visible]);
+  const selectAirport = async (icao: string, name?: string) => {
+    const id = icao.trim().toUpperCase();
+    Keyboard.dismiss();
+    setQuery(''); setResults([]);
+    setSelected(id);
+    setWx(null); setWxLoading(true);
+    let nm = name ?? '';
+    try { if (!nm) { const ap = await getAirportByIcao(id); nm = ap?.name ?? ''; } } catch { /* namn valfritt */ }
+    setSelectedName(nm);
+    try { setWx(await fetchDecodedWx(id)); } catch { setWx(null); } finally { setWxLoading(false); }
+  };
 
+  // Vid öppning: nollställ sök och förvälj destinationen (om given).
+  useEffect(() => {
+    if (!visible) return;
+    setQuery(''); setResults([]); setView('decoded');
+    if (initialIcao && isIcao(initialIcao)) { selectAirport(initialIcao); }
+    else { setSelected(null); setSelectedName(''); setWx(null); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialIcao]);
+
+  // Debouncad sökning (bara riktiga 4-bokstavs-ICAO listas — de kan ha METAR/TAF).
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     const q = query.trim();
-    if (q.length < 2) { setResults([]); setLoading(false); return; }
-    setLoading(true);
+    if (q.length < 2) { setResults([]); setSearching(false); return; }
+    setSearching(true);
     debounce.current = setTimeout(async () => {
-      try {
-        const r = await searchAirports(q);
-        setResults(r.filter((a) => isIcao(a.icao)));
-      } catch { setResults([]); } finally { setLoading(false); }
+      try { const r = await searchAirports(q); setResults(r.filter((a) => isIcao(a.icao))); }
+      catch { setResults([]); } finally { setSearching(false); }
     }, 250);
     return () => { if (debounce.current) clearTimeout(debounce.current); };
   }, [query]);
 
-  const pick = (icao: string) => { Keyboard.dismiss(); onPick(icao.toUpperCase()); };
+  const showResults = results.length > 0 || (query.trim().length >= 2);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Weather station</Text>
+          <Text style={styles.title}>Weather</Text>
           <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn}>
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
@@ -58,7 +80,6 @@ export function AirportPickerModal({ visible, onClose, onPick, onUseDestination,
           <TextInput
             value={query}
             onChangeText={setQuery}
-            autoFocus
             autoCapitalize="characters"
             autoCorrect={false}
             placeholder="Search ICAO, IATA or name"
@@ -66,45 +87,77 @@ export function AirportPickerModal({ visible, onClose, onPick, onUseDestination,
             style={styles.input}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} hitSlop={10}>
+            <TouchableOpacity onPress={() => { setQuery(''); Keyboard.dismiss(); }} hitSlop={10}>
               <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
-        <TouchableOpacity style={styles.destRow} activeOpacity={0.7} onPress={() => { Keyboard.dismiss(); onUseDestination(); }}>
-          <Ionicons name="navigate" size={16} color={Colors.primary} />
-          <Text style={styles.destText}>Use last destination</Text>
-          {!usingOverride && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
-        </TouchableOpacity>
+        {showResults ? (
+          <FlatList
+            data={results}
+            keyExtractor={(a) => a.icao}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            style={styles.list}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => selectAirport(item.icao, item.name)}>
+                <Text style={styles.rowIcao}>{item.icao}</Text>
+                <View style={styles.rowMid}>
+                  <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+                  {(item.municipality || item.country) ? (
+                    <Text style={styles.rowSub} numberOfLines={1}>{[item.municipality, item.country].filter(Boolean).join(', ')}</Text>
+                  ) : null}
+                </View>
+                {item.iata ? <Text style={styles.rowIata}>{item.iata}</Text> : null}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              searching ? <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
+                : <Text style={styles.emptyTxt}>No airports found</Text>
+            }
+          />
+        ) : selected ? (
+          <ScrollView style={styles.detail} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+            <Text style={styles.airport}>{selected}{selectedName ? ` · ${selectedName}` : ''}</Text>
 
-        <FlatList
-          data={results}
-          keyExtractor={(a) => a.icao}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          style={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => pick(item.icao)}>
-              <Text style={styles.icao}>{item.icao}</Text>
-              <View style={styles.rowMid}>
-                <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                {(item.municipality || item.country) ? (
-                  <Text style={styles.sub} numberOfLines={1}>{[item.municipality, item.country].filter(Boolean).join(', ')}</Text>
-                ) : null}
-              </View>
-              {item.iata ? <Text style={styles.iata}>{item.iata}</Text> : null}
-              {item.icao === currentIcao ? <Ionicons name="checkmark" size={16} color={Colors.primary} /> : null}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            loading ? (
+            {/* Tolkad ↔ original */}
+            <View style={styles.toggle}>
+              {(['decoded', 'raw'] as const).map((m) => (
+                <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)}
+                  style={[styles.toggleBtn, view === m && styles.toggleBtnActive]}>
+                  <Text style={[styles.toggleTxt, view === m && styles.toggleTxtActive]}>{m === 'decoded' ? 'Decoded' : 'Raw'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {wxLoading ? (
               <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
+            ) : wx ? (
+              <>
+                <Text style={[styles.wxLabel, { color: wx.metarStatus ? STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]}>
+                  METAR {wx.metarStation ?? selected}{wx.metarIsAlternate ? `  ·  nearest to ${wx.destIcao}` : ''}
+                </Text>
+                <Text style={[styles.wxBody, view === 'raw' && styles.wxRaw]}>
+                  {view === 'decoded'
+                    ? [wx.metarTimeZ, wx.metarText].filter(Boolean).join(' — ') || 'No data'
+                    : (wx.rawMetar || 'No data')}
+                </Text>
+
+                <Text style={[styles.wxLabel, { marginTop: 16, color: wx.tafStatus ? STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]}>
+                  TAF {wx.tafStation ?? selected}{wx.tafIsAlternate ? `  ·  nearest to ${wx.destIcao}` : ''}
+                </Text>
+                <Text style={[styles.wxBody, view === 'raw' && styles.wxRaw]}>
+                  {view === 'decoded' ? (wx.tafText || 'Not available') : (wx.rawTaf || 'Not available')}
+                </Text>
+              </>
             ) : (
-              <Text style={styles.emptyText}>{query.trim().length >= 2 ? 'No airports found' : 'Type at least 2 characters'}</Text>
-            )
-          }
-        />
+              <Text style={styles.emptyTxt}>Weather unavailable</Text>
+            )}
+          </ScrollView>
+        ) : (
+          <Text style={styles.emptyTxt}>Search an airport to see its METAR and TAF</Text>
+        )}
       </View>
     </Modal>
   );
@@ -117,15 +170,27 @@ const styles = StyleSheet.create({
   closeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 44, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   input: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', padding: 0 },
-  destRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.separator },
-  destText: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  list: { flex: 1 },
+
+  list: { flex: 1, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.separator },
-  icao: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', width: 52, letterSpacing: 0.4, fontVariant: ['tabular-nums'] },
+  rowIcao: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', width: 52, letterSpacing: 0.4, fontVariant: ['tabular-nums'] },
   rowMid: { flex: 1 },
-  name: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '600' },
-  sub: { color: Colors.textMuted, fontSize: 11.5, fontWeight: '500', marginTop: 1 },
-  iata: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
-  empty: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 24 },
+  rowName: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '600' },
+  rowSub: { color: Colors.textMuted, fontSize: 11.5, fontWeight: '500', marginTop: 1 },
+  rowIata: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
+
+  detail: { flex: 1, marginTop: 12 },
+  airport: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 },
+  toggle: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 3, marginBottom: 14 },
+  toggleBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 7 },
+  toggleBtnActive: { backgroundColor: Colors.primary },
+  toggleTxt: { fontSize: 12.5, fontWeight: '700', color: Colors.textSecondary },
+  toggleTxtActive: { color: Colors.textInverse },
+
+  wxLabel: { fontSize: 13, fontWeight: '800', fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3, marginBottom: 5 },
+  wxBody: { fontSize: 14, color: Colors.textPrimary, lineHeight: 21 },
+  wxRaw: { fontFamily: 'JetBrainsMono', fontSize: 12.5, color: Colors.textSecondary, lineHeight: 19 },
+
+  empty: { paddingVertical: 28, alignItems: 'center' },
+  emptyTxt: { color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 28 },
 });

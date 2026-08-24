@@ -15,6 +15,7 @@ export interface JourneyPt { date: Date; cum: number }
 export interface InsightsData {
   total: number; ytd: number; m3: number; m6: number; m12: number;
   cats: Record<string, number>;
+  counts: Record<string, number>;
   landings: { day: number; night: number };
   monthly: Record<string, number>;
   journey: JourneyPt[];
@@ -66,11 +67,29 @@ export function useInsightsData(): InsightsData {
     const r12 = real.filter((f) => f.date >= cut12);
     const rate = (pred: (f: Flight) => boolean, col: string) => r12.filter(pred).reduce((s, f) => s + num(f, col), 0) / 12;
 
+    const sumField = (k: string) => real.reduce((s, f) => s + num(f, k), 0);
+
     const cats: Record<string, number> = {
       pic: stats?.total_pic ?? 0, co_pilot: stats?.total_co_pilot ?? 0, dual: stats?.total_dual ?? 0,
       picus: stats?.total_picus ?? 0, instructor: stats?.total_instructor ?? 0, multi_pilot: stats?.total_multi_pilot ?? 0,
       nvg: stats?.total_nvg ?? 0, sim: stats?.total_sim ?? 0, ifr: stats?.total_ifr ?? 0,
       night: stats?.total_night ?? 0, vfr: stats?.total_vfr ?? 0, xc, xc_pic: xcPic,
+      // Utökade timkategorier (ur stats) + pilot flying (summeras direkt).
+      single_pilot: stats?.total_single_pilot ?? 0, spic: stats?.total_spic ?? 0,
+      examiner: stats?.total_examiner ?? 0, safety_pilot: stats?.total_safety_pilot ?? 0,
+      observer: stats?.total_observer ?? 0, relief_crew: stats?.total_relief_crew ?? 0,
+      ferry_pic: stats?.total_ferry_pic ?? 0, se: stats?.total_se ?? 0, me: stats?.total_me ?? 0,
+      pilot_flying: sumField('pilot_flying'),
+    };
+
+    // Antal (landningar/starter/approacher/holds) — summeras ur flighter (även FAA-natt-varianter).
+    const counts: Record<string, number> = {
+      takeoffs_day: sumField('takeoffs_day'), takeoffs_night: sumField('takeoffs_night'), takeoffs_faa_night: sumField('takeoffs_faa_night'),
+      landings_day: stats?.total_landings_day ?? sumField('landings_day'),
+      landings_night: stats?.total_landings_night ?? sumField('landings_night'),
+      landings_faa_night: sumField('landings_faa_night'),
+      landings_fs_day: sumField('landings_fs_day'), landings_fs_night: sumField('landings_fs_night'), landings_fs_faa_night: sumField('landings_fs_faa_night'),
+      tng: sumField('tng_count'), app_2d: sumField('app_2d'), app_3d: sumField('app_3d'), holds: sumField('holds'),
     };
 
     const haveFor = (key: string): number => {
@@ -110,7 +129,7 @@ export function useInsightsData(): InsightsData {
       m3: stats?.last_90_days ?? sumSince(monthsAgoISO(3)),
       m6: sumSince(monthsAgoISO(6)),
       m12: stats?.last_12_months ?? sumSince(monthsAgoISO(12)),
-      cats, landings: { day: stats?.total_landings_day ?? 0, night: stats?.total_landings_night ?? 0 },
+      cats, counts, landings: { day: stats?.total_landings_day ?? 0, night: stats?.total_landings_night ?? 0 },
       monthly, journey, journeyPic, haveFor, rateFor, metDateFor,
     };
   }, [flights, stats]);

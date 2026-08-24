@@ -4,11 +4,14 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { pickImportFile, importFromFile, generateImportSummary, type ImportResult } from '../../services/import';
+import { estimateNightForImport, countComputable, type NightBasis, type NightEstimate } from '../../services/importNight';
+import { CondBar } from '../../components/logflight/CondBar';
 import { CountryFlag } from '../../components/CountryFlag';
 import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, flightExists } from '../../db/flights';
+import { enrichFleetInBackground } from '../../services/fleetEnrich';
 import { useFlightStore } from '../../store/flightStore';
 import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
@@ -92,6 +95,26 @@ function makeStyles() {
     },
     aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     aiCardTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+    // Nattid-uppskattnings-kort (överst i förhandsvisningen)
+    nightCard: { backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '55', padding: 14, gap: 10, marginBottom: 12 },
+    nightHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    nightTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+    nightSub: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
+    nightToggle: { flexDirection: 'row', gap: 8 },
+    nightBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+    nightBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+    nightBtnTxt: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+    nightBtnTxtOn: { color: Colors.primary },
+    nightResult: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
+    nightExpandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+    nightExpandTxt: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
+    skipItem: { gap: 5 },
+    skipMeta: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
+    nightApply: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.primary },
+    nightApplyTxt: { color: Colors.textInverse, fontSize: 14, fontWeight: '800' },
+    nightNote: { color: Colors.textMuted, fontSize: 11, lineHeight: 15 },
+    nightCardDone: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.success + '18', borderRadius: 12, borderWidth: 1, borderColor: Colors.success + '55', paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12 },
+    nightDoneTxt: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', flex: 1 },
     aiCardText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
     aiLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     aiLoadingText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic' },
@@ -321,6 +344,9 @@ export default function ImportScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
+  // Kom vi hit från onboarding? Då ska en lyckad import gå DIREKT till dashboarden (inte tillbaka till onboarding).
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
   const { loadFlights, loadStats, isPremium, isMax } = useFlightStore();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
@@ -343,6 +369,13 @@ export default function ImportScreen() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad förhandsvisning som standard
   const [importError, setImportError] = useState<string | null>(null);
+  // Nattid-uppskattning (när filen saknar night-fält) — fråga om tider är UTC/local + räkna ut.
+  const [nightBasis, setNightBasis] = useState<NightBasis | null>(null);
+  const [nightEst, setNightEst] = useState<NightEstimate | null>(null);
+  const [nightApplied, setNightApplied] = useState(false);
+  const [manualNight, setManualNight] = useState<Record<number, number>>({}); // skippade flygningar: nattid (h) per index
+  const [skippedExpanded, setSkippedExpanded] = useState(false);
+  const [scrollOn, setScrollOn] = useState(true); // lås scroll medan man drar en night-bar
   // Expanderbara sektioner i förhandsvisningen (samma mönster som Imported data-sidan)
   const [openAirports, setOpenAirports] = useState(false);
   const [openAircraft, setOpenAircraft] = useState(false);
@@ -521,6 +554,7 @@ export default function ImportScreen() {
     setFileName(file.name);
     setImporting(true);
     setResult(null);
+    setNightBasis(null); setNightEst(null); setNightApplied(false); setManualNight({}); setSkippedExpanded(false);
     setProgress({ current: 0, total: 0 });
     setUnknownAirports([]);
     setAirportCoords({});
@@ -676,6 +710,9 @@ export default function ImportScreen() {
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
+      // Hämta resterande Fleet-data (spec + bilder) i BAKGRUNDEN för de importerade typerna → korten
+      // är kompletta när användaren öppnar Fleet-sidan. Tyst + token-gated (blockerar inte importen).
+      enrichFleetInBackground();
       // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
       const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
       // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.
@@ -686,11 +723,11 @@ export default function ImportScreen() {
           t('done_exclamation'),
           (sv ? `${saved} ${t('flights_imported')}\n\nDin Wrapped är redo — utforska den i Inställningar.`
               : `${saved} ${t('flights_imported')}\n\nYour Wrapped is ready — explore it in Settings.`) + dupNote,
-          [{ text: 'OK', onPress: () => router.back() }],
+          [{ text: 'OK', onPress: finishNav }],
         );
       } else {
         Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}${dupNote}`, [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: finishNav },
         ]);
       }
     } catch (e: any) {
@@ -762,6 +799,36 @@ export default function ImportScreen() {
     });
   };
 
+  // Nattid saknas i filen (ingen flygning har night > 0) OCH går att beräkna (dep+arr-koord + tid)?
+  const nightMissing = !!result && result.flights.every((f) => !(parseFloat(String((f as any).night ?? '0')) > 0));
+  const nightComputable = result ? countComputable(result.flights, airportCoords) : 0;
+  const showNightCard = !!result && nightMissing && nightComputable > 0;
+
+  const chooseNightBasis = (basis: NightBasis) => {
+    if (!result) return;
+    setNightBasis(basis);
+    setManualNight({}); // ny bas → nya skippade → nollställ manuella
+    setNightEst(estimateNightForImport(result.flights, airportCoords, basis));
+  };
+  // Skippade flygningar (ej auto-beräkningsbara) MED flygtid → kan sättas manuellt via night-bar.
+  const skippedFlights = result && nightEst
+    ? result.flights.map((f, i) => ({ f, i })).filter(({ f, i }) => nightEst.perFlight[i] == null && (parseFloat(String(f.total_time ?? '')) || 0) > 0)
+    : [];
+  const manualNightTotal = Object.values(manualNight).reduce((s, v) => s + (v || 0), 0);
+  const totalNightIncl = Math.round(((nightEst?.totalNight ?? 0) + manualNightTotal) * 10) / 10;
+  const applyNight = () => {
+    if (!result || !nightEst) return;
+    setResult({
+      ...result,
+      flights: result.flights.map((f, i) => {
+        const auto = nightEst.perFlight[i];
+        const nv = auto != null ? auto : (manualNight[i] ?? 0); // auto för beräknade, manuellt för skippade
+        return nv > 0 ? { ...f, night: String(Math.round(nv * 100) / 100) } : f;
+      }),
+    });
+    setNightApplied(true);
+  };
+
   return (
     <>
     <ScrollView
@@ -770,6 +837,7 @@ export default function ImportScreen() {
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets
+      scrollEnabled={scrollOn}
     >
       {/* Hero */}
       <View style={styles.hero}>
@@ -855,6 +923,81 @@ export default function ImportScreen() {
       {/* Förhandsvisning */}
       {result && (
         <>
+          {/* Nattid saknas i filen → erbjud uträkning ur rutter + tider (överst, ovanför Import analysis) */}
+          {showNightCard && !nightApplied && (
+            <View style={styles.nightCard}>
+              <View style={styles.nightHeader}>
+                <Ionicons name="moon" size={15} color={Colors.primary} />
+                <Text style={styles.nightTitle}>Add night time?</Text>
+              </View>
+              <Text style={styles.nightSub}>
+                Your file has no night hours. We can estimate them from your routes & times for {nightComputable} flight{nightComputable === 1 ? '' : 's'}. How did you log the times?
+              </Text>
+              <View style={styles.nightToggle}>
+                {(['utc', 'local'] as const).map((b) => (
+                  <TouchableOpacity key={b} onPress={() => chooseNightBasis(b)} activeOpacity={0.85}
+                    style={[styles.nightBtn, nightBasis === b && styles.nightBtnOn]}>
+                    <Text style={[styles.nightBtnTxt, nightBasis === b && styles.nightBtnTxtOn]}>{b === 'utc' ? 'UTC (Z)' : 'Local time'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {nightEst && (
+                <>
+                  <Text style={styles.nightResult}>
+                    Estimated {nightEst.totalNight} h night across {nightEst.nightFlights} flight{nightEst.nightFlights === 1 ? '' : 's'}
+                    {nightEst.skipped > 0 ? `  ·  ${nightEst.skipped} skipped (missing coords/time)` : ''}
+                  </Text>
+
+                  {/* Skippade flygningar → sätt nattid manuellt med en night-bar (som i Log Flight). */}
+                  {skippedFlights.length > 0 && (
+                    <>
+                      <TouchableOpacity onPress={() => setSkippedExpanded((v) => !v)} activeOpacity={0.7} style={styles.nightExpandRow}>
+                        <Ionicons name={skippedExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.primary} />
+                        <Text style={styles.nightExpandTxt}>Set night manually for {skippedFlights.length} skipped flight{skippedFlights.length === 1 ? '' : 's'}</Text>
+                      </TouchableOpacity>
+                      {skippedExpanded && (
+                        <View style={{ gap: 12, marginTop: 2 }}>
+                          {skippedFlights.map(({ f, i }) => {
+                            const tot = parseFloat(String(f.total_time ?? '')) || 0;
+                            const hrs = manualNight[i] ?? 0;
+                            return (
+                              <View key={i} style={styles.skipItem}>
+                                <Text style={styles.skipMeta} numberOfLines={2}>{f.date}  ·  {f.dep_place || '?'} {f.dep_utc || '—'} → {f.arr_place || '?'} {f.arr_utc || '—'}  ·  {tot}h</Text>
+                                <CondBar
+                                  label={t('night')}
+                                  pct={tot > 0 ? (hrs / tot) * 100 : 0}
+                                  onPct={(p) => setManualNight((prev) => ({ ...prev, [i]: Math.round((p / 100) * tot * 100) / 100 }))}
+                                  tint={Colors.info}
+                                  totalMin={tot * 60}
+                                  onGrab={() => setScrollOn(false)}
+                                  onRelease={() => setScrollOn(true)}
+                                />
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </>
+                  )}
+
+                  <TouchableOpacity onPress={applyNight} activeOpacity={0.85} style={styles.nightApply}>
+                    <Ionicons name="checkmark" size={15} color={Colors.textInverse} />
+                    <Text style={styles.nightApplyTxt}>Add to import  ·  {totalNightIncl} h night</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.nightNote}>
+                    Estimated from the sun's position along each route.{nightBasis === 'local' ? ' Local times are converted via longitude — treat as approximate near dawn/dusk.' : ''}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
+          {nightApplied && (
+            <View style={styles.nightCardDone}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+              <Text style={styles.nightDoneTxt}>Night time added — {totalNightIncl} h across {(nightEst?.nightFlights ?? 0) + Object.values(manualNight).filter((v) => v > 0).length} flights.</Text>
+            </View>
+          )}
+
           <View style={styles.resultHeader}>
             <View style={styles.resultInfo}>
               <Text style={styles.resultFormat}>{result.detectedFormat}</Text>
