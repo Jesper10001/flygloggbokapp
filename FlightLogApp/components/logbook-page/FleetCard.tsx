@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
-import { getRegistrationHours, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType } from '../../db/flights';
+import { getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
@@ -20,18 +20,15 @@ import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '..
 const pad = (n: number) => String(n).padStart(2, '0');
 const fmtTotal = (h: number) => `${Math.floor(h || 0)}:${pad(Math.round(((h || 0) % 1) * 60))}`;
 const fmtNum = (n: number) => (n ? Number(n).toLocaleString('en-US') : '');
-function relMonth(iso: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso + 'T00:00:00');
-  const days = Math.round((Date.now() - d.getTime()) / 86400000);
-  if (days < 1) return 'today';
-  if (days < 30) return `${days}d ago`;
-  const mo = Math.round(days / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${(days / 365).toFixed(1)}y ago`;
-}
 
 const BANNER_H = 110;
+
+// Ikon per spec-grupp (avionik-känsla i sektionsrubrikerna).
+const GROUP_ICON: Record<string, any> = {
+  'Performance': 'speedometer-outline',
+  'Weights': 'barbell-outline',
+  'Range & endurance': 'navigate-outline',
+};
 
 // En spec-cell, hårlinjedelad (första cellen utan vänsterkant).
 function Stat({ label, value, unit, first, editing, onChange }: {
@@ -60,10 +57,10 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   const [showAll, setShowAll] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
-  // Bibliotek-väljaren visas FÖRST efter en hämtning som inte hittade någon bild online.
-  const [triedFetch, setTriedFetch] = useState(false);
   const { isPremium, isMax } = useFlightStore();
-  const [regs, setRegs] = useState<{ registration: string; hours: number }[]>([]);
+  const [regs, setRegs] = useState<{ registration: string; hours: number; flightCount: number }[]>([]);
+  // Namnbyten på registreringar i redigeringsläge: gammalt namn → nytt fritextvärde.
+  const [regEdits, setRegEdits] = useState<Record<string, string>>({});
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
   const [aspect, setAspect] = useState(1.5);
   const [cutout, setCutout] = useState<string | null>(ac.cutout_url || null);
@@ -77,7 +74,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   const set = (k: keyof typeof s) => (v: string) => setS((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    getRegistrationHours(ac.aircraft_type).then(setRegs);
+    getRegistrationsForType(ac.aircraft_type).then(setRegs);
   }, [ac.aircraft_type]);
 
   useEffect(() => { if (!editing) setTypeName(ac.aircraft_type); }, [ac.aircraft_type, editing]);
@@ -117,11 +114,18 @@ export function FleetCard({ ac, accent, current, onSaved }: {
     const renamed = !!newType && newType !== ac.aircraft_type;
     if (renamed) await renameAircraftType(ac.aircraft_type, newType);
     const target = renamed ? newType : ac.aircraft_type;
+    // Registrerings-namnbyten (fritext): uppdaterar flighter + registret överallt.
+    for (const [oldReg, val] of Object.entries(regEdits)) {
+      const nv = val.trim().toUpperCase();
+      if (nv && nv !== oldReg.toUpperCase()) await renameRegistration(oldReg, nv);
+    }
     await updateAircraftFleetFields(target, {
       vne: parseFloat(s.vne) || 0, cruise_speed_kts: parseInt(s.cruise) || 0, ceiling_ft: parseInt(s.ceiling) || 0,
       mtow: parseFloat(s.mtow) || 0, empty_weight_kg: parseFloat(s.empty) || 0, fuel_capacity_l: parseFloat(s.fuel) || 0,
       range_nm: parseFloat(s.range) || 0, endurance_h: parseFloat(s.endur) || 0, fuel_burn: parseFloat(s.consum) || 0,
     });
+    setRegEdits({});
+    setRegs(await getRegistrationsForType(target));
     setEditing(false);
     onSaved();
   };
@@ -132,7 +136,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
         await deleteRegistrationFromRegistry(reg);
-        setRegs(await getRegistrationHours(ac.aircraft_type));
+        setRegs(await getRegistrationsForType(ac.aircraft_type));
         onSaved();
       } },
     ]);
@@ -158,13 +162,11 @@ export function FleetCard({ ac, accent, current, onSaved }: {
     try {
       const r = await enrichAircraftFleet(ac.aircraft_type);
       await persistAircraftFleetLookup(ac.aircraft_type, r);
-      if (!r.image_url) setTriedFetch(true); // ingen bild online → visa bibliotek-väljaren som reserv
       onSaved();
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremium(true);
       } else {
-        setTriedFetch(true); // hämtning misslyckades → erbjud bibliotek-väljaren
         Alert.alert('Lookup failed', e?.message || 'Could not fetch aircraft data. Check your connection and try again.');
       }
     } finally {
@@ -186,6 +188,9 @@ export function FleetCard({ ac, accent, current, onSaved }: {
 
   const shownRegs = showAll ? regs : regs.slice(0, 3);
   const makerLine = ac.maker || '';
+  // Reload/hämta-knappen visas BARA när kortet är ofullständigt (saknar bild ELLER kärndata) →
+  // syftet blir att försöka hämta igen om första hämtningen misslyckades.
+  const needsFetch = !ac.image_url || !ac.maker || !ac.vne || !ac.cruise_speed_kts || !ac.mtow || !ac.ceiling_ft || !ac.range_nm;
 
   // Lätt utzoomning (1.05×) så hela farkosten syns; vertikalt centrerad med liten
   // uppåt-bias så motivet (cutout) ändå spiller något nedåt över kortkanten.
@@ -246,30 +251,36 @@ export function FleetCard({ ac, accent, current, onSaved }: {
         {/* bild-knappar uppe till höger: hämta (alltid) + bibliotek-väljare
             (visas FÖRST efter en hämtning utan träff online). */}
         <View style={{ position: 'absolute', top: 10, right: 12, zIndex: 4, flexDirection: 'row', gap: 6 }}>
-          {triedFetch && !ac.image_url ? (
-            <TouchableOpacity onPress={pickImage} activeOpacity={0.8}
-              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="image-outline" size={15} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity onPress={fetchData} disabled={fetching} activeOpacity={0.8}
+          {/* Välj egen bild ur biblioteket — alltid tillgänglig i övre högra hörnet. */}
+          <TouchableOpacity onPress={pickImage} activeOpacity={0.8}
             style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
-            {fetching ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name={ac.image_url ? 'refresh' : 'cloud-download-outline'} size={15} color={accent} />}
+            <Ionicons name="image-outline" size={15} color={Colors.textPrimary} />
           </TouchableOpacity>
+          {(needsFetch || fetching) && (
+            <TouchableOpacity onPress={fetchData} disabled={fetching} activeOpacity={0.8}
+              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.background + 'CC', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+              {fetching ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name={ac.image_url ? 'refresh' : 'cloud-download-outline'} size={15} color={accent} />}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       {/* ── Innehåll ── */}
       <View style={{ paddingHorizontal: 15, paddingBottom: 14, paddingTop: cutout ? 26 : 13, position: 'relative', zIndex: 1 }}>
-        {/* header: modell + maker·class (typ-rating borttagen inför lansering) */}
-        <View style={{ marginBottom: 13 }}>
-          {editing ? (
-            <TextInput value={typeName} onChangeText={(v) => setTypeName(v.toUpperCase())} autoCapitalize="characters" autoCorrect={false}
-              placeholder={ac.aircraft_type} placeholderTextColor={Colors.textMuted}
-              style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
-          ) : (
-            <Text style={{ fontFamily: FONT_SERIF, fontSize: 29, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
-          )}
+        {/* header: modell + total på type (samma rad, tiden i höjd med modellen) + maker */}
+        <View style={{ marginBottom: 3, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+            {editing ? (
+              <TextInput value={typeName} onChangeText={(v) => setTypeName(v.toUpperCase())} autoCapitalize="characters" autoCorrect={false}
+                placeholder={ac.aircraft_type} placeholderTextColor={Colors.textMuted}
+                style={{ flex: 1, fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
+            ) : (
+              <Text numberOfLines={1} style={{ flex: 1, fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
+            )}
+            <Text style={{ fontFamily: FONT_SERIF, fontSize: 24, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>
+              {fmtTotal(ac.total_hours)}<Text style={{ fontFamily: FONT_MONO, fontSize: 10.5, fontWeight: '700', color: accent }}> h</Text>
+            </Text>
+          </View>
           {editing ? (
             <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginTop: 4, letterSpacing: 0.3 }}>Renaming updates the logbook & export for all flights on this type</Text>
           ) : makerLine ? (
@@ -277,19 +288,13 @@ export function FleetCard({ ac, accent, current, onSaved }: {
           ) : null}
         </View>
 
-        {/* total on type */}
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: Colors.textMuted }}>Total on type</Text>
-          <View style={{ flex: 1 }} />
-          <Text style={{ fontFamily: FONT_SERIF, fontSize: 30, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>
-            {fmtTotal(ac.total_hours)}<Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: accent }}> h</Text>
-          </Text>
-        </View>
-
-        {/* spec-grupper */}
+        {/* spec-grupper (ikon + rubrik till vänster, hårlinjedelad rad — som förut) */}
         {SPEC_GROUPS.map((group) => (
           <View key={group.g} style={{ marginTop: 11 }}>
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', color: accent, marginBottom: 5 }}>{group.g}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+              <Ionicons name={GROUP_ICON[group.g] ?? 'stats-chart-outline'} size={11} color={accent} />
+              <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', color: accent }}>{group.g}</Text>
+            </View>
             <View style={{ flexDirection: 'row' }}>
               {group.items.map((it, i) => (
                 <Stat key={it.k} first={i === 0} label={it.label} value={it.value} unit={it.unit} editing={editing} onChange={set(it.k)} />
@@ -304,18 +309,33 @@ export function FleetCard({ ac, accent, current, onSaved }: {
             <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: Colors.textMuted }}>Registrations</Text>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', color: Colors.textSecondary }}>{regs.length}</Text>
           </View>
+          {editing ? (
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginBottom: 6, letterSpacing: 0.3 }}>Edit a registration to rename it everywhere · only registrations with no flights can be removed</Text>
+          ) : null}
           {shownRegs.length === 0 ? (
             <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textMuted }}>No registrations flown yet</Text>
           ) : shownRegs.map((r) => (
-            <View key={r.registration} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingVertical: 3 }}>
-              <Text style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.3 }}>{r.registration}</Text>
-              <View style={{ flex: 1, borderBottomWidth: 1, borderStyle: 'dotted', borderColor: Colors.border, transform: [{ translateY: -3 }] }} />
+            <View key={r.registration} style={{ flexDirection: 'row', alignItems: editing ? 'center' : 'baseline', gap: 8, paddingVertical: 3 }}>
               {editing ? (
-                <TouchableOpacity onPress={() => removeReg(r.registration)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ alignSelf: 'center' }}>
-                  <Ionicons name="close-circle" size={16} color={Colors.danger} />
-                </TouchableOpacity>
+                <>
+                  <TextInput value={regEdits[r.registration] ?? r.registration}
+                    onChangeText={(v) => setRegEdits((p) => ({ ...p, [r.registration]: v.toUpperCase() }))}
+                    autoCapitalize="characters" autoCorrect={false} placeholder={r.registration} placeholderTextColor={Colors.textMuted}
+                    style={{ flex: 1, fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
+                  {r.flightCount === 0 ? (
+                    <TouchableOpacity onPress={() => removeReg(r.registration)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close-circle" size={16} color={Colors.danger} />
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted }}>{fmtTotal(r.hours)} h</Text>
+                  )}
+                </>
               ) : (
-                <Text style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: Colors.textMuted }}>{fmtTotal(r.hours)} h</Text>
+                <>
+                  <Text style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.3 }}>{r.registration}</Text>
+                  <View style={{ flex: 1, borderBottomWidth: 1, borderStyle: 'dotted', borderColor: Colors.border, transform: [{ translateY: -3 }] }} />
+                  <Text style={{ fontFamily: FONT_MONO, fontSize: 10.5, color: Colors.textMuted }}>{fmtTotal(r.hours)} h</Text>
+                </>
               )}
             </View>
           ))}
@@ -327,10 +347,16 @@ export function FleetCard({ ac, accent, current, onSaved }: {
           ) : null}
         </View>
 
-        {/* footer: senast flugen + penna (nere till höger) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 11 }}>
-          <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, marginLeft: 5, flex: 1 }}>Last flown {relMonth(ac.last_flown)}</Text>
+        {/* footer: first flight + last flown (nere till vänster) + penna (nere till höger) */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 11 }}>
+          <View style={{ marginRight: 18 }}>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: Colors.textMuted }}>First flight</Text>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, marginTop: 2 }}>{ac.first_flown || '—'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: Colors.textMuted }}>Last flown</Text>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, marginTop: 2 }}>{ac.last_flown || '—'}</Text>
+          </View>
           {/* Remove type visas BARA om inga loggade flighter finns (annars skulle det påverka loggboken). */}
           {editing && ac.flight_count === 0 ? (
             <TouchableOpacity onPress={removeType} activeOpacity={0.8}

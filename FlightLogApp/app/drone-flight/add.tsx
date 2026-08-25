@@ -147,8 +147,8 @@ export default function AddDroneFlightScreen() {
   const [passes, setPasses] = useState<string[]>(['']); // MM:SS per pass, max 5
   // Mission (överst): fritextruta + dropdown med förval (MISSION_TYPES).
   const [showMissionPicker, setShowMissionPicker] = useState(false);
-  // Log Flight-lyft: Quicklog (default nya) ↔ Full · natt-auto (override via manuell tap)
-  const [logFull, setLogFull] = useState(isEdit);
+  // Drönar-loggning: alltid Full-läge (Quicklog borttaget).
+  const logFull = true;
   const [nightManual, setNightManual] = useState(isEdit);
   const [nightAuto, setNightAuto] = useState<SunState | null>(null);
   const [showLandingPoint, setShowLandingPoint] = useState(false);
@@ -184,8 +184,12 @@ export default function AddDroneFlightScreen() {
 
   const totalDecimal = passesToDecimal(passes);
   const totalDisplay = decimalToMMSS(totalDecimal);
-  // Varaktighet (MM:SS, eller bara minuter innan kolon skrivits) → timmar.
-  const durToDec = (d: string) => { if (!d) return 0; if (d.includes(':')) return mmssToDecimal(d); const n = parseInt(d, 10) || 0; return n / 60; };
+  // Varaktighet (HH:MM, eller bara minuter innan kolon skrivits) → decimaltimmar.
+  const durToDec = (d: string) => {
+    if (!d) return 0;
+    if (d.includes(':')) { const [h, m] = d.split(':'); return (parseInt(h, 10) || 0) + (parseInt(m, 10) || 0) / 60; }
+    const n = parseInt(d, 10) || 0; return n / 60; // 1–2 siffror = minuter (progressiv inmatning)
+  };
   // Full: total = summan av flygningarnas varaktigheter (fullLegs). Quick: summan av passen.
   const fullTotalDecimal = fullLegs.reduce((s, d) => s + durToDec(d), 0);
   // Härledd ankomsttid (take-off + total) — bara för natt-auto-fönstret.
@@ -299,8 +303,8 @@ export default function AddDroneFlightScreen() {
         });
         if (f.landing_location) setShowLandingPoint(true);
         if (f.total_time > 0) setPasses([decimalToMMSS(f.total_time)]);
-        // Full-heron: visa hela totalen som 1:a flygningens varaktighet (splitten är okänd vid redigering).
-        setFullLegs([f.total_time > 0 ? decimalToMMSS(f.total_time) : '']);
+        // Full-heron: visa hela totalen som 1:a flygningens varaktighet (HH:MM; splitten okänd vid redigering).
+        setFullLegs([f.total_time > 0 ? decimalToHHMM(f.total_time) : '']);
         setRole(f.co_pilot_fpv ? 'sic' : f.dual ? 'dual' : f.instructor ? 'instructor' : 'pic');
         return;
       }
@@ -391,13 +395,16 @@ export default function AddDroneFlightScreen() {
     }
   };
 
-  // Flygningarna matas som varaktighet (MM:SS) i fullLegs; totalen = summan. fullLegs[0] är
+  // Flygningarna matas som varaktighet (HH:MM) i fullLegs; totalen = summan. fullLegs[0] är
   // 1:a flygningen ("Flight time"); addLeg lägger till en extra flygning (redigerbar/ta bort).
   const addLeg = () => setFullLegs((ls) => [...ls, '']);
   const updateLeg = (i: number, raw: string) => {
     const d = raw.replace(/\D/g, '').slice(0, 4);
-    const mmss = d.length === 0 ? '' : d.length <= 2 ? d : `${d.slice(0, d.length - 2)}:${d.slice(-2)}`;
-    setFullLegs((ls) => ls.map((v, k) => (k === i ? mmss : v)));
+    let hhmm: string;
+    if (d.length === 0) hhmm = '';
+    else if (d.length <= 2) hhmm = d; // bara minuter tills timmar skrivs
+    else { const mm = Math.min(59, parseInt(d.slice(-2), 10) || 0); hhmm = `${d.slice(0, -2)}:${String(mm).padStart(2, '0')}`; }
+    setFullLegs((ls) => ls.map((v, k) => (k === i ? hhmm : v)));
   };
   const removeLeg = (i: number) => setFullLegs((ls) => ls.filter((_, k) => k !== i));
 
@@ -530,28 +537,7 @@ export default function AddDroneFlightScreen() {
         automaticallyAdjustKeyboardInsets
         scrollEnabled={!scrollLocked}
       >
-        {/* Quicklog ↔ Full (speglar manned) — döljs vid redigering */}
-        {!isEdit && (
-          <View style={styles.modeToggle}>
-            {(['quick', 'full'] as const).map((m) => {
-              const active = (m === 'full') === logFull;
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modeBtn, active && styles.modeBtnActive]}
-                  onPress={() => setLogFull(m === 'full')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
-                    {m === 'quick' ? 'Quicklog' : 'Full'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Mission — överst (under Quicklog/Full): label + fritextruta + dropdown med förval.
+        {/* Mission — överst: label + fritextruta + dropdown med förval.
             Fritexten ersätter den gamla "Other"-knappen; dropdownen ger snabbval. */}
         <View style={[styles.missionRow, showMissionPicker && { zIndex: 200 }]}>
           <Text style={styles.missionLabel}>Mission</Text>
@@ -585,14 +571,14 @@ export default function AddDroneFlightScreen() {
           </View>
         </View>
 
-        {/* ── Route-hero (Full): 2×2-rutnät — Location + Flight time (uppe), Departure time +
+        {/* ── Route-hero (Full): 2×2-rutnät — Location + Departure time (uppe), Flight time +
             Total flight time (nere) — plus en Add-flight-rad med redigerbara extra-flight-chip. ── */}
         {logFull && (
           <View style={styles.routeCard}>
 
-            {/* Route-hero (Full): 2×2 — Location + Flight time (uppe), Departure time + Total (nere) */}
+            {/* Route-hero (Full): 2×2 — Location + Departure time (uppe), Flight time + Total (nere) */}
             <View style={[styles.legRow, showDepDropdown && { zIndex: 100 }]}>
-              {/* Vänster kolumn: Location + Departure time */}
+              {/* Vänster kolumn: Location + Flight time */}
               <View style={styles.gridCol}>
                 <Text style={styles.placeColHeaderText}>{t('location')}</Text>
                 <View style={styles.depWrap}>
@@ -637,7 +623,27 @@ export default function AddDroneFlightScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={[styles.placeColHeaderText, { marginTop: 8 }]}>Departure time</Text>
+                <Text style={[styles.placeColHeaderText, { marginTop: 8 }]}>Flight time</Text>
+                <View style={[styles.flightTimeBox, { height: timeBoxH }]}>
+                  <TextInput
+                    style={styles.flightTimeInput}
+                    value={fullLegs[0]}
+                    onChangeText={(raw) => updateLeg(0, raw)}
+                    keyboardType="number-pad"
+                    inputAccessoryViewID="drone-add-done"
+                  />
+                  {/* Ren placeholder (DSEG7-fonten kan inte rendera bokstäver → egen "hh:mm") */}
+                  {!fullLegs[0] ? (
+                    <View style={styles.flightTimePh} pointerEvents="none"><Text style={styles.flightTimePhText}>hh:mm</Text></View>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={{ width: 12 }} />
+
+              {/* Höger kolumn: Departure time + Total flight time (display) */}
+              <View style={styles.gridCol}>
+                <Text style={styles.placeColHeaderText}>Departure time</Text>
                 {/* onLayout mäter BARA tidrutan (ej lokaltid-texten) → alla fyra rutor lika höga. */}
                 <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && Math.abs(h - timeBoxH) > 1) setTimeBoxH(h); }}>
                   <SmartTimeInput
@@ -660,26 +666,6 @@ export default function AddDroneFlightScreen() {
                     {timeMode === 'utc' ? `${utcToLocal(form.date, form.takeoff_time ?? '')} local` : `${form.takeoff_time} UTC`}
                   </Text>
                 )}
-              </View>
-
-              <View style={{ width: 12 }} />
-
-              {/* Höger kolumn: Flight time (1:a flygningen) + Total flight time (display) */}
-              <View style={styles.gridCol}>
-                <Text style={styles.placeColHeaderText}>Flight time</Text>
-                <View style={[styles.flightTimeBox, { height: timeBoxH }]}>
-                  <TextInput
-                    style={styles.flightTimeInput}
-                    value={fullLegs[0]}
-                    onChangeText={(raw) => updateLeg(0, raw)}
-                    keyboardType="number-pad"
-                    inputAccessoryViewID="drone-add-done"
-                  />
-                  {/* Ren placeholder (DSEG7-fonten kan inte rendera bokstäver → egen "mm:ss") */}
-                  {!fullLegs[0] ? (
-                    <View style={styles.flightTimePh} pointerEvents="none"><Text style={styles.flightTimePhText}>mm:ss</Text></View>
-                  ) : null}
-                </View>
                 <Text style={[styles.placeColHeaderText, { marginTop: 8 }]}>Total flight time</Text>
                 <View style={[styles.totalDisplayBox, { height: timeBoxH }]}>
                   <Text style={styles.totalDisplayValue}>{fullTotalDecimal > 0 ? decimalToHHMM(fullTotalDecimal) : '--:--'}</Text>
@@ -704,7 +690,7 @@ export default function AddDroneFlightScreen() {
                         style={styles.extraChipInput}
                         value={leg}
                         onChangeText={(raw) => updateLeg(i, raw)}
-                        placeholder="MM:SS"
+                        placeholder="HH:MM"
                         keyboardType="number-pad"
                         placeholderTextColor={DR.muted}
                         inputAccessoryViewID="drone-add-done"

@@ -44,6 +44,7 @@ export interface DroneModelFleet {
   total_hours: number;   // summa flygtid över modellens alla registreringar
   last_flown: string;
   reg_count: number;
+  flight_count: number;  // antal flygningar på modellen (gate för "Remove model")
 }
 
 export async function listDrones(): Promise<DroneRegistryEntry[]> {
@@ -100,7 +101,8 @@ export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
             MAX(dr.cutout_url) AS cutout_url,
             COALESCE(ROUND(SUM(f.total_time), 2), 0) AS total_hours,
             COALESCE(MAX(f.date), '') AS last_flown,
-            COUNT(DISTINCT CASE WHEN dr.registration != '' THEN dr.id END) AS reg_count
+            COUNT(DISTINCT CASE WHEN dr.registration != '' THEN dr.id END) AS reg_count,
+            COUNT(f.id) AS flight_count
        FROM drone_registry dr
        LEFT JOIN drone_flights f ON f.drone_id = dr.id
       GROUP BY dr.model
@@ -108,13 +110,14 @@ export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
   );
 }
 
-export async function getDroneModelRegistrations(model: string): Promise<{ registration: string; drone_id: number; hours: number; last_flown: string }[]> {
+export async function getDroneModelRegistrations(model: string): Promise<{ registration: string; drone_id: number; hours: number; last_flown: string; flightCount: number }[]> {
   const db = await getDatabase();
   return db.getAllAsync(
     `SELECT dr.registration AS registration,
             dr.id AS drone_id,
             COALESCE(ROUND(SUM(f.total_time), 2), 0) AS hours,
-            COALESCE(MAX(f.date), '') AS last_flown
+            COALESCE(MAX(f.date), '') AS last_flown,
+            COUNT(f.id) AS flightCount
        FROM drone_registry dr
        LEFT JOIN drone_flights f ON f.drone_id = dr.id
       WHERE dr.model = ? AND dr.registration != ''
@@ -122,6 +125,46 @@ export async function getDroneModelRegistrations(model: string): Promise<{ regis
       ORDER BY hours DESC, last_flown DESC`,
     [model]
   );
+}
+
+// Manuell redigering av modellens specar (sätter EXAKTA värden på alla modellens rader,
+// till skillnad från persistDroneModelLookup som bara fyller tomma). Speglar pilot updateAircraftFleetFields.
+export async function updateDroneModelFields(model: string, fields: {
+  drone_type?: string; manufacturer?: string; mtow_g?: number;
+  max_flight_min?: number; max_speed_kmh?: number; ceiling_m?: number; range_km?: number;
+}): Promise<void> {
+  const db = await getDatabase();
+  const sets: string[] = []; const vals: any[] = [];
+  const put = (col: string, v: any) => { if (v !== undefined) { sets.push(`${col}=?`); vals.push(v); } };
+  put('drone_type', fields.drone_type);
+  put('manufacturer', fields.manufacturer);
+  put('mtow_g', fields.mtow_g);
+  put('max_flight_min', fields.max_flight_min);
+  put('max_speed_kmh', fields.max_speed_kmh);
+  put('ceiling_m', fields.ceiling_m);
+  put('range_km', fields.range_km);
+  if (!sets.length) return;
+  vals.push(model);
+  await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE model=?`, vals);
+}
+
+// Byt modellnamn → uppdaterar alla registret-rader för modellen (flygningar följer via drone_id).
+export async function renameDroneModel(oldModel: string, newModel: string): Promise<void> {
+  const from = oldModel.trim(); const to = newModel.trim();
+  if (!from || !to || from === to) return;
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE drone_registry SET model=? WHERE model=?`, [to, from]);
+}
+
+// Byt namn på EN registrering (per drone_id) → uppdaterar registret + denormaliserad reg på flygningarna.
+export async function renameDroneRegistration(droneId: number, newReg: string): Promise<void> {
+  const to = newReg.trim().toUpperCase();
+  if (!to) return;
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE drone_registry SET registration=? WHERE id=?`, [to, droneId]);
+    await db.runAsync(`UPDATE drone_flights SET registration=? WHERE drone_id=?`, [to, droneId]);
+  });
 }
 
 // Sätt foto/urklipp på ALLA rader för en modell → modell-kortet blir konsekvent.

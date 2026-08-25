@@ -41,9 +41,9 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
 
   const strip: [string, string, boolean][] = [
     ['Role', roleLabel(f), isPicFlight(f)],
-    ['Aircraft', `${f.aircraft_type}${f.registration ? ` ${f.registration}` : ''}`, false],
-    ['Dep', (f.dep_utc || '—') + 'z', false],
+    ['Aircraft', f.registration || '—', false],
     ['Rules', f.ifr > 0 ? 'IFR' : 'VFR', false],
+    ['Dep', (f.dep_utc || '—') + 'z', false],
     ['Arr', (arrUtc(f) || '—') + 'z', false],
   ];
 

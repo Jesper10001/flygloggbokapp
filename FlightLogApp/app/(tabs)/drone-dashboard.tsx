@@ -1,10 +1,10 @@
-// Drönar-dashboard — VISUELL TVILLING till manned (app/(tabs)/index.tsx). Exakt samma
-// sektioner i samma ordning: greeting → stressindikator (workload-telemetripanel) →
+// Drönar-dashboard — VISUELL TVILLING till manned (app/(tabs)/index.tsx). Samma
+// sektioner i samma ordning: stressindikator (workload-telemetripanel) →
 // Latest flight-karusell → log-flight-rad (scan · B-logga · fysisk bok) → fotokarusell
 // → glob (heatmap + ripples). Navy via DR (= NavyColors) + användarens accent.
 // Fonter = manned dashboard: Georgia (serif) · Menlo (mono) · DSEG7 (LED).
 
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions,
   Dimensions, Alert, Animated, RefreshControl, ActivityIndicator,
@@ -22,7 +22,6 @@ import { Colors } from '../../constants/colors'; // stress-panelen använder EXA
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getDroneStressHours, type DroneFlight } from '../../db/drones';
-import { getSetting } from '../../db/flights';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import { useTranslation } from '../../hooks/useTranslation';
 import { FONT_LED7, ledGlow } from '../../components/logflight/tokens';
@@ -104,7 +103,6 @@ export default function DroneDashboardScreen() {
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights, stats, loadFlights, loadStats } = useDroneFlightStore();
-  const [profileName, setProfileName] = useState('');
   const [stress, setStress] = useState<StressData>(computeStress(0, 0));
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
@@ -133,16 +131,9 @@ export default function DroneDashboardScreen() {
     loadAccent();
     loadFlights();
     loadStats();
-    getSetting('profile_first_name').then((n) => setProfileName(n ?? '')).catch(() => {});
     getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14))).catch(() => {});
     return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
-
-  const greeting = useMemo(() => {
-    const h = new Date().getHours();
-    const g = h < 12 ? t('good_morning') : h < 18 ? t('good_afternoon') : t('good_evening');
-    return profileName ? `${g}, ${profileName}` : g;
-  }, [profileName, t]);
 
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);
@@ -178,10 +169,7 @@ export default function DroneDashboardScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // tydlig vibration när pull triggar (= manned)
         await loadWeatherNear();
       }} />}>
-      {/* ── 1. Greeting ── */}
-      <Text style={s.greeting}>{greeting}</Text>
-
-      {/* ── 1b. Stressindikator (workload-telemetripanel, klon av manned) ── */}
+      {/* ── 1. Stressindikator (workload-telemetripanel, klon av manned) ── */}
       <View style={s.telPanel}>
         {/* Väder-ticker (närmaste station från positionen) ovanför WORKLOAD — bara när hämtat. */}
         {wx && (
@@ -445,7 +433,6 @@ const s = StyleSheet.create({
   cta: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 22 },
   ctaText: { fontSize: 15, fontWeight: '800' },
 
-  greeting: { fontSize: 28, fontWeight: '700', color: DR.text, letterSpacing: -0.8, marginBottom: 16, fontFamily: SERIF },
 
   // Telemetripanel = EXAKT manned telPanel (index.tsx): fonter/färger/borders identiska.
   telPanel: { borderRadius: 16, overflow: 'hidden', backgroundColor: Colors.background, borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },

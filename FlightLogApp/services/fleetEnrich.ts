@@ -9,27 +9,38 @@ let running = false;
 
 /** Full berikning (AI-spec + Wikipedia-bild) för typer som saknar Fleet-data. Ges `types` berikas de;
  *  utan argument sveper den alla oberikade typer (t.ex. efter CSV-import). Sekventiellt + token-gated. */
-export async function enrichFleetInBackground(types?: string[]): Promise<void> {
-  if (running) return; // en körning i taget → hamra inte API:t
+export async function enrichFleetInBackground(types?: string[]): Promise<number> {
+  if (running) { console.log('[fleetEnrich] already running → skip'); return 0; } // en körning i taget
   running = true;
+  let enriched = 0; // antal typer som faktiskt berikades (för "klart"-notisen)
   try {
     let list = types?.map((t) => t.trim().toUpperCase()).filter(Boolean);
     if (!list) {
       const all = await getAllAircraftTypes();
       // Oberikad = varken bild eller kärn-Fleet-spec (maker/VNE) satt.
       list = all.filter((a) => !a.image_url && !a.maker && !a.vne).map((a) => a.aircraft_type);
+      console.log(`[fleetEnrich] registry=${all.length} types; un-enriched candidates=${list.length}:`, list);
+      console.log('[fleetEnrich] detail:', all.map((a) => `${a.aircraft_type}[img:${a.image_url ? 'Y' : 'n'} maker:${a.maker ? 'Y' : 'n'} vne:${a.vne || 0}]`).join('  '));
     }
+    console.log(`[fleetEnrich] start: hasTokenQuota=${hasTokenQuota()} · toEnrich=${list.length}`);
     for (const t of list) {
-      if (!hasTokenQuota()) break; // potten slut → låt resten hämtas manuellt senare
+      if (!hasTokenQuota()) { console.log('[fleetEnrich] token quota exhausted → stop'); break; }
       if (!t) continue;
       try {
+        console.log(`[fleetEnrich] enriching ${t}…`);
         const r = await enrichAircraftFleet(t);
         await persistAircraftFleetLookup(t, r);
-      } catch { /* tyst — kortets hämta-knapp finns kvar som reserv */ }
+        enriched++;
+        console.log(`[fleetEnrich] ✓ ${t} (image=${r.image_url ? 'yes' : 'NO'}, maker="${r.manufacturer}")`);
+      } catch (e: any) { console.log(`[fleetEnrich] ✗ ${t}: ${e?.message ?? e}`); }
     }
+  } catch (e: any) {
+    console.log('[fleetEnrich] FATAL:', e?.message ?? e);
   } finally {
     running = false;
   }
+  console.log(`[fleetEnrich] DONE. enriched=${enriched}`);
+  return enriched;
 }
 
 /** Berika från ett REDAN gjort smart-search-resultat → ingen extra AI-kostnad: spara hela specen och

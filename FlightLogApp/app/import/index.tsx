@@ -12,6 +12,7 @@ import { CondBar } from '../../components/logflight/CondBar';
 import { CountryFlag } from '../../components/CountryFlag';
 import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, flightExists } from '../../db/flights';
 import { enrichFleetInBackground } from '../../services/fleetEnrich';
+import { useFleetDoneStore } from '../../components/FleetDoneModal';
 import { useFlightStore } from '../../store/flightStore';
 import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
@@ -711,8 +712,14 @@ export default function ImportScreen() {
       }
       await Promise.all([loadFlights(), loadStats()]);
       // Hämta resterande Fleet-data (spec + bilder) i BAKGRUNDEN för de importerade typerna → korten
-      // är kompletta när användaren öppnar Fleet-sidan. Tyst + token-gated (blockerar inte importen).
-      enrichFleetInBackground();
+      // är kompletta när användaren öppnar Fleet-sidan. Token-gated (blockerar inte importen). När klart
+      // → tappbar toast som tar en till Fleet. Global router (skärmen kan ha stängts när det blir klart).
+      console.log(`[import] saveAll done: ${saved} saved, ${skipped} skipped → starting fleet enrichment`);
+      enrichFleetInBackground().then((n) => {
+        console.log(`[import] fleet enrichment finished → enriched=${n}`);
+        // Centrerad global modal (import-skärmen kan ha stängts) → knapp till Logbook-flikens Fleet-vy.
+        if (n > 0) useFleetDoneStore.getState().show();
+      }).catch((e) => console.log('[import] fleet enrichment rejected:', e?.message ?? e));
       // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
       const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
       // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.

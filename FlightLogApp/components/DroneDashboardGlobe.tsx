@@ -168,7 +168,7 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
         </View>
       )}
       {initial && (
-        <View pointerEvents="box-none" style={styles.bottomRow}>
+        <View pointerEvents="box-none" style={styles.hintRow}>
           <View pointerEvents="none" style={styles.labelCol}>
             <View style={styles.hintBox}>
               <Text style={styles.hintText}>Tap globe once for maps</Text>
@@ -192,7 +192,7 @@ function useDroneCount(): number {
 
 const styles = StyleSheet.create({
   web: { flex: 1, width: '100%', height: '100%', backgroundColor: 'transparent' },
-  bottomRow: { position: 'absolute', left: 0, right: 0, bottom: 4, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 12 },
+  hintRow: { position: 'absolute', left: 0, right: 0, top: 6, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-start', paddingHorizontal: 12 },
   labelCol: { alignItems: 'flex-end', gap: 6 },
   hintBox: { paddingHorizontal: 10, paddingVertical: 5 },
   hintText: { color: DR.text3, fontSize: 10, fontWeight: '600', textAlign: 'right' },

@@ -137,7 +137,7 @@ export const translations = {
     enter_experience_manually: 'Enter experience manually',
     enter_experience_manually_sub: 'Fill in your hours per year — always free',
     export_to_csv: 'Export to CSV',
-    export_to_csv_sub: 'Always free — all fields, EASA format',
+    export_to_csv_sub: 'All of your data, Blades format',
     custom_csv_title: 'Custom CSV export',
     custom_csv_sub: 'Choose columns, headers, format and separator',
     custom_csv_desc: 'Build your own CSV export. Select which columns to include, rename headers, choose separator and time format.',

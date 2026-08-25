@@ -130,7 +130,6 @@ function spreadBody(opts: RenderSpreadOpts): string {
   const dashAfter = new Set<string>(template.dashed_after ?? []);
 
   const firstNumericIdx = cols.findIndex(isNumericCol);
-  const labelColIdx = Math.max(0, firstNumericIdx - 1);
   // Endast fri-text-kolumnen (Remarks) lämnas öppen i totals — Sea m.fl. stannar i rutnätet.
   // Guarda mot undefined (en sida kan sakna numeriska kolumner → index-glapp).
   const isOpenCol = (c?: LogbookColumn) => c?.format === 'text';
@@ -198,21 +197,25 @@ function spreadBody(opts: RenderSpreadOpts): string {
         .join('')
     : `<tr>${groupRow}</tr><tr>${headerRow}</tr>`;
 
-  // En summarad (brought forward / total this page / total to date).
+  // En summarad (brought forward / total this page / total to date). Etiketten spänner de
+  // inledande beskrivande kolumnerna (fram till första numeriska) och högerställs — så
+  // "Brought forward/Total this page/Total to date" alltid får plats, även när kolumnen närmast
+  // numren är smal fri-text (t.ex. drönarmallens Type/Cat, som annars svalde etiketten).
   const summaryRow = (label: string, totals: ColumnTotals, variant: 'bf' | 'tot', showZero: boolean, topLine = false) => {
-    const cells = cols
-      .map((c, i) => {
-        if (isOpenCol(c)) return `<td class="sum-open"></td>`;
-        const dash = dashAfter.has(c.id) ? ' dash-r' : '';
-        if (i === labelColIdx) {
-          return `<td class="sum-label${dash}">${esc(label)}</td>`;
-        }
-        if (isNumericCol(c)) {
-          return `<td class="sum-num${dash}">${totalValue(c, totals, timeFormat, showZero)}</td>`;
-        }
-        return `<td class="sum-blank${dash}"></td>`;
-      })
-      .join('');
+    const numCell = (c: LogbookColumn) => {
+      const dash = dashAfter.has(c.id) ? ' dash-r' : '';
+      if (isOpenCol(c)) return `<td class="sum-open"></td>`;
+      if (isNumericCol(c)) return `<td class="sum-num${dash}">${totalValue(c, totals, timeFormat, showZero)}</td>`;
+      return `<td class="sum-blank${dash}"></td>`;
+    };
+    let cells: string;
+    if (firstNumericIdx > 0) {
+      cells = `<td class="sum-label" colspan="${firstNumericIdx}">${esc(label)}</td>`;
+      for (let i = firstNumericIdx; i < cols.length; i++) cells += numCell(cols[i]);
+    } else {
+      // Numeriska först (eller inga på sidan) → ingen etikett, bara per-kolumn så cellantalet matchar.
+      cells = cols.map(numCell).join('');
+    }
     return `<tr class="sum sum--${variant}${topLine ? ' sum-top' : ''}">${cells}</tr>`;
   };
 

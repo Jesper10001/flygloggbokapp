@@ -11,10 +11,19 @@ import { lookupDrone } from '../services/droneLookup';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
+import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, NATO_CLASSES } from '../constants/droneCategories';
 import type { DroneRegistryEntry, DroneType } from '../db/drones';
 
 type Airframe = 'multirotor' | 'helicopter' | 'fixedwing';
-type DroneClass = 'military' | 'civil' | '';
+// Detaljerad klass ur droneCategories: civil (A1–Certified) · militär (MRPAS/RPAS/NATO I–III).
+type DroneClass = string;
+
+// Civila + militära klass-val (militär = top-level + NATO-klasser med viktnoter).
+const CIVIL_CLASS_OPTS: { value: string; label: string; note?: string }[] = CIVIL_CATEGORIES.map((c) => ({ value: c, label: c }));
+const MILITARY_CLASS_OPTS: { value: string; label: string; note?: string }[] = [
+  ...MILITARY_TOP_LEVEL.map((c) => ({ value: c, label: c })),
+  ...NATO_CLASSES.flatMap((g) => g.options),
+];
 
 // AI kan returnera 'vtol' — vik in i fixed-wing för airframe-toggeln (3 val).
 function toAirframe(t: DroneType | string): Airframe | '' {
@@ -215,15 +224,34 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
               </View>
             </View>
 
-            {/* Klass: militär / civil */}
+            {/* Klass: detaljerad — civil (A1–Certified) resp. militär (MRPAS/RPAS/NATO I–III) */}
             <Text style={[styles.label, { marginTop: 14 }]}>Class</Text>
-            <View style={styles.optRow}>
-              {([['civil', 'Civil'], ['military', 'Military']] as const).map(([key, lbl]) => {
-                const active = droneClass === key;
+            <View style={styles.classGroupRow}>
+              <Ionicons name="business" size={12} color={DR.text2} />
+              <Text style={styles.classGroupLabel}>Civil</Text>
+            </View>
+            <View style={styles.classWrap}>
+              {CIVIL_CLASS_OPTS.map((o) => {
+                const active = droneClass === o.value;
                 return (
-                  <TouchableOpacity key={key} style={[styles.optBtn, active && styles.optBtnActive]} onPress={() => setDroneClass(active ? '' : key)} activeOpacity={0.7}>
-                    <Ionicons name={key === 'military' ? 'shield' : 'business'} size={13} color={active ? accent : DR.text2} style={{ marginBottom: 2 }} />
-                    <Text style={[styles.optLabel, active && styles.optLabelActive]}>{lbl}</Text>
+                  <TouchableOpacity key={o.value} style={[styles.classChip, active && styles.classChipActive]} onPress={() => setDroneClass(active ? '' : o.value)} activeOpacity={0.7}>
+                    <Text style={[styles.classChipText, active && styles.classChipTextActive]}>{o.label}</Text>
+                    {o.note ? <Text style={[styles.classChipNote, active && { color: accent }]}>{o.note}</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={[styles.classGroupRow, { marginTop: 10 }]}>
+              <Ionicons name="shield" size={12} color={DR.text2} />
+              <Text style={styles.classGroupLabel}>Military</Text>
+            </View>
+            <View style={styles.classWrap}>
+              {MILITARY_CLASS_OPTS.map((o) => {
+                const active = droneClass === o.value;
+                return (
+                  <TouchableOpacity key={o.value} style={[styles.classChip, active && styles.classChipActive]} onPress={() => setDroneClass(active ? '' : o.value)} activeOpacity={0.7}>
+                    <Text style={[styles.classChipText, active && styles.classChipTextActive]}>{o.label}</Text>
+                    {o.note ? <Text style={[styles.classChipNote, active && { color: accent }]}>{o.note}</Text> : null}
                   </TouchableOpacity>
                 );
               })}
@@ -275,6 +303,15 @@ function makeStyles(accent: string) {
     optBtnActive: { borderColor: accent, backgroundColor: accent + '22' },
     optLabel: { color: DR.text2, fontSize: 12, fontWeight: '700' },
     optLabelActive: { color: accent },
+    // Detaljerad klass-väljare (civil/militär-grupper med chips)
+    classGroupRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
+    classGroupLabel: { color: DR.text2, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+    classWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    classChip: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
+    classChipActive: { borderColor: accent, backgroundColor: accent + '22' },
+    classChipText: { color: DR.text2, fontSize: 12.5, fontWeight: '700' },
+    classChipTextActive: { color: accent },
+    classChipNote: { color: DR.muted, fontSize: 9, fontWeight: '600', marginTop: 1 },
     unitRow: { flexDirection: 'row', backgroundColor: DR.elevated, borderRadius: 8, borderWidth: 1, borderColor: DR.border, padding: 2, gap: 2 },
     unitBtn: { paddingHorizontal: 12, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
     unitBtnActive: { backgroundColor: accent },

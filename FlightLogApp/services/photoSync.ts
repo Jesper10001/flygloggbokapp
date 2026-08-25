@@ -49,7 +49,8 @@ export async function getPhotoPermissionStatus(): Promise<PhotoPermission> {
 }
 export async function requestPhotoPermission(): Promise<PhotoPermission> {
   const M = ml(); if (!M) return 'unavailable';
-  return mapPerm(await M.requestPermissionsAsync());
+  // writeOnly=false → begär FULL läsåtkomst till fotobiblioteket (inte bara add-only).
+  return mapPerm(await M.requestPermissionsAsync(false));
 }
 
 // Hämta alla media (foto+video) i ett tidsfönster (paginerat, tak för säkerhet).
@@ -77,22 +78,20 @@ async function assetsInWindow(afterMs: number, beforeMs: number): Promise<ML.Ass
 export async function syncPhotos(onProgress?: (done: number, total: number) => void): Promise<{ matches: FlightMatch[]; scanned: number }> {
   if (!ml()) return { matches: [], scanned: 0 };
   const flightsAll = await getFlights(100000);
-  const lastSync = parseInt((await getSetting(LAST_SYNC_KEY)) || '0', 10) || 0;
   const now = Date.now();
 
   // Kandidater: giltiga tider + ännu inte kopplade (kopplade dyker inte upp igen).
   const cands = flightsAll
-    .map((f) => { const iv = flightInterval(f); return iv ? { f, dep: iv.dep, arr: iv.arr, isNew: flightCreatedMs(f) > lastSync } : null; })
-    .filter((c): c is { f: Flight; dep: number; arr: number; isNew: boolean } => !!c && !c.f.photo_local_id);
+    .map((f) => { const iv = flightInterval(f); return iv ? { f, dep: iv.dep, arr: iv.arr } : null; })
+    .filter((c): c is { f: Flight; dep: number; arr: number } => !!c && !c.f.photo_local_id);
 
-  // Hämta media per fönster → dedupe. Nya flygningar: hela fönstret (även äldre media).
-  // Gamla flygningar: bara media skapat efter senaste synk (redan skannade perioder hoppas över).
+  // Hämta media i HELA ±30-min-fönstret för VARJE okopplad flygning (oavsett ålder) → dedupe. Den
+  // gamla "bara media efter senaste synk"-optimeringen gjorde fönstret tomt för historiska/importerade
+  // flygningar (dep i det förflutna < last_sync ⇒ after ≥ before) → inga bilder hittades alls.
   const assetMap = new Map<string, ML.Asset>();
   let done = 0;
   for (const c of cands) {
-    const after = c.isNew ? Math.max(0, c.dep - WINDOW_MS) : Math.max(c.dep - WINDOW_MS, lastSync);
-    const before = c.arr + WINDOW_MS;
-    const found = await assetsInWindow(after, before);
+    const found = await assetsInWindow(Math.max(0, c.dep - WINDOW_MS), c.arr + WINDOW_MS);
     for (const a of found) assetMap.set(a.id, a);
     done++; onProgress?.(done, cands.length);
   }
@@ -105,7 +104,6 @@ export async function syncPhotos(onProgress?: (done: number, total: number) => v
     let bestF: Flight | null = null;
     let bestInside = 2, bestDist = Infinity;
     for (const c of cands) {
-      if (!c.isNew && t <= lastSync) continue;           // gammal flygning: bara nytt media
       if (t < c.dep - WINDOW_MS || t > c.arr + WINDOW_MS) continue; // utanför ±30-min-fönstret
       const inside = t >= c.dep && t <= c.arr ? 0 : 1;
       const dist = inside === 0 ? 0 : Math.min(Math.abs(t - c.dep), Math.abs(t - c.arr));

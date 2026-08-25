@@ -3286,8 +3286,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <TolRow label="Landings"
             a={{ label: t('day'), value: cur('landings_day'), onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
             b={{ label: t('night'), value: cur('landings_night'), onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
-          {/* Max altitude — samma TOL-grupp som designen (egen rad med topp-linje), inte separat kort */}
-          {(form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
+          {/* Max FL — för SIM ligger den kvar här (sim saknar approach-flow nedan); för övriga
+              flygningar flyttad ner mellan Approaches och Holding patterns. */}
+          {form.flight_type === 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
             <View style={{ borderTopWidth: 1, borderTopColor: Colors.border }}>
               <MaxAltBar
                 valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
@@ -3307,7 +3308,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             Visas bara vid IFR/Y/Z (VFR har inga instrument-approacher att logga). */}
         {form.flight_type !== 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
           <View style={{ marginBottom: 10 }}>
-            <Text style={[styles.cardFieldLabel, { marginBottom: 6 }]}>Approaches</Text>
             <ApproachFlow
               icaos={approachIcaos}
               value={approaches}
@@ -3315,10 +3315,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               ifr
               runwaysFor={runwaysFor}
             />
-            {/* Approaches-ticker (2D/3D) — flyttad hit, precis ovanför Holding patterns. first = ingen topplinje. */}
+            {/* Approaches-ticker (2D/3D) — first = ingen topplinje. */}
             <TolRow first label="Approaches"
               a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
               b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
+            {/* Max FL — mellan Approaches och Holding patterns (blocket är redan IFR/Y/Z-gated) */}
+            <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 8, paddingTop: 2 }}>
+              <MaxAltBar
+                valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
+                onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
+                onGrab={() => setScrollLocked(true)}
+                onRelease={() => setScrollLocked(false)}
+              />
+            </View>
             {/* Holds (FAA 6HITS: instrumentinflygningar + hållning inom 6 mån) */}
             {(() => {
               const h = parseInt(form.holds ?? '0', 10) || 0;

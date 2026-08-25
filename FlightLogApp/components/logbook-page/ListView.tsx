@@ -1,5 +1,5 @@
 // List-vyn: sticky header (titel), sök, filterchips, år→månad-accordion + årskalender.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -11,13 +11,15 @@ import { HeatmapCalendar } from '../insights/ActivitySection';
 
 const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['photo', 'Photo']];
 
-export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight }: {
+export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight, focusDate, focusNonce }: {
   flights: Flight[]; accent: string; placeNames: Record<string, string>;
   onOpenFlight: (f: Flight) => void; expandYear?: number | null; expandMonthKey?: string | null;
-  headerRight?: React.ReactNode;
+  headerRight?: React.ReactNode; focusDate?: string | null; focusNonce?: string | null;
 }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportH, setViewportH] = useState(0); // synlig höjd på list-scrollen (för att centrera fokus-dagen)
 
   const sorted = useMemo(() => [...flights].sort((a, b) => (b.date || '').localeCompare(a.date || '')), [flights]);
 
@@ -69,7 +71,8 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       </View>
 
       {/* body */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
+        style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
         {filtered.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 20 }}>
             <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
@@ -79,7 +82,8 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
           </View>
         ) : (
           <YearMonthAccordion flights={filtered} accent={accent} filter={filter} photoMode={photoMode}
-            forceOpen={forceOpen} onOpenFlight={onOpenFlight} expandYear={expandYear} expandMonthKey={expandMonthKey} />
+            forceOpen={forceOpen} onOpenFlight={onOpenFlight} expandYear={expandYear} expandMonthKey={expandMonthKey}
+            focusDate={focusDate} focusNonce={focusNonce} scrollRef={scrollRef} viewportH={viewportH} />
         )}
         {/* Årskalender + almenacka längst ner, under äldsta årtalet (bara i ofiltrerad vy) */}
         {filter === 'all' && !q.trim() && flights.length > 0 && (

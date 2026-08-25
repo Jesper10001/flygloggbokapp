@@ -69,7 +69,6 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [decl, setDecl] = useState<number | null>(null);
   const [locState, setLocState] = useState<'idle' | 'loading' | 'denied' | 'ready'>('idle');
   const [perf, setPerf] = useState<Perf | null>(null);
-  const perfLoaded = useRef(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rowRef = useRef<View>(null);
   const [focused, setFocused] = useState(false);
@@ -81,7 +80,6 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [metar, setMetar] = useState<AirportMetar | null>(null); // rapporteras från kortet → vind till snippeten
   const [fleetList, setFleetList] = useState<Perf[]>([]);        // fleet för att byta beräknings-farkost
   const [pickerOpen, setPickerOpen] = useState(false);
-  const fleetLoaded = useRef(false);
 
   // Följ tangentbordshöjden.
   useEffect(() => {
@@ -128,29 +126,26 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
     } catch { setLocState('denied'); }
   };
 
-  // Senast flugna flygplanets prestanda (en gång) → flygtid + förbrukning.
-  const ensurePerf = async () => {
-    if (perfLoaded.current) return;
-    perfLoaded.current = true;
+  // Prestanda för beräkningarna. Läses om vid VARJE uppslag så att ändringar i Fleet (t.ex. cruise)
+  // slår igenom direkt — behåller användarens valda typ (annars senast flugna).
+  const refreshPerf = async () => {
     try {
-      const type = await getLastFlownAircraftType();
+      const type = perf?.type ?? (await getLastFlownAircraftType());
       if (!type) return;
       const p = await getAircraftPerf(type);
       setPerf({ type, ...p });
     } catch { /* utan perf visas bara avstånd + kurs */ }
   };
 
-  // Hela flottan (en gång) → låter användaren byta vilken farkost beräkningen baseras på.
+  // Hela flottan → låter användaren byta vilken farkost beräkningen baseras på. Läses om varje gång
+  // så väljaren visar färska specar efter Fleet-redigeringar.
   const openFleetPicker = async () => {
-    if (!fleetLoaded.current) {
-      fleetLoaded.current = true;
-      try {
-        const all = await getAllAircraftTypes();
-        setFleetList(all
-          .filter((a) => a.cruise_speed_kts > 0) // behöver cruise för att kunna räkna flygtid
-          .map((a) => ({ type: a.aircraft_type, cruiseKts: a.cruise_speed_kts, fuelBurn: a.fuel_burn, fuelUnit: a.fuel_burn_unit || 'l/h' })));
-      } catch { /* tom lista → ingen picker */ }
-    }
+    try {
+      const all = await getAllAircraftTypes();
+      setFleetList(all
+        .filter((a) => a.cruise_speed_kts > 0) // behöver cruise för att kunna räkna flygtid
+        .map((a) => ({ type: a.aircraft_type, cruiseKts: a.cruise_speed_kts, fuelBurn: a.fuel_burn, fuelUnit: a.fuel_burn_unit || 'l/h' })));
+    } catch { /* tom lista → ingen picker */ }
     setPickerOpen(true);
   };
 
@@ -160,7 +155,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
     setSelected(a);
     onPick?.();
     ensureLocation();
-    ensurePerf();
+    refreshPerf();
   };
 
   const showDropdown = query.trim().length >= 2;
@@ -336,7 +331,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                     const sel = perf?.type === f.type;
                     return (
                       <TouchableOpacity key={f.type} activeOpacity={0.7} style={styles.pickerRow}
-                        onPress={() => { setPerf(f); perfLoaded.current = true; setPickerOpen(false); }}>
+                        onPress={() => { setPerf(f); setPickerOpen(false); }}>
                         <Text style={[styles.pickerType, sel && { color: accent }]}>{f.type}</Text>
                         <Text style={styles.pickerSpec}>{f.cruiseKts} kt{f.fuelBurn > 0 ? `  ·  ${f.fuelBurn} ${f.fuelUnit}` : ''}</Text>
                         {sel ? <Ionicons name="checkmark" size={16} color={accent} /> : null}

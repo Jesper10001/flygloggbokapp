@@ -40,13 +40,18 @@ export function PilotLogbook() {
   }, [flights]);
 
   // Djuplänk från Insights-heatmapen: öppna List och expandera rätt år/månad.
-  const params = useLocalSearchParams<{ focusFlightId?: string; focusYear?: string; focusMonth?: string; t?: string }>();
+  const params = useLocalSearchParams<{ focusFlightId?: string; focusDate?: string; focusYear?: string; focusMonth?: string; t?: string; view?: string }>();
   useEffect(() => {
     if (!params.focusYear || !params.focusMonth) return;
     const fy = Number(params.focusYear), fm = Number(params.focusMonth);
     setView('list');
     setExpand({ year: fy, monthKey: `${fy}-${fm - 1}` });
   }, [params.focusFlightId, params.focusYear, params.focusMonth, params.t]);
+
+  // Djuplänk till en specifik vy (t.ex. Fleet efter CSV-import: /logbook?view=fleet).
+  useEffect(() => {
+    if (params.view === 'fleet' || params.view === 'book' || params.view === 'list') setView(params.view);
+  }, [params.view, params.t]);
 
   const openFlight = (f: Flight) => router.push(`/flight/detail/${f.id}`);
 
@@ -61,7 +66,8 @@ export function PilotLogbook() {
         <ActivityIndicator color={accent} style={{ marginTop: 60 }} />
       ) : view === 'list' ? (
         <ListView flights={flights} accent={accent} placeNames={placeNames} onOpenFlight={openFlight}
-          expandYear={expand.year} expandMonthKey={expand.monthKey} headerRight={toggleNode} />
+          expandYear={expand.year} expandMonthKey={expand.monthKey} headerRight={toggleNode}
+          focusDate={params.focusDate ?? null} focusNonce={params.t ?? null} />
       ) : view === 'fleet' ? (
         <FleetView accent={accent} headerRight={toggleNode} />
       ) : (

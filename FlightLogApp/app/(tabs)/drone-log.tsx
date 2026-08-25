@@ -89,7 +89,7 @@ export default function DroneLog() {
 
       {tab === 'flights'
         ? <FlightsTab flights={flights} accent={accent} onOpen={(id) => router.push(`/drone-flight/${id}`)} />
-        : <FleetTab accent={accent} onManage={() => router.push('/settings/drones')} />}
+        : <FleetTab accent={accent} />}
     </View>
   );
 }
@@ -469,7 +469,7 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
   );
 }
 
-function FleetTab({ accent, onManage }: { accent: string; onManage: () => void }) {
+function FleetTab({ accent }: { accent: string }) {
   const [models, setModels] = useState<DroneModelFleet[]>([]);
   const [showAdd, setShowAdd] = useState(false); // "Add drone" → smart search (= Log Flight)
 
@@ -496,7 +496,7 @@ function FleetTab({ accent, onManage }: { accent: string; onManage: () => void }
       ) : (
         <View style={{ gap: 12 }}>
           {models.map((m, i) => (
-            <DroneFleetCard key={m.model || m.id} m={m} accent={accent} current={i === 0 && !!m.last_flown} onSaved={load} onManage={onManage} />
+            <DroneFleetCard key={m.model || m.id} m={m} accent={accent} current={i === 0 && !!m.last_flown} onSaved={load} />
           ))}
         </View>
       )}

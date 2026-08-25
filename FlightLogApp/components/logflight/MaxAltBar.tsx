@@ -1,5 +1,5 @@
-// Designens "Max alt" — rektangulär barometer man drar i (vänster/höger) + −/+ knappar.
-// Värdet i fot (0–45000, steg 500), LED-siffror. add.tsx lagrar det som flygnivå (FL=fot/100).
+// Designens "Max FL" — rektangulär barometer man drar i (vänster/höger) + −/+ knappar.
+// Internt i fot (0–45000, steg 500) men VISAS som flygnivå (FL = fot/100). add.tsx lagrar FL.
 //
 // PRESTANDA: dragningen (fyllning + handtag) körs på UI-tråden via reanimated + gesture-handler
 // → mjukt även när JS-tråden är upptagen. onChangeFt (setForm) anropas bara vid 500-fots-bucketbyte.
@@ -12,25 +12,27 @@ import { Colors } from '../../constants/colors';
 import { FONT_MONO } from '../logbook-page/tokens';
 import { FONT_LED7 } from './tokens';
 
-const MAXA = 45000;
+const MINA = 3000;   // FL30 (lägsta valbara)
+const MAXA = 60000;  // FL600 (högsta valbara)
 const STEP = 500;
+const RANGE = MAXA - MINA;
 
 export function MaxAltBar({ valueFt, onChangeFt, onGrab, onRelease }: { valueFt: number; onChangeFt: (ft: number) => void; onGrab?: () => void; onRelease?: () => void }) {
   const width = useSharedValue(0);
-  const sv = useSharedValue(Math.max(0, Math.min(MAXA, valueFt))); // live-fot (UI-tråd)
+  const sv = useSharedValue(Math.max(MINA, Math.min(MAXA, valueFt))); // live-fot (UI-tråd)
   const dragging = useSharedValue(false);
   const lastBucket = useSharedValue(-1);
-  const propAlt = Math.max(0, Math.min(MAXA, valueFt));
+  const propAlt = Math.max(MINA, Math.min(MAXA, valueFt));
   const alt = Math.round(propAlt / STEP) * STEP; // rena 500-stegsvärdet (React, uppdateras vid commit)
   const ticks = [0, 0.25, 0.5, 0.75, 1];
 
   useEffect(() => { if (!dragging.value) sv.value = propAlt; }, [propAlt, dragging, sv]);
 
   const commit = (raw: number) => {
-    const v = Math.max(0, Math.min(MAXA, Math.round(raw / STEP) * STEP));
+    const v = Math.max(MINA, Math.min(MAXA, Math.round(raw / STEP) * STEP));
     onChangeFt(v);
   };
-  const step = (d: number) => onChangeFt(Math.max(0, Math.min(MAXA, Math.round(propAlt / STEP) * STEP + d * STEP)));
+  const step = (d: number) => onChangeFt(Math.max(MINA, Math.min(MAXA, Math.round(propAlt / STEP) * STEP + d * STEP)));
 
   const pan = Gesture.Pan()
     .activeOffsetX([-6, 6])
@@ -38,7 +40,7 @@ export function MaxAltBar({ valueFt, onChangeFt, onGrab, onRelease }: { valueFt:
     .onStart(() => { 'worklet'; dragging.value = true; lastBucket.value = -1; if (onGrab) runOnJS(onGrab)(); })
     .onUpdate((e) => {
       'worklet';
-      const raw = Math.max(0, Math.min(MAXA, (e.x / (width.value || 1)) * MAXA));
+      const raw = Math.max(MINA, Math.min(MAXA, MINA + (e.x / (width.value || 1)) * RANGE));
       sv.value = raw;
       const b = Math.round(raw / STEP) * STEP;
       if (b !== lastBucket.value) { lastBucket.value = b; runOnJS(commit)(raw); }
@@ -50,21 +52,21 @@ export function MaxAltBar({ valueFt, onChangeFt, onGrab, onRelease }: { valueFt:
     .maxDuration(250)
     .onEnd((e) => {
       'worklet';
-      const raw = Math.max(0, Math.min(MAXA, (e.x / (width.value || 1)) * MAXA));
+      const raw = Math.max(MINA, Math.min(MAXA, MINA + (e.x / (width.value || 1)) * RANGE));
       sv.value = raw;
       runOnJS(commit)(raw);
     });
   const gesture = Gesture.Race(pan, tap);
 
-  const fillStyle = useAnimatedStyle(() => ({ width: `${(sv.value / MAXA) * 100}%` }));
+  const fillStyle = useAnimatedStyle(() => ({ width: `${((sv.value - MINA) / RANGE) * 100}%` }));
   const handleStyle = useAnimatedStyle(() => {
     const wpx = width.value;
-    return { left: Math.max(0, Math.min(wpx - 3, (sv.value / MAXA) * wpx - 1.5)) };
+    return { left: Math.max(0, Math.min(wpx - 3, ((sv.value - MINA) / RANGE) * wpx - 1.5)) };
   });
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 }}>
-      <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary }}>Max alt</Text>
+      <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.textSecondary }}>Max FL</Text>
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {/* barometer-kolumn — dra för att ställa (UI-tråd) */}
         <GestureDetector gesture={gesture}>
@@ -80,8 +82,8 @@ export function MaxAltBar({ valueFt, onChangeFt, onGrab, onRelease }: { valueFt:
             <Animated.View style={[{ position: 'absolute', top: -1, bottom: -1, width: 3, backgroundColor: '#F4FAFF', shadowColor: Colors.primary, shadowOpacity: 0.9, shadowRadius: 5, shadowOffset: { width: 0, height: 0 }, elevation: 4 }, handleStyle]} />
             {/* Värdet vertikalt centrerat via flex (textAlignVertical funkar ej för <Text> på iOS). */}
             <View pointerEvents="none" style={{ position: 'absolute', right: 9, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontFamily: FONT_LED7, fontSize: 14, fontWeight: '700', color: '#F4FAFF' }}>{alt.toLocaleString()}</Text>
-              <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textSecondary, marginLeft: 3 }}>FT</Text>
+              <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textSecondary, marginRight: 3 }}>FL</Text>
+              <Text style={{ fontFamily: FONT_LED7, fontSize: 14, fontWeight: '700', color: '#F4FAFF' }}>{Math.round(alt / 100)}</Text>
             </View>
           </Animated.View>
         </GestureDetector>

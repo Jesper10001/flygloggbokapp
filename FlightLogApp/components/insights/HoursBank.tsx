@@ -2,26 +2,36 @@
 // visar FAA-nattens currency-varianter (starter/landningar) och döljer EASA-begreppen PICUS/SPIC.
 // "Backfill missing hours" ligger under Import → Imported data (dit piloten leds om timmarna inte stämmer).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInsightsTheme } from './insightsTheme';
-import { useInsightsData, fmtIntH } from './insightsData';
+import { useInsightsData, computeHoursBank, fmtIntH, type BankRange } from './insightsData';
+import { useFlightStore } from '../../store/flightStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { FONT_LED7 } from '../logflight/tokens';
 
 const MONO = 'JetBrainsMono';
 type Item = { label: string; v: number };
 type Group = { title: string; unit: string; items: Item[] };
+// Tidsintervall för hours bank (sliding toggle under rubrikraden). All time = default.
+const RANGES: [BankRange, string][] = [['all', 'All'], ['m3', '3M'], ['m6', '6M'], ['y1', '1Y'], ['ytd', 'This yr']];
 
 export function HoursBank() {
   const C = useInsightsTheme();
   const D = useInsightsData();
-  const c = D.cats;
-  const n = D.counts;
+  const flights = useFlightStore((s) => s.flights);
   const faa = useRegulationStandardStore((s) => s.standard) === 'faa';
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'your' | 'all'>('your'); // Your = bara fält med data (default); All = allt
+  const [range, setRange] = useState<BankRange>('all');     // All time (default) · 3M · 6M · 1Y · This yr
+
+  // 'all' = stats-baserad (inkl. backfill); övriga intervall summeras ur flights på datum.
+  const bank = useMemo(() => (range === 'all'
+    ? { cats: D.cats, counts: D.counts, total: D.total }
+    : computeHoursBank(flights, range)), [range, D.cats, D.counts, D.total, flights]);
+  const c = bank.cats;
+  const n = bank.counts;
 
   const keep = (items: (Item | false)[]): Item[] => items.filter(Boolean) as Item[];
 
@@ -85,10 +95,24 @@ export function HoursBank() {
         )}
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={() => setOpen((o) => !o)} hitSlop={{ top: 10, bottom: 10 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontFamily: FONT_LED7, fontSize: 13, fontWeight: '800', color: C.primary }}>{fmtIntH(D.total)}<Text style={{ fontFamily: MONO, fontSize: 9 }}>h</Text></Text>
+          <Text style={{ fontFamily: FONT_LED7, fontSize: 13, fontWeight: '800', color: C.primary }}>{fmtIntH(bank.total)}<Text style={{ fontFamily: MONO, fontSize: 9 }}>h</Text></Text>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color={C.text3} />
         </TouchableOpacity>
       </View>
+
+      {/* Tidsintervall-toggle (sliding) direkt under rubrikraden — bara när expanderad. */}
+      {open && (
+        <View style={[st.rangeRow, { borderTopColor: C.separator }]}>
+          <View style={[st.rangeSeg, { borderColor: C.border }]}>
+            {RANGES.map(([k, label]) => (
+              <TouchableOpacity key={k} onPress={() => setRange(k)} activeOpacity={0.8}
+                style={[st.rangeBtn, range === k && { backgroundColor: C.primary }]}>
+                <Text style={[st.rangeTxt, { color: range === k ? C.card : C.text3 }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       {open && shown.length === 0 && (
         <View style={{ borderTopWidth: 1, borderTopColor: C.separator, paddingHorizontal: 16, paddingVertical: 18 }}>
@@ -131,6 +155,10 @@ const st = StyleSheet.create({
   seg: { flexDirection: 'row', borderWidth: 1, borderRadius: 8, overflow: 'hidden' },
   segBtn: { paddingHorizontal: 8, paddingVertical: 3 },
   segTxt: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.3 },
+  rangeRow: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  rangeSeg: { flexDirection: 'row', borderWidth: 1, borderRadius: 8, overflow: 'hidden' },
+  rangeBtn: { flex: 1, paddingVertical: 6, alignItems: 'center' },
+  rangeTxt: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.3 },
   grpTitle: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5 },
   label: { fontSize: 15, fontWeight: '500' },

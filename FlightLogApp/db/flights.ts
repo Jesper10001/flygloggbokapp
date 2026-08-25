@@ -383,6 +383,43 @@ export async function deleteRegistrationFromRegistry(reg: string): Promise<void>
   await db.runAsync(`DELETE FROM aircraft_registry WHERE registration=?`, [reg.toUpperCase()]);
 }
 
+// Registreringar för en typ MED flight-count: flugna (ur flights, timmar+antal) + registret-bara (antal 0).
+// flightCount styr om en registrering får raderas (bara 0 = raderbar; flugna skyddas).
+export async function getRegistrationsForType(
+  type: string,
+): Promise<{ registration: string; hours: number; last_flown: string; flightCount: number }[]> {
+  const db = await getDatabase();
+  const T = type.toUpperCase();
+  const flown = await db.getAllAsync<{ registration: string; hours: number; last_flown: string; flightCount: number }>(
+    `SELECT registration, ROUND(SUM(total_time), 1) as hours, MAX(date) as last_flown, COUNT(*) as flightCount
+     FROM flights WHERE aircraft_type=? AND registration != '' AND flight_type != 'sim'
+     GROUP BY registration ORDER BY hours DESC, last_flown DESC`,
+    [T],
+  );
+  const flownSet = new Set(flown.map((r) => r.registration.toUpperCase()));
+  const regRows = await db.getAllAsync<{ registration: string }>(
+    `SELECT DISTINCT registration FROM aircraft_registry WHERE aircraft_type=? AND registration != ''`,
+    [T],
+  );
+  const extra = regRows
+    .filter((r) => !flownSet.has(r.registration.toUpperCase()))
+    .map((r) => ({ registration: r.registration, hours: 0, last_flown: '', flightCount: 0 }));
+  return [...flown, ...extra];
+}
+
+// Byt namn på en registrering → uppdaterar BÅDE flighter OCH registret (namnet följer med överallt).
+export async function renameRegistration(oldReg: string, newReg: string): Promise<void> {
+  const from = oldReg.trim().toUpperCase();
+  const to = newReg.trim().toUpperCase();
+  if (!from || !to || from === to) return;
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE flights SET registration=? WHERE UPPER(registration)=?`, [to, from]);
+    await db.runAsync(`UPDATE OR IGNORE aircraft_registry SET registration=? WHERE UPPER(registration)=?`, [to, from]);
+    await db.runAsync(`DELETE FROM aircraft_registry WHERE UPPER(registration)=?`, [from]);
+  });
+}
+
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
 
 export async function getAuditLog(flightId: number) {
@@ -1230,6 +1267,7 @@ export type AircraftRegistryEntry = {
   rating_expiry: string; // '' eller ISO YYYY-MM-DD
   rating_class: string;
   last_flown: string; // MAX(f.date) eller '' (aldrig flugen)
+  first_flown: string; // MIN(f.date) eller '' (aldrig flugen)
 };
 
 export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
@@ -1259,7 +1297,8 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.rating_expiry) as rating_expiry,
            MAX(ar.rating_class) as rating_class,
            COALESCE(MAX(f.date), '') as last_flown,
-           COUNT(CASE WHEN ar.registration != '' THEN 1 END) as reg_count,
+           COALESCE(MIN(f.date), '') as first_flown,
+           COUNT(DISTINCT CASE WHEN f.registration != '' THEN f.registration END) as reg_count,
            COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
            COUNT(f.id) as flight_count,
            (

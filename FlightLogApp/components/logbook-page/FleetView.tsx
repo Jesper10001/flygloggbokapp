@@ -27,7 +27,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
           {headerRight}
         </View>
         <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: Colors.textMuted, letterSpacing: 0.4, marginTop: 2 }}>
-          {fleet.length} types · {totalRegs} registrations · by last flown
+          {fleet.length} types · {totalRegs} registrations
         </Text>
       </View>
 

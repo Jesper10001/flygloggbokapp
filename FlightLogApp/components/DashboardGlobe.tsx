@@ -293,9 +293,9 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap }: { onGrab?: (grabbin
           <ActivityIndicator color={Colors.primary} />
         </View>
       )}
-      {/* Info-överlägg pinnat vid sektionens botten (över globens nedre del som bleeder av skärmen). */}
+      {/* Info-överlägg pinnat i sektionens övre högra hörn (globens övre del). */}
       {initial && (
-        <View pointerEvents="box-none" style={styles.bottomRow}>
+        <View pointerEvents="box-none" style={styles.hintRow}>
           <View pointerEvents="none" style={styles.labelCol}>
             <View style={styles.hintBox}>
               <Text style={styles.hintText}>Tap globe once for maps</Text>
@@ -310,11 +310,10 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap }: { onGrab?: (grabbin
 
 const styles = StyleSheet.create({
   web: { flex: 1, width: '100%', height: '100%', backgroundColor: 'transparent' },
-  // Info-rad som absolut overlay längst ned i sektionen (globen bleeder av under den).
-  // Lager/hint-rutor högerställda, botteninriktade.
-  bottomRow: {
-    position: 'absolute', left: 0, right: 0, bottom: 4,
-    flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end',
+  // Info-rad som absolut overlay i sektionens övre högra hörn (globens övre del). Högerställd.
+  hintRow: {
+    position: 'absolute', left: 0, right: 0, top: 6,
+    flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-start',
     paddingHorizontal: 12,
   },
   labelCol: { alignItems: 'flex-end', gap: 6 },

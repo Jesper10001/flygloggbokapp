@@ -24,6 +24,7 @@ import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
+import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 
 export default function RootLayout() {
@@ -153,6 +154,7 @@ export default function RootLayout() {
         <Stack.Screen name="wrapped" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
       <ToastHost />
+      <FleetDoneHost />
       <SplashOverlay />
     </GestureHandlerRootView>
   );

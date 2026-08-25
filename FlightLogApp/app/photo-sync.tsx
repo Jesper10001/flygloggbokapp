@@ -40,7 +40,9 @@ export default function PhotoSyncScreen() {
     let p = await getPhotoPermissionStatus();
     if (p === 'undetermined') p = await requestPhotoPermission();
     setPerm(p);
-    if (p === 'denied' || p === 'unavailable') { setPhase('perm'); return; }
+    // Kör synken BARA med faktisk åtkomst (full/limited). Nekad/avbruten/otillgänglig → ingen synk
+    // (så last_sync ej sätts → Sync-knappen förblir tryckbar) och ingen felaktig "klar"-vy.
+    if (p !== 'full' && p !== 'limited') { setPhase('perm'); return; }
     setPhase('syncing');
     try {
       const { matches } = await syncPhotos((done, total) => setProgress({ done, total }));
@@ -86,16 +88,23 @@ export default function PhotoSyncScreen() {
   // ── Behörighet nekad / native-modul saknas ──
   if (phase === 'perm') {
     const unavailable = perm === 'unavailable';
+    const cancelled = perm === 'undetermined'; // dialogen stängdes utan att åtkomst gavs → fråga igen direkt
+    const title = unavailable ? 'Update required' : cancelled ? 'Sync cancelled' : 'Photo access needed';
+    const body = unavailable
+      ? 'Photo sync needs the latest app version. Update the app, then try again.'
+      : cancelled
+        ? 'Photo sync was cancelled — full photo library access is needed to match photos and videos to your flights. Nothing is uploaded; everything stays on your device.'
+        : 'To match photos and videos to your flights, allow full photo library access in Settings. Everything stays on your device — nothing is uploaded.';
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, padding: 24, paddingTop: insets.top + 40, gap: 16 }}>
-        <Ionicons name={unavailable ? 'cloud-download-outline' : 'images-outline'} size={44} color={Colors.textMuted} />
-        <Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: '800' }}>{unavailable ? 'Update required' : 'Photo access needed'}</Text>
-        <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 20 }}>
-          {unavailable
-            ? 'Photo sync needs the latest app version. Update the app, then try again.'
-            : 'To match photos and videos to your flights, allow photo library access. Everything stays on your device — nothing is uploaded.'}
-        </Text>
-        {!unavailable && (
+        <Ionicons name={unavailable ? 'cloud-download-outline' : cancelled ? 'close-circle-outline' : 'images-outline'} size={44} color={Colors.textMuted} />
+        <Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: '800' }}>{title}</Text>
+        <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 20 }}>{body}</Text>
+        {unavailable ? null : cancelled ? (
+          <TouchableOpacity onPress={() => run()} style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
+            <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>Try again</Text>
+          </TouchableOpacity>
+        ) : (
           <TouchableOpacity onPress={() => Linking.openSettings()} style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
             <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>Open Settings</Text>
           </TouchableOpacity>

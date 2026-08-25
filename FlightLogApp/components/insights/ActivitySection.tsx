@@ -362,7 +362,7 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
     const last = sorted[sorted.length - 1];
     if (!last) return;
     const [yy, mm] = last.date.split('-');
-    router.push({ pathname: '/(tabs)/log', params: { focusFlightId: String(last.id), focusYear: yy, focusMonth: String(Number(mm)), t: String(Date.now()) } } as any);
+    router.push({ pathname: '/(tabs)/log', params: { focusFlightId: String(last.id), focusDate: last.date, focusYear: yy, focusMonth: String(Number(mm)), t: String(Date.now()) } } as any);
   };
   const tier = day ? tierFor(day) : null;
   const NOTE = { alltime: 'Most all time', year: 'Most this year', month: 'Most this month' };
@@ -395,7 +395,9 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
             <Text style={{ fontFamily: SERIF, fontSize: 16, fontWeight: '600', color: C.text }}>{MONTH3[m]} {day}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.gold }}>{(days[day - 1] ?? 0).toFixed(1)}h · {dayFlights.length} flight{dayFlights.length !== 1 ? 's' : ''}</Text>
             <View style={{ flex: 1 }} />
-            <TouchableOpacity onPress={() => setDay(null)}><Text style={{ color: C.muted, fontFamily: MONO, fontSize: 12 }}>✕</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setDay(null)} hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }} style={{ paddingHorizontal: 6, paddingVertical: 2, marginTop: -2 }}>
+              <Text style={{ color: C.muted, fontFamily: MONO, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>✕</Text>
+            </TouchableOpacity>
           </View>
           {tier && <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: HL[tier], marginBottom: 6 }}>● {NOTE[tier]}</Text>}
           {dayFlights.slice(0, 6).map((f) => (

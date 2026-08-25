@@ -135,6 +135,42 @@ export function useInsightsData(): InsightsData {
   }, [flights, stats]);
 }
 
+// Hours bank per tidsintervall. 'all' hanteras separat (stats-baserad, inkl. backfill); övriga
+// intervall summeras ur flights filtrerade på datum (backfill är ej datum-attribuerbar → utesluts).
+export type BankRange = 'all' | 'm3' | 'm6' | 'y1' | 'ytd';
+
+export function computeHoursBank(flights: Flight[], range: Exclude<BankRange, 'all'>): {
+  cats: Record<string, number>; counts: Record<string, number>; total: number;
+} {
+  const cut = range === 'm3' ? monthsAgoISO(3)
+    : range === 'm6' ? monthsAgoISO(6)
+    : range === 'y1' ? monthsAgoISO(12)
+    : `${new Date().getFullYear()}-01-01`; // ytd = sedan 1 jan i år
+  const inRange = flights.filter((f) => (f.date || '') >= cut);
+  const real = inRange.filter((f) => f.flight_type !== 'sim');
+  const sum = (arr: Flight[], k: string) => arr.reduce((s, f) => s + (Number((f as any)[k]) || 0), 0);
+  const isXC = (f: Flight) => f.dep_place !== f.arr_place && (f.total_time || 0) >= 0.5;
+
+  const cats: Record<string, number> = {
+    pic: sum(real, 'pic'), co_pilot: sum(real, 'co_pilot'), dual: sum(real, 'dual'),
+    picus: sum(real, 'picus'), instructor: sum(real, 'instructor'), multi_pilot: sum(real, 'multi_pilot'),
+    nvg: sum(real, 'nvg'), sim: sum(inRange.filter((f) => f.flight_type === 'sim'), 'total_time'),
+    ifr: sum(real, 'ifr'), night: sum(real, 'night'), vfr: sum(real, 'vfr'),
+    xc: real.filter(isXC).reduce((s, f) => s + (f.total_time || 0), 0),
+    single_pilot: sum(real, 'single_pilot'), spic: sum(real, 'spic'),
+    examiner: sum(real, 'examiner'), safety_pilot: sum(real, 'safety_pilot'),
+    observer: sum(real, 'observer'), relief_crew: sum(real, 'relief_crew'), ferry_pic: sum(real, 'ferry_pic'),
+    se: sum(real, 'se_time'), me: sum(real, 'me_time'), pilot_flying: sum(real, 'pilot_flying'),
+  };
+  const counts: Record<string, number> = {
+    takeoffs_day: sum(real, 'takeoffs_day'), takeoffs_night: sum(real, 'takeoffs_night'), takeoffs_faa_night: sum(real, 'takeoffs_faa_night'),
+    landings_day: sum(real, 'landings_day'), landings_night: sum(real, 'landings_night'), landings_faa_night: sum(real, 'landings_faa_night'),
+    landings_fs_day: sum(real, 'landings_fs_day'), landings_fs_night: sum(real, 'landings_fs_night'), landings_fs_faa_night: sum(real, 'landings_fs_faa_night'),
+    tng: sum(real, 'tng_count'), app_2d: sum(real, 'app_2d'), app_3d: sum(real, 'app_3d'), holds: sum(real, 'holds'),
+  };
+  return { cats, counts, total: sum(real, 'total_time') };
+}
+
 export const fmtIntH = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 // dec timmar → "H:MM"

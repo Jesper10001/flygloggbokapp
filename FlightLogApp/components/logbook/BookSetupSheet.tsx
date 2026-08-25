@@ -7,6 +7,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Image, Alert, Platform, Modal, useWindowDimensions, ActivityIndicator, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
-import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals } from '../../services/logbook/paginate';
+import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks } from '../../services/logbook/books';
 import { getBackfill } from '../../db/backfill';
 import { SpreadWebView } from './SpreadWebView';
@@ -542,6 +543,7 @@ function PreviewPage({ tpl, index, total, width, flights, testData, timeFormat, 
 }) {
   const [ratioL, setRatioL] = useState(0.72);
   const [ratioR, setRatioR] = useState(0.72);
+  const [fullscreen, setFullscreen] = useState(false);
   const spread = useMemo(() => {
     const cfg = { startingPage: 1, rowsPerSpread: tpl.rows_per_spread, openingBalance: {}, leadingEmptyRows: 0 };
     if (testData && flights.length) {
@@ -565,10 +567,13 @@ function PreviewPage({ tpl, index, total, width, flights, testData, timeFormat, 
         ) : null}
 
         <View style={{ paddingHorizontal: 16, marginTop: 14, gap: 10 }}>
-          {/* Fram/bak-pilar (alternativ till svep) */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 28 }}>
+          {/* Fram/bak-pilar (mellan dem: helskärm i landskap = hela uppslaget, båda bladen) */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
             <TouchableOpacity disabled={index <= 0} onPress={() => onNav(-1)} activeOpacity={0.7} style={[s.previewArrow, index <= 0 && { opacity: 0.3 }]}>
               <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => spread && setFullscreen(true)} activeOpacity={0.7} style={[s.previewArrow, { backgroundColor: Colors.primary + '14', borderColor: Colors.primary + '44' }, !spread && { opacity: 0.3 }]}>
+              <Ionicons name="expand" size={19} color={Colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity disabled={index >= total - 1} onPress={() => onNav(1)} activeOpacity={0.7} style={[s.previewArrow, index >= total - 1 && { opacity: 0.3 }]}>
               <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
@@ -595,7 +600,38 @@ function PreviewPage({ tpl, index, total, width, flights, testData, timeFormat, 
           </View>
         </View>
       </ScrollView>
+      {fullscreen && spread ? (
+        <FullscreenSpread spread={spread} tpl={tpl} timeFormat={timeFormat} onClose={() => setFullscreen(false)} />
+      ) : null}
     </View>
+  );
+}
+
+// Helskärm i landskap: hela uppslaget (båda bladen sida vid sida). Låser landskap medan den är
+// öppen och återställer stående vid stängning. Renderas som egen Modal ovanpå förhandsvisningen.
+function FullscreenSpread({ spread, tpl, timeFormat, onClose }: {
+  spread: LogbookSpread; tpl: LogbookTemplate; timeFormat: 'decimal' | 'hhmm'; onClose: () => void;
+}) {
+  const { width } = useWindowDimensions();
+  const [ratio, setRatio] = useState(0.5);
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
+  }, []);
+  return (
+    <Modal visible animationType="fade" supportedOrientations={['landscape']} onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width, height: width * ratio }}>
+          <SpreadWebView spread={spread} template={tpl} pilotName="" timeFormat={timeFormat} width={width}
+            signature={null} interactive={false} bare bgColor={Colors.background} margin={0}
+            onAspect={(r) => { if (r > 0 && Math.abs(r - ratio) > 0.01) setRatio(r); }} />
+        </View>
+        <TouchableOpacity onPress={onClose} activeOpacity={0.8}
+          style={{ position: 'absolute', top: 14, right: 18, width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="close" size={22} color={Colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 

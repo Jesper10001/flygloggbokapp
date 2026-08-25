@@ -257,11 +257,10 @@ export default function SettingsScreen() {
     try {
       if (isDrone) await exportDroneToCSV();
       else {
-        const standardName = standard === 'faa' ? 'FAA' : 'EASA';
         await exportToCSV(standard);
         Alert.alert(
-          `${standardName} Format Exported`,
-          `Your logbook has been exported in ${standardName} format.`,
+          'Logbook Exported',
+          'Your logbook has been exported as a CSV file with all your data.',
           [{ text: 'OK' }]
         );
       }
@@ -680,7 +679,7 @@ export default function SettingsScreen() {
           />}
           <Row
             icon="cloud-upload-outline" iconColor={Colors.primary}
-            title={t('export_to_csv')} subtitle={`Always free — all fields, ${standard === 'faa' ? 'FAA' : 'EASA'} format`}
+            title={t('export_to_csv')} subtitle="All of your data, Blades format"
             right={exportingCSV ? <ActivityIndicator size="small" color={Colors.primary} /> : undefined}
             onClick={handleExportCSV}
             separatorColor={Colors.background}
