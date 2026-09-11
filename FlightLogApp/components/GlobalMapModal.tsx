@@ -1,10 +1,10 @@
 // Global flygplatskarta som helskärmsmodal (utan header, likt Visited airports). Flytande sökruta
-// upptill; flervals-filterbox (kategori → undertyper → yta) + "Properties" (banlängd-slider, yta,
-// Lit) nere till vänster; land-val → region-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner
-// tills ICAO-pins) i stället för lista; infokort i botten vid val. Öppnas från Manage airports + dashboard.
+// upptill med typ-chips + expander (Properties = banlängd/höjd-range-barer, Access, Closed). Nere till
+// höger: Cluster/Region-växel + Map/Satellite. Cluster (default) = geo-kluster som delas vid inzoomning;
+// Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
+// pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,15 +13,33 @@ import { AirportInfoCard } from './AirportInfoCard';
 import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
+import { RangeBar } from './RangeBar';
 import { getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
 import { getRunwayIndex } from '../utils/runways';
 import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
 import { CountryFlag } from './CountryFlag';
 import {
-  FILTER_TREE, leavesFor, activeCountUnder, keysNeedRunway, propsActive, matchProps,
-  filterCountLabel, EMPTY_PROPS, type FilterNode, type MapProps,
+  leavesFor, keysNeedRunway, propsActive, matchProps,
+  filterCountLabel, EMPTY_PROPS, type MapProps,
 } from '../constants/mapFilters';
+
+// Snabb-typfilter (swipebar rad bredvid Favorites). "Airports L/M" togglar large+medium ihop.
+const TYPE_CHIPS: { label: string; keys: string[] }[] = [
+  { label: 'Airports L/M', keys: ['t:large', 't:medium'] },
+  { label: 'Airfields', keys: ['t:small'] },
+  { label: 'Heliports', keys: ['t:heliport'] },
+  { label: 'Seaplane', keys: ['t:seaplane'] },
+  { label: 'Air Bases', keys: ['r:military'] },
+  { label: 'Altiports', keys: ['t:altiport'] },
+  { label: 'Balloonports', keys: ['t:balloonport'] },
+];
+// Access-val (samma nycklar som Access-noden i FILTER_TREE) → snabbknapp uppe vid sök-raden.
+const ACCESS_CHIPS: { label: string; key: string }[] = [
+  { label: 'Public', key: 'r:public' },
+  { label: 'Private', key: 'r:private' },
+  { label: 'Joint Use', key: 'r:joint' },
+];
 import { countryRoot, buildChildren, nodeAirports, nodeRings, DRILL_CAP, type DrillNode } from '../utils/regionDrill';
 import { neighborCountries } from '../utils/neighbors';
 import { countryBorder } from '../utils/borders';
@@ -74,25 +92,21 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [detailFlightId, setDetailFlightId] = useState<number | null>(null); // flight-detalj som overlay ovanpå kartan
 
-  // Filter: flervals-löv (Set) + Properties. Filter-boxens nedborrning = nod-stack (filterNav).
+  // Filter: flervals-löv (Set) + Properties (banlängd/höjd/yta/lit) + closed-läge.
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
   const [mapProps, setMapProps] = useState<MapProps>(EMPTY_PROPS);
-  const [filterNav, setFilterNav] = useState<FilterNode[]>([]);
-  const [showProps, setShowProps] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false); // filterboxen börjar hopfälld; kvar tills man fäller ihop / lämnar
   const [closedMode, setClosedMode] = useState<'hide' | 'include' | 'only'>('hide'); // closed döljs som standard
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
-  const [liveMin, setLiveMin] = useState<number | null>(null); // runway-slidrarnas live-värde medan man drar
-  const [liveMax, setLiveMax] = useState<number | null>(null);
-  const [liveMinAlt, setLiveMinAlt] = useState<number | null>(null); // elevation-slidrarnas live-värde
-  const [liveMaxAlt, setLiveMaxAlt] = useState<number | null>(null);
+  // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Access / Closed.
+  const [openSection, setOpenSection] = useState<null | 'props' | 'access' | 'closed'>(null);
+  const propsOpen = openSection === 'props';
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
-  // Klustringsläge (nytt): land-översikt vid låg zoom → geografiska kluster som delas när man zoomar in.
-  // Den gamla land/region-drillen "pausas" (koden är kvar, men triggas inte i detta läge).
-  const clusterMode = true;
+  // Kartläge (växlas nere till höger): 'Cluster' (default) = geografiska kluster som delas när man zoomar
+  // in; 'Region' = land → region → sektor-drill. clusterMode true = Cluster.
+  const [clusterMode, setClusterMode] = useState(true);
   // Kartans nuvarande vy (rapporteras från GlobalAirportMap i klusterläge) → används för center-landrutan
   // och för att BEHÅLLA positionen när kartan monteras om vid filterändring (i st f att hoppa till världen).
   const [mapRegion, setMapRegion] = useState<Region>(WORLD);
@@ -137,7 +151,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Runway-längdintervall för nuvarande urval (kategori/closed/fav — EJ längdfiltret självt) → sätter
   // slidrarnas gränser + default (kortaste/längsta bana som finns). Beräknas bara när Properties är öppet.
   const lenRange = useMemo(() => {
-    if (!showProps) return { min: 0, max: MAX_LEN };
+    if (!propsOpen) return { min: 0, max: MAX_LEN };
     const leaves = leavesFor(activeKeys);
     const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
     const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
@@ -153,11 +167,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (mn === Infinity || mx <= 0) return { min: 0, max: MAX_LEN };
     const lo = Math.floor(mn / 50) * 50;
     return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
-  }, [showProps, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [propsOpen, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Elevation-intervall (alt, ft) för nuvarande urval → sätter elevation-slidrarnas gränser + default.
   const altRange = useMemo(() => {
-    if (!showProps) return { min: 0, max: 1000 };
+    if (!propsOpen) return { min: 0, max: 1000 };
     const leaves = leavesFor(activeKeys);
     const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
     const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
@@ -171,15 +185,15 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (mn === Infinity) return { min: 0, max: 1000 };
     const lo = Math.floor(mn / 50) * 50;
     return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
-  }, [showProps, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [propsOpen, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
   // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
   // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
-    () => [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : ''),
-    [activeKeys, mapProps, closedMode, favMode, favorites],
+    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : ''),
+    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites],
   );
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
@@ -287,7 +301,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
   const closeMap = () => {
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
-    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setFilterNav([]); setShowProps(false); setFilterOpen(false); setSatellite(false); setClosedMode('hide'); setFavMode(false);
+    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     onClose();
   };
   // Favorites-knapp: nollställ filter + drill, zooma ut till världen, visa bara favoriter (går att
@@ -295,7 +309,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const toggleFavMode = () => {
     if (favMode) { setFavMode(false); return; }
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide');
-    setDrillStack([]); setFocusAirport(null); setMapSearch(''); setFilterNav([]); setShowProps(false);
+    setDrillStack([]); setFocusAirport(null); setMapSearch('');
     setFavMode(true);
   };
   const toggleFavorite = (icao: string) => setFavorites((prev) => {
@@ -304,8 +318,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     setFavorite(icao, fav);
     return n;
   });
-  // Fäll ihop → tillbaka till rotnivån (så expandering alltid öppnar på kategori-listan).
-  const toggleFilterOpen = () => setFilterOpen((o) => { if (o) { setFilterNav([]); setShowProps(false); } return !o; });
   const focusByIcao = (icao: string) => {
     const r = seedData.find((x) => x[0] === icao);
     if (r) setFocusAirport(r);
@@ -331,20 +343,30 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (focusAirport) { setFocusAirport(null); return; }
     setDrillStack((s) => s.slice(0, -1));
   };
+  // Cluster/Region-växel: byt läge + nollställ navigering (drill/fokus/sök/vy) så det nya läget börjar rent.
+  const setMode = (cluster: boolean) => {
+    if (cluster === clusterMode) return;
+    setClusterMode(cluster);
+    setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
+  };
 
-  // ── Filter-box-hjälpare ──────────────────────────────────────────────────────
-  const currentFilterNodes = filterNav.length ? filterNav[filterNav.length - 1].children ?? [] : FILTER_TREE;
+  // ── Filter-hjälpare ──────────────────────────────────────────────────────────
   const toggleKey = (k: string) => setActiveKeys((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const clearAll = () => { setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide'); };
-  // null = ingen begränsning (= intervallets kant). Ligger man på kanten → null, annars det valda värdet.
-  const setMinLen = (v: number) => setMapProps((p) => ({ ...p, minLenM: v <= lenRange.min ? null : Math.min(v, p.maxLenM ?? lenRange.max) }));
-  const setMaxLen = (v: number) => setMapProps((p) => ({ ...p, maxLenM: v >= lenRange.max ? null : Math.max(v, p.minLenM ?? lenRange.min) }));
-  const setMinAlt = (v: number) => setMapProps((p) => ({ ...p, minAltFt: v <= altRange.min ? null : Math.min(v, p.maxAltFt ?? altRange.max) }));
-  const setMaxAlt = (v: number) => setMapProps((p) => ({ ...p, maxAltFt: v >= altRange.max ? null : Math.max(v, p.minAltFt ?? altRange.min) }));
+  // Togglar en typ-chip (kan omfatta flera nycklar, t.ex. Airports L/M = large+medium): alla på → av, annars på.
+  const toggleKeys = (keys: string[]) => setActiveKeys((prev) => {
+    const n = new Set(prev);
+    const allOn = keys.every((k) => n.has(k));
+    keys.forEach((k) => (allOn ? n.delete(k) : n.add(k)));
+    return n;
+  });
+  // Kombinerade min–max-setters för range-barerna (null vid ytterkant = ingen gräns → filter av).
+  const setLenRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minLenM: lo <= lenRange.min ? null : lo, maxLenM: hi >= lenRange.max ? null : hi }));
+  const setAltRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minAltFt: lo <= altRange.min ? null : lo, maxAltFt: hi >= altRange.max ? null : hi }));
   const toggleSurface = (sfc: 'asphalt' | 'grass') => setMapProps((p) => ({ ...p, surface: p.surface === sfc ? null : sfc }));
+  const toggleSection = (s: 'props' | 'access' | 'closed') => setOpenSection((cur) => (cur === s ? null : s));
+  const accessOn = ACCESS_CHIPS.some((c) => activeKeys.has(c.key));
 
-  const anyFilter = activeKeys.size > 0 || propsActive(mapProps) || closedMode !== 'hide';
-  const showFilterBox = !focusAirport;
+  const showMapCtrls = !focusAirport;
   const hideCountries = !!focusAirport || mapSearch.trim().length >= 2 || drillStack.length > 0;
   const showBack = !!focusAirport || drillStack.length > 0;
 
@@ -444,12 +466,101 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 </TouchableOpacity>
               )}
             </View>
-            {/* Favorites — under sökfältet: nollställ filter, zooma ut, visa bara favoriter (filtrerbart) */}
+            {/* Swipebar filterrad + expander. Favorites ligger FÖRST i scrollen (scrollas bort med
+                resten, inget statiskt). Raden ligger inom right:60 → rör ej kompassrosen. */}
             {searchResults.length === 0 && (
-              <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn, { marginTop: 8 }]}>
-                <Ionicons name={favMode ? 'star' : 'star-outline'} size={14} color={favMode ? '#062024' : Colors.gold} />
-                <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
-              </TouchableOpacity>
+              <View style={{ marginTop: 8 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ gap: 6, paddingRight: 4, alignItems: 'center' }}>
+                  <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn]}>
+                    <Ionicons name={favMode ? 'star' : 'star-outline'} size={10} color={favMode ? '#062024' : Colors.gold} />
+                    <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
+                  </TouchableOpacity>
+                  {TYPE_CHIPS.map((chip) => {
+                    const on = chip.keys.every((k) => activeKeys.has(k));
+                    return (
+                      <TouchableOpacity key={chip.label} onPress={() => toggleKeys(chip.keys)} activeOpacity={0.85}
+                        style={[styles.typeChip, on && styles.typeChipOn]}>
+                        <Text style={[styles.typeChipTxt, on && styles.typeChipTxtOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{chip.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Expander-rad: Properties (banlängd+höjd) · Access (public/private/joint) · Closed (hide/show/only).
+                    Bara EN panel öppen i taget (openSection). Access/Closed delar state med filter-boxen. */}
+                <View style={styles.expRow}>
+                  <TouchableOpacity onPress={() => toggleSection('props')} activeOpacity={0.85}
+                    style={[styles.propsToggle, propsOpen && styles.propsToggleActive]}>
+                    <Ionicons name="options-outline" size={12} color={propsActive(mapProps) ? Colors.primary : '#fff'} />
+                    <Text style={[styles.propsToggleTxt, propsActive(mapProps) && { color: Colors.primary }]}>Properties</Text>
+                    <Ionicons name={propsOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => toggleSection('access')} activeOpacity={0.85}
+                    style={[styles.propsToggle, openSection === 'access' && styles.propsToggleActive]}>
+                    <Text style={[styles.propsToggleTxt, accessOn && { color: Colors.primary }]}>Access</Text>
+                    <Ionicons name={openSection === 'access' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => toggleSection('closed')} activeOpacity={0.85}
+                    style={[styles.propsToggle, openSection === 'closed' && styles.propsToggleActive]}>
+                    <Text style={[styles.propsToggleTxt, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
+                    <Ionicons name={openSection === 'closed' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                {propsOpen && (
+                  <View style={styles.propsPanel}>
+                    <RangeBar label="Runway length" unit="m" min={lenRange.min} max={lenRange.max} step={50}
+                      low={mapProps.minLenM ?? lenRange.min} high={mapProps.maxLenM ?? lenRange.max} onChange={setLenRange} />
+                    <RangeBar label="Elevation" unit="ft" min={altRange.min} max={altRange.max} step={50}
+                      low={mapProps.minAltFt ?? altRange.min} high={mapProps.maxAltFt ?? altRange.max} onChange={setAltRange} />
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                      {(['asphalt', 'grass'] as const).map((sfc) => (
+                        <TouchableOpacity key={sfc} onPress={() => toggleSurface(sfc)} activeOpacity={0.7}
+                          style={[styles.propPill, mapProps.surface === sfc && styles.propPillOn]}>
+                          <Text style={[styles.propPillTxt, mapProps.surface === sfc && { color: Colors.primary }]}>{sfc === 'asphalt' ? 'Asphalt' : 'Grass'}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      <TouchableOpacity onPress={() => setMapProps((p) => ({ ...p, lit: !p.lit }))} activeOpacity={0.7}
+                        style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }, mapProps.lit && styles.propPillOn]}>
+                        <Ionicons name={mapProps.lit ? 'flash' : 'flash-outline'} size={12} color={mapProps.lit ? Colors.primary : Colors.textMuted} />
+                        <Text style={[styles.propPillTxt, mapProps.lit && { color: Colors.primary }]}>Lit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {openSection === 'access' && (
+                  <View style={styles.propsPanel}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {ACCESS_CHIPS.map((c) => {
+                        const on = activeKeys.has(c.key);
+                        return (
+                          <TouchableOpacity key={c.key} onPress={() => toggleKey(c.key)} activeOpacity={0.7}
+                            style={[styles.propPill, on && styles.propPillOn]}>
+                            <Text style={[styles.propPillTxt, on && { color: Colors.primary }]} numberOfLines={1}>{c.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {openSection === 'closed' && (
+                  <View style={styles.propsPanel}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {(['hide', 'include', 'only'] as const).map((m) => (
+                        <TouchableOpacity key={m} onPress={() => setClosedMode(m)} activeOpacity={0.7}
+                          style={[styles.propPill, closedMode === m && styles.propPillOn]}>
+                          <Text style={[styles.propPillTxt, closedMode === m && { color: Colors.primary }]}>
+                            {m === 'hide' ? 'Hide' : m === 'include' ? 'Show' : 'Only'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
             )}
             {searchResults.length > 0 && (
               <View style={[styles.searchDropdown, { marginTop: 8 }]}>
@@ -468,127 +579,18 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </View>
         )}
 
-        {/* Flervals-filterbox — nere till vänster */}
-        {showFilterBox && (
-          <View style={[styles.filterBox, filterOpen && showProps && { width: 234 }]}>
-            <View style={styles.filterHeader}>
-              {(filterOpen && (showProps || filterNav.length > 0)) ? (
-                <TouchableOpacity onPress={() => (showProps ? setShowProps(false) : setFilterNav((s) => s.slice(0, -1)))} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                  <Ionicons name="chevron-back" size={15} color={Colors.primary} />
-                  <Text style={styles.filterHeaderTxt} numberOfLines={1}>{showProps ? 'Properties' : filterNav[filterNav.length - 1].label}</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <TouchableOpacity onPress={toggleFilterOpen} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                    <Text style={styles.filterHeaderTxt}>Filters{anyFilter ? ` · ${activeKeys.size + (propsActive(mapProps) ? 1 : 0)}` : ''}</Text>
-                    <Ionicons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.primary} />
-                  </TouchableOpacity>
-                  {anyFilter && (
-                    <TouchableOpacity onPress={clearAll} activeOpacity={0.7} style={styles.clearBtn}>
-                      <Ionicons name="close-circle" size={13} color={Colors.textMuted} />
-                      <Text style={styles.clearBtnTxt}>Clear all</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
-
-            {filterOpen && (showProps ? (
-              <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
-                <Text style={styles.propLabel}>Runway length</Text>
-                <Text style={styles.propVal}>Min: {Math.round(liveMin ?? mapProps.minLenM ?? lenRange.min)} m</Text>
-                <Slider style={{ height: 30 }} minimumValue={lenRange.min} maximumValue={lenRange.max} step={50}
-                  value={mapProps.minLenM ?? lenRange.min}
-                  onValueChange={setLiveMin} onSlidingComplete={(v) => { setLiveMin(null); setMinLen(v); }}
-                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
-                <Text style={styles.propVal}>Max: {Math.round(liveMax ?? mapProps.maxLenM ?? lenRange.max)} m</Text>
-                <Slider style={{ height: 30 }} minimumValue={lenRange.min} maximumValue={lenRange.max} step={50}
-                  value={mapProps.maxLenM ?? lenRange.max}
-                  onValueChange={setLiveMax} onSlidingComplete={(v) => { setLiveMax(null); setMaxLen(v); }}
-                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
-                <Text style={[styles.propLabel, { marginTop: 8 }]}>Elevation</Text>
-                <Text style={styles.propVal}>Min: {Math.round(liveMinAlt ?? mapProps.minAltFt ?? altRange.min)} ft</Text>
-                <Slider style={{ height: 30 }} minimumValue={altRange.min} maximumValue={altRange.max} step={50}
-                  value={mapProps.minAltFt ?? altRange.min}
-                  onValueChange={setLiveMinAlt} onSlidingComplete={(v) => { setLiveMinAlt(null); setMinAlt(v); }}
-                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
-                <Text style={styles.propVal}>Max: {Math.round(liveMaxAlt ?? mapProps.maxAltFt ?? altRange.max)} ft</Text>
-                <Slider style={{ height: 30 }} minimumValue={altRange.min} maximumValue={altRange.max} step={50}
-                  value={mapProps.maxAltFt ?? altRange.max}
-                  onValueChange={setLiveMaxAlt} onSlidingComplete={(v) => { setLiveMaxAlt(null); setMaxAlt(v); }}
-                  minimumTrackTintColor={Colors.primary} maximumTrackTintColor="rgba(255,255,255,0.25)" thumbTintColor={Colors.primary} />
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 4 }}>
-                  {(['asphalt', 'grass'] as const).map((sfc) => (
-                    <TouchableOpacity key={sfc} onPress={() => toggleSurface(sfc)} activeOpacity={0.7}
-                      style={[styles.propPill, mapProps.surface === sfc && styles.propPillOn]}>
-                      <Text style={[styles.propPillTxt, mapProps.surface === sfc && { color: Colors.primary }]}>{sfc === 'asphalt' ? 'Asphalt' : 'Grass'}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TouchableOpacity onPress={() => setMapProps((p) => ({ ...p, lit: !p.lit }))} activeOpacity={0.7} style={styles.filterRow}>
-                  <Ionicons name={mapProps.lit ? 'checkbox' : 'square-outline'} size={17} color={mapProps.lit ? Colors.primary : Colors.textMuted} />
-                  <Text style={styles.filterRowTxt}>Lit runway</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 6 * 34 }} showsVerticalScrollIndicator={false}>
-                {currentFilterNodes.map((node) => {
-                  const selectable = !!node.match;
-                  const drillable = !!node.children;
-                  const checked = selectable && activeKeys.has(node.key);
-                  const cnt = drillable ? activeCountUnder(node, activeKeys) : 0;
-                  return (
-                    <View key={node.key} style={[styles.filterRow, checked && !drillable && { backgroundColor: Colors.primary + '22' }]}>
-                      {selectable && (
-                        <TouchableOpacity onPress={() => toggleKey(node.key)} hitSlop={6}>
-                          <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={17} color={checked ? Colors.primary : Colors.textMuted} />
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }} activeOpacity={0.7}
-                        onPress={() => (drillable ? setFilterNav((s) => [...s, node]) : toggleKey(node.key))}>
-                        <Text style={styles.filterRowTxt} numberOfLines={1}>{node.label}</Text>
-                        {cnt > 0 && <View style={styles.branchBadge}><Text style={styles.branchBadgeTxt}>{cnt}</Text></View>}
-                        {drillable && <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />}
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-                {filterNav.length === 0 && (
-                  <TouchableOpacity onPress={() => setShowProps(true)} activeOpacity={0.7}
-                    style={[styles.filterRow, { borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)' }]}>
-                    <Ionicons name="options-outline" size={16} color={propsActive(mapProps) ? Colors.primary : Colors.textMuted} />
-                    <Text style={[styles.filterRowTxt, { flex: 1 }, propsActive(mapProps) && { color: Colors.primary }]}>Properties</Text>
-                    <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-                {/* Closed-läge: Hide (standard, exkl. ur presentation) · Show (inkl.) · Only (endast closed) */}
-                {filterNav.length === 0 && (
-                  <View style={[styles.filterRow, { borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', justifyContent: 'space-between' }]}>
-                    <Text style={[styles.filterRowTxt, { flex: 0 }, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
-                      {(['hide', 'include', 'only'] as const).map((m) => (
-                        <TouchableOpacity key={m} onPress={() => setClosedMode(m)} activeOpacity={0.7}
-                          style={[styles.closedPill, closedMode === m && styles.closedPillOn]}>
-                          <Text style={[styles.closedPillTxt, closedMode === m && { color: Colors.primary }]}>
-                            {m === 'hide' ? 'Hide' : m === 'include' ? 'Show' : 'Only'}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </ScrollView>
-            ))}
+        {/* Kartkontroller — nere till höger: Cluster/Region-växel (vänster) + Map/Satellite (höger, längst ut). */}
+        {showMapCtrls && (
+          <View style={{ position: 'absolute', bottom: 24, right: 16, flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => setMode(!clusterMode)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
+              <Ionicons name={clusterMode ? 'flag' : 'apps'} size={15} color="#fff" />
+              <Text style={styles.mapCtrlTxt}>{clusterMode ? 'Region' : 'Cluster'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setSatellite((s) => !s)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
+              <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
+              <Text style={styles.mapCtrlTxt}>{satellite ? 'Map' : 'Satellite'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        {/* Satellit-växel — nere till höger */}
-        {showFilterBox && (
-          <TouchableOpacity onPress={() => setSatellite((s) => !s)} activeOpacity={0.8}
-            style={{ position: 'absolute', bottom: 24, right: 16, height: 36, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' }}>
-            <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{satellite ? 'Map' : 'Satellite'}</Text>
-          </TouchableOpacity>
         )}
 
         {/* Vald flygplats → infokort i botten */}
@@ -639,12 +641,23 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, color: '#fff', fontSize: 15, paddingVertical: 10 },
   favBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.gold + '66', paddingHorizontal: 12, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'center',
+    backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 7,
+    borderWidth: 1, borderColor: Colors.gold + '66', paddingHorizontal: 8, paddingVertical: 6,
   },
   favBtnOn: { backgroundColor: Colors.gold, borderColor: Colors.gold },
-  favBtnTxt: { color: Colors.gold, fontSize: 12.5, fontWeight: '800', letterSpacing: 0.3 },
+  favBtnTxt: { color: Colors.gold, fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
+  // Swipebara typ-filterknappar (lika breda, ~30% mindre). Aktiv = cyan (skild från Favorites guld).
+  typeChip: { width: 68, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 5, borderRadius: 7, backgroundColor: 'rgba(15,22,38,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  typeChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  typeChipTxt: { color: '#fff', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.2, textAlign: 'center' },
+  typeChipTxtOn: { color: '#062024' },
+  // Properties-expander + panel (under swipe-raden). Ligger inom right:60 → rör ej kompassrosen.
+  expRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 },
+  propsToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7, backgroundColor: 'rgba(15,22,38,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  propsToggleActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+  propsToggleTxt: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
+  propsPanel: { marginTop: 6, backgroundColor: 'rgba(15,22,38,0.96)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 10 },
   searchDropdown: {
     maxHeight: 280, backgroundColor: 'rgba(15,22,38,0.97)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden',
@@ -657,42 +670,15 @@ const styles = StyleSheet.create({
   searchResultIcao: { color: '#fff', fontSize: 14, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 1, width: 52 },
   searchResultName: { color: 'rgba(255,255,255,0.7)', fontSize: 12.5, flex: 1 },
 
-  filterBox: {
-    position: 'absolute', bottom: 24, left: 16, width: 190, zIndex: 20,
-    backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', overflow: 'hidden',
-  },
-  filterHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, height: 34,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  filterHeaderTxt: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.4 },
-  clearBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    height: 34, paddingLeft: 10, paddingRight: 10, marginRight: -10,
-    borderLeftWidth: 0.5, borderLeftColor: 'rgba(255,255,255,0.1)',
-  },
-  clearBtnTxt: { color: Colors.textMuted, fontSize: 11.5, fontWeight: '700' },
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, minHeight: 34 },
-  filterRowTxt: { flex: 1, color: '#fff', fontSize: 12.5, fontWeight: '600' },
-  branchBadge: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
-  branchBadgeTxt: { color: '#062024', fontSize: 10, fontWeight: '900' },
-
-  propLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  propVal: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  // Kartkontroller nere till höger (Cluster/Region + Map/Satellite) — identisk storlek.
+  mapCtrlBtn: { height: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' },
+  mapCtrlTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
   propPill: {
     flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)',
   },
   propPillOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
   propPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  closedPill: {
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  closedPillOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
-  closedPillTxt: { color: '#fff', fontSize: 10.5, fontWeight: '700' },
   noMatchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 14,

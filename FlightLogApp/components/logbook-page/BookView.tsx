@@ -112,7 +112,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
           <Ionicons name="book-outline" size={44} color={accent} />
           <Text style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>No logbook yet</Text>
-          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 19 }}>Create a digital logbook to see your flights laid out as a real EASA spread.</Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 19 }}>Create a digital logbook to see your flights laid out as in your actual logbook.</Text>
           <TouchableOpacity onPress={() => router.push('/logbook')} activeOpacity={0.85}
             style={{ marginTop: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 13, backgroundColor: accent }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.background }}>Create logbook</Text>

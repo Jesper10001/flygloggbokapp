@@ -48,11 +48,12 @@ const MAX_LIMITS: Record<string, number> = {
 // är den nya, enda spärren för CSV-import, flight-scan och aircraft/drone-lookup:
 // dessa funktioner är INTE längre premium-låsta, bara token-låsta.
 // FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM/MAX = per månad.
+// Visas för användaren som "Blade-coins" (1 coin = 200 tokens) — se appens tokenGate.
 const TOKEN_QUOTAS_ENABLED = true;
 const TOKEN_LIMITS: Record<string, number> = {
-  free: 50_000,     // engångspott ≈ 2,10 kr värsta fall — 2 importer eller ~25 flightscans totalt
-  premium: 100_000, // per månad
-  max: 250_000,     // per månad
+  free: 20_000,     // engångspott (lifetime) = 100 Blade-coins
+  premium: 50_000,  // per månad = 250 Blade-coins
+  max: 250_000,     // per månad = 1250 Blade-coins
 };
 
 // Free = lifetime-nyckel (ingen TTL); premium/max = månadsnyckel (löper ut)

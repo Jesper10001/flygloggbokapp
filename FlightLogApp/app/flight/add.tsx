@@ -648,6 +648,22 @@ const avStyles = StyleSheet.create({
   },
 });
 
+// "Scan flight data"-väljaren: bild + exempeltext + Camera/Library/Cancel (ersätter Alert).
+const scanChooserStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  card: { width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.cardBorder, paddingTop: 22, paddingBottom: 16, paddingHorizontal: 20, alignItems: 'center' },
+  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
+  body: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginBottom: 14 },
+  // Explicit width+height (INTE aspectRatio) → deterministisk liten ruta; maxHeight = hård spärr
+  // så bilden aldrig kan svälla ut och täcka skärmen. resizeMode="contain" ryms inuti rutan.
+  img: { width: 156, height: 188, maxHeight: 195, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated },
+  caption: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 8, marginBottom: 16, maxWidth: 230, lineHeight: 15 },
+  btn: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 13, paddingVertical: 13, marginTop: 8 },
+  btnTxt: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
+  cancel: { alignSelf: 'stretch', paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  cancelTxt: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
+});
+
 function ValidationWarnings({ issues }: { issues: ValidationIssue[] }) {
   const styles = makeStyles();
   const warnings = issues.filter((i) => i.severity === 'warning');
@@ -1798,6 +1814,16 @@ export default function AddFlightScreen() {
   };
 
   const [aiLoading, setAiLoading] = useState(false);
+  // "Scan flight data"-väljaren (egen modal med exempelbild) → löser samma Promise som gamla Alert.
+  const [scanChooserOpen, setScanChooserOpen] = useState(false);
+  const scanResolveRef = useRef<((s: 'camera' | 'library' | null) => void) | null>(null);
+  const chooseScanSource = (s: 'camera' | 'library' | null) => {
+    setScanChooserOpen(false);
+    const r = scanResolveRef.current; scanResolveRef.current = null;
+    // iOS: vänta tills modalen faktiskt stängts innan image picker/kamera presenteras — annars
+    // krockar presentationen (modal stänger fortfarande) och bibliotek-väljaren dyker aldrig upp.
+    setTimeout(() => r?.(s), 350);
+  };
 
   // Flightscan-review: AI-lästa fält granskas/godkänns innan de fylls i formuläret
   type ScanField = { key: string; label: string; value: string; apply: boolean; warn?: string };
@@ -1870,13 +1896,10 @@ export default function AddFlightScreen() {
       return;
     }
 
-    // Kamera eller bibliotek
+    // Kamera eller bibliotek — egen väljar-modal (med exempelbild), se scanChooser nedan.
     const source = await new Promise<'camera' | 'library' | null>((resolve) => {
-      Alert.alert('Scan flight data', 'Photograph your instruments or pick an existing image.', [
-        { text: 'Camera', onPress: () => resolve('camera') },
-        { text: 'Photo library', onPress: () => resolve('library') },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-      ]);
+      scanResolveRef.current = resolve;
+      setScanChooserOpen(true);
     });
     if (!source) return;
 
@@ -3291,8 +3314,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           {form.flight_type === 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
             <View style={{ borderTopWidth: 1, borderTopColor: Colors.border }}>
               <MaxAltBar
-                valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
-                onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
+                value={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
+                onChange={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
                 onGrab={() => setScrollLocked(true)}
                 onRelease={() => setScrollLocked(false)}
               />
@@ -3322,8 +3345,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             {/* Max FL — mellan Approaches och Holding patterns (blocket är redan IFR/Y/Z-gated) */}
             <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 8, paddingTop: 2 }}>
               <MaxAltBar
-                valueFt={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
-                onChangeFt={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
+                value={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
+                onChange={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
                 onGrab={() => setScrollLocked(true)}
                 onRelease={() => setScrollLocked(false)}
               />
@@ -3645,6 +3668,29 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       />
 
       <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="Flight data scan" />
+
+      {/* Scan flight data — väljar-modal med exempelbild + orienterande text */}
+      <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>
+        <Pressable style={scanChooserStyles.backdrop} onPress={() => chooseScanSource(null)}>
+          <Pressable style={scanChooserStyles.card} onPress={(e) => e.stopPropagation()}>
+            <Text style={scanChooserStyles.title}>Scan flight data</Text>
+            <Text style={scanChooserStyles.body}>Photograph your instruments or pick an existing image.</Text>
+            <Image source={require('../../assets/Flightdata_AW109.jpg')} style={scanChooserStyles.img} resizeMode="contain" />
+            <Text style={scanChooserStyles.caption}>Example picture of flight log from a Leonardo helicopter</Text>
+            <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>
+              <Ionicons name="camera" size={18} color={Colors.textInverse} />
+              <Text style={scanChooserStyles.btnTxt}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('library')} activeOpacity={0.85}>
+              <Ionicons name="images" size={18} color={Colors.textInverse} />
+              <Text style={scanChooserStyles.btnTxt}>Photo library</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={scanChooserStyles.cancel} onPress={() => chooseScanSource(null)} activeOpacity={0.7}>
+              <Text style={scanChooserStyles.cancelTxt}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <AddPilotModal
         visible={addPilot.visible}

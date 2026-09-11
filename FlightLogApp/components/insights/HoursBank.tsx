@@ -16,6 +16,12 @@ type Item = { label: string; v: number };
 type Group = { title: string; unit: string; items: Item[] };
 // Tidsintervall för hours bank (sliding toggle under rubrikraden). All time = default.
 const RANGES: [BankRange, string][] = [['all', 'All'], ['m3', '3M'], ['m6', '6M'], ['y1', '1Y'], ['ytd', 'This yr']];
+const rangeCut = (range: BankRange): string => {
+  if (range === 'all') return '0000-01-01';
+  if (range === 'ytd') return `${new Date().getFullYear()}-01-01`;
+  const m = range === 'm3' ? 3 : range === 'm6' ? 6 : 12;
+  const d = new Date(); d.setMonth(d.getMonth() - m); return d.toISOString().slice(0, 10);
+};
 
 export function HoursBank() {
   const C = useInsightsTheme();
@@ -32,6 +38,23 @@ export function HoursBank() {
     : computeHoursBank(flights, range)), [range, D.cats, D.counts, D.total, flights]);
   const c = bank.cats;
   const n = bank.counts;
+
+  // Full-stop = man stannar helt och stänger av → EXAKT 1 per flygning (aldrig fler full-stop än
+  // antal flighter). Räknas per flygning som landat: natt om riktig full-stop-natt-data finns för
+  // flygningen, annars om flygningen hade någon natt-landning; annars dag. touch-and-go räknas ej.
+  const fs = useMemo(() => {
+    const cut = rangeCut(range);
+    let day = 0, night = 0;
+    for (const f of flights) {
+      if (f.flight_type === 'sim' || (f.date || '') < cut) continue;
+      const ld = Number(f.landings_day) || 0, ln = Number(f.landings_night) || 0;
+      const fd = Number(f.landings_fs_day) || 0, fn = Number(f.landings_fs_night) || 0;
+      if (ld + ln + fd + fn === 0) continue; // ingen landning registrerad → ingen full-stop
+      const isNight = (fd > 0 || fn > 0) ? (fn > 0 && fn >= fd) : (ln > 0);
+      if (isNight) night += 1; else day += 1;
+    }
+    return { day, night };
+  }, [flights, range]);
 
   const keep = (items: (Item | false)[]): Item[] => items.filter(Boolean) as Item[];
 
@@ -51,7 +74,8 @@ export function HoursBank() {
       { label: 'Single-engine', v: c.se }, { label: 'Multi-engine', v: c.me },
     ]) },
     { title: 'Conditions', unit: 'h', items: keep([
-      { label: 'IFR', v: c.ifr }, { label: 'VFR', v: c.vfr }, { label: 'Night', v: c.night },
+      // VFR = total flygtid − IFR (ren uträkning; CSV har sällan en egen VFR-kolumn).
+      { label: 'IFR', v: c.ifr }, { label: 'VFR', v: Math.max(0, bank.total - c.ifr) }, { label: 'Night', v: c.night },
       { label: 'NVG', v: c.nvg }, { label: 'Cross-country', v: c.xc }, { label: 'Sim', v: c.sim },
     ]) },
     { title: 'Takeoffs', unit: '', items: keep([
@@ -62,7 +86,10 @@ export function HoursBank() {
     { title: 'Landings', unit: '', items: keep([
       { label: 'Day', v: n.landings_day }, { label: 'Night', v: n.landings_night },
       (faa || n.landings_faa_night > 0) && { label: 'Night (FAA)', v: n.landings_faa_night },
-      { label: 'Full-stop day', v: n.landings_fs_day }, { label: 'Full-stop night', v: n.landings_fs_night },
+      // Full-stop härleds per flygning (se fs ovan) → korrekt även när bara enstaka flygningar
+      // hade riktig full-stop-data i filen.
+      { label: 'Full-stop day', v: fs.day },
+      { label: 'Full-stop night', v: fs.night },
       (faa || n.landings_fs_faa_night > 0) && { label: 'Full-stop night (FAA)', v: n.landings_fs_faa_night },
       { label: 'Touch & go', v: n.tng },
     ]) },

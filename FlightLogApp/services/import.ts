@@ -740,9 +740,17 @@ export async function importFromFile(
   // Claude mappade till total_time (annars första kandidaten).
   const headerNorms = new Set(headers.map(normalize));
   const rawCandidates: { column: string; label: string }[] = Array.isArray(mapping.time_candidates) ? mapping.time_candidates : [];
+  // Bara ÄKTA totaltids-kolumner (block/total/air/flight) får vara kandidater. Kategoritider
+  // (PIC/co-pilot/IFR/night/ME/SE/sim m.fl.) ska ALDRIG kunna utgöra total_time.
+  const isTotalLike = (c: { column: string; label?: string }) => {
+    const s = `${c.column} ${c.label ?? ''}`.toLowerCase();
+    if (/\b(pic|picus|spic|copilot|co-pilot|sic|dual|instructor|ifr|vfr|night|nvg|me|se|multi|single|cross|xc|sim|solo|instrument)\b/.test(s)) return false;
+    const flat = s.replace(/[^a-z]/g, '');
+    return /\b(block|total|air|flight|duration|dur|hours)\b/.test(s) || /(block|total|air|flight|duration)/.test(flat);
+  };
   const seenCand = new Set<string>();
   const timeCandidates = rawCandidates
-    .filter((c) => c && typeof c.column === 'string' && headerNorms.has(normalize(c.column)) && !seenCand.has(normalize(c.column)) && seenCand.add(normalize(c.column)))
+    .filter((c) => c && typeof c.column === 'string' && headerNorms.has(normalize(c.column)) && isTotalLike(c) && !seenCand.has(normalize(c.column)) && seenCand.add(normalize(c.column)))
     .map((c) => ({ column: c.column, label: String(c.label ?? c.column) }));
   let totalTimeColumn = Object.entries(colMap).find(([, f]) => f === 'total_time')?.[0] ?? timeCandidates[0]?.column ?? '';
   const timeCandidateCols = timeCandidates.map((c) => c.column);
@@ -945,11 +953,21 @@ export async function importFromFile(
 // Kort fritext (engelska) till användaren om vad AI:n kom fram till: format,
 // mappning, antaganden, konstigheter. Körs EFTER lokal tolkning (eller efter
 // ett importfel) så statistiken kan skickas med. Litet, billigt anrop.
-const SUMMARY_PROMPT = `Du är importassistenten i en pilotloggboksapp. Användaren har just importerat (eller försökt importera) en loggboksfil, och appens AI har analyserat den. Skriv en kort sammanfattning PÅ ENGELSKA (3–6 meningar, ett stycke, ingen markdown, ingen hälsningsfras) direkt till användaren om vad analysen kom fram till.
+const SUMMARY_PROMPT = `Du är importassistenten i en pilotloggboksapp. Användaren har just importerat (eller försökt importera) en loggboksfil, och appens AI har analyserat den. Skriv analysen PÅ ENGELSKA som en PUNKTLISTA riktad direkt till användaren.
 
-Ta med det som är relevant av: vilket format/vilken app filen ser ut att komma från, vad som mappades och tolkades, antaganden som gjorts (t.ex. valt tidskolumn, tolkade booleska flaggor, klampade tider), och sådant som ser konstigt ut eller kräver användarens uppmärksamhet. Om importen misslyckades: förklara sakligt vad som troligen är fel med filen och hur användaren kan åtgärda det (t.ex. exportera som standard-CSV).
+FORMAT (följ exakt):
+- Endast punkter. Varje punkt på egen rad, inledd med "- " (bindestreck + mellanslag). Ingen rubrik, ingen hälsning, ingen text före eller efter listan.
+- 3–6 punkter, varje punkt EN kort mening.
+- Omslut det som AVVIKER eller kräver användarens UPPMÄRKSAMHET med **fetstil** (dubbla asterisker): antaganden, klampade/uppskattade värden, saknad eller ofullständig data, konstigheter, och fel. Fetmarkera INTE trivial/förväntad information.
 
-Var konkret och lugn — syftet är att användaren ska förstå och lita på vad som hänt. Hitta inte på siffror; använd bara det som skickas in.`;
+INNEHÅLL: Ta med det relevanta av: vilket format/app filen ser ut komma från, vad som mappades och tolkades, gjorda antaganden (vald tidskolumn, tolkade booleska flaggor, klampade tider), samt sådant som ser konstigt ut. Vid importfel: förklara sakligt vad som troligen är fel och hur man exporterar en korrekt fil.
+
+ÅTGÄRDER I APPEN: Om något i analysen kan korrigeras i appen, avsluta listan med en eller flera åtgärdspunkter som börjar med "Fix: " och ange den EXAKTA navigeringsvägen i **fetstil**. Använd ENDAST dessa vägar, och endast när de är relevanta:
+- Saknade eller ofullständiga kategoritimmar som filen inte innehöll → "Fix: top up missing totals in **Settings → Imported data → Backfill missing hours**"
+- Granska eller justera importerad data i efterhand → "Fix: review it in **Settings → Imported data**"
+- Saknad nattid som kan uppskattas ur rutt + tider → "Fix: use the **night-time estimate card on this screen**"
+
+Var konkret och lugn. Hitta inte på siffror eller andra navigeringsvägar; använd bara det som skickas in.`;
 
 export interface ImportSummaryInput {
   fileName: string;

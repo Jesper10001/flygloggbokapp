@@ -6,6 +6,11 @@
 import { Alert } from 'react-native';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
 
+// Blade-coins = användarvänlig enhet ovanpå råa AI-tokens (döljer exakt tokenåtgång per
+// funktion). 1 Blade-coin = 200 tokens. Fri pott 20 000 tok = 100 coins; Premium 50 000 = 250.
+export const TOKENS_PER_COIN = 200;
+export const tokensToCoins = (tokens: number): number => Math.max(0, Math.round((tokens || 0) / TOKENS_PER_COIN));
+
 export function hasTokenQuota(): boolean {
   return useTokenQuotaStore.getState().hasQuota();
 }
@@ -13,8 +18,8 @@ export function hasTokenQuota(): boolean {
 /** Redan betalande användare som nått sin månadspott — inget uppgraderingserbjudande, bara besked. */
 export function showMonthlyTokenLimitAlert(): void {
   Alert.alert(
-    'Monthly AI limit reached',
-    'You have used your AI budget for this month. It resets automatically on the 1st.',
+    'Out of Blade-coins',
+    'You have used all your Blade-coins for this month. They refill automatically on the 1st.',
   );
 }
 

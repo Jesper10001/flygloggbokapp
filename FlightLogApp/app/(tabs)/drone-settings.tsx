@@ -5,12 +5,13 @@
 
 import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Image,
   LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
@@ -21,6 +22,7 @@ import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
+import { tokensToCoins } from '../../utils/tokenGate';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -181,25 +183,23 @@ export default function DroneSettingsScreen() {
         </View>
       </View>
 
-      {/* ── AI-tokenmätare ── */}
+      {/* ── Blade-coins-mätare ── */}
       {tokenUsage && (() => {
         const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
-        const barColor = pct >= 90 ? DR.danger : pct >= 75 ? DR.warning : accent;
+        // Flytande sektion (ingen ruta) · shiny zyan bar + siffror.
         return (
-          <View style={{ paddingHorizontal: 20, paddingVertical: 6 }}>
-            <View style={{ backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: accent + '22', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="flash" size={15} color={accent} />
-              </View>
-              <View style={{ flex: 1, gap: 5 }}>
+          <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DR.text }}>AI tokens</Text>
-                  <Text style={{ fontSize: 11.5, color: DR.muted, fontFamily: 'Menlo' }}>{tokenUsage.used.toLocaleString('en-US')} / {tokenUsage.limit.toLocaleString('en-US')}</Text>
+                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
+                  <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>{tokensToCoins(tokenUsage.used).toLocaleString('en-US')} / {tokensToCoins(tokenUsage.limit).toLocaleString('en-US')}</Text>
                 </View>
-                <View style={{ height: 5, borderRadius: 3, backgroundColor: DR.elevated, overflow: 'hidden' }}>
-                  <View style={{ height: 5, borderRadius: 3, width: `${pct}%`, backgroundColor: barColor }} />
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: DR.elevated, overflow: 'hidden' }}>
+                  <LinearGradient colors={['#7DF2FF', '#1CD8F5', '#00B4D8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 6, borderRadius: 3, width: `${pct}%` }} />
                 </View>
-                <Text style={{ fontSize: 10.5, color: DR.muted }}>{tokenUsage.month === 'lifetime' ? 'Free one-time AI allowance · upgrade for monthly tokens' : 'AI usage this month · resets monthly'}</Text>
+                <Text style={{ fontSize: 10.5, color: DR.muted }}>{tokenUsage.month === 'lifetime' ? 'Free one-time Blade-coins · upgrade for a monthly refill' : 'Blade-coins used this month · refills monthly'}</Text>
               </View>
             </View>
           </View>

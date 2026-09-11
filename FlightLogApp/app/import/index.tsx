@@ -18,7 +18,7 @@ import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
-import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError, tokensToCoins } from '../../utils/tokenGate';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
@@ -369,6 +369,34 @@ export default function ImportScreen() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad förhandsvisning som standard
+
+  // Fet-markering (**text**) → fetstilade spans i en punkt.
+  const renderBold = (s: string) =>
+    s.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+      p.startsWith('**') && p.endsWith('**')
+        ? <Text key={i} style={{ fontWeight: '800', color: Colors.textPrimary }}>{p.slice(2, -2)}</Text>
+        : <Text key={i}>{p}</Text>);
+  // Import-analysen som punktlista: "- "/"•"-rader = punkter (prick, eller skiftnyckel för "Fix:"),
+  // övriga rader (t.ex. rått felmeddelande) som vanlig text. bold via **…**.
+  const renderAnalysis = (text: string, expanded: boolean) => {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const items = lines.map((l) => {
+      const isBullet = /^[-•]\s+/.test(l);
+      const body = l.replace(/^[-•]\s+/, '');
+      return { isBullet, body, isFix: /^fix:/i.test(body) };
+    });
+    const shown = expanded ? items : items.slice(0, 2);
+    return shown.map((it, i) => (
+      <View key={i} style={{ flexDirection: 'row', gap: 7, marginTop: i ? 6 : 2 }}>
+        {it.isBullet ? (
+          <Ionicons name={it.isFix ? 'construct-outline' : 'ellipse'} size={it.isFix ? 12 : 5}
+            color={it.isFix ? Colors.primary : Colors.textMuted} style={{ marginTop: it.isFix ? 2 : 7 }} />
+        ) : null}
+        <Text style={[styles.aiCardText, { flex: 1 }]}>{renderBold(it.body)}</Text>
+      </View>
+    ));
+  };
+  const analysisCount = (aiSummary ?? '').split('\n').filter((l) => l.trim()).length;
   const [importError, setImportError] = useState<string | null>(null);
   // Nattid-uppskattning (när filen saknar night-fält) — fråga om tider är UTC/local + räkna ut.
   const [nightBasis, setNightBasis] = useState<NightBasis | null>(null);
@@ -715,10 +743,11 @@ export default function ImportScreen() {
       // är kompletta när användaren öppnar Fleet-sidan. Token-gated (blockerar inte importen). När klart
       // → tappbar toast som tar en till Fleet. Global router (skärmen kan ha stängts när det blir klart).
       console.log(`[import] saveAll done: ${saved} saved, ${skipped} skipped → starting fleet enrichment`);
-      enrichFleetInBackground().then((n) => {
-        console.log(`[import] fleet enrichment finished → enriched=${n}`);
+      enrichFleetInBackground().then((res) => {
+        console.log(`[import] fleet enrichment finished → enriched=${res.enriched}/${res.total} stoppedForQuota=${res.stoppedForQuota}`);
         // Centrerad global modal (import-skärmen kan ha stängts) → knapp till Logbook-flikens Fleet-vy.
-        if (n > 0) useFleetDoneStore.getState().show();
+        // Visa om något berikades ELLER om vi pausade pga slut på Blade-coins (då med uppgraderings-CTA).
+        if (res.enriched > 0 || res.stoppedForQuota) useFleetDoneStore.getState().show(res);
       }).catch((e) => console.log('[import] fleet enrichment rejected:', e?.message ?? e));
       // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
       const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
@@ -922,7 +951,7 @@ export default function ImportScreen() {
               <Text style={styles.aiLoadingText}>Analyzing imported data…</Text>
             </View>
           ) : (
-            <Text style={styles.aiCardText}>{aiSummary || importError}</Text>
+            <View>{renderAnalysis(aiSummary || importError || 'Import failed.', true)}</View>
           )}
         </View>
       )}
@@ -1010,7 +1039,7 @@ export default function ImportScreen() {
               <Text style={styles.resultFormat}>{result.detectedFormat}</Text>
               <Text style={styles.resultFile} numberOfLines={1}>{fileName}</Text>
               {result.tokensUsed > 0 && (
-                <Text style={styles.tokenUsedText}>{result.tokensUsed.toLocaleString('en-US')} tokens used for import</Text>
+                <Text style={styles.tokenUsedText}>{tokensToCoins(result.tokensUsed).toLocaleString('en-US')} Blade-coins used for import</Text>
               )}
             </View>
             <View style={styles.resultStats}>
@@ -1024,12 +1053,12 @@ export default function ImportScreen() {
             style={styles.aiCard}
             onPress={() => setSummaryExpanded((v) => !v)}
             activeOpacity={0.8}
-            disabled={summaryLoading || aiSummary === null}
+            disabled={summaryLoading || aiSummary === null || analysisCount <= 2}
           >
             <View style={styles.aiCardHeader}>
               <Ionicons name="sparkles" size={14} color={Colors.primary} />
               <Text style={styles.aiCardTitle}>Import analysis</Text>
-              {!summaryLoading && aiSummary !== null && (
+              {!summaryLoading && aiSummary !== null && analysisCount > 2 && (
                 <Ionicons
                   name={summaryExpanded ? 'chevron-up' : 'chevron-down'}
                   size={15}
@@ -1045,11 +1074,9 @@ export default function ImportScreen() {
               </View>
             ) : (
               <>
-                <Text style={styles.aiCardText} numberOfLines={summaryExpanded ? undefined : 2}>
-                  {aiSummary || 'Analysis unavailable — the data below is still ready to import.'}
-                </Text>
-                {!summaryExpanded && (
-                  <Text style={styles.aiReadMore}>Read more</Text>
+                {renderAnalysis(aiSummary || 'Analysis unavailable — the data below is still ready to import.', summaryExpanded)}
+                {!summaryExpanded && analysisCount > 2 && (
+                  <Text style={[styles.aiReadMore, { marginTop: 6 }]}>Read more</Text>
                 )}
               </>
             )}
@@ -1169,32 +1196,8 @@ export default function ImportScreen() {
             </View>
           )}
 
-          {/* Tidskolumn-väljare — visas bara om filen har flera varaktighetskolumner (Block/Air/Flight) */}
-          {result.timeCandidates.length > 1 && (
-            <View style={styles.timeColSection}>
-              <View style={styles.speedHeader}>
-                <Ionicons name="time-outline" size={14} color={Colors.primary} />
-                <Text style={[styles.speedTitle, { color: Colors.primary }]}>Which time goes in the logbook?</Text>
-              </View>
-              <Text style={styles.speedSubtitle}>Your file has more than one flight-time column. Pick the one to use as total time.</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                {result.timeCandidates.map((c) => {
-                  const active = totalTimeCol === c.column;
-                  return (
-                    <TouchableOpacity
-                      key={c.column}
-                      style={[styles.timeColBtn, active && styles.timeColBtnActive]}
-                      onPress={() => applyTimeColumn(c.column)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.timeColBtnLabel, active && styles.timeColBtnLabelActive]}>{c.label}</Text>
-                      <Text style={styles.timeColBtnSub} numberOfLines={1}>{c.column}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )}
+          {/* Tidskolumn-väljaren borttagen: block time / total flight time används alltid som totaltid
+              (väljs automatiskt i parsern), så användaren behöver aldrig svara på en fråga här. */}
 
 
           {/* Marschfart + uthållighet för nya/ofullständiga fartygstyper */}

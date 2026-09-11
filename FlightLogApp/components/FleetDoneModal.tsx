@@ -7,20 +7,26 @@ import { router } from 'expo-router';
 import { create } from 'zustand';
 import { Colors } from '../constants/colors';
 
+// Info om berikningen (för partiell-hämtning/uppgraderings-läget). null = enkel "klart"-variant.
+export interface FleetDoneInfo { enriched: number; total: number; remaining: number; stoppedForQuota: boolean; }
+
 interface FleetDoneStore {
   visible: boolean;
-  show: () => void;
+  info: FleetDoneInfo | null;
+  show: (info?: FleetDoneInfo) => void;
   hide: () => void;
 }
 
 export const useFleetDoneStore = create<FleetDoneStore>((set) => ({
   visible: false,
-  show: () => set({ visible: true }),
+  info: null,
+  show: (info) => set({ visible: true, info: info ?? null }),
   hide: () => set({ visible: false }),
 }));
 
 export function FleetDoneHost() {
   const visible = useFleetDoneStore((s) => s.visible);
+  const info = useFleetDoneStore((s) => s.info);
   const hide = useFleetDoneStore((s) => s.hide);
 
   const goFleet = () => {
@@ -28,6 +34,13 @@ export function FleetDoneHost() {
     // Logbook-FLIKEN (app/(tabs)/log.tsx → PilotLogbook), inte helskärms-boken (/logbook).
     router.push({ pathname: '/(tabs)/log', params: { view: 'fleet', t: String(Date.now()) } } as any);
   };
+  const goUpgrade = () => {
+    hide();
+    router.push('/settings/premium' as any);
+  };
+
+  // Pausad pga slut på Blade-coins → visa hur många som hämtades + uppgraderingsknapp.
+  const partial = !!info?.stoppedForQuota && info.remaining > 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={hide}>
@@ -37,13 +50,31 @@ export function FleetDoneHost() {
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
           <View style={styles.iconWrap}>
-            <Ionicons name="airplane" size={26} color={Colors.primary} />
+            <Ionicons name={partial ? 'server' : 'airplane'} size={26} color={Colors.primary} />
           </View>
-          <Text style={styles.title}>Fleet updated</Text>
-          <Text style={styles.body}>Your fleet of aircraft has been updated after the CSV import. Check it out!</Text>
-          <TouchableOpacity onPress={goFleet} style={styles.btn} activeOpacity={0.85}>
-            <Text style={styles.btnText}>Navigate to fleet page</Text>
-          </TouchableOpacity>
+          {partial ? (
+            <>
+              <Text style={styles.title}>Fleet partly updated</Text>
+              <Text style={styles.body}>
+                Fetched specs & images for {info!.enriched} of {info!.total} aircraft. You're out of Blade-coins —
+                upgrade to Blades Premium to fetch the remaining {info!.remaining}.
+              </Text>
+              <TouchableOpacity onPress={goUpgrade} style={styles.btn} activeOpacity={0.85}>
+                <Text style={styles.btnText}>Upgrade to Blades Premium</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={goFleet} style={styles.btnGhost} activeOpacity={0.7}>
+                <Text style={styles.btnGhostText}>Go to fleet page</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Fleet updated</Text>
+              <Text style={styles.body}>Your fleet of aircraft has been updated after the CSV import. Check it out!</Text>
+              <TouchableOpacity onPress={goFleet} style={styles.btn} activeOpacity={0.85}>
+                <Text style={styles.btnText}>Navigate to fleet page</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -63,4 +94,6 @@ const styles = StyleSheet.create({
   body: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
   btn: { alignSelf: 'stretch', backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   btnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
+  btnGhost: { alignSelf: 'stretch', paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  btnGhostText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
 });

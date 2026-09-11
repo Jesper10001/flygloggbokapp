@@ -80,6 +80,9 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [metar, setMetar] = useState<AirportMetar | null>(null); // rapporteras från kortet → vind till snippeten
   const [fleetList, setFleetList] = useState<Perf[]>([]);        // fleet för att byta beräknings-farkost
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showMap, setShowMap] = useState(false); // MapView monteras bara medan popupen är öppen (avmonteras FÖRE stängning)
+  const [snippetFrozen, setSnippetFrozen] = useState(false); // fryser marker-tracking strax före avmontering
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Följ tangentbordshöjden.
   useEffect(() => {
@@ -152,11 +155,27 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const pick = (a: IcaoAirport) => {
     Keyboard.dismiss();
     setQuery(''); setResults([]);
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+    setSnippetFrozen(false);
     setSelected(a);
+    setShowMap(true);
     onPick?.();
     ensureLocation();
     refreshPerf();
   };
+
+  // Robust stängning i tre steg: (1) frys marker-tracking, (2) avmontera MapView nästa frame,
+  // (3) stäng modalen strax efter. Att riva react-native-maps med aktiv tracksViewChanges mitt i
+  // modalens fade kraschar native-kartan på iOS.
+  const closeSelected = () => {
+    setSnippetFrozen(true);
+    requestAnimationFrame(() => {
+      setShowMap(false);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = setTimeout(() => { setSelected(null); setMetar(null); closeTimer.current = null; }, 90);
+    });
+  };
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
   const showDropdown = query.trim().length >= 2;
 
@@ -239,9 +258,9 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
       )}
 
       {/* Kompakt popup på dashboarden: kort + bank-snippet + avstånd/kurs (ej helskärm) */}
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => (pickerOpen ? setPickerOpen(false) : setSelected(null))}>
+      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => (pickerOpen ? setPickerOpen(false) : closeSelected())}>
         <Pressable
-          onPress={() => setSelected(null)}
+          onPress={closeSelected}
           style={[styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
         >
           {selected && (
@@ -253,11 +272,17 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 alt={selected.alt}
                 type={selected.type}
                 accent={accent}
-                onClose={() => setSelected(null)}
+                onClose={closeSelected}
                 onMetar={setMetar}
                 freqStats
               />
-              <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} />
+              {/* MapView monteras bara medan popupen är öppen; vid stängning avmonteras den FÖRST (placeholder
+                  behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}
+              {showMap ? (
+                <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} />
+              ) : (
+                <View style={{ height: 210, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
+              )}
               <View style={styles.navCard}>
                 {locState === 'denied' ? (
                   <Text style={styles.navHint}>Enable location access to see distance & course from your position.</Text>

@@ -12,9 +12,10 @@ interface Props {
   pilotType: PilotType;
   value: string;
   onChange: (v: string) => void;
+  accent?: string; // färg för aktiva val (default = cyan); används för egen färgkodning i Log Flight
 }
 
-export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
+export function DroneCategoryPicker({ pilotType, value, onChange, accent = Colors.primary }: Props) {
   const styles = makeStyles();
   const { t } = useTranslation();
   const [natoOpen, setNatoOpen] = useState(false);
@@ -27,7 +28,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
         {CIVIL_CATEGORIES.map((c) => (
           <TouchableOpacity
             key={c}
-            style={[styles.chip, value === c && styles.chipActive]}
+            style={[styles.chip, value === c && { backgroundColor: accent, borderColor: accent }]}
             onPress={() => onChange(c)}
             activeOpacity={0.75}
           >
@@ -43,7 +44,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
     <>
       <View style={styles.milRow}>
         <TouchableOpacity
-          style={[styles.milBtn, value === 'MRPAS' && styles.milBtnActive]}
+          style={[styles.milBtn, value === 'MRPAS' && { backgroundColor: accent, borderColor: accent }]}
           onPress={() => onChange('MRPAS')}
           activeOpacity={0.75}
         >
@@ -51,7 +52,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
           <Text style={[styles.milBtnSub, value === 'MRPAS' && { color: Colors.textInverse + 'CC' }]}>&lt; 25 kg</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.milBtn, value === 'RPAS' && styles.milBtnActive]}
+          style={[styles.milBtn, value === 'RPAS' && { backgroundColor: accent, borderColor: accent }]}
           onPress={() => onChange('RPAS')}
           activeOpacity={0.75}
         >
@@ -59,7 +60,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
           <Text style={[styles.milBtnSub, value === 'RPAS' && { color: Colors.textInverse + 'CC' }]}>&gt; 25 kg</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.milBtn, isNatoValue && styles.milBtnActive]}
+          style={[styles.milBtn, isNatoValue && { backgroundColor: accent, borderColor: accent }]}
           onPress={() => setNatoOpen(true)}
           activeOpacity={0.75}
         >
@@ -82,7 +83,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
                   {group.options.map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
-                      style={[styles.optionRow, value === opt.value && styles.optionRowActive]}
+                      style={[styles.optionRow, value === opt.value && { borderColor: accent, backgroundColor: accent + '18' }]}
                       onPress={() => { onChange(opt.value); setNatoOpen(false); }}
                       activeOpacity={0.75}
                     >
@@ -91,7 +92,7 @@ export function DroneCategoryPicker({ pilotType, value, onChange }: Props) {
                         {opt.note ? <Text style={styles.optionNote}>{opt.note}</Text> : null}
                       </View>
                       {value === opt.value && (
-                        <Ionicons name="checkmark" size={18} color={Colors.primary} />
+                        <Ionicons name="checkmark" size={18} color={accent} />
                       )}
                     </TouchableOpacity>
                   ))}

@@ -9,13 +9,14 @@ import { Colors } from '../constants/colors';
 
 const RWY_HL = '#67E8F9'; // cyan-highlight för aktiv bana (efter vind)
 
-export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style }: {
+export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style, frozen }: {
   icao: string;
   lat: number;
   lon: number;
   windDir?: number | null;   // METAR-vind (varifrån) → highlighta banänden man landar/startar mot
   windSpeed?: number | null; // kt; lugn vind (<3) → ingen aktiv bana
   style?: object;
+  frozen?: boolean;          // sätts strax före avmontering → tvingar tracksViewChanges=false (annars kraschar iOS-teardown)
 }) {
   // Vilken banände (le/he) är gynnad av vinden? Motvind = ändens kurs pekar mot vindkällan.
   // ~vinkelrät vind (mitt mellan) eller lugn/variabel → ingen highlight.
@@ -81,20 +82,20 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
           const dimPt = runwaySideLabelPoint(rw, rw.widthM / 2 + 80);
           const act = activeEnd(rw); // banände gynnad av vinden → cyan-highlight (vit text kvar)
           return [
-            <Marker key={`le-${i}`} coordinate={{ latitude: rw.le.lat, longitude: rw.le.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}>
+            <Marker key={`le-${i}`} coordinate={{ latitude: rw.le.lat, longitude: rw.le.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
               <View style={act === 'le' ? styles.identActive : undefined}><Text style={styles.ident}>{rw.leIdent}</Text></View>
             </Marker>,
-            <Marker key={`he-${i}`} coordinate={{ latitude: rw.he.lat, longitude: rw.he.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}>
+            <Marker key={`he-${i}`} coordinate={{ latitude: rw.he.lat, longitude: rw.he.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
               <View style={act === 'he' ? styles.identActive : undefined}><Text style={styles.ident}>{rw.heIdent}</Text></View>
             </Marker>,
-            <Marker key={`dim-${i}`} coordinate={dimPt} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}>
+            <Marker key={`dim-${i}`} coordinate={dimPt} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
               <View><Text style={styles.dim}>{rw.lengthM} m × {rw.widthM} m</Text></View>
             </Marker>,
           ];
         })}
         {/* Utan bangeometri: markera bara fältets läge. */}
         {!hasRw && (
-          <Marker coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}>
+          <Marker coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
             <View style={styles.dot} />
           </Marker>
         )}

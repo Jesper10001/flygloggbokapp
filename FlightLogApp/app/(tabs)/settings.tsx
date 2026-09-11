@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
+import { tokensToCoins } from '../../utils/tokenGate';
 import { Colors } from '../../constants/colors';
 import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
@@ -207,7 +208,6 @@ export default function SettingsScreen() {
   const [certCount, setCertCount] = useState(0);
   const [certLabels, setCertLabels] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
-  const [wrappedUnlocked, setWrappedUnlocked] = useState(false);
   // AI-tokenförbrukning (delad store — samma siffra som gate-kollarna i övriga appen)
   const tokenUsage = useTokenQuotaStore((s) => s.usage);
 
@@ -241,7 +241,6 @@ export default function SettingsScreen() {
           setAdditionalProfiles([]);
         }
       }
-      setWrappedUnlocked((await getSetting('wrapped_unlocked')) === '1');
     })();
   }, []));
 
@@ -463,30 +462,30 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* ── AI-tokenmätare: månadens förbrukning (server-räknad per device) ── */}
+      {/* ── Blade-coins-mätare: förbrukning (server-räknad per device, visad som coins) ── */}
       {tokenUsage && (() => {
         const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
-        const barColor = pct >= 90 ? Colors.danger : pct >= 75 ? Colors.warning : Colors.primary;
+        const usedCoins = tokensToCoins(tokenUsage.used);
+        const limitCoins = tokensToCoins(tokenUsage.limit);
+        // Flytande sektion (ingen ruta) · shiny zyan bar + siffror.
         return (
-          <View style={{ paddingHorizontal: 20, paddingVertical: 6 }}>
-            <View style={{ backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.primary + '22', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="flash" size={15} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1, gap: 5 }}>
+          <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>AI tokens</Text>
-                  <Text style={{ fontSize: 11.5, color: Colors.textMuted, fontFamily: 'Menlo' }}>
-                    {tokenUsage.used.toLocaleString('en-US')} / {tokenUsage.limit.toLocaleString('en-US')}
+                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
+                  <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>
+                    {usedCoins.toLocaleString('en-US')} / {limitCoins.toLocaleString('en-US')}
                   </Text>
                 </View>
-                <View style={{ height: 5, borderRadius: 3, backgroundColor: Colors.elevated, overflow: 'hidden' }}>
-                  <View style={{ height: 5, borderRadius: 3, width: `${pct}%`, backgroundColor: barColor }} />
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: Colors.elevated, overflow: 'hidden' }}>
+                  <LinearGradient colors={['#7DF2FF', '#1CD8F5', '#00B4D8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 6, borderRadius: 3, width: `${pct}%` }} />
                 </View>
                 <Text style={{ fontSize: 10.5, color: Colors.textMuted }}>
                   {tokenUsage.month === 'lifetime'
-                    ? 'Free one-time AI allowance · upgrade for monthly tokens'
-                    : 'AI usage this month · resets monthly'}
+                    ? 'Free one-time Blade-coins · upgrade for a monthly refill'
+                    : 'Blade-coins used this month · refills monthly'}
                 </Text>
               </View>
             </View>
@@ -494,32 +493,7 @@ export default function SettingsScreen() {
         );
       })()}
 
-      {/* ── B. Wrapped (låses upp efter import; endast bemannad pilot) ── */}
-      {profile?.mainRole === 'pilot-manned' && wrappedUnlocked && (
-        <View style={{ paddingHorizontal: 20, paddingVertical: 6 }}>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/wrapped')}>
-            <LinearGradient
-              colors={[Colors.primary + '2E', Colors.card, Colors.card]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: 18, borderWidth: 1, borderColor: Colors.primary + '66',
-                paddingVertical: 18, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden',
-              }}
-            >
-              <Image source={require('../../assets/blades-mark.png')} style={{ width: 38, height: 40 }} resizeMode="contain" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Fraunces', fontSize: 18, fontWeight: '600', color: Colors.textPrimary, letterSpacing: 0.3 }}>
-                  Logbook Wrapped
-                </Text>
-                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11.5, fontWeight: '600', letterSpacing: 0.3, color: Colors.primary, marginTop: 5 }}>
-                  Your flight history - A journey
-                </Text>
-              </View>
-              <Ionicons name="sparkles" size={18} color={Colors.primary} />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Logbook Wrapped flyttad till Insights (mellan Hours bank och Experience & projections). */}
 
 {/* ── C. Loggbok ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>
