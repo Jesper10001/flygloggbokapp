@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Dimensions, Animated, FlatList,
+  Dimensions, Animated, FlatList, TextInput, Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Rect, G, Text as SvgText, Path } from 'react-native-svg';
 import { useFlightStore } from '../../store/flightStore';
 import type { SubscriptionTier } from '../../store/flightStore';
+import { setSetting } from '../../db/flights';
+import { redeemPromo } from '../../services/promo';
 
 // ── Navy palette (premium screen is ALWAYS dark) ─────────────────────────
 const N = {
@@ -432,14 +434,32 @@ function FreeMissCard() {
 export default function PremiumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { setTier } = useFlightStore();
+  const { setTier, setIsPremium } = useFlightStore();
   const [heroIdx, setHeroIdx] = useState(0);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
   const slides = [SlideFlightImport, SlideLogbookScan, SlideEASA];
 
   const handleSubscribe = (tier: SubscriptionTier) => {
     // TODO: Replace with RevenueCat purchase flow
     setTier(tier);
     router.back();
+  };
+
+  // Promo-kod → verifieras SERVER-SIDE (proxyn). Giltig → gratis Blades Premium (obegränsad tid);
+  // en lokal flagga cachas för offline och laddas + verifieras vid appstart (app/_layout.tsx).
+  const applyPromo = async () => {
+    if (promoBusy) return;
+    setPromoBusy(true);
+    const ok = await redeemPromo(promoCode);
+    setPromoBusy(false);
+    if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
+    await setSetting('promo_premium', '1').catch(() => {});
+    setIsPremium(true);
+    setPromoOpen(false);
+    setPromoCode('');
+    Alert.alert('Blades Premium unlocked', 'Your promo access is now active.', [{ text: 'OK', onPress: () => router.back() }]);
   };
 
   return (
@@ -493,6 +513,9 @@ export default function PremiumScreen() {
             <TouchableOpacity>
               <Text style={{ color: N.primary, fontSize: 13, fontWeight: '600' }}>Restore purchase</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => setPromoOpen(true)} hitSlop={8}>
+              <Text style={{ color: N.text3, fontSize: 13, fontWeight: '600' }}>Promo code</Text>
+            </TouchableOpacity>
             <Text style={{ fontSize: 10.5, color: N.text4, textAlign: 'center', lineHeight: 16 }}>
               Cancel anytime in App Store settings. No hidden fees.{'\n'}
               Subscription auto-renews monthly until cancelled.
@@ -500,6 +523,35 @@ export default function PremiumScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Promo code → låser upp Blades Premium gratis (obegränsad tid) */}
+      <Modal visible={promoOpen} transparent animationType="fade" onRequestClose={() => setPromoOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: '100%', maxWidth: 380, backgroundColor: N.surface, borderRadius: 18, padding: 20, gap: 14, borderWidth: 1, borderColor: N.cardBorder }}>
+            <Text style={{ fontFamily: 'Georgia', fontSize: 19, color: N.text }}>Promo code</Text>
+            <Text style={{ fontSize: 13, color: N.text3, lineHeight: 18 }}>Enter your code to unlock Blades Premium.</Text>
+            <TextInput
+              value={promoCode}
+              onChangeText={setPromoCode}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholder="Code"
+              placeholderTextColor={N.text4}
+              style={{ backgroundColor: N.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: N.text, fontSize: 16, fontWeight: '700', letterSpacing: 1, borderWidth: 1, borderColor: N.cardBorder }}
+              returnKeyType="done"
+              onSubmitEditing={applyPromo}
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: N.cardBorder }} activeOpacity={0.8} onPress={() => { setPromoOpen(false); setPromoCode(''); }}>
+                <Text style={{ color: N.text2, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: N.gold, opacity: promoBusy ? 0.7 : 1 }} activeOpacity={0.85} onPress={applyPromo} disabled={promoBusy}>
+                {promoBusy ? <ActivityIndicator size="small" color={N.bg} /> : <Text style={{ color: N.bg, fontSize: 14, fontWeight: '800' }}>Apply</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

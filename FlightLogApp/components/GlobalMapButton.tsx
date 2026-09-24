@@ -88,7 +88,7 @@ export function GlobalMapButton({ asButton = false }: { asButton?: boolean } = {
           pointerEvents="none"
           scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}
           userInterfaceStyle="dark"
-          showsPointsOfInterest={false} showsCompass={false} toolbarEnabled={false}
+          showsPointsOfInterests={false} showsCompass={false} toolbarEnabled={false}
         >
           {flags.map((f) => (
             <Marker key={f.cc} coordinate={{ latitude: f.lat, longitude: f.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>

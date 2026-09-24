@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router';
 import { Colors } from '../constants/colors';
 import { Eyebrow, Stat } from './MilestoneShared';
 import { BWDayBars } from './BWDayBars';

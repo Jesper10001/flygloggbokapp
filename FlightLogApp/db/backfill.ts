@@ -12,10 +12,20 @@ export type BackfillValues = {
   pic: number; co_pilot: number; dual: number; picus: number; instructor: number;
   ifr: number; night: number; cross_country: number; multi_pilot: number;
   landings_day: number; landings_night: number; sim: number;
+  // Utökade fält (flödar in i Insights → Hours bank; nyckelnamnen = Flight-kolumnerna).
+  examiner: number; single_pilot: number; pilot_flying: number; safety_pilot: number;
+  observer: number; relief_crew: number; ferry_pic: number; spic: number;
+  se_time: number; me_time: number; nvg: number;
+  takeoffs_day: number; takeoffs_night: number; takeoffs_faa_night: number;
+  landings_faa_night: number; tng_count: number; app_2d: number; app_3d: number; holds: number;
 };
 export const ZERO_BACKFILL: BackfillValues = {
   pic: 0, co_pilot: 0, dual: 0, picus: 0, instructor: 0, ifr: 0, night: 0,
   cross_country: 0, multi_pilot: 0, landings_day: 0, landings_night: 0, sim: 0,
+  examiner: 0, single_pilot: 0, pilot_flying: 0, safety_pilot: 0, observer: 0,
+  relief_crew: 0, ferry_pic: 0, spic: 0, se_time: 0, me_time: 0, nvg: 0,
+  takeoffs_day: 0, takeoffs_night: 0, takeoffs_faa_night: 0, landings_faa_night: 0,
+  tng_count: 0, app_2d: 0, app_3d: 0, holds: 0,
 };
 
 async function getVal(db: any, key: string): Promise<string | null> {

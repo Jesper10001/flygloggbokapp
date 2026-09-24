@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Polygon, Line as SvgLine, Circle, Defs, LinearGradient, Stop, Text as SvgText, G } from 'react-native-svg';
 import { useInsightsTheme, type InsightsTheme } from './insightsTheme';
 import { useInsightsData } from './insightsData';

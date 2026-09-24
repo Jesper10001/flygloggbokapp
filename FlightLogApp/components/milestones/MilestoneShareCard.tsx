@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
@@ -54,7 +54,7 @@ interface Props {
 export function MilestoneShareCard({ visible, onClose, data, accent = Colors.accent, initialPhotoUri }: Props) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const shotRef = useRef<ViewShot>(null);
+  const shotRef = useRef<ViewShotRef>(null);
   const [photo, setPhoto] = useState<string | null>(initialPhotoUri ?? null);
   const [overlayOpacity, setOverlayOpacity] = useState(1);
   const [sharing, setSharing] = useState(false);

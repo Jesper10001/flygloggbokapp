@@ -3,9 +3,10 @@
 // PIC, samt haveFor/rateFor för licens-/målkurvor. Kombikategorier (roll+villkor,
 // t.ex. PIC+Natt) = SUM(villkor) där roll>0, exakt under "roll hålls hela passet".
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useFlightStore } from '../../store/flightStore';
 import type { Flight } from '../../types/flight';
+import { getBackfill, ZERO_BACKFILL, type BackfillValues } from '../../db/backfill';
 
 const monthsAgoISO = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); };
 const num = (f: Flight, k: string) => (f as any)[k] || 0;
@@ -28,6 +29,10 @@ export interface InsightsData {
 export function useInsightsData(): InsightsData {
   const flights = useFlightStore((s) => s.flights);
   const stats = useFlightStore((s) => s.stats);
+  // Backfill (lump-sum) läggs på Hours bank ('all'-läget). Laddas om när stats ändras (t.ex. efter
+  // en backfill-redigering → loadStats).
+  const [bf, setBf] = useState<BackfillValues>(ZERO_BACKFILL);
+  useEffect(() => { getBackfill().then(setBf).catch(() => {}); }, [stats]);
 
   return useMemo(() => {
     const real = flights.filter((f) => f.flight_type !== 'sim');
@@ -92,6 +97,16 @@ export function useInsightsData(): InsightsData {
       tng: sumField('tng_count'), app_2d: sumField('app_2d'), app_3d: sumField('app_3d'), holds: sumField('holds'),
     };
 
+    // Lägg på backfill för de fält som INTE redan backfillas via getFlightStats (de nya raderna i
+    // "Backfill missing hours"). De 12 gamla fälten kommer redan via stats → dubbelräknas ej här.
+    cats.pilot_flying += bf.pilot_flying; cats.examiner += bf.examiner; cats.single_pilot += bf.single_pilot;
+    cats.spic += bf.spic; cats.ferry_pic += bf.ferry_pic; cats.observer += bf.observer;
+    cats.relief_crew += bf.relief_crew; cats.safety_pilot += bf.safety_pilot;
+    cats.se += bf.se_time; cats.me += bf.me_time; cats.nvg += bf.nvg;
+    counts.takeoffs_day += bf.takeoffs_day; counts.takeoffs_night += bf.takeoffs_night;
+    counts.takeoffs_faa_night += bf.takeoffs_faa_night; counts.landings_faa_night += bf.landings_faa_night;
+    counts.tng += bf.tng_count; counts.app_2d += bf.app_2d; counts.app_3d += bf.app_3d; counts.holds += bf.holds;
+
     const haveFor = (key: string): number => {
       if (key.includes('+')) { const [a, b] = key.split('+'); return real.filter((f) => num(f, a) > 0).reduce((s, f) => s + num(f, b), 0); }
       if (key === 'total') return stats?.total_time ?? sumSince('0000-01-01');
@@ -132,7 +147,7 @@ export function useInsightsData(): InsightsData {
       cats, counts, landings: { day: stats?.total_landings_day ?? 0, night: stats?.total_landings_night ?? 0 },
       monthly, journey, journeyPic, haveFor, rateFor, metDateFor,
     };
-  }, [flights, stats]);
+  }, [flights, stats, bf]);
 }
 
 // Hours bank per tidsintervall. 'all' hanteras separat (stats-baserad, inkl. backfill); övriga

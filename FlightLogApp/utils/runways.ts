@@ -59,7 +59,9 @@ export function getRunwayIndex(): Map<string, RwyInfo> {
         for (const r of d[icao]) {
           const k = surfaceKind(r[2]);
           if (k === 'hard') hasHard = true; else if (k === 'grass') hasGrass = true;
-          if (r[1] > maxFt) maxFt = r[1];
+          // Vatten-landningsbanor (sjöflygbaser: surface "WAT"/water) räknas EJ som banlängd — de är
+          // ofta km-långa sjö-/vikstråk (16–26 000 ft) och ska inte matcha runway length-filtret/kurvan.
+          if (!/wat/i.test(r[2] || '') && r[1] > maxFt) maxFt = r[1];
           if (r[3] === 1) anyLit = true;
         }
         m.set(icao, { hasHard, hasGrass, hasData: true, maxLenM: Math.round(maxFt * 0.3048), anyLit });

@@ -49,6 +49,7 @@ type SeedRow = [string, string, string, string, number, number, string?, (number
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 const WORLD: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 const MAX_LEN = 4000; // slider-tak för banlängd (m)
+const NBINS = 48;     // antal staplar i fördelningskurvorna ovanför range-barerna
 
 function fmtVisit(d?: string): string {
   if (!d) return '—';
@@ -186,6 +187,49 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const lo = Math.floor(mn / 50) * 50;
     return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
   }, [propsOpen, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fördelningskurvor: histogram (NBINS staplar) över HELA intervallet, samma urval/filter som
+  // *Range ovan → visas som mjuk kurva ovanför respektive range-bar. Beräknas bara när Properties öppet.
+  const lenDist = useMemo<number[] | undefined>(() => {
+    if (!propsOpen) return undefined;
+    const { min, max } = lenRange; const span = Math.max(1, max - min);
+    const leaves = leavesFor(activeKeys);
+    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
+    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
+    const idx = getRunwayIndex();
+    const bins = new Array(NBINS).fill(0);
+    for (const r of base) {
+      const rwy = idx.get(r[0]);
+      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue; // saknar banlängd → räknas ej
+      if (r[7] == null) continue;                              // saknar höjddata → räknas ej (samma urval i båda kurvorna)
+      let b = Math.floor(((rwy.maxLenM - min) / span) * NBINS);
+      if (b < 0) b = 0; else if (b >= NBINS) b = NBINS - 1;
+      bins[b]++;
+    }
+    return bins;
+  }, [propsOpen, lenRange, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const altDist = useMemo<number[] | undefined>(() => {
+    if (!propsOpen) return undefined;
+    const { min, max } = altRange; const span = Math.max(1, max - min);
+    const leaves = leavesFor(activeKeys);
+    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
+    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
+    const idx = getRunwayIndex();
+    const bins = new Array(NBINS).fill(0);
+    for (const r of base) {
+      const rwy = idx.get(r[0]);
+      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      const a = r[7];
+      if (a == null) continue;                                 // saknar höjddata → räknas ej
+      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;   // saknar banlängd → räknas ej (samma urval som runway-kurvan)
+      let b = Math.floor(((a - min) / span) * NBINS);
+      if (b < 0) b = 0; else if (b >= NBINS) b = NBINS - 1;
+      bins[b]++;
+    }
+    return bins;
+  }, [propsOpen, altRange, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
   // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
@@ -419,18 +463,26 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           <Ionicons name="close" size={22} color="#fff" />
         </TouchableOpacity>
 
-        {/* Tillbaka — uppe till vänster (poppar drill-nivå / rensar fokus) */}
+        {/* Tillbaka — vid flygplatsfokus uppe till vänster (som förr); annars (utan fokus) nere till vänster
+            så filtermodulen kan ligga kvar upptill utan krock. */}
         {showBack && (
           <TouchableOpacity onPress={goBack} activeOpacity={0.85}
-            style={{ position: 'absolute', top: insets.top + 12, left: 12, zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' }}>
+            style={[{ position: 'absolute', zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' },
+              focusAirport ? { top: insets.top + 12, left: 12 } : { bottom: 24, left: 12 }]}>
             <Ionicons name="chevron-back" size={16} color={Colors.primary} />
             <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>Back</Text>
           </TouchableOpacity>
         )}
 
-        {/* Landruta — mellan Back och X: flagga (SVG), landsnamn, antal flygplatser, befolkning */}
+        {/* Landruta: vid flygplatsfokus uppe (mellan Back och X, som förr); annars nere till vänster
+            (ovanför ev. Back) så filtermodulen får ligga kvar upptill. Samma storlek (styles.countryBox). */}
         {country && (
-          <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 12, left: 96, right: 56, alignItems: 'center', zIndex: 24 }}>
+          <View pointerEvents="none" style={[
+            { position: 'absolute', zIndex: 24 },
+            focusAirport
+              ? { top: insets.top + 12, left: 96, right: 56, alignItems: 'center' }
+              : { bottom: 24 + (showBack ? 42 : 0), left: 12, alignItems: 'flex-start' },
+          ]}>
             <View style={styles.countryBox}>
               <CountryFlag code={country} height={42} radius={3} />
               <View style={styles.countryInfo}>
@@ -445,9 +497,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </View>
         )}
 
-        {/* Sökruta — bara på flagg-nivån (utzoomat) utan fokus. Zoomar man in tar center-landrutan över
-            samma yta (de krockar annars), och man navigerar med zoom i klusterläget. */}
-        {(clusterMode ? atFlagLevel : drillStack.length === 0) && !focusAirport && (
+        {/* Filtermodul (sök + typ-chips + Properties) — ligger kvar upptill så länge ingen flygplats är
+            vald (alla zoomnivåer/drill-lägen). Landrutan flyttas då nere till vänster (krockar ej). */}
+        {!focusAirport && (
           <View style={{ position: 'absolute', top: insets.top + 12, left: 12, right: 60, pointerEvents: 'box-none' }}>
             <View style={styles.searchRow}>
               <Ionicons name="search" size={16} color={Colors.textMuted} />
@@ -510,9 +562,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
                 {propsOpen && (
                   <View style={styles.propsPanel}>
-                    <RangeBar label="Runway length" unit="m" min={lenRange.min} max={lenRange.max} step={50}
+                    <RangeBar label="Runway length" unit="m" min={lenRange.min} max={lenRange.max} step={50} dist={lenDist}
                       low={mapProps.minLenM ?? lenRange.min} high={mapProps.maxLenM ?? lenRange.max} onChange={setLenRange} />
-                    <RangeBar label="Elevation" unit="ft" min={altRange.min} max={altRange.max} step={50}
+                    <RangeBar label="Elevation" unit="ft" min={altRange.min} max={altRange.max} step={50} dist={altDist}
                       low={mapProps.minAltFt ?? altRange.min} high={mapProps.maxAltFt ?? altRange.max} onChange={setAltRange} />
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}>
                       {(['asphalt', 'grass'] as const).map((sfc) => (

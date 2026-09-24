@@ -8,8 +8,10 @@ import { WebView } from 'react-native-webview';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as VideoOverlay from '../modules/video-overlay';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { FlightVideo } from './FlightVideo';
 import Svg, { Line, Circle, Path, Polyline } from 'react-native-svg';
@@ -180,7 +182,7 @@ interface Props {
 
 export function FlightShareCard({ flight, depName, arrName, visible, onClose, formatTime }: Props) {
   const insets = useSafeAreaInsets();
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const [sharing, setSharing] = useState(false);
   const [depCoord, setDepCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [arrCoord, setArrCoord] = useState<{ lat: number; lon: number } | null>(null);
@@ -188,6 +190,10 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const [flightNum, setFlightNum] = useState(0);
   const [isHeli, setIsHeli] = useState(false);
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  // Video-overlay: videons visade pixelmått (för att rendera overlayn i rätt aspekt) + flagga som
+  // gömmer bakgrunden vid ViewShot-capturen så bara overlayn fångas (transparent → bränns på videon).
+  const [vidDims, setVidDims] = useState<{ w: number; h: number } | null>(null);
+  const [captureTransparent, setCaptureTransparent] = useState(false);
   // Route ground-layer: Apple Maps-snapshots av avgångs-/ankomststaden.
   const [depSnap, setDepSnap] = useState<string | null>(null);
   const [arrSnap, setArrSnap] = useState<string | null>(null);
@@ -225,12 +231,19 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
 
   // Instagram-format: 'post' = 4:5 (1080×1350), 'story' = 9:16 (1080×1920).
   const [format, setFormat] = useState<'post' | 'story'>('post');
-  const cardAspect = format === 'story' ? 9 / 16 : 4 / 5; // bredd/höjd
+  // Video → kortet (och overlay-capturen) följer VIDEONS aspekt så overlayn mappar 1:1 vid inbränning.
+  // Foto → IG-format (post 4:5 / story 9:16).
+  const isVideoShare = flight.media_type === 'video';
+  const cardAspect = isVideoShare && vidDims ? vidDims.w / vidDims.h : (format === 'story' ? 9 / 16 : 4 / 5); // bredd/höjd
   const maxCardH = SCREEN_H * 0.6;
   const cardW = Math.min(SCREEN_W, maxCardH * cardAspect);
   const cardH = cardW / cardAspect;
-  const exportW = 1080;
-  const exportH = format === 'story' ? 1920 : 1350;
+  // Export: video → videons pixelmått (kapat till ≤1920 lång sida); foto → 1080-bred IG-bild.
+  const vExport = isVideoShare && vidDims
+    ? (() => { const s = Math.min(1, 1920 / Math.max(vidDims.w, vidDims.h)); return { w: Math.round(vidDims.w * s), h: Math.round(vidDims.h * s) }; })()
+    : null;
+  const exportW = vExport ? vExport.w : 1080;
+  const exportH = vExport ? vExport.h : (format === 'story' ? 1920 : 1350);
 
   const applyModeDefaults = (m: string) => {
     const defaults: Record<string, { x: number; y: number; s: number }> = {
@@ -290,6 +303,10 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
           console.warn('Failed to generate video thumbnail:', err);
         }
       })();
+      // Videons visade mått → overlayn renderas i samma aspekt (annars stretchas den vid inbränning).
+      if (VideoOverlay.isAvailable()) {
+        VideoOverlay.videoSize(flight.photo_uri).then((d) => { if (d?.width > 0 && d?.height > 0) setVidDims({ w: d.width, h: d.height }); }).catch(() => {});
+      }
     } else {
       setThumbnailUri(null);
     }
@@ -322,13 +339,25 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const handleShare = async () => {
     setSharing(true);
     try {
-      // För video: dela videon direkt
-      if (f.media_type === 'video' && f.photo_uri) {
+      const isVid = f.media_type === 'video' && !!f.photo_uri;
+      if (isVid && VideoOverlay.isAvailable()) {
+        // Video: fånga BARA overlayn (transparent PNG) och bränn in den på videon → dela resultatet.
+        setCaptureTransparent(true);
+        await new Promise((r) => setTimeout(r, 150)); // låt kortet rendera om utan bakgrund
+        let overlayPng: string | null = null;
+        try { overlayPng = viewShotRef.current?.capture ? await viewShotRef.current.capture() : null; }
+        finally { setCaptureTransparent(false); }
+        if (!overlayPng) throw new Error('overlay capture failed');
+        const out = `${FileSystem.cacheDirectory}flight-share-${Date.now()}.mp4`;
+        const result = await VideoOverlay.burnOverlay(f.photo_uri, overlayPng, out);
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
+          await Sharing.shareAsync(result, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
         }
+      } else if (isVid) {
+        // Native-modulen saknas (t.ex. Expo Go) → dela råvideon utan filter.
+        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
       } else {
-        // För bild: fånga via ViewShot och dela som PNG
+        // Foto: fånga kortet via ViewShot och dela som PNG.
         if (!viewShotRef.current?.capture) return;
         const uri = await viewShotRef.current.capture();
         if (await Sharing.isAvailableAsync()) {
@@ -400,33 +429,8 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const hasRoute = depCoord && arrCoord && (depCoord.lat !== arrCoord.lat || depCoord.lon !== arrCoord.lon);
   const routeSvg = hasRoute ? buildRouteSvg(depCoord!, arrCoord!, depName, arrName) : null;
 
-  // För video: visa och dela bara videon, ingen ViewShot/lager
-  if (f.media_type === 'video' && f.photo_uri) {
-    return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          {visible && <FlightVideo uri={f.photo_uri} style={{ flex: 1 }} contentFit="cover" loop muted autoPlay nativeControls />}
-          <View style={{ position: 'absolute', top: insets.top + 12, right: 16, gap: 12, zIndex: 10 }}>
-            <TouchableOpacity
-              onPress={handleShare}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
-              disabled={sharing}
-            >
-              {sharing ? <ActivityIndicator color="#fff" /> : <Ionicons name="share-outline" size={20} color="#fff" />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name="close" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
-  // För bild: använd ViewShot med lager
+  // Video OCH foto använder samma kort + lager. Video: overlayn komponeras över en representativ
+  // bildruta (thumbnail) och bränns sedan in på den rörliga videon vid delning (se handleShare).
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
@@ -455,9 +459,10 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
           {/* Kortet — fast storlek/position oavsett valt lager */}
           <View style={{ alignItems: 'center', paddingTop: insets.top + 6 }}>
           <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: exportW, height: exportH }}>
-            <View style={[styles.card, { width: cardW, height: cardH }]}>
-              {/* Static photo/video background - använd thumbnail för video */}
-              {f.photo_uri ? (
+            <View style={[styles.card, { width: cardW, height: cardH }, captureTransparent && { backgroundColor: 'transparent' }]}>
+              {/* Static photo/video background - använd thumbnail för video. Vid video-capturen
+                  (captureTransparent) döljs bakgrunden → ViewShot fångar BARA overlayn (transparent PNG). */}
+              {captureTransparent ? null : f.photo_uri ? (
                 <Image
                   source={{ uri: f.media_type === 'video' ? (thumbnailUri || f.photo_uri) : f.photo_uri }}
                   style={StyleSheet.absoluteFill}
@@ -574,13 +579,15 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
 
           {/* Inställningspanel — grupperade kontroller med enhetliga rader */}
           <View style={ctrl.panel}>
-            <CtrlRow label="FORMAT">
-              <Seg
-                options={[['post', '4:5'], ['story', '9:16']] as const}
-                value={format}
-                onChange={setFormat}
-              />
-            </CtrlRow>
+            {!isVideoShare && (
+              <CtrlRow label="FORMAT">
+                <Seg
+                  options={[['post', '4:5'], ['story', '9:16']] as const}
+                  value={format}
+                  onChange={setFormat}
+                />
+              </CtrlRow>
+            )}
 
             <CtrlRow label="SIZE">
               <Slider

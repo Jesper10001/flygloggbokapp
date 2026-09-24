@@ -244,7 +244,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       rotateEnabled={interactive}
       pitchEnabled={interactive}
       showsBuildings
-      showsPointsOfInterest={false}
+      showsPointsOfInterests={false}
       showsCompass={interactive && !showCompass}
       toolbarEnabled={false}
     >
@@ -325,13 +325,11 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         const icao = c.properties?.icao as string;
         if (showRunwayLabels && icao === focus?.[0]) return null; // dölj ICAO-boxen under utritade banor
         return (
+          // Samma oval-ICAO-pin som region-drillen (icaoPin) → enhetlig presentation + kompakt
+          // träffyta så onPress fyrar tillförlitligt (multi-element labelChip+dot missade tryck i RN-maps 1.27).
           <Marker key={`ca-${icao}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}
             onPress={onSelectAirport ? () => onSelectAirport(icao) : undefined}>
-            <View style={{ alignItems: 'center' }}>
-              <View style={s.labelChip}><Text style={s.labelText}>{icao}</Text></View>
-              <View style={s.dot} />
-              <View style={s.dotSpacer} />
-            </View>
+            <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{icao}</Text></View>
           </Marker>
         );
       })}
@@ -362,11 +360,8 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           description={onSelectAirport ? undefined : a[1]}
           onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
         >
-          <View style={{ alignItems: 'center' }}>
-            <View style={s.labelChip}><Text style={s.labelText}>{a[0]}</Text></View>
-            <View style={s.dot} />
-            <View style={s.dotSpacer} />
-          </View>
+          {/* Oval-ICAO-pin (samma som region-drill + kluster) → enhetlig look + pålitlig träffyta. */}
+          <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>
         </Marker>
         )
       ))}

@@ -5,7 +5,7 @@ import {
   Alert, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -211,13 +211,18 @@ function LatestFlightRow({ flight, onPress, isLast, placeNames, onPhotoPress }: 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{depName}</Text>
           <View style={{ width: 60, height: 4, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', backgroundColor: Colors.separator }}>
-            {sunSegs && sunSegs.length > 0 ? (
-              sunSegs.map((seg, i) => (
-                <View key={i} style={{ width: `${(seg.endFrac - seg.startFrac) * 100}%`, height: 4, backgroundColor: seg.night ? Colors.gold : Colors.primary }} />
-              ))
-            ) : (
-              <View style={{ width: '100%', height: 4, backgroundColor: Colors.primary }} />
-            )}
+            {(() => {
+              // Nattandel = LOGGAD nattid / total (loggbokens sanning) — INTE en färsk sol-omräkning,
+              // som kan visa fel (t.ex. 100% natt) om flygningens dep/arr-tider inte är exakt UTC.
+              // Position (natt i början/slutet) tas från sol-profilen när den finns.
+              const nf = f.total_time > 0 ? Math.max(0, Math.min(1, (f.night ?? 0) / f.total_time)) : 0;
+              if (nf <= 0) return <View style={{ width: '100%', height: 4, backgroundColor: Colors.primary }} />;
+              if (nf >= 1) return <View style={{ width: '100%', height: 4, backgroundColor: Colors.gold }} />;
+              const nightAtStart = sunSegs && sunSegs.length > 0 ? sunSegs[0].night : true;
+              const nightSeg = <View style={{ width: `${nf * 100}%`, height: 4, backgroundColor: Colors.gold }} />;
+              const daySeg = <View style={{ width: `${(1 - nf) * 100}%`, height: 4, backgroundColor: Colors.primary }} />;
+              return nightAtStart ? <>{nightSeg}{daySeg}</> : <>{daySeg}{nightSeg}</>;
+            })()}
           </View>
           <Text style={{ fontSize: 11, fontWeight: '800', color: Colors.textPrimary }} numberOfLines={1}>{arrName}</Text>
         </View>
@@ -840,7 +845,12 @@ export default function DashboardScreen() {
 
         {/* WORKLOAD-rad — "Fetch WX ↓" (eller "Fetching…") ligger INLINE här när vädret inte hämtats. */}
         <View style={s.telGaugeHeader}>
-          <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+          {/* Vänster: WORKLOAD-etikett + state-text (t.ex. NORMAL) bredvid varandra */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+            <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
+          </View>
+          {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
           {mode === 'manned' && !!lastDest && !wx && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               {wxLoading ? (
@@ -850,7 +860,6 @@ export default function DashboardScreen() {
               )}
             </View>
           )}
-          <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
         </View>
 
         {/* Gauge bar with zones */}

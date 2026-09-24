@@ -4,8 +4,12 @@
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getFlights, getSetting } from '../../db/flights';
-import { listDigitalBooks } from '../../db/digitalBooks';
+import { listDigitalBooks, type BookKind } from '../../db/digitalBooks';
+import { getDroneFlights } from '../../db/drones';
+import { droneToFlightRow, loadDroneMetaById } from './droneSpread';
+import type { Flight } from '../../types/flight';
 import {
   getTemplate, ASSIGNABLE_TIME_FIELDS,
   type LogbookTemplate, type LogbookColumn,
@@ -40,7 +44,7 @@ interface LoadedLogbook {
 }
 
 // Laddar en digital bok (aktiv eller angiven) med samma konfiguration som vyn använder.
-async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
+async function loadLogbook(bookId?: number, kind: BookKind = 'digital'): Promise<LoadedLogbook> {
   const [sg, fn, ln] = await Promise.all([
     getSetting('pilot_signature'),
     getSetting('profile_first_name'),
@@ -51,7 +55,7 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
   let signature: LoadedLogbook['signature'] = null;
   try { signature = sg ? JSON.parse(sg) : null; } catch { signature = null; }
 
-  const books = await listDigitalBooks();
+  const books = await listDigitalBooks(kind);
   const active = bookId != null
     ? books.find((b) => b.id === bookId)
     : (books.find((b) => b.is_active === 1) ?? books[books.length - 1]);
@@ -65,14 +69,21 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
   try { customCols = JSON.parse(active.custom_cols || '{}'); } catch { customCols = {}; }
   const template = applyCustomCols(base, customCols);
 
-  const flights = await getFlights(10000);
-  const slices = assignFlightsToBooks(books, flights);
+  // Pilot: riktiga flighter. Drönare: drone_flights → mall-rader (samma adapter som drönar-loggboken).
+  let flightRows: Flight[];
+  if (kind === 'drone') {
+    const [df, meta] = await Promise.all([getDroneFlights(10000), loadDroneMetaById()]);
+    flightRows = df.map((d) => droneToFlightRow(d, d.drone_id != null ? meta.get(d.drone_id) : undefined));
+  } else {
+    flightRows = await getFlights(10000);
+  }
+  const slices = assignFlightsToBooks(books, flightRows);
   const slice = slices.find((s) => s.book.id === active.id);
 
   const spreads = buildBookSpreads(slice?.flights ?? [], template, {
     startingPage: active.starting_page,
     rowsPerSpread: active.rows_per_spread,
-    openingBalance: resolveOpeningBalance(active, books, flights, template),
+    openingBalance: resolveOpeningBalance(active, books, flightRows, template),
     leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
   });
 
@@ -80,8 +91,8 @@ async function loadLogbook(bookId?: number): Promise<LoadedLogbook> {
 }
 
 /** Antal siduppslag i boken (för custom-väljaren). */
-export async function getLogbookSpreadCount(bookId?: number): Promise<number> {
-  const { spreads } = await loadLogbook(bookId);
+export async function getLogbookSpreadCount(bookId?: number, kind: BookKind = 'digital'): Promise<number> {
+  const { spreads } = await loadLogbook(bookId, kind);
   return spreads.length;
 }
 
@@ -89,8 +100,8 @@ export async function getLogbookSpreadCount(bookId?: number): Promise<number> {
  * Exporterar de senaste `count` siduppslagen som en PDF (liggande, senaste överst).
  * Returnerar antalet uppslag som faktiskt exporterades.
  */
-export async function exportLogbookPages(count: number, bookId?: number): Promise<number> {
-  const { template, spreads, pilotName, timeFormat, signature } = await loadLogbook(bookId);
+export async function exportLogbookPages(count: number, bookId?: number, kind: BookKind = 'digital'): Promise<number> {
+  const { template, spreads, pilotName, timeFormat, signature } = await loadLogbook(bookId, kind);
   if (spreads.length === 0) return 0;
   const n = Math.max(1, Math.min(Math.round(count), spreads.length));
   // Senaste N uppslagen, senaste först (fallande).
@@ -98,8 +109,13 @@ export async function exportLogbookPages(count: number, bookId?: number): Promis
 
   const { html, width, height } = renderSpreadsPDF({ template, spreads: selected, pilotName, timeFormat, signature });
   const { uri } = await Print.printToFileAsync({ html, width, height, base64: false });
+  // Döp om till ett tydligt filnamn (samma konvention som CSV-exporten).
+  const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const dest = FileSystem.documentDirectory + `Blades ${kind === 'drone' ? 'drone ' : ''}logbook pages export ${dateStamp}.pdf`;
+  await FileSystem.deleteAsync(dest, { idempotent: true });
+  await FileSystem.copyAsync({ from: uri, to: dest });
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(dest, {
       mimeType: 'application/pdf',
       dialogTitle: 'Logbook pages',
       UTI: 'com.adobe.pdf',

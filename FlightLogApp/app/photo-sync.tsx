@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlightVideo } from '../components/FlightVideo';
-import type * as MediaLibrary from 'expo-media-library';
+import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
 import { setFlightPhotoLocalId } from '../db/flights';

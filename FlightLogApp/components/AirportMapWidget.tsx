@@ -528,7 +528,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           pointerEvents="none"
           scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}
           userInterfaceStyle="dark"
-          showsPointsOfInterest={false} showsCompass={false} toolbarEnabled={false}
+          showsPointsOfInterests={false} showsCompass={false} toolbarEnabled={false}
         >
           {thumb.rows.slice(0, 18).map((r) => (
             <Marker key={r[0]} coordinate={{ latitude: r[4], longitude: r[5] }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
@@ -851,7 +851,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                 }}
                 mapType={pinSat ? 'hybrid' : 'standard'}
                 userInterfaceStyle="dark"
-                showsPointsOfInterest={false}
+                showsPointsOfInterests={false}
                 showsCompass={false}
                 toolbarEnabled={false}
                 onPress={(e) => setPlacedCoord({ lat: e.nativeEvent.coordinate.latitude, lon: e.nativeEvent.coordinate.longitude })}

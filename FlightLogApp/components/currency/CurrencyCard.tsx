@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';

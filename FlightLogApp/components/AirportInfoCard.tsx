@@ -88,7 +88,17 @@ export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.i
         </View>
         {(!!name || !!meta || !!freqLine || freqStats) && (
           <View style={{ flex: 1 }}>
-            {!!name && <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '600', lineHeight: 15 }}>{name}</Text>}
+            {!!name && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ flex: 1, color: Colors.textMuted, fontSize: 11, fontWeight: '600', lineHeight: 15 }} numberOfLines={2}>{name}</Text>
+                {/* Väderkategori (VFR/MVFR/IFR/LIFR) från hämtad METAR — internationell flight category (tak + sikt). */}
+                {metar?.category && (
+                  <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: categoryColor(metar.category) + '26' }}>
+                    <Text style={{ color: categoryColor(metar.category), fontSize: 10, fontWeight: '800', letterSpacing: 0.5, fontFamily: 'Menlo' }}>{metar.category}</Text>
+                  </View>
+                )}
+              </View>
+            )}
             {freqStats ? (
               // METAR skrivs ut direkt under namnet (tryck → Decoded/Raw-popup). Medan den hämtas: "Fetching weather…"
               metarLoading ? (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
   Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable,
@@ -16,6 +16,7 @@ import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/gener
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
 import { clearAllFlights, getFlightCount } from '../../db/flights';
+import { listDigitalBooks } from '../../db/digitalBooks';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -31,6 +32,7 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
+import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
 function SectionHeader({ children }: { children: string }) {
@@ -191,7 +193,7 @@ export default function SettingsScreen() {
   const [exportingPages, setExportingPages] = useState(false);
   const [pagesModal, setPagesModal] = useState(false);
   const [pagesTotal, setPagesTotal] = useState(0);
-  const [pagesChoice, setPagesChoice] = useState<number | 'custom'>(3);
+  const [pagesChoice, setPagesChoice] = useState<number | 'whole' | 'custom'>(3);
   const [pagesCustom, setPagesCustom] = useState('');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -292,19 +294,39 @@ export default function SettingsScreen() {
       const total = await getLogbookSpreadCount();
       if (total === 0) { Alert.alert(t('export_logbook_pages'), t('dlb_export_empty')); return; }
       setPagesTotal(total);
-      setPagesChoice(total < 3 ? 'custom' : 3);
+      setPagesChoice(total < 3 ? 'whole' : 3);
       setPagesCustom(String(total));
       setPagesModal(true);
     } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
   };
-  const runPagesExport = async () => {
-    const raw = pagesChoice === 'custom' ? parseInt(pagesCustom || '0', 10) : pagesChoice;
-    const count = Math.max(1, Math.min(raw || 1, pagesTotal || 1));
-    setPagesModal(false);
+  // Exporterar antingen ett antal uppslag (3/5/10/custom, aktiv bok) eller HELA en vald bok.
+  const doPagesExport = async (mode: number | 'whole', bookId?: number) => {
     setExportingPages(true);
-    try { await exportLogbookPages(count); }
-    catch (e: any) { Alert.alert(t('export_failed'), e.message); }
+    try {
+      const total = await getLogbookSpreadCount(bookId);
+      if (total === 0) { Alert.alert(t('export_logbook_pages'), t('dlb_export_empty')); return; }
+      const count = mode === 'whole' ? total : Math.max(1, Math.min(mode, total));
+      await exportLogbookPages(count, bookId);
+    } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
     finally { setExportingPages(false); }
+  };
+  const runPagesExport = async () => {
+    setPagesModal(false);
+    if (pagesChoice === 'whole') {
+      // Hela loggboken → fråga VILKEN bok bara om det finns flera i appen.
+      const books = await listDigitalBooks().catch(() => []);
+      if (books.length > 1) {
+        Alert.alert(t('export_logbook_pages'), 'Which logbook do you want to export?', [
+          ...books.map((b) => ({ text: b.name || `Logbook ${b.id}`, onPress: () => doPagesExport('whole', b.id) })),
+          { text: t('cancel'), style: 'cancel' as const },
+        ]);
+      } else {
+        doPagesExport('whole', books[0]?.id);
+      }
+      return;
+    }
+    const raw = pagesChoice === 'custom' ? parseInt(pagesCustom || '0', 10) : pagesChoice;
+    doPagesExport(Math.max(1, raw || 1));
   };
 
   const handleClearAll = () => {
@@ -471,7 +493,7 @@ export default function SettingsScreen() {
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
@@ -629,13 +651,6 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'export' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          <Row
-            icon="cloud-outline" iconColor={Colors.info}
-            title={t('icloud_sync')} subtitle={t('coming_soon')}
-            right={<Switch value={false} disabled trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
-            pressable={false}
-            separatorColor={Colors.background}
-          />
           {/* Export to PDF — pausad inför lansering, visas som "coming soon". */}
           {isPilot && <Row
             icon="document-text-outline" iconColor={Colors.textMuted}
@@ -705,6 +720,10 @@ export default function SettingsScreen() {
           />}
         </Card>
       )}
+
+      {/* ── Backup (iCloud) ── */}
+      <SectionHeader>Backup</SectionHeader>
+      <ICloudSyncRow />
 
       {/* ── G. Om ── */}
       <SectionHeader>{t('about')}</SectionHeader>
@@ -919,14 +938,15 @@ export default function SettingsScreen() {
           >
             <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>{t('export_logbook_pages')}</Text>
             <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 19 }}>{t('dlb_export_choose')}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {/* 3 / 5 / 10 */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               {[3, 5, 10].map((n) => {
                 const active = pagesChoice === n;
                 return (
                   <TouchableOpacity
                     key={n} onPress={() => setPagesChoice(n)} activeOpacity={0.8}
                     style={{
-                      minWidth: 56, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center',
+                      flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
                       backgroundColor: active ? Colors.primary : Colors.elevated,
                       borderWidth: 1, borderColor: active ? Colors.primary : Colors.border,
                     }}
@@ -935,17 +955,29 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 );
               })}
-              <TouchableOpacity
-                onPress={() => setPagesChoice('custom')} activeOpacity={0.8}
-                style={{
-                  flex: 1, minWidth: 90, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center',
-                  backgroundColor: pagesChoice === 'custom' ? Colors.primary : Colors.elevated,
-                  borderWidth: 1, borderColor: pagesChoice === 'custom' ? Colors.primary : Colors.border,
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'custom' ? Colors.textInverse : Colors.textPrimary }}>{t('dlb_export_custom')}</Text>
-              </TouchableOpacity>
             </View>
+            {/* Whole logbook */}
+            <TouchableOpacity
+              onPress={() => setPagesChoice('whole')} activeOpacity={0.8}
+              style={{
+                paddingVertical: 13, borderRadius: 12, alignItems: 'center',
+                backgroundColor: pagesChoice === 'whole' ? Colors.primary : Colors.elevated,
+                borderWidth: 1, borderColor: pagesChoice === 'whole' ? Colors.primary : Colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'whole' ? Colors.textInverse : Colors.textPrimary }}>Whole logbook</Text>
+            </TouchableOpacity>
+            {/* Custom pages */}
+            <TouchableOpacity
+              onPress={() => setPagesChoice('custom')} activeOpacity={0.8}
+              style={{
+                paddingVertical: 13, borderRadius: 12, alignItems: 'center',
+                backgroundColor: pagesChoice === 'custom' ? Colors.primary : Colors.elevated,
+                borderWidth: 1, borderColor: pagesChoice === 'custom' ? Colors.primary : Colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'custom' ? Colors.textInverse : Colors.textPrimary }}>Custom pages</Text>
+            </TouchableOpacity>
             {pagesChoice === 'custom' && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <TextInput

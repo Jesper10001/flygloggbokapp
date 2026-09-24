@@ -429,4 +429,25 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
       await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('test_atpl_seeded_v3', '1')`);
     }
   }
+
+  // Engångsstädning: en tidigare import-bugg dumpade appens egna export-kolumner ("Flight type: Normal",
+  // "Sim category: …") i remarks vid om-import. Ta bort exakt de segmenten (' | '-separerade) ur
+  // befintliga flygningars remarks. Guardad med settings-flagga → körs bara en gång.
+  try {
+    const cleaned = await db.getFirstAsync<{ v: string }>(`SELECT value as v FROM settings WHERE key = 'remarks_meta_cleaned'`).catch(() => null);
+    if (!cleaned) {
+      const rows = await db.getAllAsync<{ id: number; remarks: string }>(
+        `SELECT id, remarks FROM flights WHERE remarks LIKE '%Flight type:%' OR remarks LIKE '%Sim category:%'`
+      ).catch(() => [] as { id: number; remarks: string }[]);
+      for (const r of rows) {
+        const next = (r.remarks || '')
+          .split(' | ')
+          .filter((seg) => !/^\s*Flight type:\s*(Normal|Hot refuel|FFS\/Sim|Sim)\s*$/i.test(seg) && !/^\s*Sim category:/i.test(seg))
+          .join(' | ')
+          .trim();
+        if (next !== (r.remarks || '')) await db.runAsync(`UPDATE flights SET remarks = ? WHERE id = ?`, [next, r.id]);
+      }
+      await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('remarks_meta_cleaned', '1')`);
+    }
+  } catch { /* städning får aldrig blockera appstart */ }
 }

@@ -334,7 +334,7 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
   .top .who { font-size: 13px; font-weight: bold; letter-spacing: .3px; }
   .top .lbl {
     font-family: Helvetica, Arial, sans-serif; font-size: 9px; letter-spacing: 2px;
-    text-transform: uppercase; color: #8A7E60;
+    text-transform: uppercase; color: #000000;
   }
   table.lb { border-collapse: collapse; width: ${contentWidth}px; table-layout: fixed; }
   table.lb th, table.lb td { border-right: 0.8px solid #8A7048; overflow: hidden; }
@@ -402,13 +402,13 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
   .sig-fill { flex: 1; border-bottom: 1px solid #8A7048; display: flex; align-items: flex-end; min-height: 34px; }
   .pg {
     position: absolute; bottom: 9px; font-family: 'Courier New', monospace;
-    font-size: 10px; color: #9A8F76;
+    font-size: 10px; color: #000000;
   }
   .pg.l { left: 16px; }
   .pg.r { right: 16px; }
   .brand {
     text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 7.5px;
-    letter-spacing: 1.5px; text-transform: uppercase; color: #C4B89A; margin-top: 14px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: #000000; margin-top: 14px;
   }
 `;
 }

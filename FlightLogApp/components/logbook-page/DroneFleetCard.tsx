@@ -389,9 +389,16 @@ export function DroneFleetCard({ m, accent, current, onSaved }: {
           ) : null}
         </View>
 
-        {/* footer: (Remove model om inga flygningar) + penna → redigera/spara */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 13 }}>
-          <View style={{ flex: 1 }} />
+        {/* footer: first flight + last flown (nere till vänster, = pilot FleetCard) + (Remove model) + penna */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 13 }}>
+          <View style={{ marginRight: 18 }}>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: DR.muted }}>First flight</Text>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: DR.text2, marginTop: 2 }}>{m.first_flown || '—'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: DR.muted }}>Last flown</Text>
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: DR.text2, marginTop: 2 }}>{m.last_flown || '—'}</Text>
+          </View>
           {editing && m.flight_count === 0 ? (
             <TouchableOpacity onPress={removeModel} activeOpacity={0.8}
               style={{ height: 28, paddingHorizontal: 10, borderRadius: 8, backgroundColor: DR.danger + '1A', borderWidth: 1, borderColor: DR.danger + '88', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, marginRight: 8 }}>

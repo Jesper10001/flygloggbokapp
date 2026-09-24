@@ -18,6 +18,13 @@ for (const ext of upperImageExts) {
 if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
+
+// Stora data-JSON (t.ex. icao-airports.dat, 8,5 MB) buntas som ASSET (fil) i st f att inlinas
+// via require() — en så stor JSON-literal spränger Hermes bytecode i SDK 57. Läses som text +
+// JSON.parse i runtime (se utils/loadJsonAsset.ts). Extensionen .dat måste vara en asset här.
+if (!config.resolver.assetExts.includes('dat')) {
+  config.resolver.assetExts.push('dat');
+}
 config.server = {
   ...config.server,
   enhanceMiddleware: (middleware) => (req, res, next) => {

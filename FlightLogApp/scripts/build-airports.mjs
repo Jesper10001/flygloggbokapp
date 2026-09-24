@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const OUT_AIR = join(__dir, '..', 'assets', 'icao-airports.json');
+const OUT_AIR = join(__dir, '..', 'assets', 'icao-airports.dat'); // .dat = buntas som asset (Metro), JSON-innehåll
 const OUT_RWY = join(__dir, '..', 'assets', 'icao-runways.json');
 const LOCAL = join(__dir, 'am-data');
 const LEGACY_AIR = join(LOCAL, 'legacy-airports.json');

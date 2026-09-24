@@ -1534,6 +1534,18 @@ export default function AddFlightScreen() {
       vfr: '0',
     }));
     getRecentRegistrations(lastFlight.aircraft_type).then(setRecentRegs);
+    // Cabin crew från förra flygningens remarks-rad ("roll: namn, …") → samma parse som vid redigering.
+    // Kopieras med namn OCH roll; saknas cabin crew i förra → nollställ till en tom rad.
+    const cabinLine = (lastFlight.remarks || '').split('\n').map((l) => l.trim()).find((l) => isCabinLine(l));
+    if (cabinLine) {
+      const members = cabinLine.split(', ').map((e, i) => {
+        const ci = e.indexOf(': ');
+        return { id: `c${i}`, role: ci >= 0 ? e.slice(0, ci).trim() : '', name: ci >= 0 ? e.slice(ci + 2).trim() : e.trim() };
+      }).filter((m) => m.role || m.name);
+      setCrewMembers(members.length ? members : [{ id: '1', role: '', name: '' }]);
+    } else {
+      setCrewMembers([{ id: '1', role: '', name: '' }]);
+    }
   };
 
   const onTypeSelect = useCallback(async (type: string) => {

@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Polygon, Text as SvgText, G } from 'react-native-svg';
 
 import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
@@ -479,13 +479,13 @@ function FleetTab({ accent }: { accent: string }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // getDroneFleetByModel sorterar redan senast-flugen först (nuvarande = index 0).
-  const totalH = models.reduce((sum, m) => sum + (m.total_hours || 0), 0);
+  const totalRegs = models.reduce((sum, m) => sum + (m.reg_count || 0), 0);
 
   return (
     <>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
       <Text style={{ fontFamily: MONO, fontSize: 9.5, color: DR.muted, letterSpacing: 0.4, marginBottom: 12 }}>
-        {models.length} {models.length === 1 ? 'model' : 'models'} · {decimalToHHMM(totalH)} h total · by last flown
+        {models.length} {models.length === 1 ? 'model' : 'models'} · {totalRegs} registrations
       </Text>
 
       {models.length === 0 ? (

@@ -193,7 +193,7 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
             initialRegion={regionRef.current}
             mapType={mapType}
             userInterfaceStyle="dark"
-            showsPointsOfInterest={false}
+            showsPointsOfInterests={false}
             showsCompass={false}
             toolbarEnabled={false}
             onRegionChangeComplete={(r) => { regionRef.current = r; }}
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },
   cancelBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
 
-  crosshair: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  crosshair: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   pickerHeader: { position: 'absolute', left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(6,11,22,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 40, borderRadius: 10, backgroundColor: 'rgba(6,11,22,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },

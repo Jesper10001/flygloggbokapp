@@ -10,11 +10,23 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.blades.jointlogbook",
+      "entitlements": {
+        "com.apple.developer.icloud-container-identifiers": ["iCloud.com.blades.jointlogbook"],
+        "com.apple.developer.ubiquity-container-identifiers": ["iCloud.com.blades.jointlogbook"],
+        "com.apple.developer.icloud-services": ["CloudDocuments"]
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
         "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning.",
         "NSLocationWhenInUseUsageDescription": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUbiquitousContainers": {
+          "iCloud.com.blades.jointlogbook": {
+            "NSUbiquitousContainerIsDocumentScopePublic": true,
+            "NSUbiquitousContainerName": "Blades Logbook",
+            "NSUbiquitousContainerSupportedFolderLevels": "Any"
+          }
+        }
       }
     },
     "android": {
@@ -69,7 +81,10 @@
           "savePhotosPermission": "Allow the app to save photos.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-video",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

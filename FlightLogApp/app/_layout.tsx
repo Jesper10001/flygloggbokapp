@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import { getDatabase } from '../db/database';
 import { seedIcaoAirports } from '../db/icao';
-import { getSetting } from '../db/flights';
+import { getSetting, setSetting } from '../db/flights';
+import { checkPromoEntitlement } from '../services/promo';
 import { Colors } from '../constants/colors';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore } from '../store/timeFormatStore';
@@ -26,6 +27,8 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
+import { useICloudStore } from '../store/icloudStore';
+import { isEnabled as icloudEnabled } from '../services/icloudSync';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -35,6 +38,27 @@ export default function RootLayout() {
   const { loadTheme, theme } = useThemeStore();
   const { loadMode } = useAppModeStore();
   const { forceUpdate, storeUrl, check: checkVersion } = useVersionStore();
+
+  // Auto-backup till iCloud när appen går till bakgrunden (om synk är på). Bara lokala fil-ops körs
+  // synkront — själva uppladdningen sköter iOS efteråt. Debouncad 60 s. Tyst vid fel.
+  useEffect(() => {
+    let last = 0;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'background') return;
+      const now = Date.now();
+      if (now - last < 60000) return;
+      last = now;
+      (async () => {
+        try {
+          if (!(await icloudEnabled())) return;
+          const st = useICloudStore.getState();
+          if (st.busy) return;
+          await st.backupNow();
+        } catch { /* tyst i bakgrunden */ }
+      })();
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     // Lås rotation till portrait som default — bara transkriberingsvyn
@@ -56,6 +80,14 @@ export default function RootLayout() {
         setFontsLoaded(true);
 
         await getDatabase();
+        // Promo-kod (gratis Premium): cache-först (snabbt/offline) → server-verifiering i bakgrunden.
+        // Servern (proxyns KV) är sanningskällan → revocera en testare genom att ta bort KV-nyckeln.
+        const promoCached = (await getSetting('promo_premium').catch(() => null)) === '1';
+        if (promoCached) useFlightStore.getState().setIsPremium(true);
+        checkPromoEntitlement().then(async (prem) => {
+          if (prem === true) { useFlightStore.getState().setIsPremium(true); await setSetting('promo_premium', '1').catch(() => {}); }
+          else if (prem === false && promoCached) { useFlightStore.getState().setIsPremium(false); await setSetting('promo_premium', '0').catch(() => {}); }
+        }).catch(() => {});
         const { isPremium } = useFlightStore.getState();
         await seedIcaoAirports(isPremium);
         await loadLanguage();
@@ -145,6 +177,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Profile', presentation: 'modal' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks', presentation: 'modal' }} />
+        <Stack.Screen name="settings/icloud" options={{ title: 'iCloud Storage', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="drone-logbook/index" options={{ headerShown: false }} />

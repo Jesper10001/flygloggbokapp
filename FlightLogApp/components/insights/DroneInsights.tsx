@@ -4,14 +4,14 @@
 // Fonter = manned insights: Fraunces (serif) · JetBrainsMono (mono) · DSEG7 (LED).
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getCategoryRecency, type CategoryRecency, type DroneFlight } from '../../db/drones';
-import { FONT_LED7, ledGlow } from '../logflight/tokens';
+import { FONT_LED7 } from '../logflight/tokens';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -71,14 +71,14 @@ export function DroneInsights() {
           <View style={{ flex: 1, padding: 14, gap: 3 }}>
             <Text style={s.cap}>TOTAL FLIGHT TIME</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-              <Text style={[s.ledBig, ledGlow(DR.text, 8)]}>{hToHHMM(stats.total_time)}</Text>
+              <Text style={s.ledBig}>{hToHHMM(stats.total_time)}</Text>
               <Text style={[s.ledUnit, { color: accent }]}>h</Text>
             </View>
           </View>
           <View style={{ flex: 1, padding: 14, gap: 3, borderLeftWidth: 1, borderLeftColor: DR.separator, alignItems: 'flex-end' }}>
             <Text style={s.cap}>THIS YEAR</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-              <Text style={[s.ledMid, ledGlow(DR.text2, 6)]}>{hToHHMM(stats.year_to_date)}</Text>
+              <Text style={s.ledMid}>{hToHHMM(stats.year_to_date)}</Text>
               <Text style={[s.ledUnit, { color: DR.muted }]}>h</Text>
             </View>
           </View>
@@ -90,7 +90,7 @@ export function DroneInsights() {
             { l: 'NIGHT', v: fmtIntH(stats.night) + 'h' },
           ].map((c, i) => (
             <View key={c.l} style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 8, alignItems: 'center', gap: 2, borderLeftWidth: i ? 1 : 0, borderLeftColor: DR.separator }}>
-              <Text style={[s.ledSmall, ledGlow(DR.text, 4)]}>{c.v}</Text>
+              <Text style={s.ledSmall}>{c.v}</Text>
               <Text style={s.cap8}>{c.l}</Text>
             </View>
           ))}
@@ -106,7 +106,7 @@ export function DroneInsights() {
                 <View style={[s.catPill, { borderColor: accent + '55', backgroundColor: accent + '14' }]}>
                   <Text style={[s.catPillText, { color: accent }]}>{r.category}</Text>
                 </View>
-                <Text style={[s.recencyDays, ledGlow(DR.text2, 3)]}>{r.daysAgo === 0 ? '0' : String(r.daysAgo)}<Text style={s.recencyUnit}> {r.daysAgo === 0 ? 'today' : 'd ago'}</Text></Text>
+                <Text style={s.recencyDays}>{r.daysAgo === 0 ? '0' : String(r.daysAgo)}<Text style={s.recencyUnit}> {r.daysAgo === 0 ? 'today' : 'd ago'}</Text></Text>
                 <View style={[s.statusDot, { backgroundColor: r.isStale ? DR.warning : DR.good }]} />
                 <Text style={[s.recencyState, { color: r.isStale ? DR.warning : DR.good }]}>{r.isStale ? 'Stale' : 'Current'}</Text>
               </View>
@@ -157,7 +157,7 @@ export function DroneInsights() {
               <View key={p.name} style={s.placeRow}>
                 <Ionicons name="location" size={14} color={accent} />
                 <Text style={s.placeName} numberOfLines={1}>{p.name}</Text>
-                <Text style={[s.placeCount, ledGlow(DR.text, 3)]}>{p.count}<Text style={s.placeUnit}> {p.count === 1 ? 'flight' : 'flights'}</Text></Text>
+                <Text style={s.placeCount}>{p.count}<Text style={s.placeUnit}> {p.count === 1 ? 'flight' : 'flights'}</Text></Text>
               </View>
             ))}
           </View>
@@ -189,7 +189,7 @@ function BarRow({ label, value, pct, accent }: { label: string; value: string; p
       <View style={s.barTrack}>
         <View style={[s.barFill, { width: `${Math.max(3, Math.round(pct * 100))}%`, backgroundColor: accent }]} />
       </View>
-      <Text style={[s.barValue, ledGlow(DR.text, 3)]}>{value}</Text>
+      <Text style={s.barValue}>{value}</Text>
     </View>
   );
 }

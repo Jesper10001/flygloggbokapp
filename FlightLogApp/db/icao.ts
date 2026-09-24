@@ -1,16 +1,25 @@
 import { getDatabase } from './database';
 import type { IcaoAirport } from '../types/flight';
 import type { SeedRow } from '../components/GlobalAirportMap';
+import { loadJsonAsset } from '../utils/loadJsonAsset';
 
-let airportData: SeedRow[] = [];
-try {
-  airportData = require('../assets/icao-airports.json');
-} catch {
-  console.warn('[ICAO] icao-airports.json not found — airport database unavailable');
+// Airport-seed (8,5 MB) laddas som BUNTAD ASSET (icao-airports.dat), inte via require() — en så
+// stor JSON inlinad blir ett objekt-literal som Hermes i SDK 57 inte klarar bytecode-kompilera
+// (require kastade → "airport database unavailable"). Lazy + cachad: bara första anropet läser filen.
+let _airportData: SeedRow[] | null = null;
+let _airportLoading: Promise<SeedRow[]> | null = null;
+function loadAirportData(): Promise<SeedRow[]> {
+  if (_airportData) return Promise.resolve(_airportData);
+  if (!_airportLoading) {
+    _airportLoading = loadJsonAsset<SeedRow[]>(require('../assets/icao-airports.dat'))
+      .then((d) => { _airportData = d; console.log(`[ICAO] airport data loaded: ${Array.isArray(d) ? d.length : 'NOT-ARRAY'} airports`); return d; })
+      .catch((e) => { console.warn('[ICAO] airport data load FAILED:', e?.message ?? e); _airportData = []; return [] as SeedRow[]; });
+  }
+  return _airportLoading;
 }
 
 export function getSeedAirports(): Promise<SeedRow[]> {
-  return Promise.resolve(airportData);
+  return loadAirportData();
 }
 
 const SEED_VERSION = '2026-07-30-no-zzzz'; // ZZZZ borttagen (off-airport-kod) → tvingar om-seed
@@ -31,7 +40,7 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
     return;
   }
 
-  const data = airportData;
+  const data = await loadAirportData();
 
   const BATCH = 200;
   await db.withTransactionAsync(async () => {

@@ -4,7 +4,7 @@ import {
   Alert, TextInput, Modal, KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';

@@ -6,10 +6,10 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Image,
-  LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator,
+  LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -29,6 +29,9 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useVersionStore } from '../../store/versionStore';
 import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
 import { getSetting, setSetting } from '../../db/flights';
+import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
+import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
+import { listDigitalBooks } from '../../db/digitalBooks';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -55,6 +58,12 @@ export default function DroneSettingsScreen() {
   const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
   const [flightCount, setFlightCount] = useState(0);
   const [exporting, setExporting] = useState(false);
+  // Export logbook pages (= pilot mode, drönar-böcker)
+  const [exportingPages, setExportingPages] = useState(false);
+  const [pagesModal, setPagesModal] = useState(false);
+  const [pagesTotal, setPagesTotal] = useState(0);
+  const [pagesChoice, setPagesChoice] = useState<number | 'whole' | 'custom'>(3);
+  const [pagesCustom, setPagesCustom] = useState('');
   const [profileName, setProfileName] = useState('');
   const [profileInitials, setProfileInitials] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
@@ -141,6 +150,43 @@ export default function DroneSettingsScreen() {
     });
   };
 
+  // ── Export logbook pages (drönar-böcker) — samma flöde som pilot mode ──
+  const openPagesExport = async () => {
+    try {
+      const total = await getLogbookSpreadCount(undefined, 'drone');
+      if (total === 0) { Alert.alert('Export logbook pages', 'No logbook pages to export yet.'); return; }
+      setPagesTotal(total);
+      setPagesChoice(total < 3 ? 'whole' : 3);
+      setPagesCustom(String(total));
+      setPagesModal(true);
+    } catch (e: any) { Alert.alert('Export failed', e.message); }
+  };
+  const doPagesExport = async (mode: number | 'whole', bookId?: number) => {
+    setExportingPages(true);
+    try {
+      const total = await getLogbookSpreadCount(bookId, 'drone');
+      if (total === 0) { Alert.alert('Export logbook pages', 'No logbook pages to export yet.'); return; }
+      const count = mode === 'whole' ? total : Math.max(1, Math.min(mode, total));
+      await exportLogbookPages(count, bookId, 'drone');
+    } catch (e: any) { Alert.alert('Export failed', e.message); }
+    finally { setExportingPages(false); }
+  };
+  const runPagesExport = async () => {
+    setPagesModal(false);
+    if (pagesChoice === 'whole') {
+      const books = await listDigitalBooks('drone').catch(() => []);
+      if (books.length > 1) {
+        Alert.alert('Export logbook pages', 'Which logbook do you want to export?', [
+          ...books.map((b) => ({ text: b.name || `Logbook ${b.id}`, onPress: () => doPagesExport('whole', b.id) })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ]);
+      } else { doPagesExport('whole', books[0]?.id); }
+      return;
+    }
+    const raw = pagesChoice === 'custom' ? parseInt(pagesCustom || '0', 10) : pagesChoice;
+    doPagesExport(Math.max(1, raw || 1));
+  };
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header */}
@@ -190,7 +236,7 @@ export default function DroneSettingsScreen() {
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
@@ -253,8 +299,9 @@ export default function DroneSettingsScreen() {
       <CollapsibleSectionHeader accent={accent} expanded={expanded === 'export'} onPress={() => toggleSection('export')}>Data & Export</CollapsibleSectionHeader>
       {expanded === 'export' && (
         <SectionCard>
-          <Row accent={accent} icon="cloud-outline" iconColor={accent} title="iCloud sync" subtitle="Coming soon" pressable={false} separatorColor={DR.background}
-            right={<Switch value={false} disabled trackColor={{ true: accent, false: DR.elevated }} />} />
+          <Row accent={accent} icon="book-outline" iconColor={accent} title="Export logbook pages"
+            subtitle="PDF of your latest page spreads" onPress={openPagesExport} separatorColor={DR.background}
+            right={exportingPages ? <ActivityIndicator size="small" color={accent} /> : undefined} />
           <Row accent={accent} icon="download-outline" iconColor={accent} title="Export CSV"
             subtitle={flightCount > 0 ? `${flightCount} drone ${flightCount === 1 ? 'flight' : 'flights'}` : 'No flights yet'}
             onPress={handleExportCsv} border={false}
@@ -279,6 +326,10 @@ export default function DroneSettingsScreen() {
             } />
         </SectionCard>
       )}
+
+      {/* ── Backup (iCloud) ── */}
+      <SectionHeader>Backup</SectionHeader>
+      <ICloudSyncRow accent={accent} />
 
       {/* ── G. About ── */}
       <SectionHeader>About</SectionHeader>
@@ -313,6 +364,49 @@ export default function DroneSettingsScreen() {
         <Row accent={accent} icon="checkmark-done-outline" iconColor={DR.success} title="Reset import quota" subtitle="Reset CSV import counter to 0"
           onPress={async () => { await setSetting('import_used', '0'); Alert.alert('OK', 'Import quota reset'); }} border={false} />
       </Card>
+
+      {/* ── Export logbook pages: välj antal siduppslag (= pilot mode) ── */}
+      <Modal visible={pagesModal} transparent animationType="fade" onRequestClose={() => setPagesModal(false)}>
+        <Pressable onPress={() => setPagesModal(false)} style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 440, backgroundColor: DR.surface, borderRadius: 18, padding: 20, gap: 14 }}>
+            <Text style={{ color: DR.text, fontSize: 18, fontWeight: '800' }}>Export logbook pages</Text>
+            <Text style={{ color: DR.text2, fontSize: 13, lineHeight: 19 }}>Choose how many of your latest page spreads to export as a PDF.</Text>
+            {/* 3 / 5 / 10 */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[3, 5, 10].map((n) => {
+                const active = pagesChoice === n;
+                return (
+                  <TouchableOpacity key={n} onPress={() => setPagesChoice(n)} activeOpacity={0.8}
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: active ? accent : DR.elevated, borderWidth: 1, borderColor: active ? accent : DR.border }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: active ? DR.inkOnAccent : DR.text }}>{n}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity onPress={() => setPagesChoice('whole')} activeOpacity={0.8}
+              style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: pagesChoice === 'whole' ? accent : DR.elevated, borderWidth: 1, borderColor: pagesChoice === 'whole' ? accent : DR.border }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'whole' ? DR.inkOnAccent : DR.text }}>Whole logbook</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setPagesChoice('custom')} activeOpacity={0.8}
+              style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: pagesChoice === 'custom' ? accent : DR.elevated, borderWidth: 1, borderColor: pagesChoice === 'custom' ? accent : DR.border }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'custom' ? DR.inkOnAccent : DR.text }}>Custom pages</Text>
+            </TouchableOpacity>
+            {pagesChoice === 'custom' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TextInput value={pagesCustom} onChangeText={(v) => setPagesCustom(v.replace(/\D/g, ''))} keyboardType="number-pad"
+                  placeholder={String(pagesTotal)} placeholderTextColor={DR.muted}
+                  style={{ width: 90, backgroundColor: DR.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: DR.text, fontSize: 16, borderWidth: 1, borderColor: DR.border, textAlign: 'center' }} />
+                <Text style={{ color: DR.muted, fontSize: 13 }}>of {pagesTotal}</Text>
+              </View>
+            )}
+            <TouchableOpacity onPress={runPagesExport} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: accent, borderRadius: 14, paddingVertical: 15 }}>
+              <Ionicons name="share-outline" size={18} color={DR.inkOnAccent} />
+              <Text style={{ color: DR.inkOnAccent, fontSize: 15, fontWeight: '800' }}>Export PDF</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }

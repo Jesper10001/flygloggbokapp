@@ -2,12 +2,12 @@
 // träffar dyker upp i en dropdown nedanför. Väljer man en → kompakt popup på dashboarden (flygplatskort +
 // bank-snippet + avstånd/magnetisk kurs) — inte helskärm. Ersätter den tidigare helskärms-lookupen.
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Keyboard, ActivityIndicator, Dimensions, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Keyboard, ActivityIndicator, Dimensions, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Colors } from '../constants/colors';
-import { searchAirports } from '../db/icao';
+import { searchAirports, getNearbyAirports } from '../db/icao';
 import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '../db/flights';
 import type { IcaoAirport } from '../types/flight';
 import { fetchAirportMetar, type AirportMetar } from '../services/weather';
@@ -55,6 +55,45 @@ async function readDeclination(): Promise<number | null> {
 
 type Perf = { type: string; cruiseKts: number; fuelBurn: number; fuelUnit: string };
 
+// ── Filter för "Closest airport to me" ─────────────────────────────────────────
+type WxFilter = 'all' | 'vfr' | 'mvfr' | 'ifr';
+type TypeFilter = 'all' | 'large' | 'medium' | 'small' | 'heliport' | 'military';
+const WX_OPTIONS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'vfr', label: 'Only VFR' },
+  { key: 'mvfr', label: 'Lowest MVFR' },
+  { key: 'ifr', label: 'Lowest IFR' },
+];
+const TYPE_OPTIONS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'large', label: 'Large Airports' },
+  { key: 'medium', label: 'Medium Airports' },
+  { key: 'small', label: 'Airfields' },
+  { key: 'heliport', label: 'Heliports' },
+  { key: 'military', label: 'Air Bases' },
+];
+const WX_SHORT: Record<WxFilter, string> = { all: 'All', vfr: 'VFR', mvfr: 'MVFR', ifr: 'IFR' };
+const TYPE_SHORT: Record<TypeFilter, string> = { all: 'All', large: 'Large', medium: 'Medium', small: 'Airfields', heliport: 'Heliports', military: 'Air Bases' };
+const WX_RANK: Record<string, number> = { VFR: 3, MVFR: 2, IFR: 1, LIFR: 0 }; // bäst → sämst
+// Militär "Air base" finns ej som DB-fält → namnbaserad heuristik (som kartans militärlager i praktiken).
+const MIL_RE = /air\s?base|air force base|\bAFB\b|\bRAF\b|naval air|\bNAS\b|\bNAF\b|military/i;
+
+function matchesTypeFilter(a: IcaoAirport, f: TypeFilter): boolean {
+  if (f === 'all') return true;
+  if (f === 'military') return MIL_RE.test(a.name || '');
+  return (a.type || '') === f;
+}
+// Väderfiltret = lägsta acceptabla kategori (VFR bäst). null-kategori (ingen METAR) → faller ut när filter aktivt.
+function matchesWxFilter(cat: string | null | undefined, f: WxFilter): boolean {
+  if (f === 'all') return true;
+  if (!cat) return false;
+  if (f === 'vfr') return cat === 'VFR';
+  const r = WX_RANK[cat] ?? -1;
+  if (f === 'mvfr') return r >= 2;
+  if (f === 'ifr') return r >= 1;
+  return true;
+}
+
 export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShift }: {
   accent?: string;
   onPick?: () => void;               // anropas när en flygplats valts (t.ex. stäng globmenyn)
@@ -83,6 +122,11 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [showMap, setShowMap] = useState(false); // MapView monteras bara medan popupen är öppen (avmonteras FÖRE stängning)
   const [snippetFrozen, setSnippetFrozen] = useState(false); // fryser marker-tracking strax före avmontering
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wxFilter, setWxFilter] = useState<WxFilter>('all');     // väderfilter för Closest-knappen
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all'); // typfilter för Closest-knappen
+  const [openFilter, setOpenFilter] = useState<'wx' | 'type' | null>(null); // vilken filter-dropdown är öppen
+  const [finding, setFinding] = useState(false); // "Closest airport to me" laddar
+  const [closestMode, setClosestMode] = useState(false); // valdes via Closest-knappen → visa position/rutt/cirkel
 
   // Följ tangentbordshöjden.
   useEffect(() => {
@@ -110,7 +154,8 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
     if (q.length < 2) { setResults([]); setSearching(false); return; }
     setSearching(true);
     debounce.current = setTimeout(async () => {
-      try { setResults(await searchAirports(q)); } catch { setResults([]); } finally { setSearching(false); }
+      // nameMinLen=2 → sök på flygplatsnamn redan från 2 tecken (= Log Flight dep/arr-sökningen).
+      try { setResults(await searchAirports(q, 2)); } catch { setResults([]); } finally { setSearching(false); }
     }, 250);
     return () => { if (debounce.current) clearTimeout(debounce.current); };
   }, [query]);
@@ -127,6 +172,50 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
       setLocState('ready');
       readDeclination().then(setDecl).catch(() => {});
     } catch { setLocState('denied'); }
+  };
+
+  // Hämtar position direkt (returnerar koordinaterna) — för "Closest airport to me".
+  const getPositionNow = async (): Promise<{ lat: number; lon: number } | null> => {
+    if (pos) return pos;
+    setLocState('loading');
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setLocState('denied'); return null; }
+      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const c = { lat: p.coords.latitude, lon: p.coords.longitude };
+      setPos(c); setLocState('ready');
+      readDeclination().then(setDecl).catch(() => {});
+      return c;
+    } catch { setLocState('denied'); return null; }
+  };
+
+  // "Closest airport to me": närmaste flygplats som matchar TYP- och VÄDER-filtren → öppnar kortet.
+  const findClosest = async () => {
+    if (finding) return;
+    setFinding(true);
+    try {
+      const c = await getPositionNow();
+      if (!c) { Alert.alert('Location needed', 'Enable location access to find the closest airport.'); return; }
+      const cands = (await getNearbyAirports(c.lat, c.lon, 60))
+        .filter((a) => (a.type || '') !== 'closed') // stängda flygplatser visas aldrig i Closest to me
+        .filter((a) => matchesTypeFilter(a, typeFilter));
+      if (!cands.length) { Alert.alert('No airport nearby', 'No airport matching the Type filter was found near you.'); return; }
+      let chosen: IcaoAirport | null = null;
+      if (wxFilter === 'all') {
+        chosen = cands[0]; // redan sorterade på avstånd
+      } else {
+        // Hämta METAR för de närmaste kandidaterna i tur och ordning tills en matchar väderfiltret.
+        for (const a of cands.slice(0, 12)) {
+          try { const m = await fetchAirportMetar(a.icao); if (matchesWxFilter(m?.category, wxFilter)) { chosen = a; break; } } catch { /* prova nästa */ }
+        }
+      }
+      if (!chosen) { Alert.alert('No match nearby', 'No nearby airport currently meets the weather filter. Try a lower weather minimum.'); return; }
+      pick(chosen, { fromClosest: true });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not find the closest airport.');
+    } finally {
+      setFinding(false);
+    }
   };
 
   // Prestanda för beräkningarna. Läses om vid VARJE uppslag så att ändringar i Fleet (t.ex. cruise)
@@ -152,11 +241,12 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
     setPickerOpen(true);
   };
 
-  const pick = (a: IcaoAirport) => {
+  const pick = (a: IcaoAirport, opts?: { fromClosest?: boolean }) => {
     Keyboard.dismiss();
     setQuery(''); setResults([]);
     if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
     setSnippetFrozen(false);
+    setClosestMode(!!opts?.fromClosest);
     setSelected(a);
     setShowMap(true);
     onPick?.();
@@ -233,6 +323,24 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
         )}
       </View>
 
+      {/* "Closest airport to me" + väder-/typ-filter (filtren styr Closest-knappen). */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity style={[styles.closestBtn, { borderColor: accent + '66' }]} activeOpacity={0.85} onPress={findClosest} disabled={finding}>
+          {finding ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="navigate" size={15} color={accent} />}
+          <Text style={styles.closestTxt} numberOfLines={1}>Closest to me</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.filterChip} activeOpacity={0.8} onPress={() => setOpenFilter('wx')}>
+          <Ionicons name="partly-sunny-outline" size={13} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.filterChipTxt} numberOfLines={1}>{WX_SHORT[wxFilter]}</Text>
+          <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.55)" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.filterChip} activeOpacity={0.8} onPress={() => setOpenFilter('type')}>
+          <Ionicons name="airplane-outline" size={13} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.filterChipTxt} numberOfLines={1}>{TYPE_SHORT[typeFilter]}</Text>
+          <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.55)" />
+        </TouchableOpacity>
+      </View>
+
       {/* Dropdown med träffar (flyter under sökrutan, påverkar inte layouten) */}
       {showDropdown && (
         <View style={styles.dropdown}>
@@ -257,6 +365,25 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
         </View>
       )}
 
+      {/* Filter-väljare (väder / type) — enkel dropdown-modal */}
+      <Modal visible={openFilter !== null} transparent animationType="fade" onRequestClose={() => setOpenFilter(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setOpenFilter(null)}>
+          <Pressable onPress={() => {}} style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>{openFilter === 'wx' ? 'Weather' : 'Type'}</Text>
+            {(openFilter === 'wx' ? WX_OPTIONS : TYPE_OPTIONS).map((o) => {
+              const active = openFilter === 'wx' ? wxFilter === o.key : typeFilter === o.key;
+              return (
+                <TouchableOpacity key={o.key} style={styles.filterOptRow} activeOpacity={0.7}
+                  onPress={() => { if (openFilter === 'wx') setWxFilter(o.key as WxFilter); else setTypeFilter(o.key as TypeFilter); setOpenFilter(null); }}>
+                  <Text style={[styles.filterOptTxt, active && { color: accent, fontWeight: '800' }]}>{o.label}</Text>
+                  {active && <Ionicons name="checkmark" size={18} color={accent} />}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Kompakt popup på dashboarden: kort + bank-snippet + avstånd/kurs (ej helskärm) */}
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => (pickerOpen ? setPickerOpen(false) : closeSelected())}>
         <Pressable
@@ -279,9 +406,9 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
               {/* MapView monteras bara medan popupen är öppen; vid stängning avmonteras den FÖRST (placeholder
                   behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}
               {showMap ? (
-                <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} />
+                <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />
               ) : (
-                <View style={{ height: 210, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
+                <View style={{ height: 315, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
               )}
               <View style={styles.navCard}>
                 {locState === 'denied' ? (
@@ -418,4 +545,13 @@ const styles = StyleSheet.create({
   navLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navHint: { color: Colors.textSecondary, fontSize: 12.5, fontWeight: '600', flex: 1, lineHeight: 18 },
   trueNote: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '500', marginTop: 10, lineHeight: 14 },
+
+  // Filter-rad under sökrutan
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  closestBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1 },
+  closestTxt: { color: '#fff', fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(6,11,22,0.85)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  filterChipTxt: { color: '#fff', fontSize: 11.5, fontWeight: '700' },
+  filterOptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.separator },
+  filterOptTxt: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
 });

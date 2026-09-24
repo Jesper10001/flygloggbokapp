@@ -26,7 +26,7 @@ const C_PLANE = '#3FE0FF';
 // Markör: etikett ovanför, cirkel i mitten, osynlig spacer under (= etikettens höjd).
 // Symmetrin gör att cirkeln ligger i markörens CENTRUM → standard-ankaret {0.5,0.5}
 // placerar cirkeln exakt på flygplatsen, så rutt-strecket dras mellan cirklarna.
-const MARK_DOT = 12, MARK_GAP = 3, MARK_LABEL_H = 16;
+const MARK_DOT = 12, MARK_GAP = 3, MARK_LABEL_H = 16, MARK_LABEL_GAP = 11;
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const fmtUTC = (ms: number) => { const d = new Date(ms); return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`; };
 const normLon = (lon: number) => ((lon % 360) + 540) % 360 - 180;
@@ -281,7 +281,7 @@ function DayNightMapBase(props: DayNightMapProps) {
           userInterfaceStyle="dark"
           rotateEnabled={false}
           pitchEnabled={false}
-          showsPointsOfInterest={false}
+          showsPointsOfInterests={false}
           showsCompass={false}
           toolbarEnabled={false}
         >
@@ -313,18 +313,24 @@ function DayNightMapBase(props: DayNightMapProps) {
           {runs.map((r, i) => (
             <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3} zIndex={3} />
           ))}
-          {markers.map((m, i) => {
+          {markers.flatMap((m, i) => {
             const combined = m.dep && m.arr;
             const fill = combined ? Colors.gold : m.dep ? C_DEP : m.arr ? Colors.gold : C_STOP;
-            return (
+            return [
+              /* Pricken sitter EXAKT på koordinaten (ankare i mitten) → rutt-strecket OCH romben går
+                 rakt genom cirklarna. */
               <Marker key={'m' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} title={m.icao} zIndex={5}>
+                <View style={[s.dot, { marginVertical: 0, backgroundColor: fill, borderColor: combined ? C_DEP : '#FFFFFF' }]} />
+              </Marker>,
+              /* ICAO-etiketten är ett EGET marker med eget ankare (svävar ovanför pricken) → påverkar
+                 inte var strecket/romben hamnar. */
+              <Marker key={'ml' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false} zIndex={5}>
                 <View style={{ alignItems: 'center' }}>
                   <View style={s.labelChip}><Text style={s.labelText}>{m.icao}</Text></View>
-                  <View style={[s.dot, { backgroundColor: fill, borderColor: combined ? C_DEP : '#FFFFFF' }]} />
-                  <View style={s.markerSpacer} />
+                  <View style={{ height: MARK_DOT / 2 + MARK_LABEL_GAP }} />
                 </View>
-              </Marker>
-            );
+              </Marker>,
+            ];
           })}
           {sub ? (
             <Marker coordinate={{ latitude: sub.lat, longitude: normLon(sub.lon) }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={4}>
@@ -334,9 +340,10 @@ function DayNightMapBase(props: DayNightMapProps) {
           {/* Farkosten "flyger" rutten; nosen roteras mot färdriktningen via bild-transform.
               key inkluderar bäringen (avrundad) → ny snapshot tas när riktningen ändras (vändpunkten),
               annars är den fryst för prestanda medan positionen uppdateras nativt. */}
-          <Marker key={`${props.vehicle ?? 'plane'}-${Math.round(planeHeading / 3)}`} coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={6}>
+          {/* Gamla romb-figuren (symmetrisk → ingen heading-rotation, stabil key = flyttas nativt utan remount). */}
+          <Marker key="plane" coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={6}>
             <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Image source={VEHICLE_IMG[props.vehicle ?? 'plane']} style={{ width: 30, height: 30, tintColor: C_PLANE, transform: [{ rotate: `${planeHeading}deg` }] }} resizeMode="contain" />
+              <View style={s.planeDiamond} />
             </View>
           </Marker>
         </MapView>

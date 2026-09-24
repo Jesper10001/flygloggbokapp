@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { getSetting } from '../../db/flights';

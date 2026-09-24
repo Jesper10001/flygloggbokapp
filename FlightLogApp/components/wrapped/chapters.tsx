@@ -265,7 +265,7 @@ function LongestRouteMap({ legs, accent }: { legs: RouteLeg[]; accent: string })
       <MapView
         style={{ flex: 1 }} initialRegion={region} userInterfaceStyle="dark"
         scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}
-        showsPointsOfInterest={false} showsCompass={false} toolbarEnabled={false}
+        showsPointsOfInterests={false} showsCompass={false} toolbarEnabled={false}
       >
         {/* glödande streck — bred svag underläggare + tunn skarp linje */}
         <Polyline coordinates={coords} strokeColor={accent + '22'} strokeWidth={14} />

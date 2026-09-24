@@ -43,6 +43,7 @@ export interface DroneModelFleet {
   cutout_url: string;
   total_hours: number;   // summa flygtid över modellens alla registreringar
   last_flown: string;
+  first_flown: string;   // MIN(date) → "First flight" (= pilot FleetCard-footern)
   reg_count: number;
   flight_count: number;  // antal flygningar på modellen (gate för "Remove model")
 }
@@ -101,6 +102,7 @@ export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
             MAX(dr.cutout_url) AS cutout_url,
             COALESCE(ROUND(SUM(f.total_time), 2), 0) AS total_hours,
             COALESCE(MAX(f.date), '') AS last_flown,
+            COALESCE(MIN(f.date), '') AS first_flown,
             COUNT(DISTINCT CASE WHEN dr.registration != '' THEN dr.id END) AS reg_count,
             COUNT(f.id) AS flight_count
        FROM drone_registry dr

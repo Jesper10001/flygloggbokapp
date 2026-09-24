@@ -302,7 +302,7 @@ function AirportDetailModal({
               initialRegion={{ latitude: airport.lat, longitude: airport.lon, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
               mapType={sat ? 'hybridFlyover' : 'standard'}
               userInterfaceStyle="dark"
-              showsPointsOfInterest={false}
+              showsPointsOfInterests={false}
               showsCompass={false}
               toolbarEnabled={false}
             >

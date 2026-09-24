@@ -2,7 +2,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { getAllAircraftTypes, addAircraftTypeToRegistry, type AircraftRegistryEntry } from '../../db/flights';
 import { AircraftModal } from '../AircraftModal';

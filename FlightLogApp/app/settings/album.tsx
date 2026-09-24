@@ -288,7 +288,7 @@ export default function AlbumScreen() {
         </ScrollView>
       ) : (
         <View style={{ flex: 1 }}>
-          <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={mapRegion} mapType={mapType} userInterfaceStyle="dark" showsPointsOfInterest={false} showsCompass={false} toolbarEnabled={false}
+          <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={mapRegion} mapType={mapType} userInterfaceStyle="dark" showsPointsOfInterests={false} showsCompass={false} toolbarEnabled={false}
             rotateEnabled={mapType !== 'standard'} pitchEnabled={mapType !== 'standard'} onRegionChange={() => { if (pin) updateOverlay(); }} onRegionChangeComplete={setRegion}>
             {/* Media grupperade i kluster — döljs när en är vald */}
             {!pin && clusters.map((c) => c.items.length === 1
@@ -359,13 +359,26 @@ export default function AlbumScreen() {
             </View>
             <View style={{ width: 26 }} />
           </View>
+          {/* Dela vidare till fotodelnings-modulen (FlightShareCard) med samma bild + alla filter.
+              Fördröjning så fullskärms-modalen hinner stängas innან share-modalen öppnas (iOS). */}
+          {selected && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => { const s = selected; setSelected(null); setTimeout(() => setShareFlight(s), 320); }}
+              style={{ position: 'absolute', left: 20, right: 20, bottom: insets.bottom + 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14 }}>
+              <Ionicons name="share-outline" size={18} color={Colors.textInverse} />
+              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Share with flight insights</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Modal>
 
       {/* Delningsfönster (performance/route/postcard) — öppnas i share-läge */}
       {shareFlight && (
         <FlightShareCard
-          flight={shareFlight}
+          // Bilden kan vara en synkad foto-biblioteks-asset (photo_uri tom, bara photo_local_id) →
+          // skicka den upplösta URI:n från media-mappen som photo_uri så share-kortet visar bilden.
+          flight={{ ...shareFlight, photo_uri: media[shareFlight.id]?.uri ?? shareFlight.photo_uri ?? '' }}
           depName={placeNames[shareFlight.dep_place?.toUpperCase()] ?? shareFlight.dep_place}
           arrName={placeNames[shareFlight.arr_place?.toUpperCase()] ?? shareFlight.arr_place}
           visible={!!shareFlight}

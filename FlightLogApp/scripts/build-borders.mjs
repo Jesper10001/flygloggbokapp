@@ -15,7 +15,7 @@ import { merge } from 'topojson-client';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dir, '..', 'assets', 'borders.json');
 const FIX_OUT = join(__dir, '..', 'assets', 'airportRegionFix.json');
-const AIRPORTS = join(__dir, '..', 'assets', 'icao-airports.json');
+const AIRPORTS = join(__dir, '..', 'assets', 'icao-airports.dat'); // JSON-innehåll, .dat-extension (asset)
 const LOCAL = join(__dir, 'ne-data');
 const URLS = {
   admin0: 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson',

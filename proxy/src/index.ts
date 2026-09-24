@@ -7,6 +7,7 @@ interface Env {
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   STATS_PASSWORD: string;
+  PROMO_CODES?: string; // kommaseparerade promo-koder (secret) → gratis Blades Premium. Aldrig i app-bundlen.
 }
 
 // ── HUVUDBRYTARE FÖR SERVER-KVOTER ───────────────────────────────────────────
@@ -635,8 +636,9 @@ export default {
       const used = env.QUOTA_KV
         ? parseInt(await env.QUOTA_KV.get(tokenKey(devHash, tier)) ?? '0', 10)
         : 0;
+      const premium = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${devHash}`)) === '1' : false;
       const period = tier === 'free' ? 'lifetime' : currentMonth();
-      return new Response(JSON.stringify({ used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED }), {
+      return new Response(JSON.stringify({ used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
@@ -651,6 +653,36 @@ export default {
       };
       return new Response(JSON.stringify(versionData), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' },
+      });
+    }
+
+    // ── Entitlement: har denna device gratis Premium via en aktiv promo-kod? ──
+    if (url.pathname === '/entitlement' && request.method === 'GET') {
+      const devHash = hashDevice(request.headers.get('X-Device-ID') ?? 'unknown');
+      const premium = !!env.QUOTA_KV && (await env.QUOTA_KV.get(`promo:${devHash}`)) === '1';
+      return new Response(JSON.stringify({ premium }), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // ── Lös in promo-kod → permanent gratis Blades Premium för denna device ──
+    // Giltiga koder ligger BARA i servern (env.PROMO_CODES, kommaseparerat). Bindningen (promo:<device>)
+    // sparas i KV utan TTL → kontrolleras vid varje /entitlement- och /tokens-anrop. Revocera = ta bort KV-nyckeln.
+    if (url.pathname === '/redeem' && request.method === 'POST') {
+      const devHash = hashDevice(request.headers.get('X-Device-ID') ?? 'unknown');
+      let code = '';
+      try { code = String((JSON.parse(await request.text()) as any)?.code ?? ''); } catch { /* ogiltig body */ }
+      const norm = code.trim().toUpperCase();
+      const valid = norm.length > 0 && (env.PROMO_CODES ?? '')
+        .split(',').map((c) => c.trim().toUpperCase()).filter(Boolean).includes(norm);
+      if (!valid) {
+        return new Response(JSON.stringify({ ok: false }), {
+          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      if (env.QUOTA_KV) await env.QUOTA_KV.put(`promo:${devHash}`, '1'); // permanent (ingen TTL)
+      return new Response(JSON.stringify({ ok: true, premium: true }), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
 

@@ -5,7 +5,7 @@ import { View, Text, TouchableOpacity, Image, Modal, ScrollView, ActivityIndicat
 import { Ionicons } from '@expo/vector-icons';
 import { FlightVideo } from './FlightVideo';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import type * as MediaLibrary from 'expo-media-library';
+import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
 import { setFlightPhotoLocalId } from '../db/flights';
 import { getAssetDisplay, getFlightPhotoCandidates, getPhotoPermissionStatus, requestPhotoPermission, isPhotoSyncAvailable } from '../services/photoSync';

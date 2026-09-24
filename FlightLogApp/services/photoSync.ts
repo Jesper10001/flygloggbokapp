@@ -4,7 +4,7 @@
 //
 // OBS: expo-media-library är en NATIVE-modul. Den lazy-laddas (require i funktion) så att
 // importen inte kraschar i builds som saknar den — funktionen degraderar tills nästa dev build.
-import type * as ML from 'expo-media-library';
+import type * as ML from 'expo-media-library/legacy';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getFlights, getSetting, setSetting } from '../db/flights';
 import { buildInstants } from '../utils/flightTime';
@@ -17,9 +17,9 @@ export type PhotoPermission = 'full' | 'limited' | 'denied' | 'undetermined' | '
 export type FlightMatch = { flight: Flight; assets: ML.Asset[] };
 
 // Lazy-laddad native-modul (null om den inte finns i denna build).
-let _ml: typeof import('expo-media-library') | null | undefined;
-function ml(): typeof import('expo-media-library') | null {
-  if (_ml === undefined) { try { _ml = require('expo-media-library'); } catch { _ml = null; } }
+let _ml: typeof import('expo-media-library/legacy') | null | undefined;
+function ml(): typeof import('expo-media-library/legacy') | null {
+  if (_ml === undefined) { try { _ml = require('expo-media-library/legacy'); } catch { _ml = null; } }
   return _ml ?? null;
 }
 export function isPhotoSyncAvailable(): boolean { return ml() !== null; }

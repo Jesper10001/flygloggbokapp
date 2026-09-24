@@ -412,6 +412,9 @@ const SKIP_COLUMNS = new Set([
   'id', 'uuid', 'guid', 'rowid', 'created', 'modified', 'updated',
   'createdat', 'updatedat', 'modifiedat', 'timestamp', 'version',
   'sep', 'separator',
+  // Metadata-kolumner från appens EGEN CSV-export → ska INTE dumpas i remarks vid om-import
+  // (annars hamnar t.ex. "Flight type: Normal" i varje flygnings remarks). flight_type härleds ändå.
+  'flighttype', 'simcategory',
 ]);
 
 function mapRow(

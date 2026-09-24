@@ -14,20 +14,57 @@ import { getBackfill, setBackfill, ZERO_BACKFILL, type BackfillValues } from '..
 import type { Flight } from '../../types/flight';
 
 type FieldKey = keyof BackfillValues;
-const FIELDS: { key: FieldKey; label: string; kind: 'time' | 'int' }[] = [
-  { key: 'pic', label: 'PIC', kind: 'time' },
-  { key: 'co_pilot', label: 'Co-pilot', kind: 'time' },
-  { key: 'dual', label: 'Dual', kind: 'time' },
-  { key: 'picus', label: 'PICUS', kind: 'time' },
-  { key: 'instructor', label: 'Instructor', kind: 'time' },
-  { key: 'ifr', label: 'IFR', kind: 'time' },
-  { key: 'night', label: 'Night', kind: 'time' },
-  { key: 'cross_country', label: 'Cross-country', kind: 'time' },
-  { key: 'multi_pilot', label: 'Multi-pilot', kind: 'time' },
-  { key: 'sim', label: 'FSTD', kind: 'time' },
-  { key: 'landings_day', label: 'Landings · day', kind: 'int' },
-  { key: 'landings_night', label: 'Landings · night', kind: 'int' },
+type Field = { key: FieldKey; label: string; kind: 'time' | 'int' };
+// Grupperat som i Insights → Hours bank (Roles/Crew time/Class/Conditions/Takeoffs/Landings/Instrument).
+// VFR och Full-stop utelämnas medvetet — de är härledda i Hours bank, inte lagrade tal.
+const GROUPS: { title: string; fields: Field[] }[] = [
+  { title: 'Roles', fields: [
+    { key: 'pic', label: 'PIC', kind: 'time' },
+    { key: 'co_pilot', label: 'Co-pilot', kind: 'time' },
+    { key: 'dual', label: 'Dual', kind: 'time' },
+    { key: 'instructor', label: 'Instructor', kind: 'time' },
+    { key: 'examiner', label: 'Examiner', kind: 'time' },
+  ] },
+  { title: 'Crew time', fields: [
+    { key: 'multi_pilot', label: 'Multi-pilot', kind: 'time' },
+    { key: 'single_pilot', label: 'Single-pilot', kind: 'time' },
+    { key: 'pilot_flying', label: 'Pilot flying', kind: 'time' },
+    { key: 'safety_pilot', label: 'Safety pilot', kind: 'time' },
+    { key: 'observer', label: 'Observer', kind: 'time' },
+    { key: 'relief_crew', label: 'Relief crew', kind: 'time' },
+    { key: 'ferry_pic', label: 'Ferry PIC', kind: 'time' },
+    { key: 'picus', label: 'PICUS', kind: 'time' },
+    { key: 'spic', label: 'SPIC', kind: 'time' },
+  ] },
+  { title: 'Class', fields: [
+    { key: 'se_time', label: 'Single-engine', kind: 'time' },
+    { key: 'me_time', label: 'Multi-engine', kind: 'time' },
+  ] },
+  { title: 'Conditions', fields: [
+    { key: 'ifr', label: 'IFR', kind: 'time' },
+    { key: 'night', label: 'Night', kind: 'time' },
+    { key: 'nvg', label: 'NVG', kind: 'time' },
+    { key: 'cross_country', label: 'Cross-country', kind: 'time' },
+    { key: 'sim', label: 'FSTD', kind: 'time' },
+  ] },
+  { title: 'Takeoffs', fields: [
+    { key: 'takeoffs_day', label: 'Day', kind: 'int' },
+    { key: 'takeoffs_night', label: 'Night', kind: 'int' },
+    { key: 'takeoffs_faa_night', label: 'Night · FAA', kind: 'int' },
+  ] },
+  { title: 'Landings', fields: [
+    { key: 'landings_day', label: 'Day', kind: 'int' },
+    { key: 'landings_night', label: 'Night', kind: 'int' },
+    { key: 'landings_faa_night', label: 'Night · FAA', kind: 'int' },
+    { key: 'tng_count', label: 'Touch & go', kind: 'int' },
+  ] },
+  { title: 'Instrument', fields: [
+    { key: 'app_2d', label: 'Approaches 2D', kind: 'int' },
+    { key: 'app_3d', label: 'Approaches 3D', kind: 'int' },
+    { key: 'holds', label: 'Holds', kind: 'int' },
+  ] },
 ];
+const FIELDS: Field[] = GROUPS.flatMap((g) => g.fields);
 
 function sumField(flights: Flight[], key: FieldKey): number {
   if (key === 'sim') return flights.filter((f) => f.flight_type === 'sim').reduce((s, f) => s + (f.total_time || 0), 0);
@@ -108,7 +145,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
     setDirtyKey(f.key, false);
   };
 
-  const W_IMP = 62, W_CUR = 82, W_ADD = 60;
+  const W_IMP = 54, W_CUR = 76, W_ADD = 80;
 
   return (
     <View style={{ backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' }}>
@@ -138,7 +175,10 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
             <Text style={{ width: W_ADD, textAlign: 'right', color: Colors.textMuted, fontSize: 8, fontWeight: '700', letterSpacing: 0.6 }}>ADDITIONAL</Text>
           </View>
 
-          {FIELDS.map((f) => {
+          {GROUPS.map((group) => (
+            <View key={group.title}>
+              <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginTop: 12, marginBottom: 2 }}>{group.title}</Text>
+              {group.fields.map((f) => {
             const isDirty = dirty.has(f.key);
             const parsed = isDirty ? parseVal(f.key, f.kind) : 0;
             const delta = isDirty && !isNaN(parsed) ? parsed - committedCurrent(f.key) : 0;
@@ -185,7 +225,9 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
                 </View>
               </View>
             );
-          })}
+              })}
+            </View>
+          ))}
         </View>
       )}
     </View>
