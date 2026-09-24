@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getDatabase } from '../db/database';
 import { getSetting, setSetting } from '../db/flights';
 import { seedIcaoAirports } from '../db/icao';
+import { getDbKey } from './dbKey';
 import * as ICloud from '../modules/icloud-sync';
 import {
   BACKUP_FORMAT_VERSION, buildManifest, collectCounts, parseManifest,
@@ -184,7 +185,9 @@ export async function restoreNow(): Promise<BackupManifest> {
   // Applicera: kopiera användartabeller snapshot → live (gemensamma kolumner) i EN transaktion.
   await db.execAsync('PRAGMA foreign_keys=OFF;').catch(() => {});
   try {
-    await db.execAsync(`ATTACH DATABASE '${osPath(snapUri)}' AS bk;`);
+    // Snapshoten är SQLCipher-krypterad (VACUUM INTO ärver DB:ns nyckel) → ATTACH måste ange nyckeln.
+    const dbKey = await getDbKey();
+    await db.execAsync(`ATTACH DATABASE '${osPath(snapUri)}' AS bk KEY '${dbKey}';`);
     await db.withTransactionAsync(async () => {
       for (const t of REPLACE_TABLES) await copyTable(db, t, false);
       await copyTable(db, 'icao_airports', true, 'custom = 1'); // custom-flygplatser (rör ej seeden)

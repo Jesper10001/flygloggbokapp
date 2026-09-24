@@ -22,8 +22,9 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCruiseSpeed, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCruiseSpeed, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName, getManualFlightCount } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
+import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -757,6 +758,13 @@ export default function AddFlightScreen() {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [reviewPromptCount, setReviewPromptCount] = useState(0);
   const [showPremiumGate, setShowPremiumGate] = useState(false);
+  // Gratisgräns för manuella flygningar (ej redigering/AI-import). blockedOnEntry = nådde gränsen redan
+  // vid öppning → stäng = gå tillbaka; annars (fångad vid Save) = stäng bara popupen.
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitBlockedOnEntry, setLimitBlockedOnEntry] = useState(false);
+  // Nya flygningar sparas som source:'manual' (även AI-import-flödet) → räknas mot potten. Endast
+  // redigering (editId/addPhoto) undantas. Scan-review (review.tsx) sparar 'ocr' och grindas ej.
+  const isNewManual = !isEdit;
   const [editingTotalTime, setEditingTotalTime] = useState(false);
   const [totalTimeEditValue, setTotalTimeEditValue] = useState('');
   // Koordinater för dep/arr (natt-uträkning + lokal tid-hint) och om natt är manuellt satt.
@@ -787,6 +795,16 @@ export default function AddFlightScreen() {
   const routeRevealNoCoords = form.dep_place.trim().length >= 2 && form.arr_place.trim().length >= 2 && isValidTime(form.dep_utc) && isValidTime(form.arr_utc);
   const [routeRevealed, setRouteRevealed] = useState(false);
   useEffect(() => { if (routeComplete || routeRevealNoCoords) setRouteRevealed(true); }, [routeComplete, routeRevealNoCoords]);
+
+  // Gratisgräns: nådd redan vid öppning av en NY manuell flygning → visa Premium-uppmaning direkt.
+  useEffect(() => {
+    if (isNewManual && !isPremium && !isMax) {
+      getManualFlightCount().then((n) => {
+        if (n >= FREE_TIER_LIMIT) { setLimitBlockedOnEntry(true); setShowLimitModal(true); }
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Gap-animation: dep/arr-sektionerna dras isär och revealar connectorn (flaggor/streck/glyf)
   // som "ligger bakom". Redigering (redan komplett) startar öppet utan animation.
   const gapAnim = useRef(new Animated.Value(isEdit ? 1 : 0)).current;
@@ -2035,7 +2053,14 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
   useEffect(() => {
     if (aiImport === '1') {
-      setTimeout(() => importFromImage(), 500);
+      // Starta inte AI-importen om gratisgränsen är nådd (mount-effekten visar Premium-uppmaningen).
+      (async () => {
+        if (isNewManual && !isPremium && !isMax) {
+          const n = await getManualFlightCount().catch(() => 0);
+          if (n >= FREE_TIER_LIMIT) return;
+        }
+        setTimeout(() => importFromImage(), 500);
+      })();
     }
     if (addPhoto === '1') {
       setTimeout(() => pickMedia('image'), 500);
@@ -2164,6 +2189,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
   };
 
   const save = async () => {
+    // Gratisgräns-backstop: en ny manuell flygning får inte sparas när potten är slut (free).
+    if (isNewManual && !canAddFlight()) { setShowLimitModal(true); return; }
     const issues = validateFlightForm(form);
     const hardErrors = issues.filter((i) => i.severity === 'error');
     if (hardErrors.length > 0) {
@@ -3680,6 +3707,13 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       />
 
       <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="Flight data scan" />
+      <FlightLimitModal
+        visible={showLimitModal}
+        kind="pilot"
+        limit={FREE_TIER_LIMIT}
+        onClose={() => { setShowLimitModal(false); if (limitBlockedOnEntry) router.back(); }}
+        onGoPremium={() => { setShowLimitModal(false); router.replace('/settings/premium'); }}
+      />
 
       {/* Scan flight data — väljar-modal med exempelbild + orienterande text */}
       <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>

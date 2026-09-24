@@ -59,7 +59,8 @@ function Section({ title, items }: { title: string; items: CurrencyItem[] }) {
 export default function CurrencyScreen() {
   const router = useRouter();
   const { isPremium, isMax } = useFlightStore();
-  const premium = isPremium || isMax;
+  // Alla funktioner är gratis — currency-tracking är inte längre låst bakom Premium.
+  const premium = true;
   const [report, setReport] = useState<CurrencyReport | null>(null);
   const [loading, setLoading] = useState(true);
 

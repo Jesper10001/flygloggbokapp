@@ -5,64 +5,81 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#F6F1E8;color:#1B2233;max-width:680px;margin:0 auto;padding:40px 24px;line-height:1.7;font-size:15px}
-h1{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:32px;font-weight:600;margin-bottom:8px}
-h2{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:20px;font-weight:500;margin:28px 0 8px}
-p,ul{margin-bottom:12px}
-ul{padding-left:20px}
-a{color:#C9522C}
-.meta{color:#6B6356;font-size:13px;margin-bottom:24px}
-.back{display:inline-flex;align-items:center;gap:6px;margin-top:32px;padding:10px 20px;background:#1B2233;color:#F6F1E8;border-radius:999px;font-size:13px;font-weight:600;text-decoration:none}
+body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#080F1C;color:#B5C8D8;line-height:1.7;font-size:15px;-webkit-font-smoothing:antialiased}
+.doc{max-width:720px;margin:0 auto;padding:56px 24px 80px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:44px}
+.top img{height:22px;width:auto}
+.top nav{display:flex;gap:18px;font-size:13px}
+.top nav a{color:#7FA8C8;text-decoration:none}
+.top nav a.on,.top nav a:hover{color:#F4F0E6}
+h1{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:clamp(32px,6vw,44px);font-weight:500;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px}
+.meta{font-family:'Geist Mono',ui-monospace,monospace;color:#5A7FA0;font-size:12px;letter-spacing:.04em;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #122030}
+h2{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:21px;font-weight:500;margin:34px 0 10px}
+p,ul{margin-bottom:12px;text-wrap:pretty}
+ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+li{padding-left:18px;position:relative}
+li::before{content:'';position:absolute;left:0;top:.72em;width:7px;height:1px;background:#00C8E8}
+strong{color:#F4F0E6;font-weight:600}
+a{color:#00C8E8;text-decoration:none}
+a:hover{text-decoration:underline}
+.back{display:inline-flex;align-items:center;gap:8px;margin-top:40px;padding:12px 20px;background:#00C8E8;color:#04101F;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none}
+.back:hover{text-decoration:none}
 </style>
-</head><body>
+</head><body><main class="doc">
+<header class="top"><a href="/"><img src="web-v3/blades-lockup-h.png" alt="BLADES — Pilot Logbook"></a><nav><a href="/privacy" class="on">Privacy</a><a href="/terms">Terms</a></nav></header>
 <h1>Privacy Policy</h1>
-<p class="meta">BLADES — Joint Logbook · Last updated: 2026-05-07</p>
-
-<h2>1. Data Storage</h2>
-<p>BLADES stores all flight data, certificates, and settings <strong>locally on your device</strong> using an encrypted SQLite database. We do not operate user accounts, and no flight data is stored on our servers.</p>
-
-<h2>2. AI Processing</h2>
-<p>When you use AI-powered features (logbook scanning, aircraft lookup, CSV import mapping), the image or text you submit is sent to Anthropic's Claude API via our Cloudflare Workers proxy for processing. This data is:</p>
+<p class="meta">Blades — Pilot Logbook · Last updated: 2026-09-24</p>
+<p>This Privacy Policy explains how the Blades app ("Blades", "the app", "we") handles your information. Blades is a personal flight logbook. There are no user accounts, and your flight data is stored on your device — not on our servers.</p>
+<h2>1. Who is responsible (Data Controller)</h2>
+<p>The controller for the processing described here is Jesper Toreld, Upplands Väsby, Sweden. Contact: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
+<h2>2. Data stored on your device</h2>
+<p>Everything you enter or scan is stored locally in an AES-256 encrypted database (SQLCipher), in addition to iOS's own device encryption. This includes your flights and drone flights (dates, times, routes/airports, aircraft/drone, roles, times, landings, approaches, remarks), your fleet, digital logbooks, your profile (name, initials, credentials and your signature drawing), settings, and any airports you add. We cannot see this data.</p>
+<h2>3. Device permissions</h2>
 <ul>
-<li>Transmitted over HTTPS (encrypted in transit)</li>
-<li>Processed by Anthropic and <strong>not stored</strong> on their servers after processing</li>
-<li>Not used to train AI models (per Anthropic's API terms)</li>
-<li>Not stored on our proxy beyond the duration of the request</li>
+<li><strong>Camera</strong> — to photograph paper logbooks, cockpit instruments and aircraft/drones for AI extraction.</li>
+<li><strong>Photo Library</strong> — to pick images for scanning, add fleet photos, and (optionally) match photos to your flights by time. Photo matching reads photo metadata (capture time and, where present, location) on your device only.</li>
+<li><strong>Location</strong> — to find the closest airport, name temporary landing sites, compute magnetic variation and geotag entries. Used only while you use these features.</li>
 </ul>
-
-<h2>3. Data We Collect</h2>
-<p>Our proxy collects minimal anonymous telemetry:</p>
+<p>You can grant or revoke each permission in iOS Settings at any time.</p>
+<h2>4. Data sent off your device (and why)</h2>
+<p>Some features transmit data to third parties over encrypted (HTTPS) connections:</p>
 <ul>
-<li>An anonymous device hash (not your Apple ID or personal identifier)</li>
-<li>Request count and type (scan, lookup, etc.) for quota enforcement</li>
-<li>Country of origin (from Cloudflare, not GPS)</li>
-<li>No names, email addresses, flight data, or personal information</li>
+<li><strong>AI features</strong> (logbook/instrument scanning, aircraft &amp; drone lookup, CSV column mapping, import analysis) — the image or text you submit is sent to Anthropic (Claude API) through our Cloudflare Workers proxy. Per Anthropic's API terms it is not used to train models and is not retained after processing. Our proxy does not store the content of your request.</li>
+<li><strong>Usage telemetry (our Cloudflare proxy)</strong> — for each AI request we record a hashed device identifier (derived from Apple's identifier-for-vendor; not your Apple ID and not reversible to your identity), the country (from Cloudflare's network, not GPS), the AI model, response time, token counts, cost and status. We use this only to enforce fair-use quotas, prevent abuse and monitor cost/reliability, and to store your usage counters and any promo-code entitlement against that hashed identifier.</li>
+<li><strong>iCloud Sync (optional)</strong> — if you enable it, an encrypted snapshot of your database and your app photos is stored in your own Apple iCloud account (Apple, not us) so you can back up and move between your devices.</li>
+<li><strong>Weather</strong> — METAR/TAF are fetched from aviationweather.gov using airport codes (no personal data).</li>
+<li><strong>Aircraft/drone images</strong> — retrieved from Wikipedia / Wikimedia Commons using the model name (no personal data).</li>
+<li><strong>Maps &amp; place names</strong> — map tiles and geocoding via Apple Maps, OpenStreetMap / Nominatim, CARTO and Esri. Turning a coordinate into a place name is done by Apple; searching a place by text sends that text to OpenStreetMap.</li>
 </ul>
-
-<h2>4. Third-Party Services</h2>
+<p>Blades contains no advertising, no ad tracking (no IDFA) and no third-party analytics SDKs.</p>
+<h2>5. Legal bases (GDPR)</h2>
 <ul>
-<li><strong>Anthropic (Claude API)</strong> — AI processing. <a href="https://www.anthropic.com/privacy">Anthropic Privacy Policy</a></li>
-<li><strong>Cloudflare Workers</strong> — API proxy and hosting. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a></li>
-<li><strong>Apple App Store</strong> — distribution and payments</li>
-<li><strong>OpenStreetMap / CARTO / Esri</strong> — map tiles (no personal data sent)</li>
+<li><strong>Performance of a contract</strong> — providing the features you actively use (e.g. AI scanning, sync).</li>
+<li><strong>Legitimate interests</strong> — security, quota/abuse prevention, and keeping the service reliable and affordable (the pseudonymous telemetry above).</li>
+<li><strong>Consent</strong> — optional device permissions (camera, photos, location) and iCloud Sync, which you can withdraw at any time in iOS Settings or in the app.</li>
 </ul>
-
-<h2>5. Your Rights</h2>
-<p>Since all data is stored locally on your device, you have full control:</p>
+<h2>6. Sub-processors &amp; third parties</h2>
 <ul>
-<li><strong>Export</strong> your data at any time (CSV or PDF)</li>
-<li><strong>Delete</strong> all data from Settings → Clear all logbook data</li>
-<li><strong>Uninstall</strong> the app to remove all data permanently</li>
+<li><strong>Anthropic</strong> — AI processing. (<a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>)</li>
+<li><strong>Cloudflare</strong> — proxy, hosting, telemetry. (<a href="https://www.cloudflare.com/privacypolicy/">cloudflare.com/privacypolicy</a>)</li>
+<li><strong>Apple</strong> — App Store, iCloud, Maps, geocoding. (<a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a>)</li>
+<li><strong>aviationweather.gov (US NWS/FAA), Wikimedia Foundation, OpenStreetMap Foundation, CARTO, Esri</strong> — weather/imagery/map data.</li>
 </ul>
-
-<h2>6. Children</h2>
-<p>BLADES is not directed at children under 13. We do not knowingly collect data from children.</p>
-
-<h2>7. Changes</h2>
-<p>We may update this policy. Changes will be posted at this URL. Continued use of the app constitutes acceptance.</p>
-
-<h2>8. Contact</h2>
-<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
-
+<h2>7. International transfers</h2>
+<p>Anthropic and Cloudflare process data in the United States. Transfers rely on the EU Standard Contractual Clauses and/or the EU–US Data Privacy Framework where applicable. The data transmitted is limited to what a feature requires (see §4).</p>
+<h2>8. Retention</h2>
+<ul>
+<li>Your data stays on your device until you delete it (Settings) or uninstall the app; iCloud snapshots remain in your iCloud until you delete them.</li>
+<li>Telemetry (hashed id, country, usage) is kept only as long as needed for the purposes in §4, then aggregated or deleted.</li>
+<li>Promo-code entitlement is kept until you uninstall or we revoke it.</li>
+</ul>
+<h2>9. Security</h2>
+<p>Local data is encrypted at rest (AES-256 via SQLCipher) and protected by iOS data protection; all network traffic uses HTTPS/TLS. We hold no user accounts and no central copy of your flight data.</p>
+<h2>10. Your rights</h2>
+<p>Under the GDPR you may request access, rectification, erasure, restriction and portability, object to processing, and withdraw consent. Because your data lives on your device you can exercise most of these directly: export (CSV/PDF) and delete from Settings, and revoke permissions in iOS Settings. For the pseudonymous telemetry, contact us. You may also lodge a complaint with the Swedish Authority for Privacy Protection (IMY, <a href="https://www.imy.se">imy.se</a>).</p>
+<h2>11. Children</h2>
+<p>Blades is intended for pilots and is not directed at children under 13. We do not knowingly collect data from children under 13.</p>
+<h2>12. Changes &amp; contact</h2>
+<p>We may update this policy; changes are posted here with a new date. Questions or requests: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
 <a class="back" href="/">← Back to BLADES</a>
-</body></html>
+</main></body></html>

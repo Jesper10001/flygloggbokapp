@@ -5,48 +5,58 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#F6F1E8;color:#1B2233;max-width:680px;margin:0 auto;padding:40px 24px;line-height:1.7;font-size:15px}
-h1{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:32px;font-weight:600;margin-bottom:8px}
-h2{font-family:'Fraunces',Georgia,serif;color:#1B2233;font-size:20px;font-weight:500;margin:28px 0 8px}
-p,ul{margin-bottom:12px}
-ul{padding-left:20px}
-a{color:#C9522C}
-.meta{color:#6B6356;font-size:13px;margin-bottom:24px}
-.back{display:inline-flex;align-items:center;gap:6px;margin-top:32px;padding:10px 20px;background:#1B2233;color:#F6F1E8;border-radius:999px;font-size:13px;font-weight:600;text-decoration:none}
+body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#080F1C;color:#B5C8D8;line-height:1.7;font-size:15px;-webkit-font-smoothing:antialiased}
+.doc{max-width:720px;margin:0 auto;padding:56px 24px 80px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:44px}
+.top img{height:22px;width:auto}
+.top nav{display:flex;gap:18px;font-size:13px}
+.top nav a{color:#7FA8C8;text-decoration:none}
+.top nav a.on,.top nav a:hover{color:#F4F0E6}
+h1{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:clamp(32px,6vw,44px);font-weight:500;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px}
+.meta{font-family:'Geist Mono',ui-monospace,monospace;color:#5A7FA0;font-size:12px;letter-spacing:.04em;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #122030}
+h2{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:21px;font-weight:500;margin:34px 0 10px}
+p,ul{margin-bottom:12px;text-wrap:pretty}
+ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+li{padding-left:18px;position:relative}
+li::before{content:'';position:absolute;left:0;top:.72em;width:7px;height:1px;background:#00C8E8}
+strong{color:#F4F0E6;font-weight:600}
+a{color:#00C8E8;text-decoration:none}
+a:hover{text-decoration:underline}
+.back{display:inline-flex;align-items:center;gap:8px;margin-top:40px;padding:12px 20px;background:#00C8E8;color:#04101F;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none}
+.back:hover{text-decoration:none}
 </style>
-</head><body>
+</head><body><main class="doc">
+<header class="top"><a href="/"><img src="web-v3/blades-lockup-h.png" alt="BLADES — Pilot Logbook"></a><nav><a href="/privacy">Privacy</a><a href="/terms" class="on">Terms</a></nav></header>
 <h1>Terms of Service</h1>
-<p class="meta">BLADES — Joint Logbook · Last updated: 2026-05-07</p>
-
-<h2>1. Service</h2>
-<p>BLADES is a digital flight logbook application. It assists pilots in recording, scanning, and exporting flight data. The app is a <strong>tool</strong> — the pilot is always responsible for the accuracy of their logbook entries.</p>
-
-<h2>2. AI Features</h2>
-<p>AI-powered features (OCR scanning, aircraft lookup) are provided as an aid. Results should always be reviewed by the pilot before saving. We do not guarantee 100% accuracy of AI-generated data.</p>
-
-<h2>3. Subscriptions</h2>
+<p class="meta">Blades — Pilot Logbook · Last updated: 2026-09-24</p>
+<p>These Terms govern your use of the Blades app. By downloading or using Blades you agree to them. If you do not agree, do not use the app.</p>
+<h2>1. Who we are</h2>
+<p>Blades is provided by Jesper Toreld, Upplands Väsby, Sweden. Contact: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
+<h2>2. The service</h2>
+<p>Blades is a digital flight logbook that helps you record, scan and export flight data. It is a tool: you are always responsible for the accuracy and completeness of your logbook and for meeting any regulatory requirements. Blades is not an official record and is not a substitute for any logbook your authority requires.</p>
+<h2>3. AI features</h2>
+<p>AI features (scanning, lookups, import mapping, summaries) are an aid and may be inaccurate. Always review AI results before saving. We do not guarantee the accuracy or availability of AI output.</p>
+<h2>4. Free use, Premium &amp; purchases</h2>
 <ul>
-<li>Free tier: manual logging, 200 flights, 1 free AI scan, 10 aircraft lookups</li>
-<li>Premium: 49 kr/month — full AI quota, PDF export, CSV import, global ICAO database</li>
-<li>Quota top-up: 49 kr — adds a full month of quota</li>
-<li>Scan packs: 10 scans for 30 kr, 50 scans for 150 kr</li>
+<li><strong>Free</strong> — manual logging and a limited amount of AI usage.</li>
+<li><strong>Blades Premium</strong> — an auto-renewing subscription that unlocks the full AI allowance and premium features. The current price and billing period are shown in the App Store for your region.</li>
 </ul>
-<p>Subscriptions are managed through Apple's App Store. Cancel any time in your Apple ID settings.</p>
-
-<h2>4. Data Ownership</h2>
-<p>You own your flight data. We do not claim any rights to the data you enter or scan into the app. You can export or delete your data at any time.</p>
-
-<h2>5. Limitation of Liability</h2>
-<p>BLADES is provided "as is". We are not liable for any errors in AI-scanned data, lost data due to device failure, or regulatory consequences of logbook inaccuracies. Always maintain a backup of your official logbook.</p>
-
-<h2>6. Acceptable Use</h2>
-<p>Do not attempt to reverse-engineer the API, bypass quota limits, or use the service for purposes other than personal flight logging.</p>
-
-<h2>7. Termination</h2>
-<p>We reserve the right to suspend service for abuse. Your local data remains yours regardless.</p>
-
-<h2>8. Contact</h2>
-<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
-
+<p>Purchases and subscriptions are billed and managed by Apple. A subscription renews automatically until cancelled; manage or cancel it any time in your Apple ID settings, where payment is charged to your Apple account. Apple's standard Licensed Application End User License Agreement also applies to your use of the app.</p>
+<h2>5. Promo codes</h2>
+<p>We may issue promo codes that grant Premium access at no charge (for example, to testers). Promo access is a revocable licence: it may be limited or withdrawn at any time, is tied to your device, and must not be sold or shared.</p>
+<h2>6. Your data &amp; ownership</h2>
+<p>You own the data you enter. We claim no rights to it and keep no central copy of it (see the <a href="/privacy">Privacy Policy</a>). You can export or delete it at any time.</p>
+<h2>7. Acceptable use</h2>
+<p>Do not reverse-engineer the app or its API, circumvent quotas or access controls, or use the service other than for your own personal flight logging.</p>
+<h2>8. Disclaimers &amp; limitation of liability</h2>
+<p>Blades is provided "as is" and "as available". To the extent permitted by law, we are not liable for errors in AI-generated data, loss of data due to device failure or your own actions, or any regulatory consequences of inaccurate logbook entries. Keep an independent backup of your official logbook. Nothing in these Terms limits liability that cannot be limited under applicable Swedish or EU law, or your mandatory statutory rights as a consumer.</p>
+<h2>9. Changes, suspension &amp; termination</h2>
+<p>We may update the app and these Terms, and may suspend the service in case of abuse. Your locally stored data remains yours regardless.</p>
+<h2>10. Governing law</h2>
+<p>These Terms are governed by Swedish law, without prejudice to the mandatory consumer protections of your country of residence in the EU. Disputes are subject to the Swedish courts; as a consumer you may also use the EU Online Dispute Resolution platform.</p>
+<h2>11. App Store (Apple)</h2>
+<p>Apple is not a party to these Terms and is not responsible for the app or its content; these Terms are between you and us. Maintenance, support and any warranty are our responsibility, not Apple's. Apple and its subsidiaries are third-party beneficiaries of these Terms and may enforce them against you.</p>
+<h2>12. Contact</h2>
+<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
 <a class="back" href="/">← Back to BLADES</a>
-</body></html>
+</main></body></html>

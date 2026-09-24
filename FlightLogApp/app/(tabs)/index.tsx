@@ -746,14 +746,16 @@ export default function DashboardScreen() {
     }
   };
   const quickLogbookScan = useCallback(() => {
-    if (!isPremium && tier !== 'max') { setMilestonePremium(t('import_scan_title')); return; }
+    // Scan är gratis men Blade-coins-mätad: free-användare går via den kvot-hanterade scan-skärmen
+    // (fri provpott + köp), premium/max får inline-genvägen direkt från dashboarden.
+    if (!isPremium && tier !== 'max') { router.push('/import/scan'); return; }
     Alert.alert(t('logbook_scan'), t('scan_source_prompt'), [
       { text: t('camera'), onPress: () => runLogbookScan(true) },
       { text: t('photo_library'), onPress: () => runLogbookScan(false) },
       { text: t('cancel'), style: 'cancel' },
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPremium, tier, t]);
+  }, [isPremium, tier, t, router]);
 
   const greetingStyle = useMemo(() => ({
     ...s.hudGreeting,

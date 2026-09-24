@@ -466,7 +466,8 @@ function getPreviewForCountry(data: SeedRow[], countryCode: string, limit = 10) 
 
 export default function AirportScreen() {
   const { t } = useTranslation();
-  const { isPremium } = useFlightStore();
+  // Alla funktioner är gratis — hela ICAO-databasen är upplåst (datan seedas ändå i sin helhet).
+  const isPremium = true;
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);

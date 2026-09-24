@@ -7,7 +7,8 @@ import {
   getManualFlightCount,
   deleteFlight,
 } from '../db/flights';
-import { FREE_TIER_LIMIT } from '../constants/easa';
+import { getDroneFlightCount } from '../db/drones';
+import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../constants/easa';
 
 export type SubscriptionTier = 'free' | 'premium' | 'max';
 
@@ -16,17 +17,20 @@ interface FlightStore {
   stats: FlightStats | null;
   flightCount: number;
   manualFlightCount: number;
+  manualDroneFlightCount: number;
   tier: SubscriptionTier;
   isPremium: boolean;
   isMax: boolean;
   isLoading: boolean;
 
   loadFlights: () => Promise<void>;
+  loadDroneFlightCount: () => Promise<void>;
   loadStats: () => Promise<void>;
   removeFlight: (id: number) => Promise<void>;
   setTier: (tier: SubscriptionTier) => void;
   setIsPremium: (val: boolean) => void;
   canAddFlight: () => boolean;
+  canAddDroneFlight: () => boolean;
 }
 
 const emptyStats: FlightStats = {
@@ -74,6 +78,7 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   stats: null,
   flightCount: 0,
   manualFlightCount: 0,
+  manualDroneFlightCount: 0,
   tier: 'free' as SubscriptionTier,
   isPremium: false,
   isMax: false,
@@ -91,6 +96,14 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  // Alla drönarflygningar loggas manuellt (ingen drönar-import) → drone_flights-antalet = manuell pott.
+  loadDroneFlightCount: async () => {
+    try {
+      const c = await getDroneFlightCount();
+      set({ manualDroneFlightCount: c });
+    } catch { /* ignore */ }
   },
 
   loadStats: async () => {
@@ -129,5 +142,11 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     const { isPremium, manualFlightCount } = get();
     if (isPremium) return true;
     return manualFlightCount < FREE_TIER_LIMIT;
+  },
+
+  canAddDroneFlight: () => {
+    const { isPremium, manualDroneFlightCount } = get();
+    if (isPremium) return true;
+    return manualDroneFlightCount < FREE_TIER_LIMIT_DRONE;
   },
 }));

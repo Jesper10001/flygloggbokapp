@@ -1,16 +1,18 @@
-import * as SQLite from 'expo-sqlite';
+import { openEncryptedDatabase, type SqliteDb } from './sqlite';
+import { getDbKey } from '../services/dbKey';
 
-let db: SQLite.SQLiteDatabase | null = null;
-let dbInit: Promise<SQLite.SQLiteDatabase> | null = null;
+let db: SqliteDb | null = null;
+let dbInit: Promise<SqliteDb> | null = null;
 
 // Delad init-promise: db exponeras FÖRST när schema + migrationer körts klart. Utan detta kan en
 // parallell anropare (komponent/store på mount) få en halv-initierad db och köra frågor innan nya
 // kolumner lagts till (t.ex. "table icao_airports has no column named gps").
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+export async function getDatabase(): Promise<SqliteDb> {
   if (db) return db;
   if (!dbInit) {
     dbInit = (async () => {
-      const d = await SQLite.openDatabaseAsync('flightlog.db');
+      // SQLCipher-krypterad DB. Nyckeln hämtas transparent ur Keychain (ingen prompt).
+      const d = openEncryptedDatabase('flightlog.db', await getDbKey());
       await initializeDatabase(d);
       db = d;
       return d;
@@ -19,7 +21,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   return dbInit;
 }
 
-async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
+async function initializeDatabase(db: SqliteDb): Promise<void> {
   await db.execAsync(`PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;`);
 
   // Steg 1: Skapa grundtabeller (utan de nya kolumnerna — de läggs till i migrationen)
@@ -145,7 +147,7 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
   `);
 }
 
-async function addColumnIfMissing(db: SQLite.SQLiteDatabase, col: string, definition: string): Promise<void> {
+async function addColumnIfMissing(db: SqliteDb, col: string, definition: string): Promise<void> {
   try {
     await db.execAsync(`ALTER TABLE flights ADD COLUMN ${col} ${definition}`);
   } catch {
@@ -153,7 +155,7 @@ async function addColumnIfMissing(db: SQLite.SQLiteDatabase, col: string, defini
   }
 }
 
-async function addColumnIfMissingOnTable(db: SQLite.SQLiteDatabase, table: string, col: string, definition: string): Promise<void> {
+async function addColumnIfMissingOnTable(db: SqliteDb, table: string, col: string, definition: string): Promise<void> {
   try {
     await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${col} ${definition}`);
   } catch {
@@ -161,7 +163,7 @@ async function addColumnIfMissingOnTable(db: SQLite.SQLiteDatabase, table: strin
   }
 }
 
-async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
+async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissing(db, 'status',       `TEXT NOT NULL DEFAULT 'manual'`);
   await addColumnIfMissing(db, 'source',       `TEXT NOT NULL DEFAULT 'manual'`);
   await addColumnIfMissing(db, 'original_data',`TEXT`);

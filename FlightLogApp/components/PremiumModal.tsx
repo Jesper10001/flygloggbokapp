@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const PREMIUM_PRICE_MONTHLY = 49;
+export const PREMIUM_PRICE_MONTHLY = 39;
 export const PREMIUM_PRICE_YEARLY = 349;
 export const PREMIUM_PRICE_YEARLY_MONTHLY = Math.round(PREMIUM_PRICE_YEARLY / 12);
 
@@ -21,19 +21,19 @@ const N = {
 };
 
 const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
+  infinite: 'infinite-outline',
+  coin: 'sparkles-outline',
   camera: 'camera-outline',
-  instrument: 'speedometer-outline',
-  sparkle: 'sparkles-outline',
-  progress: 'trending-up-outline',
-  pdf: 'document-outline',
+  sparkle: 'search-outline',
+  offline: 'cloud-offline-outline',
 };
 
 const PRIMARY_FEATURES = [
-  { icon: 'camera', t: 'Scan paper logbook with AI' },
-  { icon: 'instrument', t: 'Log from instrument photo' },
-  { icon: 'sparkle', t: 'AI lookup of aircraft and runway' },
-  { icon: 'progress', t: 'EASA progress with CPL/ATPL forecast' },
-  { icon: 'pdf', t: 'PDF export — a pilot CV you actually want to send' },
+  { icon: 'infinite', t: 'Unlimited flights — no 20-flight limit' },
+  { icon: 'coin', t: 'Blade-coins refilled every month' },
+  { icon: 'camera', t: 'Scan your paper logbook with AI' },
+  { icon: 'sparkle', t: 'AI lookup of aircraft and runways' },
+  { icon: 'offline', t: 'Everything else in Blades, free forever' },
 ];
 
 interface Props {
@@ -98,7 +98,7 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
             {/* Lead */}
             <Text style={s.lead}>
-              Premium unlocks <Text style={s.leadBold}>AI logging</Text>, <Text style={s.leadBold}>EASA progress</Text> and a <Text style={s.leadBold}>professional PDF export</Text>.
+              Premium gives you <Text style={s.leadBold}>unlimited flights</Text> and a monthly refill of <Text style={s.leadBold}>Blade-coins</Text> for AI. Everything else stays free.
             </Text>
 
             {/* Feature list */}

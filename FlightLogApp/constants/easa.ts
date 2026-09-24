@@ -16,4 +16,7 @@ export const EASA_ATPL_REQUIREMENTS = {
   multi_pilot: { required: 500, label: 'Multi-pilot' },
 };
 
-export const FREE_TIER_LIMIT = 200;
+// Gratisgräns: antal MANUELLT inmatade flygningar en free-användare kan logga (importerade/scannade
+// räknas inte). Gäller per läge — pilot och drönare har varsin pott. Premium = obegränsat.
+export const FREE_TIER_LIMIT = 20;
+export const FREE_TIER_LIMIT_DRONE = 20;

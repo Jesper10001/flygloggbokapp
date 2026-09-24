@@ -11,9 +11,15 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.blades.jointlogbook",
       "entitlements": {
-        "com.apple.developer.icloud-container-identifiers": ["iCloud.com.blades.jointlogbook"],
-        "com.apple.developer.ubiquity-container-identifiers": ["iCloud.com.blades.jointlogbook"],
-        "com.apple.developer.icloud-services": ["CloudDocuments"]
+        "com.apple.developer.icloud-container-identifiers": [
+          "iCloud.com.blades.jointlogbook"
+        ],
+        "com.apple.developer.ubiquity-container-identifiers": [
+          "iCloud.com.blades.jointlogbook"
+        ],
+        "com.apple.developer.icloud-services": [
+          "CloudDocuments"
+        ]
       },
       "infoPlist": {
         "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
@@ -58,7 +64,6 @@
         }
       ],
       "expo-router",
-      "expo-sqlite",
       "expo-font",
       [
         "expo-camera",
@@ -84,7 +89,8 @@
       ],
       "expo-video",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

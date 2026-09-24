@@ -950,7 +950,7 @@ export default function ReviewScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ imp?: string; batch?: string }>();
-  const { loadFlights, loadStats, canAddFlight } = useFlightStore();
+  const { loadFlights, loadStats } = useFlightStore();
   const { timeFormat } = useTimeFormatStore();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -1542,10 +1542,8 @@ export default function ReviewScreen() {
   };
 
   const saveAll = async () => {
-    if (!canAddFlight()) {
-      Alert.alert(t('limit_reached'), t('limit_reached_upgrade'));
-      return;
-    }
+    // Scan-/AI-importer sparas som 'scanned' och räknas inte mot den manuella gratisgränsen
+    // (importen är i stället Blade-coins-mätad) → ingen flyggräns-spärr här.
     doSave();
   };
 

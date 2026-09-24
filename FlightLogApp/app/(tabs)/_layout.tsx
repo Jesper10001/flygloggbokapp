@@ -7,7 +7,10 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
-import { getSetting } from '../../db/flights';
+import { getSetting, getManualFlightCount } from '../../db/flights';
+import { getDroneFlightCount } from '../../db/drones';
+import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
+import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 
@@ -25,6 +28,26 @@ export default function TabsLayout() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   useEffect(() => { loadAccent(); }, [loadAccent]);
 
+  // Gratisgräns nådd → visa uppmaning till Premium istället för att öppna Log Flight.
+  const [limitModal, setLimitModal] = useState<null | 'pilot' | 'drone'>(null);
+  const premium = isPremium || isMax;
+
+  // Kollar mot databasen vid tryck (färsk siffra) → free-användaren stoppas vid gränsen.
+  const openLogFlight = async () => {
+    if (!premium) {
+      const n = await getManualFlightCount().catch(() => 0);
+      if (n >= FREE_TIER_LIMIT) { setLimitModal('pilot'); return; }
+    }
+    router.push('/flight/add');
+  };
+  const openDroneFlight = async () => {
+    if (!premium) {
+      const n = await getDroneFlightCount().catch(() => 0);
+      if (n >= FREE_TIER_LIMIT_DRONE) { setLimitModal('drone'); return; }
+    }
+    router.push('/drone-flight/add');
+  };
+
   useEffect(() => {
     (async () => {
       const saved = await getSetting('scan_page_start_count');
@@ -34,6 +57,7 @@ export default function TabsLayout() {
   }, [flightCount]);
 
   return (
+    <>
     <Tabs
       // Lägesbytet navigerar EXPLICIT till rätt dashboard (settings/drone-settings, deferred
       // efter re-render) → ingen remount-key behövs. /(tabs) löser sig till manned-ankaret
@@ -84,7 +108,7 @@ export default function TabsLayout() {
           title: '',
           tabBarButton: isDrone
             ? undefined
-            : () => <LogFlightButton premium={isPremium || isMax} onPress={() => router.push('/flight/add')} />,
+            : () => <LogFlightButton premium={isPremium || isMax} onPress={openLogFlight} />,
         }}
       />
       <Tabs.Screen
@@ -123,7 +147,7 @@ export default function TabsLayout() {
           href: isDrone ? undefined : null,
           title: '',
           tabBarButton: isDrone
-            ? () => <DroneFabButton premium={isPremium || isMax} onPress={() => router.push('/drone-flight/add')} />
+            ? () => <DroneFabButton premium={isPremium || isMax} onPress={openDroneFlight} />
             : undefined,
         }}
       />
@@ -173,6 +197,14 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <FlightLimitModal
+      visible={limitModal !== null}
+      kind={limitModal ?? 'pilot'}
+      limit={limitModal === 'drone' ? FREE_TIER_LIMIT_DRONE : FREE_TIER_LIMIT}
+      onClose={() => setLimitModal(null)}
+      onGoPremium={() => { setLimitModal(null); router.push('/settings/premium'); }}
+    />
+    </>
   );
 }
 

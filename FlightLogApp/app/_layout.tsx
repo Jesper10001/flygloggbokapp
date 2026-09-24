@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import { getDatabase } from '../db/database';
+import { runEncryptionSelfTest } from '../db/sqlite';
 import { seedIcaoAirports } from '../db/icao';
 import { getSetting, setSetting } from '../db/flights';
 import { checkPromoEntitlement } from '../services/promo';
@@ -80,6 +81,8 @@ export default function RootLayout() {
         setFontsLoaded(true);
 
         await getDatabase();
+        // DEV-ONLY: verifierar att SQLCipher är aktivt och att fel nyckel avvisas. Loggar [crypto] ... i konsolen.
+        if (__DEV__) runEncryptionSelfTest();
         // Promo-kod (gratis Premium): cache-först (snabbt/offline) → server-verifiering i bakgrunden.
         // Servern (proxyns KV) är sanningskällan → revocera en testare genom att ta bort KV-nyckeln.
         const promoCached = (await getSetting('promo_premium').catch(() => null)) === '1';

@@ -482,8 +482,9 @@ export function EASAProgressCharts({ standard = 'easa', forceUnlock = false }: {
   const scrollRef = useRef<ScrollView>(null);
   const flightCount = useFlightStore(s => s.flightCount);
   const isPremium = useFlightStore(s => s.isPremium);
-  // Wrapped-genomgången visar allt upplåst (forceUnlock) som teaser.
-  const unlocked = isPremium || forceUnlock;
+  // Alla funktioner är gratis — EASA-progress/CPL-ATPL-forecast är inte längre låst bakom Premium.
+  const unlocked = true;
+  void forceUnlock;
   const profile = useProfileStore(s => s.profile);
   const cardWidth = Dimensions.get('window').width - 24;
 

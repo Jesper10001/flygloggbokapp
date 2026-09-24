@@ -332,55 +332,74 @@ a{color:#00C8E8}
 </style>
 </head><body>
 <h1>Privacy Policy</h1>
-<p class="meta">BLADES — Joint Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
+<p class="meta">Blades — Pilot Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
 
-<h2>1. Data Storage</h2>
-<p>BLADES stores all flight data, certificates, and settings <strong>locally on your device</strong> using an encrypted SQLite database. We do not operate user accounts, and no flight data is stored on our servers.</p>
+<p>This Privacy Policy explains how the Blades app ("Blades", "the app", "we") handles your information. Blades is a personal flight logbook. <strong>There are no user accounts, and your flight data is stored on your device — not on our servers.</strong></p>
 
-<h2>2. AI Processing</h2>
-<p>When you use AI-powered features (logbook scanning, aircraft lookup, CSV import mapping), the image or text you submit is sent to Anthropic's Claude API via our Cloudflare Workers proxy for processing. This data is:</p>
+<h2>1. Who is responsible (Data Controller)</h2>
+<p>The controller for the processing described here is Jesper Toreld, Upplands Väsby, Sweden. Contact: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
+
+<h2>2. Data stored on your device</h2>
+<p>Everything you enter or scan is stored locally in an <strong>AES-256 encrypted database (SQLCipher)</strong>, in addition to iOS's own device encryption. This includes your flights and drone flights (dates, times, routes/airports, aircraft/drone, roles, times, landings, approaches, remarks), your fleet, digital logbooks, certificates, your profile (name, initials, credentials and your signature drawing), settings, and any airports you add. We cannot see this data.</p>
+
+<h2>3. Device permissions</h2>
 <ul>
-<li>Transmitted over HTTPS (encrypted in transit)</li>
-<li>Processed by Anthropic and <strong>not stored</strong> on their servers after processing</li>
-<li>Not used to train AI models (per Anthropic's API terms)</li>
-<li>Not stored on our proxy beyond the duration of the request</li>
+<li><strong>Camera</strong> — to photograph paper logbooks, cockpit instruments and aircraft/drones for AI extraction.</li>
+<li><strong>Photo Library</strong> — to pick images for scanning, add fleet photos, and (optionally) match photos to your flights by time. Photo matching reads photo metadata (capture time and, where present, location) <em>on your device only</em>.</li>
+<li><strong>Location</strong> — to find the closest airport, name temporary landing sites, compute magnetic variation and geotag entries. Used only while you use these features.</li>
+</ul>
+<p>You can grant or revoke each permission in iOS Settings at any time.</p>
+
+<h2>4. Data sent off your device (and why)</h2>
+<p>Some features transmit data to third parties over encrypted (HTTPS) connections:</p>
+<ul>
+<li><strong>AI features</strong> (logbook/instrument scanning, aircraft &amp; drone lookup, CSV column mapping, import analysis) — the image or text you submit is sent to <strong>Anthropic (Claude API)</strong> through our <strong>Cloudflare Workers</strong> proxy. Per Anthropic's API terms it is <strong>not used to train models</strong> and is not retained after processing. Our proxy does not store the content of your request.</li>
+<li><strong>Usage telemetry</strong> (our Cloudflare proxy) — for each AI request we record a <em>hashed</em> device identifier (derived from Apple's identifier-for-vendor; not your Apple ID and not reversible to your identity), the country (from Cloudflare's network, not GPS), the AI model, response time, token counts, cost and status. We use this only to enforce fair-use quotas, prevent abuse and monitor cost/reliability, and to store your usage counters and any promo-code entitlement against that hashed identifier.</li>
+<li><strong>iCloud Sync</strong> (optional) — if you enable it, an <strong>encrypted</strong> snapshot of your database and your app photos is stored in <strong>your own Apple iCloud account</strong> (Apple, not us) so you can back up and move between your devices.</li>
+<li><strong>Weather</strong> — METAR/TAF are fetched from <strong>aviationweather.gov</strong> using airport codes (no personal data).</li>
+<li><strong>Aircraft/drone images</strong> — retrieved from <strong>Wikipedia / Wikimedia Commons</strong> using the model name (no personal data).</li>
+<li><strong>Maps &amp; place names</strong> — map tiles and geocoding via <strong>Apple Maps</strong>, <strong>OpenStreetMap / Nominatim</strong>, <strong>CARTO</strong> and <strong>Esri</strong>. Turning a coordinate into a place name is done by Apple; searching a place by text sends that text to OpenStreetMap.</li>
+</ul>
+<p>Blades contains <strong>no advertising, no ad tracking (no IDFA) and no third-party analytics SDKs.</strong></p>
+
+<h2>5. Legal bases (GDPR)</h2>
+<ul>
+<li><strong>Performance of a contract</strong> — providing the features you actively use (e.g. AI scanning, sync).</li>
+<li><strong>Legitimate interests</strong> — security, quota/abuse prevention, and keeping the service reliable and affordable (the pseudonymous telemetry above).</li>
+<li><strong>Consent</strong> — optional device permissions (camera, photos, location) and iCloud Sync, which you can withdraw at any time in iOS Settings or in the app.</li>
 </ul>
 
-<h2>3. Data We Collect</h2>
-<p>Our proxy collects minimal anonymous telemetry:</p>
+<h2>6. Sub-processors &amp; third parties</h2>
 <ul>
-<li>An anonymous device hash (not your Apple ID or personal identifier)</li>
-<li>Request count and type (scan, lookup, etc.) for quota enforcement</li>
-<li>Country of origin (from Cloudflare, not GPS)</li>
-<li>No names, email addresses, flight data, or personal information</li>
+<li><strong>Anthropic</strong> — AI processing. <a href="https://www.anthropic.com/legal/privacy">Privacy</a></li>
+<li><strong>Cloudflare</strong> — proxy, hosting, telemetry. <a href="https://www.cloudflare.com/privacypolicy/">Privacy</a></li>
+<li><strong>Apple</strong> — App Store, iCloud, Maps, geocoding. <a href="https://www.apple.com/legal/privacy/">Privacy</a></li>
+<li><strong>aviationweather.gov</strong> (US NWS/FAA), <strong>Wikimedia Foundation</strong>, <strong>OpenStreetMap Foundation</strong>, <strong>CARTO</strong>, <strong>Esri</strong> — weather/imagery/map data.</li>
 </ul>
 
-<h2>4. Third-Party Services</h2>
+<h2>7. International transfers</h2>
+<p>Anthropic and Cloudflare process data in the United States. Transfers rely on the EU Standard Contractual Clauses and/or the EU–US Data Privacy Framework where applicable. The data transmitted is limited to what a feature requires (see §4).</p>
+
+<h2>8. Retention</h2>
 <ul>
-<li><strong>Anthropic (Claude API)</strong> — AI processing. <a href="https://www.anthropic.com/privacy">Anthropic Privacy Policy</a></li>
-<li><strong>Cloudflare Workers</strong> — API proxy and hosting. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a></li>
-<li><strong>Apple App Store</strong> — distribution and payments</li>
-<li><strong>OpenStreetMap / CARTO / Esri</strong> — map tiles (no personal data sent)</li>
+<li><strong>Your data</strong> stays on your device until you delete it (Settings) or uninstall the app; iCloud snapshots remain in your iCloud until you delete them.</li>
+<li><strong>Telemetry</strong> (hashed id, country, usage) is kept only as long as needed for the purposes in §4, then aggregated or deleted.</li>
+<li><strong>Promo-code entitlement</strong> is kept until you uninstall or we revoke it.</li>
 </ul>
 
-<h2>5. Your Rights</h2>
-<p>Since all data is stored locally on your device, you have full control:</p>
-<ul>
-<li><strong>Export</strong> your data at any time (CSV or PDF)</li>
-<li><strong>Delete</strong> all data from Settings → Clear all logbook data</li>
-<li><strong>Uninstall</strong> the app to remove all data permanently</li>
-</ul>
+<h2>9. Security</h2>
+<p>Local data is encrypted at rest (AES-256 via SQLCipher) and protected by iOS data protection; all network traffic uses HTTPS/TLS. We hold no user accounts and no central copy of your flight data.</p>
 
-<h2>6. Children</h2>
-<p>BLADES is not directed at children under 13. We do not knowingly collect data from children.</p>
+<h2>10. Your rights</h2>
+<p>Under the GDPR you may request access, rectification, erasure, restriction and portability, object to processing, and withdraw consent. Because your data lives on your device you can exercise most of these directly: <strong>export</strong> (CSV/PDF) and <strong>delete</strong> from Settings, and revoke permissions in iOS Settings. For the pseudonymous telemetry, contact us. You may also lodge a complaint with the Swedish Authority for Privacy Protection (<strong>IMY</strong>, imy.se).</p>
 
-<h2>7. Changes</h2>
-<p>We may update this policy. Changes will be posted at this URL. Continued use of the app constitutes acceptance.</p>
+<h2>11. Children</h2>
+<p>Blades is intended for pilots and is not directed at children under 13. We do not knowingly collect data from children under 13.</p>
 
-<h2>8. Contact</h2>
-<p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
+<h2>12. Changes &amp; contact</h2>
+<p>We may update this policy; changes are posted here with a new date. Questions or requests: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
 
-<p style="margin-top:32px;text-align:center"><a href="/">← Back to BLADES</a></p>
+<p style="margin-top:32px;text-align:center"><a href="/">← Back to Blades</a></p>
 </body></html>`;
 }
 
@@ -403,39 +422,51 @@ a{color:#00C8E8}
 </style>
 </head><body>
 <h1>Terms of Service</h1>
-<p class="meta">BLADES — Joint Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
+<p class="meta">Blades — Pilot Logbook · Last updated: ${new Date().toISOString().slice(0, 10)}</p>
 
-<h2>1. Service</h2>
-<p>BLADES is a digital flight logbook application. It assists pilots in recording, scanning, and exporting flight data. The app is a <strong>tool</strong> — the pilot is always responsible for the accuracy of their logbook entries.</p>
+<p>These Terms govern your use of the Blades app. By downloading or using Blades you agree to them. If you do not agree, do not use the app.</p>
 
-<h2>2. AI Features</h2>
-<p>AI-powered features (OCR scanning, aircraft lookup) are provided as an aid. Results should always be reviewed by the pilot before saving. We do not guarantee 100% accuracy of AI-generated data.</p>
+<h2>1. Who we are</h2>
+<p>Blades is provided by Jesper Toreld, Upplands Väsby, Sweden. Contact: <a href="mailto:support@blades-app.com">support@blades-app.com</a>.</p>
 
-<h2>3. Subscriptions</h2>
+<h2>2. The service</h2>
+<p>Blades is a digital flight logbook that helps you record, scan and export flight data. It is a <strong>tool</strong>: you are always responsible for the accuracy and completeness of your logbook and for meeting any regulatory requirements. Blades is not an official record and is not a substitute for any logbook your authority requires.</p>
+
+<h2>3. AI features</h2>
+<p>AI features (scanning, lookups, import mapping, summaries) are an aid and may be inaccurate. <strong>Always review AI results before saving.</strong> We do not guarantee the accuracy or availability of AI output.</p>
+
+<h2>4. Free use, Premium &amp; purchases</h2>
 <ul>
-<li>Free tier: manual logging, 1 free AI scan, 10 aircraft lookups</li>
-<li>Premium: 49 kr/month — full AI quota, PDF export, CSV import, global ICAO database</li>
-<li>Quota top-up: 49 kr — resets all monthly limits once</li>
-<li>Scan packs: 10 scans for 30 kr, 50 scans for 150 kr</li>
+<li><strong>Free</strong> — manual logging and a limited amount of AI usage.</li>
+<li><strong>Blades Premium</strong> — an <strong>auto-renewing subscription</strong> that unlocks the full AI allowance and premium features. The current price and billing period are shown in the App Store for your region.</li>
 </ul>
-<p>Subscriptions are managed through Apple's App Store. Cancel any time in your Apple ID settings.</p>
+<p>Purchases and subscriptions are billed and managed by <strong>Apple</strong>. A subscription renews automatically until cancelled; manage or cancel it any time in your Apple ID settings, where payment is charged to your Apple account. Apple's standard Licensed Application End User License Agreement also applies to your use of the app.</p>
 
-<h2>4. Data Ownership</h2>
-<p>You own your flight data. We do not claim any rights to the data you enter or scan into the app. You can export or delete your data at any time.</p>
+<h2>5. Promo codes</h2>
+<p>We may issue promo codes that grant Premium access at no charge (for example, to testers). Promo access is a revocable licence: it may be limited or withdrawn at any time, is tied to your device, and must not be sold or shared.</p>
 
-<h2>5. Limitation of Liability</h2>
-<p>BLADES is provided "as is". We are not liable for any errors in AI-scanned data, lost data due to device failure, or regulatory consequences of logbook inaccuracies. Always maintain a backup of your official logbook.</p>
+<h2>6. Your data &amp; ownership</h2>
+<p>You own the data you enter. We claim no rights to it and keep no central copy of it (see the Privacy Policy). You can export or delete it at any time.</p>
 
-<h2>6. Acceptable Use</h2>
-<p>Do not attempt to reverse-engineer the API, bypass quota limits, or use the service for purposes other than personal flight logging.</p>
+<h2>7. Acceptable use</h2>
+<p>Do not reverse-engineer the app or its API, circumvent quotas or access controls, or use the service other than for your own personal flight logging.</p>
 
-<h2>7. Termination</h2>
-<p>We reserve the right to suspend service for abuse. Your local data remains yours regardless.</p>
+<h2>8. Disclaimers &amp; limitation of liability</h2>
+<p>Blades is provided "as is" and "as available". To the extent permitted by law, we are not liable for errors in AI-generated data, loss of data due to device failure or your own actions, or any regulatory consequences of inaccurate logbook entries. <strong>Keep an independent backup of your official logbook.</strong> Nothing in these Terms limits liability that cannot be limited under applicable Swedish or EU law, or your mandatory statutory rights as a consumer.</p>
 
-<h2>8. Contact</h2>
+<h2>9. Changes, suspension &amp; termination</h2>
+<p>We may update the app and these Terms, and may suspend the service in case of abuse. Your locally stored data remains yours regardless.</p>
+
+<h2>10. Governing law</h2>
+<p>These Terms are governed by Swedish law, without prejudice to the mandatory consumer protections of your country of residence in the EU. Disputes are subject to the Swedish courts; as a consumer you may also use the EU Online Dispute Resolution platform.</p>
+
+<h2>11. App Store (Apple)</h2>
+<p>Apple is not a party to these Terms and is not responsible for the app or its content; these Terms are between you and us. Maintenance, support and any warranty are our responsibility, not Apple's. Apple and its subsidiaries are third-party beneficiaries of these Terms and may enforce them against you.</p>
+
+<h2>12. Contact</h2>
 <p>Questions? Email <a href="mailto:support@blades-app.com">support@blades-app.com</a></p>
 
-<p style="margin-top:32px;text-align:center"><a href="/">← Back to BLADES</a></p>
+<p style="margin-top:32px;text-align:center"><a href="/">← Back to Blades</a></p>
 </body></html>`;
 }
 

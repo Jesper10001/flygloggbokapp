@@ -307,34 +307,30 @@ function PremiumCard({ onSubscribe }: { onSubscribe: () => void }) {
         BLADES <Text style={{ color: N.gold }}>Premium</Text>
       </Text>
       <Text style={{ fontSize: 12, color: N.text3, marginBottom: 12, lineHeight: 17 }}>
-        Everything you need to fly professionally.
+        Unlimited flights and a monthly refill of Blade-coins. Everything else in Blades is free.
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 14 }}>
-        <Text style={{ fontFamily: 'Georgia', fontSize: 36, color: N.text, letterSpacing: -1 }}>49</Text>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 36, color: N.text, letterSpacing: -1 }}>39</Text>
         <Text style={{ fontSize: 12, color: N.text3 }}>kr / month</Text>
       </View>
 
-      <FeatureGroup icon="instrument" label="AI · in your cockpit" items={[
+      <FeatureGroup icon="progress" label="Log without limits" items={[
+        { t: 'Unlimited manual flights', d: 'No 20-flight cap — log as much as you fly.' },
+      ]} />
+      <FeatureGroup icon="instrument" label="Blade-coins, refilled monthly" items={[
         { t: 'Flight imports', q: '30 / mo', d: 'Photograph instruments — AI fills the form.' },
         { t: 'Logbook scans', q: '10 / mo', d: 'Photograph paper pages, every column read.' },
         { t: 'Aircraft lookups', q: '20 / mo', d: 'Identify type & specs from a photo.' },
         { t: 'Page summaries', q: '10 / mo' },
       ]} />
-      <FeatureGroup icon="progress" label="Tracking" items={[
-        { t: 'EASA progress', d: 'Live PPL/CPL/ATPL tracking with forecast dates.' },
-        { t: 'Unlimited manual logging', d: 'No 200-flight cap.' },
-        { t: 'Currency & milestone alerts' },
-      ]} />
-      <FeatureGroup icon="pdf" label="Export & share" items={[
-        { t: 'EASA-format PDF', d: 'Pilot CV / experience summary.' },
-        { t: 'Flight share cards', d: 'Photo + stats + runway diagram.' },
-      ]} />
-      <FeatureGroup icon="globe" label="Database" items={[
+      <FeatureGroup icon="globe" label="Free for everyone" items={[
+        { t: 'EASA progress & currency', d: 'PPL/CPL/ATPL tracking with forecast dates.' },
         { t: 'Full ICAO airport database', q: '13 000+', d: 'With runway diagrams for every airport.' },
+        { t: 'Flight share cards & export', d: 'No paywall — included on Free too.' },
       ]} />
 
       <TouchableOpacity style={s.ctaGold} onPress={onSubscribe} activeOpacity={0.85}>
-        <Text style={s.ctaGoldText}>Subscribe — 49 kr/month</Text>
+        <Text style={s.ctaGoldText}>Subscribe — 39 kr/month</Text>
       </TouchableOpacity>
     </View>
   );
@@ -403,12 +399,9 @@ function MaxCard({ onSubscribe }: { onSubscribe: () => void }) {
 // ── Free miss card ───────────────────────────────────────────────────────
 function FreeMissCard() {
   const missing = [
-    'No flight data imports',
-    'No PDF export',
-    'No EASA progress tracking',
-    'Only 1 logbook scan (one-time)',
-    'Limited to 200 manual flights',
-    'Basic ICAO search (10 / mo)',
+    'Capped at 20 manual flights',
+    'One-time Blade-coins only',
+    'No monthly Blade-coin refill',
   ];
   return (
     <View style={[s.tierCard, { borderColor: N.cardBorder }]}>
@@ -505,7 +498,6 @@ export default function PremiumScreen() {
         {/* Tier cards */}
         <View style={{ padding: 18, gap: 14, paddingBottom: 28 }}>
           <PremiumCard onSubscribe={() => handleSubscribe('premium')} />
-          <MaxCard onSubscribe={() => handleSubscribe('max')} />
           <FreeMissCard />
 
           {/* Restore + fine print */}

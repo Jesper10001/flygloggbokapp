@@ -12,8 +12,12 @@ import { useTranslation } from '../../hooks/useTranslation';
 import {
   listDrones, insertDroneFlight, getDroneFlights,
   getDroneFlightById, updateDroneFlight, getRecentDroneLocations, addDrone, updateDrone,
+  getDroneFlightCount,
   type DroneRegistryEntry, type DroneFlightFormData, type DroneFlightMode,
 } from '../../db/drones';
+import { useFlightStore } from '../../store/flightStore';
+import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
+import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { DroneModal } from '../../components/DroneModal';
 import { SlideToggle } from '../../components/logflight/SlideToggle';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -101,6 +105,9 @@ export default function AddDroneFlightScreen() {
   const isEdit = !!editId;
   const { t } = useTranslation();
   const { loadFlights, loadStats } = useDroneFlightStore();
+  const { isPremium, isMax, canAddDroneFlight } = useFlightStore();
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitBlockedOnEntry, setLimitBlockedOnEntry] = useState(false);
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
@@ -412,7 +419,23 @@ export default function AddDroneFlightScreen() {
 
   // sameSession = spara och logga nästa flygning i samma pass: behåll drönare/plats/
   // uppdrag/kategori/läge, nollställ tid, stanna kvar.
+  // Gratisgräns: nådd redan vid öppning av en NY drönarflygning → visa Premium-uppmaning direkt.
+  useEffect(() => {
+    if (!isEdit && !isPremium && !isMax) {
+      getDroneFlightCount().then((n) => {
+        if (n >= FREE_TIER_LIMIT_DRONE) { setLimitBlockedOnEntry(true); setShowLimitModal(true); }
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const save = async (sameSession = false) => {
+    // Gratisgräns för manuellt loggade drönarflygningar (ny, ej redigering). Kollas mot DB varje spar
+    // så även "same session"-flödet stoppas vid gränsen.
+    if (!isEdit && !isPremium && !isMax) {
+      const n = await getDroneFlightCount().catch(() => 0);
+      if (n >= FREE_TIER_LIMIT_DRONE) { setShowLimitModal(true); return; }
+    }
     if (!form.drone_id) { Alert.alert(t('error'), t('drone_pick_required')); return; }
     if ((parseFloat(form.total_time) || 0) <= 0) { Alert.alert(t('error'), t('time_required')); return; }
     setSaving(true);
@@ -1264,6 +1287,14 @@ export default function AddDroneFlightScreen() {
         initialModel={pendingModel ?? curModel ?? ''}
         onClose={() => setShowDroneModal(false)}
         onSave={onDroneModalSave}
+      />
+
+      <FlightLimitModal
+        visible={showLimitModal}
+        kind="drone"
+        limit={FREE_TIER_LIMIT_DRONE}
+        onClose={() => { setShowLimitModal(false); if (limitBlockedOnEntry) router.back(); }}
+        onGoPremium={() => { setShowLimitModal(false); router.replace('/settings/premium'); }}
       />
 
       {/* Lägg registrering/serienr för vald modell (matas under Registration-fältet) */}

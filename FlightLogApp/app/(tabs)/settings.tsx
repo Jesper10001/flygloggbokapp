@@ -11,6 +11,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
 import { Colors } from '../../constants/colors';
+import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
@@ -182,7 +183,7 @@ export default function SettingsScreen() {
   const { mode: appMode, setMode: setAppMode } = useAppModeStore();
   const { operatorId, setOperatorId, loadOperatorId } = useOperatorStore();
   const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
-  const { isPremium, isMax, setIsPremium, flightCount, loadFlights, loadStats } = useFlightStore();
+  const { isPremium, isMax, setIsPremium, flightCount, manualFlightCount, loadFlights, loadStats } = useFlightStore();
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const { standard, setStandard } = useRegulationStandardStore();
@@ -216,6 +217,7 @@ export default function SettingsScreen() {
   useFocusEffect(useCallback(() => {
     useRegulationStandardStore.getState().load();
     useTokenQuotaStore.getState().load();
+    useFlightStore.getState().loadFlights();
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
       const last = (await getSetting('profile_last_name')) ?? '';
@@ -510,6 +512,34 @@ export default function SettingsScreen() {
                     : 'Blade-coins used this month · refills monthly'}
                 </Text>
               </View>
+            </View>
+          </View>
+        );
+      })()}
+
+      {/* ── Fria flygningar-mätare: manuellt loggade flygningar mot gratisgränsen (importerade räknas ej) ── */}
+      {(() => {
+        const used = manualFlightCount;
+        const limit = FREE_TIER_LIMIT;
+        const left = Math.max(0, limit - used);
+        const pct = isPremium ? 100 : Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
+        return (
+          <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
+            <View style={{ gap: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary }}>Flights logged</Text>
+                <Text style={{ fontSize: 12, color: Colors.textSecondary, fontFamily: 'Menlo', fontWeight: '600' }}>
+                  {isPremium ? `${used} · ∞` : `${used} / ${limit}`}
+                </Text>
+              </View>
+              <View style={{ height: 4, borderRadius: 2, backgroundColor: Colors.elevated, overflow: 'hidden' }}>
+                <View style={{ height: 4, borderRadius: 2, width: `${pct}%`, backgroundColor: Colors.textMuted }} />
+              </View>
+              <Text style={{ fontSize: 10.5, color: Colors.textMuted }}>
+                {isPremium
+                  ? 'Premium · unlimited flights'
+                  : `${left} more you can add for free`}
+              </Text>
             </View>
           </View>
         );

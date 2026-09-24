@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { getDroneFlightCount } from '../../db/drones';
+import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { exportDroneFlightsToCSV } from '../../services/export';
 import { useToastStore } from '../../components/Toast';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
@@ -247,6 +248,34 @@ export default function DroneSettingsScreen() {
                 </View>
                 <Text style={{ fontSize: 10.5, color: DR.muted }}>{tokenUsage.month === 'lifetime' ? 'Free one-time Blade-coins · upgrade for a monthly refill' : 'Blade-coins used this month · refills monthly'}</Text>
               </View>
+            </View>
+          </View>
+        );
+      })()}
+
+      {/* ── Fria flygningar-mätare: manuellt loggade drönarflygningar mot gratisgränsen ── */}
+      {(() => {
+        const used = flightCount;
+        const limit = FREE_TIER_LIMIT_DRONE;
+        const left = Math.max(0, limit - used);
+        const pct = isPremium ? 100 : Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
+        return (
+          <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
+            <View style={{ gap: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: DR.text2 }}>Flights logged</Text>
+                <Text style={{ fontSize: 12, color: DR.text2, fontFamily: 'Menlo', fontWeight: '600' }}>
+                  {isPremium ? `${used} · ∞` : `${used} / ${limit}`}
+                </Text>
+              </View>
+              <View style={{ height: 4, borderRadius: 2, backgroundColor: DR.elevated, overflow: 'hidden' }}>
+                <View style={{ height: 4, borderRadius: 2, width: `${pct}%`, backgroundColor: DR.muted }} />
+              </View>
+              <Text style={{ fontSize: 10.5, color: DR.muted }}>
+                {isPremium
+                  ? 'Premium · unlimited flights'
+                  : `${left} more you can add for free`}
+              </Text>
             </View>
           </View>
         );
