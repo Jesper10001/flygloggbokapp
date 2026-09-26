@@ -12,6 +12,28 @@ import type { Flight } from '../types/flight';
 
 const WINDOW_MS = 30 * 60 * 1000;           // ±30 min buffertfönster
 const LAST_SYNC_KEY = 'last_photo_sync';
+const SKIPPED_KEY = 'photo_sync_skipped'; // flight-id:n användaren hoppat över → återkommer inte (paus/återuppta)
+
+// Skippade flighter persisteras så granskningen kan pausas och återupptas utan att gå igenom dem igen.
+export async function getSkippedFlightIds(): Promise<Set<number>> {
+  try {
+    const raw = await getSetting(SKIPPED_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map((x: any) => Number(x)) : []);
+  } catch { return new Set(); }
+}
+async function saveSkipped(ids: Set<number>): Promise<void> {
+  await setSetting(SKIPPED_KEY, JSON.stringify([...ids])).catch(() => {});
+}
+export async function addSkippedFlightId(id: number): Promise<void> {
+  const s = await getSkippedFlightIds(); s.add(id); await saveSkipped(s);
+}
+export async function removeSkippedFlightId(id: number): Promise<void> {
+  const s = await getSkippedFlightIds(); s.delete(id); await saveSkipped(s);
+}
+export async function clearSkippedFlightIds(): Promise<void> {
+  await setSetting(SKIPPED_KEY, '[]').catch(() => {});
+}
 
 export type PhotoPermission = 'full' | 'limited' | 'denied' | 'undetermined' | 'unavailable';
 export type FlightMatch = { flight: Flight; assets: ML.Asset[] };
@@ -79,11 +101,12 @@ export async function syncPhotos(onProgress?: (done: number, total: number) => v
   if (!ml()) return { matches: [], scanned: 0 };
   const flightsAll = await getFlights(100000);
   const now = Date.now();
+  const skipped = await getSkippedFlightIds();
 
-  // Kandidater: giltiga tider + ännu inte kopplade (kopplade dyker inte upp igen).
+  // Kandidater: giltiga tider + ännu inte kopplade + ej skippade (kopplade/skippade dyker inte upp igen).
   const cands = flightsAll
     .map((f) => { const iv = flightInterval(f); return iv ? { f, dep: iv.dep, arr: iv.arr } : null; })
-    .filter((c): c is { f: Flight; dep: number; arr: number } => !!c && !c.f.photo_local_id);
+    .filter((c): c is { f: Flight; dep: number; arr: number } => !!c && !c.f.photo_local_id && !skipped.has(c.f.id));
 
   // Hämta media i HELA ±30-min-fönstret för VARJE okopplad flygning (oavsett ålder) → dedupe. Den
   // gamla "bara media efter senaste synk"-optimeringen gjorde fönstret tomt för historiska/importerade
@@ -120,6 +143,7 @@ export async function syncPhotos(onProgress?: (done: number, total: number) => v
     .filter((c) => byFlight.has(c.f.id))
     .map((c) => ({ flight: c.f, assets: byFlight.get(c.f.id)!.sort((x, y) => ctMs(x) - ctMs(y)) }))
     .sort((a, b) => (flightInterval(a.flight)?.dep ?? 0) - (flightInterval(b.flight)?.dep ?? 0)); // äldst först
+  await saveSession(matches); // spara så granskningen kan återupptas utan ny scanning
   return { matches, scanned: cands.length };
 }
 
@@ -130,8 +154,8 @@ export async function hasPendingSync(): Promise<boolean> {
   if (!ml()) return false;
   const lastSync = parseInt((await getSetting(LAST_SYNC_KEY)) || '0', 10) || 0;
   if (!lastSync) return true; // aldrig synkat
-  const flights = await getFlights(100000);
-  return flights.some((f) => !f.photo_local_id && !!flightInterval(f) && flightCreatedMs(f) > lastSync);
+  const [flights, skipped] = await Promise.all([getFlights(100000), getSkippedFlightIds()]);
+  return flights.some((f) => !f.photo_local_id && !skipped.has(f.id) && !!flightInterval(f) && flightCreatedMs(f) > lastSync);
 }
 
 /** Full fönstersökning för EN flygning (manuell om-koppling från detaljsidan — inte inkrementell). */
@@ -156,6 +180,57 @@ async function ensurePlayableVideo(src: string, filename: string | undefined, lo
   } catch {
     return src;
   }
+}
+
+// ── Sparad granskningssession (för paus/återuppta utan ny scanning) ──────────────────
+// Sessionen är HELA matchlistan från senaste synk (flight-id + asset-id:n). "Kvarvarande" =
+// de vars flygning ännu inte kopplats eller skippats. Tomt när allt är hanterat.
+const SESSION_KEY = 'photo_sync_session';
+type StoredSession = { flightId: number; assetIds: string[] }[];
+
+async function saveSession(matches: FlightMatch[]): Promise<void> {
+  const data: StoredSession = matches.map((m) => ({ flightId: m.flight.id, assetIds: m.assets.map((a) => a.id) }));
+  await setSetting(SESSION_KEY, JSON.stringify(data)).catch(() => {});
+}
+export async function clearReviewSession(): Promise<void> {
+  await setSetting(SESSION_KEY, '[]').catch(() => {});
+}
+async function readSession(): Promise<StoredSession> {
+  try { const raw = await getSetting(SESSION_KEY); const a = raw ? JSON.parse(raw) : []; return Array.isArray(a) ? a : []; } catch { return []; }
+}
+async function pendingSessionEntries(): Promise<StoredSession> {
+  const [sess, flights, skipped] = await Promise.all([readSession(), getFlights(100000), getSkippedFlightIds()]);
+  if (!sess.length) return [];
+  const byId = new Map(flights.map((f) => [f.id, f]));
+  return sess.filter((e) => { const f = byId.get(e.flightId); return !!f && !f.photo_local_id && !skipped.has(e.flightId); });
+}
+/** Finns en pausad granskning med kvarvarande flighter? Styr om Sync-knappen visar "Resume". */
+export async function hasUnfinishedReview(): Promise<boolean> {
+  return (await pendingSessionEntries()).length > 0;
+}
+async function assetsByIds(ids: string[]): Promise<ML.Asset[]> {
+  const M = ml(); if (!M) return [];
+  const out: ML.Asset[] = [];
+  for (const id of ids) {
+    try {
+      const info: any = await M.getAssetInfoAsync(id);
+      if (info) out.push({ ...(info as ML.Asset), id, uri: info.localUri || info.uri });
+    } catch { /* asset borttagen ur biblioteket → hoppa */ }
+  }
+  return out;
+}
+/** Bygg om matchlistan för de kvarvarande flighterna ur den sparade sessionen (ingen ny scanning). */
+export async function resumeMatches(): Promise<FlightMatch[]> {
+  const [entries, flights] = await Promise.all([pendingSessionEntries(), getFlights(100000)]);
+  const byId = new Map(flights.map((f) => [f.id, f]));
+  const matches: FlightMatch[] = [];
+  for (const e of entries) {
+    const f = byId.get(e.flightId); if (!f) continue;
+    const assets = await assetsByIds(e.assetIds);
+    if (assets.length) matches.push({ flight: f, assets });
+  }
+  matches.sort((a, b) => (flightInterval(a.flight)?.dep ?? 0) - (flightInterval(b.flight)?.dep ?? 0));
+  return matches;
 }
 
 /** Uri + mediatyp (+ ev. GPS-position för kartvyn) för en localIdentifier (null om mediet

@@ -90,7 +90,13 @@
       "expo-video",
       "expo-sharing",
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Face ID is used to unlock the app when app lock is enabled."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

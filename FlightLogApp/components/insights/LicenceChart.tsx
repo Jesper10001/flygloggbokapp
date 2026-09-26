@@ -14,7 +14,12 @@ export function LicenceChart({ C, reqs, journey, haveFor, rateFor, metDateFor }:
   metDateFor?: (k: string, required: number) => string | null;
 }) {
   if (journey.length < 2) {
-    return <Text style={{ fontFamily: MONO, fontSize: 10, color: C.faint, textAlign: 'center', paddingVertical: 24 }}>Not enough history yet.</Text>;
+    return (
+      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.faint, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 18, lineHeight: 17 }}>
+        No projection yet — it needs at least two months of history.{'\n'}
+        Once your logged flights span a second month, this chart trends your hours and estimates when you'll reach each requirement.
+      </Text>
+    );
   }
   const careerStart = journey[0].date, now = journey[journey.length - 1].date;
   const mBetween = (a: Date, b: Date) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
@@ -35,7 +40,11 @@ export function LicenceChart({ C, reqs, journey, haveFor, rateFor, metDateFor }:
   }).filter(Boolean) as (Req & { have: number; met: boolean; completion: Date; color: string; normNow: number })[];
 
   if (!built.length) {
-    return <Text style={{ fontFamily: MONO, fontSize: 10, color: C.faint, textAlign: 'center', paddingVertical: 24 }}>Log some hours to see the projection.</Text>;
+    return (
+      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.faint, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 18, lineHeight: 17 }}>
+        No projection yet — log flight time toward these requirements and this chart will estimate your completion dates.
+      </Text>
+    );
   }
 
   const futureMax = built.reduce((mx, r) => (r.completion > mx ? r.completion : mx), now);

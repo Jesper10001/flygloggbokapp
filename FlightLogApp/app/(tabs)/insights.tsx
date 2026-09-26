@@ -7,7 +7,6 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { Colors } from '../../constants/colors';
 import { HeroTotals } from '../../components/insights/HeroTotals';
 import { HoursBank } from '../../components/insights/HoursBank';
-import { WrappedCard } from '../../components/insights/WrappedCard';
 import { GoalCard } from '../../components/insights/GoalCard';
 import { LicenceJourney } from '../../components/insights/LicenceJourney';
 import { MilestonesSection } from '../../components/insights/MilestonesSection';
@@ -27,7 +26,6 @@ export default function InsightsScreen() {
     >
       <HeroTotals />
       <HoursBank />
-      <WrappedCard />
       <GoalCard />
       <LicenceJourney />
       <MilestonesSection />

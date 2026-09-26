@@ -234,6 +234,12 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   // Video → kortet (och overlay-capturen) följer VIDEONS aspekt så overlayn mappar 1:1 vid inbränning.
   // Foto → IG-format (post 4:5 / story 9:16).
   const isVideoShare = flight.media_type === 'video';
+  // Video: lås till performance-lagret (route/postcard kräver kart-/textberoenden). Storlek och
+  // placering är fria (dras/skalas som för foto) och bränns in på videon vid Share.
+  useEffect(() => {
+    if (isVideoShare) setMode('performance');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideoShare]);
   const cardAspect = isVideoShare && vidDims ? vidDims.w / vidDims.h : (format === 'story' ? 9 / 16 : 4 / 5); // bredd/höjd
   const maxCardH = SCREEN_H * 0.6;
   const cardW = Math.min(SCREEN_W, maxCardH * cardAspect);
@@ -458,6 +464,12 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         <View style={{ flex: 1 }}>
           {/* Kortet — fast storlek/position oavsett valt lager */}
           <View style={{ alignItems: 'center', paddingTop: insets.top + 6 }}>
+          {isVideoShare && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' }}>
+              <Ionicons name="videocam-outline" size={13} color={GOLD} />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Video becomes live after you have shared</Text>
+            </View>
+          )}
           <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: exportW, height: exportH }}>
             <View style={[styles.card, { width: cardW, height: cardH }, captureTransparent && { backgroundColor: 'transparent' }]}>
               {/* Static photo/video background - använd thumbnail för video. Vid video-capturen
@@ -504,7 +516,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 ]}
                 {...panResponder.panHandlers}
               >
-                {/* Performance — centrerade stats + cyan B-mark, dragbar + storleksändras med slidern */}
+                {/* Performance — centrerade stats, dragbar + storleksändras med slidern (foto & video) */}
                 {mode === 'performance' && (
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 }}>
                     <PerfStat label="Distance" value={`${fmtNum(Math.round(perfDistVal))} ${perfDistUnit}`} />
@@ -568,14 +580,16 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
           {/* Kontroller — scrollbara så kortet aldrig ändrar storlek */}
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ alignItems: 'center', paddingVertical: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* Lager — primär väljare, full bredd */}
-          <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginHorizontal: 16, marginTop: 4 }}>
-            <Seg
-              options={[['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const}
-              value={mode}
-              onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') { setMapStyle('satellite'); setMapZoom(13); } }}
-            />
-          </View>
+          {/* Lager — primär väljare, full bredd. Dold för video (låst till Performance-lagret). */}
+          {!isVideoShare && (
+            <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginHorizontal: 16, marginTop: 4 }}>
+              <Seg
+                options={[['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const}
+                value={mode}
+                onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') { setMapStyle('satellite'); setMapZoom(13); } }}
+              />
+            </View>
+          )}
 
           {/* Inställningspanel — grupperade kontroller med enhetliga rader */}
           <View style={ctrl.panel}>

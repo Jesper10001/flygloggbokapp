@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,9 +8,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useBestWeekFull } from '../../hooks/useMilestoneDetails';
 import { monthShort } from '../../utils/dateLabels';
 import { BWDayBars } from '../../components/milestones/BWDayBars';
-import { MilestoneShareCard, ShareData } from '../../components/milestones/MilestoneShareCard';
 import {
-  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, PrimaryCTA, GhostCTA, MONO, SERIF,
+  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
 } from '../../components/milestones/MilestoneUI';
 
 function dayHeader(iso: string, dow: string, language: string): string {
@@ -40,22 +39,6 @@ export default function BestWeekScreen() {
   const cmpMax = Math.max(d.hoursNum, d.baselineWeek, 0.1);
   const daysWithFlights = d.days.filter(day => day.flights.length > 0);
 
-  const [shareVisible, setShareVisible] = useState(false);
-  const peak = d.days.reduce((a, b) => (b.hours > a.hours ? b : a), d.days[0] ?? { dow: '—', hours: 0, iso: '', date: 0, flights: [] });
-  const shareData: ShareData | null = d.ready ? {
-    variant: 'bw',
-    weekLabel: stats?.best_week_label || d.weekLabel || '',
-    hoursLabel: d.hoursLabel,
-    hrsUnit: t('ms.hrs'),
-    sectorsLabel: `${d.sectors} ${t('ms.sectors')}`,
-    days: d.days.map(day => ({ iso: day.iso, dow: day.dow, hours: day.hours })),
-    meta: [
-      { l: t('ms.range'), v: d.rangeLabel.split(' ').slice(0, 3).join(' ') },
-      { l: t('ms.airports'), v: String(d.airports) },
-      { l: t('ms.bw_top_day'), v: `${peak.dow.toUpperCase()} · ${hhmm(peak.hours)}` },
-    ],
-  } : null;
-
   return (
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
@@ -64,7 +47,6 @@ export default function BestWeekScreen() {
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
-        onShare={() => setShareVisible(true)}
       />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
@@ -163,12 +145,9 @@ export default function BestWeekScreen() {
 
         {/* CTAs */}
         <View style={[s.section, { gap: 10 }]}>
-          <PrimaryCTA label={t('ms.bw_share')} icon="share-outline" accent={accent} onPress={() => setShareVisible(true)} />
           <GhostCTA label={t('ms.bw_open_logbook')} icon="list-outline" onPress={() => router.push('/log')} />
         </View>
       </ScrollView>
-
-      <MilestoneShareCard visible={shareVisible} onClose={() => setShareVisible(false)} data={shareData} accent={Colors.gold} />
     </View>
   );
 }

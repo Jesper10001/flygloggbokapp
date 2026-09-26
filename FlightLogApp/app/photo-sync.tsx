@@ -2,7 +2,7 @@
 // granskning EN flygning i taget (äldst först). Allt lokalt; endast referensen sparas.
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Modal, ActivityIndicator, Dimensions, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FlightVideo } from '../components/FlightVideo';
@@ -10,7 +10,7 @@ import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
 import { setFlightPhotoLocalId } from '../db/flights';
-import { syncPhotos, requestPhotoPermission, getPhotoPermissionStatus, getAssetDisplayUri, type FlightMatch, type PhotoPermission } from '../services/photoSync';
+import { syncPhotos, requestPhotoPermission, getPhotoPermissionStatus, getAssetDisplayUri, addSkippedFlightId, removeSkippedFlightId, resumeMatches, clearReviewSession, type FlightMatch, type PhotoPermission } from '../services/photoSync';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function fmtDate(iso: string): string {
@@ -24,19 +24,32 @@ function fmtDur(sec: number): string {
 
 export default function PhotoSyncScreen() {
   const router = useRouter();
+  const { resume } = useLocalSearchParams<{ resume?: string }>();
   const insets = useSafeAreaInsets();
   const loadFlights = useFlightStore((s) => s.loadFlights);
-  const [phase, setPhase] = useState<'perm' | 'syncing' | 'summary' | 'review' | 'done'>('syncing');
+  const [phase, setPhase] = useState<'perm' | 'syncing' | 'resuming' | 'summary' | 'review' | 'done'>(resume === '1' ? 'resuming' : 'syncing');
   const [perm, setPerm] = useState<PhotoPermission>('undetermined');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [matches, setMatches] = useState<FlightMatch[]>([]);
   const [index, setIndex] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
+  const [skippedCount, setSkippedCount] = useState(0);
+  // Historik för Undo: senaste åtgärderna (koppling/skip) i tur och ordning.
+  const [history, setHistory] = useState<{ index: number; flightId: number; kind: 'link' | 'skip' }[]>([]);
   const [preview, setPreview] = useState<MediaLibrary.Asset | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  // Upplösta (file://) thumbnail-uri:er för AKTUELL flights bilder → renderas i dev-bygget (ph:// blir svart).
+  const [resolvedUris, setResolvedUris] = useState<Record<string, string>>({});
 
   const run = useCallback(async () => {
+    // Återuppta: bygg om kvarvarande matchningar ur sparad session — INGEN ny scanning.
+    if (resume === '1') {
+      try {
+        const m = await resumeMatches();
+        if (m.length) { setMatches(m); setIndex(0); setHistory([]); setPhase('review'); return; }
+      } catch { /* faller igenom till vanlig synk */ }
+      await clearReviewSession(); // inget kvar (eller media otillgängligt) → kör vanlig synk nedan
+    }
     let p = await getPhotoPermissionStatus();
     if (p === 'undetermined') p = await requestPhotoPermission();
     setPerm(p);
@@ -51,7 +64,7 @@ export default function PhotoSyncScreen() {
     } catch {
       setPhase('perm');
     }
-  }, []);
+  }, [resume]);
   useEffect(() => { run(); }, [run]);
 
   const cur = matches[index];
@@ -64,6 +77,23 @@ export default function PhotoSyncScreen() {
     if (next) next.assets.slice(0, 9).forEach((a) => { Image.prefetch(a.uri).catch(() => {}); });
   }, [index, matches]);
 
+  // Lös upp AKTUELL flights bild-uri:er till file:// (bara ph:// blir svart i dev). Bara nuvarande
+  // flight (få kandidater) → snabbt. Video hoppas över (ingen frame här).
+  useEffect(() => {
+    if (!cur) return;
+    let alive = true;
+    setResolvedUris({});
+    (async () => {
+      const map: Record<string, string> = {};
+      for (const a of cur.assets) {
+        if (a.mediaType === 'video') continue;
+        try { const u = await getAssetDisplayUri(a.id); if (u) map[a.id] = u; } catch { /* ignore */ }
+      }
+      if (alive) setResolvedUris(map);
+    })();
+    return () => { alive = false; };
+  }, [cur]);
+
   const openPreview = async (a: MediaLibrary.Asset) => {
     setPreview(a);
     // Bild: ph:// funkar i <Image> → visa direkt. Video: vänta på spelbar file:// (kopieras).
@@ -73,16 +103,35 @@ export default function PhotoSyncScreen() {
   };
 
   const advance = () => {
-    if (index + 1 < matches.length) { setIndex(index + 1); setSelectedId(null); }
-    else { loadFlights(); setPhase('done'); }
+    if (index + 1 < matches.length) { setIndex(index + 1); }
+    else { loadFlights(); clearReviewSession(); setPhase('done'); } // allt hanterat → rensa sessionen
   };
-  const saveNext = async () => {
-    if (cur && selectedId) {
-      const asset = cur.assets.find((a) => a.id === selectedId);
-      await setFlightPhotoLocalId(cur.flight.id, selectedId, asset?.mediaType === 'video' ? 'video' : 'image');
-      setSavedCount((c) => c + 1);
-    }
+  // Ett tryck = koppla vald bild till flygningen och gå direkt vidare.
+  const link = async (assetId: string) => {
+    if (!cur) return;
+    const asset = cur.assets.find((a) => a.id === assetId);
+    await setFlightPhotoLocalId(cur.flight.id, assetId, asset?.mediaType === 'video' ? 'video' : 'image');
+    setSavedCount((c) => c + 1);
+    setHistory((h) => [...h, { index, flightId: cur.flight.id, kind: 'link' }]);
     advance();
+  };
+  // Hoppa över (persisteras → återkommer inte när man återupptar senare).
+  const skip = async () => {
+    if (!cur) return;
+    await addSkippedFlightId(cur.flight.id);
+    setSkippedCount((c) => c + 1);
+    setHistory((h) => [...h, { index, flightId: cur.flight.id, kind: 'skip' }]);
+    advance();
+  };
+  // Ångra senaste åtgärden och gå tillbaka till den flygningen.
+  const undo = async () => {
+    const last = history[history.length - 1];
+    if (!last) return;
+    if (last.kind === 'link') { await setFlightPhotoLocalId(last.flightId, null, 'image'); setSavedCount((c) => Math.max(0, c - 1)); }
+    else { await removeSkippedFlightId(last.flightId); setSkippedCount((c) => Math.max(0, c - 1)); }
+    setHistory((h) => h.slice(0, -1));
+    if (phase === 'done') setPhase('review');
+    setIndex(last.index);
   };
 
   // ── Behörighet nekad / native-modul saknas ──
@@ -116,6 +165,16 @@ export default function PhotoSyncScreen() {
     );
   }
 
+  // ── Återupptar (ingen ny scanning — bygger bara om kvarvarande ur sparad session) ──
+  if (phase === 'resuming') {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '700' }}>Resuming where you left off…</Text>
+      </View>
+    );
+  }
+
   // ── Synkar (progress) ──
   if (phase === 'syncing') {
     const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -142,7 +201,12 @@ export default function PhotoSyncScreen() {
           {n ? `${n} flight${n === 1 ? '' : 's'} got photo suggestions` : 'No new photo suggestions'}
         </Text>
         {n > 0 ? (
-          <TouchableOpacity onPress={() => { setIndex(0); setSelectedId(null); setPhase('review'); }} style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40 }}>
+          <Text style={{ color: Colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 19 }}>
+            Tap a photo to link it and jump to the next flight. You can pause anytime and continue later.
+          </Text>
+        ) : null}
+        {n > 0 ? (
+          <TouchableOpacity onPress={() => { setIndex(0); setHistory([]); setPhase('review'); }} style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40 }}>
             <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>Review now</Text>
           </TouchableOpacity>
         ) : null}
@@ -159,25 +223,44 @@ export default function PhotoSyncScreen() {
       <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 }}>
         <Ionicons name="checkmark-circle" size={52} color={Colors.success} />
         <Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: '800' }}>{savedCount} photo{savedCount === 1 ? '' : 's'} linked</Text>
+        {skippedCount > 0 ? (
+          <Text style={{ color: Colors.textSecondary, fontSize: 13, textAlign: 'center' }}>{skippedCount} skipped — these won't be suggested again.</Text>
+        ) : null}
         <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40 }}>
           <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '700' }}>Done</Text>
         </TouchableOpacity>
+        {history.length > 0 ? (
+          <TouchableOpacity onPress={undo} style={{ paddingVertical: 10 }}>
+            <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Undo last</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   }
 
-  // ── Granskning (wizard, en flight i taget) ──
+  // ── Granskning (ett tryck = koppla + nästa; förstoringsglas = förhandsgranska) ──
   const f = cur.flight;
+  const done = savedCount + skippedCount;
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: insets.top + 8 }}>
-      {/* Header: progress + stäng */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8, gap: 12 }}>
-        <Text style={{ flex: 1, color: Colors.textMuted, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' }}>Flight {index + 1} of {matches.length}</Text>
-        <TouchableOpacity onPress={() => { loadFlights(); router.back(); }} hitSlop={10}><Ionicons name="close" size={24} color={Colors.textSecondary} /></TouchableOpacity>
+      {/* Header: progress + stäng (stänger = pausar, återupptas nästa gång) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 6, gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '700', fontFamily: 'Menlo' }}>Flight {index + 1} of {matches.length}</Text>
+          <Text style={{ color: Colors.textMuted, fontSize: 10.5, marginTop: 2 }}>{savedCount} linked · {skippedCount} skipped</Text>
+        </View>
+        <TouchableOpacity onPress={() => { loadFlights(); router.back(); }} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Ionicons name="pause" size={15} color={Colors.textSecondary} />
+          <Text style={{ color: Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>Pause</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Progressbar */}
+      <View style={{ marginHorizontal: 16, height: 3, borderRadius: 2, backgroundColor: Colors.elevated, overflow: 'hidden', marginBottom: 10 }}>
+        <View style={{ width: `${matches.length ? (done / matches.length) * 100 : 0}%`, height: '100%', backgroundColor: Colors.primary }} />
       </View>
 
-      {/* Flightinfo */}
-      <View style={{ marginHorizontal: 16, marginBottom: 10, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14 }}>
+      {/* Flightinfo + instruktion */}
+      <View style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo' }}>{f.dep_place || '?'} → {f.arr_place || '?'}</Text>
           <View style={{ flex: 1 }} />
@@ -185,41 +268,45 @@ export default function PhotoSyncScreen() {
         </View>
         <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 3 }}>{fmtDate(f.date)}{f.registration ? ` · ${f.registration}` : ''}</Text>
       </View>
+      <Text style={{ color: Colors.textMuted, fontSize: 11.5, marginHorizontal: 16, marginBottom: 8 }}>Tap a photo to link it and move on · tap ⤢ to preview</Text>
 
-      {/* Galleri */}
+      {/* Galleri — ett tryck kopplar direkt och går vidare */}
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {cur.assets.map((a) => {
-            const sel = selectedId === a.id;
             const isVideo = a.mediaType === 'video';
             return (
-              <TouchableOpacity key={a.id} activeOpacity={0.85} onPress={() => openPreview(a)}
-                style={{ width: thumb, height: thumb, borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: sel ? Colors.primary : 'transparent', backgroundColor: Colors.elevated }}>
-                <Image source={{ uri: a.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <TouchableOpacity key={a.id} activeOpacity={0.75} onPress={() => link(a.id)}
+                style={{ width: thumb, height: thumb, borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.elevated }}>
+                <Image source={{ uri: resolvedUris[a.id] ?? a.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                {/* Förhandsgranska (fångar trycket → kopplar ej) */}
+                <TouchableOpacity onPress={() => openPreview(a)} hitSlop={8}
+                  style={{ position: 'absolute', top: 4, left: 4, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="expand" size={14} color="#fff" />
+                </TouchableOpacity>
                 {isVideo && (
                   <View style={{ position: 'absolute', bottom: 4, left: 4, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 }}>
                     <Ionicons name="videocam" size={10} color="#fff" />
                     <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', fontFamily: 'Menlo' }}>{fmtDur(a.duration)}</Text>
                   </View>
                 )}
-                {sel && (
-                  <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: Colors.primary, borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="checkmark" size={13} color={Colors.textInverse} />
-                  </View>
-                )}
+                <View style={{ position: 'absolute', bottom: 4, right: 4, backgroundColor: Colors.primary, borderRadius: 11, width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="add" size={16} color={Colors.textInverse} />
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
       </ScrollView>
 
-      {/* Knappar */}
+      {/* Knappar: Undo + Skip (koppling sker via tryck på bild) */}
       <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingBottom: insets.bottom + 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.separator }}>
-        <TouchableOpacity onPress={advance} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
-          <Text style={{ color: Colors.textSecondary, fontSize: 15, fontWeight: '700' }}>Skip</Text>
+        <TouchableOpacity onPress={undo} disabled={history.length === 0} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: Colors.border, opacity: history.length === 0 ? 0.4 : 1 }}>
+          <Ionicons name="arrow-undo" size={16} color={Colors.textSecondary} />
+          <Text style={{ color: Colors.textSecondary, fontSize: 15, fontWeight: '700' }}>Undo</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={saveNext} disabled={!selectedId} style={{ flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: selectedId ? Colors.primary : Colors.elevated, opacity: selectedId ? 1 : 0.6 }}>
-          <Text style={{ color: selectedId ? Colors.textInverse : Colors.textMuted, fontSize: 15, fontWeight: '700' }}>Save & next</Text>
+        <TouchableOpacity onPress={skip} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Text style={{ color: Colors.textSecondary, fontSize: 15, fontWeight: '700' }}>Skip</Text>
         </TouchableOpacity>
       </View>
 
@@ -239,7 +326,7 @@ export default function PhotoSyncScreen() {
           </View>
           <View style={{ position: 'absolute', bottom: insets.bottom + 24, left: 24, right: 24 }}>
             <TouchableOpacity
-              onPress={() => { if (preview) setSelectedId(preview.id); setPreview(null); }}
+              onPress={() => { const id = preview?.id; setPreview(null); if (id) link(id); }}
               style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
               <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
               <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Use this {preview?.mediaType === 'video' ? 'video' : 'photo'}</Text>

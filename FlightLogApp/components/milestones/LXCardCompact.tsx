@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useIsFocused } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
-import { MiniRouteMap, RouteLeg } from './MiniRouteMap';
+import type { RouteLeg } from './MiniRouteMap';
+import { RouteMapPreview } from './RouteLeafletModal';
 
 interface LXCardCompactProps {
   width: number;
@@ -32,7 +32,6 @@ export function LXCardCompact({
   legs,
   onPress,
 }: LXCardCompactProps) {
-  const focused = useIsFocused();
   const { t } = useTranslation();
 
   return (
@@ -44,13 +43,11 @@ export function LXCardCompact({
     >
       {/* Map fills the top */}
       <View style={[styles.mapWrap, { height: MAP_H }]}>
-        <MiniRouteMap
-          width={width}
-          height={MAP_H}
-          legs={legs}
+        <RouteMapPreview
+          points={legs}
           accent={accent}
-          showGraticule
-          animate={focused}
+          height={MAP_H}
+          padding={20}
         />
         <BlurView intensity={18} tint="dark" style={[styles.badge, { borderColor: accent + '55' }]}>
           <View style={[styles.badgeDot, { backgroundColor: accent }]} />

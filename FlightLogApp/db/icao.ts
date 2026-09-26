@@ -22,7 +22,7 @@ export function getSeedAirports(): Promise<SeedRow[]> {
   return loadAirportData();
 }
 
-const SEED_VERSION = '2026-07-30-no-zzzz'; // ZZZZ borttagen (off-airport-kod) → tvingar om-seed
+const SEED_VERSION = '2026-09-25-country-fix'; // om-seed: korrigerar inaktuella land-koder (t.ex. ESCF=SE) i äldre installationer
 
 export async function seedIcaoAirports(premium = false): Promise<void> {
   const db = await getDatabase();

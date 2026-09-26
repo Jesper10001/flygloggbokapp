@@ -8,7 +8,12 @@ const MONO = 'JetBrainsMono';
 
 export function JourneyChart({ C, series, goal, rate }: { C: InsightsTheme; series: JourneyPt[]; goal: number | null; rate: number }) {
   if (series.length < 2) {
-    return <Text style={{ fontFamily: MONO, fontSize: 10, color: C.faint, textAlign: 'center', paddingVertical: 24 }}>Not enough history yet.</Text>;
+    return (
+      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.faint, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 18, lineHeight: 17 }}>
+        No projection yet — it needs at least two months of history.{'\n'}
+        Once your logged flights span a second month, this chart trends your hours and projects forward to your target.
+      </Text>
+    );
   }
   const now = series[series.length - 1];
   const proj: JourneyPt[] = [];

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
-  Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable,
+  Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable, AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
@@ -16,24 +17,23 @@ import { exportToCSV } from '../../services/export';
 import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
-import { clearAllFlights, getFlightCount } from '../../db/flights';
+import { getFlightCount } from '../../db/flights';
 import { listDigitalBooks } from '../../db/digitalBooks';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useToastStore } from '../../components/Toast';
-import { useOperatorStore } from '../../store/operatorStore';
-import { seedTestUser1, seedTestUser2, clearTestUser, seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
+import { seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
-import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
+import { useAppLockStore } from '../../store/appLockStore';
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
 function SectionHeader({ children }: { children: string }) {
@@ -76,7 +76,7 @@ function Card({
 }
 
 function Row({
-  icon, iconColor, iconBg, title, subtitle, right, onClick, border = true, pressable = true, separatorColor = Colors.separator,
+  icon, iconColor, iconBg, title, subtitle, right, onClick, onLongPress, border = true, pressable = true, separatorColor = Colors.separator,
 }: {
   icon: string;
   iconColor?: string;
@@ -85,6 +85,7 @@ function Row({
   subtitle?: string;
   right?: React.ReactNode;
   onClick?: () => void;
+  onLongPress?: () => void;
   border?: boolean;
   pressable?: boolean;
   separatorColor?: string;
@@ -112,8 +113,8 @@ function Row({
     </View>
   );
 
-  if (!pressable || !onClick) return content;
-  return <TouchableOpacity onPress={onClick} activeOpacity={0.7}>{content}</TouchableOpacity>;
+  if ((!pressable || !onClick) && !onLongPress) return content;
+  return <TouchableOpacity onPress={onClick} onLongPress={onLongPress} delayLongPress={600} activeOpacity={0.7}>{content}</TouchableOpacity>;
 }
 
 function PremiumPill() {
@@ -181,9 +182,7 @@ export default function SettingsScreen() {
   const { timeFormat, setTimeFormat } = useTimeFormatStore();
   const { theme, setTheme } = useThemeStore();
   const { mode: appMode, setMode: setAppMode } = useAppModeStore();
-  const { operatorId, setOperatorId, loadOperatorId } = useOperatorStore();
-  const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
-  const { isPremium, isMax, setIsPremium, flightCount, manualFlightCount, loadFlights, loadStats } = useFlightStore();
+  const { isPremium, isMax, flightCount, manualFlightCount, loadFlights, loadStats } = useFlightStore();
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const { standard, setStandard } = useRegulationStandardStore();
@@ -199,6 +198,16 @@ export default function SettingsScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
+  const [locGranted, setLocGranted] = useState(false);
+  const appLockEnabled = useAppLockStore((s) => s.enabled);
+  const appLockAvailable = useAppLockStore((s) => s.available);
+  // Öppna en viss sektion via param (t.ex. från "Manage app data" → "Export first").
+  const { expand } = useLocalSearchParams<{ expand?: string }>();
+  useEffect(() => {
+    if (expand === 'export' || expand === 'app' || expand === 'logbook' || expand === 'import') {
+      setExpandedSection(expand);
+    }
+  }, [expand]);
   const isDrone = appMode === 'drone';
   const isPilot = !isDrone;
 
@@ -218,6 +227,7 @@ export default function SettingsScreen() {
     useRegulationStandardStore.getState().load();
     useTokenQuotaStore.getState().load();
     useFlightStore.getState().loadFlights();
+    Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
       const last = (await getSetting('profile_last_name')) ?? '';
@@ -248,11 +258,47 @@ export default function SettingsScreen() {
     })();
   }, []));
 
+  // Platstillstånd ändras i iOS-inställningar (utanför appen) → uppdatera togglen när appen blir aktiv igen.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') {
+        Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   // ── Handlers ──
 
   const toggleSection = (section: 'logbook' | 'import' | 'export' | 'app') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  // App-lås (Face ID): påslag verifierar biometrik + kräver en lyckad auth innan det aktiveras.
+  const toggleAppLock = async (next: boolean) => {
+    if (next && !appLockAvailable) {
+      Alert.alert('Face ID unavailable', 'Set up Face ID or Touch ID for your device, then try again.');
+      return;
+    }
+    await useAppLockStore.getState().setEnabled(next);
+  };
+
+  // Platstillstånd kan inte slås av inifrån appen (iOS) → begär vid påslag, annars/vid avslag → Inställningar.
+  const toggleLocation = async (next: boolean) => {
+    try {
+      if (next) {
+        const cur = await Location.getForegroundPermissionsAsync();
+        if (cur.granted) { setLocGranted(true); return; }
+        if (cur.canAskAgain) {
+          const r = await Location.requestForegroundPermissionsAsync();
+          if (r.granted) { setLocGranted(true); return; }
+        }
+        Linking.openSettings();
+      } else {
+        Linking.openSettings();
+      }
+    } catch { /* ignore */ }
   };
 
   const handleExportCSV = async () => {
@@ -331,53 +377,33 @@ export default function SettingsScreen() {
     doPagesExport(Math.max(1, raw || 1));
   };
 
-  const handleClearAll = () => {
-    Alert.alert(t('clear_all_data'), `${t('clear_all_data_message')} ${flightCount} ${t('clear_all_data_message2')}`, [
-      { text: t('cancel'), style: 'cancel' },
-      { text: t('clear_all'), style: 'destructive', onPress: async () => {
-        await clearAllFlights();
-        await useProfileStore.getState().clearProfile();
-        await setSetting('profile_first_name', '');
-        await setSetting('profile_last_name', '');
-        await setSetting('profile_initials', '');
-        await setSetting('profile_credentials', '');
-        await setSetting('additional_profiles', '');
-        useFlightStore.getState().setIsPremium(false);
-        useFlightStore.getState().setTier('free');
-        router.replace('/onboarding');
-      }},
-    ]);
-  };
-
-  const applyDroneTestUser = (which: 1 | 2 | 'clear') => {
-    const label = which === 'clear' ? t('clear_test_user') : `${t('test_user')} ${which}`;
-    Alert.alert(label, t('test_user_confirm'), [
-      { text: t('cancel'), style: 'cancel' },
-      { text: t('apply'), style: 'destructive', onPress: async () => {
-        try {
-          if (which === 1) { await seedTestUser1(); }
-          else if (which === 2) { await seedTestUser2(); }
-          else { await clearTestUser(); }
-          await loadOperatorId(); await loadDroneFlights(); await loadDroneStats();
-          useToastStore.getState().show(label);
-        } catch (e: any) { Alert.alert(t('error'), e.message); }
-      }},
-    ]);
-  };
-
   const applyMannedTestUser = (which: 1 | 2 | 'clear') => {
-    const label = which === 'clear' ? t('clear_test_user') : `Manned ${t('test_user')} ${which}`;
-    Alert.alert(label, t('test_user_confirm'), [
+    const label = which === 'clear' ? 'Clear test data' : which === 1 ? 'Airline pilot (SAS)' : 'HEMS pilot';
+    const msg = which === 'clear' ? 'Remove all logbook data?' : 'This replaces all current logbook data with the demo profile. Continue?';
+    Alert.alert(label, msg, [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('apply'), style: 'destructive', onPress: async () => {
+      { text: which === 'clear' ? 'Clear' : 'Load', style: 'destructive', onPress: async () => {
         try {
           if (which === 1) { await seedMannedPilot1(); }
           else if (which === 2) { await seedMannedPilot2(); }
           else { await clearMannedTestUser(); }
+          await useProfileStore.getState().load();
+          if (which !== 'clear') { await setAppMode('manned'); }
           await Promise.all([loadFlights(), loadStats()]);
-          useToastStore.getState().show(label);
+          useToastStore.getState().show(which === 'clear' ? 'Test data cleared' : `${label} loaded`);
+          if (which !== 'clear') requestAnimationFrame(() => router.replace('/(tabs)'));
         } catch (e: any) { Alert.alert(t('error'), e.message); }
       }},
+    ]);
+  };
+
+  // Dold trigger (långtryck på versionsnumret i About) → ladda demo-profiler. Developer-sektionen är borttagen.
+  const openDevMenu = () => {
+    Alert.alert('Test profiles', 'Replace all logbook data with a demo pilot profile.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Airline pilot (SAS)', onPress: () => applyMannedTestUser(1) },
+      { text: 'HEMS pilot', onPress: () => applyMannedTestUser(2) },
+      { text: 'Clear logbook data', style: 'destructive', onPress: () => applyMannedTestUser('clear') },
     ]);
   };
 
@@ -478,7 +504,7 @@ export default function SettingsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{isMax ? 'Blades MAX' : 'Blades Premium'}</Text>
               <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {isMax ? 'Active' : isPremium ? 'Active, upgrade to MAX?' : 'Discover all features'}
+                {isPremium || isMax ? 'Active' : 'Discover all features'}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
@@ -631,7 +657,38 @@ export default function SettingsScreen() {
           )}
           {isPilot && <Row icon="location" iconColor={Colors.info} title={t('manage_airports')} subtitle={t('add_custom_icao')} onClick={() => router.push('/settings/airport')} separatorColor={Colors.background} />}
           {isPilot && <Row icon="images-outline" iconColor={Colors.gold} title={t('flight_album')} subtitle={t('flight_album_sub')} onClick={() => router.push('/settings/album')} separatorColor={Colors.background} />}
-          <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} border={false} separatorColor={Colors.background} />
+          <Row icon="time" iconColor={Colors.primary} title={t('audit_log')} subtitle={t('all_changes_logged')} onClick={() => router.push('/settings/auditlog')} separatorColor={Colors.background} />
+
+          {/* Preferenser (flyttade hit från App security) */}
+          <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'decimal' && styles.toggleBtnActive]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, timeFormat === 'decimal' && styles.toggleTextActive]}>1.5</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
+                </TouchableOpacity>
+              </View>
+            } pressable={false}
+            separatorColor={Colors.background}
+          />
+          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : standard === 'faa' ? 'FAA (USA)' : 'CAA (UK)'}
+            right={
+              <View style={styles.toggle}>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, standard === 'caa' && styles.toggleBtnActive]} onPress={() => setStandard('caa')} activeOpacity={0.7}>
+                  <Text style={[styles.toggleText, standard === 'caa' && styles.toggleTextActive]}>CAA</Text>
+                </TouchableOpacity>
+              </View>
+            } pressable={false} border={false}
+            separatorColor={Colors.background}
+          />}
         </Card>
       )}
 
@@ -712,48 +769,39 @@ export default function SettingsScreen() {
         </Card>
       )}
 
-      {/* ── F. App ── */}
+      {/* ── F. App security ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'app'} onPress={() => toggleSection('app')}>
-        {t('app_section')}
+        App security
       </CollapsibleSectionHeader>
       {expandedSection === 'app' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          {/* Tema-väljaren borttagen — appen har ett enda navy-tema. */}
-          <Row icon="time-outline" iconColor={Colors.primary} title={t('time_format')} subtitle={t('time_format_sub')}
-            right={
-              <View style={styles.toggle}>
-                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'decimal' && styles.toggleBtnActive]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, timeFormat === 'decimal' && styles.toggleTextActive]}>1.5</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, timeFormat === 'hhmm' && styles.toggleBtnActive]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, timeFormat === 'hhmm' && styles.toggleTextActive]}>1:30</Text>
-                </TouchableOpacity>
-              </View>
-            } pressable={false}
+          {/* Säkerhetsposter direkt (ingen extra Security-dropdown). */}
+          <Row icon="finger-print-outline" iconColor={Colors.primary} title="Require Face ID to open"
+            subtitle={appLockAvailable ? (appLockEnabled ? 'On · Face ID required to open the app' : 'Off') : 'Set up Face ID / Touch ID to enable'}
+            right={<Switch value={appLockEnabled} disabled={!appLockAvailable} onValueChange={toggleAppLock} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+            pressable={false}
             separatorColor={Colors.background}
           />
-          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : standard === 'faa' ? 'FAA (USA)' : 'CAA (UK)'}
-            right={
-              <View style={styles.toggle}>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'caa' && styles.toggleBtnActive]} onPress={() => setStandard('caa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'caa' && styles.toggleTextActive]}>CAA</Text>
-                </TouchableOpacity>
-              </View>
-            } pressable={false} border={false}
+          <Row icon="location-outline" iconColor={Colors.primary} title="Allow app to show my position"
+            subtitle={locGranted ? 'On' : 'Off · used to find nearby airports'}
+            right={<Switch value={locGranted} onValueChange={toggleLocation} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+            pressable={false}
             separatorColor={Colors.background}
-          />}
+          />
+          <ICloudSyncRow flat />
+          <Row icon="lock-closed-outline" iconColor={Colors.primary} title="Encryption information"
+            subtitle="How your data is encrypted"
+            onClick={() => router.push('/settings/encryption')}
+            separatorColor={Colors.background}
+          />
+          <Row icon="folder-open-outline" iconColor={Colors.primary} title="Manage app data"
+            subtitle="See your data · clear everything"
+            onClick={() => router.push('/settings/manage-data')}
+            border={false}
+            separatorColor={Colors.background}
+          />
         </Card>
       )}
-
-      {/* ── Backup (iCloud) ── */}
-      <SectionHeader>Backup</SectionHeader>
-      <ICloudSyncRow />
 
       {/* ── G. Om ── */}
       <SectionHeader>{t('about')}</SectionHeader>
@@ -781,6 +829,7 @@ export default function SettingsScreen() {
               }
             });
           }}
+          onLongPress={openDevMenu}
         />
         <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title={t('local_storage')}
           subtitle={t('local_storage_sub')} pressable={false}
@@ -797,162 +846,6 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* ── H. Utvecklare ── */}
-      <SectionHeader>{t('developer_section')}</SectionHeader>
-      <Card>
-        <Row icon="star" iconColor={Colors.gold}
-          title="Premium"
-          subtitle={isPremium ? 'Active' : 'Inactive'}
-          right={<Switch value={isPremium} onValueChange={setIsPremium} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
-          pressable={false}
-        />
-        {/* Test users — based on current profile */}
-        {isDrone && (<>
-          <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 1`} subtitle={t('test_user_1_sub')} onClick={() => applyDroneTestUser(1)} />
-          <Row icon="flask-outline" iconColor={Colors.primary} title={`${t('test_user')} 2`} subtitle={t('test_user_2_sub')} onClick={() => applyDroneTestUser(2)} />
-          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} subtitle={t('clear_test_user_sub')} onClick={() => applyDroneTestUser('clear')} />
-        </>)}
-        {!isDrone && (<>
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 1 — Airline" subtitle="A320, ~5500h" onClick={() => applyMannedTestUser(1)} />
-          <Row icon="flask-outline" iconColor={Colors.primary} title="Test pilot 2 — Bushpilot" subtitle="B407/H125, ~3200h" onClick={() => applyMannedTestUser(2)} />
-          <Row icon="refresh-outline" iconColor={Colors.danger} title={t('clear_test_user')} onClick={() => applyMannedTestUser('clear')} />
-        </>)}
-
-        <Row icon="refresh-circle-outline" iconColor={Colors.primary} title={t('replay_onboarding')} subtitle={t('replay_onboarding_sub')}
-          onClick={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
-
-        {/* Reset import quota */}
-        <Row icon="checkmark-done-outline" iconColor={Colors.success} title="Reset Import Quota" subtitle="Reset CSV import counter to 0"
-          onClick={async () => { await setSetting('import_used', '0'); Alert.alert('OK', 'Import quota reset'); }} />
-
-        {/* Switch logbook (dev only) */}
-        {additionalProfiles.length > 0 && (
-          <Row icon="swap-horizontal-outline" iconColor={Colors.info} title="Switch Logbook" subtitle="Dev: switch without onboarding"
-            onClick={() => {
-              // Group profiles by mainRole and subRole
-              const grouped = additionalProfiles.reduce((acc, profile) => {
-                const key = profile.mainRole;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(profile);
-                return acc;
-              }, {} as Record<string, typeof additionalProfiles>);
-
-              // Define category structure with subcategories
-              const categoryMap: Record<string, { label: string; subcategories?: Record<string, string[]> }> = {
-                'pilot-manned': {
-                  label: '✈️ Pilot (Manned)',
-                  subcategories: {
-                    'rotary': ['Rotary (Helicopter)'],
-                    'fixed': ['Fixed Wing (Airplane)']
-                  }
-                },
-                'pilot-unmanned': {
-                  label: '🚁 Pilot (Unmanned)',
-                  subcategories: {
-                    'military': ['Military'],
-                    'commercial': ['Commercial']
-                  }
-                }
-              };
-
-              // Show main category selection
-              const categoryOptions = [
-                { text: 'Cancel', onPress: () => {} },
-                ...Object.entries(categoryMap)
-                  .filter(([key]) => grouped[key])
-                  .map(([key, cat]) => ({
-                    text: cat.label,
-                    onPress: () => {
-                      const mainRole = key as any;
-                      const profiles = grouped[mainRole];
-
-                      // If no subcategories, show profiles directly
-                      if (!cat.subcategories) {
-                        const options = [
-                          { text: 'Back', onPress: () => {} },
-                          ...profiles.map((profile) => ({
-                            text: profile.subRole.charAt(0).toUpperCase() + profile.subRole.slice(1),
-                            onPress: async () => {
-                              await useProfileStore.getState().setProfile({ mainRole, subRole: profile.subRole as SubRole });
-                              const isDrn = mainRole === 'pilot-unmanned';
-                              await switchMode(isDrn ? 'drone' : 'manned');
-                            }
-                          }))
-                        ];
-                        Alert.alert('Switch Logbook', `Choose ${cat.label.split(' ').slice(1).join(' ')}:`, options);
-                      } else {
-                        // Show subcategory selection
-                        const subCatOptions = [
-                          { text: 'Back', onPress: () => {} },
-                          ...Object.keys(cat.subcategories)
-                            .filter(subKey => profiles.some(p => p.subRole === subKey))
-                            .map((subKey) => ({
-                              text: cat.subcategories![subKey][0],
-                              onPress: () => {
-                                // Show profiles for this subcategory
-                                const subRoleProfiles = profiles.filter(p => p.subRole === subKey);
-                                const profileOptions = [
-                                  { text: 'Back', onPress: () => {} },
-                                  ...subRoleProfiles.map((profile) => ({
-                                    text: profile.subRole.charAt(0).toUpperCase() + profile.subRole.slice(1),
-                                    onPress: async () => {
-                                      await useProfileStore.getState().setProfile({ mainRole, subRole: profile.subRole as SubRole });
-                                      const isDrn = mainRole === 'pilot-unmanned';
-                                      await switchMode(isDrn ? 'drone' : 'manned');
-                                    }
-                                  }))
-                                ];
-                                Alert.alert('Switch Logbook', 'Choose profile:', profileOptions);
-                              }
-                            }))
-                        ];
-                        Alert.alert('Switch Logbook', `Choose type:`, subCatOptions);
-                      }
-                    }
-                  }))
-              ];
-              Alert.alert('Switch Logbook', 'Choose category:', categoryOptions);
-            }}
-          />
-        )}
-
-        {/* Rensa data */}
-        <Row icon="trash" iconColor={Colors.danger} title={t('clear_all_logbook_data')} subtitle={t('clear_all_sub')} onClick={handleClearAll} border={false} />
-      </Card>
-
-
-      {isPremium && (
-        <TouchableOpacity
-          style={{
-            marginHorizontal: 20, marginTop: 16, paddingVertical: 14,
-            borderRadius: 12, alignItems: 'center',
-            backgroundColor: Colors.danger + '12',
-            borderWidth: 1, borderColor: Colors.danger + '33',
-          }}
-          onPress={() => {
-            Alert.alert(
-              t('cancel_premium_title'),
-              t('cancel_premium_body'),
-              [
-                { text: t('cancel'), style: 'cancel' },
-                {
-                  text: t('cancel_premium_confirm'),
-                  style: 'destructive',
-                  onPress: () => {
-                    setIsPremium(false);
-                    Alert.alert(t('cancel_premium_done_title'), t('cancel_premium_done_body'));
-                  },
-                },
-              ],
-            );
-          }}
-          activeOpacity={0.75}
-        >
-          <Text style={{ color: Colors.danger, fontSize: 13, fontWeight: '600' }}>
-            {t('cancel_premium_btn')}
-          </Text>
-        </TouchableOpacity>
-      )}
 
       <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
 

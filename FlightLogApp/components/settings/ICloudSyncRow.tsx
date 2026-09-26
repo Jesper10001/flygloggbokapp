@@ -19,7 +19,7 @@ function relTime(iso?: string | null): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function ICloudSyncRow({ accent = Colors.primary }: { accent?: string }) {
+export function ICloudSyncRow({ accent = Colors.primary, flat = false }: { accent?: string; flat?: boolean }) {
   const router = useRouter();
   const { hasModule, enabled, status, lastError, manifest, busy, refresh, setEnabled } = useICloudStore();
 
@@ -37,11 +37,8 @@ export function ICloudSyncRow({ accent = Colors.primary }: { accent?: string }) 
   };
   const statusColor = status === 'error' ? Colors.danger : enabled ? Colors.success : Colors.textMuted;
 
-  return (
-    <View style={{
-      marginHorizontal: 20, backgroundColor: Colors.card, borderRadius: 16,
-      borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden',
-    }}>
+  const inner = (
+    <>
       {/* Toggle-rad */}
       <View style={{
         flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16,
@@ -79,6 +76,15 @@ export function ICloudSyncRow({ accent = Colors.primary }: { accent?: string }) 
         </View>
         <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
       </TouchableOpacity>
-    </View>
+    </>
+  );
+
+  // flat = utan egen kort-ram (för inbäddning i en annan sektion, t.ex. Security-dropdownen).
+  if (flat) return inner;
+  return (
+    <View style={{
+      marginHorizontal: 20, backgroundColor: Colors.card, borderRadius: 16,
+      borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden',
+    }}>{inner}</View>
   );
 }

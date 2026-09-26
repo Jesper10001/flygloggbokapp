@@ -313,25 +313,13 @@ function DayNightMapBase(props: DayNightMapProps) {
           {runs.map((r, i) => (
             <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3} zIndex={3} />
           ))}
-          {markers.flatMap((m, i) => {
-            const combined = m.dep && m.arr;
-            const fill = combined ? Colors.gold : m.dep ? C_DEP : m.arr ? Colors.gold : C_STOP;
-            return [
-              /* Pricken sitter EXAKT på koordinaten (ankare i mitten) → rutt-strecket OCH romben går
-                 rakt genom cirklarna. */
-              <Marker key={'m' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} title={m.icao} zIndex={5}>
-                <View style={[s.dot, { marginVertical: 0, backgroundColor: fill, borderColor: combined ? C_DEP : '#FFFFFF' }]} />
-              </Marker>,
-              /* ICAO-etiketten är ett EGET marker med eget ankare (svävar ovanför pricken) → påverkar
-                 inte var strecket/romben hamnar. */
-              <Marker key={'ml' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false} zIndex={5}>
-                <View style={{ alignItems: 'center' }}>
-                  <View style={s.labelChip}><Text style={s.labelText}>{m.icao}</Text></View>
-                  <View style={{ height: MARK_DOT / 2 + MARK_LABEL_GAP }} />
-                </View>
-              </Marker>,
-            ];
-          })}
+          {markers.map((m, i) => (
+            /* Bara ICAO-rutan (ingen färgad prick) — centrerad på koordinaten så rutt-strecket
+               går rakt genom rutan. */
+            <Marker key={'ml' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} title={m.icao} zIndex={5}>
+              <View style={s.labelChip}><Text style={s.labelText}>{m.icao}</Text></View>
+            </Marker>
+          ))}
           {sub ? (
             <Marker coordinate={{ latitude: sub.lat, longitude: normLon(sub.lon) }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={4}>
               <Text style={{ fontSize: 20 }}>☀️</Text>
@@ -342,7 +330,9 @@ function DayNightMapBase(props: DayNightMapProps) {
               annars är den fryst för prestanda medan positionen uppdateras nativt. */}
           {/* Gamla romb-figuren (symmetrisk → ingen heading-rotation, stabil key = flyttas nativt utan remount). */}
           <Marker key="plane" coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={6}>
-            <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            {/* Tight wrapper (rymmer den 45°-roterade romben) — en stor vy förskjuter ankaret på iOS
+                så romben hamnar under linjen. */}
+            <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
               <View style={s.planeDiamond} />
             </View>
           </Marker>

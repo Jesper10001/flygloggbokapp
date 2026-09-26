@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, useWindowDimensions, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,22 +7,18 @@ import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
-import { MiniRouteMap } from '../../components/milestones/MiniRouteMap';
-import { RouteLeafletModal } from '../../components/milestones/RouteLeafletModal';
-import { MilestoneShareCard, ShareData } from '../../components/milestones/MilestoneShareCard';
+import { RouteLeafletModal, RouteMapPreview } from '../../components/milestones/RouteLeafletModal';
 import {
-  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, PrimaryCTA, GhostCTA, MONO, SERIF,
+  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
 } from '../../components/milestones/MilestoneUI';
 
 export default function LongestXcScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const accent = Colors.accent;
   const stats = useFlightStore(s => s.stats);
   const { t } = useTranslation();
   const [mapVisible, setMapVisible] = useState(false);
-  const [shareVisible, setShareVisible] = useState(false);
 
   const d = useLongestXcFull({
     date: stats?.longest_xc_date || undefined,
@@ -33,7 +29,6 @@ export default function LongestXcScreen() {
     lastArr: stats?.longest_xc_last_arr,
   });
 
-  const mapW = width - 40;
   const chips = [
     d.cruiseKts ? { l: t('ms.lx_cruise'), v: `${d.cruiseKts} KTS` } : null,
     d.altFl ? { l: t('ms.lx_alt'), v: d.altFl } : null,
@@ -41,19 +36,6 @@ export default function LongestXcScreen() {
   ].filter(Boolean) as Array<{ l: string; v: string }>;
 
   const maxTop5 = Math.max(1, ...d.top5.map(r => r.nm));
-
-  const shareData: ShareData | null = d.ready ? {
-    variant: 'lx',
-    distanceNm: d.distanceNm,
-    distanceKm: d.distanceKm,
-    nmUnit: t('ms.nm'),
-    legs: d.legs.map(l => ({ icao: l.icao, city: l.name })),
-    meta: [
-      { l: t('ms.block'), v: d.totalLabel },
-      { l: t('ms.date'), v: d.dateShort },
-      { l: t('ms.aircraft'), v: d.aircraftReg || '—' },
-    ],
-  } : null;
 
   return (
     <View style={s.screen}>
@@ -63,7 +45,6 @@ export default function LongestXcScreen() {
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
-        onShare={() => setShareVisible(true)}
       />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
@@ -83,16 +64,10 @@ export default function LongestXcScreen() {
         <View style={s.section}>
           <View style={[s.mapCard, { height: 300 }]}>
             {d.legs.length >= 2 ? (
-              <MiniRouteMap
-                width={mapW}
-                height={300}
-                legs={d.legs}
+              <RouteMapPreview
+                points={d.legs.map(l => ({ icao: l.icao, name: l.name, lat: l.lat, lon: l.lon }))}
                 accent={accent}
-                showGraticule
-                showLabels
-                padX={70}
-                padTop={70}
-                padBottom={70}
+                height={300}
               />
             ) : (
               <View style={s.mapEmpty}><Text style={s.mapEmptyText}>{t('ms.lx_no_coords')}</Text></View>
@@ -187,7 +162,6 @@ export default function LongestXcScreen() {
 
         {/* CTAs */}
         <View style={[s.section, { gap: 10 }]}>
-          <PrimaryCTA label={t('ms.lx_share')} icon="share-outline" accent={accent} onPress={() => setShareVisible(true)} />
           <GhostCTA
             label={t('ms.lx_open_detail')}
             icon="document-text-outline"
@@ -202,8 +176,6 @@ export default function LongestXcScreen() {
         points={d.legs.map(l => ({ icao: l.icao, name: l.name, lat: l.lat, lon: l.lon }))}
         accent={accent}
       />
-
-      <MilestoneShareCard visible={shareVisible} onClose={() => setShareVisible(false)} data={shareData} accent={Colors.gold} />
     </View>
   );
 }

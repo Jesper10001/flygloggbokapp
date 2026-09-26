@@ -223,7 +223,7 @@ export default function DroneSettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: DR.text }}>{isMax ? 'Blades MAX' : 'Blades Premium'}</Text>
-              <Text style={{ fontSize: 11, color: DR.muted }}>{isMax ? 'Active' : isPremium ? 'Active, upgrade to MAX?' : 'Discover all features'}</Text>
+              <Text style={{ fontSize: 11, color: DR.muted }}>{isPremium || isMax ? 'Active' : 'Discover all features'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={DR.muted} />
           </TouchableOpacity>

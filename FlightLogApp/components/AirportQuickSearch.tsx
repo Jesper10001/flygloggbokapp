@@ -1,7 +1,7 @@
 // Inline flygplats-snabbsökning för globmenyn: sökrutan ÄR knappen (samma stil som övriga menyknappar),
 // träffar dyker upp i en dropdown nedanför. Väljer man en → kompakt popup på dashboarden (flygplatskort +
 // bank-snippet + avstånd/magnetisk kurs) — inte helskärm. Ersätter den tidigare helskärms-lookupen.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Keyboard, ActivityIndicator, Dimensions, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { searchAirports, getNearbyAirports } from '../db/icao';
 import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '../db/flights';
 import type { IcaoAirport } from '../types/flight';
 import { fetchAirportMetar, type AirportMetar } from '../services/weather';
+import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { AirportInfoCard } from './AirportInfoCard';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
 
@@ -56,14 +57,22 @@ async function readDeclination(): Promise<number | null> {
 type Perf = { type: string; cruiseKts: number; fuelBurn: number; fuelUnit: string };
 
 // ── Filter för "Closest airport to me" ─────────────────────────────────────────
-type WxFilter = 'all' | 'vfr' | 'mvfr' | 'ifr';
+type WxFilter = 'all' | 'vfr' | 'mvfr' | 'ifr' | 'lifr';
 type TypeFilter = 'all' | 'large' | 'medium' | 'small' | 'heliport' | 'military';
-const WX_OPTIONS: { key: string; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'vfr', label: 'Only VFR' },
-  { key: 'mvfr', label: 'Lowest MVFR' },
-  { key: 'ifr', label: 'Lowest IFR' },
-];
+// Kategorierna (VFR/MVFR/IFR/LIFR) är definierade i statute miles/fot (US NWS). FAA-piloter ser
+// sikten i sm; EASA/CAA i km (samma trösklar, enhetskonverterade). Molnbas alltid i fot.
+function buildWxOptions(sm: boolean): { key: string; label: string; sub?: string }[] {
+  const vis = sm
+    ? { vfr: 'vis > 5 sm', mvfr: 'vis 3–5 sm', ifr: 'vis 1–3 sm', lifr: 'vis < 1 sm' }
+    : { vfr: 'vis > 8 km', mvfr: 'vis 5–8 km', ifr: 'vis 1.6–5 km', lifr: 'vis < 1.6 km' };
+  return [
+    { key: 'all', label: 'All' },
+    { key: 'vfr', label: 'Only VFR', sub: `(${vis.vfr}, ceiling > 3000 ft)` },
+    { key: 'mvfr', label: 'Lowest MVFR', sub: `(${vis.mvfr}, ceiling 1000–3000 ft)` },
+    { key: 'ifr', label: 'Lowest IFR', sub: `(${vis.ifr}, ceiling 500–1000 ft)` },
+    { key: 'lifr', label: 'Lowest LIFR', sub: `(${vis.lifr}, ceiling < 500 ft)` },
+  ];
+}
 const TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'large', label: 'Large Airports' },
@@ -72,7 +81,7 @@ const TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'heliport', label: 'Heliports' },
   { key: 'military', label: 'Air Bases' },
 ];
-const WX_SHORT: Record<WxFilter, string> = { all: 'All', vfr: 'VFR', mvfr: 'MVFR', ifr: 'IFR' };
+const WX_SHORT: Record<WxFilter, string> = { all: 'All', vfr: 'VFR', mvfr: 'MVFR', ifr: 'IFR', lifr: 'LIFR' };
 const TYPE_SHORT: Record<TypeFilter, string> = { all: 'All', large: 'Large', medium: 'Medium', small: 'Airfields', heliport: 'Heliports', military: 'Air Bases' };
 const WX_RANK: Record<string, number> = { VFR: 3, MVFR: 2, IFR: 1, LIFR: 0 }; // bäst → sämst
 // Militär "Air base" finns ej som DB-fält → namnbaserad heuristik (som kartans militärlager i praktiken).
@@ -91,6 +100,7 @@ function matchesWxFilter(cat: string | null | undefined, f: WxFilter): boolean {
   const r = WX_RANK[cat] ?? -1;
   if (f === 'mvfr') return r >= 2;
   if (f === 'ifr') return r >= 1;
+  if (f === 'lifr') return r >= 0; // tillåt ner till LIFR = alla flygplatser med en giltig kategori
   return true;
 }
 
@@ -100,6 +110,9 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   onFocusShift?: (dy: number) => void; // be dashboarden flytta upp sig så sökrutan syns över tangentbordet
 }) {
   const insets = useSafeAreaInsets();
+  // FAA-standard → sikt i statute miles; EASA/CAA → km (molnbas alltid i fot).
+  const regStandard = useRegulationStandardStore((s) => s.standard);
+  const wxOptions = useMemo(() => buildWxOptions(regStandard === 'faa'), [regStandard]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [searching, setSearching] = useState(false);
@@ -370,12 +383,15 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
         <Pressable style={styles.backdrop} onPress={() => setOpenFilter(null)}>
           <Pressable onPress={() => {}} style={styles.pickerSheet}>
             <Text style={styles.pickerTitle}>{openFilter === 'wx' ? 'Weather' : 'Type'}</Text>
-            {(openFilter === 'wx' ? WX_OPTIONS : TYPE_OPTIONS).map((o) => {
+            {(openFilter === 'wx' ? wxOptions : TYPE_OPTIONS).map((o) => {
               const active = openFilter === 'wx' ? wxFilter === o.key : typeFilter === o.key;
               return (
                 <TouchableOpacity key={o.key} style={styles.filterOptRow} activeOpacity={0.7}
                   onPress={() => { if (openFilter === 'wx') setWxFilter(o.key as WxFilter); else setTypeFilter(o.key as TypeFilter); setOpenFilter(null); }}>
-                  <Text style={[styles.filterOptTxt, active && { color: accent, fontWeight: '800' }]}>{o.label}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.filterOptTxt, active && { color: accent, fontWeight: '800' }]}>{o.label}</Text>
+                    {(o as { sub?: string }).sub ? <Text style={styles.filterOptSub}>{(o as { sub?: string }).sub}</Text> : null}
+                  </View>
                   {active && <Ionicons name="checkmark" size={18} color={accent} />}
                 </TouchableOpacity>
               );
@@ -554,4 +570,5 @@ const styles = StyleSheet.create({
   filterChipTxt: { color: '#fff', fontSize: 11.5, fontWeight: '700' },
   filterOptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.separator },
   filterOptTxt: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
+  filterOptSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
 });

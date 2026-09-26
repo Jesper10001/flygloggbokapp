@@ -5,8 +5,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PREMIUM_PRICE_MONTHLY = 39;
-export const PREMIUM_PRICE_YEARLY = 349;
-export const PREMIUM_PRICE_YEARLY_MONTHLY = Math.round(PREMIUM_PRICE_YEARLY / 12);
 
 const N = {
   bg: '#0A1628',

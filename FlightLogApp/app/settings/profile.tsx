@@ -13,7 +13,6 @@ const FIELDS = [
   { key: 'profile_first_name', label: 'first_name', placeholder: 'John' },
   { key: 'profile_last_name', label: 'last_name', placeholder: 'Smith' },
   { key: 'profile_initials', label: 'initials', placeholder: 'JS', maxLength: 4 },
-  { key: 'profile_credentials', label: 'credentials', placeholder: 'CPL(H) · IR · NVG · A2 UAS' },
   { key: 'profile_email', label: 'email', placeholder: 'name@example.com', optional: true, keyboardType: 'email-address' as const },
   { key: 'profile_phone', label: 'phone', placeholder: '+46 70 123 45 67', optional: true, keyboardType: 'phone-pad' as const },
   { key: 'profile_company', label: 'company', placeholder: 'Scandinavian Helicopter AB', optional: true },
@@ -80,16 +79,13 @@ export default function ProfileScreen() {
               ? `${form.profile_first_name ?? ''} ${form.profile_last_name ?? ''}`.trim()
               : t('your_name')}
           </Text>
-          {form.profile_credentials ? (
-            <Text style={styles.avatarSub}>{form.profile_credentials}</Text>
-          ) : null}
         </View>
 
         {/* Grunddata */}
         <Text style={styles.sectionHeader}>{t('profile_basic')}</Text>
         <View style={styles.card}>
-          {FIELDS.slice(0, 4).map((f, i) => (
-            <View key={f.key} style={[styles.fieldRow, i === 3 && { borderBottomWidth: 0 }]}>
+          {FIELDS.slice(0, 3).map((f, i) => (
+            <View key={f.key} style={[styles.fieldRow, i === 2 && { borderBottomWidth: 0 }]}>
               <Text style={styles.fieldLabel}>{t(f.label)}</Text>
               <TextInput
                 style={styles.fieldInput}
@@ -107,8 +103,8 @@ export default function ProfileScreen() {
         {/* Kontakt & Organisation */}
         <Text style={styles.sectionHeader}>{t('profile_optional')}</Text>
         <View style={styles.card}>
-          {FIELDS.slice(4).map((f, i) => (
-            <View key={f.key} style={[styles.fieldRow, i === FIELDS.length - 5 && { borderBottomWidth: 0 }]}>
+          {FIELDS.slice(3).map((f, i) => (
+            <View key={f.key} style={[styles.fieldRow, i === FIELDS.length - 4 && { borderBottomWidth: 0 }]}>
               <Text style={styles.fieldLabel}>{t(f.label)}</Text>
               <TextInput
                 style={styles.fieldInput}

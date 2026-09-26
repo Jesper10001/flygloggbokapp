@@ -48,7 +48,9 @@ export const useProfileStore = create<ProfileState>((set) => ({
     if (main && sub) {
       set({ profile: { mainRole: main as MainRole, subRole: sub as SubRole }, loaded: true });
     } else {
-      set({ loaded: true });
+      // Ingen profil i DB (t.ex. efter "Clear all data") → nollställ ev. stale profil i minnet,
+      // annars tror onboarding att en roll redan finns (hoppar över Get started + låser den rollen).
+      set({ profile: null, loaded: true });
     }
   },
 

@@ -20,9 +20,13 @@ export function MilestoneHeader({
         <Text style={[h.backLabel, { color: accent }]}>{t('tab_dashboard')}</Text>
       </Pressable>
       <Text style={h.title} numberOfLines={1}>{title}</Text>
-      <Pressable onPress={onShare} style={[h.share, { backgroundColor: accent + '1A' }]} hitSlop={8}>
-        <Ionicons name="share-outline" size={16} color={accent} />
-      </Pressable>
+      {onShare ? (
+        <Pressable onPress={onShare} style={[h.share, { backgroundColor: accent + '1A' }]} hitSlop={8}>
+          <Ionicons name="share-outline" size={16} color={accent} />
+        </Pressable>
+      ) : (
+        <View style={h.share} />
+      )}
     </BlurView>
   );
 }

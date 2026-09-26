@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
@@ -29,7 +29,7 @@ import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDe
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
 import { getStressHours, getSetting, getFlightsWithPhotos, updateFlightNight } from '../../db/flights';
-import { hasPendingSync } from '../../services/photoSync';
+import { hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/photoSync';
 import { useVersionStore } from '../../store/versionStore';
 import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
 import { useNightUpdateStore } from '../../store/nightUpdateStore';
@@ -342,13 +342,17 @@ function PhotoCard({ imageSource, dep, arr, meta, cardW, onPress, mediaType = 'i
 }
 
 // Actions-sida (sida 2 i karusellen): tre snabbknappar. Sync gråas ut när inget finns att synka.
-function CarouselActions({ cardW, canSync, hasPhoto, onAlbum, onSync, onShare }: {
-  cardW: number; canSync: boolean; hasPhoto: boolean;
-  onAlbum: () => void; onSync: () => void; onShare: () => void;
+function CarouselActions({ cardW, canSync, resumeReview, hasPhoto, onAlbum, onSync, onResume, onShare }: {
+  cardW: number; canSync: boolean; resumeReview: boolean; hasPhoto: boolean;
+  onAlbum: () => void; onSync: () => void; onResume: () => void; onShare: () => void;
 }) {
+  // Pausad granskning med kvar-jobb → knappen blir "Resume" (fortsätt där man slutade, ingen ny synk).
+  const syncTile = resumeReview
+    ? { key: 'sync', icon: 'play-circle-outline' as any, color: Colors.gold, label: 'Resume', sub: 'Finish matching', disabled: false, onPress: onResume }
+    : { key: 'sync', icon: 'sync-outline' as any, color: Colors.primary, label: 'Sync album', sub: canSync ? undefined : 'Up to date', disabled: !canSync, onPress: onSync };
   const tiles: { key: string; icon: any; color: string; label: string; sub?: string; disabled: boolean; onPress: () => void }[] = [
     { key: 'album', icon: 'images-outline', color: Colors.gold, label: 'Flight album', disabled: false, onPress: onAlbum },
-    { key: 'sync', icon: 'sync-outline', color: Colors.primary, label: 'Sync album', sub: canSync ? undefined : 'Up to date', disabled: !canSync, onPress: onSync },
+    syncTile,
     { key: 'share', icon: 'share-outline', color: Colors.info, label: 'Share', sub: hasPhoto ? undefined : 'No photos', disabled: !hasPhoto, onPress: onShare },
   ];
   return (
@@ -376,8 +380,9 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
   const router = useRouter();
   const { formatTime } = useTimeFormat();
   const { flightCount } = useFlightStore();
-  const [photos, setPhotos] = useState<Flight[]>([]);
+  const [media, setMedia] = useState<{ flight: Flight; uri: string; isVideo: boolean }[]>([]);
   const [canSync, setCanSync] = useState(false);
+  const [resumeReview, setResumeReview] = useState(false);
   const [page, setPage] = useState(0);
   const screenW = Dimensions.get('window').width;
   const GAP = 12;
@@ -389,14 +394,30 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
   const SIDE_PAD = 0;
 
   const reload = useCallback(() => {
-    getFlightsWithPhotos().then(f => setPhotos(f.filter(x => x.photo_uri).slice(0, 30))); // bara uppladdade bilder
+    // Senaste media (uppladdade photo_uri ELLER synkade photo_local_id), nyast först, max 10.
+    (async () => {
+      const f = await getFlightsWithPhotos().catch(() => [] as Flight[]);
+      const out: { flight: Flight; uri: string; isVideo: boolean }[] = [];
+      for (const fl of f) {
+        if (out.length >= 10) break;
+        if (fl.photo_uri) out.push({ flight: fl, uri: fl.photo_uri, isVideo: fl.media_type === 'video' });
+        else if (fl.photo_local_id) {
+          const d = await getAssetDisplay(fl.photo_local_id).catch(() => null);
+          if (d?.uri) out.push({ flight: fl, uri: d.uri, isVideo: d.isVideo });
+        }
+      }
+      setMedia(out);
+    })();
     hasPendingSync().then(setCanSync).catch(() => setCanSync(false));
+    hasUnfinishedReview().then(setResumeReview).catch(() => setResumeReview(false));
   }, []);
   useEffect(() => { reload(); }, [flightCount, reload]);
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
-  const hasFlight = photos.length > 0;
-  const latest = photos[0]; // karusellen visar bara den senast sparade bilden
+  const hasFlight = media.length > 0;
+  const latest = media[0];
+  const rest = media.slice(1, 10); // 2:a–10:e senaste (kort efter action-sidan)
+  const pageCount = hasFlight ? 2 + rest.length : 2;
   const [samplePreview, setSamplePreview] = useState<typeof SAMPLE_CARDS[0] | null>(null);
 
   return (
@@ -411,16 +432,17 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
         contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / SNAP))}
       >
+        {/* Sida 1: senaste media (eller exempel om inget finns) */}
         <View style={{ width: CARD_W }}>
           {hasFlight ? (
             <PhotoCard
-              imageSource={{ uri: latest.photo_uri }}
-              dep={placeNames[latest.dep_place?.toUpperCase()] ?? latest.dep_place}
-              arr={placeNames[latest.arr_place?.toUpperCase()] ?? latest.arr_place}
-              meta={`${formatDate(latest.date)} · ${latest.aircraft_type} · ${formatTime(latest.total_time)}h`}
+              imageSource={{ uri: latest.uri }}
+              dep={placeNames[latest.flight.dep_place?.toUpperCase()] ?? latest.flight.dep_place}
+              arr={placeNames[latest.flight.arr_place?.toUpperCase()] ?? latest.flight.arr_place}
+              meta={`${formatDate(latest.flight.date)} · ${latest.flight.aircraft_type} · ${formatTime(latest.flight.total_time)}h`}
               cardW={CARD_W}
-              onPress={() => onPress(latest)}
-              mediaType={latest.media_type === 'video' ? 'video' : 'image'}
+              onPress={() => onPress(latest.flight)}
+              mediaType={latest.isVideo ? 'video' : 'image'}
             />
           ) : (
             <PhotoCard
@@ -433,21 +455,41 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
           )}
         </View>
         <View style={{ width: GAP }} />
+        {/* Sida 2: tre snabbknappar */}
         <View style={{ width: CARD_W }}>
           <CarouselActions
             cardW={CARD_W}
             canSync={canSync}
+            resumeReview={resumeReview}
             hasPhoto={hasFlight}
             onAlbum={() => router.push('/settings/album' as any)}
             onSync={() => router.push('/photo-sync' as any)}
+            onResume={() => router.push('/photo-sync?resume=1' as any)}
             onShare={() => router.push('/settings/album?share=1' as any)}
           />
         </View>
+        {/* Sida 3+: resten av de senaste 10 (nyast → äldst) */}
+        {rest.map((m) => (
+          <Fragment key={m.flight.id}>
+            <View style={{ width: GAP }} />
+            <View style={{ width: CARD_W }}>
+              <PhotoCard
+                imageSource={{ uri: m.uri }}
+                dep={placeNames[m.flight.dep_place?.toUpperCase()] ?? m.flight.dep_place}
+                arr={placeNames[m.flight.arr_place?.toUpperCase()] ?? m.flight.arr_place}
+                meta={`${formatDate(m.flight.date)} · ${m.flight.aircraft_type} · ${formatTime(m.flight.total_time)}h`}
+                cardW={CARD_W}
+                onPress={() => onPress(m.flight)}
+                mediaType={m.isVideo ? 'video' : 'image'}
+              />
+            </View>
+          </Fragment>
+        ))}
       </ScrollView>
 
-      {/* Sidindikator (2 sidor) */}
+      {/* Sidindikator (dynamiskt antal) */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-        {[0, 1].map((i) => (
+        {Array.from({ length: pageCount }).map((_, i) => (
           <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? Colors.primary : Colors.border }} />
         ))}
       </View>
@@ -933,7 +975,8 @@ export default function DashboardScreen() {
                   {/* Timmar i LED (H:MM); ev. separator i Menlo så "/" renderar korrekt */}
                   <Text style={[s.telReadoutValue, { color: m.c }]}>
                     {m.parts.map((p, i) => (
-                      <Text key={i}>{i > 0 ? <Text style={s.telReadoutSep}> / </Text> : null}{p}</Text>
+                      // Explicit fontFamily på varje nod — nästlad <Text> ärver inte alltid LED-fonten på iOS/Fabric.
+                      <Text key={i} style={{ fontFamily: FONT_LED7 }}>{i > 0 ? <Text style={s.telReadoutSep}> / </Text> : null}{p}</Text>
                     ))}
                   </Text>
                 </View>

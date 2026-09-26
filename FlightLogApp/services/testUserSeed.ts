@@ -307,151 +307,222 @@ async function addAircraftReg(
 interface MannedFlight {
   date: string; type: string; reg: string;
   dep: string; depT: string; arr: string; arrT: string;
-  total: number; pic: number; co: number; ifr: number; night: number; nvg?: number;
+  total: number; pic: number; co: number; dual: number; ifr: number; night: number; nvg: number;
   ldDay: number; ldNight: number;
-  rules?: 'VFR' | 'IFR'; flightType?: 'normal' | 'hot_refuel' | 'touch_and_go';
-  stopPlace?: string; remarks?: string;
+  rules: 'VFR' | 'IFR'; crew: 'sp' | 'mp'; se: number; me: number; remarks?: string;
 }
 
-async function insertMannedFlight(f: MannedFlight) {
+// Deterministisk RNG (LCG) → identisk testdata varje gång man laddar profilen.
+function makeRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+const pad2 = (n: number) => String(n).padStart(2, '0');
+function times(startH: number, durH: number, rng: () => number): { depT: string; arrT: string } {
+  const depMin = (Math.round(startH * 60) + Math.floor(rng() * 55)) % (24 * 60);
+  const arrMin = (depMin + Math.round(durH * 60)) % (24 * 60);
+  const fmt = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+  return { depT: fmt(depMin), arrT: fmt(arrMin) };
+}
+
+// En karriärfas: en flygplanstyp under en tidsperiod med rutt-pool, roll och natt-andel.
+interface Phase {
+  type: string; reg: string; count: number;
+  fromDays: number; toDays: number;      // dagar sedan (from = äldst, to = nyast)
+  durMin: number; durMax: number;
+  routes: [string, string][];
+  rules: 'VFR' | 'IFR';
+  role: 'pic' | 'co' | 'progress';       // progress = co-pilot först, PIC senare i fasen
+  crew: 'sp' | 'mp'; engine: 'se' | 'me'; category: 'airplane' | 'helicopter';
+  nightFrac: number; dualFrac?: number; remark?: string;
+}
+
+function genPhase(p: Phase, rng: () => number): MannedFlight[] {
+  const out: MannedFlight[] = [];
+  const denom = Math.max(1, p.count - 1);
+  for (let i = 0; i < p.count; i++) {
+    const f = i / denom;
+    const daysAgo = Math.max(1, Math.round(p.fromDays + (p.toDays - p.fromDays) * f + (rng() - 0.5) * 6));
+    const [a, b] = p.routes[Math.floor(rng() * p.routes.length)] ?? p.routes[0];
+    const fwd = rng() < 0.5;
+    const dep = fwd ? a : b, arr = fwd ? b : a;
+    const dur = +(p.durMin + rng() * (p.durMax - p.durMin)).toFixed(1);
+    const { depT, arrT } = times(6 + Math.floor(rng() * 14), dur, rng);
+    const isNight = rng() < p.nightFrac;
+    // Långflyg: bara en del av tiden i mörker; korta nattflyg = hela blocket natt.
+    const night = isNight ? +Math.min(dur, p.category === 'airplane' && dur > 6 ? dur * 0.45 : dur * 0.9).toFixed(1) : 0;
+    const isDual = (p.dualFrac ?? 0) > 0 && f < (p.dualFrac ?? 0);
+    let pic = 0, co = 0, dual = 0;
+    if (isDual) dual = dur;
+    else if (p.role === 'co') co = dur;
+    else if (p.role === 'progress') { if (f < 0.55) co = dur; else pic = dur; }
+    else pic = dur;
+    out.push({
+      date: isoDaysAgo(daysAgo), type: p.type, reg: p.reg, dep, depT, arr, arrT,
+      total: dur, pic, co, dual, ifr: p.rules === 'IFR' ? dur : 0, night, nvg: 0,
+      ldDay: isNight ? 0 : 1, ldNight: isNight ? 1 : 0,
+      rules: p.rules, crew: p.crew, se: p.engine === 'se' ? dur : 0, me: p.engine === 'me' ? dur : 0,
+      remarks: p.remark,
+    });
+  }
+  return out;
+}
+
+async function insertPlan(flights: MannedFlight[]) {
   const db = await getDatabase();
-  await db.runAsync(
-    `INSERT INTO flights (
+  const sql = `INSERT INTO flights (
       date, aircraft_type, registration,
       dep_place, dep_utc, arr_place, arr_utc,
       total_time, ifr, night, pic, co_pilot, dual,
       landings_day, landings_night, remarks,
       status, source, flight_rules, flight_type,
       multi_pilot, single_pilot, instructor, nvg, stop_place, se_time, me_time
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [
-      f.date, f.type, f.reg,
-      f.dep, f.depT, f.arr, f.arrT,
-      f.total, f.ifr, f.night, f.pic, f.co, 0,
-      f.ldDay, f.ldNight, f.remarks ?? '',
-      'verified', 'manual', f.rules ?? 'VFR', f.flightType ?? 'normal',
-      f.co > 0 ? f.total : 0, f.co > 0 ? 0 : f.total, 0, f.nvg ?? 0, f.stopPlace ?? '',
-      0, 0,
-    ]
-  );
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  await db.withTransactionAsync(async () => {
+    for (const f of flights) {
+      await db.runAsync(sql, [
+        f.date, f.type, f.reg,
+        f.dep, f.depT, f.arr, f.arrT,
+        f.total, f.ifr, f.night, f.pic, f.co, f.dual,
+        f.ldDay, f.ldNight, f.remarks ?? '',
+        'verified', 'manual', f.rules, 'normal',
+        f.crew === 'mp' ? f.total : 0, f.crew === 'sp' ? f.total : 0, 0, f.nvg, '',
+        f.se, f.me,
+      ]);
+    }
+  });
 }
 
-/** Summary-rad: historisk total-tid som inte delas upp per flygning */
-async function insertSummary(type: string, total: number, pic: number, co: number, ifr: number, night: number, date: string, remarks: string) {
-  const db = await getDatabase();
-  await db.runAsync(
-    `INSERT INTO flights (
-      date, aircraft_type, registration,
-      dep_place, dep_utc, arr_place, arr_utc,
-      total_time, ifr, night, pic, co_pilot, dual,
-      landings_day, landings_night, remarks,
-      status, source, flight_rules, flight_type,
-      multi_pilot, single_pilot, instructor, nvg, stop_place, se_time, me_time
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [
-      date, type, '',
-      '', '', '', '',
-      total, ifr, night, pic, co, 0,
-      0, 0, remarks,
-      'verified', 'import', 'IFR', 'summary',
-      co, pic, 0, 0, '', 0, 0,
-    ]
-  );
+// Sätter aktiv profil (roll + namn + regelverk) och markerar onboarding som klar.
+async function setPilotProfile(sub: 'fixed' | 'rotary', first: string, last: string) {
+  await setSetting('profile_main_role', 'pilot-manned');
+  await setSetting('profile_sub_role', sub);
+  await setSetting('profile_first_name', first);
+  await setSetting('profile_last_name', last);
+  await setSetting('profile_initials', `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase());
+  await setSetting('regulation_standard', 'easa');
+  await setSetting('has_onboarded', '1');
 }
 
-// ── Test user 3: Commercial airline pilot (A320, 10 år, ~5520h) ─────────────
+// ── Test pilot 1: Swedish airline pilot (SAS long-haul) — 2010→nu, ~1500 flights, ~11 000h,
+// 8 flygplanstyper: US-flygskola (C172/PA28) → ME/IR → King Air air-taxi → ATR-regional →
+// A320 narrowbody → A330/A350 long-haul interkontinentalt. ─────────────────────────────────
 export async function seedMannedPilot1() {
   await wipeMannedData();
 
-  await addAircraftReg('A320', 'SE-DOZ', 447, 5.5, 'mp', 'airplane', 'me');
-  await addAircraftReg('A320', 'SE-DOY', 447, 5.5, 'mp', 'airplane', 'me');
-  await addAircraftReg('A320', 'SE-RJE', 447, 5.5, 'mp', 'airplane', 'me');
+  // 8 flygplanstyper (typ, reg, marschfart kts, uthållighet h, crew, kategori, motor).
+  await addAircraftReg('C172', 'N5217G', 120, 4.5, 'sp', 'airplane', 'se');
+  await addAircraftReg('PA28', 'N283PA', 125, 4.5, 'sp', 'airplane', 'se');
+  await addAircraftReg('DA42', 'N42DT', 165, 6.0, 'sp', 'airplane', 'me');
+  await addAircraftReg('BE20', 'SE-KAB', 270, 5.5, 'sp', 'airplane', 'me');
+  await addAircraftReg('AT72', 'SE-MKG', 275, 4.5, 'mp', 'airplane', 'me');
+  await addAircraftReg('A320', 'SE-ROX', 447, 5.5, 'mp', 'airplane', 'me');
+  await addAircraftReg('A333', 'SE-REF', 470, 13.0, 'mp', 'airplane', 'me');
+  await addAircraftReg('A359', 'SE-RSA', 488, 15.0, 'mp', 'airplane', 'me');
 
-  // Summary — 10 års historik minus senaste 14 flygningar
-  await insertSummary(
-    'A320', 5417.3, 2890.5, 2526.8, 5380.0, 420.0,
-    isoDaysAgo(3600), 'Historical total — 10 years A320 EU commercial ops'
-  );
-
-  // Senaste 14 flygningar för dashboard/listor — ~105h så total blir ~5522h
-  const plan: MannedFlight[] = [
-    { date: isoDaysAgo(340), type: 'A320', reg: 'SE-DOZ', dep: 'ESSA', depT: '07:20', arr: 'EKCH', arrT: '08:50', total: 1.5, pic: 0, co: 1.5, ifr: 1.5, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(312), type: 'A320', reg: 'SE-DOY', dep: 'ESSA', depT: '14:05', arr: 'EDDF', arrT: '16:40', total: 2.6, pic: 0, co: 2.6, ifr: 2.6, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(288), type: 'A320', reg: 'SE-RJE', dep: 'EDDF', depT: '17:30', arr: 'ESSA', arrT: '20:15', total: 2.7, pic: 0, co: 2.7, ifr: 2.7, night: 1.2, ldDay: 0, ldNight: 1, rules: 'IFR' },
-    { date: isoDaysAgo(260), type: 'A320', reg: 'SE-DOZ', dep: 'ESSA', depT: '06:50', arr: 'LFPG', arrT: '09:30', total: 2.7, pic: 2.7, co: 0, ifr: 2.7, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(230), type: 'A320', reg: 'SE-DOY', dep: 'ESSA', depT: '11:10', arr: 'LOWW', arrT: '14:20', total: 3.2, pic: 3.2, co: 0, ifr: 3.2, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(210), type: 'A320', reg: 'SE-RJE', dep: 'LOWW', depT: '15:05', arr: 'ESSA', arrT: '18:10', total: 3.1, pic: 3.1, co: 0, ifr: 3.1, night: 0.5, ldDay: 0, ldNight: 1, rules: 'IFR' },
-    { date: isoDaysAgo(180), type: 'A320', reg: 'SE-DOZ', dep: 'ESSA', depT: '08:00', arr: 'EGLL', arrT: '10:45', total: 2.8, pic: 0, co: 2.8, ifr: 2.8, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(150), type: 'A320', reg: 'SE-DOY', dep: 'EGLL', depT: '12:20', arr: 'ESSA', arrT: '15:30', total: 3.2, pic: 3.2, co: 0, ifr: 3.2, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(120), type: 'A320', reg: 'SE-RJE', dep: 'ESSA', depT: '16:40', arr: 'LEBL', arrT: '20:30', total: 3.8, pic: 3.8, co: 0, ifr: 3.8, night: 1.8, ldDay: 0, ldNight: 1, rules: 'IFR' },
-    { date: isoDaysAgo(90), type: 'A320', reg: 'SE-DOZ', dep: 'LEBL', depT: '21:10', arr: 'ESSA', arrT: '00:55', total: 3.7, pic: 0, co: 3.7, ifr: 3.7, night: 3.7, ldDay: 0, ldNight: 1, rules: 'IFR' },
-    { date: isoDaysAgo(60), type: 'A320', reg: 'SE-DOY', dep: 'ESSA', depT: '07:45', arr: 'LSZH', arrT: '10:30', total: 2.7, pic: 2.7, co: 0, ifr: 2.7, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(45), type: 'A320', reg: 'SE-RJE', dep: 'LSZH', depT: '11:30', arr: 'EDDM', arrT: '12:30', total: 1.0, pic: 1.0, co: 0, ifr: 1.0, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(30), type: 'A320', reg: 'SE-DOZ', dep: 'EDDM', depT: '13:15', arr: 'ESSA', arrT: '15:40', total: 2.4, pic: 0, co: 2.4, ifr: 2.4, night: 0, ldDay: 1, ldNight: 0, rules: 'IFR' },
-    { date: isoDaysAgo(10), type: 'A320', reg: 'SE-DOY', dep: 'ESSA', depT: '05:55', arr: 'LIRF', arrT: '09:40', total: 3.7, pic: 0, co: 3.7, ifr: 3.7, night: 0.5, ldDay: 1, ldNight: 0, rules: 'IFR' },
+  const rng = makeRng(20100901);
+  const D = 365; // dagar/år-hjälp; 2010 ≈ 5800 dagar sedan, nu ≈ 0.
+  const phases: Phase[] = [
+    // 1) Flygskola Florida 2010–2011 (PPL + timbygge), C172.
+    { type: 'C172', reg: 'N5217G', count: 90, fromDays: 16*D, toDays: 14.7*D, durMin: 0.8, durMax: 1.8, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.12, dualFrac: 0.35,
+      routes: [['KLAL','KORL'],['KLAL','KBOW'],['KORL','KTPA'],['KLAL','KVRB'],['KLAL','KGIF'],['KORL','KLEE'],['KLAL','KFPR']], remark: 'Flight school — Florida' },
+    // 2) CPL/IR-timbygge 2011, PA28 (VFR + lite IFR).
+    { type: 'PA28', reg: 'N283PA', count: 70, fromDays: 14.7*D, toDays: 13.6*D, durMin: 1.0, durMax: 2.6, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.18,
+      routes: [['KLAL','KJAX'],['KLAL','KMCO'],['KTPA','KRSW'],['KORL','KJAX'],['KLAL','KTLH'],['KMCO','KTPA']], remark: 'Hour building / CPL' },
+    // 3) ME/IR twin 2011–2012, DA42.
+    { type: 'DA42', reg: 'N42DT', count: 50, fromDays: 13.6*D, toDays: 12.8*D, durMin: 1.2, durMax: 2.4, rules: 'IFR', role: 'pic', crew: 'sp', engine: 'me', category: 'airplane', nightFrac: 0.25, dualFrac: 0.25,
+      routes: [['KLAL','KMCO'],['KORL','KJAX'],['KTPA','KTLH'],['KMCO','KRSW']], remark: 'ME / IR training' },
+    // 4) First job — King Air air taxi, Sverige/EU 2012–2013.
+    { type: 'BE20', reg: 'SE-KAB', count: 90, fromDays: 12.8*D, toDays: 11.2*D, durMin: 0.8, durMax: 2.6, rules: 'IFR', role: 'pic', crew: 'sp', engine: 'me', category: 'airplane', nightFrac: 0.3,
+      routes: [['ESSA','ESGG'],['ESSA','ESMS'],['ESGG','ESMS'],['ESSA','ESNU'],['ESSA','ENGM'],['ESGG','EKCH'],['ESSA','EFHK'],['ESSA','ESNN']], remark: 'Air taxi' },
+    // 5) Regional turboprop, ATR 72 — first airline job 2013–2015 (FO→CPT).
+    { type: 'AT72', reg: 'SE-MKG', count: 120, fromDays: 11.2*D, toDays: 9.0*D, durMin: 0.7, durMax: 2.4, rules: 'IFR', role: 'progress', crew: 'mp', engine: 'me', category: 'airplane', nightFrac: 0.35,
+      routes: [['ESSA','ESNN'],['ESSA','ESNU'],['ESGG','ESSA'],['ESSA','ESPA'],['ESSA','ENVA'],['ESSA','EFHK'],['ESSA','EKCH'],['ESGG','ESMS'],['ESSA','ESNS']], remark: 'Regional turboprop' },
+    // 6) A320 narrowbody, EU 2015–2019 (First Officer).
+    { type: 'A320', reg: 'SE-ROX', count: 230, fromDays: 9.0*D, toDays: 6.2*D, durMin: 1.3, durMax: 3.6, rules: 'IFR', role: 'co', crew: 'mp', engine: 'me', category: 'airplane', nightFrac: 0.3,
+      routes: [['ESSA','EDDF'],['ESSA','EGLL'],['ESSA','LFPG'],['ESSA','LEMD'],['ESSA','LEBL'],['ESSA','LIRF'],['ESSA','LOWW'],['ESSA','LSZH'],['ESSA','EHAM'],['EKCH','LPPT'],['EKCH','LGAV'],['ESSA','EDDM']], remark: 'Short/medium haul' },
+    // 7) A330 long-haul 2019–2023 (FO → Captain).
+    { type: 'A333', reg: 'SE-REF', count: 400, fromDays: 6.2*D, toDays: 2.8*D, durMin: 8.5, durMax: 11.5, rules: 'IFR', role: 'progress', crew: 'mp', engine: 'me', category: 'airplane', nightFrac: 0.6,
+      routes: [['EKCH','KEWR'],['EKCH','KORD'],['ESSA','KIAD'],['EKCH','KLAX'],['EKCH','KSFO'],['EKCH','RJAA'],['EKCH','ZBAA'],['EKCH','VHHH'],['EKCH','OMDB'],['EKCH','WSSS'],['ESSA','KEWR']], remark: 'Long haul' },
+    // 8) A350 long-haul 2023→nu (Captain).
+    { type: 'A359', reg: 'SE-RSA', count: 450, fromDays: 2.8*D, toDays: 2, durMin: 9.0, durMax: 12.0, rules: 'IFR', role: 'pic', crew: 'mp', engine: 'me', category: 'airplane', nightFrac: 0.6,
+      routes: [['EKCH','KLAX'],['EKCH','KSFO'],['ESSA','KJFK'],['EKCH','KORD'],['EKCH','RJAA'],['EKCH','ZSPD'],['EKCH','VHHH'],['EKCH','WSSS'],['EKCH','VTBS'],['ESSA','KEWR'],['EKCH','SBGR'],['EKCH','FAOR']], remark: 'Long haul' },
   ];
-  for (const f of plan) await insertMannedFlight(f);
 
-  // Certificates for airline pilot
-  await addCertificate({ cert_type: 'ATPL', label: 'Frozen ATPL', issued_date: '2018-03-15', expires_date: '', notes: '' });
-  await addCertificate({ cert_type: 'Type Rating', label: 'A320 Family', issued_date: '2020-06-10', expires_date: isoDaysFromNow(180), notes: '' });
-  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(200), expires_date: isoDaysFromNow(165), notes: 'AME: Dr Lindberg, Stockholm' });
-  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'A320', issued_date: isoDaysAgo(90), expires_date: isoDaysFromNow(275), notes: 'TRE: Capt Svensson' });
+  const all: MannedFlight[] = [];
+  for (const p of phases) all.push(...genPhase(p, rng));
+  await insertPlan(all);
+
+  await addCertificate({ cert_type: 'ATPL', label: 'ATPL(A)', issued_date: '2019-03-15', expires_date: '', notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'A350', issued_date: isoDaysAgo(700), expires_date: isoDaysFromNow(200), notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'A330', issued_date: isoDaysAgo(2100), expires_date: isoDaysFromNow(120), notes: '' });
+  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(120), expires_date: isoDaysFromNow(245), notes: 'AME: Dr Lindberg, Stockholm' });
+  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'A350', issued_date: isoDaysAgo(80), expires_date: isoDaysFromNow(285), notes: 'TRE: Capt Svensson' });
   await addCertificate({ cert_type: 'Line Check', label: '', issued_date: isoDaysAgo(150), expires_date: isoDaysFromNow(215), notes: '' });
-  await addCertificate({ cert_type: 'CRM', label: 'Annual refresher', issued_date: isoDaysAgo(60), expires_date: isoDaysFromNow(305), notes: '' });
-  await addCertificate({ cert_type: 'Dangerous Goods', label: 'CAT.OP', issued_date: isoDaysAgo(400), expires_date: isoDaysFromNow(-35), notes: 'EXPIRED' });
-  await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 6', issued_date: '2022-11-01', expires_date: '', notes: 'Expert — no expiry' });
+  await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 6', issued_date: '2018-11-01', expires_date: '', notes: 'Expert — no expiry' });
+
+  await setPilotProfile('fixed', 'Erik', 'Lindqvist');
 }
 
-// ── Test user 4: Helicopter bushpilot (Bell 407 + H125, 10 år, ~3210h) ──────
+// ── Test pilot 2: Swedish HEMS pilot — 2015→nu, ~1000 flights, ~3000h, 6 helikoptertyper:
+// utbildning Göteborg (R22/R44) → tour-flights Florida (B206) → long-line norra Sverige (H125)
+// → utility/HEMS-övergång (H135) → HEMS Göteborg (H145). ─────────────────────────────────
 export async function seedMannedPilot2() {
   await wipeMannedData();
 
-  await addAircraftReg('B407', 'SE-JMB', 133, 2.8, 'sp', 'helicopter', 'se');
-  await addAircraftReg('H125', 'SE-JPO', 140, 3.0, 'sp', 'helicopter', 'se');
+  await addAircraftReg('R22', 'SE-JHR', 96, 2.0, 'sp', 'helicopter', 'se');
+  await addAircraftReg('R44', 'SE-JRB', 109, 3.0, 'sp', 'helicopter', 'se');
+  await addAircraftReg('B206', 'N206TF', 108, 2.8, 'sp', 'helicopter', 'se');
+  await addAircraftReg('H125', 'SE-JLL', 133, 3.2, 'sp', 'helicopter', 'se');
+  await addAircraftReg('H135', 'SE-JHM', 137, 3.3, 'sp', 'helicopter', 'me');
+  await addAircraftReg('H145', 'SE-HEM', 135, 3.5, 'sp', 'helicopter', 'me');
 
-  // Temporära landningsplatser — typisk bushpilot-mix av läger, bushfields och fjällstugor
-  await addTempPlace('SJON', 'Sjöbotten', 65.9234, 17.4521);
-  await addTempPlace('BKFJ', 'Bushfield North', 66.2105, 19.8324);
-  await addTempPlace('LAPN', 'Lappmark camp', 67.1234, 18.6543);
-  await addTempPlace('FJLN', 'Fjällsjön', 64.5678, 14.9876);
-  await addTempPlace('SKGA', 'Skoghagen', 63.1243, 16.2345);
-  await addTempPlace('VATN', 'Vattensjön', 65.4567, 15.7890);
+  // Temporära platser: long-line-sajter i fjällen + sjukhushelikopterplattor.
+  await addTempPlace('LLN1', 'Long-line site Padjelanta', 67.30, 17.60);
+  await addTempPlace('LLN2', 'Long-line site Sarek', 67.28, 17.75);
+  await addTempPlace('LLN3', 'Long-line site Kebnekaise', 67.90, 18.55);
+  await addTempPlace('SUGB', 'Sahlgrenska Helipad', 57.6803, 11.9600);
+  await addTempPlace('NALG', 'NÄL Helipad', 58.2500, 12.3200);
 
-  await insertSummary(
-    'B407', 3143.6, 3143.6, 0, 0, 190.0,
-    isoDaysAgo(3600), 'Historical total — 10 years bush / utility flying'
-  );
-
-  // Senaste 14 flygningar — ~72h så total blir ~3216h. 50% temp landningsplatser.
-  const plan: MannedFlight[] = [
-    { date: isoDaysAgo(345), type: 'B407', reg: 'SE-JMB', dep: 'ESSA', depT: '08:30', arr: 'ESNX', arrT: '10:10', total: 1.7, pic: 1.7, co: 0, ifr: 0, night: 0, ldDay: 2, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(320), type: 'B407', reg: 'SE-JMB', dep: 'SJON', depT: '09:15', arr: 'BKFJ', arrT: '10:55', total: 1.7, pic: 1.7, co: 0, ifr: 0, night: 0, ldDay: 3, ldNight: 0, rules: 'VFR', remarks: 'Rep-transport mellan läger' },
-    { date: isoDaysAgo(295), type: 'B407', reg: 'SE-JMB', dep: 'ESNG', depT: '11:00', arr: 'LAPN', arrT: '13:20', total: 2.3, pic: 2.3, co: 0, ifr: 0, night: 0, ldDay: 3, ldNight: 0, rules: 'VFR', flightType: 'hot_refuel', stopPlace: 'FJLN', remarks: 'Hot refuel Fjällsjön' },
-    { date: isoDaysAgo(270), type: 'H125', reg: 'SE-JPO', dep: 'LAPN', depT: '07:30', arr: 'VATN', arrT: '09:40', total: 2.2, pic: 2.2, co: 0, ifr: 0, night: 0, ldDay: 4, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(240), type: 'H125', reg: 'SE-JPO', dep: 'ESSA', depT: '06:40', arr: 'ESNY', arrT: '09:20', total: 2.7, pic: 2.7, co: 0, ifr: 0, night: 0, ldDay: 2, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(215), type: 'H125', reg: 'SE-JPO', dep: 'SKGA', depT: '10:00', arr: 'SJON', arrT: '12:15', total: 2.2, pic: 2.2, co: 0, ifr: 0, night: 0, ldDay: 5, ldNight: 0, rules: 'VFR', flightType: 'touch_and_go', stopPlace: 'VATN', remarks: 'Materialtransport' },
-    { date: isoDaysAgo(185), type: 'B407', reg: 'SE-JMB', dep: 'ESNG', depT: '13:30', arr: 'ESSA', arrT: '16:00', total: 2.5, pic: 2.5, co: 0, ifr: 0, night: 0, ldDay: 2, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(155), type: 'B407', reg: 'SE-JMB', dep: 'ESSA', depT: '20:30', arr: 'BKFJ', arrT: '22:40', total: 2.1, pic: 2.1, co: 0, ifr: 0, night: 2.1, nvg: 1.8, ldDay: 0, ldNight: 3, rules: 'VFR', remarks: 'NVG training bushfield' },
-    { date: isoDaysAgo(130), type: 'H125', reg: 'SE-JPO', dep: 'BKFJ', depT: '07:15', arr: 'LAPN', arrT: '10:05', total: 2.8, pic: 2.8, co: 0, ifr: 0, night: 0, ldDay: 3, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(100), type: 'H125', reg: 'SE-JPO', dep: 'ESNY', depT: '11:20', arr: 'VATN', arrT: '13:45', total: 2.4, pic: 2.4, co: 0, ifr: 0, night: 0, ldDay: 4, ldNight: 0, rules: 'VFR', flightType: 'hot_refuel', stopPlace: 'BKFJ', remarks: 'Hot refuel bushfield' },
-    { date: isoDaysAgo(75), type: 'B407', reg: 'SE-JMB', dep: 'FJLN', depT: '14:30', arr: 'SKGA', arrT: '16:50', total: 2.3, pic: 2.3, co: 0, ifr: 0, night: 0, ldDay: 2, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(50), type: 'B407', reg: 'SE-JMB', dep: 'SJON', depT: '22:10', arr: 'ESMS', arrT: '00:40', total: 2.5, pic: 2.5, co: 0, ifr: 0, night: 2.5, nvg: 2.2, ldDay: 0, ldNight: 2, rules: 'VFR', remarks: 'NVG night transit hem' },
-    { date: isoDaysAgo(25), type: 'H125', reg: 'SE-JPO', dep: 'ESMS', depT: '07:45', arr: 'ESSA', arrT: '10:20', total: 2.6, pic: 2.6, co: 0, ifr: 0, night: 0, ldDay: 3, ldNight: 0, rules: 'VFR' },
-    { date: isoDaysAgo(3), type: 'H125', reg: 'SE-JPO', dep: 'ESSA', depT: '09:00', arr: 'LAPN', arrT: '11:30', total: 2.5, pic: 2.5, co: 0, ifr: 0, night: 0, ldDay: 4, ldNight: 0, rules: 'VFR', flightType: 'touch_and_go', stopPlace: 'BKFJ', remarks: 'Underhåll stuga' },
+  const rng = makeRng(20150401);
+  const D = 365;
+  const phases: Phase[] = [
+    // 1) Utbildning Göteborg 2015 (PPL(H)), R22.
+    { type: 'R22', reg: 'SE-JHR', count: 80, fromDays: 11*D, toDays: 10.2*D, durMin: 0.6, durMax: 1.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'helicopter', nightFrac: 0.05, dualFrac: 0.45,
+      routes: [['ESGG','ESGR'],['ESGG','ESGJ'],['ESGR','ESGT'],['ESGG','ESGT']], remark: 'PPL(H) training — Gothenburg' },
+    // 2) CPL(H)-timbygge 2015–2016, R44.
+    { type: 'R44', reg: 'SE-JRB', count: 110, fromDays: 10.2*D, toDays: 9.2*D, durMin: 1.0, durMax: 2.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'helicopter', nightFrac: 0.1,
+      routes: [['ESGG','ESGR'],['ESGG','ESGJ'],['ESGR','ESGT'],['ESGG','ESGT'],['ESGJ','ESGR']], remark: 'Hour building / CPL(H)' },
+    // 3) Tour flights Florida 2016–2017, Bell 206.
+    { type: 'B206', reg: 'N206TF', count: 160, fromDays: 9.2*D, toDays: 7.6*D, durMin: 1.0, durMax: 2.6, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'helicopter', nightFrac: 0.1,
+      routes: [['KORL','KISM'],['KISM','KTMB'],['KFLL','KTMB'],['KORL','KMLB'],['KISM','KFPR'],['KORL','KISM']], remark: 'Scenic tour flights — Florida' },
+    // 4) Long-line / sling load norra Sverige 2017–2020, H125 (huvud-timmarna).
+    { type: 'H125', reg: 'SE-JLL', count: 260, fromDays: 7.6*D, toDays: 4.6*D, durMin: 3.5, durMax: 6.5, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'helicopter', nightFrac: 0.08,
+      routes: [['ESNG','LLN1'],['ESPA','LLN2'],['ESNX','LLN3'],['ESUT','LLN1'],['ESNG','ESNX'],['ESPA','ESNG'],['ESNX','LLN2']], remark: 'Long-line / sling load — Lapland' },
+    // 5) Utility / HEMS-övergång västra Sverige 2020–2022, H135.
+    { type: 'H135', reg: 'SE-JHM', count: 180, fromDays: 4.6*D, toDays: 2.6*D, durMin: 2.0, durMax: 4.2, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'me', category: 'helicopter', nightFrac: 0.2,
+      routes: [['ESGG','ESGR'],['ESGG','ESGJ'],['ESGR','ESGT'],['ESGG','ESGT'],['ESGJ','ESGG']], remark: 'Utility / HEMS transition' },
+    // 6) HEMS Göteborg 2022→nu, H145 (uppdrag + inter-hospital transfers, IFR + natt).
+    { type: 'H145', reg: 'SE-HEM', count: 210, fromDays: 2.6*D, toDays: 2, durMin: 1.2, durMax: 3.6, rules: 'IFR', role: 'pic', crew: 'sp', engine: 'me', category: 'helicopter', nightFrac: 0.4,
+      routes: [['ESGG','SUGB'],['SUGB','NALG'],['ESGG','NALG'],['SUGB','ESGR'],['ESGG','ESGJ'],['SUGB','ESGT']], remark: 'HEMS — Gothenburg' },
   ];
-  for (const f of plan) await insertMannedFlight(f);
 
-  // Certificates for bushpilot
+  const all: MannedFlight[] = [];
+  for (const p of phases) all.push(...genPhase(p, rng));
+  await insertPlan(all);
+
   await addCertificate({ cert_type: 'CPL', label: 'CPL(H)', issued_date: '2016-08-20', expires_date: '', notes: '' });
-  await addCertificate({ cert_type: 'IR', label: 'IR(H)', issued_date: '2019-04-12', expires_date: isoDaysFromNow(90), notes: '' });
-  await addCertificate({ cert_type: 'Type Rating', label: 'Bell 407', issued_date: isoDaysAgo(180), expires_date: isoDaysFromNow(185), notes: '' });
-  await addCertificate({ cert_type: 'Type Rating', label: 'H125', issued_date: isoDaysAgo(300), expires_date: isoDaysFromNow(65), notes: 'Renewal due soon' });
-  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(100), expires_date: isoDaysFromNow(265), notes: '' });
-  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'B407', issued_date: isoDaysAgo(45), expires_date: isoDaysFromNow(320), notes: 'TRE: Capt Johansson' });
-  await addCertificate({ cert_type: 'SEP', label: 'Single engine piston', issued_date: '2017-06-01', expires_date: isoDaysFromNow(400), notes: '' });
+  await addCertificate({ cert_type: 'IR', label: 'IR(H)', issued_date: '2021-04-12', expires_date: isoDaysFromNow(140), notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'H145', issued_date: isoDaysAgo(900), expires_date: isoDaysFromNow(160), notes: '' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'H135', issued_date: isoDaysAgo(1500), expires_date: isoDaysFromNow(70), notes: 'Renewal due soon' });
+  await addCertificate({ cert_type: 'Type Rating', label: 'H125', issued_date: isoDaysAgo(2600), expires_date: isoDaysFromNow(300), notes: '' });
+  await addCertificate({ cert_type: 'HEMS Crew', label: 'HEMS commander', issued_date: isoDaysAgo(700), expires_date: isoDaysFromNow(230), notes: '' });
+  await addCertificate({ cert_type: 'NVIS', label: 'Night Vision Imaging', issued_date: isoDaysAgo(600), expires_date: isoDaysFromNow(120), notes: '' });
+  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(90), expires_date: isoDaysFromNow(275), notes: '' });
+  await addCertificate({ cert_type: 'Proficiency Check (PC)', label: 'H145', issued_date: isoDaysAgo(60), expires_date: isoDaysFromNow(305), notes: 'TRE: Capt Johansson' });
   await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 5', issued_date: '2023-01-10', expires_date: isoDaysFromNow(600), notes: '' });
-  await addCertificate({ cert_type: 'CRM', label: '', issued_date: isoDaysAgo(250), expires_date: isoDaysFromNow(115), notes: '' });
+
+  await setPilotProfile('rotary', 'Anna', 'Berg');
 }
 
 export async function clearMannedTestUser() {

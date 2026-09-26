@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState, Image } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,8 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
+import { AppLockGate } from '../components/AppLockGate';
+import { useAppLockStore } from '../store/appLockStore';
 import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled } from '../services/icloudSync';
 
@@ -81,6 +83,8 @@ export default function RootLayout() {
         setFontsLoaded(true);
 
         await getDatabase();
+        // App-lås (Face ID) laddas tidigt så låsskärmen kan visas innan innehåll renderas.
+        await useAppLockStore.getState().load().catch(() => {});
         // DEV-ONLY: verifierar att SQLCipher är aktivt och att fel nyckel avvisas. Loggar [crypto] ... i konsolen.
         if (__DEV__) runEncryptionSelfTest();
         // Promo-kod (gratis Premium): cache-först (snabbt/offline) → server-verifiering i bakgrunden.
@@ -145,6 +149,19 @@ export default function RootLayout() {
     );
   }
 
+  // Vänta med att montera navigatorn tills typsnitten registrerats — annars hinner skärmar
+  // (dashboardens LED/serif-text m.fl.) renderas med system-fallback och ritas inte om när fonten
+  // laddats klart. Native-splashen matchar denna navy-yta → sömlös övergång. fontsLoaded sätts alltid
+  // (även om laddningen fallerar) så detta kan aldrig fastna.
+  if (!fontsLoaded) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0A1628', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style={'light'} />
+        <Image source={require('../assets/logo-splashscreen.png')} style={{ width: 380, height: 380 }} resizeMode="contain" />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
       <StatusBar style={'light'} />
@@ -181,6 +198,8 @@ export default function RootLayout() {
         <Stack.Screen name="settings/profile" options={{ title: 'Profile', presentation: 'modal' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks', presentation: 'modal' }} />
         <Stack.Screen name="settings/icloud" options={{ title: 'iCloud Storage', presentation: 'modal' }} />
+        <Stack.Screen name="settings/encryption" options={{ title: 'Encryption', presentation: 'modal' }} />
+        <Stack.Screen name="settings/manage-data" options={{ title: 'Manage app data', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="drone-logbook/index" options={{ headerShown: false }} />
@@ -192,6 +211,7 @@ export default function RootLayout() {
       <ToastHost />
       <FleetDoneHost />
       <SplashOverlay />
+      <AppLockGate />
     </GestureHandlerRootView>
   );
 }
