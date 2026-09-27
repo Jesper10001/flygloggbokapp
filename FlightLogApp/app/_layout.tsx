@@ -204,7 +204,7 @@ export default function RootLayout() {
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="drone-logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="logbook/fill" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="mode-picker" options={{ headerShown: false }} />
         <Stack.Screen name="wrapped" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>

@@ -12,9 +12,10 @@ import { useOperatorStore } from '../store/operatorStore';
 import { setSetting, getSetting } from '../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
 import { NavyColors } from '../constants/colors';
+import { DashboardGlobe } from '../components/DashboardGlobe';
 
 type Step =
-  | 'welcome' | 'role' | 'subrole'
+  | 'welcome' | 'intro1' | 'intro2' | 'intro3' | 'role' | 'subrole'
   | 'framework' | 'timeformat' | 'droneid'
   | 'theme' | 'profile' | 'hours';
 
@@ -78,7 +79,8 @@ const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
 
 function buildSteps(role: MainRole | null, returning: boolean): Step[] {
   const mid: Step[] = manned(role) ? ['framework', 'timeformat'] : ['droneid'];
-  return [...(returning ? [] : (['welcome'] as Step[])), 'role', 'subrole', ...mid, 'profile', 'hours'];
+  // Intro-skärmarna (2–4) visas bara för nya användare, mellan welcome och role.
+  return [...(returning ? [] : (['welcome', 'intro1', 'intro2', 'intro3'] as Step[])), 'role', 'subrole', ...mid, 'profile', 'hours'];
 }
 
 export default function OnboardingScreen() {
@@ -189,9 +191,89 @@ export default function OnboardingScreen() {
                 <Image source={require('../assets/logo-splashscreen.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
               </View>
               <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                <PrimaryButton label="Get started" accent={accent} onPress={() => setStep('role')} />
+                <PrimaryButton label="Get started" accent={accent} onPress={() => setStep('intro1')} />
               </View>
             </View>
+          )}
+
+          {/* ── Intro 2: säker loggbok + lägen ── */}
+          {step === 'intro1' && (
+            <View style={{ flex: 1, alignSelf: 'stretch' }}>
+              <StepHeader eyebrow={sv ? 'Vad är BLADES' : 'What is BLADES'} accent={accent}
+                title={sv ? 'En säker loggbok för alla piloter' : 'A safe logbook for every pilot'}
+                subtitle={sv ? 'Din allt-i-ett, säkert krypterade loggbok — enkel och intuitiv.' : 'Your all-in-one securely encrypted logbook for easy and intuitive use.'} />
+              <View style={{ gap: 10, alignSelf: 'stretch' }}>
+                <IntroModeCard image={require('../assets/Pilot-helicopter.PNG')} tag={sv ? 'Pilotläge' : 'Pilot mode'}
+                  title={sv ? 'Bemannat luftfartyg' : 'Manned aircraft'} desc={sv ? 'Helikopter och flygplan. PIC, dual, IFR, natt och NVG.' : 'Helicopter and airplane. PIC, dual, IFR, night and NVG.'} />
+                <IntroModeCard image={require('../assets/Drone-hobby.PNG')} tag={sv ? 'Drönarläge' : 'Drone mode'}
+                  title={sv ? 'Obemannat luftfartyg' : 'Unmanned aircraft'} desc={sv ? 'Hobby-, kommersiella och militära uppdrag.' : 'Hobby, commercial and military missions.'} />
+              </View>
+              {/* Varför det är säkert */}
+              <View style={s.introPanel}>
+                <View style={s.introPanelHead}>
+                  <Ionicons name="shield-checkmark" size={13} color={C.success} />
+                  <Text style={s.introPanelHeadText}>{sv ? 'VARFÖR DET ÄR SÄKERT ATT LOGGA HÄR' : "WHY IT'S SAFE TO LOG HERE"}</Text>
+                </View>
+                <IntroSafeRow icon="lock-closed-outline" title={sv ? 'AES-256-kryptering' : 'AES-256 encryption'}
+                  desc={sv ? 'Krypterad databas (SQLCipher) ovanpå iOS enhetskryptering.' : 'Encrypted database (SQLCipher) on top of iOS device encryption.'} first />
+                <IntroSafeRow icon="phone-portrait-outline" title={sv ? 'Stannar på din enhet' : 'Stays on your device'}
+                  desc={sv ? 'Inget konto, ingen kopia på våra servrar.' : 'No account, no copy on our servers.'} />
+                <IntroSafeRow icon="cloud-outline" title={sv ? 'Backup i ditt eget iCloud' : 'Backup in your own iCloud'}
+                  desc={sv ? 'Valfri krypterad synk till ditt Apple-konto.' : 'Optional encrypted sync to your Apple account.'} />
+              </View>
+              <View style={{ flex: 1 }} />
+              <View style={{ gap: 10, alignSelf: 'stretch' }}>
+                <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent={accent} onPress={() => setStep('intro2')} />
+                <SecondaryButton label={sv ? 'Hoppa över introt' : 'Skip intro'} onPress={() => setStep('role')} />
+              </View>
+            </View>
+          )}
+
+          {/* ── Intro 3: fysisk loggbok + CSV-import ── */}
+          {step === 'intro2' && (
+            <View style={{ flex: 1, alignSelf: 'stretch' }}>
+              <StepHeader eyebrow={sv ? 'Din loggbok' : 'Your logbook'} accent={accent}
+                title={sv ? 'Din fysiska loggbok, i appen' : 'Your physical logbook, in the app'}
+                subtitle={sv ? 'Varje flygning hamnar på rätt sida och rad, med summor framförda. Att kopiera in i pappersboken tar en minut.' : 'Every flight lands on the right page and row, with totals carried forward. Copying it into your paper book takes a minute.'} />
+              <PaperSpread sv={sv} />
+              <IntroCsvCard sv={sv} />
+              <View style={{ flex: 1 }} />
+              <View style={{ gap: 10, alignSelf: 'stretch' }}>
+                <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent={accent} onPress={() => setStep('intro3')} />
+                <SecondaryButton label={sv ? 'Hoppa över introt' : 'Skip intro'} onPress={() => setStep('role')} />
+              </View>
+            </View>
+          )}
+
+          {/* ── Intro 4: flygplats-glob + "och mycket mer" ── */}
+          {step === 'intro3' && (
+            <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
+              <StepHeader eyebrow={sv ? 'Din värld' : 'Your world'} accent={accent}
+                title={sv ? 'Alla flygplatser på en karta' : 'Every airport on one map'}
+                subtitle={sv ? 'En världskarta med världens flygplatser. De du flugit till lyser upp.' : "A global map with the world's airports. The ones you've flown to light up."} />
+              <View style={{ marginHorizontal: -22, alignItems: 'center', justifyContent: 'center' }}>
+                <DashboardGlobe showHint={false} />
+              </View>
+              <Text style={s.introMoreLabel}>{sv ? 'OCH MYCKET MER' : 'AND MUCH MORE'}</Text>
+              <View style={s.introGrid}>
+                {([
+                  ['flash-outline', sv ? 'Quicklog på sekunder' : 'Quicklog in seconds'],
+                  ['camera-outline', sv ? 'Logga från ett foto' : 'Log from a photo'],
+                  ['trending-up-outline', sv ? 'CPL/ATPL-progress' : 'CPL/ATPL progress'],
+                  ['pulse-outline', sv ? '14-dagars flygbelastning' : '14-day flight load'],
+                  ['cloud-outline', 'METAR & TAF'],
+                  ['share-social-outline', sv ? 'Flight share cards' : 'Flight share cards'],
+                ] as const).map(([icon, label]) => (
+                  <View key={label} style={s.introTile}>
+                    <Ionicons name={icon} size={16} color={C.primary} />
+                    <Text style={s.introTileText}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={{ gap: 10, alignSelf: 'stretch', marginTop: 14 }}>
+                <PrimaryButton label={sv ? 'Sätt upp min loggbok' : 'Set up my logbook'} accent={accent} onPress={() => setStep('role')} />
+              </View>
+            </ScrollView>
           )}
 
           {/* ── Role ── */}
@@ -459,6 +541,113 @@ function Field(props: { label: string; value: string; onChangeText: (v: string) 
   );
 }
 
+// ── Intro-skärmarnas informationskomponenter (ej tryckbara val) ──────────────
+function IntroModeCard({ image, tag, title, desc }: { image: ImageSourcePropType; tag: string; title: string; desc: string }) {
+  return (
+    <View style={s.introModeCard}>
+      <Image source={image} style={s.introModeImg} resizeMode="contain" />
+      <View style={{ flex: 1 }}>
+        <Text style={s.introModeTag}>{tag}</Text>
+        <Text style={s.introModeTitle}>{title}</Text>
+        <Text style={s.introModeDesc}>{desc}</Text>
+      </View>
+    </View>
+  );
+}
+
+function IntroSafeRow({ icon, title, desc, first }: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string; first?: boolean }) {
+  return (
+    <View style={[s.introSafeRow, first && { borderTopWidth: 0 }]}>
+      <Ionicons name={icon} size={17} color={C.success} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.introSafeTitle}>{title}</Text>
+        <Text style={s.introSafeDesc}>{desc}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Statisk pappersuppslag-illustration (exempeldata) — visar hur en flygning landar på rätt rad.
+function PaperSpread({ sv }: { sv: boolean }) {
+  const L = ['Date', 'From', 'To', 'Total'];
+  const R = ['PIC', 'Night', 'Ldg', 'Rem'];
+  const rows = [
+    ['12/06', 'ESSA', 'ESGG', '1:24', '1:24', '—', '1', 'Wx ok'],
+    ['12/06', 'ESGG', 'ESMS', '0:48', '0:48', '—', '1', ''],
+    ['13/06', 'ESMS', 'EKCH', '1:05', '1:05', '0:20', '1', 'Night'],
+  ];
+  const NEW = ['14/06', 'EKCH', 'ESSA', '1:32', '1:32', '—', '1', 'New'];
+  const P = { paper: '#ECE3CC', ink: '#3A2E1C', head: '#6B5430', line: '#C9B98B', rule: '#DCD1B7', hi: 'rgba(0,200,232,0.12)', hiInk: '#0A6E86' };
+  const Cell = ({ t, w, hi }: { t: string; w: number; hi?: boolean }) => (
+    <Text numberOfLines={1} style={{ width: `${w}%`, fontFamily: 'Courier', fontSize: 8.5, color: hi ? P.hiInk : P.ink, fontWeight: hi ? '700' : '400' }}>{t}</Text>
+  );
+  const HeadCell = ({ t, w }: { t: string; w: number }) => (
+    <Text style={{ width: `${w}%`, fontSize: 6.8, fontWeight: '700', color: P.head, letterSpacing: 0.3 }}>{t.toUpperCase()}</Text>
+  );
+  const cols = [26, 22, 22, 30]; // L-sidans kolumnbredder (%)
+  return (
+    <View style={{ marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', backgroundColor: P.paper, borderRadius: 14, padding: 12, gap: 12 }}>
+        {/* Vänster sida */}
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: P.head, paddingBottom: 2 }}>
+            {L.map((h, i) => <HeadCell key={h} t={h} w={cols[i]} />)}
+          </View>
+          {rows.map((r, i) => (
+            <View key={i} style={{ flexDirection: 'row', height: 17, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: P.line }}>
+              {r.slice(0, 4).map((c, j) => <Cell key={j} t={c} w={cols[j]} />)}
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', height: 17, alignItems: 'center', backgroundColor: P.hi, borderRadius: 3 }}>
+            {NEW.slice(0, 4).map((c, j) => <Cell key={j} t={c} w={cols[j]} hi />)}
+          </View>
+        </View>
+        {/* Spine */}
+        <View style={{ width: 1, backgroundColor: 'rgba(0,0,0,0.12)' }} />
+        {/* Höger sida */}
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: P.head, paddingBottom: 2 }}>
+            {R.map((h, i) => <HeadCell key={h} t={h} w={cols[i]} />)}
+          </View>
+          {rows.map((r, i) => (
+            <View key={i} style={{ flexDirection: 'row', height: 17, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: P.line }}>
+              {r.slice(4, 8).map((c, j) => <Cell key={j} t={c} w={cols[j]} />)}
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', height: 17, alignItems: 'center', backgroundColor: P.hi, borderRadius: 3 }}>
+            {NEW.slice(4, 8).map((c, j) => <Cell key={j} t={c} w={cols[j]} hi />)}
+          </View>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+        <Text style={s.introSpreadCaption}><Text style={{ color: C.primary }}>■ </Text>{sv ? 'Ny flygning' : 'New flight'}</Text>
+        <Text style={s.introSpreadCaption}>{sv ? 'Sida' : 'Page'} 38–39</Text>
+      </View>
+    </View>
+  );
+}
+
+function IntroCsvCard({ sv }: { sv: boolean }) {
+  const chips = sv ? ['Egen fil', 'ForeFlight', 'LogTen Pro'] : ['Your own sheet', 'ForeFlight', 'LogTen Pro'];
+  return (
+    <View style={s.introCsvCard}>
+      <View style={s.introCsvLead}>
+        <MaterialCommunityIcons name="file-delimited-outline" size={24} color={C.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={s.introCsvTitle}>{sv ? 'Importera valfri CSV' : 'Import any CSV'}</Text>
+          <View style={s.introCsvFree}><Text style={s.introCsvFreeText}>FREE</Text></View>
+        </View>
+        <Text style={s.introCsvDesc}>{sv ? 'Ditt eget kalkylark eller export från en annan app. Valfritt format, gratis.' : 'Your own spreadsheet or an export from another app. Any format, at no cost.'}</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {chips.map((c) => <Text key={c} style={s.introCsvChip}>{c}</Text>)}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000', paddingHorizontal: 22, paddingTop: 10 },
   dotsRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginBottom: 10 },
@@ -534,4 +723,34 @@ const s = StyleSheet.create({
 
   inputLabel: { fontSize: 12, fontWeight: '700', color: C.textPrimary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.elevated, fontSize: 15, color: C.textPrimary },
+
+  // ── Intro-skärmar ──
+  introModeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.gold, borderRadius: 16, padding: 6, paddingRight: 12, height: 84 },
+  introModeImg: { width: 72, height: 72, borderRadius: 10, transform: [{ scale: 1.1 }] },
+  introModeTag: { fontFamily: 'Menlo', fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: C.primary },
+  introModeTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary, marginTop: 1 },
+  introModeDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 1 },
+
+  introPanel: { marginTop: 12, backgroundColor: C.elevated, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 14, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 4 },
+  introPanelHead: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9 },
+  introPanelHeadText: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: C.success },
+  introSafeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 7, borderTopWidth: 1, borderTopColor: C.separator },
+  introSafeTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+  introSafeDesc: { fontSize: 11.5, color: C.textSecondary, lineHeight: 15, marginTop: 1 },
+
+  introSpreadCaption: { fontFamily: 'Menlo', fontSize: 10, color: C.textSecondary },
+
+  introCsvCard: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 16, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.gold, borderRadius: 18, padding: 14 },
+  introCsvLead: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  introCsvTitle: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
+  introCsvFree: { backgroundColor: C.success, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3 },
+  introCsvFreeText: { fontFamily: 'Menlo', fontSize: 9.5, fontWeight: '800', letterSpacing: 1, color: C.textInverse },
+  introCsvDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 3 },
+  introCsvChip: { fontFamily: 'Menlo', fontSize: 10, color: C.silver, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, overflow: 'hidden' },
+
+  introGlobeLegend: { fontFamily: 'Menlo', fontSize: 10, color: C.textSecondary },
+  introMoreLabel: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, color: C.silver, marginTop: 14, marginBottom: 10 },
+  introGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  introTile: { width: '48%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10 },
+  introTileText: { fontSize: 12.5, fontWeight: '600', color: C.textPrimary, flex: 1 },
 });

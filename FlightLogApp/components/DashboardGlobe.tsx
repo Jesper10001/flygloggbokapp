@@ -222,7 +222,7 @@ async function loadGlobeData(): Promise<{ rings: Ring[]; arcs: Arc[]; heat: Heat
   return { rings, arcs: arcs.slice(0, 500), heat };
 }
 
-export function DashboardGlobe({ onGrab, onMetrics, onTap }: { onGrab?: (grabbing: boolean) => void; onMetrics?: (radiusPx: number) => void; onTap?: () => void } = {}) {
+export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true }: { onGrab?: (grabbing: boolean) => void; onMetrics?: (radiusPx: number) => void; onTap?: () => void; showHint?: boolean } = {}) {
   const W = Dimensions.get('window').width;
   // Canvasen görs 50% bredare/högre än skärmen så globen kan bleeda ut över alla kanter (som en
   // bakgrund) — den hårda WebView-kanten hamnar utanför skärmen och klipper aldrig halon.
@@ -294,7 +294,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap }: { onGrab?: (grabbin
         </View>
       )}
       {/* Info-överlägg pinnat i sektionens övre högra hörn (globens övre del). */}
-      {initial && (
+      {initial && showHint && (
         <View pointerEvents="box-none" style={styles.hintRow}>
           <View pointerEvents="none" style={styles.labelCol}>
             <View style={styles.hintBox}>

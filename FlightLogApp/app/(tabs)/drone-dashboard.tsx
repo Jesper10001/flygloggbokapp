@@ -138,21 +138,8 @@ export default function DroneDashboardScreen() {
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);
 
-  // ── Tom-läge ──
-  if ((stats?.total_flights ?? flights.length) === 0) {
-    return (
-      <View style={[s.screen, s.center]}>
-        <View style={[s.iconCircle, { backgroundColor: accentSoft(accent), borderColor: accentLine(accent) }]}>
-          <Ionicons name="hardware-chip-outline" size={30} color={accent} />
-        </View>
-        <Text style={s.emptyTitle}>{t('no_flights') ?? 'No drone flights yet'}</Text>
-        <TouchableOpacity style={[s.cta, { backgroundColor: accent }]} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.85}>
-          <Ionicons name="add" size={18} color={DR.inkOnAccent} />
-          <Text style={[s.ctaText, { color: DR.inkOnAccent }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Inget tom-läge: full dashboard visas även utan flygningar (nollor + placeholders), likt pilotläget.
+  // Workload visar 0, latest-karusellen döljs (recent.length>0), fotokarusell/glob/log-rad renderas.
 
   // Zon-färger = EXAKT manned (index.tsx), inte DR/accent.
   const zones = [

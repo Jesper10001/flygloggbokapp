@@ -3,11 +3,12 @@
 // men navy via DR + användarens accent och drönar-relevanta rader. Inga custom-fonter
 // (JetBrainsMono/Fraunces) — allt matchar manned-settings.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Image,
-  LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput,
+  LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput, AppState,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ import { useVersionStore } from '../../store/versionStore';
 import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
 import { getSetting, setSetting } from '../../db/flights';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
+import { useAppLockStore } from '../../store/appLockStore';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { listDigitalBooks } from '../../db/digitalBooks';
 
@@ -55,6 +57,9 @@ export default function DroneSettingsScreen() {
   const tokenUsage = useTokenQuotaStore((s) => s.usage);
   const timeFormat = useTimeFormatStore((s) => s.timeFormat);
   const setTimeFormat = useTimeFormatStore((s) => s.setTimeFormat);
+  const [locGranted, setLocGranted] = useState(false);
+  const appLockEnabled = useAppLockStore((s) => s.enabled);
+  const appLockAvailable = useAppLockStore((s) => s.available);
 
   const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
   const [flightCount, setFlightCount] = useState(0);
@@ -73,6 +78,7 @@ export default function DroneSettingsScreen() {
     loadAccent();
     useTokenQuotaStore.getState().load();
     getDroneFlightCount().then(setFlightCount).catch(() => {});
+    Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
       const last = (await getSetting('profile_last_name')) ?? '';
@@ -136,6 +142,41 @@ export default function DroneSettingsScreen() {
       } },
     ]);
   };
+
+  // Dold trigger (långtryck på versionsnumret) → drönar-testanvändare. Developer-sektionen borttagen.
+  const openDevMenu = () => {
+    Alert.alert('Test data', 'Replace all drone data with a demo profile.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Test user 1 — Inspection', onPress: () => applyDroneTestUser(1) },
+      { text: 'Test user 2 — Military', onPress: () => applyDroneTestUser(2) },
+      { text: 'Clear drone data', style: 'destructive', onPress: () => applyDroneTestUser('clear') },
+    ]);
+  };
+
+  // App-lås (Face ID) — samma som pilotläget.
+  const toggleAppLock = async (next: boolean) => {
+    if (next && !appLockAvailable) { Alert.alert('Face ID unavailable', 'Set up Face ID or Touch ID for your device, then try again.'); return; }
+    await useAppLockStore.getState().setEnabled(next);
+  };
+  // Platstillstånd kan inte slås av inifrån appen (iOS) → begär vid påslag, annars/avslag → Inställningar.
+  const toggleLocation = async (next: boolean) => {
+    try {
+      if (next) {
+        const cur = await Location.getForegroundPermissionsAsync();
+        if (cur.granted) { setLocGranted(true); return; }
+        if (cur.canAskAgain) { const r = await Location.requestForegroundPermissionsAsync(); if (r.granted) { setLocGranted(true); return; } }
+        Linking.openSettings();
+      } else { Linking.openSettings(); }
+    } catch { /* ignore */ }
+  };
+
+  // Platstillstånd ändras utanför appen → uppdatera togglen när appen blir aktiv igen.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   const checkVersion = () => {
     useVersionStore.getState().check().then(() => {
@@ -310,7 +351,19 @@ export default function DroneSettingsScreen() {
             </View>
           </View>
           <Row accent={accent} icon="list-outline" iconColor={accent} title="Manage drones" subtitle="Models, registration, category" onPress={() => router.push('/settings/drones')} separatorColor={DR.background} />
-          <Row accent={accent} icon="book-outline" iconColor={accent} title="Your logbook" onPress={() => router.push('/drone-logbook')} border={false} />
+          <Row accent={accent} icon="book-outline" iconColor={accent} title="Your logbook" onPress={() => router.push('/drone-logbook')} separatorColor={DR.background} />
+          {/* Time format (flyttat hit från App, = pilotläget) */}
+          <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} border={false} separatorColor={DR.background}
+            right={
+              <View style={s.toggle}>
+                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'decimal' && { backgroundColor: accent }]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
+                  <Text style={[s.toggleText, { color: timeFormat === 'decimal' ? DR.inkOnAccent : DR.muted }]}>1.5</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'hhmm' && { backgroundColor: accent }]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
+                  <Text style={[s.toggleText, { color: timeFormat === 'hhmm' ? DR.inkOnAccent : DR.muted }]}>1:30</Text>
+                </TouchableOpacity>
+              </View>
+            } />
         </SectionCard>
       )}
 
@@ -338,32 +391,30 @@ export default function DroneSettingsScreen() {
         </SectionCard>
       )}
 
-      {/* ── F. App ── */}
-      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>App</CollapsibleSectionHeader>
+      {/* ── F. App security (= pilotläget: app-lås, plats, iCloud, kryptering, hantera data) ── */}
+      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>App security</CollapsibleSectionHeader>
       {expanded === 'app' && (
         <SectionCard>
-          <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} border={false}
-            right={
-              <View style={s.toggle}>
-                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'decimal' && { backgroundColor: accent }]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
-                  <Text style={[s.toggleText, { color: timeFormat === 'decimal' ? DR.inkOnAccent : DR.muted }]}>1.5</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.toggleBtn, timeFormat === 'hhmm' && { backgroundColor: accent }]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
-                  <Text style={[s.toggleText, { color: timeFormat === 'hhmm' ? DR.inkOnAccent : DR.muted }]}>1:30</Text>
-                </TouchableOpacity>
-              </View>
-            } />
+          <Row accent={accent} icon="finger-print-outline" iconColor={accent} title="Require Face ID to open"
+            subtitle={appLockAvailable ? (appLockEnabled ? 'On · Face ID required to open the app' : 'Off') : 'Set up Face ID / Touch ID to enable'}
+            right={<Switch value={appLockEnabled} disabled={!appLockAvailable} onValueChange={toggleAppLock} trackColor={{ false: DR.elevated, true: accent }} />}
+            pressable={false} separatorColor={DR.background} />
+          <Row accent={accent} icon="location-outline" iconColor={accent} title="Allow app to show my position"
+            subtitle={locGranted ? 'On' : 'Off · used to find nearby airports'}
+            right={<Switch value={locGranted} onValueChange={toggleLocation} trackColor={{ false: DR.elevated, true: accent }} />}
+            pressable={false} separatorColor={DR.background} />
+          <ICloudSyncRow accent={accent} flat />
+          <Row accent={accent} icon="lock-closed-outline" iconColor={accent} title="Encryption information" subtitle="How your data is encrypted"
+            onPress={() => router.push('/settings/encryption')} separatorColor={DR.background} />
+          <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Manage app data" subtitle="See your data · clear everything"
+            onPress={() => router.push('/settings/manage-data')} border={false} separatorColor={DR.background} />
         </SectionCard>
       )}
 
-      {/* ── Backup (iCloud) ── */}
-      <SectionHeader>Backup</SectionHeader>
-      <ICloudSyncRow accent={accent} />
-
-      {/* ── G. About ── */}
+      {/* ── About (version → långtryck = testdata-meny; Developer-sektionen borttagen) ── */}
       <SectionHeader>About</SectionHeader>
       <Card>
-        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" onPress={checkVersion}
+        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" onPress={checkVersion} onLongPress={openDevMenu}
           right={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontSize: 13, color: DR.muted, fontFamily: 'Menlo' }}>1.0.0</Text>
@@ -375,23 +426,9 @@ export default function DroneSettingsScreen() {
             </View>
           } />
         <Row accent={accent} icon="shield-checkmark" iconColor={DR.text3} title="Local storage" subtitle="All data stored on this device" pressable={false} />
-        <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="toreldjesper@gmail.com" onPress={() => Linking.openURL('mailto:toreldjesper@gmail.com')} />
+        <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} />
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" onPress={() => Linking.openURL('https://blades-app.com')} />
-        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false} />
-      </Card>
-
-      {/* ── H. Developer ── */}
-      <SectionHeader>Developer</SectionHeader>
-      <Card>
-        <Row accent={accent} icon="star" iconColor={DR.warning} title="Premium" subtitle={isPremium ? 'Active' : 'Inactive'} pressable={false}
-          right={<Switch value={isPremium} onValueChange={setIsPremium} trackColor={{ false: DR.elevated, true: accent }} />} />
-        <Row accent={accent} icon="flask-outline" iconColor={accent} title="Test user 1" subtitle="Inspection pilot — ~95h" onPress={() => applyDroneTestUser(1)} />
-        <Row accent={accent} icon="flask-outline" iconColor={accent} title="Test user 2" subtitle="Military pilot" onPress={() => applyDroneTestUser(2)} />
-        <Row accent={accent} icon="refresh-outline" iconColor={DR.danger} title="Clear test data" subtitle="Removes all drones, certificates and flights" onPress={() => applyDroneTestUser('clear')} />
-        <Row accent={accent} icon="refresh-circle-outline" iconColor={accent} title="Replay onboarding" subtitle="See the intro flow again"
-          onPress={async () => { await setSetting('has_onboarded', '0'); router.replace('/onboarding'); }} />
-        <Row accent={accent} icon="checkmark-done-outline" iconColor={DR.success} title="Reset import quota" subtitle="Reset CSV import counter to 0"
-          onPress={async () => { await setSetting('import_used', '0'); Alert.alert('OK', 'Import quota reset'); }} border={false} />
+        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy')} border={false} />
       </Card>
 
       {/* ── Export logbook pages: välj antal siduppslag (= pilot mode) ── */}
@@ -473,8 +510,8 @@ function CollapsibleSectionHeader({ accent, children, expanded, onPress }: { acc
   );
 }
 
-function Row({ accent, icon, iconColor, iconBg, title, subtitle, right, onPress, border = true, pressable = true, separatorColor = DR.separator }: {
-  accent: string; icon: any; iconColor?: string; iconBg?: string; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; border?: boolean; pressable?: boolean; separatorColor?: string;
+function Row({ accent, icon, iconColor, iconBg, title, subtitle, right, onPress, onLongPress, border = true, pressable = true, separatorColor = DR.separator }: {
+  accent: string; icon: any; iconColor?: string; iconBg?: string; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; onLongPress?: () => void; border?: boolean; pressable?: boolean; separatorColor?: string;
 }) {
   const content = (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14, borderBottomWidth: border ? 0.5 : 0, borderBottomColor: separatorColor }}>
@@ -492,8 +529,8 @@ function Row({ accent, icon, iconColor, iconBg, title, subtitle, right, onPress,
       {right ?? (pressable && onPress ? <Ionicons name="chevron-forward" size={16} color={DR.muted} /> : null)}
     </View>
   );
-  if (!pressable || !onPress) return content;
-  return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{content}</TouchableOpacity>;
+  if ((!pressable || !onPress) && !onLongPress) return content;
+  return <TouchableOpacity onPress={onPress} onLongPress={onLongPress} delayLongPress={600} activeOpacity={0.7}>{content}</TouchableOpacity>;
 }
 
 const s = StyleSheet.create({
