@@ -8,6 +8,7 @@ interface Env {
   CF_ACCOUNT_ID: string;
   STATS_PASSWORD: string;
   PROMO_CODES?: string; // kommaseparerade promo-koder (secret) → gratis Blades Premium. Aldrig i app-bundlen.
+  APP_KEY?: string;     // valfri app-autentisering: krävs i X-App-Key om satt (se AI-proxyn). Vilande om osatt.
 }
 
 // ── HUVUDBRYTARE FÖR SERVER-KVOTER ───────────────────────────────────────────
@@ -140,11 +141,15 @@ async function checkAndIncrementQuota(
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
-function corsHeaders(origin: string | null): Record<string, string> {
+// Native-appen (iOS) skickar ingen Origin och bryr sig inte om CORS → den påverkas inte.
+// Genom att bara tillåta website-origin blockeras webbläsar-anrop från andra sajter (t.ex. en
+// scriptad demosida). OBS: CORS stoppar INTE curl/servrar (de ignorerar CORS) — se app-secret nedan.
+const ALLOWED_ORIGIN = 'https://blades-app.com';
+function corsHeaders(_origin: string | null): Record<string, string> {
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium, X-Tier, X-App-Key',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -643,19 +648,17 @@ export default {
       );
     }
 
-    // ── Landing page ──
+    // ── Root: ingen landningssida/marknadsföring på API-domänen. Browser får bara 404. ──
     if (url.pathname === '/' && request.method === 'GET') {
-      return new Response(landingPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
     }
 
-    // ── Privacy policy ──
-    if (url.pathname === '/privacy') {
-      return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    // ── Privacy/Terms hör hemma på website:n, inte API-domänen → redirecta dit. ──
+    if (url.pathname === '/privacy' || url.pathname === '/privacy.html') {
+      return Response.redirect('https://blades-app.com/privacy', 301);
     }
-
-    // ── Terms of service ──
-    if (url.pathname === '/terms') {
-      return new Response(termsPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    if (url.pathname === '/terms' || url.pathname === '/terms.html') {
+      return Response.redirect('https://blades-app.com/terms', 301);
     }
 
     // ── Token-saldo: månadens AI-förbrukning för denna device (Settings-mätaren) ──
@@ -723,8 +726,18 @@ export default {
     }
 
     if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'POST only. Visit /stats for dashboard.' }), {
-        status: 405, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── App-autentisering (valfri, VILANDE tills APP_KEY-secret är satt) ──
+    // När du sätter `APP_KEY` som wrangler-secret krävs att appen skickar samma värde i X-App-Key,
+    // annars 401. Blockerar curl/skript som inte känner till nyckeln. Sätt INTE secreten förrän en
+    // app-build som skickar headern är ute, annars slutar AI-funktionerna funka i nuvarande build.
+    if (env.APP_KEY && request.headers.get('X-App-Key') !== env.APP_KEY) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
       });
     }
 
