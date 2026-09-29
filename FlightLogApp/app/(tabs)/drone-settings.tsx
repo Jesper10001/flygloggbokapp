@@ -341,27 +341,8 @@ export default function DroneSettingsScreen() {
       <CollapsibleSectionHeader accent={accent} expanded={expanded === 'logbook'} onPress={() => toggleSection('logbook')}>Logbook</CollapsibleSectionHeader>
       {expanded === 'logbook' && (
         <SectionCard>
-          {/* Byt hela loggboken → egen framträdande design (man skiftar hela appläget). */}
-          <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 10 }}>
-            <LinearGradient colors={[accent + '2E', accent + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: accent + '55' }}>
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '55' }}>
-                <Ionicons name="airplane-outline" size={20} color={accent} />
-              </View>
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: DR.text }}>Shift to Pilot logbook</Text>
-              <Ionicons name="swap-horizontal" size={22} color={accent} />
-            </LinearGradient>
-          </TouchableOpacity>
-          <Row accent={accent} icon="list-outline" iconColor={accent} title="Manage drones" subtitle="Models, registration, category" onPress={() => router.push('/settings/drones')} separatorColor={DR.background} />
-          <Row accent={accent} icon="book-outline" iconColor={accent} title="Your logbook" onPress={() => router.push('/drone-logbook')} separatorColor={DR.background} />
-          {/* Foto-synk: matcha bibliotekets bilder/videor mot drönarflygningar på tid (= pilotläget). */}
-          {photoSyncOn && (
-            <Row accent={accent} icon={resumeReview ? 'play-circle-outline' : 'images-outline'} iconColor={accent}
-              title={resumeReview ? 'Resume photo matching' : 'Sync photos to flights'}
-              subtitle={resumeReview ? 'Finish where you left off' : (canSync ? 'Match your library by time' : 'Up to date')}
-              onPress={() => router.push(resumeReview ? '/photo-sync?mode=drone&resume=1' : '/photo-sync?mode=drone')}
-              separatorColor={DR.background} />
-          )}
+          <Row accent={accent} icon="images-outline" iconColor={accent} title="Flight album" subtitle="Photos & videos from your flights" onPress={() => router.push('/drone-album')} separatorColor={DR.background} />
+          <Row accent={accent} icon="time-outline" iconColor={accent} title="Audit log" subtitle="All changes logged" onPress={() => router.push('/settings/auditlog')} separatorColor={DR.background} />
           {/* Time format (flyttat hit från App, = pilotläget) */}
           <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} border={false} separatorColor={DR.background}
             right={
@@ -441,6 +422,18 @@ export default function DroneSettingsScreen() {
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} />
         <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false} />
       </Card>
+
+      {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}
+      <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 28 }}>
+        <LinearGradient colors={[accent + '2E', accent + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: accent + '55' }}>
+          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '55' }}>
+            <Ionicons name="airplane-outline" size={20} color={accent} />
+          </View>
+          <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: DR.text }}>Shift to Pilot logbook</Text>
+          <Ionicons name="swap-horizontal" size={22} color={accent} />
+        </LinearGradient>
+      </TouchableOpacity>
 
       {/* Blade-coins — förklarande popup */}
       <Modal visible={showCoinInfo} transparent animationType="fade" onRequestClose={() => setShowCoinInfo(false)}>

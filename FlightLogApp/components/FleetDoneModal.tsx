@@ -13,25 +13,29 @@ export interface FleetDoneInfo { enriched: number; total: number; remaining: num
 interface FleetDoneStore {
   visible: boolean;
   info: FleetDoneInfo | null;
-  show: (info?: FleetDoneInfo) => void;
+  fleetRoute: string | null; // vart "Navigate to fleet" går (drönare vs pilot). null = pilotens loggbok-flik.
+  show: (info?: FleetDoneInfo, fleetRoute?: string) => void;
   hide: () => void;
 }
 
 export const useFleetDoneStore = create<FleetDoneStore>((set) => ({
   visible: false,
   info: null,
-  show: (info) => set({ visible: true, info: info ?? null }),
+  fleetRoute: null,
+  show: (info, fleetRoute) => set({ visible: true, info: info ?? null, fleetRoute: fleetRoute ?? null }),
   hide: () => set({ visible: false }),
 }));
 
 export function FleetDoneHost() {
   const visible = useFleetDoneStore((s) => s.visible);
   const info = useFleetDoneStore((s) => s.info);
+  const fleetRoute = useFleetDoneStore((s) => s.fleetRoute);
   const hide = useFleetDoneStore((s) => s.hide);
 
   const goFleet = () => {
     hide();
-    // Logbook-FLIKEN (app/(tabs)/log.tsx → PilotLogbook), inte helskärms-boken (/logbook).
+    // Drönar-import skickar egen rutt (drönar-loggbokens Fleet-flik); annars pilotens loggbok-flik.
+    if (fleetRoute) { router.push({ pathname: fleetRoute, params: { view: 'fleet', t: String(Date.now()) } } as any); return; }
     router.push({ pathname: '/(tabs)/log', params: { view: 'fleet', t: String(Date.now()) } } as any);
   };
   const goUpgrade = () => {

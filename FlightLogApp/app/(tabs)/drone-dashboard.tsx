@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import Svg, { Circle } from 'react-native-svg';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -105,6 +106,7 @@ export default function DroneDashboardScreen() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights, stats, loadFlights, loadStats } = useDroneFlightStore();
   const [stress, setStress] = useState<StressData>(computeStress(0, 0));
+  const [latestPage, setLatestPage] = useState(0); // aktiv sida i latest-flight-karusellen (= manned prickar)
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
   const [globalMapOpen, setGlobalMapOpen] = useState(false);
@@ -182,7 +184,12 @@ export default function DroneDashboardScreen() {
           </TouchableOpacity>
         )}
         <View style={s.telGaugeHeader}>
-          <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+          {/* Vänster: WORKLOAD-etikett + zon bredvid varandra (= pilot) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
+            <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
+          </View>
+          {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) = pilot */}
           {!wx && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               {wxLoading ? (
@@ -192,7 +199,6 @@ export default function DroneDashboardScreen() {
               )}
             </View>
           )}
-          <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
         </View>
         {/* Zon-bar med nål */}
         <View style={s.telGaugeTrack}>
@@ -230,7 +236,8 @@ export default function DroneDashboardScreen() {
       {/* ── 2. Latest flight-karusell ── */}
       {recent.length > 0 && (
         <View style={{ marginTop: 16 }}>
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={width - 24} decelerationRate="fast">
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={width - 24} decelerationRate="fast"
+            scrollEventThrottle={16} onMomentumScrollEnd={(e) => setLatestPage(Math.round(e.nativeEvent.contentOffset.x / (width - 24)))}>
             {recent.map((f, idx) => (
               <View key={f.id} style={{ width: width - 24 }}>
                 <DroneLatestFlightCard flight={f} accent={accent} showLabel={idx === 0} onPress={() => router.push(`/drone-flight/${f.id}`)}
@@ -239,8 +246,8 @@ export default function DroneDashboardScreen() {
             ))}
           </ScrollView>
           {recent.length > 1 && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 2 }}>
-              {recent.map((_, i) => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: i === 0 ? accent : DR.border }} />)}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 2 }}>
+              {recent.map((_, i) => <View key={i} style={{ width: latestPage === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: latestPage === i ? accent : DR.border }} />)}
             </View>
           )}
         </View>
@@ -262,13 +269,15 @@ export default function DroneDashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── 4. Fotokarusell ── */}
-      <View style={{ marginTop: 16 }}>
+      {/* ── 4. Fotokarusell ── (högre zIndex än globen så att globen bleeder UPP bakom
+              karusellen och touch över karusellen aldrig griper globen — = manned) */}
+      <View style={{ marginTop: 16, zIndex: 2 }}>
         <DronePhotoCarousel accent={accent} />
       </View>
 
-      {/* ── 5. Glob (heatmap + ripples, drönar-GPS) + kart-val-meny (= manned) ── */}
-      <View style={{ marginTop: 8, marginHorizontal: -12, alignItems: 'center' }}>
+      {/* ── 5. Glob (heatmap + ripples, drönar-GPS) + kart-val-meny (= manned) ──
+              Lägre zIndex än bildkarusellen → globen bleeder UPP bakom karusellen, inte framför. */}
+      <View style={{ marginTop: 8, marginHorizontal: -12, alignItems: 'center', zIndex: 1 }}>
         <View style={{ width: '100%', alignItems: 'center' }}>
           <DroneDashboardGlobe onGrab={setGlobeGrabbed} onTap={() => setGlobeMenuOpen((v) => !v)} />
           <Animated.View
@@ -341,7 +350,7 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
         <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
           {showLabel && <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
-          <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
+          {/* Add media: till höger om "Latest flight" (senaste kortet) resp. övre vänstra hörnet (= pilot). */}
           {onAddPhoto && !f.photo_uri && !f.photo_local_id && (
             <TouchableOpacity onPress={() => onAddPhoto(f)} activeOpacity={0.8} hitSlop={8}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: DR.warning + '1A', borderWidth: 1, borderColor: DR.warning + '66' }}>
@@ -349,6 +358,7 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
               <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: DR.warning }}>Add media</Text>
             </TouchableOpacity>
           )}
+          <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
@@ -375,14 +385,45 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
   );
 }
 
-// Fotokarusell — klon av manned FlightPhotoCarousel-struktur. Drönar-flygningar lagrar
-// inga foton ännu → visar platshållar-kort + sida 2 (drönar-media kommer). Samma chrome.
-// Fotokarusell (= manned): sida 1 = senaste media (tryck → flygningens detalj), sida 2 = Album /
-// Photo sync (resume-medveten) / Share (kommer). Media hämtas ur drönarflygningar med foto.
+// Media-kort (= manned PhotoCard): 140px, helbleed bild + botten-overlay med plats-rad, meta och
+// BLADES-vattenstämpel. Video → miniatyr + play-knapp. Drönar-platser är fritext (ingen ICAO/bana).
+function DroneMediaCard({ uri, isVideo, location, landing, meta, cardW, onPress }: {
+  uri: string; isVideo: boolean; location: string; landing?: string; meta: string; cardW: number; onPress?: () => void;
+}) {
+  const [thumb, setThumb] = useState<string | null>(null);
+  useEffect(() => {
+    if (isVideo && uri) VideoThumbnails.getThumbnailAsync(uri, { time: 0 }).then((r) => setThumb(r.uri)).catch(() => {});
+  }, [isVideo, uri]);
+  const src = isVideo && thumb ? { uri: thumb } : { uri };
+  const route = landing && landing !== location ? `${location} → ${landing}` : (location || 'Drone flight');
+  return (
+    <TouchableOpacity style={{ width: cardW, height: 140, borderRadius: 14, overflow: 'hidden' }} onPress={onPress} activeOpacity={0.9} disabled={!onPress}>
+      <Image source={src} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      {isVideo && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="play" size={24} color="#000" />
+          </View>
+        </View>
+      )}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <Ionicons name="location" size={12} color="rgba(255,255,255,0.85)" />
+          <Text numberOfLines={1} style={{ flex: 1, color: '#fff', fontSize: 12, fontWeight: '800', fontFamily: 'Georgia', letterSpacing: 0.5 }}>{route}</Text>
+        </View>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontFamily: 'Georgia' }}>{meta}</Text>
+        <Text style={{ color: DR.warning + 'aa', fontSize: 7, fontWeight: '900', letterSpacing: 2, fontFamily: 'Georgia', marginTop: 4 }}>BLADES</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// Media-karusell — exakt samma chrome som manned FlightPhotoCarousel: sida 1 = senaste media,
+// sida 2 = åtgärder (Album/Photo sync/Share), sidor 3+ = resten av de 10 senaste. Sidprickar.
 function DronePhotoCarousel({ accent }: { accent: string }) {
   const router = useRouter();
   const [page, setPage] = useState(0);
-  const [latest, setLatest] = useState<{ flightId: number; uri: string; isVideo: boolean; label: string } | null>(null);
+  const [media, setMedia] = useState<{ f: DroneFlight; uri: string; isVideo: boolean }[]>([]);
   const photoSyncOn = isPhotoSyncAvailable();
   const [canSync, setCanSync] = useState(false);
   const [resumeReview, setResumeReview] = useState(false);
@@ -398,62 +439,85 @@ function DronePhotoCarousel({ accent }: { accent: string }) {
       hasUnfinishedReview().then((v) => alive && setResumeReview(v)).catch(() => {});
     }
     getDroneFlights(100000).then(async (all) => {
-      const withMedia = all.filter((f) => f.photo_uri || f.photo_local_id)
-        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      const f = withMedia[0];
-      if (!f) { if (alive) setLatest(null); return; }
-      const label = `${f.location || 'Drone flight'}${f.date ? ` · ${f.date}` : ''}`;
-      if (f.photo_uri) { if (alive) setLatest({ flightId: f.id, uri: f.photo_uri, isVideo: f.media_type === 'video', label }); return; }
-      if (f.photo_local_id) { const d = await getAssetDisplay(f.photo_local_id); if (alive && d) setLatest({ flightId: f.id, uri: d.uri, isVideo: d.isVideo, label }); }
+      const withMedia = all.filter((f) => f.photo_uri || f.photo_local_id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const out: { f: DroneFlight; uri: string; isVideo: boolean }[] = [];
+      for (const f of withMedia) {
+        if (out.length >= 10) break;
+        if (f.photo_uri) out.push({ f, uri: f.photo_uri, isVideo: f.media_type === 'video' });
+        else if (f.photo_local_id) { const d = await getAssetDisplay(f.photo_local_id).catch(() => null); if (d?.uri) out.push({ f, uri: d.uri, isVideo: d.isVideo }); }
+      }
+      if (alive) setMedia(out);
     }).catch(() => {});
     return () => { alive = false; };
   }, [photoSyncOn]));
 
   const goSync = () => router.push(resumeReview ? '/photo-sync?mode=drone&resume=1' : '/photo-sync?mode=drone');
+  const metaOf = (f: DroneFlight) => [f.date, f.drone_type, `${decimalToHHMM(f.total_time)}h`].filter(Boolean).join(' · ');
+
+  const hasMedia = media.length > 0;
+  const latest = media[0];
+  const rest = media.slice(1, 10);
+  const pageCount = hasMedia ? 2 + rest.length : 2;
+
+  // Åtgärds-sidan (= manned CarouselActions): tre brickor, 44px cirkel-ikoner.
+  const tiles: { key: string; icon: any; color: string; label: string; sub?: string; disabled: boolean; onPress: () => void }[] = [
+    { key: 'album', icon: 'images-outline', color: DR.warning, label: 'Flight album', disabled: false, onPress: () => router.push('/drone-album') },
+    resumeReview
+      ? { key: 'sync', icon: 'play-circle-outline', color: DR.warning, label: 'Resume', sub: 'Finish matching', disabled: false, onPress: goSync }
+      : { key: 'sync', icon: 'sync-outline', color: accent, label: 'Sync album', sub: photoSyncOn ? (canSync ? undefined : 'Up to date') : 'Unavailable', disabled: !photoSyncOn || !canSync, onPress: goSync },
+    { key: 'share', icon: 'share-outline', color: DR.text3, label: 'Share', sub: 'Soon', disabled: true, onPress: () => {} },
+  ];
 
   return (
     <View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={SNAP} decelerationRate="fast"
+        contentContainerStyle={{ paddingHorizontal: 0 }}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / SNAP))}>
         {/* Sida 1: senaste media (eller uppmaning att synka/lägga till) */}
         <View style={{ width: CARD_W }}>
-          {latest ? (
-            <TouchableOpacity activeOpacity={0.9} onPress={() => router.push(`/drone-flight/${latest.flightId}`)}
-              style={{ width: CARD_W, height: 180, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border }}>
-              {latest.isVideo ? (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DR.elevated }}>
-                  <Ionicons name="play-circle" size={40} color="#fff" />
-                </View>
-              ) : (
-                <Image source={{ uri: latest.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-              )}
-              <LinearGradient colors={['transparent', 'rgba(6,11,22,0.85)']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 64, justifyContent: 'flex-end', padding: 10 }}>
-                <Text numberOfLines={1} style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{latest.label}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+          {hasMedia ? (
+            <DroneMediaCard uri={latest.uri} isVideo={latest.isVideo} location={latest.f.location} landing={latest.f.landing_location}
+              meta={metaOf(latest.f)} cardW={CARD_W} onPress={() => router.push(`/drone-flight/${latest.f.id}`)} />
           ) : (
             <TouchableOpacity activeOpacity={0.85} onPress={photoSyncOn ? goSync : () => router.push('/drone-album')}
-              style={{ width: CARD_W, height: 180, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Ionicons name="images-outline" size={30} color={accent} />
+              style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <Ionicons name="images-outline" size={28} color={accent} />
               <Text style={{ fontFamily: SERIF, fontSize: 15, color: DR.text }}>Flight media</Text>
               <Text style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: DR.muted }}>{photoSyncOn ? 'SYNC OR ADD PHOTOS TO FLIGHTS' : 'ADD PHOTOS ON A FLIGHT'}</Text>
             </TouchableOpacity>
           )}
         </View>
         <View style={{ width: GAP }} />
-        {/* Sida 2: åtgärder */}
+        {/* Sida 2: åtgärder (140px, tre brickor = manned) */}
         <View style={{ width: CARD_W }}>
-          <View style={{ width: CARD_W, height: 180, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, flexDirection: 'row' }}>
-            <CarouselAction accent={accent} icon="images-outline" label="Album" onPress={() => router.push('/drone-album')} first />
-            <CarouselAction accent={accent} icon={resumeReview ? 'play-circle-outline' : 'sync-outline'} label={resumeReview ? 'Resume' : 'Photo sync'}
-              sub={photoSyncOn ? (resumeReview ? 'Finish' : (canSync ? undefined : 'Up to date')) : undefined}
-              disabled={!photoSyncOn} onPress={goSync} />
-            <CarouselAction accent={accent} icon="share-social-outline" label="Share card" sub="SOON" disabled onPress={() => {}} />
+          <View style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, flexDirection: 'row' }}>
+            {tiles.map((tile, i) => (
+              <TouchableOpacity key={tile.key} disabled={tile.disabled} activeOpacity={0.85} onPress={tile.onPress}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: DR.border, opacity: tile.disabled ? 0.38 : 1 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: tile.color + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={tile.icon} size={21} color={tile.color} />
+                </View>
+                <Text style={{ color: DR.text, fontSize: 11.5, fontWeight: '700', textAlign: 'center' }}>{tile.label}</Text>
+                {tile.sub ? <Text style={{ color: DR.muted, fontSize: 8.5, fontWeight: '700', marginTop: -4 }}>{tile.sub}</Text> : null}
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
+        {/* Sida 3+: resten av de senaste 10 */}
+        {rest.map((m) => (
+          <View key={m.f.id} style={{ flexDirection: 'row' }}>
+            <View style={{ width: GAP }} />
+            <View style={{ width: CARD_W }}>
+              <DroneMediaCard uri={m.uri} isVideo={m.isVideo} location={m.f.location} landing={m.f.landing_location}
+                meta={metaOf(m.f)} cardW={CARD_W} onPress={() => router.push(`/drone-flight/${m.f.id}`)} />
+            </View>
+          </View>
+        ))}
       </ScrollView>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-        {[0, 1].map((i) => <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? accent : DR.border }} />)}
+        {Array.from({ length: pageCount }).map((_, i) => (
+          <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? accent : DR.border }} />
+        ))}
       </View>
     </View>
   );

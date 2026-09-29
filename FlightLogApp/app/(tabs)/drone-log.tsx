@@ -6,7 +6,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Polygon, Text as SvgText, G } from 'react-native-svg';
 
@@ -51,6 +51,12 @@ export default function DroneLog() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights, loadFlights } = useDroneFlightStore();
   const [tab, setTab] = useState<'flights' | 'book' | 'fleet'>('flights');
+
+  // Djuplänk till Fleet-fliken (t.ex. efter CSV-import: /(tabs)/drone-log?view=fleet) — = pilotens loggbok.
+  const params = useLocalSearchParams<{ view?: string; t?: string }>();
+  useEffect(() => {
+    if (params.view === 'fleet' || params.view === 'book' || params.view === 'flights') setTab(params.view as any);
+  }, [params.view, params.t]);
 
   useFocusEffect(useCallback(() => { loadAccent(); loadFlights(); }, [loadAccent, loadFlights]));
 
@@ -294,11 +300,14 @@ function DroneMonthYearHeatmap({ flights, accent, sel, setSel }: {
     return m;
   }, [flights]);
   const curY = new Date().getFullYear();
-  const dataYears = Object.keys(monthly).map((k) => Number(k.slice(0, 4)));
+  const dataYears = Object.keys(monthly).filter((k) => (monthly[k] ?? 0) > 0).map((k) => Number(k.slice(0, 4)));
+  const dataYearSet = new Set(dataYears);
   const minYear = dataYears.length ? Math.min(...dataYears, curY - 1) : curY - 1;
   const allYears: number[] = [];
   for (let y = curY; y >= minYear; y--) allYears.push(y);
-  const rows = expanded ? allYears : allYears.slice(0, 2);
+  // Default: bara år med flygdata (innevarande år alltid), upp till två senaste. Har man
+  // bara innevarande år loggat visas bara det.
+  const rows = expanded ? allYears : [curY, curY - 1].filter((y) => y === curY || dataYearSet.has(y));
   const get = (y: number, m: number) => monthly[`${y}-${String(m + 1).padStart(2, '0')}`] ?? 0;
   const max = Math.max(...rows.flatMap((y) => Array.from({ length: 12 }, (_, m) => get(y, m))), 1);
   return (

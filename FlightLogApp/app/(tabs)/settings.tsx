@@ -587,32 +587,6 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'logbook' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          {/* Byt hela loggboken → egen framträdande design (man skiftar hela appläget). */}
-          <TouchableOpacity
-            onPress={() => {
-              if (isDrone) {
-                const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
-                switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
-              } else {
-                const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
-                switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
-              }
-            }}
-            activeOpacity={0.85}
-            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 10 }}
-          >
-            <LinearGradient colors={[Colors.primary + '2E', Colors.primary + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55' }}>
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '55' }}>
-                <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={20} color={Colors.primary} />
-              </View>
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>
-                {isDrone ? 'Shift to Pilot logbook' : 'Shift to Drone logbook'}
-              </Text>
-              <Ionicons name="swap-horizontal" size={22} color={Colors.primary} />
-            </LinearGradient>
-          </TouchableOpacity>
-
           {/* Drone pilot type selector */}
           {isDrone && (
             <View style={{ paddingHorizontal: 16, paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: Colors.background }}>
@@ -842,6 +816,32 @@ export default function SettingsScreen() {
           onClick={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false}
         />
       </Card>
+
+      {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}
+      <TouchableOpacity
+        onPress={() => {
+          if (isDrone) {
+            const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
+            switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
+          } else {
+            const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
+            switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
+          }
+        }}
+        activeOpacity={0.85}
+        style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 28 }}
+      >
+        <LinearGradient colors={[Colors.primary + '2E', Colors.primary + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55' }}>
+          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '55' }}>
+            <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={20} color={Colors.primary} />
+          </View>
+          <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>
+            {isDrone ? 'Shift to Pilot logbook' : 'Shift to Drone logbook'}
+          </Text>
+          <Ionicons name="swap-horizontal" size={22} color={Colors.primary} />
+        </LinearGradient>
+      </TouchableOpacity>
 
 
       {/* Blade-coins — förklarande popup */}

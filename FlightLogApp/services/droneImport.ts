@@ -2,7 +2,7 @@
 // Claude identifierar ENBART kolumnmappningen; alla rader tolkas lokalt på enheten. Sparas med
 // source='import' → syns som en batch under Imported data och räknas i drönar-stats. Efter import
 // berikas unika drönar-modeller (specar + bild) via droneLookup (token-styrt), som pilotens flotta.
-import { insertDroneFlight, persistDroneModelLookup, addDrone, listDrones, type DroneFlightMode } from '../db/drones';
+import { insertDroneFlight, persistDroneModelLookup, addDrone, listDrones, linkImportedDroneFlights, type DroneFlightMode } from '../db/drones';
 import { pickImportFile, readTextSmart, parseRow, normalize, convertDate, convertTime } from './import';
 import { callAnthropicJson, callAnthropicRaw } from './anthropicClient';
 import { enrichDroneFleet } from './droneLookup';
@@ -319,34 +319,46 @@ export async function saveDroneImport(rows: ParsedDroneRow[]): Promise<number> {
  * saknas) och berikar sedan varje unik modell (specar + bild via droneLookup, token-styrt) — så de
  * importerade drönarna dyker upp i flottan direkt och kan redigeras (= pilotens aircraft-import).
  */
-export async function registerAndEnrichImportedDrones(
+/** Skapar registry-rad per unik model+registrering (snabbt, ingen AI). Kör FÖRE navigering till fleet. */
+export async function registerImportedDrones(
   rows: ParsedDroneRow[],
   infoByModel: Record<string, { airframe?: string; mtow_g?: number; category?: string }> = {},
 ): Promise<void> {
   const existing = await listDrones();
-  const has = (model: string, reg: string) =>
-    existing.some((d) => (d.model || '').toLowerCase() === model.toLowerCase() && (d.registration || '').toUpperCase() === reg.toUpperCase());
-
+  const findId = (model: string, reg: string) =>
+    existing.find((d) => (d.model || '').toLowerCase() === model.toLowerCase() && (d.registration || '').toUpperCase() === reg.toUpperCase())?.id;
   const seen = new Set<string>();
-  const models = new Set<string>();
   for (const r of rows) {
     const model = (r.drone_type || '').trim();
     if (!model) continue;
-    models.add(model);
     const reg = (r.registration || '').trim().toUpperCase();
     const key = `${model.toLowerCase()}|${reg}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    if (!has(model, reg)) {
+    let id = findId(model, reg);
+    if (!id) {
       const info = infoByModel[model] || {};
       try {
-        await addDrone({ drone_type: (info.airframe || '') as any, model, registration: reg, mtow_g: info.mtow_g || 0, category: info.category || r.category || '', drone_class: '', notes: '' });
+        id = await addDrone({ drone_type: (info.airframe || '') as any, model, registration: reg, mtow_g: info.mtow_g || 0, category: info.category || r.category || '', drone_class: '', notes: '' });
       } catch { /* hoppa över dubblett/fel */ }
     }
+    // Koppla importerade flygningar (drone_id null) → registry-raden så flygtiden räknas i Fleet.
+    if (id) {
+      try { await linkImportedDroneFlights(id, model, reg); } catch { /* ignorera */ }
+    }
   }
+}
 
+/** Berikar unika modeller (bild + fulla specar) i bakgrunden efter Save. Returnerar berikningsresultat
+ * (samma form som pilotens FleetDone) → driver popup:en. Token-styrt: slut på coins → stoppedForQuota. */
+export async function enrichImportedDroneModels(
+  rows: ParsedDroneRow[],
+): Promise<{ enriched: number; total: number; remaining: number; stoppedForQuota: boolean }> {
+  const models = [...new Set(rows.map((r) => (r.drone_type || '').trim()).filter(Boolean))];
+  let enriched = 0;
+  let stopped = false;
   for (const model of models) {
-    if (!hasTokenQuota()) break; // slut på tokens → resten kan berikas senare
+    if (!hasTokenQuota()) { stopped = true; break; }
     try {
       const r = await enrichDroneFleet(model);
       await persistDroneModelLookup(model, {
@@ -354,6 +366,8 @@ export async function registerAndEnrichImportedDrones(
         max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
         ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
       });
+      enriched++;
     } catch { /* hoppa över modeller som inte kan berikas */ }
   }
+  return { enriched, total: models.length, remaining: Math.max(0, models.length - enriched), stoppedForQuota: stopped };
 }

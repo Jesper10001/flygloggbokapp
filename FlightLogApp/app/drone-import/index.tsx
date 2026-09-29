@@ -2,7 +2,7 @@
 // med progress → AI-kolumnmappning → analysis summary (AI) → "inside data"-summering + "Drone data"
 // (inline-editor per modell, AI sätter airframe/vikt/klass) → import (source='import') + registrering
 // + berikning. Layouten motsvarar pilotens Import (samma summering + Aircraft data-sektion).
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +16,10 @@ import { lookupDrone } from '../../services/droneLookup';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, categoryFromCClass } from '../../constants/droneCategories';
 import {
-  pickAndImportDroneCsv, saveDroneImport, generateDroneImportSummary, registerAndEnrichImportedDrones,
+  pickAndImportDroneCsv, saveDroneImport, generateDroneImportSummary, registerImportedDrones, enrichImportedDroneModels,
   type DroneImportResult, type ParsedDroneRow,
 } from '../../services/droneImport';
+import { useFleetDoneStore } from '../../components/FleetDoneModal';
 
 const HOW_IT_WORKS = [
   { n: '1', t: 'Export & choose file', d: 'Export your drone log as CSV — including a file exported from this app — and choose it above.' },
@@ -72,7 +73,8 @@ export default function DroneImportCsvScreen() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [droneData, setDroneData] = useState<Record<string, DroneInfo>>({}); // per-modell airframe/klass/vikt
-  const [lookingModel, setLookingModel] = useState<string | null>(null);
+  const [lookingModels, setLookingModels] = useState<Set<string>>(new Set()); // modeller som slås upp just nu
+  const lookedUpRef = useRef<Set<string>>(new Set());                         // auto-lookup: kör en gång per modell
   const [openLocations, setOpenLocations] = useState(false);
   const [openDrones, setOpenDrones] = useState(false);
 
@@ -128,18 +130,34 @@ export default function DroneImportCsvScreen() {
   const setInfo = (model: string, patch: Partial<DroneInfo>) =>
     setDroneData((p) => ({ ...p, [model]: { ...(p[model] ?? { airframe: '', cls: '', mtow_g: 0 }), ...patch } }));
 
-  const lookupModel = async (model: string) => {
-    if (!hasTokenQuota()) { show?.('Out of Blade-coins for look-ups'); return; }
-    setLookingModel(model);
+  // AI-uppslag för en modell — fyller airframe/vikt/klass. Auto (manual=false): tyst, fyller bara TOMMA
+  // fält, hoppar om slut på coins. Manuell (knapp): meddelar fel och skriver över även ifyllda fält.
+  const lookupModel = async (model: string, manual = false) => {
+    if (!manual && lookedUpRef.current.has(model)) return;
+    lookedUpRef.current.add(model);
+    if (!hasTokenQuota()) { if (manual) show?.('Out of Blade-coins for look-ups'); return; }
+    setLookingModels((p) => new Set(p).add(model));
     try {
       const r = await lookupDrone(model);
-      if (r.needs_manual || !r.model) { show?.('Could not identify that drone'); return; }
+      if (r.needs_manual || !r.model) { if (manual) show?.('Could not identify that drone'); return; }
       const af = toAirframe(r.drone_type);
       const guessed = categoryFromCClass(r.c_class);
-      setInfo(model, { ...(af ? { airframe: af } : {}), ...(r.mtow_g > 0 ? { mtow_g: r.mtow_g } : {}), ...(guessed ? { cls: guessed } : {}) });
-    } catch { show?.('Look-up failed'); }
-    finally { setLookingModel(null); }
+      setDroneData((p) => {
+        const cur = p[model] ?? { airframe: '' as Airframe | '', cls: '', mtow_g: 0 };
+        const upd = { ...cur };
+        if (af && (manual || !cur.airframe)) upd.airframe = af;
+        if (r.mtow_g > 0 && (manual || !cur.mtow_g)) upd.mtow_g = r.mtow_g;
+        if (guessed && (manual || !cur.cls)) upd.cls = guessed;
+        return { ...p, [model]: upd };
+      });
+    } catch { if (manual) show?.('Look-up failed'); }
+    finally { setLookingModels((p) => { const n = new Set(p); n.delete(model); return n; }); }
   };
+
+  // Auto-uppslag så fort en ny modell dyker upp (= pilotens Aircraft data auto-fill), token-styrt.
+  useEffect(() => {
+    droneModels.forEach((d) => { if (!lookedUpRef.current.has(d.model)) lookupModel(d.model, false); });
+  }, [droneModels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSummary = async (r: DroneImportResult | null, fname: string, error?: string) => {
     setSummaryLoading(true);
@@ -162,6 +180,7 @@ export default function DroneImportCsvScreen() {
 
   const pick = async () => {
     setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({});
+    lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
     const rot = setInterval(() => setStepIdx((i) => i + 1), 2000);
     try {
@@ -192,10 +211,14 @@ export default function DroneImportCsvScreen() {
       for (const [model, info] of Object.entries(droneData)) infoByModel[model] = { airframe: info.airframe || '', mtow_g: info.mtow_g || 0, category: info.cls || '' };
 
       const n = await saveDroneImport(rowsToSave);
+      await registerImportedDrones(rowsToSave, infoByModel); // registrera flottan FÖRE navigering (syns direkt)
       await Promise.all([loadFlights(), loadStats()]);
-      registerAndEnrichImportedDrones(rowsToSave, infoByModel).then(() => loadFlights()).catch(() => {});
       show?.(`Imported ${n} ${n === 1 ? 'flight' : 'flights'}`);
-      router.replace('/drone-import/history');
+      router.replace('/(tabs)/drone-dashboard');
+      // Bakgrund: hämta bild + fulla specar → popup som meddelar + navigerar till Fleet (= pilotens flöde).
+      enrichImportedDroneModels(rowsToSave)
+        .then((res) => { loadFlights(); if (res.enriched > 0 || res.stoppedForQuota) useFleetDoneStore.getState().show(res, '/(tabs)/drone-log'); })
+        .catch(() => {});
     } catch (e: any) {
       setSaving(false);
       setImportError(e?.message ?? 'Could not save the flights.');
@@ -376,7 +399,7 @@ export default function DroneImportCsvScreen() {
               <Text style={s.dataSubtitle}>Airframe fills the multi/single/fixed columns in your logbook. Use look-up to let AI set airframe, weight and class. You can edit this later under Manage drones.</Text>
               {droneModels.map((d) => {
                 const info = droneData[d.model] ?? { airframe: '', cls: d.defaultCat, mtow_g: 0 };
-                const looking = lookingModel === d.model;
+                const looking = lookingModels.has(d.model);
                 return (
                   <View key={d.model} style={s.dataCard}>
                     {/* Modell + vikt + smart search */}
@@ -388,7 +411,7 @@ export default function DroneImportCsvScreen() {
                         onChangeText={(v) => setInfo(d.model, { mtow_g: parseInt(v.replace(/\D/g, ''), 10) || 0 })}
                         keyboardType="number-pad" placeholder="g" placeholderTextColor={DR.muted}
                       />
-                      <TouchableOpacity onPress={() => lookupModel(d.model)} disabled={looking} activeOpacity={0.75} style={[s.aiBtn, { borderColor: accent + '88', backgroundColor: accent + '1F' }]}>
+                      <TouchableOpacity onPress={() => lookupModel(d.model, true)} disabled={looking} activeOpacity={0.75} style={[s.aiBtn, { borderColor: accent + '88', backgroundColor: accent + '1F' }]}>
                         {looking ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="sparkles" size={13} color={accent} />}
                         <Text style={[s.aiBtnText, { color: accent }]}>{looking ? '…' : 'Look up'}</Text>
                       </TouchableOpacity>

@@ -113,6 +113,19 @@ export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
   );
 }
 
+// Länkar importerade flygningar (drone_id null, source='import') till en registry-drönare via
+// model + registrering → så flygtiden räknas i Fleet (som annars joinar på drone_id). Returnerar
+// antal länkade rader.
+export async function linkImportedDroneFlights(droneId: number, model: string, registration: string): Promise<number> {
+  const db = await getDatabase();
+  const res = await db.runAsync(
+    `UPDATE drone_flights SET drone_id=?
+       WHERE source='import' AND drone_id IS NULL AND drone_type=? AND UPPER(registration)=UPPER(?)`,
+    [droneId, model, registration]
+  );
+  return (res.changes as number) ?? 0;
+}
+
 export async function getDroneModelRegistrations(model: string): Promise<{ registration: string; drone_id: number; hours: number; last_flown: string; flightCount: number }[]> {
   const db = await getDatabase();
   return db.getAllAsync(

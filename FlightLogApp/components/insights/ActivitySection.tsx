@@ -197,13 +197,16 @@ function MonthYearHeatmap({ C, monthly, curY, curM, sel, setSel, records }: {
   sel: { y: number; m: number }; setSel: (s: { y: number; m: number }) => void;
   records: { allTime: { date: string; hours: number } | null; yearBest: { date: string; hours: number } | null };
 }) {
-  // Två senaste åren default; expanderknappen (nere till vänster) visar ALLA år på samma sätt.
+  // Default: upp till två senaste åren, men bara år som faktiskt har flygdata (innevarande
+  // år visas alltid). Har man bara innevarande år loggat visas bara det. Expanderknappen
+  // (nere till vänster) visar ALLA år på samma sätt.
   const [expanded, setExpanded] = useState(false);
   const dataYears = Object.keys(monthly).filter((k) => (monthly[k] ?? 0) > 0).map((k) => Number(k.slice(0, 4)));
+  const dataYearSet = new Set(dataYears);
   const minYear = dataYears.length ? Math.min(...dataYears, curY - 1) : curY - 1;
   const allYears: number[] = [];
   for (let y = curY; y >= minYear; y--) allYears.push(y);
-  const rows = expanded ? allYears : [curY, curY - 1];
+  const rows = expanded ? allYears : [curY, curY - 1].filter((y) => y === curY || dataYearSet.has(y));
   const get = (y: number, m: number) => monthly[`${y}-${String(m + 1).padStart(2, '0')}`] ?? 0;
   const max = Math.max(...rows.flatMap((y) => Array.from({ length: 12 }, (_, m) => get(y, m))), 0.1);
   const recPurple = records.allTime ? { y: Number(records.allTime.date.slice(0, 4)), m: Number(records.allTime.date.slice(5, 7)) - 1 } : null;
