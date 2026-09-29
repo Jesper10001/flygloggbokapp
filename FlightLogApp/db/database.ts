@@ -313,6 +313,9 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'media_type', "TEXT NOT NULL DEFAULT 'image'");
   // Foto-synk: referens (localIdentifier) till bibliotekets media, matchat på tid (= manned).
   await addColumnIfMissingOnTable(db, 'drone_flights', 'photo_local_id', 'TEXT');
+  // Källa för raden: 'manual' (loggat i appen) | 'import' (CSV) | 'summary' (bulk-historik) — driver
+  // Imported data-batcher och backfill (= manned flights.source). Befintliga rader = manuella.
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'source', "TEXT NOT NULL DEFAULT 'manual'");
   // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
   // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.

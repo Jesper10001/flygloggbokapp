@@ -184,6 +184,9 @@ export default function RootLayout() {
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: 'modal' }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
+        <Stack.Screen name="drone-import/index" options={{ title: 'Import CSV', presentation: 'modal' }} />
+        <Stack.Screen name="drone-import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
+        <Stack.Screen name="drone-import/manual" options={{ title: 'Log flight manually', presentation: 'modal' }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
         <Stack.Screen name="settings/album" options={{ title: 'Flight album', presentation: 'modal' }} />

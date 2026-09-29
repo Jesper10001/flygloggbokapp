@@ -31,7 +31,6 @@ import { SmartTimeInput, type SmartTimeInputHandle } from '../../components/Smar
 import { calcFlightTime, isValidTime } from '../../utils/format';
 import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { DroneDurationInput } from '../../components/DroneDurationInput';
-import { DroneCategoryPicker } from '../../components/DroneCategoryPicker';
 import { categoryFromCClass } from '../../constants/droneCategories';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useToastStore } from '../../components/Toast';
@@ -978,14 +977,7 @@ export default function AddDroneFlightScreen() {
           })}
         </View>
 
-        {/* Category (blå) — mellan Operation och Type of flight, egen färgkodning */}
-        <Text style={[styles.cardFieldLabel, { marginTop: 12, color: Colors.info }]}>Category</Text>
-        <DroneCategoryPicker
-          pilotType={pilotType}
-          value={form.category}
-          onChange={(v) => setForm((p) => ({ ...p, category: v as any }))}
-          accent={Colors.info}
-        />
+        {/* Category tas EJ längre in här — den följer vald drönares klass automatiskt (setDrone). */}
 
         {/* Type of flight (grön) — VLOS/EVLOS/BVLOS */}
         <Text style={[styles.cardFieldLabel, { marginTop: 12, color: Colors.success }]}>Type of flight</Text>

@@ -525,6 +525,46 @@ export async function seedMannedPilot2() {
   await setPilotProfile('rotary', 'Anna', 'Berg');
 }
 
+// ── Test pilot 3: Swedish CPL student — ~halvvägs mot CPL(A)-kraven. Har PPL(A) + nattbehörighet,
+// mitt i timbygget (~110 h totalt, ~85 h PIC). Fixed-wing, TVÅ flygplan: skolans C172 (PPL +
+// natt) och en PA28 för timbygge/XC. Gällande Class 1-medical, ELP L4, ATPL-teori pågår. ──────
+export async function seedMannedPilot3() {
+  await wipeMannedData();
+
+  // Två flygplanstyper (typ, reg, marschfart kts, uthållighet h, crew, kategori, motor).
+  await addAircraftReg('C172', 'SE-KMA', 120, 4.5, 'sp', 'airplane', 'se');
+  await addAircraftReg('PA28', 'SE-GBP', 125, 5.0, 'sp', 'airplane', 'se');
+
+  const rng = makeRng(20230301);
+  const D = 365;
+  const phases: Phase[] = [
+    // 1) PPL(A)-utbildning Göteborg (dual → solo), C172. Startar ~21 mån sedan.
+    { type: 'C172', reg: 'SE-KMA', count: 40, fromDays: 640, toDays: 430, durMin: 0.6, durMax: 1.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.03, dualFrac: 0.55,
+      routes: [['ESGG','ESGR'],['ESGG','ESGJ'],['ESGR','ESGT'],['ESGG','ESGT'],['ESGJ','ESGR']], remark: 'PPL(A) training — Gothenburg' },
+    // 2) Timbygge PA28 (VFR-navigering, PIC) mot CPL.
+    { type: 'PA28', reg: 'SE-GBP', count: 22, fromDays: 430, toDays: 130, durMin: 1.0, durMax: 2.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.08,
+      routes: [['ESGG','ESMS'],['ESGG','ESGJ'],['ESGG','ESSA'],['ESGJ','ESMS'],['ESGR','ESGG'],['ESGG','ESNN']], remark: 'Hour building / CPL' },
+    // 3) Nattbehörighet C172 (mestadels natt), lokalt.
+    { type: 'C172', reg: 'SE-KMA', count: 7, fromDays: 210, toDays: 165, durMin: 0.8, durMax: 1.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.95,
+      routes: [['ESGG','ESGR'],['ESGG','ESGT'],['ESGR','ESGG']], remark: 'Night rating' },
+    // 4) Längre XC-timbygge PA28 (inkl. 300 NM-kvalificeringsflygning), senaste månaderna.
+    { type: 'PA28', reg: 'SE-GBP', count: 9, fromDays: 130, toDays: 3, durMin: 2.0, durMax: 3.4, rules: 'VFR', role: 'pic', crew: 'sp', engine: 'se', category: 'airplane', nightFrac: 0.05,
+      routes: [['ESGG','ESSA'],['ESGG','EKCH'],['ESGG','ESMS'],['ESSA','ESGG']], remark: 'Cross-country hour building (300 NM qualifier)' },
+  ];
+
+  const all: MannedFlight[] = [];
+  for (const p of phases) all.push(...genPhase(p, rng));
+  await insertPlan(all);
+
+  await addCertificate({ cert_type: 'PPL', label: 'PPL(A)', issued_date: isoDaysAgo(430), expires_date: '', notes: '' });
+  await addCertificate({ cert_type: 'Night Rating', label: '', issued_date: isoDaysAgo(170), expires_date: '', notes: '' });
+  await addCertificate({ cert_type: 'Medical Class 1', label: '', issued_date: isoDaysAgo(150), expires_date: isoDaysFromNow(215), notes: 'AME: Dr Holm, Göteborg' });
+  await addCertificate({ cert_type: 'ATPL Theory', label: '7 of 13 exams passed', issued_date: isoDaysAgo(120), expires_date: '', notes: 'CPL/ATPL theory in progress' });
+  await addCertificate({ cert_type: 'English Language Proficiency', label: 'Level 4', issued_date: isoDaysAgo(400), expires_date: isoDaysFromNow(1000), notes: '' });
+
+  await setPilotProfile('fixed', 'Sofia', 'Ek');
+}
+
 export async function clearMannedTestUser() {
   await wipeMannedData();
 }

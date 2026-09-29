@@ -24,7 +24,7 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useToastStore } from '../../components/Toast';
-import { seedMannedPilot1, seedMannedPilot2, clearMannedTestUser } from '../../services/testUserSeed';
+import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
@@ -378,8 +378,8 @@ export default function SettingsScreen() {
     doPagesExport(Math.max(1, raw || 1));
   };
 
-  const applyMannedTestUser = (which: 1 | 2 | 'clear') => {
-    const label = which === 'clear' ? 'Clear test data' : which === 1 ? 'Airline pilot (SAS)' : 'HEMS pilot';
+  const applyMannedTestUser = (which: 1 | 2 | 3 | 'clear') => {
+    const label = which === 'clear' ? 'Clear test data' : which === 1 ? 'Airline pilot (SAS)' : which === 2 ? 'HEMS pilot' : 'Student pilot (CPL)';
     const msg = which === 'clear' ? 'Remove all logbook data?' : 'This replaces all current logbook data with the demo profile. Continue?';
     Alert.alert(label, msg, [
       { text: t('cancel'), style: 'cancel' },
@@ -387,6 +387,7 @@ export default function SettingsScreen() {
         try {
           if (which === 1) { await seedMannedPilot1(); }
           else if (which === 2) { await seedMannedPilot2(); }
+          else if (which === 3) { await seedMannedPilot3(); }
           else { await clearMannedTestUser(); }
           await useProfileStore.getState().load();
           if (which !== 'clear') { await setAppMode('manned'); }
@@ -404,6 +405,7 @@ export default function SettingsScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Airline pilot (SAS)', onPress: () => applyMannedTestUser(1) },
       { text: 'HEMS pilot', onPress: () => applyMannedTestUser(2) },
+      { text: 'Student pilot (CPL)', onPress: () => applyMannedTestUser(3) },
       { text: 'Clear logbook data', style: 'destructive', onPress: () => applyMannedTestUser('clear') },
     ]);
   };
@@ -585,42 +587,31 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'logbook' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
-          {/* Current logbook type */}
-          <Row
-            icon={isDrone ? 'hardware-chip-outline' : 'airplane-outline'}
-            iconColor={Colors.primary}
-            title={t('logbook_type') ?? 'Logbook Type'}
-            subtitle={isDrone ? 'Pilot Unmanned Aircraft' : 'Pilot Manned Aircraft'}
-            pressable={false}
-            separatorColor={Colors.background}
-          />
-
-          {/* Logbook type — enkel växlingsknapp mellan pilot och drönare */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.background }}>
-            <TouchableOpacity
-              onPress={() => {
-                if (isDrone) {
-                  const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
-                  switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
-                } else {
-                  const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
-                  switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
-                }
-              }}
-              activeOpacity={0.8}
-              style={{
-                marginLeft: 30, alignSelf: 'flex-start',
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-                backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
-              }}
-            >
-              <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={16} color={Colors.primary} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary }}>
+          {/* Byt hela loggboken → egen framträdande design (man skiftar hela appläget). */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isDrone) {
+                const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
+                switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
+              } else {
+                const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
+                switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
+              }
+            }}
+            activeOpacity={0.85}
+            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 10 }}
+          >
+            <LinearGradient colors={[Colors.primary + '2E', Colors.primary + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55' }}>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '55' }}>
+                <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={20} color={Colors.primary} />
+              </View>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>
                 {isDrone ? 'Shift to Pilot logbook' : 'Shift to Drone logbook'}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="swap-horizontal" size={22} color={Colors.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
 
           {/* Drone pilot type selector */}
           {isDrone && (

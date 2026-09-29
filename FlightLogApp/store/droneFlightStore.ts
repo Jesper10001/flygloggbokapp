@@ -16,7 +16,9 @@ export const useDroneFlightStore = create<DroneFlightStore>((set) => ({
 
   loadFlights: async () => {
     set({ isLoading: true });
-    const flights = await getDroneFlights(500);
+    // Summeringsrader (bulk-historik, source='summary') räknas i stats men listas INTE som enskilda
+    // flygningar i loggbok/tidslinje/dashboard — de bor under Imported data som en batch.
+    const flights = (await getDroneFlights(500)).filter((f) => f.source !== 'summary');
     set({ flights, isLoading: false });
   },
 

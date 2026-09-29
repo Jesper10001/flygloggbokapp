@@ -78,9 +78,11 @@ const FRAMEWORKS: { key: RegulationStandard; region: string; title: string; desc
 const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
 
 function buildSteps(role: MainRole | null, returning: boolean): Step[] {
-  const mid: Step[] = manned(role) ? ['framework', 'timeformat'] : ['droneid'];
+  // Manned: subrole (fixed/rotary) + regelverk + tidsformat. Drönare: inget subroll-steg (hobby/
+  // commercial/military är obsolet) och inget separat operatörs-ID-steg (flyttat in i profilsteget).
+  const mid: Step[] = manned(role) ? ['subrole', 'framework', 'timeformat'] : [];
   // Intro-skärmarna (2–4) visas bara för nya användare, mellan welcome och role.
-  return [...(returning ? [] : (['welcome', 'intro1', 'intro2', 'intro3'] as Step[])), 'role', 'subrole', ...mid, 'profile', 'hours'];
+  return [...(returning ? [] : (['welcome', 'intro1', 'intro2', 'intro3'] as Step[])), 'role', ...mid, 'profile', 'hours'];
 }
 
 export default function OnboardingScreen() {
@@ -136,7 +138,7 @@ export default function OnboardingScreen() {
   const stepIdx = Math.max(0, steps.indexOf(step));
   const totalSteps = steps.length;
 
-  const finalize = async (dest?: '/import/scan' | '/import/manual' | '/import' | '/(tabs)', push = false) => {
+  const finalize = async (dest?: '/import/scan' | '/import/manual' | '/import' | '/drone-import' | '/drone-import/manual' | '/(tabs)', push = false) => {
     try {
       if (!mainRole || !pendingSub) { router.replace('/(tabs)'); return; }
       const profile: Profile = { mainRole, subRole: pendingSub };
@@ -286,7 +288,12 @@ export default function OnboardingScreen() {
                 {availableMainRoles.map(r => (
                   <ImageRow key={r.key} image={ROLE_IMG[r.key]}
                     title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en}
-                    onPress={() => { setMainRole(r.key); setStep('subrole'); }} />
+                    onPress={() => {
+                      setMainRole(r.key);
+                      // Drönare: hoppa över subroll-steget (obsolet) → sätt standard-subroll och gå direkt till profil.
+                      if (r.key === 'pilot-unmanned') { setPendingSub('commercial'); setStep('profile'); }
+                      else { setStep('subrole'); }
+                    }} />
                 ))}
               </ScrollView>
             </>
@@ -360,28 +367,7 @@ export default function OnboardingScreen() {
             </>
           )}
 
-          {/* ── Drone operator ID (drone) ── */}
-          {step === 'droneid' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Drönare' : 'Drone'} accent={accent}
-                title={sv ? 'Operatörs-ID' : 'Operator ID'}
-                subtitle={sv ? 'Ditt EU-registrerings-ID som drönaroperatör. Valfritt — kan läggas till senare.' : 'Your EU drone operator registration ID. Optional — you can add it later.'} />
-              <View style={{ alignSelf: 'stretch' }}>
-                <Text style={s.inputLabel}>{sv ? 'Operatörs-ID' : 'Operator ID'}</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder="e.g. SWE87astrdg12k8"
-                  value={droneId}
-                  onChangeText={setDroneId}
-                  placeholderTextColor={C.textMuted}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                />
-              </View>
-              <View style={{ flex: 1 }} />
-              <PrimaryButton label={sv ? 'Nästa' : 'Next'} accent={accent} onPress={() => setStep('profile')} />
-            </>
-          )}
+          {/* Operatörs-ID-steget borttaget → flyttat in i profilsteget (ovanför Pilot signature). */}
 
           {/* ── Profile ── */}
           {step === 'profile' && (
@@ -397,6 +383,10 @@ export default function OnboardingScreen() {
                 <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
                 <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. JT' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />
                 {/* Legitimation/credentials-fält borttaget inför lansering. */}
+                {/* Operatörs-ID (drönare) — flyttat hit från eget steg, ovanför Pilot signature. */}
+                {mainRole === 'pilot-unmanned' && (
+                  <Field label={sv ? 'Operatörs-ID (valfritt)' : 'Operator ID (optional)'} value={droneId} onChangeText={setDroneId} placeholder="e.g. SWE87astrdg12k8" autoCapitalize="characters" />
+                )}
                 <View>
                   <Text style={s.inputLabel}>{sv ? 'Pilotsignatur (valfritt)' : 'Pilot signature (optional)'}</Text>
                   <TouchableOpacity
@@ -429,11 +419,11 @@ export default function OnboardingScreen() {
                 <OptionCard mci="pencil-outline" accent={accent}
                   title={sv ? 'Ange starttotal' : 'Enter starting total'}
                   desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}
-                  onPress={() => finalize('/import/manual', true)} />
+                  onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import/manual' : '/import/manual', true)} />
                 <OptionCard mci="file-delimited-outline" accent={accent}
                   title={sv ? 'Importera CSV' : 'Import CSV'}
-                  desc={sv ? 'Från ForeFlight, LogTen Pro, m.fl.' : 'From ForeFlight, LogTen Pro, etc.'}
-                  onPress={() => finalize('/import', true)} />
+                  desc={mainRole === 'pilot-unmanned' ? (sv ? 'Från din drönarlogg (CSV)' : 'From your drone log (CSV)') : (sv ? 'Från ForeFlight, LogTen Pro, m.fl.' : 'From ForeFlight, LogTen Pro, etc.')}
+                  onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import' : '/import', true)} />
               </View>
               <View style={{ flex: 1 }} />
               <SecondaryButton label={sv ? 'Gör det senare' : "I'll do it later"} onPress={() => finalize()} />

@@ -238,6 +238,91 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
       brought_forward: true,
     },
   },
+  // ── EASA AMC1 FCL.050 ────────────────────────────────────────────────────
+  // Det officiella EASA-standardformatet (AMC1 FCL.050) i den kolumnordning
+  // regeln föreskriver: Single-pilot SE/ME → Multi-pilot → Total → Name(s) PIC
+  // → Landings → Operational condition (Night/IFR) → Pilot function (PIC/Co-
+  // pilot/Dual/Instructor) → FSTD session (Type/Total) → Remarks.
+  {
+    id: 'easa-amc1-fcl050',
+    name: 'EASA AMC1 FCL.050',
+    rows_per_spread: 12,
+    language: 'en',
+    time_format: 'decimal',
+    summary_layout: 'bottom',
+    dashed_after: ['sp_se', 'ldg_night', 'ifr', 'instructor', 'fstd'],
+    left_columns: [
+      { id: 'date',        label: 'Date',         flightKey: 'date',          format: 'date',     width: 90 },
+      { id: 'ac_mm',       label: 'Make/mod/var', flightKey: 'aircraft_type', format: 'text',     width: 84, group: 'Aircraft or FSTD' },
+      { id: 'ac_reg',      label: 'Reg',          flightKey: 'registration',  format: 'text',     width: 78, group: 'Aircraft or FSTD' },
+      { id: 'dep_place',   label: 'Place',        flightKey: 'dep_place',     format: 'icao',     width: 54, group: 'Departure / time' },
+      { id: 'dep_utc',     label: 'UTC',          flightKey: 'dep_utc',       format: 'time-utc', width: 50, group: 'Departure / time' },
+      { id: 'arr_place',   label: 'Place',        flightKey: 'arr_place',     format: 'icao',     width: 54, group: 'Arrival / time' },
+      { id: 'arr_utc',     label: 'UTC',          flightKey: 'arr_utc',       format: 'time-utc', width: 50, group: 'Arrival / time' },
+      { id: 'sp_se',       label: 'SE',           flightKey: 'sp_se',         format: 'decimal',  width: 46, group: 'Single-pilot time' },
+      { id: 'sp_me',       label: 'ME',           flightKey: 'sp_me',         format: 'decimal',  width: 46, group: 'Single-pilot time' },
+      { id: 'multi_pilot', label: 'MP',           flightKey: 'multi_pilot',   format: 'decimal',  width: 58 },
+      { id: 'total_time',  label: 'Total',        flightKey: 'tt_total',      format: 'decimal',  width: 62 },
+    ],
+    right_columns: [
+      { id: 'ldg_day',    label: 'Day',          flightKey: 'landings_day',   format: 'int',     width: 46, group: 'Landings' },
+      { id: 'ldg_night',  label: 'Night',        flightKey: 'landings_night', format: 'int',     width: 48, group: 'Landings' },
+      { id: 'night',      label: 'Night',        flightKey: 'night',          format: 'decimal', width: 52, group: 'Operational condition time' },
+      { id: 'ifr',        label: 'IFR',          flightKey: 'ifr',            format: 'decimal', width: 52, group: 'Operational condition time' },
+      { id: 'pic',        label: 'PIC',          flightKey: 'pic',            format: 'decimal', width: 52, group: 'Pilot function time' },
+      { id: 'co_pilot',   label: 'Co-Pilot',     flightKey: 'co_pilot',       format: 'decimal', width: 58, group: 'Pilot function time' },
+      { id: 'dual',       label: 'Dual',         flightKey: 'dual',           format: 'decimal', width: 52, group: 'Pilot function time' },
+      { id: 'instructor', label: 'Instructor',   flightKey: 'instructor',     format: 'decimal', width: 64, group: 'Pilot function time' },
+      { id: 'fstd_type',  label: 'Type',                                                         format: 'text',    width: 56, group: 'FSTD session' },
+      { id: 'fstd',       label: 'Total',        flightKey: 'fstd',           format: 'decimal', width: 56, group: 'FSTD session' },
+      { id: 'remarks',    label: 'Remarks and endorsements', flightKey: 'remarks', format: 'text', width: 210 },
+    ],
+    header_rows: [
+      [
+        { label: 'Date of flight or session', sub: 'dd/mm/yy', rowSpan: 3 },
+        { label: 'Aircraft or FSTD', colSpan: 2 },
+        { label: 'Route of flight and times', colSpan: 4 },
+        { label: 'Single-pilot time', colSpan: 2 },
+        { label: 'Multi-pilot time', rowSpan: 3 },
+        { label: 'Total time of flight', rowSpan: 3 },
+        { label: 'Landings', colSpan: 2 },
+        { label: 'Operational condition time', colSpan: 2 },
+        { label: 'Pilot function time', colSpan: 4 },
+        { label: 'FSTD session', colSpan: 2 },
+        { label: 'Remarks and endorsements', sub: '(solo, SPIC, name of PIC if not self etc)', rowSpan: 3 },
+      ],
+      [
+        { label: 'Make, mod, variant', rowSpan: 2 },
+        { label: 'Registration', rowSpan: 2 },
+        { label: 'Departure / time', colSpan: 2 },
+        { label: 'Arrival / time', colSpan: 2 },
+        { label: 'SE', rowSpan: 2, dashR: true },
+        { label: 'ME', rowSpan: 2 },
+        { label: 'Day', rowSpan: 2, dashR: true },
+        { label: 'Night', rowSpan: 2 },
+        { label: 'Night', rowSpan: 2, dashR: true },
+        { label: 'IFR', rowSpan: 2 },
+        { label: 'PIC', rowSpan: 2, dashR: true },
+        { label: 'Co-Pilot', rowSpan: 2, dashR: true },
+        { label: 'Dual', rowSpan: 2, dashR: true },
+        { label: 'Instructor', rowSpan: 2 },
+        { label: 'Type', rowSpan: 2, dashR: true },
+        { label: 'Total', rowSpan: 2 },
+      ],
+      [
+        { label: 'Place' },
+        { label: 'UTC' },
+        { label: 'Place' },
+        { label: 'UTC' },
+      ],
+    ],
+    footer: {
+      this_page_total: true,
+      total_to_date: true,
+      signature: true,
+      brought_forward: true,
+    },
+  },
   {
     id: 'sv-easa-standard',
     name: 'Swedish EASA Pilot Logbook (12 rows)',
@@ -279,6 +364,9 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
     rows_per_spread: 15,
     language: 'en',
     time_format: 'decimal',
+    // Enhetligt med pilotböckerna: Total this page → Brought forward → Total to date, och
+    // pilotsignaturen som cell till vänster (samma bottom-layout i renderSpread).
+    summary_layout: 'bottom',
     // Officiell svensk drönar-loggbok (Transportstyrelsen — RPAS/UAS/UAV, ICAO/EU/CAA).
     left_columns: [
       { id: 'date',         label: 'Date',        flightKey: 'date',         format: 'date',     width: 78, group: 'Date of flight' },
@@ -350,40 +438,38 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
       brought_forward: true,
     },
   },
-  // ── FAA Pilot Logbook ────────────────────────────────────────────────────
-  // Representativ FAA-layout som startpunkt. FAA-böcker varierar mellan förlag —
-  // användaren finjusterar via custom-skaparen. Skillnader mot EASA som speglas:
-  //  • ingen block-tid (dep/arr UTC saknas), bara "Total Duration"
-  //  • återanvänder befintliga fält: actual instrument → ifr, SIC → co_pilot
-  //  • förstklassiga: cross_country, solo. Free-kolumner (approaches, simulated
-  //    instrument) lämnas omappade tills de promotas.
+  // ── FAA 14 CFR 61.51 ─────────────────────────────────────────────────────
+  // Speglar de uppgifter §61.51(b) kräver: datum, typ + ident, avgång/ankomst,
+  // total tid; erfarenhetstyp (solo/PIC/SIC/dual); förhållanden (dag/natt,
+  // actual/simulated instrument, FSTD). Ingen block-tid (dep/arr UTC saknas);
+  // actual instrument → ifr, SIC → co_pilot. Fri kolumn (Sim Inst).
   {
-    id: 'faa-pilot-logbook',
-    name: 'FAA Pilot Logbook',
+    id: 'faa-61-51',
+    name: 'FAA 14 CFR 61.51',
     rows_per_spread: 10,
     language: 'en',
     time_format: 'decimal',
     summary_layout: 'bottom',
     left_columns: [
-      { id: 'date',      label: 'Date',         flightKey: 'date',          format: 'date', width: 80, group: 'Date' },
-      { id: 'ac_mm',     label: 'Make & Model', flightKey: 'aircraft_type', format: 'text', width: 90, group: 'Aircraft' },
-      { id: 'ac_id',     label: 'Ident',        flightKey: 'registration',  format: 'text', width: 78, group: 'Aircraft' },
-      { id: 'from',      label: 'From',         flightKey: 'dep_place',     format: 'icao', width: 56, group: 'Route of flight' },
-      { id: 'to',        label: 'To',           flightKey: 'arr_place',     format: 'icao', width: 56, group: 'Route of flight' },
-      { id: 'appr',      label: 'Appr',                                     format: 'int',  width: 44 },
+      { id: 'date',   label: 'Date',         flightKey: 'date',          format: 'date', width: 80, group: 'Date' },
+      { id: 'ac_mm',  label: 'Make & Model', flightKey: 'aircraft_type', format: 'text', width: 92, group: 'Aircraft' },
+      { id: 'ac_id',  label: 'Ident',        flightKey: 'registration',  format: 'text', width: 78, group: 'Aircraft' },
+      { id: 'from',   label: 'From',         flightKey: 'dep_place',     format: 'icao', width: 56, group: 'Route of flight' },
+      { id: 'to',     label: 'To',           flightKey: 'arr_place',     format: 'icao', width: 56, group: 'Route of flight' },
     ],
     right_columns: [
       { id: 'xc',        label: 'Cross Country', flightKey: 'cross_country', format: 'decimal', width: 60, group: 'Conditions of flight' },
-      { id: 'night',     label: 'Night',         flightKey: 'night',         format: 'decimal', width: 52, group: 'Conditions of flight' },
-      { id: 'actual',    label: 'Actual Inst',   flightKey: 'ifr',           format: 'decimal', width: 56, group: 'Conditions of flight' },
-      { id: 'simulated', label: 'Sim Inst',                                  format: 'decimal', width: 56, group: 'Conditions of flight' },
+      { id: 'night',     label: 'Night',         flightKey: 'night',         format: 'decimal', width: 50, group: 'Conditions of flight' },
+      { id: 'actual',    label: 'Actual Inst',   flightKey: 'ifr',           format: 'decimal', width: 54, group: 'Conditions of flight' },
+      { id: 'simulated', label: 'Sim Inst',                                  format: 'decimal', width: 54, group: 'Conditions of flight' },
+      { id: 'fstd',      label: 'FTD/FFS',       flightKey: 'fstd',          format: 'decimal', width: 54, group: 'Conditions of flight' },
       { id: 'dual',      label: 'Dual Rcvd',     flightKey: 'dual',          format: 'decimal', width: 56, group: 'Type of piloting time' },
-      { id: 'pic',       label: 'PIC',           flightKey: 'pic',           format: 'decimal', width: 52, group: 'Type of piloting time' },
-      { id: 'sic',       label: 'SIC',           flightKey: 'co_pilot',      format: 'decimal', width: 52, group: 'Type of piloting time' },
-      { id: 'solo',      label: 'Solo',          flightKey: 'solo',          format: 'decimal', width: 52, group: 'Type of piloting time' },
+      { id: 'pic',       label: 'PIC',           flightKey: 'pic',           format: 'decimal', width: 50, group: 'Type of piloting time' },
+      { id: 'sic',       label: 'SIC',           flightKey: 'co_pilot',      format: 'decimal', width: 50, group: 'Type of piloting time' },
+      { id: 'solo',      label: 'Solo',          flightKey: 'solo',          format: 'decimal', width: 50, group: 'Type of piloting time' },
       { id: 'ldg_day',   label: 'Day',           flightKey: 'landings_day',  format: 'int',     width: 44, group: 'Landings' },
       { id: 'ldg_night', label: 'Night',         flightKey: 'landings_night',format: 'int',     width: 46, group: 'Landings' },
-      { id: 'total',     label: 'Total',         flightKey: 'tt_total',      format: 'decimal', width: 60 },
+      { id: 'total',     label: 'Total',         flightKey: 'tt_total',      format: 'decimal', width: 58 },
       { id: 'remarks',   label: 'Remarks, Procedures, Endorsements', flightKey: 'remarks', format: 'text', width: 200 },
     ],
     footer: {

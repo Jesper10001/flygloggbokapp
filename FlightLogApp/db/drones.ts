@@ -1,4 +1,5 @@
 import { getDatabase } from './database';
+import { getDroneBackfill } from './droneBackfill';
 
 // Fritt textfält i DB så vi klarar både civila (A1/A2/A3/Specific/Certified)
 // och militära scheman (MRPAS/RPAS/NATO-C1-Mini etc.)
@@ -400,6 +401,7 @@ export interface DroneFlight {
   photo_uri: string;      // vald bild/video ur biblioteket ('' = ingen)
   media_type: string;     // 'image' | 'video'
   photo_local_id: string | null; // foto-synk: bibliotekets localIdentifier (tidmatchat)
+  source: string;         // 'manual' | 'import' (CSV) | 'summary' (bulk-historik) — driver Imported data + backfill
 }
 
 export interface DroneFlightFormData {
@@ -434,6 +436,7 @@ export interface DroneFlightFormData {
   landings_night?: string;
   operation_type?: string; // 'PRI' | 'COM'
   remarks: string;
+  source?: string;          // 'manual' (default) | 'import' | 'summary' (bulk-historik)
 }
 
 export async function insertDroneFlight(data: DroneFlightFormData): Promise<number> {
@@ -444,8 +447,8 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       takeoff_time, landing_location, landing_lat, landing_lon,
       mission_type, category, flight_mode, total_time, max_altitude_m,
       is_night, night_time, vfr, flight_rules, has_observer, observer_name, wind_ms,
-      co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks, source
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -478,6 +481,7 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       parseInt(data.landings_night ?? '', 10) || 0,
       data.operation_type ?? '',
       data.remarks,
+      data.source ?? 'manual',
     ]
   );
   return res.lastInsertRowId as number;
@@ -594,19 +598,23 @@ export async function getDroneStats(): Promise<DroneStats> {
       ROUND(SUM(CASE WHEN category='Certified' THEN total_time ELSE 0 END), 2) as cat_certified
     FROM drone_flights
   `);
+  // Backfill-justering (lump-sum-timmar, settings) läggs ovanpå de loggade summorna → syns i
+  // dashboard/insights. year_to_date och total_flights påverkas EJ (historik, ej i år / ej flygningar).
+  const bf = await getDroneBackfill();
+  const add = (v: number, key: keyof typeof bf) => Math.round(((v ?? 0) + (bf[key] ?? 0)) * 100) / 100;
   return {
     total_flights: row?.total_flights ?? 0,
-    total_time: row?.total_time ?? 0,
+    total_time: add(row?.total_time, 'total_time'),
     year_to_date: row?.year_to_date ?? 0,
-    vlos: row?.vlos ?? 0,
-    evlos: row?.evlos ?? 0,
-    bvlos: row?.bvlos ?? 0,
-    night: row?.night ?? 0,
-    cat_a1: row?.cat_a1 ?? 0,
-    cat_a2: row?.cat_a2 ?? 0,
-    cat_a3: row?.cat_a3 ?? 0,
-    cat_specific: row?.cat_specific ?? 0,
-    cat_certified: row?.cat_certified ?? 0,
+    vlos: add(row?.vlos, 'vlos'),
+    evlos: add(row?.evlos, 'evlos'),
+    bvlos: add(row?.bvlos, 'bvlos'),
+    night: add(row?.night, 'night'),
+    cat_a1: add(row?.cat_a1, 'cat_a1'),
+    cat_a2: add(row?.cat_a2, 'cat_a2'),
+    cat_a3: add(row?.cat_a3, 'cat_a3'),
+    cat_specific: add(row?.cat_specific, 'cat_specific'),
+    cat_certified: add(row?.cat_certified, 'cat_certified'),
   };
 }
 

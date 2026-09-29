@@ -286,7 +286,7 @@ function spreadBody(opts: RenderSpreadOpts): string {
   return `<div class="page">
     <div class="top">
       <div class="who">${esc(pilotName || '')}</div>
-      <div class="lbl">Pilot Logbook · ${pageL}–${pageR}</div>
+      <div class="lbl">${template.id.includes('drone') ? 'Remote Pilot Logbook' : 'Pilot Logbook'} · ${pageL}–${pageR}</div>
     </div>
 
     <div class="tbl-wrap">

@@ -18,6 +18,7 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
+import { FONT_SERIF } from '../logbook-page/tokens';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks } from '../../services/logbook/books';
 import { getBackfill } from '../../db/backfill';
@@ -56,6 +57,10 @@ export function BookSetupSheet({
   const [previewTimeFormat, setPreviewTimeFormat] = useState<'decimal' | 'hhmm'>(timeFormat);
   const previewListRef = useRef<FlatList>(null);
   const [saving, setSaving] = useState(false); // spinner medan boken skapas + laddas fram
+  const [layoutOpen, setLayoutOpen] = useState(false); // dropdown för att välja loggbokslayout
+
+  // Snabbnavigering till Imported data → Backfill missing hours (läges-medveten rutt).
+  const backfillRoute = appMode === 'drone' ? '/drone-import/history' : '/import/history';
 
   // Custom-mallar (användarskapade böcker) — laddas och uppdateras vid fokus så
   // en nyss skapad mall dyker upp direkt när man kommer tillbaka från skaparen.
@@ -344,25 +349,24 @@ export function BookSetupSheet({
       </View>
 
       <ScrollView style={{ maxHeight: 520 }} keyboardShouldPersistTaps="handled">
-        {/* Mall */}
-        <Text style={s.label}>{t('dlb_choose_layout')}</Text>
-        {pickable.map((tpl) => (
-          <TemplateRow key={tpl.id} tpl={tpl} active={tpl.id === templateId} onPress={() => chooseTemplate(tpl.id)} onPreview={() => { const i = Math.max(0, pickable.findIndex((x) => x.id === tpl.id)); setCurPreview(i); setPreviewIdx(i); }} />
-        ))}
-
-        {/* Skapa egen bok som matchar valfri fysisk loggbok (FAA, udda layout …) */}
-        <TouchableOpacity style={s.createRow} onPress={() => { onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
-          <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '14', borderStyle: 'dashed', borderColor: Colors.primary + '55' }]}>
-            <Ionicons name="add" size={20} color={Colors.primary} />
-          </View>
-          <Text style={[s.tplName, { color: Colors.primary }]} numberOfLines={1}>{sv ? 'Skapa egen bok…' : 'Create custom book…'}</Text>
+        {/* ── Steg 1: välj loggbokslayout (dropdown över våra mallar) eller egen bok ── */}
+        <Text style={s.step}>{sv ? '1. Välj din loggbokslayout' : '1. Pick your logbook layout'}</Text>
+        <TouchableOpacity style={s.dropdown} onPress={() => setLayoutOpen(true)} activeOpacity={0.8}>
+          <Text style={s.dropdownTxt} numberOfLines={1}>{template.name}</Text>
+          <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.customBtn} onPress={() => { onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
+          <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+          <Text style={s.customBtnTxt}>{sv ? 'Egen loggbok' : 'Custom logbook'}</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
         </TouchableOpacity>
 
         {/* Böcker döps automatiskt (1st/2nd… Logbook) — inget namnfält. */}
 
-        {/* Sidor */}
-        <View style={s.row2}>
+        {/* ── Steg 2: loggbokens omfång (första/sista sida + rader per uppslag) ── */}
+        <Text style={[s.step, { marginTop: 20 }]}>{sv ? '2. Ange loggbokens omfång' : '2. Enter your logbook range'}</Text>
+        <Text style={s.hint}>{sv ? 't.ex. 24 till 125 med 12 rader' : 'e.g. 24 to 125 with 12 rows'}</Text>
+        <View style={[s.row2, { marginTop: 8 }]}>
           <View style={{ flex: 1 }}>
             <Text style={s.label}>{t('dlb_first_page')}</Text>
             <TextInput style={s.input} value={firstPage} onChangeText={(v) => setFirstPage(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="1" placeholderTextColor={Colors.textMuted} />
@@ -376,11 +380,9 @@ export function BookSetupSheet({
             <TextInput style={s.input} value={rows} onChangeText={(v) => setRows(v.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="12" placeholderTextColor={Colors.textMuted} />
           </View>
         </View>
-        <Text style={s.hint}>{t('dlb_last_page_hint')}</Text>
 
-        {/* Anchor / flera böcker */}
+        {/* Flerboks-frågan (vid överspill) hamnar mellan Steg 2 och Steg 3 */}
         <View style={s.divider} />
-        <Text style={s.section}>{t('dlb_anchor_title')}</Text>
 
         {/* Överspill: fler flygningar än en bok rymmer → erbjud flera böcker (samma design). */}
         {mode === 'create' && design.overflow && (
@@ -415,7 +417,7 @@ export function BookSetupSheet({
             Döljs i flerboks-läget — då sköter kapacitetsfyllningen placeringen. */}
         {!(design.overflow && prevSameDesign === true) && (
           <>
-            <Text style={s.hint}>{t('dlb_anchor_hint')}</Text>
+            <Text style={s.step}>{sv ? '3. Var är din senaste flygning skriven i din riktiga loggbok?' : '3. Where is your latest flight written in your actual logbook?'}</Text>
             {latestFlight ? (
               <Text style={s.anchorFlight}>
                 {t('dlb_anchor_latest')}: {latestFlight.date} · {(latestFlight.dep_place || '').toUpperCase()}–{(latestFlight.arr_place || '').toUpperCase()}
@@ -441,7 +443,7 @@ export function BookSetupSheet({
         {!showConfirm ? (
           // Edit-läge eller ingen tidigare erfarenhet → vanlig ingående balans.
           <>
-            <Text style={s.section}>{t('dlb_opening_balance')}</Text>
+            <Text style={s.step}>{sv ? '4. Kontrollera att ingående balans stämmer' : '4. Check opening balance is correct'}</Text>
             <Text style={s.hint}>{carryOpeningBalance ? t('dlb_carry_balance_hint') : t('dlb_opening_balance_hint')}</Text>
             {balanceInputs}
           </>
@@ -449,7 +451,7 @@ export function BookSetupSheet({
           // Create + tidigare erfarenhet: visa Imported/Current så piloten kan jämföra mot sin
           // riktiga loggbok och ev. korrigera, och bekräfta innan boken skapas.
           <>
-            <Text style={s.section}>{t('dlb_opening_balance')}</Text>
+            <Text style={s.step}>{sv ? '4. Kontrollera att ingående balans stämmer' : '4. Check opening balance is correct'}</Text>
             {balanceInputs}
             {confirmState === 'asking' ? (
               <>
@@ -477,6 +479,14 @@ export function BookSetupSheet({
             )}
           </>
         )}
+
+        {/* Snabbnavigering: hoppa till Imported data → Backfill missing hours om timmarna behöver justeras.
+            Läges-medveten rutt (pilot → /import/history, drönare → /drone-import/history). */}
+        <TouchableOpacity style={s.backfillBtn} onPress={() => { onClose(); router.push(backfillRoute as any); }} activeOpacity={0.8}>
+          <Ionicons name="construct-outline" size={16} color={Colors.textSecondary} />
+          <Text style={s.backfillTxt}>Backfill missing hours</Text>
+          <Ionicons name="chevron-forward" size={15} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Bekräftelse-flödet (create + erfarenhet) har egen "Create logbook"-knapp i sektionen. */}
@@ -486,6 +496,31 @@ export function BookSetupSheet({
           <Text style={s.saveTxt}>{saving ? (sv ? 'Skapar…' : 'Creating…') : needsOverflowAnswer ? (sv ? 'Svara på frågan ovan' : 'Answer the question above') : (mode === 'create' ? (design.overflow && prevSameDesign ? (sv ? `Skapa ${design.booksNeeded} loggböcker` : `Create ${design.booksNeeded} logbooks`) : t('dlb_create_book')) : t('save'))}</Text>
         </TouchableOpacity>
       )}
+
+      {/* Layout-dropdown: välj bland våra mallar (drönare = bara en just nu). Förhandsvisa via öga. */}
+      <Modal visible={layoutOpen} transparent animationType="fade" onRequestClose={() => setLayoutOpen(false)}>
+        <TouchableOpacity style={s.ddBackdrop} activeOpacity={1} onPress={() => setLayoutOpen(false)}>
+          <View style={s.ddSheet} onStartShouldSetResponder={() => true}>
+            <View style={s.ddHeader}>
+              <Text style={s.ddTitle}>{sv ? 'Välj loggbokslayout' : 'Pick logbook layout'}</Text>
+              <TouchableOpacity onPress={() => setLayoutOpen(false)} hitSlop={10}><Ionicons name="close" size={20} color={Colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 420 }}>
+              {pickable.map((tpl) => (
+                <TemplateRow
+                  key={tpl.id}
+                  tpl={tpl}
+                  active={tpl.id === templateId}
+                  onPress={() => { chooseTemplate(tpl.id); setLayoutOpen(false); }}
+                  // Öga → förhandsvisning: stäng dropdownen först, öppna sedan helskärms-previewn
+                  // (iOS visar inte en ny modal medan en annan fortfarande stängs → liten fördröjning).
+                  onPreview={() => { const i = Math.max(0, pickable.findIndex((x) => x.id === tpl.id)); setCurPreview(i); setLayoutOpen(false); setTimeout(() => setPreviewIdx(i), 320); }}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Helskärms-förhandsvisning: bläddra i sidled mellan alla valbara böcker för att
           hitta den som ser ut som din egen. Varje sida = boken som två stående sidor. */}
@@ -639,9 +674,6 @@ function TemplateRow({ tpl, active, onPress, onPreview }: { tpl: LogbookTemplate
   return (
     <View style={[s.tplRow, active && s.tplRowActive]}>
       <TouchableOpacity style={s.tplMain} onPress={onPress} activeOpacity={0.85}>
-        {tpl.cover
-          ? <Image source={tpl.cover} style={s.tplCover} resizeMode="cover" />
-          : <View style={[s.tplCover, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.elevated }]}><Ionicons name="book-outline" size={18} color={Colors.textMuted} /></View>}
         <Text style={[s.tplName, active && { color: Colors.primary }]} numberOfLines={1}>{tpl.name}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onPreview} hitSlop={8} style={s.tplPreviewBtn} activeOpacity={0.7}>
@@ -658,7 +690,23 @@ const s = StyleSheet.create({
   title: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   label: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   section: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 4 },
+  // Numrerad steg-rubrik (1–4) — Fraunces (serif) för en trevligare, tydligare struktur.
+  step: { color: Colors.textPrimary, fontFamily: FONT_SERIF, fontSize: 18, fontWeight: '600', marginTop: 8, marginBottom: 2, letterSpacing: 0.2 },
   hint: { color: Colors.textMuted, fontSize: 11.5, lineHeight: 16, marginTop: 4 },
+  // Steg 1: dropdown-kontroll (vald bok) + custom-knapp.
+  dropdown: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, marginTop: 8 },
+  dropdownCover: { width: 52, height: 34, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
+  dropdownTxt: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  customBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '44', borderStyle: 'dashed', marginTop: 8 },
+  customBtnTxt: { flex: 1, color: Colors.primary, fontSize: 14, fontWeight: '800' },
+  // Snabbknapp till Imported data → Backfill missing hours.
+  backfillBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated, marginTop: 14 },
+  backfillTxt: { flex: 1, color: Colors.textSecondary, fontSize: 13.5, fontWeight: '700' },
+  // Layout-dropdownens modal (bottenark).
+  ddBackdrop: { flex: 1, backgroundColor: '#000000AA', justifyContent: 'flex-end' },
+  ddSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 24 },
+  ddHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  ddTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   input: { backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border },
   row2: { flexDirection: 'row', gap: 10 },
   divider: { height: 1, backgroundColor: Colors.separator, marginVertical: 16 },

@@ -341,30 +341,17 @@ export default function DroneSettingsScreen() {
       <CollapsibleSectionHeader accent={accent} expanded={expanded === 'logbook'} onPress={() => toggleSection('logbook')}>Logbook</CollapsibleSectionHeader>
       {expanded === 'logbook' && (
         <SectionCard>
-          <Row accent={accent} icon="hardware-chip-outline" iconColor={accent} title="Logbook type" subtitle="Pilot Unmanned Aircraft" pressable={false} separatorColor={DR.background} />
-          {/* Shift to Pilot logbook (= manned inline-knapp) */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 }}>
-            <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.8}
-              style={{ marginLeft: 32, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border }}>
-              <Ionicons name="airplane-outline" size={16} color={accent} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: DR.text }}>Shift to Pilot logbook</Text>
-            </TouchableOpacity>
-          </View>
-          {/* Drone pilot type selector (= manned) */}
-          <View style={{ paddingHorizontal: 16, paddingVertical: 3 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <Ionicons name="layers-outline" size={18} color={accent} />
-              <Text style={{ fontSize: 15, fontWeight: '600', color: DR.text }}>Pilot type</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 32 }}>
-              {(['commercial', 'military', 'hobby'] as const).map((type) => (
-                <TouchableOpacity key={type} onPress={() => { if (type !== pilotType) setPilotType(type); }}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: pilotType === type ? accent : DR.elevated, borderWidth: 1, borderColor: pilotType === type ? accent : DR.border }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: pilotType === type ? DR.inkOnAccent : DR.text, textTransform: 'capitalize' }}>{type}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* Byt hela loggboken → egen framträdande design (man skiftar hela appläget). */}
+          <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 10 }}>
+            <LinearGradient colors={[accent + '2E', accent + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: accent + '55' }}>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '55' }}>
+                <Ionicons name="airplane-outline" size={20} color={accent} />
+              </View>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: DR.text }}>Shift to Pilot logbook</Text>
+              <Ionicons name="swap-horizontal" size={22} color={accent} />
+            </LinearGradient>
+          </TouchableOpacity>
           <Row accent={accent} icon="list-outline" iconColor={accent} title="Manage drones" subtitle="Models, registration, category" onPress={() => router.push('/settings/drones')} separatorColor={DR.background} />
           <Row accent={accent} icon="book-outline" iconColor={accent} title="Your logbook" onPress={() => router.push('/drone-logbook')} separatorColor={DR.background} />
           {/* Foto-synk: matcha bibliotekets bilder/videor mot drönarflygningar på tid (= pilotläget). */}
@@ -394,9 +381,10 @@ export default function DroneSettingsScreen() {
       <CollapsibleSectionHeader accent={accent} expanded={expanded === 'import'} onPress={() => toggleSection('import')}>Import</CollapsibleSectionHeader>
       {expanded === 'import' && (
         <SectionCard>
-          <Row accent={accent} icon="create-outline" iconColor={accent} title="Add manually" subtitle="Log a drone flight" onPress={() => router.push('/drone-flight/add')} separatorColor={DR.background} />
+          <Row accent={accent} icon="create-outline" iconColor={accent} title="Log flight manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} />
           <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="DJI / Autel — coming soon" right={<Text style={s.soon}>SOON</Text>} pressable={false} separatorColor={DR.background} />
-          <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Drone log CSV — coming soon" right={<Text style={s.soon}>SOON</Text>} pressable={false} border={false} />
+          <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
+          <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} />
         </SectionCard>
       )}
 

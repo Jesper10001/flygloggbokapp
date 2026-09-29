@@ -1,0 +1,10 @@
+Date,Drone,Registration,Location,Category,Mode,Flight Time,Night,Max Altitude (m),Remarks
+2026-09-01,DJI Mavic 3,SE-DR001,Gothenburg harbour,A1,VLOS,0:22,No,80,Bridge inspection
+2026-09-03,DJI Mavic 3,SE-DR001,Landvetter perimeter,A2,VLOS,0:35,No,60,Perimeter survey
+2026-09-05,DJI Matrice 300 RTK,SE-DR002,Sarek valley,Specific,BVLOS,1:10,No,120,Powerline corridor
+2026-09-08,DJI Mavic 3,SE-DR001,Slottsskogen park,A3,VLOS,0:18,No,45,Mapping test
+2026-09-12,DJI Matrice 300 RTK,SE-DR002,Gothenburg harbour,Specific,BVLOS,1:25,Yes,100,Night thermal inspection
+2026-09-15,DJI Mavic 3,SE-DR001,Askim beach,A1,VLOS,0:28,No,70,Coastline photos
+2026-09-20,DJI Matrice 300 RTK,SE-DR002,Kebnekaise base,A3,VLOS,0:52,No,110,Search pattern
+2026-09-24,DJI Mavic 3,SE-DR001,Liseberg,A2,VLOS,1.5,No,90,Event coverage
+2026-09-27,DJI Matrice 300 RTK,SE-DR002,Trollhattan locks,Specific,BVLOS,0:47,Yes,130,Night lock inspection

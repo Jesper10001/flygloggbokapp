@@ -162,6 +162,14 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     return () => clearTimeout(id);
   }, [focus]);
 
+  // Selektion (visited): guld-overlay-boxen byter ICAO-text mellan val → tick så iOS ombildar den.
+  useEffect(() => {
+    if (!selectedIcao) return;
+    setTracks(true);
+    const id = setTimeout(() => setTracks(false), 1200);
+    return () => clearTimeout(id);
+  }, [selectedIcao]);
+
   // Vald flygplats (för guld-markeringen) — finns bara i pins/labels-läget.
   const selRow = useMemo(
     () => (selectedIcao ? dots.find((a) => a[0] === selectedIcao) : undefined),
@@ -367,9 +375,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         )
       ))}
 
-      {/* Guld-markering för vald flygplats: SEPARAT markör ovanpå pluppen. Konstant key +
-          statiskt innehåll → byter bara koordinat mellan val, ingen re-snapshot (inget hopp
-          till hörnet, ingen krasch). Basmarkörerna rörs aldrig. */}
+      {/* Vald flygplats: SEPARAT overlay-markör som lägger en guld-glödande ICAO-box exakt över
+          bas-boxen → ser ut som att boxens kant tänds guld (istället för en separat guldprick).
+          Konstant key → bas-markörerna rörs aldrig (ingen churn/krasch); bara denna box ombildas. */}
       {!clustering && level === 'labels' && selRow && !(showRunwayLabels && selRow[0] === focus?.[0]) && (
         <Marker
           key="__selhl__"
@@ -378,7 +386,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
         >
-          <View style={s.selDot} />
+          <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{selRow[0]}</Text></View>
         </Marker>
       )}
 
@@ -433,8 +441,8 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
         </Marker>
       ))}
 
-      {/* Sökt/vald flygplats: guld-markör + ICAO-etikett. Döljs i pins-läge (filter), och när banor
-          ritas ut för flygplatsen (annars skymmer chippen/cirkeln en bana — banorna räcker som markör). */}
+      {/* Sökt/vald flygplats: samma ICAO-box men med guld-glödande kant (istället för guldprick under).
+          Döljs i pins-läge (filter), och när banor ritas ut (banorna räcker då som markör). */}
       {focus && !showPins && !showRunwayLabels && (
         <Marker
           key="__focus__"
@@ -443,11 +451,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(focus[0]) : undefined}
         >
-          <View style={{ alignItems: 'center' }}>
-            <View style={[s.labelChip, { borderColor: '#F5C84B' }]}><Text style={s.labelText}>{focus[0]}</Text></View>
-            <View style={s.selDot} />
-            <View style={s.dotSpacer} />
-          </View>
+          <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{focus[0]}</Text></View>
         </Marker>
       )}
     </MapView>
@@ -499,17 +503,6 @@ const s = StyleSheet.create({
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',
     marginVertical: 3,
   },
-  selDot: {
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#F5C84B', borderWidth: 2, borderColor: '#FFFFFF',
-  },
-  dotSpacer: { height: 16 },
-  labelChip: {
-    height: 16, justifyContent: 'center',
-    backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 5,
-    paddingHorizontal: 5, borderWidth: 0.5, borderColor: Colors.border,
-  },
-  labelText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700', fontFamily: 'Menlo' },
   layerBtn: {
     position: 'absolute', top: 12, right: 12,
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -528,6 +521,12 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10,
     borderWidth: 1, borderColor: Colors.primary,
     paddingHorizontal: 7, paddingVertical: 3,
+  },
+  // Vald/fokuserad flygplats: samma box men med glödande guld-kant (ersätter den separata guldpricken).
+  icaoPinSel: {
+    borderColor: '#F5C84B', borderWidth: 1.5,
+    shadowColor: '#F5C84B', shadowOpacity: 0.95, shadowRadius: 7, shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
   icaoPinTxt: { color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.5 },
   regionChip: {

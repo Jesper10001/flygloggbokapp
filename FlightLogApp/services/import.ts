@@ -258,7 +258,7 @@ function cleanCell(v: string): string {
   return t;
 }
 
-function parseRow(line: string, delimiter: string): string[] {
+export function parseRow(line: string, delimiter: string): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -278,7 +278,7 @@ function parseRow(line: string, delimiter: string): string[] {
   return fields;
 }
 
-function convertDate(value: string, format: string): string {
+export function convertDate(value: string, format: string): string {
   const v = value.trim();
   if (!v) return '';
 
@@ -346,7 +346,7 @@ function expandYear(y: string): string {
   return String(n >= 70 ? 1900 + n : 2000 + n);
 }
 
-function convertTime(value: string, _format: string): string {
+export function convertTime(value: string, _format: string): string {
   const v = value.trim();
   if (!v || v === '0' || v === '0.0' || v === '0:00' || v === '0,0') return '0';
   // Säkerhetsnät: om värdet ser ut som ett namn (bokstäver utan siffror) → 0
@@ -392,7 +392,7 @@ function convertInt(value: string): string {
 const TIME_FIELDS = new Set(['total_time','ifr','night','pic','co_pilot','dual','instructor','multi_pilot','single_pilot','sim','se_time','me_time','solo','cross_country','picus','spic','relief_crew']);
 const INT_FIELDS  = new Set(['landings_day','landings_night','takeoffs_day','takeoffs_night','landings_fs_day','landings_fs_night','app_2d','app_3d','holds']);
 
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/[\s_\-\.]/g, '');
 }
 
@@ -612,7 +612,7 @@ function tryDecodeUtf8(bytes: Uint8Array): string | null {
   return s;
 }
 
-async function readTextSmart(fileUri: string): Promise<string> {
+export async function readTextSmart(fileUri: string): Promise<string> {
   const b64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);

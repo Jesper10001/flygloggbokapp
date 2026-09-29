@@ -7,6 +7,7 @@ import type { Flight } from '../../types/flight';
 import { listDrones, type DroneFlight, type DroneRegistryEntry } from '../../db/drones';
 import { buildBookSpreads, type LogbookConfig, type LogbookSpread } from './paginate';
 import { getTemplate } from '../../constants/logbookTemplates';
+import { CIVIL_CATEGORIES } from '../../constants/droneCategories';
 
 type DroneMeta = { model: string; klass: string }; // klass = multirotor|helicopter|fixedwing|vtol
 
@@ -30,8 +31,11 @@ export function droneToFlightRow(d: DroneFlight, meta?: DroneMeta): Flight {
   const fixed = klass === 'fixedwing' || klass === 'vtol' ? total : 0;
   const multi = single || fixed ? 0 : total; // default multirotor
   const op = d.operation_type || (d.mission_type === 'Recreation' ? 'PRI' : d.mission_type ? 'COM' : '');
+  // CAT i boken: bara CIVIL kategori (A1/A2/A3/Specific/Certified) är tillämpbar. Militär/NATO-klass
+  // → "-" (civil kategori ej tillämpbar). Tom klass → tomt.
   const cat = d.category || '';
-  const missionCat = op && cat ? `${op}/${cat}` : op || cat || '';
+  const catCell = cat ? ((CIVIL_CATEGORIES as readonly string[]).includes(cat) ? cat : '-') : '';
+  const missionCat = op && catCell ? `${op}/${catCell}` : op || catCell || '';
   const bvlos = d.flight_mode === 'BVLOS' ? total : 0;
   const vlos = bvlos ? 0 : total; // VLOS/EVLOS → VLOS-kolumnen
 
