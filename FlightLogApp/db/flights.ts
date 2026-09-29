@@ -1245,7 +1245,8 @@ export type AircraftRegistryEntry = {
   engine_type: string;
   image_url: string;
   reg_count: number;
-  total_hours: number;
+  total_hours: number;      // exkl. sim (flight_type != 'sim')
+  sim_hours: number;        // ENBART sim (flight_type = 'sim') → visas separat i guld på Fleet-kortet
   top_registration: string;
   top_registration_hours: number;
   flight_count: number;
@@ -1300,6 +1301,7 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            COALESCE(MIN(f.date), '') as first_flown,
            COUNT(DISTINCT CASE WHEN f.registration != '' THEN f.registration END) as reg_count,
            COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
+           COALESCE((SELECT ROUND(SUM(fs.total_time), 1) FROM flights fs WHERE fs.aircraft_type = ar.aircraft_type AND fs.flight_type = 'sim'), 0) as sim_hours,
            COUNT(f.id) as flight_count,
            (
              SELECT f2.registration

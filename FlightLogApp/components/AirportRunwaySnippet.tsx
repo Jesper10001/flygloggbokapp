@@ -127,8 +127,13 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
             {routeArrow && (
               <Marker coordinate={{ latitude: routeArrow.midLat, longitude: routeArrow.midLon }} anchor={{ x: 0.5, y: 0.5 }}
                 zIndex={4} tracksViewChanges={!frozen && tracks}>
-                {/* Rotera själva ikonvyn (Marker.rotation gäller ej egna vyer på iOS). Kartans nord = uppåt. */}
-                <Ionicons name="arrow-up" size={20} color="#fff" style={[styles.routeArrow, { transform: [{ rotate: `${Math.round(routeArrow.bearing)}deg` }] }]} />
+                {/* Riktnings-puck rakt på strecket: mörk disc + cyan pil + glöd. Pucken (cirkeln) hålls
+                    OROTERAD så dess layout-box förblir 26×26 och ankaret (0.5/0.5) centrerar exakt på
+                    koordinaten. BARA pilen inuti roteras (kring sin egen mitt) → ingen offset. */}
+                <View style={styles.routeArrow}>
+                  <Ionicons name="arrow-up" size={16} color={Colors.primary}
+                    style={[styles.routeArrowIcon, { transform: [{ rotate: `${Math.round(routeArrow.bearing)}deg` }] }]} />
+                </View>
               </Marker>
             )}
             <Marker coordinate={{ latitude: userLat!, longitude: userLon! }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
@@ -190,7 +195,17 @@ const styles = StyleSheet.create({
   btnRow: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
   mapBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, paddingHorizontal: 10, borderRadius: 15, backgroundColor: 'rgba(15,22,38,0.92)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.22)' },
   youDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.primary, borderWidth: 2.5, borderColor: '#fff' },
-  routeArrow: { textShadowColor: 'rgba(0,0,0,0.9)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
+  // Riktnings-puck på färdvägen: mörk disc (som kartknapparna) + cyan kant + cyan glöd → syns mot både
+  // den cyanfärgade linjen och kartan. Rund → rotationen vrider bara pilen inuti.
+  routeArrow: {
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(11,17,32,0.95)',
+    borderWidth: 1.5, borderColor: Colors.primary,
+    shadowColor: Colors.primary, shadowOpacity: 0.9, shadowRadius: 5, shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  routeArrowIcon: { marginTop: -0.5 },
   ident: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
   // Aktiv banände (efter vind): cyan ram runt bansiffran, texten förblir vit.
   identActive: { borderWidth: 1.5, borderColor: RWY_HL, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1, backgroundColor: 'rgba(103,232,249,0.18)' },

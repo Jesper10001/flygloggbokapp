@@ -257,89 +257,21 @@ export default function AlbumScreen() {
         </View>
       )}
 
-      {/* Grid / Map-växlare — döljs i share-läge (då visas bara rutnätet) */}
-      {!shareMode && (
-        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 }}>
-          {(['grid', 'map'] as const).map((v) => (
-            <TouchableOpacity key={v} onPress={() => { setView(v); setPin(null); }} activeOpacity={0.8}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: view === v ? Colors.primary : Colors.border, backgroundColor: view === v ? Colors.primary + '18' : Colors.surface }}>
-              <Ionicons name={v === 'grid' ? 'grid' : 'map'} size={15} color={view === v ? Colors.primary : Colors.textSecondary} />
-              <Text style={{ color: view === v ? Colors.primary : Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>{v === 'grid' ? 'Grid' : 'Map'}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {(shareMode || view === 'grid') ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
-          {groups.map((yg) => (
-            <View key={yg.year}>
-              <Text style={styles.yearHeader}>{yg.year}</Text>
-              {yg.months.map((mg) => (
-                <View key={mg.month} style={{ marginBottom: 4 }}>
-                  <Text style={styles.monthHeader}>{MONTHS[mg.month - 1]}</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingHorizontal: GAP }}>
-                    {mg.flights.map((f) => <AlbumTile key={f.id} f={f} thumb={thumbFor(f)} isVideo={isVideoFor(f)} onOpen={openTile} />)}
-                  </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+        {groups.map((yg) => (
+          <View key={yg.year}>
+            <Text style={styles.yearHeader}>{yg.year}</Text>
+            {yg.months.map((mg) => (
+              <View key={mg.month} style={{ marginBottom: 4 }}>
+                <Text style={styles.monthHeader}>{MONTHS[mg.month - 1]}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingHorizontal: GAP }}>
+                  {mg.flights.map((f) => <AlbumTile key={f.id} f={f} thumb={thumbFor(f)} isVideo={isVideoFor(f)} onOpen={openTile} />)}
                 </View>
-              ))}
-            </View>
-          ))}
-        </ScrollView>
-      ) : (
-        <View style={{ flex: 1 }}>
-          <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={mapRegion} mapType={mapType} userInterfaceStyle="dark" showsPointsOfInterests={false} showsCompass={false} toolbarEnabled={false}
-            rotateEnabled={mapType !== 'standard'} pitchEnabled={mapType !== 'standard'} onRegionChange={() => { if (pin) updateOverlay(); }} onRegionChangeComplete={setRegion}>
-            {/* Media grupperade i kluster — döljs när en är vald */}
-            {!pin && clusters.map((c) => c.items.length === 1
-              ? <PhotoMarker key={c.key} coordinate={c.items[0].pos} thumb={thumbFor(c.items[0].f)} isVideo={isVideoFor(c.items[0].f)} onPress={() => selectPin(c.items[0].f)} />
-              : <ClusterMarker key={c.key} coordinate={{ latitude: c.lat, longitude: c.lon }} count={c.items.length} onPress={() => zoomToCluster(c)} />
-            )}
-            {/* Sträck + flygplats-pins för vald media */}
-            {pin && pinPos && dep && <Polyline coordinates={[pinPos, { latitude: dep.lat, longitude: dep.lon }]} strokeColor={Colors.primary} strokeWidth={2.5} />}
-            {pin && pinPos && arr && <Polyline coordinates={[pinPos, { latitude: arr.lat, longitude: arr.lon }]} strokeColor={Colors.gold} strokeWidth={2.5} />}
-            {pin && dep && <Marker coordinate={{ latitude: dep.lat, longitude: dep.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.aptPin}><Text style={styles.aptTxt}>{pin.dep_place}</Text></View></Marker>}
-            {pin && arr && <Marker coordinate={{ latitude: arr.lat, longitude: arr.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={[styles.aptPin, { borderColor: Colors.gold }]}><Text style={[styles.aptTxt, { color: Colors.gold }]}>{pin.arr_place}</Text></View></Marker>}
-          </MapView>
-
-          {/* Lager-växlare: karta → satellit → hybrid */}
-          <TouchableOpacity onPress={() => setMapType((m) => m === 'standard' ? 'satellite' : m === 'satellite' ? 'hybrid' : 'standard')} activeOpacity={0.85}
-            style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(6,11,22,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8 }}>
-            <Ionicons name="layers" size={15} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{mapType === 'standard' ? 'Map' : mapType === 'satellite' ? 'Satellite' : 'Hybrid'}</Text>
-          </TouchableOpacity>
-
-          {/* Förstorat media förankrat till mediets geografiska punkt (följer med vid zoom/pan) */}
-          {pin && pinMedia && overlayPt && (
-            <TouchableOpacity activeOpacity={0.9} onPress={() => setSelected(pin)}
-              style={{ position: 'absolute', left: overlayPt.x - BIG / 2, top: overlayPt.y - BIG / 2, width: BIG, height: BIG, borderRadius: 14, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#000' }}>
-              {pinVid ? <FlightVideo uri={pinMedia.uri} style={{ width: BIG, height: BIG }} contentFit="cover" loop muted autoPlay />
-                : <Image source={{ uri: pinMedia.uri }} style={{ width: BIG, height: BIG }} resizeMode="cover" />}
-              {pinVid && <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 3 }}><Ionicons name="play" size={12} color="#fff" /></View>}
-            </TouchableOpacity>
-          )}
-
-          {/* Översiktsruta i botten (som loggbokens rad) — tryck → flight detail, X → avmarkera */}
-          {pin && (
-            <View style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, paddingLeft: 14, paddingRight: 8 }}>
-              <TouchableOpacity activeOpacity={0.85} onPress={() => { if (shareMode) setShareFlight(pin); else router.push(`/flight/detail/${pin.id}`); }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                    <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700', color: Colors.textPrimary }}>{pin.dep_place} → {pin.arr_place}</Text>
-                    {pin.ifr > 0 ? <Text style={styles.badge}>IFR</Text> : null}
-                    {pin.night > 0 ? <Ionicons name="moon" size={11} color={Colors.info} /> : null}
-                  </View>
-                  <Text numberOfLines={1} style={{ fontFamily: 'Menlo', fontSize: 10.5, color: Colors.textMuted, marginTop: 3 }}>{formatDate(pin.date)} · {pin.aircraft_type}{pin.registration ? ` ${pin.registration}` : ''} · {formatTime(pin.total_time)}h</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setPin(null)} hitSlop={10} style={{ paddingLeft: 8, paddingVertical: 14 }}>
-                <Ionicons name="close" size={18} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
 
       {/* Fullskärm */}
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>

@@ -199,6 +199,7 @@ export default function SettingsScreen() {
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
   const [locGranted, setLocGranted] = useState(false);
+  const [showCoinInfo, setShowCoinInfo] = useState(false);
   const appLockEnabled = useAppLockStore((s) => s.enabled);
   const appLockAvailable = useAppLockStore((s) => s.available);
   // Öppna en viss sektion via param (t.ex. från "Manage app data" → "Export first").
@@ -524,7 +525,12 @@ export default function SettingsScreen() {
               <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
+                    <TouchableOpacity onPress={() => setShowCoinInfo(true)} hitSlop={8} activeOpacity={0.7}>
+                      <Ionicons name="help-circle-outline" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
                   <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>
                     {usedCoins.toLocaleString('en-US')} / {limitCoins.toLocaleString('en-US')}
                   </Text>
@@ -846,6 +852,32 @@ export default function SettingsScreen() {
         />
       </Card>
 
+
+      {/* Blade-coins — förklarande popup */}
+      <Modal visible={showCoinInfo} transparent animationType="fade" onRequestClose={() => setShowCoinInfo(false)}>
+        <Pressable onPress={() => setShowCoinInfo(false)} style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 420, backgroundColor: Colors.surface, borderRadius: 18, padding: 20, gap: 12, borderWidth: 1, borderColor: Colors.cardBorder }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 30, height: 30 }} resizeMode="contain" />
+              <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>Blade-coins</Text>
+              <TouchableOpacity onPress={() => setShowCoinInfo(false)} hitSlop={10}><Ionicons name="close" size={22} color={Colors.textMuted} /></TouchableOpacity>
+            </View>
+            <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 21 }}>
+              Blade-coins power the app's smart features — automatic aircraft & drone lookups (specs and photos), scanning and reading data from images, and other assisted tasks that do the typing for you.
+            </Text>
+            <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 21 }}>
+              Each smart action spends a few coins. Free accounts get a one-time batch to try them out; Premium refills your coins every month.
+            </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 13, lineHeight: 19 }}>
+              When your coins run out, these smart features pause until your next refill — everything else in the app keeps working as normal.
+            </Text>
+            <TouchableOpacity onPress={() => setShowCoinInfo(false)} activeOpacity={0.85}
+              style={{ marginTop: 4, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Got it</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
 

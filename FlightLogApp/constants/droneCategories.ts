@@ -39,6 +39,22 @@ export const NATO_CLASSES: { group: string; options: NatoOption[] }[] = [
   },
 ];
 
+// EU C-märkning (C0–C6, en hårdvaruegenskap AI:n kan slå upp) → standard operativ kategori (Open-subkat.).
+// Detta är den kategori en drönare av respektive klass normalt flygs i (lägsta tillåtna), och används som
+// smart förval både vid "Add drone" (AI-gissning) och i Log Flight (kategori följer vald drönares klass).
+export function categoryFromCClass(cClass: string): string {
+  switch ((cClass || '').toUpperCase().trim()) {
+    case 'C0':
+    case 'C1': return 'A1';
+    case 'C2': return 'A2';
+    case 'C3':
+    case 'C4': return 'A3';
+    case 'C5':
+    case 'C6': return 'Specific';
+    default: return '';
+  }
+}
+
 // Kort etikett för visning i listor och chips
 export function categoryLabel(value: string): string {
   if (!value) return '';

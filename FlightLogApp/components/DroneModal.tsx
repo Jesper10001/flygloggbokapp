@@ -11,8 +11,8 @@ import { lookupDrone } from '../services/droneLookup';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
-import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, NATO_CLASSES } from '../constants/droneCategories';
-import type { DroneRegistryEntry, DroneType } from '../db/drones';
+import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, NATO_CLASSES, categoryFromCClass } from '../constants/droneCategories';
+import type { DroneRegistryEntry, DroneType, DroneCategory } from '../db/drones';
 
 type Airframe = 'multirotor' | 'helicopter' | 'fixedwing';
 // Detaljerad klass ur droneCategories: civil (A1–Certified) · militär (MRPAS/RPAS/NATO I–III).
@@ -65,7 +65,8 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
     const g = initial?.mtow_g ?? 0;
     if (g >= 1000) { setWeight(String(Math.round(g / 10) / 100)); setWeightUnit('kg'); }
     else { setWeight(g > 0 ? String(g) : ''); setWeightUnit('g'); }
-    setDroneClass((initial?.drone_class as DroneClass) ?? '');
+    // Läs klassen från `category` (enat fält); fall tillbaka på gamla drone_class för äldre poster.
+    setDroneClass((initial?.category as DroneClass) || (initial?.drone_class as DroneClass) || '');
     setMaker('');
   }, [visible, initial, initialModel]);
 
@@ -106,6 +107,10 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
               else { setWeight(String(r.mtow_g)); setWeightUnit('g'); }
             }
             setMaker(r.manufacturer);
+            // AI-gissning av operativ klass ur EU C-märkningen (C0–C6 → A1/A2/A3/Specific). Bara förval;
+            // användaren kan ändra. Saknas C-märkning (t.ex. militär/omärkt) lämnas valet orört.
+            const guessedClass = categoryFromCClass(r.c_class);
+            if (guessedClass) setDroneClass(guessedClass);
           },
         },
       ]);
@@ -130,7 +135,9 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
         model: m,
         registration: initial?.registration ?? '', // registrering matas under Registration-fältet
         mtow_g: gramsFromInput(),
-        category: initial?.category ?? '',
+        // Chip-valet ÄR den operativa kategorin → spara till `category` (fältet Log Flight/Fleet använder),
+        // inte bara det gamla drone_class-fältet. Så följer Log Flight-kategorin drönarens klass automatiskt.
+        category: (droneClass || initial?.category || '') as DroneCategory,
         drone_class: droneClass,
         notes: initial?.notes ?? '',
       });

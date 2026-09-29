@@ -1,9 +1,9 @@
 // Drönar-Log — två sub-flikar: Flights (månadsgrupperat) + Fleet (drönare).
 // Navy bas + trådbar accent. Per-flygning visas i MM:SS, totaler i H:MM.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,9 +15,11 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
-  getDroneFleetByModel, addDrone,
+  getDroneFleetByModel, addDrone, persistDroneModelLookup,
   type DroneFlight, type DroneModelFleet,
 } from '../../db/drones';
+import { enrichDroneFleet } from '../../services/droneLookup';
+import { hasTokenQuota } from '../../utils/tokenGate';
 import { categoryLabel } from '../../constants/droneCategories';
 import { DroneBookView } from '../../components/logbook-page/DroneBookView';
 import { DroneFleetCard } from '../../components/logbook-page/DroneFleetCard';
@@ -25,6 +27,7 @@ import { DroneModal } from '../../components/DroneModal';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
+const FLEET_PAGE_W = Dimensions.get('window').width - 28; // fleet-karusellens sidbredd
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function relDate(iso: string): string {
@@ -82,7 +85,7 @@ export default function DroneLog() {
     <View style={s.container}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={[s.screenTitle, { flex: 1, marginBottom: 0 }]}>Logbook</Text>
+          <Text style={[s.screenTitle, { flex: 1, marginBottom: 0 }]}>{tab === 'fleet' ? 'Fleet' : 'Logbook'}</Text>
           {toggle}
         </View>
       </View>
@@ -472,6 +475,9 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
 function FleetTab({ accent }: { accent: string }) {
   const [models, setModels] = useState<DroneModelFleet[]>([]);
   const [showAdd, setShowAdd] = useState(false); // "Add drone" → smart search (= Log Flight)
+  const [pageIdx, setPageIdx] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
+  const scrollToKey = useRef<string | null>(null); // sätts efter add → karusellen scrollar till den nya drönaren
 
   const load = useCallback(() => {
     getDroneFleetByModel().then(setModels).catch(() => {});
@@ -480,6 +486,17 @@ function FleetTab({ accent }: { accent: string }) {
 
   // getDroneFleetByModel sorterar redan senast-flugen först (nuvarande = index 0).
   const totalRegs = models.reduce((sum, m) => sum + (m.reg_count || 0), 0);
+
+  // Efter att en ny drönare lagts till (och listan laddats om): scrolla karusellen till den.
+  useEffect(() => {
+    const key = scrollToKey.current;
+    if (!key || models.length < 2) return;
+    const idx = models.findIndex((m) => m.model === key);
+    if (idx < 0) return;
+    scrollToKey.current = null;
+    setPageIdx(idx);
+    setTimeout(() => carouselRef.current?.scrollTo({ x: idx * FLEET_PAGE_W, animated: true }), 80);
+  }, [models]);
 
   return (
     <>
@@ -493,12 +510,26 @@ function FleetTab({ accent }: { accent: string }) {
           <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
           <Text style={{ fontFamily: MONO, fontSize: 12, color: DR.muted, marginTop: 10 }}>No drones yet</Text>
         </View>
+      ) : models.length === 1 ? (
+        // En enda drönare → fyll hela bredden (som förr).
+        <DroneFleetCard key={models[0].model || models[0].id} m={models[0]} accent={accent} onSaved={load} />
       ) : (
-        <View style={{ gap: 12 }}>
-          {models.map((m, i) => (
-            <DroneFleetCard key={m.model || m.id} m={m} accent={accent} current={i === 0 && !!m.last_flown} onSaved={load} />
-          ))}
-        </View>
+        // Flera → swipebar karusell (en drönare i taget, senast flugen först).
+        <>
+          <ScrollView ref={carouselRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast"
+            onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / FLEET_PAGE_W))}>
+            {models.map((m) => (
+              <View key={m.model || m.id} style={{ width: FLEET_PAGE_W }}>
+                <DroneFleetCard m={m} accent={accent} onSaved={load} />
+              </View>
+            ))}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
+            {models.map((m, i) => (
+              <View key={m.model || m.id} style={{ width: i === pageIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === pageIdx ? accent : DR.border }} />
+            ))}
+          </View>
+        </>
       )}
 
       {/* Add drone → smart search direkt (samma modal som Log Flight) */}
@@ -512,7 +543,22 @@ function FleetTab({ accent }: { accent: string }) {
     <DroneModal
       visible={showAdd}
       onClose={() => setShowAdd(false)}
-      onSave={async (data) => { await addDrone(data); await load(); setShowAdd(false); }}
+      onSave={async (data) => {
+        await addDrone(data); scrollToKey.current = (data.model || '').trim(); await load(); setShowAdd(false);
+        // Auto-hämta spec + bild DIREKT för manuellt tillagd drönare (token-styrt). CSV-import behåller sin
+        // egen sekventiella hämtning efteråt och påverkas inte.
+        const model = (data.model || '').trim();
+        if (model && hasTokenQuota()) {
+          enrichDroneFleet(model)
+            .then((r) => persistDroneModelLookup(model, {
+              manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
+              max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
+              ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+            }))
+            .then(load)
+            .catch(() => {});
+        }
+      }}
     />
     </>
   );

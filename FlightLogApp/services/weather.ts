@@ -363,12 +363,44 @@ export async function fetchAirportMetar(icao: string): Promise<AirportMetar | nu
   };
 }
 
-// Färg för flygväderkategori (legend/valfri accent).
+// ── Bulk-METAR för ett geografiskt område (Global map väderfilter) ────────────
+// Ett enda anrop till bbox-endpointen returnerar ALLA rapporterande stationer i lådan med färdig
+// fltCat → mycket effektivare än ett fält i taget. bbox = minLat,minLon,maxLat,maxLon.
+export type BboxStation = { icao: string; lat: number; lon: number; category: FlightCat | null; obsMs: number };
+
+export async function fetchMetarsInBbox(
+  minLat: number, minLon: number, maxLat: number, maxLon: number,
+): Promise<BboxStation[]> {
+  const bbox = `${minLat.toFixed(2)},${minLon.toFixed(2)},${maxLat.toFixed(2)},${maxLon.toFixed(2)}`;
+  const url = `${METAR_URL}?bbox=${bbox}&format=json`;
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'BladesPilotLogbook/1.0' } });
+    if (!res.ok) { console.warn(`[weather] bbox HTTP ${res.status}`); return []; }
+    const arr = await res.json();
+    if (!Array.isArray(arr)) return [];
+    const out: BboxStation[] = [];
+    for (const m of arr) {
+      const icao = String(m?.icaoId ?? m?.icao ?? '').trim().toUpperCase();
+      if (!/^[A-Z]{4}$/.test(icao)) continue;
+      const category: FlightCat | null =
+        m.fltCat === 'VFR' || m.fltCat === 'MVFR' || m.fltCat === 'IFR' || m.fltCat === 'LIFR' ? m.fltCat : categoryOf(m.clouds, m.visib);
+      const obsMs = typeof m.obsTime === 'number' ? m.obsTime * 1000 : m.reportTime ? Date.parse(m.reportTime) : NaN;
+      out.push({ icao, lat: num(m.lat), lon: num(m.lon), category, obsMs: Number.isFinite(obsMs) ? obsMs : 0 });
+    }
+    return out;
+  } catch (e: any) {
+    console.warn('[weather] bbox fetch failed →', e?.message ?? String(e));
+    return [];
+  }
+}
+
+// Färg för flygväderkategori (kart-prickar/legend/accent). Mjukare, moderna nyanser (samma bas
+// grön/blå/röd/lila) som harmonierar med den mörka kartan istället för de tidigare neon-tonerna.
 export function categoryColor(c: FlightCat): string {
   switch (c) {
-    case 'VFR': return '#3FB950';
-    case 'MVFR': return '#3B82F6';
-    case 'IFR': return '#FF4D6A';
-    case 'LIFR': return '#E040FB';
+    case 'VFR': return '#34D399';  // emerald – fräsch grön
+    case 'MVFR': return '#60A5FA'; // mjuk klar blå (skiljd från cyan-accenten)
+    case 'IFR': return '#F87171';  // dämpad korallröd
+    case 'LIFR': return '#C084FC'; // elegant violett
   }
 }

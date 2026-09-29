@@ -9,8 +9,14 @@ import { FlightVideo } from '../components/FlightVideo';
 import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
+import { useDroneFlightStore } from '../store/droneFlightStore';
 import { setFlightPhotoLocalId } from '../db/flights';
-import { syncPhotos, requestPhotoPermission, getPhotoPermissionStatus, getAssetDisplayUri, addSkippedFlightId, removeSkippedFlightId, resumeMatches, clearReviewSession, type FlightMatch, type PhotoPermission } from '../services/photoSync';
+import { setDroneFlightPhotoLocalId } from '../db/drones';
+import * as pilotSync from '../services/photoSync';
+import * as droneSync from '../services/dronePhotoSync';
+import type { PhotoPermission } from '../services/photoSync';
+// Flygningen kan vara pilot- ELLER drönar-typ beroende på ?mode → lös typ som any för visning.
+type FlightMatch = { flight: any; assets: MediaLibrary.Asset[] };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function fmtDate(iso: string): string {
@@ -24,9 +30,14 @@ function fmtDur(sec: number): string {
 
 export default function PhotoSyncScreen() {
   const router = useRouter();
-  const { resume } = useLocalSearchParams<{ resume?: string }>();
+  const { resume, mode } = useLocalSearchParams<{ resume?: string; mode?: string }>();
+  const isDrone = mode === 'drone';
+  const S = isDrone ? droneSync : pilotSync; // läges-medveten synk-tjänst (samma funktionsnamn)
   const insets = useSafeAreaInsets();
-  const loadFlights = useFlightStore((s) => s.loadFlights);
+  const loadPilotFlights = useFlightStore((s) => s.loadFlights);
+  const loadDroneFlights = useDroneFlightStore((s) => s.loadFlights);
+  const loadFlights = isDrone ? loadDroneFlights : loadPilotFlights;
+  const linkPhoto = isDrone ? setDroneFlightPhotoLocalId : setFlightPhotoLocalId;
   const [phase, setPhase] = useState<'perm' | 'syncing' | 'resuming' | 'summary' | 'review' | 'done'>(resume === '1' ? 'resuming' : 'syncing');
   const [perm, setPerm] = useState<PhotoPermission>('undetermined');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -45,20 +56,20 @@ export default function PhotoSyncScreen() {
     // Återuppta: bygg om kvarvarande matchningar ur sparad session — INGEN ny scanning.
     if (resume === '1') {
       try {
-        const m = await resumeMatches();
+        const m = await S.resumeMatches();
         if (m.length) { setMatches(m); setIndex(0); setHistory([]); setPhase('review'); return; }
       } catch { /* faller igenom till vanlig synk */ }
-      await clearReviewSession(); // inget kvar (eller media otillgängligt) → kör vanlig synk nedan
+      await S.clearReviewSession(); // inget kvar (eller media otillgängligt) → kör vanlig synk nedan
     }
-    let p = await getPhotoPermissionStatus();
-    if (p === 'undetermined') p = await requestPhotoPermission();
+    let p = await S.getPhotoPermissionStatus();
+    if (p === 'undetermined') p = await S.requestPhotoPermission();
     setPerm(p);
     // Kör synken BARA med faktisk åtkomst (full/limited). Nekad/avbruten/otillgänglig → ingen synk
     // (så last_sync ej sätts → Sync-knappen förblir tryckbar) och ingen felaktig "klar"-vy.
     if (p !== 'full' && p !== 'limited') { setPhase('perm'); return; }
     setPhase('syncing');
     try {
-      const { matches } = await syncPhotos((done, total) => setProgress({ done, total }));
+      const { matches } = await S.syncPhotos((done, total) => setProgress({ done, total }));
       setMatches(matches);
       setPhase('summary');
     } catch {
@@ -87,7 +98,7 @@ export default function PhotoSyncScreen() {
       const map: Record<string, string> = {};
       for (const a of cur.assets) {
         if (a.mediaType === 'video') continue;
-        try { const u = await getAssetDisplayUri(a.id); if (u) map[a.id] = u; } catch { /* ignore */ }
+        try { const u = await S.getAssetDisplayUri(a.id); if (u) map[a.id] = u; } catch { /* ignore */ }
       }
       if (alive) setResolvedUris(map);
     })();
@@ -98,19 +109,19 @@ export default function PhotoSyncScreen() {
     setPreview(a);
     // Bild: ph:// funkar i <Image> → visa direkt. Video: vänta på spelbar file:// (kopieras).
     setPreviewUri(a.mediaType === 'video' ? null : a.uri);
-    const uri = await getAssetDisplayUri(a.id);
+    const uri = await S.getAssetDisplayUri(a.id);
     if (uri) setPreviewUri(uri);
   };
 
   const advance = () => {
     if (index + 1 < matches.length) { setIndex(index + 1); }
-    else { loadFlights(); clearReviewSession(); setPhase('done'); } // allt hanterat → rensa sessionen
+    else { loadFlights(); S.clearReviewSession(); setPhase("done"); } // allt hanterat → rensa sessionen
   };
   // Ett tryck = koppla vald bild till flygningen och gå direkt vidare.
   const link = async (assetId: string) => {
     if (!cur) return;
     const asset = cur.assets.find((a) => a.id === assetId);
-    await setFlightPhotoLocalId(cur.flight.id, assetId, asset?.mediaType === 'video' ? 'video' : 'image');
+    await linkPhoto(cur.flight.id, assetId, asset?.mediaType === 'video' ? 'video' : 'image');
     setSavedCount((c) => c + 1);
     setHistory((h) => [...h, { index, flightId: cur.flight.id, kind: 'link' }]);
     advance();
@@ -118,7 +129,7 @@ export default function PhotoSyncScreen() {
   // Hoppa över (persisteras → återkommer inte när man återupptar senare).
   const skip = async () => {
     if (!cur) return;
-    await addSkippedFlightId(cur.flight.id);
+    await S.addSkippedFlightId(cur.flight.id);
     setSkippedCount((c) => c + 1);
     setHistory((h) => [...h, { index, flightId: cur.flight.id, kind: 'skip' }]);
     advance();
@@ -127,8 +138,8 @@ export default function PhotoSyncScreen() {
   const undo = async () => {
     const last = history[history.length - 1];
     if (!last) return;
-    if (last.kind === 'link') { await setFlightPhotoLocalId(last.flightId, null, 'image'); setSavedCount((c) => Math.max(0, c - 1)); }
-    else { await removeSkippedFlightId(last.flightId); setSkippedCount((c) => Math.max(0, c - 1)); }
+    if (last.kind === 'link') { await linkPhoto(last.flightId, null, 'image'); setSavedCount((c) => Math.max(0, c - 1)); }
+    else { await S.removeSkippedFlightId(last.flightId); setSkippedCount((c) => Math.max(0, c - 1)); }
     setHistory((h) => h.slice(0, -1));
     if (phase === 'done') setPhase('review');
     setIndex(last.index);
@@ -262,9 +273,19 @@ export default function PhotoSyncScreen() {
       {/* Flightinfo + instruktion */}
       <View style={{ marginHorizontal: 16, marginBottom: 8, backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo' }}>{f.dep_place || '?'} → {f.arr_place || '?'}</Text>
-          <View style={{ flex: 1 }} />
-          <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Menlo' }}>{f.dep_utc}–{f.arr_utc}z</Text>
+          {isDrone ? (
+            <>
+              <Text numberOfLines={1} style={{ flexShrink: 1, color: Colors.textPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo' }}>{f.location || 'Drone flight'}</Text>
+              <View style={{ flex: 1 }} />
+              {f.takeoff_time ? <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Menlo' }}>{f.takeoff_time}</Text> : null}
+            </>
+          ) : (
+            <>
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', fontFamily: 'Menlo' }}>{f.dep_place || '?'} → {f.arr_place || '?'}</Text>
+              <View style={{ flex: 1 }} />
+              <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Menlo' }}>{f.dep_utc}–{f.arr_utc}z</Text>
+            </>
+          )}
         </View>
         <Text style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 3 }}>{fmtDate(f.date)}{f.registration ? ` · ${f.registration}` : ''}</Text>
       </View>

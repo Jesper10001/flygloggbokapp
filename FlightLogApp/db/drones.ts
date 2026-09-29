@@ -397,6 +397,9 @@ export interface DroneFlight {
   operation_type: string; // 'PRI' | 'COM' — privat vs kommersiell (Type of mission)
   remarks: string;
   created_at: string;
+  photo_uri: string;      // vald bild/video ur biblioteket ('' = ingen)
+  media_type: string;     // 'image' | 'video'
+  photo_local_id: string | null; // foto-synk: bibliotekets localIdentifier (tidmatchat)
 }
 
 export interface DroneFlightFormData {
@@ -543,6 +546,19 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
 export async function deleteDroneFlight(id: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM drone_flights WHERE id=?', [id]);
+}
+
+// Sätt/byt/ta bort bild eller video för en drönarflygning (tom uri = ta bort).
+export async function setDroneFlightPhoto(id: number, uri: string, mediaType: 'image' | 'video' = 'image'): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE drone_flights SET photo_uri=?, media_type=? WHERE id=?', [uri, mediaType, id]);
+}
+
+// Foto-synk: koppla/koppla bort en biblioteksreferens (localIdentifier) till en drönarflygning (= manned).
+export async function setDroneFlightPhotoLocalId(id: number, localId: string | null, mediaType?: 'image' | 'video'): Promise<void> {
+  const db = await getDatabase();
+  if (mediaType) await db.runAsync('UPDATE drone_flights SET photo_local_id=?, media_type=? WHERE id=?', [localId, mediaType, id]);
+  else await db.runAsync('UPDATE drone_flights SET photo_local_id=? WHERE id=?', [localId, id]);
 }
 
 export interface DroneStats {

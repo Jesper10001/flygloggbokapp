@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
   Alert, KeyboardAvoidingView, Platform, TextInput, Modal, Pressable,
   InputAccessoryView, Keyboard, ActivityIndicator, Animated, Easing,
 } from 'react-native';
@@ -8,13 +8,18 @@ import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FlightVideo } from '../../components/FlightVideo';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
   listDrones, insertDroneFlight, getDroneFlights,
   getDroneFlightById, updateDroneFlight, getRecentDroneLocations, addDrone, updateDrone,
-  getDroneFlightCount,
+  getDroneFlightCount, persistDroneModelLookup, setDroneFlightPhoto,
   type DroneRegistryEntry, type DroneFlightFormData, type DroneFlightMode,
 } from '../../db/drones';
+import { enrichDroneFleet } from '../../services/droneLookup';
+import { hasTokenQuota } from '../../utils/tokenGate';
 import { useFlightStore } from '../../store/flightStore';
 import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
@@ -27,6 +32,7 @@ import { calcFlightTime, isValidTime } from '../../utils/format';
 import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { DroneDurationInput } from '../../components/DroneDurationInput';
 import { DroneCategoryPicker } from '../../components/DroneCategoryPicker';
+import { categoryFromCClass } from '../../constants/droneCategories';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useToastStore } from '../../components/Toast';
 import { DR } from '../../constants/droneTheme';
@@ -100,9 +106,12 @@ const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 export default function AddDroneFlightScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; addPhoto?: string }>();
   const editId = params.id ? parseInt(params.id, 10) : null;
   const isEdit = !!editId;
+  // Media (bild/video) — = pilotläget: väljs i formuläret och sparas på flygningen.
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const { t } = useTranslation();
   const { loadFlights, loadStats } = useDroneFlightStore();
   const { isPremium, isMax, canAddDroneFlight } = useFlightStore();
@@ -310,6 +319,7 @@ export default function AddDroneFlightScreen() {
           flight_rules: f.flight_rules ?? 'VFR',
           remarks: stripObserverRemarks(f.remarks), // Observer visas i egen ruta, ej i remarks-rutan
         });
+        if (f.photo_uri) { setPhotoUri(f.photo_uri); setMediaType(f.media_type === 'video' ? 'video' : 'image'); }
         if (f.landing_location) setShowLandingPoint(true);
         if (f.total_time > 0) setPasses([decimalToMMSS(f.total_time)]);
         // Full-heron: visa hela totalen som 1:a flygningens varaktighet (HH:MM; splitten okänd vid redigering).
@@ -347,34 +357,34 @@ export default function AddDroneFlightScreen() {
       drone_id: d.id,
       drone_type: d.drone_type,
       registration: d.registration,
-      category: d.category || p.category,
+      // Kategorin följer drönarens klass automatiskt: dess sparade category, annars härledd ur EU C-märkningen
+      // (c_class). Så slipper man ange kategori på nytt i Log Flight — den bestäms av vald drönare.
+      category: d.category || categoryFromCClass(d.c_class || '') || p.category,
     }));
   };
 
-  const useHere = async (target: 'start' | 'landing' = 'start') => {
+  // Media (bild/video) ur biblioteket — = pilotläget. Video ≤ 50 MB.
+  const pickMedia = async (type: 'image' | 'video') => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(t('permission_required'), 'Location permission required');
-        return;
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: type === 'video' ? ['videos'] : ['images'], quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      if (type === 'video') {
+        try {
+          const info = await FileSystem.getInfoAsync(asset.uri);
+          const mb = (info.exists ? info.size : 0) / (1024 * 1024);
+          if (mb > 50) { Alert.alert('Video too large', `Maximum file size is 50 MB (your video is ${mb.toFixed(1)} MB).`); return; }
+        } catch { /* storlekskoll ej kritisk */ }
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude: lat, longitude: lon } = pos.coords;
-      let locName = '';
-      try {
-        const [geo] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
-        locName = geo?.city || geo?.district || geo?.region || '';
-      } catch {}
-      const name = locName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-      if (target === 'landing') {
-        setForm((p) => ({ ...p, landing_lat: lat, landing_lon: lon, landing_location: name }));
-      } else {
-        setForm((p) => ({ ...p, lat, lon, location: name }));
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
-    }
+      setMediaType(type);
+      setPhotoUri(asset.uri);
+    } catch (e: any) { Alert.alert('Could not add media', e?.message || 'Try again.'); }
   };
+
+  // ?addPhoto=1 (från dashboardens "Add media") → öppna bildväljaren automatiskt.
+  useEffect(() => {
+    if (params.addPhoto === '1') { const t = setTimeout(() => pickMedia('image'), 450); return () => clearTimeout(t); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Natt-AUTO: hämta enhetens plats + räkna nattandel ur dep/arr-tid (UTC) för flygdagen.
   const computeNightAuto = async () => {
@@ -441,18 +451,34 @@ export default function AddDroneFlightScreen() {
     setSaving(true);
     // Observer läggs in i remarks som "Observer: xxxx" (loggbokens Remarks-kolumn).
     const dataToSave = { ...form, remarks: mergeObserverRemarks(form.remarks, form.observer_name) };
-    try {
-      if (isEdit && editId) {
-        await updateDroneFlight(editId, dataToSave);
-      } else {
-        await insertDroneFlight(dataToSave);
+    // Media: kopiera temp-uri till app-katalogen så den överlever (= pilotläget).
+    let savedPhotoUri = '';
+    if (photoUri) {
+      savedPhotoUri = photoUri;
+      if (!photoUri.startsWith(FileSystem.documentDirectory ?? '___')) {
+        try {
+          const folder = `${FileSystem.documentDirectory}${mediaType === 'video' ? 'drone_videos' : 'drone_photos'}/`;
+          await FileSystem.makeDirectoryAsync(folder, { intermediates: true }).catch(() => {});
+          const ext = photoUri.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'jpg');
+          const dest = `${folder}${Date.now()}.${ext}`;
+          await FileSystem.copyAsync({ from: photoUri, to: dest });
+          savedPhotoUri = dest;
+        } catch { savedPhotoUri = photoUri; }
       }
+    }
+    try {
+      let flightId: number;
+      if (isEdit && editId) { await updateDroneFlight(editId, dataToSave); flightId = editId; }
+      else { flightId = await insertDroneFlight(dataToSave); }
+      // Spara/uppdatera media på flygningen (rör inte ev. synkad photo_local_id).
+      await setDroneFlightPhoto(flightId, savedPhotoUri, mediaType);
       await Promise.all([loadFlights(), loadStats()]);
 
       if (sameSession && !isEdit) {
         setPasses(['']);
         setFullLegs(['']); // route-heron: rensa flygtider → nästa flygning i passet börjar tomt
         setShowDepDropdown(false); setDepLocalBuf(''); setCondRaw({});
+        setPhotoUri(null); setMediaType('image'); // ny flygning i passet → rensa media
         setForm((p) => ({
           ...p,
           takeoff_time: nowHHMM(),
@@ -535,6 +561,18 @@ export default function AddDroneFlightScreen() {
     setPendingModel(null);
     const entry = ds.find((d) => d.id === id);
     if (entry) await setDrone(entry);
+    // Auto-hämta fleet-data (bild + specar + c_class) direkt för den nya modellen (token-styrt), sedan
+    // uppdatera valet så kategorin ev. härleds ur hämtad c_class. CSV-import påverkas inte.
+    if (data.model && hasTokenQuota()) {
+      enrichDroneFleet(data.model)
+        .then((r) => persistDroneModelLookup(data.model, {
+          manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
+          max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
+          ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+        }))
+        .then(async () => { const ds2 = await listDrones(); setDrones(ds2); const e2 = ds2.find((d) => d.id === id); if (e2) await setDrone(e2); })
+        .catch(() => {});
+    }
   };
 
   return (
@@ -980,19 +1018,13 @@ export default function AddDroneFlightScreen() {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.label}>{t('location')}</Text>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={form.location}
-                onChangeText={(v) => setForm((p) => ({ ...p, location: v }))}
-                placeholder={t('location_ph')}
-                placeholderTextColor={DR.muted}
-              />
-              <TouchableOpacity style={styles.iconBtn} onPress={() => useHere('start')} activeOpacity={0.7}>
-                <Ionicons name="location" size={16} color={accent} />
-                <Text style={styles.iconBtnText}>{t('here')}</Text>
-              </TouchableOpacity>
-            </View>
+            <TextInput
+              style={styles.input}
+              value={form.location}
+              onChangeText={(v) => setForm((p) => ({ ...p, location: v }))}
+              placeholder={t('location_ph')}
+              placeholderTextColor={DR.muted}
+            />
           </View>
           <View style={{ width: 96 }}>
             <Text style={styles.label}>Take-off</Text>
@@ -1008,19 +1040,13 @@ export default function AddDroneFlightScreen() {
         {showLandingPoint ? (
           <View style={{ marginTop: 4 }}>
             <Text style={styles.label}>Landing point (if different)</Text>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={form.landing_location}
-                onChangeText={(v) => setForm((p) => ({ ...p, landing_location: v }))}
-                placeholder="Same as take-off"
-                placeholderTextColor={DR.muted}
-              />
-              <TouchableOpacity style={styles.iconBtn} onPress={() => useHere('landing')} activeOpacity={0.7}>
-                <Ionicons name="location" size={16} color={accent} />
-                <Text style={styles.iconBtnText}>{t('here')}</Text>
-              </TouchableOpacity>
-            </View>
+            <TextInput
+              style={styles.input}
+              value={form.landing_location}
+              onChangeText={(v) => setForm((p) => ({ ...p, landing_location: v }))}
+              placeholder="Same as take-off"
+              placeholderTextColor={DR.muted}
+            />
           </View>
         ) : (
           <TouchableOpacity onPress={() => setShowLandingPoint(true)} activeOpacity={0.7} style={{ marginTop: 6, alignSelf: 'flex-start' }}>
@@ -1210,6 +1236,35 @@ export default function AddDroneFlightScreen() {
           multiline
         />
         </>)}
+
+        {/* Media (bild eller video) — = pilotläget: väljs här och sparas på flygningen. */}
+        <Text style={styles.section}>Media</Text>
+        {photoUri ? (
+          <View style={{ borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+            {mediaType === 'video' ? (
+              <FlightVideo uri={photoUri} style={{ width: '100%', height: 180 }} contentFit="cover" loop muted autoPlay />
+            ) : (
+              <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="cover" />
+            )}
+            <TouchableOpacity onPress={() => { setPhotoUri(null); setMediaType('image'); }}
+              style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => pickMedia('image')} activeOpacity={0.75}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border }}>
+              <Ionicons name="image-outline" size={16} color={DR.muted} />
+              <Text style={{ color: DR.muted, fontSize: 13, fontWeight: '600' }}>Image</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => pickMedia('video')} activeOpacity={0.75}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border }}>
+              <Ionicons name="videocam-outline" size={16} color={DR.muted} />
+              <Text style={{ color: DR.muted, fontSize: 13, fontWeight: '600' }}>Video</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.saveBtn} onPress={() => save(false)} disabled={saving} activeOpacity={0.85}>
           <Ionicons name="checkmark-circle" size={18} color={DR.inkOnAccent} />

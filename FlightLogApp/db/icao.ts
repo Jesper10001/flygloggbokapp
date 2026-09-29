@@ -22,9 +22,73 @@ export function getSeedAirports(): Promise<SeedRow[]> {
   return loadAirportData();
 }
 
-const SEED_VERSION = '2026-09-25-country-fix'; // om-seed: korrigerar inaktuella land-koder (t.ex. ESCF=SE) i äldre installationer
+// Diakrit-vikning för sökning: viker latinska accenttecken (svenska/tyska/franska/spanska/nordiska
+// m.fl.) till ASCII och versaliserar. "Luleå"→"LULEA", "Bückeburg"→"BUCKEBURG", "Nîmes"→"NIMES".
+// Egen tabell (inte String.normalize) — Hermes saknar pålitligt ICU-stöd i RN.
+const FOLD_MAP: Record<string, string> = {
+  À: 'A', Á: 'A', Â: 'A', Ã: 'A', Ä: 'A', Å: 'A', Ā: 'A', Ă: 'A', Ą: 'A', Æ: 'AE',
+  Ç: 'C', Ć: 'C', Č: 'C', Ċ: 'C',
+  Ð: 'D', Đ: 'D', Ď: 'D',
+  È: 'E', É: 'E', Ê: 'E', Ë: 'E', Ē: 'E', Ĕ: 'E', Ė: 'E', Ę: 'E', Ě: 'E',
+  Ĝ: 'G', Ğ: 'G',
+  Ì: 'I', Í: 'I', Î: 'I', Ï: 'I', Ĩ: 'I', Ī: 'I', Į: 'I', İ: 'I',
+  Ł: 'L', Ľ: 'L', Ĺ: 'L',
+  Ñ: 'N', Ń: 'N', Ň: 'N',
+  Ò: 'O', Ó: 'O', Ô: 'O', Õ: 'O', Ö: 'O', Ø: 'O', Ō: 'O', Ŏ: 'O', Ő: 'O', Œ: 'OE',
+  Ŕ: 'R', Ř: 'R',
+  Ś: 'S', Š: 'S', Ş: 'S', Ș: 'S', ẞ: 'SS', ß: 'SS',
+  Ť: 'T', Ţ: 'T', Ț: 'T', Þ: 'TH',
+  Ù: 'U', Ú: 'U', Û: 'U', Ü: 'U', Ũ: 'U', Ū: 'U', Ŭ: 'U', Ů: 'U', Ű: 'U', Ų: 'U',
+  Ý: 'Y', Ÿ: 'Y',
+  Ź: 'Z', Ž: 'Z', Ż: 'Z',
+};
+export function foldDiacritics(s: string): string {
+  let out = '';
+  for (const ch of (s || '').toUpperCase()) out += FOLD_MAP[ch] ?? ch;
+  return out;
+}
 
-export async function seedIcaoAirports(premium = false): Promise<void> {
+const SEED_VERSION = '2026-09-28-namenorm'; // om-seed: land-koder (ESCF=SE) + name_norm för diakrit-okänslig sökning
+
+// Kanariefåglar: kända flygplatser vars land ALDRIG ändras. Om en seedad rad avviker (eller saknas)
+// är enhetens DB inaktuell (t.ex. ESCF felaktigt 'US' från ett äldre dataset) → tvinga om-seed även
+// om seed-versionen råkar stämma. Billig kontroll (några rader), oberoende av 8,5 MB-assetens laddning.
+const SEED_CANARIES: Record<string, string> = {
+  ESCF: 'SE', // Malmen (svensk flagga visades felaktigt som US)
+  ESSA: 'SE', // Stockholm Arlanda
+  KJFK: 'US', // New York JFK
+  EGLL: 'GB', // London Heathrow
+};
+
+async function seedLooksStale(db: Awaited<ReturnType<typeof getDatabase>>): Promise<boolean> {
+  const codes = Object.keys(SEED_CANARIES);
+  // Ingen custom/temp-filtrering: vi kollar den rad appen FAKTISKT visar (getAirportTzInfo filtrerar
+  // inte heller). En inaktuell custom/temp-rad som skuggar en riktig flygplats (t.ex. ESCF='US') fångas.
+  const rows = await db.getAllAsync<{ icao: string; country: string }>(
+    `SELECT icao, country FROM icao_airports WHERE icao IN (${codes.map(() => '?').join(',')})`,
+    codes
+  ).catch(() => [] as { icao: string; country: string }[]);
+  const byIcao = new Map(rows.map((r) => [r.icao, r.country]));
+  for (const [icao, expected] of Object.entries(SEED_CANARIES)) {
+    // Saknad kanariefågel ELLER fel land → inaktuell seed.
+    if (byIcao.get(icao) !== expected) return true;
+  }
+  return false;
+}
+
+// In-flight-lås: seedIcaoAirports triggas från flera håll (start i _layout, iCloud-restore, och
+// fire-and-forget vid premium-byte i flightStore). Utan lås kan två körningar överlappa → två
+// samtidiga DELETE/INSERT-transaktioner på samma connection (nested BEGIN / korrupt data / flimmer).
+// Alla anropare delar samma pågående löfte → seeden körs alltid till slut, exakt en gång i taget.
+let _seedInFlight: Promise<void> | null = null;
+
+export function seedIcaoAirports(premium = false): Promise<void> {
+  if (_seedInFlight) return _seedInFlight;
+  _seedInFlight = runSeed(premium).finally(() => { _seedInFlight = null; });
+  return _seedInFlight;
+}
+
+async function runSeed(premium = false): Promise<void> {
   const db = await getDatabase();
 
   // Check if table already has data
@@ -36,11 +100,20 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
     `SELECT value as v FROM settings WHERE key = 'icao_seed_version'`
   ).catch(() => null);
 
-  if (existing?.v === SEED_VERSION && tableCount?.cnt && tableCount.cnt > 0) {
+  const versionOk = existing?.v === SEED_VERSION && !!tableCount?.cnt && tableCount.cnt > 0;
+  // Även om versionen stämmer: verifiera kanariefåglarna. Fångar enheter som blev "markerade som
+  // seedade" med inaktuell data (t.ex. ESCF='US') och därför aldrig självläkt via versionsjämförelsen.
+  if (versionOk && !(await seedLooksStale(db))) {
     return;
   }
 
   const data = await loadAirportData();
+  // Skyddsräcke: om asseten inte kunde laddas (tom array) — rör INTE befintliga rader och markera
+  // INTE som seedad. Annars skulle vi radera bra data och fastna på en tom/trasig seed.
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn('[ICAO] seed aborted: airport data empty/unavailable — keeping existing rows');
+    return;
+  }
 
   const BATCH = 200;
   await db.withTransactionAsync(async () => {
@@ -48,22 +121,27 @@ export async function seedIcaoAirports(premium = false): Promise<void> {
     await db.runAsync(`DELETE FROM icao_airports WHERE custom = 0 AND COALESCE(temporary, 0) = 0`);
     for (let i = 0; i < data.length; i += BATCH) {
       const chunk = data.slice(i, i + BATCH);
-      const placeholders = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?,?,0)').join(',');
+      const placeholders = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,0)').join(',');
       const params = chunk.flatMap(([icao, name, country, region, lat, lon, iata, alt, type, municipality, , gps]) =>
-        [icao, name, country, region, lat, lon, iata ?? '', alt ?? null, type ?? '', municipality ?? '', gps ?? '']
+        [icao, name, country, region, lat, lon, iata ?? '', alt ?? null, type ?? '', municipality ?? '', gps ?? '', foldDiacritics(name ?? '')]
       );
+      // OR REPLACE (inte OR IGNORE): seed-datan är auktoritativ för riktiga ICAO-koder. Skriver över
+      // inaktuella custom/temp-rader som skuggar en riktig flygplats (t.ex. ESCF/ESDF felaktigt 'US'
+      // med custom=1 som DELETE ovan inte tar bort). Rör bara koder som finns i seed-datan → användarens
+      // egna off-airport/custom-platser (egna koder utanför seeden) berörs aldrig.
       await db.runAsync(
-        `INSERT OR IGNORE INTO icao_airports (icao, name, country, region, lat, lon, iata, alt, type, municipality, gps, custom)
+        `INSERT OR REPLACE INTO icao_airports (icao, name, country, region, lat, lon, iata, alt, type, municipality, gps, name_norm, custom)
          VALUES ${placeholders}`,
         params
       );
     }
+    // Markera seedad INUTI transaktionen → versionen skrivs bara om raderna faktiskt committades.
+    // (Tidigare skrevs den utanför → en tyst rollback kunde lämna enheten "seedad" med gammal data.)
+    await db.runAsync(
+      `INSERT OR REPLACE INTO settings (key, value) VALUES ('icao_seed_version', ?)`,
+      [SEED_VERSION]
+    );
   });
-
-  await db.runAsync(
-    `INSERT OR REPLACE INTO settings (key, value) VALUES ('icao_seed_version', ?)`,
-    [SEED_VERSION]
-  );
 }
 
 // Söker på BÅDE ICAO och IATA + flygplatsnamn. Prioritering överst: exakt ICAO → exakt IATA →
@@ -73,10 +151,12 @@ export async function searchAirports(query: string, nameMinLen = 5): Promise<Ica
   const db = await getDatabase();
   const upper = query.toUpperCase();
   const like = `%${upper}%`, pre = `${upper}%`;
+  const foldLike = `%${foldDiacritics(query)}%`; // diakrit-okänslig namnträff ("lulea"↔"Luleå")
   // Koderna matchas som PREFIX (det man skriver är början av ICAO/IATA-koden), namn som delsträng.
   const clauses = ['UPPER(icao) LIKE ?', 'UPPER(iata) LIKE ?'];
   const whereParams: string[] = [pre, pre];
-  if (upper.length >= nameMinLen) { clauses.push('UPPER(name) LIKE ?'); whereParams.push(like); }
+  // Namn matchas både rått (accenttecken man själv skrev) OCH normaliserat (name_norm, seedade rader).
+  if (upper.length >= nameMinLen) { clauses.push(`(UPPER(name) LIKE ? OR (name_norm != '' AND name_norm LIKE ?))`); whereParams.push(like, foldLike); }
   return await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
      WHERE ${clauses.join(' OR ')}
@@ -203,17 +283,20 @@ export async function getAirportTzInfo(
 }
 
 export async function getNearbyAirports(
-  lat: number, lon: number, limit = 5
+  lat: number, lon: number, limit = 5, degRange = 1.5
 ): Promise<IcaoAirport[]> {
   const db = await getDatabase();
-  const degRange = 1.5;
+  // Longituden vägs med cos²(lat) i den grova avstånds-sorteringen så ORDER BY/​LIMIT verkligen fångar
+  // de NÄRMASTE raderna (inte en godtycklig delmängd) även när boxen är stor (expanderande sökning).
+  const cosL = Math.max(0.05, Math.cos((lat * Math.PI) / 180));
   const rows = await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
      WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
        AND (temporary IS NULL OR temporary = 0)
        AND lat != 0 AND lon != 0
-     LIMIT 200`,
-    [lat - degRange, lat + degRange, lon - degRange, lon + degRange]
+     ORDER BY ((lat - ?) * (lat - ?) + (lon - ?) * (lon - ?) * ?)
+     LIMIT 400`,
+    [lat - degRange, lat + degRange, lon - degRange, lon + degRange, lat, lat, lon, lon, cosL * cosL]
   );
   return rows
     .map(r => ({ ...r, dist: calculateDistance(lat, lon, r.lat, r.lon) }))

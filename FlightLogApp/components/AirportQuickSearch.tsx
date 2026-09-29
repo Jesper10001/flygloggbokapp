@@ -12,6 +12,8 @@ import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '
 import type { IcaoAirport } from '../types/flight';
 import { fetchAirportMetar, type AirportMetar } from '../services/weather';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
+import { useFlightStore } from '../store/flightStore';
+import { useRouter } from 'expo-router';
 import { AirportInfoCard } from './AirportInfoCard';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
 
@@ -58,7 +60,7 @@ type Perf = { type: string; cruiseKts: number; fuelBurn: number; fuelUnit: strin
 
 // ── Filter för "Closest airport to me" ─────────────────────────────────────────
 type WxFilter = 'all' | 'vfr' | 'mvfr' | 'ifr' | 'lifr';
-type TypeFilter = 'all' | 'large' | 'medium' | 'small' | 'heliport' | 'military';
+type TypeFilter = 'all' | 'airport' | 'small' | 'heliport' | 'military';
 // Kategorierna (VFR/MVFR/IFR/LIFR) är definierade i statute miles/fot (US NWS). FAA-piloter ser
 // sikten i sm; EASA/CAA i km (samma trösklar, enhetskonverterade). Molnbas alltid i fot.
 function buildWxOptions(sm: boolean): { key: string; label: string; sub?: string }[] {
@@ -75,14 +77,13 @@ function buildWxOptions(sm: boolean): { key: string; label: string; sub?: string
 }
 const TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'large', label: 'Large Airports' },
-  { key: 'medium', label: 'Medium Airports' },
+  { key: 'airport', label: 'Airports' }, // large + medium slås ihop
   { key: 'small', label: 'Airfields' },
   { key: 'heliport', label: 'Heliports' },
   { key: 'military', label: 'Air Bases' },
 ];
 const WX_SHORT: Record<WxFilter, string> = { all: 'All', vfr: 'VFR', mvfr: 'MVFR', ifr: 'IFR', lifr: 'LIFR' };
-const TYPE_SHORT: Record<TypeFilter, string> = { all: 'All', large: 'Large', medium: 'Medium', small: 'Airfields', heliport: 'Heliports', military: 'Air Bases' };
+const TYPE_SHORT: Record<TypeFilter, string> = { all: 'All', airport: 'Airports', small: 'Airfields', heliport: 'Heliports', military: 'Air Bases' };
 const WX_RANK: Record<string, number> = { VFR: 3, MVFR: 2, IFR: 1, LIFR: 0 }; // bäst → sämst
 // Militär "Air base" finns ej som DB-fält → namnbaserad heuristik (som kartans militärlager i praktiken).
 const MIL_RE = /air\s?base|air force base|\bAFB\b|\bRAF\b|naval air|\bNAS\b|\bNAF\b|military/i;
@@ -90,6 +91,7 @@ const MIL_RE = /air\s?base|air force base|\bAFB\b|\bRAF\b|naval air|\bNAS\b|\bNA
 function matchesTypeFilter(a: IcaoAirport, f: TypeFilter): boolean {
   if (f === 'all') return true;
   if (f === 'military') return MIL_RE.test(a.name || '');
+  if (f === 'airport') return (a.type || '') === 'large' || (a.type || '') === 'medium'; // large + medium
   return (a.type || '') === f;
 }
 // Väderfiltret = lägsta acceptabla kategori (VFR bäst). null-kategori (ingen METAR) → faller ut när filter aktivt.
@@ -113,6 +115,16 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   // FAA-standard → sikt i statute miles; EASA/CAA → km (molnbas alltid i fot).
   const regStandard = useRegulationStandardStore((s) => s.standard);
   const wxOptions = useMemo(() => buildWxOptions(regStandard === 'faa'), [regStandard]);
+  // Väderfiltret är en Blades Premium-funktion (gäller även Global maps väderfilter).
+  const isPremium = useFlightStore((s) => s.isPremium);
+  const router = useRouter();
+  const promptWeatherPremium = () => {
+    Alert.alert(
+      'Blades Premium',
+      'Filtering airports by live weather (METAR) is a Blades Premium feature.',
+      [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/settings/premium') }],
+    );
+  };
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [searching, setSearching] = useState(false);
@@ -209,20 +221,37 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
     try {
       const c = await getPositionNow();
       if (!c) { Alert.alert('Location needed', 'Enable location access to find the closest airport.'); return; }
-      const cands = (await getNearbyAirports(c.lat, c.lon, 60))
-        .filter((a) => (a.type || '') !== 'closed') // stängda flygplatser visas aldrig i Closest to me
-        .filter((a) => matchesTypeFilter(a, typeFilter));
-      if (!cands.length) { Alert.alert('No airport nearby', 'No airport matching the Type filter was found near you.'); return; }
+      // Expanderande sökning: ingen fast maxradie. Ringar utåt (~165 → ~3000 km) tills en flygplats som
+      // matchar TYP- och VÄDER-filtren hittas. METAR-kontrollen görs närmast-först och redan kollade
+      // flygplatser hoppas över mellan ringarna (network-snålt), med ett tak på antal väderuppslag.
+      const RINGS_DEG = [1.5, 4, 9, 18, 30]; // grader (lat) → växande sökradie
+      const WX_CHECK_CAP = 40;               // max antal METAR-uppslag totalt
       let chosen: IcaoAirport | null = null;
-      if (wxFilter === 'all') {
-        chosen = cands[0]; // redan sorterade på avstånd
-      } else {
-        // Hämta METAR för de närmaste kandidaterna i tur och ordning tills en matchar väderfiltret.
-        for (const a of cands.slice(0, 12)) {
+      let anyTypeCandidate = false;
+      const wxChecked = new Set<string>();
+      for (const deg of RINGS_DEG) {
+        const cands = (await getNearbyAirports(c.lat, c.lon, 120, deg))
+          .filter((a) => (a.type || '') !== 'closed') // stängda flygplatser visas aldrig i Closest to me
+          .filter((a) => matchesTypeFilter(a, typeFilter));
+        if (cands.length) anyTypeCandidate = true;
+        if (wxFilter === 'all') {
+          if (cands.length) { chosen = cands[0]; break; } // redan sorterade på avstånd → närmast
+          continue; // inga i denna ring → expandera
+        }
+        // Väderfilter: kontrollera de närmaste (ännu ej kollade) kandidaterna tills en matchar.
+        for (const a of cands) {
+          if (wxChecked.has(a.icao)) continue;
+          if (wxChecked.size >= WX_CHECK_CAP) break;
+          wxChecked.add(a.icao);
           try { const m = await fetchAirportMetar(a.icao); if (matchesWxFilter(m?.category, wxFilter)) { chosen = a; break; } } catch { /* prova nästa */ }
         }
+        if (chosen || wxChecked.size >= WX_CHECK_CAP) break;
       }
-      if (!chosen) { Alert.alert('No match nearby', 'No nearby airport currently meets the weather filter. Try a lower weather minimum.'); return; }
+      if (!chosen) {
+        if (!anyTypeCandidate) Alert.alert('No airport found', 'No airport matching the Type filter was found, even searching far out.');
+        else Alert.alert('No weather match', 'No airport currently meets the weather filter, even searching far out. Try a lower weather minimum.');
+        return;
+      }
       pick(chosen, { fromClosest: true });
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not find the closest airport.');
@@ -342,10 +371,11 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
           {finding ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="navigate" size={15} color={accent} />}
           <Text style={styles.closestTxt} numberOfLines={1}>Closest to me</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.filterChip} activeOpacity={0.8} onPress={() => setOpenFilter('wx')}>
+        <TouchableOpacity style={styles.filterChip} activeOpacity={0.8}
+          onPress={() => { if (!isPremium) { promptWeatherPremium(); return; } setOpenFilter('wx'); }}>
           <Ionicons name="partly-sunny-outline" size={13} color="rgba(255,255,255,0.7)" />
           <Text style={styles.filterChipTxt} numberOfLines={1}>{WX_SHORT[wxFilter]}</Text>
-          <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.55)" />
+          <Ionicons name={isPremium ? 'chevron-down' : 'lock-closed'} size={12} color="rgba(255,255,255,0.55)" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterChip} activeOpacity={0.8} onPress={() => setOpenFilter('type')}>
           <Ionicons name="airplane-outline" size={13} color="rgba(255,255,255,0.7)" />

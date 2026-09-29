@@ -230,6 +230,9 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'icao_airports', 'type', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissingOnTable(db, 'icao_airports', 'municipality', `TEXT NOT NULL DEFAULT ''`);
   await addColumnIfMissingOnTable(db, 'icao_airports', 'gps', `TEXT NOT NULL DEFAULT ''`);
+  // Diakrit-normaliserat namn (versaler, å/ä/ö/ü etc. → a/o/u) → sökning matchar "lulea"↔"Luleå",
+  // "buckeburg"↔"Bückeburg". Fylls vid seed; tomt tills om-seeden körts.
+  await addColumnIfMissingOnTable(db, 'icao_airports', 'name_norm', `TEXT NOT NULL DEFAULT ''`);
   // Flerpilottid (multi-crew operations)
   await addColumnIfMissing(db, 'multi_pilot',  `REAL NOT NULL DEFAULT 0`);
   // Enpilottid (single pilot operations)
@@ -305,6 +308,11 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'night_time', 'REAL NOT NULL DEFAULT 0'); // nattandel i timmar
   await addColumnIfMissingOnTable(db, 'drone_flights', 'vfr', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'drone_flights', 'flight_rules', "TEXT NOT NULL DEFAULT 'VFR'");
+  // Foto/video per drönarflygning (valt ur biblioteket), = manned flight photo.
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'photo_uri', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'media_type', "TEXT NOT NULL DEFAULT 'image'");
+  // Foto-synk: referens (localIdentifier) till bibliotekets media, matchat på tid (= manned).
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'photo_local_id', 'TEXT');
   // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
   // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.
@@ -387,49 +395,19 @@ async function runMigrations(db: SqliteDb): Promise<void> {
     // name-kolumnen kanske inte finns — ignorera
   }
 
-  // Test data: seed summary flights to meet ALL EASA requirements (PPL/CPL/ATPL H)
-  const seeded = await db.getFirstAsync<{ v: string }>(`SELECT value as v FROM settings WHERE key='test_atpl_seeded_v3'`).catch(() => null);
-  if (!seeded) {
-    // Remove old seed data
-    await db.runAsync(`DELETE FROM flights WHERE remarks = 'Experience summary'`);
-    await db.runAsync(`DELETE FROM settings WHERE key IN ('test_atpl_seeded','test_atpl_seeded_v2')`);
-
-    const existing = await db.getFirstAsync<{ t: number }>(`SELECT ROUND(SUM(total_time),1) as t FROM flights WHERE flight_type != 'sim'`);
-    const currentTotal = existing?.t ?? 0;
-    if (currentTotal > 0) {
-      // ATPL(H) needs: total 1000, pic 250, xc 200, ifr 30, night 100
-      // CPL(H) also needs: dual 30, xc_pic 10
-      // We spread flights across many different dep/arr pairs with total_time >= 0.5 for xc credit
-      const routes = [
-        ['ESCF','ESSA'], ['ESSA','ESGG'], ['ESGG','ESCF'], ['ESCF','ESSV'],
-        ['ESSV','ESSA'], ['ESSA','ESMX'], ['ESMX','ESGG'], ['ESGG','ESSV'],
-      ];
-      const totalNeeded = Math.max(0, 1000 - currentTotal);
-      const flightsToAdd = 20;
-      const perFlight = totalNeeded / flightsToAdd;
-
-      for (let i = 0; i < flightsToAdd; i++) {
-        const [dep, arr] = routes[i % routes.length];
-        const month = String((i % 12) + 1).padStart(2, '0');
-        const year = i < 10 ? '2024' : '2025';
-        const day = String(5 + (i % 20)).padStart(2, '0');
-        const date = `${year}-${month}-${day}`;
-        const total = perFlight;
-        const pic = perFlight * 0.85;
-        const dual = i < 4 ? perFlight * 0.5 : 0; // first 4 flights have dual
-        const night = perFlight * 0.35;
-        const ifr = perFlight * 0.15;
-        const multi = perFlight * 0.6;
-        const single = total - multi;
-
-        await db.runAsync(
-          `INSERT INTO flights (date, aircraft_type, registration, dep_place, dep_utc, arr_place, arr_utc, total_time, pic, co_pilot, dual, night, ifr, multi_pilot, single_pilot, landings_day, landings_night, remarks, status, source, flight_type, flight_rules)
-           VALUES (?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,1,0,'Experience summary','manual','manual','normal','IFR')`,
-          [date, 'A109LUH', 'KILO28', dep, '08:00', arr, '12:00', total, pic, dual, night, ifr, multi, single]
-        );
-      }
-      await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('test_atpl_seeded_v3', '1')`);
+  // BUGGFIX (kritisk): en tidigare migration seedade "Experience summary"-flygningar som fyllde ut totalen
+  // till 1000h i RIKTIGA loggböcker (den kördes för alla med befintliga flygningar som saknade flaggan,
+  // inte bara dev-profiler). Seedningen är helt borttagen. Nedan städas ev. redan inlagda sådana rader bort
+  // EN gång så drabbade loggböcker läks, och seed-flaggorna nollställs så inget kan återuppliva den.
+  try {
+    const purged = await db.getFirstAsync<{ v: string }>(`SELECT value as v FROM settings WHERE key='exp_summary_purged'`).catch(() => null);
+    if (!purged) {
+      await db.runAsync(`DELETE FROM flights WHERE remarks = 'Experience summary'`);
+      await db.runAsync(`DELETE FROM settings WHERE key IN ('test_atpl_seeded','test_atpl_seeded_v2','test_atpl_seeded_v3')`);
+      await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('exp_summary_purged', '1')`);
     }
+  } catch {
+    // om städningen fallerar (t.ex. schema saknas) — ignorera; den försöker igen nästa start
   }
 
   // Engångsstädning: en tidigare import-bugg dumpade appens egna export-kolumner ("Flight type: Normal",

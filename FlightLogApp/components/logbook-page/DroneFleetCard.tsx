@@ -58,10 +58,10 @@ function Stat({ label, value, unit, first, editing, onChange, accent }: {
   );
 }
 
-export function DroneFleetCard({ m, accent, current, onSaved }: {
+export function DroneFleetCard({ m, accent, onSaved }: {
   m: DroneModelFleet;
   accent: string;
-  current: boolean;
+  current?: boolean;
   onSaved: () => void;
 }) {
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
@@ -231,8 +231,7 @@ export function DroneFleetCard({ m, accent, current, onSaved }: {
   return (
     <View
       onLayout={(e) => setCw(e.nativeEvent.layout.width)}
-      style={{ backgroundColor: DR.surface, borderWidth: 1, borderColor: current ? accent : DR.border, borderRadius: 18, overflow: 'hidden',
-        ...(current ? { shadowColor: accent, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 } : null) }}>
+      style={{ backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 18, overflow: 'hidden' }}>
 
       {/* ── Banner: foto + urklipp som spiller över ── */}
       <View style={{ position: 'relative' }}>
@@ -249,12 +248,6 @@ export function DroneFleetCard({ m, accent, current, onSaved }: {
         {cutout ? (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible' }} pointerEvents="none">
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: DR.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
-          </View>
-        ) : null}
-
-        {current ? (
-          <View style={{ position: 'absolute', top: 10, left: 14, zIndex: 4, backgroundColor: accent, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4 }}>
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: DR.inkOnAccent }}>NOW</Text>
           </View>
         ) : null}
 

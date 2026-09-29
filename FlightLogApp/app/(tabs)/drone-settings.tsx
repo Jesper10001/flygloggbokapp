@@ -33,6 +33,7 @@ import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/test
 import { getSetting, setSetting } from '../../db/flights';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
+import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview } from '../../services/dronePhotoSync';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { listDigitalBooks } from '../../db/digitalBooks';
 
@@ -58,6 +59,7 @@ export default function DroneSettingsScreen() {
   const timeFormat = useTimeFormatStore((s) => s.timeFormat);
   const setTimeFormat = useTimeFormatStore((s) => s.setTimeFormat);
   const [locGranted, setLocGranted] = useState(false);
+  const [showCoinInfo, setShowCoinInfo] = useState(false);
   const appLockEnabled = useAppLockStore((s) => s.enabled);
   const appLockAvailable = useAppLockStore((s) => s.available);
 
@@ -73,11 +75,19 @@ export default function DroneSettingsScreen() {
   const [profileName, setProfileName] = useState('');
   const [profileInitials, setProfileInitials] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
+  // Foto-synk: kan synkas / pausad granskning att återuppta (= pilotläget).
+  const photoSyncOn = isPhotoSyncAvailable();
+  const [canSync, setCanSync] = useState(false);
+  const [resumeReview, setResumeReview] = useState(false);
 
   useFocusEffect(useCallback(() => {
     loadAccent();
     useTokenQuotaStore.getState().load();
     getDroneFlightCount().then(setFlightCount).catch(() => {});
+    if (photoSyncOn) {
+      hasPendingSync().then(setCanSync).catch(() => setCanSync(false));
+      hasUnfinishedReview().then(setResumeReview).catch(() => setResumeReview(false));
+    }
     Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
@@ -281,7 +291,12 @@ export default function DroneSettingsScreen() {
               <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
+                    <TouchableOpacity onPress={() => setShowCoinInfo(true)} hitSlop={8} activeOpacity={0.7}>
+                      <Ionicons name="help-circle-outline" size={16} color={DR.muted} />
+                    </TouchableOpacity>
+                  </View>
                   <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>{tokensToCoins(tokenUsage.used).toLocaleString('en-US')} / {tokensToCoins(tokenUsage.limit).toLocaleString('en-US')}</Text>
                 </View>
                 <View style={{ height: 6, borderRadius: 3, backgroundColor: DR.elevated, overflow: 'hidden' }}>
@@ -352,6 +367,14 @@ export default function DroneSettingsScreen() {
           </View>
           <Row accent={accent} icon="list-outline" iconColor={accent} title="Manage drones" subtitle="Models, registration, category" onPress={() => router.push('/settings/drones')} separatorColor={DR.background} />
           <Row accent={accent} icon="book-outline" iconColor={accent} title="Your logbook" onPress={() => router.push('/drone-logbook')} separatorColor={DR.background} />
+          {/* Foto-synk: matcha bibliotekets bilder/videor mot drönarflygningar på tid (= pilotläget). */}
+          {photoSyncOn && (
+            <Row accent={accent} icon={resumeReview ? 'play-circle-outline' : 'images-outline'} iconColor={accent}
+              title={resumeReview ? 'Resume photo matching' : 'Sync photos to flights'}
+              subtitle={resumeReview ? 'Finish where you left off' : (canSync ? 'Match your library by time' : 'Up to date')}
+              onPress={() => router.push(resumeReview ? '/photo-sync?mode=drone&resume=1' : '/photo-sync?mode=drone')}
+              separatorColor={DR.background} />
+          )}
           {/* Time format (flyttat hit från App, = pilotläget) */}
           <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} border={false} separatorColor={DR.background}
             right={
@@ -427,9 +450,35 @@ export default function DroneSettingsScreen() {
           } />
         <Row accent={accent} icon="shield-checkmark" iconColor={DR.text3} title="Local storage" subtitle="All data stored on this device" pressable={false} />
         <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} />
-        <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" onPress={() => Linking.openURL('https://blades-app.com')} />
-        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy')} border={false} />
+        <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} />
+        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false} />
       </Card>
+
+      {/* Blade-coins — förklarande popup */}
+      <Modal visible={showCoinInfo} transparent animationType="fade" onRequestClose={() => setShowCoinInfo(false)}>
+        <Pressable onPress={() => setShowCoinInfo(false)} style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 420, backgroundColor: DR.surface, borderRadius: 18, padding: 20, gap: 12, borderWidth: 1, borderColor: DR.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 30, height: 30 }} resizeMode="contain" />
+              <Text style={{ flex: 1, color: DR.text, fontSize: 18, fontWeight: '800' }}>Blade-coins</Text>
+              <TouchableOpacity onPress={() => setShowCoinInfo(false)} hitSlop={10}><Ionicons name="close" size={22} color={DR.muted} /></TouchableOpacity>
+            </View>
+            <Text style={{ color: DR.text2, fontSize: 14, lineHeight: 21 }}>
+              Blade-coins power the app's smart features — automatic aircraft & drone lookups (specs and photos), scanning and reading data from images, and other assisted tasks that do the typing for you.
+            </Text>
+            <Text style={{ color: DR.text2, fontSize: 14, lineHeight: 21 }}>
+              Each smart action spends a few coins. Free accounts get a one-time batch to try them out; Premium refills your coins every month.
+            </Text>
+            <Text style={{ color: DR.muted, fontSize: 13, lineHeight: 19 }}>
+              When your coins run out, these smart features pause until your next refill — everything else in the app keeps working as normal.
+            </Text>
+            <TouchableOpacity onPress={() => setShowCoinInfo(false)} activeOpacity={0.85}
+              style={{ marginTop: 4, backgroundColor: accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Text style={{ color: DR.inkOnAccent, fontSize: 15, fontWeight: '800' }}>Got it</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ── Export logbook pages: välj antal siduppslag (= pilot mode) ── */}
       <Modal visible={pagesModal} transparent animationType="fade" onRequestClose={() => setPagesModal(false)}>

@@ -191,7 +191,8 @@ export default function RootLayout() {
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
         <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
-        <Stack.Screen name="drone-flight/[id]" options={{ title: 'Flight' }} />
+        <Stack.Screen name="drone-flight/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="drone-album" options={{ headerShown: false }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export', presentation: 'modal' }} />
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />

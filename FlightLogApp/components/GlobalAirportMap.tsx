@@ -16,6 +16,7 @@ import { clusterIndexFor, regionToZoom, regionToBbox } from '../services/airport
 // En post från supercluster: antingen ett kluster (properties.cluster) eller en flygplats (properties.row).
 type ClusterFeature = { id?: number | string; geometry: { coordinates: [number, number] }; properties: any };
 import { Colors } from '../constants/colors';
+import { categoryColor, type FlightCat } from '../services/weather';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
 
@@ -35,7 +36,7 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
@@ -383,7 +384,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 
       {/* Filtrerat land: filtrerade flygplatser som ICAO-boxar (samma stil som landsflaggan). Tak
           för att inte krascha Apple Maps med för många egna markörvyer. */}
-      {!clustering && showPins && pins!.slice(0, 170).map((a) => (
+      {!clustering && showPins && pins!.slice(0, 180).map((a) => (
         // Dölj ICAO-boxen för den flygplats vars banor ritas ut (chippen skymmer annars banan).
         (showRunwayLabels && a[0] === focus?.[0]) ? null : (
         <Marker
@@ -393,7 +394,10 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           tracksViewChanges={tracks}
           onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
         >
-          <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>
+          {pinCategory
+            // Väderläge: färgkodad prick per kategori (grön/blå/röd/lila), ingen ICAO-etikett.
+            ? <View style={[s.wxPin, { backgroundColor: categoryColor((pinCategory.get(a[0]) ?? 'VFR')) }]} />
+            : <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>}
         </Marker>
         )
       ))}
@@ -518,6 +522,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
+  // Väder-prick: färgkodad kategori-plupp med mörk kant för kontrast mot både karta och satellit.
+  wxPin: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: 'rgba(5,10,20,0.85)' },
   icaoPin: {
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10,
     borderWidth: 1, borderColor: Colors.primary,

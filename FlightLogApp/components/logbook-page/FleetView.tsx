@@ -1,22 +1,40 @@
-// Fleet-vy: flygna modeller, sorterade senast-flugen (nuvarande först). Responsiv grid.
-import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+// Fleet-vy: flygna modeller, sorterade senast-flugen (nuvarande först). Swipebar karusell (en farkost i taget).
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
-import { getAllAircraftTypes, addAircraftTypeToRegistry, type AircraftRegistryEntry } from '../../db/flights';
+import { getAllAircraftTypes, addAircraftTypeToRegistry, persistAircraftFleetLookup, type AircraftRegistryEntry } from '../../db/flights';
+import { enrichAircraftFleet } from '../../services/aircraftLookup';
+import { hasTokenQuota } from '../../utils/tokenGate';
 import { AircraftModal } from '../AircraftModal';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { FleetCard } from './FleetCard';
 
+const PAGE_W = Dimensions.get('window').width - 28; // karusell-sidbredd (matchar tidigare fullbreddskort)
+
 export function FleetView({ accent, headerRight }: { accent: string; headerRight?: React.ReactNode }) {
   const [fleet, setFleet] = useState<AircraftRegistryEntry[]>([]);
   const [adding, setAdding] = useState(false);
+  const [pageIdx, setPageIdx] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
+  const scrollToKey = useRef<string | null>(null); // sätts efter add → karusellen scrollar till den nya farkosten
 
   const load = useCallback(() => { getAllAircraftTypes().then(setFleet); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const sorted = [...fleet].sort((a, b) => (b.last_flown || '').localeCompare(a.last_flown || ''));
+
+  // Efter att en ny farkost lagts till (och listan laddats om): scrolla karusellen till den.
+  useEffect(() => {
+    const key = scrollToKey.current;
+    if (!key || sorted.length < 2) return;
+    const idx = sorted.findIndex((a) => a.aircraft_type === key);
+    if (idx < 0) return;
+    scrollToKey.current = null;
+    setPageIdx(idx);
+    setTimeout(() => carouselRef.current?.scrollTo({ x: idx * PAGE_W, animated: true }), 80);
+  }, [sorted]);
   const totalRegs = fleet.reduce((s, a) => s + (a.reg_count || 0), 0);
 
   return (
@@ -37,12 +55,27 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
             <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
             <Text style={{ fontFamily: FONT_MONO, fontSize: 12, color: Colors.textMuted, marginTop: 10 }}>No aircraft yet</Text>
           </View>
+        ) : sorted.length === 1 ? (
+          // En enda farkost → fyll hela bredden (som förr).
+          <FleetCard key={sorted[0].aircraft_type} ac={sorted[0]} accent={accent} big onSaved={load} />
         ) : (
-          <View style={{ gap: 12 }}>
-            {sorted.map((ac, i) => (
-              <FleetCard key={ac.aircraft_type} ac={ac} accent={accent} current={i === 0 && !!ac.last_flown} big onSaved={load} />
-            ))}
-          </View>
+          // Flera → swipebar karusell (en farkost i taget, senast flugen först).
+          <>
+            <ScrollView ref={carouselRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast"
+              onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / PAGE_W))}>
+              {sorted.map((ac) => (
+                <View key={ac.aircraft_type} style={{ width: PAGE_W }}>
+                  <FleetCard ac={ac} accent={accent} onSaved={load} />
+                </View>
+              ))}
+            </ScrollView>
+            {/* Sid-indikator (aktiv = accent, längre) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
+              {sorted.map((ac, i) => (
+                <View key={ac.aircraft_type} style={{ width: i === pageIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === pageIdx ? accent : Colors.border }} />
+              ))}
+            </View>
+          </>
         )}
 
         <TouchableOpacity onPress={() => setAdding(true)} activeOpacity={0.8}
@@ -64,7 +97,14 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
         onSave={async (type, speedKts, endH, crewType, category, engineType) => {
           await addAircraftTypeToRegistry(type, speedKts, endH, crewType, category, engineType);
           setAdding(false);
+          scrollToKey.current = type.trim().toUpperCase(); // navigera karusellen till den nya farkosten
           load();
+          // Auto-hämta spec + bild DIREKT för manuellt tillagd farkost (token-styrt). CSV-import har sin
+          // egen sekventiella hämtning efter import och påverkas inte av detta.
+          const key = type.trim().toUpperCase();
+          if (key && hasTokenQuota()) {
+            enrichAircraftFleet(key).then((r) => persistAircraftFleetLookup(key, r)).then(load).catch(() => {});
+          }
         }}
         onClose={() => setAdding(false)}
       />

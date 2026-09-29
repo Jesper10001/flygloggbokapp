@@ -49,8 +49,8 @@ function Stat({ label, value, unit, first, editing, onChange }: {
   );
 }
 
-export function FleetCard({ ac, accent, current, onSaved }: {
-  ac: AircraftRegistryEntry; accent: string; current: boolean; big?: boolean; onSaved: () => void;
+export function FleetCard({ ac, accent, onSaved }: {
+  ac: AircraftRegistryEntry; accent: string; current?: boolean; big?: boolean; onSaved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [typeName, setTypeName] = useState(ac.aircraft_type); // redigerbart typnamn (styr loggbok + export)
@@ -220,8 +220,7 @@ export function FleetCard({ ac, accent, current, onSaved }: {
   return (
     <View
       onLayout={(e) => setCw(e.nativeEvent.layout.width)}
-      style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: current ? accent : Colors.border, borderRadius: 18, overflow: 'hidden',
-        ...(current ? { shadowColor: accent, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 } : null) }}>
+      style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, overflow: 'hidden' }}>
 
       {/* ── Banner: foto (Layer A) + urklipp som spiller över (Layer B) ── */}
       <View style={{ position: 'relative' }}>
@@ -239,12 +238,6 @@ export function FleetCard({ ac, accent, current, onSaved }: {
         {cutout ? (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible' }} pointerEvents="none">
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: Colors.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
-          </View>
-        ) : null}
-
-        {current ? (
-          <View style={{ position: 'absolute', top: 10, left: 14, zIndex: 4, backgroundColor: accent, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4 }}>
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: Colors.card }}>NOW</Text>
           </View>
         ) : null}
 
@@ -277,9 +270,21 @@ export function FleetCard({ ac, accent, current, onSaved }: {
             ) : (
               <Text numberOfLines={1} style={{ flex: 1, fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
             )}
-            <Text style={{ fontFamily: FONT_SERIF, fontSize: 24, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>
-              {fmtTotal(ac.total_hours)}<Text style={{ fontFamily: FONT_MONO, fontSize: 10.5, fontWeight: '700', color: accent }}> h</Text>
-            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              {/* Total flygtid (exkl. sim) i vitt */}
+              <Text style={{ fontFamily: FONT_SERIF, fontSize: 24, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>
+                {fmtTotal(ac.total_hours)}<Text style={{ fontFamily: FONT_MONO, fontSize: 10.5, fontWeight: '700', color: accent }}> h</Text>
+              </Text>
+              {/* Sim-tid för typen i guld (räknas ej mot totaltiden ovan) + (FlightSim) */}
+              {ac.sim_hours > 0 ? (
+                <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
+                  <Text style={{ fontFamily: FONT_SERIF, fontSize: 15, fontWeight: '600', color: Colors.gold, letterSpacing: -0.2 }}>
+                    {fmtTotal(ac.sim_hours)}<Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', color: Colors.gold }}> h</Text>
+                  </Text>
+                  <Text style={{ fontFamily: FONT_MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.4, color: Colors.gold }}>(FlightSim)</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           {editing ? (
             <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginTop: 4, letterSpacing: 0.3 }}>Renaming updates the logbook & export for all flights on this type</Text>

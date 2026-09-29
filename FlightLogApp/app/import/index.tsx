@@ -14,7 +14,6 @@ import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, update
 import { enrichFleetInBackground } from '../../services/fleetEnrich';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
 import { useFlightStore } from '../../store/flightStore';
-import { shouldOpenWrapped, markWrappedUnlocked } from '../../store/wrappedStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
@@ -751,21 +750,10 @@ export default function ImportScreen() {
       }).catch((e) => console.log('[import] fleet enrichment rejected:', e?.message ?? e));
       // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
       const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
-      // Importen klar → lås upp Wrapped + notis (bemannad pilot), annars vanlig bekräftelse.
-      if (await shouldOpenWrapped()) {
-        await markWrappedUnlocked();
-        const sv = t('yes') === 'Ja';
-        Alert.alert(
-          t('done_exclamation'),
-          (sv ? `${saved} ${t('flights_imported')}\n\nDin Wrapped är redo — utforska den i Inställningar.`
-              : `${saved} ${t('flights_imported')}\n\nYour Wrapped is ready — explore it in Settings.`) + dupNote,
-          [{ text: 'OK', onPress: finishNav }],
-        );
-      } else {
-        Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}${dupNote}`, [
-          { text: 'OK', onPress: finishNav },
-        ]);
-      }
+      // Importen klar → vanlig bekräftelse (Wrapped-funktionen borttagen).
+      Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}${dupNote}`, [
+        { text: 'OK', onPress: finishNav },
+      ]);
     } catch (e: any) {
       Alert.alert(t('save_error'), e.message);
     } finally {

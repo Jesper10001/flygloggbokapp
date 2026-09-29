@@ -3,8 +3,8 @@
 // höger: Cluster/Region-växel + Map/Satellite. Cluster (default) = geo-kluster som delas vid inzoomning;
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
-import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard } from 'react-native';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,6 +23,29 @@ import {
   leavesFor, keysNeedRunway, propsActive, matchProps,
   filterCountLabel, EMPTY_PROPS, type MapProps,
 } from '../constants/mapFilters';
+import { fetchMetarsInBbox, categoryColor, type FlightCat } from '../services/weather';
+import { COUNTRY_NAMES } from '../constants/countryNames';
+import { useRegulationStandardStore } from '../store/regulationStandardStore';
+import { useFlightStore } from '../store/flightStore';
+
+// Väderfilter: min-kategori (lägsta acceptabla). VFR bäst → LIFR sämst. En flygplats "möter" kravet
+// om dess aktuella kategori är minst lika bra som vald tröskel (VFR-tröskel = enbart VFR-fält).
+const WX_RANK: Record<string, number> = { VFR: 3, MVFR: 2, IFR: 1, LIFR: 0 };
+function meetsWx(cat: FlightCat | null | undefined, min: FlightCat): boolean {
+  if (!cat) return false;
+  return (WX_RANK[cat] ?? -1) >= (WX_RANK[min] ?? 99);
+}
+const WX_CATS: FlightCat[] = ['VFR', 'MVFR', 'IFR', 'LIFR'];
+const WX_PIN_LIMIT = 180; // väderläget målar ut enskilda pins direkt upp till detta antal, annars klustras det
+
+// Legend-rader: sikt i sm (FAA) eller km (EASA/CAA), molnbas alltid i fot. Samma trösklar som väderfiltret.
+function wxLegendRowsFor(sm: boolean): { cat: FlightCat; vis: string; ceil: string }[] {
+  const vis = sm
+    ? { VFR: 'vis >5 sm', MVFR: 'vis 3–5 sm', IFR: 'vis 1–3 sm', LIFR: 'vis <1 sm' }
+    : { VFR: 'vis >8 km', MVFR: 'vis 5–8 km', IFR: 'vis 1.6–5 km', LIFR: 'vis <1.6 km' };
+  const ceil = { VFR: 'ceil >3000 ft', MVFR: 'ceil 1000–3000 ft', IFR: 'ceil 500–1000 ft', LIFR: 'ceil <500 ft' };
+  return WX_CATS.map((cat) => ({ cat, vis: vis[cat], ceil: ceil[cat] }));
+}
 
 // Snabb-typfilter (swipebar rad bredvid Favorites). "Airports L/M" togglar large+medium ihop.
 const TYPE_CHIPS: { label: string; keys: string[] }[] = [
@@ -99,9 +122,32 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [closedMode, setClosedMode] = useState<'hide' | 'include' | 'only'>('hide'); // closed döljs som standard
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
-  // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Access / Closed.
-  const [openSection, setOpenSection] = useState<null | 'props' | 'access' | 'closed'>(null);
+  // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Weather / Access / Closed.
+  const [openSection, setOpenSection] = useState<null | 'props' | 'weather' | 'access' | 'closed'>(null);
   const propsOpen = openSection === 'props';
+
+  // ── Väderfilter (Global map) ──────────────────────────────────────────────────
+  // Flöde: välj min-kategori → land-sökruta → hämta METAR för landet (bbox, kaklat) → måla progressivt
+  // bara flygplatser som möter kravet. wxResults fylls tile-för-tile (ICAO → kategori).
+  const [wxCat, setWxCat] = useState<FlightCat | 'ALL' | null>(null); // 'ALL' = visa alla stationer, färgkodat
+  const [wxCountry, setWxCountry] = useState<string | null>(null); // ISO2
+  const [wxResults, setWxResults] = useState<Map<string, FlightCat | null>>(new Map());
+  const [wxLoading, setWxLoading] = useState(false);
+  const [wxAsOf, setWxAsOf] = useState<number | null>(null);
+  const [countryPickerFor, setCountryPickerFor] = useState<FlightCat | 'ALL' | null>(null); // satt → land-sökrutan öppen
+  const [countryQuery, setCountryQuery] = useState('');
+  const wxRunRef = useRef(0); // avbryter en pågående hämtning om användaren byter land/kategori
+  const regStandard = useRegulationStandardStore((s) => s.standard);
+  const wxLegendRows = useMemo(() => wxLegendRowsFor(regStandard === 'faa'), [regStandard]);
+  // Väderfiltret är en Blades Premium-funktion.
+  const isPremium = useFlightStore((s) => s.isPremium);
+  const promptWeatherPremium = () => {
+    Alert.alert(
+      'Blades Premium',
+      'Filtering airports by live weather (METAR) is a Blades Premium feature.',
+      [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/settings/premium') }],
+    );
+  };
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
@@ -135,19 +181,31 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const base = closedMode === 'include' ? favBase
       : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed')
       : favBase.filter((r) => r[8] !== 'closed');
-    if (!leaves.length && !pActive) return base;
-    const idx = (runwayActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
-    return base.filter((r) => {
-      const rwy = idx?.get(r[0]);
-      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) return false;
-      if (runwayActive && !matchProps(rwy, mapProps)) return false;
-      if (altActive) {
-        const a = r[7];
-        if (a == null || (mapProps.minAltFt != null && a < mapProps.minAltFt) || (mapProps.maxAltFt != null && a > mapProps.maxAltFt)) return false;
-      }
-      return true;
-    });
-  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites]);
+    let result: SeedRow[];
+    if (!leaves.length && !pActive) {
+      result = base;
+    } else {
+      const idx = (runwayActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
+      result = base.filter((r) => {
+        const rwy = idx?.get(r[0]);
+        if (leaves.length && !leaves.some((l) => l.match(r, rwy))) return false;
+        if (runwayActive && !matchProps(rwy, mapProps)) return false;
+        if (altActive) {
+          const a = r[7];
+          if (a == null || (mapProps.minAltFt != null && a < mapProps.minAltFt) || (mapProps.maxAltFt != null && a > mapProps.maxAltFt)) return false;
+        }
+        return true;
+      });
+    }
+    // Väderfilter sist: bara valt land. 'ALL' → alla fält med en rapporterad kategori (färgkodas på kartan);
+    // annars bara de som möter min-kategorin. wxResults fylls progressivt.
+    if (wxCat && wxCountry) {
+      result = wxCat === 'ALL'
+        ? result.filter((r) => r[2] === wxCountry && wxResults.get(r[0]) != null)
+        : result.filter((r) => r[2] === wxCountry && meetsWx(wxResults.get(r[0]), wxCat));
+    }
+    return result;
+  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults]);
 
   // Runway-längdintervall för nuvarande urval (kategori/closed/fav — EJ längdfiltret självt) → sätter
   // slidrarnas gränser + default (kortaste/längsta bana som finns). Beräknas bara när Properties är öppet.
@@ -236,8 +294,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
-    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : ''),
-    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites],
+    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : ''),
+    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults],
   );
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
@@ -248,8 +306,14 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     [currentNode, currentAirports],
   );
   const isBranch = childrenData.length > 1; // >1 delnod → gren (region-markörer); annars löv (pins)
+  // Väderläge: måla ut de matchande flygplatserna DIREKT som enskilda pins (ingen klustring) så länge de
+  // ryms under kart-taket (WX_PIN_LIMIT). Över taket faller vi tillbaka på klustring för prestanda.
+  const wxDirect = !!(wxCat && wxCountry) && typedSeed.length > 0 && typedSeed.length <= WX_PIN_LIMIT;
   // Favorites i världsvyn → visa favoriterna som pins direkt (inte landsflaggor). Annars normal drill.
-  const pins = favMode && !currentNode ? typedSeed : currentNode && !isBranch ? currentAirports : undefined;
+  const pins = wxDirect ? typedSeed
+    : favMode && !currentNode ? typedSeed
+    : currentNode && !isBranch ? currentAirports
+    : undefined;
   const regionMarkers = isBranch
     ? childrenData.map((c) => ({ key: c.node.key, label: c.node.label, count: c.count, lat: c.lat, lon: c.lon }))
     : undefined;
@@ -346,6 +410,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const closeMap = () => {
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
+    clearWeather();
     onClose();
   };
   // Favorites-knapp: nollställ filter + drill, zooma ut till världen, visa bara favoriter (går att
@@ -407,12 +472,100 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const setLenRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minLenM: lo <= lenRange.min ? null : lo, maxLenM: hi >= lenRange.max ? null : hi }));
   const setAltRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minAltFt: lo <= altRange.min ? null : lo, maxAltFt: hi >= altRange.max ? null : hi }));
   const toggleSurface = (sfc: 'asphalt' | 'grass') => setMapProps((p) => ({ ...p, surface: p.surface === sfc ? null : sfc }));
-  const toggleSection = (s: 'props' | 'access' | 'closed') => setOpenSection((cur) => (cur === s ? null : s));
+  const toggleSection = (s: 'props' | 'weather' | 'access' | 'closed') => setOpenSection((cur) => (cur === s ? null : s));
   const accessOn = ACCESS_CHIPS.some((c) => activeKeys.has(c.key));
+
+  // ── Väderfilter-hjälpare ──────────────────────────────────────────────────────
+  // Länder som finns i seed-datan → engelska namn, alfabetiskt. Underlag för land-sökrutan.
+  const seedCountries = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of seedData) { if (r[2]) set.add(r[2]); }
+    return [...set].map((cc) => ({ cc, name: COUNTRY_NAMES[cc] ?? cc })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [seedData]);
+  const countryMatches = useMemo(() => {
+    const q = countryQuery.trim().toLowerCase();
+    if (!q) return seedCountries.slice(0, 60);
+    return seedCountries.filter((c) => c.name.toLowerCase().includes(q) || c.cc.toLowerCase() === q).slice(0, 60);
+  }, [seedCountries, countryQuery]);
+
+  const clearWeather = () => {
+    wxRunRef.current++; // avbryt ev. pågående hämtning
+    setWxCat(null); setWxCountry(null); setWxResults(new Map()); setWxLoading(false); setWxAsOf(null);
+    setCountryPickerFor(null); setCountryQuery('');
+  };
+
+  // Hämtar landets METAR (bbox kaklat i 2×2 → progressiv utmålning) och fyller wxResults tile-för-tile.
+  const runWeatherSearch = async (cat: FlightCat | 'ALL', cc: string) => {
+    const inC = seedData.filter((r) => r[2] === cc && Number.isFinite(r[4]) && Number.isFinite(r[5]) && !(r[4] === 0 && r[5] === 0));
+    const token = ++wxRunRef.current;
+    setCountryPickerFor(null); setCountryQuery(''); setOpenSection(null);
+    setWxCat(cat); setWxCountry(cc); setWxResults(new Map()); setWxAsOf(null);
+    setDrillStack([]); setFocusAirport(null); setFavMode(false); // väderläget står på egna ben
+    if (!inC.length) { setWxLoading(false); return; }
+    let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
+    for (const r of inC) { const la = r[4], lo = r[5]; if (la < minLa) minLa = la; if (la > maxLa) maxLa = la; if (lo < minLo) minLo = lo; if (lo > maxLo) maxLo = lo; }
+    // Zooma till landet (clusterMode monterar på mapRegion). Klampa deltan till GILTIGA värden —
+    // annars kan ett land som spänner nära hela jordklotet (USA: Aleuterna→Guam ≈ 340° longitud) ge
+    // longitudeDelta > 360 → ogiltig Region → native-kartan kraschar.
+    setMapRegion({
+      latitude: (minLa + maxLa) / 2, longitude: (minLo + maxLo) / 2,
+      latitudeDelta: Math.min(Math.max((maxLa - minLa) * 1.3, 0.5), 140),
+      longitudeDelta: Math.min(Math.max((maxLo - minLo) * 1.3, 0.5), 300),
+    });
+    setWxLoading(true);
+    const seedIcaos = new Set(inC.map((r) => r[0])); // bara landets egna fält (bbox kan spilla in i grannländer)
+
+    // Rutnät över landets EGNA flygplatser: bara populerade celler hämtas, var och en begränsad till
+    // CELL° → varje bbox-anrop ger ett litet, regionalt svar. Stora länder (USA sträcker sig ~340° i
+    // longitud via Aleuterna/Guam/Samoa) blev annars ett nära-globalt anrop → enormt svar → krasch.
+    const CELL = 12;               // grader per cell
+    const MAX_CELLS = 60;          // säkerhetstak på antal anrop
+    const MAX_STATIONS = 800;      // säkerhetstak på antal stationer (hindrar minnesskena)
+    const cells = new Map<string, { la0: number; lo0: number }>();
+    for (const r of inC) {
+      const la0 = Math.floor(r[4] / CELL) * CELL, lo0 = Math.floor(r[5] / CELL) * CELL;
+      const k = `${la0},${lo0}`;
+      if (!cells.has(k)) cells.set(k, { la0, lo0 });
+    }
+    const cellList = [...cells.values()].slice(0, MAX_CELLS);
+
+    const acc = new Map<string, FlightCat | null>();
+    let sinceUpdate = 0;
+    for (let i = 0; i < cellList.length; i++) {
+      if (wxRunRef.current !== token) return; // användaren bytte land/kategori → avbryt tyst
+      if (acc.size >= MAX_STATIONS) break;
+      const c = cellList[i];
+      const stations = await fetchMetarsInBbox(c.la0, c.lo0, c.la0 + CELL, c.lo0 + CELL);
+      if (wxRunRef.current !== token) return;
+      for (const s of stations) {
+        if (seedIcaos.has(s.icao)) acc.set(s.icao, s.category);
+        if (acc.size >= MAX_STATIONS) break;
+      }
+      // Batcha uppdateringar (var 4:e cell + sista) → färre remounts/omklustringar.
+      if (++sinceUpdate >= 4 || i === cellList.length - 1) { setWxResults(new Map(acc)); setWxAsOf(Date.now()); sinceUpdate = 0; }
+    }
+    if (wxRunRef.current === token) setWxLoading(false);
+  };
 
   const showMapCtrls = !focusAirport;
   const hideCountries = !!focusAirport || mapSearch.trim().length >= 2 || drillStack.length > 0;
   const showBack = !!focusAirport || drillStack.length > 0;
+  const wxLegendShown = !!wxCat && !focusAirport; // väder-legend visas i väderläget (ej vid enskilt flygplatsfokus)
+
+  // Landskort (flagga + namn + antal) — återanvänds både uppe (vid fokus) och nere till vänster.
+  const countryCardEl = country ? (
+    <View style={styles.countryBox}>
+      <CountryFlag code={country} height={42} radius={3} />
+      <View style={styles.countryInfo}>
+        <Text style={styles.countryName} numberOfLines={1}>{countryNameFull(country)}</Text>
+        {inRegion && <Text style={styles.countryRegion} numberOfLines={2}>{regionLabel}</Text>}
+        <Text style={styles.countryStat} numberOfLines={1}>
+          {String(boxAirportCount).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} {filterCountLabel(activeKeys)}
+        </Text>
+        {!inRegion && <Text style={styles.countryStat} numberOfLines={1}>{formatPopulation(COUNTRY_POPULATION[country])} people</Text>}
+      </View>
+    </View>
+  ) : null;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={closeMap}>
@@ -424,8 +577,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             // Klusterläge: montera på SENAST kända vyn (mapRegion) → filterändring (mapKey-remount) hoppar
             // inte till världen. frameRegion lämnas otilldelad (annars animerar den tillbaka till WORLD).
             initialRegion={clusterMode ? mapRegion : frameRegion}
-            mode={clusterMode ? 'auto' : 'country'}
-            clustering={clusterMode}
+            // Väderläge (under taket) → tvinga enskilda pins, ingen klustring.
+            mode={wxDirect ? 'pins' : clusterMode ? 'auto' : 'country'}
+            clustering={wxDirect ? false : clusterMode}
             clusterKey={mapKey}
             onRegionChange={clusterMode ? setMapRegion : undefined}
             onSelectCountry={clusterMode ? undefined : handleSelectCountry}
@@ -435,6 +589,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             hideCountries={hideCountries}
             mapType={satellite ? 'hybridFlyover' : 'standard'}
             pins={pins}
+            pinCategory={wxCat && wxCountry ? wxResults : undefined}
             regionMarkers={regionMarkers}
             hulls={hulls}
             regionShapes={regionShapes}
@@ -442,13 +597,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             neighborShapes={neighborShapes}
             onSelectNeighbor={handleSelectNeighbor}
             frameRegion={clusterMode ? undefined : frameRegion}
-            showCompass
-            compassTop={insets.top + 60}
           />
         )}
 
         {/* Ingen träff på platsen med aktuellt filter → centrerad varning */}
-        {noMatches && (
+        {noMatches && !wxCat && (
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
             <View style={styles.noMatchBox}>
               <Ionicons name="funnel-outline" size={20} color={Colors.textSecondary} />
@@ -456,6 +609,57 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             </View>
           </View>
         )}
+
+        {/* Väderläge: laddning respektive "inga fält möter kravet" (progressiv utmålning fyller på). */}
+        {wxCat && wxCountry && (wxLoading || typedSeed.length === 0) && (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={styles.noMatchBox}>
+              <Ionicons name={wxLoading ? 'cloud-download-outline' : 'partly-sunny-outline'} size={20} color={Colors.textSecondary} />
+              <Text style={styles.noMatchTxt}>
+                {wxLoading
+                  ? `Fetching weather for\n${COUNTRY_NAMES[wxCountry] ?? wxCountry}…`
+                  : `No airport in ${COUNTRY_NAMES[wxCountry] ?? wxCountry}\ncurrently reports ≥ ${wxCat}`}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Land-sökruta: öppnas efter att en väderkategori valts. Progressiv (engelska) landsträffar. */}
+        <Modal visible={countryPickerFor != null} transparent animationType="fade" onRequestClose={() => setCountryPickerFor(null)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => setCountryPickerFor(null)}
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', paddingHorizontal: 24 }}>
+            <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.cpSheet}>
+              <View style={styles.cpHeader}>
+                {countryPickerFor === 'ALL'
+                  ? <View style={{ flexDirection: 'row', gap: 3 }}>{WX_CATS.map((cat) => <View key={cat} style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />)}</View>
+                  : countryPickerFor ? <View style={[styles.wxDot, { backgroundColor: categoryColor(countryPickerFor) }]} /> : null}
+                <Text style={styles.cpTitle}>{countryPickerFor === 'ALL' ? 'All stations · choose country' : countryPickerFor ? `≥ ${countryPickerFor} · choose country` : 'Choose country'}</Text>
+              </View>
+              <TextInput
+                value={countryQuery}
+                onChangeText={setCountryQuery}
+                placeholder="Type a country name…"
+                placeholderTextColor={Colors.textMuted}
+                autoFocus
+                autoCorrect={false}
+                style={styles.cpInput}
+              />
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
+                {countryMatches.length === 0 && (
+                  <Text style={styles.cpEmpty}>No matching country</Text>
+                )}
+                {countryMatches.map((c) => (
+                  <TouchableOpacity key={c.cc} activeOpacity={0.7} style={styles.cpRow}
+                    onPress={() => { Keyboard.dismiss(); if (countryPickerFor) runWeatherSearch(countryPickerFor, c.cc); }}>
+                    <CountryFlag code={c.cc} height={14} />
+                    <Text style={styles.cpName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.cpCc}>{c.cc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Stäng — uppe till höger */}
         <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
@@ -474,33 +678,36 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </TouchableOpacity>
         )}
 
-        {/* Landruta: vid flygplatsfokus uppe (mellan Back och X, som förr); annars nere till vänster
-            (ovanför ev. Back) så filtermodulen får ligga kvar upptill. Samma storlek (styles.countryBox). */}
-        {country && (
-          <View pointerEvents="none" style={[
-            { position: 'absolute', zIndex: 24 },
-            focusAirport
-              ? { top: insets.top + 12, left: 96, right: 56, alignItems: 'center' }
-              : { bottom: 24 + (showBack ? 42 : 0), left: 12, alignItems: 'flex-start' },
-          ]}>
-            <View style={styles.countryBox}>
-              <CountryFlag code={country} height={42} radius={3} />
-              <View style={styles.countryInfo}>
-                <Text style={styles.countryName} numberOfLines={1}>{countryNameFull(country)}</Text>
-                {inRegion && <Text style={styles.countryRegion} numberOfLines={2}>{regionLabel}</Text>}
-                <Text style={styles.countryStat} numberOfLines={1}>
-                  {String(boxAirportCount).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} {filterCountLabel(activeKeys)}
-                </Text>
-                {!inRegion && <Text style={styles.countryStat} numberOfLines={1}>{formatPopulation(COUNTRY_POPULATION[country])} people</Text>}
+        {/* Landruta vid flygplatsfokus: uppe (mellan Back och X, som förr). */}
+        {focusAirport && countryCardEl && (
+          <View pointerEvents="none" style={{ position: 'absolute', zIndex: 24, top: insets.top + 12, left: 96, right: 56, alignItems: 'center' }}>
+            {countryCardEl}
+          </View>
+        )}
+
+        {/* Utan fokus: nere till vänster. I väderläget döljs landskortet (onödigt) och bara legenden visas. */}
+        {!focusAirport && ((countryCardEl && !wxCat) || wxLegendShown) && (
+          <View pointerEvents="none" style={{ position: 'absolute', zIndex: 24, bottom: 24 + (showBack ? 42 : 0), left: 12, alignItems: 'flex-start', gap: 8 }}>
+            {!wxCat && countryCardEl}
+            {wxLegendShown && (
+              <View style={styles.wxLegendCard}>
+                <Text style={styles.wxLegendTitle}>Flight categories</Text>
+                {wxLegendRows.map((row) => (
+                  <View key={row.cat} style={styles.wxLegendRow}>
+                    <View style={[styles.wxLegendDot, { backgroundColor: categoryColor(row.cat) }]} />
+                    <Text style={styles.wxLegendCat}>{row.cat}</Text>
+                    <Text style={styles.wxLegendTxt} numberOfLines={1}>{row.vis} · {row.ceil}</Text>
+                  </View>
+                ))}
               </View>
-            </View>
+            )}
           </View>
         )}
 
         {/* Filtermodul (sök + typ-chips + Properties) — ligger kvar upptill så länge ingen flygplats är
             vald (alla zoomnivåer/drill-lägen). Landrutan flyttas då nere till vänster (krockar ej). */}
         {!focusAirport && (
-          <View style={{ position: 'absolute', top: insets.top + 12, left: 12, right: 60, pointerEvents: 'box-none' }}>
+          <View style={{ position: 'absolute', top: insets.top + 12, left: 12, right: 12, pointerEvents: 'box-none' }}>
             <View style={styles.searchRow}>
               <Ionicons name="search" size={16} color={Colors.textMuted} />
               <TextInput
@@ -519,7 +726,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               )}
             </View>
             {/* Swipebar filterrad + expander. Favorites ligger FÖRST i scrollen (scrollas bort med
-                resten, inget statiskt). Raden ligger inom right:60 → rör ej kompassrosen. */}
+                resten, inget statiskt). Full bredd (kompassrosen borttagen) → mer plats åt Closed-knappen. */}
             {searchResults.length === 0 && (
               <View style={{ marginTop: 8 }}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
@@ -547,6 +754,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <Ionicons name="options-outline" size={12} color={propsActive(mapProps) ? Colors.primary : '#fff'} />
                     <Text style={[styles.propsToggleTxt, propsActive(mapProps) && { color: Colors.primary }]}>Properties</Text>
                     <Ionicons name={propsOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { if (!isPremium) { promptWeatherPremium(); return; } toggleSection('weather'); }} activeOpacity={0.85}
+                    style={[styles.propsToggle, openSection === 'weather' && styles.propsToggleActive]}>
+                    <Ionicons name="partly-sunny-outline" size={12} color={wxCat ? Colors.primary : '#fff'} />
+                    <Text style={[styles.propsToggleTxt, wxCat && { color: Colors.primary }]}>Weather</Text>
+                    <Ionicons name={!isPremium ? 'lock-closed' : openSection === 'weather' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => toggleSection('access')} activeOpacity={0.85}
                     style={[styles.propsToggle, openSection === 'access' && styles.propsToggleActive]}>
@@ -579,6 +792,44 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                         <Text style={[styles.propPillTxt, mapProps.lit && { color: Colors.primary }]}>Lit</Text>
                       </TouchableOpacity>
                     </View>
+                  </View>
+                )}
+
+                {openSection === 'weather' && (
+                  <View style={styles.propsPanel}>
+                    <Text style={styles.wxHint}>Pick a minimum flight category (or All), then choose a country to search.</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      {WX_CATS.map((cat) => {
+                        const on = wxCat === cat;
+                        return (
+                          <TouchableOpacity key={cat} onPress={() => { setCountryQuery(''); setCountryPickerFor(cat); }} activeOpacity={0.7}
+                            style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }, on && styles.propPillOn]}>
+                            <View style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />
+                            <Text style={[styles.propPillTxt, on && { color: Colors.primary }]}>{cat}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    {/* All: hämta alla stationer i landet och färgkoda varje flygplats efter kategori. */}
+                    <TouchableOpacity onPress={() => { setCountryQuery(''); setCountryPickerFor('ALL'); }} activeOpacity={0.7}
+                      style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }, wxCat === 'ALL' && styles.propPillOn]}>
+                      <View style={{ flexDirection: 'row', gap: 3 }}>
+                        {WX_CATS.map((cat) => <View key={cat} style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />)}
+                      </View>
+                      <Text style={[styles.propPillTxt, wxCat === 'ALL' && { color: Colors.primary }]}>All stations (color-coded)</Text>
+                    </TouchableOpacity>
+                    {wxCat && wxCountry && (
+                      <View style={styles.wxStatusRow}>
+                        <Text style={styles.wxStatusTxt} numberOfLines={1}>
+                          {`${wxCat === 'ALL' ? 'All' : `≥ ${wxCat}`} · ${COUNTRY_NAMES[wxCountry] ?? wxCountry} · ${typedSeed.length} shown`}
+                          {wxLoading ? ' · loading…' : ''}
+                        </Text>
+                        <TouchableOpacity onPress={clearWeather} activeOpacity={0.7} style={styles.wxClearBtn}>
+                          <Ionicons name="close" size={12} color="#fff" />
+                          <Text style={styles.wxClearTxt}>Clear</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -634,10 +885,13 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         {/* Kartkontroller — nere till höger: Cluster/Region-växel (vänster) + Map/Satellite (höger, längst ut). */}
         {showMapCtrls && (
           <View style={{ position: 'absolute', bottom: 24, right: 16, flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity onPress={() => setMode(!clusterMode)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
-              <Ionicons name={clusterMode ? 'flag' : 'apps'} size={15} color="#fff" />
-              <Text style={styles.mapCtrlTxt}>{clusterMode ? 'Region' : 'Cluster'}</Text>
-            </TouchableOpacity>
+            {/* Region/Cluster-växeln döljs i väderläget (legenden täcker den ändå). */}
+            {!wxCat && (
+              <TouchableOpacity onPress={() => setMode(!clusterMode)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
+                <Ionicons name={clusterMode ? 'flag' : 'apps'} size={15} color="#fff" />
+                <Text style={styles.mapCtrlTxt}>{clusterMode ? 'Region' : 'Cluster'}</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => setSatellite((s) => !s)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
               <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
               <Text style={styles.mapCtrlTxt}>{satellite ? 'Map' : 'Satellite'}</Text>
@@ -690,6 +944,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 12,
     paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', gap: 8,
+    marginRight: 48, // håll sökraden fri från X-stängknappen uppe till höger (kompassen borttagen)
   },
   searchInput: { flex: 1, color: '#fff', fontSize: 15, paddingVertical: 10 },
   favBtn: {
@@ -704,7 +959,7 @@ const styles = StyleSheet.create({
   typeChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   typeChipTxt: { color: '#fff', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.2, textAlign: 'center' },
   typeChipTxtOn: { color: '#062024' },
-  // Properties-expander + panel (under swipe-raden). Ligger inom right:60 → rör ej kompassrosen.
+  // Properties-expander + panel (under swipe-raden). Full bredd (kompassrosen borttagen).
   expRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 },
   propsToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7, backgroundColor: 'rgba(15,22,38,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   propsToggleActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
@@ -738,6 +993,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 14, maxWidth: '82%',
   },
   noMatchTxt: { color: Colors.textSecondary, fontSize: 13.5, fontWeight: '700', lineHeight: 19 },
+  // Väderpanel
+  wxHint: { color: Colors.textSecondary, fontSize: 11.5, fontWeight: '600', lineHeight: 16 },
+  wxDot: { width: 9, height: 9, borderRadius: 5 },
+  wxStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  wxStatusTxt: { flex: 1, color: Colors.primary, fontSize: 11.5, fontWeight: '700' },
+  wxClearBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  wxClearTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  // Land-sökruta (country picker)
+  cpSheet: { backgroundColor: 'rgba(15,22,38,0.98)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', padding: 14 },
+  cpHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  cpTitle: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+  cpInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 15, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
+  cpEmpty: { color: Colors.textMuted, fontSize: 13, fontWeight: '600', paddingVertical: 14, textAlign: 'center' },
+  cpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  cpName: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' },
+  cpCc: { color: Colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  // Väder-legend (nedre vänstra hörnet, under landskortet)
+  wxLegendCard: { backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
+  wxLegendTitle: { color: Colors.textSecondary, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 2 },
+  wxLegendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  wxLegendDot: { width: 9, height: 9, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(5,10,20,0.6)' },
+  wxLegendCat: { color: '#fff', fontSize: 10.5, fontWeight: '800', width: 34 },
+  wxLegendTxt: { color: Colors.textSecondary, fontSize: 10.5, fontWeight: '600' },
   countryBox: {
     flexDirection: 'row', alignItems: 'center', gap: 9, maxWidth: '100%',
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12,

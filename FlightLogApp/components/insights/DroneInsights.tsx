@@ -43,7 +43,6 @@ export function DroneInsights() {
   }, [loadAccent, loadFlights, loadStats]));
 
   const monthly = useMemo(() => buildMonthly(flights), [flights]);
-  const topPlaces = useMemo(() => buildTopPlaces(flights), [flights]);
   const last90 = useMemo(() => {
     const c = new Date(); c.setDate(c.getDate() - 90); const cut = c.toISOString().slice(0, 10);
     return flights.filter((f) => f.date >= cut).reduce((s, f) => s + (f.total_time || 0), 0);
@@ -149,20 +148,6 @@ export function DroneInsights() {
         </View>
       </Section>
 
-      {/* Top locations */}
-      {topPlaces.length > 0 && (
-        <Section accent={accent} title="Top locations" icon="location-outline">
-          <View style={{ gap: 8 }}>
-            {topPlaces.map((p) => (
-              <View key={p.name} style={s.placeRow}>
-                <Ionicons name="location" size={14} color={accent} />
-                <Text style={s.placeName} numberOfLines={1}>{p.name}</Text>
-                <Text style={s.placeCount}>{p.count}<Text style={s.placeUnit}> {p.count === 1 ? 'flight' : 'flights'}</Text></Text>
-              </View>
-            ))}
-          </View>
-        </Section>
-      )}
     </ScrollView>
   );
 }
@@ -212,17 +197,6 @@ function buildMonthly(flights: DroneFlight[]): { label: string; count: number }[
     if (key in idx) buckets[idx[key]].count++;
   }
   return buckets.map(({ label, count }) => ({ label, count }));
-}
-
-function buildTopPlaces(flights: DroneFlight[]): { name: string; count: number }[] {
-  const counts: Record<string, number> = {};
-  for (const f of flights) {
-    const name = (f.location || '').trim();
-    if (!name) continue;
-    counts[name] = (counts[name] || 0) + 1;
-  }
-  return Object.entries(counts).map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count).slice(0, 5);
 }
 
 const s = StyleSheet.create({
