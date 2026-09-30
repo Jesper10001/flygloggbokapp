@@ -33,3 +33,9 @@ scripts/ne-data/
 scripts/am-data/
 scripts/runways.csv
 scripts/freq.csv
+
+# Lokal runtime-databas (op-sqlite/SQLCipher skapar den vid körning) — får ALDRIG committas,
+# så riktig dev-/användardata inte läcker in i repot.
+flightlog.db
+*.db-wal
+*.db-shm

@@ -29,6 +29,7 @@ import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 import { AppLockGate } from '../components/AppLockGate';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useAppLockStore } from '../store/appLockStore';
 import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled } from '../services/icloudSync';
@@ -36,6 +37,8 @@ import { isEnabled as icloudEnabled } from '../services/icloudSync';
 export default function RootLayout() {
   const router = useRouter();
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null); // start-fel (t.ex. DB kunde inte öppnas)
+  const [retryNonce, setRetryNonce] = useState(0);                  // ökas av "Try again" → kör om init
   const { loadLanguage } = useLanguageStore();
   const { loadTimeFormat } = useTimeFormatStore();
   const { loadTheme, theme } = useThemeStore();
@@ -68,6 +71,7 @@ export default function RootLayout() {
     // släpper till landscape
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { /* ignore */ });
     const init = async () => {
+      setInitError(null);
       try {
         // Ladda designtypsnitten (milestone-korten m.fl.). Variabel-fonterna
         // registreras under stabila family-namn så de kan användas direkt.
@@ -118,12 +122,16 @@ export default function RootLayout() {
         // till ankaret 'index' (manned, href:null i drönarläge) → svart skärm vid omstart.
         const dest = !onboarded ? '/onboarding' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
         router.replace(dest as any);
-      } catch (err) {
+      } catch (err: any) {
+        // Startfel (oftast DB kunde inte öppnas — korrupt fil eller SQLCipher-nyckel saknas).
+        // Visa en recovery-vy i stället för att hänga kvar på splash för alltid.
         console.error('DB init error:', err);
+        setInitError(String(err?.message ?? err ?? 'Unknown error'));
+        setFontsLoaded(true); // så vi lämnar splash-gaten och kan rendera recovery-vyn
       }
     };
     init();
-  }, []);
+  }, [retryNonce]);
 
   if (forceUpdate) {
     return (
@@ -149,6 +157,32 @@ export default function RootLayout() {
     );
   }
 
+  // Startfel (t.ex. databasen kunde inte öppnas): visa en recovery-vy med "Try again" i stället
+  // för att fastna på splash. Datan ligger kvar på enheten — omstart eller iCloud-restore är vägen ut.
+  if (initError) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <StatusBar style={'light'} />
+        <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: Colors.danger + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <Ionicons name="warning" size={32} color={Colors.danger} />
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 }}>
+          Couldn't start
+        </Text>
+        <Text style={{ fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+          The app couldn't open your logbook database. Your data is still on this device. Try again, or restart the app. If it keeps failing, you can restore from an iCloud backup after reinstalling.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}
+          onPress={() => setRetryNonce((n) => n + 1)}
+          activeOpacity={0.85}
+        >
+          <Text style={{ color: Colors.textInverse, fontSize: 16, fontWeight: '700' }}>Try again</Text>
+        </TouchableOpacity>
+      </GestureHandlerRootView>
+    );
+  }
+
   // Vänta med att montera navigatorn tills typsnitten registrerats — annars hinner skärmar
   // (dashboardens LED/serif-text m.fl.) renderas med system-fallback och ritas inte om när fonten
   // laddats klart. Native-splashen matchar denna navy-yta → sömlös övergång. fontsLoaded sätts alltid
@@ -165,6 +199,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
       <StatusBar style={'light'} />
+      <ErrorBoundary>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: Colors.surface },
@@ -212,6 +247,7 @@ export default function RootLayout() {
         <Stack.Screen name="mode-picker" options={{ headerShown: false }} />
         <Stack.Screen name="wrapped" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
+      </ErrorBoundary>
       <ToastHost />
       <FleetDoneHost />
       <SplashOverlay />

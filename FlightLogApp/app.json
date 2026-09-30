@@ -22,9 +22,9 @@
         ]
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "Kameran används för att skanna fysiska loggböcker med OCR.",
-        "NSPhotoLibraryUsageDescription": "Fotobiblioteket används för att välja bilder för OCR-skanning.",
-        "NSLocationWhenInUseUsageDescription": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser.",
+        "NSCameraUsageDescription": "The camera is used to scan physical logbooks with OCR.",
+        "NSPhotoLibraryUsageDescription": "Your photo library is used to pick images for OCR scanning.",
+        "NSLocationWhenInUseUsageDescription": "Your location is used to find your current position when logging temporary landing sites.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSUbiquitousContainers": {
           "iCloud.com.blades.jointlogbook": {
@@ -68,13 +68,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Kameran används för OCR-skanning av loggböcker."
+          "cameraPermission": "The camera is used for OCR scanning of logbooks."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Platsen används för att hitta din nuvarande position när du loggar tillfälliga landningsplatser."
+          "locationWhenInUsePermission": "Your location is used to find your current position when logging temporary landing sites."
         }
       ],
       "@react-native-community/datetimepicker",

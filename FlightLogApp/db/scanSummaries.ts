@@ -1,6 +1,31 @@
 import { getDatabase } from './database';
 import type { PageTotals } from '../services/ocr';
 
+// Robust tolkning av en lagrad PageTotals-kolumn. En null/tom/trasig rad (t.ex. från ett
+// äldre schema eller en avbruten skrivning) får ALDRIG krascha hela summeringsladdningen —
+// vi faller tillbaka på nollor och coerce:ar varje fält till number.
+function safeTotals(raw: string | null | undefined): PageTotals {
+  const empty: PageTotals = {
+    total_time: 0, pic: 0, co_pilot: 0, dual: 0, instructor: 0,
+    ifr: 0, night: 0, landings_day: 0, landings_night: 0,
+  };
+  if (!raw) return empty;
+  let obj: any;
+  try { obj = JSON.parse(raw); } catch { return empty; }
+  if (!obj || typeof obj !== 'object') return empty;
+  return {
+    total_time: Number(obj.total_time) || 0,
+    pic: Number(obj.pic) || 0,
+    co_pilot: Number(obj.co_pilot) || 0,
+    dual: Number(obj.dual) || 0,
+    instructor: Number(obj.instructor) || 0,
+    ifr: Number(obj.ifr) || 0,
+    night: Number(obj.night) || 0,
+    landings_day: Number(obj.landings_day) || 0,
+    landings_night: Number(obj.landings_night) || 0,
+  };
+}
+
 export interface ScanSummary {
   id: number;
   book_name: string;
@@ -52,9 +77,9 @@ export async function getAllScanSummaries(): Promise<ScanSummary[]> {
     book_name: r.book_name,
     page_name: r.page_name,
     created_at: r.created_at,
-    total_this_page: JSON.parse(r.total_this_page),
-    brought_forward: JSON.parse(r.brought_forward),
-    total_to_date: JSON.parse(r.total_to_date),
+    total_this_page: safeTotals(r.total_this_page),
+    brought_forward: safeTotals(r.brought_forward),
+    total_to_date: safeTotals(r.total_to_date),
     row_count: r.row_count,
     flight_count_at_save: r.flight_count_at_save,
   }));
