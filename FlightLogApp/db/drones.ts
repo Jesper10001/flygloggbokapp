@@ -415,6 +415,10 @@ export interface DroneFlight {
   media_type: string;     // 'image' | 'video'
   photo_local_id: string | null; // foto-synk: bibliotekets localIdentifier (tidmatchat)
   source: string;         // 'manual' | 'import' (CSV) | 'summary' (bulk-historik) — driver Imported data + backfill
+  // Överlappande nedbrytnings-timmar (bulk-historik) — se database.ts. Vanliga flygningar = 0.
+  h_vlos: number; h_evlos: number; h_bvlos: number;
+  h_a1: number; h_a2: number; h_a3: number; h_specific: number; h_certified: number;
+  h_night: number;
 }
 
 export interface DroneFlightFormData {
@@ -431,11 +435,15 @@ export interface DroneFlightFormData {
   landing_lon?: number;
   mission_type: string;
   category: string;
-  flight_mode: DroneFlightMode;
+  flight_mode: DroneFlightMode | ''; // '' = summary-rad utan etikett (använder h_*-nedbrytning i stället)
   total_time: string;
   max_altitude_m: string;
   is_night: boolean;
   night_time?: string;    // nattandel i timmar (kondition-bar)
+  // Överlappande nedbrytnings-timmar för bulk-historik (summary). Anges som h-strängar, default 0.
+  h_vlos?: string; h_evlos?: string; h_bvlos?: string;
+  h_a1?: string; h_a2?: string; h_a3?: string; h_specific?: string; h_certified?: string;
+  h_night?: string;
   vfr?: string;
   flight_rules?: string;  // 'VFR' | 'Y' | 'Z' | 'IFR'
   has_observer: boolean;
@@ -460,8 +468,9 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       takeoff_time, landing_location, landing_lat, landing_lon,
       mission_type, category, flight_mode, total_time, max_altitude_m,
       is_night, night_time, vfr, flight_rules, has_observer, observer_name, wind_ms,
-      co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks, source
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks, source,
+      h_vlos, h_evlos, h_bvlos, h_a1, h_a2, h_a3, h_specific, h_certified, h_night
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -495,6 +504,15 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       data.operation_type ?? '',
       data.remarks,
       data.source ?? 'manual',
+      parseFloat(data.h_vlos ?? '') || 0,
+      parseFloat(data.h_evlos ?? '') || 0,
+      parseFloat(data.h_bvlos ?? '') || 0,
+      parseFloat(data.h_a1 ?? '') || 0,
+      parseFloat(data.h_a2 ?? '') || 0,
+      parseFloat(data.h_a3 ?? '') || 0,
+      parseFloat(data.h_specific ?? '') || 0,
+      parseFloat(data.h_certified ?? '') || 0,
+      parseFloat(data.h_night ?? '') || 0,
     ]
   );
   return res.lastInsertRowId as number;
@@ -600,15 +618,15 @@ export async function getDroneStats(): Promise<DroneStats> {
       COUNT(*) as total_flights,
       ROUND(SUM(total_time), 2) as total_time,
       ROUND(SUM(CASE WHEN strftime('%Y', date) = strftime('%Y', 'now') THEN total_time ELSE 0 END), 2) as year_to_date,
-      ROUND(SUM(CASE WHEN flight_mode='VLOS' THEN total_time ELSE 0 END), 2) as vlos,
-      ROUND(SUM(CASE WHEN flight_mode='EVLOS' THEN total_time ELSE 0 END), 2) as evlos,
-      ROUND(SUM(CASE WHEN flight_mode='BVLOS' THEN total_time ELSE 0 END), 2) as bvlos,
-      ROUND(SUM(CASE WHEN is_night=1 THEN total_time ELSE 0 END), 2) as night,
-      ROUND(SUM(CASE WHEN category='A1' THEN total_time ELSE 0 END), 2) as cat_a1,
-      ROUND(SUM(CASE WHEN category='A2' THEN total_time ELSE 0 END), 2) as cat_a2,
-      ROUND(SUM(CASE WHEN category='A3' THEN total_time ELSE 0 END), 2) as cat_a3,
-      ROUND(SUM(CASE WHEN category='Specific' THEN total_time ELSE 0 END), 2) as cat_specific,
-      ROUND(SUM(CASE WHEN category='Certified' THEN total_time ELSE 0 END), 2) as cat_certified
+      ROUND(SUM(CASE WHEN flight_mode='VLOS' THEN total_time ELSE 0 END) + SUM(h_vlos), 2) as vlos,
+      ROUND(SUM(CASE WHEN flight_mode='EVLOS' THEN total_time ELSE 0 END) + SUM(h_evlos), 2) as evlos,
+      ROUND(SUM(CASE WHEN flight_mode='BVLOS' THEN total_time ELSE 0 END) + SUM(h_bvlos), 2) as bvlos,
+      ROUND(SUM(CASE WHEN is_night=1 THEN total_time ELSE 0 END) + SUM(h_night), 2) as night,
+      ROUND(SUM(CASE WHEN category='A1' THEN total_time ELSE 0 END) + SUM(h_a1), 2) as cat_a1,
+      ROUND(SUM(CASE WHEN category='A2' THEN total_time ELSE 0 END) + SUM(h_a2), 2) as cat_a2,
+      ROUND(SUM(CASE WHEN category='A3' THEN total_time ELSE 0 END) + SUM(h_a3), 2) as cat_a3,
+      ROUND(SUM(CASE WHEN category='Specific' THEN total_time ELSE 0 END) + SUM(h_specific), 2) as cat_specific,
+      ROUND(SUM(CASE WHEN category='Certified' THEN total_time ELSE 0 END) + SUM(h_certified), 2) as cat_certified
     FROM drone_flights
   `);
   // Backfill-justering (lump-sum-timmar, settings) läggs ovanpå de loggade summorna → syns i

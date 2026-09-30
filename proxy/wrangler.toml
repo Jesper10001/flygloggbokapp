@@ -11,6 +11,14 @@ routes = [
 
 # API-nyckeln lagras som secret — aldrig i kod eller git.
 # Sätt den med: wrangler secret put ANTHROPIC_API_KEY
+#
+# RevenueCat-hemligheter lagras som SECRETS (överlever deploy, hamnar ej i git):
+#   wrangler secret put REVENUECAT_SECRET_KEY     (v2 sk_…-nyckeln)
+#   wrangler secret put REVENUECAT_WEBHOOK_AUTH   (delad hemlighet för webhooken)
+
+# Icke-hemlig config → [vars] (så den inte nollas vid deploy).
+[vars]
+REVENUECAT_PROJECT_ID = "proj5514c011"
 
 # Telemetri — Cloudflare Analytics Engine (gratis)
 [[analytics_engine_datasets]]

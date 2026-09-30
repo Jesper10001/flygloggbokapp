@@ -69,9 +69,10 @@ export default function DroneImportedDataScreen() {
         b.ids.push(f.id);
         const t = Number(f.total_time) || 0;
         b.cats.total_time = (b.cats.total_time || 0) + t;
-        if (f.is_night) b.cats.night = (b.cats.night || 0) + t;
-        if (f.flight_mode === 'VLOS') b.cats.vlos = (b.cats.vlos || 0) + t;
-        if (f.flight_mode === 'BVLOS') b.cats.bvlos = (b.cats.bvlos || 0) + t;
+        // Natt + operation: etikett-baserat (vanliga rader) ELLER h_*-nedbrytning (summary/bulk-rader)
+        b.cats.night = (b.cats.night || 0) + (f.is_night ? t : 0) + (Number(f.h_night) || 0);
+        b.cats.vlos = (b.cats.vlos || 0) + (f.flight_mode === 'VLOS' ? t : 0) + (Number(f.h_vlos) || 0);
+        b.cats.bvlos = (b.cats.bvlos || 0) + (f.flight_mode === 'BVLOS' ? t : 0) + (Number(f.h_bvlos) || 0);
         for (const p of [f.location, f.landing_location]) { const v = (p || '').trim(); if (v && !b.places.includes(v)) b.places.push(v); }
         const dr = (f.drone_type || '').trim(); if (dr && !b.drones.includes(dr)) b.drones.push(dr);
         if ((f.created_at || '') < b.when) b.when = f.created_at || '';

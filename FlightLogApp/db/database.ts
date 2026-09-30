@@ -316,6 +316,19 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   // Källa för raden: 'manual' (loggat i appen) | 'import' (CSV) | 'summary' (bulk-historik) — driver
   // Imported data-batcher och backfill (= manned flights.source). Befintliga rader = manuella.
   await addColumnIfMissingOnTable(db, 'drone_flights', 'source', "TEXT NOT NULL DEFAULT 'manual'");
+  // Bulk-historik/summary-rader kan bära ÖVERLAPPANDE nedbrytnings-timmar per operation och kategori
+  // (som pilotens pic/night/ifr-kolumner) — så en enda rad kan ange tid per VLOS/EVLOS/BVLOS OCH per
+  // A1..Certified utan att dubbelräkna totalen. Vanliga flygningar lämnar dessa 0 och använder etiketterna
+  // category/flight_mode. getDroneStats adderar h_*-summorna ovanpå etikett-summorna.
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_vlos', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_evlos', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_bvlos', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_a1', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_a2', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_a3', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_specific', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_certified', 'REAL NOT NULL DEFAULT 0');
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_night', 'REAL NOT NULL DEFAULT 0');
   // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
   // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.

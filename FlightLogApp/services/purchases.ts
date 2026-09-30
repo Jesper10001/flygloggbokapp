@@ -73,6 +73,19 @@ function isEntitlementActive(info: CustomerInfo | null | undefined): boolean {
 async function applyEntitlement(rcActive: boolean): Promise<void> {
   const promo = (await getSetting('promo_premium').catch(() => null)) === '1';
   useFlightStore.getState().setIsPremium(rcActive || promo);
+  refreshTokenQuota(); // Blade-coin-saldot (server /tokens) ska uppdateras direkt när premium ändras
+}
+
+// Laddar om coin-saldot från proxyns /tokens. Lazy-require undviker cirkulär import. Kör direkt
+// + en gång till strax efter, så webhooken/serverns premium-cache hinner uppdateras (annars kan
+// första hämtningen råka läsa free-tier en kort stund efter köpet).
+function refreshTokenQuota(): void {
+  try {
+    const { useTokenQuotaStore } = require('../store/tokenQuotaStore');
+    const reload = () => useTokenQuotaStore.getState().load().catch(() => {});
+    reload();
+    setTimeout(reload, 4000);
+  } catch { /* storen är valfri */ }
 }
 
 /** Hämtar färskt entitlement-läge från RevenueCat och uppdaterar storen. Anropas vid start. */

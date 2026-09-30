@@ -14,25 +14,48 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
-import { insertDroneFlight, type DroneFlightMode } from '../../db/drones';
+import { insertDroneFlight } from '../../db/drones';
 
-const CATEGORIES = ['A1', 'A2', 'A3', 'Specific', 'Certified'];
-const MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
+// Nedbrytnings-fält (överlappande timmar) — pilot-stil: eget tidsfält per operation och per kategori.
+// Nycklarna matchar h_*-kolumnerna på drone_flights.
+const OPS = [
+  { key: 'h_vlos', label: 'VLOS' },
+  { key: 'h_evlos', label: 'EVLOS' },
+  { key: 'h_bvlos', label: 'BVLOS' },
+] as const;
+const CATS = [
+  { key: 'h_a1', label: 'A1' },
+  { key: 'h_a2', label: 'A2' },
+  { key: 'h_a3', label: 'A3' },
+  { key: 'h_specific', label: 'Specific' },
+  { key: 'h_certified', label: 'Certified' },
+] as const;
 
 interface YearBlock {
   id: string;
   year: string;
   total_time: string;
   night_time: string;
-  category: string;
-  flight_mode: DroneFlightMode;
+  h_vlos: string; h_evlos: string; h_bvlos: string;
+  h_a1: string; h_a2: string; h_a3: string; h_specific: string; h_certified: string;
   landings_day: string;
   landings_night: string;
 }
 
 function emptyBlock(year = ''): YearBlock {
-  return { id: `${Date.now()}-${Math.random()}`, year, total_time: '', night_time: '', category: 'A1', flight_mode: 'VLOS', landings_day: '', landings_night: '' };
+  return {
+    id: `${Date.now()}-${Math.random()}`, year,
+    total_time: '', night_time: '',
+    h_vlos: '', h_evlos: '', h_bvlos: '', h_a1: '', h_a2: '', h_a3: '', h_specific: '', h_certified: '',
+    landings_day: '', landings_night: '',
+  };
 }
+
+// Summan av operations- resp. kategori-fälten (nedbrytningar av totalen).
+function opSum(b: YearBlock): number { return parseH(b.h_vlos) + parseH(b.h_evlos) + parseH(b.h_bvlos); }
+function catSum(b: YearBlock): number { return parseH(b.h_a1) + parseH(b.h_a2) + parseH(b.h_a3) + parseH(b.h_specific) + parseH(b.h_certified); }
+// Total = angiven totaltid, annars härledd ur största nedbrytningen (operation/kategori).
+function blockTotal(b: YearBlock): number { return parseH(b.total_time) || Math.max(opSum(b), catSum(b)); }
 
 function parseH(v: string): number {
   const t = (v || '').trim().replace(',', '.');
@@ -61,8 +84,8 @@ export default function DroneManualExperienceScreen() {
   const removeYear = (id: string) => setBlocks((bs) => (bs.length > 1 ? bs.filter((b) => b.id !== id) : bs));
 
   const saveAll = async () => {
-    const active = blocks.filter((b) => parseH(b.total_time) > 0);
-    if (active.length === 0) { Alert.alert('Nothing to save', 'Enter total time for at least one entry.'); return; }
+    const active = blocks.filter((b) => blockTotal(b) > 0);
+    if (active.length === 0) { Alert.alert('Nothing to save', 'Enter total time or a per-type breakdown for at least one entry.'); return; }
     if (mode === 'yearly') {
       for (const b of active) {
         const y = parseInt(b.year, 10);
@@ -73,16 +96,19 @@ export default function DroneManualExperienceScreen() {
     try {
       for (const b of active) {
         const night = parseH(b.night_time);
+        // Summary-rad: neutrala etiketter (category/flight_mode = '') så etikett-summan bidrar 0;
+        // tid per operation/kategori ligger i h_*-kolumnerna. Natten i h_night (inte is_night) så bara
+        // den angivna nattandelen räknas, inte hela totalen.
         await insertDroneFlight({
           date: blockDate(mode === 'yearly' ? b.year : ''),
           drone_id: null,
           location: '',
           mission_type: '',
-          category: b.category,
-          flight_mode: b.flight_mode,
-          total_time: String(parseH(b.total_time)),
+          category: '',
+          flight_mode: '',
+          total_time: String(blockTotal(b)),
           max_altitude_m: '',
-          is_night: night > 0,
+          is_night: false,
           night_time: String(night),
           has_observer: false,
           observer_name: '',
@@ -90,6 +116,15 @@ export default function DroneManualExperienceScreen() {
           landings_night: b.landings_night,
           remarks: mode === 'yearly' ? `Experience summary ${b.year}` : 'Experience summary',
           source: 'summary',
+          h_vlos: String(parseH(b.h_vlos)),
+          h_evlos: String(parseH(b.h_evlos)),
+          h_bvlos: String(parseH(b.h_bvlos)),
+          h_a1: String(parseH(b.h_a1)),
+          h_a2: String(parseH(b.h_a2)),
+          h_a3: String(parseH(b.h_a3)),
+          h_specific: String(parseH(b.h_specific)),
+          h_certified: String(parseH(b.h_certified)),
+          h_night: String(night),
         });
       }
       await Promise.all([loadFlights(), loadStats()]);
@@ -112,7 +147,7 @@ export default function DroneManualExperienceScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 14 }} keyboardShouldPersistTaps="handled">
           <Text style={s.subtitle}>
-            Bring in drone hours you flew before using the app. Add them as one lump sum or year by year — they count toward your totals without cluttering your logbook.
+            Bring in drone hours you flew before using the app. Add them as one lump sum or year by year — they count toward your totals without cluttering your logbook. Split the hours by operation and category if you like; those breakdowns are optional and overlap the total.
           </Text>
 
           {/* Läge: klumpsumma / år för år */}
@@ -143,43 +178,42 @@ export default function DroneManualExperienceScreen() {
                 )}
               </View>
 
-              {/* Kategori */}
-              <Text style={s.groupLabel}>Category</Text>
-              <View style={s.chipRow}>
-                {CATEGORIES.map((c) => (
-                  <TouchableOpacity key={c} onPress={() => update(b.id, { category: c })} activeOpacity={0.8}
-                    style={[s.chip, b.category === c && { backgroundColor: accent + '22', borderColor: accent }]}>
-                    <Text style={[s.chipTxt, b.category === c && { color: accent }]}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Operation */}
-              <Text style={s.groupLabel}>Operation</Text>
-              <View style={s.chipRow}>
-                {MODES.map((m) => (
-                  <TouchableOpacity key={m} onPress={() => update(b.id, { flight_mode: m })} activeOpacity={0.8}
-                    style={[s.chip, b.flight_mode === m && { backgroundColor: accent + '22', borderColor: accent }]}>
-                    <Text style={[s.chipTxt, b.flight_mode === m && { color: accent }]}>{m}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Tider + landningar */}
+              {/* Total + natt (totalen är master; nedbrytningarna nedan är valfria och överlappar den) */}
               <View style={s.fieldRow}>
                 <Text style={s.fieldLabel}>Total time (h)</Text>
                 {numField(b.total_time, (v) => update(b.id, { total_time: v }), '0.0')}
               </View>
-              <View style={s.fieldRow}>
+              <View style={[s.fieldRow, { borderBottomWidth: 0 }]}>
                 <Text style={s.fieldLabel}>Night time (h)</Text>
                 {numField(b.night_time, (v) => update(b.id, { night_time: v }), '0.0')}
               </View>
+
+              {/* Tid per operation — överlappande nedbrytning (valfri) */}
+              <Text style={s.groupLabel}>Hours by operation</Text>
+              {OPS.map((o, i) => (
+                <View key={o.key} style={[s.fieldRow, i === OPS.length - 1 && { borderBottomWidth: 0 }]}>
+                  <Text style={s.fieldLabel}>{o.label}</Text>
+                  {numField(b[o.key], (v) => update(b.id, { [o.key]: v } as Partial<YearBlock>), '0.0')}
+                </View>
+              ))}
+
+              {/* Tid per kategori — överlappande nedbrytning (valfri) */}
+              <Text style={s.groupLabel}>Hours by category</Text>
+              {CATS.map((c, i) => (
+                <View key={c.key} style={[s.fieldRow, i === CATS.length - 1 && { borderBottomWidth: 0 }]}>
+                  <Text style={s.fieldLabel}>{c.label}</Text>
+                  {numField(b[c.key], (v) => update(b.id, { [c.key]: v } as Partial<YearBlock>), '0.0')}
+                </View>
+              ))}
+
+              {/* Landningar */}
+              <Text style={s.groupLabel}>Landings</Text>
               <View style={s.fieldRow}>
-                <Text style={s.fieldLabel}>Landings · Day</Text>
+                <Text style={s.fieldLabel}>Day</Text>
                 <TextInput style={s.input} value={b.landings_day} onChangeText={(v) => update(b.id, { landings_day: v.replace(/\D/g, '') })} keyboardType="number-pad" placeholder="0" placeholderTextColor={DR.muted} />
               </View>
               <View style={[s.fieldRow, { borderBottomWidth: 0 }]}>
-                <Text style={s.fieldLabel}>Landings · Night</Text>
+                <Text style={s.fieldLabel}>Night</Text>
                 <TextInput style={s.input} value={b.landings_night} onChangeText={(v) => update(b.id, { landings_night: v.replace(/\D/g, '') })} keyboardType="number-pad" placeholder="0" placeholderTextColor={DR.muted} />
               </View>
             </View>

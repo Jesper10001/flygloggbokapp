@@ -9,56 +9,24 @@ interface Env {
   STATS_PASSWORD: string;
   PROMO_CODES?: string; // kommaseparerade promo-koder (secret) → gratis Blades Premium. Aldrig i app-bundlen.
   APP_KEY?: string;     // valfri app-autentisering: krävs i X-App-Key om satt (se AI-proxyn). Vilande om osatt.
+  REVENUECAT_SECRET_KEY?: string;   // RevenueCat v2 secret key (sk_…) — läser kunds active entitlements. Secret.
+  REVENUECAT_PROJECT_ID?: string;   // RevenueCat projekt-id (proj…) — behövs i v2-URL:en.
+  REVENUECAT_WEBHOOK_AUTH?: string; // delad hemlighet: Authorization-headern i RevenueCat-webhooken.
 }
 
-// ── HUVUDBRYTARE FÖR SERVER-KVOTER ───────────────────────────────────────────
-// false = INGA gränser: proxyn släpper igenom alla anrop och räknar ingen
-// förbrukning. Sätt till `true` för att slå på kvoterna igen (limits nedan).
-// OBS: ändringen blir live först efter `npx wrangler deploy` i proxy/.
-const QUOTAS_ENABLED = false;
-
-// ── Quota limits per device per month ────────────────────────────────────────
-
-const FREE_LIMITS: Record<string, number> = {
-  scan: 1,
-  summarize: 0,
-  lookup: 10,
-  import: 0,
-  flight_import: 0,
-};
-
-const PREMIUM_LIMITS: Record<string, number> = {
-  scan: 10,
-  summarize: 10,
-  lookup: 20,
-  import: 100,
-  flight_import: 30,
-};
-
-const MAX_LIMITS: Record<string, number> = {
-  scan: 50,
-  summarize: 20,
-  lookup: 60,
-  import: 100,
-  flight_import: 100,
-};
-
-// ── Token-baserad AI-kvot (input+output per device) ──────────────────────────
+// ── Token-baserad AI-kvot (input+output per device) — den ENDA aktiva spärren ──
 // Räknas ALLTID (syns i appens Settings); spärras när TOKEN_QUOTAS_ENABLED=true.
-// Egen brytare, separat från QUOTAS_ENABLED (som styr de GAMLA per-typ-kvoterna
-// för OCR-skanning ovan — den funktionen är inte klar/prissatt än). Token-kvoten
-// är den nya, enda spärren för CSV-import, flight-scan och aircraft/drone-lookup:
-// dessa funktioner är INTE längre premium-låsta, bara token-låsta.
-// FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM/MAX = per månad.
+// Spärr för CSV-import, flight-scan och aircraft/drone-lookup: dessa funktioner är
+// INTE premium-låsta, bara token-låsta.
+// FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM = per månad.
 // Visas för användaren som "Blade-coins" (1 coin = 200 tokens) — se appens tokenGate.
 const TOKEN_QUOTAS_ENABLED = true;
 const TOKEN_LIMITS: Record<string, number> = {
   free: 20_000,     // engångspott (lifetime) = 100 Blade-coins
   premium: 50_000,  // per månad = 250 Blade-coins
-  max: 250_000,     // per månad = 1250 Blade-coins
 };
 
-// Free = lifetime-nyckel (ingen TTL); premium/max = månadsnyckel (löper ut)
+// Free = lifetime-nyckel (ingen TTL); premium = månadsnyckel (löper ut)
 function tokenKey(deviceHash: string, tier: string): string {
   return tier === 'free'
     ? `tokens:${deviceHash}:lifetime`
@@ -77,66 +45,6 @@ async function addTokens(kv: KVNamespace, deviceHash: string, tier: string, toke
 function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function detectRequestType(body: string): string | null {
-  try {
-    const parsed = JSON.parse(body);
-    const system = typeof parsed.system === 'string' ? parsed.system : Array.isArray(parsed.system) ? parsed.system.map((s: any) => s.text ?? '').join(' ') : '';
-    const userContent = JSON.stringify(parsed.messages ?? []);
-    const hasImage = userContent.includes('"type":"image"') || userContent.includes('"type": "image"');
-
-    // Scan detection — check both system and user content, must have image
-    if (hasImage && (
-      system.includes('flygloggb') || system.includes('EASA') || system.includes('flygningsrad') ||
-      userContent.includes('loggbokssida') || userContent.includes('logbook page')
-    )) {
-      return 'scan';
-    }
-    // Flight data import — cockpit instrument/app photo
-    if (hasImage && system.includes('cockpit instrument') && system.includes('flight data')) {
-      return 'flight_import';
-    }
-    // Summarize — only the dedicated summarize prompt (shorter, no EASA/flygningsrad)
-    if (hasImage && system.includes('summera') && !system.includes('flygningsrad') && !system.includes('EASA')) {
-      return 'summarize';
-    }
-    if (system.includes('aircraft') && system.includes('lookup') || system.includes('cruise_speed') && system.includes('manufacturer')) {
-      return 'lookup';
-    }
-    if (system.includes('CSV') || system.includes('column mapping') || system.includes('kolumnmappning')) {
-      return 'import';
-    }
-    if (system.includes('drone') && (system.includes('manufacturer') || system.includes('model'))) {
-      return 'lookup';
-    }
-  } catch {}
-  return null;
-}
-
-async function checkAndIncrementQuota(
-  kv: KVNamespace, deviceHash: string, reqType: string, tier: string
-): Promise<{ allowed: boolean; used: number; limit: number }> {
-  if (!QUOTAS_ENABLED) return { allowed: true, used: 0, limit: 0 };
-  const limits = tier === 'max' ? MAX_LIMITS : tier === 'premium' ? PREMIUM_LIMITS : FREE_LIMITS;
-  const limit = limits[reqType];
-  if (!limit) return { allowed: true, used: 0, limit: 0 };
-
-  // Bypass quota check for premium/max users on lookup (development)
-  if ((tier === 'premium' || tier === 'max') && reqType === 'lookup') {
-    return { allowed: true, used: 0, limit };
-  }
-
-  const month = currentMonth();
-  const key = `quota:${deviceHash}:${month}:${reqType}`;
-  const current = parseInt(await kv.get(key) ?? '0', 10);
-
-  if (current >= limit) {
-    return { allowed: false, used: current, limit };
-  }
-
-  await kv.put(key, String(current + 1), { expirationTtl: 60 * 60 * 24 * 35 });
-  return { allowed: true, used: current + 1, limit };
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -158,6 +66,57 @@ function hashDevice(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   return 'dev_' + Math.abs(h).toString(36);
+}
+
+// ── RevenueCat v2: server-side premium (kan inte spoofas via headers) ─────────
+// Frågar RevenueCat om kundens aktiva entitlements. customerId = RÅA X-Device-ID
+// (= appens identifierForVendor = RevenueCats app_user_id). Aldrig hashat mot RC.
+const PREMIUM_TTL_POS = 900; // aktiv premium cachas 15 min
+const PREMIUM_TTL_NEG = 60;  // "ingen premium" cachas kort → nyss köpt syns snabbt (även utan webhook)
+const premiumKey = (deviceId: string) => `premium:v2:${hashDevice(deviceId)}`; // v2 = cache-bust mot ev. gamla värden
+
+// Hämtar kundens aktiva entitlement-id:n + HTTP-status (status används för felsökning via ?debug=1).
+// RÅA customerId (= app_user_id) mot RevenueCat.
+async function rcFetchActive(customerId: string, env: Env): Promise<{ status: number; ids: string[] }> {
+  if (!env.REVENUECAT_SECRET_KEY || !env.REVENUECAT_PROJECT_ID) return { status: 0, ids: [] };
+  try {
+    const r = await fetch(
+      `https://api.revenuecat.com/v2/projects/${env.REVENUECAT_PROJECT_ID}/customers/${encodeURIComponent(customerId)}/active_entitlements`,
+      { headers: { Authorization: `Bearer ${env.REVENUECAT_SECRET_KEY}` } },
+    );
+    if (!r.ok) return { status: r.status, ids: [] }; // 401/403 = nyckel/behörighet, 404 = okänd kund
+    const data = await r.json() as { items?: Array<{ entitlement_id?: string }> };
+    const ids = (Array.isArray(data?.items) ? data.items : []).map((e) => e.entitlement_id ?? '').filter(Boolean);
+    return { status: r.status, ids };
+  } catch {
+    return { status: -1, ids: [] };
+  }
+}
+
+// Blades har ETT entitlement ("premium") → vilken aktiv entitlement som helst = premium.
+// (Undviker att matcha RevenueCats interna entl-id mot lookup_key "premium".)
+async function rcActive(customerId: string, env: Env): Promise<boolean> {
+  const { ids } = await rcFetchActive(customerId, env);
+  return ids.length > 0;
+}
+
+// KV-cachead premium-koll. KV-nyckeln hashas (som promo/token-nycklarna); RC-anropet
+// använder det råa id:t. Negativt svar cachas kort så ett nytt köp syns snabbt.
+async function checkPremium(deviceId: string, env: Env): Promise<boolean> {
+  if (!deviceId || deviceId === 'unknown' || !env.QUOTA_KV) return false;
+  const key = premiumKey(deviceId);
+  const cached = await env.QUOTA_KV.get(key);
+  if (cached !== null) return cached === '1';
+  const active = await rcActive(deviceId, env);
+  await env.QUOTA_KV.put(key, active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
+  return active;
+}
+
+// Server-sanningen för tier: promo-kod ELLER RevenueCat. Ersätter tilliten till
+// klientens X-Tier/X-Premium-headers.
+async function resolveTier(deviceId: string, env: Env): Promise<string> {
+  const promo = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${hashDevice(deviceId)}`)) === '1' : false;
+  return (promo || await checkPremium(deviceId, env)) ? 'premium' : 'free';
 }
 
 // ── Login-sida ─────────────────────────────────────────────────────────────
@@ -665,12 +624,12 @@ export default {
     if (url.pathname === '/tokens' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
       const devHash = hashDevice(devId);
-      const tier = request.headers.get('X-Tier') || (request.headers.get('X-Premium') === 'true' ? 'premium' : 'free');
+      const tier = await resolveTier(devId, env); // server-sanning (promo/RevenueCat), inte headern
       const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
       const used = env.QUOTA_KV
         ? parseInt(await env.QUOTA_KV.get(tokenKey(devHash, tier)) ?? '0', 10)
         : 0;
-      const premium = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${devHash}`)) === '1' : false;
+      const premium = tier === 'premium';
       const period = tier === 'free' ? 'lifetime' : currentMonth();
       return new Response(JSON.stringify({ used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -690,10 +649,22 @@ export default {
       });
     }
 
-    // ── Entitlement: har denna device gratis Premium via en aktiv promo-kod? ──
+    // ── Entitlement: har denna device Premium (promo-kod ELLER RevenueCat)? ──
+    // ?debug=1 → live-diagnostik (förbi cachen), utan att läcka nyckeln. Ta bort efter felsökning om du vill.
     if (url.pathname === '/entitlement' && request.method === 'GET') {
-      const devHash = hashDevice(request.headers.get('X-Device-ID') ?? 'unknown');
-      const premium = !!env.QUOTA_KV && (await env.QUOTA_KV.get(`promo:${devHash}`)) === '1';
+      const devId = request.headers.get('X-Device-ID') ?? 'unknown';
+      if (url.searchParams.get('debug') === '1') {
+        const promo = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${hashDevice(devId)}`)) === '1' : false;
+        const rc = await rcFetchActive(devId, env);
+        return new Response(JSON.stringify({
+          premium: promo || rc.ids.length > 0,
+          configured: !!env.REVENUECAT_SECRET_KEY && !!env.REVENUECAT_PROJECT_ID,
+          rcStatus: rc.status,          // 200 ok · 401/403 nyckel/behörighet · 404 okänd kund · 0 ej konfigurerad
+          rcEntitlementIds: rc.ids,     // aktiva entitlements RevenueCat returnerar
+          promo,
+        }), { headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+      const premium = (await resolveTier(devId, env)) === 'premium';
       return new Response(JSON.stringify({ premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
@@ -718,6 +689,21 @@ export default {
       return new Response(JSON.stringify({ ok: true, premium: true }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
+    }
+
+    // ── RevenueCat-webhook: uppdatera premium-cachen direkt vid köp/förnyelse/uppsägning ──
+    // Konfigureras i RevenueCat → Integrations → Webhooks (URL hit, Authorization = REVENUECAT_WEBHOOK_AUTH).
+    if (url.pathname === '/revenuecat-webhook' && request.method === 'POST') {
+      if (env.REVENUECAT_WEBHOOK_AUTH && request.headers.get('Authorization') !== env.REVENUECAT_WEBHOOK_AUTH) {
+        return new Response('unauthorized', { status: 401 });
+      }
+      let appUserId = '';
+      try { appUserId = String(((JSON.parse(await request.text()) as any)?.event?.app_user_id) ?? ''); } catch { /* ogiltig body */ }
+      if (appUserId && env.QUOTA_KV) {
+        const active = await rcActive(appUserId, env);
+        await env.QUOTA_KV.put(premiumKey(appUserId), active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
+      }
+      return new Response('ok');
     }
 
     // ── CORS ──
@@ -757,11 +743,10 @@ export default {
       let model = 'unknown';
       try { model = JSON.parse(body).model ?? 'unknown'; } catch {}
 
-      // ── Server-side quota check ──
-      const tierHeader = request.headers.get('X-Tier') || (request.headers.get('X-Premium') === 'true' ? 'premium' : 'free');
+      // ── Server-side tier: promo ELLER RevenueCat (aldrig klient-headern) ──
+      const tierHeader = await resolveTier(deviceId, env);
 
-      // ── Token-tak (spärras när TOKEN_QUOTAS_ENABLED=true) — den nya, enda
-      // spärren för CSV-import/flight-scan/lookup. Oberoende av QUOTAS_ENABLED. ──
+      // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
       if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
         const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
         const tUsed = parseInt(await env.QUOTA_KV.get(tokenKey(deviceHash, tierHeader)) ?? '0', 10);
@@ -774,24 +759,6 @@ export default {
           }), {
             status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
           });
-        }
-      }
-
-      if (env.QUOTA_KV) {
-        const reqType = detectRequestType(body);
-        if (reqType) {
-          const quota = await checkAndIncrementQuota(env.QUOTA_KV, deviceHash, reqType, tierHeader);
-          if (!quota.allowed) {
-            return new Response(JSON.stringify({
-              error: 'quota_exceeded',
-              type: reqType,
-              used: quota.used,
-              limit: quota.limit,
-              message: `Monthly ${reqType} quota exceeded (${quota.used}/${quota.limit})`,
-            }), {
-              status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
-            });
-          }
         }
       }
 
