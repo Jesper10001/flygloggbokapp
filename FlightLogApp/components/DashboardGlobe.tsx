@@ -23,7 +23,7 @@ type Heat = { lat: number; lng: number; weight: number };
 
 type ViewCfg = { altitude: number; minDistance: number; maxDistance: number };
 
-function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg): string {
+function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg, ringsOnly = false): string {
   const ringData = JSON.stringify(rings);
   const arcData = JSON.stringify(arcs);
   const heatData = JSON.stringify(heat);
@@ -44,6 +44,7 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg): str
     var RINGS = ${ringData};
     var ARCS = ${arcData};
     var HEAT = ${heatData};
+    var RINGSONLY = ${ringsOnly ? 'true' : 'false'}; // onboarding: lås till rings, ingen cykling
     var world = Globe()(document.getElementById('g'))
       .backgroundColor('rgba(0,0,0,0)')
       // Nattjord (stadsljus + relief) — som globe.gls Ripple Rings-exempel.
@@ -93,8 +94,8 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg): str
       world.heatmapsData(mode === 'heatmap' ? [HEAT] : []);
     }
     applyMode();
-    // Auto-cykla läget var 15:e sekund — ingen dubbel-tap behövs.
-    setInterval(function(){ mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); }, 15000);
+    // Auto-cykla läget var 15:e sekund — ingen dubbel-tap behövs. (Hoppas över i ringsOnly/onboarding.)
+    if (!RINGSONLY) setInterval(function(){ mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); }, 15000);
 
     // Låter RN uppdatera globens data i realtid (utan att ladda om) när nya flighter läggs till.
     window.__updateGlobe = function(r, a, h){
@@ -150,7 +151,7 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg): str
       if (isTap){
         if (now - lastTap < 320){
           if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; } // avbryt väntande enkel-tap
-          mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); lastTap = 0;
+          if (!RINGSONLY){ mode = (mode === 'rings') ? 'arcs' : (mode === 'arcs') ? 'heatmap' : 'rings'; applyMode(); } lastTap = 0;
         } else {
           lastTap = now;
           if (tapTimer) clearTimeout(tapTimer);
@@ -222,7 +223,7 @@ async function loadGlobeData(): Promise<{ rings: Ring[]; arcs: Arc[]; heat: Heat
   return { rings, arcs: arcs.slice(0, 500), heat };
 }
 
-export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true }: { onGrab?: (grabbing: boolean) => void; onMetrics?: (radiusPx: number) => void; onTap?: () => void; showHint?: boolean } = {}) {
+export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demoAirports }: { onGrab?: (grabbing: boolean) => void; onMetrics?: (radiusPx: number) => void; onTap?: () => void; showHint?: boolean; demoAirports?: { lat: number; lng: number }[] } = {}) {
   const W = Dimensions.get('window').width;
   // Canvasen görs 50% bredare/högre än skärmen så globen kan bleeda ut över alla kanter (som en
   // bakgrund) — den hårda WebView-kanten hamnar utanför skärmen och klipper aldrig halon.
@@ -241,19 +242,29 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true }: { 
   const [initial, setInitial] = useState<{ rings: Ring[]; arcs: Arc[]; heat: Heat[] } | null>(null);
 
   // Initial data → byggs in i HTML:n en gång (source ändras aldrig efteråt → ingen reload).
+  // demoAirports (onboarding): visa en kurerad uppsättning ripple-ringar i stället för användarens
+  // flygdata, och lås läget till 'rings' (inga arcs/heat att cykla till).
   useEffect(() => {
+    if (demoAirports && demoAirports.length) {
+      const rings: Ring[] = demoAirports.map((a, i) => ({
+        lat: a.lat, lng: a.lng, maxR: 3, propagationSpeed: 2, repeatPeriod: 1100 + (i % 7) * 90,
+      }));
+      setInitial({ rings, arcs: [], heat: [] });
+      return;
+    }
     loadGlobeData().then(setInitial).catch(() => setInitial({ rings: [], arcs: [], heat: [] }));
-  }, []);
+  }, [demoAirports]);
 
   // Pusha uppdaterad data in i den redan laddade globen (utan reload) när flighter ändras/fokus.
   const pushUpdate = useCallback(async () => {
+    if (demoAirports) return; // onboarding-demo → statiska ringar, ingen live-uppdatering
     if (!ready.current || !webRef.current) return;
     try {
       const { rings, arcs, heat } = await loadGlobeData();
       const js = `window.__updateGlobe && window.__updateGlobe(${JSON.stringify(JSON.stringify(rings))}, ${JSON.stringify(JSON.stringify(arcs))}, ${JSON.stringify(JSON.stringify(heat))}); true;`;
       webRef.current.injectJavaScript(js);
     } catch {}
-  }, []);
+  }, [demoAirports]);
 
   useEffect(() => { pushUpdate(); }, [flightCount, pushUpdate]);
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
@@ -267,7 +278,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true }: { 
           <WebView
             ref={webRef}
             originWhitelist={['*']}
-            source={{ html: buildHtml(initial.rings, initial.arcs, initial.heat, VIEW) }}
+            source={{ html: buildHtml(initial.rings, initial.arcs, initial.heat, VIEW, !!demoAirports) }}
             style={styles.web}
             containerStyle={styles.web}
             opaque={false}

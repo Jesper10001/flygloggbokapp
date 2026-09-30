@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, type ImageSourcePropType } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, Dimensions, type ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore, type TimeFormat } from '../store/timeFormatStore';
 import { useAppModeStore } from '../store/appModeStore';
@@ -13,9 +13,10 @@ import { setSetting, getSetting } from '../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
 import { NavyColors } from '../constants/colors';
 import { DashboardGlobe } from '../components/DashboardGlobe';
+import { ONBOARDING_AIRPORTS } from '../constants/onboardingAirports';
 
 type Step =
-  | 'welcome' | 'intro1' | 'intro2' | 'intro3' | 'role' | 'subrole'
+  | 'welcome' | 'intro1' | 'intro2' | 'intro3' | 'intro4' | 'role' | 'subrole'
   | 'framework' | 'timeformat' | 'droneid'
   | 'theme' | 'profile' | 'hours';
 
@@ -49,7 +50,7 @@ const SUB_ROLES: Record<MainRole, { key: SubRole; icon: MCI; title_en: string; t
 // faller tillbaka på det gamla ikon-kortet.
 const ROLE_IMG: Record<MainRole, ImageSourcePropType> = {
   'pilot-manned': require('../assets/Pilot-helicopter.PNG'),
-  'pilot-unmanned': require('../assets/Drone-hobby.PNG'),
+  'pilot-unmanned': require('../assets/Drone-military.PNG'),
 };
 const SUBROLE_IMG: Partial<Record<SubRole, ImageSourcePropType>> = {
   rotary: require('../assets/Pilot-helicopter.PNG'),
@@ -78,11 +79,11 @@ const FRAMEWORKS: { key: RegulationStandard; region: string; title: string; desc
 const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
 
 function buildSteps(role: MainRole | null, returning: boolean): Step[] {
-  // Manned: subrole (fixed/rotary) + regelverk + tidsformat. Drönare: inget subroll-steg (hobby/
-  // commercial/military är obsolet) och inget separat operatörs-ID-steg (flyttat in i profilsteget).
-  const mid: Step[] = manned(role) ? ['subrole', 'framework', 'timeformat'] : [];
+  // Manned: bara subroll-steget (fixed/rotary). Regelverk + tidsformat väljs numera via dropdowns
+  // på profilsidan (under Pilot signature), inte som egna steg. Drönare: inget subroll-steg.
+  const mid: Step[] = manned(role) ? ['subrole'] : [];
   // Intro-skärmarna (2–4) visas bara för nya användare, mellan welcome och role.
-  return [...(returning ? [] : (['welcome', 'intro1', 'intro2', 'intro3'] as Step[])), 'role', ...mid, 'profile', 'hours'];
+  return [...(returning ? [] : (['welcome', 'intro1', 'intro2', 'intro3', 'intro4'] as Step[])), 'role', ...mid, 'profile', 'hours'];
 }
 
 export default function OnboardingScreen() {
@@ -198,176 +199,170 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {/* ── Intro 2: säker loggbok + lägen ── */}
+          {/* ── Intro 1 (screen 2): Every aircraft — cyan. Radar-svepet är nyckelrörelsen. ── */}
           {step === 'intro1' && (
-            <View style={{ flex: 1, alignSelf: 'stretch' }}>
-              <StepHeader eyebrow={sv ? 'Vad är BLADES' : 'What is BLADES'} accent={accent}
-                title={sv ? 'En säker loggbok för alla piloter' : 'A safe logbook for every pilot'}
-                subtitle={sv ? 'Din allt-i-ett, säkert krypterade loggbok — enkel och intuitiv.' : 'Your all-in-one securely encrypted logbook for easy and intuitive use.'} />
-              <View style={{ gap: 10, alignSelf: 'stretch' }}>
-                <IntroModeCard image={require('../assets/Pilot-helicopter.PNG')} tag={sv ? 'Pilotläge' : 'Pilot mode'}
-                  title={sv ? 'Bemannat luftfartyg' : 'Manned aircraft'} desc={sv ? 'Helikopter och flygplan. PIC, dual, IFR, natt och NVG.' : 'Helicopter and airplane. PIC, dual, IFR, night and NVG.'} />
-                <IntroModeCard image={require('../assets/Drone-hobby.PNG')} tag={sv ? 'Drönarläge' : 'Drone mode'}
-                  title={sv ? 'Obemannat luftfartyg' : 'Unmanned aircraft'} desc={sv ? 'Hobby-, kommersiella och militära uppdrag.' : 'Hobby, commercial and military missions.'} />
-              </View>
-              {/* Varför det är säkert */}
-              <View style={s.introPanel}>
-                <View style={s.introPanelHead}>
-                  <Ionicons name="shield-checkmark" size={13} color={C.success} />
-                  <Text style={s.introPanelHeadText}>{sv ? 'VARFÖR DET ÄR SÄKERT ATT LOGGA HÄR' : "WHY IT'S SAFE TO LOG HERE"}</Text>
-                </View>
-                <IntroSafeRow icon="lock-closed-outline" title={sv ? 'AES-256-kryptering' : 'AES-256 encryption'}
-                  desc={sv ? 'Krypterad databas (SQLCipher) ovanpå iOS enhetskryptering.' : 'Encrypted database (SQLCipher) on top of iOS device encryption.'} first />
-                <IntroSafeRow icon="phone-portrait-outline" title={sv ? 'Stannar på din enhet' : 'Stays on your device'}
-                  desc={sv ? 'Inget konto, ingen kopia på våra servrar.' : 'No account, no copy on our servers.'} />
-                <IntroSafeRow icon="cloud-outline" title={sv ? 'Backup i ditt eget iCloud' : 'Backup in your own iCloud'}
-                  desc={sv ? 'Valfri krypterad synk till ditt Apple-konto.' : 'Optional encrypted sync to your Apple account.'} />
-              </View>
-              <View style={{ flex: 1 }} />
-              <View style={{ gap: 10, alignSelf: 'stretch' }}>
-                <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent={accent} onPress={() => setStep('intro2')} />
-                <SecondaryButton label={sv ? 'Hoppa över introt' : 'Skip intro'} onPress={() => setStep('role')} />
-              </View>
-            </View>
+            <IntroStage
+              accent="#00C8E8" duration={6}
+              eyebrow={sv ? 'Alla typer av piloter' : 'Every type of pilot'}
+              line1={sv ? 'En loggbok.' : 'One logbook.'}
+              line2={sv ? 'Alla luftfartyg.' : 'Every aircraft.'}
+              body={sv ? 'Din allt-i-ett, säkert krypterade loggbok — enkel och intuitiv.' : 'Your all-in-one securely encrypted logbook for easy and intuitive use.'}
+              sv={sv} onContinue={() => setStep('intro2')} onSkip={() => setStep('role')}
+            />
           )}
 
-          {/* ── Intro 3: fysisk loggbok + CSV-import ── */}
+          {/* ── Intro 2 (screen 3): Paper logbook — gold ── */}
           {step === 'intro2' && (
-            <View style={{ flex: 1, alignSelf: 'stretch' }}>
-              <StepHeader eyebrow={sv ? 'Din loggbok' : 'Your logbook'} accent={accent}
-                title={sv ? 'Din fysiska loggbok, i appen' : 'Your physical logbook, in the app'}
-                subtitle={sv ? 'Varje flygning hamnar på rätt sida och rad, med summor framförda. Att kopiera in i pappersboken tar en minut.' : 'Every flight lands on the right page and row, with totals carried forward. Copying it into your paper book takes a minute.'} />
-              <PaperSpread sv={sv} />
-              <IntroCsvCard sv={sv} />
-              <View style={{ flex: 1 }} />
-              <View style={{ gap: 10, alignSelf: 'stretch' }}>
-                <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent={accent} onPress={() => setStep('intro3')} />
-                <SecondaryButton label={sv ? 'Hoppa över introt' : 'Skip intro'} onPress={() => setStep('role')} />
-              </View>
-            </View>
+            <IntroStage
+              accent="#FFB830" duration={7}
+              eyebrow={sv ? 'Din pappersloggbok' : 'Your paper logbook'}
+              line1={sv ? 'Logga här.' : 'Log it here.'}
+              line2={sv ? 'Kopiera där.' : 'Copy it there.'}
+              body={sv ? 'Sida för sida och rad för rad, med varje summa framförd.' : 'Page for page and row for row, with every total carried forward.'}
+              sv={sv} onContinue={() => setStep('intro3')} onSkip={() => setStep('role')}
+              extras={(
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22 }}>
+                  <View style={s.introFreeBadge}><Text style={s.introFreeBadgeText}>FREE</Text></View>
+                  <Text style={s.introFreeLabel}>{sv ? 'Importera valfri CSV, från valfri app' : 'Import any CSV, from any app'}</Text>
+                </View>
+              )}
+            />
           )}
 
-          {/* ── Intro 4: flygplats-glob + "och mycket mer" ── */}
+          {/* ── Intro 3 (screen 4): Security — green ── */}
           {step === 'intro3' && (
-            <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
-              <StepHeader eyebrow={sv ? 'Din värld' : 'Your world'} accent={accent}
-                title={sv ? 'Alla flygplatser på en karta' : 'Every airport on one map'}
-                subtitle={sv ? 'En världskarta med världens flygplatser. De du flugit till lyser upp.' : "A global map with the world's airports. The ones you've flown to light up."} />
-              <View style={{ marginHorizontal: -22, alignItems: 'center', justifyContent: 'center' }}>
-                <DashboardGlobe showHint={false} />
+            <IntroStage
+              accent="#00E8A0" duration={8}
+              eyebrow={sv ? 'Säkerhet' : 'Security'}
+              line1={sv ? 'Inget konto.' : 'No account.'}
+              line2={sv ? 'Bara du.' : 'Only you.'}
+              body={sv ? 'Dina flygningar bor i din telefon i en AES-256-krypterad databas. Vi ser dem aldrig.' : 'Your flights live on your phone in an AES-256 encrypted database. We never see them.'}
+              sv={sv} onContinue={() => setStep('intro4')} onSkip={() => setStep('role')}
+              extras={(
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 22 }}>
+                  {['AES-256', sv ? 'Ingen registrering' : 'No sign-up', sv ? 'Inga servrar' : 'No servers'].map((t) => (
+                    <View key={t} style={[s.introPill, { borderColor: 'rgba(0,232,160,0.35)' }]}>
+                      <Text style={[s.introPillText, { color: '#00E8A0' }]}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            />
+          )}
+
+          {/* ── Intro 4 (screen 5): Airport globe — cyan. Globen (auto-rotation + drag) är rörelsen. ── */}
+          {step === 'intro4' && (
+            <View style={{ flex: 1, alignSelf: 'stretch' }}>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+                {/* Fast höjd + overflow:hidden → globens WebView-canvas (som bleeder uppåt) klipps
+                    och kan inte längre fånga touch över "Tillbaka"-knappen. demoAirports = 70 riktiga
+                    flygplatser som pulserande ringar. */}
+                <View style={{ marginHorizontal: -22, height: Math.round(Dimensions.get('window').width * 1.06), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                  <DashboardGlobe showHint={false} demoAirports={ONBOARDING_AIRPORTS} />
+                </View>
+                <View style={{ maxWidth: 300, alignItems: 'center' }}>
+                  <Text style={[s.introEyebrow, { color: '#00C8E8' }]}>{(sv ? 'Din värld' : 'Your world').toUpperCase()}</Text>
+                  <Text style={[s.introHeadline, { fontSize: 36, lineHeight: 36 * 1.02 }]}>{sv ? 'Alla flygplatser.' : 'Every airport.'}</Text>
+                  <Text style={[s.introHeadline, { fontSize: 36, lineHeight: 36 * 1.02, color: '#00C8E8' }]}>{sv ? 'En karta.' : 'One map.'}</Text>
+                  <Text style={s.introBody}>{sv ? 'Quicklog, fotologgning, väder och mycket mer — allt i en app.' : 'Quicklog, photo logging, weather and much more, all in one app.'}</Text>
+                </View>
               </View>
-              <Text style={s.introMoreLabel}>{sv ? 'OCH MYCKET MER' : 'AND MUCH MORE'}</Text>
-              <View style={s.introGrid}>
-                {([
-                  ['flash-outline', sv ? 'Quicklog på sekunder' : 'Quicklog in seconds'],
-                  ['camera-outline', sv ? 'Logga från ett foto' : 'Log from a photo'],
-                  ['trending-up-outline', sv ? 'CPL/ATPL-progress' : 'CPL/ATPL progress'],
-                  ['pulse-outline', sv ? '14-dagars flygbelastning' : '14-day flight load'],
-                  ['cloud-outline', 'METAR & TAF'],
-                  ['share-social-outline', sv ? 'Flight share cards' : 'Flight share cards'],
-                ] as const).map(([icon, label]) => (
-                  <View key={label} style={s.introTile}>
-                    <Ionicons name={icon} size={16} color={C.primary} />
-                    <Text style={s.introTileText}>{label}</Text>
-                  </View>
-                ))}
+              <View style={{ gap: 10, alignSelf: 'stretch' }}>
+                <PrimaryButton label={sv ? 'Sätt upp min loggbok' : 'Set up my logbook'} accent="#00C8E8" onPress={() => setStep('role')} />
               </View>
-              <View style={{ gap: 10, alignSelf: 'stretch', marginTop: 14 }}>
-                <PrimaryButton label={sv ? 'Sätt upp min loggbok' : 'Set up my logbook'} accent={accent} onPress={() => setStep('role')} />
-              </View>
-            </ScrollView>
+            </View>
           )}
 
           {/* ── Role ── */}
-          {step === 'role' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Din profil' : 'Your profile'} accent={accent}
-                title={sv ? 'Vad gör du?' : 'What do you do?'}
-                subtitle={sv ? 'Vi skräddarsyr loggbok, export och certifikat efter din roll.' : 'We tailor the logbook, exports and certificates to your role.'} />
-              <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={s.pickList} showsVerticalScrollIndicator={false}>
-                {availableMainRoles.map(r => (
-                  <ImageRow key={r.key} image={ROLE_IMG[r.key]}
-                    title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en}
-                    onPress={() => {
-                      setMainRole(r.key);
-                      // Drönare: hoppa över subroll-steget (obsolet) → sätt standard-subroll och gå direkt till profil.
-                      if (r.key === 'pilot-unmanned') { setPendingSub('commercial'); setStep('profile'); }
-                      else { setStep('subrole'); }
-                    }} />
-                ))}
-              </ScrollView>
-            </>
-          )}
+          {step === 'role' && (() => {
+            // Tryck på FARKOSTEN för att välja. Två stora bilder, inga knappar: helikoptern överst
+            // lite till vänster (text till höger), drönaren under lite till höger (text till vänster).
+            const pilot = availableMainRoles.find((r) => r.key === 'pilot-manned');
+            const drone = availableMainRoles.find((r) => r.key === 'pilot-unmanned');
+            const IMG = Math.round(Dimensions.get('window').width * 0.46);
+            const choosePilot = () => { setMainRole('pilot-manned'); setStep('subrole'); };
+            const chooseDrone = () => { setMainRole('pilot-unmanned'); setPendingSub('commercial'); setStep('profile'); };
+            return (
+              <View style={{ flex: 1, alignSelf: 'stretch' }}>
+                <StepHeader eyebrow={sv ? 'Din profil' : 'Your profile'} accent={accent}
+                  title={sv ? 'Vad gör du?' : 'What do you do?'}
+                  subtitle={sv ? 'Välj loggboken du behöver — senare kan du välja att ha båda.' : 'Choose the logbook of your needs, later you can choose to have both'} />
+                <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
+                  {pilot && (
+                    <TouchableOpacity onPress={choosePilot} activeOpacity={0.75}
+                      style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 12, maxWidth: '94%' }}>
+                      <Image source={ROLE_IMG['pilot-manned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                      <View style={{ flexShrink: 1 }}>
+                        <Text style={s.roleChoiceTitle}>{sv ? pilot.title_sv : pilot.title_en}</Text>
+                        <Text style={s.roleChoiceDesc}>{sv ? pilot.desc_sv : pilot.desc_en}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  {drone && (
+                    <TouchableOpacity onPress={chooseDrone} activeOpacity={0.75}
+                      style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 12, maxWidth: '94%' }}>
+                      <View style={{ flexShrink: 1 }}>
+                        <Text style={[s.roleChoiceTitle, { textAlign: 'right' }]}>{sv ? drone.title_sv : drone.title_en}</Text>
+                        <Text style={[s.roleChoiceDesc, { textAlign: 'right' }]}>{sv ? drone.desc_sv : drone.desc_en}</Text>
+                      </View>
+                      <Image source={ROLE_IMG['pilot-unmanned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#FFB830' }]} resizeMode="contain" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* ── Sub-role ── */}
-          {step === 'subrole' && mainRole && (
-            <>
-              <StepHeader eyebrow={sv ? 'Specialisering' : 'Specialise'} accent={accent}
-                title={sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}
-                subtitle={sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en} />
-              <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={s.pickList} showsVerticalScrollIndicator={false}>
-                {SUB_ROLES[mainRole].map(r => {
-                  const onPick = () => { setPendingSub(r.key); setStep(manned(mainRole) ? 'framework' : 'droneid'); };
-                  const img = SUBROLE_IMG[r.key];
-                  return img
-                    ? <ImageRow key={r.key} image={img}
-                        title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={onPick} />
-                    : <OptionCard key={r.key} mci={r.icon} accent={accent}
-                        title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={onPick} />;
-                })}
-              </ScrollView>
-            </>
-          )}
-
-          {/* ── Framework (manned) ── */}
-          {step === 'framework' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Regelverk' : 'Framework'} accent={accent}
-                title={sv ? 'Vilket regelverk följer du?' : 'Which framework do you follow?'}
-                subtitle={sv ? 'Påverkar progresskartor, certifikat och export.' : 'Affects progress charts, certificates and exports.'} />
-              <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                {FRAMEWORKS.map(f => {
-                  const selected = standard === f.key;
-                  return (
-                    <OptionCard key={f.key} accent={accent} selected={selected}
-                      title={f.title} desc={sv ? f.desc_sv : f.desc_en}
-                      leading={<View style={[s.leadBox, { backgroundColor: selected ? accent + '1A' : 'rgba(255,255,255,0.05)' }]}>
-                        <Text style={[s.regionText, { color: selected ? accent : C.silver }]}>{f.region}</Text>
-                      </View>}
-                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
-                      onPress={() => { setStandardSel(f.key); setStep('timeformat'); }} />
-                  );
-                })}
+          {step === 'subrole' && mainRole && (() => {
+            // Samma lösning som roll-valet: stora farkostbilder (helikopter/flygplan), ingen knapp-chrome,
+            // diagonal placering, tryck på farkosten för att välja, glödande halo bakom.
+            const subs = SUB_ROLES[mainRole];
+            const IMG = Math.round(Dimensions.get('window').width * 0.46);
+            const pick = (key: SubRole) => { setPendingSub(key); setStep('profile'); }; // regelverk/tidsformat väljs på profilsidan
+            return (
+              <View style={{ flex: 1, alignSelf: 'stretch' }}>
+                <StepHeader eyebrow={sv ? 'Specialisering' : 'Specialise'} accent={accent}
+                  title={sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}
+                  subtitle={sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en} />
+                <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
+                  {subs.map((r, i) => {
+                    const img = SUBROLE_IMG[r.key];
+                    if (!img) {
+                      return <OptionCard key={r.key} mci={r.icon} accent={accent}
+                        title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={() => pick(r.key)} />;
+                    }
+                    const left = i % 2 === 0; // första farkosten till vänster (topp), andra till höger (under)
+                    return (
+                      <TouchableOpacity key={r.key} onPress={() => pick(r.key)} activeOpacity={0.75}
+                        style={{ flexDirection: 'row', alignItems: 'center', alignSelf: left ? 'flex-start' : 'flex-end', gap: 12, maxWidth: '94%' }}>
+                        {left ? (
+                          <>
+                            <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                            <View style={{ flexShrink: 1 }}>
+                              <Text style={s.roleChoiceTitle}>{sv ? r.title_sv : r.title_en}</Text>
+                              <Text style={s.roleChoiceDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
+                            </View>
+                          </>
+                        ) : (
+                          <>
+                            <View style={{ flexShrink: 1 }}>
+                              <Text style={[s.roleChoiceTitle, { textAlign: 'right' }]}>{sv ? r.title_sv : r.title_en}</Text>
+                              <Text style={[s.roleChoiceDesc, { textAlign: 'right' }]}>{sv ? r.desc_sv : r.desc_en}</Text>
+                            </View>
+                            <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </>
-          )}
+            );
+          })()}
 
-          {/* ── Time format (manned) ── */}
-          {step === 'timeformat' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Tidsformat' : 'Time format'} accent={accent}
-                title={sv ? 'Hur vill du se flygtider?' : 'How do you log flight times?'}
-                subtitle={sv ? 'Viktigt om du ska skanna eller importera din loggbok.' : 'Important if you scan or import your logbook.'} />
-              <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                {([
-                  { key: 'decimal' as TimeFormat, ex: '1.5', label: 'Decimal', sub: sv ? 'T.ex. 1.5 h' : 'e.g. 1.5h' },
-                  { key: 'hhmm' as TimeFormat, ex: '1:30', label: sv ? 'Timmar:Minuter' : 'Hours:Minutes', sub: sv ? 'T.ex. 1:30' : 'e.g. 1:30' },
-                ]).map(opt => {
-                  const selected = format === opt.key;
-                  return (
-                    <OptionCard key={opt.key} accent={accent} selected={selected} title={opt.label} desc={opt.sub}
-                      leading={<View style={[s.leadBox, { backgroundColor: selected ? accent + '1A' : 'rgba(255,255,255,0.05)' }]}>
-                        <Text style={[s.fmtText, { color: selected ? accent : C.silver }]}>{opt.ex}</Text>
-                      </View>}
-                      right={selected ? <Ionicons name="checkmark-circle" size={22} color={accent} /> : undefined}
-                      onPress={() => { setFormat(opt.key); setStep('profile'); }} />
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* Operatörs-ID-steget borttaget → flyttat in i profilsteget (ovanför Pilot signature). */}
+          {/* Regelverk + tidsformat är inte längre egna steg → väljs via dropdowns på profilsidan
+              (manned only, under Pilot signature). Operatörs-ID ligger också i profilsteget. */}
 
           {/* ── Profile ── */}
           {step === 'profile' && (
@@ -399,6 +394,20 @@ export default function OnboardingScreen() {
                     <Ionicons name="create-outline" size={18} color={accent} />
                   </TouchableOpacity>
                 </View>
+                {/* Regelverk + tidsformat (endast pilot) — dropdowns i stället för egna steg. */}
+                {manned(mainRole) && (
+                  <>
+                    <ProfileDropdown label={sv ? 'Regelverk' : 'Framework'} value={standard} accent={accent}
+                      options={FRAMEWORKS.map((f) => ({ key: f.key, label: `${f.title} · ${f.region}` }))}
+                      onSelect={setStandardSel} />
+                    <ProfileDropdown label={sv ? 'Tidsformat' : 'Time format'} value={format} accent={accent}
+                      options={[
+                        { key: 'decimal' as TimeFormat, label: 'Decimal (1.5)' },
+                        { key: 'hhmm' as TimeFormat, label: sv ? 'Timmar:Minuter (1:30)' : 'Hours:Minutes (1:30)' },
+                      ]}
+                      onSelect={setFormat} />
+                  </>
+                )}
               </ScrollView>
 
               <View style={{ alignSelf: 'stretch', gap: 10 }}>
@@ -502,6 +511,58 @@ function SecondaryButton({ label, onPress }: { label: string; onPress: () => voi
   );
 }
 
+// Radar-ringar: statiska koncentriska cirklar + ett roterande svep (top-kanten i accentfärgen).
+// Intro-skärmarnas nyckelrörelse. Reanimated driver en linjär, oändlig 0→360°-rotation.
+function RadarRings({ accent, duration, rings, sweep }: {
+  accent: string; duration: number; rings: { d: number; o: number }[]; sweep: number;
+}) {
+  const rot = useSharedValue(0);
+  useEffect(() => {
+    rot.value = withRepeat(withTiming(360, { duration: duration * 1000, easing: Easing.linear }), -1);
+    return () => cancelAnimation(rot);
+  }, [duration, rot]);
+  const sweepStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rot.value}deg` }] }));
+  const withAlpha = (o: number) => accent + Math.round(Math.max(0, Math.min(1, o)) * 255).toString(16).padStart(2, '0');
+  const circle = (d: number) => ({ position: 'absolute' as const, left: '50%' as const, top: '50%' as const, width: d, height: d, marginLeft: -d / 2, marginTop: -d / 2, borderRadius: d / 2 });
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {rings.map((r) => (
+        <View key={r.d} style={[circle(r.d), { borderWidth: 1, borderColor: withAlpha(r.o) }]} />
+      ))}
+      <Animated.View style={[circle(sweep), { borderWidth: 1.5, borderColor: 'transparent', borderTopColor: accent }, sweepStyle]} />
+    </View>
+  );
+}
+
+// Delad layout för intro-skärmarna 2–4: radar-ringar bakom ett centrerat textblock, knappar i botten.
+function IntroStage({ accent, duration, eyebrow, line1, line2, body, extras, onContinue, onSkip, sv }: {
+  accent: string; duration: number; eyebrow: string; line1: string; line2: string; body: string;
+  extras?: React.ReactNode; onContinue: () => void; onSkip: () => void; sv: boolean;
+}) {
+  return (
+    <View style={{ flex: 1, alignSelf: 'stretch' }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <RadarRings accent={accent} duration={duration}
+          rings={[{ d: 420, o: 0.06 }, { d: 340, o: 0.10 }, { d: 250, o: 0.16 }]} sweep={340} />
+        <View style={{ maxWidth: 300, alignItems: 'center', zIndex: 2 }}>
+          <Text style={[s.introEyebrow, { color: accent }]}>{eyebrow.toUpperCase()}</Text>
+          <Text style={[s.introHeadline, { fontSize: 40, lineHeight: 40 * 1.02 }]}>{line1}</Text>
+          <Text style={[s.introHeadline, { fontSize: 40, lineHeight: 40 * 1.02, color: accent }]}>{line2}</Text>
+          <Text style={s.introBody}>{body}</Text>
+          {extras}
+        </View>
+      </View>
+      {/* "Skip intro" = subtil textlänk (inte knapp); Continue hamnar då något längre ner. */}
+      <View style={{ alignSelf: 'stretch', alignItems: 'center', gap: 14 }}>
+        <PrimaryButton label={sv ? 'Fortsätt' : 'Continue'} accent="#00C8E8" onPress={onContinue} />
+        <TouchableOpacity onPress={onSkip} hitSlop={10} style={{ height: 30, justifyContent: 'center' }} activeOpacity={0.6}>
+          <Text style={s.introSkipText}>{sv ? 'Hoppa över introt' : 'Skip intro'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function AvatarPreview({ initials, name, creds, accent }: { initials: string; name: string; creds: string; accent: string }) {
   return (
     <View style={s.avatarWrap}>
@@ -531,109 +592,32 @@ function Field(props: { label: string; value: string; onChangeText: (v: string) 
   );
 }
 
-// ── Intro-skärmarnas informationskomponenter (ej tryckbara val) ──────────────
-function IntroModeCard({ image, tag, title, desc }: { image: ImageSourcePropType; tag: string; title: string; desc: string }) {
+// Enkel dropdown-flik (label + vald post; expanderar en lista under sig). Används på profilsidan
+// för regelverk + tidsformat (tidigare egna steg).
+function ProfileDropdown<T extends string>({ label, value, options, onSelect, accent }: {
+  label: string; value: T; options: { key: T; label: string }[]; onSelect: (k: T) => void; accent: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.key === value);
   return (
-    <View style={s.introModeCard}>
-      <Image source={image} style={s.introModeImg} resizeMode="contain" />
-      <View style={{ flex: 1 }}>
-        <Text style={s.introModeTag}>{tag}</Text>
-        <Text style={s.introModeTitle}>{title}</Text>
-        <Text style={s.introModeDesc}>{desc}</Text>
-      </View>
-    </View>
-  );
-}
-
-function IntroSafeRow({ icon, title, desc, first }: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string; first?: boolean }) {
-  return (
-    <View style={[s.introSafeRow, first && { borderTopWidth: 0 }]}>
-      <Ionicons name={icon} size={17} color={C.success} />
-      <View style={{ flex: 1 }}>
-        <Text style={s.introSafeTitle}>{title}</Text>
-        <Text style={s.introSafeDesc}>{desc}</Text>
-      </View>
-    </View>
-  );
-}
-
-// Statisk pappersuppslag-illustration (exempeldata) — visar hur en flygning landar på rätt rad.
-function PaperSpread({ sv }: { sv: boolean }) {
-  const L = ['Date', 'From', 'To', 'Total'];
-  const R = ['PIC', 'Night', 'Ldg', 'Rem'];
-  const rows = [
-    ['12/06', 'ESSA', 'ESGG', '1:24', '1:24', '—', '1', 'Wx ok'],
-    ['12/06', 'ESGG', 'ESMS', '0:48', '0:48', '—', '1', ''],
-    ['13/06', 'ESMS', 'EKCH', '1:05', '1:05', '0:20', '1', 'Night'],
-  ];
-  const NEW = ['14/06', 'EKCH', 'ESSA', '1:32', '1:32', '—', '1', 'New'];
-  const P = { paper: '#ECE3CC', ink: '#3A2E1C', head: '#6B5430', line: '#C9B98B', rule: '#DCD1B7', hi: 'rgba(0,200,232,0.12)', hiInk: '#0A6E86' };
-  const Cell = ({ t, w, hi }: { t: string; w: number; hi?: boolean }) => (
-    <Text numberOfLines={1} style={{ width: `${w}%`, fontFamily: 'Courier', fontSize: 8.5, color: hi ? P.hiInk : P.ink, fontWeight: hi ? '700' : '400' }}>{t}</Text>
-  );
-  const HeadCell = ({ t, w }: { t: string; w: number }) => (
-    <Text style={{ width: `${w}%`, fontSize: 6.8, fontWeight: '700', color: P.head, letterSpacing: 0.3 }}>{t.toUpperCase()}</Text>
-  );
-  const cols = [26, 22, 22, 30]; // L-sidans kolumnbredder (%)
-  return (
-    <View style={{ marginTop: 4 }}>
-      <View style={{ flexDirection: 'row', backgroundColor: P.paper, borderRadius: 14, padding: 12, gap: 12 }}>
-        {/* Vänster sida */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: P.head, paddingBottom: 2 }}>
-            {L.map((h, i) => <HeadCell key={h} t={h} w={cols[i]} />)}
-          </View>
-          {rows.map((r, i) => (
-            <View key={i} style={{ flexDirection: 'row', height: 17, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: P.line }}>
-              {r.slice(0, 4).map((c, j) => <Cell key={j} t={c} w={cols[j]} />)}
-            </View>
+    <View>
+      <Text style={s.inputLabel}>{label}</Text>
+      <TouchableOpacity style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46 }]}
+        onPress={() => setOpen((o) => !o)} activeOpacity={0.7}>
+        <Text style={{ color: C.textPrimary, fontSize: 15, fontWeight: '600' }}>{current?.label ?? ''}</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={accent} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ marginTop: 6, backgroundColor: C.elevated, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden' }}>
+          {options.map((o, i) => (
+            <TouchableOpacity key={o.key} onPress={() => { onSelect(o.key); setOpen(false); }} activeOpacity={0.7}
+              style={{ paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: C.separator, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: value === o.key ? accent : C.textPrimary, fontSize: 15, fontWeight: value === o.key ? '700' : '500' }}>{o.label}</Text>
+              {value === o.key ? <Ionicons name="checkmark" size={18} color={accent} /> : null}
+            </TouchableOpacity>
           ))}
-          <View style={{ flexDirection: 'row', height: 17, alignItems: 'center', backgroundColor: P.hi, borderRadius: 3 }}>
-            {NEW.slice(0, 4).map((c, j) => <Cell key={j} t={c} w={cols[j]} hi />)}
-          </View>
         </View>
-        {/* Spine */}
-        <View style={{ width: 1, backgroundColor: 'rgba(0,0,0,0.12)' }} />
-        {/* Höger sida */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: P.head, paddingBottom: 2 }}>
-            {R.map((h, i) => <HeadCell key={h} t={h} w={cols[i]} />)}
-          </View>
-          {rows.map((r, i) => (
-            <View key={i} style={{ flexDirection: 'row', height: 17, alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: P.line }}>
-              {r.slice(4, 8).map((c, j) => <Cell key={j} t={c} w={cols[j]} />)}
-            </View>
-          ))}
-          <View style={{ flexDirection: 'row', height: 17, alignItems: 'center', backgroundColor: P.hi, borderRadius: 3 }}>
-            {NEW.slice(4, 8).map((c, j) => <Cell key={j} t={c} w={cols[j]} hi />)}
-          </View>
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        <Text style={s.introSpreadCaption}><Text style={{ color: C.primary }}>■ </Text>{sv ? 'Ny flygning' : 'New flight'}</Text>
-        <Text style={s.introSpreadCaption}>{sv ? 'Sida' : 'Page'} 38–39</Text>
-      </View>
-    </View>
-  );
-}
-
-function IntroCsvCard({ sv }: { sv: boolean }) {
-  const chips = sv ? ['Egen fil', 'ForeFlight', 'LogTen Pro'] : ['Your own sheet', 'ForeFlight', 'LogTen Pro'];
-  return (
-    <View style={s.introCsvCard}>
-      <View style={s.introCsvLead}>
-        <MaterialCommunityIcons name="file-delimited-outline" size={24} color={C.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={s.introCsvTitle}>{sv ? 'Importera valfri CSV' : 'Import any CSV'}</Text>
-          <View style={s.introCsvFree}><Text style={s.introCsvFreeText}>FREE</Text></View>
-        </View>
-        <Text style={s.introCsvDesc}>{sv ? 'Ditt eget kalkylark eller export från en annan app. Valfritt format, gratis.' : 'Your own spreadsheet or an export from another app. Any format, at no cost.'}</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-          {chips.map((c) => <Text key={c} style={s.introCsvChip}>{c}</Text>)}
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -644,7 +628,7 @@ const s = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.cardBorder },
   dotActive: { width: 24 },
 
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6, zIndex: 20 },
   backText: { color: C.textSecondary, fontSize: 14, fontWeight: '600' },
 
   stepContent: { flex: 1, alignItems: 'flex-start' },
@@ -662,6 +646,24 @@ const s = StyleSheet.create({
   eyebrow: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 },
   title: { fontSize: 23, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.4 },
   subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 19, marginTop: 6 },
+
+  // Intro-skärmarnas (2–5) centrerade textblock + taggar (radar-designen).
+  introEyebrow: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textAlign: 'center', marginBottom: 10 },
+  introHeadline: { fontWeight: '800', letterSpacing: -1.2, color: '#FFFFFF', textAlign: 'center' },
+  introBody: { fontSize: 15, color: '#7FA8C8', lineHeight: 21, maxWidth: 270, marginTop: 16, textAlign: 'center' },
+  introFreeBadge: { backgroundColor: '#00E8A0', paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5 },
+  introFreeBadgeText: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '800', letterSpacing: 1, color: '#0A1628' },
+  introFreeLabel: { fontSize: 13.5, fontWeight: '600', color: '#FFFFFF' },
+  introPill: { borderWidth: 1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 },
+  introPillText: { fontFamily: 'Menlo', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8 },
+  introSkipText: { fontSize: 13.5, fontWeight: '600', color: '#7FA8C8' },
+
+  // Roll-val: text bredvid farkostbilden (ingen knapp-chrome).
+  roleChoiceTitle: { fontSize: 24, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.5 },
+  roleChoiceDesc: { fontSize: 13.5, color: C.textSecondary, lineHeight: 18, marginTop: 4 },
+  // Glödande halo bakom de nästan svarta farkostbilderna → syns mot svart bakgrund.
+  // iOS-skuggan följer PNG:ns alfa (siluetten); shadowColor sätts per bild.
+  roleGlow: { shadowOpacity: 0.95, shadowRadius: 34, shadowOffset: { width: 0, height: 0 } },
 
   // Navy ruta med guldig kantlinje på svart bakgrund (vald → accent-ring).
   card: {
@@ -714,33 +716,4 @@ const s = StyleSheet.create({
   inputLabel: { fontSize: 12, fontWeight: '700', color: C.textPrimary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.elevated, fontSize: 15, color: C.textPrimary },
 
-  // ── Intro-skärmar ──
-  introModeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.gold, borderRadius: 16, padding: 6, paddingRight: 12, height: 84 },
-  introModeImg: { width: 72, height: 72, borderRadius: 10, transform: [{ scale: 1.1 }] },
-  introModeTag: { fontFamily: 'Menlo', fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: C.primary },
-  introModeTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary, marginTop: 1 },
-  introModeDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 1 },
-
-  introPanel: { marginTop: 12, backgroundColor: C.elevated, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 14, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 4 },
-  introPanelHead: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9 },
-  introPanelHeadText: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: C.success },
-  introSafeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 7, borderTopWidth: 1, borderTopColor: C.separator },
-  introSafeTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
-  introSafeDesc: { fontSize: 11.5, color: C.textSecondary, lineHeight: 15, marginTop: 1 },
-
-  introSpreadCaption: { fontFamily: 'Menlo', fontSize: 10, color: C.textSecondary },
-
-  introCsvCard: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 16, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.gold, borderRadius: 18, padding: 14 },
-  introCsvLead: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  introCsvTitle: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
-  introCsvFree: { backgroundColor: C.success, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3 },
-  introCsvFreeText: { fontFamily: 'Menlo', fontSize: 9.5, fontWeight: '800', letterSpacing: 1, color: C.textInverse },
-  introCsvDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 17, marginTop: 3 },
-  introCsvChip: { fontFamily: 'Menlo', fontSize: 10, color: C.silver, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, overflow: 'hidden' },
-
-  introGlobeLegend: { fontFamily: 'Menlo', fontSize: 10, color: C.textSecondary },
-  introMoreLabel: { fontFamily: 'Menlo', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, color: C.silver, marginTop: 14, marginBottom: 10 },
-  introGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  introTile: { width: '48%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10 },
-  introTileText: { fontSize: 12.5, fontWeight: '600', color: C.textPrimary, flex: 1 },
 });
