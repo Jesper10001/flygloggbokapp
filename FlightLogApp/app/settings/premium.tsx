@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, Modal, Alert, ActivityIndicator, Image, Linking,
@@ -6,9 +6,11 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { useFlightStore } from '../../store/flightStore';
 import { setSetting } from '../../db/flights';
 import { redeemPromo } from '../../services/promo';
+import { getPremiumOffering, purchasePackage, restorePurchases } from '../../services/purchases';
 import { useToastStore } from '../../components/Toast';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 
@@ -66,28 +68,54 @@ function BenefitRow({ icon, title, desc, chips, last }: {
 export default function PremiumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { setTier, setIsPremium, isPremium } = useFlightStore();
+  const { setIsPremium, isPremium } = useFlightStore();
   const [purchasing, setPurchasing] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoBusy, setPromoBusy] = useState(false);
+  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
 
-  const handleSubscribe = () => {
+  // Hämta aktuellt RevenueCat-offering för att visa riktigt (lokaliserat) pris. Null = ännu
+  // inte konfigurerat (ingen nyckel/native-modul) → vi faller tillbaka på hårdkodad 39 kr-text.
+  useEffect(() => { getPremiumOffering().then(setOffering).catch(() => {}); }, []);
+  const pkg: PurchasesPackage | null = offering?.monthly ?? offering?.availablePackages?.[0] ?? null;
+  const priceString = pkg?.product?.priceString ?? null;
+
+  const handleSubscribe = async () => {
     if (purchasing) return;
     if (isPremium) { useToastStore.getState().show('Premium is already active'); return; }
+    if (!pkg) {
+      Alert.alert('Not available yet', 'In-app purchases aren’t available on this build yet. Please try again after the next update.');
+      return;
+    }
     setPurchasing(true);
-    // TODO: Replace with RevenueCat purchase flow.
-    setTimeout(() => {
-      setPurchasing(false);
-      setTier('premium');
-      useToastStore.getState().show('Welcome to Premium · 250 Blade-coins added');
+    const outcome = await purchasePackage(pkg); // sätter premium i storen vid success
+    setPurchasing(false);
+    if (outcome === 'success') {
+      useToastStore.getState().show('Welcome to Premium');
       router.back();
-    }, 1100);
+    } else if (outcome === 'cancelled') {
+      /* användaren avbröt — tyst */
+    } else if (outcome === 'unavailable') {
+      Alert.alert('Not available yet', 'In-app purchases aren’t available on this build yet.');
+    } else {
+      Alert.alert('Purchase failed', 'Something went wrong and you have not been charged. Please try again.');
+    }
   };
 
-  const handleRestore = () => {
-    // TODO: Replace with purchase-SDK restore.
-    useToastStore.getState().show('No previous purchase found');
+  const handleRestore = async () => {
+    const outcome = await restorePurchases();
+    if (outcome === 'success') {
+      useToastStore.getState().show('Premium restored');
+      router.back();
+    } else if (outcome === 'nothing') {
+      useToastStore.getState().show('No previous purchase found');
+    } else if (outcome === 'unavailable') {
+      useToastStore.getState().show('Purchases not available yet');
+    } else if (outcome === 'error') {
+      Alert.alert('Restore failed', 'Could not restore your purchases. Please try again.');
+    }
+    /* cancelled → tyst */
   };
 
   // Promo-kod → verifieras SERVER-SIDE (proxyn). Giltig → gratis Blades Premium (obegränsad tid);
@@ -120,8 +148,17 @@ export default function PremiumScreen() {
         <View style={s.card}>
           <Text style={s.name}>BLADES <Text style={s.nameGold}>Premium</Text></Text>
           <View style={s.priceRow}>
-            <Text style={s.priceN}>39</Text>
-            <Text style={s.priceP}>kr / month</Text>
+            {priceString ? (
+              <>
+                <Text style={s.priceN}>{priceString}</Text>
+                <Text style={s.priceP}> / month</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.priceN}>39</Text>
+                <Text style={s.priceP}>kr / month</Text>
+              </>
+            )}
           </View>
 
           <BenefitRow
@@ -146,7 +183,7 @@ export default function PremiumScreen() {
           >
             {purchasing
               ? <ActivityIndicator size="small" color={N.bg} />
-              : <Text style={s.ctaText}>{isPremium ? 'Premium active' : 'Subscribe · 39 kr / month'}</Text>}
+              : <Text style={s.ctaText}>{isPremium ? 'Premium active' : `Subscribe · ${priceString ?? '39 kr'} / month`}</Text>}
           </TouchableOpacity>
         </View>
 

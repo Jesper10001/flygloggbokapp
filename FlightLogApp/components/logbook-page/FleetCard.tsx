@@ -260,16 +260,27 @@ export function FleetCard({ ac, accent, onSaved }: {
 
       {/* ── Innehåll ── */}
       <View style={{ paddingHorizontal: 15, paddingBottom: 14, paddingTop: cutout ? 26 : 13, position: 'relative', zIndex: 1 }}>
-        {/* header: modell + total på type (samma rad, tiden i höjd med modellen) + maker */}
+        {/* header: modell + total på type (samma rad, tiden i höjd med modellen). Tillverkaren
+            ligger i VÄNSTERkolumnen direkt under modellen → sim-raden till höger kan aldrig
+            trycka ner den. */}
         <View style={{ marginBottom: 3, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-            {editing ? (
-              <TextInput value={typeName} onChangeText={(v) => setTypeName(v.toUpperCase())} autoCapitalize="characters" autoCorrect={false}
-                placeholder={ac.aircraft_type} placeholderTextColor={Colors.textMuted}
-                style={{ flex: 1, fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
-            ) : (
-              <Text numberOfLines={1} style={{ flex: 1, fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
-            )}
+            {/* Vänster: modell + tillverkare staplade */}
+            <View style={{ flex: 1 }}>
+              {editing ? (
+                <TextInput value={typeName} onChangeText={(v) => setTypeName(v.toUpperCase())} autoCapitalize="characters" autoCorrect={false}
+                  placeholder={ac.aircraft_type} placeholderTextColor={Colors.textMuted}
+                  style={{ fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3, borderBottomWidth: 1, borderBottomColor: accent, paddingVertical: 2, paddingHorizontal: 0 }} />
+              ) : (
+                <Text numberOfLines={1} style={{ fontFamily: FONT_SERIF, fontSize: 27, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>{ac.aircraft_type}</Text>
+              )}
+              {editing ? (
+                <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginTop: 4, letterSpacing: 0.3 }}>Renaming updates the logbook & export for all flights on this type</Text>
+              ) : makerLine ? (
+                <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text>
+              ) : null}
+            </View>
+            {/* Höger: total + sim-tid, staplade nedåt oberoende av vänsterkolumnen */}
             <View style={{ alignItems: 'flex-end' }}>
               {/* Total flygtid (exkl. sim) i vitt */}
               <Text style={{ fontFamily: FONT_SERIF, fontSize: 24, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.3 }}>
@@ -286,11 +297,6 @@ export function FleetCard({ ac, accent, onSaved }: {
               ) : null}
             </View>
           </View>
-          {editing ? (
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, color: Colors.textMuted, marginTop: 4, letterSpacing: 0.3 }}>Renaming updates the logbook & export for all flights on this type</Text>
-          ) : makerLine ? (
-            <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textMuted, marginTop: 3 }}>{makerLine}</Text>
-          ) : null}
         </View>
 
         {/* spec-grupper (ikon + rubrik till vänster, hårlinjedelad rad — som förut) */}

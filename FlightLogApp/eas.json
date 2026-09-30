@@ -11,7 +11,8 @@
         "simulator": false
       },
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_DgvYFsEktlZhlMmQkFXtyKUSDzi"
       }
     },
     "preview": {

@@ -10,6 +10,7 @@ import { runEncryptionSelfTest } from '../db/sqlite';
 import { seedIcaoAirports } from '../db/icao';
 import { getSetting, setSetting } from '../db/flights';
 import { checkPromoEntitlement } from '../services/promo';
+import { configurePurchases, refreshEntitlement } from '../services/purchases';
 import { Colors } from '../constants/colors';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore } from '../store/timeFormatStore';
@@ -111,6 +112,9 @@ export default function RootLayout() {
         await cleanupDittoEntries();
         logLogbookDiagnostics(); // TILLFÄLLIG felsökning → loggbokstotaler till Metro-terminalen vid varje start
         useTokenQuotaStore.getState().load(); // fire-and-forget — får inte blockera app-starten på nätverk
+        // RevenueCat (IAP): konfigurera + synka premium-läget. Fire-and-forget, tyst om native-modulen
+        // eller nyckeln saknas (då styr promo/servern premium). Får aldrig blockera eller fälla starten.
+        configurePurchases().then(() => refreshEntitlement()).catch(() => {});
         useRegulationStandardStore.getState().load(); // EASA/FAA-val → styr insights hours bank m.m.
         await checkVersion();
         const { mode } = useAppModeStore.getState();
