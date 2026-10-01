@@ -68,24 +68,29 @@ function FocusGroup({ flights, accent, onOpenFlight, scrollRef, viewportH, nonce
   );
 }
 
-export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOpen, onOpenFlight, expandYear, expandMonthKey, focusDate, focusNonce, scrollRef, viewportH }: {
+export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOpen, onOpenFlight, expandYear, expandMonthKey, focusDate, focusStart, focusEnd, focusNonce, scrollRef, viewportH }: {
   flights: Flight[]; accent: string; filter: string; photoMode: boolean; forceOpen: boolean;
   onOpenFlight: (f: Flight) => void; expandYear?: number | null; expandMonthKey?: string | null;
-  focusDate?: string | null; focusNonce?: string | null; scrollRef?: React.RefObject<any>; viewportH?: number;
+  focusDate?: string | null; focusStart?: string | null; focusEnd?: string | null;
+  focusNonce?: string | null; scrollRef?: React.RefObject<any>; viewportH?: number;
 }) {
-  // Månad-nyckel (år-monthIndex) för fokus-dagen → bara den månaden splittas i en FocusGroup.
-  const fParts = focusDate ? focusDate.split('-').map(Number) : null;
-  const focusMonthKey = fParts && fParts.length === 3 && fParts[0] && fParts[1] ? `${fParts[0]}-${fParts[1] - 1}` : null;
-  // Rendera månadens rader; i fokus-månaden samlas dagens (sammanhängande) flighter i en FocusGroup.
-  const renderRows = (fls: Flight[], monthKey: string): ReactNode => {
-    if (!focusDate || monthKey !== focusMonthKey) {
+  // Fokus-intervall: en enskild dag (kalendern skickar focusDate) ELLER ett datumintervall
+  // (focusStart..focusEnd, t.ex. "Open week in logbook"). Flighter inom intervallet ramas in i cyan.
+  const rStart = focusStart ?? focusDate ?? null;
+  const rEnd = focusEnd ?? focusDate ?? null;
+  const hasFocus = !!rStart && !!rEnd;
+  const inFocus = (d: string) => hasFocus && d >= (rStart as string) && d <= (rEnd as string);
+  // Rendera månadens rader; sammanhängande fokus-flighter (även över månadsgräns) samlas i en
+  // FocusGroup med cyan ram + auto-scroll. Utan fokus: vanliga rader.
+  const renderRows = (fls: Flight[], _monthKey: string): ReactNode => {
+    if (!hasFocus) {
       return fls.map((f) => <FlightCardRow key={f.id} flight={f} accent={accent} onPress={() => onOpenFlight(f)} />);
     }
     const out: ReactNode[] = [];
     let run: Flight[] = [];
     const flush = () => { if (run.length) { const rr = run; out.push(<FocusGroup key={`fg-${rr[0].id}`} flights={rr} accent={accent} onOpenFlight={onOpenFlight} scrollRef={scrollRef} viewportH={viewportH} nonce={focusNonce} />); run = []; } };
     for (const f of fls) {
-      if (f.date === focusDate) run.push(f);
+      if (inFocus(f.date)) run.push(f);
       else { flush(); out.push(<FlightCardRow key={f.id} flight={f} accent={accent} onPress={() => onOpenFlight(f)} />); }
     }
     flush();
@@ -99,10 +104,15 @@ export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOp
   // Ny fokus-navigation (focusNonce ändras) → tvinga upp målårets + målmånadens sektion, även om
   // användaren fällt ihop dem manuellt, så "Open this day" alltid expanderar + navigerar dit.
   useEffect(() => {
-    if (!focusDate || !focusMonthKey) return;
-    const fy = Number(focusDate.split('-')[0]);
-    if (fy) setYearOvr((c) => ({ ...c, [fy]: true }));
-    setMonthOvr((c) => ({ ...c, [focusMonthKey]: true }));
+    if (!hasFocus) return;
+    // Öppna både start- och slutmånadens sektion (veckan kan spänna över två månader).
+    const open = (iso: string) => {
+      const [y, m] = iso.split('-').map(Number);
+      if (!y || !m) return;
+      setYearOvr((c) => ({ ...c, [y]: true }));
+      setMonthOvr((c) => ({ ...c, [`${y}-${m - 1}`]: true }));
+    };
+    open(rStart as string); open(rEnd as string);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce]);
 
@@ -116,7 +126,10 @@ export function YearMonthAccordion({ flights, accent, filter, photoMode, forceOp
   const expandNeedsAll = expandYear != null
     && !years.slice(0, 3).some((y) => y.year === expandYear)
     && years.some((y) => y.year === expandYear);
-  const showAll = forceOpen || showAllYears || expandNeedsAll;
+  // Fokus-intervallets år måste vara synliga (inte gömda bakom "Previous years").
+  const focusYears = hasFocus ? [Number((rStart as string).slice(0, 4)), Number((rEnd as string).slice(0, 4))] : [];
+  const focusNeedsAll = focusYears.some((fy) => !years.slice(0, 3).some((y) => y.year === fy) && years.some((y) => y.year === fy));
+  const showAll = forceOpen || showAllYears || expandNeedsAll || focusNeedsAll;
   const visibleYears = showAll ? years : years.slice(0, 3);
 
   return (

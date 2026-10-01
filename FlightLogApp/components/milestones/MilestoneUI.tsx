@@ -13,13 +13,18 @@ export function MilestoneHeader({
   title, accent, topInset, onBack, onShare,
 }: { title: string; accent: string; topInset: number; onBack: () => void; onShare?: () => void }) {
   const { t } = useTranslation();
+  // Dessa sidor presenteras som modal-kort (under notchen) → den fulla top-insetten behövs inte.
+  // Kapa den så att det inte blir ett stort tomrum ovanför titeln.
+  const padTop = Math.min(topInset, 6) + 8;
   return (
-    <BlurView intensity={28} tint="dark" style={[h.bar, { paddingTop: topInset + 8 }]}>
+    <BlurView intensity={28} tint="dark" style={[h.bar, { paddingTop: padTop }]}>
+      {/* Titeln ligger absolut centrerad på skärmen (oberoende av att vänster/höger-sidan är olika
+          breda) → centrerad högst upp som de nativa headerna på andra sidor. */}
+      <Text style={[h.title, { top: padTop }]} numberOfLines={1}>{title}</Text>
       <Pressable onPress={onBack} style={h.back} hitSlop={8}>
         <Ionicons name="chevron-back" size={20} color={accent} />
         <Text style={[h.backLabel, { color: accent }]}>{t('tab_dashboard')}</Text>
       </Pressable>
-      <Text style={h.title} numberOfLines={1}>{title}</Text>
       {onShare ? (
         <Pressable onPress={onShare} style={[h.share, { backgroundColor: accent + '1A' }]} hitSlop={8}>
           <Ionicons name="share-outline" size={16} color={accent} />
@@ -129,13 +134,13 @@ export function GhostCTA({ label, icon, onPress }: { label: string; icon: keyof 
 
 const h = StyleSheet.create({
   bar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     paddingBottom: 12, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: Colors.separator,
   },
   back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 92 },
   backLabel: { fontSize: 16, fontWeight: '500' },
-  title: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
+  title: { position: 'absolute', left: 0, right: 0, textAlign: 'center', lineHeight: 32, fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
   share: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minWidth: 32 },
 });
 

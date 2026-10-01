@@ -145,7 +145,15 @@ export default function BestWeekScreen() {
 
         {/* CTAs */}
         <View style={[s.section, { gap: 10 }]}>
-          <GhostCTA label={t('ms.bw_open_logbook')} icon="list-outline" onPress={() => router.push('/log')} />
+          <GhostCTA label={t('ms.bw_open_logbook')} icon="list-outline" onPress={() => {
+            // Öppna loggboken med veckans flighter inramade i cyan (samma som kalenderns "Open in logbook",
+            // men ett helt datumintervall — veckan kan spänna över två månader).
+            const isos = d.days.map((x) => x.iso).filter(Boolean).sort();
+            const start = isos[0], end = isos[isos.length - 1];
+            if (!start || !end) { router.push('/log'); return; }
+            const [y, m] = start.split('-').map(Number);
+            router.push({ pathname: '/log', params: { focusStart: start, focusEnd: end, focusYear: String(y), focusMonth: String(m), t: String(Date.now()) } });
+          }} />
         </View>
       </ScrollView>
     </View>

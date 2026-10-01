@@ -11,10 +11,10 @@ import { HeatmapCalendar } from '../insights/ActivitySection';
 
 const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['photo', 'Photo']];
 
-export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight, focusDate, focusNonce }: {
+export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight, focusDate, focusStart, focusEnd, focusNonce }: {
   flights: Flight[]; accent: string; placeNames: Record<string, string>;
   onOpenFlight: (f: Flight) => void; expandYear?: number | null; expandMonthKey?: string | null;
-  headerRight?: React.ReactNode; focusDate?: string | null; focusNonce?: string | null;
+  headerRight?: React.ReactNode; focusDate?: string | null; focusStart?: string | null; focusEnd?: string | null; focusNonce?: string | null;
 }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
@@ -83,7 +83,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
         ) : (
           <YearMonthAccordion flights={filtered} accent={accent} filter={filter} photoMode={photoMode}
             forceOpen={forceOpen} onOpenFlight={onOpenFlight} expandYear={expandYear} expandMonthKey={expandMonthKey}
-            focusDate={focusDate} focusNonce={focusNonce} scrollRef={scrollRef} viewportH={viewportH} />
+            focusDate={focusDate} focusStart={focusStart} focusEnd={focusEnd} focusNonce={focusNonce} scrollRef={scrollRef} viewportH={viewportH} />
         )}
         {/* Årskalender + almenacka längst ner, under äldsta årtalet (bara i ofiltrerad vy) */}
         {filter === 'all' && !q.trim() && flights.length > 0 && (

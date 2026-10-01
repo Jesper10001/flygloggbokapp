@@ -40,7 +40,7 @@ export function PilotLogbook() {
   }, [flights]);
 
   // Djuplänk från Insights-heatmapen: öppna List och expandera rätt år/månad.
-  const params = useLocalSearchParams<{ focusFlightId?: string; focusDate?: string; focusYear?: string; focusMonth?: string; t?: string; view?: string }>();
+  const params = useLocalSearchParams<{ focusFlightId?: string; focusDate?: string; focusStart?: string; focusEnd?: string; focusYear?: string; focusMonth?: string; t?: string; view?: string }>();
   useEffect(() => {
     if (!params.focusYear || !params.focusMonth) return;
     const fy = Number(params.focusYear), fm = Number(params.focusMonth);
@@ -67,7 +67,7 @@ export function PilotLogbook() {
       ) : view === 'list' ? (
         <ListView flights={flights} accent={accent} placeNames={placeNames} onOpenFlight={openFlight}
           expandYear={expand.year} expandMonthKey={expand.monthKey} headerRight={toggleNode}
-          focusDate={params.focusDate ?? null} focusNonce={params.t ?? null} />
+          focusDate={params.focusDate ?? null} focusStart={params.focusStart ?? null} focusEnd={params.focusEnd ?? null} focusNonce={params.t ?? null} />
       ) : view === 'fleet' ? (
         <FleetView accent={accent} headerRight={toggleNode} />
       ) : (
