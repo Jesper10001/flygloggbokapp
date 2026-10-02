@@ -22,6 +22,7 @@ import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { Colors } from '../../constants/colors'; // stress-panelen använder EXAKT manned-tokens (paritet)
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { maybeStartIntroTour } from '../../store/tourStore';
 import { getDroneStressHours, getDroneFlights, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
@@ -137,6 +138,10 @@ export default function DroneDashboardScreen() {
     getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14))).catch(() => {});
     return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
+
+  // Blades introduction — starta den guidade rundturen automatiskt EN gång efter onboarding
+  // (flaggan sätts där). maybeStartIntroTour rensar flaggan och no-op:ar annars.
+  useFocusEffect(useCallback(() => { maybeStartIntroTour('drone'); }, []));
 
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);

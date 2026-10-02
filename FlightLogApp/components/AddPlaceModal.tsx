@@ -93,7 +93,7 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
   const save = async () => {
     const nm = name.trim();
     if (mode === 'custom') {
-      if (icao.trim().length !== 4) { Alert.alert('Invalid code', 'ICAO code must be 4 letters.'); return; }
+      if (icao.trim().length < 2) { Alert.alert('Invalid code', 'Enter an airport code (at least 2 characters).'); return; }
       if (!nm) { Alert.alert('Name required', 'Enter an airport name.'); return; }
     } else {
       if (!nm) { Alert.alert('Name required', 'Enter an off-airport name.'); return; }
@@ -117,6 +117,9 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
   };
 
   const isCustom = mode === 'custom';
+  // Etikett i förhandsvisningens ICAO-box (samma stil som flygplatser på Global map). Off-airport
+  // får sin kod genererad först vid spara → visa namnet i boxen tills dess.
+  const previewLabel = ((isCustom ? icao : name).trim().toUpperCase()) || (isCustom ? 'ICAO' : 'PLACE');
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -136,9 +139,9 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
             </View>
 
             {isCustom && (
-              <Field label="ICAO code">
+              <Field label="Airport code">
                 <TextInput style={styles.input} value={icao} onChangeText={(v) => setIcao(v.toUpperCase())}
-                  placeholder="ESSA" placeholderTextColor={Colors.textMuted} maxLength={4} autoCapitalize="characters" autoCorrect={false} />
+                  placeholder="ESSA" placeholderTextColor={Colors.textMuted} maxLength={8} autoCapitalize="characters" autoCorrect={false} />
               </Field>
             )}
 
@@ -157,7 +160,10 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
                   region={{ latitude: coord.lat, longitude: coord.lon, latitudeDelta: 0.3, longitudeDelta: 0.3 }}
                   userInterfaceStyle="dark"
                 >
-                  <Marker coordinate={{ latitude: coord.lat, longitude: coord.lon }} />
+                  {/* Platsen visas som en ICAO-box (samma stil som Global map) i stället för standard-pin. */}
+                  <Marker coordinate={{ latitude: coord.lat, longitude: coord.lon }} anchor={{ x: 0.5, y: 0.5 }}>
+                    <View style={styles.icaoPin}><Text style={styles.icaoPinTxt}>{previewLabel}</Text></View>
+                  </Marker>
                 </MapView>
               ) : (
                 <View style={styles.previewEmpty}>
@@ -196,6 +202,10 @@ export function AddPlaceModal({ visible, onClose, initialCode, initialMode = 'cu
             showsPointsOfInterests={false}
             showsCompass={false}
             toolbarEnabled={false}
+            scrollEnabled
+            zoomEnabled
+            rotateEnabled
+            pitchEnabled
             onRegionChangeComplete={(r) => { regionRef.current = r; }}
           />
           {/* Fast hårkors i mitten */}
@@ -258,6 +268,9 @@ const styles = StyleSheet.create({
   previewEmptyText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   previewEditPill: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(6,11,22,0.8)' },
   previewEditText: { color: '#fff', fontSize: 10.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  // ICAO-box (= Global map) för förhandsvisningens markör.
+  icaoPin: { backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, borderWidth: 1, borderColor: Colors.primary, paddingHorizontal: 7, paddingVertical: 3 },
+  icaoPinTxt: { color: '#fff', fontSize: 11, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.5 },
 
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, marginTop: 4 },
   saveBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },

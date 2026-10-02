@@ -9,6 +9,7 @@ import { useAppModeStore } from '../store/appModeStore';
 import { useProfileStore, type MainRole, type SubRole, type Profile, targetForProfile } from '../store/profileStore';
 import { useRegulationStandardStore, type RegulationStandard } from '../store/regulationStandardStore';
 import { useOperatorStore } from '../store/operatorStore';
+import { markIntroTourPending } from '../store/tourStore';
 import { setSetting, getSetting } from '../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../components/SignaturePad';
 import { NavyColors } from '../constants/colors';
@@ -74,6 +75,7 @@ const FRAMEWORKS: { key: RegulationStandard; region: string; title: string; desc
   { key: 'easa', region: 'EU', title: 'EASA', desc_en: 'EU — Part-FCL. The European standard.', desc_sv: 'EU — Part-FCL. Europeisk standard.' },
   { key: 'faa', region: 'USA', title: 'FAA', desc_en: 'USA — US regulatory framework.', desc_sv: 'USA — amerikanskt regelverk.' },
   { key: 'caa', region: 'UK', title: 'CAA', desc_en: 'United Kingdom — mirrors EASA.', desc_sv: 'Storbritannien — speglar EASA.' },
+  { key: 'other', region: '', title: 'Other', desc_en: 'Another or no framework.', desc_sv: 'Annat eller inget regelverk.' },
 ];
 
 const manned = (role: MainRole | null) => role !== 'pilot-unmanned';
@@ -155,6 +157,9 @@ export default function OnboardingScreen() {
       await setSetting('pilot_signature', signature ? JSON.stringify(signature) : '');
       await setMode(targetForProfile(profile));
       await setSetting('has_onboarded', '1');
+      // Markera att Blades introduction-rundturen ska starta automatiskt när dashboarden visas
+      // (efter ev. import). Rundturen matchar läget man precis valt.
+      await markIntroTourPending(manned(mainRole) ? 'pilot' : 'drone');
       await new Promise(r => setTimeout(r, 100));
       // push: lämnar onboarding kvar i stacken så import-vyn kan svepas tillbaka hit. Vi skickar
       // from=onboarding så import-vyn efter lyckad import går DIREKT till dashboarden (inte tillbaka hit).
@@ -398,7 +403,7 @@ export default function OnboardingScreen() {
                 {manned(mainRole) && (
                   <>
                     <ProfileDropdown label={sv ? 'Regelverk' : 'Framework'} value={standard} accent={accent}
-                      options={FRAMEWORKS.map((f) => ({ key: f.key, label: `${f.title} · ${f.region}` }))}
+                      options={FRAMEWORKS.map((f) => ({ key: f.key, label: f.region ? `${f.title} · ${f.region}` : f.title }))}
                       onSelect={setStandardSel} />
                     <ProfileDropdown label={sv ? 'Tidsformat' : 'Time format'} value={format} accent={accent}
                       options={[

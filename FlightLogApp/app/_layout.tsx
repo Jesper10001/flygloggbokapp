@@ -29,9 +29,11 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
+import { TourHost } from '../components/TourHost';
 import { AppLockGate } from '../components/AppLockGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useAppLockStore } from '../store/appLockStore';
+import { useTourStore } from '../store/tourStore';
 import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled } from '../services/icloudSync';
 
@@ -45,6 +47,10 @@ export default function RootLayout() {
   const { loadTheme, theme } = useThemeStore();
   const { loadMode } = useAppModeStore();
   const { forceUpdate, storeUrl, check: checkVersion } = useVersionStore();
+  // Blades introduction: medan rundturen körs öppnas dess sidor som PUSH (ej native-modal), så att
+  // rundturskortet (root-överlägg) alltid ligger överst. Normalt (utan rundtur) är de modaler.
+  const tourActive = useTourStore((s) => s.active);
+  const tourPresentation = tourActive ? 'card' : 'modal';
 
   // Auto-backup till iCloud när appen går till bakgrunden (om synk är på). Bara lokala fil-ops körs
   // synkront — själva uppladdningen sköter iOS efteråt. Debouncad 60 s. Tyst vid fel.
@@ -217,22 +223,22 @@ export default function RootLayout() {
         <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
-        <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: 'modal' }} />
-        <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
+        <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: tourPresentation }} />
+        <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
         <Stack.Screen name="drone-import/index" options={{ title: 'Import CSV', presentation: 'modal' }} />
-        <Stack.Screen name="drone-import/history" options={{ title: 'Imported data', presentation: 'modal' }} />
-        <Stack.Screen name="drone-import/manual" options={{ title: 'Log flight manually', presentation: 'modal' }} />
+        <Stack.Screen name="drone-import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
+        <Stack.Screen name="drone-import/manual" options={{ title: 'Log flight manually', presentation: tourPresentation }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
         <Stack.Screen name="settings/album" options={{ title: 'Flight album', presentation: 'modal' }} />
         <Stack.Screen name="settings/drones" options={{ title: 'Manage drones', presentation: 'modal' }} />
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
         <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />
-        <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: 'modal' }} />
+        <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: tourPresentation }} />
         <Stack.Screen name="drone-flight/[id]" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="drone-album" options={{ headerShown: false }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
@@ -255,6 +261,7 @@ export default function RootLayout() {
       <ToastHost />
       <FleetDoneHost />
       <SplashOverlay />
+      <TourHost />
       <AppLockGate />
     </GestureHandlerRootView>
   );

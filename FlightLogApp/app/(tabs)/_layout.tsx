@@ -11,6 +11,7 @@ import { getSetting, getManualFlightCount } from '../../db/flights';
 import { getDroneFlightCount } from '../../db/drones';
 import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
+import { TourPress } from '../../components/TourPress';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 
@@ -219,6 +220,7 @@ function LogFlightButton({ premium, onPress }: { premium: boolean; onPress: () =
         style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
         <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
+        <TourPress id="fab" radius={14} />
       </TouchableOpacity>
     </View>
   );
@@ -234,6 +236,7 @@ function DroneFabButton({ premium, onPress }: { premium: boolean; onPress: () =>
         style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
         <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
+        <TourPress id="fab" radius={14} />
       </TouchableOpacity>
     </View>
   );

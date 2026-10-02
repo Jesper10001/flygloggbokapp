@@ -2126,6 +2126,15 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       // de nya full-stop-/FAA-natt-kolumnerna (best-effort ur rutgeometrin) — rör inte de synliga
       // takeoffs/landings-räknarna (som kan komma från effekter, photolog-import eller manuellt).
       if (finalData.flight_type === 'sim') {
+        // Sim: ENDAST simtid ackrediteras. Nollställ alla pilot-funktionstider och operativa villkor
+        // (PIC/co-pilot/dual/instruktör/examinator/PICUS/SPIC/safety/observer/ferry/relief,
+        // multi-/single-pilot, samt IFR/natt/NVG/VFR). total_time (= simtiden) + landnings-/
+        // approach-räknarna (för FFS-recency nedan) behålls.
+        finalData.ifr = '0'; finalData.night = '0'; finalData.nvg = '0'; finalData.vfr = '0';
+        finalData.pic = '0'; finalData.co_pilot = '0'; finalData.dual = '0'; finalData.instructor = '0';
+        finalData.multi_pilot = '0'; finalData.single_pilot = '0';
+        finalData.picus = '0'; finalData.spic = '0'; finalData.examiner = '0';
+        finalData.safety_pilot = '0'; finalData.observer = '0'; finalData.ferry_pic = '0'; finalData.relief_crew = '0';
         // Simulator har ingen riktig sol/rutt → härled FAA/FS-natt ur användarens dag/natt-räknare
         // (i sim är varje landning full stop). Currency-motorn krediterar bara FFS för landningar;
         // övriga simar filtreras bort där, så det är ofarligt att sätta kolumnerna för alla simar.

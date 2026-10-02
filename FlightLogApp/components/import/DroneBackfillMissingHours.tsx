@@ -9,6 +9,8 @@ import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useTimeFormat, parseTimeInput, formatTimeValue } from '../../hooks/useTimeFormat';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { useTourStore } from '../../store/tourStore';
+import { TourPress } from '../TourPress';
 import { getDroneBackfill, setDroneBackfill, type DroneBackfillValues } from '../../db/droneBackfill';
 import type { DroneFlight } from '../../db/drones';
 
@@ -58,6 +60,9 @@ export function DroneBackfillMissingHours({ flights, onSaved }: { flights: Drone
   const accent = useDroneAccentStore((s) => s.color);
   const loadStats = useDroneFlightStore((s) => s.loadStats);
   const [open, setOpen] = useState(false);
+  // Blades introduction: fäll ut automatiskt när rundturen når backfill-steget.
+  const tourOpenBackfill = useTourStore((s) => s.openBackfill);
+  useEffect(() => { if (tourOpenBackfill) setOpen(true); }, [tourOpenBackfill]);
   const [bf, setBf] = useState<DroneBackfillValues | null>(null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
@@ -128,6 +133,7 @@ export function DroneBackfillMissingHours({ flights, onSaved }: { flights: Drone
 
   return (
     <View style={{ backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border, overflow: 'hidden' }}>
+      <TourPress id="backfill" radius={12} />
       <TouchableOpacity onPress={() => setOpen((o) => !o)} activeOpacity={0.7}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: accent + '22', alignItems: 'center', justifyContent: 'center' }}>

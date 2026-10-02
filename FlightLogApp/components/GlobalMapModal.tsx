@@ -581,7 +581,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             mode={wxDirect ? 'pins' : clusterMode ? 'auto' : 'country'}
             clustering={wxDirect ? false : clusterMode}
             clusterKey={mapKey}
-            onRegionChange={clusterMode ? setMapRegion : undefined}
+            onRegionChange={(r) => {
+              if (clusterMode) setMapRegion(r);
+              // Zooma ut tillräckligt → avmarkera flygplatsen automatiskt (flygplatskortet försvinner).
+              if (focusAirport && r.latitudeDelta > 2.5) setFocusAirport(null);
+            }}
             onSelectCountry={clusterMode ? undefined : handleSelectCountry}
             onSelectAirport={focusByIcao}
             onSelectRegion={handleSelectRegion}

@@ -3,14 +3,14 @@
 // men navy via DR + användarens accent och drönar-relevanta rader. Inga custom-fonter
 // (JetBrainsMono/Fraunces) — allt matchar manned-settings.
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Image,
   LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput, AppState,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -22,6 +22,8 @@ import { exportDroneFlightsToCSV } from '../../services/export';
 import { useToastStore } from '../../components/Toast';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
+import { useTourStore } from '../../store/tourStore';
+import { TourPress } from '../../components/TourPress';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
@@ -64,6 +66,16 @@ export default function DroneSettingsScreen() {
   const appLockAvailable = useAppLockStore((s) => s.available);
 
   const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
+  // Öppna + scrolla fram en sektion via param (Blades introduction → Import).
+  const { expand } = useLocalSearchParams<{ expand?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const importSectionY = useRef(0);
+  useEffect(() => {
+    if (expand === 'import' || expand === 'export' || expand === 'app' || expand === 'logbook') {
+      setExpanded(expand as SectionKey);
+      if (expand === 'import') setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, importSectionY.current - 12), animated: true }), 420);
+    }
+  }, [expand]);
   const [flightCount, setFlightCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   // Export logbook pages (= pilot mode, drönar-böcker)
@@ -240,7 +252,7 @@ export default function DroneSettingsScreen() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
         <Text style={{ fontSize: 26, fontWeight: '800', color: DR.text, letterSpacing: -0.8 }}>Settings</Text>
@@ -359,13 +371,15 @@ export default function DroneSettingsScreen() {
       )}
 
       {/* ── D. Import — endast drönar-säkra vägar (inget hamnar i pilot-loggboken) ── */}
-      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'import'} onPress={() => toggleSection('import')}>Import</CollapsibleSectionHeader>
+      <View onLayout={(e) => { importSectionY.current = e.nativeEvent.layout.y; }}>
+        <CollapsibleSectionHeader accent={accent} expanded={expanded === 'import'} onPress={() => toggleSection('import')} tourPressId="import-section">Import</CollapsibleSectionHeader>
+      </View>
       {expanded === 'import' && (
         <SectionCard>
-          <Row accent={accent} icon="create-outline" iconColor={accent} title="Log flight manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} />
+          <Row accent={accent} icon="create-outline" iconColor={accent} title="Log flight manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
           <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="DJI / Autel — coming soon" right={<Text style={s.soon}>SOON</Text>} pressable={false} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
-          <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} />
+          <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />
         </SectionCard>
       )}
 
@@ -424,7 +438,7 @@ export default function DroneSettingsScreen() {
       </Card>
 
       {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}
-      <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 28 }}>
+      <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 12 }}>
         <LinearGradient colors={[accent + '2E', accent + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: accent + '55' }}>
           <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '55' }}>
@@ -433,6 +447,22 @@ export default function DroneSettingsScreen() {
           <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: DR.text }}>Shift to Pilot logbook</Text>
           <Ionicons name="swap-horizontal" size={22} color={accent} />
         </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Blades introduction — kör den guidade rundturen igen (drönarläget). */}
+      <TouchableOpacity
+        onPress={() => useTourStore.getState().start('drone')}
+        activeOpacity={0.8}
+        style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}
+      >
+        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '44' }}>
+          <Ionicons name="compass-outline" size={20} color={accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: DR.text }}>Blades introduction</Text>
+          <Text style={{ fontSize: 12, color: DR.text2, marginTop: 2 }}>Take the guided tour again</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={DR.muted} />
       </TouchableOpacity>
 
       {/* Blade-coins — förklarande popup */}
@@ -530,21 +560,23 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return <View style={{ marginHorizontal: 20, marginTop: 6, overflow: 'hidden' }}>{children}</View>;
 }
 
-function CollapsibleSectionHeader({ accent, children, expanded, onPress }: { accent: string; children: string; expanded: boolean; onPress: () => void }) {
+function CollapsibleSectionHeader({ accent, children, expanded, onPress, tourPressId }: { accent: string; children: string; expanded: boolean; onPress: () => void; tourPressId?: string }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}
       style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border }}>
+      {tourPressId ? <TourPress id={tourPressId} radius={12} /> : null}
       <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: expanded ? accent : DR.text, letterSpacing: 0.8, textTransform: 'uppercase' }}>{children}</Text>
       <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={16} color={expanded ? accent : DR.text3} style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );
 }
 
-function Row({ accent, icon, iconColor, iconBg, title, subtitle, right, onPress, onLongPress, border = true, pressable = true, separatorColor = DR.separator }: {
-  accent: string; icon: any; iconColor?: string; iconBg?: string; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; onLongPress?: () => void; border?: boolean; pressable?: boolean; separatorColor?: string;
+function Row({ accent, icon, iconColor, iconBg, title, subtitle, right, onPress, onLongPress, border = true, pressable = true, separatorColor = DR.separator, tourPressId }: {
+  accent: string; icon: any; iconColor?: string; iconBg?: string; title: string; subtitle?: string; right?: React.ReactNode; onPress?: () => void; onLongPress?: () => void; border?: boolean; pressable?: boolean; separatorColor?: string; tourPressId?: string;
 }) {
   const content = (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14, borderBottomWidth: border ? 0.5 : 0, borderBottomColor: separatorColor }}>
+      {tourPressId ? <TourPress id={tourPressId} radius={0} /> : null}
       {iconBg ? (
         <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name={icon} size={16} color={iconColor ?? DR.text} />

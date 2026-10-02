@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import type { Flight } from '../../types/flight';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
-import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, REFUEL_BADGE, NVG_BADGE } from './tokens';
+import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, REFUEL_BADGE, NVG_BADGE, SIM_BADGE } from './tokens';
 import { roleLabel, isPicFlight, arrUtc, dayOfMonth, weekdayShort } from './flightDisplay';
 import { placeCode } from '../../utils/format';
 
@@ -44,6 +44,7 @@ export function FlightCardRow({ flight: f, accent, onPress, first }: { flight: F
           {f.night > 0 ? <Badge color={NIGHT_BADGE} ion="moon" /> : null}
           {f.nvg > 0 ? <Badge color={NVG_BADGE} mci="binoculars" /> : null}
           {f.flight_type === 'hot_refuel' ? <Badge color={REFUEL_BADGE} mci="gas-station" /> : null}
+          {f.flight_type === 'sim' ? <Badge color={SIM_BADGE} mci="desktop-classic" label="SIM" /> : null}
           {(f.photo_local_id || f.photo_uri) ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.textMuted + '1F', borderColor: Colors.textMuted + '55', borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
               <Ionicons name="image" size={9} color={Colors.textMuted} />

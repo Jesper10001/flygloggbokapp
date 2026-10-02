@@ -170,6 +170,15 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     return () => clearTimeout(id);
   }, [selectedIcao]);
 
+  // Nya markörer som dyker upp (panorering/drill/nivåbyte) måste rasteriseras av iOS, annars kan
+  // deras träffyta hamna fel → de går inte att trycka på / kartan känns låst. Tick tracks=true en
+  // kort stund när det renderade setet ändras.
+  useEffect(() => {
+    setTracks(true);
+    const id = setTimeout(() => setTracks(false), 800);
+    return () => clearTimeout(id);
+  }, [dots, level, pins]);
+
   // Vald flygplats (för guld-markeringen) — finns bara i pins/labels-läget.
   const selRow = useMemo(
     () => (selectedIcao ? dots.find((a) => a[0] === selectedIcao) : undefined),
@@ -226,7 +235,10 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     } else if (prevRegionRef.current) {
       const p = prevRegionRef.current, pl = prevLayerRef.current;
       prevRegionRef.current = null; prevLayerRef.current = null;
-      mapRef.current?.animateToRegion(p, 450);
+      // Återställ föregående vy BARA om man fortfarande är kvar nära fokus-zoomen (dvs stängde via
+      // X-knappen). Har man zoomat ut (auto-avmarkering) ska kartan stanna där man är – inte zooma
+      // in igen. Fokus-zoomen har delta ≤ 0.11; auto-avmarkering sker vid delta > 2.5.
+      if (region.latitudeDelta <= 0.5) mapRef.current?.animateToRegion(p, 450);
       const id = setTimeout(() => { if (pl) setLayer(pl); }, 550);
       return () => clearTimeout(id);
     }
@@ -380,10 +392,11 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           Konstant key → bas-markörerna rörs aldrig (ingen churn/krasch); bara denna box ombildas. */}
       {!clustering && level === 'labels' && selRow && !(showRunwayLabels && selRow[0] === focus?.[0]) && (
         <Marker
-          key="__selhl__"
+          key={`sel-${selRow[0]}`}
           coordinate={{ latitude: selRow[4], longitude: selRow[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={tracks}
+          tracksViewChanges
+          zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
         >
           <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{selRow[0]}</Text></View>
@@ -445,10 +458,11 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           Döljs i pins-läge (filter), och när banor ritas ut (banorna räcker då som markör). */}
       {focus && !showPins && !showRunwayLabels && (
         <Marker
-          key="__focus__"
+          key={`foc-${focus[0]}`}
           coordinate={{ latitude: focus[4], longitude: focus[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={tracks}
+          tracksViewChanges
+          zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(focus[0]) : undefined}
         >
           <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{focus[0]}</Text></View>
@@ -492,12 +506,13 @@ const s = StyleSheet.create({
   flagEmoji: { fontSize: 11 },
   flagCount: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '800' },
   // Kluster-plupp: cyan cirkel med antal (tap → zooma in så klustret delas).
+  // Kluster-pin i samma stil som ICAO-boxarna (mörk botten, cyan kant, vit text).
   clusterPin: {
-    minWidth: 38, height: 38, borderRadius: 19, paddingHorizontal: 6,
+    minWidth: 34, height: 28, borderRadius: 9, paddingHorizontal: 9,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primary + 'E6', borderWidth: 2, borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(15,22,38,0.92)', borderWidth: 1.5, borderColor: Colors.primary,
   },
-  clusterCount: { color: Colors.textInverse, fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  clusterCount: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.3, fontVariant: ['tabular-nums'] },
   dot: {
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',

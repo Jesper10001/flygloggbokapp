@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useFlightStore } from '../../store/flightStore';
 import { useAppModeStore } from '../../store/appModeStore';
+import { maybeStartIntroTour } from '../../store/tourStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
@@ -662,6 +663,10 @@ export default function DashboardScreen() {
     // hoppar under scroll. Nästa gång man kommer tillbaka är det redan dolt → måste dra ner och hämta igen.
     return () => setWx(null);
   }, [loadStats, loadFlights, loadPrompt]));
+
+  // Blades introduction — starta den guidade rundturen automatiskt EN gång efter onboarding
+  // (flaggan sätts där). maybeStartIntroTour rensar flaggan och no-op:ar annars.
+  useFocusEffect(useCallback(() => { maybeStartIntroTour('pilot'); }, []));
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.

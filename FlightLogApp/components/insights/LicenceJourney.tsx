@@ -138,6 +138,24 @@ export function LicenceJourney() {
     return () => { alive = false; };
   }, [flights]);
 
+  // "Other"-regelverk: vi modellerar inte dess licensväg → visa ett neutralt kort i stället för
+  // EASA/FAA-krav (annars vilseledande). Early-return narrow:ar standard till easa/faa/caa nedan.
+  if (standard === 'other') {
+    return (
+      <View style={{ gap: 10 }}>
+        <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.primary + '55', borderRadius: 16, padding: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+            <Ionicons name="ribbon-outline" size={17} color={C.primary} />
+            <Text style={{ fontFamily: SERIF, fontSize: 18, fontWeight: '500', color: C.text }}>Next licence</Text>
+          </View>
+          <Text style={{ fontFamily: MONO, fontSize: 12, color: C.text3, lineHeight: 18 }}>
+            Licence tracking isn't available for the "Other" framework. Choose EASA, FAA or CAA in Settings to see your path to PPL, CPL and ATPL.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   // Flottan styr; annars profilens subRole.
   const set = licenceSetFor(fleetCat ?? subRole, standard);
   const list: WLicenceSet[] = [set.ppl, set.cpl, set.atpl];

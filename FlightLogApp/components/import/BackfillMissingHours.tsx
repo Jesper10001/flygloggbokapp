@@ -10,6 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useTimeFormat, parseTimeInput, formatTimeValue } from '../../hooks/useTimeFormat';
 import { useFlightStore } from '../../store/flightStore';
+import { useTourStore } from '../../store/tourStore';
+import { TourPress } from '../TourPress';
 import { getBackfill, setBackfill, ZERO_BACKFILL, type BackfillValues } from '../../db/backfill';
 import type { Flight } from '../../types/flight';
 
@@ -78,6 +80,9 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
   const [bf, setBf] = useState<BackfillValues | null>(null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
+  // Blades introduction: fäll ut automatiskt när rundturen når backfill-steget.
+  const tourOpenBackfill = useTourStore((s) => s.openBackfill);
+  useEffect(() => { if (tourOpenBackfill) setOpen(true); }, [tourOpenBackfill]);
 
   // Befintligt (alla riktiga flygningar; ev. gamla dolda [BACKFILL]-poster exkluderas under
   // migrering) och importerat (source ≠ 'manual').
@@ -149,6 +154,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
 
   return (
     <View style={{ backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' }}>
+      <TourPress id="backfill" radius={12} />
       <TouchableOpacity onPress={() => setOpen((o) => !o)} activeOpacity={0.7}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '18', alignItems: 'center', justifyContent: 'center' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
@@ -23,6 +23,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
+import { useTourStore } from '../../store/tourStore';
+import { TourPress } from '../../components/TourPress';
 import { useToastStore } from '../../components/Toast';
 import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
@@ -76,7 +78,7 @@ function Card({
 }
 
 function Row({
-  icon, iconColor, iconBg, title, subtitle, right, onClick, onLongPress, border = true, pressable = true, separatorColor = Colors.separator,
+  icon, iconColor, iconBg, title, subtitle, right, onClick, onLongPress, border = true, pressable = true, separatorColor = Colors.separator, tourPressId,
 }: {
   icon: string;
   iconColor?: string;
@@ -89,12 +91,14 @@ function Row({
   border?: boolean;
   pressable?: boolean;
   separatorColor?: string;
+  tourPressId?: string; // Blades introduction: tänder cyan tryck-markering när rundturen pekar hit
 }) {
   const content = (
     <View style={{
       flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14,
       borderBottomWidth: border ? 0.5 : 0, borderBottomColor: separatorColor,
     }}>
+      {tourPressId ? <TourPress id={tourPressId} radius={0} /> : null}
       {iconBg ? (
         <View style={{
           width: 32, height: 32, borderRadius: 8,
@@ -134,10 +138,12 @@ function CollapsibleSectionHeader({
   children,
   expanded,
   onPress,
+  tourPressId,
 }: {
   children: string;
   expanded: boolean;
   onPress: () => void;
+  tourPressId?: string; // Blades introduction: cyan tryck-markering när rundturen pekar hit
 }) {
   return (
     <TouchableOpacity
@@ -156,6 +162,7 @@ function CollapsibleSectionHeader({
         borderColor: Colors.cardBorder,
       }}
     >
+      {tourPressId ? <TourPress id={tourPressId} radius={12} /> : null}
       <Text style={{
         flex: 1,
         fontSize: 12, fontWeight: '700', color: expanded ? Colors.gold : Colors.textPrimary,
@@ -197,6 +204,7 @@ export default function SettingsScreen() {
   const [pagesCustom, setPagesCustom] = useState('');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [stdOpen, setStdOpen] = useState(false); // regelverks-dropdown (EASA/FAA/CAA/Other)
   const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
   const [locGranted, setLocGranted] = useState(false);
   const [showCoinInfo, setShowCoinInfo] = useState(false);
@@ -204,9 +212,15 @@ export default function SettingsScreen() {
   const appLockAvailable = useAppLockStore((s) => s.available);
   // Öppna en viss sektion via param (t.ex. från "Manage app data" → "Export first").
   const { expand } = useLocalSearchParams<{ expand?: string }>();
+  // Scrolla fram sektionen när den öppnas via param (bl.a. Blades introduction → Import).
+  const scrollRef = useRef<ScrollView>(null);
+  const importSectionY = useRef(0);
   useEffect(() => {
     if (expand === 'export' || expand === 'app' || expand === 'logbook' || expand === 'import') {
       setExpandedSection(expand);
+      if (expand === 'import') {
+        setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, importSectionY.current - 12), animated: true }), 360);
+      }
     }
   }, [expand]);
   const isDrone = appMode === 'drone';
@@ -307,7 +321,7 @@ export default function SettingsScreen() {
     try {
       if (isDrone) await exportDroneToCSV();
       else {
-        await exportToCSV(standard);
+        await exportToCSV(standard === 'other' ? 'easa' : standard); // 'other' → EASA-format i CSV
         Alert.alert(
           'Logbook Exported',
           'Your logbook has been exported as a CSV file with all your data.',
@@ -448,7 +462,7 @@ export default function SettingsScreen() {
   // ── Render ──
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header */}
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
@@ -644,29 +658,35 @@ export default function SettingsScreen() {
             } pressable={false}
             separatorColor={Colors.background}
           />
-          {isPilot && <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard" subtitle={standard === 'easa' ? 'EASA (EU)' : standard === 'faa' ? 'FAA (USA)' : 'CAA (UK)'}
-            right={
-              <View style={styles.toggle}>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'easa' && styles.toggleBtnActive]} onPress={() => setStandard('easa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'easa' && styles.toggleTextActive]}>EASA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'faa' && styles.toggleBtnActive]} onPress={() => setStandard('faa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'faa' && styles.toggleTextActive]}>FAA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, standard === 'caa' && styles.toggleBtnActive]} onPress={() => setStandard('caa')} activeOpacity={0.7}>
-                  <Text style={[styles.toggleText, standard === 'caa' && styles.toggleTextActive]}>CAA</Text>
-                </TouchableOpacity>
-              </View>
-            } pressable={false} border={false}
-            separatorColor={Colors.background}
-          />}
+          {isPilot && (
+            <>
+              <Row icon="globe-outline" iconColor={Colors.primary} title="Pilot Certification Standard"
+                subtitle={standard === 'easa' ? 'EASA (EU)' : standard === 'faa' ? 'FAA (USA)' : standard === 'caa' ? 'CAA (UK)' : 'Other'}
+                right={<Ionicons name={stdOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.primary} />}
+                onClick={() => setStdOpen((o) => !o)} border={false} separatorColor={Colors.background}
+              />
+              {stdOpen && (
+                <View style={styles.stdOptions}>
+                  {([['easa', 'EASA · EU'], ['faa', 'FAA · USA'], ['caa', 'CAA · UK'], ['other', 'Other']] as const).map(([k, label], i) => (
+                    <TouchableOpacity key={k} onPress={() => { setStandard(k); setStdOpen(false); }} activeOpacity={0.7}
+                      style={[styles.stdOption, i > 0 && { borderTopWidth: 1, borderTopColor: Colors.separator }]}>
+                      <Text style={[styles.stdOptionText, standard === k && { color: Colors.primary, fontWeight: '700' }]}>{label}</Text>
+                      {standard === k ? <Ionicons name="checkmark" size={16} color={Colors.primary} /> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
         </Card>
       )}
 
       {/* ── D. Import ── */}
-      <CollapsibleSectionHeader expanded={expandedSection === 'import'} onPress={() => toggleSection('import')}>
-        {t('import_section') ?? 'IMPORT'}
-      </CollapsibleSectionHeader>
+      <View onLayout={(e) => { importSectionY.current = e.nativeEvent.layout.y; }}>
+        <CollapsibleSectionHeader expanded={expandedSection === 'import'} onPress={() => toggleSection('import')} tourPressId="import-section">
+          {t('import_section') ?? 'IMPORT'}
+        </CollapsibleSectionHeader>
+      </View>
       {expandedSection === 'import' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           <Row
@@ -691,6 +711,7 @@ export default function SettingsScreen() {
             subtitle={t('import_manual_sub')}
             onClick={() => router.push('/import/manual')}
             separatorColor={Colors.background}
+            tourPressId="import-manual"
           />
           <Row
             icon="folder-open-outline" iconColor={Colors.primary}
@@ -699,6 +720,7 @@ export default function SettingsScreen() {
             onClick={() => router.push('/import/history')}
             border={false}
             separatorColor={Colors.background}
+            tourPressId="import-history"
           />
         </Card>
       )}
@@ -829,7 +851,7 @@ export default function SettingsScreen() {
           }
         }}
         activeOpacity={0.85}
-        style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 28 }}
+        style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 12 }}
       >
         <LinearGradient colors={[Colors.primary + '2E', Colors.primary + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55' }}>
@@ -841,6 +863,22 @@ export default function SettingsScreen() {
           </Text>
           <Ionicons name="swap-horizontal" size={22} color={Colors.primary} />
         </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Blades introduction — kör den guidade rundturen igen (matchar aktivt läge). */}
+      <TouchableOpacity
+        onPress={() => useTourStore.getState().start(isDrone ? 'drone' : 'pilot')}
+        activeOpacity={0.8}
+        style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }}
+      >
+        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '44' }}>
+          <Ionicons name="compass-outline" size={20} color={Colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>Blades introduction</Text>
+          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>Take the guided tour again</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
       </TouchableOpacity>
 
 
@@ -971,5 +1009,9 @@ function makeSettingsStyles() { return StyleSheet.create({
   toggleBtnActive: { backgroundColor: Colors.primary },
   toggleText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   toggleTextActive: { color: Colors.textInverse },
+  // Regelverks-dropdown (ersätter toggeln): utfällbar lista under raden.
+  stdOptions: { marginHorizontal: 16, marginBottom: 12, backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  stdOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14 },
+  stdOptionText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '500' },
   soonPill: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, color: Colors.textMuted, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, overflow: 'hidden' },
 }); }

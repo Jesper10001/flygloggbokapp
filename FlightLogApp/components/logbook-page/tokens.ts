@@ -12,6 +12,8 @@ export const NIGHT_BADGE = '#5DA9FF';
 export const REFUEL_BADGE = '#F5A623';
 // NVG-badge (mörkgrön kikare/goggles) — visas när NVG-tid loggats.
 export const NVG_BADGE = '#2E7D32';
+// Sim-badge (violett) — visas när flygningen är ett simulatorpass (flight_type='sim').
+export const SIM_BADGE = '#9B8CFF';
 
 // Typ-rating: antal dagar före utgång som räknas som "expiring".
 export const RATING_EXPIRY_WARN_DAYS = 90;
