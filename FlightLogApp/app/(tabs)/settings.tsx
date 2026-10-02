@@ -212,15 +212,18 @@ export default function SettingsScreen() {
   const appLockAvailable = useAppLockStore((s) => s.available);
   // Öppna en viss sektion via param (t.ex. från "Manage app data" → "Export first").
   const { expand } = useLocalSearchParams<{ expand?: string }>();
-  // Scrolla fram sektionen när den öppnas via param (bl.a. Blades introduction → Import).
+  // Scrolla fram sektionen när den öppnas via param (bl.a. Blades introduction → Import/App).
   const scrollRef = useRef<ScrollView>(null);
   const importSectionY = useRef(0);
+  const appSectionY = useRef(0);
   useEffect(() => {
     if (expand === 'export' || expand === 'app' || expand === 'logbook' || expand === 'import') {
       setExpandedSection(expand);
-      if (expand === 'import') {
-        setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, importSectionY.current - 12), animated: true }), 360);
-      }
+      const y = expand === 'import' ? importSectionY.current : expand === 'app' ? appSectionY.current : 0;
+      setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true }), 360);
+    } else {
+      // Ingen sektion vald (rundturens settings-översikt) → börja högst upp.
+      setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 120);
     }
   }, [expand]);
   const isDrone = appMode === 'drone';
@@ -763,9 +766,11 @@ export default function SettingsScreen() {
       )}
 
       {/* ── F. App security ── */}
-      <CollapsibleSectionHeader expanded={expandedSection === 'app'} onPress={() => toggleSection('app')}>
-        App security
-      </CollapsibleSectionHeader>
+      <View onLayout={(e) => { appSectionY.current = e.nativeEvent.layout.y; }}>
+        <CollapsibleSectionHeader expanded={expandedSection === 'app'} onPress={() => toggleSection('app')}>
+          App security
+        </CollapsibleSectionHeader>
+      </View>
       {expandedSection === 'app' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
           {/* Säkerhetsposter direkt (ingen extra Security-dropdown). */}
@@ -786,6 +791,7 @@ export default function SettingsScreen() {
             subtitle="How your data is encrypted"
             onClick={() => router.push('/settings/encryption')}
             separatorColor={Colors.background}
+            tourPressId="app-security"
           />
           <Row icon="folder-open-outline" iconColor={Colors.primary} title="Manage app data"
             subtitle="See your data · clear everything"

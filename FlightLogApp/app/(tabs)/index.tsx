@@ -15,7 +15,9 @@ import { maybeStartIntroTour } from '../../store/tourStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
+import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
+import { useTourStore } from '../../store/tourStore';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
@@ -668,6 +670,19 @@ export default function DashboardScreen() {
   // (flaggan sätts där). maybeStartIntroTour rensar flaggan och no-op:ar annars.
   useFocusEffect(useCallback(() => { maybeStartIntroTour('pilot'); }, []));
 
+  // Blades introduction — global map-steget styr globen härifrån.
+  const dashScrollRef = useRef<ScrollView>(null);
+  const tourGlobeMenu = useTourStore((st) => st.globeMenu);
+  const tourMapOpen = useTourStore((st) => st.mapOpen);
+  useEffect(() => {
+    if (tourGlobeMenu) {
+      setGlobeMenuOpen(true);
+      setTimeout(() => dashScrollRef.current?.scrollToEnd({ animated: true }), 220);
+    } else {
+      setGlobeMenuOpen(false);
+    }
+  }, [tourGlobeMenu]);
+
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
   const lastDest = flights[0]?.arr_place ?? '';
@@ -817,6 +832,7 @@ export default function DashboardScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
     <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
     <ScrollView
+      ref={dashScrollRef}
       style={s.container}
       contentContainerStyle={s.content}
       scrollEnabled={!globeGrabbed}
@@ -1150,6 +1166,9 @@ export default function DashboardScreen() {
         formatTime={formatTime}
       />
     )}
+
+    {/* Blades introduction — global map öppnad av rundturen (söker/zoomar KJFK automatiskt). */}
+    <GlobalMapModal visible={tourMapOpen} onClose={() => useTourStore.getState().setGlobe(false, false, null)} />
   </>);
 }
 

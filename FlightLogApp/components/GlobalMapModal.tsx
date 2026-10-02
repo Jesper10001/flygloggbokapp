@@ -27,6 +27,7 @@ import { fetchMetarsInBbox, categoryColor, type FlightCat } from '../services/we
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
+import { useTourStore } from '../store/tourStore';
 
 // Väderfilter: min-kategori (lägsta acceptabla). VFR bäst → LIFR sämst. En flygplats "möter" kravet
 // om dess aktuella kategori är minst lika bra som vald tröskel (VFR-tröskel = enbart VFR-fält).
@@ -431,6 +432,13 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const r = seedData.find((x) => x[0] === icao);
     if (r) setFocusAirport(r);
   };
+  // Blades introduction: rundturen ber kartan söka + zooma till en ICAO (demo: KJFK) vid öppning.
+  const tourSearchIcao = useTourStore((s) => s.mapSearchIcao);
+  useEffect(() => {
+    if (!visible || !tourSearchIcao || seedData.length === 0) return;
+    const t = setTimeout(() => { setMapSearch(tourSearchIcao); focusByIcao(tourSearchIcao); }, 900);
+    return () => clearTimeout(t);
+  }, [visible, tourSearchIcao, seedData.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Land: exakt 1 (filtrerad) träff → direkt till flygplatsen; annars → region-drill-rot.
   const handleSelectCountry = (cc: string) => {
     const inCountry = typedSeed.filter((r) => r[2] === cc);

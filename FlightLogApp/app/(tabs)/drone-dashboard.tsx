@@ -22,7 +22,7 @@ import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { Colors } from '../../constants/colors'; // stress-panelen använder EXAKT manned-tokens (paritet)
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
-import { maybeStartIntroTour } from '../../store/tourStore';
+import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
 import { getDroneStressHours, getDroneFlights, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
@@ -143,6 +143,16 @@ export default function DroneDashboardScreen() {
   // (flaggan sätts där). maybeStartIntroTour rensar flaggan och no-op:ar annars.
   useFocusEffect(useCallback(() => { maybeStartIntroTour('drone'); }, []));
 
+  // Blades introduction — global map-steget styr globen + kartan härifrån.
+  const dashScrollRef = useRef<ScrollView>(null);
+  const tourGlobeMenu = useTourStore((st) => st.globeMenu);
+  const tourMapOpen = useTourStore((st) => st.mapOpen);
+  useEffect(() => {
+    if (tourGlobeMenu) { setGlobeMenuOpen(true); setTimeout(() => dashScrollRef.current?.scrollToEnd({ animated: true }), 220); }
+    else { setGlobeMenuOpen(false); }
+  }, [tourGlobeMenu]);
+  useEffect(() => { setGlobalMapOpen(tourMapOpen); }, [tourMapOpen]);
+
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);
 
@@ -159,7 +169,7 @@ export default function DroneDashboardScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: DR.background }}>
     <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
-    <ScrollView style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={dashScrollRef} style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} tintColor="transparent" onRefresh={async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // tydlig vibration när pull triggar (= manned)
         await loadWeatherNear();

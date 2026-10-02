@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,11 +13,13 @@ import { Colors } from '../constants/colors';
 import { useTourStore } from '../store/tourStore';
 import { TOURS } from '../constants/tourSteps';
 import { useFlightStore } from '../store/flightStore';
+import { useToastStore } from './Toast';
 import { getAllAircraftTypes, getManualFlightCount } from '../db/flights';
 import { getDroneFlightCount, listDrones } from '../db/drones';
 import { listDigitalBooks } from '../db/digitalBooks';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const REPLAY_HINT = 'You can replay this tour anytime in Settings, under "Blades introduction".';
 
 // Bygg tab-routen för ett steg: lägg på en nonce (så vy/expand-effekterna triggar om) och — för
 // loggbokssteget — senaste år+månad så List-vyn fälls ut där det finns flygningar.
@@ -39,14 +41,29 @@ export function TourHost() {
   const next = useTourStore((s) => s.next);
   const prev = useTourStore((s) => s.prev);
   const stop = useTourStore((s) => s.stop);
+  const start = useTourStore((s) => s.start);
   const setPressTarget = useTourStore((s) => s.setPressTarget);
   const setOpenBackfill = useTourStore((s) => s.setOpenBackfill);
+  const setGlobe = useTourStore((s) => s.setGlobe);
+  const promptMode = useTourStore((s) => s.promptMode);
+  const setPrompt = useTourStore((s) => s.setPrompt);
+  const pathname = usePathname();
 
   const steps = TOURS[mode];
   const step = steps[stepIndex];
+  const homePath = mode === 'drone' ? '/drone-dashboard' : '/';
 
   const openPageRef = useRef<string | null>(null); // sid-route (push) som rundturen just nu håller öppen
   const runRef = useRef(0);
+  // Checklist: när man trycker på en punkt (ex "Add aircraft") göms rundturen och man använder
+  // funktionen fritt; när man kommer TILLBAKA till dashboarden visas checklistan igen.
+  const [awaitingReturn, setAwaitingReturn] = useState(false);
+  const leftHome = useRef(false);
+  useEffect(() => {
+    if (!awaitingReturn) return;
+    if (pathname !== homePath) { leftHome.current = true; return; }
+    if (leftHome.current) { leftHome.current = false; setAwaitingReturn(false); } // tillbaka hemma → visa checklistan
+  }, [awaitingReturn, pathname, homePath]);
 
   // Regissör: reagerar på stegbyte → stänger ev. öppen sida, navigerar, "trycker", öppnar nästa sida.
   // Sidorna öppnas som PUSH (se app/_layout.tsx) → kortet (root-överlägg) ligger alltid överst och
@@ -57,6 +74,20 @@ export function TourHost() {
     const alive = () => runRef.current === token && useTourStore.getState().active;
 
     (async () => {
+      // Återställ glob/karta om detta inte är globalmap-steget (stänger ev. kvarlämnad karta).
+      if (!step.globalmap) setGlobe(false, false, null);
+
+      // Specialsteg: global map-demo (dashboard → globmeny → öppna karta → sök/zooma KJFK → tillbaka).
+      if (step.globalmap) {
+        const cur0 = openPageRef.current;
+        if (cur0) { router.back(); openPageRef.current = null; await delay(480); if (!alive()) return; }
+        if (step.tab) { router.navigate(buildTab(step.tab) as any); await delay(520); if (!alive()) return; }
+        setGlobe(true, false, null); await delay(1600); if (!alive()) return;   // scrolla till globen + öppna globmenyn
+        setGlobe(true, true, 'KJFK'); await delay(3800); if (!alive()) return;  // öppna globala kartan + sök/zooma KJFK
+        setGlobe(false, false, null);                                           // stäng → kortet beskriver det man såg
+        return;
+      }
+
       const cur = openPageRef.current;
       const want = step.modal ?? null;
 
@@ -93,7 +124,19 @@ export function TourHost() {
     setPressTarget(null); setOpenBackfill(false);
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fråga efter onboarding: vill du gå igenom en introduktion? (Ja / Senare)
+  if (promptMode && !active) {
+    const m = promptMode;
+    return (
+      <TourPrompt
+        onYes={() => { setPrompt(null); start(m); }}
+        onLater={() => { setPrompt(null); useToastStore.getState().show(REPLAY_HINT); }}
+      />
+    );
+  }
+
   if (!active || !step) return null;
+  if (awaitingReturn) return null; // gömd medan man använder en checklist-funktion (visas när man är tillbaka)
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
   const doneFlex = stepIndex + 1;
@@ -112,8 +155,14 @@ export function TourHost() {
           <View style={[StyleSheet.absoluteFill, styles.cardTint]} />
           <View style={styles.cardInner}>
             {step.checklist ? (
-              <Checklist mode={mode} stepKey={step.key} title={step.title} onFinish={stop} onBack={prev}
-                onGo={(go) => { stop(); setTimeout(() => { go.startsWith('/(tabs)') ? router.navigate(go as any) : router.push(go as any); }, 70); }} />
+              <Checklist mode={mode} stepKey={step.key} title={step.title}
+                onFinish={() => { stop(); useToastStore.getState().show(REPLAY_HINT); }}
+                onBack={prev}
+                onGo={(go) => {
+                  // Göm rundturen, gå till funktionen; när man kommer tillbaka till dashboarden visas checklistan igen.
+                  leftHome.current = false; setAwaitingReturn(true);
+                  setTimeout(() => { go.startsWith('/(tabs)') ? router.navigate(go as any) : router.push(go as any); }, 60);
+                }} />
             ) : (
               <>
                 <View style={styles.topRow}>
@@ -216,6 +265,28 @@ function Checklist({ mode, stepKey, title, onFinish, onBack, onGo }: {
   );
 }
 
+// ── Fråga efter onboarding ───────────────────────────────────────────────────
+function TourPrompt({ onYes, onLater }: { onYes: () => void; onLater: () => void }) {
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: '#0006' }]} onPress={() => { /* svälj */ }} />
+      <View style={styles.promptWrap}>
+        <Animated.View entering={FadeInDown.duration(260)} style={styles.promptCard}>
+          <View style={styles.promptIcon}><Ionicons name="compass-outline" size={24} color={Colors.primary} /></View>
+          <Text style={styles.promptTitle}>Take a quick tour?</Text>
+          <Text style={styles.promptBody}>A short guided walk through Blades — where everything lives and how to log your flying. Takes about a minute.</Text>
+          <TouchableOpacity onPress={onYes} activeOpacity={0.85} style={styles.promptYes}>
+            <Text style={styles.nextText}>Yes, show me</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onLater} activeOpacity={0.8} style={styles.promptLater}>
+            <Text style={styles.promptLaterText}>Maybe later</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scrim: { backgroundColor: '#00000018' },
   cardShadow: {
@@ -246,5 +317,13 @@ const styles = StyleSheet.create({
   clIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '44' },
   clLabel: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: '700' },
   clRowSub: { color: Colors.textMuted, fontSize: 11.5, marginTop: 1 },
-  clFinish: { marginTop: 14, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+
+  promptWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  promptCard: { width: '100%', maxWidth: 400, backgroundColor: Colors.card, borderRadius: 20, padding: 22, borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 14 },
+  promptIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  promptTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
+  promptBody: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginBottom: 8 },
+  promptYes: { alignSelf: 'stretch', backgroundColor: Colors.primary, borderRadius: 13, paddingVertical: 13, alignItems: 'center' },
+  promptLater: { alignSelf: 'stretch', paddingVertical: 11, alignItems: 'center' },
+  promptLaterText: { color: Colors.textSecondary, fontSize: 14.5, fontWeight: '700' },
 });

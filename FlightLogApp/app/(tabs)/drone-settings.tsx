@@ -70,10 +70,14 @@ export default function DroneSettingsScreen() {
   const { expand } = useLocalSearchParams<{ expand?: string }>();
   const scrollRef = useRef<ScrollView>(null);
   const importSectionY = useRef(0);
+  const appSectionY = useRef(0);
   useEffect(() => {
     if (expand === 'import' || expand === 'export' || expand === 'app' || expand === 'logbook') {
       setExpanded(expand as SectionKey);
-      if (expand === 'import') setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, importSectionY.current - 12), animated: true }), 420);
+      const y = expand === 'import' ? importSectionY.current : expand === 'app' ? appSectionY.current : 0;
+      setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true }), 420);
+    } else {
+      setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 120);
     }
   }, [expand]);
   const [flightCount, setFlightCount] = useState(0);
@@ -398,7 +402,9 @@ export default function DroneSettingsScreen() {
       )}
 
       {/* ── F. App security (= pilotläget: app-lås, plats, iCloud, kryptering, hantera data) ── */}
-      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>App security</CollapsibleSectionHeader>
+      <View onLayout={(e) => { appSectionY.current = e.nativeEvent.layout.y; }}>
+        <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>App security</CollapsibleSectionHeader>
+      </View>
       {expanded === 'app' && (
         <SectionCard>
           <Row accent={accent} icon="finger-print-outline" iconColor={accent} title="Require Face ID to open"
@@ -411,7 +417,7 @@ export default function DroneSettingsScreen() {
             pressable={false} separatorColor={DR.background} />
           <ICloudSyncRow accent={accent} flat />
           <Row accent={accent} icon="lock-closed-outline" iconColor={accent} title="Encryption information" subtitle="How your data is encrypted"
-            onPress={() => router.push('/settings/encryption')} separatorColor={DR.background} />
+            onPress={() => router.push('/settings/encryption')} separatorColor={DR.background} tourPressId="app-security" />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Manage app data" subtitle="See your data · clear everything"
             onPress={() => router.push('/settings/manage-data')} border={false} separatorColor={DR.background} />
         </SectionCard>

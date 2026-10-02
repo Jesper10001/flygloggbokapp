@@ -14,12 +14,18 @@ interface TourStore {
   stepIndex: number;
   pressTarget: string | null; // id på knappen som just nu "trycks" (se TourPress)
   openBackfill: boolean;      // driver BackfillMissingHours att fällas ut i Imported data-vyn
+  promptMode: TourMode | null; // satt efter onboarding → visa "vill du en rundtur? Ja/Senare"
+  globeMenu: boolean;         // dashboard: scrolla till globen + öppna globmenyn
+  mapOpen: boolean;           // dashboard: öppna globala kartan (rundturs-styrd)
+  mapSearchIcao: string | null; // global map: sök + markera denna ICAO vid öppning (demo: KJFK)
   start: (mode: TourMode) => void;
   next: () => void;           // vidare; förbi sista steget → avsluta
   prev: () => void;
   stop: () => void;
   setPressTarget: (id: string | null) => void;
   setOpenBackfill: (v: boolean) => void;
+  setPrompt: (mode: TourMode | null) => void;
+  setGlobe: (menu: boolean, open: boolean, icao: string | null) => void;
 }
 
 export const useTourStore = create<TourStore>((set, get) => ({
@@ -28,16 +34,22 @@ export const useTourStore = create<TourStore>((set, get) => ({
   stepIndex: 0,
   pressTarget: null,
   openBackfill: false,
-  start: (mode) => set({ active: true, mode, stepIndex: 0, pressTarget: null, openBackfill: false }),
+  promptMode: null,
+  globeMenu: false,
+  mapOpen: false,
+  mapSearchIcao: null,
+  start: (mode) => set({ active: true, mode, stepIndex: 0, pressTarget: null, openBackfill: false, promptMode: null, globeMenu: false, mapOpen: false, mapSearchIcao: null }),
   next: () => {
     const { mode, stepIndex } = get();
-    if (stepIndex >= TOURS[mode].length - 1) { set({ active: false, pressTarget: null, openBackfill: false }); return; }
+    if (stepIndex >= TOURS[mode].length - 1) { set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null }); return; }
     set({ stepIndex: stepIndex + 1 });
   },
   prev: () => set({ stepIndex: Math.max(0, get().stepIndex - 1) }),
-  stop: () => set({ active: false, pressTarget: null, openBackfill: false }),
+  stop: () => set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null }),
   setPressTarget: (id) => set({ pressTarget: id }),
   setOpenBackfill: (v) => set({ openBackfill: v }),
+  setPrompt: (mode) => set({ promptMode: mode }),
+  setGlobe: (menu, open, icao) => set({ globeMenu: menu, mapOpen: open, mapSearchIcao: icao }),
 }));
 
 // Sätts i onboarding → rundturen startar automatiskt EN gång nästa gång rätt dashboard visas
@@ -46,13 +58,16 @@ export async function markIntroTourPending(mode: TourMode): Promise<void> {
   await setSetting(PENDING_KEY, mode).catch(() => {});
 }
 
-// Anropas från respektive dashboard (useFocusEffect). Startar rundturen om den väntar för det
-// aktuella läget och rensar flaggan. No-op annars (och om en rundtur redan körs).
+// Anropas från respektive dashboard (useFocusEffect). Om rundturen väntar för det aktuella läget
+// VISAS en fråga ("vill du en rundtur? Ja/Senare") i stället för att starta direkt; flaggan rensas
+// så frågan bara dyker upp en gång. No-op om en rundtur redan körs eller en fråga redan visas.
 export async function maybeStartIntroTour(mode: TourMode): Promise<void> {
-  if (useTourStore.getState().active) return;
+  const st = useTourStore.getState();
+  if (st.active || st.promptMode) return;
   const pending = await getSetting(PENDING_KEY).catch(() => null);
   if (pending !== mode) return;
   await setSetting(PENDING_KEY, '').catch(() => {});
-  if (useTourStore.getState().active) return; // skydd mot dubbelstart vid snabba focus-event
-  useTourStore.getState().start(mode);
+  const st2 = useTourStore.getState();
+  if (st2.active || st2.promptMode) return; // skydd mot dubbel vid snabba focus-event
+  st2.setPrompt(mode);
 }
