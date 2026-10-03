@@ -17,6 +17,7 @@ import { AirportMapWidget } from '../../components/AirportMapWidget';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
+import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
 import { useTourStore } from '../../store/tourStore';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
@@ -1169,6 +1170,9 @@ export default function DashboardScreen() {
 
     {/* Blades introduction — global map öppnad av rundturen (söker/zoomar KJFK automatiskt). */}
     <GlobalMapModal visible={tourMapOpen} onClose={() => useTourStore.getState().setGlobe(false, false, null)} />
+
+    {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
+    <UpdateAvailableModal />
   </>);
 }
 

@@ -31,6 +31,7 @@ import { FONT_LED7, ledGlow } from '../../components/logflight/tokens';
 import { categoryLabel } from '../../constants/droneCategories';
 import { DroneDashboardGlobe } from '../../components/DroneDashboardGlobe';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
+import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { Marquee } from '../../components/Marquee';
@@ -321,6 +322,8 @@ export default function DroneDashboardScreen() {
       {/* Återanvända kartor (identiska med manned) */}
       <GlobalMapModal visible={globalMapOpen} onClose={() => setGlobalMapOpen(false)} />
       <AirportPickerModal visible={wxPickerOpen} onClose={() => setWxPickerOpen(false)} initialIcao={wx?.metarStation ?? wx?.tafStation ?? null} />
+      {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
+      <UpdateAvailableModal />
     </ScrollView>
     </Animated.View>
     </View>
