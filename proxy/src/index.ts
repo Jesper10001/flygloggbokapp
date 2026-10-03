@@ -26,6 +26,11 @@ const TOKEN_LIMITS: Record<string, number> = {
   premium: 50_000,  // per månad = 250 Blade-coins
 };
 
+// Incident news (web search) är DYR per scan → Premium-only + hård rate-limit (1 scan/timme/enhet).
+// Faktiska tokens debiteras mot coin-potten (ingen rabatt) så potten också bromsar förbrukningen.
+const INCIDENT_NEWS_RATE_LIMIT_SEC = 3600; // 1 scan / timme / enhet
+const newsRateKey = (deviceHash: string) => `newsrate:${deviceHash}`;
+
 // Free = lifetime-nyckel (ingen TTL); premium = månadsnyckel (löper ut)
 function tokenKey(deviceHash: string, tier: string): string {
   return tier === 'free'
@@ -57,7 +62,7 @@ function corsHeaders(_origin: string | null): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium, X-Tier, X-App-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium, X-Tier, X-App-Key, X-Feature',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -737,6 +742,7 @@ export default {
     const deviceId = request.headers.get('X-Device-ID') ?? 'unknown';
     const deviceHash = hashDevice(deviceId);
     const country = (request as any).cf?.country ?? '??';
+    const feature = request.headers.get('X-Feature') ?? '';
 
     try {
       const body = await request.text();
@@ -745,6 +751,20 @@ export default {
 
       // ── Server-side tier: promo ELLER RevenueCat (aldrig klient-headern) ──
       const tierHeader = await resolveTier(deviceId, env);
+
+      // ── Incident news: Premium-only + 1 scan/timme/enhet (dyr web search) ──
+      if (feature === 'incident-news') {
+        if (tierHeader !== 'premium') {
+          return new Response(JSON.stringify({ error: 'premium_required', message: 'Incident news is a Premium feature.' }), {
+            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+        if (env.QUOTA_KV && (await env.QUOTA_KV.get(newsRateKey(deviceHash)))) {
+          return new Response(JSON.stringify({ error: 'news_rate_limited', message: 'You can scan once per hour. Please try again later.' }), {
+            status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+      }
 
       // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
       if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
@@ -819,8 +839,12 @@ export default {
           indexes: [deviceHash],
         });
       }
-      // Token-räkning i bakgrunden — blockerar inte svaret till appen
+      // Token-räkning i bakgrunden — blockerar inte svaret till appen.
       ctx.waitUntil(addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok));
+      // Incident news lyckades → starta rate-limit-fönstret (1 scan/timme/enhet).
+      if (feature === 'incident-news' && resp.ok && env.QUOTA_KV) {
+        ctx.waitUntil(env.QUOTA_KV.put(newsRateKey(deviceHash), String(Date.now()), { expirationTtl: INCIDENT_NEWS_RATE_LIMIT_SEC }));
+      }
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

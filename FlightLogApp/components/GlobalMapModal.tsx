@@ -28,6 +28,7 @@ import { COUNTRY_NAMES } from '../constants/countryNames';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
 import { useTourStore } from '../store/tourStore';
+import { IncidentNewsOverlay } from './IncidentNewsOverlay';
 
 // Väderfilter: min-kategori (lägsta acceptabla). VFR bäst → LIFR sämst. En flygplats "möter" kravet
 // om dess aktuella kategori är minst lika bra som vald tröskel (VFR-tröskel = enbart VFR-fält).
@@ -111,6 +112,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [mapSearch, setMapSearch] = useState('');
   const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);      // Global map → News-rutan
+  const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
   useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
@@ -432,6 +435,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const r = seedData.find((x) => x[0] === icao);
     if (r) setFocusAirport(r);
   };
+  // News: när vald flygplats stängs (X / auto-avmarkering) slutar "Back to news" gälla.
+  useEffect(() => { if (!focusAirport) setCameFromNews(false); }, [focusAirport]);
+
   // Blades introduction: rundturen ber kartan söka + zooma till en ICAO (demo: KJFK) vid öppning.
   const tourSearchIcao = useTourStore((s) => s.mapSearchIcao);
   useEffect(() => {
@@ -457,7 +463,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (sib && country) setDrillStack([countryRoot(country, countryNameFull(country)), sib.node]);
   };
   const goBack = () => {
-    if (focusAirport) { setFocusAirport(null); return; }
+    if (focusAirport) {
+      const toNews = cameFromNews; // kom hit via nyhetsrutan → tillbaka dit med de andra platserna
+      setFocusAirport(null);
+      if (toNews) { setCameFromNews(false); setNewsOpen(true); }
+      return;
+    }
     setDrillStack((s) => s.slice(0, -1));
   };
   // Cluster/Region-växel: byt läge + nollställ navigering (drill/fokus/sök/vy) så det nya läget börjar rent.
@@ -767,12 +778,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <Text style={[styles.propsToggleTxt, propsActive(mapProps) && { color: Colors.primary }]}>Properties</Text>
                     <Ionicons name={propsOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { if (!isPremium) { promptWeatherPremium(); return; } toggleSection('weather'); }} activeOpacity={0.85}
-                    style={[styles.propsToggle, openSection === 'weather' && styles.propsToggleActive]}>
-                    <Ionicons name="partly-sunny-outline" size={12} color={wxCat ? Colors.primary : '#fff'} />
-                    <Text style={[styles.propsToggleTxt, wxCat && { color: Colors.primary }]}>Weather</Text>
-                    <Ionicons name={!isPremium ? 'lock-closed' : openSection === 'weather' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
-                  </TouchableOpacity>
+                  {/* Weather-filtret borttaget: bulk-METAR-sökning (fetchMetarsInBbox) riskerade API-utlåsning.
+                      Väder finns kvar för "closest to me" (dashboard/drönare, enstaka station). */}
                   <TouchableOpacity onPress={() => toggleSection('access')} activeOpacity={0.85}
                     style={[styles.propsToggle, openSection === 'access' && styles.propsToggleActive]}>
                     <Text style={[styles.propsToggleTxt, accessOn && { color: Colors.primary }]}>Access</Text>
@@ -804,44 +811,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                         <Text style={[styles.propPillTxt, mapProps.lit && { color: Colors.primary }]}>Lit</Text>
                       </TouchableOpacity>
                     </View>
-                  </View>
-                )}
-
-                {openSection === 'weather' && (
-                  <View style={styles.propsPanel}>
-                    <Text style={styles.wxHint}>Pick a minimum flight category (or All), then choose a country to search.</Text>
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                      {WX_CATS.map((cat) => {
-                        const on = wxCat === cat;
-                        return (
-                          <TouchableOpacity key={cat} onPress={() => { setCountryQuery(''); setCountryPickerFor(cat); }} activeOpacity={0.7}
-                            style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }, on && styles.propPillOn]}>
-                            <View style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />
-                            <Text style={[styles.propPillTxt, on && { color: Colors.primary }]}>{cat}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    {/* All: hämta alla stationer i landet och färgkoda varje flygplats efter kategori. */}
-                    <TouchableOpacity onPress={() => { setCountryQuery(''); setCountryPickerFor('ALL'); }} activeOpacity={0.7}
-                      style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }, wxCat === 'ALL' && styles.propPillOn]}>
-                      <View style={{ flexDirection: 'row', gap: 3 }}>
-                        {WX_CATS.map((cat) => <View key={cat} style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />)}
-                      </View>
-                      <Text style={[styles.propPillTxt, wxCat === 'ALL' && { color: Colors.primary }]}>All stations (color-coded)</Text>
-                    </TouchableOpacity>
-                    {wxCat && wxCountry && (
-                      <View style={styles.wxStatusRow}>
-                        <Text style={styles.wxStatusTxt} numberOfLines={1}>
-                          {`${wxCat === 'ALL' ? 'All' : `≥ ${wxCat}`} · ${COUNTRY_NAMES[wxCountry] ?? wxCountry} · ${typedSeed.length} shown`}
-                          {wxLoading ? ' · loading…' : ''}
-                        </Text>
-                        <TouchableOpacity onPress={clearWeather} activeOpacity={0.7} style={styles.wxClearBtn}>
-                          <Ionicons name="close" size={12} color="#fff" />
-                          <Text style={styles.wxClearTxt}>Clear</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </View>
                 )}
 
@@ -897,6 +866,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         {/* Kartkontroller — nere till höger: Cluster/Region-växel (vänster) + Map/Satellite (höger, längst ut). */}
         {showMapCtrls && (
           <View style={{ position: 'absolute', bottom: 24, right: 16, flexDirection: 'row', gap: 8 }}>
+            {/* News (AI): flygincidenter kopplade till flygplatser — vänster om Region-knappen. */}
+            <TouchableOpacity onPress={() => setNewsOpen(true)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
+              <Ionicons name="newspaper-outline" size={15} color="#fff" />
+              <Text style={styles.mapCtrlTxt}>News</Text>
+            </TouchableOpacity>
             {/* Region/Cluster-växeln döljs i väderläget (legenden täcker den ändå). */}
             {!wxCat && (
               <TouchableOpacity onPress={() => setMode(!clusterMode)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
@@ -933,6 +907,15 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             </View>
           );
         })()}
+
+        {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
+        <IncidentNewsOverlay
+          visible={newsOpen}
+          onClose={() => setNewsOpen(false)}
+          onViewOnMap={(icao) => { setNewsOpen(false); setCameFromNews(true); focusByIcao(icao); }}
+          canLocate={(icao) => !!icao && seedData.some((r) => r[0] === icao)}
+          onUpgrade={() => { setNewsOpen(false); closeMap(); router.push('/settings/premium' as any); }}
+        />
 
         {/* Flight-detalj som overlay OVANPÅ kartan (nästlad Modal) → stäng återgår hit, kartan bevaras. */}
         {detailFlightId != null && (

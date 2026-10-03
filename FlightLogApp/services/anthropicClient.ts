@@ -202,6 +202,64 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
 }
 
 /**
+ * Anrop MED Anthropics server-side web search-verktyg (recent news m.m.). Claude kör sökningarna
+ * på servern och returnerar ett slutligt textsvar; vi slår ihop alla text-block och parsar JSON.
+ * KRÄVER att proxyn vidarebefordrar `tools` (web_search) till Anthropic — vanlig passthrough räcker.
+ */
+export async function callAnthropicWebSearchJson<T = any>(opts: {
+  system: string;
+  userContent: string;
+  maxTokens: number;
+  maxSearches?: number;         // default 2 — web search drar MYCKET tokens (sidinnehåll i kontext)
+  allowedDomains?: string[];    // begränsa sökningen till utvalda källor → färre/mer relevanta träffar
+  model?: string;               // default Haiku (billigast per token)
+  timeoutMs?: number;
+  feature?: string;             // X-Feature-header → proxyn kan gränssätta/rate-limita funktionen
+}): Promise<T> {
+  if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
+    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+  }
+  const headers = buildHeaders();
+  if (opts.feature) headers['X-Feature'] = opts.feature;
+  const timeoutMs = opts.timeoutMs ?? 90000; // web search kan ta tid (flera sökningar)
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
+  const tool: Record<string, any> = { type: 'web_search_20250305', name: 'web_search', max_uses: opts.maxSearches ?? 2 };
+  if (opts.allowedDomains?.length) tool.allowed_domains = opts.allowedDomains;
+
+  let response;
+  try {
+    response = await fetch(API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: opts.model ?? 'claude-haiku-4-5',
+        max_tokens: opts.maxTokens,
+        system: [{ type: 'text', text: opts.system }],
+        tools: [tool],
+        messages: [{ role: 'user', content: opts.userContent }],
+      }),
+      signal: abortController.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error(`API-anrop timeout (${Math.round(timeoutMs / 1000)}s). Kontrollera din internetuppkoppling.`);
+    throw err;
+  }
+  clearTimeout(timeoutId);
+  if (!response.ok) await throwForErrorResponse(response);
+
+  const data = await response.json();
+  reportTokenUsage((data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0));
+  const texts: string = (Array.isArray(data.content) ? data.content : [])
+    .filter((c: any) => c.type === 'text')
+    .map((c: any) => c.text ?? '')
+    .join('\n');
+  return parseJsonText<T>(texts, data.stop_reason ?? null);
+}
+
+/**
  * Gör ett API-anrop, extraherar JSON från svaret och parsar det.
  * Hanterar trunkering automatiskt — om stop_reason='max_tokens' kastas ett
  * tydligt fel; annars försöker vi reparera ofullständig JSON.
