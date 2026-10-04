@@ -464,7 +464,7 @@ function Site(){
 
       <footer className="footer"><div className="wrap footer-in">
         <a href="#top" className="brand"><img className="brand-lockup" src="web-v3/blades-lockup-h.png" alt="BLADES — Pilot Logbook" style={{height:22}}/></a>
-        <nav className="footer-links"><a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+        <nav className="footer-links"><a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/support">Support</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
         <span className="footer-copy">© 2026 BLADES · Built by a pilot, in Sweden</span>
       </div></footer>
     </div>
