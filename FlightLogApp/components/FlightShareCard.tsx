@@ -135,10 +135,9 @@ function parseStopIcaos(remarks: string): string[] {
   return out;
 }
 function buildCitySnapHtml(lat: number, lon: number, city: string, style: MapStyle, zoom: number): string {
-  const layersJs =
-    style === 'satellite'
-      ? `var base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}).addTo(map);`
-      : `var base=L.tileLayer('${style === 'dark' ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'}',{subdomains:'abcd',maxZoom:19,crossOrigin:true}).addTo(map);`;
+  // Satellit (ArcGIS World Imagery, ingen API-nyckel) ALLTID. CARTO light/dark kräver numera en
+  // API-nyckel ("API key required") → borttagna. style/city-parametrarna behålls men används ej.
+  const layersJs = `var base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}).addTo(map);`;
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>*{margin:0;padding:0}html,body,#map{width:220px;height:220px;background:#0a1422}</style>
@@ -147,7 +146,7 @@ function buildCitySnapHtml(lat: number, lon: number, city: string, style: MapSty
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
 <script>
-  var ZOOM=${Math.round(zoom)}, A=[${lat},${lon}], Q=${JSON.stringify(city || '')};
+  var ZOOM=${Math.round(zoom)}, A=[${lat},${lon}];
   var map=L.map('map',{zoomControl:false,attributionControl:false,fadeAnimation:false,zoomAnimation:false});
   ${layersJs}
   var fired=false;
@@ -160,14 +159,10 @@ function buildCitySnapHtml(lat: number, lon: number, city: string, style: MapSty
       });
     } catch(e){ window.ReactNativeWebView.postMessage('ERR'); }
   }
-  function dist(a,b){var R=6371,dLat=(b[0]-a[0])*Math.PI/180,dLon=(b[1]-a[1])*Math.PI/180,la1=a[0]*Math.PI/180,la2=b[0]*Math.PI/180;var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));}
-  function finish(c){ map.setView(c, ZOOM); base.on('load', function(){ setTimeout(shoot,300); }); setTimeout(shoot,3500); }
-  if(Q){
-    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(Q))
-      .then(function(r){return r.json();})
-      .then(function(d){ if(d&&d[0]){ var c=[parseFloat(d[0].lat),parseFloat(d[0].lon)]; if(dist(c,A)<120){ finish(c); return; } } finish(A); })
-      .catch(function(){ finish(A); });
-  } else { finish(A); }
+  // Centrera EXAKT på flygplatsens koordinater (ingen stads-geokodning via OSM längre).
+  map.setView(A, ZOOM);
+  base.on('load', function(){ setTimeout(shoot,300); });
+  setTimeout(shoot,3500);
 </script></body></html>`;
 }
 
@@ -199,7 +194,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const [arrSnap, setArrSnap] = useState<string | null>(null);
   const [depCity, setDepCity] = useState('');
   const [arrCity, setArrCity] = useState('');
-  const [mapStyle, setMapStyle] = useState<MapStyle>('light');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('satellite'); // bara satellit kvar
   const [mapZoom, setMapZoom] = useState(10);
   // Postcard: redigerbar text före dep och mellan dep/arr (ICAO-koderna är fasta).
   const [pcPrefix, setPcPrefix] = useState('From');
@@ -502,7 +497,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                   tileScale={overlayScale}
                   corners={corners}
                   brandRight={brandRight}
-                  mapCredit={mapStyle === 'satellite' ? '© Esri' : '© OpenStreetMap · CARTO'}
+                  mapCredit="© Esri"
                   cardW={cardW}
                   cardH={cardH}
                 />
@@ -644,15 +639,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
               </CtrlRow>
             )}
 
-            {mode === 'route' && (
-              <CtrlRow label="MAP">
-                <Seg
-                  options={[['light', 'Light'], ['dark', 'Dark'], ['satellite', 'Satellite']] as const}
-                  value={mapStyle}
-                  onChange={setMapStyle}
-                />
-              </CtrlRow>
-            )}
+            {/* Kart-stilsväljaren borttagen: bara satellit (CARTO light/dark krävde API-nyckel). */}
 
             {isFloating && (
               <CtrlRow label="MAX ALT">

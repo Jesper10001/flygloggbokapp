@@ -2,7 +2,8 @@
 // fetstil, kort nyhet under, plus en knapp för att navigera till platsen på kartan. Stängs/öppnas fritt
 // (resultatet cachas i useIncidentNewsStore) — ny sökning bara via Refresh eller app-omladdning.
 
-import { View, Text, TouchableOpacity, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Pressable, ActivityIndicator, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useIncidentNewsStore } from '../store/incidentNewsStore';
@@ -17,8 +18,12 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
 }) {
   const { status, incidents, error, load } = useIncidentNewsStore();
   const premium = useFlightStore((s) => s.isPremium || s.isMax);
-  if (!visible) return null;
   const locked = !premium || status === 'locked';
+  // Hämtas färdig + cachad från proxyn → snabbt och gratis, så vi laddar automatiskt när rutan öppnas.
+  useEffect(() => {
+    if (visible && premium && status === 'idle') load();
+  }, [visible, premium, status, load]);
+  if (!visible) return null;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -46,7 +51,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
             <View style={s.center}>
               <View style={s.bigIcon}><Ionicons name="lock-closed-outline" size={32} color={Colors.primary} /></View>
               <Text style={s.loadingTxt}>A Premium feature</Text>
-              <Text style={s.scanHint}>Incident news scans the web with AI for recent accidents at airports. Upgrade to Premium to use it.</Text>
+              <Text style={s.scanHint}>Recent accidents and incidents at airports, gathered from aviation news sources. Upgrade to Premium to use it.</Text>
               <TouchableOpacity onPress={onUpgrade} activeOpacity={0.85} style={s.scanBtn}>
                 <Ionicons name="sparkles" size={15} color={Colors.textInverse} />
                 <Text style={s.scanBtnTxt}>See Premium</Text>
@@ -55,17 +60,17 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
           ) : status === 'idle' ? (
             <View style={s.center}>
               <View style={s.bigIcon}><Ionicons name="newspaper-outline" size={34} color={Colors.primary} /></View>
-              <Text style={s.scanHint}>Let Blades search the web for recent incidents at airports and airfields — civil and military.</Text>
+              <Text style={s.scanHint}>Recent incidents at airports and airfields — civil and military — from aviation news sources.</Text>
               <TouchableOpacity onPress={() => load()} activeOpacity={0.85} style={s.scanBtn}>
-                <Ionicons name="search" size={16} color={Colors.textInverse} />
-                <Text style={s.scanBtnTxt}>Scan airports involved in flight incidents</Text>
+                <Ionicons name="newspaper" size={16} color={Colors.textInverse} />
+                <Text style={s.scanBtnTxt}>Show recent airport incidents</Text>
               </TouchableOpacity>
             </View>
           ) : status === 'loading' ? (
             <View style={s.center}>
               <ActivityIndicator color={Colors.primary} />
-              <Text style={s.loadingTxt}>Scanning the last 10 days…</Text>
-              <Text style={s.loadingSub}>This can take a moment.</Text>
+              <Text style={s.loadingTxt}>Loading recent incidents…</Text>
+              <Text style={s.loadingSub}>Just a moment.</Text>
             </View>
           ) : status === 'error' ? (
             <View style={s.center}>
@@ -94,6 +99,18 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
                     </Text>
                     {it.date ? <Text style={s.date}>{it.date}</Text> : null}
                     <Text style={s.summary}>{it.summary}</Text>
+                    {it.source || it.link ? (
+                      <TouchableOpacity
+                        disabled={!it.link}
+                        onPress={() => it.link && Linking.openURL(it.link)}
+                        activeOpacity={0.7}
+                        hitSlop={6}
+                        style={s.sourceRow}
+                      >
+                        <Ionicons name="open-outline" size={11} color={Colors.textMuted} />
+                        <Text style={s.sourceTxt} numberOfLines={1}>{it.source ?? 'Source'}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                   {canLocate(it.icao) ? (
                     <TouchableOpacity onPress={() => onViewOnMap(it.icao!)} activeOpacity={0.8} style={s.locBtn}>
@@ -103,7 +120,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
                   ) : null}
                 </View>
               ))}
-              <Text style={s.disclaimer}>AI-generated from web sources — verify before relying on it.</Text>
+              <Text style={s.disclaimer}>Summaries compiled from third-party aviation news sources — tap a source to read the original. Verify before relying on it.</Text>
             </ScrollView>
           )}
         </View>
@@ -134,6 +151,8 @@ const s = StyleSheet.create({
   icao: { color: Colors.primary, fontSize: 13, fontWeight: '700', fontFamily: 'JetBrainsMono' },
   date: { color: Colors.textMuted, fontSize: 11, marginTop: 2, fontVariant: ['tabular-nums'] },
   summary: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  sourceTxt: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', flexShrink: 1 },
   locBtn: { alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.primary + '18', borderWidth: 1, borderColor: Colors.primary + '44' },
   locTxt: { color: Colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
   disclaimer: { color: Colors.textMuted, fontSize: 10.5, lineHeight: 15, textAlign: 'center', paddingHorizontal: 14, paddingVertical: 12 },

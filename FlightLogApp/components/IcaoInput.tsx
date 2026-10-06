@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, getAirportByAnyCode, getTempPlaceByName, batchPlaceNames } from '../db/icao';
+import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTemporaryIcao, addTemporaryPlace, getAirportByIcao, getAirportByAnyCode, getTempPlaceByName, batchPlaceNames, isOffAirportCode } from '../db/icao';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import type { IcaoAirport } from '../types/flight';
@@ -165,7 +165,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   // Place status for confirmation icon color ('unknown' = fritext-kod utan träff → frågetecken)
-  const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | 'unknown' | null>(null);
+  const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | 'unknown' | 'off-airport' | null>(null);
   const unknownTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // 0,5 s fördröjning för frågetecknet
   const freeSeq = useRef(0); // ogiltigförklarar stale fritext-matchningar
 
@@ -176,6 +176,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
     const code = text.trim().toUpperCase();
     if (code.length < 2) { setPlaceStatus(null); setResolvedName(''); onResolve?.(text, null); return; }
+    // Off-airport (ZZZZ): never a real place — green "Off-airport", no coordinates, no map prompt.
+    if (isOffAirportCode(code)) { setPlaceStatus('off-airport'); setResolvedName(''); onResolve?.(text, null); return; }
     getAirportByAnyCode(code).then((a) => {
       if (seq !== freeSeq.current) return; // nyare tangenttryckning
       if (a) {
@@ -550,13 +552,13 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
           returnKeyType={allowHere ? 'done' : 'default'}
         />
         {/* Fritextläge: grön bock vid träff, frågetecken (samma stil) vid ingen träff */}
-        {airportFree && placeStatus === 'known' && (
+        {airportFree && (placeStatus === 'known' || placeStatus === 'off-airport') && (
           <Ionicons name="checkmark-circle" size={18} color={Colors.success} style={styles.icon} />
         )}
         {airportFree && placeStatus === 'unknown' && (
           <Ionicons name="help-circle" size={18} color={Colors.warning} style={styles.icon} />
         )}
-        {airportFree && placeStatus !== 'known' && placeStatus !== 'unknown' && inputText.length > 0 && (
+        {airportFree && placeStatus !== 'known' && placeStatus !== 'unknown' && placeStatus !== 'off-airport' && inputText.length > 0 && (
           <TouchableOpacity onPress={() => { setInputText(''); runFreeMatch(''); }} hitSlop={8}>
             <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} style={styles.icon} />
           </TouchableOpacity>
@@ -637,7 +639,11 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       </View>
       {/* Text under ICAO-rutan (designen): flygplatsnamn vid träff, "Unknown airport/airfield" vid
           fritext utan träff. Krymper vid behov, aldrig utanför sektionen. */}
-      {design && airportFree && placeStatus === 'unknown' ? (
+      {design && airportFree && placeStatus === 'off-airport' ? (
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ marginTop: 4, textAlign: 'center', color: Colors.success, fontSize: 10, fontWeight: '700' }}>
+          Off-airport
+        </Text>
+      ) : design && airportFree && placeStatus === 'unknown' ? (
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ marginTop: 4, textAlign: 'center', color: Colors.warning, fontSize: 10, fontWeight: '600' }}>
           Unknown airport/airfield
         </Text>

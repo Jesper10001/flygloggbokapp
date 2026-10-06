@@ -26,10 +26,23 @@ const TOKEN_LIMITS: Record<string, number> = {
   premium: 50_000,  // per månad = 250 Blade-coins
 };
 
-// Incident news (web search) är DYR per scan → Premium-only + hård rate-limit (1 scan/timme/enhet).
-// Faktiska tokens debiteras mot coin-potten (ingen rabatt) så potten också bromsar förbrukningen.
-const INCIDENT_NEWS_RATE_LIMIT_SEC = 3600; // 1 scan / timme / enhet
-const newsRateKey = (deviceHash: string) => `newsrate:${deviceHash}`;
+// ── Incident news (hybrid: gratis RSS + EN liten Haiku-pass, server-cachad) ──
+// Kostnadsnyckel: vi hämtar RSS från etablerade flyg-nyhetskällor (gratis) och kör EN Haiku-pass
+// (utan web search) för att strukturera + plocka ICAO. Resultatet cachas globalt i KV i 1 timme →
+// RSS hämtas + Haiku körs som mest 1 gång/timme för ALLA användare tillsammans → ~0 kr. Appen GET:ar
+// bara den cachade listan. Fortsatt Premium-only (produktval), men inte längre dyr per scan.
+const NEWS_CACHE_KEY = 'newscache:v2';
+const NEWS_CACHE_TTL_SEC = 3600;           // 1 timme delad cache
+const NEWS_WINDOW_DAYS = 10;               // bara incidenter från senaste N dygnen
+const NEWS_MODEL = 'claude-haiku-4-5';
+// Etablerade flyg-nyhetskällor med RSS/Atom-flöden (syndikering). Trasiga flöden hoppas tyst över.
+// Lägg bara till källor vars flöden är avsedda för vidarespridning; undvik sajter vars villkor förbjuder det.
+const NEWS_FEEDS: { url: string; source: string }[] = [
+  { url: 'https://www.avweb.com/feed/', source: 'AVweb' },
+  { url: 'https://simpleflying.com/feed/', source: 'Simple Flying' },
+  { url: 'https://theaviationist.com/feed/', source: 'The Aviationist' },
+  { url: 'https://www.aerotime.aero/feed', source: 'AeroTime' },
+];
 
 // Free = lifetime-nyckel (ingen TTL); premium = månadsnyckel (löper ut)
 function tokenKey(deviceHash: string, tier: string): string {
@@ -564,6 +577,107 @@ ${devices.length > 0 ? `
 </body></html>`;
 }
 
+// ── Incident news: RSS-hämtning + parsning + liten Haiku-strukturering ───────
+
+interface RawFeedItem { source: string; title: string; link: string; date: string; snippet: string; }
+interface NewsIncident { airport: string; icao: string | null; date: string; summary: string; link: string | null; source: string | null; }
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_m, d) => { try { return String.fromCharCode(parseInt(d, 10)); } catch { return ' '; } })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pickTag(block: string, tag: string): string {
+  const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  return m ? decodeEntities(m[1]) : '';
+}
+
+// Parsar RSS (<item>) och Atom (<entry>) → rårader. Regex-baserad (ingen XML-parser i Workers).
+function parseFeed(xml: string, source: string): RawFeedItem[] {
+  const out: RawFeedItem[] = [];
+  const blocks = xml.match(/<(item|entry)[\s>][\s\S]*?<\/(item|entry)>/gi) ?? [];
+  for (const b of blocks) {
+    const title = pickTag(b, 'title');
+    let link = pickTag(b, 'link');
+    if (!link) { const lm = b.match(/<link[^>]*href=["']([^"']+)["']/i); if (lm) link = lm[1]; } // Atom
+    const date = pickTag(b, 'pubDate') || pickTag(b, 'published') || pickTag(b, 'updated') || pickTag(b, 'dc:date');
+    const snippet = (pickTag(b, 'description') || pickTag(b, 'summary') || pickTag(b, 'content')).slice(0, 300);
+    if (title) out.push({ source, title, link, date, snippet });
+  }
+  return out;
+}
+
+async function fetchAllFeeds(): Promise<RawFeedItem[]> {
+  const results = await Promise.all(NEWS_FEEDS.map(async (f) => {
+    try {
+      const r = await fetch(f.url, { headers: { 'User-Agent': 'BladesNewsBot/1.0 (+https://blades-app.com)', 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml' }, cf: { cacheTtl: 1800 } as any });
+      if (!r.ok) return [];
+      return parseFeed(await r.text(), f.source);
+    } catch { return []; }
+  }));
+  // Platta + behåll bara rader med rimligt färskt datum (senaste ~NEWS_WINDOW_DAYS+2 dygn) + kapa mängden.
+  const cutoff = Date.now() - (NEWS_WINDOW_DAYS + 2) * 86400 * 1000;
+  const flat = results.flat().filter((it) => {
+    const t = Date.parse(it.date);
+    return isNaN(t) ? true : t >= cutoff; // okänt datum → behåll, Haiku filtrerar
+  });
+  return flat.slice(0, 40);
+}
+
+// EN liten Haiku-pass (ingen web search): rårader → strukturerade airport-kopplade incidenter.
+async function structureIncidents(items: RawFeedItem[], env: Env): Promise<NewsIncident[]> {
+  if (!items.length || !env.ANTHROPIC_API_KEY) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const system = `You turn aviation news headlines into a structured list of AIRPORT-LINKED flight incidents for a pilot app. Today is ${today}. Keep ONLY genuine flight incidents/accidents (civil or military) from the last ${NEWS_WINDOW_DAYS} days that happened at, or are clearly tied to, a specific named airport or airfield (takeoff, landing, runway excursion, ground/apron, go-around, emergency diversion, military airbase mishap). Drop opinion pieces, product news, route/airline-business stories, and en-route events with no airport link. Be factual and concise.`;
+  const user = `Here are recent aviation news items (JSON). Return ONLY a JSON object, no prose:
+{"incidents":[{"airport":"<common airport name>","icao":"<4-letter ICAO or null>","date":"<YYYY-MM-DD>","summary":"<1-2 sentence factual summary>","link":"<the item's url>","source":"<the item's source>"}]}
+Rules: most recent first; up to 15 items; "icao" is the real 4-letter ICAO when identifiable (e.g. KLAX, EGLL), else null; copy "link" and "source" from the matching input item; if nothing qualifies return {"incidents":[]}.
+
+Items:
+${JSON.stringify(items)}`;
+
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: NEWS_MODEL,
+      max_tokens: 2000,
+      system: [{ type: 'text', text: system }],
+      messages: [{ role: 'user', content: user }],
+    }),
+  });
+  if (!resp.ok) throw new Error(`news_haiku_${resp.status}`);
+  const data = await resp.json() as any;
+  const inTok = data.usage?.input_tokens ?? 0, outTok = data.usage?.output_tokens ?? 0;
+  if (env.TELEMETRY) {
+    env.TELEMETRY.writeDataPoint({
+      blobs: [NEWS_MODEL, 'news_cron', '??', resp.status === 200 ? 'ok' : `error_${resp.status}`],
+      doubles: [0, inTok, outTok, Math.round((inTok * 0.3 + outTok * 1.5) / 1000) / 100],
+      indexes: ['news_cron'],
+    });
+  }
+  const text = (Array.isArray(data.content) ? data.content : []).filter((c: any) => c.type === 'text').map((c: any) => c.text ?? '').join('\n');
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return [];
+  const parsed = JSON.parse(jsonMatch[0]) as { incidents?: NewsIncident[] };
+  return Array.isArray(parsed.incidents) ? parsed.incidents.slice(0, 15) : [];
+}
+
+// Hämtar färsk lista (RSS + Haiku) och skriver till den globala cachen.
+async function refreshIncidentNews(env: Env): Promise<NewsIncident[]> {
+  const items = await fetchAllFeeds();
+  const incidents = await structureIncidents(items, env);
+  const payload = JSON.stringify({ incidents, cached_at: Date.now() });
+  if (env.QUOTA_KV) { try { await env.QUOTA_KV.put(NEWS_CACHE_KEY, payload, { expirationTtl: NEWS_CACHE_TTL_SEC + 120 }); } catch {} }
+  return incidents;
+}
+
 // ── Huvudlogik ─────────────────────────────────────────────────────────────
 
 export default {
@@ -654,6 +768,42 @@ export default {
       });
     }
 
+    // ── Incident news: server-cachad lista (gratis RSS + liten Haiku, 1h delad cache) ──
+    // Premium-only (produktval). Nästan gratis: RSS+Haiku körs max 1 gång/timme för alla ihop.
+    if (url.pathname === '/incident-news' && request.method === 'GET') {
+      const devId = request.headers.get('X-Device-ID') ?? 'unknown';
+      if ((await resolveTier(devId, env)) !== 'premium') {
+        return new Response(JSON.stringify({ error: 'premium_required', message: 'Incident news is a Premium feature.' }), {
+          status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+      // 1) Färsk cache → returnera direkt (noll kostnad).
+      let cached: { incidents?: NewsIncident[]; cached_at?: number } | null = null;
+      if (env.QUOTA_KV) { try { const raw = await env.QUOTA_KV.get(NEWS_CACHE_KEY); if (raw) cached = JSON.parse(raw); } catch {} }
+      const fresh = cached?.cached_at && (Date.now() - cached.cached_at) < NEWS_CACHE_TTL_SEC * 1000;
+      if (cached && fresh) {
+        return new Response(JSON.stringify({ incidents: cached.incidents ?? [], cached_at: cached.cached_at }), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' },
+        });
+      }
+      // 2) Ingen färsk cache → bygg ny (RSS + Haiku). Vid fel: fall tillbaka på ev. gammal cache.
+      try {
+        const incidents = await refreshIncidentNews(env);
+        return new Response(JSON.stringify({ incidents, cached_at: Date.now() }), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' },
+        });
+      } catch (e: any) {
+        if (cached) {
+          return new Response(JSON.stringify({ incidents: cached.incidents ?? [], cached_at: cached.cached_at, stale: true }), {
+            headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ error: 'news_unavailable', message: 'Could not load incidents right now.' }), {
+          status: 502, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── Entitlement: har denna device Premium (promo-kod ELLER RevenueCat)? ──
     // ?debug=1 → live-diagnostik (förbi cachen), utan att läcka nyckeln. Ta bort efter felsökning om du vill.
     if (url.pathname === '/entitlement' && request.method === 'GET') {
@@ -742,7 +892,6 @@ export default {
     const deviceId = request.headers.get('X-Device-ID') ?? 'unknown';
     const deviceHash = hashDevice(deviceId);
     const country = (request as any).cf?.country ?? '??';
-    const feature = request.headers.get('X-Feature') ?? '';
 
     try {
       const body = await request.text();
@@ -752,19 +901,7 @@ export default {
       // ── Server-side tier: promo ELLER RevenueCat (aldrig klient-headern) ──
       const tierHeader = await resolveTier(deviceId, env);
 
-      // ── Incident news: Premium-only + 1 scan/timme/enhet (dyr web search) ──
-      if (feature === 'incident-news') {
-        if (tierHeader !== 'premium') {
-          return new Response(JSON.stringify({ error: 'premium_required', message: 'Incident news is a Premium feature.' }), {
-            status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
-          });
-        }
-        if (env.QUOTA_KV && (await env.QUOTA_KV.get(newsRateKey(deviceHash)))) {
-          return new Response(JSON.stringify({ error: 'news_rate_limited', message: 'You can scan once per hour. Please try again later.' }), {
-            status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
-          });
-        }
-      }
+      // (Incident news hanteras numera av den cachade GET /incident-news — ingen web search här.)
 
       // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
       if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
@@ -841,10 +978,6 @@ export default {
       }
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
       ctx.waitUntil(addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok));
-      // Incident news lyckades → starta rate-limit-fönstret (1 scan/timme/enhet).
-      if (feature === 'incident-news' && resp.ok && env.QUOTA_KV) {
-        ctx.waitUntil(env.QUOTA_KV.put(newsRateKey(deviceHash), String(Date.now()), { expirationTtl: INCIDENT_NEWS_RATE_LIMIT_SEC }));
-      }
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

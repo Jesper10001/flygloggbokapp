@@ -1,49 +1,48 @@
-// AI-nyheter: senaste flygincidenter/-olyckor (civila OCH militära) som kan knytas till en specifik
-// flygplats/airfield. Använder Claudes web search-verktyg (via proxyn) → senaste ~10 dygnen.
-// Resultatet matchas sedan mot flygplats-seedet (ICAO) för att kunna navigera till platsen på kartan.
+// Flygincident-nyheter (Global map → News). Hybrid, kostnadsoptimerad: proxyn hämtar RSS från etablerade
+// flyg-nyhetskällor (gratis) och kör EN liten Haiku-pass för att strukturera + plocka ICAO, och CACHAR
+// resultatet globalt i 1 timme. Appen GET:ar bara den färdiga listan → ingen web search, inga tokens från
+// användarens pott. Fortsatt Premium-only (server-side). Resultatet matchas mot flygplats-seedet för
+// kart-navigering. Se proxy/src/index.ts (GET /incident-news).
 
-import { callAnthropicWebSearchJson } from './anthropicClient';
+import { getDeviceId } from './anthropicClient';
+
+const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
 
 export interface AirportIncident {
   airport: string;        // flygplatsens vanliga namn
   icao: string | null;    // ICAO om identifierbar (för kart-navigering), annars null
   date: string;           // ISO-datum (YYYY-MM-DD) eller fritext om okänt
   summary: string;        // kort sammanfattning (1–2 meningar)
+  link: string | null;    // länk till källartikeln (attribution)
+  source: string | null;  // källans namn (t.ex. "AVweb")
 }
 
-// Kostnadskontroll: web search drar mycket tokens (sidinnehåll i kontext). Vi håller nere det via
-// få sökningar (max 2), fokuserade källor, Haiku-modellen och kort output. Funktionen är dessutom
-// Premium-only + rate-limitad (1 scan/timme) server-side (se proxy/src/index.ts) — faktiska tokens
-// debiteras mot coin-potten (ingen rabatt).
-const SOURCES = [
-  'aviation-safety.net', 'avherald.com', 'flightglobal.com',
-  'simpleflying.com', 'aerotime.aero', 'theaviationist.com',
-];
-
-const SYSTEM = `You are an aviation-safety news assistant for a pilot logbook app. Using web search, find
-flight incidents and accidents — BOTH civil and military — from the LAST 5 DAYS that happened at, or can
-be clearly linked to, a specific airport or airfield (takeoff, landing, runway excursion, ground incident,
-go-around, emergency diversion, military airbase mishap, etc.). Only include events tied to a named airport
-or airfield; skip en-route events with no airport link. Prefer reputable sources. Be token-efficient.`;
-
-const USER = `Search the web and return the most recent airport-linked flight incidents from the last 5 days.
-Return ONLY a JSON object, no prose, in exactly this shape:
-{"incidents":[{"airport":"<common airport name>","icao":"<ICAO code or null>","date":"<YYYY-MM-DD>","summary":"<1-2 sentence plain-English summary>"}]}
-Rules: most recent first; up to 15 items; "icao" must be the 4-letter ICAO code when you can identify it
-(e.g. KLAX, EGLL, KJFK), otherwise null; keep summaries concise and factual; if you find nothing, return
-{"incidents":[]}.`;
+function headers(): Record<string, string> {
+  const h: Record<string, string> = { 'X-Device-ID': getDeviceId() };
+  try {
+    const { useFlightStore } = require('../store/flightStore');
+    const st = useFlightStore.getState();
+    if (st.isMax) h['X-Tier'] = 'max';
+    else if (st.isPremium) h['X-Premium'] = 'true';
+  } catch { /* ignore */ }
+  return h;
+}
 
 export async function fetchAirportIncidents(): Promise<AirportIncident[]> {
-  const res = await callAnthropicWebSearchJson<{ incidents?: AirportIncident[] }>({
-    system: SYSTEM,
-    userContent: USER,
-    maxTokens: 2000,
-    maxSearches: 2,
-    allowedDomains: SOURCES,
-    feature: 'incident-news',
-    timeoutMs: 120000,
-  });
-  const list = Array.isArray(res?.incidents) ? res.incidents : [];
+  if (!PROXY_URL) throw new Error('news_unavailable');
+  const base = PROXY_URL.replace(/\/+$/, '');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(`${base}/incident-news`, { headers: headers(), signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (res.status === 403) throw new Error('premium_required');
+  if (!res.ok) throw new Error(`news_unavailable_${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  const list: AirportIncident[] = Array.isArray((data as any)?.incidents) ? (data as any).incidents : [];
   // Normalisera + släng uppenbart tomma rader; ICAO uppercase.
   return list
     .filter((i) => i && (i.airport || i.summary))
@@ -52,6 +51,8 @@ export async function fetchAirportIncidents(): Promise<AirportIncident[]> {
       icao: i.icao ? String(i.icao).trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || null : null,
       date: String(i.date ?? '').trim(),
       summary: String(i.summary ?? '').trim(),
+      link: i.link ? String(i.link).trim() : null,
+      source: i.source ? String(i.source).trim() : null,
     }))
     .slice(0, 15);
 }

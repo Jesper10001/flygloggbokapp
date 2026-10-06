@@ -3,6 +3,14 @@ import type { IcaoAirport } from '../types/flight';
 import type { SeedRow } from '../components/GlobalAirportMap';
 import { loadJsonAsset } from '../utils/loadJsonAsset';
 
+// Off-airport placeholder codes: ICAO-standard "no location indicator assigned" (ZZZZ, ICAO Doc 4444).
+// These are NOT real places — the same code is reused for any off-airport site, so we never link them
+// to coordinates, never treat them as an unknown airport, and never prompt to place them on the map.
+const OFF_AIRPORT_CODES = new Set(['ZZZZ']);
+export function isOffAirportCode(code: string | null | undefined): boolean {
+  return !!code && OFF_AIRPORT_CODES.has(code.trim().toUpperCase());
+}
+
 // Airport-seed (8,5 MB) laddas som BUNTAD ASSET (icao-airports.dat), inte via require() — en så
 // stor JSON inlinad blir ett objekt-literal som Hermes i SDK 57 inte klarar bytecode-kompilera
 // (require kastade → "airport database unavailable"). Lazy + cachad: bara första anropet läser filen.
@@ -488,8 +496,9 @@ export async function getAllTempPlaces(): Promise<IcaoAirport[]> {
 
 export async function getUnlocatedTemporaryPlaces(): Promise<IcaoAirport[]> {
   const db = await getDatabase();
+  // Exclude ZZZZ: an off-airport placeholder is never a site that needs a position on the map.
   return db.getAllAsync<IcaoAirport>(
-    'SELECT * FROM icao_airports WHERE temporary = 1 AND (lat = 0 OR lon = 0 OR lat IS NULL OR lon IS NULL)'
+    "SELECT * FROM icao_airports WHERE temporary = 1 AND icao != 'ZZZZ' AND (lat = 0 OR lon = 0 OR lat IS NULL OR lon IS NULL)"
   );
 }
 

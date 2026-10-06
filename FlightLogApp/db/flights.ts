@@ -1300,9 +1300,12 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            COALESCE(MAX(f.date), '') as last_flown,
            COALESCE(MIN(f.date), '') as first_flown,
            COUNT(DISTINCT CASE WHEN f.registration != '' THEN f.registration END) as reg_count,
-           COALESCE(ROUND(SUM(f.total_time), 1), 0) as total_hours,
+           -- total_hours/flight_count MÅSTE läsas via subquery (ej SUM/COUNT över JOIN:en): registry har
+           -- en rad PER (typ, registrering), så JOIN+GROUP BY multiplicerar annars summan med antalet
+           -- registreringar (t.ex. 6 regs → 6× timmar). MAX/MIN/COUNT(DISTINCT) nedan är fan-out-säkra.
+           COALESCE((SELECT ROUND(SUM(fx.total_time), 1) FROM flights fx WHERE fx.aircraft_type = ar.aircraft_type AND fx.flight_type != 'sim'), 0) as total_hours,
            COALESCE((SELECT ROUND(SUM(fs.total_time), 1) FROM flights fs WHERE fs.aircraft_type = ar.aircraft_type AND fs.flight_type = 'sim'), 0) as sim_hours,
-           COUNT(f.id) as flight_count,
+           (SELECT COUNT(*) FROM flights fx WHERE fx.aircraft_type = ar.aircraft_type AND fx.flight_type != 'sim') as flight_count,
            (
              SELECT f2.registration
              FROM flights f2

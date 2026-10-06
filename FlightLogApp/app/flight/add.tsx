@@ -50,7 +50,7 @@ import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { useProfileStore } from '../../store/profileStore';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
-import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode } from '../../db/icao';
+import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode, isOffAirportCode } from '../../db/icao';
 import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
 import { validateFlightForm } from '../../utils/validation';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
@@ -1567,9 +1567,11 @@ export default function AddFlightScreen() {
   };
 
   const onTypeSelect = useCallback(async (type: string) => {
-    set('aircraft_type', type);
     const regs = await getRecentRegistrations(type);
     setRecentRegs(regs);
+    // Registreringen är kopplad till typen → byt till den nya typens (senaste) registrering, eller töm
+    // om den saknar någon. Annars låg den FÖRRA typens registrering kvar.
+    setForm((prev) => ({ ...prev, aircraft_type: type, registration: regs[0] ?? '' }));
   }, []);
 
   // Lägg till ny registrering (från "+"-knappen i registration-stapeln).
@@ -2174,7 +2176,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       // "does not exist in local database"-notis så man kan lägga till platsen.
       for (const code of [finalData.dep_place_raw, finalData.arr_place_raw]) {
         const c = (code ?? '').trim();
-        if (c.length >= 2 && !(await getAirportByAnyCode(c))) usePendingPlaceStore.getState().add(c);
+        // Off-airport (ZZZZ) is a generic placeholder, not a missing place — never queue it.
+        if (c.length >= 2 && !isOffAirportCode(c) && !(await getAirportByAnyCode(c))) usePendingPlaceStore.getState().add(c);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Uppmana att placera de nya platserna på kartan (dashboard: "Unlocated places"-bannern).
@@ -3568,7 +3571,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               <DateTimePicker
                 value={form.date ? new Date(form.date) : new Date()}
                 mode="date"
-                display="inline"
+                display="spinner"
                 maximumDate={new Date()}
                 themeVariant="dark"
                 onChange={(_, selectedDate) => {

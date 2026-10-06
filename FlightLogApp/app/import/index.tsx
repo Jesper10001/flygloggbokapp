@@ -722,9 +722,13 @@ export default function ImportScreen() {
       }
       // Unknown airports are left unresolved and will appear in dashboard "visited airports"
       // ZZZZ codes are skipped as they are generic placeholders for off-airport places
+      // Flygningar längre än uthållighet default:ar till 'sim' (= det UI:t visar förvalt) om användaren
+      // inte uttryckligen valt hot refuel — annars tappades sim-tiden (sparades som 'normal' → försvann
+      // ur sim-statistiken). Övriga flygningar default:ar till 'normal'.
+      const exceedingIdx = new Set(exceedingFlights.map((e) => e.idx));
       for (let i = 0; i < result.flights.length; i++) {
         const f = result.flights[i];
-        const ft = flightTypes[i] ?? 'normal';
+        const ft = flightTypes[i] ?? (exceedingIdx.has(i) ? 'sim' : 'normal');
         const simCat = ft === 'sim' ? (simCategories[i] ?? 'FFS') : '';
         const explanation = flightExplanations[i];
         const remarksNote =

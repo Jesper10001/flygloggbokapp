@@ -507,8 +507,10 @@ export default function AddDroneFlightScreen() {
   const selectModel = async (m: string) => {
     setTypeOpen(false);
     const matches = drones.filter((d) => d.model === m);
-    if (matches.length === 1) { setPendingModel(null); await setDrone(matches[0]); }
-    else { setPendingModel(m); setForm((p) => ({ ...p, drone_id: null })); }
+    // Registreringen är kopplad till modellen → byt till den nya modellens drönare (reg följer med via
+    // setDrone). Saknar modellen registrering: töm reg + drone_id så den FÖRRA modellens reg inte ligger kvar.
+    if (matches.length >= 1) { setPendingModel(null); await setDrone(matches[0]); }
+    else { setPendingModel(m); setForm((p) => ({ ...p, drone_id: null, registration: '' })); }
   };
   const selectReg = async (rg: string) => {
     setRegOpen(false);
@@ -1286,7 +1288,7 @@ export default function AddDroneFlightScreen() {
               <DateTimePicker
                 value={new Date(form.date)}
                 mode="date"
-                display="inline"
+                display="spinner"
                 maximumDate={new Date()}
                 themeVariant="dark"
                 onChange={(_, d) => d && setForm((p) => ({ ...p, date: d.toISOString().split('T')[0] }))}
