@@ -17,6 +17,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
+import { presentPaywall } from '../../services/purchases';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError, tokensToCoins } from '../../utils/tokenGate';
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
@@ -573,7 +574,7 @@ export default function ImportScreen() {
   const handlePick = async () => {
     // Token-styrt, inte premium-låst: fri nivå får importera tills engångspotten tar slut.
     if (!hasTokenQuota()) {
-      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('CSV / Excel import'); }
       return;
     }
     const file = await pickImportFile();
@@ -683,7 +684,7 @@ export default function ImportScreen() {
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
         // Race: tokens tog slut mellan gate-kollen och själva anropet — samma gate som ovan.
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('CSV / Excel import');
         return;
       }
       // Trasig fil → inline-felkort med AI-förklaring i stället för en Alert

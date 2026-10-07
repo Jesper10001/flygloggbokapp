@@ -1,6 +1,5 @@
 // Milestones (Best Week + Longest XC) — flyttad från dashboarden till insights botten.
 // Självförsörjande: hämtar stats/premium/detaljer själv och renderar de två kompaktkorten.
-import { useState } from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
@@ -11,7 +10,7 @@ import { monthShort } from '../../utils/dateLabels';
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { BWCardCompact } from '../milestones/BWCardCompact';
 import { LXCardCompact } from '../milestones/LXCardCompact';
-import { PremiumModal } from '../PremiumModal';
+import { presentPaywall } from '../../services/purchases';
 
 function hoursToHM(dec: number): string {
   const h = Math.floor(dec);
@@ -30,7 +29,6 @@ export function MilestonesSection() {
   const st = useFlightStore((s) => s.stats);
   const isPremium = useFlightStore((s) => s.isPremium);
   const { t, language } = useTranslation();
-  const [milestonePremium, setMilestonePremium] = useState<string | null>(null);
 
   const bestWeek = useBestWeekDetails(st?.best_week_start || undefined);
   const xcLegs = useLongestXcLegs(st?.longest_xc_date || undefined);
@@ -51,7 +49,7 @@ export function MilestonesSection() {
           airports={bestWeek.airports}
           days={bestWeek.days}
           onPress={() => {
-            if (!isPremium) { setMilestonePremium('Best week'); return; }
+            if (!isPremium) { presentPaywall('Best week'); return; }
             if (st?.best_week_start) router.push('/milestones/best-week');
           }}
         />
@@ -64,12 +62,11 @@ export function MilestonesSection() {
           dateShort={lxDateShort(st?.longest_xc_date, language)}
           legs={xcLegs}
           onPress={() => {
-            if (!isPremium) { setMilestonePremium('Longest XC'); return; }
+            if (!isPremium) { presentPaywall('Longest XC'); return; }
             if (st?.longest_xc_id) router.push('/milestones/longest-xc');
           }}
         />
       </View>
-      <PremiumModal visible={!!milestonePremium} onClose={() => setMilestonePremium(null)} feature={milestonePremium ?? undefined} />
     </View>
   );
 }

@@ -21,6 +21,7 @@ import {
 import { enrichDroneFleet } from '../../services/droneLookup';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { useFlightStore } from '../../store/flightStore';
+import { presentPaywall } from '../../services/purchases';
 import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { DroneModal } from '../../components/DroneModal';
@@ -1343,7 +1344,7 @@ export default function AddDroneFlightScreen() {
         kind="drone"
         limit={FREE_TIER_LIMIT_DRONE}
         onClose={() => { setShowLimitModal(false); if (limitBlockedOnEntry) router.back(); }}
-        onGoPremium={() => { setShowLimitModal(false); router.replace('/settings/premium'); }}
+        onGoPremium={() => { setShowLimitModal(false); presentPaywall(); }}
       />
 
       {/* Lägg registrering/serienr för vald modell (matas under Registration-fältet) */}

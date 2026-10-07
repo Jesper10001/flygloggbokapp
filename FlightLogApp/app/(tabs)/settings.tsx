@@ -30,6 +30,8 @@ import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUs
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
+import { presentPaywall } from '../../services/purchases';
+import { redeemPromo } from '../../services/promo';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { getSetting, setSetting } from '../../db/flights';
 import { useVersionStore } from '../../store/versionStore';
@@ -189,7 +191,7 @@ export default function SettingsScreen() {
   const { timeFormat, setTimeFormat } = useTimeFormatStore();
   const { theme, setTheme } = useThemeStore();
   const { mode: appMode, setMode: setAppMode } = useAppModeStore();
-  const { isPremium, isMax, flightCount, manualFlightCount, loadFlights, loadStats } = useFlightStore();
+  const { isPremium, isMax, flightCount, manualFlightCount, loadFlights, loadStats, setIsPremium } = useFlightStore();
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const { standard, setStandard } = useRegulationStandardStore();
@@ -500,9 +502,6 @@ export default function SettingsScreen() {
               <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 }}>
                 {profileName || t('your_name')}
               </Text>
-              <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
-                {certLabels || t('tap_to_edit_profile')}
-              </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -513,7 +512,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             activeOpacity={0.7}
-            onPress={() => router.push('/settings/premium')}
+            onPress={() => (isPremium || isMax ? router.push('/settings/premium') : presentPaywall())}
           >
             <View style={{
               width: 32, height: 32, borderRadius: 8,
@@ -828,7 +827,8 @@ export default function SettingsScreen() {
               }
             });
           }}
-          onLongPress={openDevMenu}
+          /* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge.
+             openDevMenu() + handleDev() finns kvar nedan; återaktivera genom att lägga tillbaka propen. */
         />
         <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title={t('local_storage')}
           subtitle={t('local_storage_sub')} pressable={false}
@@ -841,7 +841,25 @@ export default function SettingsScreen() {
           onClick={() => Linking.openURL('https://blades-app.com')}
         />
         <Row icon="document-text-outline" iconColor={Colors.textSecondary} title={t('privacy_policy')}
-          onClick={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false}
+          onClick={() => Linking.openURL('https://blades-app.com/privacy.html')}
+        />
+        <Row icon="pricetag-outline" iconColor={Colors.textSecondary} title="Redeem promo code" border={false}
+          onClick={() => {
+            Alert.prompt(
+              'Redeem promo code',
+              'Enter your promo code to unlock Blades Premium.',
+              async (code?: string) => {
+                const c = (code ?? '').trim();
+                if (!c) return;
+                const ok = await redeemPromo(c).catch(() => false);
+                if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
+                await setSetting('promo_premium', '1').catch(() => {});
+                setIsPremium(true);
+                Alert.alert('Blades Premium unlocked', 'Your promo access is now active.');
+              },
+              'plain-text',
+            );
+          }}
         />
       </Card>
 

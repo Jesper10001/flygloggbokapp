@@ -146,6 +146,8 @@ export default function ProfileScreen() {
           <Text style={styles.saveBtnText}>{t('save')}</Text>
         </TouchableOpacity>
 
+        <Text style={[styles.hint, { marginTop: 16 }]}>This information will be used in future PDF exports.</Text>
+
         <SignatureModal
           visible={sigModal}
           initial={signature}

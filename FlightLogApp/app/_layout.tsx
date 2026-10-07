@@ -30,6 +30,7 @@ import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 import { TourHost } from '../components/TourHost';
+import { PaywallHost } from '../components/PaywallHost';
 import { AppLockGate } from '../components/AppLockGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useAppLockStore } from '../store/appLockStore';
@@ -262,6 +263,7 @@ export default function RootLayout() {
       <FleetDoneHost />
       <SplashOverlay />
       <TourHost />
+      <PaywallHost />
       <AppLockGate />
     </GestureHandlerRootView>
   );

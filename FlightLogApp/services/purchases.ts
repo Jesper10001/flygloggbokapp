@@ -28,6 +28,11 @@ const ENTITLEMENT_ID = 'premium';
 let Purchases: any = null;
 try { Purchases = require('react-native-purchases').default; } catch { Purchases = null; }
 
+// RevenueCats egna paywall-UI (react-native-purchases-ui). Lazy-require → kraschar aldrig en build
+// utan native-modulen; då faller presentPaywall() tillbaka på den egna fallback-paywallen.
+let RevenueCatUI: any = null;
+try { RevenueCatUI = require('react-native-purchases-ui').default; } catch { RevenueCatUI = null; }
+
 let configured = false;
 
 /** True bara när native-modulen finns OCH en nyckel är satt för plattformen. */
@@ -120,6 +125,33 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseOu
     if (e?.userCancelled) return 'cancelled';
     return 'error';
   }
+}
+
+/**
+ * Visar paywallen. ETT anrop för ALLA triggers (Blades Premium-knappen, slut på coins, premium-
+ * funktion). Visar RevenueCats designade paywall när den är tillgänglig; annars den egna fallback-
+ * paywallen (usePaywallStore → <PremiumModal> i roten). Returnerar om användaren blev premium.
+ */
+export async function presentPaywall(feature?: string): Promise<boolean> {
+  // Redan premium → ingen paywall behövs.
+  try { if (useFlightStore.getState().isPremium) return true; } catch { /* ignore */ }
+
+  if (configured && Purchases && RevenueCatUI) {
+    try {
+      // Visar current offerings paywall (den du designar i RevenueCat). Resultatet bryr vi oss inte
+      // om i detalj — vi läser av entitlement efteråt.
+      await RevenueCatUI.presentPaywall();
+      await refreshEntitlement();
+      return useFlightStore.getState().isPremium;
+    } catch { /* fall igenom till fallback */ }
+  }
+
+  // Fallback: egen paywall (innan RC-nyckel/native-rebuild, eller om något fallerar).
+  try {
+    const { usePaywallStore } = require('../store/paywallStore');
+    usePaywallStore.getState().open(feature);
+  } catch { /* ignore */ }
+  return false;
 }
 
 /** Återställer tidigare köp (t.ex. ny enhet/ominstallation, samma Apple-ID). */

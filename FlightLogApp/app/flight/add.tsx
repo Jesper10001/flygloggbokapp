@@ -12,6 +12,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { callAnthropicJson } from '../../services/anthropicClient';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { PremiumModal } from '../../components/PremiumModal';
+import { presentPaywall } from '../../services/purchases';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -1924,7 +1925,7 @@ export default function AddFlightScreen() {
     // slut, sedan visas premium-erbjudandet. Redan betalande som nått sin månadspott
     // får bara ett besked (ingen upsell).
     if (!hasTokenQuota()) {
-      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumGate(true); }
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('Flight data scan'); }
       return;
     }
 
@@ -2044,7 +2045,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
       }
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumGate(true);
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight data scan');
       } else {
         Alert.alert('AI Import', e.message || 'Could not read the image');
       }
@@ -3724,7 +3725,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         kind="pilot"
         limit={FREE_TIER_LIMIT}
         onClose={() => { setShowLimitModal(false); if (limitBlockedOnEntry) router.back(); }}
-        onGoPremium={() => { setShowLimitModal(false); router.replace('/settings/premium'); }}
+        onGoPremium={() => { setShowLimitModal(false); presentPaywall(); }}
       />
 
       {/* Scan flight data — väljar-modal med exempelbild + orienterande text */}

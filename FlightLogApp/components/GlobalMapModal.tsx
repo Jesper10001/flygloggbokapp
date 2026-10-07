@@ -27,6 +27,7 @@ import { fetchMetarsInBbox, categoryColor, type FlightCat } from '../services/we
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
+import { presentPaywall } from '../services/purchases';
 import { useTourStore } from '../store/tourStore';
 import { IncidentNewsOverlay } from './IncidentNewsOverlay';
 
@@ -128,6 +129,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
   // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Weather / Access / Closed.
   const [openSection, setOpenSection] = useState<null | 'props' | 'weather' | 'access' | 'closed'>(null);
+  const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
   // ── Väderfilter (Global map) ──────────────────────────────────────────────────
@@ -790,7 +792,38 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <Text style={[styles.propsToggleTxt, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
                     <Ionicons name={openSection === 'closed' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                   </TouchableOpacity>
+                  {/* Info om datakälla + senast uppdaterad + friskrivning */}
+                  <TouchableOpacity onPress={() => setDataInfoOpen(true)} activeOpacity={0.7} hitSlop={8}
+                    style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="information-circle-outline" size={18} color={Colors.textSecondary} />
+                  </TouchableOpacity>
                 </View>
+
+                {/* ── Datakälla / friskrivning ── */}
+                <Modal visible={dataInfoOpen} transparent animationType="fade" onRequestClose={() => setDataInfoOpen(false)}>
+                  <TouchableOpacity activeOpacity={1} onPress={() => setDataInfoOpen(false)}
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                    <TouchableOpacity activeOpacity={1} onPress={() => {}}
+                      style={{ width: '100%', maxWidth: 400, backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, padding: 20 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <Ionicons name="information-circle" size={20} color={Colors.primary} />
+                        <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', flex: 1 }}>Airport data</Text>
+                        <TouchableOpacity onPress={() => setDataInfoOpen(false)} hitSlop={8}>
+                          <Ionicons name="close" size={20} color={Colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
+                        Airport locations, types, runways and other details are compiled from public, open-data aviation sources (including airportmap.de).
+                      </Text>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 10 }}>
+                        <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>Last updated: </Text>September 2026.
+                      </Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>
+                        This data is provided for general reference only and may be incomplete, outdated or inaccurate. It is not for navigation. Always verify against official aeronautical information (AIP/NOTAM) and current charts before flight. Blades accepts no liability for any errors or omissions.
+                      </Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </Modal>
 
                 {propsOpen && (
                   <View style={styles.propsPanel}>
@@ -914,7 +947,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           onClose={() => setNewsOpen(false)}
           onViewOnMap={(icao) => { setNewsOpen(false); setCameFromNews(true); focusByIcao(icao); }}
           canLocate={(icao) => !!icao && seedData.some((r) => r[0] === icao)}
-          onUpgrade={() => { setNewsOpen(false); closeMap(); router.push('/settings/premium' as any); }}
+          onUpgrade={() => { setNewsOpen(false); presentPaywall('Flight incident news'); }}
         />
 
         {/* Flight-detalj som overlay OVANPÅ kartan (nästlad Modal) → stäng återgår hit, kartan bevaras. */}

@@ -11,6 +11,7 @@ import { enrichFleetInBackground, enrichFromLookup } from '../services/fleetEnri
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
+import { presentPaywall } from '../services/purchases';
 
 type CrewKey = 'sp' | 'mp';
 type Category = 'airplane' | 'helicopter' | '';
@@ -114,7 +115,7 @@ export function AircraftModal({
   const handleSmartLookup = async () => {
     // Token-styrt, inte premium-låst: fri nivå får slå upp tills engångspotten tar slut.
     if (!hasTokenQuota()) {
-      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall(); }
       return;
     }
     const q = type.trim();
@@ -157,7 +158,7 @@ export function AircraftModal({
       );
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall();
       } else {
         Alert.alert(t('error'), e.message || String(e));
       }

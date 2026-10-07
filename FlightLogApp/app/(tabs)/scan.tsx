@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import { presentPaywall } from '../../services/purchases';
 import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
@@ -808,7 +809,7 @@ export default function ScanScreen() {
               </View>
             ))}
           </View>
-          <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(tabs)/settings')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.upgradeBtn} onPress={() => presentPaywall('Logbook scan')} activeOpacity={0.8}>
             <Ionicons name="star" size={18} color={Colors.textInverse} />
             <Text style={styles.upgradeBtnText}>{t('upgrade_to_premium')}</Text>
           </TouchableOpacity>

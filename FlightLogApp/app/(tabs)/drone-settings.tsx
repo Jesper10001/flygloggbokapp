@@ -25,6 +25,8 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useFlightStore } from '../../store/flightStore';
+import { presentPaywall } from '../../services/purchases';
+import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
@@ -284,7 +286,7 @@ export default function DroneSettingsScreen() {
           {/* Certifikat + "Current today?" borttagna inför lansering (dolda från UI). */}
 
           {/* Premium */}
-          <TouchableOpacity style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }} activeOpacity={0.7} onPress={() => router.push('/settings/premium')}>
+          <TouchableOpacity style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }} activeOpacity={0.7} onPress={() => (isPremium || isMax ? router.push('/settings/premium') : presentPaywall())}>
             <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: (isMax ? DR.text2 : DR.warning) + '22', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="star" size={15} color={isMax ? DR.text2 : DR.warning} />
             </View>
@@ -426,7 +428,8 @@ export default function DroneSettingsScreen() {
       {/* ── About (version → långtryck = testdata-meny; Developer-sektionen borttagen) ── */}
       <SectionHeader>About</SectionHeader>
       <Card>
-        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" onPress={checkVersion} onLongPress={openDevMenu}
+        {/* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge (openDevMenu finns kvar). */}
+        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" onPress={checkVersion}
           right={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontSize: 13, color: DR.muted, fontFamily: 'Menlo' }}>1.0.0</Text>
@@ -440,7 +443,24 @@ export default function DroneSettingsScreen() {
         <Row accent={accent} icon="shield-checkmark" iconColor={DR.text3} title="Local storage" subtitle="All data stored on this device" pressable={false} />
         <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} />
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} />
-        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} border={false} />
+        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} />
+        <Row accent={accent} icon="pricetag-outline" iconColor={DR.text3} title="Redeem promo code" border={false}
+          onPress={() => {
+            Alert.prompt(
+              'Redeem promo code',
+              'Enter your promo code to unlock Blades Premium.',
+              async (code?: string) => {
+                const c = (code ?? '').trim();
+                if (!c) return;
+                const ok = await redeemPromo(c).catch(() => false);
+                if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
+                await setSetting('promo_premium', '1').catch(() => {});
+                setIsPremium(true);
+                Alert.alert('Blades Premium unlocked', 'Your promo access is now active.');
+              },
+              'plain-text',
+            );
+          }} />
       </Card>
 
       {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}

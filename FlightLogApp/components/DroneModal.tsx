@@ -11,6 +11,7 @@ import { lookupDrone } from '../services/droneLookup';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
+import { presentPaywall } from '../services/purchases';
 import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, NATO_CLASSES, categoryFromCClass } from '../constants/droneCategories';
 import type { DroneRegistryEntry, DroneType, DroneCategory } from '../db/drones';
 
@@ -80,7 +81,7 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
 
   const handleSmartLookup = async () => {
     if (!hasTokenQuota()) {
-      if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+      if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall();
       return;
     }
     const q = model.trim();
@@ -119,7 +120,7 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
       ]);
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall();
       } else {
         Alert.alert(t('error'), e.message || String(e));
       }
