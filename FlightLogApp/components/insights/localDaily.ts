@@ -22,7 +22,9 @@ export function buildLocalDaily(flights: Flight[], tz: Record<string, TzInfo>): 
   };
 
   for (const f of flights) {
-    if (f.flight_type === 'sim' || !((f.total_time || 0) > 0) || !f.date) continue;
+    // Hoppa över sim OCH summary ("Blades previous experience" / enter-totals) — efterregistrerade
+    // klumpsummor ska inte bilda jättestaplar eller "most all time"-rekord i activity-kalendern.
+    if (f.flight_type === 'sim' || f.flight_type === 'summary' || !((f.total_time || 0) > 0) || !f.date) continue;
     const info = f.dep_place ? tz[f.dep_place] : undefined;
 
     if (validTime(f.dep_utc) && info) {

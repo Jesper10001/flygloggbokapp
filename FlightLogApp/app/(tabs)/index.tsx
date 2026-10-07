@@ -286,7 +286,7 @@ function MiniRunways({ icao, size = 20 }: { icao: string; size?: number }) {
 }
 
 const SAMPLE_CARDS = [
-  { id: 's1', image: require('../../assets/sample-photos/sample1.jpg'), dep: 'ESSA', arr: 'ESGG', date: '2026.03.14', ac: 'AS350', time: '1:24' },
+  { id: 's1', image: require('../../assets/sample-photos/samplealbum.jpg'), dep: 'EDDM', arr: 'EDDS', date: '2026.03.14', ac: 'AS350', time: '1:24' },
   { id: 's3', image: require('../../assets/sample-photos/sample3.jpg'), dep: 'LOWI', arr: 'LSZH', date: '2026.01.22', ac: 'EC135', time: '0:48' },
 ];
 

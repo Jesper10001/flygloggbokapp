@@ -7,7 +7,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions, Image,
-  Dimensions, Alert, Animated, RefreshControl, ActivityIndicator,
+  Dimensions, Alert, Animated, RefreshControl, ActivityIndicator, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -242,11 +242,6 @@ export default function DroneDashboardScreen() {
             ))}
           </View>
         </View>
-        {/* Advice */}
-        <View style={[s.telAdvice, { borderLeftColor: zc, backgroundColor: zc + '10' }]}>
-          <Ionicons name="pulse" size={12} color={zc} />
-          <Text style={s.telAdviceText}>{stress.advice}</Text>
-        </View>
       </View>
 
       {/* ── 2. Latest flight-karusell ── */}
@@ -405,6 +400,9 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
 
 // Media-kort (= manned PhotoCard): 140px, helbleed bild + botten-overlay med plats-rad, meta och
 // BLADES-vattenstämpel. Video → miniatyr + play-knapp. Drönar-platser är fritext (ingen ICAO/bana).
+// Default-bild på media-karusellen tills användaren lagt upp egen (delas med pilotläget).
+const SAMPLE_ALBUM_URI: string = Image.resolveAssetSource(require('../../assets/sample-photos/samplealbum.jpg')).uri;
+
 function DroneMediaCard({ uri, isVideo, location, landing, meta, cardW, onPress }: {
   uri: string; isVideo: boolean; location: string; landing?: string; meta: string; cardW: number; onPress?: () => void;
 }) {
@@ -441,6 +439,7 @@ function DroneMediaCard({ uri, isVideo, location, landing, meta, cardW, onPress 
 function DronePhotoCarousel({ accent }: { accent: string }) {
   const router = useRouter();
   const [page, setPage] = useState(0);
+  const [sampleOpen, setSampleOpen] = useState(false); // helskärm för default/sample-bilden
   const [media, setMedia] = useState<{ f: DroneFlight; uri: string; isVideo: boolean }[]>([]);
   const photoSyncOn = isPhotoSyncAvailable();
   const [canSync, setCanSync] = useState(false);
@@ -497,11 +496,10 @@ function DronePhotoCarousel({ accent }: { accent: string }) {
             <DroneMediaCard uri={latest.uri} isVideo={latest.isVideo} location={latest.f.location} landing={latest.f.landing_location}
               meta={metaOf(latest.f)} cardW={CARD_W} onPress={() => router.push(`/drone-flight/${latest.f.id}`)} />
           ) : (
-            <TouchableOpacity activeOpacity={0.85} onPress={photoSyncOn ? goSync : () => router.push('/drone-album')}
-              style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Ionicons name="images-outline" size={28} color={accent} />
-              <Text style={{ fontFamily: SERIF, fontSize: 15, color: DR.text }}>Flight media</Text>
-              <Text style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: DR.muted }}>{photoSyncOn ? 'SYNC OR ADD PHOTOS TO FLIGHTS' : 'ADD PHOTOS ON A FLIGHT'}</Text>
+            // Default-bild tills användaren lagt upp egen media — ren bild; etiketten visas i helskärm.
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setSampleOpen(true)}
+              style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden' }}>
+              <Image source={{ uri: SAMPLE_ALBUM_URI }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
             </TouchableOpacity>
           )}
         </View>
@@ -537,6 +535,18 @@ function DronePhotoCarousel({ accent }: { accent: string }) {
           <View key={i} style={{ width: page === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: page === i ? accent : DR.border }} />
         ))}
       </View>
+
+      {/* Helskärm för sample-bilden — etiketten visas bara här, inte i preview. */}
+      <Modal visible={sampleOpen} transparent animationType="fade" onRequestClose={() => setSampleOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setSampleOpen(false)}>
+          <View style={{ width: CARD_W, aspectRatio: 4 / 3, borderRadius: 18, overflow: 'hidden' }}>
+            <Image source={{ uri: SAMPLE_ALBUM_URI }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <Text style={{ position: 'absolute', top: 14, left: 14, right: 14, color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: SERIF, textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+              Sample picture, view your flight album here
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

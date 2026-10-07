@@ -17,9 +17,17 @@ const TYPE_LABEL: Record<string, string> = {
   seaplane: 'Seaplane', altiport: 'Altiport', balloonport: 'Balloonport', closed: 'Closed',
 };
 
-export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, freqStats, onMetar }: {
+// ISO 3166-1 alpha-2 landskod → flagg-emoji (regional indicator symbols). Ogiltig kod → ''.
+function flagEmoji(cc?: string | null): string {
+  const c = (cc ?? '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return '';
+  return String.fromCodePoint(...[...c].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+}
+
+export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, freqStats, onMetar }: {
   icao: string;
   name?: string;
+  country?: string | null;    // ISO alpha-2 landskod → flagga under ICAO
   iata?: string;              // IATA-kod (airportmap.de)
   alt?: number | null;        // elevation (ft)
   type?: string;              // airportmap.de-kategori
@@ -35,6 +43,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.i
 }) {
   const meta = [iata || null, alt != null ? `${alt} ft` : null, type ? (TYPE_LABEL[type] || type) : null].filter(Boolean).join('  ·  ');
   const showLandings = landingCount !== undefined;
+  const flag = flagEmoji(country);
 
   // Frekvenser (TWR/GND/ATIS/APP) — visas bara för fält som har dem, på egen rad under meta.
   const freq = getAirportFreq(icao);
@@ -80,6 +89,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, accent = Colors.i
         {/* ICAO + väder-moln (bara om egen METAR finns) centrerat under. Egen kolumn → rör inte info till höger. */}
         <View style={{ alignItems: 'center' }}>
           <Text style={{ color: accent, fontSize: 22, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 1 }}>{icao}</Text>
+          {!!flag && <Text style={{ fontSize: 20, marginTop: 3 }}>{flag}</Text>}
           {!freqStats && metar && (
             <TouchableOpacity onPress={() => setWxOpen(true)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 6 }}>
               <Ionicons name="partly-sunny-outline" size={29} color={accent} />

@@ -1,7 +1,7 @@
 import { getDatabase } from './database';
 import type { Flight, FlightFormData, FlightStats } from '../types/flight';
 import { parseFlightTime } from '../utils/format';
-import { getBackfill } from './backfill';
+import { syncBackfillRow } from './backfill';
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -306,6 +306,24 @@ export async function getFlights(limit = 100, offset = 0): Promise<Flight[]> {
     'SELECT * FROM flights ORDER BY date DESC, dep_utc DESC LIMIT ? OFFSET ?',
     [limit, offset]
   );
+}
+
+// Tidigaste riktiga flygningen (exkl. summary/sim) → används för att datera "previous experience"-rader
+// (backfill + manuell lump) dagen innan. null om inga riktiga flygningar finns.
+export async function getFirstFlightDate(): Promise<string | null> {
+  const db = await getDatabase();
+  const r = await db.getFirstAsync<{ d: string | null }>(
+    "SELECT MIN(date) as d FROM flights WHERE flight_type NOT IN ('summary','sim') AND date != ''",
+  );
+  return r?.d || null;
+}
+
+// YYYY-MM-DD → dagen innan (UTC-säkert).
+export function dayBefore(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  if (isNaN(d.getTime())) return dateStr;
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 export async function getFlightsWithPhotos(): Promise<Flight[]> {
@@ -780,9 +798,10 @@ export async function flightExists(date: string, dep: string, arr: string, depUt
 
 export async function getFlightStats(): Promise<FlightStats> {
   const db = await getDatabase();
-  // Backfill-justering laddas FÖRST (triggar migrering av ev. gamla dolda [BACKFILL]-flygningar
-  // → borttagna) så SUM-frågorna nedan inte råkar räkna dem + justeringen (dubbelräkning).
-  const bf = await getBackfill();
+  // Backfill speglas till en synlig loggboksrad ("Blades previous experience") FÖRST, så SUM-frågorna
+  // nedan räknar in den som en vanlig flygning. Därför adderas INGA settings-värden separat här längre.
+  // Feltåligt: en misslyckad synk får aldrig fälla dashboard-statistiken.
+  await syncBackfillRow(db).catch(() => {});
 
   // is_ffs = ENBART explicit 'sim'. flight_type är enda sanningen: sätts vid import (explicit
   // sim/FSTD-fält, annars endurance-pickern som FALLBACK). Ingen körnings-heuristik längre, så
@@ -880,7 +899,7 @@ export async function getFlightStats(): Promise<FlightStats> {
        SELECT aircraft_type, MAX(endurance_h) as endurance_h
        FROM aircraft_registry GROUP BY aircraft_type
      ) ar ON ar.aircraft_type = f.aircraft_type
-     WHERE f.dep_place != f.arr_place AND NOT ${FFS_EXPR}
+     WHERE f.dep_place != f.arr_place AND NOT ${FFS_EXPR} AND f.flight_type != 'summary'
      ORDER BY f.date ASC, f.dep_utc ASC, f.id ASC`
   );
 
@@ -995,16 +1014,16 @@ export async function getFlightStats(): Promise<FlightStats> {
   return {
     total_flights: totals?.total_flights ?? 0,
     total_time: totals?.total_time ?? 0,
-    total_pic: (totals?.total_pic ?? 0) + bf.pic,
-    total_co_pilot: (totals?.total_co_pilot ?? 0) + bf.co_pilot,
-    total_dual: (totals?.total_dual ?? 0) + bf.dual,
-    total_ifr: (totals?.total_ifr ?? 0) + bf.ifr,
+    total_pic: totals?.total_pic ?? 0,
+    total_co_pilot: totals?.total_co_pilot ?? 0,
+    total_dual: totals?.total_dual ?? 0,
+    total_ifr: totals?.total_ifr ?? 0,
     total_vfr: totals?.total_vfr ?? 0,
-    total_night: (totals?.total_night ?? 0) + bf.night,
+    total_night: totals?.total_night ?? 0,
     total_nvg: totals?.total_nvg ?? 0,
-    total_sim: (totals?.total_sim ?? 0) + bf.sim,
-    total_landings_day: (totals?.total_landings_day ?? 0) + Math.round(bf.landings_day),
-    total_landings_night: (totals?.total_landings_night ?? 0) + Math.round(bf.landings_night),
+    total_sim: totals?.total_sim ?? 0,
+    total_landings_day: totals?.total_landings_day ?? 0,
+    total_landings_night: totals?.total_landings_night ?? 0,
     last_90_days: last90?.hours ?? 0,
     last_12_months: last12m?.hours ?? 0,
     year_to_date: ytd?.hours ?? 0,
@@ -1018,10 +1037,10 @@ export async function getFlightStats(): Promise<FlightStats> {
     longest_xc_first_dep: xcFirstDep,
     longest_xc_last_arr: xcLastArr,
     longest_xc_id: longest?.last_id ?? null,
-    total_multi_pilot: (totals?.total_multi_pilot ?? 0) + bf.multi_pilot,
+    total_multi_pilot: totals?.total_multi_pilot ?? 0,
     total_single_pilot: totals?.total_single_pilot ?? 0,
-    total_instructor: (totals?.total_instructor ?? 0) + bf.instructor,
-    total_picus: (totals?.total_picus ?? 0) + bf.picus,
+    total_instructor: totals?.total_instructor ?? 0,
+    total_picus: totals?.total_picus ?? 0,
     total_spic: totals?.total_spic ?? 0,
     total_ferry_pic: totals?.total_ferry_pic ?? 0,
     total_observer: totals?.total_observer ?? 0,
@@ -1728,7 +1747,7 @@ export async function getXCLegsForDate(date: string): Promise<XCLeg[]> {
      FROM flights f
      INNER JOIN icao_airports dep_ap ON dep_ap.icao = f.dep_place AND dep_ap.lat IS NOT NULL AND dep_ap.lon IS NOT NULL AND (dep_ap.temporary IS NULL OR dep_ap.temporary = 0)
      INNER JOIN icao_airports arr_ap ON arr_ap.icao = f.arr_place AND arr_ap.lat IS NOT NULL AND arr_ap.lon IS NOT NULL AND (arr_ap.temporary IS NULL OR arr_ap.temporary = 0)
-     WHERE f.date = ? AND f.dep_place != f.arr_place
+     WHERE f.date = ? AND f.dep_place != f.arr_place AND f.flight_type != 'summary'
      ORDER BY f.dep_utc ASC, f.id ASC`,
     [date]
   );

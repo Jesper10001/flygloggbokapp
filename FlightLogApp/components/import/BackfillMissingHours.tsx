@@ -20,6 +20,9 @@ type Field = { key: FieldKey; label: string; kind: 'time' | 'int' };
 // Grupperat som i Insights → Hours bank (Roles/Crew time/Class/Conditions/Takeoffs/Landings/Instrument).
 // VFR och Full-stop utelämnas medvetet — de är härledda i Hours bank, inte lagrade tal.
 const GROUPS: { title: string; fields: Field[] }[] = [
+  { title: 'Total', fields: [
+    { key: 'total', label: 'Total flight time', kind: 'time' },
+  ] },
   { title: 'Roles', fields: [
     { key: 'pic', label: 'PIC', kind: 'time' },
     { key: 'co_pilot', label: 'Co-pilot', kind: 'time' },
@@ -70,6 +73,8 @@ const FIELDS: Field[] = GROUPS.flatMap((g) => g.fields);
 
 function sumField(flights: Flight[], key: FieldKey): number {
   if (key === 'sim') return flights.filter((f) => f.flight_type === 'sim').reduce((s, f) => s + (f.total_time || 0), 0);
+  // Total flight time = summan av total_time (exkl. sim), speglar app-totalen.
+  if (key === 'total') return flights.filter((f) => f.flight_type !== 'sim').reduce((s, f) => s + (f.total_time || 0), 0);
   return flights.reduce((s, f) => s + (Number((f as any)[key]) || 0), 0);
 }
 
@@ -107,9 +112,10 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
     if (kind === 'int') return parseInt(raw, 10) || 0;
     return parseTimeInput(raw, timeFormat) ?? NaN;
   };
-  const committedCurrent = (key: FieldKey) => (base[key] || 0) + (bf?.[key] ?? 0);
-  const seedVal = (key: FieldKey, kind: 'time' | 'int', b: BackfillValues) => {
-    const cur = (base[key] || 0) + (b[key] || 0);
+  // `base` summerar ALLA flygningar inkl. den speglade backfill-raden → Current = base direkt.
+  const committedCurrent = (key: FieldKey) => (base[key] || 0);
+  const seedVal = (key: FieldKey, kind: 'time' | 'int') => {
+    const cur = (base[key] || 0);
     return !cur ? '' : fmt(cur, kind);
   };
 
@@ -120,7 +126,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
     if (!bf) return;
     setVals((prev) => {
       const o = { ...prev };
-      for (const f of FIELDS) if (!dirty.has(f.key)) o[f.key] = seedVal(f.key, f.kind, bf);
+      for (const f of FIELDS) if (!dirty.has(f.key)) o[f.key] = seedVal(f.key, f.kind);
       return o;
     });
   }, [base, bf]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,12 +138,14 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
     if (!bf) return;
     const target = parseVal(f.key, f.kind);
     if (isNaN(target)) { Alert.alert('Invalid value', `${f.label}: enter time as h:mm`); return; }
-    const nv: BackfillValues = { ...bf, [f.key]: Math.max(0, target - (base[f.key] || 0)) };
+    // base inkluderar den committerade backfillen → genuint loggat = base − bf. Ny additional = target − det.
+    const logged = (base[f.key] || 0) - (bf[f.key] ?? 0);
+    const nv: BackfillValues = { ...bf, [f.key]: Math.max(0, target - logged) };
     try {
       await setBackfill(nv);
       setBf(nv);
       setDirtyKey(f.key, false);
-      setVals((p) => ({ ...p, [f.key]: seedVal(f.key, f.kind, nv) }));
+      setVals((p) => ({ ...p, [f.key]: seedVal(f.key, f.kind) }));
       await loadStats();
       onSaved();
     } catch (e: any) {
@@ -146,7 +154,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
   };
   const reject = (f: { key: FieldKey; kind: 'time' | 'int'; label: string }) => {
     if (!bf) return;
-    setVals((p) => ({ ...p, [f.key]: seedVal(f.key, f.kind, bf) }));
+    setVals((p) => ({ ...p, [f.key]: seedVal(f.key, f.kind) }));
     setDirtyKey(f.key, false);
   };
 
@@ -170,7 +178,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
       {open && (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: Colors.separator }}>
           <Text style={{ color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 10 }}>
-            Set each field to what your real logbook shows. The added hours flow into your totals, insights and projections — without creating a flight in your logbook.
+            Set each field to what your real logbook shows. The added hours flow into your totals, insights and projections, logged as a single "Blades previous experience" entry at the start of your logbook.
           </Text>
 
           {/* Kolumnrubriker */}

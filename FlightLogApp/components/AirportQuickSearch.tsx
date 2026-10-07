@@ -441,6 +441,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
               <AirportInfoCard
                 icao={selected.icao}
                 name={selected.name}
+                country={selected.country}
                 iata={selected.iata || undefined}
                 alt={selected.alt}
                 type={selected.type}

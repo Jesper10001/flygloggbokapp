@@ -21,7 +21,6 @@ import { getCustomTemplates } from '../../db/customTemplates';
 import { FONT_SERIF } from '../logbook-page/tokens';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks } from '../../services/logbook/books';
-import { getBackfill } from '../../db/backfill';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 import {
@@ -189,9 +188,8 @@ export function BookSetupSheet({
     () => computeBroughtForward(flights, template, 0, undefined, { noAnchorBase: 'all' }),
     [flights, template],
   );
-  // Backfill-justering (settings, ej flight) läggs till Current så bokens total inkluderar den.
-  const [bfAdj, setBfAdj] = useState<Record<string, number>>({});
-  useEffect(() => { getBackfill().then((v) => setBfAdj(v as any)); }, []);
+  // Backfill speglas numera till en riktig loggboksrad ("Blades previous experience") som redan ingår
+  // i `flights` → den räknas automatiskt i computeBroughtForward (ingen separat justering behövs).
   // Auto-härledd brought-forward (den boken använder utan override) + ev. sparad override.
   // Om en bok redan har en override är dess verkliga total = override + rader, inte totalBal.
   const autoBF = useMemo(() => computeBroughtForward(flights, template, bfBoundaryId), [flights, template, bfBoundaryId]);
@@ -202,9 +200,9 @@ export function BookSetupSheet({
   const fmtCurrent = (key: string) => {
     const col = balCols.find((c) => c.flightKey === key);
     // total = brought-forward + rader (+ backfill-justering); rader = totalBal − autoBF.
-    const v = (hasOverride
+    const v = hasOverride
       ? (totalBal[key] ?? 0) - (autoBF[key] ?? 0) + (storedOverride[key] ?? 0)
-      : (totalBal[key] ?? 0)) + (bfAdj[key] ?? 0);
+      : (totalBal[key] ?? 0);
     if (!v) return '—';
     return col?.format === 'int' ? String(Math.round(v)) : formatTimeValue(v, timeFormat);
   };

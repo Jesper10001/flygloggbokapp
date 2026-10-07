@@ -1,17 +1,17 @@
 import { useState, useRef } from 'react';
-import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { insertFlight, addAircraftTypeToRegistry } from '../../db/flights';
+import { insertFlight, getFirstFlightDate, dayBefore } from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
-import { PremiumModal } from '../../components/PremiumModal';
-import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
+
+// Alla "enter totals"-rader (lump + year-by-year) taggas med denna remarks-text (+ år för year-by-year).
+const PREV_EXP_REMARK = 'Blades previous experience';
 
 // ── Typdef ────────────────────────────────────────────────────────────────────
 
@@ -403,104 +403,12 @@ export default function ManualExperienceScreen() {
   // Från onboarding → efter sparad starttotal gå DIREKT till dashboarden (inte tillbaka till onboarding).
   const { from } = useLocalSearchParams<{ from?: string }>();
   const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
-  const { loadFlights, loadStats, isPremium, isMax } = useFlightStore();
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const { loadFlights, loadStats } = useFlightStore();
 
   const currentYear = String(new Date().getFullYear());
   const [mode, setMode] = useState<'lump' | 'yearly'>('lump');
   const [blocks, setBlocks] = useState<YearBlock[]>([emptyBlock('')]);
   const [saving, setSaving] = useState(false);
-
-  // Farkosttyper (multi)
-  type AircraftEntry = {
-    id: string;
-    type: string;
-    totalTime: string;
-    cruiseSpeed: string;
-    endurance: string;
-    crewTypes: Set<string>;
-    category: 'airplane' | 'helicopter' | '';
-    engineType: 'se' | 'me' | '';
-    lookupStatus: { state: 'idle' } | { state: 'loading' } | { state: 'ok'; summary: string } | { state: 'unknown' };
-    lastLookupQuery: string;
-    aiFilledFields: Set<string>;
-  };
-
-  const emptyAircraft = (): AircraftEntry => ({
-    id: `ac-${Date.now()}-${Math.random()}`,
-    type: '', totalTime: '', cruiseSpeed: '', endurance: '',
-    crewTypes: new Set(), category: '', engineType: '',
-    lookupStatus: { state: 'idle' }, lastLookupQuery: '', aiFilledFields: new Set(),
-  });
-
-  const [aircraft, setAircraft] = useState<AircraftEntry[]>([emptyAircraft()]);
-  const [showAircraftSection, setShowAircraftSection] = useState(false);
-  const [acTimeErrors, setAcTimeErrors] = useState<Set<string>>(new Set());
-  const [acOverflow, setAcOverflow] = useState(false);
-
-  const updateAircraft = (id: string, updater: (a: AircraftEntry) => AircraftEntry) => {
-    setAircraft(prev => prev.map(a => a.id === id ? updater(a) : a));
-  };
-
-  const toggleCrew = (acId: string, key: 'sp' | 'mp' | 'sp_only' | 'mp_only') => {
-    updateAircraft(acId, a => {
-      const next = new Set(a.crewTypes);
-      if (key === 'sp_only' || key === 'mp_only') {
-        if (next.has(key)) { next.clear(); }
-        else { next.clear(); next.add(key); }
-      } else {
-        next.delete('sp_only');
-        next.delete('mp_only');
-        if (next.has(key)) next.delete(key); else next.add(key);
-      }
-      return { ...a, crewTypes: next };
-    });
-  };
-
-  const serializeCrewType = (ct: Set<string>): string =>
-    ct.size === 0 ? '' : [...ct].sort().join(',');
-
-  const handleSmartLookup = async (acId: string) => {
-    // Token-styrt, inte premium-låst: fri nivå får slå upp tills engångspotten tar slut.
-    if (!hasTokenQuota()) {
-      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { setShowPremiumModal(true); }
-      return;
-    }
-    const ac = aircraft.find(a => a.id === acId);
-    if (!ac) return;
-    const q = ac.type.trim();
-    if (!q) { Alert.alert(t('aircraft_lookup_empty_title'), t('aircraft_lookup_empty_body')); return; }
-    updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'loading' } }));
-    try {
-      const r = await lookupAircraft(q);
-      if (r.needs_manual || !r.aircraft_type) {
-        updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'unknown' } }));
-        return;
-      }
-      updateAircraft(acId, a => {
-        const filled = new Set<string>();
-        const updated = { ...a, type: r.aircraft_type, lastLookupQuery: q };
-        if (!a.cruiseSpeed && r.cruise_speed_kts > 0) { updated.cruiseSpeed = String(r.cruise_speed_kts); filled.add('cruiseSpeed'); }
-        if (!a.endurance && r.endurance_h > 0) { updated.endurance = String(r.endurance_h); filled.add('endurance'); }
-        if (a.crewTypes.size === 0 && r.crew_type) {
-          const keys = r.crew_type.split(',').filter(k => ['sp', 'mp'].includes(k));
-          if (keys.length) { updated.crewTypes = new Set(keys); filled.add('crew'); }
-        }
-        if (!a.category && r.category) { updated.category = r.category; filled.add('category'); }
-        if (!a.engineType && r.engine_type) { updated.engineType = r.engine_type; filled.add('engine'); }
-        updated.aiFilledFields = filled;
-        const parts = [r.manufacturer, r.model].filter(Boolean).join(' ');
-        const tail = [r.cruise_speed_kts ? `${r.cruise_speed_kts} kt` : null, r.endurance_h ? `${r.endurance_h} h` : null].filter(Boolean).join(' · ');
-        updated.lookupStatus = { state: 'ok', summary: tail ? `${parts} · ${tail}` : parts || r.aircraft_type };
-        return updated;
-      });
-    } catch (e: any) {
-      if (isTokenQuotaError(e)) {
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremiumModal(true);
-      }
-      updateAircraft(acId, a => ({ ...a, lookupStatus: { state: 'unknown' } }));
-    }
-  };
 
   const updateBlock = (id: string, key: keyof YearBlock, val: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, [key]: val } : b));
@@ -524,36 +432,20 @@ export default function ManualExperienceScreen() {
       Alert.alert(t('nothing_to_save'), t('enter_flight_time'));
       return;
     }
-    const acWithType = aircraft.filter(a => a.type.trim());
-    const missingTime = acWithType.filter(a => !parseH(a.totalTime));
-    if (missingTime.length > 0) {
-      setAcTimeErrors(new Set(missingTime.map(a => a.id)));
-      setAcOverflow(false);
-      setShowAircraftSection(true);
-      return;
-    }
-    const totalBlock = readyBlocks.reduce((s, b) => s + parseH(b.total_time), 0);
-    const totalAc = acWithType.reduce((s, a) => s + parseH(a.totalTime), 0);
-    if (totalAc > totalBlock + 0.01) {
-      setAcTimeErrors(new Set(acWithType.map(a => a.id)));
-      setAcOverflow(true);
-      setShowAircraftSection(true);
-      return;
-    }
-    setAcTimeErrors(new Set());
-    setAcOverflow(false);
     // Synkron spärr mot dubbeltryck (state-`disabled` hinner inte ritas om).
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     let saved = 0;
     try {
+      // Lump: datera raden DAGEN INNAN första riktiga flygningen (fallback: idag om inga flygningar finns).
+      const firstFlight = await getFirstFlightDate();
+      const lumpDate = firstFlight ? dayBefore(firstFlight) : new Date().toISOString().slice(0, 10);
       for (const b of readyBlocks) {
-        const label = b.year
-          ? `${t('experience_summary')} ${b.year}`
-          : t('total_experience');
+        // Remarks: "Blades previous experience" (lump) / "... YYYY" (year-by-year).
+        const remarks = b.year ? `${PREV_EXP_REMARK} ${b.year}` : PREV_EXP_REMARK;
         await insertFlight({
-          date: blockDate(b.year),
+          date: b.year ? blockDate(b.year) : lumpDate,
           aircraft_type: b.aircraft_type || '',
           registration: '',
           dep_place: '',
@@ -571,7 +463,7 @@ export default function ManualExperienceScreen() {
           single_pilot:  String(parseH(b.single_pilot)),
           landings_day:  String(parseInt(b.landings_day) || 0),
           landings_night: String(parseInt(b.landings_night) || 0),
-          remarks: b.remarks || label,
+          remarks,
           flight_rules: 'VFR',
           second_pilot: '',
           nvg: String(parseH(b.nvg)),
@@ -586,24 +478,12 @@ export default function ManualExperienceScreen() {
         }, { source: 'import' });
         saved++;
       }
-      for (const ac of aircraft) {
-        if (!ac.type.trim()) continue;
-        await addAircraftTypeToRegistry(
-          ac.type.trim(),
-          parseInt(ac.cruiseSpeed) || 0,
-          parseFloat(ac.endurance.replace(',', '.')) || 0,
-          serializeCrewType(ac.crewTypes),
-          ac.category,
-          ac.engineType,
-        );
-      }
-      const acNames = aircraft.filter(a => a.type.trim()).map(a => a.type.toUpperCase());
 
       await Promise.all([loadFlights(), loadStats()]);
-      // Importen klar → vanlig bekräftelse (Wrapped-funktionen borttagen).
+      // Importen klar → vanlig bekräftelse.
       Alert.alert(
         t('done_exclamation'),
-        `${saved} ${t('block_saved')}${acNames.length ? `\n${acNames.join(', ')} ${t('registered')}` : ''}`,
+        `${saved} ${t('block_saved')}`,
         [{ text: 'OK', onPress: finishNav }],
       );
     } catch (e: any) {
@@ -677,189 +557,6 @@ export default function ManualExperienceScreen() {
           />
         ))}
 
-        {/* Farkosttyper */}
-        <TouchableOpacity
-          style={styles.aircraftToggle}
-          onPress={() => setShowAircraftSection(v => !v)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="airplane-outline" size={15} color={Colors.primary} />
-          <Text style={styles.aircraftToggleText}>
-            {showAircraftSection ? t('hide_aircraft_type') : t('add_aircraft_type_optional')}
-          </Text>
-          <View style={{ marginLeft: 'auto' }} />
-          <Ionicons
-            name={showAircraftSection ? 'chevron-up' : 'chevron-down'}
-            size={14} color={Colors.textMuted}
-            style={{ marginLeft: 6 }}
-          />
-        </TouchableOpacity>
-
-        {showAircraftSection && aircraft.map((ac, acIdx) => (
-          <View key={ac.id} style={styles.aircraftBlock}>
-            <View style={[styles.blockHeader, { justifyContent: 'space-between' }]}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
-                {t('aircraft_type')} {aircraft.length > 1 ? `#${acIdx + 1}` : ''}
-              </Text>
-              {aircraft.length > 1 && (
-                <TouchableOpacity onPress={() => setAircraft(prev => prev.filter(a => a.id !== ac.id))} hitSlop={8}>
-                  <Ionicons name="trash-outline" size={15} color={Colors.danger} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <Text style={styles.groupLabel}>{t('aircraft_type')}</Text>
-            <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 6 }}>
-              <TextInput
-                style={[styles.fieldInput, styles.fieldInputText, { flex: 1 }]}
-                value={ac.type}
-                onChangeText={(v) => updateAircraft(ac.id, a => ({ ...a, type: v.toUpperCase(), lookupStatus: v.trim().length < 2 ? { state: 'idle' as const } : a.lookupStatus }))}
-                placeholder="C172, R44, A320…"
-                placeholderTextColor={Colors.textMuted}
-                autoCapitalize="characters"
-              />
-              <TouchableOpacity
-                onPress={() => handleSmartLookup(ac.id)}
-                disabled={ac.lookupStatus.state === 'loading'}
-                activeOpacity={0.75}
-                style={{
-                  paddingHorizontal: 12, borderRadius: 10,
-                  backgroundColor: Colors.primary + '1F',
-                  borderWidth: 1, borderColor: Colors.primary + '88',
-                  alignItems: 'center', justifyContent: 'center',
-                  flexDirection: 'row', gap: 5,
-                }}
-              >
-                {ac.lookupStatus.state === 'loading'
-                  ? <ActivityIndicator size="small" color={Colors.primary} />
-                  : <Ionicons name="sparkles" size={14} color={Colors.primary} />}
-                <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '800' }}>
-                  {ac.lookupStatus.state === 'loading' ? t('drone_scan_loading') : t('aircraft_lookup_btn')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {ac.lookupStatus.state === 'ok' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingBottom: 6 }}>
-                <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-                <Text style={{ color: Colors.success, fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={2}>{ac.lookupStatus.summary}</Text>
-              </View>
-            )}
-            {ac.lookupStatus.state === 'unknown' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingBottom: 6 }}>
-                <Ionicons name="help-circle-outline" size={13} color={Colors.textMuted} />
-                <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{t('aircraft_lookup_unknown_hint')}</Text>
-              </View>
-            )}
-
-            <View style={styles.fieldRow}>
-              <Text style={[styles.fieldLabel, acTimeErrors.has(ac.id) && { color: Colors.danger }]}>{t('total_flight_time')} *</Text>
-              <TextInput
-                style={[styles.fieldInput, acTimeErrors.has(ac.id) && { borderColor: Colors.danger, borderWidth: 1.5 }]}
-                value={ac.totalTime}
-                onChangeText={(v) => {
-                  updateAircraft(ac.id, a => ({ ...a, totalTime: v }));
-                  setAcTimeErrors(prev => { const n = new Set(prev); n.delete(ac.id); return n; });
-                }}
-                placeholder="0"
-                placeholderTextColor={acTimeErrors.has(ac.id) ? Colors.danger : Colors.textMuted}
-                keyboardType="decimal-pad"
-                selectTextOnFocus
-              />
-              <Text style={styles.fieldUnit}>h</Text>
-            </View>
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('cruise_speed_kts')}</Text>
-              <TextInput
-                style={[styles.fieldInput, ac.aiFilledFields.has('cruiseSpeed') && { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' }]}
-                value={ac.cruiseSpeed}
-                onChangeText={(v) => updateAircraft(ac.id, a => ({ ...a, cruiseSpeed: v, aiFilledFields: new Set([...a.aiFilledFields].filter(f => f !== 'cruiseSpeed')) }))}
-                placeholder="0"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                selectTextOnFocus
-              />
-              <Text style={styles.fieldUnit}>kts</Text>
-            </View>
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('endurance_h')}</Text>
-              <TextInput
-                style={[styles.fieldInput, ac.aiFilledFields.has('endurance') && { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' }]}
-                value={ac.endurance}
-                onChangeText={(v) => updateAircraft(ac.id, a => ({ ...a, endurance: v, aiFilledFields: new Set([...a.aiFilledFields].filter(f => f !== 'endurance')) }))}
-                placeholder="0"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="decimal-pad"
-                selectTextOnFocus
-              />
-              <Text style={styles.fieldUnit}>h</Text>
-            </View>
-
-            <Text style={styles.groupLabel}>{t('category')}</Text>
-            <View style={styles.crewGrid}>
-              {(['airplane', 'helicopter'] as const).map((c) => {
-                const active = ac.category === c;
-                return (
-                  <TouchableOpacity key={c} style={[styles.crewBtn, active && styles.crewBtnActive]} onPress={() => updateAircraft(ac.id, a => ({ ...a, category: active ? '' : c }))} activeOpacity={0.8}>
-                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{c === 'airplane' ? t('airplane') : t('helicopter')}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.groupLabel}>{t('engine_type')}</Text>
-            <View style={styles.crewGrid}>
-              {(['se', 'me'] as const).map((k) => {
-                const active = ac.engineType === k;
-                return (
-                  <TouchableOpacity key={k} style={[styles.crewBtn, active && styles.crewBtnActive]} onPress={() => updateAircraft(ac.id, a => ({ ...a, engineType: active ? '' : k }))} activeOpacity={0.8}>
-                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{k === 'se' ? 'SE' : 'ME'}</Text>
-                    <Text style={styles.crewBtnSub}>{k === 'se' ? t('single_engine') : t('multi_engine')}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.groupLabel}>{t('crew_type')}</Text>
-            <View style={styles.crewGrid}>
-              {([
-                { key: 'sp', label: 'Single-pilot', sub: 'SP' },
-                { key: 'mp', label: 'Multi-pilot', sub: 'MP' },
-              ] as const).map(opt => {
-                const active = ac.crewTypes.has(opt.key);
-                return (
-                  <TouchableOpacity key={opt.key} style={[styles.crewBtn, active && styles.crewBtnActive]} onPress={() => toggleCrew(ac.id, opt.key as any)} activeOpacity={0.8}>
-                    <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{opt.label}</Text>
-                    <Text style={styles.crewBtnSub}>{opt.sub}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-
-        {showAircraftSection && (
-          <>
-            <TouchableOpacity
-              style={styles.addYearBtn}
-              onPress={() => setAircraft(prev => [...prev, emptyAircraft()])}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-              <Text style={styles.addYearText}>{t('add_another_aircraft')}</Text>
-            </TouchableOpacity>
-            {acOverflow && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>
-                <Ionicons name="warning" size={14} color={Colors.danger} />
-                <Text style={{ color: Colors.danger, fontSize: 12, fontWeight: '600', flex: 1 }}>
-                  {t('ac_time_exceeds_total')}
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-
         {/* Spara */}
         <TouchableOpacity
           style={[styles.saveBtn, (saving || !readyBlocks.length) && { opacity: 0.5 }]}
@@ -882,8 +579,6 @@ export default function ManualExperienceScreen() {
         <Text style={styles.hint}>
           {t('manual_hint')}
         </Text>
-
-        <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={t('prem_feat_ai_title')} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
