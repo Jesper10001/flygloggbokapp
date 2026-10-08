@@ -34,7 +34,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
           <View style={s.header}>
             <View style={{ flex: 1 }}>
               <Text style={s.title}>Flight incidents</Text>
-              <Text style={s.sub}>Airports involved · last 10 days</Text>
+              <Text style={s.sub}>Airports involved · latest month</Text>
             </View>
             {!locked && (status === 'ready' || status === 'error') ? (
               <TouchableOpacity onPress={() => load(true)} hitSlop={8} style={s.iconBtn}>
@@ -83,7 +83,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
           ) : incidents.length === 0 ? (
             <View style={s.center}>
               <Ionicons name="checkmark-circle-outline" size={32} color={Colors.success} />
-              <Text style={s.loadingTxt}>No airport-linked incidents in the last 10 days.</Text>
+              <Text style={s.loadingTxt}>No airport-linked incidents in the last month.</Text>
               <TouchableOpacity onPress={() => load(true)} activeOpacity={0.85} style={[s.scanBtn, { marginTop: 10 }]}>
                 <Ionicons name="refresh" size={15} color={Colors.textInverse} />
                 <Text style={s.scanBtnTxt}>Refresh</Text>
@@ -91,11 +91,15 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
             </View>
           ) : (
             <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ padding: 4 }} showsVerticalScrollIndicator={false}>
-              {incidents.map((it, i) => (
+              {incidents.map((it, i) => {
+                // Verifierad ICAO (finns i vår DB) driver kart-knappen; visa den om den finns, annars nyhetens kod.
+                const loc = it.resolvedIcao ?? null;
+                const shownIcao = loc ?? it.icao;
+                return (
                 <View key={`${it.icao ?? it.airport}-${i}`} style={s.item}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={s.airport}>
-                      {it.airport}{it.icao ? <Text style={s.icao}>{`  ${it.icao}`}</Text> : null}
+                      {it.airport}{shownIcao ? <Text style={s.icao}>{`  ${shownIcao}`}</Text> : null}
                     </Text>
                     {it.date ? <Text style={s.date}>{it.date}</Text> : null}
                     <Text style={s.summary}>{it.summary}</Text>
@@ -112,14 +116,15 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
                       </TouchableOpacity>
                     ) : null}
                   </View>
-                  {canLocate(it.icao) ? (
-                    <TouchableOpacity onPress={() => onViewOnMap(it.icao!)} activeOpacity={0.8} style={s.locBtn}>
+                  {loc && canLocate(loc) ? (
+                    <TouchableOpacity onPress={() => onViewOnMap(loc)} activeOpacity={0.8} style={s.locBtn}>
                       <Ionicons name="location" size={16} color={Colors.primary} />
                       <Text style={s.locTxt}>Map</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
-              ))}
+                );
+              })}
               <Text style={s.disclaimer}>Summaries compiled from third-party aviation news sources — tap a source to read the original. Verify before relying on it.</Text>
             </ScrollView>
           )}

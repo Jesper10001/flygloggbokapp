@@ -30,7 +30,7 @@ import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUs
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
-import { presentPaywall } from '../../services/purchases';
+import { presentPaywall, refreshEntitlement, presentManageSubscription } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { getSetting, setSetting } from '../../db/flights';
@@ -512,7 +512,13 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             activeOpacity={0.7}
-            onPress={() => (isPremium || isMax ? router.push('/settings/premium') : presentPaywall())}
+            onPress={() => {
+              if (isPremium || isMax) {
+                presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); });
+              } else {
+                presentPaywall();
+              }
+            }}
           >
             <View style={{
               width: 32, height: 32, borderRadius: 8,
@@ -844,6 +850,17 @@ export default function SettingsScreen() {
           onClick={() => Linking.openURL('https://blades-app.com/privacy.html')}
         />
         <Row icon="pricetag-outline" iconColor={Colors.textSecondary} title="Redeem promo code" border={false}
+          onLongPress={() => {
+            Alert.alert('Remove promo access?', 'This removes promo-based Blades Premium from this device. You can redeem a code again anytime.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Remove', style: 'destructive', onPress: async () => {
+                await setSetting('promo_premium', '0').catch(() => {});
+                setIsPremium(false);
+                refreshEntitlement().catch(() => {}); // återställer till ev. riktigt RevenueCat-köp
+                Alert.alert('Promo removed', 'Promo Premium has been removed from this device.');
+              } },
+            ]);
+          }}
           onClick={() => {
             Alert.prompt(
               'Redeem promo code',

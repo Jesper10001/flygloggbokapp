@@ -25,7 +25,7 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useFlightStore } from '../../store/flightStore';
-import { presentPaywall } from '../../services/purchases';
+import { presentPaywall, refreshEntitlement, presentManageSubscription } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
@@ -286,7 +286,7 @@ export default function DroneSettingsScreen() {
           {/* Certifikat + "Current today?" borttagna inför lansering (dolda från UI). */}
 
           {/* Premium */}
-          <TouchableOpacity style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }} activeOpacity={0.7} onPress={() => (isPremium || isMax ? router.push('/settings/premium') : presentPaywall())}>
+          <TouchableOpacity style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }} activeOpacity={0.7} onPress={() => { if (isPremium || isMax) { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); } else { presentPaywall(); } }}>
             <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: (isMax ? DR.text2 : DR.warning) + '22', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="star" size={15} color={isMax ? DR.text2 : DR.warning} />
             </View>
@@ -445,6 +445,17 @@ export default function DroneSettingsScreen() {
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} />
         <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} />
         <Row accent={accent} icon="pricetag-outline" iconColor={DR.text3} title="Redeem promo code" border={false}
+          onLongPress={() => {
+            Alert.alert('Remove promo access?', 'This removes promo-based Blades Premium from this device. You can redeem a code again anytime.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Remove', style: 'destructive', onPress: async () => {
+                await setSetting('promo_premium', '0').catch(() => {});
+                setIsPremium(false);
+                refreshEntitlement().catch(() => {});
+                Alert.alert('Promo removed', 'Promo Premium has been removed from this device.');
+              } },
+            ]);
+          }}
           onPress={() => {
             Alert.prompt(
               'Redeem promo code',

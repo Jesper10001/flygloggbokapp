@@ -13,6 +13,7 @@ import type { IcaoAirport } from '../types/flight';
 import { fetchAirportMetar, type AirportMetar } from '../services/weather';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
+import { presentPaywall } from '../services/purchases';
 import { useRouter } from 'expo-router';
 import { AirportInfoCard } from './AirportInfoCard';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
@@ -115,16 +116,10 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   // FAA-standard → sikt i statute miles; EASA/CAA → km (molnbas alltid i fot).
   const regStandard = useRegulationStandardStore((s) => s.standard);
   const wxOptions = useMemo(() => buildWxOptions(regStandard === 'faa'), [regStandard]);
-  // Väderfiltret är en Blades Premium-funktion (gäller även Global maps väderfilter).
+  // Väderfiltret är en Blades Premium-funktion → RevenueCat-paywallen (inte den gamla egna sidan).
   const isPremium = useFlightStore((s) => s.isPremium);
   const router = useRouter();
-  const promptWeatherPremium = () => {
-    Alert.alert(
-      'Blades Premium',
-      'Filtering airports by live weather (METAR) is a Blades Premium feature.',
-      [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/settings/premium') }],
-    );
-  };
+  const promptWeatherPremium = () => { presentPaywall('Weather filter'); };
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [searching, setSearching] = useState(false);

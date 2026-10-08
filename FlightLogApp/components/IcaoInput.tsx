@@ -168,25 +168,34 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | 'unknown' | 'off-airport' | null>(null);
   const unknownTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // 0,5 s fördröjning för frågetecknet
   const freeSeq = useRef(0); // ogiltigförklarar stale fritext-matchningar
+  const freeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null); // kort paus innan DB-uppslag
 
-  // Fritext-matchning: slå upp koden mot ICAO/IATA/GPS. Träff → grön bock + namn direkt.
-  // Ingen träff → dölj ikon i 0,5 s (så man hinner skriva klart), sätt sedan frågetecken.
+  // Fritext-matchning: slå upp koden mot ICAO/IATA/GPS. För att inte "blinka" fel flygplats/flagga
+  // MEDAN man skriver (t.ex. "ESC" ↦ IATA KESC/US på väg mot ICAO "ESCF") sätts först bara råkoden
+  // (flaggan drivs då av EXAKT ICAO-matchning → aldrig en IATA-krock), och det riktiga uppslaget
+  // (ICAO/IATA/GPS, grön bock + namn) körs efter en kort paus. Stannar man på en 3-bokstavs IATA
+  // resolvas den då korrekt; skriver man klart sin ICAO hinner IATA-krocken aldrig visas.
   const runFreeMatch = (text: string) => {
     const seq = ++freeSeq.current;
     if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
+    if (freeDebounce.current) { clearTimeout(freeDebounce.current); freeDebounce.current = null; }
     const code = text.trim().toUpperCase();
     if (code.length < 2) { setPlaceStatus(null); setResolvedName(''); onResolve?.(text, null); return; }
     // Off-airport (ZZZZ): never a real place — green "Off-airport", no coordinates, no map prompt.
     if (isOffAirportCode(code)) { setPlaceStatus('off-airport'); setResolvedName(''); onResolve?.(text, null); return; }
-    getAirportByAnyCode(code).then((a) => {
-      if (seq !== freeSeq.current) return; // nyare tangenttryckning
-      if (a) {
-        setPlaceStatus('known'); setResolvedName(a.name || ''); onResolve?.(text, a.icao);
-      } else {
-        setResolvedName(''); setPlaceStatus(null); onResolve?.(text, null);
-        unknownTimer.current = setTimeout(() => { if (seq === freeSeq.current) setPlaceStatus('unknown'); }, 500);
-      }
-    });
+    // Direkt: rapportera råkoden (ingen flygplats-commit än → ev. flagga styrs av exakt ICAO).
+    setPlaceStatus(null); setResolvedName(''); onResolve?.(text, null);
+    // Efter kort paus: riktigt uppslag (ICAO/IATA/GPS).
+    freeDebounce.current = setTimeout(() => {
+      getAirportByAnyCode(code).then((a) => {
+        if (seq !== freeSeq.current) return; // nyare tangenttryckning
+        if (a) {
+          setPlaceStatus('known'); setResolvedName(a.name || ''); onResolve?.(text, a.icao);
+        } else {
+          setResolvedName(''); setPlaceStatus('unknown'); onResolve?.(text, null);
+        }
+      });
+    }, 350);
   };
 
   // En känd flygplats valdes (snabbchip / närmaste-flygplats-modal / sök) i fritextläget.

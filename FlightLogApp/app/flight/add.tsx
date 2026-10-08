@@ -965,8 +965,18 @@ export default function AddFlightScreen() {
     if (cabinStr) extra.push(cabinStr);   // ren "roll: namn, …" (ingen tagg)
     if (flStr) extra.push(flStr);
 
+    // Namn på hanterade piloter/besättning → strippa ev. föräldralösa "nakna namn"-rader ur fri text
+    // (t.ex. "HES" som skrevs in INNAN en roll valdes → annars kvar som dubblett bredvid "PIC: HES").
+    const managedNames = new Set<string>();
+    if (form.second_pilot?.trim()) managedNames.add(form.second_pilot.trim());
+    extraPilots.forEach((p) => p.name.trim() && managedNames.add(p.name.trim()));
+    crewMembers.forEach((m) => m.name?.trim() && managedNames.add(m.name.trim()));
+
     setForm((prev) => {
-      const free = (prev.remarks || '').split('\n').filter((ln) => ln.trim() !== '' && !isManagedLine(ln));
+      const free = (prev.remarks || '').split('\n').filter((ln) => {
+        const t = ln.trim();
+        return t !== '' && !isManagedLine(ln) && !managedNames.has(t);
+      });
       const merged = [...free, ...routeLines, ...extra].join('\n');
       if (merged === (prev.remarks || '')) return prev;
       return { ...prev, remarks: merged };

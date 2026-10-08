@@ -32,7 +32,10 @@ export async function getUserDataInventory(): Promise<DataInventory> {
     profileName = `${f?.value ?? ''} ${l?.value ?? ''}`.trim();
   } catch { /* ignore */ }
 
-  const [flights, droneFlights, aircraft, drones, logbooks, certificates, templates, media, customPlaces] = await Promise.all([
+  // Media = flygningar med länkad bild/video: både uppladdade (photo_uri) OCH synkade referenser
+  // (photo_local_id, från fotobiblioteks-synken), för pilot + drönare. Annars visade raden 0 efter sync.
+  const MEDIA_WHERE = "(photo_uri IS NOT NULL AND photo_uri <> '') OR (photo_local_id IS NOT NULL AND photo_local_id <> '')";
+  const [flights, droneFlights, aircraft, drones, logbooks, certificates, templates, mediaPilot, mediaDrone, customPlaces] = await Promise.all([
     count('SELECT COUNT(*) c FROM flights'),
     count('SELECT COUNT(*) c FROM drone_flights'),
     count('SELECT COUNT(*) c FROM aircraft_registry'),
@@ -40,9 +43,11 @@ export async function getUserDataInventory(): Promise<DataInventory> {
     count('SELECT COUNT(*) c FROM logbook_books'),
     count('SELECT COUNT(*) c FROM drone_certificates'),
     count('SELECT COUNT(*) c FROM custom_templates'),
-    count("SELECT COUNT(*) c FROM flights WHERE photo_uri IS NOT NULL AND photo_uri <> ''"),
+    count(`SELECT COUNT(*) c FROM flights WHERE ${MEDIA_WHERE}`),
+    count(`SELECT COUNT(*) c FROM drone_flights WHERE ${MEDIA_WHERE}`),
     count('SELECT COUNT(*) c FROM icao_airports WHERE custom = 1 OR COALESCE("temporary",0) > 0'),
   ]);
+  const media = mediaPilot + mediaDrone;
 
   return { flights, droneFlights, aircraft, drones, logbooks, certificates, templates, media, customPlaces, profileName };
 }

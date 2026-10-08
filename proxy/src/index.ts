@@ -33,15 +33,20 @@ const TOKEN_LIMITS: Record<string, number> = {
 // bara den cachade listan. Fortsatt Premium-only (produktval), men inte längre dyr per scan.
 const NEWS_CACHE_KEY = 'newscache:v2';
 const NEWS_CACHE_TTL_SEC = 3600;           // 1 timme delad cache
-const NEWS_WINDOW_DAYS = 10;               // bara incidenter från senaste N dygnen
+const NEWS_WINDOW_DAYS = 30;               // bara incidenter från senaste N dygnen ("Latest month")
 const NEWS_MODEL = 'claude-haiku-4-5';
 // Etablerade flyg-nyhetskällor med RSS/Atom-flöden (syndikering). Trasiga flöden hoppas tyst över.
 // Lägg bara till källor vars flöden är avsedda för vidarespridning; undvik sajter vars villkor förbjuder det.
 const NEWS_FEEDS: { url: string; source: string }[] = [
+  // Allmänna flygnyheter
   { url: 'https://www.avweb.com/feed/', source: 'AVweb' },
   { url: 'https://simpleflying.com/feed/', source: 'Simple Flying' },
   { url: 'https://theaviationist.com/feed/', source: 'The Aviationist' },
   { url: 'https://www.aerotime.aero/feed', source: 'AeroTime' },
+  // Incident-inriktade källor (fler airport-kopplade händelser). Verifiera flödes-URL:erna live;
+  // trasiga/ändrade flöden hoppas tyst över.
+  { url: 'https://www.aeroinside.com/rss', source: 'AeroInside' },
+  { url: 'https://airlive.net/feed/', source: 'AIRLIVE' },
 ];
 
 // Free = lifetime-nyckel (ingen TTL); premium = månadsnyckel (löper ut)
@@ -621,12 +626,15 @@ async function fetchAllFeeds(): Promise<RawFeedItem[]> {
       return parseFeed(await r.text(), f.source);
     } catch { return []; }
   }));
-  // Platta + behåll bara rader med rimligt färskt datum (senaste ~NEWS_WINDOW_DAYS+2 dygn) + kapa mängden.
+  // Platta + behåll bara rader med rimligt färskt datum (senaste ~NEWS_WINDOW_DAYS+2 dygn).
   const cutoff = Date.now() - (NEWS_WINDOW_DAYS + 2) * 86400 * 1000;
   const flat = results.flat().filter((it) => {
     const t = Date.parse(it.date);
     return isNaN(t) ? true : t >= cutoff; // okänt datum → behåll, Haiku filtrerar
   });
+  // Sortera nyast först (okänt datum sist) så kapningen till 40 behåller de FÄRSKASTE raderna över
+  // alla källor — viktigt med ett bredare fönster. Token-mängden växer inte (fortfarande max 40).
+  flat.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
   return flat.slice(0, 40);
 }
 

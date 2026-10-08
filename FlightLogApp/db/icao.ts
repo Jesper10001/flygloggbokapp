@@ -20,7 +20,7 @@ function loadAirportData(): Promise<SeedRow[]> {
   if (_airportData) return Promise.resolve(_airportData);
   if (!_airportLoading) {
     _airportLoading = loadJsonAsset<SeedRow[]>(require('../assets/icao-airports.dat'))
-      .then((d) => { _airportData = d; console.log(`[ICAO] airport data loaded: ${Array.isArray(d) ? d.length : 'NOT-ARRAY'} airports`); return d; })
+      .then((d) => { _airportData = d; return d; })
       .catch((e) => { console.warn('[ICAO] airport data load FAILED:', e?.message ?? e); _airportData = []; return [] as SeedRow[]; });
   }
   return _airportLoading;
@@ -56,7 +56,7 @@ export function foldDiacritics(s: string): string {
   return out;
 }
 
-const SEED_VERSION = '2026-09-28-namenorm'; // om-seed: land-koder (ESCF=SE) + name_norm för diakrit-okänslig sökning
+const SEED_VERSION = '2026-10-08-countryfix'; // om-seed: tvingar ny import av rättade landskoder (ESCF=SE m.fl.) — tidigare version bumpades ej när .dat-filen fixades, så gammal data (ESCF=US) låg kvar
 
 // Kanariefåglar: kända flygplatser vars land ALDRIG ändras. Om en seedad rad avviker (eller saknas)
 // är enhetens DB inaktuell (t.ex. ESCF felaktigt 'US' från ett äldre dataset) → tvinga om-seed även
@@ -195,6 +195,39 @@ export async function getAirportByIcao(icao: string): Promise<IcaoAirport | null
   return await db.getFirstAsync<IcaoAirport>(
     'SELECT * FROM icao_airports WHERE icao=?',
     [icao.toUpperCase()]
+  );
+}
+
+// Exakt ICAO ELLER IATA (INTE GPS-koden → undviker krockar som "KJRO"=GPS för en US-flygplats).
+export async function getAirportByIcaoOrIata(code: string): Promise<IcaoAirport | null> {
+  const c = code.trim().toUpperCase();
+  if (!c) return null;
+  const db = await getDatabase();
+  return await db.getFirstAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE UPPER(icao) = ? OR (iata != '' AND UPPER(iata) = ?)
+     ORDER BY CASE WHEN UPPER(icao) = ? THEN 0 ELSE 1 END, COALESCE(temporary,0) ASC
+     LIMIT 1`,
+    [c, c, c]
+  );
+}
+
+// Bästa riktiga flygplats i en STAD (municipality) — fångar nyheter där flygplatsnamnet skiljer sig
+// från staden (t.ex. "Riyadh International" → King Khalid/OERK, municipality=Riyadh). Prioritet:
+// har IATA → större typ (large>medium>small) → kortast namn (mest kanoniskt).
+export async function getBestAirportByCity(city: string): Promise<IcaoAirport | null> {
+  const c = city.trim();
+  if (c.length < 3) return null;
+  const db = await getDatabase();
+  return await db.getFirstAsync<IcaoAirport>(
+    `SELECT * FROM icao_airports
+     WHERE COALESCE(temporary,0) = 0 AND type IN ('large','medium','small')
+       AND municipality != '' AND UPPER(municipality) = UPPER(?)
+     ORDER BY (CASE WHEN iata != '' THEN 0 ELSE 1 END),
+              (CASE type WHEN 'large' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END),
+              length(name)
+     LIMIT 1`,
+    [c]
   );
 }
 

@@ -154,6 +154,23 @@ export async function presentPaywall(feature?: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * Visar RevenueCats **Customer Center** (prenumerationsstatus + hantera/säg upp/återställ) för
+ * användare som REDAN har premium. Returnerar true om den visades. Kräver att Customer Center är
+ * aktiverat i RevenueCat-dashboarden; annars (eller utan native-modul) returneras false → anroparen
+ * faller tillbaka på den egna premium-sidan (som visar "Premium active").
+ */
+export async function presentManageSubscription(): Promise<boolean> {
+  if (configured && Purchases && RevenueCatUI?.presentCustomerCenter) {
+    try {
+      await RevenueCatUI.presentCustomerCenter();
+      await refreshEntitlement();
+      return true;
+    } catch { /* ej konfigurerad/otillgänglig → fallback */ }
+  }
+  return false;
+}
+
 /** Återställer tidigare köp (t.ex. ny enhet/ominstallation, samma Apple-ID). */
 export async function restorePurchases(): Promise<PurchaseOutcome> {
   if (!configured || !Purchases) return 'unavailable';

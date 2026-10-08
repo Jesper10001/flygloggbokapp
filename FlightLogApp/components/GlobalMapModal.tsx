@@ -53,10 +53,10 @@ function wxLegendRowsFor(sm: boolean): { cat: FlightCat; vis: string; ceil: stri
 // Snabb-typfilter (swipebar rad bredvid Favorites). "Airports L/M" togglar large+medium ihop.
 const TYPE_CHIPS: { label: string; keys: string[] }[] = [
   { label: 'Airports L/M', keys: ['t:large', 't:medium'] },
+  { label: 'Air Bases', keys: ['r:military'] },
   { label: 'Airfields', keys: ['t:small'] },
   { label: 'Heliports', keys: ['t:heliport'] },
   { label: 'Seaplane', keys: ['t:seaplane'] },
-  { label: 'Air Bases', keys: ['r:military'] },
   { label: 'Altiports', keys: ['t:altiport'] },
   { label: 'Balloonports', keys: ['t:balloonport'] },
 ];
@@ -145,15 +145,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const wxRunRef = useRef(0); // avbryter en pågående hämtning om användaren byter land/kategori
   const regStandard = useRegulationStandardStore((s) => s.standard);
   const wxLegendRows = useMemo(() => wxLegendRowsFor(regStandard === 'faa'), [regStandard]);
-  // Väderfiltret är en Blades Premium-funktion.
+  // Väderfiltret är en Blades Premium-funktion → RevenueCat-paywallen (inte den gamla egna sidan).
   const isPremium = useFlightStore((s) => s.isPremium);
-  const promptWeatherPremium = () => {
-    Alert.alert(
-      'Blades Premium',
-      'Filtering airports by live weather (METAR) is a Blades Premium feature.',
-      [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/settings/premium') }],
-    );
-  };
+  const promptWeatherPremium = () => { presentPaywall('Weather filter'); };
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);

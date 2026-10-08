@@ -4,7 +4,7 @@
 // användarens coin-pott, ingen klient-rate-limit behövs.
 
 import { create } from 'zustand';
-import { fetchAirportIncidents, type AirportIncident } from '../services/incidentNews';
+import { fetchAirportIncidents, resolveIncidentIcaos, type AirportIncident } from '../services/incidentNews';
 import { useFlightStore } from './flightStore';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error' | 'locked';
@@ -34,7 +34,9 @@ export const useIncidentNewsStore = create<IncidentNewsStore>((set, get) => ({
     if (!isPremium()) { set({ status: 'locked' }); return; }
     set({ status: 'loading', error: null });
     try {
-      const incidents = await fetchAirportIncidents();
+      const raw = await fetchAirportIncidents();
+      // Lokal namn→ICAO-matchning (utan AI) → fixar fel/saknade koder så "Map"-knappen funkar.
+      const incidents = await resolveIncidentIcaos(raw).catch(() => raw);
       set({ status: 'ready', incidents, lastFetched: Date.now() });
     } catch (e: any) {
       const msg = String(e?.message ?? '');

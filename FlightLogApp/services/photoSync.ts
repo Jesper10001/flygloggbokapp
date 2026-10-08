@@ -210,25 +210,28 @@ export async function hasUnfinishedReview(): Promise<boolean> {
 }
 async function assetsByIds(ids: string[]): Promise<ML.Asset[]> {
   const M = ml(); if (!M) return [];
-  const out: ML.Asset[] = [];
-  for (const id of ids) {
+  // PARALLELLT + shouldDownloadFromNetwork:false → undviker seriell iCloud-nedladdning (default är true,
+  // vilket laddade ner varje foto över nätet → Resume "hängde"). Vi behöver bara metadatan/uri:n här;
+  // själva visningen löses lat per bild. Asset borttagen ur biblioteket → hoppas över (null).
+  const results = await Promise.all(ids.map(async (id) => {
     try {
-      const info: any = await M.getAssetInfoAsync(id);
-      if (info) out.push({ ...(info as ML.Asset), id, uri: info.localUri || info.uri });
-    } catch { /* asset borttagen ur biblioteket → hoppa */ }
-  }
-  return out;
+      const info: any = await M.getAssetInfoAsync(id, { shouldDownloadFromNetwork: false });
+      return info ? { ...(info as ML.Asset), id, uri: info.localUri || info.uri } : null;
+    } catch { return null; }
+  }));
+  return results.filter((a): a is ML.Asset => !!a);
 }
 /** Bygg om matchlistan för de kvarvarande flighterna ur den sparade sessionen (ingen ny scanning). */
 export async function resumeMatches(): Promise<FlightMatch[]> {
   const [entries, flights] = await Promise.all([pendingSessionEntries(), getFlights(100000)]);
   const byId = new Map(flights.map((f) => [f.id, f]));
-  const matches: FlightMatch[] = [];
-  for (const e of entries) {
-    const f = byId.get(e.flightId); if (!f) continue;
+  // Parallellt över flygningar (asset-uppslagen är nu också parallella + utan nedladdning).
+  const built = await Promise.all(entries.map(async (e) => {
+    const f = byId.get(e.flightId); if (!f) return null;
     const assets = await assetsByIds(e.assetIds);
-    if (assets.length) matches.push({ flight: f, assets });
-  }
+    return assets.length ? { flight: f, assets } : null;
+  }));
+  const matches: FlightMatch[] = built.filter((m): m is FlightMatch => !!m);
   matches.sort((a, b) => (flightInterval(a.flight)?.dep ?? 0) - (flightInterval(b.flight)?.dep ?? 0));
   return matches;
 }

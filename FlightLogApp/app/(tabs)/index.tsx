@@ -445,7 +445,7 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
               arr={placeNames[latest.flight.arr_place?.toUpperCase()] ?? latest.flight.arr_place}
               meta={`${formatDate(latest.flight.date)} · ${latest.flight.aircraft_type} · ${formatTime(latest.flight.total_time)}h`}
               cardW={CARD_W}
-              onPress={() => onPress(latest.flight)}
+              onPress={() => onPress({ ...latest.flight, photo_uri: latest.uri })}
               mediaType={latest.isVideo ? 'video' : 'image'}
             />
           ) : (
@@ -483,7 +483,7 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
                 arr={placeNames[m.flight.arr_place?.toUpperCase()] ?? m.flight.arr_place}
                 meta={`${formatDate(m.flight.date)} · ${m.flight.aircraft_type} · ${formatTime(m.flight.total_time)}h`}
                 cardW={CARD_W}
-                onPress={() => onPress(m.flight)}
+                onPress={() => onPress({ ...m.flight, photo_uri: m.uri })}
                 mediaType={m.isVideo ? 'video' : 'image'}
               />
             </View>
