@@ -22,7 +22,7 @@ import { exportDroneFlightsToCSV } from '../../services/export';
 import { useToastStore } from '../../components/Toast';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
-import { useTourStore } from '../../store/tourStore';
+import { useTourStore, beginTour } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useFlightStore } from '../../store/flightStore';
 import { presentPaywall, refreshEntitlement, presentManageSubscription } from '../../services/purchases';
@@ -306,7 +306,7 @@ export default function DroneSettingsScreen() {
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -488,7 +488,7 @@ export default function DroneSettingsScreen() {
 
       {/* Blades introduction — kör den guidade rundturen igen (drönarläget). */}
       <TouchableOpacity
-        onPress={() => useTourStore.getState().start('drone')}
+        onPress={() => beginTour('drone')}
         activeOpacity={0.8}
         style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}
       >

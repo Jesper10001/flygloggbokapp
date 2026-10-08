@@ -272,6 +272,8 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissing(db, 'media_type', `TEXT NOT NULL DEFAULT 'image'`);
   // Foto-synk: referens (localIdentifier) till bild/video i fotobiblioteket. Filen kopieras aldrig.
   await addColumnIfMissing(db, 'photo_local_id', `TEXT`);
+  // iCloud-backup: stabilt iCloud-foton-id (PHCloudIdentifier) → foton kan återlänkas på ny enhet.
+  await addColumnIfMissing(db, 'photo_cloud_id', `TEXT`);
   // Max flight level (IFR/Y/Z flights)
   await addColumnIfMissing(db, 'max_fl', `INTEGER NOT NULL DEFAULT 0`);
   // Log Flight-redesign: start (dag/natt) + 2D/3D-inflygningar (utöver landningar/remarks).
@@ -313,6 +315,8 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'media_type', "TEXT NOT NULL DEFAULT 'image'");
   // Foto-synk: referens (localIdentifier) till bibliotekets media, matchat på tid (= manned).
   await addColumnIfMissingOnTable(db, 'drone_flights', 'photo_local_id', 'TEXT');
+  // iCloud-backup: stabilt iCloud-foton-id (PHCloudIdentifier) → foton kan återlänkas på ny enhet.
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'photo_cloud_id', 'TEXT');
   // Källa för raden: 'manual' (loggat i appen) | 'import' (CSV) | 'summary' (bulk-historik) — driver
   // Imported data-batcher och backfill (= manned flights.source). Befintliga rader = manuella.
   await addColumnIfMissingOnTable(db, 'drone_flights', 'source', "TEXT NOT NULL DEFAULT 'manual'");

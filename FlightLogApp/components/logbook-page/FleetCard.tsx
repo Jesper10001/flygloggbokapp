@@ -11,6 +11,7 @@ import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
+import { useTourStore } from '../../store/tourStore';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { PremiumModal } from '../PremiumModal';
@@ -58,6 +59,7 @@ export function FleetCard({ ac, accent, onSaved }: {
   const [fetching, setFetching] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const { isPremium, isMax } = useFlightStore();
+  const tourDemo = useTourStore((s) => s.demo);
   const [regs, setRegs] = useState<{ registration: string; hours: number; flightCount: number }[]>([]);
   // Namnbyten på registreringar i redigeringsläge: gammalt namn → nytt fritextvärde.
   const [regEdits, setRegEdits] = useState<Record<string, string>>({});
@@ -94,6 +96,8 @@ export function FleetCard({ ac, accent, onSaved }: {
   // Bildaspekt (för banner-/cutout-skalning) + subject-lift-urklipp (cachas).
   useEffect(() => {
     let alive = true;
+    // Demo (Blades introduction): visa bannerbilden som den är, generera/spara ALDRIG cutout (rör ej DB/fil).
+    if (tourDemo) { setCutout(null); if (ac.image_url) Image.getSize(ac.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {}); return () => { alive = false; }; }
     if (!ac.image_url) { setCutout(null); return; }
     Image.getSize(ac.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {});
     (async () => {
@@ -190,7 +194,8 @@ export function FleetCard({ ac, accent, onSaved }: {
   const makerLine = ac.maker || '';
   // Reload/hämta-knappen visas BARA när kortet är ofullständigt (saknar bild ELLER kärndata) →
   // syftet blir att försöka hämta igen om första hämtningen misslyckades.
-  const needsFetch = !ac.image_url || !ac.maker || !ac.vne || !ac.cruise_speed_kts || !ac.mtow || !ac.ceiling_ft || !ac.range_nm;
+  // Blades introduction: demo-kortet har redan fulla specs → visa ALDRIG "Fetch"-prompten.
+  const needsFetch = !tourDemo && (!ac.image_url || !ac.maker || !ac.vne || !ac.cruise_speed_kts || !ac.mtow || !ac.ceiling_ft || !ac.range_nm);
 
   // Lätt utzoomning (1.05×) så hela farkosten syns; vertikalt centrerad med liten
   // uppåt-bias så motivet (cutout) ändå spiller något nedåt över kortkanten.

@@ -23,6 +23,7 @@ import { Colors } from '../../constants/colors'; // stress-panelen använder EXA
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
+import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
 import { getDroneStressHours, getDroneFlights, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
@@ -106,7 +107,11 @@ export default function DroneDashboardScreen() {
   const { width } = useWindowDimensions();
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
-  const { flights, stats, loadFlights, loadStats } = useDroneFlightStore();
+  const { flights: realDroneFlights, stats: realDroneStats, loadFlights, loadStats } = useDroneFlightStore();
+  // Blades introduction: DEMO-flygningar + demo-stats när rundturen kör och drönar-loggboken annars är tom.
+  const tourDemo = useTourStore((st2) => st2.demo);
+  const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
+  const stats = tourDemo ? DEMO_DRONE_STATS : realDroneStats;
   const [stress, setStress] = useState<StressData>(computeStress(0, 0));
   const [latestPage, setLatestPage] = useState(0); // aktiv sida i latest-flight-karusellen (= manned prickar)
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)

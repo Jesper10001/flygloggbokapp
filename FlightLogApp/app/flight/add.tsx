@@ -4,8 +4,7 @@ import {
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
   TextInput, Modal, Pressable, Image, useWindowDimensions, Animated, Easing,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -48,7 +47,6 @@ import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, sampleTimedRo
 import { TwilightBar } from '../../components/logflight/TwilightBar';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
-import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { useProfileStore } from '../../store/profileStore';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode, isOffAirportCode } from '../../db/icao';
@@ -496,6 +494,19 @@ function makeStyles() {
       color: Colors.textPrimary, fontSize: 15, fontWeight: '700',
       paddingHorizontal: 20, paddingVertical: 8,
     },
+    // Helskärms-info-sidor (Simulator types, Roles in the simulator) — mer plats för text, pålitlig scroll.
+    infoPage: { flex: 1, backgroundColor: Colors.background },
+    infoPageHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingLeft: 20, paddingRight: 12, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: Colors.separator,
+    },
+    infoPageTitle: { flex: 1, color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
+    infoPageClose: {
+      width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    },
+    infoPageIntro: { color: Colors.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 18 },
     modalItem: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingHorizontal: 20, paddingVertical: 14,
@@ -706,14 +717,16 @@ export default function AddFlightScreen() {
   const [fi, setFi] = useState(false);
   const [examinerOverlay, setExaminerOverlay] = useState(false);
   const [safetyPilotOverlay, setSafetyPilotOverlay] = useState(false);
+  // Sim-läget: egna oberoende toggles (Dual / FI / Pilot flying) — ingen default itryckt, kan kombineras.
+  // Tiderna sätts vid SPAR (override) ur dessa, inte via den vanliga live-distributionen.
+  const [simDual, setSimDual] = useState(false);
+  const [simFi, setSimFi] = useState(false);
+  const [simPf, setSimPf] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false); // "Other"-roll → dropdownflik (ersätter modalen)
   const [simInfoOpen, setSimInfoOpen] = useState(false); // info-popup: simulatortyper & currency-kreditering
-  const { height: winH } = useWindowDimensions();
-  // Svep ner på arkets header för att stänga info-popupen (gesture-callback är worklet → runOnJS).
-  const simInfoSwipe = Gesture.Pan().onEnd((e) => {
-    'worklet';
-    if (e.translationY > 60 || e.velocityY > 600) runOnJS(setSimInfoOpen)(false);
-  });
+  const [simTypeOpen, setSimTypeOpen] = useState(false); // dropdown: välj simulatortyp (kompakt, bredvid info-knappen)
+  const [simRoleInfoOpen, setSimRoleInfoOpen] = useState(false); // info-sida: när Dual / FI / Pilot flying är relevant i sim
+  const insets = useSafeAreaInsets();
   // Inline nedfällda staplar för aircraft type / registration (ersätter de gamla pop up-modalerna).
   const [typeOpen, setTypeOpen] = useState(false);
   const [regOpen, setRegOpen] = useState(false);
@@ -724,7 +737,14 @@ export default function AddFlightScreen() {
   // Log Flight-redesign: Quicklog (essentials) ↔ Full (alla sektioner). Default Full.
   const [logFull, setLogFull] = useState(isEdit); // Quicklog default för nya; Full vid redigering (full editor)
 
-  const [lastFlight, setLastFlight] = useState<Flight | null>(null);
+  // Senaste flygningen per typ → reverse/fill-latest blir LÄGE-beroende: i Sim används senaste sim-
+  // flygningen, i Real senaste riktiga. Man kan alltså inte reversa en real flight in i en sim (el. tvärtom).
+  const [lastReal, setLastReal] = useState<Flight | null>(null);
+  const [lastSim, setLastSim] = useState<Flight | null>(null);
+  const lastFlight = useMemo<Flight | null>(
+    () => (form.flight_type === 'sim' ? lastSim : lastReal),
+    [form.flight_type, lastSim, lastReal],
+  );
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
   const [recentRegs, setRecentRegs] = useState<string[]>([]);
   const [recentPilotsRoles, setRecentPilotsRoles] = useState<SavedPerson[]>([]);
@@ -945,7 +965,7 @@ export default function AddFlightScreen() {
     const withApp = form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z';
     const routeLines = buildRouteLines(routeStops, approaches, form.arr_place, withApp);
 
-    // Piloter (second + extra), cabin crew och Max FL som egna hanterade rader → syns live i remarks.
+    // Piloter (second + extra) och cabin crew som egna hanterade rader → syns live i remarks.
     const spShort = (k: string) => SP_ROLES.find((r) => r.key === k)?.short ?? k;
     const pilotStr = [
       form.second_pilot?.trim() ? { role: form.second_pilot_role ?? '', name: form.second_pilot.trim() } : null,
@@ -958,12 +978,10 @@ export default function AddFlightScreen() {
       .filter((m) => m.role || m.name)
       .map((m) => [m.role, m.name].filter(Boolean).join(': '))
       .join(', ');
-    const flStr = parseInt(form.max_fl ?? '') > 0 ? `Max FL${form.max_fl}` : '';
 
     const extra: string[] = [];
     if (pilotStr) extra.push(pilotStr);   // ren "roll: namn, …" (ingen tagg)
     if (cabinStr) extra.push(cabinStr);   // ren "roll: namn, …" (ingen tagg)
-    if (flStr) extra.push(flStr);
 
     // Namn på hanterade piloter/besättning → strippa ev. föräldralösa "nakna namn"-rader ur fri text
     // (t.ex. "HES" som skrevs in INNAN en roll valdes → annars kvar som dubblett bredvid "PIC: HES").
@@ -982,7 +1000,7 @@ export default function AddFlightScreen() {
       return { ...prev, remarks: merged };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeStops, approaches, form.arr_place, form.flight_rules, form.second_pilot, form.second_pilot_role, extraPilots, crewMembers, form.max_fl]);
+  }, [routeStops, approaches, form.arr_place, form.flight_rules, form.second_pilot, form.second_pilot_role, extraPilots, crewMembers]);
 
   // 2D/3D approach-tickern speglar valda approaches i ApproachFlow — räknas först när TYP valts
   // (v.app satt, t.ex. ILS CAT II), inte vid enbart 2D/3D- eller subkategori-val.
@@ -1097,17 +1115,24 @@ export default function AddFlightScreen() {
       }
       if (f.photo_uri) setPhotoUri(f.photo_uri);
       if (f.media_type === 'video') setMediaType('video');
-      if (f.pic > 0) setRole('pic');
-      else if (f.co_pilot > 0) setRole('co_pilot');
-      else if (f.dual > 0) setRole('dual');
-      else if (f.picus > 0) setRole('picus');
-      else if (f.spic > 0) setRole('spic');
-      else if (f.ferry_pic > 0) setRole('ferry_pic');
-      else if (f.observer > 0) setRole('observer');
-      else if (f.relief_crew > 0) setRole('relief_crew');
-      if ((f.instructor ?? 0) > 0) setFi(true);
-      if ((f.examiner ?? 0) > 0) setExaminerOverlay(true);
-      if ((f.safety_pilot ?? 0) > 0) setSafetyPilotOverlay(true);
+      if (f.flight_type === 'sim') {
+        // Sim: sätt de oberoende togglarna ur sparade tider.
+        setSimDual((f.dual ?? 0) > 0);
+        setSimFi((f.instructor ?? 0) > 0);
+        setSimPf((f.pilot_flying ?? 0) > 0);
+      } else {
+        if (f.pic > 0) setRole('pic');
+        else if (f.co_pilot > 0) setRole('co_pilot');
+        else if (f.dual > 0) setRole('dual');
+        else if (f.picus > 0) setRole('picus');
+        else if (f.spic > 0) setRole('spic');
+        else if (f.ferry_pic > 0) setRole('ferry_pic');
+        else if (f.observer > 0) setRole('observer');
+        else if (f.relief_crew > 0) setRole('relief_crew');
+        if ((f.instructor ?? 0) > 0) setFi(true);
+        if ((f.examiner ?? 0) > 0) setExaminerOverlay(true);
+        if ((f.safety_pilot ?? 0) > 0) setSafetyPilotOverlay(true);
+      }
     });
   }, [editId]);
 
@@ -1393,7 +1418,7 @@ export default function AddFlightScreen() {
     Promise.all([
       getRecentAircraftTypes(),
       getRecentPlaces(),
-      getFlights(1),
+      getFlights(100),
       getRecentRemarks(20),
       getRecentSecondPilots(),
     ]).then(([types, places, flights, remarks, pilots]) => {
@@ -1403,9 +1428,13 @@ export default function AddFlightScreen() {
       setRecentPilots(pilots);
       getRecentSecondPilotsWithRole(100000).then(setRecentPilotsRoles).catch(() => {}); // alla piloter (ej bara 20)
       getSecondPilotsByAircraft().then(setPilotsByAircraft).catch(() => {});
-      const last = flights[0] ?? null;
+      const realList = flights.filter((f) => f.flight_type !== 'sim');
+      const simList = flights.filter((f) => f.flight_type === 'sim');
+      setLastReal(realList[0] ?? null);
+      setLastSim(simList[0] ?? null);
+      // Prefill utgår från rätt läge (nya flygningar startar i Real → senaste riktiga).
+      const last = ((form.flight_type === 'sim' ? simList[0] : realList[0]) ?? null) as Flight | null;
       if (last) {
-        setLastFlight(last);
         getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
         if (!isEdit) {
           setForm((prev) => ({
@@ -1582,25 +1611,31 @@ export default function AddFlightScreen() {
     setRecentRegs(regs);
     // Registreringen är kopplad till typen → byt till den nya typens (senaste) registrering, eller töm
     // om den saknar någon. Annars låg den FÖRRA typens registrering kvar.
-    setForm((prev) => ({ ...prev, aircraft_type: type, registration: regs[0] ?? '' }));
+    // I sim är "registration" en simulator-etikett (ej ett riktigt flygplan) → auto-fyll ALDRIG en sparad
+    // registrering; töm fältet så användaren skapar en ny simulator-etikett för den valda typen.
+    setForm((prev) => ({ ...prev, aircraft_type: type, registration: prev.flight_type === 'sim' ? '' : (regs[0] ?? '') }));
   }, []);
 
   // Lägg till ny registrering (från "+"-knappen i registration-stapeln).
   const promptAddRegistration = useCallback(() => {
     if (!form.aircraft_type) { Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg')); return; }
+    const isSim = form.flight_type === 'sim';
     Alert.prompt(
-      t('new_registration'),
-      `${t('add_registration_for')} ${form.aircraft_type}`,
+      isSim ? 'New simulator' : t('new_registration'),
+      isSim ? `Name this simulator for ${form.aircraft_type}` : `${t('add_registration_for')} ${form.aircraft_type}`,
       async (reg) => {
         const r = reg?.trim().toUpperCase();
         if (!r) return;
-        await addToAircraftRegistry(form.aircraft_type, r);
-        setRecentRegs(await getRecentRegistrations(form.aircraft_type));
+        // Sim-etiketter sparas INTE i flygplansregistret → de dyker aldrig upp bland riktiga registreringar.
+        if (!isSim) {
+          await addToAircraftRegistry(form.aircraft_type, r);
+          setRecentRegs(await getRecentRegistrations(form.aircraft_type));
+        }
         set('registration', r);
       },
       'plain-text', '',
     );
-  }, [form.aircraft_type, t]);
+  }, [form.aircraft_type, form.flight_type, t]);
 
   // "+" i namn-rutan → skriv in ett nytt namn (blir valt; sparas i historiken när flygningen loggas).
   const promptAddPersonName = (title: string, onName: (n: string) => void) => {
@@ -2144,10 +2179,16 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         // multi-/single-pilot, samt IFR/natt/NVG/VFR). total_time (= simtiden) + landnings-/
         // approach-räknarna (för FFS-recency nedan) behålls.
         finalData.ifr = '0'; finalData.night = '0'; finalData.nvg = '0'; finalData.vfr = '0';
-        finalData.pic = '0'; finalData.co_pilot = '0'; finalData.dual = '0'; finalData.instructor = '0';
+        finalData.pic = '0'; finalData.co_pilot = '0';
         finalData.multi_pilot = '0'; finalData.single_pilot = '0';
         finalData.picus = '0'; finalData.spic = '0'; finalData.examiner = '0';
         finalData.safety_pilot = '0'; finalData.observer = '0'; finalData.ferry_pic = '0'; finalData.relief_crew = '0';
+        // Sim-roller (oberoende toggles): Dual / FI (instructor) / Pilot flying → total simtid om itryckt.
+        const simTt = finalData.total_time || '0';
+        finalData.dual = simDual ? simTt : '0';
+        finalData.instructor = simFi ? simTt : '0';
+        finalData.pilot_flying = simPf ? simTt : '0';
+        finalData.second_pilot_role = ''; // sim: andrepilot loggas bara med namn (ingen roll)
         // Simulator har ingen riktig sol/rutt → härled FAA/FS-natt ur användarens dag/natt-räknare
         // (i sim är varje landning full stop). Currency-motorn krediterar bara FFS för landningar;
         // övriga simar filtreras bort där, så det är ofarligt att sätta kolumnerna för alla simar.
@@ -2395,23 +2436,35 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         <View style={styles.placeBlock} onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}>
           {/* Sim-typväljare högst upp i route-kortet (designen) — endast i Sim-läge */}
           {form.flight_type === 'sim' && (
-            <View style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <Text style={styles.cardFieldLabel}>{t('simulator_type')}</Text>
+            <View style={{ marginBottom: 12, position: 'relative', zIndex: simTypeOpen ? 40 : undefined }}>
+              {/* Kompakt rad: etikett + info-knapp till vänster, typ-dropdown till höger. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.cardFieldLabel, { marginBottom: 0 }]}>{t('simulator_type')}</Text>
                 <TouchableOpacity onPress={() => setSimInfoOpen(true)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} activeOpacity={0.7}>
                   <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
                 </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+                <View style={[styles.pickBox, { height: 38, minWidth: 128, flex: 0 }]}>
+                  <TouchableOpacity style={styles.pickBoxTap} onPress={() => { setTypeOpen(false); setRegOpen(false); setSimTypeOpen((o) => !o); }} activeOpacity={0.7}>
+                    <Text style={styles.pickBoxValue} numberOfLines={1}>{(form.sim_category || 'FFS').replace(/_/g, '/')}</Text>
+                    <Ionicons name={simTypeOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.simCatRow}>
-                {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT'] as const).map((cat) => {
-                  const active = form.sim_category === cat;
-                  return (
-                    <TouchableOpacity key={cat} style={[styles.simCatBtn, active && styles.simCatBtnActive]} onPress={() => set('sim_category', cat)} activeOpacity={0.75}>
-                      <Text style={[styles.simCatText, active && styles.simCatTextActive]}>{cat.replace(/_/g, '/')}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {simTypeOpen && (
+                <View style={[styles.ddFlyout, { right: 0, width: '62%' }]}>
+                  <View style={{ gap: 6 }}>
+                    {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT'] as const).map((cat) => {
+                      const active = form.sim_category === cat;
+                      return (
+                        <TouchableOpacity key={cat} style={[styles.ddChip, { alignItems: 'flex-start' }, active && styles.ddChipActive]} onPress={() => { set('sim_category', cat); setSimTypeOpen(false); }} activeOpacity={0.75}>
+                          <Text style={[styles.ddChipText, active && styles.ddChipTextActive]}>{cat.replace(/_/g, '/')}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
               {form.sim_category === 'CPT_PPT' && (
                 <View style={[styles.remarksWarning, { marginTop: 7 }]}>
                   <Ionicons name="warning" size={14} color={Colors.warning} />
@@ -2421,51 +2474,85 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             </View>
           )}
 
-          {/* Info-popup: simulatortyper + hur de krediteras mot currency */}
-          <Modal visible={simInfoOpen} transparent animationType="slide" onRequestClose={() => setSimInfoOpen(false)}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setSimInfoOpen(false)}>
-              <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-                {/* Header — dra ner här för att stänga */}
-                <GestureDetector gesture={simInfoSwipe}>
-                  <View>
-                    <View style={styles.modalHandle} />
-                    <Text style={styles.modalTitle}>Simulator types & currency</Text>
-                    <Text style={{ color: Colors.textMuted, fontSize: 12.5, marginBottom: 12, paddingHorizontal: 20 }}>
-                      Sim time is never logged as flight hours. What each device credits:
-                    </Text>
-                  </View>
-                </GestureDetector>
-                <ScrollView style={{ maxHeight: winH * 0.5 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
-                  {[
-                    { code: 'FFS', name: 'Full Flight Simulator', bullets: ['Highest fidelity — motion + full cockpit', 'Counts toward ATPL hours (capped)', 'Credits take-offs, landings, night & instrument currency'] },
-                    { code: 'FTD', name: 'Flight Training Device', bullets: ['Full-size cockpit replica, little/no motion', 'Credits instrument currency', 'Not for landing / passenger currency'] },
-                    { code: 'FNPT II', name: 'Flight & Nav Procedures Trainer', bullets: ['Generic cockpit + systems', 'Credits instrument (IR) currency'] },
-                    { code: 'FNPT I', name: 'Procedures Trainer (basic)', bullets: ['Simpler procedures trainer', 'Limited credit — mostly training records'] },
-                    { code: 'BITD', name: 'Basic Instrument Training Device', bullets: ['Basic instrument trainer', 'Does not count toward currency'] },
-                    { code: 'CPT/PPT', name: 'Part-task / Procedure Trainer', bullets: ['Single-task / cockpit procedures', 'No currency credit'] },
-                  ].map((s) => (
-                    <View key={s.code} style={{ marginBottom: 14 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                        <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{s.code}</Text>
-                        <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '600', flex: 1 }}>{s.name}</Text>
-                      </View>
-                      {s.bullets.map((b, i) => (
-                        <View key={i} style={{ flexDirection: 'row', gap: 7, marginTop: 4, paddingLeft: 2 }}>
-                          <Text style={{ color: Colors.textMuted, fontSize: 12.5, lineHeight: 17 }}>•</Text>
-                          <Text style={{ color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, flex: 1 }}>{b}</Text>
-                        </View>
-                      ))}
+          {/* Info-sida (helskärm): simulatortyper + hur de krediteras mot currency */}
+          <Modal visible={simInfoOpen} animationType="slide" onRequestClose={() => setSimInfoOpen(false)}>
+            <View style={[styles.infoPage, { paddingTop: insets.top }]}>
+              <View style={styles.infoPageHeader}>
+                <Text style={styles.infoPageTitle}>Simulator types & currency</Text>
+                <TouchableOpacity onPress={() => setSimInfoOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7} style={styles.infoPageClose}>
+                  <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 48 }} showsVerticalScrollIndicator>
+                <Text style={styles.infoPageIntro}>Sim time is never logged as flight hours. What each device credits:</Text>
+                {[
+                  { code: 'FFS', name: 'Full Flight Simulator', bullets: ['Highest fidelity — full motion platform and a complete, type-specific cockpit', 'Counts toward ATPL total hours (capped by the licence rules)', 'Credits take-offs, landings, night and instrument currency'] },
+                  { code: 'FTD', name: 'Flight Training Device', bullets: ['Full-size cockpit replica with little or no motion', 'Credits instrument currency', 'Not valid for landing / passenger-carrying currency'] },
+                  { code: 'FNPT II', name: 'Flight & Navigation Procedures Trainer', bullets: ['Generic (non type-specific) cockpit and systems', 'Credits instrument rating (IR) currency'] },
+                  { code: 'FNPT I', name: 'Procedures Trainer (basic)', bullets: ['Simpler procedures trainer', 'Limited credit — mostly for training records'] },
+                  { code: 'BITD', name: 'Basic Instrument Training Device', bullets: ['Basic instrument trainer', 'Does not count toward currency'] },
+                  { code: 'CPT/PPT', name: 'Part-task / Procedure Trainer', bullets: ['Single-task or cockpit-procedures trainer', 'No currency credit'] },
+                ].map((s) => (
+                  <View key={s.code} style={{ marginBottom: 18 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                      <Text style={{ color: Colors.primary, fontSize: 16, fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{s.code}</Text>
+                      <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '600', flex: 1 }}>{s.name}</Text>
                     </View>
-                  ))}
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44', borderRadius: 10, padding: 12, marginBottom: 8 }}>
-                    <Ionicons name="information-circle" size={16} color={Colors.primary} />
-                    <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 12, lineHeight: 17 }}>
-                      In this app: only <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS</Text> counts for landing/passenger currency; <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS, FTD & FNPT II</Text> count for instrument currency (FAA 6 HITS / IR).
-                    </Text>
+                    {s.bullets.map((b, i) => (
+                      <View key={i} style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingLeft: 2 }}>
+                        <Text style={{ color: Colors.textMuted, fontSize: 14, lineHeight: 20 }}>•</Text>
+                        <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 20, flex: 1 }}>{b}</Text>
+                      </View>
+                    ))}
                   </View>
-                </ScrollView>
-              </Pressable>
-            </Pressable>
+                ))}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44', borderRadius: 10, padding: 14, marginTop: 4 }}>
+                  <Ionicons name="information-circle" size={18} color={Colors.primary} />
+                  <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
+                    In this app: only <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS</Text> counts for landing / passenger currency; <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FFS, FTD & FNPT II</Text> count for instrument currency (FAA 6 HITS / IR).
+                  </Text>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+
+          {/* Info-sida (helskärm): när Dual / FI / Pilot flying är relevant att logga i sim */}
+          <Modal visible={simRoleInfoOpen} animationType="slide" onRequestClose={() => setSimRoleInfoOpen(false)}>
+            <View style={[styles.infoPage, { paddingTop: insets.top }]}>
+              <View style={styles.infoPageHeader}>
+                <Text style={styles.infoPageTitle}>Roles in the simulator</Text>
+                <TouchableOpacity onPress={() => setSimRoleInfoOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7} style={styles.infoPageClose}>
+                  <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 48 }} showsVerticalScrollIndicator>
+                <Text style={styles.infoPageIntro}>When to log each. None is required — pick only what applies to the session.</Text>
+                {[
+                  { code: 'DUAL', name: 'Dual — instruction received', bullets: ['You are the trainee being taught or supervised by an instructor or examiner', 'Typical: type-rating or recurrent training, and the practice before an LPC/OPC where you sit as the candidate', 'This is logged as "dual received" training time'] },
+                  { code: 'FI', name: 'Flight instructor — instruction given', bullets: ['You are the one delivering the session — FI, TRI, SFI or examiner', 'Log it to build your instructor / examiner experience', 'Not for sitting in as the student — that is Dual'] },
+                  { code: 'PF', name: 'Pilot flying', bullets: ['You were the one manipulating the controls — you flew the take-off, approach or landing rather than monitoring', 'In an approved FFS these manoeuvres can count toward your take-off / landing recency', 'Leave it off if you were the pilot monitoring (PM) for the session'] },
+                ].map((s) => (
+                  <View key={s.code} style={{ marginBottom: 18 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                      <Text style={{ color: Colors.primary, fontSize: 16, fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{s.code}</Text>
+                      <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '600', flex: 1 }}>{s.name}</Text>
+                    </View>
+                    {s.bullets.map((b, i) => (
+                      <View key={i} style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingLeft: 2 }}>
+                        <Text style={{ color: Colors.textMuted, fontSize: 14, lineHeight: 20 }}>•</Text>
+                        <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 20, flex: 1 }}>{b}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44', borderRadius: 10, padding: 14, marginTop: 4 }}>
+                  <Ionicons name="information-circle" size={18} color={Colors.primary} />
+                  <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
+                    <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Dual</Text> and <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>FI</Text> are mutually exclusive — you either receive or give instruction. <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>Pilot flying</Text> is separate and can be combined with either.
+                  </Text>
+                </View>
+              </ScrollView>
+            </View>
           </Modal>
 
           <View style={styles.legRow}>
@@ -3050,16 +3137,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 {errors.aircraft_type ? <Text style={styles.errorInline}>{errors.aircraft_type}</Text> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardFieldLabel}>{t('registration')}</Text>
+                <Text style={styles.cardFieldLabel}>{form.flight_type === 'sim' ? 'Simulator' : t('registration')}</Text>
                 <View style={styles.pickBox}>
-                  <TouchableOpacity style={styles.pickBoxTap} onPress={() => { if (!form.aircraft_type) { Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg')); return; } setTypeOpen(false); setRegOpen((o) => !o); }} activeOpacity={0.7}>
-                    <Text style={[styles.pickBoxValue, !form.registration && { color: Colors.textMuted }]} numberOfLines={1}>{form.registration || 'SE-KXY'}</Text>
-                    <Ionicons name={regOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textSecondary} />
+                  {/* I sim: ingen lista över sparade registreringar — tryck öppnar "skapa ny simulator-etikett". */}
+                  <TouchableOpacity style={styles.pickBoxTap} onPress={() => { if (form.flight_type === 'sim') { promptAddRegistration(); return; } if (!form.aircraft_type) { Alert.alert(t('select_aircraft_type_first'), t('enter_aircraft_type_before_reg')); return; } setTypeOpen(false); setRegOpen((o) => !o); }} activeOpacity={0.7}>
+                    <Text style={[styles.pickBoxValue, !form.registration && { color: Colors.textMuted }]} numberOfLines={1}>{form.registration || (form.flight_type === 'sim' ? 'A320 FFS' : 'SE-KXY')}</Text>
+                    <Ionicons name={form.flight_type === 'sim' ? 'create-outline' : (regOpen ? 'chevron-up' : 'chevron-down')} size={15} color={Colors.textSecondary} />
                   </TouchableOpacity>
-                  <View style={styles.pickBoxDivider} />
-                  <TouchableOpacity onPress={() => { setRegOpen(false); promptAddRegistration(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.7}>
-                    <Ionicons name="add" size={18} color={Colors.primary} />
-                  </TouchableOpacity>
+                  {form.flight_type !== 'sim' && (<>
+                    <View style={styles.pickBoxDivider} />
+                    <TouchableOpacity onPress={() => { setRegOpen(false); promptAddRegistration(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </>)}
                 </View>
                 {errors.registration ? <Text style={styles.errorInline}>{errors.registration}</Text> : null}
               </View>
@@ -3094,8 +3184,9 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
               </View>
             )}
 
-            {/* Dropdownflik: registration — vertikala kolumner, alfabetisk + numerisk ordning (KILO10 före KILO22) */}
-            {regOpen && (
+            {/* Dropdownflik: registration — vertikala kolumner, alfabetisk + numerisk ordning (KILO10 före KILO22).
+                Aldrig i sim (där skapar man alltid en ny simulator-etikett, återanvänder ingen registrering). */}
+            {regOpen && form.flight_type !== 'sim' && (
               <View style={[styles.ddFlyout, { left: 0, right: 0 }]}>
                 {recentRegs.length === 0 ? (
                   <Text style={styles.ddEmpty}>{t('no_saved_registrations')}</Text>
@@ -3127,7 +3218,31 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
 
           {/* Your role */}
           <View style={[{ marginBottom: 4 }, otherOpen ? { zIndex: 30 } : null]}>
-              <Text style={styles.cardFieldLabel}>{t('your_role')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: 4 }}>
+                <Text style={[styles.cardFieldLabel, { marginTop: 0, marginBottom: 0 }]}>{t('your_role')}</Text>
+                {form.flight_type === 'sim' && (
+                  <TouchableOpacity onPress={() => setSimRoleInfoOpen(true)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} activeOpacity={0.7}>
+                    <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {form.flight_type === 'sim' ? (
+                // Sim: Dual/FI = ömsesidigt uteslutande (en elev ELLER instruktör, ej båda); Pilot flying fristående.
+                // Ingen default itryckt.
+                <View style={styles.roleGrid}>
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'stretch' }}>
+                    <TouchableOpacity style={[styles.roleBtn, { flex: 1 }, simDual && styles.roleBtnActive]} onPress={() => { const n = !simDual; setSimDual(n); if (n) setSimFi(false); }} activeOpacity={0.75}>
+                      <Text style={[styles.roleBtnText, simDual && styles.roleBtnTextActive]}>DUAL</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.roleBtn, { flex: 1 }, simFi && styles.roleBtnActive]} onPress={() => { const n = !simFi; setSimFi(n); if (n) setSimDual(false); }} activeOpacity={0.75}>
+                      <Text style={[styles.roleBtnText, simFi && styles.roleBtnTextActive]}>FI</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.roleBtn, { flex: 1 }, simPf && styles.roleBtnActive]} onPress={() => setSimPf((v) => !v)} activeOpacity={0.75}>
+                      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, simPf && styles.roleBtnTextActive]}>Pilot flying</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
               <View style={styles.roleGrid}>
                 {/* Vänster: 2×2 roll-rutnät (PIC·CO-PILOT / DUAL·FI). Höger om det: vertikal PF/PM-toggle,
                     därefter vertikal SP/MP-toggle. (Övriga roller — PICUS m.fl. — i OTHER-dropdownen.) */}
@@ -3192,6 +3307,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   />
                 </View>
               </View>
+              )}
           </View>
 
           {/* Second pilot + fler piloter ombord — samma stil som aircraft type/registration */}
@@ -3206,11 +3322,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                 byAircraft={pilotsByAircraft}
                 currentAircraft={form.aircraft_type}
                 placeholder={t('second_pilot_ph')}
-                onPick={(n, r) => { set('second_pilot', n); if (r) selectSecondPilotRole(r); }}
+                onPick={(n, r) => { set('second_pilot', n); if (r && form.flight_type !== 'sim') selectSecondPilotRole(r); }}
                 onChangeRole={(k) => selectSecondPilotRole(k)}
                 onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => set('second_pilot', n))}
                 onAddMore={addExtraPilot}
                 onToggle={setPersonOpen}
+                hideRole={form.flight_type === 'sim'}
               />
               {extraPilots.map((p) => (
                 <PersonPicker
@@ -3222,18 +3339,19 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
                   byAircraft={pilotsByAircraft}
                   currentAircraft={form.aircraft_type}
                   placeholder={t('second_pilot_ph')}
-                  onPick={(n, r) => { updateExtraPilot(p.id, 'name', n); if (r) selectExtraPilotRole(p.id, r); }}
+                  onPick={(n, r) => { updateExtraPilot(p.id, 'name', n); if (r && form.flight_type !== 'sim') selectExtraPilotRole(p.id, r); }}
                   onChangeRole={(k) => selectExtraPilotRole(p.id, k)}
                   onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => updateExtraPilot(p.id, 'name', n))}
                   onRemove={() => removeExtraPilot(p.id)}
                   onToggle={setPersonOpen}
+                  hideRole={form.flight_type === 'sim'}
                 />
               ))}
             </View>
           </View>
 
-          {/* Cabin crew — endast i Full (Quicklog visar bara second pilot) */}
-          {logFull && (
+          {/* Cabin crew — endast i Full (Quicklog visar bara second pilot). Dold i Sim. */}
+          {logFull && form.flight_type !== 'sim' && (
           <View>
             <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
             <View style={{ gap: 6 }}>
@@ -3371,18 +3489,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           <TolRow label="Landings"
             a={{ label: t('day'), value: cur('landings_day'), onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
             b={{ label: t('night'), value: cur('landings_night'), onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
-          {/* Max FL — för SIM ligger den kvar här (sim saknar approach-flow nedan); för övriga
-              flygningar flyttad ner mellan Approaches och Holding patterns. */}
-          {form.flight_type === 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
-            <View style={{ borderTopWidth: 1, borderTopColor: Colors.border }}>
-              <MaxAltBar
-                value={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
-                onChange={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
-                onGrab={() => setScrollLocked(true)}
-                onRelease={() => setScrollLocked(false)}
-              />
-            </View>
-          )}
         </View>
           );
         })()}
@@ -3404,15 +3510,6 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
             <TolRow first label="Approaches"
               a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
               b={{ label: '3D', value: parseInt(form.app_3d ?? '0', 10) || 0, onChange: (n) => set('app_3d', String(n)) }} />
-            {/* Max FL — mellan Approaches och Holding patterns (blocket är redan IFR/Y/Z-gated) */}
-            <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 8, paddingTop: 2 }}>
-              <MaxAltBar
-                value={(parseInt(form.max_fl ?? '', 10) || 0) * 100}
-                onChange={(ft) => set('max_fl', ft > 0 ? String(Math.round(ft / 100)) : '')}
-                onGrab={() => setScrollLocked(true)}
-                onRelease={() => setScrollLocked(false)}
-              />
-            </View>
             {/* Holds (FAA 6HITS: instrumentinflygningar + hållning inom 6 mån) */}
             {(() => {
               const h = parseInt(form.holds ?? '0', 10) || 0;

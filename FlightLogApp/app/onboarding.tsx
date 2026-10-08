@@ -284,36 +284,30 @@ export default function OnboardingScreen() {
             // lite till vänster (text till höger), drönaren under lite till höger (text till vänster).
             const pilot = availableMainRoles.find((r) => r.key === 'pilot-manned');
             const drone = availableMainRoles.find((r) => r.key === 'pilot-unmanned');
-            const IMG = Math.round(Dimensions.get('window').width * 0.46);
+            const IMG = Math.round(Dimensions.get('window').width * 0.56);
             const choosePilot = () => { setMainRole('pilot-manned'); setStep('subrole'); };
             const chooseDrone = () => { setMainRole('pilot-unmanned'); setPendingSub('commercial'); setStep('profile'); };
             return (
               <View style={{ flex: 1, alignSelf: 'stretch' }}>
-                <StepHeader eyebrow={sv ? 'Din profil' : 'Your profile'} accent={accent}
+                <StepHeader eyebrow={sv ? 'Din profil' : 'Your profile'} accent={accent} center
                   title={sv ? 'Vad gör du?' : 'What do you do?'}
                   subtitle={sv ? 'Välj loggboken du behöver — senare kan du välja att ha båda.' : 'Choose the logbook of your needs, later you can choose to have both'} />
-                <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
+                <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 20, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
                   {pilot && (
-                    <TouchableOpacity onPress={choosePilot} activeOpacity={0.75}
-                      style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 12, maxWidth: '94%' }}>
+                    <TouchableOpacity onPress={choosePilot} activeOpacity={0.75} style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
                       <Image source={ROLE_IMG['pilot-manned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
-                      <View style={{ flexShrink: 1 }}>
-                        <Text style={s.roleChoiceTitle}>{sv ? pilot.title_sv : pilot.title_en}</Text>
-                        <Text style={s.roleChoiceDesc}>{sv ? pilot.desc_sv : pilot.desc_en}</Text>
-                      </View>
+                      <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? pilot.title_sv : pilot.title_en}</Text>
+                      <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? pilot.desc_sv : pilot.desc_en}</Text>
                     </TouchableOpacity>
                   )}
                   {drone && (
-                    <TouchableOpacity onPress={chooseDrone} activeOpacity={0.75}
-                      style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 12, maxWidth: '94%' }}>
-                      <View style={{ flexShrink: 1 }}>
-                        <Text style={[s.roleChoiceTitle, { textAlign: 'right' }]}>{sv ? drone.title_sv : drone.title_en}</Text>
-                        <Text style={[s.roleChoiceDesc, { textAlign: 'right' }]}>{sv ? drone.desc_sv : drone.desc_en}</Text>
-                      </View>
+                    <TouchableOpacity onPress={chooseDrone} activeOpacity={0.75} style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
                       <Image source={ROLE_IMG['pilot-unmanned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#FFB830' }]} resizeMode="contain" />
+                      <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? drone.title_sv : drone.title_en}</Text>
+                      <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? drone.desc_sv : drone.desc_en}</Text>
                     </TouchableOpacity>
                   )}
-                </View>
+                </ScrollView>
               </View>
             );
           })()}
@@ -323,45 +317,30 @@ export default function OnboardingScreen() {
             // Samma lösning som roll-valet: stora farkostbilder (helikopter/flygplan), ingen knapp-chrome,
             // diagonal placering, tryck på farkosten för att välja, glödande halo bakom.
             const subs = SUB_ROLES[mainRole];
-            const IMG = Math.round(Dimensions.get('window').width * 0.46);
+            const IMG = Math.round(Dimensions.get('window').width * 0.56);
             const pick = (key: SubRole) => { setPendingSub(key); setStep('profile'); }; // regelverk/tidsformat väljs på profilsidan
             return (
               <View style={{ flex: 1, alignSelf: 'stretch' }}>
-                <StepHeader eyebrow={sv ? 'Specialisering' : 'Specialise'} accent={accent}
+                <StepHeader eyebrow={sv ? 'Specialisering' : 'Specialise'} accent={accent} center
                   title={sv ? STEP_TITLES[mainRole].sv : STEP_TITLES[mainRole].en}
                   subtitle={sv ? STEP_SUBS[mainRole].sv : STEP_SUBS[mainRole].en} />
-                <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
-                  {subs.map((r, i) => {
+                <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 20, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+                  {subs.map((r) => {
                     const img = SUBROLE_IMG[r.key];
                     if (!img) {
                       return <OptionCard key={r.key} mci={r.icon} accent={accent}
                         title={sv ? r.title_sv : r.title_en} desc={sv ? r.desc_sv : r.desc_en} onPress={() => pick(r.key)} />;
                     }
-                    const left = i % 2 === 0; // första farkosten till vänster (topp), andra till höger (under)
                     return (
                       <TouchableOpacity key={r.key} onPress={() => pick(r.key)} activeOpacity={0.75}
-                        style={{ flexDirection: 'row', alignItems: 'center', alignSelf: left ? 'flex-start' : 'flex-end', gap: 12, maxWidth: '94%' }}>
-                        {left ? (
-                          <>
-                            <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
-                            <View style={{ flexShrink: 1 }}>
-                              <Text style={s.roleChoiceTitle}>{sv ? r.title_sv : r.title_en}</Text>
-                              <Text style={s.roleChoiceDesc}>{sv ? r.desc_sv : r.desc_en}</Text>
-                            </View>
-                          </>
-                        ) : (
-                          <>
-                            <View style={{ flexShrink: 1 }}>
-                              <Text style={[s.roleChoiceTitle, { textAlign: 'right' }]}>{sv ? r.title_sv : r.title_en}</Text>
-                              <Text style={[s.roleChoiceDesc, { textAlign: 'right' }]}>{sv ? r.desc_sv : r.desc_en}</Text>
-                            </View>
-                            <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
-                          </>
-                        )}
+                        style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
+                        <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                        <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? r.title_sv : r.title_en}</Text>
+                        <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? r.desc_sv : r.desc_en}</Text>
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </ScrollView>
               </View>
             );
           })()}
@@ -423,26 +402,35 @@ export default function OnboardingScreen() {
           )}
 
           {/* ── Existing hours ── */}
-          {step === 'hours' && (
-            <>
-              <StepHeader eyebrow={sv ? 'Nästan klar' : 'Almost done'} accent={accent}
-                title={sv ? 'Har du redan flygtimmar?' : 'Do you already have flight hours?'}
-                subtitle={sv ? 'Få in dina tidigare timmar så att statistiken stämmer från dag ett.' : 'Bring in your previous hours so your stats are right from day one.'} />
-              <View style={{ gap: 12, alignSelf: 'stretch' }}>
-                {/* "Scan paper logbook" borttaget (väntande projekt). */}
-                <OptionCard mci="pencil-outline" accent={accent}
-                  title={sv ? 'Ange starttotal' : 'Enter starting total'}
-                  desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}
-                  onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import/manual' : '/import/manual', true)} />
-                <OptionCard mci="file-delimited-outline" accent={accent}
-                  title={sv ? 'Importera CSV' : 'Import CSV'}
-                  desc={mainRole === 'pilot-unmanned' ? (sv ? 'Från din drönarlogg (CSV)' : 'From your drone log (CSV)') : (sv ? 'Från ForeFlight, LogTen Pro, m.fl.' : 'From ForeFlight, LogTen Pro, etc.')}
-                  onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import' : '/import', true)} />
+          {step === 'hours' && (() => {
+            // Större ikon-box → korten känns matigare och fyller ut tomrummet. Centrerat vertikalt.
+            const bigLead = (mci: MCI) => (
+              <View style={{ width: 56, height: 56, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialCommunityIcons name={mci} size={30} color={accent} />
               </View>
-              <View style={{ flex: 1 }} />
+            );
+            return (
+            <>
+              <View style={{ flex: 1, alignSelf: 'stretch', justifyContent: 'center', gap: 20 }}>
+                <StepHeader eyebrow={sv ? 'Nästan klar' : 'Almost done'} accent={accent} center
+                  title={sv ? 'Har du redan flygtimmar?' : 'Do you already have flight hours?'}
+                  subtitle={sv ? 'Få in dina tidigare timmar så att statistiken stämmer från dag ett.' : 'Bring in your previous hours so your stats are right from day one.'} />
+                <View style={{ gap: 14, alignSelf: 'stretch' }}>
+                  {/* "Scan paper logbook" borttaget (väntande projekt). */}
+                  <OptionCard leading={bigLead('pencil-outline')} accent={accent}
+                    title={sv ? 'Ange starttotal' : 'Enter starting total'}
+                    desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}
+                    onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import/manual' : '/import/manual', true)} />
+                  <OptionCard leading={bigLead('file-delimited-outline')} accent={accent}
+                    title={sv ? 'Importera CSV' : 'Import CSV'}
+                    desc={mainRole === 'pilot-unmanned' ? (sv ? 'Från din drönarlogg (CSV)' : 'From your drone log (CSV)') : (sv ? 'Från ForeFlight, LogTen Pro, m.fl.' : 'From ForeFlight, LogTen Pro, etc.')}
+                    onPress={() => finalize(mainRole === 'pilot-unmanned' ? '/drone-import' : '/import', true)} />
+                </View>
+              </View>
               <SecondaryButton label={sv ? 'Gör det senare' : "I'll do it later"} onPress={() => finalize()} />
             </>
-          )}
+            );
+          })()}
         </Animated.View>
       </KeyboardAvoidingView>
 
@@ -453,12 +441,12 @@ export default function OnboardingScreen() {
 
 // ── Reusable bits ────────────────────────────────────────────────────────────
 
-function StepHeader({ eyebrow, title, subtitle, accent }: { eyebrow: string; title: string; subtitle?: string; accent: string }) {
+function StepHeader({ eyebrow, title, subtitle, accent, center }: { eyebrow: string; title: string; subtitle?: string; accent: string; center?: boolean }) {
   return (
-    <View style={{ alignSelf: 'stretch', marginBottom: 18 }}>
-      <Text style={[s.eyebrow, { color: accent }]}>{eyebrow}</Text>
-      <Text style={s.title}>{title}</Text>
-      {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+    <View style={{ alignSelf: 'stretch', marginBottom: 18, alignItems: center ? 'center' : 'flex-start' }}>
+      <Text style={[s.eyebrow, { color: accent }, center && { textAlign: 'center' }]}>{eyebrow}</Text>
+      <Text style={[s.title, center && { textAlign: 'center' }]}>{title}</Text>
+      {subtitle ? <Text style={[s.subtitle, center && { textAlign: 'center' }]}>{subtitle}</Text> : null}
     </View>
   );
 }

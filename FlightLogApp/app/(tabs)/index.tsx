@@ -19,6 +19,7 @@ import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
 import { useTourStore } from '../../store/tourStore';
+import { DEMO_FLIGHTS, DEMO_STATS } from '../../constants/tourDemoData';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
@@ -613,7 +614,11 @@ export default function DashboardScreen() {
   const removeNightUpdate = useNightUpdateStore((st) => st.remove);
   const mode = useAppModeStore((st) => st.mode);
   const _theme = useThemeStore((st) => st.theme); // subscribe to force re-render on theme change
-  const { stats, flights, flightCount, isLoading, loadStats, loadFlights, tier, isPremium } = useFlightStore();
+  const { stats: realStats, flights: realFlights, flightCount, isLoading, loadStats, loadFlights, tier, isPremium } = useFlightStore();
+  // Blades introduction: visa DEMO-flygningar + demo-stats när rundturen kör och loggboken annars är tom.
+  const tourDemo = useTourStore((st2) => st2.demo);
+  const flights = tourDemo ? DEMO_FLIGHTS : realFlights;
+  const stats = tourDemo ? DEMO_STATS : realStats;
   const { t, language } = useTranslation();
   const [milestonePremium, setMilestonePremium] = useState<string | null>(null);
   const { formatTime } = useTimeFormat();

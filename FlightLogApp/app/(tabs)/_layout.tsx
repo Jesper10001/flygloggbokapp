@@ -209,16 +209,15 @@ export default function TabsLayout() {
   );
 }
 
-function LogFlightButton({ premium, onPress }: { premium: boolean; onPress: () => void }) {
-  // Premium/Max → guld, annars cyan. Båda är tight-beskurna (fyller ramen) → SAMMA höjd
-  // och SAMMA plats; varje bild med sin egen aspekt (resizeMode contain, ingen distorsion).
+function LogFlightButton({ onPress }: { premium: boolean; onPress: () => void }) {
+  // ALLTID cyan B-logga (oförändrad i free/premium) — guld-varianten används inte längre.
   const h = 53;
-  const w = premium ? h * (1024 / 960) : h * (1536 / 1024);
+  const w = h * (1536 / 1024);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
         style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-        <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
+        <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
         <TourPress id="fab" radius={14} />
       </TouchableOpacity>
@@ -226,15 +225,15 @@ function LogFlightButton({ premium, onPress }: { premium: boolean; onPress: () =
   );
 }
 
-// Drönar-center = SAMMA B-logga som manned (guld om premium/max, annars cyan) — visuell paritet.
-function DroneFabButton({ premium, onPress }: { premium: boolean; onPress: () => void }) {
+// Drönar-center = SAMMA B-logga som manned — ALLTID cyan (visuell paritet, oförändrad vid premium).
+function DroneFabButton({ onPress }: { premium: boolean; onPress: () => void }) {
   const h = 53;
-  const w = premium ? h * (1024 / 960) : h * (1536 / 1024);
+  const w = h * (1536 / 1024);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
         style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-        <Image source={premium ? require('../../assets/goldfloatingb.png') : require('../../assets/cyanfloatingb.png')}
+        <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
         <TourPress id="fab" radius={14} />
       </TouchableOpacity>

@@ -23,7 +23,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
-import { useTourStore } from '../../store/tourStore';
+import { useTourStore, beginTour } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useToastStore } from '../../components/Toast';
 import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUser } from '../../services/testUserSeed';
@@ -546,7 +546,7 @@ export default function SettingsScreen() {
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={isPremium ? require('../../assets/Gold_blade_coin.PNG') : require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
               <View style={{ flex: 1, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -908,7 +908,7 @@ export default function SettingsScreen() {
 
       {/* Blades introduction — kör den guidade rundturen igen (matchar aktivt läge). */}
       <TouchableOpacity
-        onPress={() => useTourStore.getState().start(isDrone ? 'drone' : 'pilot')}
+        onPress={() => beginTour(isDrone ? 'drone' : 'pilot')}
         activeOpacity={0.8}
         style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }}
       >

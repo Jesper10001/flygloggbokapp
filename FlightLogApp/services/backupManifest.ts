@@ -18,7 +18,7 @@ export interface BackupManifest {
   platform: string;                  // 'ios'
   sourceDocumentDirectory: string;   // för URI-omskrivning vid restore till annan enhet
   counts: Record<string, number>;    // per kategori (för storage-vyn)
-  snapshot: BackupFileEntry;         // DB-snapshot (rel = 'snapshot.db')
+  snapshot: BackupFileEntry & { sha256?: string }; // DB-snapshot (rel = 'snapshot.db') + integritets-hash
   files: BackupFileEntry[];          // bifogade mediefiler (foton/cutouts) relativt documentDirectory
   totalBytes: number;
 }
@@ -46,6 +46,7 @@ export async function collectCounts(): Promise<Record<string, number>> {
 export function buildManifest(args: {
   counts: Record<string, number>;
   snapshotSize: number;
+  snapshotSha?: string;
   files: BackupFileEntry[];
   device: string;
   sourceDocumentDirectory: string;
@@ -59,7 +60,7 @@ export function buildManifest(args: {
     platform: Platform.OS,
     sourceDocumentDirectory: args.sourceDocumentDirectory,
     counts: args.counts,
-    snapshot: { rel: 'snapshot.db', size: args.snapshotSize },
+    snapshot: { rel: 'snapshot.db', size: args.snapshotSize, sha256: args.snapshotSha },
     files: args.files,
     totalBytes: args.snapshotSize + filesBytes,
   };

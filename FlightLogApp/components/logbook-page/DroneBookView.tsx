@@ -9,6 +9,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { DR } from '../../constants/droneTheme';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { useTourStore } from '../../store/tourStore';
+import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_BOOK } from '../../constants/tourDemoData';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import { getTemplate } from '../../constants/logbookTemplates';
@@ -27,11 +29,16 @@ const parseJson = <T,>(s: string | undefined, fallback: T): T => { try { return 
 export function DroneBookView({ accent, headerRight }: { accent: string; headerRight?: React.ReactNode }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { flights: droneFlights } = useDroneFlightStore();
+  const { flights: realDroneFlights } = useDroneFlightStore();
   const { timeFormat } = useTimeFormatStore();
+  // Blades introduction: DEMO drönar-bok (Remote Pilot Logbook) + demo-flygningar när rundturen kör och
+  // drönar-loggboken annars är tom. Inget rör DB.
+  const tourDemo = useTourStore((s) => s.demo);
+  const droneFlights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
 
   const [loading, setLoading] = useState(true);
-  const [books, setBooks] = useState<DigitalBook[]>([]);
+  const [booksState, setBooks] = useState<DigitalBook[]>([]);
+  const books = tourDemo ? [DEMO_DRONE_BOOK] : booksState;
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [dronesById, setDronesById] = useState<Map<number, { model: string; klass: string }>>(new Map());

@@ -58,6 +58,33 @@ export function assignFlightsToBooks(books: DigitalBook[], flights: Flight[]): B
   // Summeringsrader + dolda backfill-poster ('[BACKFILL]') är inte bokrader.
   const sorted = sortFlightsChrono(flights.filter((f) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]'));
 
+  // ── Enskild bok = den SENASTE boken. Fönstret SLUTAR vid ankar-flygningen (senaste flygningen,
+  //    placerad på anchor-sidan/raden) och fylls BAKÅT. Vid överspill faller de ÄLDSTA flygningarna
+  //    bort — de ligger i tidigare böcker vi inte bygger och blir brought-forward — INTE de senaste.
+  //    (Tidigare: kapacitetsfyllningen nedan tog alltid de FÖRSTA flygningarna från index 0, så en
+  //    ensam bok hamnade över de första timmarna i stället för de senaste.) */
+  if (ordered.length === 1) {
+    const book = ordered[0];
+    const rows = Math.max(1, book.rows_per_spread);
+    const spreadCap = bookSpreadCapacity(book);
+    const totalRowCap = spreadCap === Infinity ? Infinity : spreadCap * rows;
+    const ari = anchorRowIndex(book);
+    let anchorIdx = book.anchor_flight_id > 0 ? sorted.findIndex((f) => f.id === book.anchor_flight_id) : -1;
+    if (anchorIdx < 0) anchorIdx = Math.max(0, sorted.length - 1); // inget/borttaget ankare → senaste flygningen
+    // Global rad där ankar-flygningen ska sitta. Utan rad-ankare → sista möjliga raden (fyll till slutet).
+    const anchorRow = ari !== null
+      ? ari
+      : (totalRowCap === Infinity ? anchorIdx : Math.min(anchorIdx, totalRowCap - 1));
+    const leading = Math.max(0, anchorRow - anchorIdx);        // tomma rader överst om få flygningar
+    const start = Math.max(0, anchorIdx - anchorRow);          // hoppa över de äldsta (brought-forward) vid överspill
+    const rowCap = totalRowCap === Infinity ? Infinity : Math.max(0, totalRowCap - leading);
+    const take = rowCap === Infinity ? sorted.length - start : Math.min(sorted.length - start, rowCap);
+    const flightsSlice = sorted.slice(start, start + take);
+    const isFull = totalRowCap !== Infinity && leading + flightsSlice.length >= totalRowCap;
+    const overflowCount = Math.max(0, sorted.length - (start + take));
+    return [{ book, flights: flightsSlice, leadingEmptyRows: leading, isFull, overflowCount }];
+  }
+
   const anchorDriven = ordered.length > 1 && ordered.slice(1).every(
     (b) => b.anchor_flight_id > 0 && sorted.some((f) => f.id === b.anchor_flight_id),
   );

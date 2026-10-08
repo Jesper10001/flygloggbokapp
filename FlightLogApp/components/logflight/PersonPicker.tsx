@@ -27,11 +27,12 @@ const abbrev = (s: string) => {
 
 export function PersonPicker({
   name, roleKey, roleOptions, saved, byAircraft, currentAircraft, placeholder,
-  onPick, onChangeRole, onAddNew, onAddMore, onRemove, onToggle,
+  onPick, onChangeRole, onAddNew, onAddMore, onRemove, onToggle, hideRole,
 }: {
   name: string;
   roleKey: string;
   roleOptions: RoleOpt[];
+  hideRole?: boolean; // sim: visa bara namn (ingen roll-pill/dropdown)
   saved: SavedPerson[];
   byAircraft?: AircraftPilots[];
   currentAircraft?: string;
@@ -95,7 +96,8 @@ export function PersonPicker({
   return (
     <View style={{ position: 'relative', zIndex: (nameOpen || roleOpen) ? 30 : undefined }}>
       <View style={{ flexDirection: 'row', gap: 6, alignItems: 'stretch' }}>
-        {/* roll-pill */}
+        {/* roll-pill (dold i sim) */}
+        {!hideRole && (
         <TouchableOpacity
           onPress={() => openRole(!roleOpen)}
           activeOpacity={0.75}
@@ -107,6 +109,7 @@ export function PersonPicker({
             : <Ionicons name="person" size={15} color="#FFFFFF" />}
           <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
         </TouchableOpacity>
+        )}
 
         {/* namn-ruta: tryck öppnar listan direkt (ingen sökning). Visar HELA valda namnet. */}
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 11, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10 }}>
@@ -202,8 +205,8 @@ export function PersonPicker({
         </View>
       )}
 
-      {/* roll-picker dropdown */}
-      {roleOpen && (
+      {/* roll-picker dropdown (dold i sim) */}
+      {!hideRole && roleOpen && (
         <View style={[styles.flyout, { left: 0, width: 170 }]}>
           {[{ key: '', short: '', label: '— Clear' }, ...roleOptions].map((opt) => (
             <TouchableOpacity key={opt.key || 'clear'} onPress={() => { onChangeRole(opt.key); openRole(false); }} activeOpacity={0.7}

@@ -20,6 +20,7 @@ import {
 } from '../../db/drones';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { enrichDroneFleet } from '../../services/droneLookup';
+import { useTourStore } from '../../store/tourStore';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
@@ -68,6 +69,7 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   const [aspect, setAspect] = useState(1.5);
   const [cutout, setCutout] = useState<string | null>(m.cutout_url || null);
   const [fetching, setFetching] = useState(false);
+  const tourDemo = useTourStore((s) => s.demo);
   const [showPremium, setShowPremium] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [regs, setRegs] = useState<{ registration: string; drone_id: number; hours: number; flightCount: number }[]>([]);
@@ -110,6 +112,8 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   // Bildaspekt + subject-lift-urklipp (cachas) — samma som pilot FleetCard.
   useEffect(() => {
     let alive = true;
+    // Demo (Blades introduction): visa bannerbilden som den är, generera/spara ALDRIG cutout (rör ej DB/fil).
+    if (tourDemo) { setCutout(null); if (m.image_url) Image.getSize(m.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {}); return () => { alive = false; }; }
     if (!m.image_url) { setCutout(null); return; }
     Image.getSize(m.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {});
     (async () => {
@@ -221,7 +225,8 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   const makerLine = m.manufacturer || '';
   // Reload/hämta-knappen visas BARA när kortet är ofullständigt (saknar bild ELLER kärndata) →
   // syftet blir att försöka hämta igen om första hämtningen misslyckades.
-  const needsFetch = !m.image_url || !m.manufacturer || !m.mtow_g || !m.max_flight_min || !m.max_speed_kmh || !m.ceiling_m || !m.range_km;
+  // Blades introduction: demo-kortet har redan fulla specs → visa ALDRIG "Fetch"-prompten.
+  const needsFetch = !tourDemo && (!m.image_url || !m.manufacturer || !m.mtow_g || !m.max_flight_min || !m.max_speed_kmh || !m.ceiling_m || !m.range_km);
 
   const ZOOM = 1.05;
   const imgW = cw * ZOOM;

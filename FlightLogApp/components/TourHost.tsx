@@ -10,7 +10,7 @@ import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { useTourStore } from '../store/tourStore';
+import { useTourStore, beginTour } from '../store/tourStore';
 import { TOURS } from '../constants/tourSteps';
 import { useFlightStore } from '../store/flightStore';
 import { useToastStore } from './Toast';
@@ -129,7 +129,7 @@ export function TourHost() {
     const m = promptMode;
     return (
       <TourPrompt
-        onYes={() => { setPrompt(null); start(m); }}
+        onYes={() => { setPrompt(null); beginTour(m); }}
         onLater={() => { setPrompt(null); useToastStore.getState().show(REPLAY_HINT); }}
       />
     );

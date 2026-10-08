@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState, Image, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +36,34 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useAppLockStore } from '../store/appLockStore';
 import { useTourStore } from '../store/tourStore';
 import { useICloudStore } from '../store/icloudStore';
-import { isEnabled as icloudEnabled } from '../services/icloudSync';
+import { isEnabled as icloudEnabled, hasRestorableBackup, restoreNow as icloudRestore } from '../services/icloudSync';
+import type { BackupManifest } from '../services/backupManifest';
+
+// Erbjud återställning från en hittad iCloud-backup vid nyinstallation. Returnerar true om data
+// återställdes (→ hoppa onboarding och gå direkt in i appen).
+function offerICloudRestore(m: BackupManifest): Promise<boolean> {
+  const when = (() => { try { return new Date(m.createdAt).toLocaleDateString(); } catch { return ''; } })();
+  return new Promise<boolean>((resolve) => {
+    Alert.alert(
+      'Restore from iCloud?',
+      `We found an iCloud backup from ${m.device}${when ? ` (${when})` : ''}. Restore all your data to this device?`,
+      [
+        { text: 'Set up as new', style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            try { await icloudRestore(); resolve(true); }
+            catch (e: any) {
+              Alert.alert('Restore failed', e?.message ?? 'Could not restore from iCloud. You can try again later from Settings.');
+              resolve(false);
+            }
+          },
+        },
+      ],
+      { cancelable: false },
+    );
+  });
+}
 
 export default function RootLayout() {
   const router = useRouter();
@@ -129,6 +156,16 @@ export default function RootLayout() {
         const onboarded = await getSetting('has_onboarded');
         // Wait for layout to mount before navigating
         await new Promise(r => setTimeout(r, 500));
+        // Nyinstallation/enhetsbyte: finns en iCloud-backup → erbjud att hämta hem allt INNAN onboarding
+        // (annars skulle man sätta upp en profil och sedan skriva över den vid restore).
+        if (!onboarded) {
+          const backup = await hasRestorableBackup().catch(() => null);
+          if (backup && await offerICloudRestore(backup)) {
+            const m2 = useAppModeStore.getState().mode;
+            router.replace((m2 === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)') as any);
+            return;
+          }
+        }
         // Drönarläge → navigera EXPLICIT till drönar-dashboarden. '/(tabs)' löser sig annars
         // till ankaret 'index' (manned, href:null i drönarläge) → svart skärm vid omstart.
         const dest = !onboarded ? '/onboarding' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');

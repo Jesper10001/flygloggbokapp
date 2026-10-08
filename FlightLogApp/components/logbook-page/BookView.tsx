@@ -8,6 +8,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
+import { useTourStore } from '../../store/tourStore';
+import { DEMO_FLIGHTS, DEMO_BOOK } from '../../constants/tourDemoData';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import { getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn } from '../../constants/logbookTemplates';
@@ -36,11 +38,16 @@ function applyCustomCols(template: LogbookTemplate, customCols: Record<string, s
 export function BookView({ accent, headerRight }: { accent: string; headerRight?: React.ReactNode }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { flights } = useFlightStore();
+  const { flights: realFlights } = useFlightStore();
   const { timeFormat } = useTimeFormatStore();
+  // Blades introduction: visa en byggd DEMO-bok (Professional Pilot Logbook) + demo-flygningar när
+  // rundturen kör och loggboken annars är tom. Inget rör DB.
+  const tourDemo = useTourStore((s) => s.demo);
+  const flights = tourDemo ? DEMO_FLIGHTS : realFlights;
 
   const [loading, setLoading] = useState(true);
-  const [books, setBooks] = useState<DigitalBook[]>([]);
+  const [booksState, setBooks] = useState<DigitalBook[]>([]);
+  const books = tourDemo ? [DEMO_BOOK] : booksState;
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [idx, setIdx] = useState(0);

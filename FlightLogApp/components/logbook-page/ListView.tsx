@@ -7,9 +7,10 @@ import type { Flight } from '../../types/flight';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { roleLabel } from './flightDisplay';
 import { YearMonthAccordion } from './YearMonthAccordion';
+import { useTourStore } from '../../store/tourStore';
 import { HeatmapCalendar } from '../insights/ActivitySection';
 
-const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['photo', 'Photo']];
+const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['sim', 'Simulator'], ['photo', 'Photo']];
 
 export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight, focusDate, focusStart, focusEnd, focusNonce }: {
   flights: Flight[]; accent: string; placeNames: Record<string, string>;
@@ -18,6 +19,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
 }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
+  const tourDemo = useTourStore((s) => s.demo);
   const scrollRef = useRef<ScrollView>(null);
   const [viewportH, setViewportH] = useState(0); // synlig höjd på list-scrollen (för att centrera fokus-dagen)
 
@@ -29,6 +31,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       if (filter === 'pic' && roleLabel(f) !== 'PIC') return false;
       if (filter === 'ifr' && !(f.ifr > 0)) return false;
       if (filter === 'night' && !(f.night > 0)) return false;
+      if (filter === 'sim' && f.flight_type !== 'sim') return false;
       if (filter === 'photo' && !(f.photo_uri || f.photo_local_id)) return false; // inkl. synkade + videor
       if (ql) {
         const hay = `${f.dep_place} ${f.arr_place} ${f.dep_place_raw || ''} ${f.arr_place_raw || ''} ${placeNames[f.dep_place] || ''} ${placeNames[f.arr_place] || ''} ${f.registration} ${f.aircraft_type} ${roleLabel(f)}`.toLowerCase();
@@ -38,7 +41,8 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
     });
   }, [sorted, q, filter, placeNames]);
 
-  const forceOpen = !!q.trim() || filter !== 'all';
+  // I Blades introduction: expandera hela översikten direkt så demo-flygningarna syns.
+  const forceOpen = !!q.trim() || filter !== 'all' || tourDemo;
   const photoMode = filter === 'photo';
 
   return (

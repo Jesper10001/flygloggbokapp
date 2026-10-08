@@ -13,6 +13,8 @@ import Svg, { Polygon, Text as SvgText, G } from 'react-native-svg';
 import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { useTourStore } from '../../store/tourStore';
+import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS } from '../../constants/tourDemoData';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
   getDroneFleetByModel, addDrone, persistDroneModelLookup,
@@ -49,7 +51,9 @@ export default function DroneLog() {
   const router = useRouter();
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
-  const { flights, loadFlights } = useDroneFlightStore();
+  const { flights: realDroneFlights, loadFlights } = useDroneFlightStore();
+  const tourDemo = useTourStore((s) => s.demo);
+  const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
   const [tab, setTab] = useState<'flights' | 'book' | 'fleet'>('flights');
 
   // Djuplänk till Fleet-fliken (t.ex. efter CSV-import: /(tabs)/drone-log?view=fleet) — = pilotens loggbok.
@@ -110,6 +114,7 @@ function FlightsTab({ flights, accent, onOpen }: {
 }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const tourDemo = useTourStore((s) => s.demo);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -125,7 +130,8 @@ function FlightsTab({ flights, accent, onOpen }: {
     });
   }, [flights, query, filter]);
 
-  const forceOpen = !!query.trim() || filter !== 'all';
+  // Blades introduction: expandera hela översikten så demo-flygningarna syns direkt.
+  const forceOpen = !!query.trim() || filter !== 'all' || tourDemo;
 
   return (
     <View style={{ flex: 1 }}>
@@ -482,7 +488,10 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
 }
 
 function FleetTab({ accent }: { accent: string }) {
-  const [models, setModels] = useState<DroneModelFleet[]>([]);
+  const [modelsState, setModels] = useState<DroneModelFleet[]>([]);
+  // Blades introduction: DEMO-fleet när rundturen kör och fleet annars är tom. Inget rör DB.
+  const tourDemo = useTourStore((s) => s.demo);
+  const models = tourDemo ? DEMO_DRONE_MODELS : modelsState;
   const [showAdd, setShowAdd] = useState(false); // "Add drone" → smart search (= Log Flight)
   const [pageIdx, setPageIdx] = useState(0);
   const carouselRef = useRef<ScrollView>(null);

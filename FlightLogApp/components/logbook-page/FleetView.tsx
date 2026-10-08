@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { getAllAircraftTypes, addAircraftTypeToRegistry, persistAircraftFleetLookup, type AircraftRegistryEntry } from '../../db/flights';
+import { useTourStore } from '../../store/tourStore';
+import { DEMO_AIRCRAFT } from '../../constants/tourDemoData';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { AircraftModal } from '../AircraftModal';
@@ -14,7 +16,10 @@ import { FleetCard } from './FleetCard';
 const PAGE_W = Dimensions.get('window').width - 28; // karusell-sidbredd (matchar tidigare fullbreddskort)
 
 export function FleetView({ accent, headerRight }: { accent: string; headerRight?: React.ReactNode }) {
-  const [fleet, setFleet] = useState<AircraftRegistryEntry[]>([]);
+  const [fleetState, setFleet] = useState<AircraftRegistryEntry[]>([]);
+  // Blades introduction: visa en DEMO-fleet när rundturen kör och fleet annars är tom. Inget rör DB.
+  const tourDemo = useTourStore((s) => s.demo);
+  const fleet = tourDemo ? DEMO_AIRCRAFT : fleetState;
   const [adding, setAdding] = useState(false);
   const [pageIdx, setPageIdx] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
