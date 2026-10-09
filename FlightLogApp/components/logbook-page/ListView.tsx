@@ -7,6 +7,7 @@ import type { Flight } from '../../types/flight';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { roleLabel } from './flightDisplay';
 import { YearMonthAccordion } from './YearMonthAccordion';
+import { LogbookEmptyCTA } from './LogbookEmptyCTA';
 import { useTourStore } from '../../store/tourStore';
 import { HeatmapCalendar } from '../insights/ActivitySection';
 
@@ -78,12 +79,17 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       <ScrollView ref={scrollRef} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
         style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
         {filtered.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 20 }}>
-            <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 12, color: Colors.textMuted, marginTop: 10, textAlign: 'center' }}>
-              {q.trim() ? `No flights match "${q.trim()}"` : 'No flights yet'}
-            </Text>
-          </View>
+          flights.length === 0 ? (
+            // Ingen registrerad flygning alls → tre vägar in (försvinner så fort man har en flygning).
+            <LogbookEmptyCTA accent={accent} mode="pilot" />
+          ) : (
+            <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 20 }}>
+              <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
+              <Text style={{ fontFamily: FONT_MONO, fontSize: 12, color: Colors.textMuted, marginTop: 10, textAlign: 'center' }}>
+                {q.trim() ? `No flights match "${q.trim()}"` : 'No flights match this filter'}
+              </Text>
+            </View>
+          )
         ) : (
           <YearMonthAccordion flights={filtered} accent={accent} filter={filter} photoMode={photoMode}
             forceOpen={forceOpen} onOpenFlight={onOpenFlight} expandYear={expandYear} expandMonthKey={expandMonthKey}

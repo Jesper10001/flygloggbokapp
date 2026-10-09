@@ -21,6 +21,7 @@ import {
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { enrichDroneFleet } from '../../services/droneLookup';
 import { useTourStore } from '../../store/tourStore';
+import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
@@ -70,6 +71,8 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   const [cutout, setCutout] = useState<string | null>(m.cutout_url || null);
   const [fetching, setFetching] = useState(false);
   const tourDemo = useTourStore((s) => s.demo);
+  // Demo: bild + cutout (+ aspekt) hämtas av prefetch-storen (startar vid rundtursstart). Ingen DB-skrivning.
+  const demoEntry = useTourDemoImageStore((s) => (tourDemo ? s.byKey['drone:' + m.model] : undefined));
   const [showPremium, setShowPremium] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [regs, setRegs] = useState<{ registration: string; drone_id: number; hours: number; flightCount: number }[]>([]);
@@ -109,11 +112,19 @@ export function DroneFleetCard({ m, accent, onSaved }: {
     });
   }, [m.drone_type, m.mtow_g, m.range_km, m.max_flight_min, m.max_speed_kmh, m.ceiling_m, editing]);
 
+  // Demo (Blades introduction): starta prefetch (idempotent) och spegla in storens bild/cutout/aspekt i
+  // de lokala states som renderingen redan läser. Inget skrivs till DB.
+  useEffect(() => { if (tourDemo) useTourDemoImageStore.getState().prefetch(); }, [tourDemo]);
+  useEffect(() => {
+    if (!tourDemo) return;
+    setCutout(demoEntry?.cutout ?? null);
+    if (demoEntry?.aspect) setAspect(demoEntry.aspect);
+  }, [tourDemo, demoEntry]);
+
   // Bildaspekt + subject-lift-urklipp (cachas) — samma som pilot FleetCard.
   useEffect(() => {
     let alive = true;
-    // Demo (Blades introduction): visa bannerbilden som den är, generera/spara ALDRIG cutout (rör ej DB/fil).
-    if (tourDemo) { setCutout(null); if (m.image_url) Image.getSize(m.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {}); return () => { alive = false; }; }
+    if (tourDemo) return; // demo hanteras av effekten ovan
     if (!m.image_url) { setCutout(null); return; }
     Image.getSize(m.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {});
     (async () => {
@@ -227,6 +238,7 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   // syftet blir att försöka hämta igen om första hämtningen misslyckades.
   // Blades introduction: demo-kortet har redan fulla specs → visa ALDRIG "Fetch"-prompten.
   const needsFetch = !tourDemo && (!m.image_url || !m.manufacturer || !m.mtow_g || !m.max_flight_min || !m.max_speed_kmh || !m.ceiling_m || !m.range_km);
+  const bannerImg = tourDemo ? (demoEntry?.image ?? null) : m.image_url; // demo: live-hämtad bild (ej sparad)
 
   const ZOOM = 1.05;
   const imgW = cw * ZOOM;
@@ -241,10 +253,10 @@ export function DroneFleetCard({ m, accent, onSaved }: {
       {/* ── Banner: foto + urklipp som spiller över ── */}
       <View style={{ position: 'relative' }}>
         <View style={{ height: BANNER_H, overflow: 'hidden', backgroundColor: DR.elevated }}>
-          {m.image_url ? <Image source={{ uri: m.image_url }} style={imgStyle} /> : null}
+          {bannerImg ? <Image source={{ uri: bannerImg }} style={imgStyle} /> : null}
           <LinearGradient colors={[DR.surface + '00', DR.surface + '88', DR.surface]} locations={[0.38, 0.78, 1]}
             style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} pointerEvents="none" />
-          {!m.image_url ? (
+          {!bannerImg ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="hardware-chip-outline" size={26} color={DR.muted} />
             </View>

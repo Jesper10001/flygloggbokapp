@@ -1,17 +1,23 @@
 // DEMO-data för Blades introduction. Visas ENBART under rundturen (tourStore.demo === true), och bara
 // när den aktuella loggboken är helt tom. Swappas in vid RENDER — skrivs ALDRIG till databasen och syns
 // aldrig någon annanstans. Alla id:n är NEGATIVA så de aldrig kan krocka med riktiga rader.
-import { Image } from 'react-native';
 import type { Flight, FlightStats } from '../types/flight';
 import type { AircraftRegistryEntry } from '../db/flights';
 import type { DigitalBook } from '../db/digitalBooks';
 import type { DroneFlight, DroneStats, DroneModelFleet } from '../db/drones';
 
-// Bundlad asset → uri-sträng (för <Image source={{uri}}> i Fleet-korten). Tom sträng om det inte går.
-const assetUri = (mod: number): string => { try { return Image.resolveAssetSource(mod)?.uri ?? ''; } catch { return ''; } };
-const IMG_FIXEDWING = assetUri(require('../assets/Pilot-fixedwing.PNG'));
-const IMG_DRONE_COM = assetUri(require('../assets/Drone-commersial.PNG'));
-const IMG_DRONE_HOBBY = assetUri(require('../assets/Drone-hobby.PNG'));
+// Fleet-bilden hämtas i demo på SAMMA sätt som på riktigt (gratis Wikipedia-uppslag via
+// fetchAircraftImage/fetchDroneImage i FleetCard/DroneFleetCard) — inte en bundlad asset. Dessa
+// kandidat-titlar motsvarar det AI-uppslaget annars ger ('wiki_title' m.fl.).
+export const DEMO_AIRCRAFT_IMAGE_QUERIES: Record<string, string[]> = {
+  C172: ['Cessna 172', 'Cessna 172 Skyhawk'],
+  PA28: ['Piper PA-28 Cherokee', 'Piper PA-28'],
+  DA42: ['Diamond DA42', 'Diamond DA42 Twin Star'],
+};
+export const DEMO_DRONE_IMAGE_QUERIES: Record<string, string[]> = {
+  'Mavic 3 Enterprise': ['DJI Mavic 3', 'DJI Mavic'],
+  'Matrice 350 RTK': ['DJI Matrice 350 RTK', 'DJI Matrice 300'],
+};
 
 // ── Pilot (manned) ────────────────────────────────────────────────────────────
 
@@ -76,9 +82,9 @@ function mkAircraft(p: Partial<AircraftRegistryEntry>): AircraftRegistryEntry {
 
 // Specs är ifyllda (som efter en lyckad fleet-hämtning) → demo-kortet visar aldrig "Fetch".
 export const DEMO_AIRCRAFT: AircraftRegistryEntry[] = [
-  mkAircraft({ aircraft_type: 'DA42', maker: 'Diamond', category: 'MEP', engine_type: 'piston', image_url: IMG_FIXEDWING, total_hours: 4.7, flight_count: 2, reg_count: 1, top_registration: 'SE-MEL', top_registration_hours: 4.7, last_flown: '2026-10-04', first_flown: '2026-09-27', cruise_speed_kts: 170, endurance_h: 7, vne: 194, mtow: 1785, fuel_burn: 38, power_hp: 168, ceiling_ft: 18000, wingspan_m: 13.4, empty_weight_kg: 1420, fuel_capacity_l: 189, range_nm: 1200, rating_class: 'MEP' }),
-  mkAircraft({ aircraft_type: 'PA28', maker: 'Piper', category: 'SEP', engine_type: 'piston', image_url: IMG_FIXEDWING, total_hours: 4.1, flight_count: 2, reg_count: 1, top_registration: 'SE-KXY', top_registration_hours: 4.1, last_flown: '2026-09-13', first_flown: '2026-09-06', cruise_speed_kts: 124, endurance_h: 5, vne: 154, mtow: 1157, fuel_burn: 34, power_hp: 180, ceiling_ft: 14000, wingspan_m: 10.7, empty_weight_kg: 703, fuel_capacity_l: 182, range_nm: 610, rating_class: 'SEP' }),
-  mkAircraft({ aircraft_type: 'C172', maker: 'Cessna', category: 'SEP', engine_type: 'piston', image_url: IMG_FIXEDWING, total_hours: 5.3, flight_count: 4, reg_count: 1, top_registration: 'SE-ABC', top_registration_hours: 5.3, last_flown: '2026-10-08', first_flown: '2026-08-16', cruise_speed_kts: 122, endurance_h: 5, vne: 163, mtow: 1157, fuel_burn: 32, power_hp: 160, ceiling_ft: 13500, wingspan_m: 11, empty_weight_kg: 767, fuel_capacity_l: 212, range_nm: 640, rating_class: 'SEP' }),
+  mkAircraft({ aircraft_type: 'DA42', maker: 'Diamond', category: 'MEP', engine_type: 'piston', total_hours: 4.7, flight_count: 2, reg_count: 1, top_registration: 'SE-MEL', top_registration_hours: 4.7, last_flown: '2026-10-04', first_flown: '2026-09-27', cruise_speed_kts: 170, endurance_h: 7, vne: 194, mtow: 1785, fuel_burn: 38, power_hp: 168, ceiling_ft: 18000, wingspan_m: 13.4, empty_weight_kg: 1420, fuel_capacity_l: 189, range_nm: 1200, rating_class: 'MEP' }),
+  mkAircraft({ aircraft_type: 'PA28', maker: 'Piper', category: 'SEP', engine_type: 'piston', total_hours: 4.1, flight_count: 2, reg_count: 1, top_registration: 'SE-KXY', top_registration_hours: 4.1, last_flown: '2026-09-13', first_flown: '2026-09-06', cruise_speed_kts: 124, endurance_h: 5, vne: 154, mtow: 1157, fuel_burn: 34, power_hp: 180, ceiling_ft: 14000, wingspan_m: 10.7, empty_weight_kg: 703, fuel_capacity_l: 182, range_nm: 610, rating_class: 'SEP' }),
+  mkAircraft({ aircraft_type: 'C172', maker: 'Cessna', category: 'SEP', engine_type: 'piston', total_hours: 5.3, flight_count: 4, reg_count: 1, top_registration: 'SE-ABC', top_registration_hours: 5.3, last_flown: '2026-10-08', first_flown: '2026-08-16', cruise_speed_kts: 122, endurance_h: 5, vne: 163, mtow: 1157, fuel_burn: 32, power_hp: 160, ceiling_ft: 13500, wingspan_m: 11, empty_weight_kg: 767, fuel_capacity_l: 212, range_nm: 640, rating_class: 'SEP' }),
 ];
 
 // En byggd "Professional Pilot Logbook" (template-id 'easa-professional-pilot'), obegränsad (end_page 0).
@@ -132,8 +138,8 @@ function mkDroneModel(p: Partial<DroneModelFleet>): DroneModelFleet {
 
 // Specs ifyllda (som efter en lyckad fleet-hämtning) → demo-kortet visar aldrig "Fetch".
 export const DEMO_DRONE_MODELS: DroneModelFleet[] = [
-  mkDroneModel({ id: -1, model: 'Mavic 3 Enterprise', manufacturer: 'DJI', drone_type: 'multirotor', image_url: IMG_DRONE_HOBBY, mtow_g: 920, c_class: 'C2', max_flight_min: 45, max_speed_kmh: 75, ceiling_m: 6000, range_km: 15, total_hours: 1.8, flight_count: 4, reg_count: 1, last_flown: '2026-10-07', first_flown: '2026-08-20' }),
-  mkDroneModel({ id: -2, model: 'Matrice 350 RTK', manufacturer: 'DJI', drone_type: 'multirotor', image_url: IMG_DRONE_COM, mtow_g: 6300, c_class: '', max_flight_min: 55, max_speed_kmh: 82, ceiling_m: 7000, range_km: 20, total_hours: 1.5, flight_count: 2, reg_count: 1, last_flown: '2026-10-03', first_flown: '2026-09-15' }),
+  mkDroneModel({ id: -1, model: 'Mavic 3 Enterprise', manufacturer: 'DJI', drone_type: 'multirotor', mtow_g: 920, c_class: 'C2', max_flight_min: 45, max_speed_kmh: 75, ceiling_m: 6000, range_km: 15, total_hours: 1.8, flight_count: 4, reg_count: 1, last_flown: '2026-10-07', first_flown: '2026-08-20' }),
+  mkDroneModel({ id: -2, model: 'Matrice 350 RTK', manufacturer: 'DJI', drone_type: 'multirotor', mtow_g: 6300, c_class: '', max_flight_min: 55, max_speed_kmh: 82, ceiling_m: 7000, range_km: 20, total_hours: 1.5, flight_count: 2, reg_count: 1, last_flown: '2026-10-03', first_flown: '2026-09-15' }),
 ];
 
 // En byggd "Remote Pilot Logbook" (template-id 'sv-drone-logbook', 15 rader), obegränsad.

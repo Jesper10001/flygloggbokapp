@@ -83,7 +83,9 @@ export function TourHost() {
         if (cur0) { router.back(); openPageRef.current = null; await delay(480); if (!alive()) return; }
         if (step.tab) { router.navigate(buildTab(step.tab) as any); await delay(520); if (!alive()) return; }
         setGlobe(true, false, null); await delay(1600); if (!alive()) return;   // scrolla till globen + öppna globmenyn
-        setGlobe(true, true, 'KJFK'); await delay(3800); if (!alive()) return;  // öppna globala kartan + sök/zooma KJFK
+        // Kartan kör själv: skriv KJFK tecken-för-tecken → förslag → klicka → navigera. Dröj kvar en stund
+        // vid flygplatsen, stäng sedan. (Ingen väder-popup — nästlad modal gav svart skärm.)
+        setGlobe(true, true, 'KJFK'); await delay(6200); if (!alive()) return;
         setGlobe(false, false, null);                                           // stäng → kortet beskriver det man såg
         return;
       }

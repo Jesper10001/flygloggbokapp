@@ -73,7 +73,11 @@ export async function beginTour(mode: TourMode): Promise<void> {
          && (await listDigitalBooks('digital').catch(() => [1])).length === 0);
     // Rundturen kan ha hunnit stoppas → sätt bara demo om den fortfarande kör samma läge.
     const st = useTourStore.getState();
-    if (st.active && st.mode === mode) st.setDemo(empty);
+    if (st.active && st.mode === mode) {
+      st.setDemo(empty);
+      // Börja hämta fleet-bilderna direkt så de (+ cutout) är redo när man når Fleet-steget.
+      if (empty) { try { require('./tourDemoImageStore').useTourDemoImageStore.getState().prefetch(); } catch { /* valfritt */ } }
+    }
   } catch { /* vid fel: ingen demo (säkrast) */ }
 }
 

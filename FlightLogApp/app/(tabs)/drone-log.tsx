@@ -15,6 +15,7 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS } from '../../constants/tourDemoData';
+import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
   getDroneFleetByModel, addDrone, persistDroneModelLookup,
@@ -157,10 +158,15 @@ function FlightsTab({ flights, accent, onOpen }: {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         {filtered.length === 0 ? (
-          <View style={s.empty}>
-            <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
-            <Text style={s.emptyText}>{query.trim() ? `No flights match "${query.trim()}"` : 'No drone flights yet'}</Text>
-          </View>
+          flights.length === 0 ? (
+            // Ingen registrerad flygning alls → tre vägar in (försvinner så fort man har en flygning).
+            <LogbookEmptyCTA accent={accent} mode="drone" />
+          ) : (
+            <View style={s.empty}>
+              <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
+              <Text style={s.emptyText}>{query.trim() ? `No flights match "${query.trim()}"` : 'No flights match this filter'}</Text>
+            </View>
+          )
         ) : (
           <DroneYearMonthAccordion flights={filtered} accent={accent} forceOpen={forceOpen} onOpen={onOpen} />
         )}

@@ -434,12 +434,25 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // News: när vald flygplats stängs (X / auto-avmarkering) slutar "Back to news" gälla.
   useEffect(() => { if (!focusAirport) setCameFromNews(false); }, [focusAirport]);
 
-  // Blades introduction: rundturen ber kartan söka + zooma till en ICAO (demo: KJFK) vid öppning.
+  // Blades introduction: rundturen demonstrerar sökningen LÅNGSAMT — skriv in ICAO (demo: KJFK) tecken för
+  // tecken (förslag dyker upp), "klicka" på träffen → navigera dit, vänta en stund vid flygplatsen.
+  // (Väder-popupen öppnas INTE i demon — en nästlad modal gav svart skärm när kartan stängdes.)
   const tourSearchIcao = useTourStore((s) => s.mapSearchIcao);
   useEffect(() => {
     if (!visible || !tourSearchIcao || seedData.length === 0) return;
-    const t = setTimeout(() => { setMapSearch(tourSearchIcao); focusByIcao(tourSearchIcao); }, 900);
-    return () => clearTimeout(t);
+    let alive = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    (async () => {
+      const icao = tourSearchIcao.toUpperCase();
+      await sleep(900); if (!alive) return;
+      for (let i = 1; i <= icao.length; i++) {      // skriv tecken för tecken → förslagen fylls på
+        setMapSearch(icao.slice(0, i));
+        await sleep(520); if (!alive) return;
+      }
+      await sleep(900); if (!alive) return;         // låt hela förslagslistan synas
+      focusByIcao(icao); setMapSearch('');          // "klicka" på träffen → navigera dit, dölj listan
+    })();
+    return () => { alive = false; };
   }, [visible, tourSearchIcao, seedData.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Land: exakt 1 (filtrerad) träff → direkt till flygplatsen; annars → region-drill-rot.
   const handleSelectCountry = (cc: string) => {

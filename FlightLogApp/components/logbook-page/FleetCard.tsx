@@ -12,6 +12,7 @@ import type { AircraftRegistryEntry } from '../../db/flights';
 import { getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { useTourStore } from '../../store/tourStore';
+import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { PremiumModal } from '../PremiumModal';
@@ -60,6 +61,8 @@ export function FleetCard({ ac, accent, onSaved }: {
   const [showPremium, setShowPremium] = useState(false);
   const { isPremium, isMax } = useFlightStore();
   const tourDemo = useTourStore((s) => s.demo);
+  // Demo: bild + cutout (+ aspekt) hämtas av prefetch-storen (startar vid rundtursstart). Ingen DB-skrivning.
+  const demoEntry = useTourDemoImageStore((s) => (tourDemo ? s.byKey['ac:' + ac.aircraft_type] : undefined));
   const [regs, setRegs] = useState<{ registration: string; hours: number; flightCount: number }[]>([]);
   // Namnbyten på registreringar i redigeringsläge: gammalt namn → nytt fritextvärde.
   const [regEdits, setRegEdits] = useState<Record<string, string>>({});
@@ -93,11 +96,19 @@ export function FleetCard({ ac, accent, onSaved }: {
     });
   }, [ac.vne, ac.cruise_speed_kts, ac.ceiling_ft, ac.mtow, ac.empty_weight_kg, ac.fuel_capacity_l, ac.range_nm, ac.endurance_h, ac.fuel_burn, editing]);
 
+  // Demo (Blades introduction): starta prefetch (idempotent) och spegla in storens bild/cutout/aspekt i
+  // de lokala states som renderingen redan läser. Inget skrivs till DB.
+  useEffect(() => { if (tourDemo) useTourDemoImageStore.getState().prefetch(); }, [tourDemo]);
+  useEffect(() => {
+    if (!tourDemo) return;
+    setCutout(demoEntry?.cutout ?? null);
+    if (demoEntry?.aspect) setAspect(demoEntry.aspect);
+  }, [tourDemo, demoEntry]);
+
   // Bildaspekt (för banner-/cutout-skalning) + subject-lift-urklipp (cachas).
   useEffect(() => {
     let alive = true;
-    // Demo (Blades introduction): visa bannerbilden som den är, generera/spara ALDRIG cutout (rör ej DB/fil).
-    if (tourDemo) { setCutout(null); if (ac.image_url) Image.getSize(ac.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {}); return () => { alive = false; }; }
+    if (tourDemo) return; // demo hanteras av effekten ovan
     if (!ac.image_url) { setCutout(null); return; }
     Image.getSize(ac.image_url, (w, h) => { if (alive && h > 0) setAspect(w / h); }, () => {});
     (async () => {
@@ -196,6 +207,7 @@ export function FleetCard({ ac, accent, onSaved }: {
   // syftet blir att försöka hämta igen om första hämtningen misslyckades.
   // Blades introduction: demo-kortet har redan fulla specs → visa ALDRIG "Fetch"-prompten.
   const needsFetch = !tourDemo && (!ac.image_url || !ac.maker || !ac.vne || !ac.cruise_speed_kts || !ac.mtow || !ac.ceiling_ft || !ac.range_nm);
+  const bannerImg = tourDemo ? (demoEntry?.image ?? null) : ac.image_url; // demo: live-hämtad bild (ej sparad)
 
   // Lätt utzoomning (1.05×) så hela farkosten syns; vertikalt centrerad med liten
   // uppåt-bias så motivet (cutout) ändå spiller något nedåt över kortkanten.
@@ -230,10 +242,10 @@ export function FleetCard({ ac, accent, onSaved }: {
       {/* ── Banner: foto (Layer A) + urklipp som spiller över (Layer B) ── */}
       <View style={{ position: 'relative' }}>
         <View style={{ height: BANNER_H, overflow: 'hidden', backgroundColor: Colors.elevated }}>
-          {ac.image_url ? <Image source={{ uri: ac.image_url }} style={imgStyle} /> : null}
+          {bannerImg ? <Image source={{ uri: bannerImg }} style={imgStyle} /> : null}
           <LinearGradient colors={[Colors.card + '00', Colors.card + '88', Colors.card]} locations={[0.38, 0.78, 1]}
             style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} pointerEvents="none" />
-          {!ac.image_url ? (
+          {!bannerImg ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="airplane-outline" size={26} color={Colors.textMuted} />
             </View>
