@@ -223,7 +223,7 @@ public class ICloudSyncModule: Module {
       self.io.async {
         if #available(iOS 15, *) {
           let cids = cloudIds.map { PHCloudIdentifier(stringValue: $0) }
-          let mapping = PHPhotoLibrary.shared().localIdentifierMappings(forCloudIdentifiers: cids)
+          let mapping = PHPhotoLibrary.shared().localIdentifierMappings(for: cids)
           var out: [String: String] = [:]
           for (cid, result) in mapping {
             if case .success(let lid) = result { out[cid.stringValue] = lid }
