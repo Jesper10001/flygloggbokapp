@@ -4,12 +4,13 @@
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
 import { AirportInfoCard } from './AirportInfoCard';
+import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
@@ -23,7 +24,7 @@ import {
   leavesFor, keysNeedRunway, propsActive, matchProps,
   filterCountLabel, EMPTY_PROPS, type MapProps,
 } from '../constants/mapFilters';
-import { fetchMetarsInBbox, categoryColor, type FlightCat } from '../services/weather';
+import { fetchMetarsInBbox, categoryColor, type FlightCat, type AirportMetar } from '../services/weather';
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
@@ -113,6 +114,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [mapSearch, setMapSearch] = useState('');
   const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null);
+  const [flyTo, setFlyTo] = useState(false);               // "Fly to XXXX" → plan-overlay (rutt/distans/förbrukning)
+  const [flyToFrozen, setFlyToFrozen] = useState(false);   // fryser snippet-markörerna strax före avmontering (ingen kart-krasch)
+  const [flyToMetar, setFlyToMetar] = useState<AirportMetar | null>(null); // vind från kortet → aktiv bana i snippeten
+  const flyToTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);      // Global map → News-rutan
   const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
@@ -408,6 +413,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
+    setFlyTo(false); setFlyToFrozen(false);
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     clearWeather();
@@ -431,8 +437,23 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const r = seedData.find((x) => x[0] === icao);
     if (r) setFocusAirport(r);
   };
-  // News: när vald flygplats stängs (X / auto-avmarkering) slutar "Back to news" gälla.
-  useEffect(() => { if (!focusAirport) setCameFromNews(false); }, [focusAirport]);
+
+  // "Fly to XXXX": öppnar plan-overlayn (rutt/distans/förbrukning) ovanpå kartan. Stängs i tre steg som
+  // Find airport — frys snippet-markörerna, avmontera MapView:n nästa frame — så react-native-maps inte
+  // rivs mitt i en aktiv tracksViewChanges (kraschar annars native-kartan på iOS).
+  const openFlyTo = () => { setFlyToFrozen(false); setFlyToMetar(null); setFlyTo(true); };
+  const closeFlyTo = () => {
+    setFlyToFrozen(true);
+    requestAnimationFrame(() => {
+      if (flyToTimer.current) clearTimeout(flyToTimer.current);
+      flyToTimer.current = setTimeout(() => { setFlyTo(false); setFlyToMetar(null); flyToTimer.current = null; }, 90);
+    });
+  };
+  useEffect(() => () => { if (flyToTimer.current) clearTimeout(flyToTimer.current); }, []);
+
+  // News: när vald flygplats stängs (X / auto-avmarkering) slutar "Back to news" gälla. Plan-overlayn
+  // stängs också direkt (ingen flygplats kvar att flyga till).
+  useEffect(() => { if (!focusAirport) { setCameFromNews(false); setFlyTo(false); setFlyToFrozen(false); } }, [focusAirport]);
 
   // Blades introduction: rundturen demonstrerar sökningen LÅNGSAMT — skriv in ICAO (demo: KJFK) tecken för
   // tecken (förslag dyker upp), "klicka" på träffen → navigera dit, vänta en stund vid flygplatsen.
@@ -656,42 +677,73 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </View>
         )}
 
-        {/* Land-sökruta: öppnas efter att en väderkategori valts. Progressiv (engelska) landsträffar. */}
-        <Modal visible={countryPickerFor != null} transparent animationType="fade" onRequestClose={() => setCountryPickerFor(null)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setCountryPickerFor(null)}
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', paddingHorizontal: 24 }}>
-            <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.cpSheet}>
-              <View style={styles.cpHeader}>
-                {countryPickerFor === 'ALL'
-                  ? <View style={{ flexDirection: 'row', gap: 3 }}>{WX_CATS.map((cat) => <View key={cat} style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />)}</View>
-                  : countryPickerFor ? <View style={[styles.wxDot, { backgroundColor: categoryColor(countryPickerFor) }]} /> : null}
-                <Text style={styles.cpTitle}>{countryPickerFor === 'ALL' ? 'All stations · choose country' : countryPickerFor ? `≥ ${countryPickerFor} · choose country` : 'Choose country'}</Text>
-              </View>
-              <TextInput
-                value={countryQuery}
-                onChangeText={setCountryQuery}
-                placeholder="Type a country name…"
-                placeholderTextColor={Colors.textMuted}
-                autoFocus
-                autoCorrect={false}
-                style={styles.cpInput}
-              />
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
-                {countryMatches.length === 0 && (
-                  <Text style={styles.cpEmpty}>No matching country</Text>
-                )}
-                {countryMatches.map((c) => (
-                  <TouchableOpacity key={c.cc} activeOpacity={0.7} style={styles.cpRow}
-                    onPress={() => { Keyboard.dismiss(); if (countryPickerFor) runWeatherSearch(countryPickerFor, c.cc); }}>
-                    <CountryFlag code={c.cc} height={14} />
-                    <Text style={styles.cpName} numberOfLines={1}>{c.name}</Text>
-                    <Text style={styles.cpCc}>{c.cc}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+        {/* Land-sökruta: öppnas efter att en väderkategori valts. Progressiv (engelska) landsträffar.
+            OVERLAY (ej nästlad Modal) → ingen native modal ovanpå MapView:n (undviker iOS-kart-frysning). */}
+        {countryPickerFor != null && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 60 }]}>
+            <TouchableOpacity activeOpacity={1} onPress={() => setCountryPickerFor(null)}
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', paddingHorizontal: 24 }}>
+              <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.cpSheet}>
+                <View style={styles.cpHeader}>
+                  {countryPickerFor === 'ALL'
+                    ? <View style={{ flexDirection: 'row', gap: 3 }}>{WX_CATS.map((cat) => <View key={cat} style={[styles.wxDot, { backgroundColor: categoryColor(cat) }]} />)}</View>
+                    : countryPickerFor ? <View style={[styles.wxDot, { backgroundColor: categoryColor(countryPickerFor) }]} /> : null}
+                  <Text style={styles.cpTitle}>{countryPickerFor === 'ALL' ? 'All stations · choose country' : countryPickerFor ? `≥ ${countryPickerFor} · choose country` : 'Choose country'}</Text>
+                </View>
+                <TextInput
+                  value={countryQuery}
+                  onChangeText={setCountryQuery}
+                  placeholder="Type a country name…"
+                  placeholderTextColor={Colors.textMuted}
+                  autoFocus
+                  autoCorrect={false}
+                  style={styles.cpInput}
+                />
+                <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
+                  {countryMatches.length === 0 && (
+                    <Text style={styles.cpEmpty}>No matching country</Text>
+                  )}
+                  {countryMatches.map((c) => (
+                    <TouchableOpacity key={c.cc} activeOpacity={0.7} style={styles.cpRow}
+                      onPress={() => { Keyboard.dismiss(); if (countryPickerFor) runWeatherSearch(countryPickerFor, c.cc); }}>
+                      <CountryFlag code={c.cc} height={14} />
+                      <Text style={styles.cpName} numberOfLines={1}>{c.name}</Text>
+                      <Text style={styles.cpCc}>{c.cc}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+          </View>
+        )}
+
+        {/* Datakälla / friskrivning — OVERLAY på rot-nivå (ej nästlad Modal → ingen iOS-kart-frysning). */}
+        {dataInfoOpen && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 60 }]}>
+            <TouchableOpacity activeOpacity={1} onPress={() => setDataInfoOpen(false)}
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <TouchableOpacity activeOpacity={1} onPress={() => {}}
+                style={{ width: '100%', maxWidth: 400, backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, padding: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Ionicons name="information-circle" size={20} color={Colors.primary} />
+                  <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', flex: 1 }}>Airport data</Text>
+                  <TouchableOpacity onPress={() => setDataInfoOpen(false)} hitSlop={8}>
+                    <Ionicons name="close" size={20} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
+                  Airport locations, types, runways and other details are compiled from public, open-data aviation sources (including airportmap.de).
+                </Text>
+                <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 10 }}>
+                  <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>Last updated: </Text>September 2026.
+                </Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>
+                  This data is provided for general reference only and may be incomplete, outdated or inaccurate. It is not for navigation. Always verify against official aeronautical information (AIP/NOTAM) and current charts before flight. Blades accepts no liability for any errors or omissions.
+                </Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stäng — uppe till höger */}
         <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
@@ -707,6 +759,16 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               focusAirport ? { top: insets.top + 12, left: 12 } : { bottom: 24, left: 12 }]}>
             <Ionicons name="chevron-back" size={16} color={Colors.primary} />
             <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>Back</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* "Fly to XXXX" — under Back (vid flygplatsfokus). Öppnar plan-overlayn med rutt/distans/förbrukning
+            från min position (samma panel som Find airport "Closest to me"). */}
+        {focusAirport && !flyTo && (
+          <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85}
+            style={{ position: 'absolute', zIndex: 25, top: insets.top + 12 + 44, left: 12, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' }}>
+            <Ionicons name="navigate" size={15} color={Colors.primary} />
+            <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>Fly to {focusAirport[0]}</Text>
           </TouchableOpacity>
         )}
 
@@ -806,31 +868,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   </TouchableOpacity>
                 </View>
 
-                {/* ── Datakälla / friskrivning ── */}
-                <Modal visible={dataInfoOpen} transparent animationType="fade" onRequestClose={() => setDataInfoOpen(false)}>
-                  <TouchableOpacity activeOpacity={1} onPress={() => setDataInfoOpen(false)}
-                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                    <TouchableOpacity activeOpacity={1} onPress={() => {}}
-                      style={{ width: '100%', maxWidth: 400, backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, padding: 20 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <Ionicons name="information-circle" size={20} color={Colors.primary} />
-                        <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', flex: 1 }}>Airport data</Text>
-                        <TouchableOpacity onPress={() => setDataInfoOpen(false)} hitSlop={8}>
-                          <Ionicons name="close" size={20} color={Colors.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
-                        Airport locations, types, runways and other details are compiled from public, open-data aviation sources (including airportmap.de).
-                      </Text>
-                      <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 10 }}>
-                        <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>Last updated: </Text>September 2026.
-                      </Text>
-                      <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>
-                        This data is provided for general reference only and may be incomplete, outdated or inaccurate. It is not for navigation. Always verify against official aeronautical information (AIP/NOTAM) and current charts before flight. Blades accepts no liability for any errors or omissions.
-                      </Text>
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                </Modal>
+                {/* Datakälla/friskrivning visas som overlay på rot-nivå (längre ned) — ej nästlad Modal. */}
 
                 {propsOpen && (
                   <View style={styles.propsPanel}>
@@ -948,6 +986,39 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           );
         })()}
 
+        {/* "Fly to XXXX" plan-overlay: flygplatskortet + bank-snippet med min position + rutt/distans/
+            förbrukning. OVERLAY (ej nästlad Modal → ingen iOS-kart-frysning); nästan opak botten döljer
+            huvudkartan. Ligger under flight-detaljen (zIndex 70) men över allt annat. */}
+        {flyTo && focusAirport && (
+          <Pressable onPress={closeFlyTo}
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(3,8,18,0.94)', zIndex: 66, justifyContent: 'center', paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+            <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 440, alignSelf: 'center' }}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10 }}>
+                <AirportInfoCard
+                  icao={focusAirport[0]}
+                  name={focusAirport[1]}
+                  country={focusAirport[2]}
+                  iata={focusAirport[6]}
+                  alt={focusAirport[7]}
+                  type={focusAirport[8]}
+                  accent={Colors.primary}
+                  onClose={closeFlyTo}
+                  onMetar={setFlyToMetar}
+                  freqStats
+                />
+                <AirportNavPanel
+                  icao={focusAirport[0]}
+                  lat={focusAirport[4]}
+                  lon={focusAirport[5]}
+                  accent={Colors.primary}
+                  frozen={flyToFrozen}
+                  metar={flyToMetar}
+                />
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        )}
+
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
         <IncidentNewsOverlay
           visible={newsOpen}
@@ -957,17 +1028,16 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           onUpgrade={() => { setNewsOpen(false); presentPaywall('Flight incident news'); }}
         />
 
-        {/* Flight-detalj som overlay OVANPÅ kartan (nästlad Modal) → stäng återgår hit, kartan bevaras. */}
+        {/* Flight-detalj som OVERLAY ovanpå kartan (ej nästlad Modal → ingen iOS-kart-frysning). Opak
+            bakgrund täcker kartan helt; stäng återgår hit, kartans vy bevaras. */}
         {detailFlightId != null && (
-          <Modal visible animationType="slide" onRequestClose={() => setDetailFlightId(null)}>
-            <View style={{ flex: 1, backgroundColor: Colors.background, paddingTop: insets.top }}>
-              <FlightDetailView
-                id={detailFlightId}
-                onBack={() => setDetailFlightId(null)}
-                onEdit={(fid) => { setDetailFlightId(null); closeMap(); router.push(`/flight/add?editId=${fid}` as any); }}
-              />
-            </View>
-          </Modal>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background, paddingTop: insets.top, zIndex: 70 }]}>
+            <FlightDetailView
+              id={detailFlightId}
+              onBack={() => setDetailFlightId(null)}
+              onEdit={(fid) => { setDetailFlightId(null); closeMap(); router.push(`/flight/add?editId=${fid}` as any); }}
+            />
+          </View>
         )}
       </View>
     </Modal>

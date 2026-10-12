@@ -11,7 +11,7 @@ import { LogbookEmptyCTA } from './LogbookEmptyCTA';
 import { useTourStore } from '../../store/tourStore';
 import { HeatmapCalendar } from '../insights/ActivitySection';
 
-const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['sim', 'Simulator'], ['photo', 'Photo']];
+const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['nvg', 'NVG'], ['sim', 'Simulator'], ['photo', 'Photo']];
 
 export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear, expandMonthKey, headerRight, focusDate, focusStart, focusEnd, focusNonce }: {
   flights: Flight[]; accent: string; placeNames: Record<string, string>;
@@ -32,6 +32,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       if (filter === 'pic' && roleLabel(f) !== 'PIC') return false;
       if (filter === 'ifr' && !(f.ifr > 0)) return false;
       if (filter === 'night' && !(f.night > 0)) return false;
+      if (filter === 'nvg' && !(f.nvg > 0)) return false;
       if (filter === 'sim' && f.flight_type !== 'sim') return false;
       if (filter === 'photo' && !(f.photo_uri || f.photo_local_id)) return false; // inkl. synkade + videor
       if (ql) {

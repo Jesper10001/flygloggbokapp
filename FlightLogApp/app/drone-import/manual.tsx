@@ -1,4 +1,4 @@
-// "Log flight manually" (drönare) — bulk-historik. Speglar pilotens /import/manual men med
+// "Block import manually" (drönare) — bulk-historik. Speglar pilotens /import/manual men med
 // drönar-fält: lägg in dina historiska timmar som en klumpsumma eller år för år. Varje block
 // sparas som en SUMMERINGSRAD (source='summary') → räknas i drönar-totalerna (getDroneStats →
 // dashboard/insights) och syns som en batch under Imported data, men listas inte som en enskild

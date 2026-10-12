@@ -5,7 +5,7 @@ import {
   Animated, Pressable,
 } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,6 +29,7 @@ import {
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
 import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
+import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
 // Tomma kolumner → tilldelad flygtidstyp (per bok, {colId:flightKey}).
@@ -74,6 +75,12 @@ export default function LogbookScreen() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [transcribe, setTranscribe] = useState(false);
   const [leaving, setLeaving] = useState(false);
+
+  // När man kommer tillbaka från "Create custom logbook" → återöppna new logbook-arket (setup) i stället
+  // för att landa på Your books. Flaggan sattes av BookSetupSheet; consume() läser + nollställer den.
+  useFocusEffect(useCallback(() => {
+    if (useLogbookSetupStore.getState().consume()) setSetup({ mode: 'create', initial: null });
+  }, []));
 
   const listRef = useRef<FlatList>(null);
   const positionedBook = useRef<number | null>(null);

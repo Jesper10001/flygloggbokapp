@@ -3,7 +3,7 @@ export const translations = {
     // Tab labels
     tab_dashboard: 'Dashboard',
     tab_logbook: 'Logbook',
-    tab_book: 'Book',
+    tab_book: 'Physical logbook',
     tab_scan: 'Scan',
     tab_settings: 'Settings',
 
@@ -239,7 +239,7 @@ export const translations = {
     scan_no_scans_title: 'No scans remaining',
     scan_no_scans_desc: 'Your monthly scans are used up. Buy an extra pack to continue scanning.',
 
-    import_manual_title: 'Log flight manually',
+    import_manual_title: 'Block import manually',
     import_manual_sub: 'Fill in flight details by hand',
     scan_profile_title: 'Scan Profile',
     scan_profile_sub: 'Help AI read your logbook accurately',

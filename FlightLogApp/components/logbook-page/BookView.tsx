@@ -101,7 +101,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
     <View style={{ paddingTop: 6, paddingHorizontal: 14, paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 30 }}>
       <TouchableOpacity onPress={() => books.length > 1 && setShowBooks((v) => !v)} disabled={books.length <= 1}
         activeOpacity={0.7} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-        <Text numberOfLines={1} style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: Colors.textPrimary, flexShrink: 1 }}>{book?.name || 'Book'}</Text>
+        <Text numberOfLines={1} style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: Colors.textPrimary, flexShrink: 1 }}>{book?.name || 'Physical logbook'}</Text>
         {books.length > 1 ? <Ionicons name={showBooks ? 'chevron-up' : 'chevron-down'} size={16} color={accent} /> : null}
       </TouchableOpacity>
       <View style={{ flex: 1 }} />

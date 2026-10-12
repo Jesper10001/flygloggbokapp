@@ -6,12 +6,14 @@ import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { getAllAircraftTypes, addAircraftTypeToRegistry, persistAircraftFleetLookup, type AircraftRegistryEntry } from '../../db/flights';
 import { useTourStore } from '../../store/tourStore';
+import { useProfileStore } from '../../store/profileStore';
 import { DEMO_AIRCRAFT } from '../../constants/tourDemoData';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { AircraftModal } from '../AircraftModal';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { FleetCard } from './FleetCard';
+import { FleetEmptyPreview } from './FleetEmptyPreview';
 
 const PAGE_W = Dimensions.get('window').width - 28; // karusell-sidbredd (matchar tidigare fullbreddskort)
 
@@ -20,6 +22,9 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
   // Blades introduction: visa en DEMO-fleet när rundturen kör och fleet annars är tom. Inget rör DB.
   const tourDemo = useTourStore((s) => s.demo);
   const fleet = tourDemo ? DEMO_AIRCRAFT : fleetState;
+  // Onboarding-val (helikopter/fixed wing) → styr vilket preview-kort tomtillståndet visar.
+  const profileSubRole = useProfileStore((s) => s.profile?.subRole);
+  const previewKind: 'rotary' | 'fixed' = profileSubRole === 'rotary' ? 'rotary' : 'fixed';
   const [adding, setAdding] = useState(false);
   const [pageIdx, setPageIdx] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
@@ -56,10 +61,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
         {sorted.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: 50 }}>
-            <Ionicons name="airplane-outline" size={44} color={Colors.textMuted} />
-            <Text style={{ fontFamily: FONT_MONO, fontSize: 12, color: Colors.textMuted, marginTop: 10 }}>No aircraft yet</Text>
-          </View>
+          <FleetEmptyPreview kind={previewKind} accent={accent} />
         ) : sorted.length === 1 ? (
           // En enda farkost → fyll hela bredden (som förr).
           <FleetCard key={sorted[0].aircraft_type} ac={sorted[0]} accent={accent} big onSaved={load} />
@@ -86,7 +88,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
         <TouchableOpacity onPress={() => setAdding(true)} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface }}>
           <Ionicons name="add" size={18} color={accent} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Add aircraft</Text>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>{sorted.length === 0 ? 'Add your first aircraft' : 'Add aircraft'}</Text>
         </TouchableOpacity>
       </ScrollView>
 

@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { create } from 'zustand';
 import * as sync from '../services/icloudSync';
 import type { BackupManifest } from '../services/backupManifest';
@@ -63,6 +64,30 @@ export const useICloudStore = create<ICloudStore>((set, get) => ({
     }
     await sync.setEnabled(true);
     set({ enabled: true, available: true, hasModule: true, signedIn: true });
+    // FAILSAFE: kolla iCloud FÖRST. Finns en tidigare backup → skriv ALDRIG över den tyst; fråga om
+    // användaren vill återställa den. (Skyddar särskilt en ny/tom enhet från att radera gamla telefonens backup.)
+    const remote = await sync.hasRestorableBackup().catch(() => null);
+    if (remote) {
+      set({ manifest: remote, status: 'synced' });
+      const when = (() => { try { return new Date(remote.createdAt).toLocaleDateString(); } catch { return ''; } })();
+      Alert.alert(
+        'Restore from iCloud?',
+        `Found an existing iCloud backup from ${remote.device}${when ? ` (${when})` : ''}. Restore it to this device, or keep this device's data?`,
+        [
+          {
+            text: 'Keep this device', style: 'cancel',
+            onPress: async () => {
+              // Skriv bara över den gamla backupen om DEN HÄR enheten faktiskt har data att säkerhetskopiera.
+              if (!(await sync.isLocalEmpty().catch(() => false))) await get().backupNow();
+            },
+          },
+          { text: 'Restore', onPress: async () => { await get().restoreNow(); } },
+        ],
+        { cancelable: false },
+      );
+      return;
+    }
+    // Ingen tidigare backup → första säkerhetskopian.
     await get().backupNow();
   },
 

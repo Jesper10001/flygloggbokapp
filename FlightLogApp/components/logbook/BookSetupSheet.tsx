@@ -18,6 +18,7 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
+import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { FONT_SERIF } from '../logbook-page/tokens';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks } from '../../services/logbook/books';
@@ -353,7 +354,7 @@ export function BookSetupSheet({
           <Text style={s.dropdownTxt} numberOfLines={1}>{template.name}</Text>
           <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
-        <TouchableOpacity style={s.customBtn} onPress={() => { onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
+        <TouchableOpacity style={s.customBtn} onPress={() => { useLogbookSetupStore.getState().requestReopen(); onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
           <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
           <Text style={s.customBtnTxt}>{sv ? 'Egen loggbok' : 'Custom logbook'}</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />

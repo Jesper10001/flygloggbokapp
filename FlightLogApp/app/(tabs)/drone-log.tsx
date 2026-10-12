@@ -26,6 +26,7 @@ import { hasTokenQuota } from '../../utils/tokenGate';
 import { categoryLabel } from '../../constants/droneCategories';
 import { DroneBookView } from '../../components/logbook-page/DroneBookView';
 import { DroneFleetCard } from '../../components/logbook-page/DroneFleetCard';
+import { FleetEmptyPreview } from '../../components/logbook-page/FleetEmptyPreview';
 import { DroneModal } from '../../components/DroneModal';
 
 const SERIF = 'Fraunces';
@@ -530,10 +531,7 @@ function FleetTab({ accent }: { accent: string }) {
       </Text>
 
       {models.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 50 }}>
-          <Ionicons name="hardware-chip-outline" size={44} color={DR.muted} />
-          <Text style={{ fontFamily: MONO, fontSize: 12, color: DR.muted, marginTop: 10 }}>No drones yet</Text>
-        </View>
+        <FleetEmptyPreview kind="drone" accent={accent} />
       ) : models.length === 1 ? (
         // En enda drönare → fyll hela bredden (som förr).
         <DroneFleetCard key={models[0].model || models[0].id} m={models[0]} accent={accent} onSaved={load} />
@@ -560,7 +558,7 @@ function FleetTab({ accent }: { accent: string }) {
       <TouchableOpacity onPress={() => setShowAdd(true)} activeOpacity={0.8}
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}>
         <Ionicons name="add" size={18} color={accent} />
-        <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Add drone</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>{models.length === 0 ? 'Add your first drone' : 'Add drone'}</Text>
       </TouchableOpacity>
     </ScrollView>
 

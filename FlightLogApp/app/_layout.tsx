@@ -265,11 +265,11 @@ export default function RootLayout() {
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
-        <Stack.Screen name="import/manual" options={{ title: 'Manual import', presentation: tourPresentation }} />
+        <Stack.Screen name="import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
         <Stack.Screen name="drone-import/index" options={{ title: 'Import CSV', presentation: 'modal' }} />
         <Stack.Screen name="drone-import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
-        <Stack.Screen name="drone-import/manual" options={{ title: 'Log flight manually', presentation: tourPresentation }} />
+        <Stack.Screen name="drone-import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
         <Stack.Screen name="settings/album" options={{ title: 'Flight album', presentation: 'modal' }} />
@@ -289,6 +289,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/manage-data" options={{ title: 'Manage app data', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
+        <Stack.Screen name="logbook/create-custom" options={{ title: 'Create custom logbook' }} />
         <Stack.Screen name="drone-logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="logbook/fill" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />

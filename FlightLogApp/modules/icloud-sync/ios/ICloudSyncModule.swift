@@ -179,8 +179,11 @@ public class ICloudSyncModule: Module {
         let url = base.appendingPathComponent(relativePath)
         let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
         func uploaded() -> Bool {
-          let v = try? url.resourceValues(forKeys: [.ubiquitousItemIsUploadedKey])
-          return v?.ubiquitousItemIsUploaded ?? false
+          // Töm cachade resurs-värden varje poll — annars returneras det första (false) värdet för alltid.
+          let nsurl = url as NSURL
+          nsurl.removeCachedResourceValue(forKey: .ubiquitousItemIsUploadedKey)
+          let v = try? nsurl.resourceValues(forKeys: [.ubiquitousItemIsUploadedKey])
+          return (v?[.ubiquitousItemIsUploadedKey] as? Bool) ?? false
         }
         while Date() < deadline {
           if uploaded() { promise.resolve(true); return }

@@ -12,13 +12,12 @@ export function LogbookEmptyCTA({ accent, mode }: { accent: string; mode: 'pilot
   const drone = mode === 'drone';
   const options: { icon: keyof typeof Ionicons.glyphMap; label: string; route: string }[] = [
     { icon: 'document-attach-outline', label: 'Import CSV/Excel', route: drone ? '/drone-import' : '/import' },
-    { icon: 'create-outline', label: 'Log flight manually', route: drone ? '/drone-import/manual' : '/import/manual' },
+    { icon: 'create-outline', label: 'Block import manually', route: drone ? '/drone-import/manual' : '/import/manual' },
     { icon: 'airplane', label: 'Log flight', route: drone ? '/drone-flight/add' : '/flight/add' },
   ];
   return (
     <View style={{ alignItems: 'center', paddingVertical: 44, paddingHorizontal: 22 }}>
-      <Ionicons name={drone ? 'rocket-outline' : 'airplane-outline'} size={44} color={Colors.textMuted} />
-      <Text style={{ fontFamily: FONT_SERIF, fontSize: 19, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center', marginTop: 14 }}>
+      <Text style={{ fontFamily: FONT_SERIF, fontSize: 19, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>
         No flights yet?
       </Text>
       <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 22 }}>

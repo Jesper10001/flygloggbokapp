@@ -43,7 +43,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { setScanImage } from '../../store/scanStore';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
-import { fetchDecodedWx, type DecodedWx, type WxStatus } from '../../services/weather';
+import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
+import * as Location from 'expo-location';
 import { Marquee } from '../../components/Marquee';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { formatDate, isValidTime } from '../../utils/format';
@@ -63,6 +64,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
 import Svg, { Circle } from 'react-native-svg';
+import { StressInfoButton } from '../../components/StressInfo';
 import * as Haptics from 'expo-haptics';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
@@ -152,6 +154,8 @@ function StressRing({ stress, size = 120, ready = false }: { stress: StressData;
       <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginTop: 2 }}>
         {stress.zone.toUpperCase()}
       </Text>
+      {/* Info nere till vänster om cirkeln → förklarar hur Flight load räknas. */}
+      <StressInfoButton style={{ position: 'absolute', left: 0, bottom: 0 }} />
     </View>
   );
 }
@@ -691,11 +695,25 @@ export default function DashboardScreen() {
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
-  const lastDest = flights[0]?.arr_place ?? '';
+  // Senaste flygningen som faktiskt HAR en ankomstplats (hoppar simulatorpass/ofullständiga rader utan
+  // arr_place — annars försvann "Fetch WX" när den senaste loggade raden var ett sim-pass). Finns ingen
+  // alls → GPS-fallback i loadWeather (= drönarläget).
+  const lastDest = flights.find((f) => !!f.arr_place)?.arr_place ?? '';
   const loadWeather = useCallback(async () => {
-    if (mode !== 'manned' || !lastDest) { setWx(null); return; }
+    if (mode !== 'manned') { setWx(null); return; }
     setWxLoading(true);
-    try { setWx(await fetchDecodedWx(lastDest)); }
+    try {
+      if (lastDest) {
+        setWx(await fetchDecodedWx(lastDest)); // väder för senaste destinationen
+      } else {
+        // Ingen loggad destination (t.ex. inga flygningar ännu, eller senaste var en simulator utan ankomst)
+        // → väder för närmaste station från min position, precis som drönarläget.
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') { setWx(null); return; }
+        const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setWx(await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude));
+      }
+    } catch { setWx(null); }
     finally { setWxLoading(false); }
   }, [mode, lastDest]);
   // Göm WX igen om destinationen (eller läget) ändras → dra ner för att hämta på nytt.
@@ -888,7 +906,7 @@ export default function DashboardScreen() {
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
         {/* Väder-ticker ovanför WORKLOAD (BARA när hämtat; annars ligger "Fetch WX" inline på WORKLOAD-raden). */}
-        {mode === 'manned' && !!lastDest && wx && (
+        {mode === 'manned' && wx && (
           <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
             <View style={{ flex: 1 }}>
               <View style={s.wxLine}>
@@ -922,7 +940,7 @@ export default function DashboardScreen() {
             <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
-          {mode === 'manned' && !!lastDest && !wx && (
+          {mode === 'manned' && !wx && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               {wxLoading ? (
                 <><ActivityIndicator size="small" color={Colors.primary} /><Text style={s.wxFetchHint}>Fetching weather…</Text></>
@@ -1152,7 +1170,7 @@ export default function DashboardScreen() {
           <AirportPickerModal
             visible={wxPickerOpen}
             onClose={() => setWxPickerOpen(false)}
-            initialIcao={lastDest || null}
+            initialIcao={lastDest || wx?.metarStation || wx?.tafStation || null}
           />
         </>
       )}

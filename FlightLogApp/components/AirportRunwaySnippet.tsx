@@ -93,8 +93,13 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
     }
   }, [showNav, hasUser, overviewRegion]);
 
-  // "Zoom"-knappen: zooma in till flygplatsen i den skala banorna presenteras (bang-vyn).
-  const zoomToAirport = () => mapRef.current?.animateToRegion(region, 350);
+  // Closest to me: EN toggle-knapp Zoom ⇄ Zoom out (overview = din position + flygplatsen + cirkeln).
+  // Startar utzoomad (kartan öppnar i overview) → knappen visar "Zoom" (in). Stegar sedan fram och tillbaka.
+  const [zoomedIn, setZoomedIn] = useState(false);
+  const toggleZoom = () => {
+    if (zoomedIn) { mapRef.current?.animateToRegion(overviewRegion, 350); setZoomedIn(false); }
+    else { mapRef.current?.animateToRegion(region, 350); setZoomedIn(true); }
+  };
 
   const [sat, setSat] = useState(false); // mörk standardkarta default; knappen växlar till satellit
 
@@ -175,12 +180,15 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
           <Text style={styles.noRwTxt}>No runway data</Text>
         </View>
       )}
-      {/* Nere till höger: Zoom (in till flygplatsen) till vänster om karta/satellit-växlingen */}
+      {/* Nere till höger: Zoom-toggle (bara i Closest to me — stegar flygplats ⇄ overview) · karta/satellit.
+          I vanliga Find airport-vyn finns ingen Zoom-knapp (kartan öppnas redan inramad → den gjorde inget). */}
       <View style={styles.btnRow}>
-        <TouchableOpacity onPress={zoomToAirport} activeOpacity={0.85} style={styles.mapBtn}>
-          <Ionicons name="scan-outline" size={13} color="#fff" />
-          <Text style={styles.satTxt}>Zoom</Text>
-        </TouchableOpacity>
+        {showNav && hasUser && (
+          <TouchableOpacity onPress={toggleZoom} activeOpacity={0.85} style={styles.mapBtn}>
+            <Ionicons name={zoomedIn ? 'contract-outline' : 'scan-outline'} size={13} color="#fff" />
+            <Text style={styles.satTxt}>{zoomedIn ? 'Zoom out' : 'Zoom'}</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={() => setSat((v) => !v)} activeOpacity={0.85} style={styles.mapBtn}>
           <Ionicons name={sat ? 'map' : 'globe'} size={13} color="#fff" />
           <Text style={styles.satTxt}>{sat ? 'Map' : 'Satellite'}</Text>

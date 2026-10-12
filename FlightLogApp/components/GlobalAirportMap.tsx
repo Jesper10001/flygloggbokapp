@@ -395,7 +395,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={`sel-${selRow[0]}`}
           coordinate={{ latitude: selRow[4], longitude: selRow[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges
+          tracksViewChanges={tracks}
           zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
         >
@@ -461,7 +461,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           key={`foc-${focus[0]}`}
           coordinate={{ latitude: focus[4], longitude: focus[5] }}
           anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges
+          tracksViewChanges={tracks}
           zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(focus[0]) : undefined}
         >

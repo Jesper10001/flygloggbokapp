@@ -21,7 +21,7 @@ function relTime(iso?: string | null): string {
 
 export function ICloudSyncRow({ accent = Colors.primary, flat = false }: { accent?: string; flat?: boolean }) {
   const router = useRouter();
-  const { hasModule, enabled, status, lastError, manifest, busy, refresh, setEnabled } = useICloudStore();
+  const { hasModule, available, enabled, status, lastError, manifest, busy, refresh, setEnabled } = useICloudStore();
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
@@ -60,19 +60,20 @@ export function ICloudSyncRow({ accent = Colors.primary, flat = false }: { accen
         />
       </View>
 
-      {/* Storage-rad (grå-inaktiverad tills synk är på) */}
+      {/* Storage-rad: åtkomlig så fort iCloud är TILLGÄNGLIGT (inloggad) — INTE beroende av synk-toggeln,
+          så man kan återställa en tidigare backup utan att först slå på synk. */}
       <TouchableOpacity
         activeOpacity={0.7}
-        disabled={!enabled}
+        disabled={!available}
         onPress={() => router.push('/settings/icloud')}
-        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14, opacity: enabled ? 1 : 0.45 }}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 14, opacity: available ? 1 : 0.45 }}
       >
         <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="folder-open-outline" size={16} color={Colors.textSecondary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>iCloud Storage</Text>
-          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>See what's backed up</Text>
+          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>See backups &amp; restore</Text>
         </View>
         <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
       </TouchableOpacity>

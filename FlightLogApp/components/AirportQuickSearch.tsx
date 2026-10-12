@@ -220,7 +220,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
       // matchar TYP- och VÄDER-filtren hittas. METAR-kontrollen görs närmast-först och redan kollade
       // flygplatser hoppas över mellan ringarna (network-snålt), med ett tak på antal väderuppslag.
       const RINGS_DEG = [1.5, 4, 9, 18, 30]; // grader (lat) → växande sökradie
-      const WX_CHECK_CAP = 40;               // max antal METAR-uppslag totalt
+      const WX_CHECK_CAP = 60;               // max antal METAR-uppslag totalt (räcker längre ut i glesa väderlägen)
       let chosen: IcaoAirport | null = null;
       let anyTypeCandidate = false;
       const wxChecked = new Set<string>();
@@ -234,11 +234,21 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
           continue; // inga i denna ring → expandera
         }
         // Väderfilter: kontrollera de närmaste (ännu ej kollade) kandidaterna tills en matchar.
-        for (const a of cands) {
+        // Med typfiltret "All" består de närmaste kandidaterna ofta av heliports/småfält UTAN egen METAR
+        // (matchar aldrig) → de skulle äta upp hela väderbudgeten innan en riktig flygplats nås. Begränsa
+        // därför väderkollen till typer som faktiskt kan rapportera METAR (large/medium/small). För ett
+        // explicit valt typfilter respekteras användarens val som förut.
+        const wxCands = typeFilter === 'all'
+          ? cands.filter((a) => { const t = a.type || ''; return t === 'large' || t === 'medium' || t === 'small'; })
+          : cands;
+        for (const a of wxCands) {
           if (wxChecked.has(a.icao)) continue;
           if (wxChecked.size >= WX_CHECK_CAP) break;
-          wxChecked.add(a.icao);
-          try { const m = await fetchAirportMetar(a.icao); if (matchesWxFilter(m?.category, wxFilter)) { chosen = a; break; } } catch { /* prova nästa */ }
+          try {
+            const m = await fetchAirportMetar(a.icao);
+            wxChecked.add(a.icao); // markera som kollad ENBART när uppslaget faktiskt gick igenom
+            if (matchesWxFilter(m?.category, wxFilter)) { chosen = a; break; }
+          } catch { /* nätfel → markera INTE som kollad, prova igen i nästa (större) ring */ }
         }
         if (chosen || wxChecked.size >= WX_CHECK_CAP) break;
       }

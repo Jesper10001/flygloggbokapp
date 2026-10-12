@@ -121,17 +121,18 @@ export async function backupNow(): Promise<BackupManifest> {
   const docDir = FileSystem.documentDirectory!;
   const files = await collectReferencedFiles(db, docDir);
 
-  // 3) Ladda upp snapshot → BEKRÄFTA att den nått iCloud → filer → manifest (manifest sist = commit).
-  //    Bekräftelsen är poängen: utan den säger appen "synced" innan bytes lämnat enheten.
+  // 3) Ladda upp snapshot → filer → manifest (manifest sist = commit-punkt).
+  //    Att kopiera in filen i ubiquity-containern = klart; iOS laddar upp till iCloud i BAKGRUNDEN (med
+  //    omförsök, även efter att appen stängts). Vi "bekräftar" bara best-effort för statusvisning — en
+  //    obekräftad uppladdning är INTE ett fel (att kasta fel här gjorde att backupen alltid "misslyckades"
+  //    trots bra nät, eftersom ubiquitousItemIsUploaded är trögt/cachat).
   await ICloud.upload(snapUri, REMOTE_SNAPSHOT);
-  const snapOk = await ICloud.confirmUploaded(REMOTE_SNAPSHOT, 120000).catch(() => false);
-  if (!snapOk) throw new SyncError('FAILED', 'The backup did not finish uploading to iCloud. Check your connection and try again.');
+  await ICloud.confirmUploaded(REMOTE_SNAPSHOT, 20000).catch(() => false);
 
   const uploaded: BackupFileEntry[] = [];
   for (const f of files) {
     try {
       await ICloud.upload(docDir + f.rel, `${REMOTE_FILES}/${f.rel}`);
-      await ICloud.confirmUploaded(`${REMOTE_FILES}/${f.rel}`, 60000).catch(() => false);
       uploaded.push(f);
     } catch { /* hoppa över en fil som ej går att ladda upp; övriga fortsätter */ }
   }
@@ -143,8 +144,6 @@ export async function backupNow(): Promise<BackupManifest> {
   const manifestUri = TMP + 'manifest.json';
   await FileSystem.writeAsStringAsync(manifestUri, JSON.stringify(manifest));
   await ICloud.upload(manifestUri, REMOTE_MANIFEST);
-  const manOk = await ICloud.confirmUploaded(REMOTE_MANIFEST, 60000).catch(() => false);
-  if (!manOk) throw new SyncError('FAILED', 'The backup did not finish uploading to iCloud. Check your connection and try again.');
 
   return manifest;
 }
@@ -174,6 +173,24 @@ async function collectReferencedFiles(db: Awaited<ReturnType<typeof getDatabase>
     }
   }
   return out;
+}
+
+// Är den här enhetens loggbok helt tom? (ingen flygning/fleet/bok) — används för att INTE skriva över en
+// befintlig molnbackup när man slår på synk på en tom/ny enhet.
+export async function isLocalEmpty(): Promise<boolean> {
+  try {
+    const db = await getDatabase();
+    const one = async (sql: string): Promise<number> =>
+      (await db.getFirstAsync<{ c: number }>(sql).catch(() => null))?.c ?? 0;
+    const [f, df, ac, dr, bk] = await Promise.all([
+      one("SELECT COUNT(*) c FROM flights WHERE flight_type != 'summary'"),
+      one("SELECT COUNT(*) c FROM drone_flights WHERE source != 'summary'"),
+      one('SELECT COUNT(*) c FROM aircraft_registry'),
+      one('SELECT COUNT(*) c FROM drone_registry'),
+      one('SELECT COUNT(*) c FROM logbook_books'),
+    ]);
+    return f === 0 && df === 0 && ac === 0 && dr === 0 && bk === 0;
+  } catch { return false; }
 }
 
 // Finns en återställbar iCloud-backup? (för restore-prompten vid nyinstallation/enhetsbyte)

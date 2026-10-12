@@ -8,7 +8,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
   ActivityIndicator, Modal, Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -90,6 +90,12 @@ export default function CreateCustomLogbook() {
   const [cols, setCols] = useState<EditCol[]>([]);
   const [footer, setFooter] = useState({ brought_forward: true, this_page_total: true, total_to_date: true });
   const [pickerFor, setPickerFor] = useState<number | 'add' | null>(null); // uid = ändra kolumn, 'add' = ny
+
+  // Native header (samma som övriga sidor) — titeln följer steget (foto → justera kolumnerna).
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ title: detected ? (sv ? 'Justera kolumnerna' : 'Adjust the columns') : (sv ? 'Skapa egen loggbok' : 'Create custom logbook') });
+  }, [detected, sv, navigation]);
 
   const runDetection = async (uri: string) => {
     setBusy(true);
@@ -223,7 +229,6 @@ export default function CreateCustomLogbook() {
   if (!detected) {
     return (
       <View style={s.container}>
-        <Header title={sv ? 'Skapa egen loggbok' : 'Create custom logbook'} onBack={() => router.back()} />
         <View style={s.captureWrap}>
           <Ionicons name="book-outline" size={48} color={Colors.textMuted} />
           <Text style={s.captureTitle}>{sv ? 'Fotografera din loggbok' : 'Photograph your logbook'}</Text>
@@ -249,7 +254,6 @@ export default function CreateCustomLogbook() {
   // ── Editor ──
   return (
     <View style={s.container}>
-      <Header title={sv ? 'Justera kolumnerna' : 'Adjust the columns'} onBack={() => router.back()} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <Text style={s.label}>{sv ? 'Bokens namn' : 'Book name'}</Text>
         <TextInput style={s.input} value={name} onChangeText={setName} placeholder={sv ? 'Min loggbok' : 'My logbook'} placeholderTextColor={Colors.textMuted} />
@@ -348,21 +352,8 @@ export default function CreateCustomLogbook() {
   );
 }
 
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <View style={s.header}>
-      <TouchableOpacity onPress={onBack} hitSlop={10} style={s.headerBtn}><Ionicons name="close" size={22} color={Colors.textSecondary} /></TouchableOpacity>
-      <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
-      <View style={s.headerBtn} />
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator },
-  headerBtn: { width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
 
   captureWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12 },
   captureTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 6 },

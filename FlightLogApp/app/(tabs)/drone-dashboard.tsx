@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import Svg, { Circle } from 'react-native-svg';
+import { StressInfoButton } from '../../components/StressInfo';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 
@@ -86,6 +87,8 @@ function StressRing({ stress, size = 110 }: { stress: StressData; size?: number 
       </Svg>
       <Text style={{ fontSize: size > 100 ? 26 : 20, fontWeight: '900', color, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>{stress.index}%</Text>
       <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginTop: 2 }}>{stress.zone.toUpperCase()}</Text>
+      {/* Info nere till vänster om cirkeln → förklarar hur Flight load räknas. */}
+      <StressInfoButton style={{ position: 'absolute', left: 0, bottom: 0 }} />
     </View>
   );
 }

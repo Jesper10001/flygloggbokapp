@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import * as Application from 'expo-application';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
@@ -34,6 +35,8 @@ import { presentPaywall, refreshEntitlement, presentManageSubscription } from '.
 import { redeemPromo } from '../../services/promo';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { getSetting, setSetting } from '../../db/flights';
+import { SignatureView, type SignatureData } from '../../components/SignaturePad';
+import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
@@ -141,11 +144,13 @@ function CollapsibleSectionHeader({
   expanded,
   onPress,
   tourPressId,
+  right,
 }: {
   children: string;
   expanded: boolean;
   onPress: () => void;
   tourPressId?: string; // Blades introduction: cyan tryck-markering när rundturen pekar hit
+  right?: React.ReactNode; // valfritt innehåll till höger om etiketten (t.ex. app-version på ABOUT)
 }) {
   return (
     <TouchableOpacity
@@ -172,6 +177,7 @@ function CollapsibleSectionHeader({
       }}>
         {children}
       </Text>
+      {right != null ? <View style={{ marginLeft: 8 }}>{right}</View> : null}
       <Ionicons
         name={expanded ? 'chevron-down' : 'chevron-forward'}
         size={16}
@@ -207,11 +213,15 @@ export default function SettingsScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [stdOpen, setStdOpen] = useState(false); // regelverks-dropdown (EASA/FAA/CAA/Other)
-  const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | null>(null);
+  const [expandedSection, setExpandedSection] = useState<'logbook' | 'import' | 'export' | 'app' | 'about' | null>(null);
   const [locGranted, setLocGranted] = useState(false);
   const [showCoinInfo, setShowCoinInfo] = useState(false);
   const appLockEnabled = useAppLockStore((s) => s.enabled);
   const appLockAvailable = useAppLockStore((s) => s.available);
+  // Uppdaterings-koll: prenumerera REAKTIVT (så About-badgen dyker upp när App Store-kollen är klar) och
+  // kör check() vid fokus (nedan). check() slår mot Apples publika lookup och är strypt till max 1/min.
+  const updateAvailable = useVersionStore((s) => s.updateAvailable);
+  const appVersion = Application.nativeApplicationVersion ?? '1.0.0';
   // Öppna en viss sektion via param (t.ex. från "Manage app data" → "Export first").
   const { expand } = useLocalSearchParams<{ expand?: string }>();
   // Scrolla fram sektionen när den öppnas via param (bl.a. Blades introduction → Import/App).
@@ -228,11 +238,19 @@ export default function SettingsScreen() {
       setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 120);
     }
   }, [expand]);
+  // Pilot↔drönare-byte ska ge en REN settings-vy: kollapsa alla sektioner när läget ändras medan sidan
+  // ligger kvar monterad (bevarat tab-state). Ref-skydd → körs ej vid första mount (så deep-link-`expand`
+  // ovan inte skrivs över).
+  const prevAppMode = useRef(appMode);
+  useEffect(() => {
+    if (prevAppMode.current !== appMode) { prevAppMode.current = appMode; setExpandedSection(null); }
+  }, [appMode]);
   const isDrone = appMode === 'drone';
   const isPilot = !isDrone;
 
   // Profildata — laddas från settings-DB
   const [profileName, setProfileName] = useState('');
+  const [signature, setSignature] = useState<SignatureData | null>(null); // pilotsignatur → visas till höger i profilkortet
   const [profileInitials, setProfileInitials] = useState('');
   const [userProfile, setUserProfile] = useState('');
   const [profileCredentials, setProfileCredentials] = useState('');
@@ -247,6 +265,8 @@ export default function SettingsScreen() {
     useRegulationStandardStore.getState().load();
     useTokenQuotaStore.getState().load();
     useFlightStore.getState().loadFlights();
+    useVersionStore.getState().check().catch(() => {}); // App Store-koll (strypt 1/min) → About-badge
+
     Location.getForegroundPermissionsAsync().then((p) => setLocGranted(p.granted)).catch(() => {});
     (async () => {
       const first = (await getSetting('profile_first_name')) ?? '';
@@ -256,6 +276,7 @@ export default function SettingsScreen() {
       setProfileName(`${first} ${last}`.trim());
       setProfileInitials(initials || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase() || '?');
       setProfileCredentials(creds);
+      try { const sg = await getSetting('pilot_signature'); setSignature(sg ? JSON.parse(sg) : null); } catch { setSignature(null); }
       const { profile } = useProfileStore.getState();
       setUserProfile(profile ? t(`profile_${profile.subRole}` as any) : '');
       const otherHasData = isDrone
@@ -290,7 +311,7 @@ export default function SettingsScreen() {
 
   // ── Handlers ──
 
-  const toggleSection = (section: 'logbook' | 'import' | 'export' | 'app') => {
+  const toggleSection = (section: 'logbook' | 'import' | 'export' | 'app' | 'about') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedSection(expandedSection === section ? null : section);
   };
@@ -459,8 +480,9 @@ export default function SettingsScreen() {
     const targetMode = mainRole === 'pilot-unmanned' ? 'drone' : 'manned';
     await setAppMode(targetMode);
 
-    // Navigera explicit till rätt dashboard efter re-render (annars → href:null-ankaret = svart).
-    const dest = targetMode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)';
+    // Stanna kvar på SETTINGS i det nya läget (lättare skärm än dashboarden → mjukare byte; och
+    // href:null-ankaret undviks genom att navigera explicit till rätt settings-route).
+    const dest = targetMode === 'drone' ? '/(tabs)/drone-settings' : '/(tabs)/settings';
     requestAnimationFrame(() => router.replace(dest as any));
   };
 
@@ -477,41 +499,58 @@ export default function SettingsScreen() {
       </View>
 
       {/* ── A. Profilkort ── */}
-      <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-        <View style={{
-          backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder,
-          overflow: 'hidden',
-        }}>
-          {/* Profil-rad */}
-          <TouchableOpacity
-            style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
-              borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}
-            activeOpacity={0.7}
-            onPress={() => router.push('/settings/profile')}
-          >
-            <View style={{
-              width: 50, height: 50, borderRadius: 25,
-              backgroundColor: isMax ? Colors.silver : (isPremium ? Colors.gold : Colors.primary),
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: isMax ? Colors.textPrimary : (isPremium ? '#1a1200' : Colors.textInverse), letterSpacing: -0.5 }}>
-                {profileInitials || '?'}
+      {/* Profil + Blades Premium — design "D" (handoff): profilkort + slank guld-strip, gap 10. */}
+      <View style={{ paddingHorizontal: 20, paddingBottom: 8, gap: 10 }}>
+        {/* Profil-rad (kort) — nedbantad till ~samma storlek som Blades Premium-stripen (höjd/radie/padding),
+            men BEHÅLLER "PROFILE" + namn staplade till vänster och signaturen till höger. */}
+        <TouchableOpacity
+          style={{ height: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12,
+            backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Profile, ${profileName || t('your_name')}`}
+          onPress={() => router.push('/settings/profile')}
+        >
+          {signature ? (
+            // Med signatur: "PROFILE" + namn staplade till vänster, signaturen till höger.
+            <>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase', color: Colors.textSecondary }}>
+                  Profile
+                </Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginTop: 2 }} numberOfLines={1}>
+                  {profileName || t('your_name')}
+                </Text>
+              </View>
+              <View style={{ maxWidth: 110, overflow: 'hidden', alignItems: 'flex-end' }}>
+                <SignatureView data={signature} height={26} color={Colors.textSecondary} />
+              </View>
+            </>
+          ) : (
+            // Utan signatur: "PROFILE" till vänster, namnet till höger (fyller signaturens plats).
+            <>
+              <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase', color: Colors.textSecondary }}>
+                Profile
               </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 }}>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>
                 {profileName || t('your_name')}
               </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
+            </>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+        </TouchableOpacity>
 
-          {/* Certifikat + "Current today?" borttagna inför lansering (dolda från UI). */}
-
-          {/* Premium */}
+        {/* Blades Premium — slank guld-strip (status som text, ingen pill/ikon) */}
+        <LinearGradient
+          colors={['rgba(255,184,48,0.14)', 'rgba(255,184,48,0.03)']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={{ borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,184,48,0.30)', overflow: 'hidden' }}
+        >
           <TouchableOpacity
-            style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            style={{ height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Blades Premium, ${isPremium || isMax ? 'Active' : 'Upgrade'}`}
             onPress={() => {
               if (isPremium || isMax) {
                 presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); });
@@ -520,52 +559,74 @@ export default function SettingsScreen() {
               }
             }}
           >
-            <View style={{
-              width: 32, height: 32, borderRadius: 8,
-              backgroundColor: (isMax ? Colors.silver : Colors.gold) + '22', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Ionicons name="star" size={15} color={isMax ? Colors.silver : Colors.gold} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{isMax ? 'Blades MAX' : 'Blades Premium'}</Text>
-              <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {isPremium || isMax ? 'Active' : 'Discover all features'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase', color: Colors.gold }}>
+              Blades Premium
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '500', fontFamily: 'Menlo', color: '#C9B07A' }}>
+              {isPremium || isMax ? 'Active' : 'Upgrade'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
 
       {/* ── Blade-coins-mätare: förbrukning (server-räknad per device, visad som coins) ── */}
       {tokenUsage && (() => {
-        const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
+        // Handoff B2: 64px mynt till vänster, segmenterad mätare, visar KVARVARANDE coins (ej förbrukade).
         const usedCoins = tokensToCoins(tokenUsage.used);
         const limitCoins = tokensToCoins(tokenUsage.limit);
-        // Flytande sektion (ingen ruta) · shiny zyan bar + siffror.
+        const leftCoins = Math.max(0, limitCoins - usedCoins);
+        const leftPct = limitCoins > 0 ? leftCoins / limitCoins : 0; // 0..1
+        const CELLS = 10;
+        const fill = leftPct * CELLS;
+        const full = Math.floor(fill);         // helt fyllda celler
+        const partial = fill - full;           // 0..1 → delvis fylld nästa cell
+        const empty = leftCoins <= 0;
+        const low = !empty && leftPct <= 0.10; // ≤10 % kvar → bärnstensgul varning
+        const countColor = empty ? '#7F98B2' : low ? Colors.gold : '#00C8E8';
+        const gFull = (low ? ['#FFD27A', '#FFB830'] : ['#7DF2FF', '#00B4D8']) as [string, string];
+        const partColor = low ? '#FFB830' : '#1CD8F5';
+        const isFree = tokenUsage.month === 'lifetime';
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
-              <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 64, height: 64 }} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
+                {/* Topprad: etikett + hjälp | kvarvarande / tak */}
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>Blade-coins</Text>
                     <TouchableOpacity onPress={() => setShowCoinInfo(true)} hitSlop={8} activeOpacity={0.7}>
                       <Ionicons name="help-circle-outline" size={16} color={Colors.textMuted} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>
-                    {usedCoins.toLocaleString('en-US')} / {limitCoins.toLocaleString('en-US')}
+                  <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700' }}>
+                    <Text style={{ color: countColor }}>{leftCoins.toLocaleString('en-US')}</Text>
+                    <Text style={{ color: '#56708C', fontWeight: '500' }}> / {limitCoins.toLocaleString('en-US')}</Text>
                   </Text>
                 </View>
-                <View style={{ height: 6, borderRadius: 3, backgroundColor: Colors.elevated, overflow: 'hidden' }}>
-                  <LinearGradient colors={['#7DF2FF', '#1CD8F5', '#00B4D8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 6, borderRadius: 3, width: `${pct}%` }} />
+                {/* Segmenterad mätare (10 celler) */}
+                <View style={{ flexDirection: 'row', gap: 4, marginTop: 10, marginBottom: 6 }}>
+                  {Array.from({ length: CELLS }).map((_, i) => {
+                    const isFull = i < full;
+                    const isPart = i === full && partial > 0;
+                    return (
+                      <View key={i} style={{ flex: 1, height: 8, borderRadius: 2, backgroundColor: '#1A2D45' }}>
+                        {isFull ? (
+                          <LinearGradient colors={gFull} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                            style={{ flex: 1, borderRadius: 2, shadowColor: '#00D6FF', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
+                        ) : isPart ? (
+                          <View style={{ width: `${Math.max(10, Math.round(partial * 100))}%`, height: '100%', borderRadius: 2, backgroundColor: partColor }} />
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
-                <Text style={{ fontSize: 10.5, color: Colors.textMuted }}>
-                  {tokenUsage.month === 'lifetime'
+                {/* Bildtext */}
+                <Text style={{ fontSize: 12, color: Colors.textMuted }}>
+                  {isFree
                     ? 'Free one-time Blade-coins · upgrade for a monthly refill'
-                    : 'Blade-coins used this month · refills monthly'}
+                    : 'Left this month · refills monthly'}
                 </Text>
               </View>
             </View>
@@ -573,8 +634,10 @@ export default function SettingsScreen() {
         );
       })()}
 
-      {/* ── Fria flygningar-mätare: manuellt loggade flygningar mot gratisgränsen (importerade räknas ej) ── */}
+      {/* ── Fria flygningar-mätare: manuellt loggade flygningar mot gratisgränsen (importerade räknas ej).
+          Döljs helt för premium/MAX — där är flygningar obegränsade, så mätaren fyller ingen funktion. ── */}
       {(() => {
+        if (isPremium || isMax) return null;
         const used = manualFlightCount;
         const limit = FREE_TIER_LIMIT;
         const left = Math.max(0, limit - used);
@@ -605,7 +668,7 @@ export default function SettingsScreen() {
 
 {/* ── C. Loggbok ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>
-        {t('tab_logbook') ?? 'LOGBOOK'}
+        General
       </CollapsibleSectionHeader>
       {expandedSection === 'logbook' && (
         <Card backgroundColor={Colors.background} borderColor={Colors.background}>
@@ -773,7 +836,7 @@ export default function SettingsScreen() {
       {/* ── F. App security ── */}
       <View onLayout={(e) => { appSectionY.current = e.nativeEvent.layout.y; }}>
         <CollapsibleSectionHeader expanded={expandedSection === 'app'} onPress={() => toggleSection('app')}>
-          App security
+          Security
         </CollapsibleSectionHeader>
       </View>
       {expandedSection === 'app' && (
@@ -807,22 +870,36 @@ export default function SettingsScreen() {
         </Card>
       )}
 
-      {/* ── G. Om ── */}
-      <SectionHeader>{t('about')}</SectionHeader>
-      <Card>
-        <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title={t('version')}
+      {/* ── G. Om — dropdown som övriga sektioner; app-versionen visas till höger på headern. ── */}
+      <CollapsibleSectionHeader
+        expanded={expandedSection === 'about'}
+        onPress={() => toggleSection('about')}
+        right={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 13, color: Colors.textMuted, fontFamily: 'Menlo' }}>{appVersion}</Text>
+            {updateAvailable && (
+              <View style={{ backgroundColor: Colors.primary + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.primary }}>{t('update_available')}</Text>
+              </View>
+            )}
+          </View>
+        }
+      >
+        {t('about')}
+      </CollapsibleSectionHeader>
+      {expandedSection === 'about' && (
+      <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+        <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title={t('version')} subtitle={appVersion} separatorColor={Colors.background}
           right={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 13, color: Colors.textMuted, fontFamily: 'Menlo' }}>1.0.0</Text>
-              {useVersionStore.getState().updateAvailable && (
-                <View style={{ backgroundColor: Colors.primary + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.primary }}>{t('update_available')}</Text>
-                </View>
-              )}
-            </View>
+            updateAvailable ? (
+              <View style={{ backgroundColor: Colors.primary + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.primary }}>{t('update_available')}</Text>
+              </View>
+            ) : undefined
           }
           onClick={() => {
-            useVersionStore.getState().check().then(() => {
+            // Kör en färsk koll (strypt 1/min) och agera på resultatet.
+            useVersionStore.getState().check().catch(() => {}).then(() => {
               if (useVersionStore.getState().updateAvailable) {
                 Alert.alert(t('update_available'), t('update_available_sub'), [
                   { text: t('cancel'), style: 'cancel' },
@@ -836,17 +913,14 @@ export default function SettingsScreen() {
           /* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge.
              openDevMenu() + handleDev() finns kvar nedan; återaktivera genom att lägga tillbaka propen. */
         />
-        <Row icon="shield-checkmark" iconColor={Colors.textSecondary} title={t('local_storage')}
-          subtitle={t('local_storage_sub')} pressable={false}
-        />
-        <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com"
+        <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com" separatorColor={Colors.background}
           onClick={() => Linking.openURL('mailto:support@blades-app.com')}
         />
-        <Row icon="globe-outline" iconColor={Colors.textSecondary} title="blades-app.com"
+        <Row icon="globe-outline" iconColor={Colors.textSecondary} title="blades-app.com" separatorColor={Colors.background}
           subtitle={t('website_sub')}
           onClick={() => Linking.openURL('https://blades-app.com')}
         />
-        <Row icon="document-text-outline" iconColor={Colors.textSecondary} title={t('privacy_policy')}
+        <Row icon="document-text-outline" iconColor={Colors.textSecondary} title={t('privacy_policy')} separatorColor={Colors.background}
           onClick={() => Linking.openURL('https://blades-app.com/privacy.html')}
         />
         <Row icon="pricetag-outline" iconColor={Colors.textSecondary} title="Redeem promo code" border={false}
@@ -879,48 +953,32 @@ export default function SettingsScreen() {
           }}
         />
       </Card>
+      )}
 
-      {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}
-      <TouchableOpacity
-        onPress={() => {
-          if (isDrone) {
-            const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
-            switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
-          } else {
+      {/* Byt hela loggboken — LOGBOOK-rad med PILOT|DRONE-toggle (handoff B4). Stannar kvar på Settings. */}
+      <ModeToggleRow
+        mode={isDrone ? 'drone' : 'manned'}
+        onConfirmSwitch={(target) => {
+          if (target === 'drone') {
             const ex = additionalProfiles.find(p => p.mainRole === 'pilot-unmanned');
             switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
+          } else {
+            const ex = additionalProfiles.find(p => p.mainRole === 'pilot-manned');
+            switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
           }
         }}
-        activeOpacity={0.85}
-        style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 12 }}
-      >
-        <LinearGradient colors={[Colors.primary + '2E', Colors.primary + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55' }}>
-          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '55' }}>
-            <Ionicons name={isDrone ? 'airplane-outline' : 'hardware-chip-outline'} size={20} color={Colors.primary} />
-          </View>
-          <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>
-            {isDrone ? 'Shift to Pilot logbook' : 'Shift to Drone logbook'}
-          </Text>
-          <Ionicons name="swap-horizontal" size={22} color={Colors.primary} />
-        </LinearGradient>
-      </TouchableOpacity>
+      />
 
-      {/* Blades introduction — kör den guidade rundturen igen (matchar aktivt läge). */}
-      <TouchableOpacity
-        onPress={() => beginTour(isDrone ? 'drone' : 'pilot')}
-        activeOpacity={0.8}
-        style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }}
-      >
-        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary + '1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.primary + '44' }}>
-          <Ionicons name="compass-outline" size={20} color={Colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: Colors.textPrimary }}>Blades introduction</Text>
-          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>Take the guided tour again</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-      </TouchableOpacity>
+      {/* Blades introduction — diskret textlänk (handoff B4). */}
+      <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => beginTour(isDrone ? 'drone' : 'pilot')} activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+          style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
+            Take the Blades introduction
+          </Text>
+        </TouchableOpacity>
+      </View>
 
 
       {/* Blade-coins — förklarande popup */}

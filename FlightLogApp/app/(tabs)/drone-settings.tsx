@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Application from 'expo-application';
 
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
@@ -35,6 +36,8 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useVersionStore } from '../../store/versionStore';
 import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
 import { getSetting, setSetting } from '../../db/flights';
+import { SignatureView, type SignatureData } from '../../components/SignaturePad';
+import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview } from '../../services/dronePhotoSync';
@@ -45,7 +48,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type SectionKey = 'logbook' | 'import' | 'export' | 'app';
+type SectionKey = 'logbook' | 'import' | 'export' | 'app' | 'about';
 
 export default function DroneSettingsScreen() {
   const router = useRouter();
@@ -54,6 +57,10 @@ export default function DroneSettingsScreen() {
   const profile = useProfileStore((s) => s.profile);
   const setProfile = useProfileStore((s) => s.setProfile);
   const setAppMode = useAppModeStore((s) => s.setMode);
+  const appMode = useAppModeStore((s) => s.mode);
+  // Uppdaterings-koll (App Store-lookup) — reaktiv badge + check() vid fokus (nedan), strypt 1/min.
+  const updateAvailable = useVersionStore((s) => s.updateAvailable);
+  const appVersion = Application.nativeApplicationVersion ?? '1.0.0';
   const pilotType = usePilotTypeStore((s) => s.pilotType);
   const setPilotType = usePilotTypeStore((s) => s.setPilotType);
   const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
@@ -67,7 +74,9 @@ export default function DroneSettingsScreen() {
   const appLockEnabled = useAppLockStore((s) => s.enabled);
   const appLockAvailable = useAppLockStore((s) => s.available);
 
-  const [expanded, setExpanded] = useState<SectionKey | null>('logbook');
+  // Starta med ALLA sektioner kollapsade (= pilot-settings). Default var tidigare 'logbook' → "General"
+  // öppnades av sig själv varje gång drönar-settings monterades, bl.a. vid pilot↔drönare-byte.
+  const [expanded, setExpanded] = useState<SectionKey | null>(null);
   // Öppna + scrolla fram en sektion via param (Blades introduction → Import).
   const { expand } = useLocalSearchParams<{ expand?: string }>();
   const scrollRef = useRef<ScrollView>(null);
@@ -82,6 +91,12 @@ export default function DroneSettingsScreen() {
       setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 120);
     }
   }, [expand]);
+  // Pilot↔drönare-byte ska ge en REN settings-vy: kollapsa alla sektioner när läget ändras medan sidan
+  // ligger kvar monterad (bevarat tab-state). Ref-skydd → körs ej vid första mount (deep-link-`expand` kvar).
+  const prevAppMode = useRef(appMode);
+  useEffect(() => {
+    if (prevAppMode.current !== appMode) { prevAppMode.current = appMode; setExpanded(null); }
+  }, [appMode]);
   const [flightCount, setFlightCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   // Export logbook pages (= pilot mode, drönar-böcker)
@@ -91,6 +106,7 @@ export default function DroneSettingsScreen() {
   const [pagesChoice, setPagesChoice] = useState<number | 'whole' | 'custom'>(3);
   const [pagesCustom, setPagesCustom] = useState('');
   const [profileName, setProfileName] = useState('');
+  const [signature, setSignature] = useState<SignatureData | null>(null); // pilotsignatur → visas till höger i profilkortet
   const [profileInitials, setProfileInitials] = useState('');
   const [additionalProfiles, setAdditionalProfiles] = useState<Array<{ mainRole: string; subRole: string }>>([]);
   // Foto-synk: kan synkas / pausad granskning att återuppta (= pilotläget).
@@ -101,6 +117,7 @@ export default function DroneSettingsScreen() {
   useFocusEffect(useCallback(() => {
     loadAccent();
     useTokenQuotaStore.getState().load();
+    useVersionStore.getState().check().catch(() => {}); // App Store-koll (strypt 1/min) → About-badge
     getDroneFlightCount().then(setFlightCount).catch(() => {});
     if (photoSyncOn) {
       hasPendingSync().then(setCanSync).catch(() => setCanSync(false));
@@ -113,6 +130,7 @@ export default function DroneSettingsScreen() {
       const initials = (await getSetting('profile_initials')) ?? '';
       setProfileName(`${first} ${last}`.trim());
       setProfileInitials(initials || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase());
+      try { const sg = await getSetting('pilot_signature'); setSignature(sg ? JSON.parse(sg) : null); } catch { setSignature(null); }
       const addJson = (await getSetting('additional_profiles')) ?? '';
       if (addJson) { try { setAdditionalProfiles(JSON.parse(addJson)); } catch { setAdditionalProfiles([]); } }
     })().catch(() => {});
@@ -145,7 +163,8 @@ export default function DroneSettingsScreen() {
     await setProfile({ mainRole, subRole });
     const targetMode = mainRole === 'pilot-unmanned' ? 'drone' : 'manned';
     await setAppMode(targetMode);
-    const dest = targetMode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)';
+    // Stanna kvar på SETTINGS i det nya läget (lättare skärm än dashboarden → mjukare byte).
+    const dest = targetMode === 'drone' ? '/(tabs)/drone-settings' : '/(tabs)/settings';
     requestAnimationFrame(() => router.replace(dest as any));
   };
 
@@ -264,71 +283,122 @@ export default function DroneSettingsScreen() {
         <Text style={{ fontSize: 26, fontWeight: '800', color: DR.text, letterSpacing: -0.8 }}>Settings</Text>
       </View>
 
-      {/* ── A. Profilkort ── */}
-      <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-        <View style={{ backgroundColor: DR.surface, borderRadius: 16, borderWidth: 1, borderColor: DR.border, overflow: 'hidden' }}>
-          {/* Profil-rad */}
+      {/* ── A. Profil + Blades Premium — design "D" (handoff): profilkort + slank guld-strip, gap 10. ── */}
+      <View style={{ paddingHorizontal: 20, paddingBottom: 8, gap: 10 }}>
+        {/* Profil-rad (kort) — ~samma storlek som Blades Premium-stripen. Med signatur: "PROFILE" + namn
+            staplade vänster, signatur höger. Utan signatur: namnet till höger (fyller signaturens plats). */}
+        <TouchableOpacity
+          style={{ height: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12,
+            backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Profile, ${profileName || 'Your name'}`}
+          onPress={() => router.push('/settings/profile')}
+        >
+          {signature ? (
+            <>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase', color: DR.text3 }}>Profile</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: DR.text, marginTop: 2 }} numberOfLines={1}>{profileName || 'Your name'}</Text>
+              </View>
+              <View style={{ maxWidth: 110, overflow: 'hidden', alignItems: 'flex-end' }}>
+                <SignatureView data={signature} height={26} color={DR.text2} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase', color: DR.text3 }}>Profile</Text>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: DR.text, textAlign: 'right' }} numberOfLines={1}>{profileName || 'Your name'}</Text>
+            </>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={accent} />
+        </TouchableOpacity>
+
+        {/* Blades Premium — slank guld-strip (status som text, ingen pill/ikon) */}
+        <LinearGradient
+          colors={['rgba(255,184,48,0.14)', 'rgba(255,184,48,0.03)']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={{ borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,184,48,0.30)', overflow: 'hidden' }}
+        >
           <TouchableOpacity
-            style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 0.5, borderBottomColor: DR.separator }}
+            style={{ height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             activeOpacity={0.7}
-            onPress={() => router.push('/settings/profile')}
+            accessibilityRole="button"
+            accessibilityLabel={`Blades Premium, ${isPremium || isMax ? 'Active' : 'Upgrade'}`}
+            onPress={() => { if (isPremium || isMax) { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); } else { presentPaywall(); } }}
           >
-            <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: isMax ? DR.text2 : (isPremium ? DR.warning : accent), alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: DR.inkOnAccent, letterSpacing: -0.5 }}>{profileInitials || '?'}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: DR.text, letterSpacing: -0.2 }}>{profileName || 'Your name'}</Text>
-              <Text style={{ fontSize: 12, color: DR.muted, marginTop: 2 }}>Tap to edit profile</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase', color: '#FFB830' }}>Blades Premium</Text>
+            <Text style={{ fontSize: 12, fontWeight: '500', fontFamily: 'Menlo', color: '#C9B07A' }}>{isPremium || isMax ? 'Active' : 'Upgrade'}</Text>
+            <Ionicons name="chevron-forward" size={16} color="#FFB830" />
           </TouchableOpacity>
-
-          {/* Certifikat + "Current today?" borttagna inför lansering (dolda från UI). */}
-
-          {/* Premium */}
-          <TouchableOpacity style={{ paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }} activeOpacity={0.7} onPress={() => { if (isPremium || isMax) { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); } else { presentPaywall(); } }}>
-            <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: (isMax ? DR.text2 : DR.warning) + '22', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="star" size={15} color={isMax ? DR.text2 : DR.warning} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: DR.text }}>{isMax ? 'Blades MAX' : 'Blades Premium'}</Text>
-              <Text style={{ fontSize: 11, color: DR.muted }}>{isPremium || isMax ? 'Active' : 'Discover all features'}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
-          </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
 
       {/* ── Blade-coins-mätare ── */}
       {tokenUsage && (() => {
-        const pct = Math.min(100, Math.round((tokenUsage.used / Math.max(tokenUsage.limit, 1)) * 100));
-        // Flytande sektion (ingen ruta) · shiny zyan bar + siffror.
+        // Handoff B2 (= pilot): 64px mynt till vänster, segmenterad mätare, visar KVARVARANDE coins.
+        const usedCoins = tokensToCoins(tokenUsage.used);
+        const limitCoins = tokensToCoins(tokenUsage.limit);
+        const leftCoins = Math.max(0, limitCoins - usedCoins);
+        const leftPct = limitCoins > 0 ? leftCoins / limitCoins : 0;
+        const CELLS = 10;
+        const fill = leftPct * CELLS;
+        const full = Math.floor(fill);
+        const partial = fill - full;
+        const empty = leftCoins <= 0;
+        const low = !empty && leftPct <= 0.10;
+        const countColor = empty ? '#7F98B2' : low ? '#FFB830' : '#00C8E8';
+        const gFull = (low ? ['#FFD27A', '#FFB830'] : ['#7DF2FF', '#00B4D8']) as [string, string];
+        const partColor = low ? '#FFB830' : '#1CD8F5';
+        const isFree = tokenUsage.month === 'lifetime';
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 68, height: 68 }} resizeMode="contain" />
-              <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 64, height: 64 }} resizeMode="contain" />
+              <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
                     <TouchableOpacity onPress={() => setShowCoinInfo(true)} hitSlop={8} activeOpacity={0.7}>
                       <Ionicons name="help-circle-outline" size={16} color={DR.muted} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={{ fontSize: 13, color: '#3DE3F7', fontFamily: 'Menlo', fontWeight: '700', textShadowColor: 'rgba(0,214,255,0.55)', textShadowRadius: 6 }}>{tokensToCoins(tokenUsage.used).toLocaleString('en-US')} / {tokensToCoins(tokenUsage.limit).toLocaleString('en-US')}</Text>
+                  <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700' }}>
+                    <Text style={{ color: countColor }}>{leftCoins.toLocaleString('en-US')}</Text>
+                    <Text style={{ color: '#56708C', fontWeight: '500' }}> / {limitCoins.toLocaleString('en-US')}</Text>
+                  </Text>
                 </View>
-                <View style={{ height: 6, borderRadius: 3, backgroundColor: DR.elevated, overflow: 'hidden' }}>
-                  <LinearGradient colors={['#7DF2FF', '#1CD8F5', '#00B4D8']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 6, borderRadius: 3, width: `${pct}%` }} />
+                <View style={{ flexDirection: 'row', gap: 4, marginTop: 10, marginBottom: 6 }}>
+                  {Array.from({ length: CELLS }).map((_, i) => {
+                    const isFull = i < full;
+                    const isPart = i === full && partial > 0;
+                    return (
+                      <View key={i} style={{ flex: 1, height: 8, borderRadius: 2, backgroundColor: '#1A2D45' }}>
+                        {isFull ? (
+                          <LinearGradient colors={gFull} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                            style={{ flex: 1, borderRadius: 2, shadowColor: '#00D6FF', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
+                        ) : isPart ? (
+                          <View style={{ width: `${Math.max(10, Math.round(partial * 100))}%`, height: '100%', borderRadius: 2, backgroundColor: partColor }} />
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
-                <Text style={{ fontSize: 10.5, color: DR.muted }}>{tokenUsage.month === 'lifetime' ? 'Free one-time Blade-coins · upgrade for a monthly refill' : 'Blade-coins used this month · refills monthly'}</Text>
+                <Text style={{ fontSize: 12, color: DR.muted }}>
+                  {isFree
+                    ? 'Free one-time Blade-coins · upgrade for a monthly refill'
+                    : 'Left this month · refills monthly'}
+                </Text>
               </View>
             </View>
           </View>
         );
       })()}
 
-      {/* ── Fria flygningar-mätare: manuellt loggade drönarflygningar mot gratisgränsen ── */}
+      {/* ── Fria flygningar-mätare: manuellt loggade drönarflygningar mot gratisgränsen.
+          Döljs helt för premium/MAX — obegränsade flygningar, så mätaren fyller ingen funktion. ── */}
       {(() => {
+        if (isPremium || isMax) return null;
         const used = flightCount;
         const limit = FREE_TIER_LIMIT_DRONE;
         const left = Math.max(0, limit - used);
@@ -356,7 +426,7 @@ export default function DroneSettingsScreen() {
       })()}
 
       {/* ── C. Logbook ── */}
-      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'logbook'} onPress={() => toggleSection('logbook')}>Logbook</CollapsibleSectionHeader>
+      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'logbook'} onPress={() => toggleSection('logbook')}>General</CollapsibleSectionHeader>
       {expanded === 'logbook' && (
         <SectionCard>
           <Row accent={accent} icon="images-outline" iconColor={accent} title="Flight album" subtitle="Photos & videos from your flights" onPress={() => router.push('/drone-album')} separatorColor={DR.background} />
@@ -382,7 +452,7 @@ export default function DroneSettingsScreen() {
       </View>
       {expanded === 'import' && (
         <SectionCard>
-          <Row accent={accent} icon="create-outline" iconColor={accent} title="Log flight manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
+          <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
           <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="DJI / Autel — coming soon" right={<Text style={s.soon}>SOON</Text>} pressable={false} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />
@@ -405,7 +475,7 @@ export default function DroneSettingsScreen() {
 
       {/* ── F. App security (= pilotläget: app-lås, plats, iCloud, kryptering, hantera data) ── */}
       <View onLayout={(e) => { appSectionY.current = e.nativeEvent.layout.y; }}>
-        <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>App security</CollapsibleSectionHeader>
+        <CollapsibleSectionHeader accent={accent} expanded={expanded === 'app'} onPress={() => toggleSection('app')}>Security</CollapsibleSectionHeader>
       </View>
       {expanded === 'app' && (
         <SectionCard>
@@ -426,24 +496,33 @@ export default function DroneSettingsScreen() {
       )}
 
       {/* ── About (version → långtryck = testdata-meny; Developer-sektionen borttagen) ── */}
-      <SectionHeader>About</SectionHeader>
-      <Card>
+      {/* About — dropdown som övriga sektioner; app-versionen visas till höger på headern. */}
+      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'about'} onPress={() => toggleSection('about')}
+        right={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 13, color: DR.muted, fontFamily: 'Menlo' }}>{appVersion}</Text>
+            {updateAvailable && (
+              <View style={{ backgroundColor: accent + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: accent }}>Update available</Text>
+              </View>
+            )}
+          </View>
+        }
+      >About</CollapsibleSectionHeader>
+      {expanded === 'about' && (
+      <SectionCard>
         {/* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge (openDevMenu finns kvar). */}
-        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" onPress={checkVersion}
+        <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" subtitle={appVersion} onPress={checkVersion} separatorColor={DR.background}
           right={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 13, color: DR.muted, fontFamily: 'Menlo' }}>1.0.0</Text>
-              {useVersionStore.getState().updateAvailable && (
-                <View style={{ backgroundColor: accent + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '700', color: accent }}>UPDATE</Text>
-                </View>
-              )}
-            </View>
+            updateAvailable ? (
+              <View style={{ backgroundColor: accent + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: accent }}>Update available</Text>
+              </View>
+            ) : undefined
           } />
-        <Row accent={accent} icon="shield-checkmark" iconColor={DR.text3} title="Local storage" subtitle="All data stored on this device" pressable={false} />
-        <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} />
-        <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} />
-        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} />
+        <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} separatorColor={DR.background} />
+        <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} separatorColor={DR.background} />
+        <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} separatorColor={DR.background} />
         <Row accent={accent} icon="pricetag-outline" iconColor={DR.text3} title="Redeem promo code" border={false}
           onLongPress={() => {
             Alert.alert('Remove promo access?', 'This removes promo-based Blades Premium from this device. You can redeem a code again anytime.', [
@@ -472,35 +551,33 @@ export default function DroneSettingsScreen() {
               'plain-text',
             );
           }} />
-      </Card>
+      </SectionCard>
+      )}
 
-      {/* Byt hela loggboken → längst ner (man skiftar hela appläget). Egen framträdande design. */}
-      <TouchableOpacity onPress={shiftToPilot} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, marginBottom: 12 }}>
-        <LinearGradient colors={[accent + '2E', accent + '0D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: accent + '55' }}>
-          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '26', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '55' }}>
-            <Ionicons name="airplane-outline" size={20} color={accent} />
-          </View>
-          <Text style={{ flex: 1, fontSize: 15, fontWeight: '800', color: DR.text }}>Shift to Pilot logbook</Text>
-          <Ionicons name="swap-horizontal" size={22} color={accent} />
-        </LinearGradient>
-      </TouchableOpacity>
+      {/* Byt hela loggboken — LOGBOOK-rad med PILOT|DRONE-toggle (handoff B4). Stannar kvar på Settings. */}
+      <ModeToggleRow
+        mode="drone"
+        onConfirmSwitch={(target) => {
+          if (target === 'manned') {
+            const ex = additionalProfiles.find((p) => p.mainRole === 'pilot-manned');
+            switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
+          } else {
+            const ex = additionalProfiles.find((p) => p.mainRole === 'pilot-unmanned');
+            switchProfile('pilot-unmanned', (ex?.subRole as SubRole) ?? 'commercial');
+          }
+        }}
+      />
 
-      {/* Blades introduction — kör den guidade rundturen igen (drönarläget). */}
-      <TouchableOpacity
-        onPress={() => beginTour('drone')}
-        activeOpacity={0.8}
-        style={{ marginHorizontal: 16, marginBottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}
-      >
-        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: accent + '1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: accent + '44' }}>
-          <Ionicons name="compass-outline" size={20} color={accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: DR.text }}>Blades introduction</Text>
-          <Text style={{ fontSize: 12, color: DR.text2, marginTop: 2 }}>Take the guided tour again</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={DR.muted} />
-      </TouchableOpacity>
+      {/* Blades introduction — diskret textlänk (handoff B4). */}
+      <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => beginTour('drone')} activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+          style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: '500', color: DR.text2, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
+            Take the Blades introduction
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Blade-coins — förklarande popup */}
       <Modal visible={showCoinInfo} transparent animationType="fade" onRequestClose={() => setShowCoinInfo(false)}>
@@ -597,12 +674,13 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return <View style={{ marginHorizontal: 20, marginTop: 6, overflow: 'hidden' }}>{children}</View>;
 }
 
-function CollapsibleSectionHeader({ accent, children, expanded, onPress, tourPressId }: { accent: string; children: string; expanded: boolean; onPress: () => void; tourPressId?: string }) {
+function CollapsibleSectionHeader({ accent, children, expanded, onPress, tourPressId, right }: { accent: string; children: string; expanded: boolean; onPress: () => void; tourPressId?: string; right?: React.ReactNode }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}
       style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border }}>
       {tourPressId ? <TourPress id={tourPressId} radius={12} /> : null}
       <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: expanded ? accent : DR.text, letterSpacing: 0.8, textTransform: 'uppercase' }}>{children}</Text>
+      {right != null ? <View style={{ marginLeft: 8 }}>{right}</View> : null}
       <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={16} color={expanded ? accent : DR.text3} style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );

@@ -95,6 +95,9 @@ const stripObserverRemarks = (remarks: string): string =>
 
 // Ordningstal (2nd, 3rd, 4th …) för "+ Add Nth flight".
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
+// Orange backdrop för extra-flygningarnas (2:a/3:e…) inmatningsrutor — särskiljer dem tydligt från de cyan/
+// navy-färgade tid-rutorna så det syns bättre vad man skriver.
+const DRONE_ORANGE = '#F97316';
 // Dynamisk platstext-storlek (= pilot log flight): 19 (≤4 tecken) → 13 (≥12 tecken).
 const placeFontSize = (v: string) => 19 - Math.max(0, Math.min(v.length, 12) - 4) * 0.75;
 
@@ -753,28 +756,31 @@ export default function AddDroneFlightScreen() {
               </View>
               <View style={{ width: 12 }} />
               <View style={styles.gridCol}>
-              <View style={[styles.extraChipsWrap, { flex: undefined, alignSelf: 'stretch', justifyContent: 'center' }]}>
+                {/* Extra flygningar (2:a/3:e…): varje ruta lika stor som Total-rutan men med ORANGE backdrop
+                    (tydlig åtskillnad → lättare att se vad man skriver). Stackas vertikalt. */}
                 {fullLegs.slice(1).map((leg, idx) => {
                   const i = idx + 1;
                   return (
-                    <View key={i} style={styles.extraChip}>
-                      <Text style={styles.extraChipOrd}>{ordinal(i + 1)}</Text>
-                      <TextInput
-                        style={styles.extraChipInput}
-                        value={leg}
-                        onChangeText={(raw) => updateLeg(i, raw)}
-                        placeholder="HH:MM"
-                        keyboardType="number-pad"
-                        placeholderTextColor={DR.muted}
-                        inputAccessoryViewID="drone-add-done"
-                      />
-                      <TouchableOpacity onPress={() => removeLeg(i)} hitSlop={6} activeOpacity={0.7}>
-                        <Ionicons name="close-circle" size={16} color={DR.danger} />
+                    <View key={i} style={[styles.extraFlightBox, { height: timeBoxH }]}>
+                      <Text style={styles.extraFlightOrd}>{ordinal(i + 1)}</Text>
+                      <View style={styles.extraFlightInputWrap}>
+                        <TextInput
+                          style={styles.extraFlightInput}
+                          value={leg}
+                          onChangeText={(raw) => updateLeg(i, raw)}
+                          keyboardType="number-pad"
+                          inputAccessoryViewID="drone-add-done"
+                        />
+                        {!leg ? (
+                          <View style={styles.flightTimePh} pointerEvents="none"><Text style={styles.extraFlightPhText}>hh:mm</Text></View>
+                        ) : null}
+                      </View>
+                      <TouchableOpacity onPress={() => removeLeg(i)} hitSlop={6} activeOpacity={0.7} style={styles.extraFlightRemove}>
+                        <Ionicons name="close-circle" size={18} color={DRONE_ORANGE} />
                       </TouchableOpacity>
                     </View>
                   );
                 })}
-              </View>
               </View>
             </View>
 
@@ -1450,10 +1456,13 @@ function makeStyles(accent: string) {
     totalDisplayValue: { fontFamily: FONT_LED7, fontSize: 26, fontWeight: '800', color: DR.text },
     addFlightBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 34, borderRadius: 10, borderWidth: 1, borderColor: accent + '66', backgroundColor: accent + '10' },
     addFlightBtnText: { color: accent, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
-    extraChipsWrap: { flex: 1.35, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    extraChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 8, paddingRight: 6, height: 34, borderRadius: 9, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface },
-    extraChipOrd: { fontFamily: 'JetBrainsMono', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.4, color: DR.muted },
-    extraChipInput: { fontFamily: FONT_LED7, fontSize: 15, fontWeight: '800', color: DR.text, minWidth: 42, padding: 0 },
+    // Extra-flygningarnas rutor: lika stora som Total-rutan (height = timeBoxH inline) men ORANGE backdrop.
+    extraFlightBox: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1.5, borderColor: DRONE_ORANGE, backgroundColor: DRONE_ORANGE + '26', paddingHorizontal: 8, marginBottom: 8 },
+    extraFlightOrd: { width: 24, fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 0.3, color: DRONE_ORANGE },
+    extraFlightInputWrap: { flex: 1, justifyContent: 'center' },
+    extraFlightInput: { fontFamily: FONT_LED7, fontSize: 24, fontWeight: '800', color: DR.text, textAlign: 'center', padding: 0, width: '100%' },
+    extraFlightPhText: { fontFamily: 'JetBrainsMono', fontSize: 14, fontWeight: '700', letterSpacing: 1.5, color: DRONE_ORANGE + '99' },
+    extraFlightRemove: { width: 24, alignItems: 'flex-end' },
     legPanelLeft: {
       flex: 1, gap: 6, backgroundColor: accent + '0D',
       borderWidth: 1, borderColor: DR.separator,
