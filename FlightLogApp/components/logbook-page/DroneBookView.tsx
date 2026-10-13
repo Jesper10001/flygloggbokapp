@@ -117,9 +117,11 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
           <Ionicons name="book-outline" size={44} color={accent} />
           <Text style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: '600', color: DR.text, textAlign: 'center' }}>No logbook yet</Text>
           <Text style={{ fontSize: 13, color: DR.text2, textAlign: 'center', lineHeight: 19 }}>Create a digital logbook to see your drone flights laid out as in your actual logbook.</Text>
+          {/* Samma CTA-stil som loggbokens tomtillstånds-knappar: ram + accent-botten + chevron. */}
           <TouchableOpacity onPress={() => router.push('/drone-logbook')} activeOpacity={0.85}
-            style={{ marginTop: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 13, backgroundColor: accent }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: DR.inkOnAccent }}>Create logbook</Text>
+            style={{ alignSelf: 'stretch', marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '14' }}>
+            <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: DR.text }}>Create logbook</Text>
+            <Ionicons name="chevron-forward" size={16} color={DR.muted} />
           </TouchableOpacity>
         </View>
       </View>

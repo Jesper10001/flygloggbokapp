@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Application from 'expo-application';
 
 import { DR } from '../../constants/droneTheme';
+import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { getDroneFlightCount } from '../../db/drones';
 import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
@@ -280,7 +281,7 @@ export default function DroneSettingsScreen() {
     <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: DR.text, letterSpacing: -0.8 }}>Settings</Text>
+        <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: DR.text }}>Settings</Text>
       </View>
 
       {/* ── A. Profil + Blades Premium — design "D" (handoff): profilkort + slank guld-strip, gap 10. ── */}
@@ -556,7 +557,7 @@ export default function DroneSettingsScreen() {
 
       {/* Byt hela loggboken — LOGBOOK-rad med PILOT|DRONE-toggle (handoff B4). Stannar kvar på Settings. */}
       <ModeToggleRow
-        mode="drone"
+        mode={appMode === 'drone' ? 'drone' : 'manned'}
         onConfirmSwitch={(target) => {
           if (target === 'manned') {
             const ex = additionalProfiles.find((p) => p.mainRole === 'pilot-manned');

@@ -41,9 +41,11 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
           text: 'Switch',
           onPress: () => {
             try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch { /* haptik valfri */ }
-            // Glid knoppen FÖRST (visuell feedback) och skifta sedan läget → känns mjukare än ett hopp.
-            Animated.timing(anim, { toValue: toDrone ? 1 : 0, duration: 260, useNativeDriver: false })
-              .start(() => onConfirmSwitch(target));
+            // Animera INTE knoppen här mot target — knoppen styrs ENBART av `isDrone` (useEffect:en ovan).
+            // Att flytta knoppen mot target och sedan navigera gjorde att den fastnade på fel plats om
+            // skärmen låg kvar monterad och `isDrone` inte ändrades (t.ex. drönar-settings). Nu glider den
+            // via useEffect:en när läget faktiskt ändras → alltid i synk med vald sida.
+            onConfirmSwitch(target);
           },
         },
       ],

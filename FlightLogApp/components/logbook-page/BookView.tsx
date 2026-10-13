@@ -120,9 +120,11 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
           <Ionicons name="book-outline" size={44} color={accent} />
           <Text style={{ fontFamily: FONT_SERIF, fontSize: 20, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>No logbook yet</Text>
           <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 19 }}>Create a digital logbook to see your flights laid out as in your actual logbook.</Text>
+          {/* Samma stil som loggbokens tomtillstånds-knappar (CTA): ram + accent-botten + chevron. */}
           <TouchableOpacity onPress={() => router.push('/logbook')} activeOpacity={0.85}
-            style={{ marginTop: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 13, backgroundColor: accent }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.background }}>Create logbook</Text>
+            style={{ alignSelf: 'stretch', marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '14' }}>
+            <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: Colors.textPrimary }}>Create logbook</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
       </View>

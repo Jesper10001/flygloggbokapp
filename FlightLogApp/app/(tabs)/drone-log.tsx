@@ -93,18 +93,26 @@ export default function DroneLog() {
     );
   }
 
+  // Fleet har (som Book + pilotens FleetView) sin EGEN header så att "X models · X registrations" hamnar
+  // ovanför linjen — toggeln skickas in som headerRight.
+  if (tab === 'fleet') {
+    return (
+      <View style={s.container}>
+        <FleetTab accent={accent} headerRight={toggle} />
+      </View>
+    );
+  }
+
   return (
     <View style={s.container}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={[s.screenTitle, { flex: 1, marginBottom: 0 }]}>{tab === 'fleet' ? 'Fleet' : 'Logbook'}</Text>
+          <Text style={[s.screenTitle, { flex: 1, marginBottom: 0 }]}>Logbook</Text>
           {toggle}
         </View>
       </View>
 
-      {tab === 'flights'
-        ? <FlightsTab flights={flights} accent={accent} onOpen={(id) => router.push(`/drone-flight/${id}`)} />
-        : <FleetTab accent={accent} />}
+      <FlightsTab flights={flights} accent={accent} onOpen={(id) => router.push(`/drone-flight/${id}`)} />
     </View>
   );
 }
@@ -494,7 +502,7 @@ function DroneIsoMonth({ flights, accent, sel }: { flights: DroneFlight[]; accen
   );
 }
 
-function FleetTab({ accent }: { accent: string }) {
+function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React.ReactNode }) {
   const [modelsState, setModels] = useState<DroneModelFleet[]>([]);
   // Blades introduction: DEMO-fleet när rundturen kör och fleet annars är tom. Inget rör DB.
   const tourDemo = useTourStore((s) => s.demo);
@@ -525,11 +533,17 @@ function FleetTab({ accent }: { accent: string }) {
 
   return (
     <>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
-      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: DR.muted, letterSpacing: 0.4, marginBottom: 12 }}>
+    {/* Egen header (= pilotens FleetView): titel + count OVANFÖR linjen, toggeln till höger. */}
+    <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Text style={[s.screenTitle, { flex: 1, marginBottom: 0 }]}>Fleet</Text>
+        {headerRight}
+      </View>
+      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: DR.muted, letterSpacing: 0.4, marginTop: 4 }}>
         {models.length} {models.length === 1 ? 'model' : 'models'} · {totalRegs} registrations
       </Text>
-
+    </View>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
       {models.length === 0 ? (
         <FleetEmptyPreview kind="drone" accent={accent} />
       ) : models.length === 1 ? (
@@ -555,11 +569,20 @@ function FleetTab({ accent }: { accent: string }) {
       )}
 
       {/* Add drone → smart search direkt (samma modal som Log Flight) */}
-      <TouchableOpacity onPress={() => setShowAdd(true)} activeOpacity={0.8}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}>
-        <Ionicons name="add" size={18} color={accent} />
-        <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>{models.length === 0 ? 'Add your first drone' : 'Add drone'}</Text>
-      </TouchableOpacity>
+      {models.length === 0 ? (
+        // Tomt: samma CTA-stil som loggbokens tomtillstånds-knappar (ram + accent-botten + chevron), inget +.
+        <TouchableOpacity onPress={() => setShowAdd(true)} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '14' }}>
+          <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: DR.text }}>Add your first drone</Text>
+          <Ionicons name="chevron-forward" size={16} color={DR.muted} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity onPress={() => setShowAdd(true)} activeOpacity={0.8}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}>
+          <Ionicons name="add" size={18} color={accent} />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Add drone</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
 
     <DroneModal

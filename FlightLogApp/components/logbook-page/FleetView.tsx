@@ -85,11 +85,20 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
           </>
         )}
 
-        <TouchableOpacity onPress={() => setAdding(true)} activeOpacity={0.8}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface }}>
-          <Ionicons name="add" size={18} color={accent} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>{sorted.length === 0 ? 'Add your first aircraft' : 'Add aircraft'}</Text>
-        </TouchableOpacity>
+        {sorted.length === 0 ? (
+          // Tomt: samma CTA-stil som loggbokens tomtillstånds-knappar (ram + accent-botten + chevron), inget +.
+          <TouchableOpacity onPress={() => setAdding(true)} activeOpacity={0.85}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '14' }}>
+            <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: Colors.textPrimary }}>Add your first aircraft</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => setAdding(true)} activeOpacity={0.8}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface }}>
+            <Ionicons name="add" size={18} color={accent} />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Add aircraft</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <AircraftModal

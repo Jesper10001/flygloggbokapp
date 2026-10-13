@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import * as Application from 'expo-application';
+import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
@@ -493,7 +494,7 @@ export default function SettingsScreen() {
       {/* Header */}
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.8 }}>
+        <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: Colors.textPrimary }}>
           {t('tab_settings')}
         </Text>
       </View>
