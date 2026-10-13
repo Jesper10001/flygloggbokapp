@@ -20,66 +20,6 @@ import { PremiumModal } from '../../components/PremiumModal';
 import type { IcaoAirport } from '../../types/flight';
 
 
-function buildGlobalMapHtml(airports: [string, string, string, string, number, number][]): string {
-  const pts = airports.map(([icao, name, , , lat, lon]) =>
-    `[${lat},${lon},"${icao}","${name.replace(/"/g, '\\"')}"]`
-  ).join(',');
-
-  return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#1a2235}
-  #map{position:absolute;top:0;left:0;right:0;bottom:0}
-  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
-  .leaflet-popup-tip{background:#1A2235}
-  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
-  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
-  #layer-switcher{
-    position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
-    z-index:1000;display:flex;gap:6px;
-    background:rgba(15,22,38,.88);border-radius:12px;padding:6px;
-    box-shadow:0 4px 16px rgba(0,0,0,.5);
-  }
-  #layer-switcher button{
-    font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;
-    color:#9BAAC0;background:transparent;border:none;
-    border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;
-  }
-  #layer-switcher button.active{background:#2563EB;color:#fff}
-</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-</head><body>
-<div id="map"></div>
-<div id="layer-switcher"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script>
-window.onload=function(){
-  var map=L.map('map',{center:[30,0],zoom:2,zoomControl:true,attributionControl:true});
-  var layers={
-    'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
-    'Satellite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
-    'Dark':L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'})
-  };
-  var ak='Light';layers[ak].addTo(map);
-  var sw=document.getElementById('layer-switcher');
-  Object.keys(layers).forEach(function(k){
-    var b=document.createElement('button');b.textContent=k;
-    if(k===ak)b.className='active';
-    b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);
-      sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};
-    sw.appendChild(b);
-  });
-  var pts=[${pts}];
-  pts.forEach(function(p){
-    L.circleMarker([p[0],p[1]],{radius:2,fillColor:'#4f7cff',fillOpacity:0.7,color:'#2563EB',weight:0.4})
-      .addTo(map).bindPopup('<strong>'+p[2]+'</strong><br><span style="font-size:11px">'+p[3]+'</span>');
-  });
-  setTimeout(function(){map.invalidateSize();},300);
-};
-</script></body></html>`;
-}
-
 // ── Mini-karta ────────────────────────────────────────────────────────────────
 
 // ── Stilar ────────────────────────────────────────────────────────────────────

@@ -40,7 +40,9 @@ function meetsWx(cat: FlightCat | null | undefined, min: FlightCat): boolean {
   return (WX_RANK[cat] ?? -1) >= (WX_RANK[min] ?? 99);
 }
 const WX_CATS: FlightCat[] = ['VFR', 'MVFR', 'IFR', 'LIFR'];
-const WX_PIN_LIMIT = 180; // väderläget målar ut enskilda pins direkt upp till detta antal, annars klustras det
+// Väder- och favoritläget målar ut enskilda pins direkt upp till detta antal (= GlobalAirportMaps
+// pin-tak), annars faller de tillbaka på flaggor/kluster.
+const DIRECT_PIN_LIMIT = 180;
 
 // Legend-rader: sikt i sm (FAA) eller km (EASA/CAA), molnbas alltid i fot. Samma trösklar som väderfiltret.
 function wxLegendRowsFor(sm: boolean): { cat: FlightCat; vis: string; ceil: string }[] {
@@ -312,11 +314,13 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   );
   const isBranch = childrenData.length > 1; // >1 delnod → gren (region-markörer); annars löv (pins)
   // Väderläge: måla ut de matchande flygplatserna DIREKT som enskilda pins (ingen klustring) så länge de
-  // ryms under kart-taket (WX_PIN_LIMIT). Över taket faller vi tillbaka på klustring för prestanda.
-  const wxDirect = !!(wxCat && wxCountry) && typedSeed.length > 0 && typedSeed.length <= WX_PIN_LIMIT;
-  // Favorites i världsvyn → visa favoriterna som pins direkt (inte landsflaggor). Annars normal drill.
-  const pins = wxDirect ? typedSeed
-    : favMode && !currentNode ? typedSeed
+  // ryms under kart-taket (DIRECT_PIN_LIMIT). Över taket faller vi tillbaka på klustring för prestanda.
+  const wxDirect = !!(wxCat && wxCountry) && typedSeed.length > 0 && typedSeed.length <= DIRECT_PIN_LIMIT;
+  // Favorites: samma sak — favoriterna syns som pins på ALLA zoomnivåer, även i världsvyn. (Förr klustrades
+  // de i klusterläget → syntes först när man zoomat in på platsen.) Över taket: flaggor/kluster som vanligt.
+  const favDirect = favMode && !currentNode && typedSeed.length > 0 && typedSeed.length <= DIRECT_PIN_LIMIT;
+  const directPins = wxDirect || favDirect;
+  const pins = directPins ? typedSeed
     : currentNode && !isBranch ? currentAirports
     : undefined;
   const regionMarkers = isBranch
@@ -425,6 +429,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (favMode) { setFavMode(false); return; }
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide');
     setDrillStack([]); setFocusAirport(null); setMapSearch('');
+    // Rama in favoriterna (klusterläget monterar om på mapRegion) → de syns direkt, var man än stod.
+    const favRows = seedData.filter((r) => favorites.has(r[0]) && r[8] !== 'closed');
+    setMapRegion(favRows.length ? boundsRegion(favRows) : WORLD);
     setFavMode(true);
   };
   const toggleFavorite = (icao: string) => setFavorites((prev) => {
@@ -626,9 +633,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             // Klusterläge: montera på SENAST kända vyn (mapRegion) → filterändring (mapKey-remount) hoppar
             // inte till världen. frameRegion lämnas otilldelad (annars animerar den tillbaka till WORLD).
             initialRegion={clusterMode ? mapRegion : frameRegion}
-            // Väderläge (under taket) → tvinga enskilda pins, ingen klustring.
-            mode={wxDirect ? 'pins' : clusterMode ? 'auto' : 'country'}
-            clustering={wxDirect ? false : clusterMode}
+            // Väder-/favoritläge (under taket) → tvinga enskilda pins, ingen klustring.
+            mode={directPins ? 'pins' : clusterMode ? 'auto' : 'country'}
+            clustering={directPins ? false : clusterMode}
             clusterKey={mapKey}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);

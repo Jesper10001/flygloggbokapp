@@ -24,7 +24,6 @@ import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
 import { FONT_LED7 } from '../../components/logflight/tokens';
 import { FlightShareCard } from '../../components/FlightShareCard';
-import { RouteMapModal } from '../../components/RouteMapModal';
 import { BestWeekMapModal } from '../../components/BestWeekMapModal';
 import { BWCardCompact } from '../../components/milestones/BWCardCompact';
 import { LXCardCompact } from '../../components/milestones/LXCardCompact';
@@ -649,7 +648,6 @@ export default function DashboardScreen() {
   const [wxPickerOpen, setWxPickerOpen] = useState(false); // väder-uppslagsvyn (ändrar EJ tickern)
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
-  const [xcMapVisible, setXcMapVisible] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
   const { updateAvailable, news, storeUrl, check: checkVersion } = useVersionStore();
   const [spreadPrompt, setSpreadPrompt] = useState<SpreadPrompt | null>(null);
@@ -1160,9 +1158,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {st?.longest_xc_date && (
-            <RouteMapModal visible={xcMapVisible} onClose={() => setXcMapVisible(false)} xcDate={st.longest_xc_date} hours={st.longest_xc_hours} />
-          )}
           {st?.best_week_start && (
             <BestWeekMapModal visible={weekMapVisible} onClose={() => setWeekMapVisible(false)} weekStart={st.best_week_start} weekLabel={st.best_week_label} hours={st.best_week_hours} />
           )}

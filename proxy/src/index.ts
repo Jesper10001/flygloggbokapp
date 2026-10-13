@@ -12,6 +12,8 @@ interface Env {
   REVENUECAT_SECRET_KEY?: string;   // RevenueCat v2 secret key (sk_…) — läser kunds active entitlements. Secret.
   REVENUECAT_PROJECT_ID?: string;   // RevenueCat projekt-id (proj…) — behövs i v2-URL:en.
   REVENUECAT_WEBHOOK_AUTH?: string; // delad hemlighet: Authorization-headern i RevenueCat-webhooken.
+  ARCGIS_API_KEY?: string;          // ArcGIS Location Platform API-nyckel (privilegie: Basemaps) — share-kortets satellitbilder. Secret.
+  MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate Limiting-binding (wrangler.toml)
 }
 
 // ── Token-baserad AI-kvot (input+output per device) — den ENDA aktiva spärren ──
@@ -723,6 +725,72 @@ async function refreshIncidentNews(env: Env): Promise<NewsIncident[]> {
   return incidents;
 }
 
+// ── Satellitbilder till share-kortet (Esri World Imagery via ArcGIS Location Platform) ──────────
+// Appen hämtar 256-px-tiles HÄRIFRÅN och proxyn lägger på API-nyckeln (secret ARCGIS_API_KEY) → nyckeln
+// finns aldrig i appen och kan roteras utan app-uppdatering (Esris API-nycklar löper ut efter max 1 år).
+// Esri ser bara vår server, inte användarens IP. Tiles LAGRAS INTE här — Esris villkor tillåter inte att
+// data skrapas, laddas ner eller lagras — de skickas bara vidare (ingen edge-cache).
+const ESRI_IMAGERY_TILE = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile';
+const ESRI_IMAGERY_ATTRIBUTION = 'https://static.arcgis.com/attribution/World_Imagery';
+const MAP_TILE_MAX_ZOOM = 16;   // share-kortet använder z9–14; taket stoppar skrapning av detaljnivåer
+const NO_EDGE_CACHE = { cacheTtlByStatus: { '100-599': -1 } }; // negativ TTL = Cloudflare cachar inte alls
+
+// Dynamisk källhänvisning: Esri kräver att ALLA bildleverantörer för det visade området anges (t.ex.
+// "New York State", "GDI Berlin", "Vantor") — de varierar med plats och zoom. Esris lista är ~0,5 MB och
+// för tung att tolka per anrop → en kompakt tabell [namn, zMin, zMax, score, minLat, minLon, maxLat,
+// maxLon] (bara zoomnivåer vi använder) byggs högst en gång i veckan och sparas i KV. Metadata, inte bilddata.
+type AttrRow = [string, number, number, number, number, number, number, number];
+const ATTR_KV_KEY = 'esri:imagery-attribution:v1';
+const ATTR_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+let attrMemo: { at: number; rows: AttrRow[] } | null = null;
+let attrRefreshAt = 0; // senaste ombyggnadsförsök i detta isolat (max ett försök per 5 min)
+
+// Tabellen ur isolatets minne eller KV. stale = äldre än en vecka → används ändå medan den byggs om.
+async function loadImageryAttribution(env: Env): Promise<{ rows: AttrRow[]; stale: boolean } | null> {
+  const fresh = (m: typeof attrMemo) => !!m && Date.now() - m.at < ATTR_MAX_AGE_MS;
+  if (!fresh(attrMemo) && env.QUOTA_KV) {
+    try {
+      const raw = await env.QUOTA_KV.get(ATTR_KV_KEY);
+      if (raw) {
+        const kv = JSON.parse(raw) as { at: number; rows: AttrRow[] };
+        if (!attrMemo || kv.at > attrMemo.at) attrMemo = kv;
+      }
+    } catch { /* trasig cache → bygg om */ }
+  }
+  return attrMemo ? { rows: attrMemo.rows, stale: !fresh(attrMemo) } : null;
+}
+
+// Hämtar Esris fullständiga lista och bygger om den kompakta tabellen. Körs i bakgrunden (waitUntil).
+async function refreshImageryAttribution(env: Env): Promise<void> {
+  const r = await fetch(ESRI_IMAGERY_ATTRIBUTION);
+  if (!r.ok) return;
+  const j = JSON.parse((await r.text()).replace(/^﻿/, '')) as {
+    contributors?: { attribution: string; coverageAreas?: { zoomMin: number; zoomMax: number; score: number; bbox: number[] }[] }[];
+  };
+  const rows: AttrRow[] = [];
+  for (const c of j.contributors ?? []) {
+    for (const a of c.coverageAreas ?? []) {
+      if (a.zoomMin > MAP_TILE_MAX_ZOOM || a.bbox?.length !== 4) continue;
+      rows.push([c.attribution, a.zoomMin, a.zoomMax, a.score, a.bbox[0], a.bbox[1], a.bbox[2], a.bbox[3]]);
+    }
+  }
+  if (!rows.length) return;
+  attrMemo = { at: Date.now(), rows };
+  if (env.QUOTA_KV) await env.QUOTA_KV.put(ATTR_KV_KEY, JSON.stringify(attrMemo));
+}
+
+// Leverantörer som täcker någon av rutorna (s, w, n, e, z), högst score först, utan dubbletter.
+function imageryProviders(rows: AttrRow[], boxes: number[][]): string[] {
+  const best = new Map<string, number>();
+  for (const [name, zMin, zMax, score, minLat, minLon, maxLat, maxLon] of rows) {
+    for (const [s, w, n, e, z] of boxes) {
+      if (z < zMin || z > zMax || n < minLat || s > maxLat || e < minLon || w > maxLon) continue;
+      if ((best.get(name) ?? -1) < score) best.set(name, score);
+    }
+  }
+  return [...best.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+}
+
 // ── Huvudlogik ─────────────────────────────────────────────────────────────
 
 export default {
@@ -782,6 +850,52 @@ export default {
     }
     if (url.pathname === '/terms' || url.pathname === '/terms.html') {
       return Response.redirect('https://blades-app.com/terms', 301);
+    }
+
+    // ── Satellit-tile till share-kortet: GET /map/imagery/{z}/{y}/{x} (Esri World Imagery) ──
+    const tileM = url.pathname.match(/^\/map\/imagery\/(\d{1,2})\/(\d{1,6})\/(\d{1,6})$/);
+    if (tileM && request.method === 'GET') {
+      const z = +tileM[1], y = +tileM[2], x = +tileM[3], n = 2 ** z;
+      if (z < 1 || z > MAP_TILE_MAX_ZOOM || x >= n || y >= n) return new Response('Bad tile', { status: 400 });
+      if (!env.ARCGIS_API_KEY) return new Response('Map imagery not configured', { status: 503 });
+      // Bara appen (skickar X-Device-ID) → en <img>-hotlänk från en webbsida kan inte bränna Esri-kvoten.
+      // Rate limit per enhet: ett share-kort behöver ≤ 18 tiles per zoomnivå.
+      const devId = request.headers.get('X-Device-ID');
+      if (!devId) return new Response('Forbidden', { status: 403 });
+      if (env.MAP_LIMITER) {
+        const { success } = await env.MAP_LIMITER.limit({ key: `tile:${await hashDevice(devId)}` });
+        if (!success) return new Response('Too many requests', { status: 429, headers: { 'Retry-After': '60' } });
+      }
+      try {
+        const upstream = await fetch(`${ESRI_IMAGERY_TILE}/${z}/${y}/${x}?token=${encodeURIComponent(env.ARCGIS_API_KEY)}`, { cf: NO_EDGE_CACHE } as RequestInit);
+        const ct = upstream.headers.get('Content-Type') ?? '';
+        // Esri svarar 200 + JSON vid nyckelfel → släpp bara igenom riktiga bilder.
+        if (!upstream.ok || !ct.startsWith('image/')) {
+          return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
+        }
+        // Appens bildcache får hålla tilen lika länge som Esris egen max-age (1 dygn).
+        return new Response(upstream.body, { headers: { 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' } });
+      } catch {
+        return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // ── Källhänvisning för satellitbilderna: GET /map/imagery/attribution?b=s,w,n,e,z[&b=…] ──
+    // → { providers: [...] } för de visade rutorna, eller providers: null medan tabellen byggs (appen visar
+    // då Esris generella källtext). Ombyggnaden körs i bakgrunden → svaret väntar aldrig på den.
+    if (url.pathname === '/map/imagery/attribution' && request.method === 'GET') {
+      const boxes = url.searchParams.getAll('b').slice(0, 4)
+        .map((b) => b.split(',').map(Number))
+        .filter((b) => b.length === 5 && b.every((v) => Number.isFinite(v)));
+      const attr = await loadImageryAttribution(env);
+      if ((!attr || attr.stale) && Date.now() - attrRefreshAt > 5 * 60 * 1000) {
+        attrRefreshAt = Date.now();
+        ctx.waitUntil(refreshImageryAttribution(env).catch(() => {}));
+      }
+      const providers = attr && boxes.length ? imageryProviders(attr.rows, boxes) : null;
+      return new Response(JSON.stringify({ providers }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': providers ? 'private, max-age=86400' : 'no-store' },
+      });
     }
 
     // ── Token-saldo: månadens AI-förbrukning för denna device (Settings-mätaren) ──

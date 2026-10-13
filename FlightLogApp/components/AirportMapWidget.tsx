@@ -7,7 +7,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { continentForCountry } from '../constants/continents';
 import { CountryFlag } from './CountryFlag';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,6 +23,7 @@ import { useFlightStore } from '../store/flightStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 
 // Region som ramar in en uppsättning punkter (för Apple-kartan).
 function fitRegion(pts: { lat: number; lon: number }[]) {
@@ -96,263 +96,6 @@ type AirportPoint = { icao: string; name: string; lat: number; lon: number; temp
 async function getAllVisitedIcaos(): Promise<string[]> {
   const icaos = await getVisitedAirportIcaos();
   return [...new Set(icaos)].filter(Boolean);
-}
-
-function buildMapHtml(airports: AirportPoint[]): string {
-  const lats = airports.map(a => a.lat);
-  const lons = airports.map(a => a.lon);
-  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-  const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
-  const latSpan = Math.max(...lats) - Math.min(...lats);
-  const zoom = latSpan > 20 ? 4 : latSpan > 10 ? 5 : latSpan > 5 ? 6 : 7;
-
-  const pinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#D32F2F" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
-  const tempPinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2E7D32" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
-  const markers = airports
-    .map(a => {
-      const name = a.name.replace(/'/g, "\\'");
-      const svg = a.temporary ? tempPinSvg : pinSvg;
-      // Format visit date as dd/mm/yy
-      let visitedHtml = '';
-      if (a.visitDate) {
-        const [year, month, day] = a.visitDate.split('-');
-        const formattedDate = `${day}/${month}/${year.slice(-2)}`;
-        visitedHtml = `<br><span style="color:#4CAF50;font-size:10px">✓ visited ${formattedDate}</span>`;
-      }
-      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${svg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>${visitedHtml}');`;
-    })
-    .join('\n');
-
-  return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#1a2235}
-  #map{position:absolute;top:0;left:0;right:0;bottom:0}
-  .leaflet-tile-pane img{-webkit-user-select:none;user-select:none}
-  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
-  .leaflet-popup-tip{background:#1A2235}
-  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
-  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
-  #layer-switcher{
-    position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
-    z-index:1000;display:flex;gap:6px;
-    background:rgba(15,22,38,.88);border-radius:12px;padding:6px;
-    box-shadow:0 4px 16px rgba(0,0,0,.5);
-  }
-  #layer-switcher button{
-    font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;
-    color:#9BAAC0;background:transparent;border:none;
-    border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;
-    transition:background .15s,color .15s;
-  }
-  #layer-switcher button.active{background:#2563EB;color:#fff}
-</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-</head>
-<body>
-<div id="map"></div>
-<div id="layer-switcher"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script>
-window.onload = function() {
-  var map = L.map('map', {
-    center: [${centerLat}, ${centerLon}],
-    zoom: ${zoom},
-    zoomControl: false,
-    attributionControl: true,
-    layers: []
-  });
-
-  var layers = {
-    'Light':    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap © CARTO'}),
-    'Hybrid': L.layerGroup([
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})
-    ]),
-    'Terrain':   L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OpenStreetMap © OpenTopoMap'}),
-  };
-
-  var activeKey = 'Light';
-  layers[activeKey].addTo(map);
-
-  // Bygg knappar
-  var sw = document.getElementById('layer-switcher');
-  Object.keys(layers).forEach(function(key) {
-    var btn = document.createElement('button');
-    btn.textContent = key;
-    if (key === activeKey) btn.className = 'active';
-    btn.onclick = function() {
-      map.removeLayer(layers[activeKey]);
-      activeKey = key;
-      layers[activeKey].addTo(map);
-      sw.querySelectorAll('button').forEach(function(b){ b.className = ''; });
-      btn.className = 'active';
-    };
-    sw.appendChild(btn);
-  });
-
-  setTimeout(function(){ map.invalidateSize(); }, 300);
-
-  ${markers}
-};
-</script></body></html>`;
-}
-
-function buildCountryOverlayHtml(
-  visitedAirports: AirportPoint[],
-  countryAirports: { icao: string; name: string; lat: number; lon: number }[],
-  visitedSet: Set<string>,
-): string {
-  const all = countryAirports;
-  const lats = all.map(a => a.lat);
-  const lons = all.map(a => a.lon);
-  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-  const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
-  const latSpan = Math.max(...lats) - Math.min(...lats);
-  const zoom = latSpan > 20 ? 4 : latSpan > 10 ? 5 : latSpan > 5 ? 6 : 7;
-
-  // Create a map of ICAO -> visitDate for quick lookup
-  const visitDateMap: Record<string, string | undefined> = {};
-  visitedAirports.forEach(a => {
-    visitDateMap[a.icao] = a.visitDate;
-  });
-
-  const pinSvg = `<svg width="14" height="20" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#D32F2F" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
-
-  const unvisitedMarkers = all
-    .filter(a => !visitedSet.has(a.icao))
-    .map(a => {
-      const name = a.name.replace(/'/g, "\\'");
-      return `L.circleMarker([${a.lat},${a.lon}],{radius:3,fillColor:'#4f7cff',fillOpacity:0.6,color:'#2563EB',weight:0.5}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>');`;
-    }).join('\n');
-
-  const visitedMarkers = all
-    .filter(a => visitedSet.has(a.icao))
-    .map(a => {
-      const name = a.name.replace(/'/g, "\\'");
-      let visitedHtml = '<br><span style="color:#4CAF50;font-size:10px">✓ Visited';
-      const visitDate = visitDateMap[a.icao];
-      if (visitDate) {
-        const [year, month, day] = visitDate.split('-');
-        const formattedDate = `${day}/${month}/${year.slice(-2)}`;
-        visitedHtml = `<br><span style="color:#4CAF50;font-size:10px">✓ visited ${formattedDate}`;
-      }
-      visitedHtml += '</span>';
-      return `L.marker([${a.lat},${a.lon}],{icon:L.divIcon({html:'${pinSvg}',className:'',iconSize:[14,20],iconAnchor:[7,20],popupAnchor:[0,-22]})}).addTo(map).bindPopup('<strong>${a.icao}</strong><br><span style="font-size:11px">${name}</span>${visitedHtml}');`;
-    }).join('\n');
-
-  return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#1a2235}
-  #map{position:absolute;top:0;left:0;right:0;bottom:0}
-  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
-  .leaflet-popup-tip{background:#1A2235}
-  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
-  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
-  #layer-switcher{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;background:rgba(15,22,38,.88);border-radius:12px;padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
-  #layer-switcher button{font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;color:#9BAAC0;background:transparent;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;}
-  #layer-switcher button.active{background:#2563EB;color:#fff}
-</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-</head><body>
-<div id="map"></div>
-<div id="layer-switcher"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script>
-window.onload=function(){
-  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:${zoom},zoomControl:false,attributionControl:true});
-  var layers={
-    'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
-    'Hybrid':L.layerGroup([L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})]),
-    'Terrain':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OSM © OpenTopoMap'})
-  };
-  var ak='Light';layers[ak].addTo(map);
-  var sw=document.getElementById('layer-switcher');
-  Object.keys(layers).forEach(function(k){var b=document.createElement('button');b.textContent=k;if(k===ak)b.className='active';b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};sw.appendChild(b);});
-  setTimeout(function(){map.invalidateSize();},300);
-  ${unvisitedMarkers}
-  ${visitedMarkers}
-};
-</script></body></html>`;
-}
-
-function buildPinPlacementHtml(placeName: string, centerLat = 59.3, centerLon = 18.0, safeTop = 0): string {
-  const pinSvg = `<svg width="28" height="40" viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2E7D32" stroke="#fff" stroke-width="1.8"/><circle cx="14" cy="13" r="5.5" fill="#fff" opacity="0.9"/></svg>`;
-  return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#1a2235}
-  #map{position:absolute;top:0;left:0;right:0;bottom:0}
-  .leaflet-popup-content-wrapper{background:#1A2235;color:#F9FAFB;border-radius:8px;border:1px solid #2A3550}
-  .leaflet-popup-tip{background:#1A2235}
-  .leaflet-popup-content{margin:8px 12px;font-family:-apple-system,sans-serif;font-size:13px}
-  .leaflet-control-attribution{font-size:9px;background:rgba(0,0,0,.4)!important;color:#aaa}
-  #layer-switcher{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px;background:rgba(15,22,38,.88);border-radius:12px;padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
-  #layer-switcher button{font-family:-apple-system,sans-serif;font-size:11px;font-weight:600;color:#9BAAC0;background:transparent;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;}
-  #layer-switcher button.active{background:#2563EB;color:#fff}
-
-</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-</head><body>
-<div id="map"></div>
-<div id="layer-switcher"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script>
-window.onload=function(){
-  var map=L.map('map',{center:[${centerLat},${centerLon}],zoom:6,zoomControl:false,attributionControl:true});
-  var layers={
-    'Light':L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',{subdomains:'abcd',maxZoom:19,crossOrigin:true,attribution:'© OSM © CARTO'}),
-    'Hybrid':L.layerGroup([L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''}),L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:''})]),
-    'Terrain':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,crossOrigin:true,attribution:'© OSM © OpenTopoMap'})
-  };
-  var ak='Hybrid';layers[ak].addTo(map);
-  var sw=document.getElementById('layer-switcher');
-  Object.keys(layers).forEach(function(k){var b=document.createElement('button');b.textContent=k;if(k===ak)b.className='active';b.onclick=function(){map.removeLayer(layers[ak]);ak=k;layers[ak].addTo(map);sw.querySelectorAll('button').forEach(function(x){x.className='';});b.className='active';};sw.appendChild(b);});
-
-  var pinIcon=L.divIcon({html:'${pinSvg.replace(/'/g, "\\'")}',className:'',iconSize:[28,40],iconAnchor:[14,40],popupAnchor:[0,-42]});
-  var marker=null;
-
-  function placePin(lat,lon){
-    if(marker) map.removeLayer(marker);
-    marker=L.marker([lat,lon],{icon:pinIcon,draggable:true}).addTo(map);
-    marker.bindPopup('${placeName.replace(/'/g, "\\'")}').openPopup();
-    window.ReactNativeWebView.postMessage(JSON.stringify({lat:lat,lon:lon}));
-    marker.on('dragend',function(){
-      var p=marker.getLatLng();
-      window.ReactNativeWebView.postMessage(JSON.stringify({lat:p.lat,lon:p.lng}));
-    });
-  }
-
-  map.on('click',function(e){ placePin(e.latlng.lat,e.latlng.lng); });
-
-  window.searchFromNative=function(q){
-    if(!q) return;
-    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q))
-      .then(function(r){return r.json()})
-      .then(function(data){
-        if(data&&data.length>0){
-          var lat=parseFloat(data[0].lat);
-          var lon=parseFloat(data[0].lon);
-          map.setView([lat,lon],14);
-          placePin(lat,lon);
-          window.ReactNativeWebView.postMessage(JSON.stringify({lat:lat,lon:lon,searchResult:data[0].display_name.slice(0,60)}));
-        } else {
-          window.ReactNativeWebView.postMessage(JSON.stringify({searchError:'Inga resultat'}));
-        }
-      })
-      .catch(function(){
-        window.ReactNativeWebView.postMessage(JSON.stringify({searchError:'Sökning misslyckades'}));
-      });
-  };
-
-  setTimeout(function(){map.invalidateSize();},300);
-};
-</script></body></html>`;
 }
 
 function makeStyles() {
@@ -435,18 +178,17 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   const [pinSat, setPinSat] = useState(true); // placerings-kartan: satellit (hybrid) som default
   const [pinSearch, setPinSearch] = useState('');
   const [pinSearching, setPinSearching] = useState(false);
-  // Native geokodning (nominatim) för sök i placerings-kartan → centrera + sätt pin.
+  // Sök i placerings-kartan → centrera + sätt pin. Apples geokodning (CLGeocoder via expo-location) —
+  // ingen tredjepartstjänst och inget platstillstånd krävs. Ingen träff → kastar → inget händer.
   const geocodePin = async () => {
     const q = pinSearch.trim();
     if (!q) return;
     setPinSearching(true);
     try {
-      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'User-Agent': 'FlightLogApp' } });
-      const data = await r.json();
-      if (data && data.length > 0) {
-        const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
-        setPlacedCoord({ lat, lon });
-        placeMapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 450);
+      const [hit] = await Location.geocodeAsync(q);
+      if (hit) {
+        setPlacedCoord({ lat: hit.latitude, lon: hit.longitude });
+        placeMapRef.current?.animateToRegion({ latitude: hit.latitude, longitude: hit.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 450);
       }
     } catch {}
     finally { setPinSearching(false); }
@@ -660,7 +402,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
         </View>
       )}
 
-      {/* Fullskärmskarta med Leaflet */}
+      {/* Fullskärmskarta (Apple Maps) */}
       <Modal
         visible={modalVisible}
         animationType="slide"

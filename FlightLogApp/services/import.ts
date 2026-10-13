@@ -132,6 +132,7 @@ Om du identifierar formatet som eFlightbook (kolumner: FlightDate, Depart, STime
 - Mappa ALDRIG två kolumner till samma interna fält. Finns både en 0/1-flagga och en
   varaktighetskolumn för samma sak (t.ex. AC_ISSIM och TIME_TOTALSIM) — mappa ENDAST varaktighetskolumnen.
 - Om en tidkolumn är i decimal men andra är HH:MM, notera det i warnings
+- warnings skrivs PÅ ENGELSKA, korta meningar — de visas för användaren i appen
 - Kolumner med enbart (null)/null/tomma värden — ignorera dem
 - Sep=, rader i början av filen är separatordeklarationer — ignorera dem`;
 
@@ -568,10 +569,12 @@ function mapRow(
 
   // (Natttid härleds INTE längre från nattlandningar — natt kommer ENBART från filens night-fält.)
 
-  // ── Standard-roll: co-pilot om PIC inte är angett (ej för simulatorpass) ──────────────────
+  // ── Standard-roll: co-pilot om PIC inte är angett (ej för simulatorpass). Dual-/instruktörspass
+  // är aldrig co-pilot — en skolflygning med bara Dual-tid fick annars co-pilot-tid = total. ────
   const picVal = parseFloat(out.pic) || 0;
   const copVal = parseFloat(out.co_pilot) || 0;
-  if (picVal === 0 && copVal === 0 && totalParsed > 0 && !isSim) {
+  const trainingVal = (parseFloat(out.dual) || 0) + (parseFloat(out.instructor) || 0);
+  if (picVal === 0 && copVal === 0 && trainingVal === 0 && totalParsed > 0 && !isSim) {
     out.co_pilot = out.total_time;
   }
 
@@ -870,8 +873,12 @@ export async function importFromFile(
     warnings.push(`${clampedRows} row(s) had role time (PIC/night/IFR…) exceeding total time — capped to total.`);
   }
 
-  // Auto-calculate multi_pilot if not provided in CSV
-  for (const flight of flights) {
+  // Härled multi_pilot BARA när filen saknar en multi-pilot-kolumn. Finns kolumnen är den facit —
+  // även 0 (t.ex. instruktions- eller PIC-pass i enmotoriga flygplan = single pilot), annars blev
+  // varje instruktionspass och varje PIC-pass med andrepilotnamn felaktigt multi-pilot.
+  const mpInFile = Object.values(colMap).includes('multi_pilot')
+    || headers.some((h) => ['multipilot', 'multicrew', 'mcc', 'mp'].includes(normalize(h)));
+  if (!mpInFile) for (const flight of flights) {
     if (!flight.multi_pilot || parseFloat(flight.multi_pilot ?? '0') === 0) {
       const totalTime = parseFloat(flight.total_time ?? '0') || 0;
       const picTime = parseFloat(flight.pic ?? '0') || 0;

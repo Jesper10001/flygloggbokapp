@@ -1,0 +1,1337 @@
+Date,Takeoff,Drone type,Registration,Location,Latitude,Longitude,Mission type,Category,Flight mode,Operation type,Flight time,Night,Max altitude (m),Day Ldg,Night Ldg,Observer,Dual,Instructor,Remarks
+2026-10-11,16:10,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:18,0,75,1,0,,0,0,
+2026-10-11,15:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:12,0,113,1,0,,0,0,Autumn colours in the archipelago
+2026-10-10,20:39,DJI Mavic 3 Thermal,M3T-01,Västerås – Kopparlunden,59.61366,16.52801,Inspection,A2,VLOS,COM,0:21,0:21,72,0,1,Linnea Dahl,0,0,
+2026-10-10,20:03,DJI Mavic 3 Thermal,M3T-01,Västerås – Kopparlunden,59.61639,16.53241,Inspection,A2,VLOS,COM,0:22,0:22,86,0,1,Linnea Dahl,0,0,
+2026-10-10,19:40,DJI Mavic 3 Thermal,M3T-01,Västerås – Kopparlunden,59.61107,16.52832,Inspection,A2,VLOS,COM,0:17,0:17,82,0,1,Linnea Dahl,0,0,"District heating leak survey – thermal, night"
+2026-10-09,11:21,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83112,16.09328,Inspection,Specific,BVLOS,COM,0:32,0,55,1,0,Petra Sjöberg,0,0,
+2026-10-09,10:28,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83277,16.08436,Inspection,Specific,BVLOS,COM,0:29,0,57,1,0,Petra Sjöberg,0,0,
+2026-10-09,09:30,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82773,16.09070,Inspection,Specific,BVLOS,COM,0:35,0,42,1,0,Petra Sjöberg,0,0,"BVLOS corridor inspection – 12 km, operational authorisation"
+2026-10-08,10:51,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:15,0,60,1,0,,0,0:15,
+2026-10-08,10:28,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:14,0,21,1,0,,0,0:14,
+2026-10-08,10:00,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:20,0,34,1,0,,0,0:20,New pilot: Elin Fors – A2 practical training
+2026-10-07,10:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52393,15.65424,Inspection,Specific,VLOS,COM,0:19,0,152,1,0,Emil Berglund,0,0,
+2026-10-07,09:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52007,15.66092,Inspection,Specific,VLOS,COM,0:21,0,174,1,0,Emil Berglund,0,0,"Turbine blade inspection – T04–T05, H20T zoom"
+2026-10-06,14:30,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:11,0,65,1,0,,0,0,Real estate photos & video
+2026-10-02,20:41,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:13,0:13,26,0,1,,0:13,0,
+2026-10-02,20:15,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:17,0:17,39,0,1,,0:17,0,Night operations training – instructor Erik Sandberg
+2026-09-24,13:09,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.65712,17.04469,Mapping,A3,VLOS,COM,0:34,0,105,1,0,,0,0,
+2026-09-24,12:27,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.65718,17.05098,Mapping,A3,VLOS,COM,0:32,0,107,1,0,,0,0,
+2026-09-24,11:51,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66265,17.05555,Mapping,A3,VLOS,COM,0:23,0,87,1,0,,0,0,
+2026-09-24,11:10,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66297,17.04800,Mapping,A3,VLOS,COM,0:27,0,93,1,0,,0,0,Stockpile volume survey
+2026-09-21,11:50,DJI Matrice 350 RTK,M350-02,"Logistics park, Eskilstuna",59.38947,16.58461,Mapping,A3,VLOS,COM,0:28,0,100,1,0,,0,0,
+2026-09-21,11:07,DJI Matrice 350 RTK,M350-02,"Logistics park, Eskilstuna",59.38828,16.57740,Mapping,A3,VLOS,COM,0:28,0,97,1,0,,0,0,
+2026-09-21,10:26,DJI Matrice 350 RTK,M350-02,"Logistics park, Eskilstuna",59.38729,16.58100,Mapping,A3,VLOS,COM,0:28,0,89,1,0,,0,0,
+2026-09-21,09:53,DJI Matrice 350 RTK,M350-02,"Logistics park, Eskilstuna",59.38604,16.57423,Mapping,A3,VLOS,COM,0:25,0,118,1,0,,0,0,
+2026-09-21,09:10,DJI Matrice 350 RTK,M350-02,"Logistics park, Eskilstuna",59.39117,16.57460,Mapping,A3,VLOS,COM,0:32,0,96,1,0,,0,0,Earthworks volume check
+2026-09-20,15:48,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:19,0,88,1,0,,0,0,
+2026-09-20,15:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:18,0,104,1,0,,0,0,Sunset over the archipelago
+2026-09-18,14:43,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19601,19.72251,Mapping,A3,VLOS,COM,0:31,0,72,1,0,,0,0,
+2026-09-18,14:07,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19854,19.71768,Mapping,A3,VLOS,COM,0:27,0,64,1,0,,0,0,
+2026-09-18,13:29,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20152,19.71622,Mapping,Specific,VLOS,COM,0:29,0,99,1,0,,0,0,
+2026-09-18,12:51,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20001,19.71652,Mapping,Specific,VLOS,COM,0:23,0,78,1,0,,0,0,
+2026-09-18,12:15,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20376,19.72459,Mapping,Specific,VLOS,COM,0:24,0,73,1,0,,0,0,LiDAR terrain model under canopy
+2026-09-16,11:55,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.58355,17.89950,Mapping,Specific,VLOS,COM,0:28,0,69,1,0,Johan Lind,0,0,
+2026-09-16,11:11,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57867,17.90594,Mapping,A3,VLOS,COM,0:32,0,68,1,0,Johan Lind,0,0,
+2026-09-16,10:27,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57938,17.89839,Mapping,A3,VLOS,COM,0:26,0,68,1,0,Johan Lind,0,0,
+2026-09-16,09:50,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57732,17.89445,Mapping,Specific,EVLOS,COM,0:23,0,88,1,0,Johan Lind,0,0,LiDAR terrain model under canopy
+2026-09-11,12:32,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35742,17.85413,Mapping,A3,VLOS,COM,0:27,0,99,1,0,,0,0,
+2026-09-11,11:55,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36043,17.86501,Mapping,A3,VLOS,COM,0:29,0,102,1,0,,0,0,
+2026-09-11,11:18,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35983,17.85592,Mapping,A3,VLOS,COM,0:27,0,116,1,0,,0,0,
+2026-09-11,10:45,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36010,17.85811,Mapping,A3,VLOS,COM,0:27,0,104,1,0,,0,0,Monthly construction progress map
+2026-09-10,14:33,DJI Matrice 4T,M4T-01,"Solar park, Nybro (Kalmar)",56.74393,15.90870,Inspection,A2,VLOS,COM,0:20,0,38,1,0,,0,0,
+2026-09-10,14:01,DJI Matrice 4T,M4T-01,"Solar park, Nybro (Kalmar)",56.73626,15.91390,Inspection,A2,VLOS,COM,0:25,0,38,1,0,,0,0,
+2026-09-10,13:30,DJI Matrice 4T,M4T-01,"Solar park, Nybro (Kalmar)",56.73620,15.90859,Inspection,A2,VLOS,COM,0:20,0,57,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2026-09-09,13:59,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.35907,17.97373,Inspection,A2,VLOS,COM,0:21,0,37,1,0,,0,0,
+2026-09-09,13:28,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.35776,17.97045,Inspection,A2,VLOS,COM,0:18,0,58,1,0,,0,0,
+2026-09-09,13:00,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.35836,17.96880,Inspection,A2,VLOS,COM,0:19,0,59,1,0,,0,0,Roof inspection after storm
+2026-09-08,16:22,DJI Matrice 350 RTK,M350-02,"Wind farm, Ånge (Medelpad)",62.51868,15.65843,Inspection,Specific,VLOS,COM,0:19,0,202,1,0,,0,0,
+2026-09-08,15:38,DJI Matrice 350 RTK,M350-02,"Wind farm, Ånge (Medelpad)",62.52067,15.66315,Inspection,Specific,VLOS,COM,0:27,0,157,1,0,,0,0,
+2026-09-08,14:38,DJI Matrice 350 RTK,M350-02,"Wind farm, Ånge (Medelpad)",62.51750,15.66186,Inspection,Specific,VLOS,COM,0:22,0,179,1,0,,0,0,
+2026-09-08,13:54,DJI Matrice 350 RTK,M350-02,"Wind farm, Ånge (Medelpad)",62.52309,15.66291,Inspection,Specific,VLOS,COM,0:19,0,163,1,0,,0,0,
+2026-09-08,12:50,DJI Matrice 350 RTK,M350-02,"Wind farm, Ånge (Medelpad)",62.52056,15.66329,Inspection,Specific,VLOS,COM,0:30,0,170,1,0,,0,0,Turbine blade inspection – H20T zoom
+2026-09-03,15:15,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.57701,16.69535,Inspection,A2,VLOS,COM,0:26,0,49,1,0,,0,0,
+2026-09-03,14:38,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.58159,16.70438,Inspection,A2,VLOS,COM,0:26,0,43,1,0,,0,0,
+2026-09-03,14:05,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.57603,16.69471,Inspection,A2,VLOS,COM,0:26,0,59,1,0,,0,0,
+2026-09-03,13:29,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.58150,16.70292,Inspection,A2,VLOS,COM,0:24,0,57,1,0,,0,0,
+2026-09-03,13:00,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.58022,16.70490,Inspection,A2,VLOS,COM,0:22,0,44,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2026-08-21,15:44,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:12,0,37,1,0,,0,0,
+2026-08-21,15:30,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:10,0,25,1,0,,0,0,Firmware update test
+2026-08-21,11:47,DJI Matrice 4T,M4T-01,Lidingö – Torsvik,59.35948,18.12406,Inspection,A2,VLOS,COM,0:13,0,31,1,0,,0,0,
+2026-08-21,11:12,DJI Matrice 4T,M4T-01,Lidingö – Torsvik,59.36025,18.13337,Inspection,A2,VLOS,COM,0:20,0,35,1,0,,0,0,
+2026-08-21,10:46,DJI Matrice 4T,M4T-01,Lidingö – Torsvik,59.35547,18.12779,Inspection,A2,VLOS,COM,0:15,0,42,1,0,,0,0,
+2026-08-21,10:20,DJI Matrice 4T,M4T-01,Lidingö – Torsvik,59.35983,18.13072,Inspection,A2,VLOS,COM,0:17,0,32,1,0,,0,0,Facade thermography
+2026-08-20,15:26,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,37,1,0,,0,0:12,
+2026-08-20,15:07,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,31,1,0,,0,0:12,
+2026-08-20,14:42,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:17,0,41,1,0,,0,0:17,
+2026-08-20,14:20,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:15,0,39,1,0,,0,0:15,
+2026-08-20,13:52,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:19,0,48,1,0,,0,0:19,
+2026-08-20,13:30,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:14,0,37,1,0,,0,0:14,New pilot: Ali Karimi – Emergency procedures & RTH
+2026-08-19,22:25,DJI Matrice 4T,M4T-01,Tiveden,58.71924,14.61461,SAR,A2,VLOS,PRI,0:27,0:27,85,0,1,Sara Nyström,0,0,
+2026-08-19,21:49,DJI Matrice 4T,M4T-01,Tiveden,58.72145,14.62109,SAR,A2,VLOS,PRI,0:26,0:26,65,0,1,Sara Nyström,0,0,
+2026-08-19,21:08,DJI Matrice 4T,M4T-01,Tiveden,58.72342,14.61745,SAR,A2,VLOS,PRI,0:31,0:14,68,0,1,Sara Nyström,0,0,
+2026-08-19,20:21,DJI Matrice 4T,M4T-01,Tiveden,58.71650,14.62310,SAR,A2,VLOS,PRI,0:36,0,87,1,0,Sara Nyström,0,0,
+2026-08-19,19:40,DJI Matrice 4T,M4T-01,Tiveden,58.72132,14.62471,SAR,A2,VLOS,PRI,0:32,0,64,1,0,Sara Nyström,0,0,Search for missing elderly – thermal sweep
+2026-08-14,15:08,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.19164,17.63426,Inspection,A2,VLOS,COM,0:14,0,50,1,0,,0,0,
+2026-08-14,14:40,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.18828,17.63313,Inspection,A2,VLOS,COM,0:17,0,30,1,0,,0,0,Roof inspection after storm
+2026-08-06,16:07,DJI Matrice 350 RTK,M350-02,"Wind farm, Hammerdal (Jämtland)",63.57949,15.35381,Inspection,Specific,VLOS,COM,0:22,0,154,1,0,Sara Nyström,0,0,
+2026-08-06,15:07,DJI Matrice 350 RTK,M350-02,"Wind farm, Hammerdal (Jämtland)",63.58268,15.34871,Inspection,Specific,VLOS,COM,0:24,0,169,1,0,Sara Nyström,0,0,
+2026-08-06,14:16,DJI Matrice 350 RTK,M350-02,"Wind farm, Hammerdal (Jämtland)",63.57697,15.35143,Inspection,Specific,VLOS,COM,0:30,0,194,1,0,Sara Nyström,0,0,
+2026-08-06,13:30,DJI Matrice 350 RTK,M350-02,"Wind farm, Hammerdal (Jämtland)",63.57650,15.34811,Inspection,Specific,VLOS,COM,0:29,0,208,1,0,Sara Nyström,0,0,Blade leading-edge erosion survey
+2026-08-05,11:51,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.61034,16.22815,Inspection,Specific,EVLOS,COM,0:29,0,48,1,0,Petra Sjöberg,0,0,
+2026-08-05,11:08,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60655,16.23428,Inspection,Specific,BVLOS,COM,0:26,0,63,1,0,Petra Sjöberg,0,0,
+2026-08-05,10:23,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60668,16.23270,Inspection,Specific,EVLOS,COM,0:28,0,59,1,0,Petra Sjöberg,0,0,
+2026-08-05,09:35,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60679,16.23233,Inspection,Specific,BVLOS,COM,0:25,0,54,1,0,Petra Sjöberg,0,0,
+2026-08-05,08:44,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60662,16.23233,Inspection,Specific,BVLOS,COM,0:27,0,51,1,0,Petra Sjöberg,0,0,
+2026-08-05,08:00,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.61113,16.22948,Inspection,Specific,EVLOS,COM,0:34,0,55,1,0,Petra Sjöberg,0,0,Insulator & conductor survey
+2026-08-03,13:02,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65885,17.04591,Mapping,A2,VLOS,COM,0:23,0,120,1,0,,0,0,
+2026-08-03,12:21,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65819,17.05051,Mapping,A2,VLOS,COM,0:28,0,116,1,0,,0,0,
+2026-08-03,11:45,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65758,17.04748,Mapping,A2,VLOS,COM,0:22,0,96,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2026-08-01,13:35,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:17,0,112,1,0,,0,0,
+2026-08-01,12:50,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:12,0,70,1,0,,0,0,Mountain panorama
+2026-07-23,19:28,DJI Mini 4 Pro,MINI4-01,"Reine, Lofoten (Norway)",67.93200,13.08900,Recreation,A1,VLOS,PRI,0:19,0,54,1,0,,0,0,
+2026-07-23,19:05,DJI Mini 4 Pro,MINI4-01,"Reine, Lofoten (Norway)",67.93200,13.08900,Recreation,A1,VLOS,PRI,0:12,0,111,1,0,,0,0,
+2026-07-23,18:15,DJI Mini 4 Pro,MINI4-01,"Reine, Lofoten (Norway)",67.93200,13.08900,Recreation,A1,VLOS,PRI,0:18,0,59,1,0,,0,0,Holiday photos
+2026-07-20,18:10,DJI Mini 4 Pro,MINI4-01,Kullaberg,56.30000,12.46000,Recreation,A1,VLOS,PRI,0:18,0,40,1,0,,0,0,Holiday photos
+2026-07-19,17:10,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:24,0,60,1,0,,0,0,Mountain panorama
+2026-07-16,11:40,DJI Mini 4 Pro,MINI4-01,"Fårö, Gotland",57.92000,19.13000,Recreation,A1,VLOS,PRI,0:19,0,72,1,0,,0,0,
+2026-07-15,18:08,DJI Mini 4 Pro,MINI4-01,Abisko,68.35000,18.83000,Recreation,A1,VLOS,PRI,0:13,0,92,1,0,,0,0,
+2026-07-15,17:40,DJI Mini 4 Pro,MINI4-01,Abisko,68.35000,18.83000,Recreation,A1,VLOS,PRI,0:12,0,87,1,0,,0,0,Landscape photography
+2026-07-06,12:23,DJI Mini 4 Pro,MINI4-01,Nuuksio (Finland),60.30000,24.50000,Recreation,A1,VLOS,PRI,0:12,0,106,1,0,,0,0,
+2026-07-06,11:45,DJI Mini 4 Pro,MINI4-01,Nuuksio (Finland),60.30000,24.50000,Recreation,A1,VLOS,PRI,0:15,0,83,1,0,,0,0,Landscape photography
+2026-07-02,10:31,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35892,17.85511,Mapping,A3,VLOS,COM,0:27,0,117,1,0,,0,0,
+2026-07-02,10:02,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35663,17.85834,Mapping,A3,VLOS,COM,0:22,0,96,1,0,,0,0,
+2026-07-02,09:30,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35620,17.86075,Mapping,A3,VLOS,COM,0:22,0,95,1,0,,0,0,Orthophoto & DSM for design team
+2026-06-30,10:49,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.13222,12.99867,Inspection,Specific,EVLOS,COM,0:35,0,48,1,0,Sara Nyström,0,0,
+2026-06-30,10:06,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.12916,12.99428,Inspection,Specific,EVLOS,COM,0:23,0,41,1,0,Sara Nyström,0,0,
+2026-06-30,09:15,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.12604,12.99930,Inspection,Specific,EVLOS,COM,0:27,0,57,1,0,Sara Nyström,0,0,
+2026-06-30,08:30,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.13320,13.00523,Inspection,Specific,BVLOS,COM,0:23,0,65,1,0,Sara Nyström,0,0,Vegetation clearance survey
+2026-06-26,13:53,DJI Mini 4 Pro,MINI4-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A1,VLOS,COM,0:14,0,110,1,0,Petra Sjöberg,0,0,
+2026-06-26,13:30,DJI Mini 4 Pro,MINI4-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A1,VLOS,COM,0:16,0,50,1,0,Petra Sjöberg,0,0,Real estate photos & video
+2026-06-25,13:55,DJI Mini 4 Pro,MINI4-01,"Golf course, Bro Hof",59.52800,17.66000,Photo / Video,A1,VLOS,COM,0:13,0,57,1,0,,0,0,
+2026-06-25,13:30,DJI Mini 4 Pro,MINI4-01,"Golf course, Bro Hof",59.52800,17.66000,Photo / Video,A1,VLOS,COM,0:13,0,86,1,0,,0,0,Aerial stills for brochure
+2026-06-23,12:15,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33750,17.50799,Inspection,Specific,BVLOS,COM,0:29,0,54,1,0,Mikael Åberg,0,0,
+2026-06-23,11:22,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34058,17.50480,Inspection,Specific,EVLOS,COM,0:29,0,43,1,0,Mikael Åberg,0,0,
+2026-06-23,10:38,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33865,17.50927,Inspection,Specific,EVLOS,COM,0:25,0,59,1,0,Mikael Åberg,0,0,
+2026-06-23,09:45,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34380,17.50498,Inspection,Specific,BVLOS,COM,0:31,0,46,1,0,Mikael Åberg,0,0,Power line corridor inspection – 4.2 km
+2026-06-22,23:53,DJI Matrice 4T,M4T-01,Järvsö (Hälsingland),61.71395,16.17124,SAR,A2,VLOS,PRI,0:26,0,65,1,0,,0,0,
+2026-06-22,23:09,DJI Matrice 4T,M4T-01,Järvsö (Hälsingland),61.71202,16.16861,SAR,A2,VLOS,PRI,0:35,0,81,1,0,,0,0,
+2026-06-22,22:30,DJI Matrice 4T,M4T-01,Järvsö (Hälsingland),61.71314,16.16975,SAR,A2,VLOS,PRI,0:29,0,68,1,0,,0,0,Missing person search – thermal (volunteer)
+2026-06-17,15:59,DJI Matrice 4T,M4T-01,"Solar park, Västerås",59.58064,16.70420,Inspection,A2,VLOS,COM,0:19,0,58,1,0,,0,0,
+2026-06-17,15:19,DJI Matrice 4T,M4T-01,"Solar park, Västerås",59.58377,16.69433,Inspection,A2,VLOS,COM,0:26,0,52,1,0,,0,0,
+2026-06-17,14:47,DJI Matrice 4T,M4T-01,"Solar park, Västerås",59.58201,16.69722,Inspection,A2,VLOS,COM,0:19,0,55,1,0,,0,0,
+2026-06-17,14:16,DJI Matrice 4T,M4T-01,"Solar park, Västerås",59.58261,16.70273,Inspection,A2,VLOS,COM,0:20,0,58,1,0,,0,0,
+2026-06-17,13:45,DJI Matrice 4T,M4T-01,"Solar park, Västerås",59.57948,16.70108,Inspection,A2,VLOS,COM,0:21,0,38,1,0,,0,0,Annual thermography – IEC 62446-3
+2026-06-16,12:18,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35799,17.85588,Mapping,A2,VLOS,COM,0:34,0,107,1,0,,0,0,
+2026-06-16,11:43,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35928,17.86067,Mapping,A2,VLOS,COM,0:27,0,83,1,0,,0,0,
+2026-06-16,11:00,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35938,17.85792,Mapping,A2,VLOS,COM,0:32,0,93,1,0,,0,0,Orthophoto & DSM for design team
+2026-06-15,15:59,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.34954,18.11176,Mapping,A2,VLOS,COM,0:24,0,109,1,0,,0,0,
+2026-06-15,15:17,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.34940,18.10660,Mapping,A2,VLOS,COM,0:33,0,93,1,0,,0,0,
+2026-06-15,14:44,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35552,18.10574,Mapping,A2,VLOS,COM,0:22,0,80,1,0,,0,0,
+2026-06-15,14:02,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35101,18.10797,Mapping,A2,VLOS,COM,0:33,0,107,1,0,,0,0,
+2026-06-15,13:24,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35199,18.10947,Mapping,A2,VLOS,COM,0:24,0,109,1,0,,0,0,
+2026-06-15,12:50,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35538,18.11180,Mapping,A2,VLOS,COM,0:27,0,93,1,0,,0,0,Monthly construction progress map
+2026-06-05,12:06,DJI Matrice 350 RTK,M350-02,"Quarry, Skidbacken (Gävle)",60.66121,17.05537,Mapping,A3,VLOS,COM,0:34,0,115,1,0,,0,0,
+2026-06-05,11:32,DJI Matrice 350 RTK,M350-02,"Quarry, Skidbacken (Gävle)",60.66191,17.04866,Mapping,A3,VLOS,COM,0:26,0,80,1,0,,0,0,
+2026-06-05,10:48,DJI Matrice 350 RTK,M350-02,"Quarry, Skidbacken (Gävle)",60.66039,17.05415,Mapping,A3,VLOS,COM,0:30,0,95,1,0,,0,0,
+2026-06-05,10:15,DJI Matrice 350 RTK,M350-02,"Quarry, Skidbacken (Gävle)",60.65914,17.05257,Mapping,A3,VLOS,COM,0:23,0,120,1,0,,0,0,Stockpile volume survey
+2026-06-04,14:41,DJI Mavic 3 Enterprise,M3E-01,Gävle – Brynäs,60.66379,17.15558,Inspection,A2,VLOS,COM,0:20,0,16,1,0,,0,0,
+2026-06-04,14:11,DJI Mavic 3 Enterprise,M3E-01,Gävle – Brynäs,60.66414,17.15315,Inspection,A2,VLOS,COM,0:19,0,51,1,0,,0,0,
+2026-06-04,13:40,DJI Mavic 3 Enterprise,M3E-01,Gävle – Brynäs,60.66481,17.16001,Inspection,A2,VLOS,COM,0:20,0,17,1,0,,0,0,Facade inspection – cracks & balconies
+2026-06-03,09:18,DJI Matrice 4T,M4T-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:16,0,16,1,0,Petra Sjöberg,0,0,
+2026-06-03,08:39,DJI Matrice 4T,M4T-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:20,0,12,1,0,Petra Sjöberg,0,0,
+2026-06-03,08:15,DJI Matrice 4T,M4T-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:15,0,30,1,0,Petra Sjöberg,0,0,Bridge underside inspection – obstacle sensing off
+2026-06-02,13:13,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83260,16.09437,Inspection,Specific,BVLOS,COM,0:26,0,59,1,0,Mikael Åberg,0,0,
+2026-06-02,12:16,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82840,16.08463,Inspection,Specific,EVLOS,COM,0:35,0,57,1,0,Mikael Åberg,0,0,
+2026-06-02,11:37,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83146,16.08717,Inspection,Specific,EVLOS,COM,0:23,0,55,1,0,Mikael Åberg,0,0,
+2026-06-02,10:54,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83384,16.08401,Inspection,Specific,EVLOS,COM,0:33,0,62,1,0,Mikael Åberg,0,0,
+2026-06-02,10:10,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82814,16.09441,Inspection,Specific,EVLOS,COM,0:31,0,44,1,0,Mikael Åberg,0,0,
+2026-06-02,09:30,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82872,16.09524,Inspection,Specific,BVLOS,COM,0:29,0,48,1,0,Mikael Åberg,0,0,Insulator & conductor survey
+2026-05-29,13:14,DJI Matrice 4T,M4T-01,"Solar park, Strängnäs",59.36927,17.03022,Inspection,A2,VLOS,COM,0:23,0,45,1,0,,0,0,
+2026-05-29,12:49,DJI Matrice 4T,M4T-01,"Solar park, Strängnäs",59.37328,17.03563,Inspection,A2,VLOS,COM,0:19,0,58,1,0,,0,0,
+2026-05-29,12:14,DJI Matrice 4T,M4T-01,"Solar park, Strängnäs",59.37063,17.02896,Inspection,A2,VLOS,COM,0:21,0,47,1,0,,0,0,
+2026-05-29,11:40,DJI Matrice 4T,M4T-01,"Solar park, Strängnäs",59.37311,17.03476,Inspection,A2,VLOS,COM,0:23,0,59,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2026-05-28,15:51,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:08,0,48,1,0,,0,0,
+2026-05-28,15:30,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:11,0,54,1,0,,0,0,IMU & compass calibration check
+2026-05-28,11:55,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Rosersberg",59.58211,17.89586,Mapping,A2,VLOS,COM,0:33,0,81,1,0,Petra Sjöberg,0,0,
+2026-05-28,11:20,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Rosersberg",59.57998,17.90181,Mapping,A2,VLOS,COM,0:29,0,101,1,0,Petra Sjöberg,0,0,
+2026-05-28,10:44,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Rosersberg",59.57847,17.89467,Mapping,A2,VLOS,COM,0:22,0,92,1,0,Petra Sjöberg,0,0,
+2026-05-28,10:10,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Rosersberg",59.57995,17.89739,Mapping,A2,VLOS,COM,0:28,0,105,1,0,Petra Sjöberg,0,0,Orthophoto & DSM for design team
+2026-05-27,14:51,DJI Matrice 350 RTK,M350-02,"Wind farm, Fosen (Trøndelag, Norway)",63.89667,10.69657,Inspection,Specific,VLOS,COM,0:23,0,166,1,0,,0,0,
+2026-05-27,14:16,DJI Matrice 350 RTK,M350-02,"Wind farm, Fosen (Trøndelag, Norway)",63.89646,10.70033,Inspection,Specific,VLOS,COM,0:18,0,154,1,0,,0,0,
+2026-05-27,13:28,DJI Matrice 350 RTK,M350-02,"Wind farm, Fosen (Trøndelag, Norway)",63.89874,10.70175,Inspection,Specific,VLOS,COM,0:23,0,204,1,0,,0,0,
+2026-05-27,12:33,DJI Matrice 350 RTK,M350-02,"Wind farm, Fosen (Trøndelag, Norway)",63.89663,10.69740,Inspection,Specific,VLOS,COM,0:28,0,163,1,0,,0,0,
+2026-05-27,12:00,DJI Matrice 350 RTK,M350-02,"Wind farm, Fosen (Trøndelag, Norway)",63.89718,10.69612,Inspection,Specific,VLOS,COM,0:20,0,210,1,0,,0,0,Turbine blade inspection – H20T zoom
+2026-05-25,11:08,DJI Matrice 4T,M4T-01,"Solar park, Fyrislund (Uppsala)",59.85028,17.69744,Inspection,A2,VLOS,COM,0:18,0,39,1,0,,0,0,
+2026-05-25,10:40,DJI Matrice 4T,M4T-01,"Solar park, Fyrislund (Uppsala)",59.85006,17.69612,Inspection,A2,VLOS,COM,0:21,0,45,1,0,,0,0,
+2026-05-25,10:15,DJI Matrice 4T,M4T-01,"Solar park, Fyrislund (Uppsala)",59.84669,17.69550,Inspection,A2,VLOS,COM,0:19,0,56,1,0,,0,0,Panel soiling & damage check
+2026-05-21,11:10,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43346,18.05494,Inspection,A2,VLOS,COM,0:13,0,48,1,0,,0,0,
+2026-05-21,10:38,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43335,18.05909,Inspection,A2,VLOS,COM,0:19,0,54,1,0,,0,0,
+2026-05-21,10:10,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43604,18.05546,Inspection,A2,VLOS,COM,0:17,0,58,1,0,,0,0,Facade inspection – cracks & balconies
+2026-05-20,19:19,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.45091,20.79957,Inspection,Specific,VLOS,COM,0:28,0,180,1,0,,0,0,
+2026-05-20,18:38,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.45248,20.80455,Inspection,Specific,VLOS,COM,0:29,0,183,1,0,,0,0,
+2026-05-20,17:49,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44827,20.80131,Inspection,Specific,VLOS,COM,0:19,0,210,1,0,,0,0,
+2026-05-20,17:04,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.45152,20.79565,Inspection,Specific,VLOS,COM,0:18,0,198,1,0,,0,0,
+2026-05-20,15:55,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.45294,20.80511,Inspection,Specific,VLOS,COM,0:29,0,188,1,0,,0,0,
+2026-05-20,15:21,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44860,20.79475,Inspection,Specific,VLOS,COM,0:22,0,153,1,0,,0,0,
+2026-05-20,14:22,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44854,20.79904,Inspection,Specific,VLOS,COM,0:26,0,175,1,0,,0,0,
+2026-05-20,13:40,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44881,20.79839,Inspection,Specific,VLOS,COM,0:21,0,159,1,0,,0,0,Tower & nacelle inspection
+2026-05-19,14:40,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:11,0,42,1,0,Sara Nyström,0,0,
+2026-05-19,14:15,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:17,0,60,1,0,Sara Nyström,0,0,Real estate photos & video
+2026-05-17,16:10,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:23,0,71,1,0,,0,0,Landscape photography
+2026-05-15,10:09,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.30802,16.19958,Mapping,A2,VLOS,COM,0:32,0,108,1,0,,0,0,
+2026-05-15,09:32,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.30849,16.19969,Mapping,A2,VLOS,COM,0:23,0,83,1,0,,0,0,
+2026-05-15,09:00,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.30663,16.20203,Mapping,A2,VLOS,COM,0:26,0,111,1,0,,0,0,Stockpile volume survey
+2026-05-13,12:29,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19986,19.71552,Inspection,Specific,BVLOS,COM,0:31,0,56,1,0,Petra Sjöberg,0,0,
+2026-05-13,11:36,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20298,19.72257,Inspection,Specific,BVLOS,COM,0:34,0,43,1,0,Petra Sjöberg,0,0,
+2026-05-13,10:48,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20208,19.72114,Inspection,Specific,EVLOS,COM,0:33,0,68,1,0,Petra Sjöberg,0,0,
+2026-05-13,09:49,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19629,19.71909,Inspection,Specific,EVLOS,COM,0:35,0,70,1,0,Petra Sjöberg,0,0,
+2026-05-13,08:57,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19925,19.72094,Inspection,Specific,BVLOS,COM,0:34,0,52,1,0,Petra Sjöberg,0,0,
+2026-05-13,08:00,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19942,19.72398,Inspection,Specific,BVLOS,COM,0:35,0,44,1,0,Petra Sjöberg,0,0,Vegetation clearance survey
+2026-05-07,16:05,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:06,0,38,1,0,,0,0,
+2026-05-07,15:46,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:12,0,20,1,0,,0,0,
+2026-05-07,15:30,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:07,0,41,1,0,,0,0,IMU & compass calibration check
+2026-05-07,15:10,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43373,18.05859,Inspection,A2,VLOS,COM,0:14,0,50,1,0,,0,0,
+2026-05-07,14:40,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43604,18.06171,Inspection,A2,VLOS,COM,0:22,0,18,1,0,,0,0,Facade inspection – cracks & balconies
+2026-05-06,16:09,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,34,1,0,,0,0:12,
+2026-05-06,15:46,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,35,1,0,,0,0:12,
+2026-05-06,15:17,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:19,0,53,1,0,,0,0:19,
+2026-05-06,14:50,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:16,0,22,1,0,,0,0:16,
+2026-05-06,14:30,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,39,1,0,,0,0:12,New pilot: Linnea Dahl – A2 practical training
+2026-05-02,16:50,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:22,0,81,1,0,,0,0,Sunset over the archipelago
+2026-04-29,12:31,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.34870,16.40916,Inspection,Specific,VLOS,COM,0:27,0,182,1,0,,0,0,
+2026-04-29,11:51,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.35390,16.41553,Inspection,Specific,VLOS,COM,0:23,0,206,1,0,,0,0,
+2026-04-29,11:05,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.35097,16.40424,Inspection,Specific,VLOS,COM,0:20,0,185,1,0,,0,0,
+2026-04-29,10:21,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.35124,16.40466,Inspection,Specific,VLOS,COM,0:21,0,178,1,0,,0,0,
+2026-04-29,09:29,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.34786,16.40707,Inspection,Specific,VLOS,COM,0:21,0,165,1,0,,0,0,
+2026-04-29,08:40,DJI Matrice 350 RTK,M350-02,"Wind farm, Degerhamn (Öland)",56.34682,16.41097,Inspection,Specific,VLOS,COM,0:30,0,186,1,0,,0,0,Blade leading-edge erosion survey
+2026-04-17,12:05,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:16,0,73,1,0,,0,0,
+2026-04-17,11:36,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:16,0,110,1,0,,0,0,
+2026-04-17,11:00,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:20,0,77,1,0,,0,0,Aerial stills for brochure
+2026-04-13,13:51,DJI Matrice 350 RTK,M350-02,"Battery plant site, Skellefteå",64.73739,20.94494,Mapping,Specific,EVLOS,COM,0:22,0,60,1,0,Sara Nyström,0,0,
+2026-04-13,13:09,DJI Matrice 350 RTK,M350-02,"Battery plant site, Skellefteå",64.73617,20.95083,Mapping,A3,EVLOS,COM,0:27,0,77,1,0,Mikael Åberg,0,0,
+2026-04-13,12:31,DJI Matrice 350 RTK,M350-02,"Battery plant site, Skellefteå",64.73559,20.94814,Mapping,Specific,EVLOS,COM,0:23,0,66,1,0,Petra Sjöberg,0,0,
+2026-04-13,11:48,DJI Matrice 350 RTK,M350-02,"Battery plant site, Skellefteå",64.73456,20.95556,Mapping,A3,VLOS,COM,0:26,0,77,1,0,,0,0,
+2026-04-13,11:10,DJI Matrice 350 RTK,M350-02,"Battery plant site, Skellefteå",64.73175,20.95224,Mapping,Specific,VLOS,COM,0:28,0,68,1,0,,0,0,LiDAR corridor survey – L2
+2026-04-08,11:06,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19792,19.72495,Inspection,Specific,BVLOS,COM,0:35,0,40,1,0,Emil Berglund,0,0,
+2026-04-08,10:26,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19806,19.72381,Inspection,Specific,BVLOS,COM,0:27,0,70,1,0,Emil Berglund,0,0,
+2026-04-08,09:40,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19983,19.71919,Inspection,Specific,BVLOS,COM,0:25,0,69,1,0,Emil Berglund,0,0,
+2026-04-08,09:00,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19797,19.71519,Inspection,Specific,BVLOS,COM,0:30,0,49,1,0,Emil Berglund,0,0,Vegetation clearance survey
+2026-04-06,10:55,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11825,14.61737,Inspection,Specific,VLOS,COM,0:20,0,167,1,0,,0,0,
+2026-04-06,09:56,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11665,14.62077,Inspection,Specific,VLOS,COM,0:30,0,184,1,0,,0,0,
+2026-04-06,09:04,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11839,14.62374,Inspection,Specific,VLOS,COM,0:23,0,177,1,0,,0,0,
+2026-04-06,08:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11878,14.62143,Inspection,Specific,VLOS,COM,0:19,0,208,1,0,,0,0,Tower & nacelle inspection
+2026-04-02,14:33,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34206,17.50810,Inspection,Specific,EVLOS,COM,0:28,0,51,1,0,Sara Nyström,0,0,
+2026-04-02,13:44,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33775,17.50929,Inspection,Specific,BVLOS,COM,0:28,0,61,1,0,Sara Nyström,0,0,
+2026-04-02,13:08,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34049,17.51506,Inspection,Specific,BVLOS,COM,0:26,0,59,1,0,Sara Nyström,0,0,
+2026-04-02,12:31,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34277,17.51545,Inspection,Specific,EVLOS,COM,0:26,0,45,1,0,Sara Nyström,0,0,
+2026-04-02,11:37,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34280,17.51057,Inspection,Specific,BVLOS,COM,0:32,0,67,1,0,Sara Nyström,0,0,
+2026-04-02,10:45,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33978,17.50951,Inspection,Specific,BVLOS,COM,0:31,0,57,1,0,Sara Nyström,0,0,Power line corridor inspection – 4.2 km
+2026-03-30,23:57,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.74670,18.37491,SAR,A2,VLOS,PRI,0:33,0:33,95,0,1,Sara Nyström,0,0,
+2026-03-30,23:24,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.74888,18.36479,SAR,A2,VLOS,PRI,0:24,0:24,82,0,1,Sara Nyström,0,0,
+2026-03-30,22:45,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.74765,18.36622,SAR,A2,VLOS,PRI,0:34,0:34,63,0,1,Sara Nyström,0,0,Search for missing elderly – thermal sweep
+2026-03-29,18:35,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,49,1,0,,0,0,
+2026-03-29,17:40,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:24,0,104,1,0,,0,0,
+2026-03-28,18:32,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:24,0,111,1,0,,0,0,
+2026-03-28,17:58,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0,62,1,0,,0,0,
+2026-03-28,17:15,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:23,0,99,1,0,,0,0,Mountain panorama
+2026-03-26,12:25,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:12,0,62,1,0,,0,0,
+2026-03-26,11:57,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:18,0,80,1,0,,0,0,
+2026-03-26,11:30,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:18,0,65,1,0,,0,0,Mast inspection – 3D model
+2026-03-25,21:53,DJI Matrice 4T,M4T-01,Tiveden,58.71712,14.61981,SAR,A2,VLOS,PRI,0:33,0:33,84,0,1,,0,0,
+2026-03-25,21:09,DJI Matrice 4T,M4T-01,Tiveden,58.72076,14.61891,SAR,A2,VLOS,PRI,0:34,0:34,85,0,1,,0,0,
+2026-03-25,20:40,DJI Matrice 4T,M4T-01,Tiveden,58.71970,14.61912,SAR,A2,VLOS,PRI,0:24,0:24,76,0,1,,0,0,Night search in forest – thermal
+2026-03-23,23:36,DJI Mavic 3 Thermal,M3T-01,Uppsala – Rosendal,59.84203,17.63336,Inspection,A2,VLOS,COM,0:19,0:19,89,0,1,,0,0,
+2026-03-23,23:05,DJI Mavic 3 Thermal,M3T-01,Uppsala – Rosendal,59.83855,17.63092,Inspection,A2,VLOS,COM,0:19,0:19,76,0,1,,0,0,
+2026-03-23,22:33,DJI Mavic 3 Thermal,M3T-01,Uppsala – Rosendal,59.84099,17.63145,Inspection,A2,VLOS,COM,0:23,0:23,84,0,1,,0,0,
+2026-03-23,22:00,DJI Mavic 3 Thermal,M3T-01,Uppsala – Rosendal,59.84249,17.62740,Inspection,A2,VLOS,COM,0:20,0:20,88,0,1,,0,0,
+2026-03-23,21:30,DJI Mavic 3 Thermal,M3T-01,Uppsala – Rosendal,59.84242,17.63479,Inspection,A2,VLOS,COM,0:22,0:22,80,0,1,,0,0,"District heating leak survey – thermal, night"
+2026-03-21,14:08,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:15,0,46,1,0,,0,0,
+2026-03-21,13:40,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:16,0,111,1,0,,0,0,Holiday photos
+2026-03-20,14:48,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20354,19.71606,Inspection,Specific,BVLOS,COM,0:27,0,59,1,0,Mikael Åberg,0,0,
+2026-03-20,14:07,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19915,19.72481,Inspection,Specific,EVLOS,COM,0:28,0,41,1,0,Mikael Åberg,0,0,
+2026-03-20,13:14,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20305,19.71477,Inspection,Specific,EVLOS,COM,0:28,0,49,1,0,Mikael Åberg,0,0,
+2026-03-20,12:35,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.20390,19.72398,Inspection,Specific,BVLOS,COM,0:29,0,68,1,0,Mikael Åberg,0,0,
+2026-03-20,11:45,DJI Matrice 350 RTK,M350-02,"Power line, Vindeln (Västerbotten)",64.19969,19.72359,Inspection,Specific,BVLOS,COM,0:32,0,67,1,0,Mikael Åberg,0,0,Corridor inspection under operational authorisation
+2026-03-19,10:59,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20326,19.72056,Inspection,Specific,BVLOS,COM,0:27,0,65,1,0,Sara Nyström,0,0,
+2026-03-19,10:07,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19967,19.72262,Inspection,Specific,BVLOS,COM,0:31,0,54,1,0,Sara Nyström,0,0,
+2026-03-19,09:20,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19826,19.72294,Inspection,Specific,BVLOS,COM,0:29,0,61,1,0,Sara Nyström,0,0,Corridor inspection under operational authorisation
+2026-03-16,11:37,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:15,0,96,1,0,Petra Sjöberg,0,0,
+2026-03-16,11:12,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:16,0,91,1,0,Petra Sjöberg,0,0,
+2026-03-16,10:50,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:13,0,72,1,0,Petra Sjöberg,0,0,Mast inspection – 3D model
+2026-03-13,15:10,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:16,0,70,1,0,,0,0,
+2026-03-13,14:45,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:15,0,74,1,0,,0,0,Antenna alignment check
+2026-03-11,15:34,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.18869,17.63194,Inspection,A2,VLOS,COM,0:18,0,47,1,0,Petra Sjöberg,0,0,
+2026-03-11,14:59,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.19419,17.63714,Inspection,A2,VLOS,COM,0:22,0,22,1,0,Petra Sjöberg,0,0,
+2026-03-11,14:30,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.18884,17.62701,Inspection,A2,VLOS,COM,0:16,0,20,1,0,Petra Sjöberg,0,0,Roof survey for solar installation
+2026-03-09,15:08,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.19587,17.63705,Inspection,A2,VLOS,COM,0:19,0,31,1,0,,0,0,
+2026-03-09,14:40,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.18910,17.63739,Inspection,A2,VLOS,COM,0:19,0,26,1,0,,0,0,Facade thermography
+2026-03-06,13:35,DJI Matrice 350 RTK,M350-02,"Construction site, Barkarbystaden",59.42253,17.86467,Mapping,A3,VLOS,COM,0:30,0,97,1,0,,0,0,
+2026-03-06,12:58,DJI Matrice 350 RTK,M350-02,"Construction site, Barkarbystaden",59.41924,17.85617,Mapping,A3,VLOS,COM,0:29,0,80,1,0,,0,0,
+2026-03-06,12:19,DJI Matrice 350 RTK,M350-02,"Construction site, Barkarbystaden",59.42000,17.85517,Mapping,A3,VLOS,COM,0:31,0,83,1,0,,0,0,
+2026-03-06,11:45,DJI Matrice 350 RTK,M350-02,"Construction site, Barkarbystaden",59.42020,17.86426,Mapping,A3,VLOS,COM,0:24,0,106,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2026-03-04,14:14,DJI Matrice 4T,M4T-01,Solna – Arenastaden,59.36608,17.99902,Inspection,A2,VLOS,COM,0:15,0,55,1,0,,0,0,
+2026-03-04,13:47,DJI Matrice 4T,M4T-01,Solna – Arenastaden,59.36821,18.00444,Inspection,A2,VLOS,COM,0:19,0,47,1,0,,0,0,
+2026-03-04,13:18,DJI Matrice 4T,M4T-01,Solna – Arenastaden,59.36950,17.99761,Inspection,A2,VLOS,COM,0:16,0,31,1,0,,0,0,
+2026-03-04,12:50,DJI Matrice 4T,M4T-01,Solna – Arenastaden,59.36624,18.00416,Inspection,A2,VLOS,COM,0:18,0,16,1,0,,0,0,Roof inspection after storm
+2026-02-28,14:41,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:13,0,66,1,0,,0,0,
+2026-02-28,14:12,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:14,0,61,1,0,,0,0,
+2026-02-28,13:30,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:16,0,65,1,0,,0,0,Holiday photos
+2026-02-27,11:03,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.74013,17.03270,Inspection,A2,VLOS,COM,0:21,0,44,1,0,,0,0,
+2026-02-27,10:35,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.73720,17.02782,Inspection,A2,VLOS,COM,0:16,0,17,1,0,,0,0,
+2026-02-27,10:10,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.73933,17.03266,Inspection,A2,VLOS,COM,0:16,0,60,1,0,,0,0,Chimney & gutter inspection
+2026-02-23,21:19,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.36322,17.96696,Inspection,A2,VLOS,COM,0:18,0:18,78,0,1,,0,0,
+2026-02-23,20:51,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.36251,17.97349,Inspection,A2,VLOS,COM,0:16,0:16,70,0,1,,0,0,
+2026-02-23,20:13,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.35764,17.96660,Inspection,A2,VLOS,COM,0:24,0:24,75,0,1,,0,0,
+2026-02-23,19:45,DJI Matrice 4T,M4T-01,Sundbyberg – centrum,59.36484,17.97169,Inspection,A2,VLOS,COM,0:20,0:20,86,0,1,,0,0,Heat loss survey – residential area
+2026-02-12,14:06,DJI Mavic 3 Enterprise,M3E-01,Göteborg – Lindholmen,57.70553,11.93232,Inspection,A2,VLOS,COM,0:21,0,29,1,0,,0,0,
+2026-02-12,13:40,DJI Mavic 3 Enterprise,M3E-01,Göteborg – Lindholmen,57.70489,11.94098,Inspection,A2,VLOS,COM,0:16,0,41,1,0,,0,0,Facade inspection – cracks & balconies
+2026-01-13,10:17,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59237,16.19464,Inspection,A2,VLOS,COM,0:14,0,57,1,0,Johan Lind,0,0,
+2026-01-13,09:46,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59726,16.18926,Inspection,A2,VLOS,COM,0:21,0,27,1,0,Johan Lind,0,0,
+2026-01-13,09:10,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59840,16.18992,Inspection,A2,VLOS,COM,0:22,0,40,1,0,Johan Lind,0,0,Facade thermography
+2026-01-08,15:41,DJI Matrice 4T,M4T-01,Luleå – Kronan,65.59008,22.11491,Inspection,A2,VLOS,COM,0:20,0:20,40,0,1,Sara Nyström,0,0,
+2026-01-08,15:09,DJI Matrice 4T,M4T-01,Luleå – Kronan,65.59122,22.11296,Inspection,A2,VLOS,COM,0:19,0:19,22,0,1,Sara Nyström,0,0,
+2026-01-08,14:40,DJI Matrice 4T,M4T-01,Luleå – Kronan,65.59410,22.11251,Inspection,A2,VLOS,COM,0:22,0,59,1,0,Sara Nyström,0,0,Facade inspection – cracks & balconies
+2026-01-07,23:47,DJI Mavic 3 Thermal,M3T-01,Enköping – Västerleden,59.63648,17.06462,Inspection,A2,VLOS,COM,0:23,0:23,80,0,1,,0,0,
+2026-01-07,23:19,DJI Mavic 3 Thermal,M3T-01,Enköping – Västerleden,59.64368,17.06306,Inspection,A2,VLOS,COM,0:16,0:16,88,0,1,,0,0,
+2026-01-07,22:57,DJI Mavic 3 Thermal,M3T-01,Enköping – Västerleden,59.63870,17.06140,Inspection,A2,VLOS,COM,0:16,0:16,84,0,1,,0,0,
+2026-01-07,22:20,DJI Mavic 3 Thermal,M3T-01,Enköping – Västerleden,59.64030,17.05462,Inspection,A2,VLOS,COM,0:23,0:23,75,0,1,,0,0,
+2026-01-07,21:50,DJI Mavic 3 Thermal,M3T-01,Enköping – Västerleden,59.64017,17.05933,Inspection,A2,VLOS,COM,0:19,0:19,84,0,1,,0,0,Heat loss survey – residential area
+2026-01-05,10:53,DJI Matrice 4T,M4T-01,Nyköping – Brandholmen,58.73642,17.03209,Inspection,A2,VLOS,COM,0:15,0,52,1,0,,0,0,
+2026-01-05,10:30,DJI Matrice 4T,M4T-01,Nyköping – Brandholmen,58.74123,17.02477,Inspection,A2,VLOS,COM,0:13,0,20,1,0,,0,0,Facade thermography
+2025-12-30,19:04,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:14,0:14,82,0,1,,0,0,
+2025-12-30,18:15,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:23,0:23,53,0,1,,0,0,
+2025-12-30,17:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0:21,47,0,1,,0,0,Landscape photography
+2025-12-26,19:12,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:14,0:14,63,0,1,,0,0,
+2025-12-26,18:45,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:16,0:16,101,0,1,,0,0,Holiday photos
+2025-12-24,16:40,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:17,0:17,109,0,1,,0,0,
+2025-12-24,16:03,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:13,0:13,73,0,1,,0,0,
+2025-12-24,15:20,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:14,0,105,1,0,,0,0,
+2025-12-20,13:05,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:12,0,119,1,0,,0,0,
+2025-12-20,12:40,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,117,1,0,,0,0,Holiday photos
+2025-12-18,22:45,DJI Matrice 4T,M4T-01,Tyresta forest,59.16710,18.26613,SAR,A2,VLOS,PRI,0:30,0:30,66,0,1,Linnea Dahl,0,0,
+2025-12-18,22:05,DJI Matrice 4T,M4T-01,Tyresta forest,59.17332,18.26743,SAR,A2,VLOS,PRI,0:32,0:32,91,0,1,Linnea Dahl,0,0,
+2025-12-18,21:35,DJI Matrice 4T,M4T-01,Tyresta forest,59.17285,18.26913,SAR,A2,VLOS,PRI,0:24,0:24,87,0,1,Linnea Dahl,0,0,
+2025-12-18,20:53,DJI Matrice 4T,M4T-01,Tyresta forest,59.16954,18.27519,SAR,A2,VLOS,PRI,0:30,0:30,80,0,1,Linnea Dahl,0,0,
+2025-12-18,20:10,DJI Matrice 4T,M4T-01,Tyresta forest,59.17375,18.26499,SAR,A2,VLOS,PRI,0:35,0:35,74,0,1,Linnea Dahl,0,0,Missing person found – handed over to police
+2025-12-13,15:49,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:17,0:17,118,0,1,,0,0,
+2025-12-13,15:10,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:13,0,92,1,0,,0,0,Holiday photos
+2025-12-08,23:19,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59627,16.19568,Inspection,A2,VLOS,COM,0:22,0:22,83,0,1,,0,0,
+2025-12-08,22:50,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59521,16.19968,Inspection,A2,VLOS,COM,0:23,0:23,76,0,1,,0,0,
+2025-12-08,22:23,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59353,16.19840,Inspection,A2,VLOS,COM,0:16,0:16,73,0,1,,0,0,
+2025-12-08,21:50,DJI Matrice 4T,M4T-01,Norrköping – Inre hamnen,58.59262,16.19700,Inspection,A2,VLOS,COM,0:22,0:22,78,0,1,,0,0,District heating network – 6 km surveyed
+2025-12-05,11:29,DJI Mavic 3 Enterprise,M3E-01,Eskilstuna – Munktell,59.36882,16.50927,Inspection,A2,VLOS,COM,0:20,0,51,1,0,,0,0,
+2025-12-05,11:00,DJI Mavic 3 Enterprise,M3E-01,Eskilstuna – Munktell,59.37387,16.50412,Inspection,A2,VLOS,COM,0:18,0,51,1,0,,0,0,Facade inspection – cracks & balconies
+2025-11-28,13:24,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.33904,17.50882,Inspection,Specific,BVLOS,COM,0:30,0,66,1,0,Linnea Dahl,0,0,
+2025-11-28,12:37,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34102,17.50653,Inspection,Specific,BVLOS,COM,0:32,0,44,1,0,Linnea Dahl,0,0,
+2025-11-28,12:02,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.33743,17.50698,Inspection,Specific,BVLOS,COM,0:23,0,62,1,0,Linnea Dahl,0,0,
+2025-11-28,11:12,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34219,17.50838,Inspection,Specific,EVLOS,COM,0:25,0,70,1,0,Linnea Dahl,0,0,
+2025-11-28,10:20,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34302,17.50841,Inspection,Specific,EVLOS,COM,0:30,0,45,1,0,Linnea Dahl,0,0,Insulator & conductor survey
+2025-11-13,12:38,DJI Matrice 4T,M4T-01,Stockholm – Södermalm,59.31429,18.06651,Inspection,A2,VLOS,COM,0:15,0,54,1,0,,0,0,
+2025-11-13,12:08,DJI Matrice 4T,M4T-01,Stockholm – Södermalm,59.31063,18.07682,Inspection,A2,VLOS,COM,0:20,0,37,1,0,,0,0,
+2025-11-13,11:37,DJI Matrice 4T,M4T-01,Stockholm – Södermalm,59.31074,18.06902,Inspection,A2,VLOS,COM,0:18,0,44,1,0,,0,0,
+2025-11-13,11:15,DJI Matrice 4T,M4T-01,Stockholm – Södermalm,59.31415,18.07664,Inspection,A2,VLOS,COM,0:13,0,29,1,0,,0,0,Chimney & gutter inspection
+2025-11-12,19:53,DJI Matrice 4T,M4T-01,Öregrund coast,60.34390,18.42695,SAR,A2,VLOS,PRI,0:34,0:34,96,0,1,Johan Lind,0,0,
+2025-11-12,19:10,DJI Matrice 4T,M4T-01,Öregrund coast,60.34331,18.43088,SAR,A2,VLOS,PRI,0:32,0:32,90,0,1,Johan Lind,0,0,Missing person search – thermal (volunteer)
+2025-11-08,18:50,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0:21,101,0,1,,0,0,
+2025-11-08,18:12,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:12,0:12,67,0,1,,0,0,
+2025-11-08,17:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:24,0:24,51,0,1,,0,0,Landscape photography
+2025-10-31,13:20,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:18,0,106,1,0,Sara Nyström,0,0,
+2025-10-31,12:53,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:20,0,102,1,0,Sara Nyström,0,0,
+2025-10-31,12:30,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:17,0,42,1,0,Sara Nyström,0,0,Commercial film shoot
+2025-10-22,14:59,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:20,0,20,1,0,,0,0:20,
+2025-10-22,14:30,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:19,0,33,1,0,,0,0:19,
+2025-10-22,14:08,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:14,0,28,1,0,,0,0:14,
+2025-10-22,13:41,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:17,0,60,1,0,,0,0:17,
+2025-10-22,13:16,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:18,0,28,1,0,,0,0:18,
+2025-10-22,12:50,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:18,0,37,1,0,,0,0:18,New pilot: Ali Karimi – Manual flight without GNSS (ATTI)
+2025-10-21,12:46,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35001,16.41135,Inspection,Specific,VLOS,COM,0:30,0,207,1,0,,0,0,
+2025-10-21,11:49,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35021,16.40643,Inspection,Specific,VLOS,COM,0:25,0,179,1,0,,0,0,
+2025-10-21,11:00,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.34636,16.40668,Inspection,Specific,VLOS,COM,0:26,0,189,1,0,,0,0,
+2025-10-21,10:17,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35094,16.41247,Inspection,Specific,VLOS,COM,0:18,0,160,1,0,,0,0,
+2025-10-21,09:13,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.34619,16.40734,Inspection,Specific,VLOS,COM,0:30,0,187,1,0,,0,0,
+2025-10-21,08:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35101,16.41107,Inspection,Specific,VLOS,COM,0:29,0,164,1,0,,0,0,Tower & nacelle inspection
+2025-10-16,14:37,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.36394,17.85563,Mapping,A3,VLOS,COM,0:22,0,95,1,0,,0,0,
+2025-10-16,13:59,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35658,17.85743,Mapping,A3,VLOS,COM,0:27,0,114,1,0,,0,0,
+2025-10-16,13:18,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.36396,17.86282,Mapping,A3,VLOS,COM,0:30,0,80,1,0,,0,0,
+2025-10-16,12:32,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35627,17.86131,Mapping,A3,VLOS,COM,0:33,0,83,1,0,,0,0,
+2025-10-16,11:53,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.36240,17.85584,Mapping,A3,VLOS,COM,0:30,0,116,1,0,,0,0,
+2025-10-16,11:10,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35720,17.85472,Mapping,A3,VLOS,COM,0:34,0,81,1,0,,0,0,Monthly construction progress map
+2025-10-15,10:08,DJI Matrice 4T,M4T-01,Örebro – Ladugårdsängen,59.26797,15.24966,Inspection,A2,VLOS,COM,0:14,0,56,1,0,,0,0,
+2025-10-15,09:40,DJI Matrice 4T,M4T-01,Örebro – Ladugårdsängen,59.26936,15.25599,Inspection,A2,VLOS,COM,0:13,0,56,1,0,,0,0,Facade thermography
+2025-10-13,21:15,DJI Mavic 3 Thermal,M3T-01,Täby – Täby Park,59.44047,18.05788,Inspection,A2,VLOS,COM,0:21,0:21,87,0,1,Emil Berglund,0,0,
+2025-10-13,20:53,DJI Mavic 3 Thermal,M3T-01,Täby – Täby Park,59.44019,18.06446,Inspection,A2,VLOS,COM,0:16,0:16,86,0,1,Emil Berglund,0,0,
+2025-10-13,20:26,DJI Mavic 3 Thermal,M3T-01,Täby – Täby Park,59.43656,18.06127,Inspection,A2,VLOS,COM,0:20,0:20,81,0,1,Emil Berglund,0,0,
+2025-10-13,19:48,DJI Mavic 3 Thermal,M3T-01,Täby – Täby Park,59.44035,18.05871,Inspection,A2,VLOS,COM,0:24,0:24,87,0,1,Emil Berglund,0,0,
+2025-10-13,19:15,DJI Mavic 3 Thermal,M3T-01,Täby – Täby Park,59.43306,18.05788,Inspection,A2,VLOS,COM,0:23,0:23,84,0,1,Emil Berglund,0,0,Heat loss survey – residential area
+2025-10-09,12:49,DJI Matrice 350 RTK,M350-02,"Harbour expansion, Norvik (Nynäshamn)",58.95085,17.91725,Mapping,A3,VLOS,COM,0:33,0,96,1,0,,0,0,
+2025-10-09,12:08,DJI Matrice 350 RTK,M350-02,"Harbour expansion, Norvik (Nynäshamn)",58.94959,17.92146,Mapping,A3,VLOS,COM,0:30,0,101,1,0,,0,0,
+2025-10-09,11:29,DJI Matrice 350 RTK,M350-02,"Harbour expansion, Norvik (Nynäshamn)",58.94846,17.91521,Mapping,A3,VLOS,COM,0:29,0,114,1,0,,0,0,
+2025-10-09,10:50,DJI Matrice 350 RTK,M350-02,"Harbour expansion, Norvik (Nynäshamn)",58.94856,17.91951,Mapping,A3,VLOS,COM,0:28,0,106,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2025-10-06,13:18,DJI Matrice 4T,M4T-01,Linköping – Vallastaden,58.39624,15.56508,Inspection,A2,VLOS,COM,0:18,0,29,1,0,Emil Berglund,0,0,
+2025-10-06,12:50,DJI Matrice 4T,M4T-01,Linköping – Vallastaden,58.39802,15.56748,Inspection,A2,VLOS,COM,0:19,0,59,1,0,Emil Berglund,0,0,Facade inspection – cracks & balconies
+2025-10-03,14:36,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:12,0,105,1,0,,0,0,
+2025-10-03,14:15,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:10,0,79,1,0,,0,0,Real estate photos & video
+2025-09-30,15:43,DJI Mini 4 Pro,MINI4-01,"Company base, Täby",59.46800,18.09800,Testing,A1,VLOS,COM,0:09,0,43,1,0,,0,0,
+2025-09-30,15:30,DJI Mini 4 Pro,MINI4-01,"Company base, Täby",59.46800,18.09800,Testing,A1,VLOS,COM,0:08,0,51,1,0,,0,0,IMU & compass calibration check
+2025-09-30,13:30,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:17,0,84,1,0,,0,0,
+2025-09-30,12:50,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:20,0,54,1,0,,0,0,
+2025-09-30,12:15,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:19,0,55,1,0,,0,0,Real estate photos & video
+2025-09-28,14:49,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:21,0,117,1,0,,0,0,
+2025-09-28,13:45,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:24,0,116,1,0,,0,0,
+2025-09-28,13:15,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:18,0,42,1,0,,0,0,Landscape photography
+2025-09-24,14:57,DJI Mavic 3 Thermal,M3T-01,"Solar park, Fyrislund (Uppsala)",59.84815,17.70424,Inspection,A2,VLOS,COM,0:18,0,43,1,0,,0,0,
+2025-09-24,14:23,DJI Mavic 3 Thermal,M3T-01,"Solar park, Fyrislund (Uppsala)",59.84985,17.69573,Inspection,A2,VLOS,COM,0:22,0,59,1,0,,0,0,
+2025-09-24,13:50,DJI Mavic 3 Thermal,M3T-01,"Solar park, Fyrislund (Uppsala)",59.85225,17.70134,Inspection,A2,VLOS,COM,0:22,0,44,1,0,,0,0,
+2025-09-24,13:18,DJI Mavic 3 Thermal,M3T-01,"Solar park, Fyrislund (Uppsala)",59.85264,17.69976,Inspection,A2,VLOS,COM,0:24,0,46,1,0,,0,0,
+2025-09-24,12:40,DJI Mavic 3 Thermal,M3T-01,"Solar park, Fyrislund (Uppsala)",59.84611,17.70321,Inspection,A2,VLOS,COM,0:23,0,38,1,0,,0,0,Panel soiling & damage check
+2025-09-22,14:05,DJI Matrice 4T,M4T-01,Gävle – Brynäs,60.66505,17.16028,Inspection,A2,VLOS,COM,0:19,0,17,1,0,Emil Berglund,0,0,
+2025-09-22,13:40,DJI Matrice 4T,M4T-01,Gävle – Brynäs,60.66382,17.15744,Inspection,A2,VLOS,COM,0:19,0,53,1,0,Emil Berglund,0,0,Roof survey for solar installation
+2025-09-19,12:42,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52012,15.65499,Inspection,Specific,VLOS,COM,0:22,0,175,1,0,,0,0,
+2025-09-19,12:02,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52098,15.65742,Inspection,Specific,VLOS,COM,0:21,0,176,1,0,,0,0,
+2025-09-19,11:08,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51845,15.65722,Inspection,Specific,VLOS,COM,0:24,0,162,1,0,,0,0,
+2025-09-19,10:03,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52328,15.65764,Inspection,Specific,VLOS,COM,0:27,0,191,1,0,,0,0,
+2025-09-19,09:13,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51787,15.66189,Inspection,Specific,VLOS,COM,0:25,0,185,1,0,,0,0,
+2025-09-19,08:30,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51855,15.66353,Inspection,Specific,VLOS,COM,0:28,0,153,1,0,,0,0,Blade leading-edge erosion survey
+2025-09-18,18:31,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A2,VLOS,COM,0:13,0,85,1,0,,0,0,
+2025-09-18,18:02,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A2,VLOS,COM,0:10,0,63,1,0,,0,0,
+2025-09-18,17:30,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A2,VLOS,COM,0:13,0,85,1,0,,0,0,Hotel marketing video
+2025-09-17,15:55,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12618,12.99938,Mapping,A3,VLOS,COM,0:24,0,93,1,0,Linnea Dahl,0,0,
+2025-09-17,15:18,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12643,13.00048,Mapping,A3,VLOS,COM,0:24,0,73,1,0,Linnea Dahl,0,0,
+2025-09-17,14:34,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.13028,13.00058,Mapping,Specific,EVLOS,COM,0:28,0,84,1,0,Linnea Dahl,0,0,
+2025-09-17,14:00,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12912,12.99538,Mapping,A3,VLOS,COM,0:24,0,70,1,0,Linnea Dahl,0,0,
+2025-09-17,13:15,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.13070,12.99660,Mapping,A3,EVLOS,COM,0:27,0,88,1,0,Linnea Dahl,0,0,LiDAR corridor survey – L2
+2025-09-15,12:01,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:18,0,35,1,0,,0,0:18,
+2025-09-15,11:40,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:15,0,32,1,0,,0,0:15,
+2025-09-15,11:08,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:20,0,44,1,0,,0,0:20,
+2025-09-15,10:39,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:20,0,35,1,0,,0,0:20,
+2025-09-15,10:15,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:18,0,22,1,0,,0,0:18,New pilot: Hanna Strömberg – Thermal camera workflow
+2025-09-12,12:02,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.61270,16.22532,Inspection,Specific,BVLOS,COM,0:29,0,47,1,0,Sara Nyström,0,0,
+2025-09-12,11:20,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.60854,16.23116,Inspection,Specific,BVLOS,COM,0:23,0,50,1,0,Sara Nyström,0,0,
+2025-09-12,10:25,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.60922,16.23511,Inspection,Specific,BVLOS,COM,0:32,0,44,1,0,Sara Nyström,0,0,
+2025-09-12,09:30,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.61305,16.22427,Inspection,Specific,EVLOS,COM,0:33,0,48,1,0,Sara Nyström,0,0,Corridor inspection under operational authorisation
+2025-09-11,11:14,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60717,16.22888,Inspection,Specific,EVLOS,COM,0:22,0,45,1,0,Petra Sjöberg,0,0,
+2025-09-11,10:26,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.61061,16.23588,Inspection,Specific,EVLOS,COM,0:28,0,56,1,0,Petra Sjöberg,0,0,
+2025-09-11,09:32,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60779,16.22940,Inspection,Specific,EVLOS,COM,0:30,0,61,1,0,Petra Sjöberg,0,0,
+2025-09-11,08:40,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60686,16.22579,Inspection,Specific,BVLOS,COM,0:30,0,66,1,0,Petra Sjöberg,0,0,Insulator & conductor survey
+2025-09-09,14:44,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.38749,23.12009,Inspection,A2,VLOS,COM,0:23,0,47,1,0,,0,0,
+2025-09-09,14:10,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.39141,23.12229,Inspection,A2,VLOS,COM,0:19,0,42,1,0,,0,0,
+2025-09-09,13:39,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.38698,23.11401,Inspection,A2,VLOS,COM,0:19,0,49,1,0,,0,0,
+2025-09-09,13:04,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.38817,23.11440,Inspection,A2,VLOS,COM,0:26,0,52,1,0,,0,0,
+2025-09-09,12:30,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.39177,23.11767,Inspection,A2,VLOS,COM,0:21,0,56,1,0,,0,0,Annual thermography – IEC 62446-3
+2025-09-08,14:08,DJI Matrice 350 RTK,M350-02,"Wind farm, Orsa (Dalarna)",61.12352,14.61505,Inspection,Specific,VLOS,COM,0:20,0,181,1,0,,0,0,
+2025-09-08,13:04,DJI Matrice 350 RTK,M350-02,"Wind farm, Orsa (Dalarna)",61.12059,14.62207,Inspection,Specific,VLOS,COM,0:28,0,165,1,0,,0,0,
+2025-09-08,12:20,DJI Matrice 350 RTK,M350-02,"Wind farm, Orsa (Dalarna)",61.12208,14.62307,Inspection,Specific,VLOS,COM,0:24,0,157,1,0,,0,0,
+2025-09-08,11:15,DJI Matrice 350 RTK,M350-02,"Wind farm, Orsa (Dalarna)",61.12322,14.62575,Inspection,Specific,VLOS,COM,0:26,0,204,1,0,,0,0,Tower & nacelle inspection
+2025-09-05,15:53,DJI Matrice 350 RTK,M350-02,"Wind farm, Laholm (Halland)",56.51693,12.94521,Inspection,Specific,VLOS,COM,0:30,0,195,1,0,Johan Lind,0,0,
+2025-09-05,15:06,DJI Matrice 350 RTK,M350-02,"Wind farm, Laholm (Halland)",56.52088,12.94687,Inspection,Specific,VLOS,COM,0:23,0,203,1,0,Johan Lind,0,0,
+2025-09-05,14:00,DJI Matrice 350 RTK,M350-02,"Wind farm, Laholm (Halland)",56.52334,12.95246,Inspection,Specific,VLOS,COM,0:29,0,209,1,0,Johan Lind,0,0,
+2025-09-05,13:01,DJI Matrice 350 RTK,M350-02,"Wind farm, Laholm (Halland)",56.51950,12.94461,Inspection,Specific,VLOS,COM,0:26,0,184,1,0,Johan Lind,0,0,
+2025-09-05,12:10,DJI Matrice 350 RTK,M350-02,"Wind farm, Laholm (Halland)",56.52324,12.95458,Inspection,Specific,VLOS,COM,0:28,0,187,1,0,Johan Lind,0,0,Blade leading-edge erosion survey
+2025-09-02,15:36,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08065,18.21005,Inspection,Specific,VLOS,COM,0:24,0,156,1,0,,0,0,
+2025-09-02,14:43,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08009,18.21211,Inspection,Specific,VLOS,COM,0:19,0,188,1,0,,0,0,
+2025-09-02,14:07,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07737,18.20552,Inspection,Specific,VLOS,COM,0:22,0,200,1,0,,0,0,
+2025-09-02,13:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07760,18.21418,Inspection,Specific,VLOS,COM,0:19,0,184,1,0,,0,0,
+2025-09-02,12:20,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07978,18.20922,Inspection,Specific,VLOS,COM,0:26,0,181,1,0,,0,0,Blade leading-edge erosion survey
+2025-09-01,12:42,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36096,17.85727,Mapping,A3,VLOS,COM,0:33,0,106,1,0,,0,0,
+2025-09-01,11:59,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36177,17.86223,Mapping,A3,VLOS,COM,0:34,0,117,1,0,,0,0,
+2025-09-01,11:20,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35717,17.86211,Mapping,A3,VLOS,COM,0:30,0,94,1,0,,0,0,Earthworks volume check
+2025-08-28,12:35,DJI Mavic 3 Enterprise,M3E-01,Nacka – Sickla,59.30203,18.12712,Inspection,A2,VLOS,COM,0:22,0,33,1,0,,0,0,
+2025-08-28,12:08,DJI Mavic 3 Enterprise,M3E-01,Nacka – Sickla,59.30042,18.12546,Inspection,A2,VLOS,COM,0:19,0,25,1,0,,0,0,
+2025-08-28,11:40,DJI Mavic 3 Enterprise,M3E-01,Nacka – Sickla,59.30209,18.12191,Inspection,A2,VLOS,COM,0:20,0,45,1,0,,0,0,
+2025-08-28,11:20,DJI Mavic 3 Enterprise,M3E-01,Nacka – Sickla,59.30631,18.11946,Inspection,A2,VLOS,COM,0:13,0,49,1,0,,0,0,Roof survey for solar installation
+2025-08-26,11:16,DJI Mavic 3 Enterprise,M3E-01,Täby – Täby Park,59.43439,18.06340,Inspection,A2,VLOS,COM,0:16,0,27,1,0,Mikael Åberg,0,0,
+2025-08-26,10:43,DJI Mavic 3 Enterprise,M3E-01,Täby – Täby Park,59.44048,18.06444,Inspection,A2,VLOS,COM,0:22,0,23,1,0,Mikael Åberg,0,0,
+2025-08-26,10:15,DJI Mavic 3 Enterprise,M3E-01,Täby – Täby Park,59.44021,18.06441,Inspection,A2,VLOS,COM,0:14,0,48,1,0,Mikael Åberg,0,0,Chimney & gutter inspection
+2025-08-23,14:05,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:24,0,81,1,0,,0,0,
+2025-08-23,13:33,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:19,0,118,1,0,,0,0,
+2025-08-23,13:00,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0,109,1,0,,0,0,
+2025-08-22,10:44,DJI Matrice 350 RTK,M350-02,"Quarry, Glasberga (Södertälje)",59.15305,17.65221,Mapping,A3,VLOS,COM,0:28,0,103,1,0,,0,0,
+2025-08-22,10:04,DJI Matrice 350 RTK,M350-02,"Quarry, Glasberga (Södertälje)",59.15370,17.64704,Mapping,A3,VLOS,COM,0:32,0,80,1,0,,0,0,
+2025-08-22,09:30,DJI Matrice 350 RTK,M350-02,"Quarry, Glasberga (Södertälje)",59.15102,17.64618,Mapping,A3,VLOS,COM,0:28,0,120,1,0,,0,0,Monthly construction progress map
+2025-08-20,18:53,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45014,20.80390,Inspection,Specific,VLOS,COM,0:28,0,197,1,0,,0,0,
+2025-08-20,18:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44912,20.79588,Inspection,Specific,VLOS,COM,0:24,0,202,1,0,,0,0,
+2025-08-20,17:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45006,20.80284,Inspection,Specific,VLOS,COM,0:27,0,152,1,0,,0,0,
+2025-08-20,16:20,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45386,20.80186,Inspection,Specific,VLOS,COM,0:28,0,164,1,0,,0,0,
+2025-08-20,15:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45246,20.79902,Inspection,Specific,VLOS,COM,0:24,0,192,1,0,,0,0,
+2025-08-20,14:26,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44743,20.80569,Inspection,Specific,VLOS,COM,0:26,0,198,1,0,,0,0,
+2025-08-20,13:35,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44987,20.79546,Inspection,Specific,VLOS,COM,0:25,0,154,1,0,,0,0,
+2025-08-20,12:45,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44736,20.80091,Inspection,Specific,VLOS,COM,0:20,0,176,1,0,,0,0,Turbine blade inspection – H20T zoom
+2025-08-18,16:46,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12610,12.99475,Inspection,Specific,BVLOS,COM,0:29,0,47,1,0,Mikael Åberg,0,0,
+2025-08-18,16:06,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12675,12.99891,Inspection,Specific,BVLOS,COM,0:28,0,48,1,0,Mikael Åberg,0,0,
+2025-08-18,15:16,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12902,12.99504,Inspection,Specific,EVLOS,COM,0:35,0,40,1,0,Mikael Åberg,0,0,
+2025-08-18,14:25,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.13308,13.00422,Inspection,Specific,BVLOS,COM,0:32,0,60,1,0,Mikael Åberg,0,0,
+2025-08-18,13:52,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12851,13.00278,Inspection,Specific,BVLOS,COM,0:23,0,60,1,0,Mikael Åberg,0,0,
+2025-08-18,13:10,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12734,13.00126,Inspection,Specific,BVLOS,COM,0:26,0,59,1,0,Mikael Åberg,0,0,Corridor inspection under operational authorisation
+2025-08-14,17:07,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30686,16.20109,Mapping,A3,VLOS,COM,0:32,0,106,1,0,,0,0,
+2025-08-14,16:30,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30904,16.20027,Mapping,A3,VLOS,COM,0:31,0,102,1,0,,0,0,
+2025-08-14,15:46,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31140,16.19571,Mapping,A3,VLOS,COM,0:32,0,91,1,0,,0,0,
+2025-08-14,15:03,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31333,16.19681,Mapping,A3,VLOS,COM,0:30,0,90,1,0,,0,0,
+2025-08-14,14:24,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31053,16.20158,Mapping,A3,VLOS,COM,0:32,0,94,1,0,,0,0,
+2025-08-14,13:40,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30968,16.20221,Mapping,A3,VLOS,COM,0:31,0,118,1,0,,0,0,Monthly construction progress map
+2025-08-13,13:26,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35413,18.10934,Mapping,A2,VLOS,COM,0:28,0,102,1,0,,0,0,
+2025-08-13,12:47,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35483,18.10808,Mapping,A2,VLOS,COM,0:32,0,93,1,0,,0,0,
+2025-08-13,12:02,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35490,18.10537,Mapping,A2,VLOS,COM,0:35,0,119,1,0,,0,0,
+2025-08-13,11:27,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35219,18.10512,Mapping,A2,VLOS,COM,0:25,0,96,1,0,,0,0,
+2025-08-13,10:45,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35338,18.11460,Mapping,A2,VLOS,COM,0:35,0,105,1,0,,0,0,Monthly construction progress map
+2025-08-12,14:53,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.61186,16.23054,Mapping,Specific,VLOS,COM,0:27,0,79,1,0,Emil Berglund,0,0,
+2025-08-12,14:07,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.60704,16.23031,Mapping,A3,VLOS,COM,0:32,0,66,1,0,Emil Berglund,0,0,
+2025-08-12,13:35,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.60739,16.23058,Mapping,A3,VLOS,COM,0:23,0,91,1,0,Emil Berglund,0,0,
+2025-08-12,13:00,DJI Matrice 350 RTK,M350-02,"Power line, Hallstahammar",59.61165,16.23214,Mapping,A3,VLOS,COM,0:24,0,92,1,0,Emil Berglund,0,0,LiDAR terrain model under canopy
+2025-08-11,11:58,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:17,0,79,1,0,,0,0,
+2025-08-11,11:30,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:15,0,93,1,0,,0,0,Mast inspection – 3D model
+2025-08-08,12:20,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.83187,16.09124,Inspection,Specific,BVLOS,COM,0:23,0,69,1,0,Petra Sjöberg,0,0,
+2025-08-08,11:41,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82869,16.09525,Inspection,Specific,EVLOS,COM,0:23,0,61,1,0,Petra Sjöberg,0,0,
+2025-08-08,10:52,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82748,16.08528,Inspection,Specific,EVLOS,COM,0:28,0,46,1,0,Petra Sjöberg,0,0,
+2025-08-08,10:00,DJI Matrice 350 RTK,M350-02,"Power line, Ljusdal (Hälsingland)",61.82649,16.09074,Inspection,Specific,BVLOS,COM,0:27,0,63,1,0,Petra Sjöberg,0,0,Corridor inspection under operational authorisation
+2025-08-06,09:57,DJI Mavic 3 Enterprise,M3E-01,Sundsvall – Norra kajen,62.39211,17.32370,Inspection,A2,VLOS,COM,0:14,0,59,1,0,,0,0,
+2025-08-06,09:37,DJI Mavic 3 Enterprise,M3E-01,Sundsvall – Norra kajen,62.39310,17.31932,Inspection,A2,VLOS,COM,0:13,0,51,1,0,,0,0,
+2025-08-06,09:10,DJI Mavic 3 Enterprise,M3E-01,Sundsvall – Norra kajen,62.39156,17.31422,Inspection,A2,VLOS,COM,0:15,0,20,1,0,,0,0,Facade thermography
+2025-08-04,10:00,DJI Matrice 350 RTK,M350-01,"Högakustenbron, Kramfors",62.80000,17.94000,Inspection,Specific,VLOS,COM,0:19,0,39,1,0,Linnea Dahl,0,0,
+2025-08-04,09:33,DJI Matrice 350 RTK,M350-01,"Högakustenbron, Kramfors",62.80000,17.94000,Inspection,Specific,VLOS,COM,0:19,0,48,1,0,Linnea Dahl,0,0,
+2025-08-04,09:00,DJI Matrice 350 RTK,M350-01,"Högakustenbron, Kramfors",62.80000,17.94000,Inspection,Specific,VLOS,COM,0:15,0,13,1,0,Linnea Dahl,0,0,Pylon inspection
+2025-07-13,18:20,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:19,0,80,1,0,,0,0,Sunset over the archipelago
+2025-07-12,17:47,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:23,0,43,1,0,,0,0,
+2025-07-12,16:48,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:20,0,83,1,0,,0,0,
+2025-07-12,16:10,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:18,0,58,1,0,,0,0,Landscape photography
+2025-07-10,14:35,DJI Mini 4 Pro,MINI4-01,"Fårö, Gotland",57.92000,19.13000,Recreation,A1,VLOS,PRI,0:23,0,46,1,0,,0,0,
+2025-07-10,13:40,DJI Mini 4 Pro,MINI4-01,"Fårö, Gotland",57.92000,19.13000,Recreation,A1,VLOS,PRI,0:23,0,113,1,0,,0,0,Mountain panorama
+2025-07-04,13:15,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:23,0,26,1,0,Petra Sjöberg,0,0,
+2025-07-04,12:37,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:20,0,36,1,0,Petra Sjöberg,0,0,
+2025-07-04,12:10,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:15,0,15,1,0,Petra Sjöberg,0,0,Pylon inspection
+2025-07-03,13:37,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:13,0,95,1,0,Petra Sjöberg,0,0,
+2025-07-03,13:20,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:10,0,74,1,0,Petra Sjöberg,0,0,Aerial stills for brochure
+2025-07-01,19:12,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:11,0,101,1,0,,0,0,
+2025-07-01,18:54,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:12,0,63,1,0,,0,0,
+2025-07-01,18:21,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:19,0,69,1,0,,0,0,
+2025-07-01,17:45,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:19,0,54,1,0,,0,0,Commercial film shoot
+2025-06-30,15:20,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57714,17.89800,Mapping,A3,VLOS,COM,0:33,0,106,1,0,,0,0,
+2025-06-30,14:40,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57827,17.89451,Mapping,A3,VLOS,COM,0:25,0,113,1,0,,0,0,
+2025-06-30,14:04,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57996,17.89402,Mapping,A3,VLOS,COM,0:28,0,105,1,0,,0,0,
+2025-06-30,13:26,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57969,17.90376,Mapping,A3,VLOS,COM,0:24,0,100,1,0,,0,0,
+2025-06-30,12:56,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.57734,17.89727,Mapping,A3,VLOS,COM,0:24,0,113,1,0,,0,0,
+2025-06-30,12:20,DJI Matrice 350 RTK,M350-01,"Quarry, Rosersberg",59.58374,17.89493,Mapping,A3,VLOS,COM,0:28,0,92,1,0,,0,0,Earthworks volume check
+2025-06-25,12:39,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.12952,12.99906,Inspection,Specific,BVLOS,COM,0:24,0,61,1,0,Linnea Dahl,0,0,
+2025-06-25,11:47,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.13187,13.00542,Inspection,Specific,BVLOS,COM,0:34,0,51,1,0,Linnea Dahl,0,0,
+2025-06-25,11:00,DJI Matrice 350 RTK,M350-02,"Power line, Torsby (Värmland)",60.12652,12.99578,Inspection,Specific,BVLOS,COM,0:26,0,63,1,0,Linnea Dahl,0,0,Corridor inspection under operational authorisation
+2025-06-24,13:39,DJI Matrice 4T,M4T-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:17,0,63,1,0,,0,0,
+2025-06-24,13:12,DJI Matrice 4T,M4T-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:14,0,94,1,0,,0,0,
+2025-06-24,12:50,DJI Matrice 4T,M4T-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:14,0,73,1,0,,0,0,Mast inspection – 3D model
+2025-06-23,10:37,DJI Matrice 4T,M4T-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:15,0,61,1,0,,0,0,
+2025-06-23,10:10,DJI Matrice 4T,M4T-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:18,0,105,1,0,,0,0,Mast inspection – 3D model
+2025-06-19,15:10,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.33853,17.50692,Mapping,A3,VLOS,COM,0:22,0,63,1,0,Mikael Åberg,0,0,
+2025-06-19,14:23,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34266,17.50951,Mapping,Specific,VLOS,COM,0:29,0,77,1,0,Mikael Åberg,0,0,
+2025-06-19,13:37,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.33867,17.51233,Mapping,A3,EVLOS,COM,0:29,0,100,1,0,Mikael Åberg,0,0,
+2025-06-19,12:52,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34280,17.51342,Mapping,Specific,VLOS,COM,0:31,0,78,1,0,Mikael Åberg,0,0,
+2025-06-19,12:15,DJI Matrice 350 RTK,M350-02,"400 kV line, Tierp (Uppland)",60.34124,17.51479,Mapping,Specific,VLOS,COM,0:29,0,83,1,0,Mikael Åberg,0,0,LiDAR terrain model under canopy
+2025-06-18,11:58,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:13,0,94,1,0,,0,0,
+2025-06-18,11:38,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:11,0,87,1,0,,0,0,
+2025-06-18,11:08,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:10,0,44,1,0,,0,0,
+2025-06-18,10:45,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:13,0,66,1,0,,0,0,Real estate photos & video
+2025-06-17,11:50,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:13,0,31,1,0,,0,0,
+2025-06-17,11:27,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:12,0,75,1,0,,0,0,
+2025-06-17,11:00,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:17,0,79,1,0,,0,0,Real estate photos & video
+2025-06-12,11:40,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60142,18.66927,Inspection,Specific,VLOS,COM,0:26,0,185,1,0,,0,0,
+2025-06-12,10:54,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60093,18.67235,Inspection,Specific,VLOS,COM,0:19,0,197,1,0,,0,0,
+2025-06-12,10:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.59999,18.66486,Inspection,Specific,VLOS,COM,0:18,0,185,1,0,,0,0,
+2025-06-12,09:26,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60021,18.67553,Inspection,Specific,VLOS,COM,0:24,0,182,1,0,,0,0,
+2025-06-12,08:39,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.59746,18.66621,Inspection,Specific,VLOS,COM,0:20,0,210,1,0,,0,0,
+2025-06-12,08:00,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60361,18.67203,Inspection,Specific,VLOS,COM,0:26,0,151,1,0,,0,0,Blade leading-edge erosion survey
+2025-06-11,14:30,DJI Matrice 350 RTK,M350-01,"Harbour expansion, Norvik (Nynäshamn)",58.95072,17.92419,Mapping,A3,VLOS,COM,0:26,0,111,1,0,,0,0,
+2025-06-11,13:50,DJI Matrice 350 RTK,M350-01,"Harbour expansion, Norvik (Nynäshamn)",58.94966,17.91551,Mapping,A3,VLOS,COM,0:30,0,107,1,0,,0,0,
+2025-06-11,13:16,DJI Matrice 350 RTK,M350-01,"Harbour expansion, Norvik (Nynäshamn)",58.95008,17.92240,Mapping,A3,VLOS,COM,0:22,0,101,1,0,,0,0,
+2025-06-11,12:37,DJI Matrice 350 RTK,M350-01,"Harbour expansion, Norvik (Nynäshamn)",58.94769,17.91876,Mapping,A3,VLOS,COM,0:26,0,96,1,0,,0,0,
+2025-06-11,12:00,DJI Matrice 350 RTK,M350-01,"Harbour expansion, Norvik (Nynäshamn)",58.95015,17.92441,Mapping,A3,VLOS,COM,0:22,0,103,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2025-06-09,14:38,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11646,14.61976,Inspection,Specific,VLOS,COM,0:30,0,170,1,0,Petra Sjöberg,0,0,
+2025-06-09,13:44,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12334,14.62257,Inspection,Specific,VLOS,COM,0:23,0,164,1,0,Petra Sjöberg,0,0,
+2025-06-09,12:38,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11673,14.61643,Inspection,Specific,VLOS,COM,0:29,0,155,1,0,Petra Sjöberg,0,0,
+2025-06-09,11:40,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11842,14.61682,Inspection,Specific,VLOS,COM,0:28,0,168,1,0,Petra Sjöberg,0,0,
+2025-06-09,10:43,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11727,14.61876,Inspection,Specific,VLOS,COM,0:29,0,208,1,0,Petra Sjöberg,0,0,
+2025-06-09,09:43,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12132,14.61700,Inspection,Specific,VLOS,COM,0:23,0,162,1,0,Petra Sjöberg,0,0,
+2025-06-09,09:05,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12269,14.62045,Inspection,Specific,VLOS,COM,0:24,0,164,1,0,Petra Sjöberg,0,0,
+2025-06-09,08:30,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11871,14.62561,Inspection,Specific,VLOS,COM,0:20,0,165,1,0,Petra Sjöberg,0,0,Tower & nacelle inspection
+2025-06-06,14:29,DJI Mavic 3 Enterprise,M3E-01,Solna – Arenastaden,59.36667,17.99970,Inspection,A2,VLOS,COM,0:21,0,60,1,0,Mikael Åberg,0,0,
+2025-06-06,14:06,DJI Mavic 3 Enterprise,M3E-01,Solna – Arenastaden,59.36941,17.99648,Inspection,A2,VLOS,COM,0:17,0,33,1,0,Mikael Åberg,0,0,
+2025-06-06,13:30,DJI Mavic 3 Enterprise,M3E-01,Solna – Arenastaden,59.36742,18.00768,Inspection,A2,VLOS,COM,0:21,0,51,1,0,Mikael Åberg,0,0,Facade thermography
+2025-06-05,11:21,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.33314,14.46380,Inspection,Specific,EVLOS,COM,0:25,0,49,1,0,Emil Berglund,0,0,
+2025-06-05,10:38,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.32893,14.45421,Inspection,Specific,BVLOS,COM,0:27,0,42,1,0,Emil Berglund,0,0,
+2025-06-05,10:00,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.33201,14.45615,Inspection,Specific,EVLOS,COM,0:26,0,59,1,0,Emil Berglund,0,0,Corridor inspection under operational authorisation
+2025-06-04,21:54,DJI Matrice 4T,M4T-01,Tyresta forest,59.17086,18.26925,SAR,A2,VLOS,PRI,0:26,0,69,1,0,Emil Berglund,0,0,
+2025-06-04,21:13,DJI Matrice 4T,M4T-01,Tyresta forest,59.16957,18.27195,SAR,A2,VLOS,PRI,0:36,0,60,1,0,Emil Berglund,0,0,
+2025-06-04,20:30,DJI Matrice 4T,M4T-01,Tyresta forest,59.17366,18.27166,SAR,A2,VLOS,PRI,0:32,0,73,1,0,Emil Berglund,0,0,Missing person search – thermal (volunteer)
+2025-06-03,14:35,DJI Mavic 3 Enterprise,M3E-01,Sundsvall – Norra kajen,62.39481,17.31841,Inspection,A2,VLOS,COM,0:22,0,28,1,0,,0,0,
+2025-06-03,14:10,DJI Mavic 3 Enterprise,M3E-01,Sundsvall – Norra kajen,62.38958,17.32473,Inspection,A2,VLOS,COM,0:16,0,25,1,0,,0,0,Roof survey for solar installation
+2025-06-02,19:54,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44912,20.79450,Inspection,Specific,VLOS,COM,0:21,0,204,1,0,,0,0,
+2025-06-02,19:00,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44986,20.79691,Inspection,Specific,VLOS,COM,0:18,0,173,1,0,,0,0,
+2025-06-02,18:02,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44913,20.80376,Inspection,Specific,VLOS,COM,0:26,0,169,1,0,,0,0,
+2025-06-02,17:32,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44650,20.79786,Inspection,Specific,VLOS,COM,0:18,0,184,1,0,,0,0,
+2025-06-02,16:25,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44769,20.80293,Inspection,Specific,VLOS,COM,0:28,0,174,1,0,,0,0,
+2025-06-02,15:34,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44866,20.79741,Inspection,Specific,VLOS,COM,0:26,0,156,1,0,,0,0,
+2025-06-02,14:45,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.44918,20.79444,Inspection,Specific,VLOS,COM,0:20,0,167,1,0,,0,0,
+2025-06-02,13:45,DJI Matrice 350 RTK,M350-02,"Wind farm, Markbygden (Piteå)",65.45261,20.80245,Inspection,Specific,VLOS,COM,0:26,0,176,1,0,,0,0,Blade leading-edge erosion survey
+2025-05-30,14:14,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19697,19.72250,Mapping,A3,VLOS,COM,0:26,0,92,1,0,,0,0,
+2025-05-30,13:36,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20048,19.71415,Mapping,A3,VLOS,COM,0:30,0,63,1,0,,0,0,
+2025-05-30,13:00,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19609,19.72304,Mapping,Specific,VLOS,COM,0:27,0,78,1,0,,0,0,
+2025-05-30,12:30,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20085,19.71467,Mapping,A3,VLOS,COM,0:22,0,70,1,0,,0,0,LiDAR corridor survey – L2
+2025-05-29,21:13,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.75177,18.36737,SAR,A2,VLOS,PRI,0:28,0,74,1,0,,0,0,
+2025-05-29,20:27,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.75075,18.37123,SAR,A2,VLOS,PRI,0:35,0,75,1,0,,0,0,
+2025-05-29,19:46,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.74677,18.36917,SAR,A2,VLOS,PRI,0:30,0,62,1,0,,0,0,
+2025-05-29,19:00,DJI Matrice 4T,M4T-01,Roslagen (Rimbo),59.75135,18.36960,SAR,A2,VLOS,PRI,0:35,0,73,1,0,,0,0,Missing person found – handed over to police
+2025-05-27,13:04,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:16,0,33,1,0,,0,0,
+2025-05-27,12:35,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:14,0,45,1,0,,0,0,
+2025-05-27,12:10,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:13,0,38,1,0,,0,0,Real estate photos & video
+2025-05-26,12:59,DJI Matrice 4T,M4T-01,Eskilstuna – Munktell,59.36916,16.50721,Inspection,A2,VLOS,COM,0:13,0,32,1,0,,0,0,
+2025-05-26,12:27,DJI Matrice 4T,M4T-01,Eskilstuna – Munktell,59.37237,16.50596,Inspection,A2,VLOS,COM,0:22,0,40,1,0,,0,0,
+2025-05-26,12:00,DJI Matrice 4T,M4T-01,Eskilstuna – Munktell,59.37330,16.49983,Inspection,A2,VLOS,COM,0:17,0,32,1,0,,0,0,Facade thermography
+2025-05-22,16:10,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82679,16.09050,Inspection,Specific,EVLOS,COM,0:29,0,52,1,0,Johan Lind,0,0,
+2025-05-22,15:20,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82617,16.09470,Inspection,Specific,BVLOS,COM,0:33,0,64,1,0,Johan Lind,0,0,
+2025-05-22,14:23,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83317,16.08665,Inspection,Specific,BVLOS,COM,0:35,0,41,1,0,Johan Lind,0,0,
+2025-05-22,13:40,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82767,16.08663,Inspection,Specific,BVLOS,COM,0:31,0,44,1,0,Johan Lind,0,0,Insulator & conductor survey
+2025-05-20,15:41,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35616,17.85901,Mapping,A3,VLOS,COM,0:25,0,89,1,0,Johan Lind,0,0,
+2025-05-20,15:05,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.36196,17.85558,Mapping,A3,EVLOS,COM,0:28,0,86,1,0,Johan Lind,0,0,
+2025-05-20,14:21,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35881,17.86557,Mapping,A3,EVLOS,COM,0:32,0,86,1,0,Johan Lind,0,0,
+2025-05-20,13:45,DJI Matrice 350 RTK,M350-02,"Road project, E4 Förbifart Stockholm",59.35741,17.85763,Mapping,A3,VLOS,COM,0:22,0,86,1,0,Johan Lind,0,0,LiDAR + RGB point cloud
+2025-05-17,11:29,DJI Matrice 350 RTK,M350-02,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:12,0,36,1,0,,0,0,
+2025-05-17,11:15,DJI Matrice 350 RTK,M350-02,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:09,0,34,1,0,,0,0,Acceptance test – new Matrice 350 RTK
+2025-05-15,11:03,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.73623,17.02979,Inspection,A2,VLOS,COM,0:18,0,37,1,0,,0,0,
+2025-05-15,10:30,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.73873,17.03220,Inspection,A2,VLOS,COM,0:19,0,21,1,0,,0,0,Chimney & gutter inspection
+2025-05-14,13:43,DJI Mini 4 Pro,MINI4-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A1,VLOS,COM,0:19,0,62,1,0,,0,0,
+2025-05-14,13:15,DJI Mini 4 Pro,MINI4-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A1,VLOS,COM,0:14,0,70,1,0,,0,0,Commercial film shoot
+2025-05-13,15:46,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:12,0,47,1,0,,0,0,
+2025-05-13,15:30,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:12,0,51,1,0,,0,0,IMU & compass calibration check
+2025-05-13,13:18,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:17,0,75,1,0,,0,0,
+2025-05-13,12:42,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:18,0,110,1,0,,0,0,
+2025-05-13,12:20,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:17,0,102,1,0,,0,0,Event coverage
+2025-05-12,12:25,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19817,19.71881,Inspection,Specific,EVLOS,COM,0:35,0,45,1,0,Johan Lind,0,0,
+2025-05-12,11:38,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20347,19.71747,Inspection,Specific,BVLOS,COM,0:28,0,55,1,0,Johan Lind,0,0,
+2025-05-12,10:44,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20108,19.72129,Inspection,Specific,EVLOS,COM,0:35,0,51,1,0,Johan Lind,0,0,
+2025-05-12,10:10,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20008,19.72202,Inspection,Specific,BVLOS,COM,0:24,0,63,1,0,Johan Lind,0,0,
+2025-05-12,09:32,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20154,19.71565,Inspection,Specific,BVLOS,COM,0:26,0,62,1,0,Johan Lind,0,0,
+2025-05-12,08:45,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19720,19.71484,Inspection,Specific,BVLOS,COM,0:23,0,61,1,0,Johan Lind,0,0,Corridor inspection under operational authorisation
+2025-05-11,19:01,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,116,1,0,,0,0,
+2025-05-11,18:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,92,1,0,,0,0,Landscape photography
+2025-05-09,16:08,DJI Mavic 3 Enterprise,M3E-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:12,0,55,1,0,,0,0,
+2025-05-09,15:47,DJI Mavic 3 Enterprise,M3E-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:11,0,50,1,0,,0,0,
+2025-05-09,15:30,DJI Mavic 3 Enterprise,M3E-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:08,0,60,1,0,,0,0,Firmware update test
+2025-05-09,15:09,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:14,0,107,1,0,,0,0,
+2025-05-09,14:41,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:13,0,91,1,0,,0,0,
+2025-05-09,14:15,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:17,0,80,1,0,,0,0,Mast inspection – 3D model
+2025-05-08,14:09,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.58326,16.69769,Inspection,A2,VLOS,COM,0:18,0,46,1,0,,0,0,
+2025-05-08,13:41,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.57917,16.69424,Inspection,A2,VLOS,COM,0:20,0,42,1,0,,0,0,
+2025-05-08,13:10,DJI Mavic 3 Thermal,M3T-01,"Solar park, Västerås",59.58329,16.70029,Inspection,A2,VLOS,COM,0:19,0,55,1,0,,0,0,Annual thermography – IEC 62446-3
+2025-05-05,13:41,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12628,13.00580,Inspection,Specific,EVLOS,COM,0:25,0,50,1,0,Linnea Dahl,0,0,
+2025-05-05,12:57,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12609,13.00325,Inspection,Specific,EVLOS,COM,0:28,0,60,1,0,Linnea Dahl,0,0,
+2025-05-05,12:15,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.13025,13.00264,Inspection,Specific,BVLOS,COM,0:24,0,40,1,0,Linnea Dahl,0,0,Insulator & conductor survey
+2025-05-01,17:17,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35150,16.40802,Inspection,Specific,VLOS,COM,0:24,0,150,1,0,,0,0,
+2025-05-01,16:26,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.34625,16.40814,Inspection,Specific,VLOS,COM,0:18,0,162,1,0,,0,0,
+2025-05-01,15:26,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35232,16.41390,Inspection,Specific,VLOS,COM,0:24,0,210,1,0,,0,0,
+2025-05-01,14:44,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.34659,16.41027,Inspection,Specific,VLOS,COM,0:22,0,153,1,0,,0,0,
+2025-05-01,13:43,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35069,16.40676,Inspection,Specific,VLOS,COM,0:26,0,188,1,0,,0,0,
+2025-05-01,12:56,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35088,16.40541,Inspection,Specific,VLOS,COM,0:23,0,210,1,0,,0,0,
+2025-05-01,12:18,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.35382,16.40410,Inspection,Specific,VLOS,COM,0:22,0,174,1,0,,0,0,
+2025-05-01,11:40,DJI Matrice 350 RTK,M350-01,"Wind farm, Degerhamn (Öland)",56.34948,16.40676,Inspection,Specific,VLOS,COM,0:20,0,199,1,0,,0,0,Blade leading-edge erosion survey
+2025-04-28,12:17,DJI Matrice 4T,M4T-01,"Tranebergsbron, Stockholm",59.33300,17.99400,Inspection,Specific,VLOS,COM,0:24,0,58,1,0,Petra Sjöberg,0,0,
+2025-04-28,11:51,DJI Matrice 4T,M4T-01,"Tranebergsbron, Stockholm",59.33300,17.99400,Inspection,Specific,VLOS,COM,0:15,0,16,1,0,Petra Sjöberg,0,0,
+2025-04-28,11:15,DJI Matrice 4T,M4T-01,"Tranebergsbron, Stockholm",59.33300,17.99400,Inspection,Specific,VLOS,COM,0:18,0,53,1,0,Petra Sjöberg,0,0,Bridge cable & bearing inspection
+2025-04-25,09:47,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,Specific,VLOS,COM,0:22,0,52,1,0,Petra Sjöberg,0,0,
+2025-04-25,09:11,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,Specific,VLOS,COM,0:22,0,28,1,0,Petra Sjöberg,0,0,
+2025-04-25,08:40,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,Specific,VLOS,COM,0:21,0,49,1,0,Petra Sjöberg,0,0,Bridge cable & bearing inspection
+2025-04-17,10:31,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.41640,17.85951,Mapping,A3,VLOS,COM,0:29,0,97,1,0,,0,0,
+2025-04-17,09:56,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.42004,17.85622,Mapping,A3,VLOS,COM,0:22,0,107,1,0,,0,0,
+2025-04-17,09:15,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.41772,17.85496,Mapping,A3,VLOS,COM,0:28,0,94,1,0,,0,0,Orthophoto & DSM for design team
+2025-04-16,15:56,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44735,20.80570,Inspection,Specific,VLOS,COM,0:28,0,190,1,0,Sara Nyström,0,0,
+2025-04-16,15:15,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.44813,20.79658,Inspection,Specific,VLOS,COM,0:18,0,182,1,0,Sara Nyström,0,0,
+2025-04-16,14:16,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45331,20.80141,Inspection,Specific,VLOS,COM,0:19,0,208,1,0,Sara Nyström,0,0,
+2025-04-16,13:40,DJI Matrice 350 RTK,M350-01,"Wind farm, Markbygden (Piteå)",65.45000,20.79496,Inspection,Specific,VLOS,COM,0:19,0,188,1,0,Sara Nyström,0,0,Turbine blade inspection – H20T zoom
+2025-04-15,11:35,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:14,0,53,1,0,,0,0:14,
+2025-04-15,11:09,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:16,0,24,1,0,,0,0:16,
+2025-04-15,10:42,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:17,0,31,1,0,,0,0:17,
+2025-04-15,10:20,DJI Matrice 4T,M4T-01,"Training field, Täby",59.47000,18.10000,Training,A2,VLOS,COM,0:12,0,49,1,0,,0,0:12,New pilot: Linnea Dahl – Pre-flight & mission planning
+2025-04-11,17:36,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:19,0,87,1,0,Petra Sjöberg,0,0,
+2025-04-11,17:10,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:20,0,106,1,0,Petra Sjöberg,0,0,Hotel marketing video
+2025-04-09,12:09,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A2,VLOS,COM,0:14,0,75,1,0,,0,0,
+2025-04-09,11:45,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A2,VLOS,COM,0:11,0,84,1,0,,0,0,Real estate photos & video
+2025-04-08,14:54,DJI Matrice 350 RTK,M350-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:17,0,27,1,0,Emil Berglund,0,0,
+2025-04-08,14:24,DJI Matrice 350 RTK,M350-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:22,0,25,1,0,Emil Berglund,0,0,
+2025-04-08,13:49,DJI Matrice 350 RTK,M350-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:22,0,26,1,0,Emil Berglund,0,0,
+2025-04-08,13:06,DJI Matrice 350 RTK,M350-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:25,0,34,1,0,Emil Berglund,0,0,
+2025-04-08,12:30,DJI Matrice 350 RTK,M350-01,"Ölandsbron, Kalmar",56.66800,16.42000,Inspection,Specific,VLOS,COM,0:22,0,50,1,0,Emil Berglund,0,0,Bridge underside inspection – obstacle sensing off
+2025-04-07,13:54,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.44059,18.05333,Inspection,A2,VLOS,COM,0:13,0,50,1,0,,0,0,
+2025-04-07,13:29,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.44042,18.06278,Inspection,A2,VLOS,COM,0:17,0,60,1,0,,0,0,
+2025-04-07,12:59,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.44049,18.05930,Inspection,A2,VLOS,COM,0:21,0,15,1,0,,0,0,
+2025-04-07,12:40,DJI Matrice 4T,M4T-01,Täby – Täby Park,59.43353,18.06312,Inspection,A2,VLOS,COM,0:13,0,48,1,0,,0,0,Roof survey for solar installation
+2025-04-02,13:36,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31049,16.20263,Mapping,A3,VLOS,COM,0:29,0,93,1,0,,0,0,
+2025-04-02,12:54,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31202,16.19451,Mapping,Specific,VLOS,COM,0:29,0,84,1,0,,0,0,
+2025-04-02,12:15,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31145,16.20311,Mapping,A3,VLOS,COM,0:24,0,64,1,0,,0,0,
+2025-04-02,11:30,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31148,16.19885,Mapping,A3,VLOS,COM,0:32,0,61,1,0,,0,0,LiDAR corridor survey – L2
+2025-03-27,14:41,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80113,16.89666,Mapping,A3,VLOS,COM,0:25,0,92,1,0,,0,0,
+2025-03-27,14:02,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79867,16.89739,Mapping,A3,VLOS,COM,0:30,0,91,1,0,,0,0,
+2025-03-27,13:25,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79873,16.89994,Mapping,A3,VLOS,COM,0:25,0,98,1,0,,0,0,
+2025-03-27,12:50,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79632,16.90439,Mapping,A3,VLOS,COM,0:28,0,95,1,0,,0,0,
+2025-03-27,12:10,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80176,16.89768,Mapping,A3,VLOS,COM,0:34,0,81,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2025-03-25,13:51,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:14,0,82,1,0,,0,0,
+2025-03-25,13:20,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:17,0,64,1,0,,0,0,Mast inspection – 3D model
+2025-03-17,13:21,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30992,16.20135,Mapping,A3,VLOS,COM,0:29,0,82,1,0,,0,0,
+2025-03-17,12:41,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30873,16.19536,Mapping,A3,VLOS,COM,0:30,0,106,1,0,,0,0,
+2025-03-17,12:05,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30606,16.19679,Mapping,A3,VLOS,COM,0:28,0,82,1,0,,0,0,
+2025-03-17,11:23,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30873,16.19842,Mapping,A3,VLOS,COM,0:30,0,103,1,0,,0,0,
+2025-03-17,10:47,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31176,16.19780,Mapping,A3,VLOS,COM,0:29,0,97,1,0,,0,0,
+2025-03-17,10:10,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30935,16.19890,Mapping,A3,VLOS,COM,0:22,0,93,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2025-03-14,15:25,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14981,17.64738,Mapping,A3,VLOS,COM,0:35,0,98,1,0,,0,0,
+2025-03-14,14:38,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14800,17.64525,Mapping,A3,VLOS,COM,0:32,0,102,1,0,,0,0,
+2025-03-14,14:03,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.15047,17.64855,Mapping,A3,VLOS,COM,0:24,0,110,1,0,,0,0,
+2025-03-14,13:15,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14620,17.65474,Mapping,A3,VLOS,COM,0:34,0,119,1,0,,0,0,
+2025-03-14,12:35,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.15142,17.65268,Mapping,A3,VLOS,COM,0:29,0,85,1,0,,0,0,
+2025-03-14,12:00,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14819,17.65571,Mapping,A3,VLOS,COM,0:28,0,85,1,0,,0,0,Stockpile volume survey
+2025-03-12,19:26,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.81672,20.30485,Inspection,A2,VLOS,COM,0:21,0:21,84,0,1,,0,0,
+2025-03-12,18:58,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.82090,20.30025,Inspection,A2,VLOS,COM,0:18,0:18,78,0,1,,0,0,
+2025-03-12,18:27,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.81888,20.30464,Inspection,A2,VLOS,COM,0:17,0:17,74,0,1,,0,0,
+2025-03-12,18:00,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.81578,20.30116,Inspection,A2,VLOS,COM,0:16,0,63,1,0,,0,0,"District heating leak survey – thermal, night"
+2025-03-11,13:43,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35778,17.86115,Mapping,A2,VLOS,COM,0:32,0,113,1,0,,0,0,
+2025-03-11,13:04,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36141,17.86332,Mapping,A2,VLOS,COM,0:29,0,107,1,0,,0,0,
+2025-03-11,12:15,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35771,17.85801,Mapping,A2,VLOS,COM,0:35,0,107,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2025-03-03,16:04,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:07,0,56,1,0,,0,0,
+2025-03-03,15:50,DJI Matrice 4T,M4T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:08,0,39,1,0,,0,0,Acceptance test – new Matrice 4T
+2025-02-25,23:51,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.36908,16.50481,Inspection,A2,VLOS,COM,0:17,0:17,85,0,1,,0,0,
+2025-02-25,23:19,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.36803,16.50910,Inspection,A2,VLOS,COM,0:19,0:19,61,0,1,,0,0,
+2025-02-25,22:53,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.37244,16.50493,Inspection,A2,VLOS,COM,0:19,0:19,78,0,1,,0,0,
+2025-02-25,22:21,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.37561,16.51000,Inspection,A2,VLOS,COM,0:19,0:19,90,0,1,,0,0,
+2025-02-25,21:49,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.36893,16.50076,Inspection,A2,VLOS,COM,0:22,0:22,76,0,1,,0,0,
+2025-02-25,21:15,DJI Matrice 30T,M30T-01,Eskilstuna – Munktell,59.37074,16.50097,Inspection,A2,VLOS,COM,0:22,0:22,69,0,1,,0,0,"District heating leak survey – thermal, night"
+2025-02-15,14:15,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:15,0,84,1,0,,0,0,Sunset over the archipelago
+2025-01-30,22:37,DJI Matrice 30T,M30T-01,Järvsö (Hälsingland),61.70945,16.17288,SAR,A2,VLOS,PRI,0:34,0:34,65,0,1,Linnea Dahl,0,0,
+2025-01-30,21:57,DJI Matrice 30T,M30T-01,Järvsö (Hälsingland),61.70673,16.17380,SAR,A2,VLOS,PRI,0:32,0:32,73,0,1,Linnea Dahl,0,0,
+2025-01-30,21:10,DJI Matrice 30T,M30T-01,Järvsö (Hälsingland),61.71330,16.16438,SAR,A2,VLOS,PRI,0:35,0:35,86,0,1,Linnea Dahl,0,0,Missing person search – thermal (volunteer)
+2025-01-27,20:46,DJI Mavic 3 Thermal,M3T-01,Norrköping – Inre hamnen,58.59834,16.19729,Inspection,A2,VLOS,COM,0:22,0:22,70,0,1,Sara Nyström,0,0,
+2025-01-27,20:16,DJI Mavic 3 Thermal,M3T-01,Norrköping – Inre hamnen,58.59510,16.19125,Inspection,A2,VLOS,COM,0:17,0:17,62,0,1,Sara Nyström,0,0,
+2025-01-27,19:43,DJI Mavic 3 Thermal,M3T-01,Norrköping – Inre hamnen,58.59336,16.19771,Inspection,A2,VLOS,COM,0:21,0:21,63,0,1,Sara Nyström,0,0,
+2025-01-27,19:15,DJI Mavic 3 Thermal,M3T-01,Norrköping – Inre hamnen,58.59143,16.19891,Inspection,A2,VLOS,COM,0:20,0:20,76,0,1,Sara Nyström,0,0,Heat loss survey – residential area
+2025-01-23,14:06,DJI Matrice 30T,M30T-01,Sundbyberg – centrum,59.36320,17.96789,Inspection,A2,VLOS,COM,0:21,0,55,1,0,,0,0,
+2025-01-23,13:46,DJI Matrice 30T,M30T-01,Sundbyberg – centrum,59.36135,17.97390,Inspection,A2,VLOS,COM,0:14,0,27,1,0,,0,0,
+2025-01-23,13:10,DJI Matrice 30T,M30T-01,Sundbyberg – centrum,59.35846,17.97352,Inspection,A2,VLOS,COM,0:22,0,25,1,0,,0,0,Facade inspection – cracks & balconies
+2025-01-20,11:18,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36252,17.97299,Inspection,A2,VLOS,COM,0:16,0,24,1,0,,0,0,
+2025-01-20,10:50,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.35997,17.96527,Inspection,A2,VLOS,COM,0:22,0,15,1,0,,0,0,Facade inspection – cracks & balconies
+2025-01-17,12:13,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.37986,13.49332,Inspection,A2,VLOS,COM,0:21,0,56,1,0,,0,0,
+2025-01-17,11:50,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.37621,13.49453,Inspection,A2,VLOS,COM,0:16,0,50,1,0,,0,0,
+2025-01-17,11:21,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.38295,13.49636,Inspection,A2,VLOS,COM,0:19,0,53,1,0,,0,0,
+2025-01-17,10:50,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.37851,13.49692,Inspection,A2,VLOS,COM,0:22,0,44,1,0,,0,0,Facade inspection – cracks & balconies
+2025-01-09,22:31,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04838,15.10420,SAR,A2,VLOS,PRI,0:34,0:34,81,0,1,,0,0,
+2025-01-09,21:45,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04917,15.09913,SAR,A2,VLOS,PRI,0:34,0:34,61,0,1,,0,0,Missing person search – thermal (volunteer)
+2024-12-29,16:40,DJI Mini 4 Pro,MINI4-01,Abisko,68.35000,18.83000,Recreation,A1,VLOS,PRI,0:15,0:15,107,0,1,,0,0,
+2024-12-25,14:10,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:16,0,47,1,0,,0,0,Landscape photography
+2024-12-24,15:10,DJI Mini 4 Pro,MINI4-01,"Skuleberget, Höga Kusten",63.10000,18.36000,Recreation,A1,VLOS,PRI,0:18,0:09,66,0,1,,0,0,
+2024-12-24,14:20,DJI Mini 4 Pro,MINI4-01,"Skuleberget, Höga Kusten",63.10000,18.36000,Recreation,A1,VLOS,PRI,0:15,0,58,1,0,,0,0,
+2024-12-21,18:20,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0:15,69,0,1,,0,0,
+2024-12-21,17:45,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:17,0:17,102,0,1,,0,0,Sunset over the archipelago
+2024-12-20,13:59,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66746,17.14987,Inspection,A2,VLOS,COM,0:20,0,46,1,0,,0,0,
+2024-12-20,13:30,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66274,17.15134,Inspection,A2,VLOS,COM,0:17,0,21,1,0,,0,0,Chimney & gutter inspection
+2024-12-19,19:31,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26978,15.24750,Inspection,A2,VLOS,COM,0:20,0:20,89,0,1,,0,0,
+2024-12-19,19:00,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26766,15.25004,Inspection,A2,VLOS,COM,0:21,0:21,60,0,1,,0,0,
+2024-12-19,18:30,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27141,15.25220,Inspection,A2,VLOS,COM,0:18,0:18,88,0,1,,0,0,"District heating leak survey – thermal, night"
+2024-12-18,21:22,DJI Mavic 3 Thermal,M3T-01,Stockholm – Södermalm,59.31045,18.07686,Inspection,A2,VLOS,COM,0:22,0:22,78,0,1,,0,0,
+2024-12-18,20:51,DJI Mavic 3 Thermal,M3T-01,Stockholm – Södermalm,59.31064,18.06820,Inspection,A2,VLOS,COM,0:21,0:21,62,0,1,,0,0,
+2024-12-18,20:16,DJI Mavic 3 Thermal,M3T-01,Stockholm – Södermalm,59.31518,18.06634,Inspection,A2,VLOS,COM,0:24,0:24,62,0,1,,0,0,
+2024-12-18,19:43,DJI Mavic 3 Thermal,M3T-01,Stockholm – Södermalm,59.31380,18.07625,Inspection,A2,VLOS,COM,0:23,0:23,74,0,1,,0,0,
+2024-12-18,19:15,DJI Mavic 3 Thermal,M3T-01,Stockholm – Södermalm,59.31258,18.07133,Inspection,A2,VLOS,COM,0:17,0:17,69,0,1,,0,0,Heat loss survey – residential area
+2024-12-17,22:10,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26841,15.24927,Inspection,A2,VLOS,COM,0:21,0:21,86,0,1,Linnea Dahl,0,0,
+2024-12-17,21:42,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26727,15.25185,Inspection,A2,VLOS,COM,0:21,0:21,72,0,1,Linnea Dahl,0,0,
+2024-12-17,21:10,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27284,15.25461,Inspection,A2,VLOS,COM,0:23,0:23,80,0,1,Linnea Dahl,0,0,
+2024-12-17,20:41,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27305,15.25290,Inspection,A2,VLOS,COM,0:23,0:23,71,0,1,Linnea Dahl,0,0,
+2024-12-17,20:17,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26783,15.25460,Inspection,A2,VLOS,COM,0:18,0:18,60,0,1,Linnea Dahl,0,0,
+2024-12-17,19:45,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26966,15.24480,Inspection,A2,VLOS,COM,0:18,0:18,66,0,1,Linnea Dahl,0,0,District heating network – 6 km surveyed
+2024-12-14,13:06,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:17,0,47,1,0,,0,0,
+2024-12-14,12:18,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:22,0,116,1,0,,0,0,
+2024-12-14,11:50,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:17,0,96,1,0,,0,0,Holiday photos
+2024-12-05,10:45,DJI Mavic 3 Enterprise,M3E-01,Linköping – Vallastaden,58.39408,15.56804,Inspection,A2,VLOS,COM,0:15,0,50,1,0,,0,0,
+2024-12-05,10:17,DJI Mavic 3 Enterprise,M3E-01,Linköping – Vallastaden,58.39636,15.57082,Inspection,A2,VLOS,COM,0:17,0,15,1,0,,0,0,
+2024-12-05,09:44,DJI Mavic 3 Enterprise,M3E-01,Linköping – Vallastaden,58.39141,15.56609,Inspection,A2,VLOS,COM,0:19,0,45,1,0,,0,0,
+2024-12-05,09:15,DJI Mavic 3 Enterprise,M3E-01,Linköping – Vallastaden,58.39560,15.56642,Inspection,A2,VLOS,COM,0:19,0,49,1,0,,0,0,Chimney & gutter inspection
+2024-11-20,15:11,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.81520,20.29828,Inspection,A2,VLOS,COM,0:22,0:04,39,0,1,,0,0,
+2024-11-20,14:40,DJI Matrice 30T,M30T-01,Umeå – Ålidhem,63.81926,20.29554,Inspection,A2,VLOS,COM,0:20,0,49,1,0,,0,0,Roof survey for solar installation
+2024-11-19,13:36,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79868,16.89626,Mapping,A3,VLOS,COM,0:25,0,83,1,0,,0,0,
+2024-11-19,12:58,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79723,16.89977,Mapping,A3,VLOS,COM,0:24,0,111,1,0,,0,0,
+2024-11-19,12:25,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80105,16.89453,Mapping,A3,VLOS,COM,0:22,0,110,1,0,,0,0,
+2024-11-19,11:50,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79930,16.90469,Mapping,A3,VLOS,COM,0:28,0,100,1,0,,0,0,Stockpile volume survey
+2024-11-12,10:17,DJI Matrice 30T,M30T-01,"Telecom mast, Hallstavik",60.05000,18.60000,Inspection,A2,VLOS,COM,0:14,0,78,1,0,,0,0,
+2024-11-12,09:45,DJI Matrice 30T,M30T-01,"Telecom mast, Hallstavik",60.05000,18.60000,Inspection,A2,VLOS,COM,0:17,0,105,1,0,,0,0,Mast inspection – 3D model
+2024-11-11,13:35,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35267,18.11020,Mapping,A2,VLOS,COM,0:27,0,86,1,0,Petra Sjöberg,0,0,
+2024-11-11,13:03,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.35232,18.10689,Mapping,A2,VLOS,COM,0:24,0,118,1,0,Petra Sjöberg,0,0,
+2024-11-11,12:20,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Norra Djurgårdsstaden",59.34838,18.10843,Mapping,A2,VLOS,COM,0:31,0,116,1,0,Petra Sjöberg,0,0,Stockpile volume survey
+2024-11-08,22:05,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.05105,15.09555,SAR,A2,VLOS,PRI,0:30,0:30,81,0,1,Petra Sjöberg,0,0,
+2024-11-08,21:21,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04777,15.09416,SAR,A2,VLOS,PRI,0:34,0:34,100,0,1,Petra Sjöberg,0,0,
+2024-11-08,20:41,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.05319,15.09752,SAR,A2,VLOS,PRI,0:33,0:33,91,0,1,Petra Sjöberg,0,0,
+2024-11-08,20:00,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04808,15.10006,SAR,A2,VLOS,PRI,0:35,0:35,95,0,1,Petra Sjöberg,0,0,Missing person found – handed over to police
+2024-10-22,14:26,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82657,16.08980,Inspection,Specific,EVLOS,COM,0:33,0,45,1,0,Johan Lind,0,0,
+2024-10-22,13:36,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82961,16.08625,Inspection,Specific,EVLOS,COM,0:35,0,54,1,0,Johan Lind,0,0,
+2024-10-22,12:50,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83329,16.08463,Inspection,Specific,EVLOS,COM,0:27,0,40,1,0,Johan Lind,0,0,
+2024-10-22,11:58,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83281,16.09210,Inspection,Specific,EVLOS,COM,0:29,0,70,1,0,Johan Lind,0,0,
+2024-10-22,11:15,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83080,16.09445,Inspection,Specific,EVLOS,COM,0:23,0,51,1,0,Johan Lind,0,0,
+2024-10-22,10:20,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82725,16.08671,Inspection,Specific,EVLOS,COM,0:32,0,46,1,0,Johan Lind,0,0,Vegetation clearance survey
+2024-10-21,14:29,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:20,0,54,1,0,,0,0,
+2024-10-21,14:10,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:13,0,77,1,0,,0,0,Event coverage
+2024-10-16,12:22,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.65959,17.04673,Mapping,A3,VLOS,COM,0:27,0,114,1,0,,0,0,
+2024-10-16,11:39,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66034,17.04763,Mapping,A3,VLOS,COM,0:35,0,106,1,0,,0,0,
+2024-10-16,10:56,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66161,17.04480,Mapping,A3,VLOS,COM,0:35,0,90,1,0,,0,0,
+2024-10-16,10:20,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.65810,17.04437,Mapping,A3,VLOS,COM,0:26,0,118,1,0,,0,0,Earthworks volume check
+2024-10-14,12:44,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35424,18.11070,Mapping,A3,VLOS,COM,0:31,0,94,1,0,,0,0,
+2024-10-14,12:04,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35089,18.10469,Mapping,A3,VLOS,COM,0:26,0,102,1,0,,0,0,
+2024-10-14,11:28,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35288,18.11297,Mapping,A3,VLOS,COM,0:25,0,116,1,0,,0,0,
+2024-10-14,10:52,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35458,18.10948,Mapping,A3,VLOS,COM,0:26,0,119,1,0,,0,0,
+2024-10-14,10:10,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.34949,18.11408,Mapping,A3,VLOS,COM,0:30,0,85,1,0,,0,0,
+2024-10-14,09:30,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35543,18.11177,Mapping,A3,VLOS,COM,0:34,0,108,1,0,,0,0,Orthophoto & DSM for design team
+2024-10-11,18:50,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31496,18.07404,Inspection,A2,VLOS,COM,0:18,0:18,78,0,1,Petra Sjöberg,0,0,
+2024-10-11,18:26,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31451,18.07489,Inspection,A2,VLOS,COM,0:17,0:11,79,0,1,Petra Sjöberg,0,0,
+2024-10-11,18:00,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31571,18.07009,Inspection,A2,VLOS,COM,0:17,0,89,1,0,Petra Sjöberg,0,0,"District heating leak survey – thermal, night"
+2024-10-09,17:44,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:13,0,50,1,0,Johan Lind,0,0,
+2024-10-09,17:24,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:11,0,40,1,0,Johan Lind,0,0,
+2024-10-09,16:50,DJI Mini 4 Pro,MINI4-01,"Real estate, Djursholm",59.39800,18.08500,Photo / Video,A1,VLOS,COM,0:18,0,93,1,0,Johan Lind,0,0,Event coverage
+2024-10-07,16:01,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.34850,18.10453,Mapping,A3,VLOS,COM,0:25,0,98,1,0,,0,0,
+2024-10-07,15:24,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35214,18.10586,Mapping,A3,VLOS,COM,0:25,0,113,1,0,,0,0,
+2024-10-07,14:49,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.34977,18.11133,Mapping,A3,VLOS,COM,0:25,0,97,1,0,,0,0,
+2024-10-07,14:02,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35303,18.11095,Mapping,A3,VLOS,COM,0:32,0,84,1,0,,0,0,
+2024-10-07,13:20,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35204,18.10810,Mapping,A3,VLOS,COM,0:29,0,85,1,0,,0,0,Orthophoto & DSM for design team
+2024-10-03,12:03,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.15318,17.65151,Mapping,A3,EVLOS,COM,0:31,0,90,1,0,Petra Sjöberg,0,0,
+2024-10-03,11:24,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.15068,17.64777,Mapping,Specific,EVLOS,COM,0:26,0,65,1,0,Petra Sjöberg,0,0,
+2024-10-03,10:39,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14783,17.64644,Mapping,A3,VLOS,COM,0:31,0,77,1,0,Petra Sjöberg,0,0,
+2024-10-03,09:54,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.15260,17.64810,Mapping,Specific,VLOS,COM,0:27,0,92,1,0,Petra Sjöberg,0,0,
+2024-10-03,09:10,DJI Matrice 350 RTK,M350-01,"Quarry, Glasberga (Södertälje)",59.14828,17.65107,Mapping,A3,VLOS,COM,0:28,0,66,1,0,Petra Sjöberg,0,0,LiDAR + RGB point cloud
+2024-10-02,14:59,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:18,0,54,1,0,Emil Berglund,0,0,
+2024-10-02,14:25,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:15,0,47,1,0,Emil Berglund,0,0,
+2024-10-02,13:44,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:21,0,52,1,0,Emil Berglund,0,0,
+2024-10-02,13:10,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:24,0,47,1,0,Emil Berglund,0,0,
+2024-10-02,12:30,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:24,0,47,1,0,Emil Berglund,0,0,Pylon inspection
+2024-10-01,11:35,DJI Mavic 3 Enterprise,M3E-01,Umeå – Ålidhem,63.81442,20.29460,Inspection,A2,VLOS,COM,0:12,0,50,1,0,Johan Lind,0,0,
+2024-10-01,11:15,DJI Mavic 3 Enterprise,M3E-01,Umeå – Ålidhem,63.81500,20.29504,Inspection,A2,VLOS,COM,0:12,0,48,1,0,Johan Lind,0,0,
+2024-10-01,10:50,DJI Mavic 3 Enterprise,M3E-01,Umeå – Ålidhem,63.81901,20.29643,Inspection,A2,VLOS,COM,0:18,0,43,1,0,Johan Lind,0,0,Facade thermography
+2024-09-30,17:35,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:16,0,104,1,0,,0,0,
+2024-09-30,17:10,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:12,0,107,1,0,,0,0,Event coverage
+2024-09-28,14:53,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:22,0,100,1,0,,0,0,
+2024-09-28,14:00,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:13,0,65,1,0,,0,0,
+2024-09-23,09:42,DJI Mavic 3 Enterprise,M3E-01,Uppsala – Rosendal,59.84006,17.63567,Inspection,A2,VLOS,COM,0:13,0,58,1,0,,0,0,
+2024-09-23,09:10,DJI Mavic 3 Enterprise,M3E-01,Uppsala – Rosendal,59.83999,17.62854,Inspection,A2,VLOS,COM,0:21,0,15,1,0,,0,0,Chimney & gutter inspection
+2024-09-20,17:54,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.89662,10.70068,Inspection,Specific,VLOS,COM,0:24,0,182,1,0,,0,0,
+2024-09-20,17:15,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.90010,10.70073,Inspection,Specific,VLOS,COM,0:20,0,183,1,0,,0,0,
+2024-09-20,16:20,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.90084,10.69627,Inspection,Specific,VLOS,COM,0:18,0,190,1,0,,0,0,
+2024-09-20,15:19,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.90151,10.70578,Inspection,Specific,VLOS,COM,0:24,0,200,1,0,,0,0,
+2024-09-20,14:23,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.89804,10.70418,Inspection,Specific,VLOS,COM,0:29,0,156,1,0,,0,0,
+2024-09-20,13:28,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.89691,10.69631,Inspection,Specific,VLOS,COM,0:26,0,177,1,0,,0,0,
+2024-09-20,12:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.89626,10.69808,Inspection,Specific,VLOS,COM,0:28,0,155,1,0,,0,0,
+2024-09-20,11:30,DJI Matrice 350 RTK,M350-01,"Wind farm, Fosen (Trøndelag, Norway)",63.90368,10.70418,Inspection,Specific,VLOS,COM,0:19,0,198,1,0,,0,0,Tower & nacelle inspection
+2024-09-18,17:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08224,18.20604,Inspection,Specific,VLOS,COM,0:21,0,201,1,0,Sara Nyström,0,0,
+2024-09-18,16:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08330,18.21421,Inspection,Specific,VLOS,COM,0:20,0,198,1,0,Sara Nyström,0,0,
+2024-09-18,15:23,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07669,18.21215,Inspection,Specific,VLOS,COM,0:19,0,199,1,0,Sara Nyström,0,0,
+2024-09-18,14:21,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08111,18.21037,Inspection,Specific,VLOS,COM,0:28,0,192,1,0,Sara Nyström,0,0,
+2024-09-18,13:25,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07788,18.20916,Inspection,Specific,VLOS,COM,0:28,0,199,1,0,Sara Nyström,0,0,
+2024-09-18,12:50,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07717,18.21181,Inspection,Specific,VLOS,COM,0:23,0,189,1,0,Sara Nyström,0,0,
+2024-09-18,12:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08291,18.20598,Inspection,Specific,VLOS,COM,0:28,0,169,1,0,Sara Nyström,0,0,Tower & nacelle inspection
+2024-09-13,15:33,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:16,0,104,1,0,,0,0,
+2024-09-13,15:03,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:17,0,81,1,0,,0,0,
+2024-09-13,14:40,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Östhammar",60.26000,18.37000,Inspection,A2,VLOS,COM,0:14,0,62,1,0,,0,0,Antenna alignment check
+2024-09-12,12:47,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50237,14.96676,Inspection,Specific,EVLOS,COM,0:33,0,52,1,0,Johan Lind,0,0,
+2024-09-12,11:56,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.49899,14.96842,Inspection,Specific,EVLOS,COM,0:35,0,46,1,0,Johan Lind,0,0,
+2024-09-12,11:00,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50309,14.97068,Inspection,Specific,EVLOS,COM,0:33,0,65,1,0,Johan Lind,0,0,
+2024-09-12,10:15,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.49993,14.97372,Inspection,Specific,EVLOS,COM,0:22,0,53,1,0,Johan Lind,0,0,Corridor inspection under operational authorisation
+2024-09-09,18:30,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08379,18.20893,Inspection,Specific,VLOS,COM,0:25,0,204,1,0,,0,0,
+2024-09-09,17:43,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08384,18.21296,Inspection,Specific,VLOS,COM,0:21,0,154,1,0,,0,0,
+2024-09-09,16:49,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08092,18.20839,Inspection,Specific,VLOS,COM,0:30,0,178,1,0,,0,0,
+2024-09-09,16:02,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07972,18.20522,Inspection,Specific,VLOS,COM,0:23,0,186,1,0,,0,0,
+2024-09-09,15:21,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07722,18.20999,Inspection,Specific,VLOS,COM,0:18,0,196,1,0,,0,0,
+2024-09-09,14:32,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.07791,18.21082,Inspection,Specific,VLOS,COM,0:25,0,197,1,0,,0,0,
+2024-09-09,13:40,DJI Matrice 350 RTK,M350-01,"Wind farm, Näsudden (Gotland)",57.08006,18.21327,Inspection,Specific,VLOS,COM,0:25,0,155,1,0,,0,0,Blade leading-edge erosion survey
+2024-09-03,15:23,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.73722,15.91384,Inspection,A2,VLOS,COM,0:18,0,53,1,0,,0,0,
+2024-09-03,14:52,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74115,15.90725,Inspection,A2,VLOS,COM,0:19,0,46,1,0,,0,0,
+2024-09-03,14:19,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74205,15.91529,Inspection,A2,VLOS,COM,0:24,0,36,1,0,,0,0,
+2024-09-03,13:45,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74123,15.91066,Inspection,A2,VLOS,COM,0:24,0,38,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2024-09-02,12:37,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33894,17.50483,Inspection,Specific,EVLOS,COM,0:22,0,58,1,0,Mikael Åberg,0,0,
+2024-09-02,11:49,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34349,17.51326,Inspection,Specific,EVLOS,COM,0:28,0,55,1,0,Mikael Åberg,0,0,
+2024-09-02,10:55,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33700,17.51079,Inspection,Specific,EVLOS,COM,0:35,0,51,1,0,Mikael Åberg,0,0,
+2024-09-02,10:13,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.33813,17.51145,Inspection,Specific,EVLOS,COM,0:23,0,66,1,0,Mikael Åberg,0,0,
+2024-09-02,09:21,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34294,17.51573,Inspection,Specific,EVLOS,COM,0:32,0,59,1,0,Mikael Åberg,0,0,
+2024-09-02,08:45,DJI Matrice 350 RTK,M350-01,"400 kV line, Tierp (Uppland)",60.34264,17.50916,Inspection,Specific,EVLOS,COM,0:22,0,44,1,0,Mikael Åberg,0,0,Corridor inspection under operational authorisation
+2024-08-28,14:40,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:17,0,57,1,0,,0,0,
+2024-08-28,14:09,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:12,0,95,1,0,,0,0,
+2024-08-28,13:40,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:19,0,44,1,0,,0,0,
+2024-08-28,13:10,DJI Mini 4 Pro,MINI4-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A1,VLOS,COM,0:20,0,73,1,0,,0,0,Aerial stills for brochure
+2024-08-23,09:36,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.73776,17.02745,Inspection,A2,VLOS,COM,0:22,0,35,1,0,Sara Nyström,0,0,
+2024-08-23,09:15,DJI Mavic 3 Enterprise,M3E-01,Nyköping – Brandholmen,58.74243,17.02828,Inspection,A2,VLOS,COM,0:13,0,21,1,0,Sara Nyström,0,0,Facade inspection – cracks & balconies
+2024-08-19,23:01,DJI Matrice 30T,M30T-01,Roslagen (Rimbo),59.75182,18.37174,SAR,A2,VLOS,PRI,0:30,0:30,64,0,1,,0,0,
+2024-08-19,22:29,DJI Matrice 30T,M30T-01,Roslagen (Rimbo),59.75248,18.37368,SAR,A2,VLOS,PRI,0:27,0:27,100,0,1,,0,0,
+2024-08-19,21:56,DJI Matrice 30T,M30T-01,Roslagen (Rimbo),59.75096,18.37224,SAR,A2,VLOS,PRI,0:27,0:27,82,0,1,,0,0,
+2024-08-19,21:20,DJI Matrice 30T,M30T-01,Roslagen (Rimbo),59.75070,18.36802,SAR,A2,VLOS,PRI,0:31,0:31,79,0,1,,0,0,Missing person found – handed over to police
+2024-08-15,14:01,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.84792,17.69806,Inspection,A2,VLOS,COM,0:22,0,41,1,0,,0,0,
+2024-08-15,13:24,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.84881,17.70095,Inspection,A2,VLOS,COM,0:25,0,58,1,0,,0,0,
+2024-08-15,12:57,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.85151,17.69546,Inspection,A2,VLOS,COM,0:18,0,54,1,0,,0,0,
+2024-08-15,12:20,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.85291,17.70537,Inspection,A2,VLOS,COM,0:24,0,50,1,0,,0,0,Thermal hotspot survey
+2024-08-14,15:12,DJI Mini 4 Pro,MINI4-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A1,VLOS,COM,0:16,0,30,1,0,,0,0,
+2024-08-14,14:50,DJI Mini 4 Pro,MINI4-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A1,VLOS,COM,0:11,0,38,1,0,,0,0,Aerial stills for brochure
+2024-08-12,12:11,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:12,0,97,1,0,,0,0,
+2024-08-12,11:36,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:17,0,81,1,0,,0,0,
+2024-08-12,11:12,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:15,0,63,1,0,,0,0,
+2024-08-12,10:45,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:19,0,59,1,0,,0,0,Real estate photos & video
+2024-08-09,14:31,DJI Mavic 3 Enterprise,M3E-01,Göteborg – Lindholmen,57.71097,11.93268,Inspection,A2,VLOS,COM,0:18,0,22,1,0,,0,0,
+2024-08-09,14:00,DJI Mavic 3 Enterprise,M3E-01,Göteborg – Lindholmen,57.70968,11.94235,Inspection,A2,VLOS,COM,0:21,0,54,1,0,,0,0,Chimney & gutter inspection
+2024-08-06,15:33,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:15,0,50,1,0,,0,0,
+2024-08-06,14:59,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:15,0,56,1,0,,0,0,
+2024-08-06,14:40,DJI Mini 4 Pro,MINI4-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A1,VLOS,COM,0:11,0,88,1,0,,0,0,Hotel marketing video
+2024-08-05,13:37,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19958,19.71827,Inspection,Specific,EVLOS,COM,0:26,0,66,1,0,Linnea Dahl,0,0,
+2024-08-05,12:59,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19666,19.71572,Inspection,Specific,EVLOS,COM,0:23,0,40,1,0,Linnea Dahl,0,0,
+2024-08-05,12:08,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20162,19.72354,Inspection,Specific,EVLOS,COM,0:30,0,54,1,0,Linnea Dahl,0,0,
+2024-08-05,11:32,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19862,19.71996,Inspection,Specific,EVLOS,COM,0:25,0,47,1,0,Linnea Dahl,0,0,
+2024-08-05,10:47,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.20123,19.71648,Inspection,Specific,EVLOS,COM,0:34,0,53,1,0,Linnea Dahl,0,0,
+2024-08-05,10:10,DJI Matrice 350 RTK,M350-01,"Power line, Vindeln (Västerbotten)",64.19827,19.71554,Inspection,Specific,EVLOS,COM,0:26,0,54,1,0,Linnea Dahl,0,0,Vegetation clearance survey
+2024-07-30,16:20,DJI Mini 4 Pro,MINI4-01,Kullaberg,56.30000,12.46000,Recreation,A1,VLOS,PRI,0:23,0,84,1,0,,0,0,Mountain panorama
+2024-07-29,18:31,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:13,0,112,1,0,,0,0,
+2024-07-29,17:45,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0,44,1,0,,0,0,Landscape photography
+2024-07-27,14:10,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:22,0,88,1,0,,0,0,
+2024-07-21,14:10,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:21,0,114,1,0,,0,0,
+2024-07-21,13:22,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:14,0,111,1,0,,0,0,
+2024-07-21,12:40,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,119,1,0,,0,0,Mountain panorama
+2024-07-15,18:40,DJI Mini 4 Pro,MINI4-01,Abisko,68.35000,18.83000,Recreation,A1,VLOS,PRI,0:18,0,102,1,0,,0,0,Sunset over the archipelago
+2024-07-10,19:07,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:14,0,60,1,0,,0,0,
+2024-07-10,18:22,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:12,0,70,1,0,,0,0,
+2024-07-10,17:50,DJI Mini 4 Pro,MINI4-01,"Åreskutan, Åre",63.43300,13.08000,Recreation,A1,VLOS,PRI,0:18,0,103,1,0,,0,0,Landscape photography
+2024-07-05,11:32,DJI Mavic 3 Enterprise,M3E-01,"Golf course, Bro Hof",59.52800,17.66000,Photo / Video,A2,VLOS,COM,0:10,0,46,1,0,,0,0,
+2024-07-05,11:10,DJI Mavic 3 Enterprise,M3E-01,"Golf course, Bro Hof",59.52800,17.66000,Photo / Video,A2,VLOS,COM,0:13,0,89,1,0,,0,0,Real estate photos & video
+2024-07-04,14:29,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.39109,23.11953,Inspection,A2,VLOS,COM,0:21,0,41,1,0,,0,0,
+2024-07-04,13:58,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.39020,23.11480,Inspection,A2,VLOS,COM,0:23,0,44,1,0,,0,0,
+2024-07-04,13:25,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.38808,23.12412,Inspection,A2,VLOS,COM,0:22,0,59,1,0,,0,0,
+2024-07-04,13:00,DJI Mavic 3 Thermal,M3T-01,"Solar park, Salo (Finland)",60.39350,23.11544,Inspection,A2,VLOS,COM,0:18,0,59,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2024-06-26,12:53,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60674,16.22965,Mapping,A3,VLOS,COM,0:29,0,70,1,0,Mikael Åberg,0,0,
+2024-06-26,12:13,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60787,16.23523,Mapping,Specific,VLOS,COM,0:32,0,67,1,0,Mikael Åberg,0,0,
+2024-06-26,11:41,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60791,16.23100,Mapping,A3,EVLOS,COM,0:24,0,65,1,0,Mikael Åberg,0,0,
+2024-06-26,11:00,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.61346,16.23487,Mapping,Specific,EVLOS,COM,0:26,0,83,1,0,Mikael Åberg,0,0,
+2024-06-26,10:20,DJI Matrice 350 RTK,M350-01,"Power line, Hallstahammar",59.60690,16.22691,Mapping,Specific,VLOS,COM,0:29,0,83,1,0,Mikael Åberg,0,0,LiDAR + RGB point cloud
+2024-06-24,11:09,DJI Matrice 350 RTK,M350-01,"Wind farm, Hammerdal (Jämtland)",63.57916,15.34540,Inspection,Specific,VLOS,COM,0:28,0,184,1,0,,0,0,
+2024-06-24,10:34,DJI Matrice 350 RTK,M350-01,"Wind farm, Hammerdal (Jämtland)",63.58235,15.34751,Inspection,Specific,VLOS,COM,0:21,0,176,1,0,,0,0,
+2024-06-24,09:46,DJI Matrice 350 RTK,M350-01,"Wind farm, Hammerdal (Jämtland)",63.58112,15.35291,Inspection,Specific,VLOS,COM,0:28,0,175,1,0,,0,0,
+2024-06-24,08:45,DJI Matrice 350 RTK,M350-01,"Wind farm, Hammerdal (Jämtland)",63.57908,15.34965,Inspection,Specific,VLOS,COM,0:29,0,151,1,0,,0,0,Lightning receptor check after storm
+2024-06-23,11:33,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:15,0,58,1,0,,0,0,
+2024-06-23,11:00,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:17,0,93,1,0,,0,0,
+2024-06-21,12:40,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:15,0,61,1,0,,0,0,
+2024-06-21,12:15,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:17,0,81,1,0,,0,0,Mast inspection – 3D model
+2024-06-20,16:02,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.59763,18.66981,Inspection,Specific,VLOS,COM,0:21,0,172,1,0,,0,0,
+2024-06-20,15:07,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60093,18.66707,Inspection,Specific,VLOS,COM,0:27,0,195,1,0,,0,0,
+2024-06-20,14:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60337,18.67161,Inspection,Specific,VLOS,COM,0:19,0,189,1,0,,0,0,
+2024-06-20,13:07,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60213,18.67478,Inspection,Specific,VLOS,COM,0:28,0,206,1,0,,0,0,
+2024-06-20,12:24,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60072,18.67251,Inspection,Specific,VLOS,COM,0:28,0,155,1,0,,0,0,
+2024-06-20,11:39,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60126,18.66623,Inspection,Specific,VLOS,COM,0:20,0,166,1,0,,0,0,
+2024-06-20,10:56,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.59850,18.66814,Inspection,Specific,VLOS,COM,0:23,0,159,1,0,,0,0,
+2024-06-20,10:15,DJI Matrice 350 RTK,M350-01,"Wind farm, Lycksele (Västerbotten)",64.60314,18.67177,Inspection,Specific,VLOS,COM,0:28,0,197,1,0,,0,0,Blade leading-edge erosion survey
+2024-06-19,15:43,DJI Matrice 350 RTK,M350-01,"Construction site, Hagastaden",59.34836,18.02535,Mapping,A3,VLOS,COM,0:23,0,114,1,0,,0,0,
+2024-06-19,14:59,DJI Matrice 350 RTK,M350-01,"Construction site, Hagastaden",59.34797,18.03348,Mapping,A3,VLOS,COM,0:32,0,91,1,0,,0,0,
+2024-06-19,14:22,DJI Matrice 350 RTK,M350-01,"Construction site, Hagastaden",59.34999,18.03435,Mapping,A3,VLOS,COM,0:26,0,95,1,0,,0,0,
+2024-06-19,13:47,DJI Matrice 350 RTK,M350-01,"Construction site, Hagastaden",59.34998,18.02968,Mapping,A3,VLOS,COM,0:26,0,95,1,0,,0,0,
+2024-06-19,13:15,DJI Matrice 350 RTK,M350-01,"Construction site, Hagastaden",59.34618,18.03011,Mapping,A3,VLOS,COM,0:26,0,81,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2024-06-17,13:39,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:12,0,67,1,0,,0,0,
+2024-06-17,13:14,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:14,0,82,1,0,,0,0,
+2024-06-17,12:50,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:16,0,68,1,0,,0,0,Mast inspection – 3D model
+2024-06-14,11:09,DJI Matrice 30T,M30T-01,Uppsala – Rosendal,59.84225,17.62620,Inspection,A2,VLOS,COM,0:17,0,51,1,0,,0,0,
+2024-06-14,10:36,DJI Matrice 30T,M30T-01,Uppsala – Rosendal,59.83800,17.63069,Inspection,A2,VLOS,COM,0:19,0,27,1,0,,0,0,
+2024-06-14,10:10,DJI Matrice 30T,M30T-01,Uppsala – Rosendal,59.83668,17.63109,Inspection,A2,VLOS,COM,0:15,0,44,1,0,,0,0,
+2024-06-14,09:45,DJI Matrice 30T,M30T-01,Uppsala – Rosendal,59.83688,17.62452,Inspection,A2,VLOS,COM,0:17,0,24,1,0,,0,0,Facade inspection – cracks & balconies
+2024-06-13,15:48,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36127,17.85568,Mapping,A2,VLOS,COM,0:23,0,112,1,0,,0,0,
+2024-06-13,15:06,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36286,17.86500,Mapping,A2,VLOS,COM,0:31,0,119,1,0,,0,0,
+2024-06-13,14:33,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36387,17.85942,Mapping,A2,VLOS,COM,0:24,0,104,1,0,,0,0,
+2024-06-13,14:02,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35749,17.85846,Mapping,A2,VLOS,COM,0:25,0,109,1,0,,0,0,
+2024-06-13,13:29,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35670,17.85503,Mapping,A2,VLOS,COM,0:23,0,96,1,0,,0,0,
+2024-06-13,12:50,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36053,17.85683,Mapping,A2,VLOS,COM,0:32,0,102,1,0,,0,0,Stockpile volume survey
+2024-06-12,15:58,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:11,0,110,1,0,,0,0,
+2024-06-12,15:34,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:12,0,97,1,0,,0,0,
+2024-06-12,15:16,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:10,0,55,1,0,,0,0,
+2024-06-12,14:50,DJI Mini 4 Pro,MINI4-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A1,VLOS,COM,0:13,0,50,1,0,,0,0,Real estate photos & video
+2024-06-10,11:03,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.84884,17.69778,Inspection,A2,VLOS,COM,0:20,0,46,1,0,,0,0,
+2024-06-10,10:29,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.85035,17.69868,Inspection,A2,VLOS,COM,0:26,0,40,1,0,,0,0,
+2024-06-10,10:00,DJI Matrice 30T,M30T-01,"Solar park, Fyrislund (Uppsala)",59.84765,17.70041,Inspection,A2,VLOS,COM,0:21,0,57,1,0,,0,0,Annual thermography – IEC 62446-3
+2024-06-04,13:35,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:14,0,48,1,0,,0,0,
+2024-06-04,13:12,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:13,0,50,1,0,,0,0,
+2024-06-04,12:42,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:20,0,81,1,0,,0,0,
+2024-06-04,12:15,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:14,0,39,1,0,,0,0,Hotel marketing video
+2024-06-01,16:50,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:24,0,50,1,0,,0,0,Holiday photos
+2024-05-31,15:10,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30822,16.20256,Mapping,A3,VLOS,COM,0:31,0,79,1,0,,0,0,
+2024-05-31,14:31,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31086,16.19844,Mapping,A3,VLOS,COM,0:28,0,92,1,0,,0,0,
+2024-05-31,13:46,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31237,16.20454,Mapping,Specific,VLOS,COM,0:27,0,71,1,0,,0,0,
+2024-05-31,13:00,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30677,16.20336,Mapping,Specific,VLOS,COM,0:28,0,77,1,0,,0,0,LiDAR corridor survey – L2
+2024-05-30,15:19,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74359,15.90872,Inspection,A2,VLOS,COM,0:19,0,47,1,0,,0,0,
+2024-05-30,14:44,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74380,15.90439,Inspection,A2,VLOS,COM,0:24,0,42,1,0,,0,0,
+2024-05-30,14:07,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.73642,15.91463,Inspection,A2,VLOS,COM,0:25,0,49,1,0,,0,0,
+2024-05-30,13:32,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74007,15.91031,Inspection,A2,VLOS,COM,0:22,0,36,1,0,,0,0,
+2024-05-30,13:00,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.73621,15.91159,Inspection,A2,VLOS,COM,0:26,0,55,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2024-05-29,13:11,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62785,13.69677,Inspection,A2,VLOS,COM,0:23,0,58,1,0,,0,0,
+2024-05-29,12:36,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.63383,13.70239,Inspection,A2,VLOS,COM,0:23,0,57,1,0,,0,0,
+2024-05-29,11:59,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62975,13.70091,Inspection,A2,VLOS,COM,0:24,0,37,1,0,,0,0,
+2024-05-29,11:29,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.63250,13.69529,Inspection,A2,VLOS,COM,0:23,0,56,1,0,,0,0,
+2024-05-29,10:50,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62746,13.69998,Inspection,A2,VLOS,COM,0:24,0,54,1,0,,0,0,Annual thermography – IEC 62446-3
+2024-05-28,15:12,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35678,17.85658,Mapping,A2,VLOS,COM,0:28,0,117,1,0,,0,0,
+2024-05-28,14:32,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36004,17.85809,Mapping,A2,VLOS,COM,0:29,0,106,1,0,,0,0,
+2024-05-28,13:45,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36125,17.85528,Mapping,A2,VLOS,COM,0:34,0,87,1,0,,0,0,Stockpile volume survey
+2024-05-24,14:25,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12326,14.62344,Inspection,Specific,VLOS,COM,0:24,0,174,1,0,,0,0,
+2024-05-24,13:25,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11655,14.62318,Inspection,Specific,VLOS,COM,0:21,0,199,1,0,,0,0,
+2024-05-24,12:46,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12078,14.61405,Inspection,Specific,VLOS,COM,0:23,0,151,1,0,,0,0,
+2024-05-24,12:04,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11675,14.61933,Inspection,Specific,VLOS,COM,0:27,0,178,1,0,,0,0,
+2024-05-24,11:06,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12118,14.62247,Inspection,Specific,VLOS,COM,0:23,0,180,1,0,,0,0,
+2024-05-24,10:05,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12035,14.62391,Inspection,Specific,VLOS,COM,0:27,0,178,1,0,,0,0,
+2024-05-24,09:06,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.11875,14.62310,Inspection,Specific,VLOS,COM,0:25,0,158,1,0,,0,0,
+2024-05-24,08:20,DJI Matrice 350 RTK,M350-01,"Wind farm, Orsa (Dalarna)",61.12033,14.62264,Inspection,Specific,VLOS,COM,0:28,0,207,1,0,,0,0,Turbine blade inspection – H20T zoom
+2024-05-23,15:02,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12912,13.00491,Inspection,Specific,EVLOS,COM,0:24,0,70,1,0,Petra Sjöberg,0,0,
+2024-05-23,14:15,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12657,13.00035,Inspection,Specific,EVLOS,COM,0:24,0,42,1,0,Petra Sjöberg,0,0,
+2024-05-23,13:34,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.12639,13.00173,Inspection,Specific,EVLOS,COM,0:25,0,40,1,0,Petra Sjöberg,0,0,
+2024-05-23,12:45,DJI Matrice 350 RTK,M350-01,"Power line, Torsby (Värmland)",60.13314,12.99813,Inspection,Specific,EVLOS,COM,0:29,0,64,1,0,Petra Sjöberg,0,0,Insulator & conductor survey
+2024-05-22,12:18,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30738,16.19686,Mapping,A3,VLOS,COM,0:29,0,101,1,0,,0,0,
+2024-05-22,11:38,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30727,16.20400,Mapping,A3,VLOS,COM,0:31,0,103,1,0,,0,0,
+2024-05-22,10:58,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.30980,16.20431,Mapping,A3,VLOS,COM,0:31,0,87,1,0,,0,0,
+2024-05-22,10:10,DJI Matrice 350 RTK,M350-01,"Mine site, Garpenberg",60.31116,16.19809,Mapping,A3,VLOS,COM,0:33,0,97,1,0,,0,0,Orthophoto & DSM for design team
+2024-05-21,13:07,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.33339,14.46384,Mapping,A3,EVLOS,COM,0:22,0,86,1,0,Emil Berglund,0,0,
+2024-05-21,12:26,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.33352,14.45883,Mapping,Specific,EVLOS,COM,0:31,0,71,1,0,Emil Berglund,0,0,
+2024-05-21,11:45,DJI Matrice 350 RTK,M350-01,"Power line, Krokom (Jämtland)",63.32943,14.46269,Mapping,A3,VLOS,COM,0:29,0,95,1,0,Emil Berglund,0,0,LiDAR corridor survey – L2
+2024-05-17,15:36,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.35837,17.96718,Inspection,A2,VLOS,COM,0:19,0,16,1,0,Sara Nyström,0,0,
+2024-05-17,15:14,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36377,17.97145,Inspection,A2,VLOS,COM,0:14,0,42,1,0,Sara Nyström,0,0,
+2024-05-17,14:54,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.35808,17.97257,Inspection,A2,VLOS,COM,0:12,0,49,1,0,Sara Nyström,0,0,
+2024-05-17,14:30,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36421,17.97681,Inspection,A2,VLOS,COM,0:15,0,52,1,0,Sara Nyström,0,0,Roof survey for solar installation
+2024-05-16,15:11,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.18920,17.63696,Inspection,A2,VLOS,COM,0:12,0,23,1,0,,0,0,
+2024-05-16,14:45,DJI Mavic 3 Enterprise,M3E-01,Södertälje – hamnen,59.19363,17.62997,Inspection,A2,VLOS,COM,0:15,0,60,1,0,,0,0,Roof survey for solar installation
+2024-05-15,12:15,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36332,17.96734,Inspection,A2,VLOS,COM,0:22,0,27,1,0,,0,0,
+2024-05-15,11:49,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36165,17.96583,Inspection,A2,VLOS,COM,0:18,0,37,1,0,,0,0,
+2024-05-15,11:15,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36276,17.97538,Inspection,A2,VLOS,COM,0:21,0,25,1,0,,0,0,Roof inspection after storm
+2024-05-13,20:46,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04824,15.10124,SAR,A2,VLOS,PRI,0:27,0,71,1,0,Sara Nyström,0,0,
+2024-05-13,20:17,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04630,15.10316,SAR,A2,VLOS,PRI,0:24,0,96,1,0,Sara Nyström,0,0,
+2024-05-13,19:45,DJI Matrice 30T,M30T-01,Bergslagen (Ludvika),60.04885,15.09744,SAR,A2,VLOS,PRI,0:26,0,68,1,0,Sara Nyström,0,0,Missing person found – handed over to police
+2024-05-09,13:32,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:17,0,20,1,0,Johan Lind,0,0,
+2024-05-09,12:51,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:21,0,20,1,0,Johan Lind,0,0,
+2024-05-09,12:20,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:19,0,22,1,0,Johan Lind,0,0,
+2024-05-09,11:40,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:21,0,34,1,0,Johan Lind,0,0,
+2024-05-09,11:15,DJI Matrice 350 RTK,M350-01,Tjörnbron,58.00100,11.64000,Inspection,Specific,VLOS,COM,0:14,0,20,1,0,Johan Lind,0,0,Pylon inspection
+2024-05-08,17:35,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:14,0,107,1,0,Mikael Åberg,0,0,
+2024-05-08,17:07,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:19,0,38,1,0,Mikael Åberg,0,0,
+2024-05-08,16:39,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:13,0,96,1,0,Mikael Åberg,0,0,
+2024-05-08,16:15,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Saltsjöbaden",59.27800,18.30000,Photo / Video,A2,VLOS,COM,0:18,0,47,1,0,Mikael Åberg,0,0,Event coverage
+2024-05-07,14:45,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66070,17.04780,Mapping,A3,VLOS,COM,0:23,0,100,1,0,Sara Nyström,0,0,
+2024-05-07,14:09,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.65679,17.04456,Mapping,Specific,VLOS,COM,0:25,0,80,1,0,Sara Nyström,0,0,
+2024-05-07,13:31,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66084,17.04419,Mapping,Specific,VLOS,COM,0:22,0,91,1,0,Sara Nyström,0,0,
+2024-05-07,12:50,DJI Matrice 350 RTK,M350-01,"Quarry, Skidbacken (Gävle)",60.66076,17.04959,Mapping,Specific,VLOS,COM,0:25,0,98,1,0,Sara Nyström,0,0,LiDAR + RGB point cloud
+2024-05-02,11:17,DJI Matrice 30T,M30T-01,"Solar park, Klintehamn (Gotland)",57.39184,18.19485,Inspection,A2,VLOS,COM,0:21,0,50,1,0,,0,0,
+2024-05-02,10:51,DJI Matrice 30T,M30T-01,"Solar park, Klintehamn (Gotland)",57.38987,18.19668,Inspection,A2,VLOS,COM,0:18,0,60,1,0,,0,0,
+2024-05-02,10:20,DJI Matrice 30T,M30T-01,"Solar park, Klintehamn (Gotland)",57.38717,18.19423,Inspection,A2,VLOS,COM,0:18,0,43,1,0,,0,0,Annual thermography – IEC 62446-3
+2024-05-01,21:57,DJI Matrice 30T,M30T-01,Tyresta forest,59.16688,18.27234,SAR,A2,VLOS,PRI,0:28,0:28,78,0,1,Linnea Dahl,0,0,
+2024-05-01,21:16,DJI Matrice 30T,M30T-01,Tyresta forest,59.16942,18.26842,SAR,A2,VLOS,PRI,0:35,0:18,93,0,1,Linnea Dahl,0,0,
+2024-05-01,20:43,DJI Matrice 30T,M30T-01,Tyresta forest,59.17165,18.27210,SAR,A2,VLOS,PRI,0:27,0,77,1,0,Linnea Dahl,0,0,
+2024-05-01,20:04,DJI Matrice 30T,M30T-01,Tyresta forest,59.17037,18.27560,SAR,A2,VLOS,PRI,0:29,0,90,1,0,Linnea Dahl,0,0,
+2024-05-01,19:30,DJI Matrice 30T,M30T-01,Tyresta forest,59.16738,18.27109,SAR,A2,VLOS,PRI,0:29,0,91,1,0,Linnea Dahl,0,0,Search for missing elderly – thermal sweep
+2024-04-26,11:26,DJI Mavic 3 Thermal,M3T-01,"Solar park, Mjölby",58.32908,15.13369,Inspection,A2,VLOS,COM,0:26,0,47,1,0,,0,0,
+2024-04-26,10:54,DJI Mavic 3 Thermal,M3T-01,"Solar park, Mjölby",58.33001,15.12592,Inspection,A2,VLOS,COM,0:24,0,52,1,0,,0,0,
+2024-04-26,10:15,DJI Mavic 3 Thermal,M3T-01,"Solar park, Mjölby",58.32994,15.12459,Inspection,A2,VLOS,COM,0:26,0,48,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2024-04-23,14:06,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83276,16.09413,Inspection,Specific,EVLOS,COM,0:32,0,40,1,0,Petra Sjöberg,0,0,
+2024-04-23,13:21,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.83006,16.08722,Inspection,Specific,EVLOS,COM,0:25,0,50,1,0,Petra Sjöberg,0,0,
+2024-04-23,12:40,DJI Matrice 350 RTK,M350-01,"Power line, Ljusdal (Hälsingland)",61.82697,16.09063,Inspection,Specific,EVLOS,COM,0:28,0,66,1,0,Petra Sjöberg,0,0,Corridor inspection under operational authorisation
+2024-04-21,23:39,DJI Matrice 30T,M30T-01,Öregrund coast,60.34084,18.42784,SAR,A2,VLOS,PRI,0:33,0:33,95,0,1,,0,0,
+2024-04-21,23:06,DJI Matrice 30T,M30T-01,Öregrund coast,60.33816,18.43130,SAR,A2,VLOS,PRI,0:25,0:25,97,0,1,,0,0,
+2024-04-21,22:30,DJI Matrice 30T,M30T-01,Öregrund coast,60.33701,18.42751,SAR,A2,VLOS,PRI,0:24,0:24,96,0,1,,0,0,Night search in forest – thermal
+2024-04-17,14:40,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:15,0,16,1,0,Emil Berglund,0,0,
+2024-04-17,13:57,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:23,0,37,1,0,Emil Berglund,0,0,
+2024-04-17,13:33,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:14,0,52,1,0,Emil Berglund,0,0,
+2024-04-17,12:54,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:21,0,17,1,0,Emil Berglund,0,0,
+2024-04-17,12:15,DJI Matrice 350 RTK,M350-01,"Älvsborgsbron, Göteborg",57.69000,11.90000,Inspection,Specific,VLOS,COM,0:23,0,49,1,0,Emil Berglund,0,0,Pylon inspection
+2024-04-16,15:45,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38924,16.58262,Mapping,A3,VLOS,COM,0:24,0,90,1,0,,0,0,
+2024-04-16,15:00,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38966,16.57821,Mapping,A3,VLOS,COM,0:30,0,81,1,0,,0,0,
+2024-04-16,14:18,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38952,16.57555,Mapping,A3,VLOS,COM,0:27,0,95,1,0,,0,0,
+2024-04-16,13:39,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.39251,16.57984,Mapping,A3,VLOS,COM,0:32,0,112,1,0,,0,0,
+2024-04-16,12:55,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38682,16.57554,Mapping,A3,VLOS,COM,0:32,0,108,1,0,,0,0,
+2024-04-16,12:15,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38878,16.58554,Mapping,A3,VLOS,COM,0:31,0,94,1,0,,0,0,Orthophoto & DSM for design team
+2024-04-15,10:32,DJI Matrice 30T,M30T-01,Lidingö – Torsvik,59.35647,18.12919,Inspection,A2,VLOS,COM,0:18,0,27,1,0,,0,0,
+2024-04-15,09:58,DJI Matrice 30T,M30T-01,Lidingö – Torsvik,59.36012,18.13274,Inspection,A2,VLOS,COM,0:19,0,40,1,0,,0,0,
+2024-04-15,09:23,DJI Matrice 30T,M30T-01,Lidingö – Torsvik,59.35472,18.12582,Inspection,A2,VLOS,COM,0:20,0,53,1,0,,0,0,
+2024-04-15,09:00,DJI Matrice 30T,M30T-01,Lidingö – Torsvik,59.36023,18.12675,Inspection,A2,VLOS,COM,0:15,0,27,1,0,,0,0,Roof inspection after storm
+2024-04-11,13:36,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51931,15.66113,Inspection,Specific,VLOS,COM,0:28,0,163,1,0,,0,0,
+2024-04-11,12:50,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51690,15.65687,Inspection,Specific,VLOS,COM,0:23,0,207,1,0,,0,0,
+2024-04-11,11:59,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.51732,15.65556,Inspection,Specific,VLOS,COM,0:18,0,202,1,0,,0,0,
+2024-04-11,11:10,DJI Matrice 350 RTK,M350-01,"Wind farm, Ånge (Medelpad)",62.52210,15.66361,Inspection,Specific,VLOS,COM,0:19,0,207,1,0,,0,0,Turbine blade inspection – H20T zoom
+2024-04-07,13:40,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:13,0,92,1,0,,0,0,Mountain panorama
+2024-04-05,10:52,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:17,0,105,1,0,,0,0,
+2024-04-05,10:25,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:15,0,76,1,0,,0,0,
+2024-04-05,10:00,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Kungsör",59.42000,16.10000,Inspection,A2,VLOS,COM,0:14,0,93,1,0,,0,0,Mast inspection – 3D model
+2024-04-03,15:02,DJI Mavic 3 Thermal,M3T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:08,0,48,1,0,,0,0,
+2024-04-03,14:45,DJI Mavic 3 Thermal,M3T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:08,0,40,1,0,,0,0,Acceptance test – new Mavic 3 Thermal
+2024-03-28,14:16,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35796,17.86487,Mapping,A3,VLOS,COM,0:30,0,116,1,0,,0,0,
+2024-03-28,13:38,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36007,17.85788,Mapping,A3,VLOS,COM,0:25,0,81,1,0,,0,0,
+2024-03-28,13:03,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35834,17.86015,Mapping,A3,VLOS,COM,0:29,0,91,1,0,,0,0,
+2024-03-28,12:30,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35708,17.86478,Mapping,A3,VLOS,COM,0:26,0,113,1,0,,0,0,
+2024-03-28,11:45,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.35668,17.86438,Mapping,A3,VLOS,COM,0:31,0,90,1,0,,0,0,
+2024-03-28,11:00,DJI Matrice 350 RTK,M350-01,"Road project, E4 Förbifart Stockholm",59.36306,17.85609,Mapping,A3,VLOS,COM,0:31,0,113,1,0,,0,0,Monthly construction progress map
+2024-03-26,11:26,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80278,16.90598,Mapping,A3,VLOS,COM,0:24,0,87,1,0,Linnea Dahl,0,0,
+2024-03-26,10:46,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80156,16.90288,Mapping,A3,VLOS,COM,0:29,0,91,1,0,Linnea Dahl,0,0,
+2024-03-26,10:10,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79766,16.89534,Mapping,A3,VLOS,COM,0:26,0,91,1,0,Linnea Dahl,0,0,
+2024-03-26,09:20,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80295,16.90296,Mapping,A3,VLOS,COM,0:35,0,84,1,0,Linnea Dahl,0,0,Earthworks volume check
+2024-03-25,22:03,DJI Matrice 30T,M30T-01,Norrköping – Inre hamnen,58.59597,16.18923,Inspection,A2,VLOS,COM,0:17,0:17,72,0,1,,0,0,
+2024-03-25,21:35,DJI Matrice 30T,M30T-01,Norrköping – Inre hamnen,58.59217,16.19989,Inspection,A2,VLOS,COM,0:20,0:20,73,0,1,,0,0,
+2024-03-25,21:02,DJI Matrice 30T,M30T-01,Norrköping – Inre hamnen,58.59822,16.19508,Inspection,A2,VLOS,COM,0:21,0:21,77,0,1,,0,0,
+2024-03-25,20:26,DJI Matrice 30T,M30T-01,Norrköping – Inre hamnen,58.59107,16.19032,Inspection,A2,VLOS,COM,0:23,0:23,67,0,1,,0,0,
+2024-03-25,20:00,DJI Matrice 30T,M30T-01,Norrköping – Inre hamnen,58.59790,16.19695,Inspection,A2,VLOS,COM,0:16,0:16,62,0,1,,0,0,"District heating leak survey – thermal, night"
+2024-03-22,15:42,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65745,17.04506,Mapping,A2,VLOS,COM,0:23,0,101,1,0,,0,0,
+2024-03-22,15:03,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65687,17.04692,Mapping,A2,VLOS,COM,0:30,0,80,1,0,,0,0,
+2024-03-22,14:29,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65664,17.04922,Mapping,A2,VLOS,COM,0:22,0,113,1,0,,0,0,
+2024-03-22,13:50,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.66318,17.05107,Mapping,A2,VLOS,COM,0:24,0,113,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2024-03-18,16:26,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Hagastaden",59.35124,18.03129,Mapping,A2,VLOS,COM,0:23,0,88,1,0,,0,0,
+2024-03-18,15:54,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Hagastaden",59.35071,18.03117,Mapping,A2,VLOS,COM,0:24,0,86,1,0,,0,0,
+2024-03-18,15:45,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:07,0,20,1,0,,0,0,
+2024-03-18,15:30,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:10,0,52,1,0,,0,0,Payload calibration flight
+2024-03-18,15:06,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Hagastaden",59.35006,18.03304,Mapping,A2,VLOS,COM,0:33,0,113,1,0,,0,0,
+2024-03-18,14:25,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Hagastaden",59.34691,18.02778,Mapping,A2,VLOS,COM,0:31,0,111,1,0,,0,0,
+2024-03-18,13:40,DJI Mavic 3 Enterprise,M3E-01,"Construction site, Hagastaden",59.35109,18.02508,Mapping,A2,VLOS,COM,0:30,0,100,1,0,,0,0,Earthworks volume check
+2024-03-14,11:10,DJI Mavic 3 Enterprise,M3E-01,Lidingö – Torsvik,59.35497,18.12555,Inspection,A2,VLOS,COM,0:13,0,17,1,0,,0,0,
+2024-03-14,10:41,DJI Mavic 3 Enterprise,M3E-01,Lidingö – Torsvik,59.35735,18.12565,Inspection,A2,VLOS,COM,0:14,0,44,1,0,,0,0,
+2024-03-14,10:13,DJI Mavic 3 Enterprise,M3E-01,Lidingö – Torsvik,59.35542,18.13508,Inspection,A2,VLOS,COM,0:19,0,26,1,0,,0,0,
+2024-03-14,09:40,DJI Mavic 3 Enterprise,M3E-01,Lidingö – Torsvik,59.35947,18.12723,Inspection,A2,VLOS,COM,0:18,0,37,1,0,,0,0,Facade inspection – cracks & balconies
+2024-03-12,10:14,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47281,18.09880,Mapping,Specific,EVLOS,COM,0:28,0,92,1,0,Sara Nyström,0:28,0,
+2024-03-12,09:38,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47262,18.09625,Mapping,Specific,EVLOS,COM,0:28,0,88,1,0,Sara Nyström,0:28,0,
+2024-03-12,09:00,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.46740,18.10335,Mapping,Specific,EVLOS,COM,0:27,0,82,1,0,Sara Nyström,0:27,0,Specific category practical skill assessment – PASS
+2024-03-11,11:31,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47300,18.10182,Mapping,Specific,EVLOS,COM,0:30,0,96,1,0,Sara Nyström,0:30,0,
+2024-03-11,10:49,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47242,18.09980,Mapping,Specific,EVLOS,COM,0:24,0,93,1,0,Sara Nyström,0:24,0,
+2024-03-11,10:14,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47288,18.10073,Mapping,Specific,EVLOS,COM,0:23,0,91,1,0,Sara Nyström,0:23,0,
+2024-03-11,09:30,DJI Matrice 350 RTK,M350-01,"Training field, Täby",59.47063,18.10312,Mapping,Specific,EVLOS,COM,0:28,0,89,1,0,Sara Nyström,0:28,0,Specific category practical training (EVLOS) – instructor Erik Sandberg
+2024-03-03,14:00,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:20,0,108,1,0,,0,0,Landscape photography
+2024-02-21,21:30,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31013,18.06921,Inspection,A2,VLOS,COM,0:19,0:19,75,0,1,,0,0,
+2024-02-21,20:59,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31036,18.07407,Inspection,A2,VLOS,COM,0:21,0:21,70,0,1,,0,0,
+2024-02-21,20:34,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31184,18.06607,Inspection,A2,VLOS,COM,0:16,0:16,71,0,1,,0,0,
+2024-02-21,20:00,DJI Matrice 30T,M30T-01,Stockholm – Södermalm,59.31484,18.07136,Inspection,A2,VLOS,COM,0:22,0:22,75,0,1,,0,0,"District heating leak survey – thermal, night"
+2024-02-14,10:50,DJI Matrice 30T,M30T-01,Malmö – Västra hamnen,55.61318,12.97749,Inspection,A2,VLOS,COM,0:12,0,53,1,0,Sara Nyström,0,0,
+2024-02-14,10:16,DJI Matrice 30T,M30T-01,Malmö – Västra hamnen,55.61146,12.97621,Inspection,A2,VLOS,COM,0:22,0,39,1,0,Sara Nyström,0,0,
+2024-02-14,09:49,DJI Matrice 30T,M30T-01,Malmö – Västra hamnen,55.61440,12.97298,Inspection,A2,VLOS,COM,0:16,0,37,1,0,Sara Nyström,0,0,
+2024-02-14,09:15,DJI Matrice 30T,M30T-01,Malmö – Västra hamnen,55.61424,12.97965,Inspection,A2,VLOS,COM,0:20,0,31,1,0,Sara Nyström,0,0,Chimney & gutter inspection
+2024-02-13,18:43,DJI Matrice 30T,M30T-01,Tiveden,58.72223,14.62056,SAR,A2,VLOS,PRI,0:28,0:28,68,0,1,Johan Lind,0,0,
+2024-02-13,18:00,DJI Matrice 30T,M30T-01,Tiveden,58.72070,14.61803,SAR,A2,VLOS,PRI,0:34,0:34,75,0,1,Johan Lind,0,0,Missing person found – handed over to police
+2024-02-01,13:48,DJI Mavic 3 Enterprise,M3E-01,Västerås – Kopparlunden,59.61129,16.52895,Inspection,A2,VLOS,COM,0:20,0,33,1,0,Sara Nyström,0,0,
+2024-02-01,13:12,DJI Mavic 3 Enterprise,M3E-01,Västerås – Kopparlunden,59.61414,16.52810,Inspection,A2,VLOS,COM,0:22,0,32,1,0,Sara Nyström,0,0,
+2024-02-01,12:50,DJI Mavic 3 Enterprise,M3E-01,Västerås – Kopparlunden,59.61656,16.52360,Inspection,A2,VLOS,COM,0:15,0,28,1,0,Sara Nyström,0,0,Roof survey for solar installation
+2024-01-30,12:28,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66232,17.15432,Inspection,A2,VLOS,COM,0:13,0,36,1,0,,0,0,
+2024-01-30,11:53,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66214,17.15566,Inspection,A2,VLOS,COM,0:20,0,22,1,0,,0,0,
+2024-01-30,11:26,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66643,17.15563,Inspection,A2,VLOS,COM,0:14,0,26,1,0,,0,0,
+2024-01-30,11:00,DJI Matrice 30T,M30T-01,Gävle – Brynäs,60.66737,17.14988,Inspection,A2,VLOS,COM,0:12,0,46,1,0,,0,0,Chimney & gutter inspection
+2024-01-23,20:50,DJI Matrice 30T,M30T-01,Öregrund coast,60.34318,18.42539,SAR,A2,VLOS,PRI,0:27,0:27,83,0,1,Mikael Åberg,0,0,
+2024-01-23,20:04,DJI Matrice 30T,M30T-01,Öregrund coast,60.34026,18.43250,SAR,A2,VLOS,PRI,0:34,0:34,97,0,1,Mikael Åberg,0,0,
+2024-01-23,19:21,DJI Matrice 30T,M30T-01,Öregrund coast,60.34025,18.43107,SAR,A2,VLOS,PRI,0:34,0:34,70,0,1,Mikael Åberg,0,0,
+2024-01-23,18:48,DJI Matrice 30T,M30T-01,Öregrund coast,60.34373,18.42741,SAR,A2,VLOS,PRI,0:26,0:26,67,0,1,Mikael Åberg,0,0,
+2024-01-23,18:15,DJI Matrice 30T,M30T-01,Öregrund coast,60.34005,18.43596,SAR,A2,VLOS,PRI,0:24,0:24,97,0,1,Mikael Åberg,0,0,Missing person search – thermal (volunteer)
+2024-01-22,10:35,DJI Matrice 30T,M30T-01,Göteborg – Lindholmen,57.71057,11.93322,Inspection,A2,VLOS,COM,0:16,0,59,1,0,,0,0,
+2024-01-22,10:10,DJI Matrice 30T,M30T-01,Göteborg – Lindholmen,57.70386,11.94344,Inspection,A2,VLOS,COM,0:17,0,48,1,0,,0,0,Chimney & gutter inspection
+2024-01-13,11:44,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:18,0,54,1,0,,0,0,
+2024-01-13,11:00,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:23,0,104,1,0,,0,0,Holiday photos
+2024-01-12,14:49,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36463,17.97214,Inspection,A2,VLOS,COM,0:12,0,57,1,0,,0,0,
+2024-01-12,14:22,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.35731,17.97191,Inspection,A2,VLOS,COM,0:17,0,39,1,0,,0,0,
+2024-01-12,14:00,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36277,17.96608,Inspection,A2,VLOS,COM,0:12,0,30,1,0,,0,0,
+2024-01-12,13:30,DJI Mavic 3 Enterprise,M3E-01,Sundbyberg – centrum,59.36370,17.96792,Inspection,A2,VLOS,COM,0:17,0,51,1,0,,0,0,Roof survey for solar installation
+2024-01-01,14:16,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:12,0,81,1,0,,0,0,
+2024-01-01,13:34,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:20,0,83,1,0,,0,0,
+2024-01-01,12:40,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:14,0,67,1,0,,0,0,Mountain panorama
+2023-12-22,16:00,DJI Mini 4 Pro,MINI4-01,"Grinda, Stockholm archipelago",59.41000,18.56000,Recreation,A1,VLOS,PRI,0:14,0:14,115,0,1,,0,0,
+2023-12-03,11:31,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:12,0,70,1,0,,0,0,
+2023-12-03,11:00,DJI Mini 4 Pro,MINI4-01,"Sandhamn, Stockholm archipelago",59.28800,18.91500,Recreation,A1,VLOS,PRI,0:12,0,40,1,0,,0,0,Sunset over the archipelago
+2023-11-27,11:50,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.39054,16.58478,Mapping,A3,VLOS,COM,0:26,0,97,1,0,,0,0,
+2023-11-27,11:08,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38632,16.57717,Mapping,A3,VLOS,COM,0:27,0,94,1,0,,0,0,
+2023-11-27,10:26,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38913,16.57673,Mapping,A3,VLOS,COM,0:35,0,94,1,0,,0,0,
+2023-11-27,09:43,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38671,16.57798,Mapping,A3,VLOS,COM,0:33,0,82,1,0,,0,0,
+2023-11-27,09:00,DJI Matrice 350 RTK,M350-01,"Logistics park, Eskilstuna",59.38613,16.58314,Mapping,A3,VLOS,COM,0:35,0,113,1,0,,0,0,Orthophoto & DSM for design team
+2023-11-23,13:02,DJI Matrice 30T,M30T-01,Södertälje – hamnen,59.19235,17.62651,Inspection,A2,VLOS,COM,0:14,0,50,1,0,,0,0,
+2023-11-23,12:30,DJI Matrice 30T,M30T-01,Södertälje – hamnen,59.18935,17.62668,Inspection,A2,VLOS,COM,0:18,0,28,1,0,,0,0,Facade inspection – cracks & balconies
+2023-11-16,15:43,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26809,15.25260,Inspection,A2,VLOS,COM,0:19,0,57,1,0,,0,0,
+2023-11-16,15:11,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27186,15.25308,Inspection,A2,VLOS,COM,0:18,0,22,1,0,,0,0,
+2023-11-16,14:43,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.26863,15.24945,Inspection,A2,VLOS,COM,0:14,0,31,1,0,,0,0,
+2023-11-16,14:15,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27009,15.24546,Inspection,A2,VLOS,COM,0:22,0,22,1,0,,0,0,Facade thermography
+2023-11-07,11:13,DJI Mavic 3 Enterprise,M3E-01,Örebro – Ladugårdsängen,59.26755,15.24556,Inspection,A2,VLOS,COM,0:18,0,15,1,0,,0,0,
+2023-11-07,10:43,DJI Mavic 3 Enterprise,M3E-01,Örebro – Ladugårdsängen,59.27203,15.24855,Inspection,A2,VLOS,COM,0:19,0,16,1,0,,0,0,
+2023-11-07,10:10,DJI Mavic 3 Enterprise,M3E-01,Örebro – Ladugårdsängen,59.27014,15.24525,Inspection,A2,VLOS,COM,0:19,0,33,1,0,,0,0,Roof inspection after storm
+2023-10-26,15:23,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73794,20.95001,Mapping,A3,VLOS,COM,0:23,0,61,1,0,,0,0,
+2023-10-26,14:40,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73825,20.95327,Mapping,A3,VLOS,COM,0:26,0,94,1,0,,0,0,
+2023-10-26,14:00,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73192,20.94452,Mapping,A3,VLOS,COM,0:26,0,100,1,0,,0,0,
+2023-10-26,13:27,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73875,20.94710,Mapping,A3,VLOS,COM,0:25,0,84,1,0,,0,0,
+2023-10-26,12:50,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73681,20.94970,Mapping,A3,VLOS,COM,0:27,0,73,1,0,,0,0,LiDAR terrain model under canopy
+2023-10-25,12:31,DJI Matrice 30T,M30T-01,Enköping – Västerleden,59.63718,17.06145,Inspection,A2,VLOS,COM,0:21,0,15,1,0,,0,0,
+2023-10-25,12:02,DJI Matrice 30T,M30T-01,Enköping – Västerleden,59.63956,17.06052,Inspection,A2,VLOS,COM,0:21,0,47,1,0,,0,0,
+2023-10-25,11:33,DJI Matrice 30T,M30T-01,Enköping – Västerleden,59.64163,17.06348,Inspection,A2,VLOS,COM,0:16,0,40,1,0,,0,0,
+2023-10-25,11:00,DJI Matrice 30T,M30T-01,Enköping – Västerleden,59.63978,17.06561,Inspection,A2,VLOS,COM,0:18,0,40,1,0,,0,0,Facade thermography
+2023-10-17,14:11,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.42041,17.86501,Mapping,A3,VLOS,COM,0:24,0,85,1,0,,0,0,
+2023-10-17,13:27,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.41775,17.86358,Mapping,A3,VLOS,COM,0:34,0,107,1,0,,0,0,
+2023-10-17,12:45,DJI Matrice 350 RTK,M350-01,"Construction site, Barkarbystaden",59.42265,17.86371,Mapping,A3,VLOS,COM,0:29,0,82,1,0,,0,0,Earthworks volume check
+2023-10-11,13:43,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:14,0,58,1,0,,0,0,
+2023-10-11,13:18,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:13,0,75,1,0,,0,0,
+2023-10-11,12:50,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:14,0,57,1,0,,0,0,Real estate photos & video
+2023-10-10,11:44,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73784,20.94924,Mapping,A3,VLOS,COM,0:22,0,88,1,0,,0,0,
+2023-10-10,11:03,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73771,20.95554,Mapping,A3,VLOS,COM,0:31,0,104,1,0,,0,0,
+2023-10-10,10:20,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73401,20.95184,Mapping,A3,VLOS,COM,0:31,0,81,1,0,,0,0,
+2023-10-10,09:44,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73115,20.95519,Mapping,A3,VLOS,COM,0:23,0,110,1,0,,0,0,
+2023-10-10,09:10,DJI Matrice 350 RTK,M350-01,"Battery plant site, Skellefteå",64.73294,20.95034,Mapping,A3,VLOS,COM,0:23,0,104,1,0,,0,0,Monthly construction progress map
+2023-10-05,14:13,DJI Matrice 30T,M30T-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:17,0,87,1,0,,0,0,
+2023-10-05,13:50,DJI Matrice 30T,M30T-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:13,0,78,1,0,,0,0,Mast inspection – 3D model
+2023-10-03,15:05,DJI Mini 4 Pro,MINI4-01,"Company base, Täby",59.46800,18.09800,Testing,A1,VLOS,COM,0:09,0,27,1,0,,0,0,
+2023-10-03,14:45,DJI Mini 4 Pro,MINI4-01,"Company base, Täby",59.46800,18.09800,Testing,A1,VLOS,COM,0:12,0,34,1,0,,0,0,Acceptance test – new Mini 4 Pro
+2023-09-28,11:17,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.73829,15.91520,Inspection,A2,VLOS,COM,0:22,0,55,1,0,,0,0,
+2023-09-28,10:48,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.74305,15.91195,Inspection,A2,VLOS,COM,0:21,0,45,1,0,,0,0,
+2023-09-28,10:15,DJI Matrice 30T,M30T-01,"Solar park, Nybro (Kalmar)",56.73881,15.91031,Inspection,A2,VLOS,COM,0:26,0,41,1,0,,0,0,Panel soiling & damage check
+2023-09-27,11:41,DJI Mavic 3 Enterprise,M3E-01,Malmö – Västra hamnen,55.61717,12.98132,Inspection,A2,VLOS,COM,0:12,0,31,1,0,,0,0,
+2023-09-27,11:09,DJI Mavic 3 Enterprise,M3E-01,Malmö – Västra hamnen,55.61271,12.98042,Inspection,A2,VLOS,COM,0:18,0,50,1,0,,0,0,
+2023-09-27,10:38,DJI Mavic 3 Enterprise,M3E-01,Malmö – Västra hamnen,55.61224,12.97432,Inspection,A2,VLOS,COM,0:22,0,59,1,0,,0,0,
+2023-09-27,10:10,DJI Mavic 3 Enterprise,M3E-01,Malmö – Västra hamnen,55.61566,12.97715,Inspection,A2,VLOS,COM,0:18,0,15,1,0,,0,0,Facade inspection – cracks & balconies
+2023-09-25,15:30,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:10,0,48,1,0,,0,0,
+2023-09-25,14:58,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:16,0,47,1,0,,0,0,
+2023-09-25,14:40,DJI Mavic 3 Enterprise,M3E-01,"Hotel marketing, Sigtuna",59.61700,17.72300,Photo / Video,A2,VLOS,COM,0:12,0,104,1,0,,0,0,Hotel marketing video
+2023-09-19,13:32,DJI Mavic 3 Enterprise,M3E-01,Falun – Lugnet,60.61679,15.65696,Inspection,A2,VLOS,COM,0:17,0,22,1,0,Petra Sjöberg,0,0,
+2023-09-19,13:10,DJI Mavic 3 Enterprise,M3E-01,Falun – Lugnet,60.61217,15.65430,Inspection,A2,VLOS,COM,0:15,0,25,1,0,Petra Sjöberg,0,0,
+2023-09-19,12:41,DJI Mavic 3 Enterprise,M3E-01,Falun – Lugnet,60.61668,15.65518,Inspection,A2,VLOS,COM,0:22,0,46,1,0,Petra Sjöberg,0,0,
+2023-09-19,12:15,DJI Mavic 3 Enterprise,M3E-01,Falun – Lugnet,60.61796,15.65437,Inspection,A2,VLOS,COM,0:18,0,34,1,0,Petra Sjöberg,0,0,Facade inspection – cracks & balconies
+2023-09-15,13:32,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50012,14.96681,Mapping,A3,VLOS,COM,0:28,0,86,1,0,,0,0,
+2023-09-15,12:58,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50102,14.96449,Mapping,A3,VLOS,COM,0:25,0,86,1,0,,0,0,
+2023-09-15,12:18,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50101,14.96582,Mapping,A3,VLOS,COM,0:28,0,92,1,0,,0,0,
+2023-09-15,11:34,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.50217,14.97297,Mapping,A3,VLOS,COM,0:31,0,91,1,0,,0,0,
+2023-09-15,10:50,DJI Matrice 350 RTK,M350-01,"130 kV line, Mockfjärd (Dalarna)",60.49869,14.96700,Mapping,A3,VLOS,COM,0:29,0,94,1,0,,0,0,LiDAR + RGB point cloud
+2023-09-08,11:39,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:12,0,67,1,0,,0,0,
+2023-09-08,11:19,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:12,0,94,1,0,,0,0,
+2023-09-08,10:50,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:15,0,72,1,0,,0,0,Telecom mast antenna audit
+2023-09-04,13:42,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:10,0,105,1,0,Sara Nyström,0,0,
+2023-09-04,13:19,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:17,0,40,1,0,Sara Nyström,0,0,
+2023-09-04,12:54,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:12,0,51,1,0,Sara Nyström,0,0,
+2023-09-04,12:30,DJI Mavic 3 Enterprise,M3E-01,"Film shoot, Gåsinge (Södermanland)",59.11000,17.15000,Photo / Video,A2,VLOS,COM,0:12,0,67,1,0,Sara Nyström,0,0,Aerial stills for brochure
+2023-09-01,11:13,DJI Mavic 3 Enterprise,M3E-01,Eskilstuna – Munktell,59.37130,16.50772,Inspection,A2,VLOS,COM,0:22,0,37,1,0,,0,0,
+2023-09-01,10:47,DJI Mavic 3 Enterprise,M3E-01,Eskilstuna – Munktell,59.37295,16.50408,Inspection,A2,VLOS,COM,0:16,0,58,1,0,,0,0,
+2023-09-01,10:15,DJI Mavic 3 Enterprise,M3E-01,Eskilstuna – Munktell,59.37463,16.50607,Inspection,A2,VLOS,COM,0:18,0,32,1,0,,0,0,Facade inspection – cracks & balconies
+2023-08-30,21:28,DJI Matrice 30T,M30T-01,Tyresta forest,59.16998,18.27066,SAR,A2,VLOS,PRI,0:32,0:32,68,0,1,Johan Lind,0,0,
+2023-08-30,20:50,DJI Matrice 30T,M30T-01,Tyresta forest,59.17306,18.26596,SAR,A2,VLOS,PRI,0:26,0:26,67,0,1,Johan Lind,0,0,Night search in forest – thermal
+2023-08-29,12:19,DJI Matrice 30T,M30T-01,Sundsvall – Norra kajen,62.39573,17.32227,Inspection,A2,VLOS,COM,0:22,0,29,1,0,,0,0,
+2023-08-29,11:50,DJI Matrice 30T,M30T-01,Sundsvall – Norra kajen,62.39678,17.32580,Inspection,A2,VLOS,COM,0:20,0,60,1,0,,0,0,Facade thermography
+2023-08-23,13:47,DJI Matrice 30T,M30T-01,"Solar park, Mjölby",58.33022,15.13232,Inspection,A2,VLOS,COM,0:25,0,37,1,0,,0,0,
+2023-08-23,13:16,DJI Matrice 30T,M30T-01,"Solar park, Mjölby",58.32690,15.12919,Inspection,A2,VLOS,COM,0:25,0,43,1,0,,0,0,
+2023-08-23,12:47,DJI Matrice 30T,M30T-01,"Solar park, Mjölby",58.32622,15.12953,Inspection,A2,VLOS,COM,0:21,0,52,1,0,,0,0,
+2023-08-23,12:15,DJI Matrice 30T,M30T-01,"Solar park, Mjölby",58.32657,15.13243,Inspection,A2,VLOS,COM,0:19,0,54,1,0,,0,0,Thermal hotspot survey
+2023-08-22,13:33,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.79914,16.90303,Mapping,A3,VLOS,COM,0:26,0,86,1,0,Mikael Åberg,0,0,
+2023-08-22,12:53,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80316,16.89876,Mapping,A3,VLOS,COM,0:32,0,91,1,0,Mikael Åberg,0,0,
+2023-08-22,12:10,DJI Matrice 350 RTK,M350-01,"Railway corridor, Ostlänken (Nyköping)",58.80049,16.90435,Mapping,A3,VLOS,COM,0:28,0,81,1,0,Mikael Åberg,0,0,LiDAR corridor survey – L2
+2023-08-17,10:02,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:10,0,56,1,0,,0,0,
+2023-08-17,09:50,DJI Matrice 350 RTK,M350-01,"Company base, Täby",59.46800,18.09800,Testing,A3,VLOS,COM,0:08,0,38,1,0,,0,0,Acceptance test – new Matrice 350 RTK
+2023-08-16,12:25,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35511,18.11520,Mapping,A3,VLOS,COM,0:30,0,106,1,0,,0,0,
+2023-08-16,11:41,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35183,18.10992,Mapping,A3,VLOS,COM,0:30,0,93,1,0,,0,0,
+2023-08-16,11:00,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35285,18.10476,Mapping,A3,VLOS,COM,0:35,0,81,1,0,,0,0,
+2023-08-16,10:21,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35232,18.10885,Mapping,A3,VLOS,COM,0:24,0,105,1,0,,0,0,
+2023-08-16,09:35,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.35061,18.10933,Mapping,A3,VLOS,COM,0:34,0,103,1,0,,0,0,
+2023-08-16,09:00,DJI Matrice 350 RTK,M350-01,"Construction site, Norra Djurgårdsstaden",59.34848,18.11239,Mapping,A3,VLOS,COM,0:29,0,115,1,0,,0,0,Orthophoto & DSM for design team
+2023-08-11,11:15,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36375,17.86027,Mapping,A2,VLOS,COM,0:24,0,116,1,0,Johan Lind,0,0,
+2023-08-11,10:36,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36327,17.85860,Mapping,A2,VLOS,COM,0:29,0,119,1,0,Johan Lind,0,0,
+2023-08-11,09:57,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35922,17.85508,Mapping,A2,VLOS,COM,0:29,0,105,1,0,Johan Lind,0,0,
+2023-08-11,09:20,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35764,17.85908,Mapping,A2,VLOS,COM,0:26,0,119,1,0,Johan Lind,0,0,Stockpile volume survey
+2023-08-10,12:09,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62962,13.70557,Inspection,A2,VLOS,COM,0:19,0,60,1,0,,0,0,
+2023-08-10,11:41,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.63230,13.70267,Inspection,A2,VLOS,COM,0:20,0,41,1,0,,0,0,
+2023-08-10,11:09,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62820,13.70329,Inspection,A2,VLOS,COM,0:22,0,37,1,0,,0,0,
+2023-08-10,10:34,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62810,13.69513,Inspection,A2,VLOS,COM,0:26,0,42,1,0,,0,0,
+2023-08-10,10:00,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.63114,13.70012,Inspection,A2,VLOS,COM,0:24,0,60,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2023-08-08,09:43,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:15,0,64,1,0,,0,0,
+2023-08-08,09:15,DJI Matrice 30T,M30T-01,"Telecom mast, Heby",59.94000,16.86000,Inspection,A2,VLOS,COM,0:16,0,100,1,0,,0,0,Mast inspection – 3D model
+2023-08-07,14:40,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31198,18.06847,Inspection,A2,VLOS,COM,0:22,0,16,1,0,,0,0,
+2023-08-07,14:10,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31503,18.07038,Inspection,A2,VLOS,COM,0:22,0,20,1,0,,0,0,Facade inspection – cracks & balconies
+2023-07-07,12:44,DJI Mavic 3 Enterprise,M3E-01,"Logistics park, Eskilstuna",59.39158,16.58248,Mapping,A2,VLOS,COM,0:32,0,88,1,0,Mikael Åberg,0,0,
+2023-07-07,12:09,DJI Mavic 3 Enterprise,M3E-01,"Logistics park, Eskilstuna",59.39321,16.58166,Mapping,A2,VLOS,COM,0:27,0,109,1,0,Mikael Åberg,0,0,
+2023-07-07,11:29,DJI Mavic 3 Enterprise,M3E-01,"Logistics park, Eskilstuna",59.39161,16.57495,Mapping,A2,VLOS,COM,0:26,0,83,1,0,Mikael Åberg,0,0,
+2023-07-07,10:40,DJI Mavic 3 Enterprise,M3E-01,"Logistics park, Eskilstuna",59.39177,16.57898,Mapping,A2,VLOS,COM,0:34,0,102,1,0,Mikael Åberg,0,0,Stockpile volume survey
+2023-07-06,14:28,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:12,0,65,1,0,,0,0,
+2023-07-06,14:00,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:16,0,96,1,0,,0,0,Mast inspection – 3D model
+2023-07-04,14:22,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31317,18.07685,Inspection,A2,VLOS,COM,0:14,0,60,1,0,,0,0,
+2023-07-04,13:57,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31044,18.06711,Inspection,A2,VLOS,COM,0:15,0,55,1,0,,0,0,
+2023-07-04,13:31,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31056,18.07353,Inspection,A2,VLOS,COM,0:20,0,42,1,0,,0,0,
+2023-07-04,13:00,DJI Mavic 3 Enterprise,M3E-01,Stockholm – Södermalm,59.31476,18.07240,Inspection,A2,VLOS,COM,0:19,0,58,1,0,,0,0,Facade thermography
+2023-06-29,12:21,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65785,17.04748,Mapping,A2,VLOS,COM,0:32,0,110,1,0,Petra Sjöberg,0,0,
+2023-06-29,11:50,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.66289,17.04861,Mapping,A2,VLOS,COM,0:23,0,119,1,0,Petra Sjöberg,0,0,
+2023-06-29,11:14,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.66316,17.04988,Mapping,A2,VLOS,COM,0:28,0,90,1,0,Petra Sjöberg,0,0,
+2023-06-29,10:40,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Skidbacken (Gävle)",60.65821,17.04820,Mapping,A2,VLOS,COM,0:25,0,118,1,0,Petra Sjöberg,0,0,Monthly construction progress map
+2023-06-27,14:15,DJI Matrice 30T,M30T-01,Sundsvallsbron,62.37400,17.33400,Inspection,A2,VLOS,COM,0:24,0,32,1,0,Emil Berglund,0,0,
+2023-06-27,13:41,DJI Matrice 30T,M30T-01,Sundsvallsbron,62.37400,17.33400,Inspection,A2,VLOS,COM,0:23,0,32,1,0,Emil Berglund,0,0,
+2023-06-27,13:07,DJI Matrice 30T,M30T-01,Sundsvallsbron,62.37400,17.33400,Inspection,A2,VLOS,COM,0:24,0,59,1,0,Emil Berglund,0,0,
+2023-06-27,12:30,DJI Matrice 30T,M30T-01,Sundsvallsbron,62.37400,17.33400,Inspection,A2,VLOS,COM,0:25,0,50,1,0,Emil Berglund,0,0,
+2023-06-27,12:00,DJI Matrice 30T,M30T-01,Sundsvallsbron,62.37400,17.33400,Inspection,A2,VLOS,COM,0:20,0,29,1,0,Emil Berglund,0,0,Pylon inspection
+2023-06-22,17:46,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:11,0,110,1,0,,0,0,
+2023-06-22,17:10,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:18,0,30,1,0,,0,0,Aerial stills for brochure
+2023-06-15,18:38,DJI Mavic 3 Enterprise,M3E-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A2,VLOS,COM,0:17,0,65,1,0,,0,0,
+2023-06-15,18:09,DJI Mavic 3 Enterprise,M3E-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A2,VLOS,COM,0:16,0,82,1,0,,0,0,
+2023-06-15,17:40,DJI Mavic 3 Enterprise,M3E-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A2,VLOS,COM,0:16,0,39,1,0,,0,0,
+2023-06-15,17:15,DJI Mavic 3 Enterprise,M3E-01,"Event, Strängnäs marina",59.37400,17.03200,Photo / Video,A2,VLOS,COM,0:17,0,90,1,0,,0,0,Real estate photos & video
+2023-06-14,12:23,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:12,0,40,1,0,,0,0,
+2023-06-14,11:45,DJI Mavic 3 Enterprise,M3E-01,"Real estate, Vaxholm",59.40200,18.35100,Photo / Video,A2,VLOS,COM,0:18,0,41,1,0,,0,0,Commercial film shoot
+2023-06-12,14:01,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,A2,VLOS,COM,0:24,0,16,1,0,Johan Lind,0,0,
+2023-06-12,13:31,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,A2,VLOS,COM,0:21,0,35,1,0,Johan Lind,0,0,
+2023-06-12,13:04,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,A2,VLOS,COM,0:19,0,59,1,0,Johan Lind,0,0,
+2023-06-12,12:35,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,A2,VLOS,COM,0:21,0,45,1,0,Johan Lind,0,0,
+2023-06-12,12:10,DJI Matrice 30T,M30T-01,"Västerbron, Stockholm",59.32400,18.03100,Inspection,A2,VLOS,COM,0:16,0,55,1,0,Johan Lind,0,0,Pylon inspection
+2023-06-09,12:38,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62665,13.70325,Inspection,A2,VLOS,COM,0:26,0,39,1,0,,0,0,
+2023-06-09,12:04,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.62948,13.70301,Inspection,A2,VLOS,COM,0:21,0,58,1,0,,0,0,
+2023-06-09,11:30,DJI Matrice 30T,M30T-01,"Solar park, Sjöbo (Skåne)",55.63354,13.70088,Inspection,A2,VLOS,COM,0:20,0,59,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2023-06-06,14:40,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.36602,17.03546,Inspection,A2,VLOS,COM,0:19,0,39,1,0,,0,0,
+2023-06-06,14:09,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.36884,17.03236,Inspection,A2,VLOS,COM,0:18,0,55,1,0,,0,0,
+2023-06-06,13:44,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.37151,17.02660,Inspection,A2,VLOS,COM,0:18,0,55,1,0,,0,0,
+2023-06-06,13:12,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.36621,17.03174,Inspection,A2,VLOS,COM,0:25,0,45,1,0,,0,0,
+2023-06-06,12:40,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.36974,17.03174,Inspection,A2,VLOS,COM,0:19,0,45,1,0,,0,0,Solar park thermal survey – 4.6 MWp
+2023-05-26,11:24,DJI Matrice 30T,M30T-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:15,0,92,1,0,,0,0,
+2023-05-26,11:00,DJI Matrice 30T,M30T-01,"Telecom mast, Norrtälje",59.76000,18.70000,Inspection,A2,VLOS,COM,0:15,0,75,1,0,,0,0,Antenna alignment check
+2023-05-25,15:56,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.30622,16.20424,Mapping,A2,VLOS,COM,0:32,0,112,1,0,,0,0,
+2023-05-25,15:09,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.31227,16.20122,Mapping,A2,VLOS,COM,0:33,0,115,1,0,,0,0,
+2023-05-25,14:28,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.31394,16.19806,Mapping,A2,VLOS,COM,0:27,0,107,1,0,,0,0,
+2023-05-25,13:50,DJI Mavic 3 Enterprise,M3E-01,"Mine site, Garpenberg",60.30680,16.19835,Mapping,A2,VLOS,COM,0:31,0,89,1,0,,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2023-05-20,21:28,DJI Matrice 30T,M30T-01,Tyresta forest,59.17005,18.27122,SAR,A2,VLOS,PRI,0:32,0,69,1,0,Johan Lind,0,0,
+2023-05-20,20:52,DJI Matrice 30T,M30T-01,Tyresta forest,59.16814,18.27504,SAR,A2,VLOS,PRI,0:31,0,64,1,0,Johan Lind,0,0,
+2023-05-20,20:15,DJI Matrice 30T,M30T-01,Tyresta forest,59.17028,18.27303,SAR,A2,VLOS,PRI,0:26,0,66,1,0,Johan Lind,0,0,Night search in forest – thermal
+2023-05-15,15:09,DJI Matrice 30T,M30T-01,Luleå – Kronan,65.58705,22.11300,Inspection,A2,VLOS,COM,0:15,0,20,1,0,,0,0,
+2023-05-15,14:40,DJI Matrice 30T,M30T-01,Luleå – Kronan,65.59143,22.11182,Inspection,A2,VLOS,COM,0:16,0,38,1,0,,0,0,Roof inspection after storm
+2023-05-11,12:32,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14952,17.64941,Mapping,A2,VLOS,COM,0:24,0,114,1,0,,0,0,
+2023-05-11,11:53,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.15232,17.64771,Mapping,A2,VLOS,COM,0:32,0,103,1,0,,0,0,
+2023-05-11,11:20,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14641,17.64815,Mapping,A2,VLOS,COM,0:26,0,113,1,0,,0,0,
+2023-05-11,10:42,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.15041,17.65134,Mapping,A2,VLOS,COM,0:29,0,96,1,0,,0,0,
+2023-05-11,10:00,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14643,17.65034,Mapping,A2,VLOS,COM,0:27,0,116,1,0,,0,0,Orthophoto & DSM for design team
+2023-05-05,14:04,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:18,0,78,1,0,Sara Nyström,0,0,
+2023-05-05,13:40,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:15,0,106,1,0,Sara Nyström,0,0,
+2023-05-05,13:15,DJI Mavic 3 Enterprise,M3E-01,"Telecom mast, Tierp",60.35000,17.52000,Inspection,A2,VLOS,COM,0:15,0,78,1,0,Sara Nyström,0,0,Mast inspection – 3D model
+2023-05-02,10:57,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.36331,17.85453,Mapping,A2,VLOS,COM,0:24,0,115,1,0,Emil Berglund,0,0,
+2023-05-02,10:22,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35819,17.86493,Mapping,A2,VLOS,COM,0:28,0,96,1,0,Emil Berglund,0,0,
+2023-05-02,09:40,DJI Mavic 3 Enterprise,M3E-01,"Road project, E4 Förbifart Stockholm",59.35957,17.85574,Mapping,A2,VLOS,COM,0:28,0,89,1,0,Emil Berglund,0,0,"Photogrammetry 38 ha, GSD 2.1 cm – RTK"
+2023-04-28,14:28,DJI Matrice 30T,M30T-01,"Telecom mast, Hallstavik",60.05000,18.60000,Inspection,A2,VLOS,COM,0:17,0,103,1,0,Mikael Åberg,0,0,
+2023-04-28,14:05,DJI Matrice 30T,M30T-01,"Telecom mast, Hallstavik",60.05000,18.60000,Inspection,A2,VLOS,COM,0:13,0,103,1,0,Mikael Åberg,0,0,
+2023-04-28,13:40,DJI Matrice 30T,M30T-01,"Telecom mast, Hallstavik",60.05000,18.60000,Inspection,A2,VLOS,COM,0:15,0,98,1,0,Mikael Åberg,0,0,Mast inspection – 3D model
+2023-04-20,12:24,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.36793,17.02640,Inspection,A2,VLOS,COM,0:19,0,39,1,0,,0,0,
+2023-04-20,11:55,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.37147,17.02754,Inspection,A2,VLOS,COM,0:23,0,58,1,0,,0,0,
+2023-04-20,11:18,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.37365,17.03395,Inspection,A2,VLOS,COM,0:23,0,38,1,0,,0,0,
+2023-04-20,10:50,DJI Matrice 30T,M30T-01,"Solar park, Strängnäs",59.37377,17.03337,Inspection,A2,VLOS,COM,0:21,0,44,1,0,,0,0,Thermal hotspot survey
+2023-04-19,13:20,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:16,0,30,1,0,Sara Nyström,0,0,
+2023-04-19,13:00,DJI Mavic 3 Enterprise,M3E-01,"Vineyard, Österlen",55.58000,14.25000,Photo / Video,A2,VLOS,COM,0:11,0,77,1,0,Sara Nyström,0,0,Aerial stills for brochure
+2023-04-13,12:29,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14681,17.64778,Mapping,A2,VLOS,COM,0:27,0,97,1,0,,0,0,
+2023-04-13,11:55,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.15020,17.65533,Mapping,A2,VLOS,COM,0:22,0,97,1,0,,0,0,
+2023-04-13,11:13,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14916,17.64473,Mapping,A2,VLOS,COM,0:32,0,100,1,0,,0,0,
+2023-04-13,10:41,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.15394,17.64681,Mapping,A2,VLOS,COM,0:24,0,88,1,0,,0,0,
+2023-04-13,10:02,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.14946,17.64899,Mapping,A2,VLOS,COM,0:31,0,87,1,0,,0,0,
+2023-04-13,09:30,DJI Mavic 3 Enterprise,M3E-01,"Quarry, Glasberga (Södertälje)",59.15015,17.64595,Mapping,A2,VLOS,COM,0:23,0,116,1,0,,0,0,Orthophoto & DSM for design team
+2023-04-09,22:00,DJI Matrice 30T,M30T-01,Öregrund coast,60.33791,18.42780,SAR,A2,VLOS,PRI,0:28,0:28,78,0,1,,0,0,
+2023-04-09,21:20,DJI Matrice 30T,M30T-01,Öregrund coast,60.34144,18.43413,SAR,A2,VLOS,PRI,0:28,0:28,93,0,1,,0,0,
+2023-04-09,20:38,DJI Matrice 30T,M30T-01,Öregrund coast,60.34043,18.43313,SAR,A2,VLOS,PRI,0:31,0:31,86,0,1,,0,0,
+2023-04-09,20:00,DJI Matrice 30T,M30T-01,Öregrund coast,60.33982,18.42994,SAR,A2,VLOS,PRI,0:31,0,89,1,0,,0,0,Search for missing elderly – thermal sweep
+2023-03-28,20:42,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.60958,16.53014,Inspection,A2,VLOS,COM,0:21,0:21,60,0,1,,0,0,
+2023-03-28,20:13,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.61325,16.52275,Inspection,A2,VLOS,COM,0:22,0:22,63,0,1,,0,0,
+2023-03-28,19:41,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.61165,16.53002,Inspection,A2,VLOS,COM,0:24,0,68,1,0,,0,0,
+2023-03-28,19:14,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.60913,16.53324,Inspection,A2,VLOS,COM,0:17,0,67,1,0,,0,0,
+2023-03-28,18:42,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.61562,16.53151,Inspection,A2,VLOS,COM,0:20,0,77,1,0,,0,0,
+2023-03-28,18:10,DJI Matrice 30T,M30T-01,Västerås – Kopparlunden,59.61695,16.52546,Inspection,A2,VLOS,COM,0:18,0,68,1,0,,0,0,Heat loss survey – residential area
+2023-03-24,13:27,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.37862,13.49350,Inspection,A2,VLOS,COM,0:13,0,28,1,0,,0,0,
+2023-03-24,12:59,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.38221,13.50219,Inspection,A2,VLOS,COM,0:16,0,20,1,0,,0,0,
+2023-03-24,12:39,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.37643,13.50271,Inspection,A2,VLOS,COM,0:12,0,56,1,0,,0,0,
+2023-03-24,12:15,DJI Matrice 30T,M30T-01,Karlstad – inre hamn,59.38258,13.49970,Inspection,A2,VLOS,COM,0:14,0,58,1,0,,0,0,Roof inspection after storm
+2023-03-23,22:12,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27153,15.25383,Inspection,A2,VLOS,COM,0:21,0:21,84,0,1,,0,0,
+2023-03-23,21:42,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27313,15.25501,Inspection,A2,VLOS,COM,0:23,0:23,63,0,1,,0,0,
+2023-03-23,21:11,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27326,15.25211,Inspection,A2,VLOS,COM,0:24,0:24,61,0,1,,0,0,
+2023-03-23,20:45,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27139,15.25585,Inspection,A2,VLOS,COM,0:20,0:20,70,0,1,,0,0,
+2023-03-23,20:19,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27098,15.25429,Inspection,A2,VLOS,COM,0:19,0:19,62,0,1,,0,0,
+2023-03-23,19:45,DJI Matrice 30T,M30T-01,Örebro – Ladugårdsängen,59.27062,15.24633,Inspection,A2,VLOS,COM,0:23,0:23,61,0,1,,0,0,District heating network – 6 km surveyed
+2023-03-09,15:34,DJI Matrice 30T,M30T-01,Linköping – Vallastaden,58.39878,15.57407,Inspection,A2,VLOS,COM,0:13,0,44,1,0,,0,0,
+2023-03-09,15:08,DJI Matrice 30T,M30T-01,Linköping – Vallastaden,58.39772,15.56779,Inspection,A2,VLOS,COM,0:18,0,30,1,0,,0,0,
+2023-03-09,14:36,DJI Matrice 30T,M30T-01,Linköping – Vallastaden,58.39895,15.57243,Inspection,A2,VLOS,COM,0:20,0,28,1,0,,0,0,
+2023-03-09,14:10,DJI Matrice 30T,M30T-01,Linköping – Vallastaden,58.39439,15.57138,Inspection,A2,VLOS,COM,0:15,0,60,1,0,,0,0,Roof survey for solar installation
+2023-02-03,09:16,DJI Matrice 30T,M30T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:09,0,33,1,0,,0,0,
+2023-02-03,09:00,DJI Matrice 30T,M30T-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:10,0,47,1,0,,0,0,Acceptance test – new Matrice 30T
+2023-01-18,11:31,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47256,18.10588,Inspection,A2,VLOS,COM,0:19,0,56,1,0,,0:19,0,
+2023-01-18,10:57,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.46881,18.09940,Inspection,A2,VLOS,COM,0:21,0,59,1,0,,0:21,0,
+2023-01-18,10:30,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.46837,18.10427,Inspection,A2,VLOS,COM,0:19,0,27,1,0,,0:19,0,A2 practical skills – check flight (Erik Sandberg)
+2023-01-16,11:15,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47080,18.10399,Inspection,A2,VLOS,COM,0:22,0,43,1,0,,0:22,0,
+2023-01-16,10:44,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47076,18.09853,Inspection,A2,VLOS,COM,0:18,0,48,1,0,,0:18,0,
+2023-01-16,10:19,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.46746,18.10428,Inspection,A2,VLOS,COM,0:17,0,34,1,0,,0:17,0,
+2023-01-16,10:00,DJI Mavic 3 Enterprise,M3E-01,"Training field, Täby",59.47043,18.09744,Inspection,A2,VLOS,COM,0:13,0,48,1,0,,0:13,0,A2 practical skills – instructor Erik Sandberg
+2023-01-12,12:40,DJI Mavic 3 Enterprise,M3E-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:07,0,53,1,0,,0,0,
+2023-01-12,12:20,DJI Mavic 3 Enterprise,M3E-01,"Company base, Täby",59.46800,18.09800,Testing,A2,VLOS,COM,0:10,0,57,1,0,,0,0,Acceptance test – new Mavic 3 Enterprise

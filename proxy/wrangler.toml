@@ -15,6 +15,10 @@ routes = [
 # RevenueCat-hemligheter lagras som SECRETS (överlever deploy, hamnar ej i git):
 #   wrangler secret put REVENUECAT_SECRET_KEY     (v2 sk_…-nyckeln)
 #   wrangler secret put REVENUECAT_WEBHOOK_AUTH   (delad hemlighet för webhooken)
+#
+# Esri (share-kortets satellitbilder) — ArcGIS Location Platform-nyckel med privilegiet Basemaps:
+#   wrangler secret put ARCGIS_API_KEY
+# Nyckeln löper ut efter max 1 år → skapa en ny i Esris dashboard och kör kommandot igen (ingen app-build).
 
 # Icke-hemlig config → [vars] (så den inte nollas vid deploy).
 [vars]
@@ -30,3 +34,13 @@ binding = "TELEMETRY"
 [[kv_namespaces]]
 binding = "QUOTA_KV"
 id = "784887bfd7f24f4a81f846f42409c8fb"
+
+# Rate limit för satellit-tiles (GET /map/imagery/…) per enhet — skyddar Esri-kvoten mot skrapning.
+# Ett share-kort behöver ≤ 18 tiles per zoomnivå. namespace_id = valfritt unikt heltal i kontot.
+[[ratelimits]]
+name = "MAP_LIMITER"
+namespace_id = "4211"
+
+  [ratelimits.simple]
+  limit = 180
+  period = 60

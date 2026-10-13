@@ -4,7 +4,6 @@ import {
   Modal, ActivityIndicator, Animated, PanResponder, TextInput,
   Keyboard, InputAccessoryView, Platform, ScrollView,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoOverlay from '../modules/video-overlay';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { FlightVideo } from './FlightVideo';
+import { SatelliteSnap, fetchImageryProviders, imageryCredit } from './SatelliteSnap';
 import Svg, { Line, Circle, Path, Polyline } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getAirportCoordinates } from '../db/icao';
@@ -118,11 +118,11 @@ function greatCircleNm(a: { lat: number; lon: number }, b: { lat: number; lon: n
   return Math.round(R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
 }
 
-// Stads-snapshot via dold Leaflet-WebView (OSM/CARTO/Esri) → leaflet-image ritar kartan
-// till en canvas och postar tillbaka en PNG. Slipper Apple-branding; Ljus/Mörk/Satellit (hybrid).
-// Centreras över STADEN (geokodas från namnet via Nominatim) — faller tillbaka på flygplatsen.
-type MapStyle = 'light' | 'dark' | 'satellite';
-const cityFromName = (name?: string) => (name ?? '').split(/[\/,]|\s/).filter(Boolean)[0] ?? '';
+// Route-lagrets kartrutor = Esri-satellitbilder centrerade på flygplatserna (SatelliteSnap, via proxyn).
+const snapKey = (c: { lat: number; lon: number }, zoom: number) => `${c.lat},${c.lon},${zoom}`;
+// Route-lagret är DOLT tills ARCGIS_API_KEY är satt i proxyn (utan nyckel blir satellitrutorna tomma).
+// Dolt lager = inga anrop till Esri alls. Sätt till true när nyckeln är på plats (kräver nytt bygge).
+const ROUTE_LAYER_ENABLED = false;
 
 // Route-stopp ur remarks (samma rad-format som log flight: "ICAO TnG/LA/PU/DO/HR ...").
 const STOP_RE_SHARE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+\S+\s+app\s+rwy\s+\d{2,3})?\s*$/i;
@@ -134,38 +134,6 @@ function parseStopIcaos(remarks: string): string[] {
   }
   return out;
 }
-function buildCitySnapHtml(lat: number, lon: number, city: string, style: MapStyle, zoom: number): string {
-  // Satellit (ArcGIS World Imagery, ingen API-nyckel) ALLTID. CARTO light/dark kräver numera en
-  // API-nyckel ("API key required") → borttagna. style/city-parametrarna behålls men används ej.
-  const layersJs = `var base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}).addTo(map);`;
-  return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<style>*{margin:0;padding:0}html,body,#map{width:220px;height:220px;background:#0a1422}</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-</head><body><div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
-<script>
-  var ZOOM=${Math.round(zoom)}, A=[${lat},${lon}];
-  var map=L.map('map',{zoomControl:false,attributionControl:false,fadeAnimation:false,zoomAnimation:false});
-  ${layersJs}
-  var fired=false;
-  function shoot(){ if(fired)return; fired=true;
-    try {
-      leafletImage(map,function(err,canvas){
-        if(err||!canvas){ window.ReactNativeWebView.postMessage('ERR'); return; }
-        try { window.ReactNativeWebView.postMessage(canvas.toDataURL('image/png')); }
-        catch(e){ window.ReactNativeWebView.postMessage('ERR'); }
-      });
-    } catch(e){ window.ReactNativeWebView.postMessage('ERR'); }
-  }
-  // Centrera EXAKT på flygplatsens koordinater (ingen stads-geokodning via OSM längre).
-  map.setView(A, ZOOM);
-  base.on('load', function(){ setTimeout(shoot,300); });
-  setTimeout(shoot,3500);
-</script></body></html>`;
-}
-
 interface Props {
   flight: Flight;
   depName: string;
@@ -189,13 +157,10 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   // gömmer bakgrunden vid ViewShot-capturen så bara overlayn fångas (transparent → bränns på videon).
   const [vidDims, setVidDims] = useState<{ w: number; h: number } | null>(null);
   const [captureTransparent, setCaptureTransparent] = useState(false);
-  // Route ground-layer: Apple Maps-snapshots av avgångs-/ankomststaden.
-  const [depSnap, setDepSnap] = useState<string | null>(null);
-  const [arrSnap, setArrSnap] = useState<string | null>(null);
-  const [depCity, setDepCity] = useState('');
-  const [arrCity, setArrCity] = useState('');
-  const [mapStyle, setMapStyle] = useState<MapStyle>('satellite'); // bara satellit kvar
+  // Route-lagret: satellitrutor över avgång/ankomst + deras källhänvisning (bildleverantörer per område).
   const [mapZoom, setMapZoom] = useState(10);
+  const [imageryProviders, setImageryProviders] = useState<string[] | null>(null);
+  const settledSnaps = useRef(new Set<string>()); // snapKey för rutor vars tiles laddats klart (Share väntar in dem)
   // Postcard: redigerbar text före dep och mellan dep/arr (ICAO-koderna är fasta).
   const [pcPrefix, setPcPrefix] = useState('From');
   const [pcConnector, setPcConnector] = useState('to');
@@ -269,11 +234,15 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
     setTaxiMin('');
   }, [visible, flight.id, flight.max_fl]);
 
-  // Nollställ kart-snapshots när flygplatserna eller kartstilen ändras → fångas om.
+  // Källhänvisning för satellitrutorna (Esri-krav): vilka bildleverantörer som täcker rutorna på vald zoom.
+  // Hämtas om när flygplatserna eller zoomen ändras; misslyckas det visas Esris generella källtext.
   useEffect(() => {
-    setDepSnap(null);
-    setArrSnap(null);
-  }, [depCoord?.lat, depCoord?.lon, arrCoord?.lat, arrCoord?.lon, mapStyle, mapZoom]);
+    if (mode !== 'route' || (!depCoord && !arrCoord)) return;
+    let alive = true;
+    const snaps = [depCoord, arrCoord].filter((c): c is { lat: number; lon: number } => !!c).map((c) => ({ ...c, zoom: mapZoom }));
+    fetchImageryProviders(snaps).then((p) => { if (alive) setImageryProviders(p); });
+    return () => { alive = false; };
+  }, [mode, depCoord?.lat, depCoord?.lon, arrCoord?.lat, arrCoord?.lon, mapZoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const panResponder = useRef(
     PanResponder.create({
@@ -317,8 +286,8 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
       getAirportCoordinates(codes).then(coords => {
         const d = coords.find(c => c.icao === flight.dep_place);
         const a = coords.find(c => c.icao === flight.arr_place);
-        if (d) { setDepCoord({ lat: d.lat, lon: d.lon }); setDepCity(cityFromName(d.name)); }
-        if (a) { setArrCoord({ lat: a.lat, lon: a.lon }); setArrCity(cityFromName(a.name)); }
+        if (d) setDepCoord({ lat: d.lat, lon: d.lon });
+        if (a) setArrCoord({ lat: a.lat, lon: a.lon });
       });
     }
     if (flight.aircraft_type && flight.total_time > 0) {
@@ -358,8 +327,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         // Native-modulen saknas (t.ex. Expo Go) → dela råvideon utan filter.
         if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
       } else {
-        // Foto: fånga kortet via ViewShot och dela som PNG.
+        // Foto: fånga kortet via ViewShot och dela som PNG. Route: vänta in satellitrutornas tiles (max 3 s)
+        // så att bilden inte fångas halvladdad.
         if (!viewShotRef.current?.capture) return;
+        if (mode === 'route') {
+          const need = [depCoord, arrCoord].filter((c): c is { lat: number; lon: number } => !!c).map((c) => snapKey(c, mapZoom));
+          for (let i = 0; i < 30 && !need.every((k) => settledSnaps.current.has(k)); i++) await new Promise((r) => setTimeout(r, 100));
+        }
         const uri = await viewShotRef.current.capture();
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share flight' });
@@ -435,27 +409,6 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
-        {/* Dolda Leaflet-WebViews för route-snapshots (OSM/CARTO/Esri) — fångas en gång */}
-        {mode === 'route' && depCoord && !depSnap && (
-          <View style={{ position: 'absolute', width: 220, height: 220, opacity: 0, top: 0, left: 0 }} pointerEvents="none">
-            <WebView
-              source={{ html: buildCitySnapHtml(depCoord.lat, depCoord.lon, depCity, mapStyle, mapZoom), baseUrl: 'https://basemaps.cartocdn.com' }}
-              originWhitelist={['*']} javaScriptEnabled domStorageEnabled
-              style={{ flex: 1, backgroundColor: 'transparent' }}
-              onMessage={(e) => { const d = e.nativeEvent.data; if (d && d.startsWith('data:')) setDepSnap(d); }}
-            />
-          </View>
-        )}
-        {mode === 'route' && arrCoord && !arrSnap && (
-          <View style={{ position: 'absolute', width: 220, height: 220, opacity: 0, top: 0, left: 0 }} pointerEvents="none">
-            <WebView
-              source={{ html: buildCitySnapHtml(arrCoord.lat, arrCoord.lon, arrCity, mapStyle, mapZoom), baseUrl: 'https://basemaps.cartocdn.com' }}
-              originWhitelist={['*']} javaScriptEnabled domStorageEnabled
-              style={{ flex: 1, backgroundColor: 'transparent' }}
-              onMessage={(e) => { const d = e.nativeEvent.data; if (d && d.startsWith('data:')) setArrSnap(d); }}
-            />
-          </View>
-        )}
         <View style={{ flex: 1 }}>
           {/* Kortet — fast storlek/position oavsett valt lager */}
           <View style={{ alignItems: 'center', paddingTop: insets.top + 6 }}>
@@ -492,12 +445,16 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                   total={formatTime(f.total_time)}
                   type={f.aircraft_type}
                   fmtNum={fmtNum}
-                  depSnap={depSnap}
-                  arrSnap={arrSnap}
+                  renderSnap={(which, size) => {
+                    const c = which === 'dep' ? depCoord : arrCoord;
+                    if (!c) return null;
+                    const k = snapKey(c, mapZoom);
+                    return <SatelliteSnap key={k} lat={c.lat} lon={c.lon} zoom={mapZoom} size={size} onSettled={() => settledSnaps.current.add(k)} />;
+                  }}
                   tileScale={overlayScale}
                   corners={corners}
                   brandRight={brandRight}
-                  mapCredit="© Esri"
+                  mapCredit={imageryCredit(imageryProviders)}
                   cardW={cardW}
                   cardH={cardH}
                 />
@@ -579,9 +536,9 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
           {!isVideoShare && (
             <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginHorizontal: 16, marginTop: 4 }}>
               <Seg
-                options={[['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const}
+                options={([['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const).filter(([k]) => ROUTE_LAYER_ENABLED || k !== 'route')}
                 value={mode}
-                onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') { setMapStyle('satellite'); setMapZoom(13); } }}
+                onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') setMapZoom(13); }}
               />
             </View>
           )}
@@ -781,12 +738,12 @@ function FStat({ value, unit, label, align }: { value: string; unit: string; lab
   );
 }
 
-function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, total, type, fmtNum, depSnap, arrSnap, tileScale = 1, corners, brandRight, mapCredit, cardW, cardH }: {
+function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, total, type, fmtNum, renderSnap, tileScale = 1, corners, brandRight, mapCredit, cardW, cardH }: {
   anchor: 'center' | 'route';
   dep: string; arr: string; date: string;
   distance: number; maxAlt: number; avgSpeed: number;
   total: string; type: string; fmtNum: (n: number) => string;
-  depSnap?: string | null; arrSnap?: string | null;
+  renderSnap?: (which: 'dep' | 'arr', size: number) => ReactNode;
   tileScale?: number; corners?: { dep: string; arr: string }; brandRight?: boolean;
   mapCredit?: string; cardW: number; cardH: number;
 }) {
@@ -843,14 +800,13 @@ function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, tot
     const depC = centerOf(depCorner);
     const arrC = centerOf(arrCorner);
     const cap = 7 * tileScale;
-    const tileBox = (corner: string, snap: string | null | undefined, icao: string, label: string) => {
+    const tileBox = (corner: string, which: 'dep' | 'arr', icao: string, label: string) => {
       const isTop = corner[0] === 't';
+      const snap = renderSnap?.(which, size);
       return (
         <View style={[{ position: 'absolute', width: size, height: size }, posOf(corner)]}>
           <View style={{ width: size, height: size, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,184,48,0.6)' }}>
-            {snap
-              ? <Image source={{ uri: snap }} style={{ width: size, height: size }} resizeMode="cover" />
-              : <View style={{ flex: 1, backgroundColor: 'rgba(20,30,45,0.6)' }} />}
+            {snap ?? <View style={{ flex: 1, backgroundColor: 'rgba(20,30,45,0.6)' }} />}
           </View>
           {/* ICAO nuddar rutan på inre sidan: topp → under, botten → ovanför. */}
           <Text style={[
@@ -874,17 +830,21 @@ function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, tot
           <Svg width={cardW} height={regionH} style={StyleSheet.absoluteFill}>
             <Line x1={depC.x} y1={depC.y} x2={arrC.x} y2={arrC.y} stroke={GOLD} strokeWidth={1.4} strokeDasharray={[4, 4.6]} opacity={0.85} />
           </Svg>
-          {tileBox(depCorner, depSnap, dep, 'Departure')}
-          {tileBox(arrCorner, arrSnap, arr, 'Arrival')}
+          {tileBox(depCorner, 'dep', dep, 'Departure')}
+          {tileBox(arrCorner, 'arr', arr, 'Arrival')}
         </View>
         {/* Scrims */}
         <LinearGradient colors={['transparent', 'rgba(6,11,22,0.72)']} locations={[0, 0.8]} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '46%' }} />
         <LinearGradient colors={['rgba(6,11,22,0.5)', 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '24%' }} />
         {/* Lockup — flyttar till övre höger om en tile ligger i övre vänstra hörnet */}
         <View style={{ position: 'absolute', top: 18, left: 20, right: 20, alignItems: brandRight ? 'flex-end' : 'flex-start' }}>{brand}</View>
-        {/* Kartattribution (krav för OSM/CARTO/Esri) */}
+        {/* Källhänvisning för satellitbilderna (Esri-krav: "Powered by Esri" + bildleverantörerna) —
+            bränns in i den delade bilden. En rad som krymper vid behov (smalt story-format). */}
         {mapCredit ? (
-          <Text style={{ position: 'absolute', bottom: 2, right: 8, fontSize: 6.5, color: 'rgba(255,255,255,0.55)', fontFamily: MONO }}>{mapCredit}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}
+            style={[{ position: 'absolute', bottom: 2, left: 8, right: 8, textAlign: 'right', fontSize: 6.5, color: 'rgba(255,255,255,0.75)' }, FSH]}>
+            {mapCredit}
+          </Text>
         ) : null}
         {/* Bottom: datum på guldhårlinjen + statrad (ingen stor route-text) */}
         <View style={{ position: 'absolute', left: 20, right: 20, bottom: 14 }}>

@@ -131,7 +131,6 @@ export default function OnboardingScreen() {
   const sv = lang === 'sv';
   const accent = accentForRole(mainRole);
   const autoInitials = (initials || `${(firstName[0] ?? '')}${(lastName[0] ?? '')}`).toUpperCase();
-  const fullName = `${firstName} ${lastName}`.trim();
 
   const availableMainRoles = currentProfile
     ? MAIN_ROLES.filter(r => r.key !== currentProfile.mainRole)
@@ -355,8 +354,6 @@ export default function OnboardingScreen() {
                 title={sv ? 'Sätt upp din profil' : 'Set up your profile'}
                 subtitle={sv ? 'Namn för din loggbok och export.' : 'Name for your logbook and exports.'} />
 
-              <AvatarPreview initials={autoInitials || '?'} name={fullName || (sv ? 'Ditt namn' : 'Your name')} creds="" accent={accent} />
-
               <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'} />
                 <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
@@ -556,18 +553,6 @@ function IntroStage({ accent, duration, eyebrow, line1, line2, body, extras, onC
   );
 }
 
-function AvatarPreview({ initials, name, creds, accent }: { initials: string; name: string; creds: string; accent: string }) {
-  return (
-    <View style={s.avatarWrap}>
-      <View style={[s.avatar, { backgroundColor: accent }]}>
-        <Text style={s.avatarText}>{initials}</Text>
-      </View>
-      <Text style={s.avatarName}>{name}</Text>
-      {creds ? <Text style={s.avatarCreds}>{creds}</Text> : null}
-    </View>
-  );
-}
-
 function Field(props: { label: string; value: string; onChangeText: (v: string) => void; placeholder: string; maxLength?: number; autoCapitalize?: 'none' | 'characters' | 'words' }) {
   return (
     <View>
@@ -699,12 +684,6 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.cardBorder,
   },
   secondaryBtnText: { color: C.textSecondary, fontSize: 15, fontWeight: '700' },
-
-  avatarWrap: { alignItems: 'center', alignSelf: 'stretch', marginBottom: 16 },
-  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  avatarText: { fontSize: 24, fontWeight: '800', color: C.textInverse, letterSpacing: -0.5 },
-  avatarName: { fontSize: 17, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.2 },
-  avatarCreds: { fontSize: 12, color: C.textMuted, marginTop: 3 },
 
   inputLabel: { fontSize: 12, fontWeight: '700', color: C.textPrimary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.elevated, fontSize: 15, color: C.textPrimary },

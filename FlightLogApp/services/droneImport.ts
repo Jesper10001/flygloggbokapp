@@ -43,6 +43,11 @@ titelrader, tomma rader). En avslutande "TOTAL"-summeringsrad är INTE data.
   landings_day   — daglandningar (heltal). Rubriker: "Day Ldg", "Landings", "LDG"
   landings_night — nattlandningar (heltal). Rubriker: "Night Ldg", "Night LDG"
   max_altitude_m — max höjd i meter (heltal). Rubriker: "Max altitude (m)", "Max altitude", "Altitude", "AGL"
+  latitude       — startplatsens latitud i decimalgrader (t.ex. 59.3293). Rubriker: "Latitude", "Lat", "Takeoff Lat", "Home Latitude"
+  longitude      — startplatsens longitud i decimalgrader (t.ex. 18.0686). Rubriker: "Longitude", "Lon", "Lng", "Takeoff Lon", "Home Longitude"
+  takeoff_time   — starttid (KLOCKSLAG HH:MM, ej varaktighet). Rubriker: "Takeoff", "Takeoff time", "Start time", "Launch time"
+  observer       — observatörens namn, eller en Yes/No-flagga. Rubriker: "Observer", "Observer name", "VO", "Visual observer"
+  operation_type — kommersiell eller privat flygning. Värden: COM/Commercial, PRI/Private/Recreational. Rubriker: "Operation type", "COM/PRI", "Commercial". OBS: en kolumn med VLOS/EVLOS/BVLOS är flight_mode, inte detta.
   remarks        — anmärkningar/fritext. Rubriker: "Remarks", "Notes", "Comments"
 
 ── REGLER ────────────────────────────────────────────────────────────────────
@@ -50,12 +55,14 @@ titelrader, tomma rader). En avslutande "TOTAL"-summeringsrad är INTE data.
 - Mappa ALLTID en varaktighetskolumn till total_time om en finns.
 - Mappa ALDRIG två kolumner till samma interna fält.
 - Utelämna kolumner som inte kan mappas. Ignorera "sep=;"-rader och TOTAL-summeringsraden.
-- delimiter: "," ";" "|" eller "\\t". date_format och time_format ("HH:MM"/"decimal"/"mixed") som filen använder.`;
+- delimiter: "," ";" "|" eller "\\t". date_format och time_format ("HH:MM"/"decimal"/"mixed") som filen använder.
+- warnings skrivs PÅ ENGELSKA, korta meningar — de visas för användaren i appen.`;
 
 const DRONE_INT_FIELDS = new Set([
   'date', 'drone_type', 'registration', 'location', 'mission_type', 'category', 'flight_mode',
   'total_time', 'night_time', 'ifr', 'co_pilot_fpv', 'dual', 'instructor',
   'landings_day', 'landings_night', 'max_altitude_m', 'remarks',
+  'latitude', 'longitude', 'takeoff_time', 'observer', 'operation_type',
 ]);
 
 export interface ParsedDroneRow {
@@ -76,6 +83,12 @@ export interface ParsedDroneRow {
   landings_night: number;
   max_altitude_m: number;
   is_night: boolean;
+  lat: number;               // startplats (0 = saknas) → drönar-globen och kartorna
+  lon: number;
+  takeoff_time: string;      // HH:MM ('' = saknas)
+  has_observer: boolean;
+  observer_name: string;
+  operation_type: string;    // 'COM' | 'PRI' | ''
   remarks: string;
 }
 
@@ -104,6 +117,25 @@ function isTruthy(v: string): boolean {
   return /^(y|yes|1|true|night|ja)/i.test(v.trim());
 }
 function convertTimeNum(v: string): number { return parseFloat(convertTime(v, 'mixed')) || 0; }
+// Decimalgrader (komma eller punkt); utanför ±max eller otolkbart → 0 (= ingen position).
+function parseCoord(v: string, max: number): number {
+  const n = parseFloat(v.trim().replace(',', '.'));
+  return Number.isFinite(n) && Math.abs(n) <= max ? n : 0;
+}
+// Klockslag → "HH:MM". Tål "13:30", "13.30", "1330" och datum+tid ("2026-10-11 13:30").
+function normClock(v: string): string {
+  const s = v.trim();
+  const m = s.match(/(\d{1,2})[:.](\d{2})/) ?? s.match(/^(\d{1,2})(\d{2})$/);
+  if (!m) return '';
+  const h = +m[1], mi = +m[2];
+  return h < 24 && mi < 60 ? `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}` : '';
+}
+function normOperation(v: string): string {
+  const s = v.trim().toLowerCase();
+  if (/^(com|commercial|kommersiell)/.test(s)) return 'COM';
+  if (/^(pri|private|privat|recreational|hobby|non-commercial)/.test(s)) return 'PRI';
+  return '';
+}
 
 export async function importDroneFromFile(
   fileUri: string,
@@ -187,6 +219,10 @@ export async function importDroneFromFile(
     // Night kan vara timmar ELLER en Yes/No/1/0-flagga.
     const nightH = convertTimeNum(nightRaw);
     const nightFlag = nightRaw !== '' && nightH === 0 && isTruthy(nightRaw);
+    // Observer: ett namn, eller en Yes/No-flagga (tomt/No = ingen observatör).
+    const obsRaw = cell(row, 'observer');
+    const obsFlag = /^(y|yes|1|true|ja)$/i.test(obsRaw);
+    const obsNone = /^(n|no|0|false|nej|none|-)?$/i.test(obsRaw);
 
     const r: ParsedDroneRow = {
       date: convertDate(cell(row, 'date'), dateFormat),
@@ -206,6 +242,12 @@ export async function importDroneFromFile(
       landings_night: parseInt(cell(row, 'landings_night'), 10) || 0,
       max_altitude_m: parseInt(cell(row, 'max_altitude_m'), 10) || 0,
       is_night: nightH > 0 || nightFlag,
+      lat: parseCoord(cell(row, 'latitude'), 90),
+      lon: parseCoord(cell(row, 'longitude'), 180),
+      takeoff_time: normClock(cell(row, 'takeoff_time')),
+      has_observer: obsFlag || !obsNone,
+      observer_name: obsFlag || obsNone ? '' : obsRaw,
+      operation_type: normOperation(cell(row, 'operation_type')),
       remarks: cell(row, 'remarks'),
     };
     if (!r.date) r.date = new Date().toISOString().slice(0, 10);
@@ -224,8 +266,9 @@ export async function importDroneFromFile(
   if (rows.length === 0 && dataRows.length > 0) {
     throw new Error(`No flights could be read (${dataRows.length} rows scanned). Try exporting as standard CSV.`);
   }
-  if (!fieldIdx['total_time']) warnings.push('No flight-time column was found — times are 0.');
-  if (!fieldIdx['date']) warnings.push('No date column was found — rows use today’s date.');
+  // == null (inte !): kolumnindex 0 är giltigt — Date ligger oftast först.
+  if (fieldIdx['total_time'] == null) warnings.push('No flight-time column was found — times are 0.');
+  if (fieldIdx['date'] == null) warnings.push('No date column was found — rows use today’s date.');
   if (clamped > 0) warnings.push(`${clamped} row(s) had night/role time exceeding total time — capped to total.`);
 
   onProgress?.(3, 3);
@@ -291,6 +334,9 @@ export async function saveDroneImport(rows: ParsedDroneRow[]): Promise<number> {
       drone_type: r.drone_type,
       registration: r.registration,
       location: r.location,
+      lat: r.lat,
+      lon: r.lon,
+      takeoff_time: r.takeoff_time,
       mission_type: r.mission_type,
       category: r.category,
       flight_mode: r.flight_mode,
@@ -304,8 +350,9 @@ export async function saveDroneImport(rows: ParsedDroneRow[]): Promise<number> {
       instructor: String(r.instructor),
       landings_day: String(r.landings_day),
       landings_night: String(r.landings_night),
-      has_observer: false,
-      observer_name: '',
+      has_observer: r.has_observer,
+      observer_name: r.observer_name,
+      operation_type: r.operation_type,
       remarks: r.remarks,
       source: 'import',
     });
