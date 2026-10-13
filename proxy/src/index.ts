@@ -56,12 +56,14 @@ function tokenKey(deviceHash: string, tier: string): string {
     : `tokens:${deviceHash}:${currentMonth()}`;
 }
 
-async function addTokens(kv: KVNamespace, deviceHash: string, tier: string, tokens: number): Promise<void> {
+async function addTokens(kv: KVNamespace, dk: DevKeys, tier: string, tokens: number): Promise<void> {
   if (!kv || tokens <= 0) return;
   try {
-    const key = tokenKey(deviceHash, tier);
-    const cur = parseInt(await kv.get(key) ?? '0', 10);
-    await kv.put(key, String(cur + tokens), tier === 'free' ? {} : { expirationTtl: 60 * 60 * 24 * 40 });
+    const key = tokenKey(dk.hash, tier);
+    let raw = await kv.get(key);
+    if (raw === null) raw = await kv.get(tokenKey(dk.legacy, tier)); // lazy migrering från gammal nyckel
+    const cur = parseInt(raw ?? '0', 10);
+    await kv.put(key, String(cur + tokens), tokenTtl(tier));
   } catch { /* räkningen får aldrig fälla ett anrop */ }
 }
 
@@ -85,10 +87,44 @@ function corsHeaders(_origin: string | null): Record<string, string> {
   };
 }
 
-function hashDevice(id: string): string {
+// Enhets-nyckel för KV + telemetri: SHA-256 (domänseparerad) → 128 bitar hex. Ersätter den gamla
+// 32-bitars strängsumman, som kunde krocka mellan två enheter (→ delade coin-räknare, promo och
+// premium-cache). 128 bitar = praktiskt taget noll krockrisk även vid miljontals enheter.
+async function hashDevice(id: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`blades-device:v2:${id}`));
+  const hex = [...new Uint8Array(digest)].slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return 'd2_' + hex;
+}
+
+// GAMMAL 32-bitars hash — används ENDAST för att läsa/migrera befintliga KV-nycklar (lazy, vid läsning).
+function legacyHashDevice(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   return 'dev_' + Math.abs(h).toString(36);
+}
+
+type DevKeys = { hash: string; legacy: string };
+async function deviceKeys(id: string): Promise<DevKeys> {
+  return { hash: await hashDevice(id), legacy: legacyHashDevice(id) };
+}
+
+const tokenTtl = (tier: string): { expirationTtl?: number } =>
+  tier === 'free' ? {} : { expirationTtl: 60 * 60 * 24 * 40 };
+
+// Läser `key`; saknas den men den GAMLA nyckeln finns → kopiera över (lazy migrering) så att befintliga
+// coin-räknare och promo-koder följer med till nya nyckeln. Gamla nycklar raderas INTE: en tidigare krock
+// kan ha delat en nyckel mellan två enheter, och en radering kunde då ta promo från fel enhet.
+async function kvGetMigrating(kv: KVNamespace, key: string, legacyKey: string, putOpts: { expirationTtl?: number } = {}): Promise<string | null> {
+  const v = await kv.get(key);
+  if (v !== null || key === legacyKey) return v;
+  const old = await kv.get(legacyKey);
+  if (old !== null) { try { await kv.put(key, old, putOpts); } catch { /* migrering får aldrig fälla ett anrop */ } }
+  return old;
+}
+
+async function promoActive(kv: KVNamespace | undefined, dk: DevKeys): Promise<boolean> {
+  if (!kv) return false;
+  return (await kvGetMigrating(kv, `promo:${dk.hash}`, `promo:${dk.legacy}`)) === '1';
 }
 
 // ── RevenueCat v2: server-side premium (kan inte spoofas via headers) ─────────
@@ -96,7 +132,8 @@ function hashDevice(id: string): string {
 // (= appens identifierForVendor = RevenueCats app_user_id). Aldrig hashat mot RC.
 const PREMIUM_TTL_POS = 900; // aktiv premium cachas 15 min
 const PREMIUM_TTL_NEG = 60;  // "ingen premium" cachas kort → nyss köpt syns snabbt (även utan webhook)
-const premiumKey = (deviceId: string) => `premium:v2:${hashDevice(deviceId)}`; // v2 = cache-bust mot ev. gamla värden
+// v3 = ny SHA-256-nyckel. Premium-värdet är bara en kort cache av RevenueCat → ingen migrering behövs.
+const premiumKey = async (deviceId: string) => `premium:v3:${await hashDevice(deviceId)}`;
 
 // Hämtar kundens aktiva entitlement-id:n + HTTP-status (status används för felsökning via ?debug=1).
 // RÅA customerId (= app_user_id) mot RevenueCat.
@@ -127,7 +164,7 @@ async function rcActive(customerId: string, env: Env): Promise<boolean> {
 // använder det råa id:t. Negativt svar cachas kort så ett nytt köp syns snabbt.
 async function checkPremium(deviceId: string, env: Env): Promise<boolean> {
   if (!deviceId || deviceId === 'unknown' || !env.QUOTA_KV) return false;
-  const key = premiumKey(deviceId);
+  const key = await premiumKey(deviceId);
   const cached = await env.QUOTA_KV.get(key);
   if (cached !== null) return cached === '1';
   const active = await rcActive(deviceId, env);
@@ -138,7 +175,7 @@ async function checkPremium(deviceId: string, env: Env): Promise<boolean> {
 // Server-sanningen för tier: promo-kod ELLER RevenueCat. Ersätter tilliten till
 // klientens X-Tier/X-Premium-headers.
 async function resolveTier(deviceId: string, env: Env): Promise<string> {
-  const promo = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${hashDevice(deviceId)}`)) === '1' : false;
+  const promo = await promoActive(env.QUOTA_KV, await deviceKeys(deviceId));
   return (promo || await checkPremium(deviceId, env)) ? 'premium' : 'free';
 }
 
@@ -750,11 +787,11 @@ export default {
     // ── Token-saldo: månadens AI-förbrukning för denna device (Settings-mätaren) ──
     if (url.pathname === '/tokens' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
-      const devHash = hashDevice(devId);
+      const dk = await deviceKeys(devId);
       const tier = await resolveTier(devId, env); // server-sanning (promo/RevenueCat), inte headern
       const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
       const used = env.QUOTA_KV
-        ? parseInt(await env.QUOTA_KV.get(tokenKey(devHash, tier)) ?? '0', 10)
+        ? parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tier), tokenKey(dk.legacy, tier), tokenTtl(tier)) ?? '0', 10)
         : 0;
       const premium = tier === 'premium';
       const period = tier === 'free' ? 'lifetime' : currentMonth();
@@ -817,7 +854,7 @@ export default {
     if (url.pathname === '/entitlement' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
       if (url.searchParams.get('debug') === '1') {
-        const promo = env.QUOTA_KV ? (await env.QUOTA_KV.get(`promo:${hashDevice(devId)}`)) === '1' : false;
+        const promo = await promoActive(env.QUOTA_KV, await deviceKeys(devId));
         const rc = await rcFetchActive(devId, env);
         return new Response(JSON.stringify({
           premium: promo || rc.ids.length > 0,
@@ -837,7 +874,7 @@ export default {
     // Giltiga koder ligger BARA i servern (env.PROMO_CODES, kommaseparerat). Bindningen (promo:<device>)
     // sparas i KV utan TTL → kontrolleras vid varje /entitlement- och /tokens-anrop. Revocera = ta bort KV-nyckeln.
     if (url.pathname === '/redeem' && request.method === 'POST') {
-      const devHash = hashDevice(request.headers.get('X-Device-ID') ?? 'unknown');
+      const dk = await deviceKeys(request.headers.get('X-Device-ID') ?? 'unknown');
       let code = '';
       try { code = String((JSON.parse(await request.text()) as any)?.code ?? ''); } catch { /* ogiltig body */ }
       const norm = code.trim().toUpperCase();
@@ -848,7 +885,7 @@ export default {
           status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
       }
-      if (env.QUOTA_KV) await env.QUOTA_KV.put(`promo:${devHash}`, '1'); // permanent (ingen TTL)
+      if (env.QUOTA_KV) await env.QUOTA_KV.put(`promo:${dk.hash}`, '1'); // permanent (ingen TTL)
       return new Response(JSON.stringify({ ok: true, premium: true }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
@@ -864,7 +901,7 @@ export default {
       try { appUserId = String(((JSON.parse(await request.text()) as any)?.event?.app_user_id) ?? ''); } catch { /* ogiltig body */ }
       if (appUserId && env.QUOTA_KV) {
         const active = await rcActive(appUserId, env);
-        await env.QUOTA_KV.put(premiumKey(appUserId), active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
+        await env.QUOTA_KV.put(await premiumKey(appUserId), active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
       }
       return new Response('ok');
     }
@@ -898,7 +935,8 @@ export default {
 
     // ── Proxy ──
     const deviceId = request.headers.get('X-Device-ID') ?? 'unknown';
-    const deviceHash = hashDevice(deviceId);
+    const dk = await deviceKeys(deviceId);
+    const deviceHash = dk.hash;
     const country = (request as any).cf?.country ?? '??';
 
     try {
@@ -914,7 +952,7 @@ export default {
       // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
       if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
         const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
-        const tUsed = parseInt(await env.QUOTA_KV.get(tokenKey(deviceHash, tierHeader)) ?? '0', 10);
+        const tUsed = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tierHeader), tokenKey(dk.legacy, tierHeader), tokenTtl(tierHeader)) ?? '0', 10);
         if (tUsed >= tLimit) {
           return new Response(JSON.stringify({
             error: 'token_quota_exceeded',
@@ -958,7 +996,7 @@ export default {
                 indexes: [deviceHash],
               });
             }
-            await addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok);
+            await addTokens(env.QUOTA_KV, dk, tierHeader, inTok + outTok);
           } catch {}
         })());
         return new Response(toClient, {
@@ -985,7 +1023,7 @@ export default {
         });
       }
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
-      ctx.waitUntil(addTokens(env.QUOTA_KV, deviceHash, tierHeader, inTok + outTok));
+      ctx.waitUntil(addTokens(env.QUOTA_KV, dk, tierHeader, inTok + outTok));
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

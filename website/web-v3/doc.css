@@ -1,0 +1,46 @@
+/* BLADES — gemensam stil för dokumentsidorna (Support, Privacy, Terms).
+   Självhostad Fraunces (Latin-subset, woff2) + systemtypsnitt → inga tredjepartsanrop (snabbare på mobil,
+   och inga besökar-IP:n till Google Fonts). */
+@font-face{font-family:'Fraunces';src:url('../fonts/fraunces-roman.woff2') format('woff2');font-weight:400 600;font-style:normal;font-display:swap}
+@font-face{font-family:'Fraunces';src:url('../fonts/fraunces-italic.woff2') format('woff2');font-weight:400 500;font-style:italic;font-display:swap}
+
+:root{--serif:'Fraunces',Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-family:var(--sans);background:#080F1C;color:#B5C8D8;line-height:1.7;font-size:16px;-webkit-font-smoothing:antialiased}
+.doc{max-width:720px;margin:0 auto;padding:40px 20px 72px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:36px}
+.top img{height:22px;width:auto;display:block}
+.top nav{display:flex;gap:4px;font-size:14px}
+.top nav a{color:#7FA8C8;text-decoration:none;padding:10px 8px;border-radius:8px}
+.top nav a.on,.top nav a:hover{color:#F4F0E6;text-decoration:none}
+.top nav a:focus-visible,.back:focus-visible,summary:focus-visible{outline:2px solid #00C8E8;outline-offset:2px}
+h1{font-family:var(--serif);color:#F4F0E6;font-size:clamp(32px,8vw,44px);font-weight:500;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px;text-wrap:balance}
+.meta{font-family:var(--mono);color:#5A7FA0;font-size:12px;letter-spacing:.04em;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #122030}
+h2{font-family:var(--serif);color:#F4F0E6;font-size:22px;font-weight:500;margin:36px 0 12px;text-wrap:balance}
+p,ul{margin-bottom:12px;text-wrap:pretty}
+ul{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+li{padding-left:18px;position:relative}
+li::before{content:'';position:absolute;left:0;top:.8em;width:7px;height:1px;background:#00C8E8}
+strong{color:#F4F0E6;font-weight:600}
+a{color:#00C8E8;text-decoration:none;overflow-wrap:anywhere}
+a:hover{text-decoration:underline}
+.note{background:#0C1526;border:1px solid #1A3A5A;border-left:3px solid #FFB830;border-radius:12px;padding:14px 16px;margin:6px 0 14px;color:#D9E4EE}
+.card{background:#0C1526;border:1px solid #122030;border-radius:16px;padding:20px;margin-bottom:8px}
+.card .lead{color:#F4F0E6;font-weight:600;font-size:16px;margin-bottom:4px}
+.faq{display:flex;flex-direction:column;gap:2px}
+.faq details{border-bottom:1px solid #122030;padding:4px 0}
+.faq summary{cursor:pointer;list-style:none;color:#F4F0E6;font-weight:600;font-size:16px;padding:14px 32px 14px 0;position:relative;line-height:1.4}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';position:absolute;right:4px;top:12px;color:#00C8E8;font-size:22px;font-weight:400;line-height:1}
+.faq details[open] summary::after{content:'–'}
+.faq .a{padding:0 4px 14px 0}
+.faq .a p{margin-bottom:8px}
+.back{display:inline-flex;align-items:center;gap:8px;margin-top:40px;padding:14px 22px;background:#00C8E8;color:#04101F;border-radius:999px;font-size:14px;font-weight:700;text-decoration:none}
+.back:hover{text-decoration:none}
+@media(max-width:380px){
+  .top{gap:8px}
+  .top img{height:19px}
+  .top nav{font-size:13px;gap:0}
+  .top nav a{padding:10px 6px}
+}

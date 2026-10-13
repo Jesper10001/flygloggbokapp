@@ -1,20 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BLADES — Pilot Logbook</title>
-<meta name="description" content="The digital flight logbook for pilots and drone operators. Log a flight in seconds and copy it straight into your paper logbook. Built by a pilot, for his own flying."/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..500&family=Geist+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="web-v3/styles.css"/>
+<meta name="description" content="The digital flight logbook for pilots and drone operators. Log a flight in seconds and copy it straight into your paper logbook. Built by a pilot, for his own flying.">
+<meta name="theme-color" content="#080F1C">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BLADES — Pilot Logbook">
+<meta property="og:description" content="Log a flight in seconds and copy it straight into your paper logbook. For pilots and drone operators.">
+<meta property="og:url" content="https://blades-app.com/">
+<meta property="og:image" content="https://blades-app.com/web-v3/blades-lockup-h-md.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="fonts/fraunces-roman.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="web-v3/styles.css">
+<script>document.documentElement.classList.add('js');try{var q=/[?&]role=(pilot|drone)\b/.exec(location.search),r=q?q[1]:sessionStorage.getItem('blades-role');if(r==='drone')document.documentElement.classList.add('role-drone')}catch(e){}</script>
+<script src="web-v3/site.js" defer></script>
 </head>
 <body>
-<div id="root"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
-<script type="text/babel" src="web-v3/app.jsx"></script>
+<div id="top"></div>
+
+<nav class="nav" aria-label="Main">
+  <div class="wrap nav-in">
+    <a href="#top" class="brand" aria-label="BLADES — back to top"><img class="brand-lockup" src="web-v3/blades-lockup-h-sm.png" width="107" height="24" alt="BLADES — Pilot Logbook"></a>
+    <div class="roletog" role="group" aria-label="I fly as">
+      <span class="role-pill" aria-hidden="true"></span>
+      <button type="button" class="role-tab" data-role="pilot" aria-pressed="true">Pilot</button>
+      <button type="button" class="role-tab" data-role="drone" aria-pressed="false">Drone Pilot</button>
+    </div>
+    <div class="nav-panel" id="nav-panel">
+      <a class="nav-link" href="#logbook">Logbook</a>
+      <a class="nav-link" href="#how">How it works</a>
+      <a class="nav-link" href="#features">Features</a>
+      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="btn btn-primary nav-cta" href="#download">Download</a>
+    </div>
+    <button type="button" class="burger" aria-controls="nav-panel" aria-expanded="false" aria-label="Open menu">
+      <svg class="ic-menu" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ic-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+</nav>
+
+<main>
+<!-- HERO -->
+<header class="hero" id="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <div class="hero-roletog">
+        <div class="roletog" role="group" aria-label="I fly as">
+          <span class="role-pill" aria-hidden="true"></span>
+          <button type="button" class="role-tab" data-role="pilot" aria-pressed="true">Pilot</button>
+          <button type="button" class="role-tab" data-role="drone" aria-pressed="false">Drone Pilot</button>
+        </div>
+      </div>
+      <span class="eyebrow">BLADES · Pilot Logbook</span>
+      <h1><span class="only-pilot">Log it in seconds.<br><span class="l2">Copy it into your paper logbook.</span></span><span class="only-drone">Every mission you fly,<br><span class="l2">logged in seconds.</span></span></h1>
+      <p class="hero-sub"><span class="only-pilot">Helicopter and fixed-wing. Log a flight right after shutdown, then open the same page as your physical logbook — row for row, totals carried forward — and write it straight across.</span><span class="only-drone">Open A1/A2/A3 and Specific category. Mission logs, flight modes and your drone fleet in one place.</span></p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#download">Download on the App Store</a>
+        <a class="btn btn-ghost" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <div class="hero-stats only-pilot">
+        <div class="stat"><b>Seconds</b><span>to log a flight</span></div>
+        <div class="stat"><b>1:1</b><span>your paper logbook, on screen</span></div>
+        <div class="stat"><b>Offline</b><span>no account, your data stays yours</span></div>
+      </div>
+      <div class="hero-stats only-drone">
+        <div class="stat"><b>Seconds</b><span>to log a mission</span></div>
+        <div class="stat"><b>Fleet</b><span>every drone, one place</span></div>
+        <div class="stat"><b>Offline</b><span>no account, your data stays yours</span></div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="phone">
+        <span class="ph-badge tr"><span class="only-pilot">Live progress</span><span class="only-drone">Mission log</span></span>
+        <span class="ph-badge bl"><span class="only-pilot">EASA ready</span><span class="only-drone">A1/A2/A3</span></span>
+        <div class="notch"></div>
+        <div class="screen">
+          <figure class="shot" data-eager data-shot-pilot="screens/hero-pilot.jpg" data-shot-drone="screens/hero-drone.jpg">
+            <img class="shot-img" alt="The BLADES dashboard" decoding="async">
+            <div class="shot-fallback ph-fill" aria-hidden="true">
+              <span class="ph-chip">Insights · Licence journey</span>
+              <div class="ph-card lic">
+                <div class="lic-head"><span class="ph-chip">Next licence</span><span class="lic-meta">3/6 met</span></div>
+                <div class="lic-title"><span class="lic-code">ATPL(A)</span><span class="lic-ref">FCL.510.A</span><span class="lic-pct">74%</span></div>
+                <div class="ins-seg"><button type="button" data-view="graph" aria-pressed="true" tabindex="-1">Graph</button><button type="button" data-view="hours" aria-pressed="false" tabindex="-1">Hours</button></div>
+                <div class="lic-graph"><svg class="lg" width="100%" viewBox="0 0 232 150" role="img" aria-label="ATPL requirements progress over time"><line x1="6" y1="36.8" x2="226" y2="36.8" stroke="#FFB830" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/><text class="lg-t lg-target" x="6" y="32.8">TARGET 100%</text><line class="lg-grid" x1="6" y1="14" x2="6" y2="128"/><text class="lg-t lg-year" x="6" y="139" text-anchor="start">2020</text><line class="lg-grid" x1="36.7" y1="14" x2="36.7" y2="128"/><text class="lg-t lg-year" x="36.7" y="139" text-anchor="middle">2021</text><line class="lg-grid" x1="67.4" y1="14" x2="67.4" y2="128"/><text class="lg-t lg-year" x="67.4" y="139" text-anchor="middle">2022</text><line class="lg-grid" x1="98.1" y1="14" x2="98.1" y2="128"/><text class="lg-t lg-year" x="98.1" y="139" text-anchor="middle">2023</text><line class="lg-grid" x1="128.8" y1="14" x2="128.8" y2="128"/><text class="lg-t lg-year" x="128.8" y="139" text-anchor="middle">2024</text><line class="lg-grid" x1="159.5" y1="14" x2="159.5" y2="128"/><text class="lg-t lg-year" x="159.5" y="139" text-anchor="middle">2025</text><line class="lg-grid" x1="190.2" y1="14" x2="190.2" y2="128"/><text class="lg-t lg-year" x="190.2" y="139" text-anchor="middle">2026</text><line class="lg-grid" x1="220.9" y1="14" x2="220.9" y2="128"/><text class="lg-t lg-year" x="220.9" y="139" text-anchor="middle">2027</text><line class="lg-now" x1="154.4" y1="14" x2="154.4" y2="128"/><text class="lg-t lg-nowt" x="154.4" y="10" text-anchor="middle">NOW</text><path d="M6 128L154.4 72" fill="none" stroke="#00C8E8" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 72L221.7 36.8" fill="none" stroke="#00C8E8" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="221.7" cy="36.8" r="3.6" fill="#080F1C" stroke="#00C8E8" stroke-width="1.8"/><path d="M6 128L138 36.8" fill="none" stroke="#00E8A0" stroke-width="1.8" stroke-linecap="round"/><circle cx="138" cy="36.8" r="3.6" fill="#00E8A0" stroke="#00E8A0" stroke-width="1.8"/><path d="M6 128L128.6 36.8" fill="none" stroke="#9B8CFF" stroke-width="1.8" stroke-linecap="round"/><circle cx="128.6" cy="36.8" r="3.6" fill="#9B8CFF" stroke="#9B8CFF" stroke-width="1.8"/><path d="M6 128L121.9 36.8" fill="none" stroke="#5DA9FF" stroke-width="1.8" stroke-linecap="round"/><circle cx="121.9" cy="36.8" r="3.6" fill="#5DA9FF" stroke="#5DA9FF" stroke-width="1.8"/><path d="M6 128L154.4 94.8" fill="none" stroke="#FFB830" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 94.8L216.9 36.8" fill="none" stroke="#FFB830" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="216.9" cy="36.8" r="3.6" fill="#080F1C" stroke="#FFB830" stroke-width="1.8"/><path d="M6 128L154.4 87" fill="none" stroke="#FF6B5B" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 87L201.3 36.8" fill="none" stroke="#FF6B5B" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="201.3" cy="36.8" r="3.6" fill="#080F1C" stroke="#FF6B5B" stroke-width="1.8"/></svg></div>
+                <div class="lic-hours"><div class="ins-hours"><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Total time</span><span class="ins-rv">921<span class="ins-rq">/1500h</span></span></div><div class="ins-bar"><i style="width:61.4%;background:#00C8E8"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 01/27</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">PIC</span><span class="ins-rv">281<span class="ins-rq">/250h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 04/24</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Cross-country</span><span class="ins-rv">242<span class="ins-rq">/200h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 12/23</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Instrument</span><span class="ins-rv">96<span class="ins-rq">/75h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 10/23</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Multi-crew</span><span class="ins-rv">182<span class="ins-rq">/500h</span></span></div><div class="ins-bar"><i style="width:36.4%;background:#FFB830"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 11/26</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Night</span><span class="ins-rv">45<span class="ins-rq">/100h</span></span></div><div class="ins-bar"><i style="width:45%;background:#FF6B5B"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 05/26</span></div></div></div></div>
+              </div>
+              <div class="ph-card">
+                <span class="ph-chip" style="color:var(--ink4)"><span class="only-pilot">Latest flight</span><span class="only-drone">Latest mission</span></span>
+                <div class="lf-row"><span class="lf-route"><span class="only-pilot">ESSB → ESGG</span><span class="only-drone">A2 · VLOS</span></span><span class="lf-time"><span class="only-pilot">1:24</span><span class="only-drone">0:32</span></span></div>
+                <span class="lf-note"><span class="only-pilot">Logged · page 38, row 9</span><span class="only-drone">Logged · page 4, row 7</span></span>
+              </div>
+            </div>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- PAPER LOGBOOK -->
+<section class="section" id="logbook">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="eyebrow">Your physical logbook, in the app</span>
+      <h2 class="stitle">Open the page. <em>Copy it across.</em></h2>
+      <p class="ssub">Choose the layout of the logbook you actually carry. BLADES puts every flight on the right page and row, carries the totals forward and shows the latest spread full-screen, so writing it into the paper book takes a minute and no maths.</p>
+    </div>
+    <div class="spread reveal" style="margin-top:36px" role="region" aria-label="Example logbook spread" tabindex="0">
+      <div class="sp-page sp-l">
+        <div class="sp-row sp-h"><span>Date</span><span>From</span><span>To</span><span>Type</span><span>Reg</span><span>Total</span></div>
+        <div class="sp-row"><span>03/09</span><span>ESSB</span><span>ESGG</span><span>AS350</span><span>SE-JUX</span><span>1:24</span></div>
+        <div class="sp-row"><span>03/09</span><span>ESGG</span><span>ESSB</span><span>AS350</span><span>SE-JUX</span><span>1:18</span></div>
+        <div class="sp-row"><span>05/09</span><span>ESSB</span><span>ESSB</span><span>AW109</span><span>SE-JRH</span><span>0:48</span></div>
+        <div class="sp-row"><span>08/09</span><span>ESSB</span><span>ESOW</span><span>AS350</span><span>SE-JUX</span><span>0:36</span></div>
+        <div class="sp-row"><span>08/09</span><span>ESOW</span><span>ESSB</span><span>AS350</span><span>SE-JUX</span><span>0:40</span></div>
+        <div class="sp-row"><span>11/09</span><span>ESSB</span><span>ESKN</span><span>AW109</span><span>SE-JRH</span><span>0:52</span></div>
+        <div class="sp-row"><span>11/09</span><span>ESKN</span><span>ESSB</span><span>AW109</span><span>SE-JRH</span><span>0:55</span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-tot"><span>Total this page</span><b>6:33</b></div>
+        <div class="sp-tot"><span>Brought forward</span><b>912:08</b></div>
+        <div class="sp-tot big"><span>Total to date</span><b>918:41</b></div>
+        <span class="sp-pn">38</span>
+      </div>
+      <div class="sp-page sp-r">
+        <div class="sp-row sp-h"><span>PIC</span><span>Night</span><span>Ldg D</span><span>Ldg N</span><span>Remarks</span></div>
+        <div class="sp-row"><span>1:24</span><span></span><span>1</span><span>0</span><span></span></div>
+        <div class="sp-row"><span>1:18</span><span>0:22</span><span>0</span><span>1</span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span>2</span><span>0</span><span></span></div>
+        <div class="sp-row"><span>0:36</span><span></span><span>1</span><span>0</span><span></span></div>
+        <div class="sp-row"><span>0:40</span><span>0:40</span><span>0</span><span>1</span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span>1</span><span>0</span><span></span></div>
+        <div class="sp-row"><span></span><span>0:15</span><span>0</span><span>1</span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-row"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="sp-tot"><span>This page</span><b>4:38 · 1:17 · 5 · 3</b></div>
+        <div class="sp-tot"><span>Brought forward</span><b>281:20 · 44:05</b></div>
+        <div class="sp-tot big"><span>Total to date</span><b>285:58 · 45:22</b></div>
+        <span class="sp-pn r">39</span>
+      </div>
+    </div>
+    <p class="spread-cap reveal"><span class="swipe">Swipe for the right-hand page · </span>The same spread you get in the app. Turn the phone sideways and it fills the screen.</p>
+  </div>
+</section>
+
+<!-- MAKER -->
+<section class="section" id="maker">
+  <div class="wrap">
+    <div class="maker reveal">
+      <span class="eyebrow">Why it exists</span>
+      <h2 class="stitle">I built it <em>for myself</em></h2>
+      <div class="maker-body">
+        <p>I fly for a living. After every flight I wanted two things: to get it logged in seconds, and to copy it into my paper logbook without adding up columns by hand. No app did both, so I built one.</p>
+        <p>BLADES is the logbook I use myself, made exactly the way I want it. Every feature in it is something I needed on my own flights.</p>
+      </div>
+      <span class="maker-sig">The pilot behind BLADES</span>
+    </div>
+  </div>
+</section>
+
+<!-- ROLES -->
+<section class="section" id="roles">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="eyebrow">Built for how you fly</span>
+      <h2 class="stitle">One app, <em><span class="only-pilot">every cockpit</span><span class="only-drone">every mission</span></em>.</h2>
+      <p class="ssub">Switch between Pilot and Drone Pilot at the top — the whole app tailors its fields and exports to your world.</p>
+    </div>
+    <div class="role-detail reveal">
+      <div class="role-points only-pilot">
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 3.3a1.7 1.7 0 0 1 3.6 0V9l8 4.5v2.2L13.8 13v4.2l2.4 1.8v1.8L12 19.6 7.8 20.8V19l2.4-1.8V13L2 15.7v-2.2L10.2 9V3.3z"/></svg></div><div><h3>Mixed-rule flights</h3><p>Log a Y or Z flight in one row — VFR/IFR splits compute against your route.</p></div></div>
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 3.3a1.7 1.7 0 0 1 3.6 0V9l8 4.5v2.2L13.8 13v4.2l2.4 1.8v1.8L12 19.6 7.8 20.8V19l2.4-1.8V13L2 15.7v-2.2L10.2 9V3.3z"/></svg></div><div><h3>Night &amp; NVG, automatic</h3><p>Civil twilight from your departure ICAO. Night splits out automatically for NVG time.</p></div></div>
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 3.3a1.7 1.7 0 0 1 3.6 0V9l8 4.5v2.2L13.8 13v4.2l2.4 1.8v1.8L12 19.6 7.8 20.8V19l2.4-1.8V13L2 15.7v-2.2L10.2 9V3.3z"/></svg></div><div><h3>Your paper logbook, mirrored</h3><p>Pick your logbook layout. Every flight lands on the right row and page, with totals carried forward.</p></div></div>
+      </div>
+      <div class="role-points only-drone">
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><path d="M9.5 9.5 7 7M14.5 9.5 17 7M9.5 14.5 7 17M14.5 14.5 17 17"/><circle cx="5.5" cy="5.5" r="2.3"/><circle cx="18.5" cy="5.5" r="2.3"/><circle cx="5.5" cy="18.5" r="2.3"/><circle cx="18.5" cy="18.5" r="2.3"/></svg></div><div><h3>Category-aware logging</h3><p>A1/A2/A3 and Specific, VLOS/EVLOS/BVLOS, mission type — captured the way you actually fly.</p></div></div>
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><path d="M9.5 9.5 7 7M14.5 9.5 17 7M9.5 14.5 7 17M14.5 14.5 17 17"/><circle cx="5.5" cy="5.5" r="2.3"/><circle cx="18.5" cy="5.5" r="2.3"/><circle cx="5.5" cy="18.5" r="2.3"/><circle cx="18.5" cy="18.5" r="2.3"/></svg></div><div><h3>Your drone fleet</h3><p>Models, registrations and categories, ready to pick when you log.</p></div></div>
+        <div class="rp"><div class="rp-ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><path d="M9.5 9.5 7 7M14.5 9.5 17 7M9.5 14.5 7 17M14.5 14.5 17 17"/><circle cx="5.5" cy="5.5" r="2.3"/><circle cx="18.5" cy="5.5" r="2.3"/><circle cx="5.5" cy="18.5" r="2.3"/><circle cx="18.5" cy="18.5" r="2.3"/></svg></div><div><h3>Your logbook, page by page</h3><p>Every mission laid out on a logbook spread in the app.</p></div></div>
+      </div>
+      <div class="stage">
+        <div class="phone">
+          <span class="ph-badge tr"><span class="only-pilot">Live progress</span><span class="only-drone">Mission log</span></span>
+          <span class="ph-badge bl"><span class="only-pilot">EASA ready</span><span class="only-drone">A1/A2/A3</span></span>
+          <div class="notch"></div>
+          <div class="screen">
+            <figure class="shot" data-shot-pilot="screens/role-pilot.jpg" data-shot-drone="screens/role-drone.jpg">
+              <img class="shot-img" alt="Logging a flight in BLADES" decoding="async">
+              <div class="shot-fallback ph-fill" aria-hidden="true">
+              <span class="ph-chip">Insights · Licence journey</span>
+              <div class="ph-card lic">
+                <div class="lic-head"><span class="ph-chip">Next licence</span><span class="lic-meta">3/6 met</span></div>
+                <div class="lic-title"><span class="lic-code">ATPL(A)</span><span class="lic-ref">FCL.510.A</span><span class="lic-pct">74%</span></div>
+                <div class="ins-seg"><button type="button" data-view="graph" aria-pressed="true" tabindex="-1">Graph</button><button type="button" data-view="hours" aria-pressed="false" tabindex="-1">Hours</button></div>
+                <div class="lic-graph"><svg class="lg" width="100%" viewBox="0 0 232 150" role="img" aria-label="ATPL requirements progress over time"><line x1="6" y1="36.8" x2="226" y2="36.8" stroke="#FFB830" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/><text class="lg-t lg-target" x="6" y="32.8">TARGET 100%</text><line class="lg-grid" x1="6" y1="14" x2="6" y2="128"/><text class="lg-t lg-year" x="6" y="139" text-anchor="start">2020</text><line class="lg-grid" x1="36.7" y1="14" x2="36.7" y2="128"/><text class="lg-t lg-year" x="36.7" y="139" text-anchor="middle">2021</text><line class="lg-grid" x1="67.4" y1="14" x2="67.4" y2="128"/><text class="lg-t lg-year" x="67.4" y="139" text-anchor="middle">2022</text><line class="lg-grid" x1="98.1" y1="14" x2="98.1" y2="128"/><text class="lg-t lg-year" x="98.1" y="139" text-anchor="middle">2023</text><line class="lg-grid" x1="128.8" y1="14" x2="128.8" y2="128"/><text class="lg-t lg-year" x="128.8" y="139" text-anchor="middle">2024</text><line class="lg-grid" x1="159.5" y1="14" x2="159.5" y2="128"/><text class="lg-t lg-year" x="159.5" y="139" text-anchor="middle">2025</text><line class="lg-grid" x1="190.2" y1="14" x2="190.2" y2="128"/><text class="lg-t lg-year" x="190.2" y="139" text-anchor="middle">2026</text><line class="lg-grid" x1="220.9" y1="14" x2="220.9" y2="128"/><text class="lg-t lg-year" x="220.9" y="139" text-anchor="middle">2027</text><line class="lg-now" x1="154.4" y1="14" x2="154.4" y2="128"/><text class="lg-t lg-nowt" x="154.4" y="10" text-anchor="middle">NOW</text><path d="M6 128L154.4 72" fill="none" stroke="#00C8E8" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 72L221.7 36.8" fill="none" stroke="#00C8E8" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="221.7" cy="36.8" r="3.6" fill="#080F1C" stroke="#00C8E8" stroke-width="1.8"/><path d="M6 128L138 36.8" fill="none" stroke="#00E8A0" stroke-width="1.8" stroke-linecap="round"/><circle cx="138" cy="36.8" r="3.6" fill="#00E8A0" stroke="#00E8A0" stroke-width="1.8"/><path d="M6 128L128.6 36.8" fill="none" stroke="#9B8CFF" stroke-width="1.8" stroke-linecap="round"/><circle cx="128.6" cy="36.8" r="3.6" fill="#9B8CFF" stroke="#9B8CFF" stroke-width="1.8"/><path d="M6 128L121.9 36.8" fill="none" stroke="#5DA9FF" stroke-width="1.8" stroke-linecap="round"/><circle cx="121.9" cy="36.8" r="3.6" fill="#5DA9FF" stroke="#5DA9FF" stroke-width="1.8"/><path d="M6 128L154.4 94.8" fill="none" stroke="#FFB830" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 94.8L216.9 36.8" fill="none" stroke="#FFB830" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="216.9" cy="36.8" r="3.6" fill="#080F1C" stroke="#FFB830" stroke-width="1.8"/><path d="M6 128L154.4 87" fill="none" stroke="#FF6B5B" stroke-width="1.8" stroke-linecap="round"/><path d="M154.4 87L201.3 36.8" fill="none" stroke="#FF6B5B" stroke-width="1.4" stroke-dasharray="3 3" opacity=".85"/><circle cx="201.3" cy="36.8" r="3.6" fill="#080F1C" stroke="#FF6B5B" stroke-width="1.8"/></svg></div>
+                <div class="lic-hours"><div class="ins-hours"><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Total time</span><span class="ins-rv">921<span class="ins-rq">/1500h</span></span></div><div class="ins-bar"><i style="width:61.4%;background:#00C8E8"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 01/27</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">PIC</span><span class="ins-rv">281<span class="ins-rq">/250h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 04/24</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Cross-country</span><span class="ins-rv">242<span class="ins-rq">/200h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 12/23</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Instrument</span><span class="ins-rv">96<span class="ins-rq">/75h</span></span></div><div class="ins-bar"><i style="width:100%;background:#00E8A0"></i></div><div class="ins-rs"><span>✓ complete</span><span class="ok">✓ 10/23</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Multi-crew</span><span class="ins-rv">182<span class="ins-rq">/500h</span></span></div><div class="ins-bar"><i style="width:36.4%;background:#FFB830"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 11/26</span></div></div><div class="ins-row"><div class="ins-rt"><span class="ins-rl">Night</span><span class="ins-rv">45<span class="ins-rq">/100h</span></span></div><div class="ins-bar"><i style="width:45%;background:#FF6B5B"></i></div><div class="ins-rs"><span>in progress</span><span class="">→ 05/26</span></div></div></div></div>
+              </div>
+              <div class="ph-card">
+                <span class="ph-chip" style="color:var(--ink4)"><span class="only-pilot">Latest flight</span><span class="only-drone">Latest mission</span></span>
+                <div class="lf-row"><span class="lf-route"><span class="only-pilot">ESSB → ESGG</span><span class="only-drone">A2 · VLOS</span></span><span class="lf-time"><span class="only-pilot">1:24</span><span class="only-drone">0:32</span></span></div>
+                <span class="lf-note"><span class="only-pilot">Logged · page 38, row 9</span><span class="only-drone">Logged · page 4, row 7</span></span>
+              </div>
+            </div>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="head reveal"><span class="eyebrow">How it works</span><h2 class="stitle">Cockpit to logbook, <em>fast</em>.</h2></div>
+    <div class="how">
+      <div class="how-step reveal">
+        <div class="how-n">01</div>
+        <div class="how-b"><h3>Log in seconds</h3><p>Quicklog captures the essentials: route, times, aircraft, role. Night and totals fill themselves in.</p></div>
+        <div class="how-shot" data-shot-host><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/how-log.jpg"><img class="shot-img" alt="Quicklog in BLADES" decoding="async"></figure></div></div></div>
+      </div>
+      <div class="how-step reveal">
+        <div class="how-n">02</div>
+        <div class="how-b"><h3>Open your logbook page</h3><p>The latest spread opens full-screen in landscape, laid out like your paper book. Copy the rows, check the totals, sign.</p></div>
+        <div class="how-shot" data-shot-host><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/how-book.jpg"><img class="shot-img" alt="The physical logbook view in BLADES" decoding="async"></figure></div></div></div>
+      </div>
+      <div class="how-step reveal">
+        <div class="how-n">03</div>
+        <div class="how-b"><h3>See where you stand</h3><p>Licence progress, 14-day flight load and your year in the air update the moment you save.</p></div>
+        <div class="how-shot" data-shot-host><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/how-insights.jpg"><img class="shot-img" alt="Insights and licence progress in BLADES" decoding="async"></figure></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features" style="background:linear-gradient(180deg,transparent,rgba(8,15,28,.6))">
+  <div class="wrap">
+    <div class="head c reveal"><span class="eyebrow c">What you get</span><h2 class="stitle">Built the way pilots <em>actually work</em>.</h2></div>
+    <div class="feat-grid">
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-bars"><i style="height:40%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:55%"></i><i class="pk" style="height:80%"></i><i style="height:60%"></i><i style="height:44%"></i><i style="height:66%"></i></div></div>
+        <div class="feat-b"><span class="feat-tag">Flight Load</span><h3>14-day rolling load</h3><p>Calibrated to your own baseline — not a generic stress number.</p></div>
+      </article>
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-rows"><div class="v-row"><i style="width:82%"></i></div><div class="v-row"><i style="width:60%"></i></div><div class="v-row"><i style="width:45%"></i></div><div class="v-row"><i style="width:30%"></i></div></div></div>
+        <div class="feat-b"><span class="feat-tag">Licence</span><h3>CPL / ATPL progress</h3><p>Track PIC, IFR, night and cross-country hours live, per requirement.</p></div>
+      </article>
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-quick"><div><span>DEP</span><b>ESSB</b></div><div><span>ARR</span><b>ESGG</b></div><div><span>TIME</span><b>1:24</b></div><div><span>A/C</span><b>AS350</b></div></div></div>
+        <div class="feat-b"><span class="feat-tag">Quicklog</span><h3>Logged before you leave the ramp</h3><p>The essentials in one screen. Or photograph your flight data and let AI fill it in.</p></div>
+      </article>
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-bars"><i style="height:30%"></i><i style="height:50%"></i><i style="height:44%"></i><i style="height:66%"></i><i style="height:58%"></i><i class="pk" style="height:74%"></i><i style="height:52%"></i></div></div>
+        <div class="feat-b"><span class="feat-tag">Insights</span><h3>Your year in the air</h3><p>Best week, longest XC, hours over time — surfaced automatically.</p></div>
+      </article>
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-book"><div class="pg"><i></i><i></i><i></i><i></i><i></i></div><div class="pg"><i></i><i></i><i></i><i></i><i></i></div></div></div>
+        <div class="feat-b"><span class="feat-tag">Logbook</span><h3>Your paper book, on screen</h3><p>Your logbook’s own columns and page size, so copying by hand is row for row.</p></div>
+      </article>
+      <article class="feat reveal">
+        <div class="feat-viz" aria-hidden="true"><div class="v-lock"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
+        <div class="feat-b"><span class="feat-tag">Offline-first</span><h3>Your data, your device</h3><p>No account, no cloud scraping. Encrypted on your phone, export anytime as CSV.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- WORLD MAP -->
+<section class="section" id="map">
+  <div class="wrap">
+    <div class="head c reveal"><span class="eyebrow c">Your world of flights</span><h2 class="stitle">Every airport you’ve <em>touched</em>.</h2><p class="ssub" style="text-align:center">Your flights, projected onto the globe — every field, every country, one map.</p></div>
+    <div class="map-wrap reveal" id="map-wrap" data-shot-host>
+      <canvas class="globe-cv" aria-label="Spinning globe with example airports"></canvas>
+      <div class="map-stats" aria-hidden="true">
+        <div class="map-stat"><b>58</b><span>Airports</span></div>
+        <div class="map-stat"><b>19</b><span>Countries</span></div>
+        <div class="map-stat"><b>2 371</b><span>NM longest</span></div>
+      </div>
+      <div class="globe-hint">Drag to spin · example data</div>
+      <div class="map-shot"><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/map.jpg"><img class="shot-img" alt="The global airport map in BLADES" decoding="async"></figure></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="head c reveal"><span class="eyebrow c">Pricing</span><h2 class="stitle">Free to start. <em>No surprises.</em></h2></div>
+    <div class="price-grid">
+      <div class="plan reveal">
+        <div class="plan-top"><span class="plan-name">Free</span></div>
+        <div class="plan-price"><span class="plan-amt">0</span><span class="plan-per">forever</span></div>
+        <ul class="plan-feats">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Up to 20 manual flights</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Every feature unlocked — share cards, CPL/ATPL tracking, full ICAO database</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Free Blade-coins to try AI import &amp; lookup</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Offline-first, no account</li>
+        </ul>
+        <a class="btn btn-ghost" href="#download">Get started</a>
+      </div>
+      <div class="plan feat-plan reveal">
+        <div class="plan-top"><span class="plan-name">Premium</span><span class="plan-badge">Premium</span></div>
+        <div class="plan-price"><span class="plan-amt">39</span><span class="plan-per">kr / month</span></div>
+        <ul class="plan-feats">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Unlimited manual flights</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Blade-coins refilled every month</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>Everything on Free, without the flight limit</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>No ads, no account</li>
+        </ul>
+        <a class="btn btn-primary" href="#download">Go Premium</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSER -->
+<section class="section closer" id="download">
+  <div class="wrap">
+    <div class="closer-card reveal">
+      <img class="closer-logo" src="web-v3/blades-lockup-h-md.png" width="320" height="71" alt="BLADES — Pilot Logbook">
+      <h2>Your logbook, finally<br>worth opening.</h2>
+      <p>Free to start — 20 flights with every feature unlocked, plus free Blade-coins to try the AI features. Premium is 39 kr/month for unlimited flights. No account.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+        <a class="btn btn-ghost" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-in">
+    <a href="#top" class="brand" aria-label="BLADES — back to top"><img class="brand-lockup" src="web-v3/blades-lockup-h-sm.png" width="99" height="22" alt="BLADES — Pilot Logbook"></a>
+    <nav class="footer-links" aria-label="Footer"><a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="/support">Support</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    <span class="footer-copy">© 2026 BLADES · Built by a pilot, in Sweden</span>
+  </div>
+</footer>
 </body>
 </html>

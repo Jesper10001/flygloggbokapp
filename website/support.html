@@ -3,38 +3,10 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Support — BLADES</title>
 <meta name="description" content="Help and frequently asked questions for Blades, the flight logbook for pilots and drone operators.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#080F1C;color:#B5C8D8;line-height:1.7;font-size:15px;-webkit-font-smoothing:antialiased}
-.doc{max-width:720px;margin:0 auto;padding:56px 24px 80px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:44px}
-.top img{height:22px;width:auto}
-.top nav{display:flex;gap:18px;font-size:13px}
-.top nav a{color:#7FA8C8;text-decoration:none}
-.top nav a.on,.top nav a:hover{color:#F4F0E6}
-h1{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:clamp(32px,6vw,44px);font-weight:500;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px}
-.meta{font-family:'Geist Mono',ui-monospace,monospace;color:#5A7FA0;font-size:12px;letter-spacing:.04em;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #122030}
-h2{font-family:'Fraunces',Georgia,serif;color:#F4F0E6;font-size:21px;font-weight:500;margin:38px 0 14px}
-p{margin-bottom:12px;text-wrap:pretty}
-strong{color:#F4F0E6;font-weight:600}
-a{color:#00C8E8;text-decoration:none}
-a:hover{text-decoration:underline}
-.card{background:#0C1526;border:1px solid #122030;border-radius:16px;padding:22px 24px;margin-bottom:8px}
-.card .lead{color:#F4F0E6;font-weight:600;font-size:16px;margin-bottom:4px}
-.faq{display:flex;flex-direction:column;gap:2px}
-.faq details{border-bottom:1px solid #122030;padding:6px 0}
-.faq summary{cursor:pointer;list-style:none;color:#F4F0E6;font-weight:600;font-size:15.5px;padding:12px 28px 12px 0;position:relative}
-.faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:'+';position:absolute;right:4px;top:10px;color:#00C8E8;font-size:20px;font-weight:400;line-height:1}
-.faq details[open] summary::after{content:'–'}
-.faq .a{padding:0 4px 14px 0}
-.faq .a p{margin-bottom:8px}
-.back{display:inline-flex;align-items:center;gap:8px;margin-top:44px;padding:12px 20px;background:#00C8E8;color:#04101F;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none}
-.back:hover{text-decoration:none}
-</style>
+<meta name="theme-color" content="#080F1C">
+<link rel="stylesheet" href="web-v3/doc.css">
 </head><body><main class="doc">
-<header class="top"><a href="/"><img src="web-v3/blades-lockup-h.png" alt="BLADES — Pilot Logbook"></a><nav><a href="/support" class="on">Support</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></header>
+<header class="top"><a href="/"><img src="web-v3/blades-lockup-h-sm.png" width="99" height="22" alt="BLADES — Pilot Logbook"></a><nav><a href="/support" class="on">Support</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></header>
 
 <h1>Support</h1>
 <p class="meta">Blades — Pilot Logbook · Help &amp; FAQ</p>
@@ -71,7 +43,7 @@ a:hover{text-decoration:underline}
 
   <details>
     <summary>How do I bring in my existing logbook?</summary>
-    <div class="a"><p>Open Settings → Import. You can import a CSV file or enter your totals by hand. If a CSV is missing some values, use <strong>Backfill missing hours</strong> to add them per field so your totals and currency stay accurate.</p></div>
+    <div class="a"><p>Open Settings → Import. You can import a CSV file, or enter your totals by hand with <strong>Block import manually</strong>. If a CSV is missing some values, use <strong>Backfill missing hours</strong> to add them per field so your totals and currency stay accurate.</p></div>
   </details>
 
   <details>
@@ -86,7 +58,7 @@ a:hover{text-decoration:underline}
 
   <details>
     <summary>What's free, and what's in Premium?</summary>
-    <div class="a"><p>You can log flights and use the core app for free, with a limited allowance of AI-assisted actions. <strong>Blades Premium</strong> unlocks unlimited logging and the full AI allowance.</p></div>
+    <div class="a"><p>You can use the app for free with up to 20 manually logged flights per logbook, plus a one-time allowance of Blade-coins for the AI features. <strong>Blades Premium</strong> unlocks unlimited logging and refills your Blade-coins every month.</p></div>
   </details>
 
   <details>
@@ -96,7 +68,7 @@ a:hover{text-decoration:underline}
 
   <details>
     <summary>How accurate are the AI features?</summary>
-    <div class="a"><p>AI lookups are an aid and can be wrong — always review the results before saving. What you submit is sent over an encrypted connection and, per our provider's terms, is not used to train models and is not retained after processing.</p></div>
+    <div class="a"><p>AI lookups are an aid and can be wrong — always review the results before saving. What you submit is sent over an encrypted connection without any identifier. Our AI provider does not use it to train models and keeps it only for a limited period under its terms. See the <a href="/privacy">Privacy Policy</a> for details.</p></div>
   </details>
 
   <details>
