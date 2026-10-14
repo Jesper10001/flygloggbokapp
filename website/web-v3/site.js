@@ -35,6 +35,15 @@
     fig.dataset.want = src;
     preload(src).then(function (ok) {
       if (fig.dataset.want !== src) return; // rollen bytte medan bilden laddade
+      // Saknas drönarbilden och figuren har ingen egen mockup → visa pilotbilden i stället för ingenting.
+      var pilotSrc = fig.dataset.shotPilot;
+      if (!ok && pilotSrc && src !== pilotSrc && !fig.querySelector('.shot-fallback')) {
+        fig.dataset.want = pilotSrc;
+        return preload(pilotSrc).then(function (ok2) { if (fig.dataset.want === pilotSrc) finish(pilotSrc, ok2); });
+      }
+      finish(src, ok);
+    });
+    function finish(src, ok) {
       var img = fig.querySelector('.shot-img');
       var host = fig.closest('[data-shot-host]');
       if (ok && img && img.getAttribute('src') !== src) img.src = src;
@@ -43,7 +52,7 @@
       var step = fig.closest('.how-step');
       if (step) step.classList.toggle('has-shot', ok);
       if (host && host.id === 'map-wrap') updateGlobe();
-    });
+    }
   }
   var figs = $$('figure.shot');
   figs.filter(function (f) { return f.hasAttribute('data-eager'); }).forEach(applyShot);
@@ -80,6 +89,23 @@
     try { sessionStorage.setItem('blades-role', r); } catch (e) { /* privat läge */ }
   }
   syncTabs();
+
+  // Flytande toggel (mobil): visas när hero-togglen scrollats förbi uppåt, döljs vid sidfoten.
+  var floatTog = document.querySelector('.float-roletog');
+  var heroTog = document.querySelector('.hero-roletog');
+  var footerEl = document.querySelector('.footer');
+  if (floatTog && heroTog && 'IntersectionObserver' in window) {
+    var pastHero = false, atFooter = false;
+    var updFloat = function () { floatTog.classList.toggle('show', pastHero && !atFooter); };
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) { pastHero = !e.isIntersecting && e.boundingClientRect.top < 0; });
+      updFloat();
+    }).observe(heroTog);
+    if (footerEl) new IntersectionObserver(function (es) {
+      es.forEach(function (e) { atFooter = e.isIntersecting; });
+      updFloat();
+    }).observe(footerEl);
+  }
 
   // ── Mobilmeny ───────────────────────────────────────────────────────────────
   var nav = document.querySelector('.nav');

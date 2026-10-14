@@ -157,7 +157,7 @@
       <span class="eyebrow">Why it exists</span>
       <h2 class="stitle">I built it <em>for myself</em></h2>
       <div class="maker-body">
-        <p>I fly for a living. After every flight I wanted two things: to get it logged in seconds, and to copy it into my paper logbook without adding up columns by hand. No app did both, so I built one.</p>
+        <p>After every flight I wanted two things: to get it logged in seconds, and to copy it into my paper logbook without adding up columns by hand. No app did both, so I built one.</p>
         <p>BLADES is the logbook I use myself, made exactly the way I want it. Every feature in it is something I needed on my own flights.</p>
       </div>
       <span class="maker-sig">The pilot behind BLADES</span>
@@ -225,10 +225,10 @@
         <div class="how-b"><h3>Log in seconds</h3><p>Quicklog captures the essentials: route, times, aircraft, role. Night and totals fill themselves in.</p></div>
         <div class="how-shot" data-shot-host><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/how-log.jpg"><img class="shot-img" alt="Quicklog in BLADES" decoding="async"></figure></div></div></div>
       </div>
-      <div class="how-step reveal">
+      <div class="how-step wide reveal">
         <div class="how-n">02</div>
         <div class="how-b"><h3>Open your logbook page</h3><p>The latest spread opens full-screen in landscape, laid out like your paper book. Copy the rows, check the totals, sign.</p></div>
-        <div class="how-shot" data-shot-host><div class="phone sm"><div class="notch"></div><div class="screen"><figure class="shot" data-shot="screens/how-book.jpg"><img class="shot-img" alt="The physical logbook view in BLADES" decoding="async"></figure></div></div></div>
+        <div class="how-shot" data-shot-host><div class="phone sm land"><div class="screen"><figure class="shot" data-shot-pilot="screens/how-book.jpg" data-shot-drone="screens/how-book-drone.jpg"><img class="shot-img" alt="The physical logbook view in BLADES" decoding="async"></figure></div></div></div>
       </div>
       <div class="how-step reveal">
         <div class="how-n">03</div>
@@ -335,6 +335,15 @@
   </div>
 </section>
 </main>
+
+<!-- Flytande rolltoggel (mobil): syns när toppens toggel scrollats ur bild → jämför pilot/drönare var som helst -->
+<div class="float-roletog">
+  <div class="roletog" role="group" aria-label="I fly as">
+    <span class="role-pill" aria-hidden="true"></span>
+    <button type="button" class="role-tab" data-role="pilot" aria-pressed="true">Pilot</button>
+    <button type="button" class="role-tab" data-role="drone" aria-pressed="false">Drone Pilot</button>
+  </div>
+</div>
 
 <footer class="footer">
   <div class="wrap footer-in">

@@ -9,7 +9,7 @@ set -e
 cd "${0:A:h}"
 OUT="../website/screens"
 mkdir -p raw "$OUT"
-names=(hero-pilot hero-drone role-pilot role-drone how-log how-book how-insights map)
+names=(hero-pilot hero-drone role-pilot role-drone how-log how-book how-book-drone how-insights map)
 count=0
 for f in raw/*.(png|PNG|jpg|JPG|jpeg|JPEG|heic|HEIC)(N); do
   base="${${f:t}:r}"

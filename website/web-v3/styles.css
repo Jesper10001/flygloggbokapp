@@ -83,6 +83,13 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em;line-height:1.05}
 html.role-drone .role-pill{left:50%}
 .hero-roletog{display:flex;justify-content:center;margin-bottom:6px}
 .hero-roletog .roletog{width:min(100%,320px)}
+/* Flytande toggel nere i mitten (bara mobil/surfplatta — på datorn sitter den i den fasta menyraden) */
+.float-roletog{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:90;transform:translate(-50%,160%);opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.3,.8,.3,1),opacity .25s;border-radius:999px;box-shadow:0 18px 40px -12px rgba(0,0,0,.75)}
+.float-roletog.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.float-roletog .roletog{width:min(300px,calc(100vw - 48px));background:rgba(15,30,58,.94)}
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .float-roletog .roletog{background:rgba(15,30,58,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+}
 
 /* ── hero ──────────────────────────────────────────── */
 .hero{padding:28px 0 64px}
@@ -106,14 +113,17 @@ html.role-drone .role-pill{left:50%}
 .screen{position:relative;width:100%;height:100%;border-radius:34px;overflow:hidden;background:radial-gradient(120% 60% at 50% -8%,var(--acc-soft),transparent 60%),var(--bg);border:1px solid rgba(255,255,255,.04)}
 .notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:32%;max-width:92px;height:25px;border-radius:14px;background:#05080f;z-index:3}
 .phone.sm .notch{top:9px;height:20px}
+/* Liggande telefon: loggboksuppslaget visas i landscape (ingen notch — den skulle skymma datumkolumnen) */
+.phone.sm.land{width:min(560px,100%);aspect-ratio:19.3/9;border-radius:30px;padding:7px}
+.phone.sm.land .screen{border-radius:24px}
 .shot{position:absolute;inset:0;margin:0}
 .shot-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;opacity:0;transition:opacity .45s}
 .shot.has-img .shot-img{opacity:1}
 .shot.has-img .shot-fallback{visibility:hidden}
 .ph-badge{position:absolute;z-index:4;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--acc-ink);background:var(--acc);padding:7px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 10px 24px -10px var(--acc)}
 /* Märkena ligger där de inte täcker innehåll: övre hörnet (statusradens zon) och nedre luften. */
-.ph-badge.tr{top:5%;right:-6px}
-.ph-badge.bl{bottom:14%;left:-6px;background:var(--gold);box-shadow:0 10px 24px -10px var(--gold)}
+.ph-badge.tr{top:-13px;right:9%}   /* på ramens kant — skymmer inte skärmdumpens innehåll */
+.ph-badge.bl{bottom:-13px;left:9%;background:var(--gold);box-shadow:0 10px 24px -10px var(--gold)}
 @media(max-width:374px){
   .ph-badge{display:none}          /* för trångt på minsta skärmarna — dekoration, inte innehåll */
   .lic-ref{display:none}
@@ -305,6 +315,8 @@ html.js:not(.js-ready) .reveal{animation:revealSafety .01s 2.5s forwards}
   .spread-cap .swipe{display:none}
   .how-step{grid-template-columns:96px 1fr;gap:28px;padding:36px 0}
   .how-step.has-shot{grid-template-columns:96px 1fr auto}
+  .how-step.wide.has-shot{grid-template-columns:96px 1fr}   /* liggande bild under texten */
+  .how-step.wide .how-shot{grid-column:2;justify-content:flex-start}
   .how-n{font-size:52px}
   .how-shot{margin-top:0}
   .map-wrap{aspect-ratio:16/10;height:auto;min-height:440px}
@@ -321,6 +333,7 @@ html.js:not(.js-ready) .reveal{animation:revealSafety .01s 2.5s forwards}
   .nav-panel .nav-cta{margin:0 0 0 4px;width:auto;min-height:40px;padding:9px 18px;font-size:13px}
   .brand-lockup{height:24px}
   .hero-roletog{display:none}
+  .float-roletog{display:none}
   .hero{padding:clamp(48px,7vw,88px) 0 clamp(64px,9vw,104px)}
   .hero-grid{grid-template-columns:1.05fr .95fr;gap:clamp(30px,5vw,64px)}
   .hero-copy{align-items:flex-start;text-align:left}
@@ -330,8 +343,6 @@ html.js:not(.js-ready) .reveal{animation:revealSafety .01s 2.5s forwards}
   .role-detail{grid-template-columns:1.1fr 1fr;gap:clamp(28px,5vw,60px);margin-top:44px}
   .role-detail .stage{order:0}
   .feat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:44px}
-  .ph-badge.tr{right:-16px}
-  .ph-badge.bl{left:-16px}
 }
 
 /* ── minskad rörelse ───────────────────────────────── */
