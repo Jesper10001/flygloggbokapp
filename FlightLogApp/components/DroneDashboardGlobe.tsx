@@ -2,24 +2,25 @@
 // bara två lägen: 'rings' (ripples vid flugna platser) ↔ 'heatmap'. Inga arcs (paths),
 // eftersom drönarflygningar inte har dep→arr-rutter. Identisk look i övrigt (nattjord,
 // röda ripples, blått sken). Enkel-tap → öppna drönar-kartan; dubbel-tap → cykla effekt.
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, Dimensions, ActivityIndicator, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import { getDroneFlights } from '../db/drones';
 import { DR } from '../constants/droneTheme';
+import { useGlobeAssets, type GlobeAssets } from '../hooks/useGlobeAssets'; // bibliotek + texturer i appen (offline)
 
 type Ring = { lat: number; lng: number; maxR: number; propagationSpeed: number; repeatPeriod: number };
 type Heat = { lat: number; lng: number; weight: number };
 type ViewCfg = { altitude: number; minDistance: number; maxDistance: number };
 
-function buildHtml(rings: Ring[], heat: Heat[], view: ViewCfg): string {
+function buildHtml(assets: GlobeAssets, rings: Ring[], heat: Heat[], view: ViewCfg): string {
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;}#g{width:100vw;height:100vh;}</style>
-<script src="https://unpkg.com/globe.gl@2.34.4/dist/globe.gl.min.js"></script>
+<script>${assets.lib}</script>
 </head>
 <body>
 <div id="g"></div>
@@ -29,8 +30,8 @@ function buildHtml(rings: Ring[], heat: Heat[], view: ViewCfg): string {
     var HEAT = ${JSON.stringify(heat)};
     var world = Globe()(document.getElementById('g'))
       .backgroundColor('rgba(0,0,0,0)')
-      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .globeImageUrl(${JSON.stringify(assets.night)})
+      .bumpImageUrl(${JSON.stringify(assets.bump)})
       .showAtmosphere(true).atmosphereColor('lightskyblue').atmosphereAltitude(0.15)
       .ringLat('lat').ringLng('lng').ringMaxRadius('maxR')
       .ringPropagationSpeed('propagationSpeed').ringRepeatPeriod('repeatPeriod')
@@ -123,6 +124,7 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
   const webRef = useRef<any>(null);
   const ready = useRef(false);
   const [initial, setInitial] = useState<{ rings: Ring[]; heat: Heat[] } | null>(null);
+  const assets = useGlobeAssets();
 
   useEffect(() => {
     loadDroneGlobeData().then(setInitial).catch(() => setInitial({ rings: [], heat: [] }));
@@ -137,16 +139,21 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
     } catch {}
   }, []);
   useEffect(() => { pushUpdate(); }, [flights, pushUpdate]);
+  // Byggs EN gång (några MB inbäddat) → ingen omladdning/ombyggnad vid varje render.
+  const html = useMemo(
+    () => (initial && assets ? buildHtml(assets, initial.rings, initial.heat, VIEW) : null),
+    [initial, assets], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
 
   return (
     <View style={{ width: W, height: visibleH, alignSelf: 'center' }}>
-      {initial ? (
+      {html ? (
         <View style={{ position: 'absolute', left, top, width: canvas, height: canvas }}>
           <WebView
             ref={webRef}
             originWhitelist={['*']}
-            source={{ html: buildHtml(initial.rings, initial.heat, VIEW) }}
+            source={{ html }}
             style={styles.web}
             containerStyle={styles.web}
             opaque={false}

@@ -5,9 +5,8 @@
 //   • arcs   = arc links som visar dina flugna rutter (dep→arr)
 // Transparent bakgrund → svävar utan ruta/stjärnor. Ej länkad ännu.
 //
-// OBS (prototyp): three.js/globe.gl + jord-texturerna laddas från unpkg (CDN) → kräver internet
-// vid första laddning. Görs den permanent bör biblioteken/texturerna bäddas in lokalt (offline).
-import { useState, useEffect, useRef, useCallback } from 'react';
+// globe.gl + jordtexturerna ligger i appen (hooks/useGlobeAssets) → fungerar offline, ingen CDN.
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -16,6 +15,7 @@ import { getAirportCoordinates } from '../db/icao';
 import { getFlights } from '../db/flights';
 import { useFlightStore } from '../store/flightStore';
 import { Colors } from '../constants/colors';
+import { useGlobeAssets, type GlobeAssets } from '../hooks/useGlobeAssets';
 
 type Ring = { lat: number; lng: number; maxR: number; propagationSpeed: number; repeatPeriod: number };
 type Arc = { startLat: number; startLng: number; endLat: number; endLng: number };
@@ -23,7 +23,7 @@ type Heat = { lat: number; lng: number; weight: number };
 
 type ViewCfg = { altitude: number; minDistance: number; maxDistance: number };
 
-function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg, ringsOnly = false): string {
+function buildHtml(assets: GlobeAssets, rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg, ringsOnly = false): string {
   const ringData = JSON.stringify(rings);
   const arcData = JSON.stringify(arcs);
   const heatData = JSON.stringify(heat);
@@ -35,7 +35,7 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg, ring
   html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;}
   #g{width:100vw;height:100vh;}
 </style>
-<script src="https://unpkg.com/globe.gl@2.34.4/dist/globe.gl.min.js"></script>
+<script>${assets.lib}</script>
 </head>
 <body>
 <div id="g"></div>
@@ -48,8 +48,8 @@ function buildHtml(rings: Ring[], arcs: Arc[], heat: Heat[], view: ViewCfg, ring
     var world = Globe()(document.getElementById('g'))
       .backgroundColor('rgba(0,0,0,0)')
       // Nattjord (stadsljus + relief) — som globe.gls Ripple Rings-exempel.
-      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .globeImageUrl(${JSON.stringify(assets.night)})
+      .bumpImageUrl(${JSON.stringify(assets.bump)})
       .showAtmosphere(true)
       .atmosphereColor('lightskyblue')
       .atmosphereAltitude(0.15)
@@ -240,6 +240,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
   const webRef = useRef<any>(null); // WebView-instans (injectJavaScript)
   const ready = useRef(false); // WebViewn har laddat klart → säkert att injicera
   const [initial, setInitial] = useState<{ rings: Ring[]; arcs: Arc[]; heat: Heat[] } | null>(null);
+  const assets = useGlobeAssets();
 
   // Initial data → byggs in i HTML:n en gång (source ändras aldrig efteråt → ingen reload).
   // demoAirports (onboarding): visa en kurerad uppsättning ripple-ringar i stället för användarens
@@ -267,18 +268,24 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
   }, [demoAirports]);
 
   useEffect(() => { pushUpdate(); }, [flightCount, pushUpdate]);
+  // HTML:en (med inbäddat bibliotek + texturer, några MB) byggs EN gång — samma sträng mellan renderingar
+  // → WebViewn laddas aldrig om och strängen byggs inte om vid varje render.
+  const html = useMemo(
+    () => (initial && assets ? buildHtml(assets, initial.rings, initial.arcs, initial.heat, VIEW, !!demoAirports) : null),
+    [initial, assets], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
 
   return (
     // Sektionen reserverar bara visibleH i scroll-flödet; själva canvasen är absolut placerad och
     // större → globen bleeder ut över kanterna (bakgrundskänsla) utan att sträcka layouten.
     <View style={{ width: W, height: visibleH, alignSelf: 'center' }}>
-      {initial ? (
+      {html ? (
         <View style={{ position: 'absolute', left, top, width: canvas, height: canvas }}>
           <WebView
             ref={webRef}
             originWhitelist={['*']}
-            source={{ html: buildHtml(initial.rings, initial.arcs, initial.heat, VIEW, !!demoAirports) }}
+            source={{ html }}
             style={styles.web}
             containerStyle={styles.web}
             opaque={false}

@@ -35,7 +35,7 @@
 <li><strong>iCloud Sync (optional)</strong> — if you enable it, an encrypted snapshot of your database and your app photos is stored in your own Apple iCloud account (Apple, not us), and the database encryption key is stored in your iCloud Keychain, so you can restore your logbook on another of your devices.</li>
 <li><strong>Weather</strong> — METAR/TAF are fetched from the NOAA Aviation Weather Center (aviationweather.gov) using airport codes only.</li>
 <li><strong>Aircraft and drone images</strong> — retrieved from Wikipedia / Wikimedia Commons using the model name (no personal data).</li>
-<li><strong>Maps and place names</strong> — maps are shown with Apple Maps, and turning a coordinate into a place name or searching for a place by text is done by Apple. Satellite images on the flight share card come from Esri (World Imagery) through our Cloudflare proxy: Esri sees only the map area requested — not your IP address or any identifier — and our proxy uses your pseudonymous identifier only to rate-limit requests and stores neither the images nor the request. The globe on the dashboard is drawn with the open-source globe.gl library and Earth textures loaded from the unpkg CDN, which sees your IP address like any website you visit.</li>
+<li><strong>Maps and place names</strong> — maps are shown with Apple Maps, and turning a coordinate into a place name or searching for a place by text is done by Apple. Satellite images on the flight share card come from Esri (World Imagery) through our Cloudflare proxy: Esri sees only the map area requested — not your IP address or any identifier — and our proxy uses your pseudonymous identifier only to rate-limit requests and stores neither the images nor the request. The globe on the dashboard is drawn on your device with the open-source globe.gl library and Earth textures that ship with the app — nothing is downloaded for it.</li>
 <li><strong>Version check</strong> — the app asks Apple's public App Store lookup and our server whether a newer version or an app notice is available (no personal data).</li>
 </ul>
 <p>Blades contains no advertising, no ad tracking (no IDFA) and no third-party advertising or analytics SDKs. Subscriptions are handled with RevenueCat's SDK, as described above.</p>
@@ -53,7 +53,7 @@
 <li><strong>Cloudflare</strong> — proxy, hosting, telemetry. (<a href="https://www.cloudflare.com/privacypolicy/">cloudflare.com/privacypolicy</a>)</li>
 <li><strong>RevenueCat</strong> — subscription management. (<a href="https://www.revenuecat.com/privacy/">revenuecat.com/privacy</a>)</li>
 <li><strong>Apple</strong> — App Store, in-app purchases, iCloud, Maps, geocoding. (<a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a>)</li>
-<li><strong>NOAA Aviation Weather Center, Wikimedia Foundation, Esri, unpkg</strong> — weather, aircraft images, satellite imagery and the globe library.</li>
+<li><strong>NOAA Aviation Weather Center, Wikimedia Foundation, Esri</strong> — weather, aircraft images and satellite imagery.</li>
 </ul>
 
 <h2>7. International transfers</h2>
