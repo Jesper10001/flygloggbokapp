@@ -4,7 +4,8 @@
 // sina RESTERANDE piloter; övriga visar alla sina piloter.
 // Förslagsknapparna (chipsen) VISAR förkortat namn: "Johan Johansson" → "J. Johansson", men när
 // man valt en pilot skrivs HELA namnet ut i rutan. Datan lagras alltid fullständig (export orörd).
-import { useState } from 'react';
+// Drönarläget återanvänder väljaren med egen palett (DR + accent) och egen farkost-ikon (acIcon).
+import { useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -12,6 +13,8 @@ import { Colors } from '../../constants/colors';
 export type RoleOpt = { key: string; short: string; label: string };
 export type SavedPerson = { name: string; role?: string };
 export type AircraftPilots = { aircraft: string; pilots: string[]; isHeli?: boolean };
+// box = namn/roll-rutorna, flyout = dropdownens bakgrund, chip = namnknapparna i listan.
+export type PickerPalette = { accent: string; box: string; flyout: string; chip: string; border: string; text: string; text2: string; muted: string };
 
 const HELI_GLYPH = require('../../assets/Pilot-helicopter.PNG');
 const FIXED_GLYPH = require('../../assets/Pilot-fixedwing.PNG');
@@ -27,7 +30,7 @@ const abbrev = (s: string) => {
 
 export function PersonPicker({
   name, roleKey, roleOptions, saved, byAircraft, currentAircraft, placeholder,
-  onPick, onChangeRole, onAddNew, onAddMore, onRemove, onToggle, hideRole,
+  onPick, onChangeRole, onAddNew, onAddMore, onRemove, onToggle, hideRole, palette, acIcon,
 }: {
   name: string;
   roleKey: string;
@@ -43,12 +46,21 @@ export function PersonPicker({
   onAddMore?: () => void;
   onRemove?: () => void;
   onToggle?: (open: boolean) => void;
+  palette?: Partial<PickerPalette>; // utelämnad = pilotens färger (Colors)
+  acIcon?: ReactNode;               // ersätter heli/fixed-wing-glyfen på farkostraderna
 }) {
   const [nameOpen, setNameOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const [openAc, setOpenAc] = useState<Set<string>>(new Set());
   const advanced = !!byAircraft;
   const disp = (n: string) => (advanced ? abbrev(n) : n); // förkortning bara på chipsen
+  const P: PickerPalette = {
+    accent: Colors.primary, box: Colors.elevated, flyout: Colors.elevated, chip: Colors.card,
+    border: Colors.border, text: Colors.textPrimary, text2: Colors.textSecondary, muted: Colors.textMuted,
+    ...palette,
+  };
+  const flyout = { ...styles.flyout, backgroundColor: P.flyout, borderColor: P.border };
+  const section = { ...styles.section, color: P.muted };
 
   const openName = (v: boolean) => { setNameOpen(v); setRoleOpen(false); onToggle?.(v); };
   const openRole = (v: boolean) => { setRoleOpen(v); setNameOpen(false); onToggle?.(v); };
@@ -69,8 +81,8 @@ export function PersonPicker({
               const active = name === p.name;
               return (
                 <TouchableOpacity key={p.name} onPress={() => pick(p.name, p.role)} activeOpacity={0.75}
-                  style={{ backgroundColor: active ? Colors.primary + '24' : Colors.card, borderWidth: 1, borderColor: active ? Colors.primary : Colors.border, borderRadius: 7, paddingVertical: 7, paddingHorizontal: 6, alignItems: 'center' }}>
-                  <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: active ? Colors.primary : Colors.textSecondary }}>{disp(p.name)}</Text>
+                  style={{ backgroundColor: active ? P.accent + '24' : P.chip, borderWidth: 1, borderColor: active ? P.accent : P.border, borderRadius: 7, paddingVertical: 7, paddingHorizontal: 6, alignItems: 'center' }}>
+                  <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: active ? P.accent : P.text2 }}>{disp(p.name)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -102,24 +114,24 @@ export function PersonPicker({
           onPress={() => openRole(!roleOpen)}
           activeOpacity={0.75}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 48, paddingHorizontal: 8, height: 44,
-            backgroundColor: Colors.elevated, borderWidth: 1, borderColor: roleKey ? Colors.primary : Colors.border, borderRadius: 10 }}
+            backgroundColor: P.box, borderWidth: 1, borderColor: roleKey ? P.accent : P.border, borderRadius: 10 }}
         >
           {roleShort
-            ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '800', color: Colors.primary }} numberOfLines={1}>{roleShort}</Text>
+            ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '800', color: P.accent }} numberOfLines={1}>{roleShort}</Text>
             : <Ionicons name="person" size={15} color="#FFFFFF" />}
-          <Ionicons name="chevron-down" size={10} color={Colors.textMuted} />
+          <Ionicons name="chevron-down" size={10} color={P.muted} />
         </TouchableOpacity>
         )}
 
         {/* namn-ruta: tryck öppnar listan direkt (ingen sökning). Visar HELA valda namnet. */}
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 11, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10 }}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 11, backgroundColor: P.box, borderWidth: 1, borderColor: P.border, borderRadius: 10 }}>
           <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: '100%' }} onPress={() => openName(!nameOpen)} activeOpacity={0.7}>
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: name ? Colors.textPrimary : Colors.textMuted }} numberOfLines={1}>{name || placeholder}</Text>
-            <Ionicons name={nameOpen ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textSecondary} />
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: name ? P.text : P.muted }} numberOfLines={1}>{name || placeholder}</Text>
+            <Ionicons name={nameOpen ? 'chevron-up' : 'chevron-down'} size={15} color={P.text2} />
           </TouchableOpacity>
-          <View style={{ width: 1, height: 20, backgroundColor: Colors.border, marginHorizontal: 6 }} />
+          <View style={{ width: 1, height: 20, backgroundColor: P.border, marginHorizontal: 6 }} />
           <TouchableOpacity onPress={() => { openName(false); onAddNew(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={Colors.primary} />
+            <Ionicons name="add" size={18} color={P.accent} />
           </TouchableOpacity>
         </View>
 
@@ -127,35 +139,35 @@ export function PersonPicker({
         {onAddMore ? (
           <TouchableOpacity onPress={onAddMore} activeOpacity={0.75}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 1, width: 48, height: 44,
-              backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 10 }}>
-            <Ionicons name="add" size={13} color={Colors.primary} />
-            <Ionicons name="person" size={15} color={Colors.primary} />
+              backgroundColor: P.box, borderWidth: 1, borderColor: P.border, borderRadius: 10 }}>
+            <Ionicons name="add" size={13} color={P.accent} />
+            <Ionicons name="person" size={15} color={P.accent} />
           </TouchableOpacity>
         ) : onRemove ? (
           <TouchableOpacity onPress={onRemove} activeOpacity={0.75} style={{ width: 30, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            <Ionicons name="close-circle" size={18} color={P.muted} />
           </TouchableOpacity>
         ) : null}
       </View>
 
       {/* namn-dropdown */}
       {nameOpen && (
-        <View style={[styles.flyout, { left: 0, right: 0 }]}>
+        <View style={[flyout, { left: 0, right: 0 }]}>
           <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator>
             {name ? (
               <TouchableOpacity onPress={() => { onPick(''); openName(false); }} activeOpacity={0.7}
-                style={{ paddingVertical: 6, marginBottom: 6, alignItems: 'center', borderRadius: 7, borderWidth: 1, borderColor: Colors.border }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted }}>— Clear</Text>
+                style={{ paddingVertical: 6, marginBottom: 6, alignItems: 'center', borderRadius: 7, borderWidth: 1, borderColor: P.border }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: P.muted }}>— Clear</Text>
               </TouchableOpacity>
             ) : null}
             {advanced ? (
               (saved.length === 0 && orderedAircraft.length === 0) ? (
-                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: Colors.textMuted, padding: 2 }}>No saved pilots yet</Text>
+                <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: P.muted, padding: 2 }}>No saved pilots yet</Text>
               ) : (
               <>
                 {saved.length > 0 && (
                   <>
-                    <Text style={styles.section}>RECENT</Text>
+                    <Text style={section}>RECENT</Text>
                     {grid3(saved.slice(0, RECENT_TOP))}
                   </>
                 )}
@@ -164,15 +176,15 @@ export function PersonPicker({
                   return (
                     <View key={ac.aircraft} style={{ marginTop: 8 }}>
                       <TouchableOpacity onPress={() => toggleAc(ac.aircraft)} activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 8, backgroundColor: ac.aircraft === currentAircraft ? Colors.primary + '14' : Colors.card, borderWidth: 1, borderColor: ac.aircraft === currentAircraft ? Colors.primary : Colors.border, borderRadius: 7 }}>
-                        <Image source={ac.isHeli ? HELI_GLYPH : FIXED_GLYPH} style={{ width: 20, height: 20, tintColor: Colors.primary }} resizeMode="contain" />
-                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'JetBrainsMono' }}>{ac.aircraft}</Text>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.textMuted, fontFamily: 'JetBrainsMono' }}>({ac.pilots.length})</Text>
-                        <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.textMuted} />
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 8, backgroundColor: ac.aircraft === currentAircraft ? P.accent + '14' : P.chip, borderWidth: 1, borderColor: ac.aircraft === currentAircraft ? P.accent : P.border, borderRadius: 7 }}>
+                        {acIcon ?? <Image source={ac.isHeli ? HELI_GLYPH : FIXED_GLYPH} style={{ width: 20, height: 20, tintColor: P.accent }} resizeMode="contain" />}
+                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: P.text, fontFamily: 'JetBrainsMono' }}>{ac.aircraft}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: P.muted, fontFamily: 'JetBrainsMono' }}>({ac.pilots.length})</Text>
+                        <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={13} color={P.muted} />
                       </TouchableOpacity>
                       {isOpen && (
                         <View style={{ marginTop: 4 }}>
-                          {(() => { const ps = pilotsFor(ac); return ps.length ? grid3(ps) : <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: Colors.textMuted, padding: 4 }}>All already shown above</Text>; })()}
+                          {(() => { const ps = pilotsFor(ac); return ps.length ? grid3(ps) : <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: P.muted, padding: 4 }}>All already shown above</Text>; })()}
                         </View>
                       )}
                     </View>
@@ -182,7 +194,7 @@ export function PersonPicker({
               )
             ) : (
               saved.length === 0
-                ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: Colors.textMuted, padding: 2 }}>No saved names</Text>
+                ? <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 10, color: P.muted, padding: 2 }}>No saved names</Text>
                 : (
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     {simpleCols.map((col, ci) => (
@@ -191,8 +203,8 @@ export function PersonPicker({
                           const active = name === p.name;
                           return (
                             <TouchableOpacity key={p.name} onPress={() => pick(p.name, p.role)} activeOpacity={0.75}
-                              style={{ backgroundColor: active ? Colors.primary + '24' : Colors.card, borderWidth: 1, borderColor: active ? Colors.primary : Colors.border, borderRadius: 7, paddingVertical: 7, paddingHorizontal: 6, alignItems: 'center' }}>
-                              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: active ? Colors.primary : Colors.textSecondary }}>{p.name}</Text>
+                              style={{ backgroundColor: active ? P.accent + '24' : P.chip, borderWidth: 1, borderColor: active ? P.accent : P.border, borderRadius: 7, paddingVertical: 7, paddingHorizontal: 6, alignItems: 'center' }}>
+                              <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: active ? P.accent : P.text2 }}>{p.name}</Text>
                             </TouchableOpacity>
                           );
                         })}
@@ -207,11 +219,11 @@ export function PersonPicker({
 
       {/* roll-picker dropdown (dold i sim) */}
       {!hideRole && roleOpen && (
-        <View style={[styles.flyout, { left: 0, width: 170 }]}>
+        <View style={[flyout, { left: 0, width: 170 }]}>
           {[{ key: '', short: '', label: '— Clear' }, ...roleOptions].map((opt) => (
             <TouchableOpacity key={opt.key || 'clear'} onPress={() => { onChangeRole(opt.key); openRole(false); }} activeOpacity={0.7}
-              style={{ paddingHorizontal: 10, paddingVertical: 9, borderRadius: 6, backgroundColor: roleKey === opt.key ? Colors.primary + '14' : undefined }}>
-              <Text style={{ color: roleKey === opt.key ? Colors.primary : Colors.textPrimary, fontSize: 13, fontWeight: '600' }}>{opt.label}</Text>
+              style={{ paddingHorizontal: 10, paddingVertical: 9, borderRadius: 6, backgroundColor: roleKey === opt.key ? P.accent + '14' : undefined }}>
+              <Text style={{ color: roleKey === opt.key ? P.accent : P.text, fontSize: 13, fontWeight: '600' }}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </View>

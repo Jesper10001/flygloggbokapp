@@ -480,11 +480,15 @@ export async function exportToPDF(): Promise<void> {
 // EASA-orienterade kolumner: datum, UAS, plats, kategori, flygläge, tid, höjd m.m.
 
 export async function exportDroneFlightsToCSV(): Promise<void> {
-  const { getDroneFlights } = require('../db/drones');
+  const { getDroneFlights, droneModeHours, droneModeLabel, droneAltFt } = require('../db/drones');
+  const { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } = require('../constants/droneRoles');
   const flights = await getDroneFlights(99999);
 
   type DCol = { header: string; value: (f: any) => string | number; optional?: boolean; hasData?: (f: any) => boolean };
+  const round2 = (n: number) => Math.round(n * 100) / 100;
   const hasText = (s: string | null | undefined) => !!s && String(s).trim() !== '';
+  // Valfri tidskolumn (decimaltimmar) — visas bara när någon flygning har tid där.
+  const hoursCol = (header: string, hours: (f: any) => number): DCol => ({ header, value: f => round2(hours(f)), optional: true, hasData: f => hours(f) > 0 });
 
   const cols: DCol[] = [
     { header: 'Date',              value: f => f.date },
@@ -497,12 +501,25 @@ export async function exportDroneFlightsToCSV(): Promise<void> {
     { header: 'Landing point',     value: f => f.landing_location ?? '', optional: true, hasData: f => hasText(f.landing_location) },
     { header: 'Mission',           value: f => f.mission_type ?? '', optional: true, hasData: f => hasText(f.mission_type) },
     { header: 'Category',          value: f => f.category ?? '', optional: true, hasData: f => hasText(f.category) },
-    { header: 'Flight mode',       value: f => f.flight_mode ?? 'VLOS' },
+    { header: 'Flight mode',       value: f => droneModeLabel(f) },
     { header: 'Total time (h)',    value: f => f.total_time ?? 0 },
-    { header: 'Max altitude (m)',  value: f => f.max_altitude_m || '', optional: true, hasData: f => !!f.max_altitude_m },
+    // Tid per siktläge (delad tid exakt) — visas när någon flygning har tid i läget.
+    { header: 'VLOS (h)',          value: f => round2(droneModeHours(f).vlos), optional: true, hasData: f => droneModeHours(f).vlos > 0 },
+    { header: 'EVLOS (h)',         value: f => round2(droneModeHours(f).evlos), optional: true, hasData: f => droneModeHours(f).evlos > 0 },
+    { header: 'BVLOS (h)',         value: f => round2(droneModeHours(f).bvlos), optional: true, hasData: f => droneModeHours(f).bvlos > 0 },
+    // Pilot function + tid per roll (valfria). PIC/SIC/Dual/Instructor som i loggboken — instruktör, RPIC och
+    // examinator räknas även som PIC, safety pilot som co-pilot; övriga roller = hela flygtiden i egen kolumn.
+    { header: 'Pilot function',    value: f => DRONE_ROLE_LABEL[droneRoleOf(f)], optional: true, hasData: f => droneRoleOf(f) !== 'pic' },
+    hoursCol('PIC (h)',            f => dronePicTime(f)),
+    hoursCol('SIC / Co-pilot (h)', f => f.co_pilot_fpv || 0),
+    hoursCol('Dual (h)',           f => f.dual || 0),
+    hoursCol('Instructor (h)',     f => f.instructor || 0),
+    ...(DRONE_OTHER_ROLES as string[]).map((r) => hoursCol(`${DRONE_ROLE_LABEL[r]} (h)`, f => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
+    { header: 'Max altitude (ft)', value: f => droneAltFt(f.max_altitude_m) || '', optional: true, hasData: f => droneAltFt(f.max_altitude_m) > 0 },
     { header: 'Night',             value: f => (f.is_night ? 'Yes' : ''), optional: true, hasData: f => !!f.is_night },
     { header: 'Wind (m/s)',        value: f => f.wind_ms || '', optional: true, hasData: f => !!f.wind_ms },
-    { header: 'Observer',          value: f => f.observer_name ?? '', optional: true, hasData: f => hasText(f.observer_name) },
+    // Besättning med roll (Second pilot + fler, inkl. observatörer) — ersätter den gamla Observer-kolumnen.
+    { header: 'Crew',              value: f => droneCrewExportText(f), optional: true, hasData: f => droneCrewExportText(f) !== '' },
     { header: 'Remarks',           value: f => f.remarks ?? '', optional: true, hasData: f => hasText(f.remarks) },
   ];
 

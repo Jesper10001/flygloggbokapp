@@ -58,7 +58,7 @@ export const TOURS: Record<TourMode, TourStep[]> = {
     { key: 'dashboard', tab: '/(tabs)/drone-dashboard',
       title: 'Your dashboard', body: 'Your home base — total flights and hours, your fleet and the places you have flown at a glance. Pull down to refresh.' },
     { key: 'logflight', tab: '/(tabs)/drone-dashboard', press: 'fab', modal: '/drone-flight/add',
-      title: 'Log a flight', body: 'The glowing B in the center logs a drone flight. Pick a quick entry for the essentials, or the full form for every detail.' },
+      title: 'Log a flight', body: 'The glowing B in the center logs a drone flight — where and how long you flew, your role, and who you flew with.' },
     { key: 'logbook', tab: '/(tabs)/drone-log?view=flights',
       title: 'Your logbook', body: 'Every drone flight you record, grouped by month — tap one for the full details. Switch between List, Book and Fleet with the toggle up top.' },
     { key: 'createbook', tab: '/(tabs)/drone-log?view=book',

@@ -13,6 +13,7 @@ import Svg, { Polygon, Text as SvgText, G } from 'react-native-svg';
 import { DR, accentSoft, accentLine } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
+import { droneModeHours, droneModeLabel } from '../../db/drones';
 import { useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS } from '../../constants/tourDemoData';
 import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
@@ -129,8 +130,9 @@ function FlightsTab({ flights, accent, onOpen }: {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return flights.filter((f) => {
-      if (filter === 'vlos' && f.flight_mode !== 'VLOS') return false;
-      if (filter === 'bvlos' && f.flight_mode !== 'BVLOS') return false;
+      // Delad tid: flygningen syns i varje filter där den har tid (t.ex. VLOS + BVLOS).
+      if (filter === 'vlos' && !(droneModeHours(f).vlos > 0)) return false;
+      if (filter === 'bvlos' && !(droneModeHours(f).bvlos > 0)) return false;
       if (filter === 'night' && !f.is_night) return false;
       if (q) {
         const hay = `${f.location ?? ''} ${f.drone_type ?? ''} ${f.registration ?? ''} ${f.mission_type ?? ''} ${f.category ?? ''} ${f.flight_mode ?? ''}`.toLowerCase();
@@ -202,7 +204,7 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={s.mission} numberOfLines={1}>{f.mission_type || 'Flight'}</Text>
-          <Chip text={f.flight_mode} tone={f.flight_mode === 'BVLOS' ? 'warn' : 'muted'} accent={accent} />
+          <Chip text={droneModeLabel(f, '+')} tone={droneModeHours(f).bvlos > 0 ? 'warn' : 'muted'} accent={accent} />
           {f.category ? <Chip text={categoryLabel(f.category)} tone="acc" accent={accent} /> : null}
         </View>
         <Text style={s.rowMeta} numberOfLines={1}>{f.registration || f.drone_type || '—'} · {f.location || '—'}</Text>

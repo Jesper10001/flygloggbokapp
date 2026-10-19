@@ -10,8 +10,9 @@ import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { FlightVideo } from '../../components/FlightVideo';
 import { getAssetDisplay } from '../../services/photoSync';
-import { getDroneFlightById, deleteDroneFlight, type DroneFlight } from '../../db/drones';
+import { getDroneFlightById, deleteDroneFlight, droneModeHours, droneAltFt, type DroneFlight } from '../../db/drones';
 import { categoryLabel } from '../../constants/droneCategories';
+import { DRONE_ROLE_LABEL, droneRoleOf, droneCrewOf, isDroneRole } from '../../constants/droneRoles';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FONT_SERIF, FONT_MONO, NIGHT_BADGE } from '../../components/logbook-page/tokens';
@@ -67,6 +68,10 @@ export default function DroneFlightDetail() {
   const mediaIsVideo = f.photo_uri ? f.media_type === 'video' : (syncedMedia?.isVideo ?? false);
   const dur = formatTime(f.total_time);
   const time = (n: number, on: boolean) => (on && n > 0 ? formatTime(n) : DASH);
+  // Delad tid (Log flights barer) → "VLOS 0:20 · BVLOS 0:10"; annars bara läget.
+  const modeSplit = ([['VLOS', f.h_vlos], ['EVLOS', f.h_evlos], ['BVLOS', f.h_bvlos]] as const).filter(([, h]) => (Number(h) || 0) > 0);
+  const modeLabel = modeSplit.length > 1 ? modeSplit.map(([m, h]) => `${m} ${formatTime(Number(h))}`).join(' · ') : (f.flight_mode || DASH);
+  const crew = droneCrewOf(f).filter((p) => p.name);
   const d = parseDate(f.date);
   const dateLong = d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -79,8 +84,18 @@ export default function DroneFlightDetail() {
     { title: 'Mission', rows: [
       ['Mission type', f.mission_type || DASH],
       ['Type', f.operation_type === 'COM' ? 'Commercial' : f.operation_type === 'PRI' ? 'Private' : DASH],
-      ['Flight mode', f.flight_mode || DASH],
+      ['Flight mode', modeLabel],
       ['Flight rules', f.flight_rules || DASH],
+    ]},
+    // Egen roll + besättning (Second pilot och fler) från Log flight; äldre Observer-fält ingår som Observer.
+    { title: 'Crew', rows: [
+      ['Pilot function', DRONE_ROLE_LABEL[droneRoleOf(f)]],
+      ...crew.map((p, i): [string, string] => [
+        i === 0 ? 'Second pilot' : 'Crew',
+        isDroneRole(p.role) ? `${p.name} · ${DRONE_ROLE_LABEL[p.role]}` : p.name,
+      ]),
+      // Äldre CSV-import med Observer = Yes utan namn.
+      ...(f.has_observer && !crew.some((p) => p.role === 'observer') ? [['Observer', 'Yes'] as [string, string]] : []),
     ]},
     { title: 'Flight time', rows: [
       ['Total', time(f.total_time, true)],
@@ -93,9 +108,8 @@ export default function DroneFlightDetail() {
     ]},
     { title: 'Conditions', rows: [
       ['Night flight', f.is_night ? 'Yes' : DASH],
-      ['Max altitude', f.max_altitude_m > 0 ? `${f.max_altitude_m} m` : DASH],
+      ['Max altitude', f.max_altitude_m > 0 ? `${droneAltFt(f.max_altitude_m).toLocaleString('en-US')} ft` : DASH],
       ['Wind', f.wind_ms > 0 ? `${f.wind_ms} m/s` : DASH],
-      ['Observer', f.has_observer ? (f.observer_name || 'Yes') : DASH],
     ]},
     { title: 'Takeoff & landing', rows: [
       ['Takeoff time', f.takeoff_time || DASH],
@@ -126,7 +140,7 @@ export default function DroneFlightDetail() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: DR.text }}>{f.location || 'Drone flight'}</Text>
-              {f.flight_mode === 'BVLOS' ? <DetailBadge color={DR.warning} label="BVLOS" /> : null}
+              {droneModeHours(f).bvlos > 0 ? <DetailBadge color={DR.warning} label="BVLOS" /> : null}
               {f.is_night ? <DetailBadge color={NIGHT_BADGE} label="NGT" /> : null}
             </View>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: DR.muted, letterSpacing: 0.4, marginTop: 1 }}>{dateLong}</Text>
@@ -142,8 +156,8 @@ export default function DroneFlightDetail() {
         {visibleSections.map((s) => (
           <View key={s.title} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface }}>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: accent, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 4 }}>{s.title}</Text>
-            {s.rows.map(([k, v]) => (
-              <View key={k} style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: DR.separator }}>
+            {s.rows.map(([k, v], i) => (
+              <View key={`${i}-${k}`} style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: DR.separator }}>
                 <Text style={{ fontSize: 13, color: DR.text2 }}>{k}</Text>
                 <Text style={{ flexShrink: 1, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: v === DASH ? DR.muted : DR.text }}>{v}</Text>
               </View>

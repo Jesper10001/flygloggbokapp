@@ -25,7 +25,7 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
-import { getDroneStressHours, getDroneFlights, type DroneFlight } from '../../db/drones';
+import { getDroneStressHours, getDroneFlights, droneModeLabel, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -361,7 +361,7 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
   const strip: [string, string][] = [
     ['Category', f.category ? categoryLabel(f.category) : '—'],
     ['Drone', f.registration || f.drone_type || '—'],
-    ['Mode', f.flight_mode || 'VLOS'],
+    ['Mode', droneModeLabel(f, '/')], // delad tid → "VLOS/BVLOS"
     ['Mission', f.mission_type || '—'],
     ['Night', f.is_night ? 'Yes' : 'No'],
   ];
@@ -397,7 +397,7 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
           {strip.map(([k, v], i) => (
             <View key={k} style={{ flex: 1, paddingVertical: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: accent + '22', alignItems: 'center' }}>
               <Text style={{ fontFamily: MONO, fontSize: 7.5, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: DR.warning }}>{k}</Text>
-              <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: DR.text, marginTop: 3 }}>{v}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: DR.text, marginTop: 3 }}>{v}</Text>
             </View>
           ))}
         </View>

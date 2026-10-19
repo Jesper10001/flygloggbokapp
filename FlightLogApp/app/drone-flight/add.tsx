@@ -5,7 +5,8 @@ import {
   InputAccessoryView, Keyboard, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,9 +16,17 @@ import { useTranslation } from '../../hooks/useTranslation';
 import {
   listDrones, insertDroneFlight, getDroneFlights,
   getDroneFlightById, updateDroneFlight, getRecentDroneLocations, addDrone, updateDrone,
-  getDroneFlightCount, persistDroneModelLookup, setDroneFlightPhoto,
+  getDroneFlightCount, persistDroneModelLookup, setDroneFlightPhoto, getRecentDroneCrew, getDroneCrewByModel,
+  droneAltFt, ftToDroneAltM,
   type DroneRegistryEntry, type DroneFlightFormData, type DroneFlightMode,
 } from '../../db/drones';
+import {
+  DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, DRONE_CREW_ROLE_OPTS, DRONE_ROLE_INFO,
+  droneRoleColumn, droneRoleOf, isDronePicRole, droneCrewLine, parseDroneCrew, parseDroneExtraPilots,
+  type DroneRole,
+} from '../../constants/droneRoles';
+import { PersonPicker, type SavedPerson, type AircraftPilots } from '../../components/logflight/PersonPicker';
+import { AddPilotModal } from '../../components/logflight/AddPilotModal';
 import { enrichDroneFleet } from '../../services/droneLookup';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { useFlightStore } from '../../store/flightStore';
@@ -84,14 +93,25 @@ const addHHMM = (hhmm: string, hours: number): string => {
 };
 // Open-kategorins höjdtak (EU 2019/947): 120 m AGL. Över → Specific krävs.
 const OPEN_ALT_LIMIT_M = 120;
-// Observer → remarks som "Observer: xxxx" (första raden). Strippar ev. gammal Observer-rad först.
-const mergeObserverRemarks = (remarks: string, obs?: string): string => {
-  const stripped = (remarks || '').replace(/(^|\n)\s*Observer:[^\n]*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
-  const name = (obs || '').trim();
-  return name ? `Observer: ${name}${stripped ? '\n' + stripped : ''}` : stripped;
-};
+// Max alt-baren i fot (lagras i meter): 0–24 000 ft, drag i 200 ft, −/+ i 10 ft.
+const MAX_ALT_FT = 24000;
+// Äldre Observer-rad ("Observer: xxxx", från tiden med egen Observer-ruta) — tas bort ur remarks vid
+// redigering; namnet flyttas in som besättning med rollen Observer.
 const stripObserverRemarks = (remarks: string): string =>
   (remarks || '').replace(/(^|\n)\s*Observer:[^\n]*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
+// Besättningsraden (Second pilot + fler, "SIC: J. Doe, OBS: A. Berg") läggs SIST i remarks vid spar
+// (= pilotläget) och plockas bort igen vid redigering — rutorna är källan, remarks får en kopia.
+const stripCrewRemarks = (remarks: string, crewLine: string): string =>
+  crewLine ? (remarks || '').split('\n').filter((ln) => ln.trim() !== crewLine).join('\n').trim() : (remarks || '').trim();
+const mergeCrewRemarks = (remarks: string, crewLine: string): string => {
+  const free = stripCrewRemarks(remarks, crewLine);
+  return crewLine ? (free ? `${free}\n${crewLine}` : crewLine) : free;
+};
+// Väljarna (PersonPicker/AddPilotModal) i drönarens palett — samma utseende som pilotläget.
+const crewPalette = (accent: string) => ({
+  picker: { accent, box: DR.surface, flyout: DR.elevated, chip: DR.surface, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
+  modal: { accent, onAccent: DR.inkOnAccent, card: DR.surface, cardBorder: DR.border, field: DR.elevated, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
+});
 
 // Ordningstal (2nd, 3rd, 4th …) för "+ Add Nth flight".
 const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
@@ -124,7 +144,9 @@ export default function AddDroneFlightScreen() {
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const lang = useLanguageStore((s) => s.language);
+  const insets = useSafeAreaInsets();
   const styles = makeStyles(accent);
+  const crewColors = crewPalette(accent);
 
   const [form, setForm] = useState<DroneFlightFormData>({
     date: today,
@@ -151,6 +173,8 @@ export default function AddDroneFlightScreen() {
     vfr: '',
     night_time: '',
     flight_rules: 'VFR',
+    second_pilot: '',
+    second_pilot_role: '',
     remarks: '',
   });
 
@@ -163,8 +187,16 @@ export default function AddDroneFlightScreen() {
   const [regOpen, setRegOpen] = useState(false);
   const [showDroneModal, setShowDroneModal] = useState(false);
   const [pendingModel, setPendingModel] = useState<string | null>(null);
-  // Pilot function (som pilot log flight): PIC / SIC / DUAL / INSTRUCTOR.
-  const [role, setRole] = useState<'pic' | 'sic' | 'dual' | 'instructor'>('pic');
+  // Pilot function (som pilot log flight): PIC / SIC / DUAL / INSTRUCTOR + "Other"-rollerna (dropdown).
+  const [role, setRole] = useState<DroneRole>('pic');
+  const [otherOpen, setOtherOpen] = useState(false);       // "Other"-dropdownen
+  const [roleInfoOpen, setRoleInfoOpen] = useState(false); // info-sidan (i-knappen vid Pilot function)
+  // Second pilot + fler medpiloter (= pilotläget). Second pilot ligger i form, fler i extraPilots (JSON vid spar).
+  const [extraPilots, setExtraPilots] = useState<{ id: string; role: string; name: string }[]>([]);
+  const [recentCrew, setRecentCrew] = useState<SavedPerson[]>([]);
+  const [crewByModel, setCrewByModel] = useState<AircraftPilots[]>([]);
+  const [crewOpen, setCrewOpen] = useState(false); // en väljarflik är öppen → lyft ramen över innehållet under
+  const [addPilot, setAddPilot] = useState<{ visible: boolean; title: string; cb?: (n: string) => void }>({ visible: false, title: '' });
   const [passes, setPasses] = useState<string[]>(['']); // MM:SS per pass, max 5
   // Mission (överst): fritextruta + dropdown med förval (MISSION_TYPES).
   const [showMissionPicker, setShowMissionPicker] = useState(false);
@@ -183,6 +215,7 @@ export default function AddDroneFlightScreen() {
   const [regInput, setRegInput] = useState('');
   // Kondition-barer (VFR/IFR/Night): rå tid-inmatningsbuffert + scroll-lås under drag + natt-auto.
   const [condRaw, setCondRaw] = useState<Record<string, string>>({});
+  const [rulesOpen, setRulesOpen] = useState(false); // VFR/IFR-barerna (ovanligt med drönare) — fälls ut med pilen
   const [scrollLocked, setScrollLocked] = useState(false);
   const [nightAutoLoading, setNightAutoLoading] = useState(false);
   const [timeBoxH, setTimeBoxH] = useState(48); // uppmätt höjd på tidrutan → matchande rutor
@@ -229,17 +262,35 @@ export default function AddDroneFlightScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.date]);
 
-  // Pilot function → tidshinkar: vald roll får hela totalen, övriga 0. PIC härleds i
-  // droneToFlightRow som total − co_pilot_fpv − dual (instructor är egen kolumn/overlay).
+  // Pilot function → tidshinkar: vald roll får hela totalen i sin kolumn, övriga 0 (droneRoleColumn).
+  // PIC härleds i droneToFlightRow som total − co_pilot_fpv − dual (instructor är egen kolumn/overlay);
+  // roller som inte flyger (payload/mission commander/observer) får ingen PIC — styrs av pilot_role.
   useEffect(() => {
     const tt = parseFloat(form.total_time) || 0;
     const s = (n: number) => (n > 0 ? String(n) : '');
-    const next = role === 'sic' ? { co_pilot_fpv: s(tt), dual: '', instructor: '' }
-      : role === 'dual' ? { co_pilot_fpv: '', dual: s(tt), instructor: '' }
-      : role === 'instructor' ? { co_pilot_fpv: '', dual: '', instructor: s(tt) }
-      : { co_pilot_fpv: '', dual: '', instructor: '' };
+    const col = droneRoleColumn(role);
+    const next = {
+      co_pilot_fpv: col === 'co_pilot_fpv' ? s(tt) : '',
+      dual: col === 'dual' ? s(tt) : '',
+      instructor: col === 'instructor' ? s(tt) : '',
+    };
     setForm((p) => (p.co_pilot_fpv === next.co_pilot_fpv && p.dual === next.dual && p.instructor === next.instructor ? p : { ...p, ...next }));
   }, [role, form.total_time]);
+
+  // Det måste finnas en pilot in command när en medpilot är namngiven (= pilotläget): saknas PIC blir den
+  // första namngivna medpiloten utan roll PIC. Du som instruktör/examinator räknas som PIC.
+  useEffect(() => {
+    const namedSecond = (form.second_pilot ?? '').trim() !== '';
+    const hasOther = namedSecond || extraPilots.some((p) => p.name.trim() !== '');
+    const anyPic = isDronePicRole(role) || role === 'instructor' || role === 'examiner'
+      || isDronePicRole(form.second_pilot_role) || extraPilots.some((p) => isDronePicRole(p.role));
+    if (!hasOther || anyPic) return;
+    if (namedSecond && !(form.second_pilot_role ?? '')) setForm((p) => ({ ...p, second_pilot_role: 'pic' }));
+    else {
+      const first = extraPilots.find((p) => p.name.trim() !== '' && !p.role);
+      if (first) setExtraPilots((prev) => prev.map((x) => (x.id === first.id ? { ...x, role: 'pic' } : x)));
+    }
+  }, [role, form.second_pilot, form.second_pilot_role, extraPilots]);
 
   // Kondition-default: is_night härleds ur night_time; ren VFR/IFR fyller hela totalen (Y/Z = manuell split).
   useEffect(() => {
@@ -257,6 +308,25 @@ export default function AddDroneFlightScreen() {
       return { ...p, is_night: isNight, vfr, ifr, night_time };
     });
   }, [form.total_time, form.flight_rules, form.night_time]);
+
+  // Siktläge (som VFR/IFR): ett rent läge fyller hela totalen; delad tid skalas med när totalen ändras.
+  useEffect(() => {
+    const tt = parseFloat(form.total_time) || 0;
+    setForm((p) => {
+      const cur: Record<DroneFlightMode, number> = { VLOS: parseFloat(p.h_vlos ?? '') || 0, EVLOS: parseFloat(p.h_evlos ?? '') || 0, BVLOS: parseFloat(p.h_bvlos ?? '') || 0 };
+      const sum = cur.VLOS + cur.EVLOS + cur.BVLOS;
+      const mixed = FLIGHT_MODES.filter((m) => cur[m] > 1e-6).length > 1;
+      const mode = (p.flight_mode || 'VLOS') as DroneFlightMode;
+      const k = sum > 0 ? tt / sum : 0;
+      const next: Record<DroneFlightMode, number> = mixed
+        ? { VLOS: cur.VLOS * k, EVLOS: cur.EVLOS * k, BVLOS: cur.BVLOS * k }
+        : { VLOS: 0, EVLOS: 0, BVLOS: 0, [mode]: tt };
+      const str = (n: number) => (n > 1e-6 ? n.toFixed(4) : '');
+      const h_vlos = str(next.VLOS), h_evlos = str(next.EVLOS), h_bvlos = str(next.BVLOS);
+      if ((p.h_vlos ?? '') === h_vlos && (p.h_evlos ?? '') === h_evlos && (p.h_bvlos ?? '') === h_bvlos) return p;
+      return { ...p, h_vlos, h_evlos, h_bvlos };
+    });
+  }, [form.total_time, form.flight_mode]);
 
   // Kondition-barerna animeras in när plats + take-off-tid + flygtid (>0) är ifyllda.
   const routeComplete = form.location.trim().length > 0
@@ -284,10 +354,26 @@ export default function AddDroneFlightScreen() {
       const ds = await listDrones();
       setDrones(ds);
       getRecentDroneLocations(10).then(setRecentPlaces).catch(() => {});
+      getRecentDroneCrew().then(setRecentCrew).catch(() => {});
+      getDroneCrewByModel().then(setCrewByModel).catch(() => {});
 
       if (isEdit && editId) {
         const f = await getDroneFlightById(editId);
         if (!f) return;
+        const crewLine = droneCrewLine(parseDroneCrew(f)); // raden som sparades sist i remarks
+        // Äldre Observer-fält (egen ruta före Second pilot-rollerna, eller CSV-import) → besättning med rollen
+        // Observer: tom second pilot-plats först, annars en extra rad. Namn som redan finns hoppas över.
+        const legacyObs = (f.observer_name || f.remarks.match(/Observer:\s*([^\n]+)/i)?.[1]?.trim() || '')
+          .split(/\s*,\s*/).map((s) => s.trim()).filter(Boolean);
+        let second = { name: f.second_pilot ?? '', role: f.second_pilot_role ?? '' };
+        const extras = parseDroneExtraPilots(f.extra_pilots);
+        const known = new Set(parseDroneCrew(f).map((p) => p.name.toLowerCase()));
+        for (const name of legacyObs) {
+          if (known.has(name.toLowerCase())) continue;
+          known.add(name.toLowerCase());
+          if (!second.name.trim()) second = { name, role: 'observer' };
+          else extras.push({ role: 'observer', name });
+        }
         setForm({
           date: f.date,
           drone_id: f.drone_id,
@@ -306,8 +392,9 @@ export default function AddDroneFlightScreen() {
           total_time: String(f.total_time),
           max_altitude_m: String(f.max_altitude_m),
           is_night: !!f.is_night,
+          // Observer härleds vid spar ur besättningen; laddas bara för en äldre Yes-flagga utan namn.
           has_observer: !!f.has_observer,
-          observer_name: f.observer_name || (f.remarks.match(/Observer:\s*([^\n]+)/i)?.[1]?.trim() ?? ''),
+          observer_name: legacyObs.join(', '),
           wind_ms: f.wind_ms ? String(f.wind_ms) : '',
           operation_type: f.operation_type ?? '',
           landings_day: f.landings_day ? String(f.landings_day) : '',
@@ -320,14 +407,22 @@ export default function AddDroneFlightScreen() {
           // Äldre flygningar (is_night utan night_time) → ladda baren som full natt.
           night_time: f.night_time ? String(f.night_time) : (f.is_night ? String(f.total_time) : ''),
           flight_rules: f.flight_rules ?? 'VFR',
-          remarks: stripObserverRemarks(f.remarks), // Observer visas i egen ruta, ej i remarks-rutan
+          // Delad siktläges-tid (0 = rent läge → effekten fyller flight_mode med hela totalen).
+          h_vlos: f.h_vlos ? String(f.h_vlos) : '',
+          h_evlos: f.h_evlos ? String(f.h_evlos) : '',
+          h_bvlos: f.h_bvlos ? String(f.h_bvlos) : '',
+          second_pilot: second.name,
+          second_pilot_role: second.role,
+          // Besättningen visas i egna rutor, ej i remarks-rutan (läggs tillbaka vid spar).
+          remarks: stripCrewRemarks(stripObserverRemarks(f.remarks), crewLine),
         });
+        setExtraPilots(extras.map((p, i) => ({ id: `e${i}`, ...p })));
         if (f.photo_uri) { setPhotoUri(f.photo_uri); setMediaType(f.media_type === 'video' ? 'video' : 'image'); }
         if (f.landing_location) setShowLandingPoint(true);
         if (f.total_time > 0) setPasses([decimalToMMSS(f.total_time)]);
         // Full-heron: visa hela totalen som 1:a flygningens varaktighet (HH:MM; splitten okänd vid redigering).
         setFullLegs([f.total_time > 0 ? decimalToHHMM(f.total_time) : '']);
-        setRole(f.co_pilot_fpv ? 'sic' : f.dual ? 'dual' : f.instructor ? 'instructor' : 'pic');
+        setRole(droneRoleOf(f)); // sparad roll, annars härledd ur tidshinkarna (äldre flygningar)
         return;
       }
 
@@ -453,7 +548,30 @@ export default function AddDroneFlightScreen() {
     if ((parseFloat(form.total_time) || 0) <= 0) { Alert.alert(t('error'), t('time_required')); return; }
     setSaving(true);
     // Observer läggs in i remarks som "Observer: xxxx" (loggbokens Remarks-kolumn).
-    const dataToSave = { ...form, remarks: mergeObserverRemarks(form.remarks, form.observer_name) };
+    const hv = parseFloat(form.h_vlos ?? '') || 0, he = parseFloat(form.h_evlos ?? '') || 0, hb = parseFloat(form.h_bvlos ?? '') || 0;
+    const modeMixed = [hv, he, hb].filter((h) => h > 1e-6).length > 1;
+    const modeSplit = modeMixed
+      ? { h_vlos: String(hv), h_evlos: String(he), h_bvlos: String(hb) }
+      : { h_vlos: '0', h_evlos: '0', h_bvlos: '0' }; // rent läge → flight_mode × total (stats/loggbok)
+    // Besättning: second pilot i egna kolumner, fler som JSON; namnen hamnar även som en rad sist i remarks.
+    const secondName = (form.second_pilot ?? '').trim();
+    const extraClean = extraPilots.filter((p) => p.role || p.name.trim()).map((p) => ({ role: p.role, name: p.name.trim() }));
+    const crew = [{ role: form.second_pilot_role ?? '', name: secondName }, ...extraClean];
+    const crewLine = droneCrewLine(crew);
+    // Observer = besättning med rollen Observer (egen ruta finns inte längre) → has_observer/observer_name
+    // för export, statistik och import. En äldre Yes-flagga utan namn (CSV-import) behålls.
+    const observers = crew.filter((p) => p.role === 'observer' && p.name).map((p) => p.name);
+    const legacyObsFlag = !!form.has_observer && !(form.observer_name ?? '').trim();
+    const dataToSave = {
+      ...form, ...modeSplit,
+      pilot_role: role,
+      second_pilot: secondName,
+      second_pilot_role: secondName ? (form.second_pilot_role ?? '') : '',
+      extra_pilots: extraClean.length ? JSON.stringify(extraClean) : '',
+      has_observer: observers.length > 0 || legacyObsFlag,
+      observer_name: observers.join(', '),
+      remarks: mergeCrewRemarks(form.remarks, crewLine),
+    };
     // Media: kopiera temp-uri till app-katalogen så den överlever (= pilotläget).
     let savedPhotoUri = '';
     if (photoUri) {
@@ -488,6 +606,7 @@ export default function AddDroneFlightScreen() {
           total_time: '0',
           max_altitude_m: '',
           night_time: '', vfr: '', // ny flygning i passet → nollställ kondition-tider
+          h_vlos: '', h_evlos: '', h_bvlos: '', // siktläge: tillbaka till rent läge (samma som förra)
           remarks: '',
         }));
         useToastStore.getState().show('Flight saved — logging next in session');
@@ -521,6 +640,59 @@ export default function AddDroneFlightScreen() {
     const entry = drones.find((d) => d.model === curModel && d.registration === rg);
     if (entry) { setPendingModel(null); await setDrone(entry); }
   };
+  // ── Pilot function + besättning (= pilotläget). Bara EN pilot in command (PIC/RPIC): väljer du PIC/RPIC
+  // blir en medpilot-PIC SIC, och får en medpilot PIC/RPIC blir du (om PIC/RPIC) SIC.
+  const selectRole = (r: DroneRole) => {
+    setRole(r);
+    if (!isDronePicRole(r)) return;
+    setForm((p) => (isDronePicRole(p.second_pilot_role) ? { ...p, second_pilot_role: 'sic' } : p));
+    setExtraPilots((prev) => prev.map((x) => (isDronePicRole(x.role) ? { ...x, role: 'sic' } : x)));
+  };
+  const selectSecondPilotRole = (key: string) => {
+    setForm((p) => ({ ...p, second_pilot_role: key }));
+    if (!isDronePicRole(key)) return;
+    setRole((r) => (isDronePicRole(r) ? 'sic' : r));
+    setExtraPilots((prev) => prev.map((x) => (isDronePicRole(x.role) ? { ...x, role: 'sic' } : x)));
+  };
+  const selectExtraPilotRole = (id: string, key: string) => {
+    const pic = isDronePicRole(key);
+    setExtraPilots((prev) => prev.map((x) => (x.id === id ? { ...x, role: key } : pic && isDronePicRole(x.role) ? { ...x, role: 'sic' } : x)));
+    if (!pic) return;
+    setRole((r) => (isDronePicRole(r) ? 'sic' : r));
+    setForm((p) => (isDronePicRole(p.second_pilot_role) ? { ...p, second_pilot_role: 'sic' } : p));
+  };
+  const addExtraPilot = () => setExtraPilots((prev) => [...prev, { id: String(Date.now()), role: '', name: '' }]);
+  const removeExtraPilot = (id: string) => setExtraPilots((prev) => prev.filter((p) => p.id !== id));
+  const setExtraPilotName = (id: string, name: string) => setExtraPilots((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
+  // "+" i namn-rutan → skriv in ett nytt namn (blir valt; sparas i historiken när flygningen loggas).
+  const promptAddPersonName = (title: string, onName: (n: string) => void) => setAddPilot({ visible: true, title, cb: onName });
+
+  // "Other"-rutan under DUAL/INSTRUCTOR + dropdownflik (= pilotläget). Knappen visar vald roll.
+  const renderOtherBox = () => {
+    const special = (DRONE_OTHER_ROLES as string[]).includes(role);
+    const ddRow = (key: string, label: string, on: boolean, onPress: () => void, danger?: boolean) => (
+      <TouchableOpacity key={key} onPress={onPress} activeOpacity={0.7} style={[styles.ddRow, on && { backgroundColor: accent + '18' }]}>
+        <Ionicons name={danger ? 'close-circle-outline' : on ? 'radio-button-on' : 'radio-button-off'} size={15} color={danger ? DR.danger : on ? accent : DR.muted} />
+        <Text style={[styles.ddRowText, { color: danger ? DR.danger : on ? accent : DR.text }]}>{label}</Text>
+      </TouchableOpacity>
+    );
+    return (
+      <View style={{ flex: 1, position: 'relative', zIndex: otherOpen ? 40 : undefined }}>
+        <TouchableOpacity style={[styles.roleBtn, special && styles.roleBtnActive]} onPress={() => setOtherOpen((o) => !o)} activeOpacity={0.75}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, special && styles.roleBtnTextActive]}>
+            {special ? DRONE_ROLE_LABEL[role].toUpperCase() : 'OTHER'}
+          </Text>
+        </TouchableOpacity>
+        {otherOpen && (
+          <View style={[styles.ddFlyout, { right: 0, width: 220 }]}>
+            {DRONE_OTHER_ROLES.map((r) => ddRow(r, DRONE_ROLE_LABEL[r], role === r, () => { selectRole(r); setOtherOpen(false); }))}
+            {special && ddRow('reset', t('reset_special_role'), false, () => { selectRole('pic'); setOtherOpen(false); }, true)}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Z/L-växling: fyll lokalbufferten ur UTC vid byte till local.
   const toggleTimeMode = () => {
     setTimeMode((m) => {
@@ -784,86 +956,140 @@ export default function AddDroneFlightScreen() {
               </View>
             </View>
 
-            {/* ── Flygregler (VFR / Y·Z / IFR) alltid synlig; barerna animeras in när plats + tid + flygtid ifyllda ── */}
-            <View style={{ marginTop: 16 }}>
-              <SlideToggle
-                block sans size="md"
-                options={[{ value: 'VFR', label: 'VFR' }, { value: 'Y', label: 'Y/Z' }, { value: 'IFR', label: 'IFR' }]}
-                value={(form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR')}
-                onChange={(v) => {
-                  const tot = parseFloat(form.total_time) || 0;
-                  setForm((p) => {
-                    if (v === 'VFR') return { ...p, flight_rules: 'VFR', vfr: tot ? tot.toFixed(2) : '', ifr: '' };
-                    if (v === 'IFR') return { ...p, flight_rules: 'IFR', ifr: tot ? tot.toFixed(2) : '', vfr: '' };
-                    const ifrNow = parseFloat(p.ifr ?? '0') || 0, vfrNow = parseFloat(p.vfr ?? '0') || 0;
-                    if (ifrNow <= 0 || vfrNow <= 0) return { ...p, flight_rules: 'Y', ifr: (tot / 2).toFixed(2), vfr: (tot / 2).toFixed(2) };
-                    return { ...p, flight_rules: 'Y' };
-                  });
-                  setCondRaw((r) => { const n = { ...r }; delete n.ifr; delete n.vfr; return n; });
-                }}
-                activeColor={form.flight_rules === 'IFR' ? accent : (form.flight_rules === 'Y' || form.flight_rules === 'Z') ? Colors.gold : Colors.success}
-              />
+            {/* ── Siktläge + flygregler. VLOS / EVLOS / BVLOS alltid synlig: tid per läge fördelas med barerna
+                (som VFR/IFR), natt-baren under. Barerna animeras in när plats + tid + flygtid är ifyllda.
+                VFR / Y·Z / IFR: ovanligt med drönare → dess barer fälls ut med pilen till höger (stängd som standard). ── */}
+            {(() => {
+              const total = parseFloat(form.total_time) || 0;
+              const totalMin = total * 60;
+              const num = (v?: string) => parseFloat(v ?? '') || 0;
+              const pct = (v?: string) => (total > 0 ? Math.round((num(v) / total) * 100) : 0);
+              const cap = (n: number) => Math.min(Math.max(0, n), total || n);
+              const setVfrIfr = (key: 'vfr' | 'ifr', p: number) => {
+                const val = total * p / 100;
+                const ifrV = key === 'ifr' ? val : Math.max(0, total - val);
+                const vfrV = Math.max(0, total - ifrV);
+                const eps = 0.01;
+                const rules = ifrV >= total - eps ? 'IFR' : (ifrV <= eps ? 'VFR' : 'Y');
+                setForm((prev) => ({ ...prev, ifr: ifrV.toFixed(2), vfr: vfrV.toFixed(2), flight_rules: rules }));
+              };
+              // Tid på ett läge → resten fördelas proportionellt på de två andra (är de tomma: VLOS, eller BVLOS
+              // när det är VLOS som ändras). flight_mode = det dominerande läget (visning, filter, landningspunkt).
+              const setModeTime = (m: DroneFlightMode, hours: number) => {
+                const v = cap(hours);
+                setForm((prev) => {
+                  const cur: Record<DroneFlightMode, number> = { VLOS: num(prev.h_vlos), EVLOS: num(prev.h_evlos), BVLOS: num(prev.h_bvlos) };
+                  if (cur.VLOS + cur.EVLOS + cur.BVLOS <= 1e-6) cur[(prev.flight_mode || 'VLOS') as DroneFlightMode] = total;
+                  const others = FLIGHT_MODES.filter((x) => x !== m);
+                  const rest = Math.max(0, total - v);
+                  const otherSum = others.reduce((sum, x) => sum + cur[x], 0);
+                  const fallback: DroneFlightMode = m === 'VLOS' ? 'BVLOS' : 'VLOS';
+                  const next: Record<DroneFlightMode, number> = { ...cur, [m]: v };
+                  others.forEach((x) => { next[x] = otherSum > 1e-6 ? rest * (cur[x] / otherSum) : (x === fallback ? rest : 0); });
+                  const dominant = FLIGHT_MODES.reduce((a, b) => (next[b] > next[a] + 1e-6 ? b : a), (prev.flight_mode || 'VLOS') as DroneFlightMode);
+                  const str = (n: number) => (n > 1e-6 ? n.toFixed(4) : '');
+                  return { ...prev, flight_mode: dominant, h_vlos: str(next.VLOS), h_evlos: str(next.EVLOS), h_bvlos: str(next.BVLOS) };
+                });
+              };
+              const fmtInput = (dec?: string) => { const n = parseFloat(dec ?? ''); return (!n || isNaN(n)) ? '' : decimalToHHMM(n); };
+              const parseRaw = (raw: string): number => {
+                if (!raw.trim()) return 0;
+                if (raw.includes(':')) { const [h, m] = raw.split(':'); return (parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0) + Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0) / 60; }
+                const d = raw.replace(/\D/g, ''); if (!d) return 0; if (d.length <= 2) return (Math.min(59, parseInt(d, 10) || 0)) / 60; return (parseInt(d.slice(0, -2), 10) || 0) + Math.min(59, parseInt(d.slice(-2), 10) || 0) / 60;
+              };
+              const fmtDur = (raw: string) => { const d = raw.replace(/\D/g, '').slice(0, 4); return d.length <= 2 ? d : `${d.slice(0, -2)}:${d.slice(-2)}`; };
+              type CondKey = 'vfr' | 'ifr' | 'night_time' | 'h_vlos' | 'h_evlos' | 'h_bvlos';
+              const MODE_KEY: Record<DroneFlightMode, 'h_vlos' | 'h_evlos' | 'h_bvlos'> = { VLOS: 'h_vlos', EVLOS: 'h_evlos', BVLOS: 'h_bvlos' };
+              const MODE_TINT: Record<DroneFlightMode, string> = { VLOS: Colors.success, EVLOS: Colors.gold, BVLOS: DR.warning };
+              const onTime = (key: CondKey, raw: string) => {
+                const f = fmtDur(raw);
+                setCondRaw((r) => ({ ...r, [key]: f }));
+                const dec = cap(parseRaw(f));
+                if (key === 'vfr' || key === 'ifr') setVfrIfr(key, total > 0 ? dec / total * 100 : 0);
+                else if (key === 'night_time') setForm((p) => ({ ...p, night_time: String(dec) }));
+                else setModeTime(key === 'h_vlos' ? 'VLOS' : key === 'h_evlos' ? 'EVLOS' : 'BVLOS', dec);
+              };
+              const onBlur = (key: string) => setCondRaw((r) => { const n = { ...r }; delete n[key]; return n; });
+              const valFor = (key: CondKey, dec?: string) => (condRaw[key] !== undefined ? condRaw[key]! : fmtInput(dec));
+              const lock = () => setScrollLocked(true); const unlock = () => setScrollLocked(false);
+              const curMode = (form.flight_mode || 'VLOS') as DroneFlightMode;
+              return (<>
+                <View style={{ marginTop: 16 }}>
+                  <SlideToggle
+                    block sans size="md"
+                    options={FLIGHT_MODES.map((m) => ({ value: m, label: m }))}
+                    value={curMode}
+                    // Val i toggeln = rent läge: hela flygtiden på det läget (barerna delar sedan upp den).
+                    onChange={(m) => {
+                      setForm((p) => ({ ...p, flight_mode: m, h_vlos: '', h_evlos: '', h_bvlos: '' }));
+                      setCondRaw((r) => { const n = { ...r }; delete n.h_vlos; delete n.h_evlos; delete n.h_bvlos; return n; });
+                    }}
+                    activeColor={MODE_TINT[curMode]}
+                  />
 
-              <Animated.View style={
-                barsH === 0
-                  ? { position: 'absolute', left: 0, right: 0, opacity: 0 } // mät-pass: naturlig höjd, ur flödet
-                  : { height: barsAnim.interpolate({ inputRange: [0, 1], outputRange: [0, barsH] }), opacity: barsAnim, overflow: 'hidden' }
-              }>
-              <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && barsH === 0) setBarsH(h); }}>
-              {(() => {
-                const total = parseFloat(form.total_time) || 0;
-                const totalMin = total * 60;
-                const pct = (v?: string) => { const n = parseFloat(v ?? '0') || 0; return total > 0 ? Math.round((n / total) * 100) : 0; };
-                const cap = (n: number) => Math.min(Math.max(0, n), total || n);
-                const setVfrIfr = (key: 'vfr' | 'ifr', p: number) => {
-                  const val = total * p / 100;
-                  const ifrV = key === 'ifr' ? val : Math.max(0, total - val);
-                  const vfrV = Math.max(0, total - ifrV);
-                  const eps = 0.01;
-                  const rules = ifrV >= total - eps ? 'IFR' : (ifrV <= eps ? 'VFR' : 'Y');
-                  setForm((prev) => ({ ...prev, ifr: ifrV.toFixed(2), vfr: vfrV.toFixed(2), flight_rules: rules }));
-                };
-                const fmtInput = (dec?: string) => { const n = parseFloat(dec ?? ''); return (!n || isNaN(n)) ? '' : decimalToHHMM(n); };
-                const parseRaw = (raw: string): number => {
-                  if (!raw.trim()) return 0;
-                  if (raw.includes(':')) { const [h, m] = raw.split(':'); return (parseInt((h || '0').replace(/\D/g, '') || '0', 10) || 0) + Math.min(59, parseInt((m || '0').replace(/\D/g, '') || '0', 10) || 0) / 60; }
-                  const d = raw.replace(/\D/g, ''); if (!d) return 0; if (d.length <= 2) return (Math.min(59, parseInt(d, 10) || 0)) / 60; return (parseInt(d.slice(0, -2), 10) || 0) + Math.min(59, parseInt(d.slice(-2), 10) || 0) / 60;
-                };
-                const fmtDur = (raw: string) => { const d = raw.replace(/\D/g, '').slice(0, 4); return d.length <= 2 ? d : `${d.slice(0, -2)}:${d.slice(-2)}`; };
-                const onTime = (key: 'vfr' | 'ifr' | 'night_time', raw: string) => {
-                  const f = fmtDur(raw);
-                  setCondRaw((r) => ({ ...r, [key]: f }));
-                  const dec = cap(parseRaw(f));
-                  if (key === 'vfr') setVfrIfr('vfr', total > 0 ? dec / total * 100 : 0);
-                  else if (key === 'ifr') setVfrIfr('ifr', total > 0 ? dec / total * 100 : 0);
-                  else setForm((p) => ({ ...p, night_time: String(dec) }));
-                };
-                const onBlur = (key: string) => setCondRaw((r) => { const n = { ...r }; delete n[key]; return n; });
-                const valFor = (key: 'vfr' | 'ifr' | 'night_time', dec?: string) => condRaw[key] !== undefined ? condRaw[key]! : fmtInput(dec);
-                const lock = () => setScrollLocked(true); const unlock = () => setScrollLocked(false);
-                return (
+                  <Animated.View style={
+                    barsH === 0
+                      ? { position: 'absolute', left: 0, right: 0, opacity: 0 } // mät-pass: naturlig höjd, ur flödet
+                      : { height: barsAnim.interpolate({ inputRange: [0, 1], outputRange: [0, barsH] }), opacity: barsAnim, overflow: 'hidden' }
+                  }>
+                  <View onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && barsH === 0) setBarsH(h); }}>
+                    <View style={{ marginTop: 12 }}>
+                      {FLIGHT_MODES.map((m) => (
+                        <CondBar key={m} label={m} pct={pct(form[MODE_KEY[m]])} onPct={(p) => setModeTime(m, total * p / 100)} tint={MODE_TINT[m]} totalMin={totalMin} onGrab={lock} onRelease={unlock}
+                          editable timeValue={valFor(MODE_KEY[m], form[MODE_KEY[m]])} onTimeChange={(raw) => onTime(MODE_KEY[m], raw)} onTimeBlur={() => onBlur(MODE_KEY[m])} />
+                      ))}
+                      <CondBar label={t('night')} pct={pct(form.night_time)} onPct={(p) => setForm((prev) => ({ ...prev, night_time: String(total * p / 100) }))} tint="#5DA9FF" totalMin={totalMin} onGrab={lock} onRelease={unlock}
+                        editable timeValue={valFor('night_time', form.night_time)} onTimeChange={(raw) => onTime('night_time', raw)} onTimeBlur={() => onBlur('night_time')} />
+                      <TouchableOpacity onPress={computeNightAuto} disabled={nightAutoLoading} activeOpacity={0.8} style={styles.nightAutoBtn}>
+                        {nightAutoLoading ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="moon" size={13} color={accent} />}
+                        <Text style={styles.nightAutoText}>{nightAutoLoading ? 'Computing…' : 'Auto night — use my location'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  </Animated.View>
+                </View>
+
+                <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <SlideToggle
+                      block sans size="md"
+                      options={[{ value: 'VFR', label: 'VFR' }, { value: 'Y', label: 'Y/Z' }, { value: 'IFR', label: 'IFR' }]}
+                      value={(form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR')}
+                      onChange={(v) => {
+                        const tot = parseFloat(form.total_time) || 0;
+                        setForm((p) => {
+                          if (v === 'VFR') return { ...p, flight_rules: 'VFR', vfr: tot ? tot.toFixed(2) : '', ifr: '' };
+                          if (v === 'IFR') return { ...p, flight_rules: 'IFR', ifr: tot ? tot.toFixed(2) : '', vfr: '' };
+                          const ifrNow = parseFloat(p.ifr ?? '0') || 0, vfrNow = parseFloat(p.vfr ?? '0') || 0;
+                          if (ifrNow <= 0 || vfrNow <= 0) return { ...p, flight_rules: 'Y', ifr: (tot / 2).toFixed(2), vfr: (tot / 2).toFixed(2) };
+                          return { ...p, flight_rules: 'Y' };
+                        });
+                        setCondRaw((r) => { const n = { ...r }; delete n.ifr; delete n.vfr; return n; });
+                        if (v === 'Y') setRulesOpen(true); // Y/Z = delad tid → visa barerna direkt
+                      }}
+                      activeColor={form.flight_rules === 'IFR' ? accent : (form.flight_rules === 'Y' || form.flight_rules === 'Z') ? Colors.gold : Colors.success}
+                    />
+                  </View>
+                  <TouchableOpacity onPress={() => setRulesOpen((o) => !o)} activeOpacity={0.75} hitSlop={6} style={styles.rulesExpandBtn}
+                    accessibilityRole="button" accessibilityLabel={rulesOpen ? 'Hide VFR and IFR times' : 'Show VFR and IFR times'}>
+                    <Ionicons name={rulesOpen ? 'chevron-up' : 'chevron-down'} size={18} color={DR.text2} />
+                  </TouchableOpacity>
+                </View>
+                {rulesOpen && routeComplete && (
                   <View style={{ marginTop: 12 }}>
                     <CondBar label="VFR" pct={pct(form.vfr)} onPct={(p) => setVfrIfr('vfr', p)} tint={Colors.success} totalMin={totalMin} onGrab={lock} onRelease={unlock}
                       editable timeValue={valFor('vfr', form.vfr)} onTimeChange={(raw) => onTime('vfr', raw)} onTimeBlur={() => onBlur('vfr')} />
                     <CondBar label="IFR" pct={pct(form.ifr)} onPct={(p) => setVfrIfr('ifr', p)} tint={accent} totalMin={totalMin} onGrab={lock} onRelease={unlock}
                       editable timeValue={valFor('ifr', form.ifr)} onTimeChange={(raw) => onTime('ifr', raw)} onTimeBlur={() => onBlur('ifr')} />
-                    <CondBar label={t('night')} pct={pct(form.night_time)} onPct={(p) => setForm((prev) => ({ ...prev, night_time: String(total * p / 100) }))} tint="#5DA9FF" totalMin={totalMin} onGrab={lock} onRelease={unlock}
-                      editable timeValue={valFor('night_time', form.night_time)} onTimeChange={(raw) => onTime('night_time', raw)} onTimeBlur={() => onBlur('night_time')} />
-                    <TouchableOpacity onPress={computeNightAuto} disabled={nightAutoLoading} activeOpacity={0.8} style={styles.nightAutoBtn}>
-                      {nightAutoLoading ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="moon" size={13} color={accent} />}
-                      <Text style={styles.nightAutoText}>{nightAutoLoading ? 'Computing…' : 'Auto night — use my location'}</Text>
-                    </TouchableOpacity>
                   </View>
-                );
-              })()}
-              </View>
-              </Animated.View>
-            </View>
+                )}
+              </>);
+            })()}
           </View>
         )}
 
-        {/* Gemensam ram (som pilot): drönare + registrering + pilot function + flygläge + observer */}
-        <View style={[styles.frameCard, (typeOpen || regOpen) ? { zIndex: 20 } : null]}>
+        {/* Gemensam ram (som pilot): drönare + registrering + pilot function + second pilot + operation */}
+        <View style={[styles.frameCard, (typeOpen || regOpen || otherOpen || crewOpen) ? { zIndex: 20 } : null]}>
         {/* Drönare: modell + registrering (dropdown-flikar; "+" öppnar drönar-modalen) */}
         <View style={{ position: 'relative', zIndex: (typeOpen || regOpen) ? 30 : undefined }}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -951,29 +1177,80 @@ export default function AddDroneFlightScreen() {
           )}
         </View>
 
-        {/* Pilot function (= pilot log flight): PIC / SIC / DUAL / INSTRUCTOR (vänster, smalare)
-            + vertikal flygläge-toggle (VLOS/EVLOS/BVLOS) till höger om SIC/INSTRUCTOR. */}
-        {/* Pilot function (cyan/accent) */}
-        <Text style={[styles.cardFieldLabel, { marginTop: 10, color: accent }]}>Pilot function</Text>
-        <View style={styles.roleGrid}>
+        {/* Pilot function (= pilot log flight): PIC / SIC / DUAL / INSTRUCTOR + OTHER (dropdown med övriga
+            drönarroller). i-knappen öppnar info-sidan som beskriver alla roller. */}
+        <View style={styles.labelRow}>
+          <Text style={[styles.cardFieldLabel, { marginTop: 0, marginBottom: 0 }]}>Pilot function</Text>
+          <TouchableOpacity onPress={() => setRoleInfoOpen(true)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel="About pilot functions and crew roles">
+            <Ionicons name="information-circle-outline" size={16} color={accent} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.roleGrid, otherOpen ? { zIndex: 30 } : null]}>
           <View style={styles.roleRow}>
             {(['pic', 'sic'] as const).map((r) => (
-              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
+              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => selectRole(r)} activeOpacity={0.75}>
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r.toUpperCase()}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <View style={styles.roleRow}>
             {(['dual', 'instructor'] as const).map((r) => (
-              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => setRole(r)} activeOpacity={0.75}>
+              <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => selectRole(r)} activeOpacity={0.75}>
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r === 'instructor' ? 'INSTRUCTOR' : 'DUAL'}</Text>
               </TouchableOpacity>
             ))}
           </View>
+          {/* OTHER — full bredd under DUAL/INSTRUCTOR (= pilotläget) */}
+          <View style={styles.roleRow}>
+            {renderOtherBox()}
+          </View>
         </View>
 
-        {/* Operation (guld) — Private/Commercial, under rollerna */}
-        <Text style={[styles.cardFieldLabel, { marginTop: 12, color: Colors.gold }]}>Operation</Text>
+        {/* Second pilot + fler medpiloter (= pilotläget): roll till vänster, namn till höger, +figur lägger till. */}
+        <View style={crewOpen ? { zIndex: 25 } : null}>
+          <Text style={[styles.cardFieldLabel, { marginTop: 10 }]}>{t('second_pilot_label')}</Text>
+          <View style={{ gap: 6 }}>
+            <PersonPicker
+              name={form.second_pilot ?? ''}
+              roleKey={form.second_pilot_role ?? ''}
+              roleOptions={DRONE_CREW_ROLE_OPTS}
+              saved={recentCrew}
+              byAircraft={crewByModel}
+              currentAircraft={curModel}
+              placeholder={t('second_pilot_ph')}
+              onPick={(n, r) => { setForm((p) => ({ ...p, second_pilot: n })); if (r) selectSecondPilotRole(r); }}
+              onChangeRole={selectSecondPilotRole}
+              onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => setForm((p) => ({ ...p, second_pilot: n })))}
+              onAddMore={addExtraPilot}
+              onToggle={setCrewOpen}
+              palette={crewColors.picker}
+              acIcon={<MaterialCommunityIcons name="quadcopter" size={20} color={accent} />}
+            />
+            {extraPilots.map((p) => (
+              <PersonPicker
+                key={p.id}
+                name={p.name}
+                roleKey={p.role}
+                roleOptions={DRONE_CREW_ROLE_OPTS}
+                saved={recentCrew}
+                byAircraft={crewByModel}
+                currentAircraft={curModel}
+                placeholder={t('second_pilot_ph')}
+                onPick={(n, r) => { setExtraPilotName(p.id, n); if (r) selectExtraPilotRole(p.id, r); }}
+                onChangeRole={(k) => selectExtraPilotRole(p.id, k)}
+                onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => setExtraPilotName(p.id, n))}
+                onRemove={() => removeExtraPilot(p.id)}
+                onToggle={setCrewOpen}
+                palette={crewColors.picker}
+                acIcon={<MaterialCommunityIcons name="quadcopter" size={20} color={accent} />}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Operation — Private/Commercial, under rollerna */}
+        <Text style={[styles.cardFieldLabel, { marginTop: 12 }]}>Operation</Text>
         <View style={styles.roleRow}>
           {([['PRI', 'Private'], ['COM', 'Commercial']] as const).map(([k, lbl]) => {
             const active = form.operation_type === k;
@@ -988,30 +1265,9 @@ export default function AddDroneFlightScreen() {
 
         {/* Category tas EJ längre in här — den följer vald drönares klass automatiskt (setDrone). */}
 
-        {/* Type of flight (grön) — VLOS/EVLOS/BVLOS */}
-        <Text style={[styles.cardFieldLabel, { marginTop: 12, color: Colors.success }]}>Type of flight</Text>
-        <View style={styles.roleRow}>
-          {FLIGHT_MODES.map((m) => {
-            const active = form.flight_mode === m;
-            return (
-              <TouchableOpacity key={m} style={[styles.roleBtn, active && { backgroundColor: Colors.success + '24', borderColor: Colors.success }]}
-                onPress={() => setForm((p) => ({ ...p, flight_mode: m }))} activeOpacity={0.8}>
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, active && { color: Colors.success }]}>{m}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* Siktläge (VLOS/EVLOS/BVLOS) väljs i route-sektionen ovan, med tid per läge. */}
 
-        {/* Observer — ren textruta. Texten hamnar i remarks som "Observer: xxxx" vid spar. */}
-        <Text style={[styles.cardFieldLabel, { marginTop: 12 }]}>Observer</Text>
-        <TextInput
-          style={styles.input}
-          value={form.observer_name}
-          onChangeText={(v) => setForm((p) => ({ ...p, observer_name: v, has_observer: v.trim().length > 0 }))}
-          placeholder="Observer name (optional)"
-          placeholderTextColor={DR.muted}
-          autoCapitalize="words"
-        />
+        {/* Observer har ingen egen ruta längre — läggs till under Second pilot med rollen Observer (OBS). */}
         </View>{/* /gemensam ram */}
 
         {/* Plats + take-off-tid (Quicklog) — i Full sköts detta av route-heron ovan. */}
@@ -1056,8 +1312,8 @@ export default function AddDroneFlightScreen() {
         )}
         </>)}
 
-        {/* Operation (PRI/COM) + Category + flygläge (VLOS/EVLOS/BVLOS) + max-höjd flyttade → Pilot function-ramen
-            resp. Logbook fields (max alt-bar under landningar). */}
+        {/* Operation (PRI/COM) + Category flyttade → Pilot function-ramen, max-höjd → Logbook fields (max alt-bar
+            under landningar), siktläge (VLOS/EVLOS/BVLOS) → route-sektionen med tid per läge. */}
 
         {/* Flygtid via passes — endast Quicklog. Full räknar total ur dep→arr (route-heron ovan). */}
         {!logFull && (<>
@@ -1186,16 +1442,16 @@ export default function AddDroneFlightScreen() {
         </View>
         </>)}
 
-        {/* 120 m-regelvarning: höjd över Open-taket i A1/A2/A3 → Specific krävs */}
+        {/* 120 m-regelvarning: höjd över Open-taket i A1/A2/A3 → Specific krävs (jämförs i meter, visas i fot) */}
         {(() => {
-          const alt = parseInt(form.max_altitude_m, 10) || 0;
+          const alt = parseFloat(form.max_altitude_m) || 0;
           const isOpen = ['A1', 'A2', 'A3'].includes(form.category);
           if (alt <= OPEN_ALT_LIMIT_M || !isOpen) return null;
           return (
             <View style={styles.ruleWarn}>
               <Ionicons name="warning" size={14} color={DR.warning} />
               <Text style={styles.ruleWarnText}>
-                {alt} m exceeds the {OPEN_ALT_LIMIT_M} m Open-category limit — this needs a Specific authorisation.
+                {droneAltFt(alt).toLocaleString('en-US')} ft exceeds the Open-category limit of {OPEN_ALT_LIMIT_M} m ({droneAltFt(OPEN_ALT_LIMIT_M)} ft) — this needs a Specific authorisation.
               </Text>
             </View>
           );
@@ -1213,13 +1469,14 @@ export default function AddDroneFlightScreen() {
               a={{ label: t('day'), value: parseInt(form.landings_day || '0', 10) || 0, onChange: (n) => setForm((p) => ({ ...p, landings_day: String(n) })) }}
               b={{ label: t('night'), value: parseInt(form.landings_night || '0', 10) || 0, onChange: (n) => setForm((p) => ({ ...p, landings_night: String(n) })) }} />
 
-            {/* Max altitude (meter) — samma bar som pilot log flight; drag i 200 m, +/- i 50 m, 0–8000 m */}
+            {/* Max altitude i FOT — samma bar som pilot log flight; drag i 200 ft, +/- i 10 ft, 0–24 000 ft.
+                Lagras i meter (max_altitude_m) → 120 m-regeln, exporter och import oförändrade. */}
             <View style={{ marginTop: 4, borderTopWidth: 1, borderTopColor: Colors.border }}>
               <MaxAltBar
-                value={parseInt(form.max_altitude_m || '0', 10) || 0}
-                onChange={(m) => setForm((p) => ({ ...p, max_altitude_m: m > 0 ? String(m) : '' }))}
-                min={0} max={8000} dragStep={200} fineStep={50}
-                label="Max alt" unit="m" unitBefore={false} toDisplay={(v) => String(v)}
+                value={droneAltFt(parseFloat(form.max_altitude_m || '0'))}
+                onChange={(ft) => setForm((p) => ({ ...p, max_altitude_m: ft > 0 ? String(ftToDroneAltM(ft)) : '' }))}
+                min={0} max={MAX_ALT_FT} dragStep={200} fineStep={10}
+                label="Max alt" unit="ft" unitBefore={false} toDisplay={(v) => String(v)}
                 onGrab={() => setScrollLocked(true)} onRelease={() => setScrollLocked(false)}
               />
             </View>
@@ -1383,6 +1640,51 @@ export default function AddDroneFlightScreen() {
         </Pressable>
       </Modal>
 
+      {/* Info-sida (helskärm, = pilotlägets info-sidor): alla roller + vilken loggbokskolumn tiden hamnar i */}
+      <Modal visible={roleInfoOpen} animationType="slide" onRequestClose={() => setRoleInfoOpen(false)}>
+        <View style={[styles.infoPage, { paddingTop: insets.top }]}>
+          <View style={styles.infoPageHeader}>
+            <Text style={styles.infoPageTitle}>Pilot functions & crew roles</Text>
+            <TouchableOpacity onPress={() => setRoleInfoOpen(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7} style={styles.infoPageClose}>
+              <Ionicons name="close" size={22} color={DR.text2} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 48 }} showsVerticalScrollIndicator>
+            <Text style={styles.infoPageIntro}>Pick the role you had on the flight. It decides which logbook column the flight time goes into. The same roles are available for the people you add under Second pilot.</Text>
+            {DRONE_ROLE_INFO.map((s) => (
+              <View key={s.code} style={{ marginBottom: 18 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                  <Text style={{ color: accent, fontSize: 16, fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{s.code}</Text>
+                  <Text style={{ color: DR.text, fontSize: 15, fontWeight: '600', flex: 1 }}>{s.name}</Text>
+                </View>
+                {s.bullets.map((b, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingLeft: 2 }}>
+                    <Text style={{ color: DR.muted, fontSize: 14, lineHeight: 20 }}>•</Text>
+                    <Text style={{ color: DR.text2, fontSize: 14, lineHeight: 20, flex: 1 }}>{b}</Text>
+                  </View>
+                ))}
+                <Text style={styles.infoLogbook}>LOGBOOK · {s.logbook.toUpperCase()}</Text>
+              </View>
+            ))}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: accent + '14', borderWidth: 1, borderColor: accent + '44', borderRadius: 10, padding: 14, marginTop: 4 }}>
+              <Ionicons name="information-circle" size={18} color={accent} />
+              <Text style={{ flex: 1, color: DR.text2, fontSize: 13.5, lineHeight: 20 }}>
+                <Text style={{ fontWeight: '700', color: DR.text }}>Payload operator</Text>, <Text style={{ fontWeight: '700', color: DR.text }}>Mission commander</Text> and <Text style={{ fontWeight: '700', color: DR.text }}>Observer</Text> don’t fly the drone, so the flight counts toward your total time but not PIC. Add the people you flew with — including your observer — under Second pilot. They are written into Remarks, e.g. “OBS: A. Berg”.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Nytt namn för second pilot / extra medpilot (Name eller Callsign) — = pilotläget */}
+      <AddPilotModal
+        visible={addPilot.visible}
+        title={addPilot.title}
+        palette={crewColors.modal}
+        onClose={() => setAddPilot((st) => ({ ...st, visible: false }))}
+        onSave={(n) => { addPilot.cb?.(n); setAddPilot((st) => ({ ...st, visible: false })); }}
+      />
+
     </KeyboardAvoidingView>
     {Platform.OS === 'ios' && (
       <InputAccessoryView nativeID="drone-add-done">
@@ -1544,6 +1846,25 @@ function makeStyles(accent: string) {
     ddCell: { backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 7, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
     ddCellText: { fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '800', letterSpacing: 0.3, color: DR.text2 },
     droneMetaLine: { fontFamily: 'JetBrainsMono', fontSize: 11, color: DR.text3, marginTop: 6, letterSpacing: 0.3 },
+    // Rubrik + i-knapp (Pilot function) — samma mått som cardFieldLabel ensam.
+    labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 4 },
+    // "Other"-dropdownens rader (radio + etikett), = pilotläget
+    ddRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7 },
+    ddRowText: { flex: 1, fontSize: 12.5, fontWeight: '600' },
+    // Helskärms-info-sida (roller) — speglar pilotlägets infoPage-stilar i DR-tema
+    infoPage: { flex: 1, backgroundColor: DR.background },
+    infoPageHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingLeft: 20, paddingRight: 12, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: DR.separator,
+    },
+    infoPageTitle: { flex: 1, color: DR.text, fontSize: 20, fontWeight: '700' },
+    infoPageClose: {
+      width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border,
+    },
+    infoPageIntro: { color: DR.muted, fontSize: 14, lineHeight: 20, marginBottom: 18 },
+    infoLogbook: { marginTop: 8, paddingLeft: 2, fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8, color: accent },
     roleGrid: { gap: 4 },
     roleRow: { flexDirection: 'row', gap: 4 },
     roleBtn: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border },
@@ -1574,6 +1895,7 @@ function makeStyles(accent: string) {
     // Natt-auto-knapp under natt-baren
     nightAutoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 2, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '10' },
     nightAutoText: { color: accent, fontSize: 12, fontWeight: '700' },
+    rulesExpandBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface },
     // Reg-input-modal
     regBackdrop: { flex: 1, backgroundColor: '#000A', alignItems: 'center', justifyContent: 'center', padding: 24 },
     regSheet: { width: '100%', maxWidth: 360, backgroundColor: DR.surface, borderRadius: 16, borderWidth: 1, borderColor: DR.border, padding: 18 },

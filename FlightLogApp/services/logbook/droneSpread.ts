@@ -4,10 +4,11 @@
 // Inga ändringar i själva motorn.
 
 import type { Flight } from '../../types/flight';
-import { listDrones, type DroneFlight, type DroneRegistryEntry } from '../../db/drones';
+import { listDrones, droneModeHours, type DroneFlight, type DroneRegistryEntry } from '../../db/drones';
 import { buildBookSpreads, type LogbookConfig, type LogbookSpread } from './paginate';
 import { getTemplate } from '../../constants/logbookTemplates';
 import { CIVIL_CATEGORIES } from '../../constants/droneCategories';
+import { dronePicTime } from '../../constants/droneRoles';
 
 type DroneMeta = { model: string; klass: string }; // klass = multirotor|helicopter|fixedwing|vtol
 
@@ -25,7 +26,8 @@ export function droneToFlightRow(d: DroneFlight, meta?: DroneMeta): Flight {
   const total = d.total_time || 0;
   const coFpv = d.co_pilot_fpv || 0;
   const dual = d.dual || 0;
-  const pic = Math.max(0, total - coFpv - dual);
+  // Roller som inte flyger (payload operator, mission commander, observer) får ingen PIC-tid — bara total.
+  const pic = dronePicTime(d);
   const klass = meta?.klass || '';
   const single = klass === 'helicopter' ? total : 0;
   const fixed = klass === 'fixedwing' || klass === 'vtol' ? total : 0;
@@ -36,8 +38,11 @@ export function droneToFlightRow(d: DroneFlight, meta?: DroneMeta): Flight {
   const cat = d.category || '';
   const catCell = cat ? ((CIVIL_CATEGORIES as readonly string[]).includes(cat) ? cat : '-') : '';
   const missionCat = op && catCell ? `${op}/${catCell}` : op || catCell || '';
-  const bvlos = d.flight_mode === 'BVLOS' ? total : 0;
-  const vlos = bvlos ? 0 : total; // VLOS/EVLOS → VLOS-kolumnen
+  // Siktläge: delad tid (Log flights barer) fördelas på kolumnerna; okänt läge → VLOS-kolumnen (som förut).
+  const mh = droneModeHours(d);
+  const split = mh.vlos + mh.evlos + mh.bvlos > 0;
+  const bvlos = split ? mh.bvlos : 0;
+  const vlos = split ? mh.vlos + mh.evlos : total; // VLOS/EVLOS → VLOS-kolumnen
 
   return {
     id: d.id,

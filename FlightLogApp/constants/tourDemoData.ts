@@ -108,6 +108,7 @@ function mkDroneFlight(p: Partial<DroneFlight>): DroneFlight {
     operation_type: 'PRI', remarks: '', created_at: '2026-01-01T00:00:00.000Z',
     photo_uri: '', media_type: '', photo_local_id: null, source: 'manual',
     h_vlos: 0, h_evlos: 0, h_bvlos: 0, h_a1: 0, h_a2: 0, h_a3: 0, h_specific: 0, h_certified: 0, h_night: 0,
+    pilot_role: '', second_pilot: '', second_pilot_role: '', extra_pilots: '',
     ...p,
   };
 }

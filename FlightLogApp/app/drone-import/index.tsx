@@ -89,7 +89,8 @@ export default function DroneImportCsvScreen() {
     const locations = new Set<string>();
     const dates: string[] = [];
     for (const r of rows) {
-      byMode[r.flight_mode] = (byMode[r.flight_mode] || 0) + r.total_time;
+      if (r.h_vlos + r.h_evlos + r.h_bvlos > 0) { byMode.VLOS += r.h_vlos; byMode.EVLOS += r.h_evlos; byMode.BVLOS += r.h_bvlos; }
+      else byMode[r.flight_mode] = (byMode[r.flight_mode] || 0) + r.total_time;
       tf.night += r.night_time; tf.ifr += r.ifr; tf.fpv += r.co_pilot_fpv; tf.dual += r.dual; tf.instr += r.instructor;
       if (r.is_night) night++;
       if (r.location) locations.add(r.location);

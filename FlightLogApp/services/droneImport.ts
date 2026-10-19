@@ -2,14 +2,15 @@
 // Claude identifierar ENBART kolumnmappningen; alla rader tolkas lokalt på enheten. Sparas med
 // source='import' → syns som en batch under Imported data och räknas i drönar-stats. Efter import
 // berikas unika drönar-modeller (specar + bild) via droneLookup (token-styrt), som pilotens flotta.
-import { insertDroneFlight, persistDroneModelLookup, addDrone, listDrones, linkImportedDroneFlights, type DroneFlightMode } from '../db/drones';
+import { insertDroneFlight, persistDroneModelLookup, addDrone, listDrones, linkImportedDroneFlights, ftToDroneAltM, type DroneFlightMode } from '../db/drones';
+import { parseDroneRole, parseDroneCrewText, droneRoleColumn, type DroneRole } from '../constants/droneRoles';
 import { pickImportFile, readTextSmart, parseRow, normalize, convertDate, convertTime } from './import';
 import { callAnthropicJson, callAnthropicRaw } from './anthropicClient';
 import { enrichDroneFleet } from './droneLookup';
 import { hasTokenQuota } from '../utils/tokenGate';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt.
-const DRONE_MAPPING_PROMPT = `Du är expert på DRÖNAR-/RPAS-loggboksformat (DJI, Autel, generisk drönarlogg, samt appens egen export "Blades": kolumner Date, Drone type, Registration, Location, Mission type, Category, Flight mode, Flight time, Max altitude (m), Night, Observer, Remarks).
+const DRONE_MAPPING_PROMPT = `Du är expert på DRÖNAR-/RPAS-loggboksformat (DJI, Autel, generisk drönarlogg, samt appens egna exporter "Blades": kolumner Date, Drone type, Registration, Location, Mission type, Category, Flight mode, Flight time, VLOS, EVLOS, BVLOS, Pilot function, PIC time, SIC / Co-pilot time, Dual time, Instructor time, RPIC time, Payload operator time, Mission commander time, Observer time, Safety pilot time, Examiner time, Max altitude (ft), Night, Crew, Remarks — eller samma tidskolumner med "(h)" i stället för "time", t.ex. "Total time (h)", "PIC (h)", "Observer (h)". Äldre Blades-exporter har "Max altitude (m)" och "Observer").
 
 Analysera headern OCH exempelraderna. Använd BÅDE kolumnnamnet OCH datamönstret. Returnera ENBART JSON:
 {
@@ -33,20 +34,27 @@ titelrader, tomma rader). En avslutande "TOTAL"-summeringsrad är INTE data.
   location       — plats (FRITEXT, ej ICAO). Rubriker: "Location", "Site", "Area"
   mission_type   — uppdragstyp. Rubriker: "Mission type", "Mission", "Job", "Purpose"
   category       — EU-kategori. Värden: A1, A2, A3, Specific, Certified. Rubriker: "Category", "Cat", "Type/Cat"
-  flight_mode    — siktförhållande. Värden: VLOS, EVLOS, BVLOS. Rubriker: "Flight mode", "Mode", "Operation"
+  flight_mode    — siktförhållande (TEXT). Värden: VLOS, EVLOS, BVLOS (eller kombinerat, t.ex. "VLOS + BVLOS"). Rubriker: "Flight mode", "Mode", "Operation"
+  vlos_time      — tid i VLOS (VARAKTIGHET). Rubriker: "VLOS", "VLOS time", "VLOS (h)"
+  evlos_time     — tid i EVLOS (VARAKTIGHET). Rubriker: "EVLOS", "EVLOS time", "EVLOS (h)"
+  bvlos_time     — tid i BVLOS (VARAKTIGHET). Rubriker: "BVLOS", "BVLOS time", "BVLOS (h)"
+                   OBS: en kolumn vars VÄRDEN är VLOS/EVLOS/BVLOS är flight_mode; kolumner som HETER VLOS/EVLOS/BVLOS och innehåller tider är *_time.
   total_time     — total flygtid (VARAKTIGHET, ej klockslag). Rubriker: "Flight time", "Total", "Duration", "Time"
   night_time     — natt-tid (timmar). En "Night"-kolumn med Yes/No eller 1/0 är en FLAGGA → mappa ändå hit (appen tolkar Yes/1 som natt).
   ifr            — IFR-tid. Rubriker: "IFR", "Instrument"
-  co_pilot_fpv   — co-pilot/FPV-tid. Rubriker: "Co-Pilot", "Copilot", "FPV", "Second pilot time"
-  dual           — elev-/dual-tid. Rubriker: "Dual", "Student"
-  instructor     — instruktörstid. Rubriker: "Instructor", "Dual Given"
+  co_pilot_fpv   — co-pilot/SIC/FPV-tid. Rubriker: "Co-Pilot", "Copilot", "FPV", "Second pilot time", "SIC / Co-pilot time", "SIC / Co-pilot (h)"
+  dual           — elev-/dual-tid. Rubriker: "Dual", "Student", "Dual time", "Dual (h)"
+  instructor     — instruktörstid. Rubriker: "Instructor", "Dual Given", "Instructor time", "Instructor (h)"
   landings_day   — daglandningar (heltal). Rubriker: "Day Ldg", "Landings", "LDG"
   landings_night — nattlandningar (heltal). Rubriker: "Night Ldg", "Night LDG"
-  max_altitude_m — max höjd i meter (heltal). Rubriker: "Max altitude (m)", "Max altitude", "Altitude", "AGL"
+  max_altitude_m — max höjd i METER. Rubriker: "Max altitude (m)", "Altitude (m)", "Max altitude", "Altitude", "AGL"
+  max_altitude_ft — max höjd i FOT. Rubriker: "Max altitude (ft)", "Max alt (ft)", "Altitude (ft)", "Height (ft)". Anger rubriken fot (ft/feet) → max_altitude_ft, annars max_altitude_m.
+  pilot_function — pilotens EGEN roll på flygningen (TEXT). Värden: PIC, SIC, Dual, Instructor, RPIC, Payload operator, Mission commander, Observer, Safety pilot, Examiner. Rubriker: "Pilot function", "Role", "Function", "Crew position"
+  crew           — ANDRA personer i besättningen med roll (TEXT), t.ex. "SIC: J. Doe, Observer: A. Berg". Rubriker: "Crew", "Second pilot", "Crew members", "Other crew"
   latitude       — startplatsens latitud i decimalgrader (t.ex. 59.3293). Rubriker: "Latitude", "Lat", "Takeoff Lat", "Home Latitude"
   longitude      — startplatsens longitud i decimalgrader (t.ex. 18.0686). Rubriker: "Longitude", "Lon", "Lng", "Takeoff Lon", "Home Longitude"
   takeoff_time   — starttid (KLOCKSLAG HH:MM, ej varaktighet). Rubriker: "Takeoff", "Takeoff time", "Start time", "Launch time"
-  observer       — observatörens namn, eller en Yes/No-flagga. Rubriker: "Observer", "Observer name", "VO", "Visual observer"
+  observer       — observatörens NAMN, eller en Yes/No-flagga. Rubriker: "Observer", "Observer name", "VO", "Visual observer". OBS: en kolumn med TIDER ("Observer time", "Observer (h)") är rolltid, INTE detta.
   operation_type — kommersiell eller privat flygning. Värden: COM/Commercial, PRI/Private/Recreational. Rubriker: "Operation type", "COM/PRI", "Commercial". OBS: en kolumn med VLOS/EVLOS/BVLOS är flight_mode, inte detta.
   remarks        — anmärkningar/fritext. Rubriker: "Remarks", "Notes", "Comments"
 
@@ -54,6 +62,7 @@ titelrader, tomma rader). En avslutande "TOTAL"-summeringsrad är INTE data.
 - Nycklarna i column_mapping MÅSTE vara EXAKTA kolumnnamn från headern (tecken för tecken).
 - Mappa ALLTID en varaktighetskolumn till total_time om en finns.
 - Mappa ALDRIG två kolumner till samma interna fält.
+- Tidskolumner per roll UTÖVER co-pilot/dual/instructor ("PIC time", "RPIC time", "Payload operator time", "Mission commander time", "Observer time", "Safety pilot time", "Examiner time" och motsvarande med "(h)") mappas INTE — rollen kommer från pilot_function. Skriv ingen varning om dem.
 - Utelämna kolumner som inte kan mappas. Ignorera "sep=;"-rader och TOTAL-summeringsraden.
 - delimiter: "," ";" "|" eller "\\t". date_format och time_format ("HH:MM"/"decimal"/"mixed") som filen använder.
 - warnings skrivs PÅ ENGELSKA, korta meningar — de visas för användaren i appen.`;
@@ -63,6 +72,7 @@ const DRONE_INT_FIELDS = new Set([
   'total_time', 'night_time', 'ifr', 'co_pilot_fpv', 'dual', 'instructor',
   'landings_day', 'landings_night', 'max_altitude_m', 'remarks',
   'latitude', 'longitude', 'takeoff_time', 'observer', 'operation_type',
+  'vlos_time', 'evlos_time', 'bvlos_time', 'max_altitude_ft', 'pilot_function', 'crew',
 ]);
 
 export interface ParsedDroneRow {
@@ -81,7 +91,7 @@ export interface ParsedDroneRow {
   instructor: number;
   landings_day: number;
   landings_night: number;
-  max_altitude_m: number;
+  max_altitude_m: number;    // meter (2 decimaler) — även ur en fot-kolumn
   is_night: boolean;
   lat: number;               // startplats (0 = saknas) → drönar-globen och kartorna
   lon: number;
@@ -89,6 +99,13 @@ export interface ParsedDroneRow {
   has_observer: boolean;
   observer_name: string;
   operation_type: string;    // 'COM' | 'PRI' | ''
+  h_vlos: number;            // delad tid per siktläge (0 = rent läge → flight_mode × total)
+  h_evlos: number;
+  h_bvlos: number;
+  pilot_role: string;        // egen roll (constants/droneRoles.ts), '' = härleds ur rolltiderna
+  second_pilot: string;      // besättning (Crew-kolumnen + observatörer) — som Log flights Second pilot
+  second_pilot_role: string;
+  extra_pilots: string;      // JSON [{ role, name }]
   remarks: string;
 }
 
@@ -110,13 +127,47 @@ function normCategory(v: string): string {
   return s;
 }
 function normMode(v: string): DroneFlightMode {
-  const u = v.trim().toUpperCase();
-  return (u === 'EVLOS' || u === 'BVLOS') ? u : 'VLOS';
+  // Även kombinerad etikett ur vår export ("VLOS + BVLOS") → första läget; tiden per läge kommer ur *_time.
+  const first = v.trim().toUpperCase().split(/[^A-Z]+/).find((x) => x === 'VLOS' || x === 'EVLOS' || x === 'BVLOS');
+  return (first as DroneFlightMode) ?? 'VLOS';
 }
 function isTruthy(v: string): boolean {
   return /^(y|yes|1|true|night|ja)/i.test(v.trim());
 }
 function convertTimeNum(v: string): number { return parseFloat(convertTime(v, 'mixed')) || 0; }
+// CSV-poster: en radbrytning INNE i ett citerat fält (t.ex. flerradiga Remarks ur appens egen export —
+// besättningsraden ligger på egen rad) avslutar inte posten. Citat räknas bara i början av ett fält
+// (RFC 4180), så lösa tum-tecken (5") påverkar inte. Oavslutat citat → vanlig raddelning som förut.
+function splitCsvRecords(text: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '""'; i++; continue; }
+        inQ = false;
+      }
+      cur += c;
+      continue;
+    }
+    if (c === '\n') { out.push(cur); cur = ''; continue; }
+    if (c === '"') {
+      const prev = cur.length ? cur[cur.length - 1] : '';
+      if (prev === '' || prev === ',' || prev === ';' || prev === '\t' || prev === '|') inQ = true;
+    }
+    cur += c;
+  }
+  out.push(cur);
+  return inQ ? text.split('\n') : out;
+}
+// Tal med decimal- eller tusentalskomma ("121,9" → 121.9, "1,200" → 1200, "24 000" → 24000).
+function parseNum(v: string): number {
+  const s = v.trim().replace(/\s/g, '');
+  const n = parseFloat(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 // Decimalgrader (komma eller punkt); utanför ±max eller otolkbart → 0 (= ingen position).
 function parseCoord(v: string, max: number): number {
   const n = parseFloat(v.trim().replace(',', '.'));
@@ -149,7 +200,7 @@ export async function importDroneFromFile(
   if (!content?.trim()) throw new Error('The file appears to be empty. Check that it is a valid CSV file.');
 
   const normalized = content.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const allLines = normalized.split('\n');
+  const allLines = splitCsvRecords(normalized); // poster, inte rader — flerradiga citerade fält hålls ihop
 
   // Hoppa förbi sep=/kommentarer/tomrader → hitta första riktiga raden.
   let headerIndex = 0;
@@ -223,6 +274,23 @@ export async function importDroneFromFile(
     const obsRaw = cell(row, 'observer');
     const obsFlag = /^(y|yes|1|true|ja)$/i.test(obsRaw);
     const obsNone = /^(n|no|0|false|nej|none|-)?$/i.test(obsRaw);
+    // Besättning (Crew-kolumnen) + observatörens namn → samma modell som Log flights Second pilot: observatörer
+    // är besättning med rollen Observer. "Observer: Yes" (Blades-export av en Yes-flagga) är en flagga, inget namn.
+    let crewObsFlag = false;
+    const crew = parseDroneCrewText(cell(row, 'crew')).filter((p) => {
+      if (p.role === 'observer' && /^(y|yes|1|true|ja)$/i.test(p.name)) { crewObsFlag = true; return false; }
+      return true;
+    });
+    if (!obsFlag && !obsNone) {
+      for (const name of obsRaw.split(/\s*,\s*/).map((s) => s.trim()).filter(Boolean)) {
+        if (!crew.some((p) => p.name.toLowerCase() === name.toLowerCase())) crew.push({ role: 'observer', name });
+      }
+    }
+    const observers = crew.filter((p) => p.role === 'observer').map((p) => p.name);
+    const [second, ...extraCrew] = crew;
+    // Höjd: meter, eller fot (Blades-exporten skriver "Max altitude (ft)") → meter med 2 decimaler.
+    const altM = parseNum(cell(row, 'max_altitude_m'));
+    const altFt = parseNum(cell(row, 'max_altitude_ft'));
 
     const r: ParsedDroneRow = {
       date: convertDate(cell(row, 'date'), dateFormat),
@@ -240,16 +308,36 @@ export async function importDroneFromFile(
       instructor: convertTimeNum(cell(row, 'instructor')),
       landings_day: parseInt(cell(row, 'landings_day'), 10) || 0,
       landings_night: parseInt(cell(row, 'landings_night'), 10) || 0,
-      max_altitude_m: parseInt(cell(row, 'max_altitude_m'), 10) || 0,
+      max_altitude_m: altM > 0 ? Math.round(altM * 100) / 100 : altFt > 0 ? ftToDroneAltM(altFt) : 0,
       is_night: nightH > 0 || nightFlag,
       lat: parseCoord(cell(row, 'latitude'), 90),
       lon: parseCoord(cell(row, 'longitude'), 180),
       takeoff_time: normClock(cell(row, 'takeoff_time')),
-      has_observer: obsFlag || !obsNone,
-      observer_name: obsFlag || obsNone ? '' : obsRaw,
+      has_observer: observers.length > 0 || obsFlag || crewObsFlag,
+      observer_name: observers.join(', '),
       operation_type: normOperation(cell(row, 'operation_type')),
+      h_vlos: 0, h_evlos: 0, h_bvlos: 0,
+      pilot_role: parseDroneRole(cell(row, 'pilot_function')),
+      second_pilot: second?.name ?? '',
+      second_pilot_role: second?.role ?? '',
+      extra_pilots: extraCrew.length ? JSON.stringify(extraCrew) : '',
       remarks: cell(row, 'remarks'),
     };
+    // Roll utan rolltider i filen (t.ex. bara en "Role"-kolumn) → rollens loggbokskolumn får hela flygtiden.
+    if (r.pilot_role && r.total_time > 0 && r.co_pilot_fpv + r.dual + r.instructor === 0) {
+      const col = droneRoleColumn(r.pilot_role as DroneRole);
+      if (col === 'co_pilot_fpv' || col === 'dual' || col === 'instructor') r[col] = r.total_time;
+    }
+    // Tid per siktläge: två eller fler lägen = delad tid (sparas), ett läge = rent läge (avgör flight_mode).
+    const split: Record<DroneFlightMode, number> = { VLOS: convertTimeNum(cell(row, 'vlos_time')), EVLOS: convertTimeNum(cell(row, 'evlos_time')), BVLOS: convertTimeNum(cell(row, 'bvlos_time')) };
+    const withTime = (Object.keys(split) as DroneFlightMode[]).filter((m) => split[m] > 0);
+    if (withTime.length === 1) r.flight_mode = withTime[0];
+    else if (withTime.length > 1) {
+      const sum = split.VLOS + split.EVLOS + split.BVLOS;
+      const k = r.total_time > 0 && sum > r.total_time + 0.02 ? r.total_time / sum : 1; // aldrig mer än totalen
+      r.h_vlos = split.VLOS * k; r.h_evlos = split.EVLOS * k; r.h_bvlos = split.BVLOS * k;
+      r.flight_mode = withTime.reduce((a, b) => (split[b] > split[a] ? b : a));
+    }
     if (!r.date) r.date = new Date().toISOString().slice(0, 10);
 
     // Rolltid/natt/IFR får inte överstiga totaltiden.
@@ -353,6 +441,11 @@ export async function saveDroneImport(rows: ParsedDroneRow[]): Promise<number> {
       has_observer: r.has_observer,
       observer_name: r.observer_name,
       operation_type: r.operation_type,
+      h_vlos: String(r.h_vlos), h_evlos: String(r.h_evlos), h_bvlos: String(r.h_bvlos),
+      pilot_role: r.pilot_role,
+      second_pilot: r.second_pilot,
+      second_pilot_role: r.second_pilot_role,
+      extra_pilots: r.extra_pilots,
       remarks: r.remarks,
       source: 'import',
     });

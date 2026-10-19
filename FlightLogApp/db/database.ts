@@ -333,6 +333,12 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_specific', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_certified', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_night', 'REAL NOT NULL DEFAULT 0');
+  // Drönar-besättning (= pilotens second pilot): egen roll inkl. "Other"-rollerna (constants/droneRoles.ts;
+  // tom = härleds ur tidshinkarna) + medpilot med roll + fler medpiloter som JSON [{ role, name }].
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'pilot_role', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'second_pilot', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'second_pilot_role', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'extra_pilots', "TEXT NOT NULL DEFAULT ''");
   // Drönar-register: klass (militär/civil), anges själv i drönar-modalen.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'drone_class', "TEXT NOT NULL DEFAULT ''"); // military | civil
   // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.

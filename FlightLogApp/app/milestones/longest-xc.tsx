@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
+import { useLongestXcFull, type LXTop5Row } from '../../hooks/useMilestoneDetails';
 import { RouteLeafletModal, RouteMapPreview } from '../../components/milestones/RouteLeafletModal';
 import {
   MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
@@ -20,7 +20,19 @@ export default function LongestXcScreen() {
   const { t } = useTranslation();
   const [mapVisible, setMapVisible] = useState(false);
 
-  const d = useLongestXcFull({
+  // Utan parametrar = längsta XC. Med ?date= = en av topp 5-dagarna (#2–5), öppnad från listan nedan.
+  const params = useLocalSearchParams<{ date?: string; rank?: string; nm?: string; hours?: string; from?: string; to?: string }>();
+  const sub = !!params.date;
+  const rank = sub ? Number(params.rank) || 0 : 1;
+
+  const d = useLongestXcFull(sub ? {
+    date: params.date,
+    km: Number(params.nm) || 0,
+    hours: parseFloat(params.hours ?? '') || 0,
+    flightId: null,
+    firstDep: params.from,
+    lastArr: params.to,
+  } : {
     date: stats?.longest_xc_date || undefined,
     km: stats?.longest_xc_km ?? 0,
     hours: stats?.longest_xc_hours ?? 0,
@@ -28,6 +40,18 @@ export default function LongestXcScreen() {
     firstDep: stats?.longest_xc_first_dep,
     lastArr: stats?.longest_xc_last_arr,
   });
+
+  // Topp 5-rad → samma vy för den dagen. Från längsta XC läggs ett kort ovanpå; på ett sådant kort
+  // byts innehållet på plats (setParams) och #1 stänger kortet → "tillbaka" landar alltid på längsta XC.
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [params.date]);
+  const openXc = (r: LXTop5Row) => {
+    if (r.current) return;
+    if (sub && r.rank === 1) { router.back(); return; }
+    const p = { date: r.iso, rank: String(r.rank), nm: String(r.nm), hours: String(r.hours), from: r.from, to: r.to };
+    if (sub) router.setParams(p); else router.push({ pathname: '/milestones/longest-xc', params: p });
+  };
+  const detailId = sub ? d.flightId : stats?.longest_xc_id;
 
   const chips = [
     d.cruiseKts ? { l: t('ms.lx_cruise'), v: `${d.cruiseKts} KTS` } : null,
@@ -41,16 +65,16 @@ export default function LongestXcScreen() {
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <MilestoneHeader
-        title={t('ms.longest_xc')}
+        title={sub ? t('ms.lx_top5') : t('ms.longest_xc')}
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={s.hero}>
-          <Eyebrow accent={accent}>{t('ms.lx_eyebrow')}</Eyebrow>
+          <Eyebrow accent={accent}>{sub ? t('ms.lx_eyebrow_rank').replace('{n}', String(rank)) : t('ms.lx_eyebrow')}</Eyebrow>
           <View style={s.heroRow}>
             <Text style={s.heroNum}>{(d.distanceNm || 0).toLocaleString('en-US')}</Text>
             <Text style={[s.heroUnit, { color: accent }]}>{t('ms.nm')}</Text>
@@ -154,6 +178,7 @@ export default function LongestXcScreen() {
                   rank: r.rank, label: r.route, range: r.date,
                   value: r.nm.toLocaleString('en-US'), unit: t('ms.nm'),
                   pct: (r.nm / maxTop5) * 100, current: r.current,
+                  onPress: () => openXc(r),
                 }))}
               />
             </Card>
@@ -165,7 +190,7 @@ export default function LongestXcScreen() {
           <GhostCTA
             label={t('ms.lx_open_detail')}
             icon="document-text-outline"
-            onPress={() => stats?.longest_xc_id && router.push(`/flight/detail/${stats.longest_xc_id}`)}
+            onPress={() => detailId && router.push(`/flight/detail/${detailId}`)}
           />
         </View>
       </ScrollView>

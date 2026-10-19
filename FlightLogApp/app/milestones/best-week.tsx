@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useBestWeekFull } from '../../hooks/useMilestoneDetails';
+import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails';
 import { monthShort } from '../../utils/dateLabels';
 import { BWDayBars } from '../../components/milestones/BWDayBars';
 import {
@@ -28,12 +28,28 @@ export default function BestWeekScreen() {
   const accent = Colors.accent;
   const stats = useFlightStore(s => s.stats);
   const { t, language } = useTranslation();
+  // Utan parametrar = bästa veckan. Med ?week= = en av topp 5-veckorna (#2–5), öppnad från listan nedan.
+  const params = useLocalSearchParams<{ week?: string; rank?: string; label?: string; hours?: string }>();
+  const sub = !!params.week;
+  const rank = sub ? Number(params.rank) || 0 : 1;
+  const weekHours = sub ? parseFloat(params.hours ?? '') || 0 : stats?.best_week_hours ?? 0;
 
   const d = useBestWeekFull(
-    stats?.best_week_start || undefined,
-    stats?.best_week_label || '',
-    stats?.best_week_hours ?? 0,
+    sub ? params.week : stats?.best_week_start || undefined,
+    sub ? params.label ?? '' : stats?.best_week_label || '',
+    weekHours,
   );
+
+  // Topp 5-rad → samma vy för den veckan. Från bästa veckan läggs ett kort ovanpå; på ett sådant kort
+  // byts innehållet på plats (setParams) och #1 stänger kortet → "tillbaka" landar alltid på bästa veckan.
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [params.week]);
+  const openWeek = (w: BWTop5Row) => {
+    if (w.current) return;
+    if (sub && w.rank === 1) { router.back(); return; }
+    const p = { week: w.weekStart, rank: String(w.rank), label: w.label, hours: String(w.hours) };
+    if (sub) router.setParams(p); else router.push({ pathname: '/milestones/best-week', params: p });
+  };
 
   const maxTop5 = Math.max(1, ...d.top5.map(t => t.hours));
   const cmpMax = Math.max(d.hoursNum, d.baselineWeek, 0.1);
@@ -43,22 +59,22 @@ export default function BestWeekScreen() {
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <MilestoneHeader
-        title={t('ms.best_week')}
+        title={sub ? t('ms.bw_top5') : t('ms.best_week')}
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={s.hero}>
-          <Eyebrow accent={accent}>{t('ms.bw_eyebrow')}</Eyebrow>
+          <Eyebrow accent={accent}>{sub ? t('ms.bw_eyebrow_rank').replace('{n}', String(rank)) : t('ms.bw_eyebrow')}</Eyebrow>
           <View style={s.heroRow}>
-            <Text style={s.heroNum}>{d.hoursLabel || hhmm(stats?.best_week_hours ?? 0)}</Text>
+            <Text style={s.heroNum}>{d.hoursLabel || hhmm(weekHours)}</Text>
             <Text style={[s.heroUnit, { color: accent }]}>{t('ms.hrs')}</Text>
           </View>
           <Text style={s.heroCaption}>
-            {(stats?.best_week_label || '').toUpperCase()}{d.rangeLabel ? ` · ${d.rangeLabel.toUpperCase()}` : ''}
+            {(d.weekLabel || '').toUpperCase()}{d.rangeLabel ? ` · ${d.rangeLabel.toUpperCase()}` : ''}
           </Text>
         </View>
 
@@ -137,6 +153,7 @@ export default function BestWeekScreen() {
                   rank: w.rank, label: w.label, range: w.range,
                   value: hhmm(w.hours), unit: t('ms.hrs'),
                   pct: (w.hours / maxTop5) * 100, current: w.current,
+                  onPress: () => openWeek(w),
                 }))}
               />
             </Card>

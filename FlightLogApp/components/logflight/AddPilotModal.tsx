@@ -1,14 +1,24 @@
 // Lägg till ny andre pilot. Val mellan Name (För-/efternamn → visas "J. Johansson")
 // och Callsign (visas helt). Name-läget har två separata rutor: First name + Last name.
+// Drönarläget skickar egen palett (DR + accent); utan palett används pilotens färger.
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
 
 const cap = (w: string) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w);
 
-export function AddPilotModal({ visible, title, onClose, onSave }: {
+export type AddPilotPalette = { accent: string; onAccent: string; card: string; cardBorder: string; field: string; border: string; text: string; text2: string; muted: string };
+
+export function AddPilotModal({ visible, title, onClose, onSave, palette }: {
   visible: boolean; title: string; onClose: () => void; onSave: (name: string) => void;
+  palette?: Partial<AddPilotPalette>;
 }) {
+  const P: AddPilotPalette = {
+    accent: Colors.primary, onAccent: Colors.textInverse, card: Colors.card, cardBorder: Colors.cardBorder,
+    field: Colors.elevated, border: Colors.border, text: Colors.textPrimary, text2: Colors.textSecondary, muted: Colors.textMuted,
+    ...palette,
+  };
+  const input = [s.input, { backgroundColor: P.field, borderColor: P.border, color: P.text }];
   const [mode, setMode] = useState<'name' | 'callsign'>('name');
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
@@ -32,34 +42,34 @@ export function AddPilotModal({ visible, title, onClose, onSave }: {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <TouchableOpacity activeOpacity={1} onPress={close} style={s.backdrop}>
-        <TouchableOpacity activeOpacity={1} onPress={() => {}} style={s.card}>
-          <Text style={s.title}>{title}</Text>
+        <TouchableOpacity activeOpacity={1} onPress={() => {}} style={[s.card, { backgroundColor: P.card, borderColor: P.cardBorder }]}>
+          <Text style={[s.title, { color: P.text }]}>{title}</Text>
 
           {/* Name | Callsign */}
-          <View style={s.seg}>
+          <View style={[s.seg, { backgroundColor: P.field, borderColor: P.border }]}>
             {(['name', 'callsign'] as const).map((m) => (
               <TouchableOpacity key={m} onPress={() => setMode(m)} activeOpacity={0.8}
-                style={[s.segBtn, mode === m && { backgroundColor: Colors.primary }]}>
-                <Text style={{ color: mode === m ? Colors.textInverse : Colors.textSecondary, fontSize: 13, fontWeight: '700' }}>{m === 'name' ? 'Name' : 'Callsign'}</Text>
+                style={[s.segBtn, mode === m && { backgroundColor: P.accent }]}>
+                <Text style={{ color: mode === m ? P.onAccent : P.text2, fontSize: 13, fontWeight: '700' }}>{m === 'name' ? 'Name' : 'Callsign'}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
           {mode === 'name' ? (
             <View style={{ gap: 8 }}>
-              <TextInput style={s.input} value={first} onChangeText={setFirst} placeholder="First name" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
-              <TextInput style={s.input} value={last} onChangeText={setLast} placeholder="Last name" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
+              <TextInput style={input} value={first} onChangeText={setFirst} placeholder="First name" placeholderTextColor={P.muted} autoCapitalize="words" />
+              <TextInput style={input} value={last} onChangeText={setLast} placeholder="Last name" placeholderTextColor={P.muted} autoCapitalize="words" />
             </View>
           ) : (
-            <TextInput style={s.input} value={callsign} onChangeText={setCallsign} placeholder="Callsign" placeholderTextColor={Colors.textMuted} autoCapitalize="characters" />
+            <TextInput style={input} value={callsign} onChangeText={setCallsign} placeholder="Callsign" placeholderTextColor={P.muted} autoCapitalize="characters" />
           )}
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity onPress={close} style={[s.btn, { borderWidth: 1, borderColor: Colors.border }]}>
-              <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+            <TouchableOpacity onPress={close} style={[s.btn, { borderWidth: 1, borderColor: P.border }]}>
+              <Text style={{ color: P.text2, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={save} style={[s.btn, { backgroundColor: Colors.primary }]}>
-              <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>Add</Text>
+            <TouchableOpacity onPress={save} style={[s.btn, { backgroundColor: P.accent }]}>
+              <Text style={{ color: P.onAccent, fontSize: 14, fontWeight: '700' }}>Add</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

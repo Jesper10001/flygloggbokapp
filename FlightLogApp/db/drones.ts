@@ -1,5 +1,6 @@
 import { getDatabase } from './database';
 import { getDroneBackfill } from './droneBackfill';
+import { parseDroneCrew } from '../constants/droneRoles';
 
 // Fritt textfält i DB så vi klarar både civila (A1/A2/A3/Specific/Certified)
 // och militära scheman (MRPAS/RPAS/NATO-C1-Mini etc.)
@@ -419,6 +420,35 @@ export interface DroneFlight {
   h_vlos: number; h_evlos: number; h_bvlos: number;
   h_a1: number; h_a2: number; h_a3: number; h_specific: number; h_certified: number;
   h_night: number;
+  // Besättning (= pilotens second pilot) — rollnycklar i constants/droneRoles.ts.
+  pilot_role: string;        // egen roll ('' = härleds ur co_pilot_fpv/dual/instructor)
+  second_pilot: string;
+  second_pilot_role: string;
+  extra_pilots: string;      // JSON [{ role, name }] — fler medpiloter
+}
+
+// Max höjd: lagras i meter (max_altitude_m, 2 decimaler så att fot går tur-retur exakt: 400 ft ⇄ 121.92 m),
+// men visas och matas in i FOT (Log flight, detaljvy, CSV-export).
+export const M_PER_FT = 0.3048;
+export const droneAltFt = (m: number | null | undefined): number => (m && m > 0 ? Math.round(m / M_PER_FT) : 0);
+export const ftToDroneAltM = (ft: number): number => Math.round(ft * M_PER_FT * 100) / 100;
+const parseAltM = (v: string | undefined): number => Math.round((parseFloat(v ?? '') || 0) * 100) / 100;
+
+/** Tid per siktläge för en flygning. Finns en uppdelning (h_vlos/h_evlos/h_bvlos — summeringsrader och
+ *  flygningar med delad tid från Log flights barer) gäller den, annars hela totalen på flight_mode.
+ *  Samma regel som getDroneStats, så att delade flygningar aldrig räknas dubbelt. */
+export function droneModeHours(f: Pick<DroneFlight, 'flight_mode' | 'total_time' | 'h_vlos' | 'h_evlos' | 'h_bvlos'>): { vlos: number; evlos: number; bvlos: number } {
+  const hv = Number(f.h_vlos) || 0, he = Number(f.h_evlos) || 0, hb = Number(f.h_bvlos) || 0;
+  if (hv + he + hb > 0) return { vlos: hv, evlos: he, bvlos: hb };
+  const t = Number(f.total_time) || 0;
+  return { vlos: f.flight_mode === 'VLOS' ? t : 0, evlos: f.flight_mode === 'EVLOS' ? t : 0, bvlos: f.flight_mode === 'BVLOS' ? t : 0 };
+}
+
+/** Läges-etikett: "VLOS" för ett rent läge, "VLOS + BVLOS" när tiden är delad (ordning VLOS, EVLOS, BVLOS). */
+export function droneModeLabel(f: Pick<DroneFlight, 'flight_mode' | 'total_time' | 'h_vlos' | 'h_evlos' | 'h_bvlos'>, sep = ' + '): string {
+  const mh = droneModeHours(f);
+  const parts = [mh.vlos > 0 && 'VLOS', mh.evlos > 0 && 'EVLOS', mh.bvlos > 0 && 'BVLOS'].filter(Boolean) as string[];
+  return parts.length ? parts.join(sep) : (f.flight_mode || 'VLOS');
 }
 
 export interface DroneFlightFormData {
@@ -458,6 +488,10 @@ export interface DroneFlightFormData {
   operation_type?: string; // 'PRI' | 'COM'
   remarks: string;
   source?: string;          // 'manual' (default) | 'import' | 'summary' (bulk-historik)
+  pilot_role?: string;
+  second_pilot?: string;
+  second_pilot_role?: string;
+  extra_pilots?: string;    // JSON [{ role, name }]
 }
 
 export async function insertDroneFlight(data: DroneFlightFormData): Promise<number> {
@@ -469,8 +503,9 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       mission_type, category, flight_mode, total_time, max_altitude_m,
       is_night, night_time, vfr, flight_rules, has_observer, observer_name, wind_ms,
       co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks, source,
-      h_vlos, h_evlos, h_bvlos, h_a1, h_a2, h_a3, h_specific, h_certified, h_night
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      h_vlos, h_evlos, h_bvlos, h_a1, h_a2, h_a3, h_specific, h_certified, h_night,
+      pilot_role, second_pilot, second_pilot_role, extra_pilots
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -487,7 +522,7 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       data.category,
       data.flight_mode,
       parseFloat(data.total_time) || 0,
-      parseInt(data.max_altitude_m, 10) || 0,
+      parseAltM(data.max_altitude_m),
       data.is_night ? 1 : 0,
       parseFloat(data.night_time ?? '') || 0,
       parseFloat(data.vfr ?? '') || 0,
@@ -513,6 +548,10 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       parseFloat(data.h_specific ?? '') || 0,
       parseFloat(data.h_certified ?? '') || 0,
       parseFloat(data.h_night ?? '') || 0,
+      data.pilot_role ?? '',
+      (data.second_pilot ?? '').trim(),
+      data.second_pilot_role ?? '',
+      data.extra_pilots ?? '',
     ]
   );
   return res.lastInsertRowId as number;
@@ -539,7 +578,10 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       takeoff_time=?, landing_location=?, landing_lat=?, landing_lon=?,
       mission_type=?, category=?, flight_mode=?, total_time=?, max_altitude_m=?,
       is_night=?, night_time=?, vfr=?, flight_rules=?, has_observer=?, observer_name=?, wind_ms=?,
-      co_pilot_fpv=?, dual=?, instructor=?, ifr=?, landings_day=?, landings_night=?, operation_type=?, remarks=?
+      co_pilot_fpv=?, dual=?, instructor=?, ifr=?, landings_day=?, landings_night=?, operation_type=?, remarks=?,
+      h_vlos=COALESCE(?, h_vlos), h_evlos=COALESCE(?, h_evlos), h_bvlos=COALESCE(?, h_bvlos),
+      pilot_role=COALESCE(?, pilot_role), second_pilot=COALESCE(?, second_pilot),
+      second_pilot_role=COALESCE(?, second_pilot_role), extra_pilots=COALESCE(?, extra_pilots)
      WHERE id=?`,
     [
       data.date,
@@ -557,7 +599,7 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       data.category,
       data.flight_mode,
       parseFloat(data.total_time) || 0,
-      parseInt(data.max_altitude_m, 10) || 0,
+      parseAltM(data.max_altitude_m),
       data.is_night ? 1 : 0,
       parseFloat(data.night_time ?? '') || 0,
       parseFloat(data.vfr ?? '') || 0,
@@ -573,9 +615,53 @@ export async function updateDroneFlight(id: number, data: DroneFlightFormData): 
       parseInt(data.landings_night ?? '', 10) || 0,
       data.operation_type ?? '',
       data.remarks,
+      // Siktläges-uppdelning: skrivs bara när den skickas med (Log flight) — andra anrop lämnar den orörd.
+      data.h_vlos === undefined ? null : parseFloat(data.h_vlos) || 0,
+      data.h_evlos === undefined ? null : parseFloat(data.h_evlos) || 0,
+      data.h_bvlos === undefined ? null : parseFloat(data.h_bvlos) || 0,
+      // Besättning: likaså bara när den skickas med.
+      data.pilot_role ?? null,
+      data.second_pilot === undefined ? null : data.second_pilot.trim(),
+      data.second_pilot_role ?? null,
+      data.extra_pilots ?? null,
       id,
     ]
   );
+}
+
+// Second pilot-förslag: medpiloter (second pilot + extra_pilots) med senast använda roll, nyast först.
+export async function getRecentDroneCrew(): Promise<{ name: string; role: string }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ second_pilot: string; second_pilot_role: string; extra_pilots: string }>(
+    `SELECT second_pilot, second_pilot_role, extra_pilots FROM drone_flights
+     WHERE second_pilot != '' OR extra_pilots != ''
+     ORDER BY date DESC, id DESC`,
+  );
+  const seen = new Map<string, string>();
+  for (const r of rows) {
+    for (const p of parseDroneCrew(r)) if (p.name && !seen.has(p.name)) seen.set(p.name, p.role);
+  }
+  return [...seen.entries()].map(([name, role]) => ({ name, role }));
+}
+
+// Medpiloter grupperade per drönarmodell (= pilotens per flygplanstyp); senast flugen modell först.
+export async function getDroneCrewByModel(): Promise<{ aircraft: string; pilots: string[] }[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ model: string; second_pilot: string; second_pilot_role: string; extra_pilots: string }>(
+    `SELECT COALESCE(NULLIF(r.model, ''), f.drone_type, '') AS model, f.second_pilot, f.second_pilot_role, f.extra_pilots
+     FROM drone_flights f
+     LEFT JOIN drone_registry r ON r.id = f.drone_id
+     WHERE f.second_pilot != '' OR f.extra_pilots != ''
+     ORDER BY f.date DESC, f.id DESC`,
+  );
+  const byModel = new Map<string, string[]>(); // Map behåller insättningsordning → senast flugen först
+  for (const r of rows) {
+    if (!r.model) continue;
+    const list = byModel.get(r.model) ?? [];
+    for (const p of parseDroneCrew(r)) if (p.name && !list.includes(p.name)) list.push(p.name);
+    byModel.set(r.model, list);
+  }
+  return [...byModel.entries()].filter(([, pilots]) => pilots.length > 0).map(([aircraft, pilots]) => ({ aircraft, pilots }));
 }
 
 export async function deleteDroneFlight(id: number): Promise<void> {
@@ -618,9 +704,10 @@ export async function getDroneStats(): Promise<DroneStats> {
       COUNT(*) as total_flights,
       ROUND(SUM(total_time), 2) as total_time,
       ROUND(SUM(CASE WHEN strftime('%Y', date) = strftime('%Y', 'now') THEN total_time ELSE 0 END), 2) as year_to_date,
-      ROUND(SUM(CASE WHEN flight_mode='VLOS' THEN total_time ELSE 0 END) + SUM(h_vlos), 2) as vlos,
-      ROUND(SUM(CASE WHEN flight_mode='EVLOS' THEN total_time ELSE 0 END) + SUM(h_evlos), 2) as evlos,
-      ROUND(SUM(CASE WHEN flight_mode='BVLOS' THEN total_time ELSE 0 END) + SUM(h_bvlos), 2) as bvlos,
+      -- Siktläge: uppdelningen (h_*) gäller när den finns, annars hela totalen på flight_mode (= droneModeHours).
+      ROUND(SUM(CASE WHEN flight_mode='VLOS' AND (h_vlos + h_evlos + h_bvlos) = 0 THEN total_time ELSE 0 END) + SUM(h_vlos), 2) as vlos,
+      ROUND(SUM(CASE WHEN flight_mode='EVLOS' AND (h_vlos + h_evlos + h_bvlos) = 0 THEN total_time ELSE 0 END) + SUM(h_evlos), 2) as evlos,
+      ROUND(SUM(CASE WHEN flight_mode='BVLOS' AND (h_vlos + h_evlos + h_bvlos) = 0 THEN total_time ELSE 0 END) + SUM(h_bvlos), 2) as bvlos,
       ROUND(SUM(CASE WHEN is_night=1 THEN total_time ELSE 0 END) + SUM(h_night), 2) as night,
       ROUND(SUM(CASE WHEN category='A1' THEN total_time ELSE 0 END) + SUM(h_a1), 2) as cat_a1,
       ROUND(SUM(CASE WHEN category='A2' THEN total_time ELSE 0 END) + SUM(h_a2), 2) as cat_a2,

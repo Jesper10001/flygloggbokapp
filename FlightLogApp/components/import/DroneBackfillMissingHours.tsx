@@ -12,7 +12,7 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTourStore } from '../../store/tourStore';
 import { TourPress } from '../TourPress';
 import { getDroneBackfill, setDroneBackfill, type DroneBackfillValues } from '../../db/droneBackfill';
-import type { DroneFlight } from '../../db/drones';
+import { droneModeHours, type DroneFlight } from '../../db/drones';
 
 type FieldKey = keyof DroneBackfillValues;
 type Field = { key: FieldKey; label: string };
@@ -43,9 +43,10 @@ function sumDroneField(flights: DroneFlight[], key: FieldKey): number {
   switch (key) {
     case 'total_time':    return flights.reduce((s, f) => s + t(f), 0);
     case 'night':         return flights.reduce((s, f) => s + (f.is_night ? t(f) : 0), 0);
-    case 'vlos':          return flights.reduce((s, f) => s + (f.flight_mode === 'VLOS' ? t(f) : 0), 0);
-    case 'evlos':         return flights.reduce((s, f) => s + (f.flight_mode === 'EVLOS' ? t(f) : 0), 0);
-    case 'bvlos':         return flights.reduce((s, f) => s + (f.flight_mode === 'BVLOS' ? t(f) : 0), 0);
+    // Siktläge: delad tid per läge; summeringsrader räknas inte här (som förut — deras flight_mode är tom).
+    case 'vlos':          return flights.reduce((s, f) => s + (f.source === 'summary' ? 0 : droneModeHours(f).vlos), 0);
+    case 'evlos':         return flights.reduce((s, f) => s + (f.source === 'summary' ? 0 : droneModeHours(f).evlos), 0);
+    case 'bvlos':         return flights.reduce((s, f) => s + (f.source === 'summary' ? 0 : droneModeHours(f).bvlos), 0);
     case 'cat_a1':        return flights.reduce((s, f) => s + (f.category === 'A1' ? t(f) : 0), 0);
     case 'cat_a2':        return flights.reduce((s, f) => s + (f.category === 'A2' ? t(f) : 0), 0);
     case 'cat_a3':        return flights.reduce((s, f) => s + (f.category === 'A3' ? t(f) : 0), 0);

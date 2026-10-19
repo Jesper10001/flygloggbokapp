@@ -79,15 +79,18 @@ export interface Top5Item {
   value: string;   // "24:30" or "1,280"
   unit: string;    // "HRS" / "NM"
   pct: number;     // 0..100
-  current: boolean;
+  current: boolean; // raden som visas på sidan just nu (accentfärg)
+  onPress?: () => void; // tryck → öppna den veckan/flygningen (saknas för raden som redan visas)
 }
 
 export function Top5Bars({ items, accent }: { items: Top5Item[]; accent: string }) {
   const { t } = useTranslation();
   return (
     <View style={{ gap: 12 }}>
-      {items.map(it => (
-        <View key={it.rank} style={{ gap: 5 }}>
+      {items.map(it => {
+        const tappable = !!it.onPress && !it.current;
+        const body = (
+          <>
           <View style={u.t5Row}>
             <View style={u.t5Left}>
               <Text style={[u.t5Rank, { color: it.current ? accent : Colors.textMuted }]}>
@@ -96,20 +99,30 @@ export function Top5Bars({ items, accent }: { items: Top5Item[]; accent: string 
               <Text style={[u.t5Label, { color: it.current ? Colors.textPrimary : Colors.textSecondary }]} numberOfLines={1}>
                 {it.label}
               </Text>
-              {it.current && <Text style={[u.t5Best, { color: accent }]}>· {t('ms.best').toUpperCase()}</Text>}
+              {it.rank === 1 && <Text style={[u.t5Best, { color: accent }]}>· {t('ms.best').toUpperCase()}</Text>}
             </View>
             <View style={u.t5Right}>
               <Text style={u.t5Range}>{it.range}</Text>
               <Text style={[u.t5Value, { color: it.current ? accent : Colors.textSecondary }]}>
                 {it.value}<Text style={u.t5Unit}> {it.unit}</Text>
               </Text>
+              {tappable && <Ionicons name="chevron-forward" size={12} color={Colors.textMuted} style={{ alignSelf: 'center' }} />}
             </View>
           </View>
           <View style={u.t5Track}>
             <View style={[u.t5Fill, { width: `${it.pct}%`, backgroundColor: it.current ? accent : Colors.cardBorder }]} />
           </View>
-        </View>
-      ))}
+          </>
+        );
+        return tappable ? (
+          <Pressable key={it.rank} onPress={it.onPress} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${it.rank}. ${it.label}, ${it.value} ${it.unit}`}
+            style={({ pressed }) => ({ gap: 5, opacity: pressed ? 0.6 : 1 })}>
+            {body}
+          </Pressable>
+        ) : (
+          <View key={it.rank} style={{ gap: 5 }}>{body}</View>
+        );
+      })}
     </View>
   );
 }

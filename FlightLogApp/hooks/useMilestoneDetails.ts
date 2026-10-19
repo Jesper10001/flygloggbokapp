@@ -115,7 +115,7 @@ export function useBestWeekDetails(weekStart?: string): BestWeekDetails {
 
 export interface BWFlightRow { id: number; dep: string; arr: string; dur: string; isPic: boolean }
 export interface BWDayFull extends BestWeekDay { flights: BWFlightRow[] }
-export interface BWTop5Row { rank: number; label: string; range: string; hours: number; current: boolean }
+export interface BWTop5Row { rank: number; label: string; range: string; hours: number; current: boolean; weekStart: string }
 export interface BestWeekFull {
   ready: boolean;
   hoursLabel: string;
@@ -191,6 +191,7 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
           range: `${mon.getDate()} ${monthShort(language, mon.getMonth())}`,
           hours: w.hours,
           current: w.week_start === weekStart,
+          weekStart: w.week_start,
         };
       });
 
@@ -219,7 +220,7 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
 
 // ── Longest XC full ──────────────────────────────────────────────────────────
 export interface LXLeg { icao: string; name: string; lat: number; lon: number; role: 'dep' | 'via' | 'arr' }
-export interface LXTop5Row { rank: number; route: string; nm: number; date: string; current: boolean }
+export interface LXTop5Row { rank: number; route: string; nm: number; date: string; current: boolean; iso: string; hours: number; from: string; to: string }
 export interface LongestXcFull {
   ready: boolean;
   distanceNm: number;
@@ -245,6 +246,7 @@ export interface LongestXcFull {
   sunSegments: SunSeg[]; // rutt-medveten dag/skymning/natt-profil över flygfönstret
   legs: LXLeg[];
   top5: LXTop5Row[];
+  flightId: number | null; // dagens representativa flygning (→ "Open flight detail")
 }
 
 interface XcStatInput {
@@ -264,7 +266,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
     ready: false, distanceNm: 0, distanceKm: 0, durationLabel: '', dateLong: '', dateShort: '',
     routeFrom: firstDep ?? '—', routeTo: lastArr ?? '—', aircraftReg: '', aircraftType: '',
     role: '', rules: undefined, altFl: undefined, cruiseKts: undefined, blockOff: '', blockOn: '',
-    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, sunSegments: [], legs: [], top5: [],
+    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, sunSegments: [], legs: [], top5: [], flightId: null,
   });
 
   useEffect(() => {
@@ -311,7 +313,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         if (!byDate.has(f.date)) byDate.set(f.date, []);
         byDate.get(f.date)!.push(f);
       });
-      const dayDist: Array<{ date: string; nm: number; from: string; to: string }> = [];
+      const dayDist: Array<{ date: string; nm: number; from: string; to: string; hours: number }> = [];
       byDate.forEach((fs, dt) => {
         let nm = 0;
         fs.forEach(f => {
@@ -320,7 +322,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         });
         if (nm <= 0) return;
         const sorted = [...fs].sort((a, b) => (a.dep_utc || '').localeCompare(b.dep_utc || ''));
-        dayDist.push({ date: dt, nm: Math.round(nm), from: sorted[0]?.dep_place || '', to: sorted[sorted.length - 1]?.arr_place || '' });
+        dayDist.push({ date: dt, nm: Math.round(nm), from: sorted[0]?.dep_place || '', to: sorted[sorted.length - 1]?.arr_place || '', hours: fs.reduce((sum, f) => sum + (f.total_time ?? 0), 0) });
       });
       const top5: LXTop5Row[] = dayDist
         .sort((a, b) => b.nm - a.nm)
@@ -333,6 +335,10 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
             nm: r.nm,
             date: `${String(rd.getDate()).padStart(2, '0')} ${monthShort(language, rd.getMonth())} ${rd.getFullYear()}`,
             current: r.date === date,
+            iso: r.date,
+            hours: r.hours,
+            from: r.from,
+            to: r.to,
           };
         });
 
@@ -385,6 +391,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         sunSegments: sunWin?.segments ?? [],
         legs,
         top5,
+        flightId: idFlight?.id ?? null,
       });
     })().catch(() => { /* keep not-ready */ });
     return () => { alive = false; };

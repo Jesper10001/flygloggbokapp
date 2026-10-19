@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { getDroneFlights, type DroneFlight } from '../db/drones';
+import { getDroneFlights, droneModeHours, droneModeLabel, droneAltFt, type DroneFlight } from '../db/drones';
+import { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } from '../constants/droneRoles';
 
 function toHHMM(decimal: number): string {
   if (!decimal || isNaN(decimal)) return '0:00';
@@ -25,12 +26,18 @@ type Col = {
   value: (f: DroneFlight) => string | number;
   optional?: boolean;
   hasData?: (f: DroneFlight) => boolean;
+  hours?: (f: DroneFlight) => number; // tidskolumn (HH:MM) → summeras i TOTAL-raden
 };
+
+// Tidskolumn i HH:MM; valfri = visas bara när någon flygning har tid där.
+const timeCol = (header: string, hours: (f: DroneFlight) => number, optional = true): Col => ({
+  header, hours, value: (f) => toHHMM(hours(f)),
+  ...(optional ? { optional: true, hasData: (f: DroneFlight) => hours(f) > 0 } : {}),
+});
 
 export async function exportDroneToCSV(): Promise<void> {
   const flights = await getDroneFlights(99999);
 
-  const hasVal = (n: number | null | undefined) => !!n && n > 0;
   const hasText = (s: string | null | undefined) => !!s && s.trim() !== '';
 
   const cols: Col[] = [
@@ -40,11 +47,24 @@ export async function exportDroneToCSV(): Promise<void> {
     { header: 'Location', value: f => f.location, optional: true, hasData: f => hasText(f.location) },
     { header: 'Mission type', value: f => f.mission_type, optional: true, hasData: f => hasText(f.mission_type) },
     { header: 'Category', value: f => f.category, optional: true, hasData: f => hasText(f.category) },
-    { header: 'Flight mode', value: f => f.flight_mode },
-    { header: 'Flight time', value: f => toHHMM(f.total_time) },
-    { header: 'Max altitude (m)', value: f => f.max_altitude_m || '', optional: true, hasData: f => hasVal(f.max_altitude_m) },
+    { header: 'Flight mode', value: f => droneModeLabel(f) },
+    timeCol('Flight time', f => f.total_time || 0, false),
+    // Tid per siktläge (delad tid exakt, som VFR/IFR) — visas när någon flygning har tid i läget.
+    timeCol('VLOS', f => droneModeHours(f).vlos),
+    timeCol('EVLOS', f => droneModeHours(f).evlos),
+    timeCol('BVLOS', f => droneModeHours(f).bvlos),
+    // Pilot function + tid per roll (valfria). PIC/SIC/Dual/Instructor som i loggboken — instruktör, RPIC och
+    // examinator räknas även som PIC, safety pilot som co-pilot; övriga roller = hela flygtiden i egen kolumn.
+    { header: 'Pilot function', value: f => DRONE_ROLE_LABEL[droneRoleOf(f)], optional: true, hasData: f => droneRoleOf(f) !== 'pic' },
+    timeCol('PIC time', f => dronePicTime(f)),
+    timeCol('SIC / Co-pilot time', f => f.co_pilot_fpv || 0),
+    timeCol('Dual time', f => f.dual || 0),
+    timeCol('Instructor time', f => f.instructor || 0),
+    ...DRONE_OTHER_ROLES.map((r) => timeCol(`${DRONE_ROLE_LABEL[r]} time`, (f) => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
+    { header: 'Max altitude (ft)', value: f => droneAltFt(f.max_altitude_m) || '', optional: true, hasData: f => droneAltFt(f.max_altitude_m) > 0 },
     { header: 'Night', value: f => f.is_night ? 'Yes' : 'No', optional: true, hasData: f => f.is_night === 1 },
-    { header: 'Observer', value: f => f.has_observer ? (f.observer_name || 'Yes') : '', optional: true, hasData: f => f.has_observer === 1 },
+    // Besättning med roll (Second pilot + fler, inkl. observatörer) — ersätter den gamla Observer-kolumnen.
+    { header: 'Crew', value: f => droneCrewExportText(f), optional: true, hasData: f => droneCrewExportText(f) !== '' },
     { header: 'Remarks', value: f => f.remarks, optional: true, hasData: f => hasText(f.remarks) },
   ];
 
@@ -55,10 +75,9 @@ export async function exportDroneToCSV(): Promise<void> {
     activeCols.map(c => esc(c.value(f))).join(DELIM)
   );
 
-  const totalHours = flights.reduce((sum, f) => sum + (f.total_time || 0), 0);
   const totalRow = activeCols.map((c, i) => {
     if (i === 0) return esc('TOTAL');
-    if (c.header === 'Flight time') return esc(toHHMM(totalHours));
+    if (c.hours) return esc(toHHMM(flights.reduce((sum, f) => sum + c.hours!(f), 0)));
     if (c.header === 'Drone type') return esc(`${flights.length} flights`);
     return '';
   }).join(DELIM);
