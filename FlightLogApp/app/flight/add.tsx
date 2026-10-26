@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -42,11 +42,16 @@ import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { CountryFlag } from '../../components/CountryFlag';
 import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
-import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, sampleTimedRoute, type SunState } from '../../utils/dayNight';
+import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, sampleTimedRoute, positionAtMs, gcRad, type SunState } from '../../utils/dayNight';
 import { TwilightBar } from '../../components/logflight/TwilightBar';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { useProfileStore } from '../../store/profileStore';
+import { useTourStore } from '../../store/tourStore';
+import { TOURS } from '../../constants/tourSteps';
+import { TourPress } from '../../components/TourPress';
+import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
+import { TourCaptionBar } from '../../components/TourCaptionBar';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode, isOffAirportCode } from '../../db/icao';
 import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
@@ -105,6 +110,23 @@ const EMPTY: FlightFormData = {
   app_3d: '0',
   pilot_flying: '',
   holds: '0',
+};
+
+// Blades introduction — loggningsdemons exempel-flygning: ESSA → hot refuel ESOE → ESGG (Landvetter väljs
+// via sökfunktionen), Y/Z med 60 % IFR / 40 % VFR, ca 30 % natt med nattlandning, 3D-approach + bana.
+// Egen farkost/andrepilot används om de finns, annars exemplet efter profilen (flygplan/helikopter).
+// TOUR_REMARK märker flygningen som exempel.
+const TOUR_ROUTE = { dep: 'ESSA', stop: 'ESOE', arr: 'ESGG', search: 'Landvetter' };
+const TOUR_EXAMPLE = {
+  fixed: { type: 'AT72', reg: 'SE-MKG', durMin: 90, sp: 'Anna Berg' },
+  rotary: { type: 'H145', reg: 'SE-HEM', durMin: 125, sp: 'Anna Berg' },
+};
+const TOUR_IFR_SHARE = 0.6;   // Y/Z: andel IFR (resten VFR)
+const TOUR_NIGHT_SHARE = 0.3; // andel av flygtiden i mörker (sol < −6°), landning i mörker
+const TOUR_REMARK = 'Example flight · Blades introduction';
+const TOUR_ROLE_TEXT: Record<string, string> = {
+  pic: 'pilot in command', co_pilot: 'co-pilot (SIC)', dual: 'dual instruction', picus: 'PICUS',
+  spic: 'SPIC', ferry_pic: 'ferry PIC', observer: 'observer', relief_crew: 'relief crew',
 };
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
@@ -736,6 +758,32 @@ export default function AddFlightScreen() {
   // Log Flight-redesign: Quicklog (essentials) ↔ Full (alla sektioner). Default Full.
   const [logFull, setLogFull] = useState(isEdit); // Quicklog default för nya; Full vid redigering (full editor)
 
+  // Blades introduction: rundturen växlar Quicklog/Full och kör loggningsdemon (effekten före return).
+  const tourActive = useTourStore((s) => s.active);
+  const tourLogForm = useTourStore((s) => s.logForm);
+  const logDemoRun = useTourStore((s) => s.logDemoRun);
+  const demoRunAtMount = useRef(logDemoRun); // demon startar bara när rundturen ökar räknaren EFTER montering
+  useEffect(() => {
+    if (tourActive && tourLogForm && !isEdit) setLogFull(tourLogForm === 'full');
+  }, [tourActive, tourLogForm]); // eslint-disable-line react-hooks/exhaustive-deps
+  const demoY = useRef<Record<string, number>>({}); // demons sektioner: y i scroll-innehållet
+  const scrollContentRef = useRef<View>(null); // scroll-innehållet → measureLayout för nästlade element
+  const stopsRef = useRef<View>(null);         // Stops/via-raden i route-kortet
+  const heroRef = useRef<View>(null);          // total/distans/sol-glob-raden
+  const scrollMetrics = useRef({ contentH: 0, viewH: 0 });
+  const demoLatest = useRef<{
+    set: (key: keyof FlightFormData, val: string) => void;
+    handleRoleChange: (r: PrimaryRole) => void;
+    selectSecondPilotRole: (key: string) => void;
+    performSave: (overrides?: Partial<FlightFormData>, skipOverlap?: boolean, demo?: boolean) => Promise<number | null>;
+    runwaysFor: (icao: string) => string[];
+    addRouteStop: () => void;
+    role: PrimaryRole;
+    hasDep: boolean;
+    hasArr: boolean;
+    form: FlightFormData;
+  } | null>(null);
+
   // Senaste flygningen per typ → reverse/fill-latest blir LÄGE-beroende: i Sim används senaste sim-
   // flygningen, i Real senaste riktiga. Man kan alltså inte reversa en real flight in i en sim (el. tvärtom).
   const [lastReal, setLastReal] = useState<Flight | null>(null);
@@ -818,7 +866,8 @@ export default function AddFlightScreen() {
 
   // Gratisgräns: nådd redan vid öppning av en NY manuell flygning → visa Premium-uppmaning direkt.
   useEffect(() => {
-    if (isNewManual && !isPremium && !isMax) {
+    // (Inte under rundturen — loggningsdemon sparar bara en tillfällig exempel-flygning.)
+    if (isNewManual && !isPremium && !isMax && !useTourStore.getState().active) {
       getManualFlightCount().then((n) => {
         if (n >= FREE_TIER_LIMIT) { setLimitBlockedOnEntry(true); setShowLimitModal(true); }
       }).catch(() => {});
@@ -2083,7 +2132,8 @@ export default function AddFlightScreen() {
     }
   }, [aiImport, addPhoto]);
 
-  const performSave = async (overrides?: Partial<FlightFormData>, skipOverlap = false) => {
+  // demo = rundturens loggningsdemon: sparar tyst (inga popups, ingen navigering) och returnerar id:t.
+  const performSave = async (overrides?: Partial<FlightFormData>, skipOverlap = false, demo = false): Promise<number | null> => {
     // Tidskrock-kontroll: varna om den här flygningens tid (helt/delvis) överlappar en
     // redan loggad flygning — en pilot kan inte vara på två flyg samtidigt. Visas efter
     // "Save"; pekar ut den berörda flygningen. Användaren kan spara ändå.
@@ -2114,7 +2164,7 @@ export default function AddFlightScreen() {
               { text: t('save_anyway'), style: 'destructive', onPress: () => performSave(overrides, true) },
             ],
           );
-          return;
+          return null;
         }
       }
     }
@@ -2180,10 +2230,17 @@ export default function AddFlightScreen() {
         }
       }
 
+      let savedId: number | null = null;
       if (isEdit) {
         await updateFlight(Number(editId), finalData);
+        savedId = Number(editId);
       } else {
-        await insertFlight(finalData, { source: 'manual' });
+        savedId = await insertFlight(finalData, { source: 'manual' });
+      }
+      if (demo) {
+        await Promise.all([loadFlights(), loadStats()]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return savedId;
       }
       // Spara kabinpersonalsnamn till listan (second pilot härleds från flights-tabellen).
       await addSavedCrewNames(crewMembers.map((m) => m.name));
@@ -2213,8 +2270,10 @@ export default function AddFlightScreen() {
       } else {
         router.back();
       }
+      return savedId;
     } catch {
-      Alert.alert(t('error'), t('error_save'));
+      if (!demo) Alert.alert(t('error'), t('error_save'));
+      return null;
     } finally {
       setSaving(false);
     }
@@ -2310,6 +2369,346 @@ export default function AddFlightScreen() {
     ? recentRegs.filter((r) => r.startsWith(form.registration.toUpperCase()))
     : recentRegs;
 
+  // ── Blades introduction: loggningsdemon ───────────────────────────────────
+  // TourHost ökar logDemoRun → formuläret fyller själv i en komplett flygning fält för fält (fokusram +
+  // bildtext i rundturens smala rad längst ner) och sparar den på riktigt, så loggboken kan öppna den:
+  // ESSA → (sök "Landvetter" → ESGG), hot refuel i ESOE via Stops/via, Sun route öppnas (natten faller),
+  // Y/Z 60/40, ca 30 % natt med nattlandning och en 3D-approach med bana. Egen farkost/andrepilot används
+  // om de finns. Ingen AI, inga tokens. Flygningen raderas när rundturen slutar (services/tourDemoFlight).
+  demoLatest.current = {
+    set, handleRoleChange, selectSecondPilotRole, performSave, runwaysFor, addRouteStop, role,
+    hasDep: !!depLatLon, hasArr: !!arrLatLon, form,
+  };
+  useEffect(() => {
+    if (!logDemoRun || isEdit || logDemoRun === demoRunAtMount.current) return;
+    const st0 = useTourStore.getState();
+    if (!st0.active || !TOURS[st0.mode][st0.stepIndex]?.logDemo) return;
+    let dead = false;
+    const tour = useTourStore.getState;
+    const alive = () => {
+      const st = tour();
+      return !dead && st.active && st.logDemoRun === logDemoRun && !!TOURS[st.mode][st.stepIndex]?.logDemo;
+    };
+    const L = () => demoLatest.current!; // senaste renderns funktioner/värden (inga inaktuella closures)
+    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const waitFor = async (ok: () => boolean, maxMs: number) => {
+      const t0 = Date.now();
+      while (!ok() && Date.now() - t0 < maxMs) await wait(80);
+    };
+    const PHASES = 14;
+    const say = (n: number, caption: string) => tour().setCaption(caption, n / (PHASES + 1));
+    const focus = (id: string | null) => tour().setPressTarget(id);
+    // Scrolla så sektionen hamnar `above` px under skärmens överkant — aldrig förbi botten.
+    const scrollTo = (y: number | undefined, above: number) => {
+      if (y == null) return;
+      const { contentH, viewH } = scrollMetrics.current;
+      const max = contentH > 0 && viewH > 0 ? Math.max(0, contentH - viewH) : Number.MAX_SAFE_INTEGER;
+      scrollViewRef.current?.scrollTo({ y: Math.min(max, Math.max(0, y - above)), animated: true });
+    };
+    // y i scroll-innehållet för ett nästlat element (Stops/via-raden, route-heron).
+    const measureY = (ref: { current: View | null }) => new Promise<number | undefined>((resolve) => {
+      const node = ref.current, inner = scrollContentRef.current;
+      if (!node || !inner) { resolve(undefined); return; }
+      try { node.measureLayout(inner, (_x, y) => resolve(y), () => resolve(undefined)); } catch { resolve(undefined); }
+    });
+    // "Skriver" stegvis (lite ojämnt tempo, som en människa). false = demon avbröts.
+    const typeSeq = async (parts: string[], put: (v: string) => void, ms: number) => {
+      for (let i = 0; i < parts.length; i++) {
+        if (!alive()) return false;
+        put(parts[i]);
+        await wait(ms + ((i * 7) % 3) * 22);
+      }
+      return alive();
+    };
+    const chars = (text: string) => Array.from({ length: text.length }, (_, i) => text.slice(0, i + 1));
+    const clock = (t: string) => { const d = t.replace(':', ''); return [d.slice(0, 1), d.slice(0, 2), `${d.slice(0, 2)}:${d.slice(2, 3)}`, t]; };
+    const hhmmAt = (ms: number) => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
+
+    (async () => {
+      try {
+        // ── Data: egen farkost/andrepilot om de finns, annars exemplet. Rutten är alltid exemplets. ──
+        const R = TOUR_ROUTE;
+        const ex = useProfileStore.getState().profile?.subRole === 'rotary' ? TOUR_EXAMPLE.rotary : TOUR_EXAMPLE.fixed;
+        const [recent, types, pilots, places] = await Promise.all([
+          getFlights(40).catch(() => [] as Flight[]),
+          getRecentAircraftTypes().catch(() => [] as string[]),
+          getRecentSecondPilotsWithRole(5).catch(() => [] as { name: string; role: string }[]),
+          getAirportTzInfo([R.dep, R.stop, R.arr]).catch(() => [] as { icao: string; lat: number; lon: number }[]),
+        ]);
+        const last = recent.find((f) => f.flight_type !== 'sim' && !(f.remarks || '').includes(TOUR_REMARK)) ?? null;
+        setLastReal(last); // "Reverse route"-raden får aldrig peka på en gammal exempel-flygning
+
+        let type = '', reg = '';
+        if (last?.aircraft_type && last.registration) { type = last.aircraft_type; reg = last.registration; }
+        else {
+          for (const tp of types) {
+            const regs = await getRecentRegistrations(tp).catch(() => [] as string[]);
+            if (regs[0]) { type = tp; reg = regs[0]; break; }
+          }
+        }
+        const ownAircraft = !!type;
+        if (!ownAircraft) { type = ex.type; reg = ex.reg; }
+        const sp = (last?.second_pilot || '').trim() || (pilots[0]?.name ?? '').trim() || ex.sp;
+
+        // Rutten som formuläret räknar på när stoppet lagts till: ESSA → ESOE (hot refuel-uppehåll) → ESGG.
+        const at = (c: string) => places.find((p) => p.icao === c);
+        const pts = [at(R.dep), at(R.stop), at(R.arr)];
+        const legs = pts.every(Boolean)
+          ? pts.map((p, i) => ({ lat: p!.lat, lon: p!.lon, dwellMin: i === 1 ? KIND_DWELL.refuel : 0 }))
+          : [];
+        let durMin = ex.durMin;
+        if (ownAircraft && legs.length) {
+          const kts = await getAircraftCruiseSpeed(type).catch(() => 0);
+          if (kts > 0) {
+            const nm = (gcRad(legs[0].lat, legs[0].lon, legs[1].lat, legs[1].lon) + gcRad(legs[1].lat, legs[1].lon, legs[2].lat, legs[2].lon)) * 3440;
+            durMin = Math.min(360, Math.max(50, Math.round((nm / kts) * 60) + KIND_DWELL.refuel + 16));
+          }
+        }
+        const totalMs = durMin * 60000;
+
+        // Avgångstid: ~30 % av flygtiden i mörker (sol < −6°), landning i mörker, start före mörkret, och
+        // redan landad (aldrig i framtiden). Söker bakåt 36 h: grovt per 10 min → varje lokalt minimum
+        // förfinas per minut → den NYASTE kandidaten som är nästan lika bra som den bästa vinner.
+        // (Verifierat över året: 27–33 % natt, nattlandning, även vid midsommar.)
+        const darkAt = (ms: number, p: { lat: number; lon: number }) => solarAltitudeDeg(new Date(ms), p.lat, p.lon) < CIVIL_TWILIGHT_DEG;
+        const nightShare = (depMs: number) => {
+          const N = 40; let n = 0;
+          for (let k = 0; k < N; k++) { const t = ((k + 0.5) / N) * totalMs; if (darkAt(depMs + t, positionAtMs(legs, totalMs, t))) n++; }
+          return n / N;
+        };
+        const score = (depMs: number) => {
+          const depAlt = solarAltitudeDeg(new Date(depMs), legs[0].lat, legs[0].lon);
+          return Math.abs(nightShare(depMs) - TOUR_NIGHT_SHARE)
+            + (darkAt(depMs + totalMs, legs[2]) ? 0 : 1)                       // landning i mörker
+            + (depAlt < CIVIL_TWILIGHT_DEG ? 0.5 : depAlt > -0.833 ? 0 : 0.02); // start före mörkret (helst i dagsljus)
+        };
+        const latest = Math.floor((Date.now() - totalMs - 10 * 60000) / 60000) * 60000;
+        let depMs = latest - 6 * 3600000; // reserv om koordinaterna saknas
+        let nightFrom: number | null = null;
+        if (legs.length) {
+          const coarse: { d: number; s: number }[] = [];
+          for (let d = latest; d > latest - 36 * 3600000; d -= 600000) coarse.push({ d, s: score(d) });
+          const cands = coarse.filter((c, i) => c.s < 0.5 && (i === 0 || c.s <= coarse[i - 1].s) && (i === coarse.length - 1 || c.s <= coarse[i + 1].s));
+          const refined = cands.map((c) => {
+            let bd = c.d, bs = c.s;
+            for (let d = c.d - 600000; d <= Math.min(c.d + 600000, latest); d += 60000) { const sc = score(d); if (sc < bs - 1e-9) { bs = sc; bd = d; } }
+            return { d: bd, s: bs };
+          });
+          if (refined.length) {
+            const top = Math.min(...refined.map((x) => x.s));
+            depMs = (refined.find((x) => x.s <= top + 0.03) ?? refined[0]).d; // nyast först i listan
+          } else {
+            let best = Infinity;
+            for (const c of coarse) if (c.s < best) { best = c.s; depMs = c.d; }
+          }
+          for (let k = 0; k <= 120; k++) {
+            const t = (k / 120) * totalMs;
+            if (darkAt(depMs + t, positionAtMs(legs, totalMs, t))) { nightFrom = depMs + t; break; }
+          }
+        }
+        const date = new Date(depMs).toISOString().slice(0, 10);
+        const depUtc = hhmmAt(depMs), arrUtc = hhmmAt(depMs + totalMs);
+        if (!alive()) return;
+
+        // ── Rent formulär: flygningens datum, UTC-tider, inga rester från förifyllningen ──
+        setTimeMode('utc'); setDepLocalBuf(''); setArrLocalBuf('');
+        setRouteStops([]); setApproaches({}); setExtraPilots([]); setCrewMembers([{ id: '1', role: '', name: '' }]);
+        setDraft({ icao: '', kind: null, appType: null, runway: null, navaid: null }); setKindMenuOpen(false);
+        setLandingsManual(false); setTakeoffsManual(false); setNightManual(false); setPilotFlyingManual(false);
+        setSunRouteOpen(false); setRawTime({});
+        setForm((f) => ({
+          ...f, date, flight_type: 'normal', stop_place: '',
+          dep_place: '', dep_place_raw: '', arr_place: '', arr_place_raw: '', dep_utc: '', arr_utc: '', total_time: '',
+          aircraft_type: '', registration: '', second_pilot: '', second_pilot_role: '', remarks: '',
+          flight_rules: 'VFR', ifr: '0', vfr: '0', night: '0', nvg: '0', app_2d: '0', app_3d: '0', holds: '0',
+        }));
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        await wait(700); if (!alive()) return;
+
+        // 1 · Avgång: ICAO tecken för tecken → flygplatsen hittas → off-block-tid.
+        say(1, 'Departure — airport and off-block time');
+        scrollTo(demoY.current.route, 14);
+        focus('lf-dep');
+        await wait(550);
+        if (!(await typeSeq(chars(R.dep), (v) => setForm((f) => ({ ...f, dep_place_raw: v, dep_place: v })), 115))) return;
+        await waitFor(() => L().hasDep, 1800); await wait(500); if (!alive()) return;
+        if (!(await typeSeq(clock(depUtc), (v) => L().set('dep_utc', v), 135))) return;
+        await wait(650); if (!alive()) return;
+
+        // 2 · Ankomst via sökfunktionen: "Landvetter" → träffen → ICAO-koden ESGG. Sen on-block-tid.
+        say(2, `Arrival — search "${R.search}" and pick ${R.arr}`);
+        focus('lf-arr');
+        await wait(700); if (!alive()) return;
+        focus(null);
+        const found = (await arrIcaoRef.current?.tourSearch(R.search, R.arr, alive)) ?? false;
+        if (!alive()) return;
+        if (!found && !(await typeSeq(chars(R.arr), (v) => setForm((f) => ({ ...f, arr_place_raw: v, arr_place: v })), 115))) return;
+        await waitFor(() => L().hasArr, 1800); if (!alive()) return;
+        say(2, 'Arrival — Gothenburg-Landvetter, on-block time');
+        focus('lf-arr');
+        await wait(550); if (!alive()) return;
+        if (!(await typeSeq(clock(arrUtc), (v) => L().set('arr_utc', v), 135))) return;
+        focus(null);
+        await wait(1100); if (!alive()) return; // panelerna glider isär, total/distans/glob växer fram
+
+        // 3 · Det som räknas ut automatiskt.
+        say(3, 'Flight time, distance and night — calculated for you');
+        focus('lf-total');
+        await wait(2300); if (!alive()) return;
+        focus(null);
+
+        // 4 · Stops / via: hot refuel i Örebro (typ → ICAO → Add). Rutt, distans och natt räknas om.
+        say(4, 'Stops / via — a hot refuel at Örebro (ESOE)');
+        scrollTo(await measureY(stopsRef), 170);
+        await wait(550); if (!alive()) return;
+        focus('lf-stops'); await wait(850); if (!alive()) return;
+        L().set('flight_type', 'touch_and_go');
+        focus(null); await wait(700); if (!alive()) return;
+        focus('lf-stop-kind'); await wait(800); if (!alive()) return;
+        setKindMenuOpen(true); focus(null);
+        await wait(600); if (!alive()) return;
+        focus('lf-kind-refuel'); await wait(800); if (!alive()) return;
+        setDraft((d) => ({ ...d, kind: 'refuel' })); setKindMenuOpen(false);
+        focus('lf-stop-icao'); await wait(500); if (!alive()) return;
+        if (!(await typeSeq(chars(R.stop), (v) => setDraft((d) => ({ ...d, icao: v })), 115))) return;
+        await wait(800); if (!alive()) return;
+        focus('lf-stop-add'); await wait(800); if (!alive()) return;
+        L().addRouteStop();
+        focus(null);
+        await wait(1300); if (!alive()) return;
+
+        // 5 · Sun route: kartan spelar upp flygningen — man ser var natten faller och att landningen sker i mörker.
+        say(5, 'Sun route — watch where night falls along the way');
+        scrollTo(await measureY(heroRef), 120);
+        await wait(650); if (!alive()) return;
+        focus('lf-sun'); await wait(900); if (!alive()) return;
+        focus(null);
+        setSunRouteOpen(true);
+        await wait(6000); if (!alive()) return;
+        say(5, nightFrom ? `Night falls at ${hhmmAt(nightFrom)} UTC — the landing at ${R.arr} is in darkness` : 'Sun route — day and night along the way');
+        await wait(5000); if (!alive()) return;
+        setSunRouteOpen(false);
+        await wait(700); if (!alive()) return;
+
+        // 6 · Flygregler: Y/Z (blandat IFR/VFR) — knappen ger 50/50 som grund.
+        say(6, 'Flight rules — Y/Z, a mix of IFR and VFR');
+        scrollTo(demoY.current.rules, 190);
+        focus('lf-rules'); await wait(650); if (!alive()) return;
+        focus('lf-rule-Y'); await wait(800); if (!alive()) return;
+        L().set('flight_rules', 'Y');
+        const half = ((parseFloat(L().form.total_time) || 0) / 2).toFixed(2);
+        setForm((f) => ({ ...f, ifr: half, vfr: half }));
+        focus(null);
+        await wait(800); if (!alive()) return;
+
+        // 7 · Villkor: IFR-baren dras till 60 % (VFR får resten); natten är redan uträknad.
+        const ifrPct = Math.round(TOUR_IFR_SHARE * 100);
+        say(7, `Conditions — ${ifrPct}% IFR, ${100 - ifrPct}% VFR, night from the sun`);
+        scrollTo(demoY.current.cond, 170);
+        focus('lf-cond'); await wait(700); if (!alive()) return;
+        for (let k = 1; k <= 5; k++) {
+          if (!alive()) return;
+          const tot = parseFloat(L().form.total_time) || 0;
+          const ifrV = +(tot * (0.5 + (TOUR_IFR_SHARE - 0.5) * (k / 5))).toFixed(2);
+          setForm((f) => ({ ...f, flight_rules: 'Y', ifr: ifrV.toFixed(2), vfr: Math.max(0, tot - ifrV).toFixed(2) }));
+          await wait(120);
+        }
+        await wait(1600); if (!alive()) return;
+
+        // 8 · Farkost.
+        say(8, 'Aircraft — type and registration');
+        scrollTo(demoY.current.card, 130);
+        focus('lf-aircraft');
+        await wait(650); if (!alive()) return;
+        setForm((f) => ({ ...f, aircraft_type: type }));
+        await wait(600); if (!alive()) return;
+        setForm((f) => ({ ...f, registration: reg }));
+        await wait(1000); if (!alive()) return;
+
+        // 9 · Roll (behåller förvalet från senaste flygningen; tiden fördelas på hela flygtiden).
+        const myRole = L().role;
+        say(9, `Your role — ${TOUR_ROLE_TEXT[myRole] ?? 'pilot in command'}`);
+        scrollTo((demoY.current.card ?? 0) + (demoY.current.roleIn ?? 0), 140);
+        focus('lf-role');
+        await wait(650); if (!alive()) return;
+        L().handleRoleChange(myRole);
+        await wait(1000); if (!alive()) return;
+
+        // 10 · Andrepilot (+ roll som passar din: PIC → SIC, dual → FI, annars PIC).
+        say(10, 'Second pilot — name and role');
+        scrollTo((demoY.current.card ?? 0) + (demoY.current.crewIn ?? 0), 180);
+        focus('lf-crew');
+        await wait(650); if (!alive()) return;
+        L().set('second_pilot', sp);
+        await wait(550); if (!alive()) return;
+        const r = L().role;
+        L().selectSecondPilotRole(r === 'pic' ? 'COP' : r === 'dual' ? 'FI' : 'PIC');
+        await wait(1100); if (!alive()) return;
+
+        // 11 · Starter & landningar: stoppet räknas, och landningen i ESGG blir en nattlandning.
+        say(11, `Take-offs and landings — the refuel stop, then a night landing at ${R.arr}`);
+        scrollTo(demoY.current.tol, 180);
+        focus('lf-tol');
+        await wait(2100); if (!alive()) return;
+
+        // 12 · Approach: 3D → ILS → ILS → bana (varje val "trycks").
+        const rwys = L().runwaysFor(R.arr);
+        const rwy = rwys[1] ?? rwys[0];
+        if (rwy) {
+          say(12, `Approach — 3D, ILS, runway ${rwy} at ${R.arr}`);
+          scrollTo(demoY.current.app, 150);
+          focus('lf-app'); await wait(650); if (!alive()) return;
+          const chain: [string, ApproachVal][] = [
+            [`app-${R.arr}-3D`, { dim: '3d' }],
+            [`app-${R.arr}-cat-ILS`, { dim: '3d', cat: 'ILS' }],
+            [`app-${R.arr}-app-ILS`, { dim: '3d', cat: 'ILS', app: 'ILS' }],
+            [`app-${R.arr}-rwy-${rwy}`, { dim: '3d', cat: 'ILS', app: 'ILS', rwy }],
+          ];
+          for (const [id, v] of chain) {
+            focus(id); await wait(750); if (!alive()) return;
+            setApproaches((prev) => ({ ...prev, [R.arr]: v }));
+            focus(null); await wait(420); if (!alive()) return;
+          }
+          await wait(500); if (!alive()) return;
+        }
+
+        // 13 · Remarks (fri text först; hanterade rader som "ESOE HR" och "SIC: …" ligger kvar under).
+        say(13, 'Remarks — anything worth remembering');
+        scrollTo(demoY.current.remarks, 200);
+        focus('lf-remarks');
+        await wait(550); if (!alive()) return;
+        let typed = '';
+        const okRemark = await typeSeq(chars(TOUR_REMARK), (v) => {
+          const before = typed; typed = v;
+          setForm((f) => ({ ...f, remarks: [v, ...(f.remarks || '').split('\n').filter((l) => l.trim() && l !== before)].join('\n') }));
+        }, 42);
+        if (!okRemark) return;
+        await wait(900); if (!alive()) return;
+
+        // 14 · Spara (tyst: inga popups, ingen navigering) → minns flygningen så den kan raderas sen.
+        say(14, 'Saving to your logbook…');
+        focus(null);
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+        await wait(650); if (!alive()) return;
+        focus('lf-save');
+        await wait(950); if (!alive()) return;
+        const id = await L().performSave(undefined, true, true);
+        if (id) await rememberTourDemo({ kind: 'pilot', id });
+        if (!tour().active) { await cleanupTourDemo(); return; } // rundturen avbröts mitt i sparningen
+        if (!alive()) return;
+        focus(null);
+        tour().setCaption(id ? 'Saved to your logbook' : 'Could not save the example flight', 1);
+        tour().finishLogDemo();
+      } catch {
+        if (alive()) tour().finishLogDemo(); // oväntat fel → rundturen går vidare ändå
+      } finally {
+        setSunRouteOpen(false); setKindMenuOpen(false);
+        if (tour().pressTarget?.startsWith('lf-') || tour().pressTarget?.startsWith('app-') || tour().pressTarget?.startsWith('arr-')) focus(null);
+      }
+    })();
+    return () => { dead = true; };
+  }, [logDemoRun]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -2351,13 +2750,16 @@ export default function AddFlightScreen() {
 
       {/* Quicklog ↔ Full + Real ↔ Sim (Log Flight-redesign) */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.surface, borderBottomWidth: 0.5, borderBottomColor: Colors.separator }}>
-        <SlideToggle
-          sans
-          options={[{ value: 'quick', label: 'Quicklog' }, { value: 'full', label: 'Full' }]}
-          value={logFull ? 'full' : 'quick'}
-          onChange={(v) => setLogFull(v === 'full')}
-          activeColor={logFull ? Colors.gold : Colors.primary}
-        />
+        <View>
+          <SlideToggle
+            sans
+            options={[{ value: 'quick', label: 'Quicklog' }, { value: 'full', label: 'Full' }]}
+            value={logFull ? 'full' : 'quick'}
+            onChange={(v) => setLogFull(v === 'full')}
+            activeColor={logFull ? Colors.gold : Colors.primary}
+          />
+          <TourPress id="quick-full" radius={8} inset={3} />
+        </View>
         <View style={{ flex: 1 }} />
         <SlideToggle
           sans
@@ -2373,7 +2775,11 @@ export default function AddFlightScreen() {
 
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+        // Under rundturen: extra luft i botten så Save kan scrollas upp ovanför rundturens bildtextrad.
+        contentContainerStyle={[styles.content, tourActive && { paddingBottom: 170 }]}
+        innerViewRef={scrollContentRef as RefObject<View>}
+        onLayout={(e) => { scrollMetrics.current.viewH = e.nativeEvent.layout.height; }}
+        onContentSizeChange={(_w, h) => { scrollMetrics.current.contentH = h; }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
@@ -2403,7 +2809,7 @@ export default function AddFlightScreen() {
 
         {/* Departure (vänster) / Arrival (höger) — två sektioner sida vid sida.
             Varje sektion: rubrik → ICAO/ZZZZ (off-airport) → fritext-plats → tidsruta (UTC/lokal). */}
-        <View style={styles.placeBlock} onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; }}>
+        <View style={styles.placeBlock} onLayout={(e) => { routeBlockY.current = e.nativeEvent.layout.y; demoY.current.route = e.nativeEvent.layout.y; }}>
           {/* Sim-typväljare högst upp i route-kortet (designen) — endast i Sim-läge */}
           {form.flight_type === 'sim' && (
             <View style={{ marginBottom: 12, position: 'relative', zIndex: simTypeOpen ? 40 : undefined }}>
@@ -2603,6 +3009,7 @@ export default function AddFlightScreen() {
                   return below ? <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 10, marginTop: 4 }}>{below}</Text> : null;
                 })()}
               </View>
+              <TourPress id="lf-dep" variant="focus" radius={0} />
             </Animated.View>
 
             {/* Connector — flaggor + streckad linje + farkost-glyf. Ligger "bakom" och revealas när
@@ -2627,6 +3034,7 @@ export default function AddFlightScreen() {
               </View>
               <IcaoInput
                 ref={arrIcaoRef}
+                tourKey="arr"
                 label=""
                 inputFontFamily={FONT_LED14}
                 design
@@ -2678,6 +3086,7 @@ export default function AddFlightScreen() {
                   return below ? <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 10, marginTop: 4 }}>{below}</Text> : null;
                 })()}
               </View>
+              <TourPress id="lf-arr" variant="focus" radius={0} />
             </Animated.View>
           </View>
 
@@ -2708,7 +3117,7 @@ export default function AddFlightScreen() {
               return Math.round(km / 1.852);
             })() : null;
             return (
-              <View style={{ position: 'relative', marginTop: 12, minHeight: 70, alignItems: 'center', justifyContent: 'center' }}>
+              <View ref={heroRef} style={{ position: 'relative', marginTop: 12, minHeight: 70, alignItems: 'center', justifyContent: 'center' }}>
                 {/* distans + medelfart till vänster (vit LED), synkat med globen till höger */}
                 {form.flight_type !== 'sim' && distNm != null && distNm > 0 && (() => {
                   const totalH = parseFloat(form.total_time) || 0;
@@ -2771,6 +3180,7 @@ export default function AddFlightScreen() {
                     <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF', textTransform: 'uppercase' }}>{isNightFlight ? `${decimalToHHMM(heroNightH)} during night` : `${t('day_flight')} flight`}</Text>
                   </View>
                   {errors.total_time && <Text style={styles.errorInline}>{errors.total_time}</Text>}
+                  <TourPress id="lf-total" variant="focus" radius={14} />
                 </View>
                 {/* höger: designens digitala sol-glob → öppnar sun route (enda vägen dit) */}
                 {form.flight_type !== 'sim' && routeReady && (() => {
@@ -2781,6 +3191,7 @@ export default function AddFlightScreen() {
                     <TouchableOpacity onPress={() => setSunRouteOpen(true)} activeOpacity={0.8} style={{ position: 'absolute', right: 0, top: 0, alignItems: 'center', gap: 3 }}>
                       <SunGlobe size={60} lit={lit} />
                       <Text style={{ flexDirection: 'row', fontFamily: 'JetBrainsMono', fontSize: 7.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textMuted, textTransform: 'uppercase' }}>{t('sun_route')}</Text>
+                      <TourPress id="lf-sun" radius={12} inset={4} />
                     </TouchableOpacity>
                   );
                 })()}
@@ -2801,7 +3212,7 @@ export default function AddFlightScreen() {
           })()}
           {/* Stops / via — inbakad i nedre kanten: chip på streckad skiljelinje, expanderar kortet */}
           {logFull && form.flight_type !== 'sim' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1, marginHorizontal: -14, paddingHorizontal: 12 }}>
+            <View ref={stopsRef} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1, marginHorizontal: -14, paddingHorizontal: 12 }}>
               <View style={{ flex: 1, borderTopWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' }} />
               <TouchableOpacity
                 onPress={() => { set('flight_type', form.flight_type === 'touch_and_go' ? 'normal' : 'touch_and_go'); }}
@@ -2816,6 +3227,7 @@ export default function AddFlightScreen() {
                   </View>
                 )}
                 <Ionicons name={form.flight_type === 'touch_and_go' ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.textSecondary} />
+                <TourPress id="lf-stops" radius={999} />
               </TouchableOpacity>
               <View style={{ flex: 1, borderTopWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' }} />
             </View>
@@ -2834,6 +3246,7 @@ export default function AddFlightScreen() {
                   >
                     <Text style={{ flex: 1, color: draft.kind ? Colors.textPrimary : Colors.textMuted, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{draft.kind ? KIND_LABEL[draft.kind] : 'Choose type'}</Text>
                     <Ionicons name={kindMenuOpen ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textSecondary} />
+                    <TourPress id="lf-stop-kind" radius={8} />
                   </TouchableOpacity>
                   {kindMenuOpen && (
                     <View style={[styles.ddFlyout, { left: 0, right: 0 }]}>
@@ -2843,6 +3256,7 @@ export default function AddFlightScreen() {
                           <TouchableOpacity key={k} onPress={() => { setDraft((d) => ({ ...d, kind: k })); setKindMenuOpen(false); }} activeOpacity={0.75}
                             style={{ paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7, backgroundColor: active ? Colors.primary + '18' : undefined }}>
                             <Text style={{ color: active ? Colors.primary : Colors.textPrimary, fontSize: 12, fontWeight: active ? '800' : '600' }}>{KIND_LABEL[k]}</Text>
+                            <TourPress id={`lf-kind-${k}`} radius={7} />
                           </TouchableOpacity>
                         );
                       })}
@@ -2851,14 +3265,17 @@ export default function AddFlightScreen() {
                 </View>
 
                 {/* Endast ICAO + typ här; approach-typ/bana anges längre ner vid remarks (ApproachFlow) */}
-                <IcaoInput
-                  label=""
-                  value={draft.icao}
-                  onChangeText={(v) => setDraft((d) => ({ ...d, icao: v }))}
-                  hideHere
-                  placeholder="ICAO"
-                  inputFontFamily={FONT_LED14}
-                />
+                <View>
+                  <IcaoInput
+                    label=""
+                    value={draft.icao}
+                    onChangeText={(v) => setDraft((d) => ({ ...d, icao: v }))}
+                    hideHere
+                    placeholder="ICAO"
+                    inputFontFamily={FONT_LED14}
+                  />
+                  <TourPress id="lf-stop-icao" variant="focus" radius={10} inset={3} />
+                </View>
 
                 {(() => {
                   const canAdd = draft.icao.trim().length >= 2 && !!draft.kind;
@@ -2867,6 +3284,7 @@ export default function AddFlightScreen() {
                       style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 8, paddingVertical: 9, marginTop: 2, backgroundColor: !canAdd ? Colors.elevated : Colors.primary + '22', borderWidth: 1, borderColor: !canAdd ? Colors.border : Colors.primary }}>
                       <Ionicons name="add" size={16} color={!canAdd ? Colors.textMuted : Colors.primary} />
                       <Text style={{ color: !canAdd ? Colors.textMuted : Colors.primary, fontSize: 12, fontWeight: '700' }}>Add</Text>
+                      <TourPress id="lf-stop-add" radius={8} />
                     </TouchableOpacity>
                   );
                 })()}
@@ -2908,9 +3326,12 @@ export default function AddFlightScreen() {
         </View>
 
         {/* ── Sun route (dag/natt) i modal — designens route-vy, öppnas av ROUTE-rubriken ── */}
-        <Modal visible={sunRouteOpen && routeReady} transparent animationType="slide" onRequestClose={() => setSunRouteOpen(false)}>
-          <Pressable style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }} onPress={() => setSunRouteOpen(false)}>
-            <Pressable style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingTop: 10, paddingBottom: 28, paddingHorizontal: 14 }} onPress={(e) => e.stopPropagation()}>
+        {/* Under rundturen: tonas in (bildtextraden nedan ligger då exakt över rundturens), stängs bara av
+            demon och får luft i botten så kartan aldrig hamnar bakom bildtextraden. */}
+        <Modal visible={sunRouteOpen && routeReady} transparent animationType={tourActive ? 'fade' : 'slide'} onRequestClose={() => setSunRouteOpen(false)}>
+          <Pressable style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }} onPress={() => { if (!tourActive) setSunRouteOpen(false); }}>
+            <Pressable style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingTop: 10, paddingBottom: tourActive ? Math.max(insets.bottom, 10) + 96 : 28, paddingHorizontal: 14 }}
+              pointerEvents={tourActive ? 'none' : 'auto'} onPress={(e) => e.stopPropagation()}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <Text style={{ fontFamily: 'Fraunces', fontSize: 17, fontWeight: '600', color: Colors.textPrimary }}>Sun route</Text>
                 <TouchableOpacity onPress={() => setSunRouteOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -2920,6 +3341,7 @@ export default function AddFlightScreen() {
               <DayNightMap embedded points={circleLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} circleNM={circleRadiusNM} circleCenter={isStationaryRoute ? { lat: routeLegs[0].lat, lon: routeLegs[0].lon } : undefined} selectedBearing={circleBearing} onPickBearing={setCircleBearing} vehicle={glyphIsHeli ? 'heli' : 'plane'} />
             </Pressable>
           </Pressable>
+          {tourActive ? <TourCaptionBar still /> : null}
         </Modal>
 
 
@@ -2927,7 +3349,7 @@ export default function AddFlightScreen() {
         {/* hot refuel ingår nu i Route-stoppen ovan */}
 
         {/* ── Flight rules (VFR / Y·Z / IFR) — visas alltid från start ── */}
-        <View style={{ paddingHorizontal: 4, marginTop: 2, marginBottom: 14 }}>
+        <View style={{ paddingHorizontal: 4, marginTop: 2, marginBottom: 14 }} onLayout={(e) => { demoY.current.rules = e.nativeEvent.layout.y; }}>
           {(() => {
             const ruleVal = (form.flight_rules === 'Z' || form.flight_rules === 'Mixed') ? 'Y' : (form.flight_rules ?? 'VFR');
             // Quicklog: bara VFR/IFR (designen) · Full: VFR/Y·Z/IFR. Y/Z visas som IFR i quicklog.
@@ -2936,10 +3358,12 @@ export default function AddFlightScreen() {
               ? [{ value: 'VFR', label: 'VFR' }, { value: 'Y', label: 'Y/Z' }, { value: 'IFR', label: 'IFR' }]
               : [{ value: 'VFR', label: 'VFR' }, { value: 'IFR', label: 'IFR' }];
             return (
+              <View>
               <SlideToggle
                 block
                 sans
                 size="md"
+                tourIds={{ VFR: 'lf-rule-VFR', Y: 'lf-rule-Y', IFR: 'lf-rule-IFR' }}
                 options={options}
                 value={logFull ? ruleVal : qVal}
                 onChange={(v) => {
@@ -2956,13 +3380,15 @@ export default function AddFlightScreen() {
                 }}
                 activeColor={ruleVal === 'VFR' ? Colors.success : ruleVal === 'IFR' ? Colors.primary : Colors.gold}
               />
+              <TourPress id="lf-rules" variant="focus" radius={8} inset={4} />
+              </View>
             );
           })()}
         </View>
 
         {/* ── Conditions (VFR/IFR/Night/NVG) — visas alltid från start (Full) ── */}
         {logFull && (
-          <View style={{ marginTop: 2, marginBottom: 6 }}>
+          <View style={{ marginTop: 2, marginBottom: 6 }} onLayout={(e) => { demoY.current.cond = e.nativeEvent.layout.y; }}>
           {(() => {
             const total = parseFloat(form.total_time) || 0;
             const pct = (v: string) => {
@@ -3084,11 +3510,13 @@ export default function AddFlightScreen() {
               </>
             );
           })()}
+          <TourPress id="lf-cond" variant="focus" radius={10} inset={6} />
           </View>
         )}
 
         {/* ── Aircraft & crew (designens kort) ── */}
-        <View style={[styles.card, { gap: 12, marginBottom: 12 }, (typeOpen || regOpen || personOpen || otherOpen) ? { zIndex: 20 } : null]}>
+        <View style={[styles.card, { gap: 12, marginBottom: 12 }, (typeOpen || regOpen || personOpen || otherOpen) ? { zIndex: 20 } : null]}
+          onLayout={(e) => { demoY.current.card = e.nativeEvent.layout.y; }}>
           {/* Aircraft type + Registration — dropdownflikar (chevron öppnar), "+" i rutan lägger till nytt */}
           <View style={{ position: 'relative', zIndex: (typeOpen || regOpen) ? 30 : undefined }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -3123,6 +3551,7 @@ export default function AddFlightScreen() {
                 </View>
                 {errors.registration ? <Text style={styles.errorInline}>{errors.registration}</Text> : null}
               </View>
+              <TourPress id="lf-aircraft" variant="focus" radius={10} inset={6} />
             </View>
 
             {/* Dropdownflik: aircraft type — vertikala kolumner som byggs på åt höger */}
@@ -3187,7 +3616,7 @@ export default function AddFlightScreen() {
           </View>
 
           {/* Your role */}
-          <View style={[{ marginBottom: 4 }, otherOpen ? { zIndex: 30 } : null]}>
+          <View style={[{ marginBottom: 4 }, otherOpen ? { zIndex: 30 } : null]} onLayout={(e) => { demoY.current.roleIn = e.nativeEvent.layout.y; }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: 4 }}>
                 <Text style={[styles.cardFieldLabel, { marginTop: 0, marginBottom: 0 }]}>{t('your_role')}</Text>
                 {form.flight_type === 'sim' && (
@@ -3278,10 +3707,11 @@ export default function AddFlightScreen() {
                 </View>
               </View>
               )}
+              <TourPress id="lf-role" variant="focus" radius={10} inset={6} />
           </View>
 
           {/* Second pilot + fler piloter ombord — samma stil som aircraft type/registration */}
-          <View>
+          <View onLayout={(e) => { demoY.current.crewIn = e.nativeEvent.layout.y; }}>
             <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
             <View style={{ gap: 6 }}>
               <PersonPicker
@@ -3318,6 +3748,7 @@ export default function AddFlightScreen() {
                 />
               ))}
             </View>
+            <TourPress id="lf-crew" variant="focus" radius={10} inset={6} />
           </View>
 
           {/* Cabin crew — endast i Full (Quicklog visar bara second pilot). Dold i Sim. */}
@@ -3439,7 +3870,7 @@ export default function AddFlightScreen() {
           const pfZero = (parseFloat(form.pilot_flying ?? '0') || 0) <= 0;
           const showWarn = pfZero && (cur('takeoffs_day') + cur('takeoffs_night') + cur('landings_day') + cur('landings_night')) > 0;
           return (
-          <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14 }}>
+          <View style={{ paddingHorizontal: 4, marginTop: 4, marginBottom: 14 }} onLayout={(e) => { demoY.current.tol = e.nativeEvent.layout.y; }}>
           {showWarn && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: Colors.danger, backgroundColor: Colors.danger + '14' }}>
               <Ionicons name="warning" size={14} color={Colors.danger} />
@@ -3459,6 +3890,7 @@ export default function AddFlightScreen() {
           <TolRow label="Landings"
             a={{ label: t('day'), value: cur('landings_day'), onChange: (n) => { setLandingsManual(true); set('landings_day', String(n)); } }}
             b={{ label: t('night'), value: cur('landings_night'), onChange: (n) => { setLandingsManual(true); set('landings_night', String(n)); } }} />
+          <TourPress id="lf-tol" variant="focus" radius={10} inset={4} />
         </View>
           );
         })()}
@@ -3468,14 +3900,17 @@ export default function AddFlightScreen() {
         {/* Approaches — ApproachFlow (per ICAO: 2D/3D → subkategori → approach → rwy → remarks).
             Visas bara vid IFR/Y/Z (VFR har inga instrument-approacher att logga). */}
         {form.flight_type !== 'sim' && (form.flight_rules === 'IFR' || form.flight_rules === 'Y' || form.flight_rules === 'Z') && (
-          <View style={{ marginBottom: 10 }}>
-            <ApproachFlow
-              icaos={approachIcaos}
-              value={approaches}
-              onChange={setApproaches}
-              ifr
-              runwaysFor={runwaysFor}
-            />
+          <View style={{ marginBottom: 10 }} onLayout={(e) => { demoY.current.app = e.nativeEvent.layout.y; }}>
+            <View>
+              <ApproachFlow
+                icaos={approachIcaos}
+                value={approaches}
+                onChange={setApproaches}
+                ifr
+                runwaysFor={runwaysFor}
+              />
+              <TourPress id="lf-app" variant="focus" radius={11} inset={3} />
+            </View>
             {/* Approaches-ticker (2D/3D) — first = ingen topplinje. */}
             <TolRow first label="Approaches"
               a={{ label: '2D', value: parseInt(form.app_2d ?? '0', 10) || 0, onChange: (n) => set('app_2d', String(n)) }}
@@ -3500,16 +3935,19 @@ export default function AddFlightScreen() {
             })()}
           </View>
         )}
-        <FormField
-          label={t('remarks')}
-          value={form.remarks}
-          onChangeText={(v) => set('remarks', v)}
-          placeholder={t('remarks_ph')}
-          multiline
-          numberOfLines={2}
-          maxLength={50}
-          style={{ minHeight: 60, textAlignVertical: 'top' }}
-        />
+        <View onLayout={(e) => { demoY.current.remarks = e.nativeEvent.layout.y; }}>
+          <FormField
+            label={t('remarks')}
+            value={form.remarks}
+            onChangeText={(v) => set('remarks', v)}
+            placeholder={t('remarks_ph')}
+            multiline
+            numberOfLines={2}
+            maxLength={50}
+            style={{ minHeight: 60, textAlignVertical: 'top' }}
+          />
+          <TourPress id="lf-remarks" variant="focus" radius={10} inset={4} />
+        </View>
         {role === 'picus' && (
           <View style={styles.remarksWarning}>
             <Ionicons name="warning" size={14} color={Colors.warning} />
@@ -3597,6 +4035,7 @@ export default function AddFlightScreen() {
               onPress={save}
               disabled={disabled}
               activeOpacity={0.8}
+              onLayout={(e) => { demoY.current.save = e.nativeEvent.layout.y; }}
             >
               {saving ? (
                 <ActivityIndicator color={Colors.textInverse} />
@@ -3608,6 +4047,7 @@ export default function AddFlightScreen() {
                   </Text>
                 </>
               )}
+              <TourPress id="lf-save" radius={12} />
             </TouchableOpacity>
           );
         })()}

@@ -9,6 +9,9 @@ import { searchAirports, getNearbyTemporaryPlaces, getNearbyAirports, generateTe
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import type { IcaoAirport } from '../types/flight';
+import { useTourStore } from '../store/tourStore';
+import { TourPress } from './TourPress';
+import { TourCaptionBar } from './TourCaptionBar';
 
 export type RecentPlace = { icao: string; temporary: boolean };
 
@@ -36,9 +39,18 @@ interface Props {
   // upp tills flighten sparats. pendingPlaces används för namn/status-uppslag under tiden.
   pendingPlaces?: { icao: string; name: string }[];
   onPendingPlace?: (p: { icao: string; name: string }) => void;
+  // Blades introduction: prefix för TourPress-id:n (sökknappen, träffraderna, ICAO-valet) → rundturen
+  // kan "trycka" på dem medan den söker via tourSearch (se IcaoInputHandle).
+  tourKey?: string;
 }
 
-export type IcaoInputHandle = { focus: () => void };
+export type IcaoInputHandle = {
+  focus: () => void;
+  // Blades introduction: sök som en användare — tryck på sökknappen, skriv query tecken för tecken,
+  // tryck på träffen (och ICAO-koden när flygplatsen även har IATA). Inget tangentbord, ingen onConfirm
+  // (som annars flyttar fokus). false = avbröts (alive() → false) eller ingen träff.
+  tourSearch: (query: string, icao: string, alive: () => boolean) => Promise<boolean>;
+};
 
 function makeStyles() {
   return StyleSheet.create({
@@ -148,7 +160,7 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace, freeText = false, onResolve },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace, freeText = false, onResolve, tourKey },
   outerRef,
 ) {
   // Pilot airport-fritextläge: bara när freeText och INTE off-airport (allowHere).
@@ -162,7 +174,12 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const [dismissed, setDismissed] = useState(false); // efter ett val: dölj listan tills man skriver igen
   const inputRef = useRef<TextInput>(null);
   const searchSeq = useRef(0); // ogiltigförklarar stale sök-resultat (async-race vid val)
-  useImperativeHandle(outerRef, () => ({ focus: () => inputRef.current?.focus() }), []);
+  // tourSearch går via en ref → alltid senaste renderns state/props (handtaget skapas bara en gång).
+  const tourSearchImpl = useRef<IcaoInputHandle['tourSearch']>(async () => false);
+  useImperativeHandle(outerRef, () => ({
+    focus: () => inputRef.current?.focus(),
+    tourSearch: (query, icao, alive) => tourSearchImpl.current(query, icao, alive),
+  }), []);
 
   // Place status for confirmation icon color ('unknown' = fritext-kod utan träff → frågetecken)
   const [placeStatus, setPlaceStatus] = useState<'known' | 'temp-located' | 'temp-unlocated' | 'unknown' | 'off-airport' | null>(null);
@@ -200,7 +217,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
 
   // En känd flygplats valdes (snabbchip / närmaste-flygplats-modal / sök) i fritextläget.
   // rawCode = koden som VISAS/lagras (ICAO eller IATA); icao = kanonisk ICAO för koordinater.
-  const commitAirportCode = (icao: string, rawCode?: string, nm?: string) => {
+  const commitAirportCode = (icao: string, rawCode?: string, nm?: string, silent = false) => {
     freeSeq.current++;
     if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
     const raw = (rawCode ?? icao).toUpperCase();
@@ -211,7 +228,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     if (nm !== undefined) setResolvedName(nm);
     else getAirportByIcao(icao).then((a) => setResolvedName(a?.name || ''));
     onResolve?.(raw, icao);
-    onConfirm?.(icao);
+    if (!silent) onConfirm?.(icao); // tyst (rundturen): flytta inte fokus → inget tangentbord
   };
 
   // "Här"-modal state
@@ -258,6 +275,55 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : airport.icao.toUpperCase();
     setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
     commitAirportCode(airport.icao, chosen, airport.name);
+  };
+
+  // ── Blades introduction: sökningen körd av rundturen (se IcaoInputHandle.tourSearch) ──
+  const [tourSearching, setTourSearching] = useState(false); // sökrutan styrs av rundturen → inget tangentbord
+  const sResultsRef = useRef<IcaoAirport[]>([]);
+  sResultsRef.current = sResults;
+  tourSearchImpl.current = async (query, icao, alive) => {
+    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const press = (id: string | null) => useTourStore.getState().setPressTarget(id);
+    const k = tourKey ?? 'icao';
+    const abort = () => {
+      press(null);
+      setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
+      setTourSearching(false);
+      return false;
+    };
+    try {
+      press(`${k}-search`); await wait(850); if (!alive()) return abort();
+      press(null);
+      setTourSearching(true); // före openSearch → sökfältet monteras utan autoFocus
+      openSearch();
+      await wait(700); if (!alive()) return abort();
+      const q = query.toUpperCase(); // sökfältet skriver versaler (autoCapitalize characters)
+      for (let i = 1; i <= q.length; i++) {
+        if (!alive()) return abort();
+        setSQuery(q.slice(0, i));
+        await wait(110 + ((i * 7) % 3) * 20);
+      }
+      const t0 = Date.now();
+      let hit = sResultsRef.current.find((a) => a.icao === icao);
+      while (!hit && Date.now() - t0 < 2500) { await wait(80); hit = sResultsRef.current.find((a) => a.icao === icao); }
+      if (!hit || !alive()) return abort();
+      await wait(650);
+      press(`${k}-res-${icao}`); await wait(900); if (!alive()) return abort();
+      press(null);
+      if (hit.iata && hit.iata.trim()) {
+        setSChoice(hit); // steg 2: välj ICAO eller IATA
+        await wait(800); if (!alive()) return abort();
+        press(`${k}-pick-${icao}`); await wait(850); if (!alive()) return abort();
+        press(null);
+      }
+      setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
+      commitAirportCode(hit.icao, hit.icao.toUpperCase(), hit.name, true);
+      await wait(350);
+      setTourSearching(false);
+      return true;
+    } catch {
+      return abort();
+    }
   };
 
   // Vilken kod som visas i listan: skriver man en IATA-kod (prefixmatchar iata) → visa IATA, annars ICAO.
@@ -691,6 +757,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                 backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.primary + '66' }}
             >
               <Ionicons name="search" size={14} color={Colors.primary} />
+              {tourKey ? <TourPress id={`${tourKey}-search`} radius={7} /> : null}
             </TouchableOpacity>
           </View>
         )
@@ -727,7 +794,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       {/* ── Sök-popup: fritextsök på namn/ICAO/IATA → bred lista → fyll dep/arr ── */}
       <Modal visible={searchOpen} transparent animationType="fade" onRequestClose={() => setSearchOpen(false)}>
         {/* Centrerad vertikalt (mitten av skärmen), inte bottensheet — så sökfältet inte hamnar högst upp. */}
-        <KeyboardAvoidingView style={[styles.modalOverlay, { justifyContent: 'center' }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={[styles.modalOverlay, { justifyContent: 'center' }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          pointerEvents={tourSearching ? 'none' : 'auto'}>
           <View style={[styles.modalSheet, styles.searchSheet]}>
             <View style={styles.modalHandle} />
             {sChoice ? (
@@ -740,6 +808,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                   <TouchableOpacity style={[styles.confirmBtn, { flex: 1 }]} onPress={() => pickFromSearch(sChoice, false)} activeOpacity={0.85}>
                     <Text style={styles.confirmBtnText}>{sChoice.icao}</Text>
                     <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', opacity: 0.8 }}>ICAO</Text>
+                    {tourKey ? <TourPress id={`${tourKey}-pick-${sChoice.icao}`} radius={10} /> : null}
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.confirmBtn, { flex: 1, backgroundColor: Colors.info }]} onPress={() => pickFromSearch(sChoice, true)} activeOpacity={0.85}>
                     <Text style={styles.confirmBtnText}>{sChoice.iata}</Text>
@@ -763,7 +832,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     placeholderTextColor={Colors.textMuted}
                     autoCapitalize="characters"
                     autoCorrect={false}
-                    autoFocus
+                    autoFocus={!tourSearching}
                   />
                   {sQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSQuery('')} hitSlop={8}>
@@ -784,6 +853,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                           <Text style={styles.suggestionCountry}>{a.country}{a.iata && a.iata.trim() ? ` · ${a.iata}` : ''}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                        {tourKey ? <TourPress id={`${tourKey}-res-${a.icao}`} radius={8} /> : null}
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -801,6 +871,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
             )}
           </View>
         </KeyboardAvoidingView>
+        {/* Rundturens bildtextrad ligger annars bakom modalen → visa den här också (samma läge). */}
+        {tourSearching ? <TourCaptionBar still /> : null}
       </Modal>
 
       {/* ── "Här"-modal ── */}

@@ -35,10 +35,9 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 ## Kan vänta
 
-- [ ] **Esri-nyckel** (ArcGIS Location Platform, privilegiet Basemaps):
-  - `cd proxy && npx wrangler secret put ARCGIS_API_KEY`
-  - slå sedan på Route-lagret med `ROUTE_LAYER_ENABLED = true` i `FlightShareCard.tsx` och bygg nytt
-  - nyckeln löper ut efter max 1 år
+- [x] **Esri-nyckel inlagd i proxyn** (2026-10-26). Verifierat att satellitbilder och källhänvisningar levereras.
+- [ ] **Ta bort den gamla Esri-nyckeln** (den som går ut 2027-01-24). Skriv "klart" till Claude in Chrome.
+- [ ] **Påminnelse: Esri-nyckeln går ut efter max 1 år** (runt 2027-10-26, se exakt datum i ArcGIS). Skapa en ny före dess och kör `cd proxy && npx wrangler secret put ARCGIS_API_KEY`, annars försvinner Route-lagret.
 - [ ] **iCloud:** testa återställning på en annan enhet.
 - [ ] **Sajten:**
   - drönarvarianter för How it works och kartan
@@ -55,6 +54,47 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 ## Testa i nästa bygge
 
+- [ ] **Blades introduction – en hel flygning loggas (pilot):** starta rundturen från Settings → Blades introduction.
+  - "Log a flight" ska öppna Log flight i Quicklog. I steget "Quicklog or Full" ska växlaren få en cyan ram och formuläret byta till Full.
+  - Tryck på Next. Info-kortet ska bytas mot en smal rad längst ner med "LOGGING AN EXAMPLE FLIGHT", det som fylls i just nu och en tunn förloppslinje. Raden får aldrig skymma fältet som fylls i, inte heller i sökrutan eller Sun route.
+  - Demon ska göra detta, med cyan ram eller "tryck" på varje del:
+    - **Avgång:** ESSA skrivs tecken för tecken, flygplatsen hittas och off-block-tiden fylls i.
+    - **Ankomst via sök:** sökknappen trycks och "LANDVETTER" skrivs i sökrutan utan att tangentbordet visas. Träffen trycks, sedan ICAO-knappen ESGG (inte GOT). Därefter fylls on-block-tiden i.
+    - **Uträknat:** total, distans och natt växer fram.
+    - **Stops / via:** chippet trycks och "Choose type" → "Hot refuel" väljs. ESOE skrivs och Add trycks. Stoppet ska synas mellan ESSA och ESGG, och distans och natt räknas om.
+    - **Sun route:** sol-globen trycks och kartan spelar upp flygningen. Man ska se dag → skymning → natt, och bildtexten ska byta till "Night falls at HH:MM UTC — the landing at ESGG is in darkness". Kartan stängs efter cirka 11 s.
+    - **Flight rules:** Y/Z trycks. I villkoren dras IFR till 60 % och VFR blir 40 %. Natt-baren ska visa cirka 30 %.
+    - **Farkost, roll och andrepilot.**
+    - **Starter/landningar:** Take-offs Day 2, Landings Day 1 och Night 1 (stoppet + nattlandning i ESGG).
+    - **Approach:** 3D → ILS → ILS → RWY 21 vid ESGG trycks i tur och ordning. ESGG ILS 21 ska hamna i remarks.
+    - **Remarks** skrivs, och till sist trycks Save.
+  - Remarks ska innehålla "Example flight · Blades introduction", "ESOE HR", "ESGG ILS 21" och andrepiloten.
+  - **Egen farkost och andrepilot** ska användas om de finns. Rutten är alltid ESSA → ESOE → ESGG.
+  - **Ny profil:** AT72 SE-MKG med Anna Berg. Helikopterprofil: H145 SE-HEM.
+  - Tiden ska alltid ligga i går eller i dag, aldrig i framtiden. Starten ska vara före mörkret, och flygningen ska avslutas i mörker.
+  - **Övergången till loggboken ska gå lugnt:**
+    - "Saved" syns en stund.
+    - Loggboken visas cirka 1,5 s.
+    - Den nya raden överst får en cyan ram i cirka 2 s, sedan trycks den och översikten öppnas.
+    - Info-kortet ska säga att flygningen ligger överst under sitt år och sin månad.
+  - Gratiskonto med 20 flygningar: ingen Premium-popup ska visas under rundturen.
+  - Exempel-flygningen ska vara borta efter Done i checklistan, efter Skip (även mitt i demon) och efter att appen startats om mitt i rundturen. Gratispotten ska vara orörd.
+  - Back från "Your logbook" ska köra demon igen, utan att den gamla exempel-flygningen blir kvar.
+- [ ] **Blades introduction – ett helt pass loggas (drönare):**
+  - Demon ska fylla i:
+    - mission, plats och starttid
+    - 1st flight 0:25, sedan trycks "Add 2nd flight" och 0:18 fylls i
+    - siktläge: BVLOS-baren dras till 70 %, VLOS får 30 % och växlaren byter till BVLOS
+    - drönare och pilot function
+    - besättning, t.ex. Erik Lind som Observer
+    - operation, 2 landningar och max höjd (360 ft eller 110 m)
+    - remarks, och sedan sparas passet
+  - Det sparade passet ska ha kategorin Specific. Detaljvyn ska visa "VLOS 0:13 · BVLOS 0:30" (eller motsvarande 30/70).
+  - Utan egna drönare ska exempeldrönaren Mavic 3 Enterprise (SE-D001) användas. Den ska försvinna när rundturen slutar, även ur Fleet och Manage drones.
+  - Loggbokens Flights-flik ska fälla ut rätt månad. Raden ska få en ram, tryckas och sedan ska passets översikt öppnas, i samma lugna tempo som för piloten.
+- [ ] **Frekvenserna på flygplatskorten:**
+  - **Find airport och global map → flyg till en flygplats** (t.ex. EDDV): TWR, GND, ATIS och APP ska stå i egna kolumner med en tunn vertikal linje emellan. Långa frekvenser som 121.955 och 136.575 får inte gå ihop.
+  - **Kartornas vanliga infokort** (tryck på en flygplatsnål): frekvenserna ska stå två och två, t.ex. "TWR … │ GND …", med en linje emellan.
 - [ ] **Jordgloben i flygplansläge** (pilot och drönare). Den ska visas med texturer utan nät.
 - [ ] **Best week / Longest XC – placering #2–5 öppnas:**
   - Etiketten "Personal best · …" överst ska vara borta på båda sidorna.
@@ -109,6 +149,13 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
     - Namnet ska ligga under Second pilot som OBS.
     - Raden "Observer: …" ska vara borta ur Remarks-rutan.
     - Spara två gånger. Ingenting ska dubbleras.
+- [ ] **Delningskortet → Route-lagret:** lagret ska finnas igen, med satellitbilder runt flygplatserna och den lilla inbrända texten "Powered by Esri · Source: …". Texten är nu hälften så stor; kontrollera att den går att läsa i den delade bilden.
+- [ ] **Delningskortet → mindre förhandsvisning:**
+  - Bilden eller videon ska vara cirka 20 % mindre, så att fler reglage syns under den.
+  - Den delade bilden ska se exakt ut som förut, med samma textstorlek i förhållande till bilden.
+  - Dra overlayn. Den ska följa fingret exakt och inte släpa.
+  - Tryck i Max alt, Taxi eller postcard-texten. Förhandsvisningen ska krympa till en tumnagel och fältet synas ovanför tangentbordet.
+  - Tryck på Done. Förhandsvisningen ska växa tillbaka.
 - [ ] **Global map → Sverige → Region:**
   - Alla 21 län ska visas med officiella namn, t.ex. "Stockholms län", "Västra Götalands län" och "Örebro län".
   - Västra Götalands län ska ha egen gräns och ungefär 29 flygplatser.

@@ -6,6 +6,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { FONT_MONO } from '../logbook-page/tokens';
+import { TourPress } from '../TourPress';
 
 export type ApproachVal = { dim?: '2d' | '3d'; cat?: string; app?: string; rwy?: string };
 
@@ -51,7 +52,8 @@ export const APP_TYPES: Record<'2d' | '3d', string[]> = {
   '3d': APP_TREE['3d'].flatMap((g) => g.opts),
 };
 
-function Opt({ on, label, onPress }: { on?: boolean; label: string; onPress: () => void }) {
+// tourId: Blades introduction kan "trycka" på valet (loggningsdemon väljer 3D → ILS → bana).
+function Opt({ on, label, onPress, tourId }: { on?: boolean; label: string; onPress: () => void; tourId?: string }) {
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -63,6 +65,7 @@ function Opt({ on, label, onPress }: { on?: boolean; label: string; onPress: () 
       }}
     >
       <Text style={{ fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', color: on ? Colors.primary : Colors.textSecondary }}>{label}</Text>
+      {tourId ? <TourPress id={tourId} radius={7} /> : null}
     </TouchableOpacity>
   );
 }
@@ -112,22 +115,22 @@ export function ApproachFlow({ icaos, value, onChange, ifr, runwaysFor }: {
             {/* steg 1 — 2D / 3D (endast IFR/Y/Z) */}
             {ifr && !v.dim ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-                <Opt label="2D approach" onPress={() => upd(icao, { dim: '2d', cat: undefined, app: undefined, rwy: undefined })} />
-                <Opt label="3D approach" onPress={() => upd(icao, { dim: '3d', cat: undefined, app: undefined, rwy: undefined })} />
+                <Opt label="2D approach" tourId={`app-${icao}-2D`} onPress={() => upd(icao, { dim: '2d', cat: undefined, app: undefined, rwy: undefined })} />
+                <Opt label="3D approach" tourId={`app-${icao}-3D`} onPress={() => upd(icao, { dim: '3d', cat: undefined, app: undefined, rwy: undefined })} />
               </View>
             ) : null}
 
             {/* steg 2 — subkategori */}
             {v.dim && !v.cat ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                {cats.map((c) => <Opt key={c.cat} label={c.cat} onPress={() => upd(icao, { cat: c.cat, app: undefined, rwy: undefined })} />)}
+                {cats.map((c) => <Opt key={c.cat} label={c.cat} tourId={`app-${icao}-cat-${c.cat}`} onPress={() => upd(icao, { cat: c.cat, app: undefined, rwy: undefined })} />)}
               </View>
             ) : null}
 
             {/* steg 3 — exakt approach inom subkategorin */}
             {v.cat && !v.app ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                {opts.map((a) => <Opt key={a} label={a} onPress={() => upd(icao, { app: a })} />)}
+                {opts.map((a) => <Opt key={a} label={a} tourId={`app-${icao}-app-${a}`} onPress={() => upd(icao, { app: a })} />)}
               </View>
             ) : null}
 
@@ -135,7 +138,7 @@ export function ApproachFlow({ icaos, value, onChange, ifr, runwaysFor }: {
             {v.app && !v.rwy ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Text style={{ fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, marginRight: 2 }}>RWY</Text>
-                {(rwys.length ? rwys : ['—']).map((r) => <Opt key={r} label={r} onPress={() => upd(icao, { rwy: r === '—' ? undefined : r })} />)}
+                {(rwys.length ? rwys : ['—']).map((r) => <Opt key={r} label={r} tourId={`app-${icao}-rwy-${r}`} onPress={() => upd(icao, { rwy: r === '—' ? undefined : r })} />)}
               </View>
             ) : null}
           </View>

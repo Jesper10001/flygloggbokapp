@@ -25,9 +25,13 @@ export function PilotLogbook() {
   const router = useRouter();
   const accent = Colors.primary;
   const { flights: realFlights, isLoading, loadFlights, loadStats } = useFlightStore();
-  // Blades introduction: visa DEMO-flygningar när rundturen kör och loggboken annars är tom.
+  // Blades introduction: visa DEMO-flygningar när rundturen kör och loggboken annars är tom. Loggnings-
+  // demons exempel-flygning är en riktig rad → läggs överst så rundturen kan trycka på den.
   const tourDemo = useTourStore((s) => s.demo);
-  const flights = tourDemo ? DEMO_FLIGHTS : realFlights;
+  const flights = useMemo(
+    () => (tourDemo ? [...realFlights, ...DEMO_FLIGHTS].sort((x, y) => y.date.localeCompare(x.date)) : realFlights),
+    [tourDemo, realFlights],
+  );
   const [view, setView] = useState<LogView>('list');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   // Deep-link-expansion (år/månad) från heatmapen. Nollställs vid vy-byte och när

@@ -16,6 +16,7 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { droneModeHours, droneModeLabel } from '../../db/drones';
 import { useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS } from '../../constants/tourDemoData';
+import { TourPress } from '../../components/TourPress';
 import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
@@ -56,7 +57,11 @@ export default function DroneLog() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights: realDroneFlights, loadFlights } = useDroneFlightStore();
   const tourDemo = useTourStore((s) => s.demo);
-  const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
+  // Loggningsdemons exempel-flygning är en riktig rad → syns överst även när DEMO-data visas.
+  const flights = useMemo(
+    () => (tourDemo ? [...realDroneFlights, ...DEMO_DRONE_FLIGHTS].sort((x, y) => y.date.localeCompare(x.date)) : realDroneFlights),
+    [tourDemo, realDroneFlights],
+  );
   const [tab, setTab] = useState<'flights' | 'book' | 'fleet'>('flights');
 
   // Djuplänk till Fleet-fliken (t.ex. efter CSV-import: /(tabs)/drone-log?view=fleet) — = pilotens loggbok.
@@ -142,8 +147,15 @@ function FlightsTab({ flights, accent, onOpen }: {
     });
   }, [flights, query, filter]);
 
-  // Blades introduction: expandera hela översikten så demo-flygningarna syns direkt.
+  // Blades introduction: expandera hela översikten så demo-flygningarna syns direkt, och fäll alltid ut
+  // månaden med loggningsdemons exempel-flygning (rundturen trycker på den raden).
   const forceOpen = !!query.trim() || filter !== 'all' || tourDemo;
+  const demoId = useTourStore((s) => (s.active && s.demoFlight?.kind === 'drone' ? s.demoFlight.id ?? null : null));
+  const focusKey = useMemo(() => {
+    const f = demoId != null ? flights.find((x) => x.id === demoId) : undefined;
+    const [y, m] = (f?.date || '').split('-').map(Number);
+    return y && m ? `${y}-${m - 1}` : null;
+  }, [demoId, flights]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -179,7 +191,7 @@ function FlightsTab({ flights, accent, onOpen }: {
             </View>
           )
         ) : (
-          <DroneYearMonthAccordion flights={filtered} accent={accent} forceOpen={forceOpen} onOpen={onOpen} />
+          <DroneYearMonthAccordion flights={filtered} accent={accent} forceOpen={forceOpen} focusKey={focusKey} onOpen={onOpen} />
         )}
         {/* Aktivitetskalender längst ner (= manned), bara i ofiltrerad vy */}
         {filter === 'all' && !query.trim() && flights.length > 0 && (
@@ -214,6 +226,9 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
         <Text style={s.rowDate}>{relDate(f.date)}</Text>
       </View>
       <Ionicons name="chevron-forward" size={15} color={DR.muted} />
+      {/* Blades introduction: loggboks-steget "trycker" på exempel-flygningen och öppnar den. */}
+      <TourPress id={`logrowf-d${f.id}`} variant="focus" radius={0} />
+      <TourPress id={`logrow-d${f.id}`} radius={0} />
     </TouchableOpacity>
   );
 }
@@ -221,8 +236,8 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
 // År→månad-accordion (klon av manned YearMonthAccordion) — år kollapsade default,
 // månads-dropdowns, max 3 år + "Previous years".
 const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-function DroneYearMonthAccordion({ flights, accent, forceOpen, onOpen }: {
-  flights: DroneFlight[]; accent: string; forceOpen: boolean; onOpen: (id: number) => void;
+function DroneYearMonthAccordion({ flights, accent, forceOpen, focusKey, onOpen }: {
+  flights: DroneFlight[]; accent: string; forceOpen: boolean; focusKey?: string | null; onOpen: (id: number) => void;
 }) {
   const years = useMemo(() => {
     const yy: Record<number, Record<number, DroneFlight[]>> = {};
@@ -247,8 +262,8 @@ function DroneYearMonthAccordion({ flights, accent, forceOpen, onOpen }: {
   if (years.length === 0) return null;
 
   // Alla år kollapsade som default (= manned) — visa bara årtal tills man expanderar.
-  const yearOpen = (yr: number) => forceOpen || !!yearOvr[yr];
-  const monthOpen = (key: string) => forceOpen || !!monthOvr[key];
+  const yearOpen = (yr: number) => forceOpen || !!yearOvr[yr] || !!focusKey?.startsWith(`${yr}-`);
+  const monthOpen = (key: string) => forceOpen || !!monthOvr[key] || key === focusKey;
   const showAll = forceOpen || showAllYears;
   const visibleYears = showAll ? years : years.slice(0, 3);
 

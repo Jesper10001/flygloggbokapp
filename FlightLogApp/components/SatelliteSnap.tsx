@@ -45,6 +45,23 @@ function snapBox(lat: number, lon: number, zoom: number): number[] {
   return [se.lat, nw.lon, nw.lat, se.lon].map((v) => Math.round(v * 1e4) / 1e4).concat(tz);
 }
 
+// Har proxyn satellitbilder (ARCGIS_API_KEY satt)? Provas med en världsruta (z1) en gång per appsession; ett
+// "nej" provas om efter 10 min. Delningskortets Route-lager visas bara vid "ja" → det dyker upp av sig självt
+// när nyckeln sätts i proxyn, utan nytt app-bygge. (Utan nyckel svarar proxyn 503 utan att anropa Esri.)
+let imageryProbe: { ok: boolean; at: number } | null = null;
+export async function imageryAvailable(): Promise<boolean> {
+  if (!PROXY_URL) return false;
+  if (imageryProbe && (imageryProbe.ok || Date.now() - imageryProbe.at < 10 * 60 * 1000)) return imageryProbe.ok;
+  try {
+    const r = await fetch(`${PROXY_URL}/map/imagery/1/0/0`, { headers: { 'X-Device-ID': getDeviceId() } });
+    const ok = r.ok && (r.headers.get('Content-Type') ?? '').startsWith('image/');
+    imageryProbe = { ok, at: Date.now() };
+  } catch {
+    imageryProbe = { ok: false, at: Date.now() };
+  }
+  return imageryProbe.ok;
+}
+
 /** Bildleverantörerna för snapshotsen (t.ex. ["Microsoft", "Vantor"]), eller null om listan inte gick att hämta. */
 export async function fetchImageryProviders(snaps: { lat: number; lon: number; zoom: number }[]): Promise<string[] | null> {
   if (!PROXY_URL || !snaps.length) return null;

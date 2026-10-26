@@ -7,10 +7,11 @@ import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
 import type { LayoutRectangle } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { FONT_MONO } from '../logbook-page/tokens';
+import { TourPress } from '../TourPress';
 
 const PAD = 2;
 
-export function SlideToggle<T extends string>({ options, value, onChange, activeColor, size = 'sm', block = false, sans = false, soft = false, tall = false }: {
+export function SlideToggle<T extends string>({ options, value, onChange, activeColor, size = 'sm', block = false, sans = false, soft = false, tall = false, tourIds }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
@@ -20,6 +21,7 @@ export function SlideToggle<T extends string>({ options, value, onChange, active
   sans?: boolean; // använd systemets sans (samma som "Aircraft type"/"Registration") istället för mono
   soft?: boolean; // vald del = samma look som roleBtn-active (transparent accent-fyllning + accent-text)
   tall?: boolean; // matcha höjden på roleBtn (paddingVertical 10) — behåll liten font
+  tourIds?: Partial<Record<T, string>>; // Blades introduction: TourPress-id per val (rundturen "trycker" på det)
 }) {
   const accent = activeColor || Colors.primary;
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
@@ -64,6 +66,7 @@ export function SlideToggle<T extends string>({ options, value, onChange, active
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: sans ? undefined : FONT_MONO, fontSize: fs, fontWeight: '800', letterSpacing: 0.3, color: on ? onColor : offColor }}>
               {o.label}
             </Text>
+            {tourIds?.[o.value] ? <TourPress id={tourIds[o.value]!} radius={6} /> : null}
           </TouchableOpacity>
         );
       })}

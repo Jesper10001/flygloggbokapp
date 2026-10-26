@@ -87,6 +87,8 @@ export default function RootLayout() {
     let last = 0;
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'background') return;
+      // Rundturens tillfälliga exempel-flygning ska aldrig hamna i backupen → vänta tills den är städad.
+      if (useTourStore.getState().demoFlight) return;
       const now = Date.now();
       if (now - last < 60000) return;
       last = now;
@@ -260,7 +262,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
@@ -279,7 +281,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
         <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />
         <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: tourPresentation }} />
-        <Stack.Screen name="drone-flight/[id]" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="drone-flight/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="drone-album" options={{ headerShown: false }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export', presentation: 'modal' }} />

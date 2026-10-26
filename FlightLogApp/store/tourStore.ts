@@ -10,6 +10,10 @@ import { TOURS, type TourMode } from '../constants/tourSteps';
 
 const PENDING_KEY = 'pending_intro_tour'; // '' | 'pilot' | 'drone'
 
+// Flygningen (och ev. exempeldrönaren) som loggningsdemon sparat — raderas när rundturen slutar
+// (services/tourDemoFlight.ts). Sparas även i settings så den städas efter en krasch/omstart.
+export interface TourDemoFlight { kind: 'pilot' | 'drone'; id?: number; droneId?: number }
+
 interface TourStore {
   active: boolean;
   mode: TourMode;
@@ -21,6 +25,13 @@ interface TourStore {
   mapOpen: boolean;           // dashboard: öppna globala kartan (rundturs-styrd)
   mapSearchIcao: string | null; // global map: sök + markera denna ICAO vid öppning (demo: KJFK)
   demo: boolean;              // visa DEMO-data (flights/fleet/bok) — BARA under rundturen när allt är tomt
+  // Loggningsdemon (Log flight fyller själv i en hel flygning och sparar den):
+  logForm: 'quick' | 'full' | null; // pilot: tvinga Quicklog/Full i Log flight under rundturen
+  logDemoRun: number;         // ökas → Log flight startar (om) demon; ett nytt värde avbryter en pågående
+  logDemoDoneAt: number;      // tidpunkt då demon sparat flygningen → TourHost går vidare
+  caption: string | null;     // bildtexten i den smala raden medan demon fyller i formuläret
+  demoProgress: number;       // 0–1, demons förlopp (tunn linje i bildtextraden)
+  demoFlight: TourDemoFlight | null;
   start: (mode: TourMode) => void;
   setDemo: (v: boolean) => void;
   next: () => void;           // vidare; förbi sista steget → avsluta
@@ -30,7 +41,16 @@ interface TourStore {
   setOpenBackfill: (v: boolean) => void;
   setPrompt: (mode: TourMode | null) => void;
   setGlobe: (menu: boolean, open: boolean, icao: string | null) => void;
+  setLogForm: (v: 'quick' | 'full' | null) => void;
+  startLogDemo: () => void;
+  resetLogDemo: () => void;   // nollställ bildtext/förlopp/"sparad" utan att starta demon
+  setCaption: (caption: string | null, progress?: number) => void;
+  finishLogDemo: () => void;
+  setDemoFlight: (f: TourDemoFlight | null) => void;
 }
+
+// Återställs vid start/stopp (demoFlight städas separat av tourDemoFlight.ts, som sätter null).
+const LOG_DEMO_RESET = { logForm: null, logDemoDoneAt: 0, caption: null, demoProgress: 0 } as const;
 
 export const useTourStore = create<TourStore>((set, get) => ({
   active: false,
@@ -43,19 +63,31 @@ export const useTourStore = create<TourStore>((set, get) => ({
   mapOpen: false,
   mapSearchIcao: null,
   demo: false,
-  start: (mode) => set({ active: true, mode, stepIndex: 0, pressTarget: null, openBackfill: false, promptMode: null, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false }),
+  logForm: null,
+  logDemoRun: 0,
+  logDemoDoneAt: 0,
+  caption: null,
+  demoProgress: 0,
+  demoFlight: null,
+  start: (mode) => set({ active: true, mode, stepIndex: 0, pressTarget: null, openBackfill: false, promptMode: null, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }),
   setDemo: (v) => set({ demo: v }),
   next: () => {
     const { mode, stepIndex } = get();
-    if (stepIndex >= TOURS[mode].length - 1) { set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false }); return; }
+    if (stepIndex >= TOURS[mode].length - 1) { set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }); return; }
     set({ stepIndex: stepIndex + 1 });
   },
   prev: () => set({ stepIndex: Math.max(0, get().stepIndex - 1) }),
-  stop: () => set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false }),
+  stop: () => set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }),
   setPressTarget: (id) => set({ pressTarget: id }),
   setOpenBackfill: (v) => set({ openBackfill: v }),
   setPrompt: (mode) => set({ promptMode: mode }),
   setGlobe: (menu, open, icao) => set({ globeMenu: menu, mapOpen: open, mapSearchIcao: icao }),
+  setLogForm: (v) => set({ logForm: v }),
+  startLogDemo: () => set({ logDemoRun: get().logDemoRun + 1, logDemoDoneAt: 0, caption: null, demoProgress: 0 }),
+  resetLogDemo: () => set({ logDemoDoneAt: 0, caption: null, demoProgress: 0 }),
+  setCaption: (caption, progress) => set(progress == null ? { caption } : { caption, demoProgress: progress }),
+  finishLogDemo: () => set({ logDemoDoneAt: Date.now(), demoProgress: 1 }),
+  setDemoFlight: (f) => set({ demoFlight: f }),
 }));
 
 // Starta rundturen OCH avgör om DEMO-data ska visas: bara när det aktuella lägets loggbok är HELT tom

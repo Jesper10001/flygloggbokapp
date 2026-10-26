@@ -55,6 +55,10 @@ import { buildInstants } from '../../utils/flightTime';
 import { CondBar } from '../../components/logflight/CondBar';
 import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { TolRow } from '../../components/logflight/MiniStepper';
+import { useTourStore } from '../../store/tourStore';
+import { TOURS } from '../../constants/tourSteps';
+import { TourPress } from '../../components/TourPress';
+import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
 
 const today = new Date().toISOString().split('T')[0];
 const nowHHMM = () => {
@@ -127,6 +131,13 @@ const placeFontSize = (v: string) => 19 - Math.max(0, Math.min(v.length, 12) - 4
 // Förvalda mission-typer — snabbval i Mission-dropdownen överst. Fritextrutan tillåter
 // valfri egen text (mission_type = valfri sträng), så "Other" behövs inte längre.
 const MISSION_TYPES = ['Inspection', 'Mapping', 'Photo / Video', 'SAR', 'Training', 'Testing', 'Recreation'];
+
+// Blades introduction — exempel för loggningsdemon när användaren saknar egen drönare/besättning.
+// Exempeldrönaren läggs till tillfälligt och raderas med exempel-flygningen (services/tourDemoFlight).
+const TOUR_DRONE = { drone_type: 'multirotor' as const, model: 'Mavic 3 Enterprise', registration: 'SE-D001', mtow_g: 920, category: 'specific', drone_class: 'civil', notes: '' };
+const TOUR_BVLOS_SHARE = 0.7; // siktläge i demon: 70 % BVLOS, resten VLOS (BVLOS kräver kategorin Specific)
+const TOUR_CREW = { name: 'Erik Lind', role: 'observer' };
+const TOUR_REMARK = 'Example flight · Blades introduction';
 const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 
 export default function AddDroneFlightScreen() {
@@ -238,6 +249,15 @@ export default function AddDroneFlightScreen() {
   const [showDepDropdown, setShowDepDropdown] = useState(false);
   const depPlaceRef = useRef<TextInput>(null);
   const depTimeRef = useRef<SmartTimeInputHandle>(null);
+  // Blades introduction: loggningsdemon (effekten före return) — scroll-ref, sektionernas y-lägen och
+  // senaste renderns save/värden (demon körs async i flera sekunder → inga inaktuella closures).
+  const tourActive = useTourStore((s) => s.active);
+  const logDemoRun = useTourStore((s) => s.logDemoRun);
+  const demoRunAtMount = useRef(logDemoRun); // demon startar bara när rundturen ökar räknaren EFTER montering
+  const scrollRef = useRef<ScrollView>(null);
+  const demoY = useRef<Record<string, number>>({});
+  const scrollMetrics = useRef({ contentH: 0, viewH: 0 });
+  const demoLatest = useRef<{ save: (sameSession?: boolean, demo?: boolean) => Promise<number | undefined>; role: DroneRole; total: number } | null>(null);
 
   // MM:SS → timmar. Ett halvinmatat pass ("5", inga siffror efter kolon ännu) tolkas
   // som minuter så totalen växer direkt och save inte blockeras felaktigt (review-fynd #5).
@@ -656,7 +676,8 @@ export default function AddDroneFlightScreen() {
   // uppdrag/kategori/läge, nollställ tid, stanna kvar.
   // Gratisgräns: nådd redan vid öppning av en NY drönarflygning → visa Premium-uppmaning direkt.
   useEffect(() => {
-    if (!isEdit && !isPremium && !isMax) {
+    // (Inte under rundturen — loggningsdemon sparar bara en tillfällig exempel-flygning.)
+    if (!isEdit && !isPremium && !isMax && !useTourStore.getState().active) {
       getDroneFlightCount().then((n) => {
         if (n >= FREE_TIER_LIMIT_DRONE) { setLimitBlockedOnEntry(true); setShowLimitModal(true); }
       }).catch(() => {});
@@ -664,15 +685,16 @@ export default function AddDroneFlightScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const save = async (sameSession = false) => {
+  // demo = rundturens loggningsdemon: sparar tyst (ingen gräns-popup, ingen navigering) och returnerar id:t.
+  const save = async (sameSession = false, demo = false) => {
     // Gratisgräns för manuellt loggade drönarflygningar (ny, ej redigering). Kollas mot DB varje spar
     // så även "same session"-flödet stoppas vid gränsen.
-    if (!isEdit && !isPremium && !isMax) {
+    if (!isEdit && !isPremium && !isMax && !demo) {
       const n = await getDroneFlightCount().catch(() => 0);
       if (n >= FREE_TIER_LIMIT_DRONE) { setShowLimitModal(true); return; }
     }
-    if (!form.drone_id) { Alert.alert(t('error'), t('drone_pick_required')); return; }
-    if ((parseFloat(form.total_time) || 0) <= 0) { Alert.alert(t('error'), t('time_required')); return; }
+    if (!form.drone_id) { if (!demo) Alert.alert(t('error'), t('drone_pick_required')); return; }
+    if ((parseFloat(form.total_time) || 0) <= 0) { if (!demo) Alert.alert(t('error'), t('time_required')); return; }
     setSaving(true);
     // Observer läggs in i remarks som "Observer: xxxx" (loggbokens Remarks-kolumn).
     const hv = parseFloat(form.h_vlos ?? '') || 0, he = parseFloat(form.h_evlos ?? '') || 0, hb = parseFloat(form.h_bvlos ?? '') || 0;
@@ -721,6 +743,7 @@ export default function AddDroneFlightScreen() {
       // Spara/uppdatera media på flygningen (rör inte ev. synkad photo_local_id).
       await setDroneFlightPhoto(flightId, savedPhotoUri, mediaType);
       await Promise.all([loadFlights(), loadStats()]);
+      if (demo) return flightId;
 
       // Instrument scan: dagen är loggad → fråga om fler flygningar ur bilden (näst senaste förvald),
       // eller tillbaka när alla dagar är loggade.
@@ -755,7 +778,7 @@ export default function AddDroneFlightScreen() {
       }
       router.back();
     } catch (e: any) {
-      Alert.alert(t('error'), e.message);
+      if (!demo) Alert.alert(t('error'), e.message);
     } finally {
       setSaving(false);
     }
@@ -893,6 +916,223 @@ export default function AddDroneFlightScreen() {
     }
   };
 
+  // ── Blades introduction: loggningsdemon ───────────────────────────────────
+  // TourHost ökar logDemoRun → formuläret fyller själv i ett komplett pass (två flygningar) fält för fält,
+  // med fokusram + bildtext i rundturens smala rad, och sparar det på riktigt så loggboken kan öppna det.
+  // Egen drönare/besättning/plats används om de finns; annars läggs en exempeldrönare till tillfälligt.
+  demoLatest.current = { save, role, total: parseFloat(form.total_time) || 0 };
+  useEffect(() => {
+    if (!logDemoRun || isEdit || logDemoRun === demoRunAtMount.current) return;
+    const st0 = useTourStore.getState();
+    if (!st0.active || !TOURS[st0.mode][st0.stepIndex]?.logDemo) return;
+    let dead = false;
+    const tour = useTourStore.getState;
+    const alive = () => {
+      const st = tour();
+      return !dead && st.active && st.logDemoRun === logDemoRun && !!TOURS[st.mode][st.stepIndex]?.logDemo;
+    };
+    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const PHASES = 11;
+    const say = (n: number, caption: string) => tour().setCaption(caption, n / (PHASES + 1));
+    const focus = (id: string | null) => tour().setPressTarget(id);
+    const scrollTo = (y: number | undefined, above: number) => {
+      if (y == null) return;
+      const { contentH, viewH } = scrollMetrics.current;
+      const max = contentH > 0 && viewH > 0 ? Math.max(0, contentH - viewH) : Number.MAX_SAFE_INTEGER;
+      scrollRef.current?.scrollTo({ y: Math.min(max, Math.max(0, y - above)), animated: true });
+    };
+    const typeSeq = async (parts: string[], put: (v: string) => void, ms: number) => {
+      for (let i = 0; i < parts.length; i++) {
+        if (!alive()) return false;
+        put(parts[i]);
+        await wait(ms + ((i * 7) % 3) * 22);
+      }
+      return alive();
+    };
+    const chars = (text: string) => Array.from({ length: text.length }, (_, i) => text.slice(0, i + 1));
+    const clock = (t: string) => { const d = t.replace(':', ''); return [d.slice(0, 1), d.slice(0, 2), `${d.slice(0, 2)}:${d.slice(2, 3)}`, t]; };
+    const legKeys = (min: number) => { const d = `${Math.floor(min / 60)}${String(min % 60).padStart(2, '0')}`; return chars(d); }; // "025" → 0 · 02 · 0:25
+
+    (async () => {
+      try {
+        // ── Data: egen drönare/besättning/plats om de finns, annars exempel ──
+        const [ds, recent, crew] = await Promise.all([
+          listDrones().catch(() => [] as DroneRegistryEntry[]),
+          getDroneFlights(10).catch(() => []),
+          getRecentDroneCrew().catch(() => [] as { name: string; role: string }[]),
+        ]);
+        const last = recent.find((f) => !(f.remarks || '').includes(TOUR_REMARK)) ?? null;
+        let entry: DroneRegistryEntry | null = (last && ds.find((d) => d.id === last.drone_id)) || ds.find((d) => d.registration) || ds[0] || null;
+        if (!entry) {
+          const id = await addDrone(TOUR_DRONE);
+          await rememberTourDemo({ kind: 'drone', droneId: id }); // raderas med flygningen (även efter krasch)
+          const fresh = await listDrones().catch(() => [] as DroneRegistryEntry[]);
+          setDrones(fresh);
+          entry = fresh.find((d) => d.id === id) ?? null;
+        }
+        const mission = (last?.mission_type || '').trim() || 'Inspection';
+        const place = (last?.location || '').trim() || 'Stockholm';
+        const op = last?.operation_type === 'PRI' ? 'PRI' : 'COM';
+        const myRole = demoLatest.current!.role;
+        let mate = crew[0] ?? TOUR_CREW;
+        // Bara en pilot in command: är du PIC/RPIC och sparad roll också PIC → visa som observatör.
+        if (!mate.role || (isDronePicRole(mate.role) && isDronePicRole(myRole))) mate = { ...mate, role: 'observer' };
+        const legs = [25, 18];
+        const totalMin = legs[0] + legs[1] + 12; // två flygningar + batteribyte
+        const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+        const depMin = isValidTime(last?.takeoff_time ?? '') ? toMin(last!.takeoff_time!) : 10 * 60 + 30;
+        const now = new Date();
+        let depAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + depMin * 60000;
+        if (depAt + (totalMin + 10) * 60000 > now.getTime()) depAt -= 86400000; // aldrig framtida tider
+        const date = new Date(depAt).toISOString().slice(0, 10);
+        const takeoff = `${String(Math.floor(depMin / 60)).padStart(2, '0')}:${String(depMin % 60).padStart(2, '0')}`;
+        const altVal = altUnit === 'ft' ? 360 : 110; // under 120 m-gränsen för Open
+        if (!alive()) return;
+
+        // ── Rent formulär ──
+        setTimeMode('utc'); setDepLocalBuf(''); setFullLegs(['']); setExtraPilots([]); setCondRaw({});
+        setShowDepDropdown(false); setShowMissionPicker(false); setPendingModel(null);
+        setForm((p) => ({
+          ...p, date, mission_type: '', location: '', lat: undefined, lon: undefined, takeoff_time: '',
+          drone_id: null, drone_type: undefined, registration: '', category: '',
+          flight_mode: 'VLOS', h_vlos: '', h_evlos: '', h_bvlos: '', night_time: '', is_night: false,
+          second_pilot: '', second_pilot_role: '', operation_type: '', landings_day: '', landings_night: '',
+          max_altitude_m: '', remarks: '',
+        }));
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+        await wait(700); if (!alive()) return;
+
+        // 1 · Uppdrag.
+        say(1, 'Mission — what the flight was for');
+        scrollTo(demoY.current.mission, 10);
+        focus('ld-mission');
+        await wait(500);
+        if (!(await typeSeq(chars(mission), (v) => setForm((p) => ({ ...p, mission_type: v })), 70))) return;
+        await wait(600); if (!alive()) return;
+
+        // 2 · Plats + starttid.
+        say(2, 'Location and take-off time');
+        scrollTo(demoY.current.route, 10);
+        focus('ld-route');
+        await wait(500);
+        if (!(await typeSeq(chars(place), (v) => setForm((p) => ({ ...p, location: v })), 85))) return;
+        await wait(350); if (!alive()) return;
+        if (!(await typeSeq(clock(takeoff), (v) => setForm((p) => ({ ...p, takeoff_time: v })), 135))) return;
+        await wait(450); if (!alive()) return;
+
+        // 3 · Första flygningen.
+        say(3, 'Flight time — the first flight of the session');
+        if (!(await typeSeq(legKeys(legs[0]), (v) => updateLeg(0, v), 150))) return;
+        await wait(800); if (!alive()) return;
+
+        // 4 · Andra flygningen i samma pass (ett tryck).
+        say(4, 'A second flight — same session, one tap');
+        focus('ld-addleg');
+        await wait(850); if (!alive()) return;
+        addLeg();
+        await wait(350); if (!alive()) return;
+        focus('ld-leg2');
+        if (!(await typeSeq(legKeys(legs[1]), (v) => updateLeg(1, v), 150))) return;
+        await wait(1000); if (!alive()) return;
+
+        // 5 · Siktläge: barerna växer fram (plats + tid + flygtid finns) → BVLOS dras upp till 70 %, VLOS
+        // får resten; växlaren följer det dominerande läget (BVLOS).
+        const bvPct = Math.round(TOUR_BVLOS_SHARE * 100);
+        say(5, `Sight mode — ${100 - bvPct}% VLOS, ${bvPct}% BVLOS, split with the bars`);
+        scrollTo((demoY.current.route ?? 0) + (demoY.current.modeIn ?? 0), 150);
+        focus('ld-mode');
+        await wait(900); if (!alive()) return;
+        for (let k = 1; k <= 7; k++) {
+          if (!alive()) return;
+          const tot = demoLatest.current!.total;
+          const b = tot * TOUR_BVLOS_SHARE * (k / 7);
+          const str = (n: number) => (n > 1e-6 ? n.toFixed(4) : '');
+          setForm((p) => ({ ...p, flight_mode: b > tot / 2 ? 'BVLOS' : 'VLOS', h_vlos: str(tot - b), h_evlos: '', h_bvlos: str(b) }));
+          await wait(115);
+        }
+        await wait(1500); if (!alive()) return;
+
+        // 6 · Drönare. Kategorin följer annars drönarens klass, men BVLOS-flygningen är i Specific.
+        say(6, 'Drone — model and registration');
+        scrollTo(demoY.current.frame, 120);
+        focus('ld-drone');
+        await wait(700); if (!alive()) return;
+        if (entry) await setDrone(entry);
+        setForm((p) => ({ ...p, category: 'specific' }));
+        await wait(1000); if (!alive()) return;
+
+        // 7 · Pilot function.
+        say(7, `Pilot function — ${DRONE_ROLE_LABEL[myRole] ?? 'PIC'}`);
+        scrollTo((demoY.current.frame ?? 0) + (demoY.current.roleIn ?? 0), 150);
+        focus('ld-role');
+        await wait(650); if (!alive()) return;
+        selectRole(myRole);
+        await wait(950); if (!alive()) return;
+
+        // 8 · Besättning (namn + roll, t.ex. observatör).
+        say(8, `Crew — who you flew with, as ${DRONE_ROLE_LABEL[mate.role as DroneRole] ?? 'crew'}`);
+        scrollTo((demoY.current.frame ?? 0) + (demoY.current.crewIn ?? 0), 170);
+        focus('ld-crew');
+        await wait(650); if (!alive()) return;
+        setForm((p) => ({ ...p, second_pilot: mate.name }));
+        await wait(500); if (!alive()) return;
+        selectSecondPilotRole(mate.role);
+        await wait(1000); if (!alive()) return;
+
+        // 9 · Operation.
+        say(9, `Operation — ${op === 'COM' ? 'commercial' : 'private'}`);
+        scrollTo((demoY.current.frame ?? 0) + (demoY.current.opIn ?? 0), 200);
+        focus('ld-op');
+        await wait(650); if (!alive()) return;
+        setForm((p) => ({ ...p, operation_type: op }));
+        await wait(950); if (!alive()) return;
+
+        // 10 · Landningar + max-höjd (räknas upp).
+        say(10, 'Landings and max altitude');
+        scrollTo(demoY.current.fields, 190);
+        focus('ld-fields');
+        await wait(600); if (!alive()) return;
+        setForm((p) => ({ ...p, landings_day: String(legs.length), landings_night: '' }));
+        await wait(500);
+        for (let k = 1; k <= 6; k++) {
+          if (!alive()) return;
+          const v = Math.round((altVal * k) / 6);
+          setForm((p) => ({ ...p, max_altitude_m: String(droneAltToM(v, altUnit)) }));
+          await wait(90);
+        }
+        await wait(900); if (!alive()) return;
+
+        // 11 · Remarks.
+        say(11, 'Remarks — anything worth remembering');
+        scrollTo(demoY.current.remarks, 210);
+        focus('ld-remarks');
+        await wait(500); if (!alive()) return;
+        if (!(await typeSeq(chars(TOUR_REMARK), (v) => setForm((p) => ({ ...p, remarks: v })), 42))) return;
+        await wait(900); if (!alive()) return;
+
+        // 12 · Spara tyst → minns flygningen (raderas när rundturen slutar).
+        tour().setCaption('Saving to your logbook…', PHASES / (PHASES + 1));
+        focus(null);
+        scrollRef.current?.scrollToEnd({ animated: true });
+        await wait(650); if (!alive()) return;
+        focus('ld-save');
+        await wait(950); if (!alive()) return;
+        const id = await demoLatest.current!.save(false, true);
+        if (id) await rememberTourDemo({ kind: 'drone', id });
+        if (!tour().active) { await cleanupTourDemo(); return; } // rundturen avbröts mitt i sparningen
+        if (!alive()) return;
+        focus(null);
+        tour().setCaption(id ? 'Saved to your logbook' : 'Could not save the example flight', 1);
+        tour().finishLogDemo();
+      } catch {
+        if (alive()) tour().finishLogDemo();
+      } finally {
+        if (tour().pressTarget?.startsWith('ld-')) focus(null);
+      }
+    })();
+    return () => { dead = true; };
+  }, [logDemoRun]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'android' ? 'height' : undefined}>
@@ -919,7 +1159,11 @@ export default function AddDroneFlightScreen() {
         )}
       </TouchableOpacity>
       <ScrollView
-        contentContainerStyle={styles.content}
+        ref={scrollRef}
+        // Under rundturen: extra luft i botten så Save kan scrollas upp ovanför rundturens bildtextrad.
+        contentContainerStyle={[styles.content, tourActive && { paddingBottom: 170 }]}
+        onLayout={(e) => { scrollMetrics.current.viewH = e.nativeEvent.layout.height; }}
+        onContentSizeChange={(_w, h) => { scrollMetrics.current.contentH = h; }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
@@ -942,7 +1186,7 @@ export default function AddDroneFlightScreen() {
 
         {/* Mission — överst: label + fritextruta + dropdown med förval.
             Fritexten ersätter den gamla "Other"-knappen; dropdownen ger snabbval. */}
-        <View style={[styles.missionRow, showMissionPicker && { zIndex: 200 }]}>
+        <View style={[styles.missionRow, showMissionPicker && { zIndex: 200 }]} onLayout={(e) => { demoY.current.mission = e.nativeEvent.layout.y; }}>
           <Text style={styles.missionLabel}>Mission</Text>
           <View style={{ flex: 1, position: 'relative' }}>
             <View style={styles.missionInputWrap}>
@@ -958,6 +1202,7 @@ export default function AddDroneFlightScreen() {
               <TouchableOpacity style={styles.missionDropBtn} onPress={() => { Keyboard.dismiss(); setShowMissionPicker((v) => !v); }} hitSlop={8} activeOpacity={0.7}>
                 <Ionicons name={showMissionPicker ? 'chevron-up' : 'chevron-down'} size={16} color={accent} />
               </TouchableOpacity>
+              <TourPress id="ld-mission" variant="focus" radius={10} inset={3} />
             </View>
             {showMissionPicker && (
               <View style={styles.missionDropdown}>
@@ -977,7 +1222,7 @@ export default function AddDroneFlightScreen() {
         {/* ── Route-hero (Full): 2×2-rutnät — Location + Departure time (uppe), Flight time +
             Total flight time (nere) — plus en Add-flight-rad med redigerbara extra-flight-chip. ── */}
         {logFull && (
-          <View style={styles.routeCard}>
+          <View style={styles.routeCard} onLayout={(e) => { demoY.current.route = e.nativeEvent.layout.y; }}>
 
             {/* Route-hero (Full): 2×2 — Location + Departure time (uppe), Flight time + Total (nere) */}
             <View style={[styles.legRow, showDepDropdown && { zIndex: 100 }]}>
@@ -1079,6 +1324,7 @@ export default function AddDroneFlightScreen() {
                   <Text style={styles.totalDisplayValue}>{fullTotalDecimal > 0 ? decimalToHHMM(fullTotalDecimal) : '--:--'}</Text>
                 </View>
               </View>
+              <TourPress id="ld-route" variant="focus" radius={12} inset={6} />
             </View>
 
             {/* Under: "Add Nth flight" centrerad under Flight time (vänster); extra-chip centrerade under Total (höger). */}
@@ -1087,6 +1333,7 @@ export default function AddDroneFlightScreen() {
                 <TouchableOpacity style={[styles.addFlightBtn, { flex: 0, paddingHorizontal: 18 }]} onPress={addLeg} activeOpacity={0.85}>
                   <Ionicons name="add" size={16} color={accent} />
                   <Text style={styles.addFlightBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{`Add ${ordinal(fullLegs.length + 1)} flight`}</Text>
+                  <TourPress id="ld-addleg" radius={10} />
                 </TouchableOpacity>
               </View>
               <View style={{ width: 12 }} />
@@ -1113,6 +1360,7 @@ export default function AddDroneFlightScreen() {
                       <TouchableOpacity onPress={() => removeLeg(i)} hitSlop={6} activeOpacity={0.7} style={styles.extraFlightRemove}>
                         <Ionicons name="close-circle" size={18} color={DRONE_ORANGE} />
                       </TouchableOpacity>
+                      {i === 1 ? <TourPress id="ld-leg2" variant="focus" radius={12} inset={3} /> : null}
                     </View>
                   );
                 })}
@@ -1177,7 +1425,7 @@ export default function AddDroneFlightScreen() {
               const lock = () => setScrollLocked(true); const unlock = () => setScrollLocked(false);
               const curMode = (form.flight_mode || 'VLOS') as DroneFlightMode;
               return (<>
-                <View style={{ marginTop: 16 }}>
+                <View style={{ marginTop: 16 }} onLayout={(e) => { demoY.current.modeIn = e.nativeEvent.layout.y; }}>
                   <SlideToggle
                     block sans size="md"
                     options={FLIGHT_MODES.map((m) => ({ value: m, label: m }))}
@@ -1210,6 +1458,7 @@ export default function AddDroneFlightScreen() {
                     </View>
                   </View>
                   </Animated.View>
+                  <TourPress id="ld-mode" variant="focus" radius={10} inset={5} />
                 </View>
 
                 <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -1252,7 +1501,7 @@ export default function AddDroneFlightScreen() {
         )}
 
         {/* Gemensam ram (som pilot): drönare + registrering + pilot function + second pilot + operation */}
-        <View style={[styles.frameCard, (typeOpen || regOpen || otherOpen || crewOpen) ? { zIndex: 20 } : null]}>
+        <View style={[styles.frameCard, (typeOpen || regOpen || otherOpen || crewOpen) ? { zIndex: 20 } : null]} onLayout={(e) => { demoY.current.frame = e.nativeEvent.layout.y; }}>
         {/* Drönare: modell + registrering (dropdown-flikar; "+" öppnar drönar-modalen) */}
         <View style={{ position: 'relative', zIndex: (typeOpen || regOpen) ? 30 : undefined }}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1282,6 +1531,7 @@ export default function AddDroneFlightScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+            <TourPress id="ld-drone" variant="focus" radius={10} inset={6} />
           </View>
 
           {typeOpen && (
@@ -1349,7 +1599,7 @@ export default function AddDroneFlightScreen() {
             <Ionicons name="information-circle-outline" size={16} color={accent} />
           </TouchableOpacity>
         </View>
-        <View style={[styles.roleGrid, otherOpen ? { zIndex: 30 } : null]}>
+        <View style={[styles.roleGrid, otherOpen ? { zIndex: 30 } : null]} onLayout={(e) => { demoY.current.roleIn = e.nativeEvent.layout.y; }}>
           <View style={styles.roleRow}>
             {(['pic', 'sic'] as const).map((r) => (
               <TouchableOpacity key={r} style={[styles.roleBtn, role === r && styles.roleBtnActive]} onPress={() => selectRole(r)} activeOpacity={0.75}>
@@ -1368,10 +1618,11 @@ export default function AddDroneFlightScreen() {
           <View style={styles.roleRow}>
             {renderOtherBox()}
           </View>
+          <TourPress id="ld-role" variant="focus" radius={10} inset={5} />
         </View>
 
         {/* Second pilot + fler medpiloter (= pilotläget): roll till vänster, namn till höger, +figur lägger till. */}
-        <View style={crewOpen ? { zIndex: 25 } : null}>
+        <View style={crewOpen ? { zIndex: 25 } : null} onLayout={(e) => { demoY.current.crewIn = e.nativeEvent.layout.y; }}>
           <Text style={[styles.cardFieldLabel, { marginTop: 10 }]}>{t('second_pilot_label')}</Text>
           <View style={{ gap: 6 }}>
             <PersonPicker
@@ -1410,11 +1661,12 @@ export default function AddDroneFlightScreen() {
               />
             ))}
           </View>
+          <TourPress id="ld-crew" variant="focus" radius={10} inset={5} />
         </View>
 
         {/* Operation — Private/Commercial, under rollerna */}
         <Text style={[styles.cardFieldLabel, { marginTop: 12 }]}>Operation</Text>
-        <View style={styles.roleRow}>
+        <View style={styles.roleRow} onLayout={(e) => { demoY.current.opIn = e.nativeEvent.layout.y; }}>
           {([['PRI', 'Private'], ['COM', 'Commercial']] as const).map(([k, lbl]) => {
             const active = form.operation_type === k;
             return (
@@ -1424,6 +1676,7 @@ export default function AddDroneFlightScreen() {
               </TouchableOpacity>
             );
           })}
+          <TourPress id="ld-op" variant="focus" radius={10} inset={4} />
         </View>
 
         {/* Category tas EJ längre in här — den följer vald drönares klass automatiskt (setDrone). */}
@@ -1629,6 +1882,7 @@ export default function AddDroneFlightScreen() {
           <>
             <Text style={styles.section}>Logbook fields</Text>
 
+            <View onLayout={(e) => { demoY.current.fields = e.nativeEvent.layout.y; }}>
             {/* Landningar D/N — samma +/- auto-stepper som pilot log flight */}
             <TolRow first label="Landings"
               a={{ label: t('day'), value: parseInt(form.landings_day || '0', 10) || 0, onChange: (n) => setForm((p) => ({ ...p, landings_day: String(n) })) }}
@@ -1645,19 +1899,24 @@ export default function AddDroneFlightScreen() {
                 onGrab={() => setScrollLocked(true)} onRelease={() => setScrollLocked(false)}
               />
             </View>
+            <TourPress id="ld-fields" variant="focus" radius={10} inset={4} />
+            </View>
           </>
         )}
 
         {logFull && (<>
         <Text style={styles.section}>{t('remarks')}</Text>
-        <TextInput
-          style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
-          value={form.remarks}
-          onChangeText={(v) => setForm((p) => ({ ...p, remarks: v }))}
-          placeholder={t('notes_ph')}
-          placeholderTextColor={DR.muted}
-          multiline
-        />
+        <View onLayout={(e) => { demoY.current.remarks = e.nativeEvent.layout.y; }}>
+          <TextInput
+            style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+            value={form.remarks}
+            onChangeText={(v) => setForm((p) => ({ ...p, remarks: v }))}
+            placeholder={t('notes_ph')}
+            placeholderTextColor={DR.muted}
+            multiline
+          />
+          <TourPress id="ld-remarks" variant="focus" radius={10} inset={3} />
+        </View>
         </>)}
 
         {/* Media (bild eller video) — = pilotläget: väljs här och sparas på flygningen. */}
@@ -1692,6 +1951,7 @@ export default function AddDroneFlightScreen() {
         <TouchableOpacity style={styles.saveBtn} onPress={() => save(false)} disabled={saving} activeOpacity={0.85}>
           <Ionicons name="checkmark-circle" size={18} color={DR.inkOnAccent} />
           <Text style={styles.saveBtnText}>{saving ? t('saving') : t('save')}</Text>
+          <TourPress id="ld-save" radius={12} />
         </TouchableOpacity>
       </ScrollView>
 

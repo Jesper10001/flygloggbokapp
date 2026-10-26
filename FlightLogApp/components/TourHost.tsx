@@ -17,8 +17,13 @@ import { useToastStore } from './Toast';
 import { getAllAircraftTypes, getManualFlightCount } from '../db/flights';
 import { getDroneFlightCount, listDrones } from '../db/drones';
 import { listDigitalBooks } from '../db/digitalBooks';
+import { cleanupTourDemo } from '../services/tourDemoFlight';
+import { TourCaptionBar } from './TourCaptionBar';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Tryck-mål som bara ÖPPNAR stegets sida (ligger inte på den) — hoppas över när sidan redan är öppen
+// (t.ex. Back från "Quicklog or Full" till "Log a flight": B-knappen ligger bakom formuläret).
+const OPENER_PRESSES = new Set(['fab']);
 const REPLAY_HINT = 'You can replay this tour anytime in Settings, under "Blades introduction".';
 
 // Bygg tab-routen för ett steg: lägg på en nonce (så vy/expand-effekterna triggar om) och — för
@@ -26,7 +31,10 @@ const REPLAY_HINT = 'You can replay this tour anytime in Settings, under "Blades
 function buildTab(tab: string, logExpandLatest?: boolean): string {
   const extras: string[] = [`t=${Date.now()}`];
   if (logExpandLatest) {
-    const f = useFlightStore.getState().flights?.[0];
+    const fl = useFlightStore.getState().flights ?? [];
+    const df = useTourStore.getState().demoFlight;
+    const demoId = df?.kind === 'pilot' ? df.id : undefined;
+    const f = (demoId ? fl.find((x) => x.id === demoId) : undefined) ?? fl[0];
     const m = f?.date ? /^(\d{4})-(\d{2})/.exec(f.date) : null;
     if (m) extras.push(`focusYear=${Number(m[1])}`, `focusMonth=${Number(m[2])}`);
   }
@@ -47,6 +55,8 @@ export function TourHost() {
   const setGlobe = useTourStore((s) => s.setGlobe);
   const promptMode = useTourStore((s) => s.promptMode);
   const setPrompt = useTourStore((s) => s.setPrompt);
+  const setLogForm = useTourStore((s) => s.setLogForm);
+  const logDemoDoneAt = useTourStore((s) => s.logDemoDoneAt);
   const pathname = usePathname();
 
   const steps = TOURS[mode];
@@ -73,9 +83,20 @@ export function TourHost() {
     const token = ++runRef.current;
     const alive = () => runRef.current === token && useTourStore.getState().active;
 
+    // Loggningsdemon: nollställ bildtextraden direkt (inget kvarblivet "Saved" om man gått tillbaka hit),
+    // städa en tidigare demo-flygning och låt Log flight köra.
+    if (step.logDemo) useTourStore.getState().resetLogDemo();
+    const beginLogDemo = async () => {
+      if (useTourStore.getState().demoFlight) { await cleanupTourDemo(); if (!alive()) return; }
+      await delay(450); if (!alive()) return;
+      useTourStore.getState().startLogDemo();
+    };
+
     (async () => {
       // Återställ glob/karta om detta inte är globalmap-steget (stänger ev. kvarlämnad karta).
       if (!step.globalmap) setGlobe(false, false, null);
+      // Checklistan = rundturen är klar → exempel-flygningen tas bort (den ska inte räknas som "din första").
+      if (step.checklist && useTourStore.getState().demoFlight) { await cleanupTourDemo(); if (!alive()) return; }
 
       // Specialsteg: global map-demo (dashboard → globmeny → öppna karta → sök/zooma KJFK → tillbaka).
       if (step.globalmap) {
@@ -93,12 +114,15 @@ export function TourHost() {
       const cur = openPageRef.current;
       const want = step.modal ?? null;
 
-      // Samma sida ska stanna öppen (t.ex. Imported data → Backfill): byt bara flagga + tryck.
+      // Samma sida ska stanna öppen (t.ex. Imported data → Backfill, Log flight → Full → demo): byt bara
+      // flagga + tryck. Quicklog/Full växlar medan "trycket" syns, så man ser vad som klickades.
       if (want && cur === want) {
-        if (step.press) { setPressTarget(step.press); await delay(1100); if (!alive()) return; }
+        if (step.press && !OPENER_PRESSES.has(step.press)) { setPressTarget(step.press); await delay(1000); if (!alive()) return; }
+        if (step.logForm) setLogForm(step.logForm);
         setOpenBackfill(!!step.backfill);
-        await delay(250); if (!alive()) return;
+        await delay(step.logForm && step.press ? 450 : 250); if (!alive()) return;
         setPressTarget(null);
+        if (step.logDemo) await beginLogDemo();
         return;
       }
 
@@ -111,19 +135,50 @@ export function TourHost() {
       if (step.press) { setPressTarget(step.press); await delay(1000); if (!alive()) return; }
 
       if (want) {
+        if (step.logForm) setLogForm(step.logForm); // innan sidan monteras → rätt läge direkt
         router.push(want as any); openPageRef.current = want;
         await delay(480); if (!alive()) return;
         setOpenBackfill(!!step.backfill);
       }
       setPressTarget(null);
+
+      if (step.logDemo) { await delay(300); if (!alive()) return; await beginLogDemo(); return; }
+
+      // Loggboken (lugnt tempo, så man hinner se VAR flygningen hamnade): loggboken visas → ram runt den
+      // nya raden en stund → "tryck" → översikten öppnas.
+      if (step.openFlight) {
+        const df = useTourStore.getState().demoFlight;
+        if (df?.id) {
+          const k = df.kind === 'pilot' ? 'p' : 'd';
+          await delay(1400); if (!alive()) return;
+          setPressTarget(`logrowf-${k}${df.id}`); await delay(2300); if (!alive()) return;
+          setPressTarget(`logrow-${k}${df.id}`); await delay(700); if (!alive()) return;
+          const route = df.kind === 'pilot' ? `/flight/detail/${df.id}` : `/drone-flight/${df.id}`;
+          router.push(route as any); openPageRef.current = route;
+          await delay(480); if (!alive()) return;
+          setPressTarget(null);
+        }
+      }
     })();
   }, [active, stepIndex, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Avslut: stäng ev. öppen sida.
+  // Demon har sparat flygningen → vidare till loggboken av sig själv (efter en "Saved"-paus).
+  useEffect(() => {
+    if (!active || !logDemoDoneAt || !step?.logDemo) return;
+    const t = setTimeout(() => {
+      const st = useTourStore.getState();
+      if (st.active && TOURS[st.mode][st.stepIndex]?.logDemo) st.next();
+    }, 1700);
+    return () => clearTimeout(t);
+  }, [logDemoDoneAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Avslut: stäng ev. öppen sida och ta bort exempel-flygningen. Körs även vid appstart (active=false)
+  // → städar en exempel-flygning som blev kvar efter en krasch mitt i rundturen.
   useEffect(() => {
     if (active) return;
     if (openPageRef.current) { router.back(); openPageRef.current = null; }
     setPressTarget(null); setOpenBackfill(false);
+    cleanupTourDemo();
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fråga efter onboarding: vill du gå igenom en introduktion? (Ja / Senare)
@@ -139,6 +194,17 @@ export function TourHost() {
 
   if (!active || !step) return null;
   if (awaitingReturn) return null; // gömd medan man använder en checklist-funktion (visas när man är tillbaka)
+
+  // Loggningsdemon: inget kort som skymmer formuläret — bara en smal bildtextrad längst ner som säger
+  // vad som fylls i just nu. Hela skärmen sväljer tryck så demon inte störs; Skip avslutar rundturen.
+  if (step.logDemo) {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => { /* svälj */ }} />
+        <TourCaptionBar onSkip={stop} />
+      </View>
+    );
+  }
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
   const doneFlex = stepIndex + 1;
@@ -206,7 +272,11 @@ function Checklist({ mode, stepKey, title, onFinish, onBack, onGo }: {
   mode: 'pilot' | 'drone'; stepKey: string; title: string; onFinish: () => void; onBack: () => void; onGo: (go: string) => void;
 }) {
   const [c, setC] = useState<CheckState>(null);
+  // Exempel-flygningen (och ev. exempeldrönaren) städas när checklistan visas → räkna först när den är
+  // borta, annars bockas "Log your first flight"/"Add your drones" av felaktigt.
+  const demoPending = useTourStore((s) => !!s.demoFlight);
   useEffect(() => {
+    if (demoPending) return;
     let cancelled = false;
     (async () => {
       try {
@@ -220,7 +290,7 @@ function Checklist({ mode, stepKey, title, onFinish, onBack, onGo }: {
       } catch { if (!cancelled) setC({ fleet: false, flight: false, book: false }); }
     })();
     return () => { cancelled = true; };
-  }, [mode, stepKey]);
+  }, [mode, stepKey, demoPending]);
 
   // "Build your logbook" = den animerade loggboken i appen (Book-vyn) som visar flygningarna som en
   // riktig loggbok — inte en separat/fysisk bok.

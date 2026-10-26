@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, type ReactNode } from 'react';
 import {
   View, Text, Image, StyleSheet, Dimensions, TouchableOpacity,
   Modal, ActivityIndicator, Animated, PanResponder, TextInput,
-  Keyboard, InputAccessoryView, Platform, ScrollView,
+  Keyboard, InputAccessoryView, Platform, ScrollView, Easing,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoOverlay from '../modules/video-overlay';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { FlightVideo } from './FlightVideo';
-import { SatelliteSnap, fetchImageryProviders, imageryCredit } from './SatelliteSnap';
+import { SatelliteSnap, fetchImageryProviders, imageryCredit, imageryAvailable } from './SatelliteSnap';
 import Svg, { Line, Circle, Path, Polyline } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getAirportCoordinates } from '../db/icao';
@@ -120,9 +120,8 @@ function greatCircleNm(a: { lat: number; lon: number }, b: { lat: number; lon: n
 
 // Route-lagrets kartrutor = Esri-satellitbilder centrerade på flygplatserna (SatelliteSnap, via proxyn).
 const snapKey = (c: { lat: number; lon: number }, zoom: number) => `${c.lat},${c.lon},${zoom}`;
-// Route-lagret är DOLT tills ARCGIS_API_KEY är satt i proxyn (utan nyckel blir satellitrutorna tomma).
-// Dolt lager = inga anrop till Esri alls. Sätt till true när nyckeln är på plats (kräver nytt bygge).
-const ROUTE_LAYER_ENABLED = false;
+// Route-lagret visas när proxyn har satellitbilder (ARCGIS_API_KEY satt) — se imageryAvailable(). Utan nyckel
+// skulle rutorna bli tomma; med nyckeln dyker lagret upp av sig självt. Esri-krediten bränns in i bilden.
 
 // Route-stopp ur remarks (samma rad-format som log flight: "ICAO TnG/LA/PU/DO/HR ...").
 const STOP_RE_SHARE = /^([A-Z]{2,4})\s+(TnG|LA|PU\/DO|PU|DO|HR)(?:\s+\S+\s+app\s+rwy\s+\d{2,3})?\s*$/i;
@@ -170,6 +169,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [overlayScale, setOverlayScale] = useState(0.8);
   const [mode, setMode] = useState<'performance' | 'route' | 'postcard'>('performance');
+  // Route-lagret: visas först när proxyn bekräftat att satellitbilder finns (Esri-nyckeln satt).
+  const [routeAvailable, setRouteAvailable] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    imageryAvailable().then((ok) => { if (alive) setRouteAvailable(ok); });
+    return () => { alive = false; };
+  }, []);
   const [layerTheme, setLayerTheme] = useState<'light' | 'dark'>('light');
   // Manuell max alt (ft). Avstånd är alltid faktiskt (great-circle).
   const [maxAltFt, setMaxAltFt] = useState('');
@@ -204,6 +210,27 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
   const maxCardH = SCREEN_H * 0.6;
   const cardW = Math.min(SCREEN_W, maxCardH * cardAspect);
   const cardH = cardW / cardAspect;
+  // Förhandsvisningen VISAS skalad (transform) — kortets layout (cardW×cardH) och därmed exporten och
+  // overlayns proportioner är oförändrade, men reglagen under får plats. ViewShot fångar vyn i dess egen
+  // storlek (bounds), så skalningen påverkar inte den delade bilden. Med tangentbordet uppe (Max alt/Taxi/
+  // Postcard-text) krymper den till en tumnagel så fältet hamnar ovanför tangentbordet.
+  const baseScale = Math.min(1, (SCREEN_H * 0.47) / cardH);
+  const [kbOpen, setKbOpen] = useState(false);
+  useEffect(() => {
+    const s = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const h = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { s.remove(); h.remove(); };
+  }, []);
+  const targetScale = kbOpen ? Math.min(baseScale, 0.4) : baseScale;
+  const previewScale = useRef(new Animated.Value(targetScale)).current;
+  const previewScaleRef = useRef(targetScale); // drag: fingerrörelse ÷ skala → overlayn följer fingret 1:1
+  useEffect(() => {
+    previewScaleRef.current = targetScale;
+    Animated.timing(previewScale, { toValue: targetScale, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [targetScale, previewScale]);
+  const ctrlScrollRef = useRef<ScrollView>(null);
+  // Fokus i ett textfält → scrolla reglagen så fältet syns ovanför tangentbordet (efter att det glidit upp).
+  const revealFocusedInput = () => setTimeout(() => ctrlScrollRef.current?.scrollToEnd({ animated: true }), 280);
   // Export: video → videons pixelmått (kapat till ≤1920 lång sida); foto → 1080-bred IG-bild.
   const vExport = isVideoShare && vidDims
     ? (() => { const s = Math.min(1, 1920 / Math.max(vidDims.w, vidDims.h)); return { w: Math.round(vidDims.w * s), h: Math.round(vidDims.h * s) }; })()
@@ -252,7 +279,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         pan.setOffset(panRef.current);
         pan.setValue({ x: 0, y: 0 });
       },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderMove: (_, gs) => pan.setValue({ x: gs.dx / previewScaleRef.current, y: gs.dy / previewScaleRef.current }),
       onPanResponderRelease: () => {
         pan.flattenOffset();
         panRef.current = { x: (pan as any).__getValue().x, y: (pan as any).__getValue().y };
@@ -418,6 +445,13 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Video becomes live after you have shared</Text>
             </View>
           )}
+          <Animated.View style={{ width: Animated.multiply(previewScale, cardW), height: Animated.multiply(previewScale, cardH) }}>
+          <Animated.View style={{
+            position: 'absolute', width: cardW, height: cardH,
+            left: Animated.multiply(Animated.add(previewScale, -1), cardW / 2),
+            top: Animated.multiply(Animated.add(previewScale, -1), cardH / 2),
+            transform: [{ scale: previewScale }],
+          }}>
           <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: exportW, height: exportH }}>
             <View style={[styles.card, { width: cardW, height: cardH }, captureTransparent && { backgroundColor: 'transparent' }]}>
               {/* Static photo/video background - använd thumbnail för video. Vid video-capturen
@@ -527,16 +561,18 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
               </>)}
             </View>
           </ViewShot>
+          </Animated.View>
+          </Animated.View>
           </View>
 
           {/* Kontroller — scrollbara så kortet aldrig ändrar storlek */}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ alignItems: 'center', paddingVertical: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={ctrlScrollRef} style={{ flex: 1 }} contentContainerStyle={{ alignItems: 'center', paddingVertical: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
 
           {/* Lager — primär väljare, full bredd. Dold för video (låst till Performance-lagret). */}
           {!isVideoShare && (
             <View style={{ flexDirection: 'row', alignSelf: 'stretch', marginHorizontal: 16, marginTop: 4 }}>
               <Seg
-                options={([['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const).filter(([k]) => ROUTE_LAYER_ENABLED || k !== 'route')}
+                options={([['performance', 'Performance'], ['route', 'Route'], ['postcard', 'Postcard']] as const).filter(([k]) => routeAvailable || k !== 'route')}
                 value={mode}
                 onChange={(m) => { setMode(m); applyModeDefaults(m); if (m === 'route') setMapZoom(13); }}
               />
@@ -606,6 +642,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                     onChangeText={(v) => setMaxAltFt(v.replace(/[^0-9]/g, ''))}
                     keyboardType="number-pad"
                     inputAccessoryViewID="maxAltDone"
+                    onFocus={revealFocusedInput}
                     returnKeyType="done"
                     blurOnSubmit
                     placeholder="—"
@@ -625,6 +662,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                     onChangeText={(v) => setTaxiMin(v.replace(/[^0-9]/g, ''))}
                     keyboardType="number-pad"
                     inputAccessoryViewID="taxiDone"
+                    onFocus={revealFocusedInput}
                     returnKeyType="done"
                     blurOnSubmit
                     placeholder="—"
@@ -654,6 +692,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 <TextInput
                   value={pcPrefix}
                   onChangeText={(v) => setPcPrefix(v.slice(0, 30))}
+                  onFocus={revealFocusedInput}
                   maxLength={30}
                   placeholder="From"
                   placeholderTextColor="rgba(255,255,255,0.3)"
@@ -664,6 +703,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
                 <TextInput
                   value={pcConnector}
                   onChangeText={(v) => setPcConnector(v.slice(0, 30))}
+                  onFocus={revealFocusedInput}
                   maxLength={30}
                   placeholder="to"
                   placeholderTextColor="rgba(255,255,255,0.3)"
@@ -842,7 +882,7 @@ function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, tot
             bränns in i den delade bilden. En rad som krymper vid behov (smalt story-format). */}
         {mapCredit ? (
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}
-            style={[{ position: 'absolute', bottom: 2, left: 8, right: 8, textAlign: 'right', fontSize: 6.5, color: 'rgba(255,255,255,0.75)' }, FSH]}>
+            style={[{ position: 'absolute', bottom: 2, left: 8, right: 8, textAlign: 'right', fontSize: 3.25, color: 'rgba(255,255,255,0.75)' }, FSH]}>
             {mapCredit}
           </Text>
         ) : null}

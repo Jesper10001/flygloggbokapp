@@ -10,6 +10,7 @@ import { getAirportFreq } from '../constants/airportFreq';
 import { fetchAirportMetar, categoryColor, type AirportMetar } from '../services/weather';
 
 const CARD_BG = 'rgba(15,22,38,0.96)'; // mörk nyans
+const FREQ_DIVIDER = 'rgba(255,255,255,0.16)'; // vertikal skiljelinje mellan frekvenserna (kortet är alltid mörkt)
 
 // airportmap.de-typ → läsbar etikett.
 const TYPE_LABEL: Record<string, string> = {
@@ -45,15 +46,10 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
   const showLandings = landingCount !== undefined;
   const flag = flagEmoji(country);
 
-  // Frekvenser (TWR/GND/ATIS/APP) — visas bara för fält som har dem, på egen rad under meta.
+  // Frekvenser (TWR/GND/ATIS/APP) — visas bara för fält som har dem. Vertikala skiljelinjer mellan
+  // frekvenserna så det tydligt syns var en slutar och nästa börjar. freqStats-läget (Find airport):
+  // staplade kolumner (etikett över, frekvens under) · annars: litet 2×2-rutnät under meta-raden.
   const freq = getAirportFreq(icao);
-  const freqLine = freq ? [
-    freq.twr != null && `TWR ${freq.twr}`,
-    freq.gnd != null && `GND ${freq.gnd}`,
-    freq.atis != null && `ATIS ${freq.atis}`,
-    freq.app != null && `APP ${freq.app}`,
-  ].filter(Boolean).join(' · ') : '';
-  // freqStats-läge: frekvenser som staplade kolumner (etikett över, frekvens under).
   const freqCols = freq ? ([
     ['TWR', freq.twr], ['GND', freq.gnd], ['ATIS', freq.atis], ['APP', freq.app],
   ] as const).filter(([, v]) => v != null) : [];
@@ -96,7 +92,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
             </TouchableOpacity>
           )}
         </View>
-        {(!!name || !!meta || !!freqLine || freqStats) && (
+        {(!!name || !!meta || freqCols.length > 0 || freqStats) && (
           <View style={{ flex: 1 }}>
             {!!name && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -124,20 +120,32 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
             ) : (
               <>
                 {!!meta && <Text style={{ color: accent, fontSize: 10, fontWeight: '700', marginTop: 2, letterSpacing: 0.3 }} numberOfLines={1}>{meta}</Text>}
-                {!!freqLine && <Text style={{ color: Colors.textSecondary, fontSize: 9.5, fontWeight: '600', fontFamily: 'Menlo', marginTop: 3, lineHeight: 13, fontVariant: ['tabular-nums'] }}>{freqLine}</Text>}
+                {freqCols.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 3, rowGap: 2 }}>
+                    {freqCols.map(([label, val], i) => (
+                      <View key={label} style={[{ width: '50%', paddingRight: 6 }, i % 2 === 1 && { paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: FREQ_DIVIDER }]}>
+                        <Text numberOfLines={1} style={{ color: Colors.textSecondary, fontSize: 9.5, fontWeight: '600', fontFamily: 'Menlo', lineHeight: 13, fontVariant: ['tabular-nums'] }}>
+                          <Text style={{ color: Colors.textMuted }}>{label} </Text>{val}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </>
             )}
           </View>
         )}
       </View>
 
-      {/* Find airport: frekvenser i stora staplade kolumner (etikett över, frekvens under) */}
+      {/* Find airport: frekvenser i stora staplade kolumner (etikett över, frekvens under) med vertikal
+          skiljelinje före varje kolumn utom den första. Raden får gå in under stäng-knappens marginal
+          (den sitter högst upp) → mer bredd per frekvens; frekvensen krymper hellre än att krocka. */}
       {freqStats && freqCols.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, rowGap: 8 }}>
-          {freqCols.map(([label, val]) => (
-            <View key={label} style={{ width: '25%' }}>
+        <View style={{ flexDirection: 'row', marginTop: 12, marginRight: onToggleFavorite ? 0 : -30 }}>
+          {freqCols.map(([label, val], i) => (
+            <View key={label} style={[{ width: '25%', paddingRight: 6 }, i > 0 && { paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: FREQ_DIVIDER }]}>
               <Text style={{ color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.6, fontFamily: 'Menlo' }}>{label}</Text>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 2, fontVariant: ['tabular-nums'] }}>{val}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 2, fontVariant: ['tabular-nums'] }}>{val}</Text>
             </View>
           ))}
         </View>

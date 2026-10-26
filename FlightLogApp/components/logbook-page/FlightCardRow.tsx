@@ -7,6 +7,7 @@ import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, REFUEL_BADGE, NVG_BADGE, SIM_BADGE } from './tokens';
 import { roleLabel, isPicFlight, arrUtc, dayOfMonth, weekdayShort } from './flightDisplay';
 import { placeCode } from '../../utils/format';
+import { TourPress } from '../TourPress';
 
 // Liten pill-badge; ikonen kan vara en Ionicon (t.ex. natt-måne) eller en MaterialCommunityIcon
 // (t.ex. tankning/NVG). Håll storlekarna små så alla badges linjerar med natt-månen.
@@ -63,6 +64,9 @@ export function FlightCardRow({ flight: f, accent, onPress, first }: { flight: F
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={15} color={Colors.textMuted} />
+      {/* Blades introduction: loggboks-steget "trycker" på exempel-flygningen och öppnar den. */}
+      <TourPress id={`logrowf-p${f.id}`} variant="focus" radius={0} />
+      <TourPress id={`logrow-p${f.id}`} radius={0} />
     </TouchableOpacity>
   );
 }
