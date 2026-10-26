@@ -22,7 +22,10 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 - [x] **Deploya proxyn igen** (debug-kontrollen, deployat och verifierat 2026-10-26): `cd proxy && npx wrangler deploy`
   - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
   - Den öppna felsökningen `?debug=1` är borttagen.
-- [ ] **Nytt EAS-bygge** efter debug-kontrollen. 15 Expo-paket är uppdaterade, och behörighetstexterna och console-rensningen gäller först i ett nytt bygge. Krypteringsvalet (se testlistan nedan) följer med i samma bygge.
+- [ ] **Nytt TestFlight-bygge.** Förkontrollerna är klara (2026-10-26, commit b089dcc): tsc, expo-doctor 21/21 och produktionsexport av iOS-bunten. Kör:
+  `cd FlightLogApp && npx eas build --platform ios --profile production --auto-submit`
+  - Med bygget följer 15 uppdaterade Expo-paket, behörighetstexterna, console-rensningen, krypteringsvalet, glas-flikraden (Liquid Glass), den nya bakgrunden, Workload-panelen och Insights-placeringen. Testlistan står längst ner.
+  - **Installera ovanpå nuvarande TestFlight-version först, utan att radera appen**, så att uppgraderingen av krypteringen testas.
 - [ ] **Testa efter nytt bygge (debug-kontrollen):**
   - Skanna loggbok (gratiskonto) när skanningarna tar slut: Premium-betalväggen ska visas. Ingen "Buy"/"Top up" som ger skanningar gratis.
   - "Build logbook" när AI-gränsen nåtts: betalväggen för gratis, ett coin-besked för Premium.
