@@ -23,6 +23,7 @@ import { SpreadWebView } from '../logbook/SpreadWebView';
 import { BookSetupSheet } from '../logbook/BookSetupSheet';
 import { type SignatureData } from '../SignaturePad';
 import { FONT_SERIF, FONT_MONO } from './tokens';
+import { useTabBarSpace } from '../GlassTabBar';
 
 const parseJson = <T,>(s: string | undefined, fallback: T): T => { try { return s ? JSON.parse(s) : fallback; } catch { return fallback; } };
 
@@ -77,6 +78,7 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
   const book = useMemo(() => books.find((b) => b.is_active === 1) ?? books[books.length - 1] ?? null, [books]);
   const slice = useMemo<BookSlice | null>(() => (book ? assignFlightsToBooks(books, flightRows).find((s) => s.book.id === book.id) ?? null : null), [book, books, flightRows]);
   const template = useMemo(() => (book ? getTemplate(book.template_id) : null), [book]);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const spreads = useMemo<LogbookSpread[]>(() => {
     if (!book || !template) return [];
     return buildBookSpreads(slice?.flights ?? [], template, {
@@ -142,7 +144,7 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 2, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 2, paddingBottom: tabSpace + 28 }} showsVerticalScrollIndicator={false}>
         {current ? (
           <>
             {/* vänster sida (överst) — full bredd */}

@@ -14,6 +14,7 @@ import { AircraftModal } from '../AircraftModal';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { FleetCard } from './FleetCard';
 import { FleetEmptyPreview } from './FleetEmptyPreview';
+import { useTabBarSpace } from '../GlassTabBar';
 
 const PAGE_W = Dimensions.get('window').width - 28; // karusell-sidbredd (matchar tidigare fullbreddskort)
 
@@ -28,6 +29,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
   const [adding, setAdding] = useState(false);
   const [pageIdx, setPageIdx] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const scrollToKey = useRef<string | null>(null); // sätts efter add → karusellen scrollar till den nya farkosten
 
   const load = useCallback(() => { getAllAircraftTypes().then(setFleet); }, []);
@@ -59,7 +61,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
         </Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: tabSpace + 28 }}>
         {sorted.length === 0 ? (
           <FleetEmptyPreview kind={previewKind} accent={accent} />
         ) : sorted.length === 1 ? (

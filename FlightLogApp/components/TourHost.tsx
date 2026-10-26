@@ -100,6 +100,7 @@ export function TourHost() {
 
       // Specialsteg: global map-demo (dashboard → globmeny → öppna karta → sök/zooma KJFK → tillbaka).
       if (step.globalmap) {
+        setPressTarget(null);
         const cur0 = openPageRef.current;
         if (cur0) { router.back(); openPageRef.current = null; await delay(480); if (!alive()) return; }
         if (step.tab) { router.navigate(buildTab(step.tab) as any); await delay(520); if (!alive()) return; }
@@ -140,7 +141,8 @@ export function TourHost() {
         await delay(480); if (!alive()) return;
         setOpenBackfill(!!step.backfill);
       }
-      setPressTarget(null);
+      // focus: rama in ett element på den öppnade sidan (t.ex. krypteringsreglaget) medan kortet visas.
+      setPressTarget(want && step.focus ? step.focus : null);
 
       if (step.logDemo) { await delay(300); if (!alive()) return; await beginLogDemo(); return; }
 

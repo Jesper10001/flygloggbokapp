@@ -21,6 +21,7 @@ export interface BackupManifest {
   snapshot: BackupFileEntry & { sha256?: string }; // DB-snapshot (rel = 'snapshot.db') + integritets-hash
   files: BackupFileEntry[];          // bifogade mediefiler (foton/cutouts) relativt documentDirectory
   totalBytes: number;
+  encrypted?: boolean;               // snapshoten krypterad med extra kryptering (saknas i äldre backuper = krypterad)
 }
 
 // Radantal per användarkategori (icao_airports räknas BARA custom=1 — seeden backas ej upp).
@@ -50,6 +51,7 @@ export function buildManifest(args: {
   files: BackupFileEntry[];
   device: string;
   sourceDocumentDirectory: string;
+  encrypted: boolean;
 }): BackupManifest {
   const filesBytes = args.files.reduce((s, f) => s + (f.size || 0), 0);
   return {
@@ -63,6 +65,7 @@ export function buildManifest(args: {
     snapshot: { rel: 'snapshot.db', size: args.snapshotSize, sha256: args.snapshotSha },
     files: args.files,
     totalBytes: args.snapshotSize + filesBytes,
+    encrypted: args.encrypted,
   };
 }
 

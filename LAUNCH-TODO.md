@@ -1,12 +1,17 @@
 # Blades – att lösa inför lansering
 
-Uppdaterad 2026-10-18. Bocka av med `[x]`.
+Uppdaterad 2026-10-26. Bocka av med `[x]`.
 
 ## Måste lösas före App Store-inskickning (uppskjutet)
 
-- [ ] **Export compliance.** SQLCipher drar in OpenSSL, så svaret "använder inte icke-undantagen kryptering" är tveksamt. Välj en väg:
+- [ ] **Export compliance.** Extra kryptering är nu ett val och är av som standard. SQLCipher och OpenSSL ligger ändå kvar i appen, så frågan gäller fortfarande. app.json säger i dag `ITSAppUsesNonExemptEncryption: false`, vilket är tveksamt. Välj en väg:
   - kompilera SQLCipher mot Apples CommonCrypto, så att svaret stämmer
   - eller svara "Yes – standard encryption" i App Store Connect vid inskickningen
+- [ ] **Integritetspolicyn och sajten säger att databasen är krypterad med AES-256.** Med extra kryptering av som standard stämmer det inte för nya användare. Integritetspolicyn måste stämma (Apple och GDPR). Ingen omskrivning av marknadsföringen behövs, det räcker att lägga till "optional" i tre meningar:
+  - `website/privacy.html`: "Local data is encrypted at rest (AES-256 via SQLCipher, with the key in the iOS Keychain)" (viktigast)
+  - `website/index.html`: "in a database encrypted with AES-256 (SQLCipher), on top of iOS's own encryption"
+  - `website/support.html`: "stored locally in an AES-256 encrypted database (SQLCipher)"
+  - Kolla också App Store-beskrivningen om den nämner kryptering.
 - [ ] **Licenser och källhänvisningar i appen.** Medvetet uppskjutet, med risk.
   - Bygg en Acknowledgements-sida (SQLCipher/OpenSSL, typsnitt, landsgränser, npm-paket).
   - Lägg till en kredit per Wikipedia-bild i flottan (CC BY-SA).
@@ -14,10 +19,10 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 ## Gör snart
 
-- [ ] **Deploya proxyn igen** (debug-kontrollen 2026-10-26): `cd proxy && npx wrangler deploy`
+- [x] **Deploya proxyn igen** (debug-kontrollen, deployat och verifierat 2026-10-26): `cd proxy && npx wrangler deploy`
   - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
   - Den öppna felsökningen `?debug=1` är borttagen.
-- [ ] **Nytt EAS-bygge** efter debug-kontrollen. 15 Expo-paket är uppdaterade, och behörighetstexterna och console-rensningen gäller först i ett nytt bygge.
+- [ ] **Nytt EAS-bygge** efter debug-kontrollen. 15 Expo-paket är uppdaterade, och behörighetstexterna och console-rensningen gäller först i ett nytt bygge. Krypteringsvalet (se testlistan nedan) följer med i samma bygge.
 - [ ] **Testa efter nytt bygge (debug-kontrollen):**
   - Skanna loggbok (gratiskonto) när skanningarna tar slut: Premium-betalväggen ska visas. Ingen "Buy"/"Top up" som ger skanningar gratis.
   - "Build logbook" när AI-gränsen nåtts: betalväggen för gratis, ett coin-besked för Premium.
@@ -69,6 +74,29 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 ---
 
 ## Testa i nästa bygge
+
+- [ ] **Glas-flikrad (flytande kapsel):**
+  - Flikraden ska sväva som en rundad kapsel strax ovanför hemindikatorn. Innehållet ska synas suddigt genom den när du rullar, på dashboard, loggbok (List, Book och Fleet), Insights och Settings, i både pilot- och drönarläge.
+  - På iOS 26 ska det vara Apples Liquid Glass med ljusbrytning i kanterna. Om native-delen saknas visas en mörk blur i stället, och det ska aldrig krascha.
+  - Aktiv flik: cyan ikon och text med en ljus kapsel bakom, som glider mjukt när du byter flik. I drönarläget har den drönarens accentfärg.
+  - Texten "Dashboard" ska rymmas helt i kapseln. Dashboard och Settings ska ha lika stora kapslar som följer barens rundade ändar (spegelvänt), och flikarna ska vara jämnt fördelade. Kolla gärna även på en smal telefon (SE/mini).
+  - **B-loggan** ska ligga centrerad i kapseln och öppna Log flight. Tryck även nära kanten av Logbook-ikonen: den ska öppna Logbook, inte Log flight.
+  - **Sista raden** i varje lista ska gå att rulla fram ovanför baren, så att inget fastnar bakom glaset. Testa längst ner i loggboken, Settings, Insights och dashboardens global map-meny.
+  - **Rundturen:** steget "Log a flight" ska fortfarande ge B-loggan en cyan ram, och info-kortet ska ligga ovanför baren.
+  - **Byte pilot ↔ drönare:** baren ska byta flikar direkt, utan tom eller felplacerad kapsel.
+
+- [ ] **Extra kryptering som val (Settings → App → Encryption):**
+  - **Uppgradering först:** installera bygget ovanpå nuvarande TestFlight-version, utan att radera appen. Reglaget "Extra encryption (AES-256)" ska stå på, och all data ska finnas kvar.
+  - **Slå av:** en dialog ska förklara att inget raderas. Sedan visas "Removing extra encryption…", därefter en bock och reglaget av. Rubriken ska byta till "Protected by iOS". Kontrollera flygningar, flotta och böcker, starta om appen och kontrollera igen.
+  - **Slå på:** dialogen ska varna att loggboken inte går att öppna om nyckeln försvinner, och den nämner iCloud Sync. Sedan visas "Encrypting your logbook…" och en bock. Data ska finnas kvar, även efter omstart.
+  - **Spinnern ska snurra** under konverteringen (UI:t fryser inte). Med full flygplatsdatabas bör det ta några sekunder.
+  - **Avbrott:** stäng appen hårt mitt i konverteringen. Vid nästa start ska loggboken vara hel, i det gamla eller nya läget. Slå sedan av och på igen.
+  - **Ny installation** (radera appen först): reglaget ska stå av. Onboardingens säkerhetssida ska säga "protected by iOS — with optional AES-256 encryption".
+  - **iCloud, på:** ta en backup och återställ på en annan enhet eller efter ominstallation. Data ska komma tillbaka, och reglaget ska slås på av sig självt.
+  - **iCloud, av:** gör samma sak med reglaget av. Data ska komma tillbaka, och reglaget ska förbli av.
+  - **Reglaget är låst** medan en iCloud-backup pågår, med texten "Wait for the iCloud backup to finish…".
+  - **Rundturen:** säkerhetssteget öppnar Encryption och lägger en cyan ram runt reglaget utan att trycka på det. Kortet heter "Your data stays yours".
+  - **Inställningsraden** heter "Encryption" med "Protected by iOS · optional AES-256", i både pilot- och drönarläge.
 
 - [ ] **Blades introduction – en hel flygning loggas (pilot):** starta rundturen från Settings → Blades introduction.
   - "Log a flight" ska öppna Log flight i Quicklog. I steget "Quicklog or Full" ska växlaren få en cyan ram och formuläret byta till Full.

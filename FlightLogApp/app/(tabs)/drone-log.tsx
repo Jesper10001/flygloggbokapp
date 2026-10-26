@@ -30,6 +30,7 @@ import { DroneBookView } from '../../components/logbook-page/DroneBookView';
 import { DroneFleetCard } from '../../components/logbook-page/DroneFleetCard';
 import { FleetEmptyPreview } from '../../components/logbook-page/FleetEmptyPreview';
 import { DroneModal } from '../../components/DroneModal';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -151,6 +152,7 @@ function FlightsTab({ flights, accent, onOpen }: {
   // månaden med loggningsdemons exempel-flygning (rundturen trycker på den raden).
   const forceOpen = !!query.trim() || filter !== 'all' || tourDemo;
   const demoId = useTourStore((s) => (s.active && s.demoFlight?.kind === 'drone' ? s.demoFlight.id ?? null : null));
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const focusKey = useMemo(() => {
     const f = demoId != null ? flights.find((x) => x.id === demoId) : undefined;
     const [y, m] = (f?.date || '').split('-').map(Number);
@@ -179,7 +181,7 @@ function FlightsTab({ flights, accent, onOpen }: {
         </ScrollView>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 28 }} keyboardShouldPersistTaps="handled">
         {filtered.length === 0 ? (
           flights.length === 0 ? (
             // Ingen registrerad flygning alls → tre vägar in (försvinner så fort man har en flygning).
@@ -529,6 +531,7 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
   const carouselRef = useRef<ScrollView>(null);
   const scrollToKey = useRef<string | null>(null); // sätts efter add → karusellen scrollar till den nya drönaren
 
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const load = useCallback(() => {
     getDroneFleetByModel().then(setModels).catch(() => {});
   }, []);
@@ -560,7 +563,7 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
         {models.length} {models.length === 1 ? 'model' : 'models'} · {totalRegs} registrations
       </Text>
     </View>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 28 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: tabSpace + 28 }}>
       {models.length === 0 ? (
         <FleetEmptyPreview kind="drone" accent={accent} />
       ) : models.length === 1 ? (

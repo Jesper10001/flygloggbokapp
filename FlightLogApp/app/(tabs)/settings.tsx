@@ -42,6 +42,7 @@ import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
 function SectionHeader({ children }: { children: string }) {
@@ -227,6 +228,7 @@ export default function SettingsScreen() {
   const { expand } = useLocalSearchParams<{ expand?: string }>();
   // Scrolla fram sektionen när den öppnas via param (bl.a. Blades introduction → Import/App).
   const scrollRef = useRef<ScrollView>(null);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const importSectionY = useRef(0);
   const appSectionY = useRef(0);
   useEffect(() => {
@@ -490,7 +492,7 @@ export default function SettingsScreen() {
   // ── Render ──
 
   return (
-    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
       {/* Header */}
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
@@ -856,8 +858,8 @@ export default function SettingsScreen() {
             separatorColor={Colors.background}
           />
           <ICloudSyncRow flat />
-          <Row icon="lock-closed-outline" iconColor={Colors.primary} title="Encryption information"
-            subtitle="How your data is encrypted"
+          <Row icon="lock-closed-outline" iconColor={Colors.primary} title="Encryption"
+            subtitle="Protected by iOS · optional AES-256"
             onClick={() => router.push('/settings/encryption')}
             separatorColor={Colors.background}
             tourPressId="app-security"

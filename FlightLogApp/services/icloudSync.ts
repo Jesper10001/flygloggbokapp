@@ -4,10 +4,10 @@
 // URI-omskrivning till den nya enhetens sandbox, och validering av manifest-format. Kräver
 // native-modulen (dev/EAS-build) — allt gate:as på isAvailable()/accountStatus().
 import * as FileSystem from 'expo-file-system/legacy';
-import { getDatabase } from '../db/database';
+import { getDatabase, isDatabaseEncrypted, setDatabaseEncryption } from '../db/database';
 import { getSetting, setSetting } from '../db/flights';
 import { seedIcaoAirports } from '../db/icao';
-import { getDbKey, getBackupKey } from './dbKey';
+import { getDbKey, getBackupKeyCandidates } from './dbKey';
 import * as ICloud from '../modules/icloud-sync';
 import {
   BACKUP_FORMAT_VERSION, buildManifest, collectCounts, parseManifest,
@@ -89,10 +89,12 @@ export async function backupNow(): Promise<BackupManifest> {
   const db = await getDatabase();
   await ensureDir(TMP);
 
-  // 0) Säkerställ att DB-nyckeln ligger i iCloud Keychain (add-if-absent) INNAN backup — annars kan en
-  //    NY enhet inte dekryptera snapshoten (den är krypterad med den här enhetens nyckel).
-  const dbKey = await getDbKey();
-  await ICloud.setDbKey(dbKey).catch(() => {});
+  // 0) Extra kryptering på → snapshoten blir krypterad med den här enhetens nyckel. Säkerställ att nyckeln
+  //    ligger i iCloud Keychain (add-if-absent) INNAN backup — annars kan en NY enhet inte dekryptera den.
+  //    Av → okrypterad snapshot (skyddas av iCloud), ingen nyckel behövs.
+  const encrypted = isDatabaseEncrypted();
+  const dbKey = encrypted ? await getDbKey() : '';
+  if (encrypted) await ICloud.setDbKey(dbKey).catch(() => {});
 
   // 0b) Fånga stabila iCloud-foton-id:n för bibliotekskopplade foton → följer med i snapshoten så en ny
   //     enhet kan återlänka dem (lokala PHAsset-id:n är per-enhet). Tyst om iCloud-foton av/behörighet saknas.
@@ -103,11 +105,16 @@ export async function backupNow(): Promise<BackupManifest> {
   await FileSystem.deleteAsync(snapUri, { idempotent: true });
   await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);').catch(() => {});
   await db.execAsync(`VACUUM INTO '${osPath(snapUri)}'`);
+  // Krypteringen slogs på/av mitt i → snapshoten har det nya läget men nyckel/manifest det gamla. Börja om senare.
+  if (isDatabaseEncrypted() !== encrypted) {
+    await FileSystem.deleteAsync(snapUri, { idempotent: true });
+    throw new SyncError('FAILED', 'Encryption was changed during the backup. Please back up again.');
+  }
 
   // 1b) Strippa icao-seeden ur snapshoten (restore reseed:ar ändå) → mycket mindre uppladdning.
-  //     Snapshoten ärver DB:ns nyckel → ATTACH med samma nyckel; behåll custom-flygplatser.
+  //     Snapshoten ärver DB:ns läge → ATTACH med samma nyckel ('' = okrypterad); behåll custom-flygplatser.
   try {
-    await db.execAsync(`ATTACH DATABASE '${osPath(snapUri)}' AS strip KEY '${dbKey}';`);
+    await db.runAsync('ATTACH DATABASE ? AS strip KEY ?', [osPath(snapUri), dbKey]);
     await db.execAsync('DELETE FROM strip.icao_airports WHERE COALESCE(custom, 0) = 0;');
     await db.execAsync('VACUUM strip;');
   } catch { /* ej kritiskt: ladda hellre upp ostrippad snapshot än att faila */ }
@@ -139,7 +146,7 @@ export async function backupNow(): Promise<BackupManifest> {
 
   const device = await ICloud.deviceName().catch(() => 'iPhone');
   const counts = await collectCounts();
-  const manifest = buildManifest({ counts, snapshotSize, snapshotSha, files: uploaded, device, sourceDocumentDirectory: docDir });
+  const manifest = buildManifest({ counts, snapshotSize, snapshotSha, files: uploaded, device, sourceDocumentDirectory: docDir, encrypted });
 
   const manifestUri = TMP + 'manifest.json';
   await FileSystem.writeAsStringAsync(manifestUri, JSON.stringify(manifest));
@@ -256,17 +263,22 @@ export async function restoreNow(): Promise<BackupManifest> {
 
   // Applicera: kopiera användartabeller snapshot → live (gemensamma kolumner) i EN transaktion.
   await db.execAsync('PRAGMA foreign_keys=OFF;').catch(() => {});
+  let backupWasEncrypted = false;
   try {
-    // Snapshoten är krypterad med den SÄKERHETSKOPIERANDE enhetens nyckel → ATTACH med den iCloud-synkade
-    // nyckeln (på samma enhet identisk med den lokala). Validera att den FAKTISKT dekrypterar innan
-    // vi raderar något lokalt → annars lämnas den lokala datan orörd.
-    const backupKey = await getBackupKey();
-    try {
-      await db.execAsync(`ATTACH DATABASE '${osPath(snapUri)}' AS bk KEY '${backupKey}';`);
-      await db.getFirstAsync('SELECT count(*) AS c FROM bk.sqlite_master');
-    } catch {
+    // Snapshoten är antingen okrypterad eller krypterad med den SÄKERHETSKOPIERANDE enhetens nyckel (iCloud-
+    // synkade nyckeln; på samma enhet identisk med den lokala). Prova i manifestets ordning med fallback
+    // (äldre backuper saknar flaggan = krypterade). Validera att den FAKTISKT går att läsa innan vi raderar
+    // något lokalt → annars lämnas den lokala datan orörd.
+    const keys = await getBackupKeyCandidates();
+    const order = manifest.encrypted === false ? ['', ...keys] : [...keys, ''];
+    let usedKey: string | null = null;
+    for (const k of order) {
+      if (await attachSnapshot(db, snapUri, k)) { usedKey = k; break; }
+    }
+    if (usedKey === null) {
       throw new SyncError('KEY_MISSING', 'This backup is encrypted with a key that has not reached this device yet. Make sure iCloud Keychain is turned on, then try again in a minute.');
     }
+    backupWasEncrypted = usedKey !== '';
     await db.withTransactionAsync(async () => {
       for (const t of REPLACE_TABLES) await copyTable(db, t, false);
       await copyTable(db, 'icao_airports', true, 'custom = 1'); // custom-flygplatser (rör ej seeden)
@@ -295,7 +307,30 @@ export async function restoreNow(): Promise<BackupManifest> {
 
   await seedIcaoAirports().catch(() => {});     // säkerställ seeden om snapshot saknade den
   await setSetting(ENABLED_KEY, '1').catch(() => {}); // håll toggeln på efter restore
+
+  // Backupen hade extra kryptering → användaren har valt det; slå på samma skydd på den här enheten också.
+  // Misslyckas det ligger datan kvar okrypterad (skyddad av iOS) och kan krypteras från Settings.
+  if (backupWasEncrypted && !isDatabaseEncrypted()) {
+    await setDatabaseEncryption(true).catch((e) => console.warn('[icloud] could not re-enable encryption', e));
+  }
   return manifest;
+}
+
+// ATTACH:a snapshoten som "bk" med en kandidatnyckel ('' = okrypterad) och bevisa att den går att läsa.
+// Fel nyckel → DETACH och false (då provas nästa).
+async function attachSnapshot(db: Awaited<ReturnType<typeof getDatabase>>, snapUri: string, key: string): Promise<boolean> {
+  try {
+    await db.runAsync('ATTACH DATABASE ? AS bk KEY ?', [osPath(snapUri), key]);
+  } catch {
+    return false;
+  }
+  try {
+    await db.getFirstAsync('SELECT count(*) AS c FROM bk.sqlite_master');
+    return true;
+  } catch {
+    await db.execAsync('DETACH DATABASE bk;').catch(() => {});
+    return false;
+  }
 }
 
 // Fyll photo_cloud_id för rader med ett lokalt foto-id men inget cloud-id ännu (backup-sida).

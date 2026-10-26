@@ -191,7 +191,8 @@ export default function RootLayout() {
         // Startfel (oftast DB kunde inte öppnas — korrupt fil eller SQLCipher-nyckel saknas).
         // Visa en recovery-vy i stället för att hänga kvar på splash för alltid.
         console.error('DB init error:', err);
-        setInitError(String(err?.message ?? err ?? 'Unknown error'));
+        // Extra kryptering på men nyckeln finns inte på enheten (än) → eget besked (se dbKey.DbKeyMissingError).
+        setInitError(err?.code === 'DB_KEY_MISSING' ? 'DB_KEY_MISSING' : String(err?.message ?? err ?? 'Unknown error'));
         setFontsLoaded(true); // så vi lämnar splash-gaten och kan rendera recovery-vyn
       }
     };
@@ -232,10 +233,12 @@ export default function RootLayout() {
           <Ionicons name="warning" size={32} color={Colors.danger} />
         </View>
         <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 }}>
-          Couldn't start
+          {initError === 'DB_KEY_MISSING' ? 'Your logbook is locked' : "Couldn't start"}
         </Text>
         <Text style={{ fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
-          The app couldn't open your logbook database. Your data is still on this device. Try again, or restart the app. If it keeps failing, you can restore from an iCloud backup after reinstalling.
+          {initError === 'DB_KEY_MISSING'
+            ? "It uses extra encryption, and its key isn't on this iPhone yet. If you use iCloud Keychain, check that it's turned on, wait a minute, then try again. Your data is still on this device."
+            : "The app couldn't open your logbook database. Your data is still on this device. Try again, or restart the app. If it keeps failing, you can restore from an iCloud backup after reinstalling."}
         </Text>
         <TouchableOpacity
           style={{ backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}

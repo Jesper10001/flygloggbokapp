@@ -6,6 +6,7 @@
 //   tab            — tab-route som ska visas i bakgrunden (får ha query: ?view=, ?expand=)
 //   modal          — modal-route som ska öppnas i steget (pushas; stängs när man lämnar steget)
 //   press          — id på knappen rundturen "trycker" på innan sidan öppnas (se TourPress)
+//   focus          — id på ett element på den öppnade sidan som ramas in (utan tryck) medan kortet visas
 //   backfill       — steget fäller ut "Backfill missing hours" inuti Imported data-vyn
 //   logExpandLatest— steget (loggboken) fäller ut senaste år+månad om det finns flygningar
 //   checklist      — sista steget: checklista med nästa steg (ingen vanlig text/kort)
@@ -23,6 +24,7 @@ export interface TourStep {
   tab?: string;
   modal?: string;
   press?: string;
+  focus?: string;
   backfill?: boolean;
   logExpandLatest?: boolean;
   checklist?: boolean;
@@ -58,8 +60,8 @@ export const TOURS: Record<TourMode, TourStep[]> = {
       title: 'Imported data', body: 'Every batch you have imported, kept separate. Review what came in, and delete a whole import in one tap if something went wrong.' },
     { key: 'backfill', tab: '/(tabs)/settings?expand=import', modal: '/import/history', backfill: true, press: 'backfill',
       title: 'Fill in missing hours', body: 'Imported a CSV but a few totals look low? Add the missing hours per field here — they flow into your stats and currency without creating fake flights.' },
-    { key: 'security', tab: '/(tabs)/settings?expand=app', press: 'app-security', modal: '/settings/encryption',
-      title: 'Your data is secure', body: 'Your whole logbook is encrypted on your device with AES-256. The key never leaves your phone — not even Blades can read your data.' },
+    { key: 'security', tab: '/(tabs)/settings?expand=app', press: 'app-security', modal: '/settings/encryption', focus: 'enc-toggle',
+      title: 'Your data stays yours', body: 'Your logbook lives only on your phone, protected by iOS — no account, no servers. Want an extra layer? Turn on AES-256 encryption here.' },
     { key: 'globalmap', tab: '/(tabs)', globalmap: true,
       title: 'The global map', body: "Every airport and airfield on Earth, on one map. Open it from the globe on your dashboard, then search any ICAO — like KJFK — to fly straight there." },
     { key: 'checklist', tab: '/(tabs)', checklist: true,
@@ -88,8 +90,8 @@ export const TOURS: Record<TourMode, TourStep[]> = {
       title: 'Imported data', body: 'Every batch you have imported, kept separate. Review what came in, and delete a whole import in one tap if something went wrong.' },
     { key: 'backfill', tab: '/(tabs)/drone-settings?expand=import', modal: '/drone-import/history', backfill: true, press: 'backfill',
       title: 'Fill in missing hours', body: 'Imported a CSV but a few totals look low? Add the missing hours per field here — they flow into your stats without creating fake flights.' },
-    { key: 'security', tab: '/(tabs)/drone-settings?expand=app', press: 'app-security', modal: '/settings/encryption',
-      title: 'Your data is secure', body: 'Your whole logbook is encrypted on your device with AES-256. The key never leaves your phone — not even Blades can read your data.' },
+    { key: 'security', tab: '/(tabs)/drone-settings?expand=app', press: 'app-security', modal: '/settings/encryption', focus: 'enc-toggle',
+      title: 'Your data stays yours', body: 'Your logbook lives only on your phone, protected by iOS — no account, no servers. Want an extra layer? Turn on AES-256 encryption here.' },
     { key: 'globalmap', tab: '/(tabs)/drone-dashboard', globalmap: true,
       title: 'The global map', body: "Every airport and airfield on Earth, on one map. Open it from the globe on your dashboard, then search any ICAO — like KJFK — to fly straight there." },
     { key: 'checklist', tab: '/(tabs)/drone-dashboard', checklist: true,

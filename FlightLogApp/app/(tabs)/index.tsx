@@ -65,6 +65,7 @@ import type { Flight } from '../../types/flight';
 import Svg, { Circle } from 'react-native-svg';
 import { StressInfoButton } from '../../components/StressInfo';
 import * as Haptics from 'expo-haptics';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
 
@@ -679,6 +680,7 @@ export default function DashboardScreen() {
   useFocusEffect(useCallback(() => { maybeStartIntroTour('pilot'); }, []));
 
   // Blades introduction — global map-steget styr globen härifrån.
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const dashScrollRef = useRef<ScrollView>(null);
   const tourGlobeMenu = useTourStore((st) => st.globeMenu);
   const tourMapOpen = useTourStore((st) => st.mapOpen);
@@ -856,7 +858,7 @@ export default function DashboardScreen() {
     <ScrollView
       ref={dashScrollRef}
       style={s.container}
-      contentContainerStyle={s.content}
+      contentContainerStyle={[s.content, { paddingBottom: tabSpace + 32 }]}
       scrollEnabled={!globeGrabbed}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} onRefresh={async () => {

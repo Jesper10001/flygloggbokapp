@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import { create } from 'zustand';
 import * as sync from '../services/icloudSync';
+import { isDatabaseConverting } from '../db/database';
 import type { BackupManifest } from '../services/backupManifest';
 
 // Delad status för iCloud-synk: driver toggle-raden i Settings och "iCloud Storage"-vyn. All tung
@@ -92,7 +93,8 @@ export const useICloudStore = create<ICloudStore>((set, get) => ({
   },
 
   backupNow: async () => {
-    if (get().busy) return;
+    // Medan loggboken krypteras/dekrypteras byts databasfilen → ta backupen vid nästa tillfälle i stället.
+    if (get().busy || isDatabaseConverting()) return;
     set({ busy: true, status: 'uploading', lastError: null });
     try {
       const manifest = await sync.backupNow();

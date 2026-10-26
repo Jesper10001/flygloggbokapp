@@ -45,6 +45,7 @@ import { useAppLockStore } from '../../store/appLockStore';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview } from '../../services/dronePhotoSync';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { listDigitalBooks } from '../../db/digitalBooks';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -84,6 +85,7 @@ export default function DroneSettingsScreen() {
   // Öppna + scrolla fram en sektion via param (Blades introduction → Import).
   const { expand } = useLocalSearchParams<{ expand?: string }>();
   const scrollRef = useRef<ScrollView>(null);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const importSectionY = useRef(0);
   const appSectionY = useRef(0);
   useEffect(() => {
@@ -281,7 +283,7 @@ export default function DroneSettingsScreen() {
   };
 
   return (
-    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
         <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: DR.text }}>Settings</Text>
@@ -503,7 +505,7 @@ export default function DroneSettingsScreen() {
             right={<Switch value={locGranted} onValueChange={toggleLocation} trackColor={{ false: DR.elevated, true: accent }} />}
             pressable={false} separatorColor={DR.background} />
           <ICloudSyncRow accent={accent} flat />
-          <Row accent={accent} icon="lock-closed-outline" iconColor={accent} title="Encryption information" subtitle="How your data is encrypted"
+          <Row accent={accent} icon="lock-closed-outline" iconColor={accent} title="Encryption" subtitle="Protected by iOS · optional AES-256"
             onPress={() => router.push('/settings/encryption')} separatorColor={DR.background} tourPressId="app-security" />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Manage app data" subtitle="See your data · clear everything"
             onPress={() => router.push('/settings/manage-data')} border={false} separatorColor={DR.background} />

@@ -15,12 +15,14 @@ import { GoalCard } from '../../components/insights/GoalCard';
 import { LicenceJourney } from '../../components/insights/LicenceJourney';
 import { MilestonesSection } from '../../components/insights/MilestonesSection';
 import { DroneInsights } from '../../components/insights/DroneInsights';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 
 export default function InsightsScreen() {
   const mode = useAppModeStore((s) => s.mode);
   const stats = useFlightStore((s) => s.stats);
   const loadStats = useFlightStore((s) => s.loadStats);
   const loadFlights = useFlightStore((s) => s.loadFlights);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
 
   // Ladda om vid fokus så tomt-tillståndet/innehållet speglar aktuell loggbok (som drönar-Insights).
   useFocusEffect(useCallback(() => { loadStats(); loadFlights(); }, [loadStats, loadFlights]));
@@ -42,7 +44,7 @@ export default function InsightsScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: Colors.background }}
-      contentContainerStyle={{ padding: 12, paddingBottom: 40, gap: 16 }}
+      contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}
       keyboardShouldPersistTaps="handled"
     >
       <HeroTotals />

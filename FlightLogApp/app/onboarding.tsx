@@ -240,7 +240,7 @@ export default function OnboardingScreen() {
               eyebrow={sv ? 'Säkerhet' : 'Security'}
               line1={sv ? 'Inget konto.' : 'No account.'}
               line2={sv ? 'Bara du.' : 'Only you.'}
-              body={sv ? 'Dina flygningar bor i din telefon i en AES-256-krypterad databas. Vi ser dem aldrig.' : 'Your flights live on your phone in an AES-256 encrypted database. We never see them.'}
+              body={sv ? 'Dina flygningar bor i din telefon, skyddade av iOS — med AES-256-kryptering som tillval. Vi ser dem aldrig.' : 'Your flights live on your phone, protected by iOS — with optional AES-256 encryption. We never see them.'}
               sv={sv} onContinue={() => setStep('intro4')} onSkip={() => setStep('role')}
               extras={(
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 22 }}>

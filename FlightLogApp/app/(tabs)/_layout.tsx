@@ -12,6 +12,7 @@ import { getDroneFlightCount } from '../../db/drones';
 import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { TourPress } from '../../components/TourPress';
+import { GlassTabBar } from '../../components/GlassTabBar';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 
@@ -63,18 +64,11 @@ export default function TabsLayout() {
       // Lägesbytet navigerar EXPLICIT till rätt dashboard (settings/drone-settings, deferred
       // efter re-render) → ingen remount-key behövs. /(tabs) löser sig till manned-ankaret
       // 'index'; drönarläget navigeras explicit till '/(tabs)/drone-dashboard'.
+      // Flytande glas-flikrad: innehållet rullar under den (skärmarna lägger useTabBarSpace() i botten).
+      tabBar={(props) => (
+        <GlassTabBar {...props} activeTint={isDrone ? accent : Colors.primary} inactiveTint="#C9D9EA" />
+      )}
       screenOptions={{
-        tabBarStyle: {
-          backgroundColor: isDrone ? DR.surface : Colors.surface,
-          borderTopColor: isDrone ? DR.border : Colors.border,
-          borderTopWidth: 0.5,
-          height: 84,
-          paddingBottom: 28,
-          paddingTop: 8,
-        },
-        tabBarActiveTintColor: isDrone ? accent : Colors.primary,
-        tabBarInactiveTintColor: isDrone ? DR.faint : Colors.tabIconDefault,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
         headerShown: true,
         headerTitle: '',
         headerStyle: { backgroundColor: isDrone ? DR.background : Colors.background, height: 50 },
@@ -211,12 +205,12 @@ export default function TabsLayout() {
 
 function LogFlightButton({ onPress }: { premium: boolean; onPress: () => void }) {
   // ALLTID cyan B-logga (oförändrad i free/premium) — guld-varianten används inte längre.
-  const h = 53;
+  const h = 52; // ryms i glas-kapseln (TAB_BAR_HEIGHT 62)
   const w = h * (1536 / 1024);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-        style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+        style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
         <TourPress id="fab" radius={14} />
@@ -227,12 +221,12 @@ function LogFlightButton({ onPress }: { premium: boolean; onPress: () => void })
 
 // Drönar-center = SAMMA B-logga som manned — ALLTID cyan (visuell paritet, oförändrad vid premium).
 function DroneFabButton({ onPress }: { premium: boolean; onPress: () => void }) {
-  const h = 53;
+  const h = 52; // ryms i glas-kapseln (TAB_BAR_HEIGHT 62)
   const w = h * (1536 / 1024);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-        style={{ alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+        style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
         <TourPress id="fab" radius={14} />

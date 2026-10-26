@@ -38,6 +38,7 @@ import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { Marquee } from '../../components/Marquee';
 import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
+import { useTabBarSpace } from '../../components/GlassTabBar';
 
 const SERIF = 'Georgia';
 const MONO = 'Menlo';
@@ -153,6 +154,7 @@ export default function DroneDashboardScreen() {
   useFocusEffect(useCallback(() => { maybeStartIntroTour('drone'); }, []));
 
   // Blades introduction — global map-steget styr globen + kartan härifrån.
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const dashScrollRef = useRef<ScrollView>(null);
   const tourGlobeMenu = useTourStore((st) => st.globeMenu);
   const tourMapOpen = useTourStore((st) => st.mapOpen);
@@ -178,7 +180,7 @@ export default function DroneDashboardScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: DR.background }}>
     <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
-    <ScrollView ref={dashScrollRef} style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={dashScrollRef} style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: tabSpace + 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} tintColor="transparent" onRefresh={async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // tydlig vibration när pull triggar (= manned)
         await loadWeatherNear();

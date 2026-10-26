@@ -12,6 +12,7 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getCategoryRecency, type CategoryRecency, type DroneFlight } from '../../db/drones';
 import { FONT_LED7 } from '../logflight/tokens';
+import { useTabBarSpace } from '../GlassTabBar';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -54,6 +55,7 @@ export function DroneInsights() {
   }, [loadAccent, loadFlights, loadStats]));
 
   const monthly = useMemo(() => buildMonthly(flights), [flights]);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const last90 = useMemo(() => {
     const c = new Date(); c.setDate(c.getDate() - 90); const cut = c.toISOString().slice(0, 10);
     return flights.filter((f) => f.date >= cut).reduce((s, f) => s + (f.total_time || 0), 0);
@@ -76,7 +78,7 @@ export function DroneInsights() {
   const monthAvg = monthly.reduce((sum, m) => sum + m.count, 0) / Math.max(1, monthly.length);
 
   return (
-    <ScrollView style={s.screen} contentContainerStyle={{ padding: 12, paddingBottom: 40, gap: 16 }}>
+    <ScrollView style={s.screen} contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}>
       {/* Enat totals-hero (= manned HeroTotals) — LED-numeraler */}
       <View style={s.heroCard}>
         <View style={{ flexDirection: 'row' }}>

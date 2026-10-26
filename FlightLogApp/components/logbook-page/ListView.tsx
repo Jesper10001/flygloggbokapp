@@ -10,6 +10,7 @@ import { YearMonthAccordion } from './YearMonthAccordion';
 import { LogbookEmptyCTA } from './LogbookEmptyCTA';
 import { useTourStore } from '../../store/tourStore';
 import { HeatmapCalendar } from '../insights/ActivitySection';
+import { useTabBarSpace } from '../GlassTabBar';
 
 const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['nvg', 'NVG'], ['sim', 'Simulator'], ['photo', 'Photo']];
 
@@ -22,6 +23,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
   const [filter, setFilter] = useState('all');
   const tourDemo = useTourStore((s) => s.demo);
   const scrollRef = useRef<ScrollView>(null);
+  const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const [viewportH, setViewportH] = useState(0); // synlig höjd på list-scrollen (för att centrera fokus-dagen)
 
   const sorted = useMemo(() => [...flights].sort((a, b) => (b.date || '').localeCompare(a.date || '')), [flights]);
@@ -77,8 +79,8 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
       </View>
 
       {/* body */}
-      <ScrollView ref={scrollRef} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
-        style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} onLayout={(e) => setViewportH(Math.max(0, e.nativeEvent.layout.height - tabSpace))}
+        style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 28 }} keyboardShouldPersistTaps="handled">
         {filtered.length === 0 ? (
           flights.length === 0 ? (
             // Ingen registrerad flygning alls → tre vägar in (försvinner så fort man har en flygning).

@@ -1,8 +1,67 @@
-import { openEncryptedDatabase, type SqliteDb } from './sqlite';
-import { getDbKey } from '../services/dbKey';
+import * as FileSystem from 'expo-file-system/legacy';
+import type { DB } from '@op-engineering/op-sqlite';
+import { createManagedDb, dbFileExists, openDbFile, type ManagedDb, type SqliteDb } from './sqlite';
+import { getDbKey, getOrCreateDbKey } from '../services/dbKey';
 
-let db: SqliteDb | null = null;
+// Loggboken ligger i EN av två filer, och filnamnet ÄR läget → läget går alltid att härleda från disken:
+//  - PLAIN_FILE: standard. Ingen extra kryptering — filen skyddas av iOS dataskydd.
+//  - ENC_FILE:   extra kryptering påslagen (SQLCipher AES-256, nyckel i Keychain). Samma namn som alla byggen
+//                före opt-in använde → befintliga installationer förblir krypterade utan migrering.
+// db-mode.json (Documents) pekar ut den levande filen. Den behövs bara om BÅDA filerna finns (en konvertering
+// avbröts), och den andra filen raderas bara när markören (läst från disk) bekräftar vilken som gäller.
+const ENC_FILE = 'flightlog.db';
+const PLAIN_FILE = 'flightlog-plain.db';
+type DbFile = typeof ENC_FILE | typeof PLAIN_FILE;
+const MODE_MARKER = (FileSystem.documentDirectory ?? '') + 'db-mode.json';
+
+let db: ManagedDb | null = null;
 let dbInit: Promise<SqliteDb> | null = null;
+let liveFile: DbFile = PLAIN_FILE;
+let converting = false;
+// Båda filerna fanns men ingen markör → vi gissar inte vilken som är äldst: inget raderas, ingen konvertering.
+let ambiguousFiles = false;
+
+const otherFile = (f: DbFile): DbFile => (f === ENC_FILE ? PLAIN_FILE : ENC_FILE);
+
+async function readModeMarker(): Promise<DbFile | null> {
+  try {
+    if (!(await FileSystem.getInfoAsync(MODE_MARKER)).exists) return null;
+    const file = JSON.parse(await FileSystem.readAsStringAsync(MODE_MARKER))?.file;
+    return file === ENC_FILE || file === PLAIN_FILE ? file : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeModeMarker(file: DbFile): Promise<void> {
+  await FileSystem.writeAsStringAsync(MODE_MARKER, JSON.stringify({ file, updatedAt: new Date().toISOString() }));
+}
+
+// Stäng + radera en databas inklusive WAL: journal_mode=DELETE checkpointar och tar bort -wal/-shm (op-sqlites
+// delete() tar bara huvudfilen). Går det inte (fel nyckel/korrupt) raderas huvudfilen ändå — en kvarlämnad WAL
+// utan huvudfil tar SQLite själv bort nästa gång en tom fil med samma namn öppnas (verifierat).
+function dropConnection(conn: DB): void {
+  try { conn.executeSync('PRAGMA journal_mode = DELETE'); } catch { /* fel nyckel → bara huvudfilen */ }
+  try { conn.delete(); } catch { try { conn.close(); } catch { /* redan stängd */ } }
+}
+
+function removeDbFile(name: DbFile, key: string): void {
+  if (!dbFileExists(name)) return;
+  try { dropConnection(openDbFile(name, key)); } catch { /* kunde inte öppnas → lämna */ }
+}
+
+// Vilken fil är loggboken? Markören om dess fil finns; annars den fil som finns (en äldre installation har bara
+// ENC_FILE); annars en ny installation → markörens läge, eller standard = ingen extra kryptering.
+async function resolveLiveFile(): Promise<{ file: DbFile; marker: DbFile | null; otherExists: boolean }> {
+  const marker = await readModeMarker();
+  const exists: Record<DbFile, boolean> = { [ENC_FILE]: dbFileExists(ENC_FILE), [PLAIN_FILE]: dbFileExists(PLAIN_FILE) };
+  let file: DbFile;
+  if (marker && exists[marker]) file = marker;
+  else if (exists[ENC_FILE]) file = ENC_FILE;
+  else if (exists[PLAIN_FILE]) file = PLAIN_FILE;
+  else file = marker ?? PLAIN_FILE;
+  return { file, marker, otherExists: exists[otherFile(file)] };
+}
 
 // Delad init-promise: db exponeras FÖRST när schema + migrationer körts klart. Utan detta kan en
 // parallell anropare (komponent/store på mount) få en halv-initierad db och köra frågor innan nya
@@ -11,14 +70,122 @@ export async function getDatabase(): Promise<SqliteDb> {
   if (db) return db;
   if (!dbInit) {
     dbInit = (async () => {
-      // SQLCipher-krypterad DB. Nyckeln hämtas transparent ur Keychain (ingen prompt).
-      const d = openEncryptedDatabase('flightlog.db', await getDbKey());
-      await initializeDatabase(d);
+      const { file, marker, otherExists } = await resolveLiveFile();
+      // Krypterad loggbok: nyckeln hämtas transparent ur Keychain (ingen prompt). Saknas den skapas ALDRIG en
+      // ny (filen vore då permanent oläsbar) — getDbKey kastar och startsidan visar felet med "Try again".
+      const key = file === ENC_FILE ? await getDbKey() : '';
+      const conn = openDbFile(file, key);
+      const d = createManagedDb(conn);
+      try {
+        await initializeDatabase(d);
+      } catch (e) {
+        try { conn.close(); } catch { /* ignore */ }
+        throw e;
+      }
+      liveFile = file;
       db = d;
+      // Markören skrivs först när filen bevisligen gick att öppna. Rester av en avbruten konvertering raderas
+      // bara när markören från disk bekräftar att DEN HÄR filen är loggboken.
+      if (marker === file) {
+        if (otherExists) removeDbFile(otherFile(file), otherFile(file) === ENC_FILE ? await getDbKey().catch(() => '') : '');
+      } else if (marker === null && otherExists) {
+        ambiguousFiles = true;
+        console.warn('[db] both logbook files exist without a mode marker — keeping both');
+      } else {
+        await writeModeMarker(file).catch(() => {});
+      }
       return d;
     })().catch((e) => { dbInit = null; throw e; });
   }
   return dbInit;
+}
+
+/** Är extra kryptering (SQLCipher AES-256) påslagen? Giltig när getDatabase() har körts. */
+export function isDatabaseEncrypted(): boolean {
+  return liveFile === ENC_FILE;
+}
+
+/** Pågår en konvertering (på/av)? iCloud-backup väntar då. */
+export function isDatabaseConverting(): boolean {
+  return converting;
+}
+
+export async function getDatabaseEncryption(): Promise<boolean> {
+  await getDatabase();
+  return isDatabaseEncrypted();
+}
+
+// Samma schema, samma antal rader i varje tabell och samma user_version — plus SQLite:s egen snabbkontroll.
+async function verifyCopy(src: DB, dst: DB): Promise<void> {
+  const one = (d: DB, sql: string): any => d.executeSync(sql).rows?.[0] ?? {};
+  const tables = (src.executeSync("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").rows ?? [])
+    .map((r: any) => String(r.name));
+  for (const t of tables) {
+    if (Number(one(src, `SELECT COUNT(*) AS c FROM "${t}"`).c) !== Number(one(dst, `SELECT COUNT(*) AS c FROM "${t}"`).c)) {
+      throw new Error(`Copy verification failed (${t}).`);
+    }
+  }
+  const schema = (d: DB) => `${one(d, 'SELECT COUNT(*) AS c FROM sqlite_master').c}/${one(d, 'PRAGMA user_version').user_version}`;
+  if (schema(src) !== schema(dst)) throw new Error('Copy verification failed (schema).');
+  const qc = (await dst.execute('PRAGMA quick_check')).rows?.[0] as any;
+  if (qc?.quick_check !== 'ok') throw new Error('Copy verification failed (integrity).');
+}
+
+/** Slå på/av extra kryptering. Loggboken kopieras till den andra filen (krypterad resp. okrypterad), kopian
+ *  verifieras i en separat anslutning och tas i bruk — först därefter raderas originalet. Fel eller avbrott
+ *  före bytet → originalet gäller fortfarande och kopian tas bort. Inga andra frågor körs under bytet. */
+export async function setDatabaseEncryption(on: boolean): Promise<void> {
+  await getDatabase();
+  const managed = db!;
+  if (isDatabaseEncrypted() === on) return;
+  if (converting) throw new Error('The logbook is already being converted.');
+  if (ambiguousFiles) throw new Error('Two logbook files were found on this device, so encryption was left unchanged.');
+  converting = true;
+  const release = await managed.pause();
+  const src = managed.raw();
+  const dstFile: DbFile = on ? ENC_FILE : PLAIN_FILE;
+  let dstKey = '';
+  let dst: DB | null = null;
+  let attached = false;
+  let committed = false;
+  try {
+    // Slå på: befintlig nyckel (lokal → iCloud Keychain) eller en ny. Pushas till iCloud Keychain vid nästa backup.
+    dstKey = on ? await getOrCreateDbKey() : '';
+    removeDbFile(dstFile, dstKey); // rester av ett tidigare avbrutet försök → målfilen ska inte finnas
+    const srcPath = src.getDbPath();
+    const dstPath = srcPath.slice(0, srcPath.lastIndexOf('/') + 1) + dstFile;
+    try { src.executeSync('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* bara städning — exporten läser genom WAL */ }
+    // Nyckeln binds som parameter (hamnar aldrig i SQL-texten). Tom nyckel = okrypterad målfil.
+    src.executeSync('ATTACH DATABASE ? AS conv KEY ?', [dstPath, dstKey]);
+    attached = true;
+    await src.execute("SELECT sqlcipher_export('conv')"); // tung kopiering på bakgrundstråd → UI:t lever
+    const userVersion = Number((src.executeSync('PRAGMA user_version').rows?.[0] as any)?.user_version ?? 0);
+    src.executeSync(`PRAGMA conv.user_version = ${userVersion}`); // sqlcipher_export kopierar inte user_version
+    src.executeSync('DETACH DATABASE conv');
+    attached = false;
+
+    // Separat anslutning i normalt läge (inte failOnCreate — då kan den inte ATTACH:a nya filer senare).
+    dst = openDbFile(dstFile, dstKey);
+    await verifyCopy(src, dst);
+    dst.executeSync('PRAGMA journal_mode = WAL');
+    dst.executeSync('PRAGMA foreign_keys = ON');
+
+    await writeModeMarker(dstFile); // commit-punkt: från och med nu är målfilen loggboken
+    managed.swap(dst);
+    liveFile = dstFile;
+    dst = null;
+    committed = true;
+  } catch (e) {
+    if (attached) { try { src.executeSync('DETACH DATABASE conv'); } catch { /* ignore */ } }
+    if (dst) dropConnection(dst);
+    else removeDbFile(dstFile, dstKey);
+    throw e;
+  } finally {
+    // Originalet raderas sist. Misslyckas det tas det bort vid nästa start (markören pekar på den nya filen).
+    if (committed) dropConnection(src);
+    release();
+    converting = false;
+  }
 }
 
 async function initializeDatabase(db: SqliteDb): Promise<void> {

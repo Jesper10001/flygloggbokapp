@@ -1,10 +1,12 @@
-// DB-krypteringsnyckel: en 256-bitars slumpnyckel som genereras EN gång och lagras i iOS Keychain.
-// För att backupen ska kunna återställas på en NY enhet speglas nyckeln även till **iCloud Keychain**
-// (synchronizable) via native-modulen icloud-sync → den följer med till nästa telefon, helt transparent.
+// DB-krypteringsnyckel för den valfria extra krypteringen (SQLCipher AES-256): en 256-bitars slumpnyckel som
+// genereras EN gång — när användaren slår på krypteringen — och lagras i iOS Keychain. För att backupen ska
+// kunna återställas på en NY enhet speglas nyckeln även till **iCloud Keychain** (synchronizable) via
+// native-modulen icloud-sync → den följer med till nästa telefon, helt transparent.
 //
-// Invariant: en enhet som REDAN har en lokal nyckel (och därmed en DB krypterad med den) behåller alltid
-// den nyckeln och speglar upp den add-if-absent. En FÄRSK enhet adopterar kontots synkade nyckel om den
-// finns (så dess DB skapas med samma nyckel som backupen), annars genereras en ny och speglas upp.
+// Invariant: en enhet som REDAN har en lokal nyckel behåller alltid den nyckeln och speglar upp den
+// add-if-absent. En FÄRSK enhet adopterar kontots synkade nyckel om den finns (så dess DB krypteras med samma
+// nyckel som backupen), annars genereras en ny och speglas upp. En nyckel skapas ALDRIG för att öppna en redan
+// krypterad loggbok — bara getOrCreateDbKey (när krypteringen slås på) får generera.
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import * as ICloud from '../modules/icloud-sync';
@@ -42,24 +44,31 @@ async function fetchSyncedKey(retries = 0): Promise<string | null> {
   return null;
 }
 
-/** Hämtar (eller skapar en gång) den 256-bitars DB-nyckeln. 64 hex-tecken.
- *  VIKTIGT: denna funktion pushar ALDRIG nyckeln till iCloud Keychain. Det görs bara när en backup körs
- *  (services/icloudSync.backupNow → ICloud.setDbKey, add-if-absent). Annars skulle en ny/långsam enhet
- *  kunna generera en nyckel och skriva över kontots kanoniska nyckel innan den riktiga hunnit synka hit
- *  → backupen vore permanent oläsbar. */
+/** Nyckeln finns varken lokalt eller i iCloud Keychain. Startsidan visar ett eget besked för den här koden. */
+export class DbKeyMissingError extends Error {
+  code = 'DB_KEY_MISSING' as const;
+  constructor() {
+    super('The encryption key for your logbook is not available on this device.');
+    this.name = 'DbKeyMissingError';
+  }
+}
+
+/** Den befintliga 256-bitars DB-nyckeln (64 hex-tecken) — för att öppna en redan krypterad loggbok.
+ *  Skapar ALDRIG en ny: en ny nyckel kan inte läsa filen, och sparad lokalt skulle den för alltid skymma den
+ *  riktiga nyckeln om den senare synkas hit. Saknas nyckeln kastas DbKeyMissingError.
+ *  VIKTIGT: pushar ALDRIG nyckeln till iCloud Keychain. Det görs bara när en backup körs
+ *  (services/icloudSync.backupNow → ICloud.setDbKey, add-if-absent). */
 export async function getDbKey(): Promise<string> {
   if (cached) return cached;
 
-  // 1) Finns redan en LOKAL nyckel? Då har den här enhetens DB redan krypterats med den → behåll den,
-  //    oavsett vad som ligger i molnet (att byta nu skulle göra den lokala DB:n oläsbar).
+  // 1) Finns en LOKAL nyckel? Den gäller alltid, oavsett vad som ligger i molnet.
   const legacy = await legacyGet();
   if (legacy) {
     cached = legacy;
     return legacy;
   }
 
-  // 2) Färsk enhet (ingen lokal nyckel): adoptera kontots synkade nyckel om den finns (vänta kort) → då
-  //    skapas den lokala DB:n med SAMMA nyckel som backupen och restore kan dekryptera den.
+  // 2) Ingen lokal nyckel: adoptera kontots synkade nyckel om den finns (vänta kort på iCloud Keychain).
   const synced = await fetchSyncedKey(5);
   if (synced) {
     await legacySet(synced);
@@ -67,17 +76,31 @@ export async function getDbKey(): Promise<string> {
     return synced;
   }
 
-  // 3) Ingen nyckel någonstans → generera och spara LOKALT (pushas till iCloud först vid backup).
+  throw new DbKeyMissingError();
+}
+
+/** Nyckel för att SLÅ PÅ extra kryptering: den befintliga om den finns (lokal → iCloud Keychain, så en färsk
+ *  enhet krypterar med samma nyckel som kontots backuper), annars en ny som sparas LOKALT (pushas till iCloud
+ *  först vid backup — annars kunde en långsam enhet skriva över kontots nyckel innan den hunnit synka hit). */
+export async function getOrCreateDbKey(): Promise<string> {
+  try {
+    return await getDbKey();
+  } catch (e) {
+    if (!(e instanceof DbKeyMissingError)) throw e;
+  }
   const fresh = toHex(await Crypto.getRandomBytesAsync(32));
   await legacySet(fresh);
   cached = fresh;
   return fresh;
 }
 
-/** Nyckeln som en iCloud-backup är krypterad med (= kontots synkade nyckel). Används vid restore för att
- *  ATTACH:a snapshoten. Faller tillbaka på den lokala nyckeln (samma enhet / native saknas). */
-export async function getBackupKey(): Promise<string> {
+/** Nycklar som en iCloud-backup kan vara krypterad med vid restore: kontots synkade nyckel först, sedan den
+ *  lokala. Skapar aldrig en ny (en okrypterad backup behöver ingen nyckel alls). */
+export async function getBackupKeyCandidates(): Promise<string[]> {
+  const keys: string[] = [];
   const synced = await fetchSyncedKey(0);
-  if (synced) return synced;
-  return getDbKey();
+  if (synced) keys.push(synced);
+  const local = cached ?? (await legacyGet().catch(() => null));
+  if (local && !keys.includes(local)) keys.push(local);
+  return keys;
 }

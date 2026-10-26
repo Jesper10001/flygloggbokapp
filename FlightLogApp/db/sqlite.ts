@@ -1,9 +1,10 @@
-// SQLCipher-adapter: öppnar op-sqlite (AES-256, transparent nyckel) och exponerar EXAKT den
-// expo-sqlite-kompatibla ytan som resten av koden använder (getAllAsync/getFirstAsync/runAsync/
-// execAsync/withTransactionAsync). Därför behöver inget i db/*.ts eller services/ ändras — bara
-// db/database.ts öppnar via denna. Kräver op-sqlite byggd med SQLCipher
+// SQLite-adapter: öppnar op-sqlite och exponerar EXAKT den expo-sqlite-kompatibla ytan som resten av
+// koden använder (getAllAsync/getFirstAsync/runAsync/execAsync/withTransactionAsync). Därför behöver
+// inget i db/*.ts eller services/ ändras — bara db/database.ts öppnar via denna.
+// Loggboken är okrypterad som standard (skyddas av iOS dataskydd). Med extra kryptering påslagen öppnas
+// den med en AES-256-nyckel via SQLCipher → kräver op-sqlite byggd med SQLCipher
 // (package.json: "op-sqlite": { "sqlcipher": true }).
-import { open, isSQLCipher } from '@op-engineering/op-sqlite';
+import { open, isSQLCipher, type DB } from '@op-engineering/op-sqlite';
 
 export interface SqliteDb {
   getAllAsync<T = any>(sql: string, params?: any[]): Promise<T[]>;
@@ -13,38 +14,93 @@ export interface SqliteDb {
   withTransactionAsync(task: () => Promise<void>): Promise<void>;
 }
 
+// En SqliteDb vars underliggande anslutning kan bytas ut medan appen kör (när användaren slår på/av extra
+// kryptering byts databasfilen). Resten av appen behåller samma objekt → inga referenser till en stängd anslutning.
+export interface ManagedDb extends SqliteDb {
+  /** Aktuell op-sqlite-anslutning (bara för konverteringen i db/database.ts). */
+  raw(): DB;
+  /** Byt anslutning. Returnerar den gamla — anroparen stänger/raderar den. */
+  swap(next: DB): DB;
+  /** Spärra nya frågor tills den returnerade funktionen anropas. Väntar först ut pågående transaktioner. */
+  pause(): Promise<() => void>;
+}
+
+/** Öppna (eller skapa) en databasfil i op-sqlites standardmapp. Tom nyckel = okrypterad. */
+export function openDbFile(name: string, encryptionKey = ''): DB {
+  return encryptionKey ? open({ name, encryptionKey }) : open({ name });
+}
+
+/** Finns databasfilen? Öppnar utan att skapa och stänger direkt. Inga läsningar sker → en krypterad fil
+ *  (och dess WAL) rörs inte trots att ingen nyckel anges (verifierat mot SQLCipher). */
+export function dbFileExists(name: string): boolean {
+  try {
+    open({ name, failOnCreate: true }).close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // executeSync = synkron JSI (mycket snabb, inga trådhopp) → matchar expo-sqlites async-yta via Promise.
-export function openEncryptedDatabase(name: string, encryptionKey: string): SqliteDb {
-  const db = open({ name, encryptionKey });
+// Utan aktiv paus körs frågan direkt i anropet, precis som förut (ingen extra await).
+export function createManagedDb(initial: DB): ManagedDb {
+  let conn = initial;
+  let gate: Promise<void> | null = null;
+  let activeTx = 0;
+  const waitGate = async () => { while (gate) await gate; };
 
   return {
     async getAllAsync<T = any>(sql: string, params?: any[]): Promise<T[]> {
-      return (db.executeSync(sql, params ?? []).rows ?? []) as T[];
+      if (gate) await waitGate();
+      return (conn.executeSync(sql, params ?? []).rows ?? []) as T[];
     },
     async getFirstAsync<T = any>(sql: string, params?: any[]): Promise<T | null> {
-      const rows = db.executeSync(sql, params ?? []).rows ?? [];
+      if (gate) await waitGate();
+      const rows = conn.executeSync(sql, params ?? []).rows ?? [];
       return (rows.length ? rows[0] : null) as T | null;
     },
     async runAsync(sql: string, params?: any[]): Promise<{ changes: number; lastInsertRowId: number }> {
-      const res = db.executeSync(sql, params ?? []);
+      if (gate) await waitGate();
+      const res = conn.executeSync(sql, params ?? []);
       return { changes: res.rowsAffected ?? 0, lastInsertRowId: res.insertId ?? 0 };
     },
     async execAsync(sql: string): Promise<void> {
+      if (gate) await waitGate();
       // Kör flera satser (PRAGMA + schema). Inga triggers finns → säkert att dela på ';'.
       for (const part of sql.split(';')) {
         const stmt = part.trim();
-        if (stmt) db.executeSync(stmt);
+        if (stmt) conn.executeSync(stmt);
       }
     },
     async withTransactionAsync(task: () => Promise<void>): Promise<void> {
-      db.executeSync('BEGIN');
+      if (gate) await waitGate();
+      activeTx++;
       try {
-        await task();
-        db.executeSync('COMMIT');
-      } catch (e) {
-        try { db.executeSync('ROLLBACK'); } catch { /* redan avbruten */ }
-        throw e;
+        conn.executeSync('BEGIN');
+        try {
+          await task();
+          conn.executeSync('COMMIT');
+        } catch (e) {
+          try { conn.executeSync('ROLLBACK'); } catch { /* redan avbruten */ }
+          throw e;
+        }
+      } finally {
+        activeTx--;
       }
+    },
+    raw: () => conn,
+    swap(next: DB): DB {
+      const prev = conn;
+      conn = next;
+      return prev;
+    },
+    async pause(): Promise<() => void> {
+      // En transaktion kör frågor inuti sig → låt den bli klar först. Kontrollen och stängningen av
+      // grinden sker i samma synkrona steg, så ingen ny transaktion hinner börja emellan.
+      while (gate || activeTx > 0) await (gate ?? new Promise((r) => setTimeout(r, 20)));
+      let release!: () => void;
+      gate = new Promise<void>((r) => { release = r; });
+      return () => { gate = null; release(); };
     },
   };
 }
