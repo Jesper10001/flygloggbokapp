@@ -8,11 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { callAnthropicJson } from '../../services/anthropicClient';
+import { scanFlightImage, fuelRemark } from '../../services/flightScan';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { PremiumModal } from '../../components/PremiumModal';
 import { presentPaywall } from '../../services/purchases';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -661,7 +660,7 @@ const avStyles = StyleSheet.create({
   },
 });
 
-// "Scan flight data"-väljaren: bild + exempeltext + Camera/Library/Cancel (ersätter Alert).
+// "ACARS/Instrument scan"-väljaren: bild + exempeltext + Camera/Library/Cancel (ersätter Alert).
 const scanChooserStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
   card: { width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.cardBorder, paddingTop: 22, paddingBottom: 16, paddingHorizontal: 20, alignItems: 'center' },
@@ -1892,7 +1891,7 @@ export default function AddFlightScreen() {
   };
 
   const [aiLoading, setAiLoading] = useState(false);
-  // "Scan flight data"-väljaren (egen modal med exempelbild) → löser samma Promise som gamla Alert.
+  // "ACARS/Instrument scan"-väljaren (egen modal med exempelbild) → löser samma Promise som gamla Alert.
   const [scanChooserOpen, setScanChooserOpen] = useState(false);
   const scanResolveRef = useRef<((s: 'camera' | 'library' | null) => void) | null>(null);
   const chooseScanSource = (s: 'camera' | 'library' | null) => {
@@ -1957,7 +1956,18 @@ export default function AddFlightScreen() {
       updates.takeoffs_day = p.landings_day;
     }
     if (p.flight_rules) updates.flight_rules = p.flight_rules;
-    setForm(prev => ({ ...prev, ...updates }));
+    // ACARS-data utan egen kolumn → egna rader sist i remarks (flightnummer, start/landning, bränsle).
+    const [toUtc, ldgUtc] = (p.offon ?? '').split(' / ');
+    const extraLines = [
+      p.flight_no,
+      p.offon ? [toUtc && !toUtc.includes('-') ? `Takeoff ${toUtc}` : '', ldgUtc && !ldgUtc.includes('-') ? `Landing ${ldgUtc}` : ''].filter(Boolean).join(' · ') + ' UTC' : '',
+      p.fuel,
+    ].filter((x): x is string => !!x && x !== ' UTC');
+    setForm(prev => {
+      const have = (prev.remarks || '').split('\n').map((l) => l.trim());
+      const add = extraLines.filter((l) => !have.includes(l));
+      return { ...prev, ...updates, ...(add.length ? { remarks: [prev.remarks, ...add].filter(Boolean).join('\n') } : {}) };
+    });
     // Lås importerade take-offs/landningar (readiness-autot rör bara icke-manuella räknare).
     if (updates.landings_day) { setLandingsManual(true); setTakeoffsManual(true); }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1970,7 +1980,7 @@ export default function AddFlightScreen() {
     // slut, sedan visas premium-erbjudandet. Redan betalande som nått sin månadspott
     // får bara ett besked (ingen upsell).
     if (!hasTokenQuota()) {
-      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('Flight data scan'); }
+      if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('ACARS/Instrument scan'); }
       return;
     }
 
@@ -1985,7 +1995,7 @@ export default function AddFlightScreen() {
     if (source === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Camera', 'Camera permission is needed to scan your instruments.');
+        Alert.alert('Camera', 'Camera permission is needed to scan the ACARS or your instruments.');
         return;
       }
       picked = await ImagePicker.launchCameraAsync({ quality: 1 });
@@ -1995,102 +2005,60 @@ export default function AddFlightScreen() {
     if (picked.canceled || !picked.assets[0]) return;
     setAiLoading(true);
     try {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        picked.assets[0].uri,
-        [{ resize: { width: 1600 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      const base64 = await FileSystem.readAsStringAsync(manipulated.uri, { encoding: FileSystem.EncodingType.Base64 });
-      const mediaType = 'image/jpeg';
+      // ACARS/Instrument scan: AI läser bilden (ACARS/AOC FLT LOG, instrument, EFB, spårningsapp) och
+      // services/flightScan normaliserar — datum utan år/månad, tider utan sekunder, block-/flygtid, bränsle.
+      const r = await scanFlightImage(picked.assets[0].uri);
+      console.log('📸 ACARS/INSTRUMENT SCAN — tolkat: ' + JSON.stringify(r));
 
-      // ── Debug: logga vad som skickas in (Metro-terminalen) ──────────────────
-      const imgKB = Math.round((base64.length * 0.75) / 1024);
-      console.log('📸 FLIGHT SCAN → AI');
-      console.log(`   Bild in: ${manipulated.width}×${manipulated.height}px · ${imgKB} KB (JPEG q0.6, resize 1600)`);
-      // Anthropic skalar ner till ~1,15 Mpx innan tokenisering (verifierat mot verklig usage)
-      console.log(`   Uppskattade bildtokens: ~${Math.round(Math.min(manipulated.width * manipulated.height, 1_150_000) / 750)}`);
-
-      const parsed = await callAnthropicJson<Record<string, any>>({
-        onUsage: (u) => {
-          const costUsd = (u.inputTokens * 3 + u.outputTokens * 15) / 1e6;
-          console.log(
-            `📸 FLIGHT SCAN ← klart: ${u.inputTokens} in + ${u.outputTokens} ut = ${u.inputTokens + u.outputTokens} tokens` +
-            ` (~$${costUsd.toFixed(4)} ≈ ${(costUsd * 10.5).toFixed(2)} kr)`
-          );
-        },
-        system: `You extract flight data from cockpit instrument images, flight tracking app screenshots, or any aviation-related photo. Today's date is ${new Date().toISOString().split('T')[0]}. Return a JSON object with ONLY the fields you can confidently read. Use these field names:
-- date: "YYYY-MM-DD" — If the date format is ambiguous (e.g. 11-05-26 could be 2026-05-11 or 2011-05-26), pick the interpretation closest to today's date.
-- dep_place: ICAO code (4 letters)
-- arr_place: ICAO code (4 letters)
-- dep_utc: "HH:MM" (UTC)
-- arr_utc: "HH:MM" (UTC)
-- aircraft_time: decimal hours — total time engine on to engine off (block time / Hobbs)
-- flight_time: decimal hours — total time airborne (takeoff to landing)
-- aircraft_type: ICAO type designator
-- registration: aircraft registration
-- max_fl: number (flight level, no FL prefix)
-- landings_day: integer
-- flight_rules: "VFR" or "IFR"
-
-Return aircraft_time AND/OR flight_time if BOTH are visible. If only one time is shown, return it as flight_time. Omit fields you cannot determine. Never guess — only return what you can clearly read from the image.
-
-IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanation — just the JSON.`,
-        userContent: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-          { type: 'text', text: 'Extract all flight data you can read from this image.' },
-        ],
-        maxTokens: 1000,
-        temperature: 0,
-      });
-
-      if (parsed) {
-        console.log('📸 FLIGHT SCAN — tolkade fält: ' + JSON.stringify(parsed));
-
-        // ── Bygg review-kortet — inget fylls i förrän användaren godkänt ──────
-        const fields: ScanField[] = [];
-        const push = (key: string, label: string, value: any, warn?: string) => {
-          if (value === undefined || value === null || value === '') return;
-          fields.push({ key, label, value: String(value), apply: !warn, warn });
-        };
-        if (parsed.date) {
-          // Datum-sanity: äldre än 2 dagar (eller i framtiden) → varna + avmarkera
-          const d = new Date(String(parsed.date));
-          const ageDays = (Date.now() - d.getTime()) / 86400000;
-          const warn = isNaN(d.getTime()) ? 'Unreadable date'
-            : ageDays > 2 ? 'More than 2 days old — double-check'
-            : ageDays < -1 ? 'In the future — double-check'
-            : undefined;
-          push('date', 'Date', parsed.date, warn);
-        }
-        push('dep_place', 'From', parsed.dep_place && String(parsed.dep_place).toUpperCase());
-        push('arr_place', 'To', parsed.arr_place && String(parsed.arr_place).toUpperCase());
-        push('dep_utc', 'Off blocks (UTC)', parsed.dep_utc);
-        push('arr_utc', 'On blocks (UTC)', parsed.arr_utc);
-        push('aircraft_type', 'Aircraft type', parsed.aircraft_type && String(parsed.aircraft_type).toUpperCase());
-        push('registration', 'Registration', parsed.registration && String(parsed.registration).toUpperCase());
-        push('max_fl', 'Max FL', parsed.max_fl);
-        push('landings_day', 'Landings', parsed.landings_day);
-        push('flight_rules', 'Rules', parsed.flight_rules && String(parsed.flight_rules).toUpperCase());
-
-        const hasAircraft = Number(parsed.aircraft_time) > 0;
-        const hasFlight = Number(parsed.flight_time) > 0;
-        if (fields.length === 0 && !hasAircraft && !hasFlight) {
-          Alert.alert('AI Import', 'No flight data could be read from the image.');
-          return;
-        }
-        setScanReview({
-          fields,
-          timeOptions: {
-            aircraft: hasAircraft ? Number(parsed.aircraft_time) : undefined,
-            flight: hasFlight ? Number(parsed.flight_time) : undefined,
-          },
-          // Blocktid (aircraft time) är loggbokens totaltid när båda finns
-          timeChoice: hasAircraft ? 'aircraft' : hasFlight ? 'flight' : null,
-        });
+      // ── Bygg review-kortet — inget fylls i förrän användaren godkänt ──────
+      const fields: ScanField[] = [];
+      const push = (key: string, label: string, value: any, warn?: string, apply?: boolean) => {
+        if (value === undefined || value === null || value === '') return;
+        fields.push({ key, label, value: String(value), apply: apply ?? !warn, warn });
+      };
+      if (r.date) {
+        // Datum-sanity: äldre än 2 dagar (eller i framtiden) → varna + avmarkera. ACARS visar ofta inget år
+        // ("09AUG") eller bara dagen ("/23") → senast passerade datum, med egen varning om det är gammalt.
+        const d = new Date(r.date);
+        const ageDays = (Date.now() - d.getTime()) / 86400000;
+        const warn = isNaN(d.getTime()) ? 'Unreadable date'
+          : ageDays > 2 ? (r.dateInferred ? 'Year or month not shown — check the date' : 'More than 2 days old — double-check')
+          : ageDays < -1 ? 'In the future — double-check'
+          : undefined;
+        push('date', 'Date', r.date, warn);
       }
+      push('dep_place', 'From', r.dep_place);
+      push('arr_place', 'To', r.arr_place);
+      push('dep_utc', 'Off blocks (UTC)', r.out_utc);
+      push('arr_utc', 'On blocks (UTC)', r.in_utc);
+      push('aircraft_type', 'Aircraft type', r.aircraft_type);
+      push('registration', 'Registration', r.registration);
+      push('max_fl', 'Max FL', r.max_fl);
+      push('landings_day', 'Landings', r.landings || '');
+      push('flight_rules', 'Rules', r.flight_rules);
+      // Fält utan egen kolumn i loggboken → rader i remarks (flightnummer förvalt, resten valfritt).
+      push('flight_no', 'Flight no. → remarks', r.flight_no);
+      if (r.off_utc || r.on_utc) push('offon', 'Takeoff / landing UTC → remarks', `${r.off_utc || '--:--'} / ${r.on_utc || '--:--'}`, undefined, false);
+      if (r.fuel) push('fuel', 'Fuel → remarks', fuelRemark(r.fuel), undefined, false);
+
+      const hasAircraft = r.block_h > 0;
+      const hasFlight = r.flight_h > 0;
+      if (fields.length === 0 && !hasAircraft && !hasFlight) {
+        Alert.alert('ACARS/Instrument scan', 'No flight data could be read from the image.');
+        return;
+      }
+      setScanReview({
+        fields,
+        timeOptions: {
+          aircraft: hasAircraft ? r.block_h : undefined,
+          flight: hasFlight ? r.flight_h : undefined,
+        },
+        // Blocktid (aircraft time) är loggbokens totaltid när båda finns
+        timeChoice: hasAircraft ? 'aircraft' : hasFlight ? 'flight' : null,
+      });
     } catch (e: any) {
       if (isTokenQuotaError(e)) {
-        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight data scan');
+        if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('ACARS/Instrument scan');
       } else {
         Alert.alert('AI Import', e.message || 'Could not read the image');
       }
@@ -2370,6 +2338,8 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
           style={{ position: 'absolute', right: 16, bottom: 10 }}
           onPress={importFromImage}
           disabled={aiLoading}
+          accessibilityRole="button"
+          accessibilityLabel="ACARS/Instrument scan"
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           {aiLoading
@@ -3826,7 +3796,7 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         }}
       />
 
-      <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="Flight data scan" />
+      <PremiumModal visible={showPremiumGate} onClose={() => setShowPremiumGate(false)} feature="ACARS/Instrument scan" />
       <FlightLimitModal
         visible={showLimitModal}
         kind="pilot"
@@ -3835,12 +3805,12 @@ IMPORTANT: Return ONLY a raw JSON object. No markdown, no backticks, no explanat
         onGoPremium={() => { setShowLimitModal(false); presentPaywall(); }}
       />
 
-      {/* Scan flight data — väljar-modal med exempelbild + orienterande text */}
+      {/* ACARS/Instrument scan — väljar-modal med exempelbild + orienterande text */}
       <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>
         <Pressable style={scanChooserStyles.backdrop} onPress={() => chooseScanSource(null)}>
           <Pressable style={scanChooserStyles.card} onPress={(e) => e.stopPropagation()}>
-            <Text style={scanChooserStyles.title}>Scan flight data</Text>
-            <Text style={scanChooserStyles.body}>Photograph your instruments or pick an existing image.</Text>
+            <Text style={scanChooserStyles.title}>ACARS/Instrument scan</Text>
+            <Text style={scanChooserStyles.body}>Photograph the ACARS flight log (OUT · OFF · ON · IN) or your instruments, or pick an existing image.</Text>
             <Image source={require('../../assets/Flightdata_AW109.jpg')} style={scanChooserStyles.img} resizeMode="contain" />
             <Text style={scanChooserStyles.caption}>Example picture of flight log from a Leonardo helicopter</Text>
             <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>

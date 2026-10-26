@@ -1146,8 +1146,7 @@ export const translations = {
     'ms.section_milestones': 'Milestones',
     'ms.section_latest_ops': 'Latest Ops',
     'ms.section_class_breakdown': 'Class · Time Breakdown',
-    'ms.bw_eyebrow': 'Personal best · Single week',
-    'ms.bw_eyebrow_rank': 'Top 5 · Week #{n}',
+    'ms.bw_rank_title': '#{n} best week', // undersidans rubrik (topp 5-placering)
     'ms.bw_day_by_day': 'Day · by · day',
     'ms.bw_days_flown': 'days flown',
     'ms.bw_against_typical': 'Against your typical week',
@@ -1161,8 +1160,7 @@ export const translations = {
     'ms.bw_share': 'Share this week',
     'ms.bw_open_logbook': 'Open week in logbook',
     'ms.career_ladder': 'Career ladder',
-    'ms.lx_eyebrow': 'Personal best · Cross-country',
-    'ms.lx_eyebrow_rank': 'Top 5 · Cross-country #{n}',
+    'ms.lx_rank_title': '#{n} longest XC', // undersidans rubrik (topp 5-placering)
     'ms.lx_block': 'BLOCK',
     'ms.lx_route': 'Route',
     'ms.lx_route_title_two': 'Two airports, one long day',
@@ -1253,7 +1251,7 @@ export const translations = {
     dlb_summarize_body: 'A spread is complete — copy it into your paper logbook. Tap to view the page.',
     physical_logbook: 'Physical logbook',
     log_new_mission: 'Log mission',
-    flight_data_scan: 'Flight data scan',
+    flight_data_scan: 'ACARS/Instrument scan',
     logbook_scan: 'Logbook scan',
     scan_source_prompt: 'Choose image source',
     ft_last_3m: 'Last 3 mo',

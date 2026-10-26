@@ -190,11 +190,13 @@ export const REGION_NAMES: Record<string, string> = {
   'IT-77': 'Basilicata', 'IT-78': 'Calabria', 'IT-82': 'Sicily', 'IT-88': 'Sardinia',
 
   // ── Sverige (län) ──
-  'SE-AB': 'Stockholm', 'SE-AC': 'Västerbotten', 'SE-BD': 'Norrbotten', 'SE-C': 'Uppsala', 'SE-D': 'Södermanland',
-  'SE-E': 'Östergötland', 'SE-F': 'Jönköping', 'SE-G': 'Kronoberg', 'SE-H': 'Kalmar', 'SE-I': 'Gotland',
-  'SE-K': 'Blekinge', 'SE-M': 'Skåne', 'SE-N': 'Halland', 'SE-O': 'Västra Götaland', 'SE-Q': 'Västra Götaland',
-  'SE-S': 'Värmland', 'SE-T': 'Örebro', 'SE-U': 'Västmanland', 'SE-W': 'Dalarna', 'SE-X': 'Gävleborg',
-  'SE-Y': 'Västernorrland', 'SE-Z': 'Jämtland',
+  // Sveriges 21 län med officiella namn. SE-Q = seedens (airportmap.de) kod för Västra Götaland (ISO: SE-O).
+  'SE-AB': 'Stockholms län', 'SE-AC': 'Västerbottens län', 'SE-BD': 'Norrbottens län', 'SE-C': 'Uppsala län',
+  'SE-D': 'Södermanlands län', 'SE-E': 'Östergötlands län', 'SE-F': 'Jönköpings län', 'SE-G': 'Kronobergs län',
+  'SE-H': 'Kalmar län', 'SE-I': 'Gotlands län', 'SE-K': 'Blekinge län', 'SE-M': 'Skåne län', 'SE-N': 'Hallands län',
+  'SE-O': 'Västra Götalands län', 'SE-Q': 'Västra Götalands län', 'SE-S': 'Värmlands län', 'SE-T': 'Örebro län',
+  'SE-U': 'Västmanlands län', 'SE-W': 'Dalarnas län', 'SE-X': 'Gävleborgs län', 'SE-Y': 'Västernorrlands län',
+  'SE-Z': 'Jämtlands län',
 
   // ── Mexiko (delstater) ──
   'MX-AGU': 'Aguascalientes', 'MX-BCN': 'Baja California', 'MX-BCS': 'Baja California Sur', 'MX-CAM': 'Campeche',

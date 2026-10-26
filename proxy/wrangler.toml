@@ -20,6 +20,11 @@ routes = [
 #   wrangler secret put ARCGIS_API_KEY
 # Nyckeln löper ut efter max 1 år → skapa en ny i Esris dashboard och kör kommandot igen (ingen app-build).
 
+# Daglig modellkontroll 04:17 UTC (src/modelFallback.ts): saknas en modell som appen begär hos Anthropic
+# pekas den om till nästa i familjen innan någon användare märker det.
+[triggers]
+crons = ["17 4 * * *"]
+
 # Icke-hemlig config → [vars] (så den inte nollas vid deploy).
 [vars]
 REVENUECAT_PROJECT_ID = "proj5514c011"

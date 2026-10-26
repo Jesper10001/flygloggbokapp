@@ -480,7 +480,8 @@ export async function exportToPDF(): Promise<void> {
 // EASA-orienterade kolumner: datum, UAS, plats, kategori, flygläge, tid, höjd m.m.
 
 export async function exportDroneFlightsToCSV(): Promise<void> {
-  const { getDroneFlights, droneModeHours, droneModeLabel, droneAltFt } = require('../db/drones');
+  const { getDroneFlights, droneModeHours, droneModeLabel, droneAltIn } = require('../db/drones');
+  const altUnit: 'ft' | 'm' = require('../store/altitudeUnitStore').useAltitudeUnitStore.getState().unit; // importen läser båda
   const { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } = require('../constants/droneRoles');
   const flights = await getDroneFlights(99999);
 
@@ -515,7 +516,7 @@ export async function exportDroneFlightsToCSV(): Promise<void> {
     hoursCol('Dual (h)',           f => f.dual || 0),
     hoursCol('Instructor (h)',     f => f.instructor || 0),
     ...(DRONE_OTHER_ROLES as string[]).map((r) => hoursCol(`${DRONE_ROLE_LABEL[r]} (h)`, f => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
-    { header: 'Max altitude (ft)', value: f => droneAltFt(f.max_altitude_m) || '', optional: true, hasData: f => droneAltFt(f.max_altitude_m) > 0 },
+    { header: `Max altitude (${altUnit})`, value: f => droneAltIn(f.max_altitude_m, altUnit) || '', optional: true, hasData: f => droneAltIn(f.max_altitude_m, altUnit) > 0 },
     { header: 'Night',             value: f => (f.is_night ? 'Yes' : ''), optional: true, hasData: f => !!f.is_night },
     { header: 'Wind (m/s)',        value: f => f.wind_ms || '', optional: true, hasData: f => !!f.wind_ms },
     // Besättning med roll (Second pilot + fler, inkl. observatörer) — ersätter den gamla Observer-kolumnen.

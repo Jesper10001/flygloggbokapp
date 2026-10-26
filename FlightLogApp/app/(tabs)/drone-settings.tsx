@@ -32,6 +32,7 @@ import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
+import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useVersionStore } from '../../store/versionStore';
@@ -70,6 +71,8 @@ export default function DroneSettingsScreen() {
   const tokenUsage = useTokenQuotaStore((s) => s.usage);
   const timeFormat = useTimeFormatStore((s) => s.timeFormat);
   const setTimeFormat = useTimeFormatStore((s) => s.setTimeFormat);
+  const altUnit = useAltitudeUnitStore((s) => s.unit);
+  const setAltUnit = useAltitudeUnitStore((s) => s.setUnit);
   const [locGranted, setLocGranted] = useState(false);
   const [showCoinInfo, setShowCoinInfo] = useState(false);
   const appLockEnabled = useAppLockStore((s) => s.enabled);
@@ -433,7 +436,7 @@ export default function DroneSettingsScreen() {
           <Row accent={accent} icon="images-outline" iconColor={accent} title="Flight album" subtitle="Photos & videos from your flights" onPress={() => router.push('/drone-album')} separatorColor={DR.background} />
           <Row accent={accent} icon="time-outline" iconColor={accent} title="Audit log" subtitle="All changes logged" onPress={() => router.push('/settings/auditlog')} separatorColor={DR.background} />
           {/* Time format (flyttat hit från App, = pilotläget) */}
-          <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} border={false} separatorColor={DR.background}
+          <Row accent={accent} icon="time-outline" iconColor={accent} title="Time format" subtitle="Decimal or hours:minutes" pressable={false} separatorColor={DR.background}
             right={
               <View style={s.toggle}>
                 <TouchableOpacity style={[s.toggleBtn, timeFormat === 'decimal' && { backgroundColor: accent }]} onPress={() => setTimeFormat('decimal')} activeOpacity={0.7}>
@@ -442,6 +445,17 @@ export default function DroneSettingsScreen() {
                 <TouchableOpacity style={[s.toggleBtn, timeFormat === 'hhmm' && { backgroundColor: accent }]} onPress={() => setTimeFormat('hhmm')} activeOpacity={0.7}>
                   <Text style={[s.toggleText, { color: timeFormat === 'hhmm' ? DR.inkOnAccent : DR.muted }]}>1:30</Text>
                 </TouchableOpacity>
+              </View>
+            } />
+          {/* Höjdenhet (meter/fot) — styr Max alt i Log flight, detaljvyn och exporten. Lagras alltid i meter. */}
+          <Row accent={accent} icon="trending-up-outline" iconColor={accent} title="Altitude" subtitle="Meters or feet" pressable={false} border={false} separatorColor={DR.background}
+            right={
+              <View style={s.toggle}>
+                {(['m', 'ft'] as const).map((u) => (
+                  <TouchableOpacity key={u} style={[s.toggleBtn, altUnit === u && { backgroundColor: accent }]} onPress={() => setAltUnit(u)} activeOpacity={0.7}>
+                    <Text style={[s.toggleText, { color: altUnit === u ? DR.inkOnAccent : DR.muted }]}>{u}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             } />
         </SectionCard>
@@ -454,7 +468,7 @@ export default function DroneSettingsScreen() {
       {expanded === 'import' && (
         <SectionCard>
           <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
-          <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="DJI / Autel — coming soon" right={<Text style={s.soon}>SOON</Text>} pressable={false} separatorColor={DR.background} />
+          <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="Log flights from a DJI / Autel screenshot" onPress={() => router.push('/drone-flight/add?scan=1')} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />
         </SectionCard>

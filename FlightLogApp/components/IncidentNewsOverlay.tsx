@@ -34,7 +34,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
           <View style={s.header}>
             <View style={{ flex: 1 }}>
               <Text style={s.title}>Flight incidents</Text>
-              <Text style={s.sub}>Airports involved · latest month</Text>
+              <Text style={s.sub}>Airports involved</Text>
             </View>
             {!locked && (status === 'ready' || status === 'error') ? (
               <TouchableOpacity onPress={() => load(true)} hitSlop={8} style={s.iconBtn}>
@@ -83,7 +83,7 @@ export function IncidentNewsOverlay({ visible, onClose, onViewOnMap, canLocate, 
           ) : incidents.length === 0 ? (
             <View style={s.center}>
               <Ionicons name="checkmark-circle-outline" size={32} color={Colors.success} />
-              <Text style={s.loadingTxt}>No airport-linked incidents in the last month.</Text>
+              <Text style={s.loadingTxt}>No recent airport-linked incidents.</Text>
               <TouchableOpacity onPress={() => load(true)} activeOpacity={0.85} style={[s.scanBtn, { marginTop: 10 }]}>
                 <Ionicons name="refresh" size={15} color={Colors.textInverse} />
                 <Text style={s.scanBtnTxt}>Refresh</Text>

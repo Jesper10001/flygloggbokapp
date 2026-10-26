@@ -1094,7 +1094,7 @@ export default function DashboardScreen() {
 
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
       <View style={s.logRow}>
-        <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85}>
+        <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="ACARS/Instrument scan">
           <Ionicons name="scan-outline" size={22} color={Colors.primary} />
         </TouchableOpacity>
         <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />

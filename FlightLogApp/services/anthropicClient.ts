@@ -47,7 +47,7 @@ export type AnthropicContent =
     };
 
 export interface CallAnthropicOptions {
-  model?: string;                        // default 'claude-sonnet-4-6'
+  model?: string;                        // default 'claude-sonnet-5-5' (proxyn byter själv till nyare om den fasas ut)
   system: string;                        // system prompt (cachas)
   userContent: AnthropicContent[] | string; // string → { type:'text', text }
   maxTokens: number;
@@ -167,9 +167,9 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: opts.model ?? 'claude-sonnet-4-6',
+        model: opts.model ?? 'claude-sonnet-5-5',
         max_tokens: opts.maxTokens,
-        ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
+        ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-5-5') ? {} : { temperature: opts.temperature ?? 0 }),
         system: systemBlocks,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -212,7 +212,7 @@ export async function callAnthropicWebSearchJson<T = any>(opts: {
   maxTokens: number;
   maxSearches?: number;         // default 2 — web search drar MYCKET tokens (sidinnehåll i kontext)
   allowedDomains?: string[];    // begränsa sökningen till utvalda källor → färre/mer relevanta träffar
-  model?: string;               // default Haiku (billigast per token)
+  model?: string;               // default Haiku 5.5 (billigast per token)
   timeoutMs?: number;
   feature?: string;             // X-Feature-header → proxyn kan gränssätta/rate-limita funktionen
 }): Promise<T> {
@@ -234,7 +234,7 @@ export async function callAnthropicWebSearchJson<T = any>(opts: {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: opts.model ?? 'claude-haiku-4-5',
+        model: opts.model ?? 'claude-haiku-5-5',
         max_tokens: opts.maxTokens,
         system: [{ type: 'text', text: opts.system }],
         tools: [tool],
@@ -329,9 +329,9 @@ export async function callAnthropicJsonStream<T = any>(
     ? [{ type: 'text', text: opts.system, cache_control: { type: 'ephemeral' } }]
     : opts.system;
   const body = JSON.stringify({
-    model: opts.model ?? 'claude-sonnet-4-6',
+    model: opts.model ?? 'claude-sonnet-5-5',
     max_tokens: opts.maxTokens,
-    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
+    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-5-5') ? {} : { temperature: opts.temperature ?? 0 }),
     system: systemBlocks,
     messages: [{ role: 'user', content: userContent }],
     stream: true,
@@ -431,9 +431,10 @@ export interface ToolCallOptions extends CallAnthropicOptions {
   toolDescription?: string;
 }
 
-// Nyare modeller (t.ex. Opus 4.8) returnerar 400 om `temperature` skickas med.
+// Opus 4.7/4.8 och generation 5+ (t.ex. Sonnet 5.5, Haiku 5.5) svarar 400 "`temperature` is deprecated"
+// om temperature skickas med → utelämnas för dem (samma regel som proxyns modelFallback).
 function modelDeprecatesTemperature(model: string): boolean {
-  return /^claude-opus-4-8/.test(model);
+  return /^claude-(?:opus-4-[78]|[a-z]+-(?:[5-9]|\d{2})(?:-|$))/.test(model);
 }
 
 /** Bygger request-body för ett tvingat verktygsanrop. */
@@ -446,9 +447,9 @@ function buildToolBody(opts: ToolCallOptions, stream: boolean): string {
     ? [{ type: 'text' as const, text: opts.userContent }]
     : opts.userContent;
   return JSON.stringify({
-    model: opts.model ?? 'claude-sonnet-4-6',
+    model: opts.model ?? 'claude-sonnet-5-5',
     max_tokens: opts.maxTokens,
-    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-4-6') ? {} : { temperature: opts.temperature ?? 0 }),
+    ...(modelDeprecatesTemperature(opts.model ?? 'claude-sonnet-5-5') ? {} : { temperature: opts.temperature ?? 0 }),
     system: systemBlocks,
     tools: [{
       name: opts.toolName,

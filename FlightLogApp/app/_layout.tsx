@@ -14,6 +14,7 @@ import { configurePurchases, refreshEntitlement } from '../services/purchases';
 import { Colors } from '../constants/colors';
 import { useLanguageStore } from '../store/languageStore';
 import { useTimeFormatStore } from '../store/timeFormatStore';
+import { useAltitudeUnitStore } from '../store/altitudeUnitStore';
 import { useThemeStore } from '../store/themeStore';
 import { useAppModeStore } from '../store/appModeStore';
 import { useFlightStore } from '../store/flightStore';
@@ -138,6 +139,7 @@ export default function RootLayout() {
         await seedIcaoAirports(isPremium);
         await loadLanguage();
         await loadTimeFormat();
+        await useAltitudeUnitStore.getState().load(); // m/ft för drönarens Max alt
         await loadTheme();
         await loadMode();
         await useOperatorStore.getState().loadOperatorId();

@@ -17,7 +17,7 @@ import {
   listDrones, insertDroneFlight, getDroneFlights,
   getDroneFlightById, updateDroneFlight, getRecentDroneLocations, addDrone, updateDrone,
   getDroneFlightCount, persistDroneModelLookup, setDroneFlightPhoto, getRecentDroneCrew, getDroneCrewByModel,
-  droneAltFt, ftToDroneAltM,
+  droneAltFt, droneAltIn, droneAltToM, formatDroneAlt,
   type DroneRegistryEntry, type DroneFlightFormData, type DroneFlightMode,
 } from '../../db/drones';
 import {
@@ -28,7 +28,8 @@ import {
 import { PersonPicker, type SavedPerson, type AircraftPilots } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
 import { enrichDroneFleet } from '../../services/droneLookup';
-import { hasTokenQuota } from '../../utils/tokenGate';
+import { scanDroneFlightLog, type ScannedDroneDay } from '../../services/droneLogScan';
+import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { useFlightStore } from '../../store/flightStore';
 import { presentPaywall } from '../../services/purchases';
 import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
@@ -47,6 +48,7 @@ import { useToastStore } from '../../components/Toast';
 import { DR } from '../../constants/droneTheme';
 import { Colors } from '../../constants/colors';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
+import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { useLanguageStore } from '../../store/languageStore';
 import { classifySun, computeNightHoursTimed, type SunState } from '../../utils/dayNight';
 import { buildInstants } from '../../utils/flightTime';
@@ -93,8 +95,9 @@ const addHHMM = (hhmm: string, hours: number): string => {
 };
 // Open-kategorins höjdtak (EU 2019/947): 120 m AGL. Över → Specific krävs.
 const OPEN_ALT_LIMIT_M = 120;
-// Max alt-baren i fot (lagras i meter): 0–24 000 ft, drag i 200 ft, −/+ i 10 ft.
-const MAX_ALT_FT = 24000;
+// Max alt-baren i vald enhet (Settings → General; lagras alltid i meter): fot 0–24 000 (drag 200, −/+ 10),
+// meter 0–7 300 (drag 50, −/+ 5) — samma tak i båda enheterna.
+const ALT_BAR = { ft: { max: 24000, drag: 200, fine: 10 }, m: { max: 7300, drag: 50, fine: 5 } } as const;
 // Äldre Observer-rad ("Observer: xxxx", från tiden med egen Observer-ruta) — tas bort ur remarks vid
 // redigering; namnet flyttas in som besättning med rollen Observer.
 const stripObserverRemarks = (remarks: string): string =>
@@ -129,7 +132,7 @@ const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 export default function AddDroneFlightScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; addPhoto?: string }>();
+  const params = useLocalSearchParams<{ id?: string; addPhoto?: string; scan?: string }>();
   const editId = params.id ? parseInt(params.id, 10) : null;
   const isEdit = !!editId;
   // Media (bild/video) — = pilotläget: väljs i formuläret och sparas på flygningen.
@@ -145,6 +148,7 @@ export default function AddDroneFlightScreen() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const lang = useLanguageStore((s) => s.language);
   const insets = useSafeAreaInsets();
+  const altUnit = useAltitudeUnitStore((s) => s.unit);
   const styles = makeStyles(accent);
   const crewColors = crewPalette(accent);
 
@@ -154,7 +158,7 @@ export default function AddDroneFlightScreen() {
     location: '',
     takeoff_time: nowHHMM(),
     landing_location: '',
-    mission_type: 'Inspection',
+    mission_type: '', // tomt som standard → bara platshållaren "Type of mission" syns
     category: '',
     flight_mode: 'VLOS',
     total_time: '0',
@@ -197,6 +201,15 @@ export default function AddDroneFlightScreen() {
   const [crewByModel, setCrewByModel] = useState<AircraftPilots[]>([]);
   const [crewOpen, setCrewOpen] = useState(false); // en väljarflik är öppen → lyft ramen över innehållet under
   const [addPilot, setAddPilot] = useState<{ visible: boolean; title: string; cb?: (n: string) => void }>({ visible: false, title: '' });
+  // Instrument scan (skärmdump av drönarappens flyglogg): dagar som inte loggats än (senaste först), dagen
+  // som ligger i formuläret, och datumväljaren — före första loggningen och efter varje Save.
+  const [scanChooserOpen, setScanChooserOpen] = useState(false);
+  const scanResolveRef = useRef<((s: 'camera' | 'library' | null) => void) | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanDays, setScanDays] = useState<ScannedDroneDay[]>([]);
+  const [scanActiveDate, setScanActiveDate] = useState<string | null>(null);
+  const [scanPicker, setScanPicker] = useState<null | { selected: string; afterSave: boolean; loggedDate?: string }>(null);
+  const [loggedDates, setLoggedDates] = useState<Set<string>>(new Set()); // datum som redan finns i loggboken
   const [passes, setPasses] = useState<string[]>(['']); // MM:SS per pass, max 5
   // Mission (överst): fritextruta + dropdown med förval (MISSION_TYPES).
   const [showMissionPicker, setShowMissionPicker] = useState(false);
@@ -438,7 +451,6 @@ export default function AddDroneFlightScreen() {
             // som förra" med namn men lat/lon 0,0 → tappas från kartan + natt-auto av.
             lat: last.lat || undefined,
             lon: last.lon || undefined,
-            mission_type: last.mission_type || p.mission_type,
             category: last.category || p.category,
             flight_mode: (last.flight_mode as DroneFlightMode) ?? p.flight_mode,
           }));
@@ -482,6 +494,121 @@ export default function AddDroneFlightScreen() {
   // ?addPhoto=1 (från dashboardens "Add media") → öppna bildväljaren automatiskt.
   useEffect(() => {
     if (params.addPhoto === '1') { const t = setTimeout(() => pickMedia('image'), 450); return () => clearTimeout(t); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Instrument scan: skärmdump/foto av drönarappens flyglogg (DJI Fly, DJI GO 4, Autel …) ─────────────
+  // Flödet: välj bild → AI läser alla rader → datumväljare (senaste förvalt) → dagens flygningar fylls i som
+  // 1st/2nd/3rd flight → Save → frågan om fler flygningar ur bilden (näst senaste förvalt) … tills klart.
+  const chooseScanSource = (src: 'camera' | 'library' | null) => {
+    setScanChooserOpen(false);
+    const r = scanResolveRef.current; scanResolveRef.current = null;
+    // iOS: vänta tills modalen stängts innan kamera/bibliotek presenteras (annars dyker väljaren aldrig upp).
+    setTimeout(() => r?.(src), 350);
+  };
+
+  const startLogScan = async () => {
+    // Token-styrt (som pilotens flight scan): fri nivå tills engångspotten är slut → Premium-erbjudande.
+    if (!hasTokenQuota()) {
+      if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight log scan');
+      return;
+    }
+    const source = await new Promise<'camera' | 'library' | null>((resolve) => {
+      scanResolveRef.current = resolve;
+      setScanChooserOpen(true);
+    });
+    if (!source) return;
+    let picked: ImagePicker.ImagePickerResult;
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Camera', 'Camera permission is needed to photograph your flight log.'); return; }
+      picked = await ImagePicker.launchCameraAsync({ quality: 1 });
+    } else {
+      picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
+    }
+    if (picked.canceled || !picked.assets[0]) return;
+    setScanLoading(true);
+    try {
+      const [res, existing] = await Promise.all([
+        scanDroneFlightLog(picked.assets[0].uri),
+        getDroneFlights(100000).catch(() => []),
+      ]);
+      if (!res.days.length) {
+        Alert.alert('No flights found', 'No flights could be read from the image. Try a sharper screenshot of the flight list.');
+        return;
+      }
+      setLoggedDates(new Set(existing.map((f) => f.date)));
+      setScanDays(res.days);
+      setScanPicker({ selected: res.days[0].date, afterSave: false });
+    } catch (e: any) {
+      if (isTokenQuotaError(e)) { if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight log scan'); }
+      else Alert.alert('Scan failed', e?.message ?? 'Try again.');
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  // Fyll formuläret med en skannad dag: datum, flygtider (1st/2nd/3rd flight), dagens högsta höjd, plats och
+  // ev. starttid/drönarmodell om de syns. Övriga per-flygning-fält nollställs (som "nästa flygning i passet").
+  const applyScanDay = (date: string) => {
+    const day = scanDays.find((d) => d.date === date);
+    setScanPicker(null);
+    if (!day) return;
+    const legs = day.flights.map((f) => decimalToHHMM(Math.max(1, Math.round(f.minutes)) / 60));
+    const maxAltM = Math.max(0, ...day.flights.map((f) => f.altitude_m));
+    const firstTime = day.flights.find((f) => f.takeoff_time)?.takeoff_time ?? '';
+    const place = day.flights.find((f) => f.location)?.location ?? '';
+    const model = day.flights.find((f) => f.aircraft)?.aircraft.toLowerCase() ?? '';
+    const match = model ? drones.find((d) => { const m = (d.model || '').toLowerCase(); return !!m && (m.includes(model) || model.includes(m)); }) : undefined;
+    if (match) setDrone(match);
+    setFullLegs(legs.length ? legs : ['']);
+    setPasses(['']); setShowDepDropdown(false); setDepLocalBuf(''); setCondRaw({});
+    setPhotoUri(null); setMediaType('image');
+    setTimeMode('utc');
+    setForm((p) => ({
+      ...p,
+      date,
+      takeoff_time: firstTime ? localToUtc(date, firstTime) : '', // appens tider syns lokalt → lagras som UTC
+      max_altitude_m: maxAltM > 0 ? String(maxAltM) : '',
+      // Plats ur bilden ersätter förra flygningens plats (koordinater slås upp nedan).
+      ...(place ? { location: place, lat: undefined, lon: undefined } : {}),
+      night_time: '', vfr: '',
+      h_vlos: '', h_evlos: '', h_bvlos: '',
+      remarks: '',
+    }));
+    setScanActiveDate(date);
+    // Koordinater för platsnamnet (Apples geokodare, ingen behörighet) → flygningen syns på drönarglobens karta.
+    if (place) {
+      Location.geocodeAsync(place)
+        .then(([hit]) => { if (hit) setForm((p) => (p.location === place ? { ...p, lat: hit.latitude, lon: hit.longitude } : p)); })
+        .catch(() => {});
+    }
+  };
+
+  // Datumväljaren stängs: före första loggningen = avbryt skanningen; efter en Save = klar → tillbaka
+  // (efter att modalen tonat ut — en Modal som stängs mitt i en navigering kan hänga sig på iOS).
+  const closeScanPicker = () => {
+    const after = scanPicker?.afterSave;
+    setScanPicker(null);
+    setScanDays([]);
+    if (after) setTimeout(() => router.back(), 250);
+  };
+  // "Tue, Dec 31, 2024" / kort "Dec 31, 2024" (knappen).
+  const fmtScanDate = (iso: string, short = false) => (/^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T12:00:00`).toLocaleDateString(lang === 'sv' ? 'sv-SE' : 'en-US',
+      short ? { day: 'numeric', month: 'short', year: 'numeric' } : { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : iso);
+
+  // ?scan=1 (dashboardens Instrument scan / Settings → Scan controller log) → starta skanningen direkt.
+  useEffect(() => {
+    if (params.scan !== '1' || isEdit) return;
+    (async () => {
+      // Gratisgränsen nådd → mount-effekten visar Premium-uppmaningen; starta då inte skanningen.
+      if (!isPremium && !isMax) {
+        const n = await getDroneFlightCount().catch(() => 0);
+        if (n >= FREE_TIER_LIMIT_DRONE) return;
+      }
+      setTimeout(() => startLogScan(), 500);
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Natt-AUTO: hämta enhetens plats + räkna nattandel ur dep/arr-tid (UTC) för flygdagen.
@@ -594,6 +721,20 @@ export default function AddDroneFlightScreen() {
       // Spara/uppdatera media på flygningen (rör inte ev. synkad photo_local_id).
       await setDroneFlightPhoto(flightId, savedPhotoUri, mediaType);
       await Promise.all([loadFlights(), loadStats()]);
+
+      // Instrument scan: dagen är loggad → fråga om fler flygningar ur bilden (näst senaste förvald),
+      // eller tillbaka när alla dagar är loggade.
+      if (scanActiveDate && !isEdit) {
+        const done = scanActiveDate;
+        const remaining = scanDays.filter((d) => d.date !== done);
+        setScanDays(remaining);
+        setScanActiveDate(null);
+        setLoggedDates((prev) => new Set(prev).add(done));
+        if (remaining.length) { setScanPicker({ selected: remaining[0].date, afterSave: true, loggedDate: done }); return; }
+        useToastStore.getState().show('All flights from the image are logged');
+        router.back();
+        return;
+      }
 
       if (sameSession && !isEdit) {
         setPasses(['']);
@@ -769,6 +910,13 @@ export default function AddDroneFlightScreen() {
           </Text>
           <Ionicons name="calendar-outline" size={18} color={accent} />
         </View>
+        {/* Instrument scan (= pilotens scan-knapp i headern) — bara för nya flygningar */}
+        {!isEdit && (
+          <TouchableOpacity style={styles.droneHeaderScan} onPress={startLogScan} disabled={scanLoading} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button" accessibilityLabel="Scan a flight log screenshot">
+            {scanLoading ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="scan-outline" size={22} color={accent} />}
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
       <ScrollView
         contentContainerStyle={styles.content}
@@ -777,6 +925,21 @@ export default function AddDroneFlightScreen() {
         automaticallyAdjustKeyboardInsets
         scrollEnabled={!scrollLocked}
       >
+        {/* Instrument scan pågår: vilken dag ur bilden som fylls i och hur många som återstår efter den. */}
+        {scanActiveDate && (() => {
+          const day = scanDays.find((d) => d.date === scanActiveDate);
+          const n = day?.flights.length ?? 0;
+          const more = scanDays.length - 1;
+          return (
+            <View style={styles.scanBanner}>
+              <Ionicons name="scan-outline" size={15} color={accent} />
+              <Text style={styles.scanBannerText} numberOfLines={2}>
+                From image · {n} {n === 1 ? 'flight' : 'flights'}{more > 0 ? ` · ${more} more ${more === 1 ? 'date' : 'dates'} after this` : ''}
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* Mission — överst: label + fritextruta + dropdown med förval.
             Fritexten ersätter den gamla "Other"-knappen; dropdownen ger snabbval. */}
         <View style={[styles.missionRow, showMissionPicker && { zIndex: 200 }]}>
@@ -1451,7 +1614,9 @@ export default function AddDroneFlightScreen() {
             <View style={styles.ruleWarn}>
               <Ionicons name="warning" size={14} color={DR.warning} />
               <Text style={styles.ruleWarnText}>
-                {droneAltFt(alt).toLocaleString('en-US')} ft exceeds the Open-category limit of {OPEN_ALT_LIMIT_M} m ({droneAltFt(OPEN_ALT_LIMIT_M)} ft) — this needs a Specific authorisation.
+                {altUnit === 'ft'
+                  ? `${formatDroneAlt(alt, 'ft')} exceeds the Open-category limit of ${OPEN_ALT_LIMIT_M} m (${droneAltFt(OPEN_ALT_LIMIT_M)} ft) — this needs a Specific authorisation.`
+                  : `${formatDroneAlt(alt, 'm')} exceeds the ${OPEN_ALT_LIMIT_M} m Open-category limit — this needs a Specific authorisation.`}
               </Text>
             </View>
           );
@@ -1469,14 +1634,14 @@ export default function AddDroneFlightScreen() {
               a={{ label: t('day'), value: parseInt(form.landings_day || '0', 10) || 0, onChange: (n) => setForm((p) => ({ ...p, landings_day: String(n) })) }}
               b={{ label: t('night'), value: parseInt(form.landings_night || '0', 10) || 0, onChange: (n) => setForm((p) => ({ ...p, landings_night: String(n) })) }} />
 
-            {/* Max altitude i FOT — samma bar som pilot log flight; drag i 200 ft, +/- i 10 ft, 0–24 000 ft.
-                Lagras i meter (max_altitude_m) → 120 m-regeln, exporter och import oförändrade. */}
+            {/* Max altitude i vald enhet (ft/m, Settings → General) — samma bar som pilot log flight.
+                Lagras i meter (max_altitude_m) → 120 m-regeln, exporter och import räknar alltid i meter. */}
             <View style={{ marginTop: 4, borderTopWidth: 1, borderTopColor: Colors.border }}>
               <MaxAltBar
-                value={droneAltFt(parseFloat(form.max_altitude_m || '0'))}
-                onChange={(ft) => setForm((p) => ({ ...p, max_altitude_m: ft > 0 ? String(ftToDroneAltM(ft)) : '' }))}
-                min={0} max={MAX_ALT_FT} dragStep={200} fineStep={10}
-                label="Max alt" unit="ft" unitBefore={false} toDisplay={(v) => String(v)}
+                value={droneAltIn(parseFloat(form.max_altitude_m || '0'), altUnit)}
+                onChange={(v) => setForm((p) => ({ ...p, max_altitude_m: v > 0 ? String(droneAltToM(v, altUnit)) : '' }))}
+                min={0} max={ALT_BAR[altUnit].max} dragStep={ALT_BAR[altUnit].drag} fineStep={ALT_BAR[altUnit].fine}
+                label="Max alt" unit={altUnit} unitBefore={false} toDisplay={(v) => String(v)}
                 onGrab={() => setScrollLocked(true)} onRelease={() => setScrollLocked(false)}
               />
             </View>
@@ -1676,6 +1841,79 @@ export default function AddDroneFlightScreen() {
         </View>
       </Modal>
 
+      {/* Instrument scan — källa: skärmdump ur biblioteket (vanligast) eller foto av skärmen */}
+      <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>
+        <Pressable style={styles.scanBackdrop} onPress={() => chooseScanSource(null)}>
+          <Pressable style={styles.scanCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.scanTitle}>Scan flight log</Text>
+            <Text style={styles.scanBody}>Pick a screenshot of the flight list in your drone app — for example DJI Fly → Flight Data Center — or photograph the screen. Every flight in the image is read, date by date.</Text>
+            <TouchableOpacity style={styles.scanBtn} onPress={() => chooseScanSource('library')} activeOpacity={0.85}>
+              <Ionicons name="images" size={18} color={DR.inkOnAccent} />
+              <Text style={styles.scanBtnText}>Photo library</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanBtn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>
+              <Ionicons name="camera" size={18} color={DR.inkOnAccent} />
+              <Text style={styles.scanBtnText}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanCancel} onPress={() => chooseScanSource(null)} activeOpacity={0.7}>
+              <Text style={styles.scanCancelText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Instrument scan — datumväljare: före första loggningen och efter varje Save (fler dagar kvar). */}
+      <Modal visible={!!scanPicker} transparent animationType="fade" onRequestClose={closeScanPicker}>
+        <View style={styles.scanBackdrop}>
+          <View style={styles.scanCard}>
+            <Text style={styles.scanTitle}>{scanPicker?.afterSave ? 'Log more flights from the image?' : 'Flights in the image'}</Text>
+            <Text style={styles.scanBody}>
+              {scanPicker?.afterSave
+                ? `${fmtScanDate(scanPicker.loggedDate ?? '')} is saved. The latest remaining date is selected — or pick another.`
+                : 'The latest date is selected — or pick another. Several flights on the same day are added as 1st, 2nd and 3rd flight.'}
+            </Text>
+            <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ gap: 6 }} showsVerticalScrollIndicator>
+              {scanDays.map((d, i) => {
+                const sel = d.date === scanPicker?.selected;
+                const mins = d.flights.reduce((sum, f) => sum + Math.max(1, Math.round(f.minutes)), 0);
+                const alt = Math.max(0, ...d.flights.map((f) => f.altitude_m));
+                const place = d.flights.find((f) => f.location)?.location;
+                return (
+                  <TouchableOpacity key={d.date} style={[styles.scanRow, sel && styles.scanRowActive]} onPress={() => setScanPicker((p) => (p ? { ...p, selected: d.date } : p))} activeOpacity={0.75}>
+                    <Ionicons name={sel ? 'radio-button-on' : 'radio-button-off'} size={18} color={sel ? accent : DR.muted} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.scanRowDate}>{fmtScanDate(d.date)}</Text>
+                      <Text style={styles.scanRowMeta} numberOfLines={1}>
+                        {d.flights.length} {d.flights.length === 1 ? 'flight' : 'flights'} · {decimalToHHMM(mins / 60)}{alt > 0 ? ` · max ${formatDroneAlt(alt, altUnit)}` : ''}{place ? ` · ${place}` : ''}
+                      </Text>
+                      {loggedDates.has(d.date) && <Text style={styles.scanRowWarn}>A flight on this date is already in your logbook</Text>}
+                    </View>
+                    {i === 0 && <Text style={styles.scanLatest}>LATEST</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity style={[styles.scanBtn, { marginTop: 14 }]} onPress={() => scanPicker && applyScanDay(scanPicker.selected)} activeOpacity={0.85}>
+              <Text style={styles.scanBtnText}>Log {fmtScanDate(scanPicker?.selected ?? '', true)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanCancel} onPress={closeScanPicker} activeOpacity={0.7}>
+              <Text style={styles.scanCancelText}>{scanPicker?.afterSave ? 'Done' : t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Instrument scan — AI läser bilden (överlägg i skärmen, ingen Modal: krockar inte med bildväljarens stängning) */}
+      {scanLoading && (
+        <View style={styles.scanOverlay}>
+          <View style={[styles.scanCard, { alignItems: 'center', paddingVertical: 26 }]}>
+            <ActivityIndicator size="large" color={accent} />
+            <Text style={[styles.scanTitle, { marginTop: 14, textAlign: 'center' }]}>Reading flights…</Text>
+            <Text style={[styles.scanBody, { textAlign: 'center', marginBottom: 0 }]}>This takes about 10 seconds.</Text>
+          </View>
+        </View>
+      )}
+
       {/* Nytt namn för second pilot / extra medpilot (Name eller Callsign) — = pilotläget */}
       <AddPilotModal
         visible={addPilot.visible}
@@ -1714,6 +1952,25 @@ function makeStyles(accent: string) {
       alignItems: 'center', justifyContent: 'flex-end', position: 'relative',
     },
     droneHeaderClose: { position: 'absolute', left: 16, bottom: 10 },
+    droneHeaderScan: { position: 'absolute', right: 16, bottom: 10 },
+    // Instrument scan: banner i formuläret, källväljare, datumväljare och läs-överlägg
+    scanBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '12', marginBottom: 6 },
+    scanBannerText: { flex: 1, color: accent, fontSize: 12.5, fontWeight: '700' },
+    scanBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    scanCard: { width: '100%', maxWidth: 380, backgroundColor: DR.surface, borderRadius: 20, borderWidth: 1, borderColor: DR.border, paddingTop: 22, paddingBottom: 12, paddingHorizontal: 18 },
+    scanTitle: { color: DR.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },
+    scanBody: { color: DR.text2, fontSize: 13.5, lineHeight: 19, marginBottom: 12 },
+    scanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
+    scanRowActive: { borderColor: accent, backgroundColor: accent + '1A' },
+    scanRowDate: { color: DR.text, fontSize: 14.5, fontWeight: '700' },
+    scanRowMeta: { color: DR.text2, fontSize: 12, marginTop: 2 },
+    scanRowWarn: { color: DR.warning, fontSize: 11, marginTop: 3 },
+    scanLatest: { color: accent, fontSize: 9.5, fontWeight: '800', letterSpacing: 1, fontFamily: 'JetBrainsMono' },
+    scanBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: accent, borderRadius: 13, paddingVertical: 13, marginTop: 8 },
+    scanBtnText: { color: DR.inkOnAccent, fontSize: 15, fontWeight: '800' },
+    scanCancel: { paddingVertical: 12, alignItems: 'center', marginTop: 2 },
+    scanCancelText: { color: DR.text2, fontSize: 14, fontWeight: '700' },
+    scanOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000, elevation: 20 },
     // Exakt som pilot-manned add-flight: Georgia, 22/700, letterSpacing -0.6, capitalize.
     droneHeaderDate: { fontFamily: 'Georgia', fontSize: 22, fontWeight: '700', color: DR.text, letterSpacing: -0.6, textTransform: 'capitalize' },
     section: {

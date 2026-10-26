@@ -10,7 +10,8 @@ import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { FlightVideo } from '../../components/FlightVideo';
 import { getAssetDisplay } from '../../services/photoSync';
-import { getDroneFlightById, deleteDroneFlight, droneModeHours, droneAltFt, type DroneFlight } from '../../db/drones';
+import { getDroneFlightById, deleteDroneFlight, droneModeHours, formatDroneAlt, type DroneFlight } from '../../db/drones';
+import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { categoryLabel } from '../../constants/droneCategories';
 import { DRONE_ROLE_LABEL, droneRoleOf, droneCrewOf, isDroneRole } from '../../constants/droneRoles';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
@@ -25,6 +26,7 @@ export default function DroneFlightDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const accent = useDroneAccentStore((s) => s.color);
+  const altUnit = useAltitudeUnitStore((s) => s.unit); // m/ft (Settings → General)
   const { formatTime } = useTimeFormat();
   const { loadFlights, loadStats } = useDroneFlightStore();
   const [flight, setFlight] = useState<DroneFlight | null>(null);
@@ -108,7 +110,7 @@ export default function DroneFlightDetail() {
     ]},
     { title: 'Conditions', rows: [
       ['Night flight', f.is_night ? 'Yes' : DASH],
-      ['Max altitude', f.max_altitude_m > 0 ? `${droneAltFt(f.max_altitude_m).toLocaleString('en-US')} ft` : DASH],
+      ['Max altitude', f.max_altitude_m > 0 ? formatDroneAlt(f.max_altitude_m, altUnit) : DASH],
       ['Wind', f.wind_ms > 0 ? `${f.wind_ms} m/s` : DASH],
     ]},
     { title: 'Takeoff & landing', rows: [

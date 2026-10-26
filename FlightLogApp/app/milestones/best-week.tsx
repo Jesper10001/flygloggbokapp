@@ -9,7 +9,7 @@ import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails
 import { monthShort } from '../../utils/dateLabels';
 import { BWDayBars } from '../../components/milestones/BWDayBars';
 import {
-  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
+  MilestoneHeader, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
 } from '../../components/milestones/MilestoneUI';
 
 function dayHeader(iso: string, dow: string, language: string): string {
@@ -59,7 +59,7 @@ export default function BestWeekScreen() {
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <MilestoneHeader
-        title={sub ? t('ms.bw_top5') : t('ms.best_week')}
+        title={sub ? t('ms.bw_rank_title').replace('{n}', String(rank)) : t('ms.best_week')}
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -68,7 +68,6 @@ export default function BestWeekScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={s.hero}>
-          <Eyebrow accent={accent}>{sub ? t('ms.bw_eyebrow_rank').replace('{n}', String(rank)) : t('ms.bw_eyebrow')}</Eyebrow>
           <View style={s.heroRow}>
             <Text style={s.heroNum}>{d.hoursLabel || hhmm(weekHours)}</Text>
             <Text style={[s.heroUnit, { color: accent }]}>{t('ms.hrs')}</Text>

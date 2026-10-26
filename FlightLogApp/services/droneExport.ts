@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { getDroneFlights, droneModeHours, droneModeLabel, droneAltFt, type DroneFlight } from '../db/drones';
+import { getDroneFlights, droneModeHours, droneModeLabel, droneAltIn, type DroneFlight } from '../db/drones';
+import { useAltitudeUnitStore } from '../store/altitudeUnitStore';
 import { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } from '../constants/droneRoles';
 
 function toHHMM(decimal: number): string {
@@ -37,6 +38,7 @@ const timeCol = (header: string, hours: (f: DroneFlight) => number, optional = t
 
 export async function exportDroneToCSV(): Promise<void> {
   const flights = await getDroneFlights(99999);
+  const altUnit = useAltitudeUnitStore.getState().unit; // höjd i användarens enhet (importen läser båda)
 
   const hasText = (s: string | null | undefined) => !!s && s.trim() !== '';
 
@@ -61,7 +63,7 @@ export async function exportDroneToCSV(): Promise<void> {
     timeCol('Dual time', f => f.dual || 0),
     timeCol('Instructor time', f => f.instructor || 0),
     ...DRONE_OTHER_ROLES.map((r) => timeCol(`${DRONE_ROLE_LABEL[r]} time`, (f) => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
-    { header: 'Max altitude (ft)', value: f => droneAltFt(f.max_altitude_m) || '', optional: true, hasData: f => droneAltFt(f.max_altitude_m) > 0 },
+    { header: `Max altitude (${altUnit})`, value: f => droneAltIn(f.max_altitude_m, altUnit) || '', optional: true, hasData: f => droneAltIn(f.max_altitude_m, altUnit) > 0 },
     { header: 'Night', value: f => f.is_night ? 'Yes' : 'No', optional: true, hasData: f => f.is_night === 1 },
     // Besättning med roll (Second pilot + fler, inkl. observatörer) — ersätter den gamla Observer-kolumnen.
     { header: 'Crew', value: f => droneCrewExportText(f), optional: true, hasData: f => droneCrewExportText(f) !== '' },

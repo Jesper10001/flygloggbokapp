@@ -1,4 +1,5 @@
 // Blades API Proxy + Telemetri + Stats-dashboard
+import { callWithModelFallback, refreshModelRouting } from './modelFallback';
 
 interface Env {
   ANTHROPIC_API_KEY: string;
@@ -36,7 +37,7 @@ const TOKEN_LIMITS: Record<string, number> = {
 const NEWS_CACHE_KEY = 'newscache:v2';
 const NEWS_CACHE_TTL_SEC = 3600;           // 1 timme delad cache
 const NEWS_WINDOW_DAYS = 30;               // bara incidenter från senaste N dygnen ("Latest month")
-const NEWS_MODEL = 'claude-haiku-4-5';
+const NEWS_MODEL = 'claude-haiku-5-5'; // 10× billigare än Haiku 4.5; fasas den ut tar modelFallback nästa Haiku
 // Etablerade flyg-nyhetskällor med RSS/Atom-flöden (syndikering). Trasiga flöden hoppas tyst över.
 // Lägg bara till källor vars flöden är avsedda för vidarespridning; undvik sajter vars villkor förbjuder det.
 const NEWS_FEEDS: { url: string; source: string }[] = [
@@ -75,6 +76,22 @@ function currentMonth(): string {
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// Modell-ID:n som app-byggen (och proxyns egna anrop) begär → kontrolleras dagligen av cron:en (modelFallback.ts).
+// Lägg till nya ID:n här när en app-build börjar begära dem. (Gamla byggens 4.6/4.5 pekas om i modelFallback.)
+const APP_MODELS = ['claude-sonnet-4-6', 'claude-sonnet-5-5', 'claude-opus-4-8', 'claude-haiku-4-5', 'claude-haiku-5-5'];
+
+// USD per miljon tokens (indata, utdata) enligt Anthropics prislista 2026-10-26 → telemetrins kostnad följer
+// modellen som faktiskt svarade. Okänd modell → Sonnet 4.6-pris.
+const MODEL_PRICES: [RegExp, number, number][] = [
+  [/^claude-haiku-5-5/, 0.1, 0.5], [/^claude-haiku-4-5/, 1, 5],
+  [/^claude-sonnet-5/, 2, 10], [/^claude-sonnet-4/, 3, 15],
+  [/^claude-opus-5-5/, 4, 20], [/^claude-opus-[45]/, 5, 25],
+  [/^claude-fable/, 10, 50],
+];
+function costUsd(model: string, inTok: number, outTok: number): number {
+  const [, pin, pout] = MODEL_PRICES.find(([re]) => re.test(model)) ?? [null, 3, 15];
+  return Math.round(((inTok * pin + outTok * pout) / 1e6) * 10000) / 10000;
+}
 
 // Native-appen (iOS) skickar ingen Origin och bryr sig inte om CORS → den påverkas inte.
 // Genom att bara tillåta website-origin blockeras webbläsar-anrop från andra sajter (t.ex. en
@@ -689,23 +706,19 @@ Rules: most recent first; up to 15 items; "icao" is the real 4-letter ICAO when 
 Items:
 ${JSON.stringify(items)}`;
 
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: NEWS_MODEL,
-      max_tokens: 2000,
-      system: [{ type: 'text', text: system }],
-      messages: [{ role: 'user', content: user }],
-    }),
-  });
+  const { resp, used } = await callWithModelFallback(JSON.stringify({
+    model: NEWS_MODEL,
+    max_tokens: 2000,
+    system: [{ type: 'text', text: system }],
+    messages: [{ role: 'user', content: user }],
+  }), { apiKey: env.ANTHROPIC_API_KEY, kv: env.QUOTA_KV, log: (m) => console.log(m) });
   if (!resp.ok) throw new Error(`news_haiku_${resp.status}`);
   const data = await resp.json() as any;
   const inTok = data.usage?.input_tokens ?? 0, outTok = data.usage?.output_tokens ?? 0;
   if (env.TELEMETRY) {
     env.TELEMETRY.writeDataPoint({
-      blobs: [NEWS_MODEL, 'news_cron', '??', resp.status === 200 ? 'ok' : `error_${resp.status}`],
-      doubles: [0, inTok, outTok, Math.round((inTok * 0.3 + outTok * 1.5) / 1000) / 100],
+      blobs: [used, 'news_cron', '??', resp.status === 200 ? 'ok' : `error_${resp.status}`],
+      doubles: [0, inTok, outTok, costUsd(used, inTok, outTok)],
       indexes: ['news_cron'],
     });
   }
@@ -794,6 +807,15 @@ function imageryProviders(rows: AttrRow[], boxes: number[][]): string[] {
 // ── Huvudlogik ─────────────────────────────────────────────────────────────
 
 export default {
+  // Daglig modellkontroll (cron i wrangler.toml): pekar om modeller som försvunnit hos Anthropic i förväg.
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (!env.ANTHROPIC_API_KEY) return;
+    ctx.waitUntil(refreshModelRouting(
+      { apiKey: env.ANTHROPIC_API_KEY, kv: env.QUOTA_KV, log: (m) => console.log(m) },
+      [...APP_MODELS, NEWS_MODEL],
+    ).then((routing) => console.log('[model-check]', JSON.stringify(routing))).catch((e) => console.log('[model-check] failed', e?.message)));
+  },
+
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin');
@@ -1080,11 +1102,17 @@ export default {
       }
 
       const t0 = Date.now();
-      const resp = await fetch(ANTHROPIC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body,
-      });
+      // Modellfallback: försvunnen modell → nästa i familjen; nyare modeller utan temperature (modelFallback.ts).
+      const fb = await callWithModelFallback(body, { apiKey: env.ANTHROPIC_API_KEY, kv: env.QUOTA_KV, log: (m) => console.log(m) });
+      const resp = fb.resp;
+      if (fb.used) model = fb.used; // telemetrin visar modellen som faktiskt svarade
+      if (fb.fellBack && env.TELEMETRY) {
+        env.TELEMETRY.writeDataPoint({
+          blobs: [`${fb.requested}→${fb.used}`, deviceHash, country, 'model_fallback'],
+          doubles: [0, 0, 0, 0],
+          indexes: [deviceHash],
+        });
+      }
 
       // ── SSE-passthrough för streamande anrop ────────────────────────────────
       // Appens live-tokenräknare kräver att deltan når klienten löpande — buffra
@@ -1102,7 +1130,7 @@ export default {
             const mOutAll = [...text.matchAll(/"output_tokens":\s*(\d+)/g)];
             const inTok = mIn ? parseInt(mIn[1], 10) : 0;
             const outTok = mOutAll.length ? parseInt(mOutAll[mOutAll.length - 1][1], 10) : 0;
-            const cost = Math.round((inTok * 0.3 + outTok * 1.5) / 1000) / 100;
+            const cost = costUsd(model, inTok, outTok);
             if (env.TELEMETRY) {
               env.TELEMETRY.writeDataPoint({
                 blobs: [model, deviceHash, country, 'ok'],
@@ -1127,7 +1155,7 @@ export default {
       const ms = Date.now() - t0;
       let inTok = 0, outTok = 0;
       try { const j = JSON.parse(respBody); inTok = j.usage?.input_tokens ?? 0; outTok = j.usage?.output_tokens ?? 0; } catch {}
-      const cost = Math.round((inTok * 0.3 + outTok * 1.5) / 1000) / 100;
+      const cost = costUsd(model, inTok, outTok);
 
       if (env.TELEMETRY) {
         env.TELEMETRY.writeDataPoint({

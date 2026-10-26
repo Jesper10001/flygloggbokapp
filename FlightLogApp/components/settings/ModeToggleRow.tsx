@@ -5,7 +5,6 @@
 // visa den gröna raden som lugnar användaren att datan i läget man lämnar finns kvar.
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Animated, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { DR } from '../../constants/droneTheme';
@@ -70,19 +69,12 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
           <Text accessibilityRole="header" style={{ fontSize: 19, fontWeight: '700', color: '#FFFFFF' }}>
             {toDrone ? 'Switch to Drone logbook?' : 'Switch to Pilot logbook?'}
           </Text>
+          {/* Andra meningen i grönt: datan i läget man lämnar ligger kvar orörd (egna tabeller). */}
           <Text style={{ fontSize: 16, lineHeight: 22, color: 'rgba(235,241,248,0.72)' }}>
             {toDrone ? 'This switches the whole app to your Drone logbook.' : 'This switches the whole app to your Pilot logbook.'}
+            {'\n'}
+            <Text style={{ color: SAFE_GREEN }}>{toDrone ? 'All data in Pilot mode is saved.' : 'All data in Drone mode is saved.'}</Text>
           </Text>
-          {/* Grön lugnande rad: datan i läget man lämnar ligger kvar orörd (egna tabeller) — man kan byta tillbaka. */}
-          <View style={{
-            flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12,
-            backgroundColor: SAFE_GREEN + '1A', borderWidth: 1, borderColor: SAFE_GREEN + '45',
-          }}>
-            <Ionicons name="shield-checkmark" size={17} color={SAFE_GREEN} />
-            <Text style={{ flex: 1, fontSize: 14.5, lineHeight: 19, fontWeight: '600', color: SAFE_GREEN }}>
-              {toDrone ? 'All data in Pilot mode is saved.' : 'All data in Drone mode is saved.'}
-            </Text>
-          </View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
             {([['Cancel', close], ['Switch', confirm]] as const).map(([label, onPress]) => (
               <Pressable key={label} onPress={onPress} accessibilityRole="button"

@@ -16,6 +16,13 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 - [ ] **Testa senaste TestFlight-bygget** – se listan längst ner.
 - [ ] **Nytt bygge** så att den inbäddade jordgloben följer med. Testa sedan globen i flygplansläge.
+- [ ] **Deploya proxyn: modellbyte + automatisk uppgradering:** `cd proxy && npx wrangler deploy`
+  - Alla installerade appar byter direkt: Sonnet 4.6 → 5.5 för skanning och import, Haiku 4.5 → 5.5 för nyheterna. Det är billigare per token med samma resultat i testerna. Användarnas coins räcker 13–30 % kortare; potterna är oförändrade, enligt beslut.
+  - Opus 4.8 (loggboks-OCR) behålls tills den är testad med en riktig loggbokssida.
+  - Fasas en modell ut väljer proxyn automatiskt den senaste modellen i samma familj ur Anthropics modellista, även framtida modeller som Haiku 6. En daglig kontroll 04:17 UTC pekar om i förväg.
+  - Nödspak utan deploy (behövs normalt inte): `npx wrangler kv key put --binding=QUOTA_KV model-map '{"<gammalt-id>":"<nytt-id>"}' --remote`
+    - Ångra med `npx wrangler kv key delete --binding=QUOTA_KV model-map --remote`.
+  - Nästa app-build begär Sonnet 5.5 direkt och skickar ingen temperatur till 5.x-modeller.
 - [ ] **Ladda upp sajten** (integritetspolicyn nämner inte längre unpkg):
   `npx wrangler pages deploy website --project-name blades-website`
 - [ ] **Cloudflare: stäng av Bot Fight Mode** under Security → Bots för blades-app.com.
@@ -50,7 +57,8 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 - [ ] **Jordgloben i flygplansläge** (pilot och drönare). Den ska visas med texturer utan nät.
 - [ ] **Best week / Longest XC – placering #2–5 öppnas:**
-  - Tryck på #2–5 i topp 5-listan längst ner. Samma vy ska visas för den veckan eller flygningen, med "Top 5 · Week #N" överst.
+  - Etiketten "Personal best · …" överst ska vara borta på båda sidorna.
+  - Tryck på #2–5 i topp 5-listan längst ner. Samma vy ska visas för den veckan eller flygningen, med rubriken "#N best week" respektive "#N longest XC".
   - Byt placering därifrån. Innehållet ska bytas på plats och sidan börja om från toppen.
   - Tryck på #1, tillbaka-pilen eller svep nedåt. Du ska komma tillbaka till bästa veckan respektive längsta XC.
   - "BEST" ska bara stå vid #1.
@@ -73,6 +81,10 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
   - **Loggbokslistan och dashboardkortet** ska visa "VLOS+BVLOS" respektive "VLOS/BVLOS" för en flygning med delad tid.
   - **CSV-export (drönare):** kolumnerna VLOS, EVLOS och BVLOS ska ha exakt tid per flygning, och totalraden ska summera. Importera sedan exporten igen. Uppdelningen ska följa med.
   - **Rubrikerna** "Pilot function" och "Operation" ska ha samma färg som Drone och Registration.
+- [ ] **Drönarens Log flight – Mission:** fältet ska vara tomt när man öppnar en ny flygning, med bara platshållaren "Type of mission".
+  - Det ska vara tomt även när det finns tidigare flygningar.
+  - Dropdownen ska fortfarande fylla i ett val.
+  - "Log next in session" ska behålla den mission man valt.
 - [ ] **Drönarens Log flight – roller och besättning:**
   - **OTHER** under DUAL/INSTRUCTOR öppnar en lista: RPIC, Payload operator, Mission commander, Observer, Safety pilot, Examiner.
     - Välj en roll. Knappen ska visa rollens namn, t.ex. "PAYLOAD OPERATOR".
@@ -97,15 +109,47 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
     - Namnet ska ligga under Second pilot som OBS.
     - Raden "Observer: …" ska vara borta ur Remarks-rutan.
     - Spara två gånger. Ingenting ska dubbleras.
+- [ ] **Global map → Sverige → Region:**
+  - Alla 21 län ska visas med officiella namn, t.ex. "Stockholms län", "Västra Götalands län" och "Örebro län".
+  - Västra Götalands län ska ha egen gräns och ungefär 29 flygplatser.
+  - Hallands län ska ha 4 flygplatser, inte 21.
 - [ ] **Settings → Logbook PILOT/DRONE – bekräftelsedialogen:**
   - Den ska se ut som förut, med titel, text och knapparna Cancel/Switch.
-  - Den ska ha en grön rad med sköld: "All data in Pilot mode is saved." När man byter tillbaka ska det stå "All data in Drone mode is saved."
+  - Under texten ska det stå "All data in Pilot mode is saved." i grönt, som vanlig text utan ikon eller ruta. När man byter tillbaka ska det stå "All data in Drone mode is saved."
   - Cancel stänger utan byte. Switch tonar ut dialogen och byter läge, och knoppen hamnar på rätt sida.
-- [ ] **Drönarens Max alt i fot:**
-  - Stapeln visar ft, 0–24 000 ft. Dra ger steg om 200 ft, och −/+ ger steg om 10 ft.
-  - Detaljvyn visar höjden i ft.
-  - Över 394 ft (120 m) i A1–A3 ska varningen visa ft.
-  - En äldre flygning sparad i meter ska visas omräknad till fot, t.ex. 120 m → 394 ft.
+- [ ] **Drönarens höjdenhet (Settings → General → Altitude m/ft, under Time format):**
+  - Standard är ft. Stapeln går 0–24 000 ft, dra ger steg om 200 och −/+ steg om 10.
+  - Byt till m. Stapeln ska gå 0–7 300 m, dra ge steg om 50 och −/+ steg om 5. Samma flygning ska visas omräknad, t.ex. 394 ft ⇄ 120 m.
+  - Detaljvyn och 120 m-varningen i A1–A3 ska följa vald enhet.
+  - CSV-exporten ska ha rubriken "Max altitude (m)" eller "(ft)" efter inställningen. En återimport ska ge samma höjd.
+- [ ] **Pilotens ACARS/Instrument scan** (scan-knappen på dashboarden eller scan-ikonen i Log flights header):
+  - Väljaren ska heta "ACARS/Instrument scan".
+  - Fota en ACARS-/AOC-sida FLT LOG. Granskningskortet ska visa:
+    - datum (09AUG → årets 9 augusti; /23 → den 23:e denna månad)
+    - From/To ur ORIG-DEST
+    - Off blocks = OUT och On blocks = IN, utan sekunder
+    - Landings 1
+    - Total time med Block och Flight att välja mellan
+  - Tre rader ska gå till remarks:
+    - "Flight no." är förbockad.
+    - "Takeoff / landing" och "Fuel" är valbara.
+  - Apply ska ge rätt blocktid, t.ex. 05:02 → 07:48 = 2:46. Remarks ska få t.ex. "AFR66SQ", "Takeoff 05:12 · Landing 07:37 UTC" och "Fuel 7.8 → 2.1 t, used 5.7 t, refuel 5.26 t".
+  - En sida där IN saknas (flygningen pågår) ska bara ge Off blocks och flygtid.
+  - Ett gammalt datum utan år ska ge varningen "Year or month not shown — check the date".
+  - Instrumentbilder, t.ex. AW109-exemplet, ska fungera som förut.
+- [ ] **Drönarens Instrument scan:**
+  - Starta från scan-knappen på dashboarden, scan-ikonen i Log flights header eller Settings → Import → Scan controller log.
+  - Välj en DJI-skärmdump, t.ex. Flight Data Center. "Reading flights…" ska visas i cirka 10 s.
+  - Datumväljaren ska visa datumen, senaste först och förvalt med märkningen LATEST.
+    - Varje datum ska visa antal flygningar, total tid, maxhöjd i vald enhet och plats om den syns.
+    - Datum som redan finns i loggboken ska ha en gul varning.
+  - Välj ett datum och tryck på Log. Datum, flygtider (1st, 2nd, 3rd flight…), dagens högsta höjd och plats ska fyllas i.
+    - Rader med "Map Loading" ska inte ge någon plats.
+    - En plats som Lüneburg ska få koordinater och synas på drönarglobens karta.
+  - Tryck på Save. "Log more flights from the image?" ska visas med näst senaste datum förvalt. Upprepa.
+  - Done ska avbryta och gå tillbaka. När sista dagen är loggad ska toasten "All flights from the image are logged" visas.
+  - Testa även en lista med dag/månad-datum (16/03/2017). 04/03 ska bli 4 mars, inte 3 april.
+  - Utan Blade-coins ska du få Premium-erbjudandet, eller beskedet "Out of Blade-coins" om du redan är Premium.
 - [ ] **Drönarens CSV-export (båda knapparna, i Settings och i drönarinställningarna):**
   - "Pilot function" och en tidskolumn per roll ska finnas: PIC, SIC/Co-pilot, Dual, Instructor, RPIC, Payload operator, Mission commander, Observer, Safety pilot och Examiner.
     - En kolumn syns bara om någon flygning har tid där.

@@ -9,7 +9,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useLongestXcFull, type LXTop5Row } from '../../hooks/useMilestoneDetails';
 import { RouteLeafletModal, RouteMapPreview } from '../../components/milestones/RouteLeafletModal';
 import {
-  MilestoneHeader, Eyebrow, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
+  MilestoneHeader, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
 } from '../../components/milestones/MilestoneUI';
 
 export default function LongestXcScreen() {
@@ -65,7 +65,7 @@ export default function LongestXcScreen() {
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       <MilestoneHeader
-        title={sub ? t('ms.lx_top5') : t('ms.longest_xc')}
+        title={sub ? t('ms.lx_rank_title').replace('{n}', String(rank)) : t('ms.longest_xc')}
         accent={accent}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -74,7 +74,6 @@ export default function LongestXcScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={s.hero}>
-          <Eyebrow accent={accent}>{sub ? t('ms.lx_eyebrow_rank').replace('{n}', String(rank)) : t('ms.lx_eyebrow')}</Eyebrow>
           <View style={s.heroRow}>
             <Text style={s.heroNum}>{(d.distanceNm || 0).toLocaleString('en-US')}</Text>
             <Text style={[s.heroUnit, { color: accent }]}>{t('ms.nm')}</Text>

@@ -11,6 +11,11 @@
 export const REGION_OVERRIDES: Record<string, string> = {
   FANX: 'ZA-WC', // Diepkloof Airfield — ligger i Kapstaden (Western Cape), fel-taggat Eastern Cape
   FAWV: 'ZA-MP', // White River Mercy Air — White River ligger i Mpumalanga, fel-taggat Free State
+  // Sverige — verifierat 2026-10-26 mot geoBoundaries SWE ADM1 i full upplösning (seedens länskod fel).
+  'SE-0004': 'SE-U', // Norberg — Västmanlands län, fel-taggat Dalarnas län
+  'SE-0009': 'SE-C', // Flygfältet Långtora (Enköping) — Uppsala län, fel-taggat Västmanlands län
+  'SE-0022': 'SE-C', // Vassunda (Knivsta) — Uppsala län, fel-taggat Västmanlands län
+  'SE-0051': 'SE-S', // Degerfors Grenlanda — ligger på Värmlandssidan av gränsen, fel-taggat Örebro län
 };
 
 // ICAO som ska hållas UTANFÖR hull-polygonen (men behålla korrekt drill/pin). Antimeridian-kluster

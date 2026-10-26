@@ -36,15 +36,6 @@ export function MilestoneHeader({
   );
 }
 
-export function Eyebrow({ accent, children }: { accent: string; children: React.ReactNode }) {
-  return (
-    <View style={[u.eyebrow, { backgroundColor: accent + '1F', borderColor: accent + '55' }]}>
-      <View style={[u.eyebrowDot, { backgroundColor: accent }]} />
-      <Text style={[u.eyebrowText, { color: accent }]}>{children}</Text>
-    </View>
-  );
-}
-
 export function SectionHead({ eyebrow, title, accent }: { eyebrow: string; title: string; accent: string }) {
   return (
     <View style={u.sectionHead}>
@@ -158,12 +149,6 @@ const h = StyleSheet.create({
 });
 
 const u = StyleSheet.create({
-  eyebrow: {
-    alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
-  },
-  eyebrowDot: { width: 5, height: 5, borderRadius: 2.5 },
-  eyebrowText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
 
   sectionHead: { gap: 4 },
   sectionEyebrow: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8 },

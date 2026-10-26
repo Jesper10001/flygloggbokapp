@@ -275,7 +275,7 @@ export default function DroneDashboardScreen() {
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
       <View style={s.logRow}>
         <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
-          onPress={() => Alert.alert('Instrument scan', 'Coming soon — scan your controller/app screen to auto-fill a flight.')}>
+          onPress={() => router.push('/drone-flight/add?scan=1')}>
           <Ionicons name="scan-outline" size={22} color={accent} />
         </TouchableOpacity>
         <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>

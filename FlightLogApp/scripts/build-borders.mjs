@@ -58,6 +58,9 @@ const GB_NAT = { England: 'GB-ENG', Scotland: 'GB-SCT', Wales: 'GB-WLS', 'Northe
 const FIX = {
   'DE-BB': 'DE-BR', 'ZA-LP': 'ZA-NP',
   'ES-ME': 'ES-ML', 'ES-MU': 'ES-MC', 'ES-NA': 'ES-NC', 'ES-LO': 'ES-RI', 'ES-PM': 'ES-IB',
+  // Västra Götaland: seeden (airportmap.de) kodar länet SE-Q, NE/ISO har SE-O. Utan detta byggdes ingen
+  // polygon för länet och dess flygplatser hamnade i grannlänen (Halland, Jönköping, Värmland, Örebro).
+  'SE-O': 'SE-Q',
 };
 
 // NE-feature → seedens regionkod (eller '' om ej relevant).
@@ -79,6 +82,7 @@ function deriveName(p, code) {
   const cc = code.split('-')[0];
   if (p.admin === 'United Kingdom') return p.geonunit || p.name || '';
   if (cc === 'IT' || cc === 'FR' || cc === 'ES') return p.region || p.name || '';
+  if (cc === 'SE') return p.name_sv || p.name || ''; // officiellt länsnamn ("Örebro län"; NE:s name saknar ö)
   return p.name || '';
 }
 

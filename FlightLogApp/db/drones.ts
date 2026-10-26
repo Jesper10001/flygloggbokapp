@@ -428,10 +428,17 @@ export interface DroneFlight {
 }
 
 // Max höjd: lagras i meter (max_altitude_m, 2 decimaler så att fot går tur-retur exakt: 400 ft ⇄ 121.92 m),
-// men visas och matas in i FOT (Log flight, detaljvy, CSV-export).
+// men visas och matas in i användarens enhet (Settings → General: ft eller m; store/altitudeUnitStore).
 export const M_PER_FT = 0.3048;
 export const droneAltFt = (m: number | null | undefined): number => (m && m > 0 ? Math.round(m / M_PER_FT) : 0);
 export const ftToDroneAltM = (ft: number): number => Math.round(ft * M_PER_FT * 100) / 100;
+/** Lagrad höjd (meter) → heltal i vald enhet. */
+export const droneAltIn = (m: number | null | undefined, unit: 'ft' | 'm'): number =>
+  (unit === 'ft' ? droneAltFt(m) : m && m > 0 ? Math.round(m) : 0);
+/** Värde i vald enhet → meter för lagring. */
+export const droneAltToM = (v: number, unit: 'ft' | 'm'): number => (unit === 'ft' ? ftToDroneAltM(v) : Math.round(v * 100) / 100);
+/** "1,640 ft" / "500 m". */
+export const formatDroneAlt = (m: number | null | undefined, unit: 'ft' | 'm'): string => `${droneAltIn(m, unit).toLocaleString('en-US')} ${unit}`;
 const parseAltM = (v: string | undefined): number => Math.round((parseFloat(v ?? '') || 0) * 100) / 100;
 
 /** Tid per siktläge för en flygning. Finns en uppdelning (h_vlos/h_evlos/h_bvlos — summeringsrader och
