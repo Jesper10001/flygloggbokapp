@@ -85,7 +85,7 @@ export default function PremiumScreen() {
     if (purchasing) return;
     if (isPremium) { useToastStore.getState().show('Premium is already active'); return; }
     if (!pkg) {
-      Alert.alert('Not available yet', 'In-app purchases aren’t available on this build yet. Please try again after the next update.');
+      Alert.alert('Purchases unavailable', 'We couldn’t load the subscription from the App Store right now. Check your connection and try again.');
       return;
     }
     setPurchasing(true);

@@ -260,7 +260,7 @@ export async function exportToPDF(): Promise<void> {
 
   const h = (n: number) => toHHMM(n);
   const dec = (n: number) => n.toFixed(1);
-  const exportDate = new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
+  const exportDate = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
 
   // Certificates HTML
   const activeCerts = certs.filter((c: any) => {

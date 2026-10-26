@@ -4,7 +4,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { wipeAllUserData } from '../db/appData';
 import { deleteBackup, setEnabled as setICloudEnabled } from './icloudSync';
 
-const MEDIA_DIRS = ['flight_photos', 'flight_videos', 'fleet-cutouts'];
+// Alla mappar med användardata i appens dokumentkatalog: pilot- och drönarmedia, urklippta flygplansbilder och
+// iCloud-säkerhetskopiorna (pre-restore-kopior av databasen) — "Delete everything" ska verkligen radera allt.
+const MEDIA_DIRS = ['flight_photos', 'flight_videos', 'drone_photos', 'drone_videos', 'fleet-cutouts', 'icloud-safety', 'icloud-tmp'];
 
 export async function wipeEverything(): Promise<void> {
   // 1) Ta bort iCloud-backupen (om den finns) + stäng av synk, så raderingen även gäller molnet.

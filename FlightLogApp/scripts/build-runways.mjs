@@ -5,10 +5,12 @@
 // Format (kompakt tuple per bana):
 //   { "ESSA": [ [leIdent, heIdent, leLat, leLon, heLat, heLon, widthM, lengthM], ... ], ... }
 // Koordinater 5 decimaler (~1 m). Mått i meter (avrundat). Stängda banor + banor utan
-// tröskelkoordinater hoppas över.
+// tröskelkoordinater hoppas över. Nyckeln = flygplatsens nyckel i vår seed (oa-keys.mjs — kör
+// build-airports.mjs först), annars OA-ident. `--refresh` hämtar om källfilen (annars cachen).
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { seedKeyMapper } from './oa-keys.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '..', 'assets', 'runway-geo.json');
@@ -29,7 +31,7 @@ function parseCsv(line) {
 const num = (s) => { const n = parseFloat(s); return Number.isFinite(n) ? n : null; };
 
 async function getCsv() {
-  if (fs.existsSync(CACHE)) { console.log('Använder cache:', CACHE); return fs.readFileSync(CACHE, 'utf8'); }
+  if (!process.argv.includes('--refresh') && fs.existsSync(CACHE)) { console.log('Använder cache:', CACHE); return fs.readFileSync(CACHE, 'utf8'); }
   console.log('Hämtar', URL, '…');
   const res = await fetch(URL);
   if (!res.ok) throw new Error(`Hämtning misslyckades: HTTP ${res.status}`);
@@ -42,11 +44,13 @@ const raw = await getCsv();
 const lines = raw.split(/\r?\n/).filter(Boolean);
 const rows = lines.slice(1).map(parseCsv);
 
+const seedKey = seedKeyMapper();
 const data = {};
 let total = 0, kept = 0;
 for (const r of rows) {
   total++;
-  const ident = (r[2] || '').trim().toUpperCase();
+  const oaIdent = (r[2] || '').trim().toUpperCase();
+  const ident = seedKey(oaIdent) ?? oaIdent;
   const lenFt = num(r[3]), widFt = num(r[4]), closed = r[7] === '1';
   const leId = r[8], leLat = num(r[9]), leLon = num(r[10]);
   const heId = r[14], heLat = num(r[15]), heLon = num(r[16]);

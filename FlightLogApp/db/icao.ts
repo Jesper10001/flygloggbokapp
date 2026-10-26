@@ -56,7 +56,9 @@ export function foldDiacritics(s: string): string {
   return out;
 }
 
-const SEED_VERSION = '2026-10-08-countryfix'; // om-seed: tvingar ny import av rättade landskoder (ESCF=SE m.fl.) — tidigare version bumpades ej när .dat-filen fixades, så gammal data (ESCF=US) låg kvar
+// Om-seed vid ändrad .dat (tidigare: 2026-10-08-countryfix). 2026-10-26: färsk data före lansering —
+// OurAirports-överlägg (nya ICAO-koder som gps-alias, t.ex. UTTT→UZTT, nya flygplatser, stängningar, IATA).
+const SEED_VERSION = '2026-10-26b-oa-refresh';
 
 // Kanariefåglar: kända flygplatser vars land ALDRIG ändras. Om en seedad rad avviker (eller saknas)
 // är enhetens DB inaktuell (t.ex. ESCF felaktigt 'US' från ett äldre dataset) → tvinga om-seed även
@@ -161,24 +163,25 @@ export async function searchAirports(query: string, nameMinLen = 5): Promise<Ica
   const like = `%${upper}%`, pre = `${upper}%`;
   const foldLike = `%${foldDiacritics(query)}%`; // diakrit-okänslig namnträff ("lulea"↔"Luleå")
   // Koderna matchas som PREFIX (det man skriver är början av ICAO/IATA-koden), namn som delsträng.
-  const clauses = ['UPPER(icao) LIKE ?', 'UPPER(iata) LIKE ?'];
-  const whereParams: string[] = [pre, pre];
+  // gps = alternativ kod, bl.a. nya ICAO-koder efter kodbyten (Tashkent UTTT → UZTT).
+  const clauses = ['UPPER(icao) LIKE ?', 'UPPER(iata) LIKE ?', 'UPPER(gps) LIKE ?'];
+  const whereParams: string[] = [pre, pre, pre];
   // Namn matchas både rått (accenttecken man själv skrev) OCH normaliserat (name_norm, seedade rader).
   if (upper.length >= nameMinLen) { clauses.push(`(UPPER(name) LIKE ? OR (name_norm != '' AND name_norm LIKE ?))`); whereParams.push(like, foldLike); }
   return await db.getAllAsync<IcaoAirport>(
     `SELECT * FROM icao_airports
      WHERE ${clauses.join(' OR ')}
      ORDER BY
-       CASE WHEN UPPER(icao) = ? THEN 0
+       CASE WHEN UPPER(icao) = ? OR UPPER(gps) = ? THEN 0
             WHEN UPPER(iata) = ? THEN 1
-            WHEN UPPER(icao) LIKE ? THEN 2
+            WHEN UPPER(icao) LIKE ? OR UPPER(gps) LIKE ? THEN 2
             WHEN UPPER(iata) LIKE ? THEN 3
             ELSE 4 END,
        COALESCE(temporary, 0) ASC,
        custom DESC,
        name ASC
      LIMIT 20`,
-    [...whereParams, upper, upper, pre, pre]
+    [...whereParams, upper, upper, upper, pre, pre, pre]
   );
 }
 

@@ -133,9 +133,18 @@ export default function RootLayout() {
         // Servern (proxyns KV) är sanningskällan → revocera en testare genom att ta bort KV-nyckeln.
         const promoCached = (await getSetting('promo_premium').catch(() => null)) === '1';
         if (promoCached) useFlightStore.getState().setIsPremium(true);
-        checkPromoEntitlement().then(async (prem) => {
-          if (prem === true) { useFlightStore.getState().setIsPremium(true); await setSetting('promo_premium', '1').catch(() => {}); }
-          else if (prem === false && promoCached) { useFlightStore.getState().setIsPremium(false); await setSetting('promo_premium', '0').catch(() => {}); }
+        // Bara en riktig promokod cachas som promo_premium — en RevenueCat-prenumeration får inte ligga kvar som
+        // "promo" offline efter att den gått ut (RevenueCat-SDK:n sköter prenumerationen). Äldre proxy utan
+        // promo-fält → som förut.
+        checkPromoEntitlement().then(async (res) => {
+          if (!res) return;
+          const promo = res.promo ?? res.premium;
+          if (res.premium) useFlightStore.getState().setIsPremium(true);
+          if (promo) await setSetting('promo_premium', '1').catch(() => {});
+          else if (promoCached) {
+            await setSetting('promo_premium', '0').catch(() => {});
+            if (!res.premium) useFlightStore.getState().setIsPremium(false);
+          }
         }).catch(() => {});
         const { isPremium } = useFlightStore.getState();
         await seedIcaoAirports(isPremium);
@@ -148,7 +157,7 @@ export default function RootLayout() {
         await usePilotTypeStore.getState().load();
         await useProfileStore.getState().load();
         await cleanupDittoEntries();
-        logLogbookDiagnostics(); // TILLFÄLLIG felsökning → loggbokstotaler till Metro-terminalen vid varje start
+        if (__DEV__) logLogbookDiagnostics(); // felsökning: loggbokstotaler till Metro-terminalen (bara i dev)
         useTokenQuotaStore.getState().load(); // fire-and-forget — får inte blockera app-starten på nätverk
         // RevenueCat (IAP): konfigurera + synka premium-läget. Fire-and-forget, tyst om native-modulen
         // eller nyckeln saknas (då styr promo/servern premium). Får aldrig blockera eller fälla starten.
@@ -163,7 +172,11 @@ export default function RootLayout() {
         // Nyinstallation/enhetsbyte: finns en iCloud-backup → erbjud att hämta hem allt INNAN onboarding
         // (annars skulle man sätta upp en profil och sedan skriva över den vid restore).
         if (!onboarded) {
-          const backup = await hasRestorableBackup().catch(() => null);
+          // Max 6 s: iCloud-nedladdningen kan hänga utan nät (NSFileCoordinator) → onboarding blockeras aldrig.
+          const backup = await Promise.race([
+            hasRestorableBackup().catch(() => null),
+            new Promise<null>((r) => setTimeout(() => r(null), 6000)),
+          ]);
           if (backup && await offerICloudRestore(backup)) {
             const m2 = useAppModeStore.getState().mode;
             router.replace((m2 === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)') as any);

@@ -599,7 +599,7 @@ export async function ocrSummarizePage(base64: string, mediaType: string, timeFo
 export async function ocrScanLogbook(timeFormat: TimeFormat = 'decimal', _imageUri?: string): Promise<OcrPageResult> {
   const scanImage = getScanImage();
   if (!scanImage) {
-    throw new Error('Ingen bild hittades. Gå tillbaka och välj bild igen.');
+    throw new Error('No image found. Go back and choose an image again.');
   }
   const { base64, mediaType } = scanImage;
   clearScanImage();

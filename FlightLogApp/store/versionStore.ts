@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
+// Startsekvensen väntar på versionskollen → aldrig mer än några sekunder per anrop (en hängande
+// uppkoppling får inte hålla kvar appen på en tom skärm före onboarding/dashboard).
+function fetchWithTimeout(url: string, ms = 4000): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { method: 'GET', signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
 const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
 const VERSION_URL = PROXY_URL ? PROXY_URL.replace(/\/$/, '') + '/version' : '';
 
@@ -46,10 +54,7 @@ export const useVersionStore = create<VersionState>((set, get) => ({
     // 1) App Store-lookup (iOS) — automatiskt, kräver ingen backend-uppdatering vid release.
     if (Platform.OS === 'ios' && BUNDLE_ID) {
       try {
-        const resp = await fetch(
-          `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(BUNDLE_ID)}`,
-          { method: 'GET' },
-        );
+        const resp = await fetchWithTimeout(`https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(BUNDLE_ID)}`);
         if (resp.ok) {
           const data = await resp.json();
           const app = Array.isArray(data.results) && data.results.length ? data.results[0] : null;
@@ -69,7 +74,7 @@ export const useVersionStore = create<VersionState>((set, get) => ({
     let proxyForce = false;
     if (VERSION_URL) {
       try {
-        const resp = await fetch(VERSION_URL, { method: 'GET' });
+        const resp = await fetchWithTimeout(VERSION_URL);
         if (resp.ok) {
           const data = await resp.json();
           proxyLatest = data.latest_version ?? '';

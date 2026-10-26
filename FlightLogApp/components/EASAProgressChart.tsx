@@ -246,13 +246,13 @@ function ProgressCard({ title, subtitle, reqs, totals, rates, isCpl, standard = 
         ).then(result => {
           if (result?.d) {
             const date = new Date(result.d);
-            const formatted = date.toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' });
+            const formatted = date.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
             setCompletionDate(formatted);
           }
         }).catch(() => {
           // Fallback to today if query fails
           const today = new Date();
-          const formatted = today.toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' });
+          const formatted = today.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
           setCompletionDate(formatted);
         });
       });

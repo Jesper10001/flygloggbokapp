@@ -14,9 +14,21 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
 
 ## Gör snart
 
+- [ ] **Deploya proxyn igen** (debug-kontrollen 2026-10-26): `cd proxy && npx wrangler deploy`
+  - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
+  - Den öppna felsökningen `?debug=1` är borttagen.
+- [ ] **Nytt EAS-bygge** efter debug-kontrollen. 15 Expo-paket är uppdaterade, och behörighetstexterna och console-rensningen gäller först i ett nytt bygge.
+- [ ] **Testa efter nytt bygge (debug-kontrollen):**
+  - Skanna loggbok (gratiskonto) när skanningarna tar slut: Premium-betalväggen ska visas. Ingen "Buy"/"Top up" som ger skanningar gratis.
+  - "Build logbook" när AI-gränsen nåtts: betalväggen för gratis, ett coin-besked för Premium.
+  - Felmeddelanden från AI och import ska vara på engelska och utan tekniska detaljer.
+  - Radera en drönare med flygningar: dialogen ska säga hur många flygningar som påverkas.
+  - Settings → iCloud → slå på med en befintlig backup: texten ska säga att "Keep this device" ersätter backupen.
+  - Delete everything: drönarfoton och -videor ska också försvinna.
+  - Flygplansläge vid start: appen ska nå dashboard/onboarding inom några sekunder och inte fastna på en tom skärm.
 - [ ] **Testa senaste TestFlight-bygget** – se listan längst ner.
 - [ ] **Nytt bygge** så att den inbäddade jordgloben följer med. Testa sedan globen i flygplansläge.
-- [ ] **Deploya proxyn: modellbyte + automatisk uppgradering:** `cd proxy && npx wrangler deploy`
+- [x] **Deploya proxyn: modellbyte + automatisk uppgradering** (deployat 2026-10-26): `cd proxy && npx wrangler deploy`
   - Alla installerade appar byter direkt: Sonnet 4.6 → 5.5 för skanning och import, Haiku 4.5 → 5.5 för nyheterna. Det är billigare per token med samma resultat i testerna. Användarnas coins räcker 13–30 % kortare; potterna är oförändrade, enligt beslut.
   - Opus 4.8 (loggboks-OCR) behålls tills den är testad med en riktig loggbokssida.
   - Fasas en modell ut väljer proxyn automatiskt den senaste modellen i samma familj ur Anthropics modellista, även framtida modeller som Haiku 6. En daglig kontroll 04:17 UTC pekar om i förväg.
@@ -34,6 +46,10 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
   - Sentry kräver ett gratiskonto, ett nytt bygge och tillägget "Crash Data" i integritetspolicyn och App Privacy.
 
 ## Kan vänta
+
+- [ ] **xlsx (Excel-import):** npm-versionen har kända brister och underhålls inte längre på npm. Byt till SheetJS egen version: `npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, och testa sedan Excel-importen.
+- [ ] **Död kod:** den avstängda testprofil-triggern (Settings → About) finns kvar i koden och raderar all data om den slås på. Ta bort den.
+- [ ] **Efter första App Store-uppladdningen:** kolla mejl från Apple om "ITMS-91053 Missing API declaration" (privacy manifest). Expo-modulerna har egna manifest, men tredjeparts-SDK:er kan sakna.
 
 - [x] **Esri-nyckel inlagd i proxyn** (2026-10-26). Verifierat att satellitbilder och källhänvisningar levereras.
 - [ ] **Ta bort den gamla Esri-nyckeln** (den som går ut 2027-01-24). Skriv "klart" till Claude in Chrome.
@@ -92,6 +108,21 @@ Uppdaterad 2026-10-18. Bocka av med `[x]`.
   - Det sparade passet ska ha kategorin Specific. Detaljvyn ska visa "VLOS 0:13 · BVLOS 0:30" (eller motsvarande 30/70).
   - Utan egna drönare ska exempeldrönaren Mavic 3 Enterprise (SE-D001) användas. Den ska försvinna när rundturen slutar, även ur Fleet och Manage drones.
   - Loggbokens Flights-flik ska fälla ut rätt månad. Raden ska få en ram, tryckas och sedan ska passets översikt öppnas, i samma lugna tempo som för piloten.
+- [ ] **Drönarens Insights:**
+  - **Currency → i-knappen** till höger om rubriken ska öppna en ruta som förklarar Current/Stale (90 dagar) och kategorierna A1, A2, A3, Specific och Certified. Tryck utanför eller på ✕ för att stänga.
+  - **By category / By flight mode:** timmarna och "h" ska stå på en rad, även för t.ex. 224:53 och 427:49. Staplarna ska vara lika långa på alla rader.
+  - **Activity:** en streckad vågrät linje ska gå genom staplarna på snitthöjden (flygningar per månad under de 12 månaderna), med etiketten "AVG x.x" i högerkanten.
+  - **Rundturens drönarpass** (kategori Specific) ska räknas in under Specific i By category och Currency.
+- [ ] **Uppdaterad flygplatsdata (2026-10-26):**
+  - **Första start efter uppdateringen:** flygplatsdatabasen läses in på nytt, vilket tar några sekunder. Appen ska starta normalt och dina flygningar ska se ut som förut.
+  - **Nya koder:** skriv UZTT (Tashkent), OKKK (Kuwait) och VNPR (Pokhara) i Log flight. De ska få grön bock och rätt namn, och koden du skrev ska stå kvar i loggboken.
+  - **Sökrutan:** sök "UZTT". Tashkent ska visas som UZTT och fyllas i med UZTT.
+  - **Ny flygplats:** VOVI (Visakhapatnam/Bhogapuram) ska gå att hitta.
+  - **Frekvenser:** CYVR (Vancouver) ska visa TWR 118.7 (inte 23.66) och LTFJ (Sabiha Gökçen) TWR 118.8.
+  - **Banor:** EDDW (Bremen) ska ha 08/26 i stället för 09/27.
+  - **Stängda fält:** EGBE (Coventry), EICM (Galway) och ESSK (Gävle) ska inte synas på kartan med standardfiltret. Gamla flygningar dit ska fortfarande visa plats och namn.
+  - **Nya IATA-koder:** DJT ska ge Palm Beach (KPBI), RMO Chișinău (LUKK), BSZ Bishkek Manas (UAFM) och GNJ Ganja (UBBG). De gamla koderna PBI, KIV, FRU och KVD ska inte längre ge träff.
+  - **Global map → info-knappen (Airport data):** det ska stå "Last updated: 26 October 2026", och källorna airportmap.de och OurAirports ska nämnas.
 - [ ] **Frekvenserna på flygplatskorten:**
   - **Find airport och global map → flyg till en flygplats** (t.ex. EDDV): TWR, GND, ATIS och APP ska stå i egna kolumner med en tunn vertikal linje emellan. Långa frekvenser som 121.955 och 136.575 får inte gå ihop.
   - **Kartornas vanliga infokort** (tryck på en flygplatsnål): frekvenserna ska stå två och två, t.ex. "TWR … │ GND …", med en linje emellan.

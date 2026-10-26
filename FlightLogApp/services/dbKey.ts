@@ -20,8 +20,15 @@ function toHex(bytes: Uint8Array): string {
   return s;
 }
 
-const legacyGet = () => SecureStore.getItemAsync(KEY_ID, OPTS).catch(() => null);
-const legacySet = (k: string) => SecureStore.setItemAsync(KEY_ID, k, OPTS).catch(() => {});
+// Läsfel ≠ "ingen nyckel". Går Keychain inte att läsa just nu får vi ALDRIG gå vidare och skapa en ny nyckel:
+// den skulle skriva över den riktiga och göra den krypterade databasen permanent oläsbar. Kasta i stället →
+// startsekvensen visar felet med "Try again" (cachen sätts bara efter en lyckad läsning).
+const legacyGet = async (): Promise<string | null> => {
+  try { return await SecureStore.getItemAsync(KEY_ID, OPTS); }
+  catch (e: any) { throw new Error(`Keychain unavailable: ${e?.message ?? e}`); }
+};
+// Kan nyckeln inte sparas → kasta (en databas krypterad med en osparad nyckel vore oläsbar vid nästa start).
+const legacySet = (k: string) => SecureStore.setItemAsync(KEY_ID, k, OPTS);
 
 // Läs den iCloud-synkade nyckeln (null om native saknas eller inget synkats hit). Kort retry för att
 // ge iCloud Keychain tid att synka på en nyinstallerad enhet (vanligen redan klart efter enhets-setup).

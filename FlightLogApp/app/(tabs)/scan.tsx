@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFlightStore } from '../../store/flightStore';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { getActiveBook, getSpreadsForBook, type LogbookBook, type SpreadInfo } from '../../db/logbookBooks';
-import { useScanQuotaStore, MONTHLY_QUOTA, MONTHLY_SUMMARIZE_QUOTA, SCAN_PACKS } from '../../store/scanQuotaStore';
+import { useScanQuotaStore, MONTHLY_QUOTA, MONTHLY_SUMMARIZE_QUOTA } from '../../store/scanQuotaStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
@@ -551,52 +551,6 @@ function SummaryResult({ summary, onReset, onSave }: { summary: PageSummary; onR
   );
 }
 
-function BuyModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const styles = makeStyles();
-  const { addExtraScans } = useScanQuotaStore();
-
-  const handlePurchase = async (pack: typeof SCAN_PACKS[number]) => {
-    // TODO: Ersätt med riktigt köp via StoreKit/IAP när Apple Developer-konto är klart
-    await addExtraScans(pack.count);
-    onClose();
-    Alert.alert('Done!', `${pack.count} scans have been added to your account.`);
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.buyOverlay}>
-        <View style={styles.buySheet}>
-          <View style={styles.buyHandle} />
-          <Text style={styles.buyTitle}>Buy more scans</Text>
-          <Text style={styles.buySub}>Purchased scans never expire</Text>
-
-          {SCAN_PACKS.map(pack => (
-            <TouchableOpacity
-              key={pack.count}
-              style={styles.packCard}
-              onPress={() => handlePurchase(pack)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.packLeft}>
-                <Text style={styles.packCount}>{pack.count} scans</Text>
-                <Text style={styles.packNote}>{pack.pricePerScan}</Text>
-              </View>
-              <View style={styles.packPriceBox}>
-                <Text style={styles.packPrice}>{pack.price} kr</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity style={styles.closeBuyBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={styles.closeBuyBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-
 export default function ScanScreen() {
   const styles = makeStyles();
   const router = useRouter();
@@ -615,7 +569,6 @@ export default function ScanScreen() {
   const [rotation, setRotation] = useState(0);
   const [working, setWorking] = useState(false);
   const [summary, setSummary] = useState<PageSummary | null>(null);
-  const [showBuyModal, setShowBuyModal] = useState(false);
   const [pendingSummary, setPendingSummary] = useState<PageSummary | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showNextPageModal, setShowNextPageModal] = useState(false);
@@ -700,7 +653,7 @@ export default function ScanScreen() {
   };
 
   const handleImport = async () => {
-    if (!canScan()) { setShowBuyModal(true); return; }
+    if (!canScan()) { presentPaywall('Logbook scan'); return; } // (tidigare gratis "köp"-ruta — borttagen)
     setWorking(true);
     try {
       const img = await prepareImage();
@@ -1186,7 +1139,6 @@ export default function ScanScreen() {
         </View>
       </Modal>
 
-      <BuyModal visible={showBuyModal} onClose={() => setShowBuyModal(false)} />
     </ScrollView>
   );
 }

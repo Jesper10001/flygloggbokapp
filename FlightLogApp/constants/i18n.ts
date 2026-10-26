@@ -107,6 +107,7 @@ export const translations = {
     delete_flight: 'Delete flight',
     delete_flight_confirm: 'Delete',
     cancel: 'Cancel',
+    ok: 'OK',
     delete: 'Delete',
 
     // Settings screen
@@ -237,7 +238,9 @@ export const translations = {
     scan_buy_desc: 'Premium includes 12 scans/month. For larger logbooks you can buy extra scan packs that never expire.',
     scan_buy_btn: 'Buy',
     scan_no_scans_title: 'No scans remaining',
-    scan_no_scans_desc: 'Your monthly scans are used up. Buy an extra pack to continue scanning.',
+    scan_no_scans_desc: 'Your monthly scans are used up. They refill at the start of next month.',
+    scan_no_scans_free_desc: 'Your free scans are used up. Premium includes more logbook scans every month.',
+    scan_see_premium: 'See Premium',
 
     import_manual_title: 'Block import manually',
     import_manual_sub: 'Fill in flight details by hand',

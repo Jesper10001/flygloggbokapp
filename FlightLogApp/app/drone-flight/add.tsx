@@ -134,7 +134,7 @@ const MISSION_TYPES = ['Inspection', 'Mapping', 'Photo / Video', 'SAR', 'Trainin
 
 // Blades introduction — exempel för loggningsdemon när användaren saknar egen drönare/besättning.
 // Exempeldrönaren läggs till tillfälligt och raderas med exempel-flygningen (services/tourDemoFlight).
-const TOUR_DRONE = { drone_type: 'multirotor' as const, model: 'Mavic 3 Enterprise', registration: 'SE-D001', mtow_g: 920, category: 'specific', drone_class: 'civil', notes: '' };
+const TOUR_DRONE = { drone_type: 'multirotor' as const, model: 'Mavic 3 Enterprise', registration: 'SE-D001', mtow_g: 920, category: 'Specific', drone_class: 'civil', notes: '' };
 const TOUR_BVLOS_SHARE = 0.7; // siktläge i demon: 70 % BVLOS, resten VLOS (BVLOS kräver kategorin Specific)
 const TOUR_CREW = { name: 'Erik Lind', role: 'observer' };
 const TOUR_REMARK = 'Example flight · Blades introduction';
@@ -1058,7 +1058,7 @@ export default function AddDroneFlightScreen() {
         focus('ld-drone');
         await wait(700); if (!alive()) return;
         if (entry) await setDrone(entry);
-        setForm((p) => ({ ...p, category: 'specific' }));
+        setForm((p) => ({ ...p, category: 'Specific' }));
         await wait(1000); if (!alive()) return;
 
         // 7 · Pilot function.

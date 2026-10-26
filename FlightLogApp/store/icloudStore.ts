@@ -72,7 +72,7 @@ export const useICloudStore = create<ICloudStore>((set, get) => ({
       const when = (() => { try { return new Date(remote.createdAt).toLocaleDateString(); } catch { return ''; } })();
       Alert.alert(
         'Restore from iCloud?',
-        `Found an existing iCloud backup from ${remote.device}${when ? ` (${when})` : ''}. Restore it to this device, or keep this device's data?`,
+        `Found an existing iCloud backup from ${remote.device}${when ? ` (${when})` : ''}. Restore it to this device, or keep this device's data? Keeping this device's data replaces that backup with this device's logbook.`,
         [
           {
             text: 'Keep this device', style: 'cancel',

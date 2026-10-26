@@ -73,6 +73,10 @@ import { countryRoot, buildChildren, nodeAirports, nodeRings, DRILL_CAP, type Dr
 import { neighborCountries } from '../utils/neighbors';
 import { countryBorder } from '../utils/borders';
 import { Colors } from '../constants/colors';
+import airportDataMeta from '../assets/airport-data-meta.json';
+
+// Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
+const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
@@ -739,10 +743,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   </TouchableOpacity>
                 </View>
                 <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
-                  Airport locations, types, runways and other details are compiled from public, open-data aviation sources (including airportmap.de).
+                  Airport locations, types, runways, frequencies and other details are compiled from public, open-data aviation sources (including airportmap.de and OurAirports).
                 </Text>
                 <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 10 }}>
-                  <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>Last updated: </Text>September 2026.
+                  <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>Last updated: </Text>{AIRPORT_DATA_UPDATED}
                 </Text>
                 <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>
                   This data is provided for general reference only and may be incomplete, outdated or inaccurate. It is not for navigation. Always verify against official aeronautical information (AIP/NOTAM) and current charts before flight. Blades accepts no liability for any errors or omissions.

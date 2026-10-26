@@ -271,8 +271,15 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   }, [sQuery, searchOpen]);
 
   const openSearch = () => { setSQuery(''); setSResults([]); setSChoice(null); setSearchOpen(true); };
-  const pickFromSearch = (airport: IcaoAirport, useIata: boolean) => {
-    const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : airport.icao.toUpperCase();
+  // Sökrutan: matchade sökningen den alternativa koden (gps — bl.a. ny ICAO efter kodbyte, t.ex. UZTT för
+  // Tashkent med äldre nyckel UTTT) → visa och fyll i den koden i stället för den äldre nyckeln.
+  const searchCode = (a: IcaoAirport) => {
+    const q = sQuery.trim().toUpperCase();
+    const g = (a.gps || '').toUpperCase(), k = a.icao.toUpperCase();
+    return q && /^[A-Z]{4}$/.test(g) && g !== k && g.startsWith(q) && !k.startsWith(q) ? g : a.icao;
+  };
+  const pickFromSearch = (airport: IcaoAirport, useIata: boolean, code?: string) => {
+    const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : (code ?? airport.icao).toUpperCase();
     setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
     commitAirportCode(airport.icao, chosen, airport.name);
   };
@@ -805,8 +812,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                 <Text style={[styles.suggestionCountry, { marginTop: 2 }]}>{sChoice.country}</Text>
                 <Text style={{ color: Colors.textSecondary, fontSize: 13, marginTop: 10 }}>Fill departure/arrival with:</Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                  <TouchableOpacity style={[styles.confirmBtn, { flex: 1 }]} onPress={() => pickFromSearch(sChoice, false)} activeOpacity={0.85}>
-                    <Text style={styles.confirmBtnText}>{sChoice.icao}</Text>
+                  <TouchableOpacity style={[styles.confirmBtn, { flex: 1 }]} onPress={() => pickFromSearch(sChoice, false, searchCode(sChoice))} activeOpacity={0.85}>
+                    <Text style={styles.confirmBtnText}>{searchCode(sChoice)}</Text>
                     <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', opacity: 0.8 }}>ICAO</Text>
                     {tourKey ? <TourPress id={`${tourKey}-pick-${sChoice.icao}`} radius={10} /> : null}
                   </TouchableOpacity>
@@ -846,8 +853,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     <View key={a.icao}>
                       {idx > 0 && <View style={styles.sep} />}
                       <TouchableOpacity style={styles.suggestion} activeOpacity={0.8}
-                        onPress={() => (a.iata && a.iata.trim() ? setSChoice(a) : pickFromSearch(a, false))}>
-                        <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{a.icao}</Text>
+                        onPress={() => (a.iata && a.iata.trim() ? setSChoice(a) : pickFromSearch(a, false, searchCode(a)))}>
+                        <Text style={[styles.suggestionIcao, inputFontFamily ? { fontFamily: inputFontFamily } : null]}>{searchCode(a)}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.suggestionName} numberOfLines={1}>{a.name}</Text>
                           <Text style={styles.suggestionCountry}>{a.country}{a.iata && a.iata.trim() ? ` · ${a.iata}` : ''}</Text>

@@ -273,6 +273,13 @@ export async function clearDroneRegistryCategories(): Promise<void> {
   await db.runAsync(`UPDATE drone_registry SET category=''`);
 }
 
+// Antal loggade flygningar med den här drönaren (för raderingsdialogen).
+export async function countFlightsForDrone(id: number): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ c: number }>(`SELECT COUNT(*) as c FROM drone_flights WHERE drone_id=?`, [id]);
+  return row?.c ?? 0;
+}
+
 export async function deleteDrone(id: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM drone_registry WHERE id=?`, [id]);

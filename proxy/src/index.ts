@@ -154,7 +154,7 @@ const PREMIUM_TTL_NEG = 60;  // "ingen premium" cachas kort → nyss köpt syns 
 // v3 = ny SHA-256-nyckel. Premium-värdet är bara en kort cache av RevenueCat → ingen migrering behövs.
 const premiumKey = async (deviceId: string) => `premium:v3:${await hashDevice(deviceId)}`;
 
-// Hämtar kundens aktiva entitlement-id:n + HTTP-status (status används för felsökning via ?debug=1).
+// Hämtar kundens aktiva entitlement-id:n + HTTP-status.
 // RÅA customerId (= app_user_id) mot RevenueCat.
 async function rcFetchActive(customerId: string, env: Env): Promise<{ status: number; ids: string[] }> {
   if (!env.REVENUECAT_SECRET_KEY || !env.REVENUECAT_PROJECT_ID) return { status: 0, ids: [] };
@@ -986,22 +986,13 @@ export default {
     }
 
     // ── Entitlement: har denna device Premium (promo-kod ELLER RevenueCat)? ──
-    // ?debug=1 → live-diagnostik (förbi cachen), utan att läcka nyckeln. Ta bort efter felsökning om du vill.
+    // promo skickas separat så appen bara cachar en riktig promokod lokalt (en prenumeration sköts av
+    // RevenueCat-SDK:n och får inte ligga kvar som "promo" efter att den gått ut).
     if (url.pathname === '/entitlement' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
-      if (url.searchParams.get('debug') === '1') {
-        const promo = await promoActive(env.QUOTA_KV, await deviceKeys(devId));
-        const rc = await rcFetchActive(devId, env);
-        return new Response(JSON.stringify({
-          premium: promo || rc.ids.length > 0,
-          configured: !!env.REVENUECAT_SECRET_KEY && !!env.REVENUECAT_PROJECT_ID,
-          rcStatus: rc.status,          // 200 ok · 401/403 nyckel/behörighet · 404 okänd kund · 0 ej konfigurerad
-          rcEntitlementIds: rc.ids,     // aktiva entitlements RevenueCat returnerar
-          promo,
-        }), { headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      }
       const premium = (await resolveTier(devId, env)) === 'premium';
-      return new Response(JSON.stringify({ premium }), {
+      const promo = premium && await promoActive(env.QUOTA_KV, await deviceKeys(devId));
+      return new Response(JSON.stringify({ premium, promo }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }

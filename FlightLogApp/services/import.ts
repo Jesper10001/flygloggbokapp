@@ -176,7 +176,7 @@ async function readExcelAsCSV(fileUri: string): Promise<string> {
   const workbook = XLSX.read(bytes, { type: 'array' });
 
   if (!workbook.SheetNames.length) {
-    throw new Error('Excel-filen innehåller inga ark.');
+    throw new Error('The Excel file has no sheets.');
   }
 
   // Läs alla ark och kombinera data (hoppa över sammanfattningsark)
@@ -243,7 +243,7 @@ async function readExcelAsCSV(fileUri: string): Promise<string> {
   }
 
   if (!csvParts.length) {
-    throw new Error('Excel-filen innehåller ingen flygdata.');
+    throw new Error('The Excel file contains no flight data.');
   }
 
   const combinedCsv = csvParts.join('\n');
@@ -647,11 +647,11 @@ export async function importFromFile(
       content = await readTextSmart(fileUri); // UTF-8 med Windows-1252/Latin-1-fallback (svenska tecken)
     }
   } catch (e: any) {
-    throw new Error(`Kunde inte läsa filen: ${e.message}`);
+    throw new Error(`Could not read the file: ${e.message}`);
   }
 
   if (!content?.trim()) {
-    throw new Error('Filen verkar vara tom. Kontrollera att det är en giltig CSV- eller Excel-fil.');
+    throw new Error('The file seems to be empty. Make sure it is a valid CSV or Excel file.');
   }
 
   // Normalisera radslut och rensa BOM
@@ -678,7 +678,7 @@ export async function importFromFile(
   ];
 
   if (lines.length < 2) {
-    throw new Error('Filen saknar datarader (endast header hittades).');
+    throw new Error('The file has no data rows (only a header row was found).');
   }
 
   onProgress?.(1, 3);
@@ -708,7 +708,7 @@ export async function importFromFile(
   const warnings: string[] = mapping.warnings ?? [];
 
   if (Object.keys(colMap).length === 0) {
-    throw new Error(`Kunde inte mappa kolumner för format "${detectedFormat}". Kontrollera att filen exporterades korrekt.`);
+    throw new Error(`Could not match the columns for the "${detectedFormat}" format. Check that the file was exported correctly.`);
   }
 
   onProgress?.(2, 3);

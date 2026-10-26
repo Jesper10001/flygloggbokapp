@@ -15,7 +15,9 @@ import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
 const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+// Direktnyckeln används BARA i utvecklingsläge (lokal dev utan proxy). __DEV__-grinden gör att minifieringen
+// stryker den ur alla release-byggen — även om .env skulle ha nyckeln och proxy-URL:en saknas.
+const API_KEY = __DEV__ ? (process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '') : '';
 const API_URL = PROXY_URL || 'https://api.anthropic.com/v1/messages';
 const USE_PROXY = !!PROXY_URL;
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -136,13 +138,17 @@ async function throwForErrorResponse(response: { status: number; text: () => Pro
       if (e.message?.startsWith('QUOTA_EXCEEDED') || e.message?.startsWith('TOKEN_QUOTA_EXCEEDED')) throw e;
     }
   }
-  throw new Error(`API-fel ${response.status}: ${errText}`);
+  // Användaren får ett begripligt meddelande; rådetaljerna (serverns svar) bara i loggen.
+  console.warn('[AI] HTTP', response.status, errText.slice(0, 500));
+  throw new Error(response.status >= 500
+    ? 'The AI service is temporarily unavailable. Please try again in a moment.'
+    : `The AI request failed (error ${response.status}). Please try again.`);
 }
 
 /** Gör ett råtext-anrop till Claude och returnerar text + stop_reason. */
 export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<AnthropicRawResult> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
-    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+    throw new Error('The AI service is not configured in this build.');
   }
 
   const userContent = typeof opts.userContent === 'string'
@@ -178,7 +184,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error(`API-anrop timeout (${Math.round(timeoutMs / 1000)}s). Kontrollera din internetuppkoppling.`);
+      throw new Error(`The AI request timed out after ${Math.round(timeoutMs / 1000)} s. Check your internet connection and try again.`);
     }
     throw err;
   }
@@ -217,7 +223,7 @@ export async function callAnthropicWebSearchJson<T = any>(opts: {
   feature?: string;             // X-Feature-header → proxyn kan gränssätta/rate-limita funktionen
 }): Promise<T> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
-    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+    throw new Error('The AI service is not configured in this build.');
   }
   const headers = buildHeaders();
   if (opts.feature) headers['X-Feature'] = opts.feature;
@@ -244,7 +250,7 @@ export async function callAnthropicWebSearchJson<T = any>(opts: {
     });
   } catch (err: any) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') throw new Error(`API-anrop timeout (${Math.round(timeoutMs / 1000)}s). Kontrollera din internetuppkoppling.`);
+    if (err.name === 'AbortError') throw new Error(`The AI request timed out after ${Math.round(timeoutMs / 1000)} s. Check your internet connection and try again.`);
     throw err;
   }
   clearTimeout(timeoutId);
@@ -280,7 +286,8 @@ function parseJsonText<T>(text: string, stopReason: string | null): T {
   // Fall back to extracting first JSON object
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error(`Kunde inte tolka svaret från Claude. Svar: "${text.slice(0, 160)}"`);
+    console.log('[AI] oläsbart svar:', text.slice(0, 300));
+    throw new Error('The AI response could not be read. Please try again.');
   }
 
   try {
@@ -288,7 +295,7 @@ function parseJsonText<T>(text: string, stopReason: string | null): T {
   } catch (e: any) {
     if (stopReason === 'max_tokens') {
       throw new Error(
-        'Svaret från AI blev för långt och skars av. Prova färre rader åt gången eller närbild på halvt uppslag.',
+        'The AI response was too long and got cut off. Try fewer rows at a time, or a closer photo of half a page.',
       );
     }
     // Försök autoläka trunkerad JSON
@@ -296,7 +303,8 @@ function parseJsonText<T>(text: string, stopReason: string | null): T {
     try {
       return JSON.parse(repaired) as T;
     } catch {
-      throw new Error(`JSON-fel: ${e.message}. Svaret kan ha trunkerats — prova igen.`);
+      console.warn('[AI] JSON-fel:', e.message);
+      throw new Error('The AI response was incomplete. Please try again.');
     }
   }
 }
@@ -315,7 +323,7 @@ export async function callAnthropicJsonStream<T = any>(
   },
 ): Promise<T> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
-    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+    throw new Error('The AI service is not configured in this build.');
   }
   // Lazy require så web-bundlen inte tvingas dra in expo/fetch i onödan.
   const { fetch: streamFetch } = require('expo/fetch');
@@ -350,7 +358,7 @@ export async function callAnthropicJsonStream<T = any>(
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
-      throw new Error(`API-anrop avbröts — ingen respons på ${Math.round(inactivityMs / 1000)}s.`);
+      throw new Error(`The AI request stopped responding after ${Math.round(inactivityMs / 1000)} s. Please try again.`);
     }
     throw err;
   }
@@ -360,7 +368,7 @@ export async function callAnthropicJsonStream<T = any>(
   }
   if (!response.body || typeof response.body.getReader !== 'function') {
     clearTimeout(timer);
-    throw new Error('Strömning stöds inte i denna miljö (response.body saknas). Använd icke-streamande läge.');
+    throw new Error('The AI response could not be received. Please try again.');
   }
 
   const reader = response.body.getReader();
@@ -403,7 +411,7 @@ export async function callAnthropicJsonStream<T = any>(
             const exact = evt.usage?.output_tokens;
             if (typeof exact === 'number') { usageOut = exact; lastReported = exact; opts.onTokens?.(exact, opts.maxTokens); }
           } else if (evt.type === 'error') {
-            throw new Error(`API-fel (stream): ${evt.error?.message ?? 'okänt fel'}`);
+            throw new Error(evt.error?.type === 'overloaded_error' ? 'The AI service is busy right now. Please try again in a moment.' : 'The AI service reported an error. Please try again.');
           }
         }
       }
@@ -468,7 +476,7 @@ function buildToolBody(opts: ToolCallOptions, stream: boolean): string {
  */
 export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise<T> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
-    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+    throw new Error('The AI service is not configured in this build.');
   }
   const headers = buildHeaders();
   const body = buildToolBody(opts, false);
@@ -482,7 +490,7 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('API-anrop timeout (60s). Kontrollera din internetuppkoppling.');
+      throw new Error('The AI request timed out after 60 s. Check your internet connection and try again.');
     }
     throw err;
   }
@@ -506,7 +514,8 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   const cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) {
-    throw new Error(`Inget verktygssvar från Claude. Svar: "${text.slice(0, 160)}"`);
+    console.log('[AI] inget verktygssvar:', text.slice(0, 300));
+    throw new Error('The AI response could not be read. Please try again.');
   }
   try {
     return JSON.parse(match[0]) as T;
@@ -538,7 +547,7 @@ export async function callAnthropicToolStream<T = any>(
   opts: ToolCallOptions & { onText?: (delta: string, acc: string) => void; inactivityMs?: number },
 ): Promise<T> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
-    throw new Error('Varken proxy-URL eller API-nyckel är konfigurerad.');
+    throw new Error('The AI service is not configured in this build.');
   }
   // Lazy require så web-bundlen inte tvingas dra in expo/fetch i onödan.
   const { fetch: streamFetch } = require('expo/fetch');
@@ -557,7 +566,7 @@ export async function callAnthropicToolStream<T = any>(
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
-      throw new Error(`API-anrop avbröts — ingen respons på ${Math.round(inactivityMs / 1000)}s.`);
+      throw new Error(`The AI request stopped responding after ${Math.round(inactivityMs / 1000)} s. Please try again.`);
     }
     throw err;
   }
@@ -567,7 +576,7 @@ export async function callAnthropicToolStream<T = any>(
   }
   if (!response.body || typeof response.body.getReader !== 'function') {
     clearTimeout(timer);
-    throw new Error('Strömning stöds inte i denna miljö (response.body saknas). Använd icke-streamande läge.');
+    throw new Error('The AI response could not be received. Please try again.');
   }
 
   const reader = response.body.getReader();
@@ -603,7 +612,7 @@ export async function callAnthropicToolStream<T = any>(
           } else if (evt.type === 'message_delta' && evt.delta?.stop_reason) {
             stopReason = evt.delta.stop_reason;
           } else if (evt.type === 'error') {
-            throw new Error(`API-fel (stream): ${evt.error?.message ?? 'okänt fel'}`);
+            throw new Error(evt.error?.type === 'overloaded_error' ? 'The AI service is busy right now. Please try again in a moment.' : 'The AI service reported an error. Please try again.');
           }
         }
       }
@@ -613,13 +622,13 @@ export async function callAnthropicToolStream<T = any>(
   }
 
   if (!jsonAcc) {
-    throw new Error('Tomt strömsvar från AI — kontrollera att proxyn vidarebefordrar SSE utan att buffra.');
+    throw new Error('The AI returned an empty response. Please try again.');
   }
   try {
     return JSON.parse(jsonAcc) as T;
   } catch (e: any) {
     if (stopReason === 'max_tokens') {
-      throw new Error('Svaret blev för långt och skars av. Prova färre rader åt gången eller närbild på halvt uppslag.');
+      throw new Error('The AI response was too long and got cut off. Try fewer rows at a time, or a closer photo of half a page.');
     }
     return JSON.parse(repairTruncatedJson(jsonAcc)) as T;
   }

@@ -10,7 +10,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
-import { useScanQuotaStore, MONTHLY_QUOTA, SCAN_PACKS, MONTHLY_TOPUP_PRICE } from '../../store/scanQuotaStore';
+import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/scanQuotaStore';
+import { presentPaywall } from '../../services/purchases';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
 
@@ -21,7 +22,7 @@ export default function ScanImportScreen() {
   const { isPremium } = useFlightStore();
   const {
     load, totalRemaining, monthlyRemaining, extraScans,
-    canScan, loaded, addExtraScans,
+    canScan, loaded,
   } = useScanQuotaStore();
 
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -243,7 +244,9 @@ export default function ScanImportScreen() {
       <Text style={s.title}>{t('scan_import_title')}</Text>
       <Text style={s.subtitle}>{t('scan_import_desc')}</Text>
 
-      {/* Quota bar */}
+      {/* Quota bar — bara när de lokala skanningskvoterna är påslagna (annars styrs AI-gränsen av proxyns
+          Blade-coins och räknaren skulle visa "9999"). */}
+      {QUOTAS_ENABLED && (
       <View style={s.quotaCard}>
         <View style={s.quotaRow}>
           <Text style={s.quotaLabel}>{t('scan_remaining')}</Text>
@@ -259,6 +262,7 @@ export default function ScanImportScreen() {
           {extra > 0 ? `  +  ${extra} ${t('scan_extra')}` : ''}
         </Text>
       </View>
+      )}
 
       {!imageUri ? (
         <>
@@ -303,35 +307,6 @@ export default function ScanImportScreen() {
             <Text style={s.batchBtnText}>{t('scan_batch')}</Text>
             <Text style={s.batchBtnSub}>{t('scan_batch_sub')}</Text>
           </TouchableOpacity>
-
-          {/* Buy packs */}
-          <View style={s.buySection}>
-            <Text style={s.buySectionTitle}>{t('scan_buy_title')}</Text>
-            <Text style={s.buySectionDesc}>{t('scan_buy_desc')}</Text>
-            {SCAN_PACKS.map((pack, i) => (
-              <TouchableOpacity
-                key={i}
-                style={s.packCard}
-                onPress={() => {
-                  Alert.alert(
-                    `${pack.count} ${t('scan_scans')}`,
-                    `${pack.price} kr — ${pack.pricePerScan}`,
-                    [
-                      { text: t('cancel'), style: 'cancel' },
-                      { text: t('scan_buy_btn'), onPress: () => addExtraScans(pack.count) },
-                    ],
-                  );
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.packTitle}>{pack.count} {t('scan_scans')}</Text>
-                  <Text style={s.packSub}>{pack.pricePerScan}</Text>
-                </View>
-                <Text style={s.packPrice}>{pack.price} kr</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </>
       ) : (
         <>
@@ -368,48 +343,25 @@ export default function ScanImportScreen() {
         </>
       )}
 
-      {/* Buy modal when out of scans */}
+      {/* Slut på skanningar: gratis → riktiga Premium-betalväggen (RevenueCat); Premium → kvoten fylls på
+          nästa månad. (Tidigare "köp"/"top-up" här delade ut skanningar UTAN betalning — borttaget.) */}
       {showBuy && (
         <View style={s.buyOverlay}>
           <View style={s.buySheet}>
             <Ionicons name="warning" size={32} color={Colors.gold} />
             <Text style={s.buySheetTitle}>{t('scan_no_scans_title')}</Text>
-            <Text style={s.buySheetDesc}>{t('scan_no_scans_desc')}</Text>
-            {/* Monthly top-up */}
-            <TouchableOpacity
-              style={[s.packCard, { borderColor: Colors.gold + '88' }]}
-              onPress={() => {
-                useScanQuotaStore.getState().topUpMonthly();
-                setShowBuy(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={s.packTitle}>{t('quota_topup_btn')}</Text>
-                <Text style={s.packSub}>{t('quota_topup_body')?.slice(0, 60)}...</Text>
-              </View>
-              <Text style={[s.packPrice, { color: Colors.gold }]}>{MONTHLY_TOPUP_PRICE} kr</Text>
-            </TouchableOpacity>
-            {/* Scan packs */}
-            {SCAN_PACKS.map((pack, i) => (
+            <Text style={s.buySheetDesc}>{isPremium ? t('scan_no_scans_desc') : t('scan_no_scans_free_desc')}</Text>
+            {!isPremium && (
               <TouchableOpacity
-                key={i}
-                style={s.packCard}
-                onPress={() => {
-                  addExtraScans(pack.count);
-                  setShowBuy(false);
-                }}
+                style={[s.packCard, { borderColor: Colors.gold + '88', justifyContent: 'center' }]}
+                onPress={() => { setShowBuy(false); presentPaywall('Logbook scan'); }}
                 activeOpacity={0.8}
               >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.packTitle}>{pack.count} {t('scan_scans')}</Text>
-                  <Text style={s.packSub}>{pack.pricePerScan}</Text>
-                </View>
-                <Text style={s.packPrice}>{pack.price} kr</Text>
+                <Text style={[s.packTitle, { color: Colors.gold, textAlign: 'center' }]}>{t('scan_see_premium')}</Text>
               </TouchableOpacity>
-            ))}
+            )}
             <TouchableOpacity onPress={() => setShowBuy(false)}>
-              <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 8 }}>{t('cancel')}</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 8 }}>{isPremium ? t('ok') : t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

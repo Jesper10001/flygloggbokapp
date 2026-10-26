@@ -24,13 +24,15 @@ export async function redeemPromo(code: string): Promise<boolean> {
 }
 
 /** Har denna device aktiv promo-Premium? true/false från servern, null = kunde inte nå den (offline). */
-export async function checkPromoEntitlement(): Promise<boolean | null> {
+// Serverns syn på enhetens Premium: premium = promokod ELLER RevenueCat, promo = bara promokoden (null =
+// äldre proxy som inte skiljer på dem). null = okänt (offline/fel).
+export async function checkPromoEntitlement(): Promise<{ premium: boolean; promo: boolean | null } | null> {
   if (!PROXY_URL) return null;
   try {
     const r = await fetch(`${base()}/entitlement`, { headers: { 'X-Device-ID': getDeviceId() } });
     if (!r.ok) return null;
     const j = await r.json();
-    return !!j?.premium;
+    return { premium: !!j?.premium, promo: typeof j?.promo === 'boolean' ? j.promo : null };
   } catch {
     return null;
   }

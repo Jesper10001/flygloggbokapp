@@ -10,7 +10,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
-  listDrones, addDrone, updateDrone, deleteDrone, getDroneUsage,
+  listDrones, addDrone, updateDrone, deleteDrone, countFlightsForDrone, getDroneUsage,
   type DroneRegistryEntry, type DroneCategory, type DroneType,
 } from '../../db/drones';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
@@ -249,9 +249,14 @@ function DroneFormModal({
     onSaved();
   };
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!initial) return;
-    Alert.alert(t('delete'), `${initial.model || initial.registration}?`, [
+    // Säg tydligt vad som händer med flygningar som loggats med drönaren (de ligger kvar, men utan koppling).
+    const n = await countFlightsForDrone(initial.id).catch(() => 0);
+    const msg = n > 0
+      ? `This drone has ${n} logged ${n === 1 ? 'flight' : 'flights'}. ${n === 1 ? 'It stays' : 'They stay'} in your logbook but will no longer be linked to this drone.`
+      : undefined;
+    Alert.alert(`${t('delete')} ${initial.model || initial.registration}?`, msg, [
       { text: t('cancel'), style: 'cancel' },
       { text: t('delete'), style: 'destructive', onPress: async () => { await deleteDrone(initial.id); onSaved(); } },
     ]);

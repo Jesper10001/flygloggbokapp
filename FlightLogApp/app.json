@@ -22,9 +22,9 @@
         ]
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "The camera is used to scan physical logbooks with OCR.",
-        "NSPhotoLibraryUsageDescription": "Your photo library is used to pick images for OCR scanning.",
-        "NSLocationWhenInUseUsageDescription": "Your location is used to find your current position when logging temporary landing sites.",
+        "NSCameraUsageDescription": "Blades uses the camera to scan your paper logbook pages, ACARS and instrument displays, and drone flight logs, so the details can be filled in for you.",
+        "NSPhotoLibraryUsageDescription": "Blades uses your photo library to attach and match photos and videos to your flights (these stay on your device), and to import images of logbook pages, ACARS displays or drone flight logs that you choose to scan.",
+        "NSLocationWhenInUseUsageDescription": "Blades uses your location to show distances and directions to airports, mark off-airport landing sites and work out night time for drone flights. Your location stays on your device.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSUbiquitousContainers": {
           "iCloud.com.blades.jointlogbook": {
@@ -32,7 +32,8 @@
             "NSUbiquitousContainerName": "Blades Logbook",
             "NSUbiquitousContainerSupportedFolderLevels": "Any"
           }
-        }
+        },
+        "NSPhotoLibraryAddUsageDescription": "Blades saves images you choose to keep, such as flight share cards, to your photo library."
       }
     },
     "android": {
@@ -68,13 +69,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "The camera is used for OCR scanning of logbooks."
+          "cameraPermission": "Blades uses the camera to scan your paper logbook pages, ACARS and instrument displays, and drone flight logs, so the details can be filled in for you."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Your location is used to find your current position when logging temporary landing sites."
+          "locationWhenInUsePermission": "Blades uses your location to show distances and directions to airports, mark off-airport landing sites and work out night time for drone flights. Your location stays on your device."
         }
       ],
       "@react-native-community/datetimepicker",
@@ -82,8 +83,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Your photo library is used to match photos and videos to your logged flights by time. Everything stays on your device.",
-          "savePhotosPermission": "Allow the app to save photos.",
+          "photosPermission": "Blades uses your photo library to attach and match photos and videos to your flights (these stay on your device), and to import images of logbook pages, ACARS displays or drone flight logs that you choose to scan.",
+          "savePhotosPermission": "Blades saves images you choose to keep, such as flight share cards, to your photo library.",
           "isAccessMediaLocationEnabled": true
         }
       ],
