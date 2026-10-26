@@ -75,6 +75,30 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 
 ## Testa i nästa bygge
 
+- [ ] **Workload för nya användare och ett rättat snitt (pilot + drönare):**
+  - **Ny användare:** logga den första flygningen. Stapeln och ringen ska lägga sig mitt på, på 100 % (NORMAL), inte på max. De första cirka två månaderna glider värdet mjukt mot det verkliga, och därefter gäller det fullt ut.
+  - **CSV-import med historik:** de verkliga värdena ska gälla direkt.
+  - **Klumpsummor räknas inte:** manuell blockimport ("Block import manually") och "Fill in missing hours" ska inte påverka workload alls.
+  - **Befintlig historik:** värdet kan ändras lite. Snittet räknas nu per kalenderdag under dina aktiva månader. Förut blev det för högt för den som flyger få veckodagar (till exempel bara helger), och för lågt i början.
+  - **Info-knappen (i):** den förklarar att mätaren står på 100 % medan den lär sig ditt normala tempo.
+- [ ] **Insights: Experience & projections flyttas tills det finns historik (pilot):**
+  - Har du bara flygningar i innevarande månad ska sektionen ligga längst ner, under Milestones.
+  - När flygningarna spänner över två kalendermånader, eller om du har importerad historik, ska den ligga på sin vanliga plats direkt efter Hours bank.
+
+- [ ] **Workload-panelen på dashboarden (stapel + ring), pilot och drönare:**
+  - **Stapeln:** ett färgspektrum (grå → cyan → grön → gul → röd) syns svagt hela vägen. Fram till värdet fylls det i färg med en svag glöd, och vredet är en liten vit prick med zonfärgad kant. Det glider fram vid start och efter en loggad flygning. Den vita markeringen i mitten är 100 % (ditt snitt). Allt ska synas tydligt utan att ta över; det tonades ner efter första testet.
+  - **Ringen** är en öppen mätare med samma spektrum. 100 % ligger rakt upp, procenten är vit och zonen visas som en chip i öppningen nedtill. Ökningen animeras efter en loggad flygning (pilot).
+  - **Rubriken:** "WORKLOAD · 14D" är ljusare, och zonen visas som en chip i zonfärgen.
+  - **Kanterna:** vid 0 % (ny användare) och vid väldigt hög belastning ska vredet och glöden synas helt, inte klippas.
+  - **Info-knappen (i):** förklaringen har nu även zonen LIGHT (cyan).
+
+- [ ] **Ny bakgrund (navy-gradient bakom flikarna):**
+  - Flikskärmarna har inte längre en platt navy, utan blått ljus uppifrån (även bakom statusraden och headern), ett svagt cyan sken nere till vänster (drönarens accentfärg i drönarläget) och en djupare botten. Gäller dashboard, loggbok (List, Book och Fleet), Insights och Settings i båda lägena.
+  - **Inga platta block:** inga ytor ska ligga som platta navy-rutor ovanpå gradienten. Kolla särskilt sökbandet överst i loggboken, de öppnade sektionerna i Settings och telemetripanelen på dashboarden.
+  - **Korten** ska fortfarande synas tydligt mot bakgrunden, även högst upp där skenet är starkast.
+  - **Tangentbordet:** öppna flygplatssökningen på dashboarden. När vyn flyttas upp ska gradienten synas bakom, aldrig en vit yta.
+  - Modaler och undersidor (till exempel Log flight och Settings-undersidor) har fortfarande platt navy. Det är medvetet tills vidare.
+
 - [ ] **Glas-flikrad (flytande kapsel):**
   - Flikraden ska sväva som en rundad kapsel strax ovanför hemindikatorn. Innehållet ska synas suddigt genom den när du rullar, på dashboard, loggbok (List, Book och Fleet), Insights och Settings, i både pilot- och drönarläge.
   - På iOS 26 ska det vara Apples Liquid Glass med ljusbrytning i kanterna. Om native-delen saknas visas en mörk blur i stället, och det ska aldrig krascha.

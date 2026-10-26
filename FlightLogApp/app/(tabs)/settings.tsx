@@ -492,7 +492,7 @@ export default function SettingsScreen() {
   // ── Render ──
 
   return (
-    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: Colors.background }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
       {/* Header */}
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
@@ -674,10 +674,10 @@ export default function SettingsScreen() {
         General
       </CollapsibleSectionHeader>
       {expandedSection === 'logbook' && (
-        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+        <Card backgroundColor="transparent" borderColor="transparent">
           {/* Drone pilot type selector */}
           {isDrone && (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: Colors.background }}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: 'transparent' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                 <Ionicons name="layers-outline" size={18} color={Colors.primary} />
                 <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>
@@ -762,7 +762,7 @@ export default function SettingsScreen() {
         </CollapsibleSectionHeader>
       </View>
       {expandedSection === 'import' && (
-        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+        <Card backgroundColor="transparent" borderColor="transparent">
           <Row
             icon="document-attach-outline" iconColor={Colors.primary}
             title={t('import_csv_title')}
@@ -804,7 +804,7 @@ export default function SettingsScreen() {
         {t('export') ?? 'DATA & EXPORT'}
       </CollapsibleSectionHeader>
       {expandedSection === 'export' && (
-        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+        <Card backgroundColor="transparent" borderColor="transparent">
           {/* Export to PDF — pausad inför lansering, visas som "coming soon". */}
           {isPilot && <Row
             icon="document-text-outline" iconColor={Colors.textMuted}
@@ -843,7 +843,7 @@ export default function SettingsScreen() {
         </CollapsibleSectionHeader>
       </View>
       {expandedSection === 'app' && (
-        <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+        <Card backgroundColor="transparent" borderColor="transparent">
           {/* Säkerhetsposter direkt (ingen extra Security-dropdown). */}
           <Row icon="finger-print-outline" iconColor={Colors.primary} title="Require Face ID to open"
             subtitle={appLockAvailable ? (appLockEnabled ? 'On · Face ID required to open the app' : 'Off') : 'Set up Face ID / Touch ID to enable'}
@@ -891,7 +891,7 @@ export default function SettingsScreen() {
         {t('about')}
       </CollapsibleSectionHeader>
       {expandedSection === 'about' && (
-      <Card backgroundColor={Colors.background} borderColor={Colors.background}>
+      <Card backgroundColor="transparent" borderColor="transparent">
         <Row icon="information-circle-outline" iconColor={Colors.textSecondary} title={t('version')} subtitle={appVersion} separatorColor={Colors.background}
           right={
             updateAvailable ? (

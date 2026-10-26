@@ -10,7 +10,7 @@ import { getDatabase } from './database';
 
 const KEY = 'backfill_hours';
 const BF_MARKER = '[BACKFILL]'; // gamla dolda backfill-flygningar (migreras bort)
-const PREV_EXP_REMARK = 'Blades previous experience';
+export const PREV_EXP_REMARK = 'Blades previous experience';
 const ROW_ID_KEY = 'backfill_row_id';          // id för kategori-raden (flight_type='summary')
 const SIM_ROW_ID_KEY = 'backfill_sim_row_id';  // id för sim-raden (flight_type='sim')
 

@@ -1,7 +1,8 @@
 import { getDatabase } from './database';
 import type { Flight, FlightFormData, FlightStats } from '../types/flight';
 import { parseFlightTime } from '../utils/format';
-import { syncBackfillRow } from './backfill';
+import { syncBackfillRow, PREV_EXP_REMARK } from './backfill';
+import { computeStressHours, type StressHours } from './stress';
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -1602,56 +1603,11 @@ export async function deleteSavedCrewName(name: string): Promise<void> {
   await setSetting(SAVED_CREW_KEY, JSON.stringify(existing.filter((n) => n.toLowerCase() !== name.trim().toLowerCase())));
 }
 
-export async function getStressHours(): Promise<{ recent14: number; yearAvg14: number }> {
-  const db = await getDatabase();
-  const r14 = await db.getFirstAsync<{ h: number }>(
-    `SELECT ROUND(SUM(total_time), 2) as h FROM flights WHERE date >= date('now', '-14 days')`
-  );
-
-  // Get hours per month for the last ~13 months (excluding last 14 days)
-  const monthRows = await db.getAllAsync<{ m: string; h: number }>(
-    `SELECT strftime('%m', date) as m, ROUND(SUM(total_time), 2) as h FROM flights
-     WHERE date >= date('now', '-379 days') AND date < date('now', '-14 days')
-     GROUP BY strftime('%m', date)`
-  );
-
-  if (monthRows.length === 0) {
-    return { recent14: r14?.h ?? 0, yearAvg14: 0 };
-  }
-
-  // Calculate average monthly hours across all months with data
-  const avgMonthly = monthRows.reduce((s, r) => s + r.h, 0) / monthRows.length;
-
-  // Identify inactive months: 0 hours or <30% of the average
-  const inactiveMonths = new Set(
-    monthRows.filter(r => r.h < avgMonthly * 0.3).map(r => r.m)
-  );
-  for (let m = 1; m <= 12; m++) {
-    const key = String(m).padStart(2, '0');
-    if (!monthRows.find(r => r.m === key)) inactiveMonths.add(key);
-  }
-
-  // Identify inactive weekdays: count flights per weekday (0=Sun..6=Sat)
-  // A weekday with <20% of the most active weekday is "normally off"
-  const weekdayRows = await db.getAllAsync<{ wd: number; cnt: number }>(
-    `SELECT CAST(strftime('%w', date) AS INTEGER) as wd, COUNT(*) as cnt FROM flights
-     WHERE date >= date('now', '-379 days') AND date < date('now', '-14 days')
-     GROUP BY strftime('%w', date)`
-  );
-  const weekdayCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun–Sat
-  for (const r of weekdayRows) weekdayCounts[r.wd] = r.cnt;
-  const maxWeekday = Math.max(...weekdayCounts);
-  const activeWeekdays = weekdayCounts.filter(c => c >= maxWeekday * 0.2).length;
-  const activeDaysPerWeek = Math.max(activeWeekdays, 1);
-
-  // Calculate baseline: total active hours / active days * 14
-  const activeHours = monthRows.filter(r => !inactiveMonths.has(r.m)).reduce((s, r) => s + r.h, 0);
-  const activeMonths = 12 - inactiveMonths.size;
-  // Active days = active months * days/month * (active weekdays / 7)
-  const activeDays = activeMonths * 30.4 * (activeDaysPerWeek / 7);
-  const avg14 = activeDays > 0 ? Math.round((activeHours / activeDays * 14) * 100) / 100 : 0;
-
-  return { recent14: r14?.h ?? 0, yearAvg14: avg14 };
+// Bara verkligt flugna pass räknas i belastningen: summeringsrader (manuell blockimport + backfill,
+// flight_type='summary') och backfillens sim-rad ("previous experience") är klumpsummor daterade vid historikens
+// början — de skulle annars ge max-belastning eller ett uppblåst snitt. Beräkningen: db/stress.ts.
+export async function getStressHours(): Promise<StressHours> {
+  return computeStressHours('flights', `flight_type != 'summary' AND COALESCE(remarks, '') != ?`, [PREV_EXP_REMARK]);
 }
 
 export async function getDailyHours14(): Promise<{ date: string; hours: number }[]> {

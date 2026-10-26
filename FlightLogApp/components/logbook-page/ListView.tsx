@@ -52,7 +52,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
   return (
     <View style={{ flex: 1 }}>
       {/* sticky header */}
-      <View style={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
+      <View style={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: Colors.textPrimary, flex: 1 }}>Logbook</Text>
           {headerRight}

@@ -70,7 +70,7 @@ export function PilotLogbook() {
   const toggleNode = <SegmentedToggle options={OPTIONS} value={view} onChange={switchView} accent={accent} />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1 }}>
       {isLoading && flights.length === 0 ? (
         <ActivityIndicator color={accent} style={{ marginTop: 60 }} />
       ) : view === 'list' ? (

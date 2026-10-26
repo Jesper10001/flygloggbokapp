@@ -283,7 +283,7 @@ export default function DroneSettingsScreen() {
   };
 
   return (
-    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
+    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
         <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: DR.text }}>Settings</Text>

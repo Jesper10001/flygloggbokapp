@@ -62,19 +62,20 @@ const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
-import Svg, { Circle } from 'react-native-svg';
+import { WorkloadBar, LoadRing, ZoneChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
 import { StressInfoButton } from '../../components/StressInfo';
 import * as Haptics from 'expo-haptics';
 import { useTabBarSpace } from '../../components/GlassTabBar';
+import { workloadIndex } from '../../utils/workload';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
 
 type StressZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
 type StressData = { index: number; zone: StressZone; hours14: number; baseline14: number; advice: string };
 
-function computeStress(recent14: number, yearAvg14: number): StressData {
-  const ratio = yearAvg14 > 0 ? recent14 / yearAvg14 : recent14 > 0 ? 2 : 0;
-  const index = Math.round(ratio * 100);
+// Index via utils/workload: utan eget snitt (första veckorna) 100 % i stället för max, sedan gradvis verkligt.
+function computeStress(recent14: number, yearAvg14: number, historyDays = 0): StressData {
+  const index = workloadIndex(recent14, yearAvg14, historyDays);
   const zone: StressZone =
     index <= 29 ? 'low' : index <= 69 ? 'light' : index <= 130 ? 'normal'
     : index <= 169 ? 'elevated' : index <= 200 ? 'high' : 'critical';
@@ -89,21 +90,14 @@ function computeStress(recent14: number, yearAvg14: number): StressData {
   return { index, zone, hours14: recent14, baseline14: yearAvg14, advice: adviceMap[zone] };
 }
 
+// Zonfärger delas med drönardashboarden (components/WorkloadGauge).
 function zoneColor(zone: StressZone): string {
-  if (zone === 'low') return Colors.textMuted;
-  if (zone === 'light') return Colors.primary;
-  if (zone === 'normal') return Colors.success;
-  if (zone === 'elevated') return Colors.warning;
-  if (zone === 'high') return Colors.danger;
-  if (zone === 'critical') return Colors.danger;
-  return Colors.primary;
+  return loadZoneColor(zone);
 }
 // ── StressRing ──────────────────────────────────────────────────────────────
 
 function StressRing({ stress, size = 120, ready = false }: { stress: StressData; size?: number; ready?: boolean }) {
-  const r = (size - 12) / 2;
-  const circ = 2 * Math.PI * r;
-  const targetPct = Math.min(stress.index, 240) / 240;
+  const targetPct = Math.min(stress.index, LOAD_MAX) / LOAD_MAX;
   const color = zoneColor(stress.zone);
 
   // Animera ÖKNINGEN (prev → nytt index) efter en loggad flight; visa slutvärde direkt vid
@@ -136,27 +130,10 @@ function StressRing({ stress, size = 120, ready = false }: { stress: StressData;
   }, [stress.index, ready]);
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size/2} cy={size/2} r={r} stroke={Colors.separator} strokeWidth={6} fill="none" />
-        <Circle
-          cx={size/2} cy={size/2} r={r}
-          stroke={color} strokeWidth={6} fill="none"
-          strokeDasharray={`${circ * displayPct} ${circ * (1 - displayPct)}`}
-          strokeDashoffset={circ * 0.25}
-          strokeLinecap="round"
-          rotation={-90} origin={`${size/2}, ${size/2}`}
-        />
-      </Svg>
-      <Text style={{ fontSize: size > 100 ? 26 : 20, fontWeight: '900', color, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>
-        {displayIndex}%
-      </Text>
-      <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginTop: 2 }}>
-        {stress.zone.toUpperCase()}
-      </Text>
+    <LoadRing value={displayIndex} pct={displayPct} color={color} zone={stress.zone} size={size}>
       {/* Info nere till vänster om cirkeln → förklarar hur Flight load räknas. */}
       <StressInfoButton style={{ position: 'absolute', left: 0, bottom: 0 }} />
-    </View>
+    </LoadRing>
   );
 }
 
@@ -640,7 +617,6 @@ export default function DashboardScreen() {
       useNativeDriver: true,
     }).start();
   }, [globeMenuOpen, globeMenuAnim]);
-  const needleAnim = useRef(new Animated.Value(0)).current;
   const kbShift = useRef(new Animated.Value(0)).current; // temporär uppflytt när flygplatssökrutan fokuseras
   const [profileName, setProfileName] = useState('');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
@@ -659,7 +635,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadStats();
     loadFlights();
-    getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
+    getStressHours().then(({ recent14, yearAvg14, historyDays }) => { setStress(computeStress(recent14, yearAvg14, historyDays)); setStressReady(true); });
     getSetting('profile_first_name').then(v => setProfileName(v ?? ''));
     checkVersion();
     loadPrompt();
@@ -668,7 +644,7 @@ export default function DashboardScreen() {
   useFocusEffect(useCallback(() => {
     loadStats();
     loadFlights();
-    getStressHours().then(({ recent14, yearAvg14 }) => { setStress(computeStress(recent14, yearAvg14)); setStressReady(true); });
+    getStressHours().then(({ recent14, yearAvg14, historyDays }) => { setStress(computeStress(recent14, yearAvg14, historyDays)); setStressReady(true); });
     loadPrompt();
     // Göm vädret när man LÄMNAR dashboarden (blur) — off-screen, så det syns aldrig försvinna och inget
     // hoppar under scroll. Nästa gång man kommer tillbaka är det redan dolt → måste dra ner och hämta igen.
@@ -718,16 +694,6 @@ export default function DashboardScreen() {
   }, [mode, lastDest]);
   // Göm WX igen om destinationen (eller läget) ändras → dra ner för att hämta på nytt.
   useEffect(() => { setWx(null); }, [lastDest, mode]);
-
-  useEffect(() => {
-    needleAnim.setValue(0);
-    Animated.timing(needleAnim, {
-      toValue: Math.min((stress.index / 200) * 100, 100),
-      duration: 1400,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [stress.index]);
 
   // Stress-readouten animerar ÖKNINGEN efter en loggad flight (prev → nytt värde), inte
   // från 0. Vid mount/reload visas slutvärdet direkt (ingen uppräkning från start).
@@ -851,9 +817,9 @@ export default function DashboardScreen() {
   if (mode !== 'manned') return <View style={s.container} />;
 
   return (<>
-    {/* Mörk yttre bakgrund som ALLTID fyller skärmen → när inre vyn flyttas upp vid tangentbord syns
-        ingen vit scen bakom (bara mörk dashboard-bakgrund). */}
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    {/* Yttre vy som ALLTID fyller skärmen. Bakgrunden (gradienten) ligger bakom flik-navigatorn → när inre
+        vyn flyttas upp vid tangentbord syns gradienten, aldrig en vit scen. */}
+    <View style={{ flex: 1 }}>
     <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
     <ScrollView
       ref={dashScrollRef}
@@ -937,7 +903,7 @@ export default function DashboardScreen() {
           {/* Vänster: WORKLOAD-etikett + state-text (t.ex. NORMAL) bredvid varandra */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
-            <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
+            <ZoneChip zone={stress.zone} color={zc} />
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
           {mode === 'manned' && !wx && (
@@ -951,53 +917,8 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Gauge bar with zones */}
-        <View style={s.telGaugeTrack}>
-          {(() => {
-            const zones = [
-              { max: 29, c: '#6B7280' },
-              { max: 69, c: Colors.primary },
-              { max: 130, c: Colors.success },
-              { max: 169, c: Colors.warning },
-              { max: 200, c: Colors.danger },
-            ];
-            const activeIdx = zones.findIndex((z, i) => {
-              const from = i === 0 ? 0 : zones[i - 1].max;
-              return stress.index >= from && stress.index < z.max;
-            });
-            if (activeIdx === -1 && stress.index >= 240) {
-              // in last zone
-            }
-            return zones.map((z, i) => {
-              const from = i === 0 ? 0 : zones[i - 1].max;
-              const isActive = stress.index >= from && stress.index < z.max || (i === zones.length - 1 && stress.index >= from);
-              return (
-                <View
-                  key={i}
-                  style={{
-                    flex: z.max - from,
-                    backgroundColor: z.c,
-                    opacity: isActive ? 0.75 : 0.08,
-                    ...(isActive && {
-                      borderRadius: 5,
-                    }),
-                  }}
-                />
-              );
-            });
-          })()}
-          <View style={{
-            position: 'absolute', left: `${(100 / 200) * 100}%`, top: -2, bottom: -2,
-            width: 1.5, backgroundColor: Colors.textPrimary, opacity: 0.4,
-          }} />
-          <Animated.View style={{
-            position: 'absolute',
-            left: needleAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
-            top: -3, width: 14, height: 14, borderRadius: 7, marginLeft: -7,
-            backgroundColor: zc, borderWidth: 2, borderColor: Colors.background,
-            shadowColor: zc, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 4,
-          }} />
-        </View>
+        {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (components/WorkloadGauge). */}
+        <WorkloadBar index={stress.index} color={zc} />
 
         {/* Percentage display */}
         <View style={s.telPctRow}>
@@ -1199,7 +1120,7 @@ export default function DashboardScreen() {
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 function makeDashStyles() { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 32 },
 
   hudHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -1230,21 +1151,16 @@ function makeDashStyles() { return StyleSheet.create({
   readyText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6, fontFamily: 'Menlo' },
 
   telPanel: {
-    borderRadius: 16, overflow: 'hidden',
-    backgroundColor: Colors.background, borderWidth: 0,
+    // Genomskinlig (gradienten syns igenom) och utan klippning → vredets glöd vid 0/200 % kapas inte.
+    backgroundColor: 'transparent', borderWidth: 0,
     padding: 4, gap: 8, marginBottom: 14,
   },
   telGaugeHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 20,
   },
   telGaugeLabel: {
-    fontSize: 9, fontWeight: '700', color: Colors.textMuted,
+    fontSize: 9, fontWeight: '700', color: Colors.textSecondary,
     letterSpacing: 1.2, fontFamily: 'Menlo',
-  },
-  telGaugeZone: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' },
-  telGaugeTrack: {
-    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'visible',
-    backgroundColor: Colors.separator, position: 'relative',
   },
   telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   telReadout: {

@@ -162,7 +162,7 @@ function FlightsTab({ flights, accent, onOpen }: {
   return (
     <View style={{ flex: 1 }}>
       {/* Sticky header: sök + filterchips (= manned ListView) */}
-      <View style={{ paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10, backgroundColor: DR.background, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
+      <View style={{ paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
         <View style={s.searchRow}>
           <Ionicons name="search" size={16} color={DR.muted} />
           <TextInput style={s.searchInput} value={query} onChangeText={setQuery} placeholder="Search site, drone, mission…" placeholderTextColor={DR.muted} autoCapitalize="characters" />
@@ -641,7 +641,7 @@ function Chip({ text, tone, accent }: { text: string; tone: 'acc' | 'warn' | 'mu
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DR.background },
+  container: { flex: 1 },
   screenTitle: { fontFamily: SERIF, fontSize: 26, fontWeight: '600', color: DR.text, marginBottom: 14 },
 
   // Kompakt ikon-toggle (= manned SegmentedToggle): container radius 9, 32x28-segment

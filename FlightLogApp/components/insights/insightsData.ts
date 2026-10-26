@@ -12,6 +12,20 @@ const num = (f: Flight, k: string) => (f as any)[k] || 0;
 
 export interface JourneyPt { date: Date; cum: number }
 
+/** Har loggboken minst "two months of history"? Samma villkor som journey-kurvan (≥ 2 månadspunkter från första
+ *  flygningens månad t.o.m. innevarande månad, sim borträknat) → Experience & projections har en projektion att visa. */
+export function hasTwoMonthsOfHistory(flights: Flight[]): boolean {
+  let first: string | null = null;
+  for (const f of flights) {
+    if (f.flight_type === 'sim' || !f.date) continue;
+    const k = f.date.slice(0, 7);
+    if (!first || k < first) first = k;
+  }
+  if (!first) return false;
+  const now = new Date();
+  return first < `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export interface InsightsData {
   total: number; ytd: number; m3: number; m6: number; m12: number;
   cats: Record<string, number>;

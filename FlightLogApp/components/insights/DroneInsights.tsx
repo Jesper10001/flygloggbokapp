@@ -282,8 +282,8 @@ function buildMonthly(flights: DroneFlight[]): { label: string; count: number }[
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: DR.background },
-  emptyWrap: { flex: 1, backgroundColor: DR.background, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
+  screen: { flex: 1 },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
   emptyText: { color: DR.text2, fontSize: 15, fontWeight: '700', fontFamily: SERIF },
   emptySub: { color: DR.muted, fontSize: 12.5, textAlign: 'center' },
 

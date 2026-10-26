@@ -14,7 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import Svg, { Circle } from 'react-native-svg';
+import { WorkloadBar, LoadRing, ZoneChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
 import { StressInfoButton } from '../../components/StressInfo';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -39,6 +39,7 @@ import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { Marquee } from '../../components/Marquee';
 import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 import { useTabBarSpace } from '../../components/GlassTabBar';
+import { workloadIndex } from '../../utils/workload';
 
 const SERIF = 'Georgia';
 const MONO = 'Menlo';
@@ -48,9 +49,9 @@ const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging
 type StressZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
 type StressData = { index: number; zone: StressZone; hours14: number; baseline14: number; advice: string };
 
-function computeStress(recent14: number, yearAvg14: number): StressData {
-  const ratio = yearAvg14 > 0 ? recent14 / yearAvg14 : recent14 > 0 ? 2 : 0;
-  const index = Math.round(ratio * 100);
+// Index via utils/workload (= pilot): utan eget snitt 100 % i stället för max, sedan gradvis verkligt.
+function computeStress(recent14: number, yearAvg14: number, historyDays = 0): StressData {
+  const index = workloadIndex(recent14, yearAvg14, historyDays);
   const zone: StressZone =
     index <= 29 ? 'low' : index <= 69 ? 'light' : index <= 130 ? 'normal'
     : index <= 169 ? 'elevated' : index <= 200 ? 'high' : 'critical';
@@ -64,33 +65,17 @@ function computeStress(recent14: number, yearAvg14: number): StressData {
   };
   return { index, zone, hours14: recent14, baseline14: yearAvg14, advice: adviceMap[zone] };
 }
-// Zonfärger = EXAKT manned (Colors), inte DR/accent → identisk stress-panel.
+// Zonfärger = EXAKT manned (delas via components/WorkloadGauge), inte DR/accent → identisk stress-panel.
 function zoneColor(zone: StressZone): string {
-  if (zone === 'low') return Colors.textMuted;
-  if (zone === 'light') return Colors.primary;
-  if (zone === 'normal') return Colors.success;
-  if (zone === 'elevated') return Colors.warning;
-  return Colors.danger; // high / critical
+  return loadZoneColor(zone);
 }
 
 function StressRing({ stress, size = 110 }: { stress: StressData; size?: number }) {
-  const r = (size - 12) / 2;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.min(stress.index, 240) / 240;
-  const color = zoneColor(stress.zone);
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={Colors.separator} strokeWidth={6} fill="none" />
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={6} fill="none"
-          strokeDasharray={`${circ * pct} ${circ * (1 - pct)}`} strokeDashoffset={circ * 0.25}
-          strokeLinecap="round" rotation={-90} origin={`${size / 2}, ${size / 2}`} />
-      </Svg>
-      <Text style={{ fontSize: size > 100 ? 26 : 20, fontWeight: '900', color, fontFamily: 'Menlo', fontVariant: ['tabular-nums'] }}>{stress.index}%</Text>
-      <Text style={{ fontSize: 8, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginTop: 2 }}>{stress.zone.toUpperCase()}</Text>
+    <LoadRing value={stress.index} pct={Math.min(stress.index, LOAD_MAX) / LOAD_MAX} color={zoneColor(stress.zone)} zone={stress.zone} size={size}>
       {/* Info nere till vänster om cirkeln → förklarar hur Flight load räknas. */}
       <StressInfoButton style={{ position: 'absolute', left: 0, bottom: 0 }} />
-    </View>
+    </LoadRing>
   );
 }
 
@@ -145,7 +130,7 @@ export default function DroneDashboardScreen() {
     loadAccent();
     loadFlights();
     loadStats();
-    getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14))).catch(() => {});
+    getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14, h.historyDays))).catch(() => {});
     return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
 
@@ -170,15 +155,9 @@ export default function DroneDashboardScreen() {
   // Inget tom-läge: full dashboard visas även utan flygningar (nollor + placeholders), likt pilotläget.
   // Workload visar 0, latest-karusellen döljs (recent.length>0), fotokarusell/glob/log-rad renderas.
 
-  // Zon-färger = EXAKT manned (index.tsx), inte DR/accent.
-  const zones = [
-    { max: 29, c: '#6B7280' }, { max: 69, c: Colors.primary }, { max: 130, c: Colors.success },
-    { max: 169, c: Colors.warning }, { max: 200, c: Colors.danger },
-  ];
-  const needlePct = Math.min(stress.index, 200) / 200;
 
   return (
-    <View style={{ flex: 1, backgroundColor: DR.background }}>
+    <View style={{ flex: 1 }}>
     <Animated.View style={{ flex: 1, transform: [{ translateY: kbShift }] }}>
     <ScrollView ref={dashScrollRef} style={s.screen} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: tabSpace + 12 }} scrollEnabled={!globeGrabbed} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} tintColor="transparent" onRefresh={async () => {
@@ -213,7 +192,7 @@ export default function DroneDashboardScreen() {
           {/* Vänster: WORKLOAD-etikett + zon bredvid varandra (= pilot) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
-            <Text style={[s.telGaugeZone, { color: zc }]}>{stress.zone.toUpperCase()}</Text>
+            <ZoneChip zone={stress.zone} color={zc} />
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) = pilot */}
           {!wx && (
@@ -226,16 +205,8 @@ export default function DroneDashboardScreen() {
             </View>
           )}
         </View>
-        {/* Zon-bar med nål */}
-        <View style={s.telGaugeTrack}>
-          {zones.map((z, i) => {
-            const from = i === 0 ? 0 : zones[i - 1].max;
-            const isActive = (stress.index >= from && stress.index < z.max) || (i === zones.length - 1 && stress.index >= from);
-            return <View key={i} style={{ flex: z.max - from, backgroundColor: z.c, opacity: isActive ? 0.75 : 0.08, borderRadius: isActive ? 5 : 0 }} />;
-          })}
-          <View style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 1.5, backgroundColor: Colors.textPrimary, opacity: 0.4 }} />
-          <View style={{ position: 'absolute', left: `${needlePct * 100}%`, top: -3, width: 14, height: 14, borderRadius: 7, marginLeft: -7, backgroundColor: zc, borderWidth: 2, borderColor: Colors.background, shadowColor: zc, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 4 }} />
-        </View>
+        {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (= pilot, components/WorkloadGauge). */}
+        <WorkloadBar index={stress.index} color={zc} />
         {/* Ring + readouts */}
         <View style={s.telPctRow}>
           <StressRing stress={stress} size={110} />
@@ -577,7 +548,7 @@ function CarouselAction({ accent, icon, label, sub, disabled, first, onPress }: 
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: DR.background },
+  screen: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
   iconCircle: { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   emptyTitle: { color: DR.text, fontSize: 18, fontWeight: '800' },
@@ -586,10 +557,9 @@ const s = StyleSheet.create({
 
 
   // Telemetripanel = EXAKT manned telPanel (index.tsx): fonter/färger/borders identiska.
-  telPanel: { borderRadius: 16, overflow: 'hidden', backgroundColor: Colors.background, borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },
+  telPanel: { backgroundColor: 'transparent', borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },
   telGaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 20 },
-  telGaugeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1.2, fontFamily: 'Menlo' },
-  telGaugeZone: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, fontFamily: 'Menlo' },
+  telGaugeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 1.2, fontFamily: 'Menlo' },
   // Väder-ticker (närmaste station) — samma stil som manned dashboard.
   wxTap: { flexDirection: 'row', alignItems: 'center' },
   wxFetchHint: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary, fontFamily: 'ChakraPetch-SemiBold' },
@@ -597,7 +567,6 @@ const s = StyleSheet.create({
   wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
   wxScrollWrap: { flex: 1, height: 21 },
   wxScroll: { fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', color: Colors.textPrimary },
-  telGaugeTrack: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'visible', backgroundColor: Colors.separator, position: 'relative' },
   telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   telReadout: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: Colors.background + 'CC', borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder },
   telReadoutLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },

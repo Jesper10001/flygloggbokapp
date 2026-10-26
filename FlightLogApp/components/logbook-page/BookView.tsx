@@ -111,12 +111,12 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
     </View>
   );
 
-  if (loading) return <View style={{ flex: 1, backgroundColor: Colors.background }}><ActivityIndicator color={accent} style={{ marginTop: 60 }} /></View>;
+  if (loading) return <View style={{ flex: 1 }}><ActivityIndicator color={accent} style={{ marginTop: 60 }} /></View>;
 
   // Ingen bok → CTA (behåll headern med väljaren så man kan byta vy).
   if (!book || !template) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      <View style={{ flex: 1 }}>
         {Header}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
           <Ionicons name="book-outline" size={44} color={accent} />
@@ -134,7 +134,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1 }}>
       {Header}
       {/* Pages xx–xx — själva texten är dropdown-toggeln för uppslagsval */}
       <View style={{ paddingBottom: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>

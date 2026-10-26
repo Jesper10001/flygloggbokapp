@@ -13,7 +13,7 @@ import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { TourPress } from '../../components/TourPress';
 import { GlassTabBar } from '../../components/GlassTabBar';
-import { DR } from '../../constants/droneTheme';
+import { AppBackground } from '../../components/AppBackground';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 
 const PAGE_SIZE = 12; // flygningar per blad
@@ -59,7 +59,9 @@ export default function TabsLayout() {
   }, [flightCount]);
 
   return (
-    <>
+    // Bakgrunden (navy-gradient) ritas en gång bakom alla flikar; scener och header är genomskinliga.
+    <View style={{ flex: 1 }}>
+    <AppBackground accent={isDrone ? accent : Colors.primary} />
     <Tabs
       // Lägesbytet navigerar EXPLICIT till rätt dashboard (settings/drone-settings, deferred
       // efter re-render) → ingen remount-key behövs. /(tabs) löser sig till manned-ankaret
@@ -69,9 +71,10 @@ export default function TabsLayout() {
         <GlassTabBar {...props} activeTint={isDrone ? accent : Colors.primary} inactiveTint="#C9D9EA" />
       )}
       screenOptions={{
+        sceneStyle: { backgroundColor: 'transparent' },
         headerShown: true,
         headerTitle: '',
-        headerStyle: { backgroundColor: isDrone ? DR.background : Colors.background, height: 50 },
+        headerStyle: { backgroundColor: 'transparent', height: 50 },
         headerShadowVisible: false,
       }}
     >
@@ -199,7 +202,7 @@ export default function TabsLayout() {
       onClose={() => setLimitModal(null)}
       onGoPremium={() => { setLimitModal(null); router.push('/settings/premium'); }}
     />
-    </>
+    </View>
   );
 }
 
