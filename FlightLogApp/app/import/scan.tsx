@@ -14,6 +14,7 @@ import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/sc
 import { presentPaywall } from '../../services/purchases';
 import { setScanImage, setScanBatch } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
+import { askAiConsent } from '../../services/aiConsent';
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
@@ -43,7 +44,10 @@ export default function ScanImportScreen() {
     );
   }
 
+  // OCR-granskningen är ett AI-anrop → samtycke innan kamera/bibliotek/dokumentscanner öppnas, och innan
+  // en skanning förbrukas (kvoten dras före granskningssidans AI-anrop).
   const pickImage = async (fromCamera: boolean) => {
+    if (!(await askAiConsent())) return;
     if (fromCamera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
@@ -60,6 +64,7 @@ export default function ScanImportScreen() {
   };
 
   const pickBatch = async () => {
+    if (!(await askAiConsent())) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.85,
@@ -141,6 +146,7 @@ export default function ScanImportScreen() {
   const handleScan = async () => {
     if (!canScan()) { setShowBuy(true); return; }
     if (!imageUri) return;
+    if (!(await askAiConsent())) return;
     setWorking(true);
     try {
       // Check image quality BEFORE consuming scan
@@ -191,6 +197,7 @@ export default function ScanImportScreen() {
   // inbyggda skärmen. Returnerar rena bild-URI:er redo för OCR.
   // Lazy-require så appen inte kraschar i en build UTAN modulen (före ombyggnad).
   const scanWithDocScanner = async () => {
+    if (!(await askAiConsent())) return;
     let DocumentScanner: any;
     try {
       DocumentScanner = require('react-native-document-scanner-plugin').default;

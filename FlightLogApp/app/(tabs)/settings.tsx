@@ -28,7 +28,6 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useToastStore } from '../../components/Toast';
-import { seedMannedPilot1, seedMannedPilot2, seedMannedPilot3, clearMannedTestUser } from '../../services/testUserSeed';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
@@ -42,6 +41,8 @@ import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
+import { useAiConsentStore } from '../../store/aiConsentStore';
+import { requestAiConsent } from '../../services/aiConsent';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 // ── Design components (från Claude Design handoff) ─────────────────────────
 
@@ -328,6 +329,15 @@ export default function SettingsScreen() {
     await useAppLockStore.getState().setEnabled(next);
   };
 
+  // AI-samtycke: påslag visar samma dialog som första AI-anropet (användaren ser vad som skickas och till vem);
+  // avslag gäller direkt — nästa AI-funktion frågar igen.
+  const aiConsent = useAiConsentStore((s) => s.consent);
+  useEffect(() => { useAiConsentStore.getState().load(); }, []);
+  const toggleAi = async (next: boolean) => {
+    if (next) await requestAiConsent();
+    else await useAiConsentStore.getState().setConsent('declined');
+  };
+
   // Platstillstånd kan inte slås av inifrån appen (iOS) → begär vid påslag, annars/vid avslag → Inställningar.
   const toggleLocation = async (next: boolean) => {
     try {
@@ -419,38 +429,6 @@ export default function SettingsScreen() {
     }
     const raw = pagesChoice === 'custom' ? parseInt(pagesCustom || '0', 10) : pagesChoice;
     doPagesExport(Math.max(1, raw || 1));
-  };
-
-  const applyMannedTestUser = (which: 1 | 2 | 3 | 'clear') => {
-    const label = which === 'clear' ? 'Clear test data' : which === 1 ? 'Airline pilot (SAS)' : which === 2 ? 'HEMS pilot' : 'Student pilot (CPL)';
-    const msg = which === 'clear' ? 'Remove all logbook data?' : 'This replaces all current logbook data with the demo profile. Continue?';
-    Alert.alert(label, msg, [
-      { text: t('cancel'), style: 'cancel' },
-      { text: which === 'clear' ? 'Clear' : 'Load', style: 'destructive', onPress: async () => {
-        try {
-          if (which === 1) { await seedMannedPilot1(); }
-          else if (which === 2) { await seedMannedPilot2(); }
-          else if (which === 3) { await seedMannedPilot3(); }
-          else { await clearMannedTestUser(); }
-          await useProfileStore.getState().load();
-          if (which !== 'clear') { await setAppMode('manned'); }
-          await Promise.all([loadFlights(), loadStats()]);
-          useToastStore.getState().show(which === 'clear' ? 'Test data cleared' : `${label} loaded`);
-          if (which !== 'clear') requestAnimationFrame(() => router.replace('/(tabs)'));
-        } catch (e: any) { Alert.alert(t('error'), e.message); }
-      }},
-    ]);
-  };
-
-  // Dold trigger (långtryck på versionsnumret i About) → ladda demo-profiler. Developer-sektionen är borttagen.
-  const openDevMenu = () => {
-    Alert.alert('Test profiles', 'Replace all logbook data with a demo pilot profile.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Airline pilot (SAS)', onPress: () => applyMannedTestUser(1) },
-      { text: 'HEMS pilot', onPress: () => applyMannedTestUser(2) },
-      { text: 'Student pilot (CPL)', onPress: () => applyMannedTestUser(3) },
-      { text: 'Clear logbook data', style: 'destructive', onPress: () => applyMannedTestUser('clear') },
-    ]);
   };
 
   const switchPilotType = async (next: 'commercial' | 'military' | 'hobby') => {
@@ -857,6 +835,12 @@ export default function SettingsScreen() {
             pressable={false}
             separatorColor={Colors.background}
           />
+          <Row icon="sparkles-outline" iconColor={Colors.primary} title="AI features"
+            subtitle={aiConsent === 'granted' ? 'On · scans, imports & look-ups via Anthropic' : "Off · you'll be asked before anything is sent"}
+            right={<Switch value={aiConsent === 'granted'} onValueChange={toggleAi} trackColor={{ false: Colors.elevated, true: Colors.primary }} />}
+            pressable={false}
+            separatorColor={Colors.background}
+          />
           <ICloudSyncRow flat />
           <Row icon="lock-closed-outline" iconColor={Colors.primary} title="Encryption"
             subtitle="Protected by iOS · optional AES-256"
@@ -913,8 +897,6 @@ export default function SettingsScreen() {
               }
             });
           }}
-          /* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge.
-             openDevMenu() + handleDev() finns kvar nedan; återaktivera genom att lägga tillbaka propen. */
         />
         <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com" separatorColor={Colors.background}
           onClick={() => Linking.openURL('mailto:support@blades-app.com')}
@@ -925,6 +907,9 @@ export default function SettingsScreen() {
         />
         <Row icon="document-text-outline" iconColor={Colors.textSecondary} title={t('privacy_policy')} separatorColor={Colors.background}
           onClick={() => Linking.openURL('https://blades-app.com/privacy.html')}
+        />
+        <Row icon="ribbon-outline" iconColor={Colors.textSecondary} title="Acknowledgements" subtitle="Open data, open-source software & licenses" separatorColor={Colors.background}
+          onClick={() => router.push('/settings/acknowledgements')}
         />
         <Row icon="pricetag-outline" iconColor={Colors.textSecondary} title="Redeem promo code" border={false}
           onLongPress={() => {

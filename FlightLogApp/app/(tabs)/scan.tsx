@@ -18,6 +18,7 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
 import { ocrSummarizePage, type PageSummary } from '../../services/ocr';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
@@ -607,7 +608,10 @@ export default function ScanScreen() {
     reset();
   };
 
+  // Alla lägen här (skanna/summera) är AI-anrop → samtycke innan kameran öppnas, och igen innan en
+  // skanning förbrukas (kvoten dras före granskningssidans AI-anrop).
   const pickImage = async (fromCamera: boolean) => {
+    if (!(await askAiConsent())) return;
     let result;
     if (fromCamera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -654,6 +658,7 @@ export default function ScanScreen() {
 
   const handleImport = async () => {
     if (!canScan()) { presentPaywall('Logbook scan'); return; } // (tidigare gratis "köp"-ruta — borttagen)
+    if (!(await askAiConsent())) return;
     setWorking(true);
     try {
       const img = await prepareImage();
@@ -669,6 +674,7 @@ export default function ScanScreen() {
   };
 
   const handleBatchImport = async () => {
+    if (!(await askAiConsent())) return;
     setWorking(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -712,6 +718,7 @@ export default function ScanScreen() {
       Alert.alert('Limit reached', `You have used all ${MONTHLY_SUMMARIZE_QUOTA} summary scans for this month.`);
       return;
     }
+    if (!(await askAiConsent())) return;
     setWorking(true);
     try {
       const img = await prepareImage();
@@ -721,6 +728,7 @@ export default function ScanScreen() {
       setSummary(result);
       setPendingSummary(result);
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       Alert.alert(t('error'), e.message);
     } finally {
       setWorking(false);

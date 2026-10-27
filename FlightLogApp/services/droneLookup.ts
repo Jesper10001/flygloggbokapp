@@ -1,5 +1,6 @@
 import { callAnthropicJson } from './anthropicClient';
 import { fetchDroneImage } from './aircraftLookup';
+import { serializeCredit } from '../utils/photoCredit';
 
 // Text-baserad drönar-uppslagning (speglar services/aircraftLookup.ts men för UAS).
 // Användaren skriver fri text ("Mavic 3", "Matrice 350", "Autel EVO II") → AI returnerar
@@ -60,7 +61,8 @@ OUTPUT (svara ENBART med JSON):
   "needs_manual": boolean
 }`;
 
-export async function lookupDrone(query: string): Promise<DroneLookupResult> {
+/** background=true: bakgrundsjobb (Fleet-berikning) — utan AI-samtycke hoppas uppslaget över utan dialog. */
+export async function lookupDrone(query: string, opts: { background?: boolean } = {}): Promise<DroneLookupResult> {
   const q = query.trim();
   if (!q) throw new Error('Tomt sökord.');
 
@@ -68,6 +70,7 @@ export async function lookupDrone(query: string): Promise<DroneLookupResult> {
     system: SYSTEM_PROMPT,
     maxTokens: 500,
     userContent: `Identifiera drönaren: "${q}". Svara ENBART med JSON-objektet.`,
+    consentPrompt: !opts.background,
   });
   const confidence = Number(parsed.confidence) || 0;
   const drone_type: DroneLookupResult['drone_type'] =
@@ -104,11 +107,12 @@ export interface DroneFleetEnrichment {
   ceiling_m: number;
   range_km: number;
   image_url: string;
+  image_credit: string;      // fotokredit (JSON, utils/photoCredit) — tom om ingen bild hittades
   needs_manual: boolean;
 }
 
-export async function enrichDroneFleet(query: string): Promise<DroneFleetEnrichment> {
-  const r = await lookupDrone(query);
+export async function enrichDroneFleet(query: string, opts: { background?: boolean } = {}): Promise<DroneFleetEnrichment> {
+  const r = await lookupDrone(query, opts);
   // Rika kandidater (tillverkare + modell först) → bredare bildsök (Wikipedia + Commons).
   const candidates = [
     `${r.manufacturer} ${r.model}`.trim(),
@@ -116,7 +120,7 @@ export async function enrichDroneFleet(query: string): Promise<DroneFleetEnrichm
     `${r.manufacturer} ${r.model} drone`.trim(),
     query,
   ].filter(Boolean);
-  const image_url = await fetchDroneImage(candidates);
+  const photo = await fetchDroneImage(candidates);
   return {
     manufacturer: r.manufacturer,
     drone_type: r.drone_type,
@@ -126,7 +130,8 @@ export async function enrichDroneFleet(query: string): Promise<DroneFleetEnrichm
     max_speed_kmh: r.max_speed_kmh,
     ceiling_m: r.ceiling_m,
     range_km: r.range_km,
-    image_url,
+    image_url: photo?.url ?? '',
+    image_credit: serializeCredit(photo?.credit),
     needs_manual: r.needs_manual,
   };
 }

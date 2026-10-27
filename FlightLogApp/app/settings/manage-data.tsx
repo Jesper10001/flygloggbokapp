@@ -9,6 +9,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useAppLockStore } from '../../store/appLockStore';
 import { useICloudStore } from '../../store/icloudStore';
 import { useProfileStore } from '../../store/profileStore';
+import { useAiConsentStore } from '../../store/aiConsentStore';
 import { useToastStore } from '../../components/Toast';
 
 export default function ManageDataScreen() {
@@ -40,6 +41,7 @@ export default function ManageDataScreen() {
       try { useAppLockStore.setState({ enabled: false, unlocked: true, available: useAppLockStore.getState().available }); } catch { /* ignore */ }
       try { await useICloudStore.getState().refresh(); } catch { /* ignore */ }
       try { await useProfileStore.getState().load(); } catch { /* ignore */ }
+      try { useAiConsentStore.setState({ consent: 'unset', loaded: false }); } catch { /* ignore */ } // samtycket raderades med settings
       // Kort bekräftelse (ToastHost ligger i root-layouten → syns kvar efter navigeringen).
       try { useToastStore.getState().show('Your data was deleted'); } catch { /* ignore */ }
       router.replace('/onboarding');

@@ -20,8 +20,10 @@ import {
 } from '../../db/drones';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { enrichDroneFleet } from '../../services/droneLookup';
+import { isAiConsentError } from '../../services/aiConsent';
 import { useTourStore } from '../../store/tourStore';
 import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
+import { PhotoCreditLabel } from '../PhotoCreditLabel';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
@@ -143,7 +145,7 @@ export function DroneFleetCard({ m, accent, onSaved }: {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
       if (res.canceled || !res.assets?.[0]) return;
-      await updateDroneModelImage(m.model, { image_url: res.assets[0].uri, cutout_url: '' });
+      await updateDroneModelImage(m.model, { image_url: res.assets[0].uri, cutout_url: '', image_credit: '' }); // egen bild → ingen kredit
       onSaved();
     } catch (e: any) {
       Alert.alert('Could not set photo', e?.message || 'Try again.');
@@ -163,13 +165,14 @@ export function DroneFleetCard({ m, accent, onSaved }: {
       await persistDroneModelLookup(m.model, {
         manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
         max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
-        ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+        ...(r.image_url ? { image_url: r.image_url, image_credit: r.image_credit, cutout_url: '' } : {}),
       });
       if (!r.image_url) {
         Alert.alert('No image found', 'Fetched specs, but no online image for this drone. Pick one from your library.');
       }
       onSaved();
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremium(true);
       } else {
@@ -267,6 +270,9 @@ export function DroneFleetCard({ m, accent, onSaved }: {
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: DR.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
           </View>
         ) : null}
+
+        {/* fotokredit (Wikimedia-bild) uppe till vänster — egen bild har ingen kredit */}
+        {bannerImg ? <PhotoCreditLabel credit={tourDemo ? demoEntry?.credit : m.image_credit} /> : null}
 
         {/* bild-knappar: hämta online (alltid) + bibliotek-väljare (först efter miss online) */}
         <View style={{ position: 'absolute', top: 10, right: 12, zIndex: 4, flexDirection: 'row', gap: 6 }}>

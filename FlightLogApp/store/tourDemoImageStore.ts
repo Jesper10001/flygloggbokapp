@@ -6,11 +6,12 @@ import { create } from 'zustand';
 import { Image } from 'react-native';
 import { fetchAircraftImage, fetchDroneImage } from '../services/aircraftLookup';
 import { ensureAircraftCutout } from '../services/aircraftCutout';
+import type { PhotoCredit } from '../utils/photoCredit';
 import {
   DEMO_AIRCRAFT, DEMO_DRONE_MODELS, DEMO_AIRCRAFT_IMAGE_QUERIES, DEMO_DRONE_IMAGE_QUERIES,
 } from '../constants/tourDemoData';
 
-export interface DemoImageEntry { image: string | null; cutout: string | null; aspect: number }
+export interface DemoImageEntry { image: string | null; cutout: string | null; aspect: number; credit?: PhotoCredit | null }
 
 interface TourDemoImageStore {
   byKey: Record<string, DemoImageEntry>;
@@ -29,12 +30,13 @@ export const useTourDemoImageStore = create<TourDemoImageStore>((set, get) => ({
     set({ started: true });
     const load = async (key: string, cands: string[], kind: 'ac' | 'drone') => {
       try {
-        const url = await (kind === 'ac' ? fetchAircraftImage(cands) : fetchDroneImage(cands)).catch(() => '');
-        if (!url) { set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.5 } } })); return; }
+        const photo = await (kind === 'ac' ? fetchAircraftImage(cands) : fetchDroneImage(cands)).catch(() => null);
+        if (!photo) { set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.5 } } })); return; }
+        const url = photo.url;
         const r = await ensureAircraftCutout(url).catch(() => ({ original: url, cutout: null }));
         const image = r.original || url;
         const aspect = await getAspect(image).catch(() => 1.5);
-        set((s) => ({ byKey: { ...s.byKey, [key]: { image, cutout: r.cutout, aspect } } }));
+        set((s) => ({ byKey: { ...s.byKey, [key]: { image, cutout: r.cutout, aspect, credit: photo.credit } } }));
       } catch {
         set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.5 } } }));
       }

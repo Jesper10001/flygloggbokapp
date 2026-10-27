@@ -614,11 +614,11 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
         // egen sekventiella hämtning efteråt och påverkas inte.
         const model = (data.model || '').trim();
         if (model && hasTokenQuota()) {
-          enrichDroneFleet(model)
+          enrichDroneFleet(model, { background: true })
             .then((r) => persistDroneModelLookup(model, {
               manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
               max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
-              ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+              ...(r.image_url ? { image_url: r.image_url, image_credit: r.image_credit, cutout_url: '' } : {}),
             }))
             .then(load)
             .catch(() => {});

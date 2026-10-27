@@ -1,0 +1,99 @@
+/* BLADES — Support, Privacy and Terms. Builds on site.css (tokens, nav, buttons, footer). */
+
+.doc-page { background: var(--white); }
+
+.doc-hero {
+  background:
+    radial-gradient(ellipse 60% 90% at 85% 120%, rgba(25, 198, 230, 0.22), transparent 70%),
+    var(--night);
+  color: var(--white);
+  padding: clamp(140px, 15vw, 190px) var(--pad) clamp(56px, 6vw, 80px);
+}
+.doc-hero-in { max-width: 1060px; margin: 0 auto; }
+.doc-hero-narrow { max-width: 760px; }
+.doc-hero h1 { font-size: clamp(44px, 6vw, 84px); }
+.doc-meta { margin-top: 18px; color: var(--mist); font-size: 16px; }
+.doc-hero-in > * { animation: arrive 0.8s var(--ease) both; }
+.doc-hero-in > :nth-child(2) { animation-delay: 0.08s; }
+
+.doc-wrap {
+  max-width: calc(1060px + 2 * var(--pad)); margin: 0 auto;
+  padding: clamp(56px, 7vw, 88px) var(--pad) clamp(96px, 11vw, 140px);
+}
+.doc-wrap.has-toc { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: clamp(40px, 6vw, 88px); }
+
+/* Contents, kept in view while you read */
+.doc-toc { position: sticky; top: 104px; align-self: start; font-size: 14px; }
+.doc-toc-h { font-weight: 600; color: var(--ink); margin-bottom: 12px; }
+.doc-toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.doc-toc a {
+  display: block; padding: 6px 12px; border-radius: 10px;
+  color: var(--muted); text-decoration: none; line-height: 1.35;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.doc-toc a:hover { color: var(--ink); background: var(--light); }
+.doc-toc a[aria-current="true"] { color: var(--ink); background: var(--light); font-weight: 600; }
+
+/* Reading column */
+.doc-body { max-width: 68ch; color: #26364c; font-size: 17px; line-height: 1.72; }
+.doc-body > * + * { margin-top: 18px; }
+.doc-body .doc-lede { font-size: clamp(18px, 1.5vw, 21px); line-height: 1.6; color: var(--ink); }
+.doc-body h2 {
+  font-size: clamp(26px, 2.5vw, 34px); color: var(--ink);
+  margin-top: clamp(48px, 5vw, 64px); scroll-margin-top: 104px;
+}
+.doc-body h2 + * { margin-top: 14px; }
+.doc-body ul { padding-left: 1.2em; }
+.doc-body li { padding-left: 0.3em; }
+.doc-body li + li { margin-top: 10px; }
+.doc-body li::marker { color: var(--cyan-deep); }
+.doc-body strong { color: var(--ink); font-weight: 600; }
+.doc-body a { color: var(--cyan-deep); text-underline-offset: 0.18em; }
+.doc-body a:hover { color: var(--ink); }
+.doc-back { margin-top: 56px !important; }
+.doc-back a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.doc-back a:hover { color: var(--cyan-deep); }
+
+/* Support: the contact card and the questions */
+.doc-support { max-width: 760px; margin: 0 auto; }
+.doc-support .card {
+  display: block; container-type: normal;
+  margin-top: 32px; padding: 30px 32px;
+  border-radius: 24px;
+  background: var(--navy); color: var(--mist);
+}
+.doc-support .card .lead { font-family: var(--serif); font-size: 30px; line-height: 1.1; color: var(--white); }
+.doc-support .card p { margin: 0; max-width: none; font-size: 17px; line-height: 1.65; color: var(--mist); }
+.doc-support .card .lead { margin-bottom: 10px; }
+.doc-support .card a { color: var(--cyan); font-weight: 600; }
+.doc-support .card a:hover { color: var(--white); }
+.doc-support .faq { margin-top: 18px; padding: 0; background: none; }
+.doc-support .faq details { border-bottom: 1px solid var(--line); }
+.doc-support .faq summary {
+  list-style: none; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; gap: 24px;
+  padding: 20px 0; font-size: 18px; font-weight: 600; color: var(--ink); line-height: 1.4;
+}
+.doc-support .faq summary::-webkit-details-marker { display: none; }
+.doc-support .faq summary::after {
+  content: ""; flex: none; width: 14px; height: 14px;
+  background:
+    linear-gradient(var(--ink), var(--ink)) center / 14px 2px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center / 2px 14px no-repeat;
+  transition: transform 0.3s var(--ease);
+}
+.doc-support .faq details[open] summary::after { transform: rotate(45deg); }
+.doc-support .faq .a { padding: 0; }
+
+.foot-links a[aria-current="page"] { color: var(--white); }
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-hero-in > * { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .doc-wrap.has-toc { display: block; }
+  .doc-toc { position: static; margin-bottom: 48px; padding: 20px; border-radius: 18px; background: var(--light); }
+  .doc-toc a { padding: 5px 0; }
+  .doc-toc a[aria-current="true"] { background: none; }
+}

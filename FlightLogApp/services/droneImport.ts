@@ -8,6 +8,7 @@ import { pickImportFile, readTextSmart, parseRow, normalize, convertDate, conver
 import { callAnthropicJson, callAnthropicRaw } from './anthropicClient';
 import { enrichDroneFleet } from './droneLookup';
 import { hasTokenQuota } from '../utils/tokenGate';
+import { hasAiConsent } from './aiConsent';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt.
 const DRONE_MAPPING_PROMPT = `Du är expert på DRÖNAR-/RPAS-loggboksformat (DJI, Autel, generisk drönarlogg, samt appens egna exporter "Blades": kolumner Date, Drone type, Registration, Location, Mission type, Category, Flight mode, Flight time, VLOS, EVLOS, BVLOS, Pilot function, PIC time, SIC / Co-pilot time, Dual time, Instructor time, RPIC time, Payload operator time, Mission commander time, Observer time, Safety pilot time, Examiner time, Max altitude (ft), Night, Crew, Remarks — eller samma tidskolumner med "(h)" i stället för "time", t.ex. "Total time (h)", "PIC (h)", "Observer (h)". Äldre Blades-exporter har "Max altitude (m)" och "Observer").
@@ -495,16 +496,18 @@ export async function enrichImportedDroneModels(
   rows: ParsedDroneRow[],
 ): Promise<{ enriched: number; total: number; remaining: number; stoppedForQuota: boolean }> {
   const models = [...new Set(rows.map((r) => (r.drone_type || '').trim()).filter(Boolean))];
+  // Bakgrundsjobb frågar aldrig om AI-samtycke — utan samtycke berikas inget (kortets knapp frågar).
+  if (!(await hasAiConsent())) return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false };
   let enriched = 0;
   let stopped = false;
   for (const model of models) {
     if (!hasTokenQuota()) { stopped = true; break; }
     try {
-      const r = await enrichDroneFleet(model);
+      const r = await enrichDroneFleet(model, { background: true });
       await persistDroneModelLookup(model, {
         manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
         max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
-        ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+        ...(r.image_url ? { image_url: r.image_url, image_credit: r.image_credit, cutout_url: '' } : {}),
       });
       enriched++;
     } catch { /* hoppa över modeller som inte kan berikas */ }

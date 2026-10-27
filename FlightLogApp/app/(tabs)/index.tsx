@@ -41,6 +41,7 @@ import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { setScanImage } from '../../store/scanStore';
+import { askAiConsent } from '../../services/aiConsent';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
 import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 import * as Location from 'expo-location';
@@ -796,10 +797,11 @@ export default function DashboardScreen() {
       Alert.alert(t('error'), e?.message ?? 'Failed');
     }
   };
-  const quickLogbookScan = useCallback(() => {
+  const quickLogbookScan = useCallback(async () => {
     // Scan är gratis men Blade-coins-mätad: free-användare går via den kvot-hanterade scan-skärmen
     // (fri provpott + köp), premium/max får inline-genvägen direkt från dashboarden.
     if (!isPremium && tier !== 'max') { router.push('/import/scan'); return; }
+    if (!(await askAiConsent())) return; // OCR är ett AI-anrop → samtycke innan källvalet
     Alert.alert(t('logbook_scan'), t('scan_source_prompt'), [
       { text: t('camera'), onPress: () => runLogbookScan(true) },
       { text: t('photo_library'), onPress: () => runLogbookScan(false) },

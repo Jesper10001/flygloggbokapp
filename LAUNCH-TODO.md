@@ -1,21 +1,48 @@
 # Blades – att lösa inför lansering
 
-Uppdaterad 2026-10-26. Bocka av med `[x]`.
+Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
-## Måste lösas före App Store-inskickning (uppskjutet)
+## Måste lösas före App Store-inskickning
 
-- [ ] **Export compliance.** Extra kryptering är nu ett val och är av som standard. SQLCipher och OpenSSL ligger ändå kvar i appen, så frågan gäller fortfarande. app.json säger i dag `ITSAppUsesNonExemptEncryption: false`, vilket är tveksamt. Välj en väg:
-  - kompilera SQLCipher mot Apples CommonCrypto, så att svaret stämmer
-  - eller svara "Yes – standard encryption" i App Store Connect vid inskickningen
-- [ ] **Integritetspolicyn och sajten säger att databasen är krypterad med AES-256.** Med extra kryptering av som standard stämmer det inte för nya användare. Integritetspolicyn måste stämma (Apple och GDPR). Ingen omskrivning av marknadsföringen behövs, det räcker att lägga till "optional" i tre meningar:
-  - `website/privacy.html`: "Local data is encrypted at rest (AES-256 via SQLCipher, with the key in the iOS Keychain)" (viktigast)
-  - `website/index.html`: "in a database encrypted with AES-256 (SQLCipher), on top of iOS's own encryption"
-  - `website/support.html`: "stored locally in an AES-256 encrypted database (SQLCipher)"
-  - Kolla också App Store-beskrivningen om den nämner kryptering.
-- [ ] **Licenser och källhänvisningar i appen.** Medvetet uppskjutet, med risk.
-  - Bygg en Acknowledgements-sida (SQLCipher/OpenSSL, typsnitt, landsgränser, npm-paket).
-  - Lägg till en kredit per Wikipedia-bild i flottan (CC BY-SA).
-  - Fyll därefter i Content Rights i App Store Connect.
+- [x] **Export compliance** (kod klar 2026-10-27, kräver nytt bygge och test). SQLCipher använder nu Apples CommonCrypto i stället för OpenSSL. Ändringen är en patch av op-sqlites podspec i `FlightLogApp/patches/`, som läggs på automatiskt vid `npm install` (postinstall). Därmed stämmer `ITSAppUsesNonExemptEncryption: false`: appen använder bara krypteringen i iOS.
+  - Filformatet är detsamma. Det är verifierat lokalt med samma SQLCipher (4.19.0) kompilerad båda vägarna, 16/16 tester:
+    - befintliga OpenSSL-krypterade databaser öppnas
+    - fel nyckel avvisas
+    - slå på och av kryptering fungerar
+    - en kvarlämnad WAL läses
+  - **Testa på enheten** (se testlistan): uppgradera ovanpå en install med extra kryptering påslagen.
+- [x] **Integritetspolicyn och supportsidan** stämmer nu: extra kryptering som val, AI-samtycke och kraschrapporter (Sentry). Det gäller både `website/` och `website-v4/`. Startsidorna stämmer redan. Kvar: ladda upp sajten (se nedan).
+- [x] **Samtycke innan data skickas till AI (5.1.2(i))** (klart 2026-10-27).
+  - Före första AI-anropet visas den inbyggda dialogen "Allow AI features?": vad som skickas, att det går till Anthropic via Blades server, att det inte används för träning och inte sparas hos oss. Knapparna är Not now / Privacy Policy / Allow.
+  - Skanning och import frågar innan kameran eller filväljaren öppnas, och innan en skanning dras från kvoten.
+  - Bakgrundsberikning av Fleet frågar aldrig. Utan samtycke hoppar den över tyst.
+  - Reglaget "AI features" finns under Settings → Security, i både pilot- och drönarläge.
+- [ ] **App Store Connect inför inskickningen:**
+  - Prenumerationen (39 kr) ska stå som "Ready to Submit" och kopplas till app-versionen, eftersom första köpet granskas tillsammans med appen. Paid Apps Agreement, bank och skatt ska vara klara.
+  - App Privacy:
+    - "User Content" (foton/filer till AI, inte kopplat till användaren) om det saknas.
+    - Om Sentry slås på: "Crash Data" och "Other Diagnostic Data", inte kopplat till användaren och ingen spårning.
+  - **Content Rights:** bekräfta att du har rätt till allt innehåll. Bekräfta särskilt att exempelbilderna är dina egna eller fria:
+    - `assets/sample-photos/`
+    - `assets/ACARS.JPG` och `assets/Flightdata_AW109.jpg`
+    - `assets/logbooks/*.png`
+
+    Fleet-foton från Wikimedia har nu kredit per bild, och övrigt krediteras under Settings → About → Acknowledgements.
+  - Åldersgräns, kategori, skärmdumpar för 6,9" iPhone, beskrivning och nyckelord.
+  - Granskningsanteckningar: ingen inloggning, Premium kan testas med sandbox-köp, och AI-funktionerna kräver nät. Första AI-funktionen visar en samtyckesdialog ("Allow AI features?").
+- [x] **Död kod borttagen:** testprofil-triggern och `testUserSeed.ts` (2026-10-27).
+- [x] **Licenser och källhänvisningar** (klart 2026-10-27).
+  - Settings → About → Acknowledgements listar:
+    - 9 datakällor
+    - 139 programvaror: JS-paket i bundlen, native-moduler och pods, SQLCipher, RevenueCat, Sentry och globe.gl
+    - 7 typsnitt och ikoner
+  - Varje post har upphovsrätt och hela licenstexten.
+  - Fleet-foton från Wikimedia får fotograf, licens och länk på kortet. Bara fria licenser används (CC BY, CC BY-SA, public domain). Befintliga bilder fylls i automatiskt i bakgrunden, och bilder utan fri licens tas bort.
+  - **Före varje release** (och efter nya beroenden): `cd FlightLogApp && node scripts/gen-licenses.mjs` (~2 min).
+- [ ] **Beslut: regiongränser från OpenStreetMap (ODbL).** geoBoundaries-gränserna för DR Kongo och Kazakstan kommer från OpenStreetMap, under ODbL 1.0. Norge är CC BY 4.0 och Kenya public domain.
+  - Acknowledgements krediterar nu "© OpenStreetMap contributors" och erbjuder den härledda gränsdatan under ODbL på begäran (support@blades-app.com). Det uppfyller licensen.
+  - Alternativ: byt till Natural Earth (public domain) för de två länderna, men de är föråldrade där.
+  - Säg till om du vill byta.
 
 ## Gör snart
 
@@ -29,10 +56,25 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 - [x] **Deploya proxyn igen** (debug-kontrollen, deployat och verifierat 2026-10-26): `cd proxy && npx wrangler deploy`
   - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
   - Den öppna felsökningen `?debug=1` är borttagen.
-- [ ] **Nytt TestFlight-bygge.** Förkontrollerna är klara (2026-10-26, commit b089dcc): tsc, expo-doctor 21/21 och produktionsexport av iOS-bunten. Kör:
+- [ ] **Nytt TestFlight-bygge efter lanseringsfixarna (2026-10-27)**, med CommonCrypto-patchen och Sentrys native-modul, så det krävs ett nytt native-bygge. Förkontroller: tsc och produktionsexport är klara. Kör efter commit:
+  `cd FlightLogApp && npm install && npx eas-cli build --platform ios --profile production --auto-submit`
+  - **Nytt:**
+    - AI-samtyckesdialog och reglaget AI features
+    - Acknowledgements-sidan
+    - fotokredit på Fleet-korten
+    - Wikimedia-anrop med korrekt User-Agent (utan den blev det 10 anrop/min och bilder saknades efter en import)
+    - SQLCipher via CommonCrypto
+    - Sentry, avstängt tills en DSN finns
+- [x] **TestFlight-bygget 2026-10-27 (commit 469e505)** är byggt. Förkontrollerna var klara: tsc, expo-doctor 21/21 och produktionsexport. Kommandot var:
   `cd FlightLogApp && npx eas-cli build --platform ios --profile production --auto-submit`
-  - Med bygget följer 15 uppdaterade Expo-paket, behörighetstexterna, console-rensningen, krypteringsvalet, glas-flikraden (Liquid Glass), den nya bakgrunden, Workload-panelen och Insights-placeringen. Testlistan står längst ner.
-  - **Installera ovanpå nuvarande TestFlight-version först, utan att radera appen**, så att uppgraderingen av krypteringen testas.
+  - **Nytt sedan förra bygget:**
+    - AI-svar läses ur alla textblock, ett extra skydd utöver proxyfixen.
+    - ACARS-exempelbilden ligger bredvid AW109 i ACARS/Instrument scan.
+    - Fler valbara tidstyper i loggbokens tomma kolumner.
+    - Jämna uppslag i alla loggboksmallar.
+    - Lugnare Workload-panel i cyan, med TOTAL och YTD i cyan.
+    - Karuseller som följer kortets höjd.
+  - Testlistan står längst ner.
 - [ ] **Testa efter nytt bygge (debug-kontrollen):**
   - Skanna loggbok (gratiskonto) när skanningarna tar slut: Premium-betalväggen ska visas. Ingen "Buy"/"Top up" som ger skanningar gratis.
   - "Build logbook" när AI-gränsen nåtts: betalväggen för gratis, ett coin-besked för Premium.
@@ -56,14 +98,20 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
   - Skyddet sätter cookien `cf_clearance`, medan integritetspolicyn lovar "inga cookies".
   - Det kan också stoppa appens anrop till api.blades-app.com.
   - Be Claude kontrollera efteråt att cookien är borta.
-- [ ] **Besluta om kraschrapportering (Sentry).**
-  - JavaScript-fel rapporteras idag ingenstans.
-  - Sentry kräver ett gratiskonto, ett nytt bygge och tillägget "Crash Data" i integritetspolicyn och App Privacy.
+- [ ] **Slå på kraschrapportering (Sentry)** (inbyggt 2026-10-27, avstängt tills det finns en DSN):
+  1. Skapa ett gratiskonto på sentry.io. Välj **EU-regionen** och ett React Native-projekt.
+  2. Projektinställningar → Security & Privacy → slå på **"Prevent Storing of IP Addresses"**. Integritetspolicyn lovar det.
+  3. Lägg DSN:en som `EXPO_PUBLIC_SENTRY_DSN` under `production` → `env` i `FlightLogApp/eas.json`. DSN:en är inte hemlig och är gjord för att ligga i appen. Bygg sedan nytt.
+  4. App Privacy: lägg till "Crash Data" och "Other Diagnostic Data" (inte kopplat till användaren, ingen spårning).
+  5. Senare, för läsbara stacktraces: en `SENTRY_AUTH_TOKEN` som EAS-secret, ta bort `SENTRY_DISABLE_AUTO_UPLOAD` i production och byt `metro.config.js` till `getSentryExpoConfig`.
+  - Slår du inte på Sentry före lansering: ta bort Sentry-styckena i integritetspolicyn.
+- [ ] **PDF-exporten hämtar typsnitt från Google Fonts** (`services/pdfExport/templates/modernBlades.ts` och `editorial.ts`). Det skickar användarens IP-adress till Google varje gång en PDF skapas, och det nämns inte i integritetspolicyn. Välj:
+  - bädda in typsnitten i appen (rekommenderas; Inter och Cormorant är OFL, och JetBrains Mono finns redan)
+  - eller nämn Google Fonts i policyn.
 
 ## Kan vänta
 
 - [ ] **xlsx (Excel-import):** npm-versionen har kända brister och underhålls inte längre på npm. Byt till SheetJS egen version: `npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, och testa sedan Excel-importen.
-- [ ] **Död kod:** den avstängda testprofil-triggern (Settings → About) finns kvar i koden och raderar all data om den slås på. Ta bort den.
 - [ ] **Efter första App Store-uppladdningen:** kolla mejl från Apple om "ITMS-91053 Missing API declaration" (privacy manifest). Expo-modulerna har egna manifest, men tredjeparts-SDK:er kan sakna.
 
 - [x] **Esri-nyckel inlagd i proxyn** (2026-10-26). Verifierat att satellitbilder och källhänvisningar levereras.
@@ -84,6 +132,35 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 ---
 
 ## Testa i nästa bygge
+
+- [ ] **SQLCipher via CommonCrypto (VIKTIGAST, testa först):**
+  - Installera ovanpå nuvarande TestFlight-version med **extra kryptering påslagen**, utan att radera appen. Appen ska starta, och alla flygningar ska finnas kvar.
+  - Slå av och på krypteringen igen och starta om.
+  - Testa även en install med krypteringen av.
+  - Om loggboken inte öppnas: skicka skärmdump direkt. Det går att backa genom att ta bort patchen.
+- [ ] **AI-samtycke:**
+  - **Ny installation:** tryck på ACARS/Instrument scan. Dialogen "Allow AI features?" ska komma innan kameraväljaren.
+    - "Not now" ska stänga utan felruta.
+    - Tryck igen. Dialogen ska komma igen.
+    - "Allow" ska ge skanningen.
+  - **Samma i fler flöden:**
+    - loggboksskanning från dashboarden och Scan-fliken (ingen skanning dras vid "Not now")
+    - CSV-import (frågar innan filväljaren)
+    - drönarimport och drönarens Instrument scan
+    - Create custom logbook
+    - Smart search i Add aircraft/drone
+    - Fetch-knappen på Fleet-kortet
+  - **Privacy Policy-knappen** öppnar policyn, och dialogen ska vänta när du kommer tillbaka.
+  - **Settings → Security → AI features:** påslag visar dialogen, och avslag gäller direkt. Nästa AI-funktion frågar igen.
+  - **Utan samtycke** ska en ny farkost läggas till utan dialog. Spec och bild hämtas inte förrän du tryckt på Fetch och tillåtit.
+- [ ] **Fotokredit på Fleet-korten:**
+  - En nyhämtad bild ska visa "Photo: <namn> · CC BY-SA 4.0 · Wikimedia Commons" uppe till vänster i bannern. Tryck på den: filens sida på Wikimedia ska öppnas.
+  - Gamla bilder ska få kredit cirka 10 s efter start.
+  - En egen bild ur biblioteket ska inte ha någon kredit.
+  - Rundturens Fleet-kort och Fleet-tomtillståndet ska också visa kredit, i tomtillståndet som en rad under korten.
+  - Efter en CSV-import med många typer ska alla kort få bild.
+- [ ] **Acknowledgements** (Settings → About, pilot och drönare): tre sektioner. Tryck på en rad för att se upphovsrätt, licenstext och länk.
+- [ ] **Sentry:** inget ska synas och inget ska krascha. När DSN:en är inlagd: framkalla ett fel och kontrollera att det dyker upp i Sentry.
 
 - [ ] **Workload för nya användare och ett rättat snitt (pilot + drönare):**
   - **Ny användare:** logga den första flygningen. Stapeln och ringen ska lägga sig mitt på, på 100 % (NORMAL), inte på max. De första cirka två månaderna glider värdet mjukt mot det verkliga, och därefter gäller det fullt ut.

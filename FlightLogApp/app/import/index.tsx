@@ -7,6 +7,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { pickImportFile, importFromFile, generateImportSummary, type ImportResult } from '../../services/import';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { estimateNightForImport, countComputable, type NightBasis, type NightEstimate } from '../../services/importNight';
 import { CondBar } from '../../components/logflight/CondBar';
 import { CountryFlag } from '../../components/CountryFlag';
@@ -577,6 +578,8 @@ export default function ImportScreen() {
       if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('CSV / Excel import'); }
       return;
     }
+    // Kolumnmappningen är ett AI-anrop → samtycke innan filväljaren öppnas.
+    if (!(await askAiConsent())) return;
     const file = await pickImportFile();
     if (!file) return;
 
@@ -682,6 +685,7 @@ export default function ImportScreen() {
       }
       setDbTypeData(dbData);
     } catch (e: any) {
+      if (isAiConsentError(e)) { setResult(null); setFileName(''); return; } // "Not now" → tillbaka till filvalet
       if (isTokenQuotaError(e)) {
         // Race: tokens tog slut mellan gate-kollen och själva anropet — samma gate som ovan.
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('CSV / Excel import');

@@ -1,5 +1,5 @@
 // Sunrise / sunset in UTC for a given date + position.
-// Port of the SunCalc core (https://github.com/mourner/suncalc), MIT.
+// Port of the SunCalc core (https://github.com/mourner/suncalc), BSD-2-Clause © Volodymyr Agafonkin (Settings → Acknowledgements).
 // Returns "HH:MM" UTC strings, or null at polar day/night (no event).
 
 const rad = Math.PI / 180;

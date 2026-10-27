@@ -121,7 +121,7 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
           // egen sekventiella hämtning efter import och påverkas inte av detta.
           const key = type.trim().toUpperCase();
           if (key && hasTokenQuota()) {
-            enrichAircraftFleet(key).then((r) => persistAircraftFleetLookup(key, r)).then(load).catch(() => {});
+            enrichAircraftFleet(key, { background: true }).then((r) => persistAircraftFleetLookup(key, r)).then(load).catch(() => {});
           }
         }}
         onClose={() => setAdding(false)}

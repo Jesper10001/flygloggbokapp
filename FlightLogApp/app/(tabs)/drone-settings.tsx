@@ -33,10 +33,11 @@ import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins } from '../../utils/tokenGate';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
+import { useAiConsentStore } from '../../store/aiConsentStore';
+import { requestAiConsent } from '../../services/aiConsent';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useVersionStore } from '../../store/versionStore';
-import { seedTestUser1, seedTestUser2, clearTestUser } from '../../services/testUserSeed';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
 import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
@@ -179,38 +180,19 @@ export default function DroneSettingsScreen() {
     switchProfile('pilot-manned', (ex?.subRole as SubRole) ?? 'fixed');
   };
 
-  const applyDroneTestUser = (which: 1 | 2 | 'clear') => {
-    const label = which === 'clear' ? 'Clear test data' : `Test user ${which}`;
-    Alert.alert(label, 'This replaces all drone data (drones, certificates, flights). Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Apply', style: 'destructive', onPress: async () => {
-        try {
-          if (which === 1) { await seedTestUser1(); }
-          else if (which === 2) { await seedTestUser2(); }
-          else { await clearTestUser(); }
-          await loadDroneFlights(); await loadDroneStats();
-          getDroneFlightCount().then(setFlightCount).catch(() => {});
-          useToastStore.getState().show(label);
-        } catch (e: any) { Alert.alert('Error', e.message); }
-      } },
-    ]);
-  };
-
-  // Dold trigger (långtryck på versionsnumret) → drönar-testanvändare. Developer-sektionen borttagen.
-  const openDevMenu = () => {
-    Alert.alert('Test data', 'Replace all drone data with a demo profile.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Test user 1 — Inspection', onPress: () => applyDroneTestUser(1) },
-      { text: 'Test user 2 — Military', onPress: () => applyDroneTestUser(2) },
-      { text: 'Clear drone data', style: 'destructive', onPress: () => applyDroneTestUser('clear') },
-    ]);
-  };
-
   // App-lås (Face ID) — samma som pilotläget.
   const toggleAppLock = async (next: boolean) => {
     if (next && !appLockAvailable) { Alert.alert('Face ID unavailable', 'Set up Face ID or Touch ID for your device, then try again.'); return; }
     await useAppLockStore.getState().setEnabled(next);
   };
+  // AI-samtycke (= pilotläget): påslag visar samtyckesdialogen, avslag gäller direkt.
+  const aiConsent = useAiConsentStore((s) => s.consent);
+  useEffect(() => { useAiConsentStore.getState().load(); }, []);
+  const toggleAi = async (next: boolean) => {
+    if (next) await requestAiConsent();
+    else await useAiConsentStore.getState().setConsent('declined');
+  };
+
   // Platstillstånd kan inte slås av inifrån appen (iOS) → begär vid påslag, annars/avslag → Inställningar.
   const toggleLocation = async (next: boolean) => {
     try {
@@ -504,6 +486,10 @@ export default function DroneSettingsScreen() {
             subtitle={locGranted ? 'On' : 'Off · used to find nearby airports'}
             right={<Switch value={locGranted} onValueChange={toggleLocation} trackColor={{ false: DR.elevated, true: accent }} />}
             pressable={false} separatorColor={DR.background} />
+          <Row accent={accent} icon="sparkles-outline" iconColor={accent} title="AI features"
+            subtitle={aiConsent === 'granted' ? 'On · scans, imports & look-ups via Anthropic' : "Off · you'll be asked before anything is sent"}
+            right={<Switch value={aiConsent === 'granted'} onValueChange={toggleAi} trackColor={{ false: DR.elevated, true: accent }} />}
+            pressable={false} separatorColor={DR.background} />
           <ICloudSyncRow accent={accent} flat />
           <Row accent={accent} icon="lock-closed-outline" iconColor={accent} title="Encryption" subtitle="Protected by iOS · optional AES-256"
             onPress={() => router.push('/settings/encryption')} separatorColor={DR.background} tourPressId="app-security" />
@@ -528,7 +514,6 @@ export default function DroneSettingsScreen() {
       >About</CollapsibleSectionHeader>
       {expanded === 'about' && (
       <SectionCard>
-        {/* onLongPress={openDevMenu} — dold testprofil/clear-data-trigger AVSTÄNGD för detta bygge (openDevMenu finns kvar). */}
         <Row accent={accent} icon="information-circle-outline" iconColor={DR.text3} title="Version" subtitle={appVersion} onPress={checkVersion} separatorColor={DR.background}
           right={
             updateAvailable ? (
@@ -540,6 +525,7 @@ export default function DroneSettingsScreen() {
         <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} separatorColor={DR.background} />
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} separatorColor={DR.background} />
         <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} separatorColor={DR.background} />
+        <Row accent={accent} icon="ribbon-outline" iconColor={DR.text3} title="Acknowledgements" subtitle="Open data, open-source software & licenses" onPress={() => router.push('/settings/acknowledgements')} separatorColor={DR.background} />
         <Row accent={accent} icon="pricetag-outline" iconColor={DR.text3} title="Redeem promo code" border={false}
           onLongPress={() => {
             Alert.alert('Remove promo access?', 'This removes promo-based Blades Premium from this device. You can redeem a code again anytime.', [

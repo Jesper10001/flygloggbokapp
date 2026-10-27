@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import { useFleetPreviewImageStore } from '../../store/fleetPreviewImageStore';
+import { PhotoCreditLabel } from '../PhotoCreditLabel';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 
 type Kind = 'rotary' | 'fixed' | 'drone';
@@ -148,6 +149,8 @@ export function FleetEmptyPreview({ kind, accent }: { kind: Kind; accent: string
           </View>
         </View>
       </View>
+      {/* Exempelkortets foto (Wikimedia) — kortet är för litet för en kredit på bilden. */}
+      {img ? <PhotoCreditLabel credit={entry?.credit} variant="inline" style={{ marginTop: 2 }} /> : null}
     </View>
   );
 }

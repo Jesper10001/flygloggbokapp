@@ -366,6 +366,8 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   // Motortyp: '' = okänd | 'se' = single engine | 'me' = multi engine
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'engine_type', "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'image_url', "TEXT NOT NULL DEFAULT ''");
+  // Fotokredit för Wikimedia-bilden (JSON {text,url}, utils/photoCredit); '' = egen bild / ingen kredit.
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'image_credit', "TEXT NOT NULL DEFAULT ''");
   // Fleet-vy (pilot-manned): tillverkare, VNE, MTOW och typ-rating per modell.
   // Modell-nivå men lagras per (type, registration)-rad → läs med MAX(), skriv med WHERE aircraft_type=?.
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'maker', "TEXT NOT NULL DEFAULT ''");
@@ -511,6 +513,7 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   // Fleet-foto per drönare (valt ur bibliotek) + VisionKit-urklipp (pop-out), = manned Fleet.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'image_url', "TEXT NOT NULL DEFAULT ''");
   await addColumnIfMissingOnTable(db, 'drone_registry', 'cutout_url', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'drone_registry', 'image_credit', "TEXT NOT NULL DEFAULT ''"); // = aircraft_registry
   // Fleet-specar (hämtas via AI-uppslag): tillverkare, C-klass (C0–C6), max flygtid (min),
   // max hastighet (km/h), tjänstetak (m), länkräckvidd (km). Lagras per rad, grupperas per modell.
   await addColumnIfMissingOnTable(db, 'drone_registry', 'manufacturer', "TEXT NOT NULL DEFAULT ''");

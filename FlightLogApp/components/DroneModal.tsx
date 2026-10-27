@@ -8,6 +8,7 @@ import { DR } from '../constants/droneTheme';
 import { useDroneAccentStore } from '../store/droneAccentStore';
 import { useTranslation } from '../hooks/useTranslation';
 import { lookupDrone } from '../services/droneLookup';
+import { isAiConsentError } from '../services/aiConsent';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
@@ -119,6 +120,7 @@ export function DroneModal({ visible, editMode, initial, initialModel, onSave, o
         },
       ]);
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall();
       } else {

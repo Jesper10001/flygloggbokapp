@@ -6,8 +6,9 @@ import { create } from 'zustand';
 import { Image } from 'react-native';
 import { fetchAircraftImage, fetchDroneImage } from '../services/aircraftLookup';
 import { ensureAircraftCutout } from '../services/aircraftCutout';
+import type { PhotoCredit } from '../utils/photoCredit';
 
-export interface PreviewImageEntry { image: string | null; cutout: string | null; aspect: number; done: boolean }
+export interface PreviewImageEntry { image: string | null; cutout: string | null; aspect: number; done: boolean; credit?: PhotoCredit | null }
 
 interface FleetPreviewImageStore {
   byKey: Record<string, PreviewImageEntry>;
@@ -24,12 +25,13 @@ export const useFleetPreviewImageStore = create<FleetPreviewImageStore>((set, ge
     set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.6, done: false } } }));
     (async () => {
       try {
-        const url = await (kind === 'ac' ? fetchAircraftImage(candidates) : fetchDroneImage(candidates)).catch(() => '');
-        if (!url) { set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.6, done: true } } })); return; }
+        const photo = await (kind === 'ac' ? fetchAircraftImage(candidates) : fetchDroneImage(candidates)).catch(() => null);
+        if (!photo) { set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.6, done: true } } })); return; }
+        const url = photo.url;
         const r = await ensureAircraftCutout(url).catch(() => ({ original: url, cutout: null as string | null }));
         const image = r.original || url;
         const aspect = await getAspect(image).catch(() => 1.6);
-        set((s) => ({ byKey: { ...s.byKey, [key]: { image, cutout: r.cutout, aspect, done: true } } }));
+        set((s) => ({ byKey: { ...s.byKey, [key]: { image, cutout: r.cutout, aspect, done: true, credit: photo.credit } } }));
       } catch {
         set((s) => ({ byKey: { ...s.byKey, [key]: { image: null, cutout: null, aspect: 1.6, done: true } } }));
       }

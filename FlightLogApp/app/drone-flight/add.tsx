@@ -28,6 +28,7 @@ import {
 import { PersonPicker, type SavedPerson, type AircraftPilots } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
 import { enrichDroneFleet } from '../../services/droneLookup';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { scanDroneFlightLog, type ScannedDroneDay } from '../../services/droneLogScan';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { useFlightStore } from '../../store/flightStore';
@@ -532,6 +533,7 @@ export default function AddDroneFlightScreen() {
       if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight log scan');
       return;
     }
+    if (!(await askAiConsent())) return; // AI-samtycke innan källväljaren/kameran öppnas
     const source = await new Promise<'camera' | 'library' | null>((resolve) => {
       scanResolveRef.current = resolve;
       setScanChooserOpen(true);
@@ -560,6 +562,7 @@ export default function AddDroneFlightScreen() {
       setScanDays(res.days);
       setScanPicker({ selected: res.days[0].date, afterSave: false });
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) { if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('Flight log scan'); }
       else Alert.alert('Scan failed', e?.message ?? 'Try again.');
     } finally {
@@ -905,11 +908,11 @@ export default function AddDroneFlightScreen() {
     // Auto-hämta fleet-data (bild + specar + c_class) direkt för den nya modellen (token-styrt), sedan
     // uppdatera valet så kategorin ev. härleds ur hämtad c_class. CSV-import påverkas inte.
     if (data.model && hasTokenQuota()) {
-      enrichDroneFleet(data.model)
+      enrichDroneFleet(data.model, { background: true })
         .then((r) => persistDroneModelLookup(data.model, {
           manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
           max_flight_min: r.max_flight_min, max_speed_kmh: r.max_speed_kmh, ceiling_m: r.ceiling_m, range_km: r.range_km,
-          ...(r.image_url ? { image_url: r.image_url, cutout_url: '' } : {}),
+          ...(r.image_url ? { image_url: r.image_url, image_credit: r.image_credit, cutout_url: '' } : {}),
         }))
         .then(async () => { const ds2 = await listDrones(); setDrones(ds2); const e2 = ds2.find((d) => d.id === id); if (e2) await setDrone(e2); })
         .catch(() => {});

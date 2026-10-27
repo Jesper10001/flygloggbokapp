@@ -71,7 +71,7 @@ export const DEMO_STATS: FlightStats = {
 function mkAircraft(p: Partial<AircraftRegistryEntry>): AircraftRegistryEntry {
   return {
     aircraft_type: '', cruise_speed_kts: 0, endurance_h: 0, crew_type: 'sp', category: '',
-    engine_type: 'piston', image_url: '', reg_count: 1, total_hours: 0, sim_hours: 0,
+    engine_type: 'piston', image_url: '', image_credit: '', reg_count: 1, total_hours: 0, sim_hours: 0,
     top_registration: '', top_registration_hours: 0, flight_count: 0,
     maker: '', vne: 0, vne_unit: 'kt', mtow: 0, mtow_unit: 'kg', fuel_burn: 0, fuel_burn_unit: 'l/h',
     power_hp: 0, ceiling_ft: 0, wingspan_m: 0, empty_weight_kg: 0, fuel_capacity_l: 0, range_nm: 0,
@@ -131,7 +131,7 @@ export const DEMO_DRONE_STATS: DroneStats = {
 function mkDroneModel(p: Partial<DroneModelFleet>): DroneModelFleet {
   return {
     id: 0, model: '', drone_type: 'multirotor', mtow_g: 0, category: '', drone_class: '', manufacturer: '',
-    c_class: '', max_flight_min: 0, max_speed_kmh: 0, ceiling_m: 0, range_km: 0, image_url: '', cutout_url: '',
+    c_class: '', max_flight_min: 0, max_speed_kmh: 0, ceiling_m: 0, range_km: 0, image_url: '', cutout_url: '', image_credit: '',
     total_hours: 0, last_flown: '', first_flown: '', reg_count: 1, flight_count: 0,
     ...p,
   };

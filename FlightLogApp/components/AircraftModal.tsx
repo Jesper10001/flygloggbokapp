@@ -8,6 +8,7 @@ import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { lookupAircraft, type AircraftLookupResult } from '../services/aircraftLookup';
 import { enrichFleetInBackground, enrichFromLookup } from '../services/fleetEnrich';
+import { isAiConsentError } from '../services/aiConsent';
 import { useFlightStore } from '../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../utils/tokenGate';
 import { PremiumModal } from './PremiumModal';
@@ -157,6 +158,7 @@ export function AircraftModal({
         ],
       );
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall();
       } else {

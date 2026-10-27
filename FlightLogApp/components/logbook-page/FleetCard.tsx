@@ -11,8 +11,10 @@ import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
+import { isAiConsentError } from '../../services/aiConsent';
 import { useTourStore } from '../../store/tourStore';
 import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
+import { PhotoCreditLabel } from '../PhotoCreditLabel';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { PremiumModal } from '../PremiumModal';
@@ -179,6 +181,7 @@ export function FleetCard({ ac, accent, onSaved }: {
       await persistAircraftFleetLookup(ac.aircraft_type, r);
       onSaved();
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else setShowPremium(true);
       } else {
@@ -194,7 +197,7 @@ export function FleetCard({ ac, accent, onSaved }: {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
       if (res.canceled || !res.assets?.[0]) return;
-      await updateAircraftFleetFields(ac.aircraft_type, { image_url: res.assets[0].uri, cutout_url: '' });
+      await updateAircraftFleetFields(ac.aircraft_type, { image_url: res.assets[0].uri, cutout_url: '', image_credit: '' }); // egen bild → ingen kredit
       onSaved();
     } catch (e: any) {
       Alert.alert('Could not set photo', e?.message || 'Try again.');
@@ -257,6 +260,9 @@ export function FleetCard({ ac, accent, onSaved }: {
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: Colors.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
           </View>
         ) : null}
+
+        {/* fotokredit (Wikimedia-bild) uppe till vänster — egen bild har ingen kredit */}
+        {bannerImg ? <PhotoCreditLabel credit={tourDemo ? demoEntry?.credit : ac.image_credit} /> : null}
 
         {/* bild-knappar uppe till höger: hämta (alltid) + bibliotek-väljare
             (visas FÖRST efter en hämtning utan träff online). */}

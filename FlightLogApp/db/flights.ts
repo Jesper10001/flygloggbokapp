@@ -1164,19 +1164,21 @@ export async function addAircraftTypeToRegistry(
   category = '',
   engineType = '',
   imageUrl = '',
+  imageCredit = '',
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type, category, engine_type, image_url)
-     VALUES (?, '', ?, ?, ?, ?, ?, ?)
+    `INSERT INTO aircraft_registry (aircraft_type, registration, cruise_speed_kts, endurance_h, crew_type, category, engine_type, image_url, image_credit)
+     VALUES (?, '', ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(aircraft_type, registration) DO UPDATE SET
        cruise_speed_kts=CASE WHEN excluded.cruise_speed_kts>0 THEN excluded.cruise_speed_kts ELSE cruise_speed_kts END,
        endurance_h=CASE WHEN excluded.endurance_h>0 THEN excluded.endurance_h ELSE endurance_h END,
        crew_type=CASE WHEN excluded.crew_type!='' THEN excluded.crew_type ELSE crew_type END,
        category=CASE WHEN excluded.category!='' THEN excluded.category ELSE category END,
        engine_type=CASE WHEN excluded.engine_type!='' THEN excluded.engine_type ELSE engine_type END,
-       image_url=CASE WHEN excluded.image_url!='' THEN excluded.image_url ELSE image_url END`,
-    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType, category, engineType, imageUrl]
+       image_url=CASE WHEN excluded.image_url!='' THEN excluded.image_url ELSE image_url END,
+       image_credit=CASE WHEN excluded.image_url!='' THEN excluded.image_credit ELSE image_credit END`,
+    [type.toUpperCase(), cruiseSpeedKts, enduranceH, crewType, category, engineType, imageUrl, imageCredit]
   );
 }
 
@@ -1264,6 +1266,7 @@ export type AircraftRegistryEntry = {
   category: string;
   engine_type: string;
   image_url: string;
+  image_credit: string; // fotokredit (JSON, utils/photoCredit) — '' = egen bild
   reg_count: number;
   total_hours: number;      // exkl. sim (flight_type != 'sim')
   sim_hours: number;        // ENBART sim (flight_type = 'sim') → visas separat i guld på Fleet-kortet
@@ -1301,6 +1304,7 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.category) as category,
            MAX(ar.engine_type) as engine_type,
            MAX(ar.image_url) as image_url,
+           MAX(ar.image_credit) as image_credit,
            MAX(ar.maker) as maker,
            MAX(ar.vne) as vne,
            MAX(ar.vne_unit) as vne_unit,
@@ -1425,6 +1429,7 @@ export async function updateAircraftFleetFields(
     fuel_capacity_l: number;
     range_nm: number;
     image_url: string;
+    image_credit: string;
     cutout_url: string;
     rating_expiry: string;
     rating_class: string;
@@ -1433,7 +1438,7 @@ export async function updateAircraftFleetFields(
     crew_type: string;
   }>,
 ): Promise<void> {
-  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'empty_weight_kg', 'fuel_capacity_l', 'range_nm', 'image_url', 'cutout_url', 'rating_expiry', 'rating_class', 'category', 'engine_type', 'crew_type'] as const;
+  const allowed = ['maker', 'vne', 'vne_unit', 'cruise_speed_kts', 'endurance_h', 'mtow', 'mtow_unit', 'fuel_burn', 'fuel_burn_unit', 'power_hp', 'ceiling_ft', 'wingspan_m', 'empty_weight_kg', 'fuel_capacity_l', 'range_nm', 'image_url', 'image_credit', 'cutout_url', 'rating_expiry', 'rating_class', 'category', 'engine_type', 'crew_type'] as const;
   const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => allowed.includes(k as any));
   if (keys.length === 0) return;
   const db = await getDatabase();
@@ -1452,14 +1457,14 @@ export async function persistAircraftFleetLookup(
   r: {
     manufacturer?: string; vne_kt?: number; mtow_kg?: number;
     consumption?: number; consumption_unit?: string; horsepower_hp?: number;
-    ceiling_ft?: number; wingspan_m?: number; image_url?: string;
+    ceiling_ft?: number; wingspan_m?: number; image_url?: string; image_credit?: string;
     empty_weight_kg?: number; fuel_capacity_l?: number; range_nm?: number;
     cruise_speed_kts?: number; endurance_h?: number; category?: string; engine_type?: string; crew_type?: string;
   },
 ): Promise<void> {
   const fields: Partial<{
     maker: string; vne: number; mtow: number;
-    fuel_burn: number; fuel_burn_unit: string; power_hp: number; ceiling_ft: number; wingspan_m: number; image_url: string;
+    fuel_burn: number; fuel_burn_unit: string; power_hp: number; ceiling_ft: number; wingspan_m: number; image_url: string; image_credit: string;
     empty_weight_kg: number; fuel_capacity_l: number; range_nm: number;
     cruise_speed_kts: number; endurance_h: number; category: string; engine_type: string; crew_type: string;
   }> = {};
@@ -1486,7 +1491,8 @@ export async function persistAircraftFleetLookup(
   if (r.empty_weight_kg && r.empty_weight_kg > 0) fields.empty_weight_kg = r.empty_weight_kg;
   if (r.fuel_capacity_l && r.fuel_capacity_l > 0) fields.fuel_capacity_l = r.fuel_capacity_l;
   if (r.range_nm && r.range_nm > 0) fields.range_nm = r.range_nm;
-  if (r.image_url && r.image_url.trim()) fields.image_url = r.image_url.trim();
+  // Ny bild → krediten följer med (även tom), så en gammal kredit aldrig hamnar på en annan bild.
+  if (r.image_url && r.image_url.trim()) { fields.image_url = r.image_url.trim(); fields.image_credit = r.image_credit ?? ''; }
   if (Object.keys(fields).length) await updateAircraftFleetFields(type, fields);
 }
 

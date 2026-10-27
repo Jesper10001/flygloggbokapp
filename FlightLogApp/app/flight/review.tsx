@@ -16,6 +16,8 @@ import { getActiveBook } from '../../db/logbookBooks';
 import { saveLearnedMapping, buildContextHint } from '../../db/ocrLearned';
 import * as Haptics from 'expo-haptics';
 import { lookupAircraft } from '../../services/aircraftLookup';
+import { creditFromImageInfo, WIKI_HEADERS } from '../../services/wikiPhoto';
+import { serializeCredit } from '../../utils/photoCredit';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -678,25 +680,29 @@ function AircraftConfirmation({
       const typeUpper = f.type.trim().toUpperCase();
       if (!typeUpper) continue;
       let imgUrl = '';
+      let imgCredit = '';
       try {
         const searchTerm = encodeURIComponent(`${typeUpper} helicopter OR aircraft`);
-        const wikiRes = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&format=json&origin=*`);
+        const wikiRes = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${searchTerm}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&format=json&origin=*`, { headers: WIKI_HEADERS });
         if (wikiRes.ok) {
           const wikiData = await wikiRes.json();
           const pages = wikiData.query?.pages;
           if (pages) {
             const keywords = ['aircraft', 'helicopter', 'airplane', 'airliner', 'rotorcraft'];
+            // Bara bilder med fri licens (kommersiell användning tillåten) — krediten sparas med bilden.
             for (const id of Object.keys(pages)) {
               const info = pages[id]?.imageinfo?.[0];
-              if (!info?.thumburl) continue;
+              const credit = creditFromImageInfo(info);
+              if (!info?.thumburl || !credit) continue;
               const cats = (info.extmetadata?.Categories?.value ?? '').toLowerCase();
               const desc = (info.extmetadata?.ImageDescription?.value ?? '').toLowerCase();
-              if (keywords.some(kw => cats.includes(kw) || desc.includes(kw))) { imgUrl = info.thumburl; break; }
+              if (keywords.some(kw => cats.includes(kw) || desc.includes(kw))) { imgUrl = info.thumburl; imgCredit = serializeCredit(credit); break; }
             }
             if (!imgUrl) {
               for (const id of Object.keys(pages)) {
-                const thumb = pages[id]?.imageinfo?.[0]?.thumburl;
-                if (thumb) { imgUrl = thumb; break; }
+                const info = pages[id]?.imageinfo?.[0];
+                const credit = creditFromImageInfo(info);
+                if (info?.thumburl && credit) { imgUrl = info.thumburl; imgCredit = serializeCredit(credit); break; }
               }
             }
           }
@@ -711,6 +717,7 @@ function AircraftConfirmation({
         f.category,
         f.engineType,
         imgUrl,
+        imgCredit,
       );
       if (d.as_written && d.as_written !== typeUpper) {
         await saveLearnedMapping('aircraft_type', d.as_written, typeUpper);

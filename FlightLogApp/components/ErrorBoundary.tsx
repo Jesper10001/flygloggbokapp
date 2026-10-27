@@ -1,10 +1,11 @@
 // Topp-nivå felgräns: fångar render-fel var som helst i appträdet så ETT komponentfel inte
 // vitnar hela appen. Visar en återhämtningsvy ("Try again") i stället. componentDidCatch är
-// den centrala kraschloggen — här kopplas Sentry/Crashlytics in senare (se reportFatal).
+// den centrala kraschloggen → rapporteras till Sentry (services/crashReporting) när det är påslaget.
 import { Component, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { reportError } from '../services/crashReporting';
 
 interface Props { children: ReactNode }
 interface State { error: Error | null }
@@ -17,8 +18,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack?: string }) {
-    // Central kraschpunkt. TODO(launch): rapportera till Sentry här när det är inkopplat.
+    // Central kraschpunkt: fel som fångas här når aldrig den globala felhanteraren → rapportera explicit.
     console.error('[ErrorBoundary]', error?.message ?? error, info?.componentStack ?? '');
+    reportError(error, { componentStack: info?.componentStack ?? '' });
   }
 
   reset = () => this.setState({ error: null });

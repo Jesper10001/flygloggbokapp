@@ -1,4 +1,236 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BLADES</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1424;color:#e8eef6;font:500 20px/1.4 -apple-system,system-ui,sans-serif}</style></head>
-<body><p>BLADES v4 — bygget har börjat. Sidan laddas om automatiskt.</p></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BLADES — The pilot logbook, reimagined</title>
+<meta name="description" content="A pilot logbook for iPhone, for pilots and drone pilots. Fast to log, easy to copy into your paper book. Free for your first 20 flights.">
+<meta name="theme-color" content="#0a1628">
+<link rel="icon" href="img/blades-mark-128.png" type="image/png">
+<link rel="preload" href="fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/demo.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
+    <a class="nav-logo" href="#top"><img src="img/blades-lockup-h.png" width="1495" height="334" alt="BLADES pilot logbook"></a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="btn btn-sm" href="https://apps.apple.com/app/id6798360464">Download</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div class="hero-text">
+      <h1>The pilot logbook, <em>reimagined.</em></h1>
+      <p class="hero-sub">For pilots and drone pilots. Fast to log, easy to copy into your paper book.</p>
+      <div class="hero-cta">
+        <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+        <span class="hero-note">Free for your first 20 flights</span>
+      </div>
+    </div>
+    <img class="hero-img" src="img/hero.jpg" srcset="img/hero-sm.jpg 1200w, img/hero.jpg 2400w" sizes="100vw" width="2400" height="1600" fetchpriority="high" alt="Two iPhones with BLADES: the dashboard with the latest flight, ESSA to ESGG, and a paper-style logbook page.">
+  </section>
+
+  <section class="roles" aria-labelledby="roles-h">
+    <h2 id="roles-h">Manned or unmanned. <em>Or both.</em></h2>
+    <p class="section-sub">Two logbooks in one app, each built around how that flying is really logged.</p>
+    <div class="role-cards">
+      <article class="role-card">
+        <span class="role-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><path d="M32 5c2 0 3 2.2 3 5v13l20 11v5l-20-6v12l6 5v4l-9-3-9 3v-4l6-5V33L9 39v-5l20-11V10c0-2.8 1-5 3-5z"/></svg>
+        </span>
+        <h3>Manned aircraft</h3>
+        <p>Aeroplanes and helicopters, from first solo to the left seat. Block times in UTC, with PIC, co-pilot, dual and instructor time, and the multi-pilot, night and IFR splits your authority asks for.</p>
+        <ul>
+          <li>EASA, FAA and Swedish logbook layouts, page for page, with totals carried forward</li>
+          <li>Night worked out from civil twilight along your route, and mixed VFR/IFR flights split for you</li>
+          <li>Progress towards CPL and ATPL, and your recency, at a glance</li>
+          <li>For helicopters: NVG time, hot refuels and temporary landing sites</li>
+        </ul>
+      </article>
+      <article class="role-card">
+        <span class="role-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64"><rect x="25" y="25" width="14" height="14" rx="4"/><path d="M26.5 26.5 18 18M37.5 26.5 46 18M26.5 37.5 18 46M37.5 37.5 46 46"/><circle cx="14" cy="14" r="8"/><circle cx="50" cy="14" r="8"/><circle cx="14" cy="50" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="32" cy="32" r="2.2"/></svg>
+        </span>
+        <h3>Unmanned aircraft</h3>
+        <p>Drones, from open-category flights to Specific operations. Every log records the category, operation and mode, the airframe and its registration, and where it flew.</p>
+        <ul>
+          <li>A1, A2, A3 and Specific, with VLOS, EVLOS and BVLOS time per flight</li>
+          <li>Multirotor, fixed-wing and VTOL airframes in one fleet, with MTOW and registrations</li>
+          <li>Flight data read from a DJI or Autel screenshot, or imported from CSV</li>
+          <li>Mission type, maximum altitude, observer and second pilot on every log</li>
+        </ul>
+      </article>
+    </div>
+    <p class="role-both"><span>Fly both?</span> Keep two separate logbooks, each with its own dashboard, fleet and totals, and switch with one tap.</p>
+  </section>
+
+  <section class="cards" id="features" aria-label="Features">
+    <div class="marquee" tabindex="0" aria-label="Features. Hold to pause, drag to look around.">
+      <div class="strip">
+        <div class="set">
+          <article class="card" style="--bg:#57302d;--pos:62% 55%">
+            <img src="img/log-in-seconds.jpg" srcset="img/log-in-seconds-sm.jpg 1000w, img/log-in-seconds.jpg 2000w" sizes="(min-width: 1260px) 1200px, 100vw" width="2000" height="1500" loading="lazy" alt="An iPhone resting on a velvet armchair, showing the BLADES dashboard with the latest flight, EKCH to KSFO, 11.3 hours.">
+            <div class="card-text">
+              <h2>Log a flight <em>in seconds.</em></h2>
+              <p>One logbook for every type of pilot.</p>
+            </div>
+          </article>
+          <article class="card" style="--bg:#030304;--pos:52% 50%">
+            <img src="img/every-flight.jpg" srcset="img/every-flight-sm.jpg 1000w, img/every-flight.jpg 2000w" sizes="(min-width: 1260px) 1200px, 100vw" width="2000" height="1500" loading="lazy" alt="Two iPhones on a glass table showing the logbook by year with an activity calendar, and a list of flights in August.">
+            <div class="card-text">
+              <h2>Every flight, <em>at a glance.</em></h2>
+              <p>Your Activity Calendar, always up to date.</p>
+            </div>
+          </article>
+          <article class="card" style="--bg:#12141a;--pos:58% 58%">
+            <img src="img/paper-logbook.jpg" srcset="img/paper-logbook-sm.jpg 1000w, img/paper-logbook.jpg 2000w" sizes="(min-width: 1260px) 1200px, 100vw" width="2000" height="1500" loading="lazy" alt="Two iPhones showing the fifth logbook, pages 9 and 10, laid out like a paper logbook.">
+            <div class="card-text">
+              <h2>Your paper logbook,<br> <em>digitized.</em></h2>
+              <p>Copy it across with every total carried forward.</p>
+            </div>
+          </article>
+          <article class="card" style="--bg:#0e1d31;--pos:50% 62%">
+            <img src="img/airports.jpg" srcset="img/airports-sm.jpg 1000w, img/airports.jpg 2000w" sizes="(min-width: 1260px) 1200px, 100vw" width="2000" height="1500" loading="lazy" alt="Three iPhones showing the global airport map, a satellite view of a runway and a globe of visited airports.">
+            <div class="card-text">
+              <h2>81 080 airports.<br> <em>246 countries.</em></h2>
+              <p>Every airport you've landed at, on one global map.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="inapp" id="inside" aria-labelledby="inapp-h">
+    <div class="inapp-head">
+      <h2 id="inapp-h">Straight from <em>the app.</em></h2>
+      <p class="section-sub">Rendered by the app's own code, with a demo pilot and a demo drone operator.</p>
+      <div class="mode" role="group" aria-label="Show the logbook for">
+        <button type="button" class="mode-btn" data-mode="manned" aria-pressed="true">Manned</button>
+        <button type="button" class="mode-btn" data-mode="unmanned" aria-pressed="false">Unmanned</button>
+      </div>
+    </div>
+
+    <div class="demo demo-book">
+      <div class="demo-text">
+        <h3 data-manned="Your paper logbook, page for page." data-unmanned="Your drone logbook, page for page.">Your paper logbook, page for page.</h3>
+        <p data-manned="The latest spread in the EASA layout: every row in place, with this page, brought forward and total to date added up." data-unmanned="Every drone flight on the right row, with category, mode and the totals carried forward.">The latest spread in the EASA layout: every row in place, with this page, brought forward and total to date added up.</p>
+      </div>
+      <div class="book-frame" tabindex="0" aria-label="Logbook spread, scroll sideways to see the whole spread">
+        <iframe class="book" src="demo/logbook-pilot.html" data-manned="demo/logbook-pilot.html" data-unmanned="demo/logbook-drone.html" title="Logbook spread rendered by the BLADES app" loading="lazy" scrolling="no" tabindex="-1"></iframe>
+      </div>
+    </div>
+
+    <div class="demo demo-fleet">
+      <div class="demo-text">
+        <h3 data-manned="Every aircraft becomes a card." data-unmanned="Every drone becomes a card.">Every aircraft becomes a card.</h3>
+        <p data-manned="Photo, specs, hours and registrations, filled in when you add a type." data-unmanned="Photo, specs, flight time and registrations, filled in when you add a drone.">Photo, specs, hours and registrations, filled in when you add a type.</p>
+      </div>
+      <div class="fleet-strip" id="fleet" aria-live="polite"></div>
+    </div>
+
+    <div class="demo demo-globe">
+      <div class="globe-panel">
+        <div class="globe-text">
+          <h3>Every airport on Earth.</h3>
+          <p>69 288 open airports in 246 countries, clustered as in the app.</p>
+        </div>
+        <div class="globe" id="globe" aria-label="A globe with every airport, clustered"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing" aria-labelledby="pricing-h">
+    <h2 id="pricing-h">Free to start. <em>No surprises.</em></h2>
+    <p class="section-sub">No account, no ads. Your logbook stays on your iPhone.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Free</h3>
+        <ul>
+          <li>Up to 20 flights per logbook</li>
+          <li>Every feature included</li>
+          <li>Free Blade-coins to try the AI scan</li>
+        </ul>
+        <a class="btn btn-line" href="https://apps.apple.com/app/id6798360464">Get started</a>
+      </div>
+      <div class="plan plan-pro">
+        <h3>Premium</h3>
+        <ul>
+          <li>Unlimited flights</li>
+          <li>Blade-coins refilled every month</li>
+          <li>Cancel any time in iPhone Settings</li>
+        </ul>
+        <a class="btn" href="https://apps.apple.com/app/id6798360464">Go Premium</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq" aria-labelledby="faq-h">
+    <h2 id="faq-h">Questions</h2>
+    <div class="faq-list">
+      <details>
+        <summary>Do I need an account?</summary>
+        <p>No. There is no sign-up. Everything works on your iPhone from the first launch.</p>
+      </details>
+      <details>
+        <summary>Where is my logbook stored?</summary>
+        <p>On your iPhone. We keep no copy of it and cannot see it. You can turn on AES-256 encryption in Settings, and back up to your own iCloud.</p>
+      </details>
+      <details>
+        <summary>Does it work offline?</summary>
+        <p>Yes. Logging, the logbook and exports work without a connection. Weather, maps and the AI scan need one.</p>
+      </details>
+      <details>
+        <summary>Which logbook layouts are there?</summary>
+        <p>EASA AMC1 FCL.050, the Swedish EASA logbook, a professional pilot logbook, FAA 14 CFR 61.51 and a remote pilot logbook for drones.</p>
+      </details>
+      <details>
+        <summary>Can I bring my old logbook?</summary>
+        <p>Yes. Import a CSV, or enter your totals by hand. You can export a PDF or a CSV of everything at any time.</p>
+      </details>
+      <details>
+        <summary>How do I cancel Premium?</summary>
+        <p>Apple manages the subscription. Open Settings on your iPhone, tap your name, then Subscriptions.</p>
+      </details>
+    </div>
+    <p class="faq-more">More answers on the <a href="support.html">support page</a>.</p>
+  </section>
+
+  <section class="closer" aria-labelledby="closer-h">
+    <h2 id="closer-h">Your logbook, <em>finally worth opening.</em></h2>
+    <p class="section-sub">Free for your first 20 flights. No account.</p>
+    <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <img class="foot-logo" src="img/blades-lockup-h.png" width="1495" height="334" alt="BLADES pilot logbook" loading="lazy">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="support.html">Support</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="mailto:support@blades-app.com">support@blades-app.com</a>
+    </nav>
+    <p class="foot-copy">© 2026 BLADES · Built by a pilot in Sweden</p>
+  </div>
+</footer>
+
+<script src="js/site.js" defer></script>
+<script src="js/demo-data.js" defer></script>
+<script src="js/demo.js" defer></script>
+</body>
+</html>

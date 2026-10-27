@@ -4,6 +4,8 @@
 import { enrichAircraftFleet, fetchAircraftImage, type AircraftLookupResult } from './aircraftLookup';
 import { persistAircraftFleetLookup, updateAircraftFleetFields, getAllAircraftTypes } from '../db/flights';
 import { hasTokenQuota, isTokenQuotaError } from '../utils/tokenGate';
+import { hasAiConsent } from './aiConsent';
+import { serializeCredit } from '../utils/photoCredit';
 
 let running = false;
 
@@ -19,6 +21,8 @@ export interface FleetEnrichResult {
  *  hämtar SÅ MÅNGA potten räcker till och PAUSAR sen (faller inte) — resten kräver fler Blade-coins. */
 export async function enrichFleetInBackground(types?: string[]): Promise<FleetEnrichResult> {
   if (running) { console.log('[fleetEnrich] already running → skip'); return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false }; }
+  // Bakgrundsjobb frågar aldrig om AI-samtycke — utan samtycke berikas inget (kortets knapp frågar).
+  if (!(await hasAiConsent())) { console.log('[fleetEnrich] no AI consent → skip'); return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false }; }
   running = true;
   let enriched = 0, processed = 0, total = 0, stoppedForQuota = false;
   try {
@@ -38,7 +42,7 @@ export async function enrichFleetInBackground(types?: string[]): Promise<FleetEn
       if (!t) { processed++; continue; }
       try {
         console.log(`[fleetEnrich] enriching ${t}…`);
-        const r = await enrichAircraftFleet(t);
+        const r = await enrichAircraftFleet(t, { background: true });
         await persistAircraftFleetLookup(t, r);
         enriched++;
         console.log(`[fleetEnrich] ✓ ${t} (image=${r.image_url ? 'yes' : 'NO'}, maker="${r.manufacturer}")`);
@@ -66,7 +70,7 @@ export async function enrichFromLookup(type: string, r: AircraftLookupResult): P
   if (!t) return;
   try {
     await persistAircraftFleetLookup(t, r);
-    const img = await fetchAircraftImage([r.wiki_title, `${r.manufacturer} ${r.model}`.trim(), r.model, t]);
-    if (img) await updateAircraftFleetFields(t, { image_url: img });
+    const photo = await fetchAircraftImage([r.wiki_title, `${r.manufacturer} ${r.model}`.trim(), r.model, t]);
+    if (photo) await updateAircraftFleetFields(t, { image_url: photo.url, image_credit: serializeCredit(photo.credit) });
   } catch { /* tyst */ }
 }

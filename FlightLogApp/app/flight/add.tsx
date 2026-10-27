@@ -9,6 +9,7 @@ import { FlightVideo } from '../../components/FlightVideo';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { scanFlightImage, fuelRemark } from '../../services/flightScan';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 import { PremiumModal } from '../../components/PremiumModal';
 import { presentPaywall } from '../../services/purchases';
@@ -2034,6 +2035,7 @@ export default function AddFlightScreen() {
       if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { presentPaywall('ACARS/Instrument scan'); }
       return;
     }
+    if (!(await askAiConsent())) return; // AI-samtycke innan källväljaren/kameran öppnas
 
     // Kamera eller bibliotek — egen väljar-modal (med exempelbild), se scanChooser nedan.
     const source = await new Promise<'camera' | 'library' | null>((resolve) => {
@@ -2108,6 +2110,7 @@ export default function AddFlightScreen() {
         timeChoice: hasAircraft ? 'aircraft' : hasFlight ? 'flight' : null,
       });
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else presentPaywall('ACARS/Instrument scan');
       } else {

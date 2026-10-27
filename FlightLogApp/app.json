@@ -97,7 +97,8 @@
         {
           "faceIDPermission": "Face ID is used to unlock the app when app lock is enabled."
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true

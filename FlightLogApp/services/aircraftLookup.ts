@@ -1,4 +1,6 @@
 import { callAnthropicJson } from './anthropicClient';
+import { wikiPagePhoto, wikiSearchPhoto, commonsSearchPhoto, type WikiPhoto } from './wikiPhoto';
+import { serializeCredit } from '../utils/photoCredit';
 
 export interface AircraftLookupResult {
   aircraft_type: string;     // ICAO-typkod (C172, A320, EC35)
@@ -153,7 +155,8 @@ OUTPUT (svara ENBART med JSON):
   "needs_manual": boolean
 }`;
 
-export async function lookupAircraft(query: string): Promise<AircraftLookupResult> {
+/** background=true: bakgrundsjobb (Fleet-berikning) — utan AI-samtycke hoppas uppslaget över utan dialog. */
+export async function lookupAircraft(query: string, opts: { background?: boolean } = {}): Promise<AircraftLookupResult> {
   const q = query.trim();
   if (!q) throw new Error('Tomt sökord.');
 
@@ -161,6 +164,7 @@ export async function lookupAircraft(query: string): Promise<AircraftLookupResul
     system: SYSTEM_PROMPT,
     maxTokens: 800,
     userContent: `Identifiera luftfartyget: "${q}". Svara ENBART med JSON-objektet.`,
+    consentPrompt: !opts.background,
   });
   const confidence = Number(parsed.confidence) || 0;
   const category: AircraftLookupResult['category'] =
@@ -213,6 +217,7 @@ export interface AircraftFleetEnrichment {
   fuel_capacity_l: number;
   range_nm: number;
   image_url: string;
+  image_credit: string;      // fotokredit (JSON, utils/photoCredit) — tom om ingen bild hittades
   needs_manual: boolean;
   // Grunddata — så Fleet-hämtningen kan override:a felaktig manuell inmatning.
   cruise_speed_kts: number;
@@ -222,105 +227,41 @@ export interface AircraftFleetEnrichment {
   crew_type: string;
 }
 
-/** Hämtar en bild-URL (öppen källa) för en titel via Wikipedias pageimages-API. */
-async function wikiImage(title: string): Promise<string> {
-  const t = title.trim();
-  if (!t) return '';
-  const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail&pithumbsize=900&redirects=1&titles=${encodeURIComponent(t)}`;
-  try {
-    const res = await fetch(url, { headers: { 'Api-User-Agent': 'FlightLogApp/1.0 (logbook app)' } });
-    if (!res.ok) return '';
-    const data = await res.json();
-    const pages = data?.query?.pages;
-    if (!pages) return '';
-    for (const k of Object.keys(pages)) {
-      const src = pages[k]?.thumbnail?.source;
-      if (typeof src === 'string' && src) return src;
-    }
-    return '';
-  } catch {
-    return '';
-  }
-}
-
-/** Provar flera kandidattitlar i tur och ordning; returnerar första bild som hittas. */
-export async function fetchAircraftImage(candidates: string[]): Promise<string> {
+/** Provar flera kandidattitlar (Wikipedia-artiklar) i tur och ordning; första fria bild + kredit. Har
+ *  artikelns ledbild ingen godkänd licens (t.ex. GFDL-only från JetPhotos, som på "Cessna 172") söks ett fritt
+ *  foto på Wikimedia Commons i stället. */
+export async function fetchAircraftImage(candidates: string[]): Promise<WikiPhoto | null> {
   const seen = new Set<string>();
-  for (const c of candidates) {
-    const key = c.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    const img = await wikiImage(c);
-    if (img) return img;
-  }
-  return '';
-}
-
-// Wikipedia-SÖK (fuzzy): hittar rätt artikel även när titeln inte matchar exakt, och
-// returnerar dess ledbild. Bättre täckning än direkt titel-uppslag.
-async function wikiSearchImage(query: string): Promise<string> {
-  const q = query.trim();
-  if (!q) return '';
-  const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=900&redirects=1`;
-  try {
-    const res = await fetch(url, { headers: { 'Api-User-Agent': 'FlightLogApp/1.0 (logbook app)' } });
-    if (!res.ok) return '';
-    const data = await res.json();
-    const pages = data?.query?.pages;
-    if (!pages) return '';
-    const arr = (Object.values(pages) as any[]).sort((a, b) => (a.index ?? 999) - (b.index ?? 999));
-    for (const p of arr) { const src = p?.thumbnail?.source; if (typeof src === 'string' && src) return src; }
-    return '';
-  } catch { return ''; }
-}
-
-// Wikimedia Commons fil-sök: en mycket bredare bildbank än Wikipedia-artiklar → hittar
-// foton på drönarmodeller som saknar egen artikel. Väljer första riktiga foto (jpg/png/webp).
-async function commonsImage(query: string): Promise<string> {
-  const q = query.trim();
-  if (!q) return '';
-  const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url%7Cmime&iiurlwidth=900`;
-  try {
-    const res = await fetch(url, { headers: { 'Api-User-Agent': 'FlightLogApp/1.0 (logbook app)' } });
-    if (!res.ok) return '';
-    const data = await res.json();
-    const pages = data?.query?.pages;
-    if (!pages) return '';
-    const arr = (Object.values(pages) as any[]).sort((a, b) => (a.index ?? 999) - (b.index ?? 999));
-    for (const p of arr) {
-      const ii = p?.imageinfo?.[0];
-      const mime = ii?.mime ?? '';
-      const thumb = ii?.thumburl || ii?.url;
-      if (typeof thumb === 'string' && thumb && /jpe?g|png|webp/i.test(mime)) return thumb;
-    }
-    return '';
-  } catch { return ''; }
+  const uniq = candidates.map((c) => c.trim()).filter((c) => { const k = c.toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  for (const c of uniq) { const p = await wikiPagePhoto(c); if (p) return p; }
+  for (const c of uniq.slice(0, 2)) { const p = await commonsSearchPhoto(c); if (p) return p; }
+  return null;
 }
 
 /**
  * Bred bildsök (för drönare): provar i tur och ordning (1) Wikipedia direkt-titel,
  * (2) Wikipedia-sök (fuzzy) och (3) Wikimedia Commons fil-sök. Ger mycket högre träff
- * för drönarmodeller som saknar egen Wikipedia-artikel.
+ * för drönarmodeller som saknar egen Wikipedia-artikel. Bara fria licenser, alltid med kredit.
  */
-export async function fetchDroneImage(candidates: string[]): Promise<string> {
+export async function fetchDroneImage(candidates: string[]): Promise<WikiPhoto | null> {
   const seen = new Set<string>();
   const uniq = candidates.map((c) => c.trim()).filter((c) => { const k = c.toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
-  if (!uniq.length) return '';
+  if (!uniq.length) return null;
   // 1) Wikipedia direkt-titel (bäst kvalitet vid exakt artikel)
-  for (const c of uniq) { const img = await wikiImage(c); if (img) return img; }
+  for (const c of uniq) { const p = await wikiPagePhoto(c); if (p) return p; }
   // 2) Wikipedia-sök (ungefärlig titel)
-  for (const c of uniq) { const img = await wikiSearchImage(c); if (img) return img; }
+  for (const c of uniq) { const p = await wikiSearchPhoto(c); if (p) return p; }
   // 3) Wikimedia Commons (bredast) — lägg till drönar-hintar för att styra bort från namneskrockar
   const commonsQueries = [...uniq, `${uniq[0]} drone`, `${uniq[0]} UAV`, `${uniq[0]} quadcopter`];
-  for (const c of commonsQueries) { const img = await commonsImage(c); if (img) return img; }
-  return '';
+  for (const c of commonsQueries) { const p = await commonsSearchPhoto(c); if (p) return p; }
+  return null;
 }
 
 /** Full Fleet-uppslagning + bild. Anropas av Fleet-kortets hämta-knapp. */
-export async function enrichAircraftFleet(query: string): Promise<AircraftFleetEnrichment> {
-  const r = await lookupAircraft(query);
+export async function enrichAircraftFleet(query: string, opts: { background?: boolean } = {}): Promise<AircraftFleetEnrichment> {
+  const r = await lookupAircraft(query, opts);
   const candidates = [r.wiki_title, `${r.manufacturer} ${r.model}`.trim(), r.model, query];
-  const image_url = await fetchAircraftImage(candidates);
+  const photo = await fetchAircraftImage(candidates);
   return {
     manufacturer: r.manufacturer,
     vne_kt: r.vne_kt,
@@ -333,7 +274,8 @@ export async function enrichAircraftFleet(query: string): Promise<AircraftFleetE
     empty_weight_kg: r.empty_weight_kg,
     fuel_capacity_l: r.fuel_capacity_l,
     range_nm: r.range_nm,
-    image_url,
+    image_url: photo?.url ?? '',
+    image_credit: serializeCredit(photo?.credit),
     needs_manual: r.needs_manual,
     cruise_speed_kts: r.cruise_speed_kts,
     endurance_h: r.endurance_h,

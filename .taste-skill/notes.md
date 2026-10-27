@@ -34,3 +34,18 @@ A new, shorter blades-app.com: a native iOS logbook for helicopter, aeroplane an
 5. pricing — Free for 20 flights with everything; 39 kr/month for unlimited. No account, data on your phone. → the two prices.
 6. faq — real questions: paper logbook layouts, offline, export, EASA/FAA, encryption (optional).
 7. footer — name returns, support/privacy/terms.
+
+## Direction
+split-stage (seed 304035117), type Zilla Slab (self-hosted), palette "Cobalt on sand" — colours taken from the subject instead: paper #f7f3ea (sampled from the app's own logbook page #f8f4eb), one ink = app navy #0a1628. Hero blueprint's 12px gaps/16px radius dropped for the direction's clean vertical edge + square corners.
+Idea: On this page, the pilot's paper logbook page and the app become the two halves of the split: navy app fixed on one side, logbook paper on the other.
+Live thing: "Log a flight" on a real logbook page (EASA / FAA / Remote pilot tabs): row lands, this page / brought forward / to date add up, page turns at 8 rows.
+Deviations: how-it-works uses the real screenshots in the stage (not HTML states); phone steps carry their own pictures (house rule: nothing over a headline); no video (no honest clip; ask user for a screen recording).
+
+ROUND 1 (2026-10-27)
+Seen in one second: a pilot logbook app, navy app beside logbook paper, "Log it in seconds. Copy it across."
+Idea: the paper page and the app side by side; the page fills in as you log.
+Live thing: Log a flight + layout tabs.
+Layout words: hero=split card+stage / how=pinned stage statements / logbook=square plate+tabs / more=small proof beside text / about=letter on navy / pricing=two fields / faq=reading text / footer=photo half+menu.
+Scores: design 7.5 · usability 8 · creativity 7.5 · content 8 → 7.7
+Caps applied: none (0 FAIL).
+Top three: 1. book shot cropped with app chrome → paper-only crop (fixed). 2. phone hero crop cut through Log flight button → width-based crop (fixed). 3. orphan "flight." in Premium → copy (fixed).

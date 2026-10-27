@@ -13,6 +13,7 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useToastStore } from '../../components/Toast';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { lookupDrone } from '../../services/droneLookup';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { hasTokenQuota } from '../../utils/tokenGate';
 import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, categoryFromCClass } from '../../constants/droneCategories';
 import {
@@ -180,6 +181,8 @@ export default function DroneImportCsvScreen() {
   };
 
   const pick = async () => {
+    // Kolumnmappningen är ett AI-anrop → samtycke innan filväljaren öppnas.
+    if (!(await askAiConsent())) return;
     setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({});
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
@@ -193,6 +196,7 @@ export default function DroneImportCsvScreen() {
     } catch (e: any) {
       clearInterval(rot);
       setImporting(false);
+      if (isAiConsentError(e)) return; // "Not now" → tillbaka till filvalet
       const msg = e?.message ?? 'Import failed.';
       setImportError(msg);
       fetchSummary(null, fileName || 'file', msg);

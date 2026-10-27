@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1462, user-scalable=yes" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-text-size-adjust: 100%; }
+  html, body {
+    background: #ECE3CC;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #2A2620;
+  }
+  .page {
+    width: 1410px;
+    margin: 26px auto;
+    background: #FCF8EE;
+    padding: 14px 16px 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    border: 1px solid #D9CEB4;
+    position: relative;
+  }
+  .top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1.5px solid #B7AA8A; padding-bottom: 6px; margin-bottom: 8px;
+  }
+  .top .who { font-size: 13px; font-weight: bold; letter-spacing: .3px; }
+  .top .lbl {
+    font-family: Helvetica, Arial, sans-serif; font-size: 9px; letter-spacing: 2px;
+    text-transform: uppercase; color: #000000;
+  }
+  table.lb { border-collapse: collapse; width: 1376px; table-layout: fixed; }
+  table.lb th, table.lb td { border-right: 0.8px solid #8A7048; overflow: hidden; }
+  table.lb th:first-child, table.lb td:first-child { border-left: 0.8px solid #8A7048; }
+  /* streckad kolumnkant (t.ex. SE|ME, Day|Night, Night|Sea) — brun som övriga */
+  .dash-r { border-right: 0.8px dashed #8A7048 !important; }
+  /* vågräta linjer endast i rubrik + summarader — inte mellan dataraderna */
+  th.hx, th.hdr, th.grp { border-top: 0.8px solid #8A7048; border-bottom: 0.8px solid #8A7048; }
+  tr.sum td { border-top: 0.8px solid #8A7048; border-bottom: 0.8px solid #8A7048; }
+  .tbl-wrap { position: relative; }
+  .gutter-line { position: absolute; top: 0; bottom: 0; width: 2.8px; background: #8A7048; z-index: 2; }
+  th.hx {
+    background: #F4EDD9; color: #4A4030;
+    font-family: Helvetica, Arial, sans-serif; font-size: 8.5px; font-weight: 700;
+    padding: 4px 3px; text-align: center; line-height: 1.15; vertical-align: middle;
+  }
+  th.hx .hx-sub { font-size: 7px; font-weight: 600; color: #8A7E60; letter-spacing: .2px; margin-top: 1px; text-transform: none; }
+  th.hx-tap { cursor: pointer; }
+  .hx-pick { display: inline-block; color: #16243F; font-weight: 800; }
+  .hx-pick--empty { color: #B0A179; border: 1px dashed #B0A179; border-radius: 4px; padding: 0 6px; font-size: 13px; font-weight: 700; }
+  /* förtryckt fri kolumn (Sea/Instrument/IRI): bokens etikett + diskret "+" */
+  .hx-pick--label { color: #4A4030; font-weight: 700; }
+  .hx-plus { color: #B0A179; font-weight: 800; font-size: 9px; vertical-align: super; margin-left: 2px; }
+  th.grp {
+    background: #F1E8D4; color: #6E6242;
+    font-family: Helvetica, Arial, sans-serif; font-size: 8.5px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; padding: 3px 2px; text-align: center;
+  }
+  th.grp--empty { background: transparent; border-left: none; border-top: none; }
+  th.hdr {
+    background: #F7F1E1; color: #4A4030;
+    font-family: Helvetica, Arial, sans-serif; font-size: 8.5px; font-weight: 700;
+    padding: 4px 2px; text-align: center; line-height: 1.1; vertical-align: middle;
+  }
+  td.cell { height: 21px; padding: 1px 4px; font-size: 11px; vertical-align: middle; }
+  td.num { text-align: center; font-variant-numeric: tabular-nums; }
+  td.mid { text-align: center; }
+  td.txt { text-align: left; }
+  tr.odd td.cell { background: #FBF5E6; }
+  tr.sum td { padding: 5px 4px; font-weight: bold; }
+  .sum-num { text-align: center; font-family: 'Courier New', monospace; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+  .sum-label {
+    text-align: right; font-family: Helvetica, Arial, sans-serif; font-size: 8.5px;
+    letter-spacing: .6px; text-transform: uppercase; font-weight: 800;
+  }
+  tr.sum--bf td { background: #F4EEDC; color: #5A5240; }
+  tr.sum--tot td { background: #EFE6CE; color: #2A2620; }
+  tr.sum--tot .sum-label { color: #2A2620; }
+  /* öppen (tom) cell — t.ex. under Remarks; inga inre linjer, papperston */
+  .sum-open { border: none !important; background: #FCF8EE !important; }
+  /* separatorlinjen data→totaler fortsätter ut till sidkanten över de öppna fälten */
+  tr.sum-top td.sum-open { border-top: 0.8px solid #8A7048 !important; }
+  .sig {
+    display: flex; align-items: flex-end; gap: 14px; margin-top: 8px;
+    font-size: 10px; color: #6E6242;
+  }
+  .sig .cert { font-style: italic; }
+  .sig .line { flex: 1; border-bottom: 1px solid #8A7048; min-height: 34px; display: flex; align-items: flex-end; }
+  .sig .sname { font-family: Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: .6px; text-transform: uppercase; }
+  /* signatur till vänster om summa-raderna (bokstil) */
+  .sig-cell { text-align: left; padding: 7px 10px; vertical-align: top; background: #FCF8EE !important; border-left: none !important; border-bottom: none !important; }
+  .sig-cert { font-style: italic; font-size: 10px; color: #6E6242; }
+  .sig-line { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+  .sig-name3 { font-family: Helvetica, Arial, sans-serif; font-size: 8.5px; letter-spacing: .6px; text-transform: uppercase; color: #6E6242; white-space: nowrap; padding-bottom: 2px; }
+  .sig-fill { flex: 1; border-bottom: 1px solid #8A7048; display: flex; align-items: flex-end; min-height: 34px; }
+  .pg {
+    position: absolute; bottom: 9px; font-family: 'Courier New', monospace;
+    font-size: 10px; color: #000000;
+  }
+  .pg.l { left: 16px; }
+  .pg.r { right: 16px; }
+  .brand {
+    text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 7.5px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: #000000; margin-top: 14px;
+  }
+
+  /* website demo only: four-digit h:mm totals fit their column (the app's renderer clips them) */
+  .sum td.sum-num { padding-left: 1px; padding-right: 1px; letter-spacing: -0.6px; }
+</style>
+
+</head>
+<body>
+<div class="page">
+    <div class="top">
+      <div class="who">Alex Sandell</div>
+      <div class="lbl">Remote Pilot Logbook · 177–178</div>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="gutter-line" style="left:688px"></div>
+      <table class="lb">
+        <colgroup><col style="width:77px" /><col style="width:79px" /><col style="width:84px" /><col style="width:79px" /><col style="width:45px" /><col style="width:45px" /><col style="width:59px" /><col style="width:55px" /><col style="width:55px" /><col style="width:55px" /><col style="width:55px" /><col style="width:49px" /><col style="width:53px" /><col style="width:49px" /><col style="width:61px" /><col style="width:47px" /><col style="width:49px" /><col style="width:49px" /><col style="width:51px" /><col style="width:40px" /><col style="width:40px" /><col style="width:200px" /></colgroup>
+        <thead><tr><th class="hx" rowspan="3">Date of flight<div class="hx-sub">dd/mm/yyy</div></th><th class="hx" colspan="2">RPAS / UAS / UAV</th><th class="hx" colspan="3">Location of flight and times</th><th class="hx" rowspan="3">Type and Cat of mission</th><th class="hx" rowspan="3">Total time</th><th class="hx" rowspan="3">Multi-rotor</th><th class="hx" rowspan="3">Single-rotor</th><th class="hx" rowspan="3">Fixed-wing</th><th class="hx" colspan="4">Pilot function time</th><th class="hx" colspan="4">Operational condition time</th><th class="hx" colspan="2">Landings<div class="hx-sub">Day / Night</div></th><th class="hx" rowspan="3">Remarks and endorsement</th></tr><tr><th class="hx" rowspan="2">Make-Mod</th><th class="hx" rowspan="2">Reg or S/N</th><th class="hx" rowspan="2">Location</th><th class="hx dash-r">Start</th><th class="hx">Land</th><th class="hx dash-r" rowspan="2">PIC</th><th class="hx dash-r" rowspan="2">Co-Pilot<div class="hx-sub">(FPV)</div></th><th class="hx dash-r" rowspan="2">Dual</th><th class="hx" rowspan="2">Instructor</th><th class="hx dash-r" rowspan="2">IFR</th><th class="hx dash-r" rowspan="2">Night</th><th class="hx dash-r" rowspan="2">VLOS</th><th class="hx" rowspan="2">BVLOS</th><th class="hx dash-r" rowspan="2">D</th><th class="hx" rowspan="2">N</th></tr><tr><th class="hx">UTC</th><th class="hx">UTC</th></tr></thead>
+        <tbody>
+          
+          <tr class="row"><td class="cell mid">2026-10-02</td><td class="cell txt">DJI Matrice 4T</td><td class="cell txt">M4T-01</td><td class="cell txt">Training field, Täby</td><td class="cell mid">20:15</td><td class="cell mid">20:32</td><td class="cell txt">COM/A2</td><td class="cell num">0:17</td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:17</td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">1</td><td class="cell txt">Night operations training – instructor Erik Sandberg</td></tr><tr class="row odd"><td class="cell mid">2026-10-02</td><td class="cell txt">DJI Matrice 4T</td><td class="cell txt">M4T-01</td><td class="cell txt">Training field, Täby</td><td class="cell mid">20:41</td><td class="cell mid">20:54</td><td class="cell txt">COM/A2</td><td class="cell num">0:13</td><td class="cell num">0:13</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:13</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:13</td><td class="cell num">0:13</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">1</td><td class="cell txt"></td></tr><tr class="row"><td class="cell mid">2026-10-06</td><td class="cell txt">DJI Mini 4 Pro</td><td class="cell txt">MINI4-01</td><td class="cell txt">Real estate, Saltsjöbaden</td><td class="cell mid">14:30</td><td class="cell mid">14:41</td><td class="cell txt">COM/A1</td><td class="cell num">0:11</td><td class="cell num">0:11</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:11</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:11</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt">Real estate photos &amp; video</td></tr><tr class="row odd"><td class="cell mid">2026-10-07</td><td class="cell txt">DJI Matrice 350 RTK</td><td class="cell txt">M350-01</td><td class="cell txt">Wind farm, Ånge (Medelpad)</td><td class="cell mid">09:10</td><td class="cell mid">09:31</td><td class="cell txt">COM/Specific</td><td class="cell num">0:21</td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt">Turbine blade inspection – T04–T05, H20T zoom</td></tr><tr class="row"><td class="cell mid">2026-10-07</td><td class="cell txt">DJI Matrice 350 RTK</td><td class="cell txt">M350-01</td><td class="cell txt">Wind farm, Ånge (Medelpad)</td><td class="cell mid">10:10</td><td class="cell mid">10:29</td><td class="cell txt">COM/Specific</td><td class="cell num">0:19</td><td class="cell num">0:19</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:19</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:19</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt"></td></tr><tr class="row odd"><td class="cell mid">2026-10-08</td><td class="cell txt">DJI Matrice 4T</td><td class="cell txt">M4T-01</td><td class="cell txt">Training field, Täby</td><td class="cell mid">10:00</td><td class="cell mid">10:20</td><td class="cell txt">COM/A2</td><td class="cell num">0:20</td><td class="cell num">0:20</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:20</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:20</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:20</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt">New pilot: Elin Fors – A2 practical training</td></tr><tr class="row"><td class="cell mid">2026-10-08</td><td class="cell txt">DJI Matrice 4T</td><td class="cell txt">M4T-01</td><td class="cell txt">Training field, Täby</td><td class="cell mid">10:28</td><td class="cell mid">10:42</td><td class="cell txt">COM/A2</td><td class="cell num">0:14</td><td class="cell num">0:14</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:14</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:14</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:14</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt"></td></tr><tr class="row odd"><td class="cell mid">2026-10-08</td><td class="cell txt">DJI Matrice 4T</td><td class="cell txt">M4T-01</td><td class="cell txt">Training field, Täby</td><td class="cell mid">10:51</td><td class="cell mid">11:06</td><td class="cell txt">COM/A2</td><td class="cell num">0:15</td><td class="cell num">0:15</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:15</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:15</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:15</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt"></td></tr><tr class="row"><td class="cell mid">2026-10-09</td><td class="cell txt">DJI Matrice 350 RTK</td><td class="cell txt">M350-02</td><td class="cell txt">Power line, Ljusdal (Hälsingland)</td><td class="cell mid">09:30</td><td class="cell mid">10:05</td><td class="cell txt">COM/Specific</td><td class="cell num">0:35</td><td class="cell num">0:35</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:35</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:35</td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt">BVLOS corridor inspection – 12 km, operational authorisation</td></tr><tr class="row odd"><td class="cell mid">2026-10-09</td><td class="cell txt">DJI Matrice 350 RTK</td><td class="cell txt">M350-02</td><td class="cell txt">Power line, Ljusdal (Hälsingland)</td><td class="cell mid">10:28</td><td class="cell mid">10:57</td><td class="cell txt">COM/Specific</td><td class="cell num">0:29</td><td class="cell num">0:29</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:29</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:29</td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt"></td></tr><tr class="row"><td class="cell mid">2026-10-09</td><td class="cell txt">DJI Matrice 350 RTK</td><td class="cell txt">M350-02</td><td class="cell txt">Power line, Ljusdal (Hälsingland)</td><td class="cell mid">11:21</td><td class="cell mid">11:53</td><td class="cell txt">COM/Specific</td><td class="cell num">0:32</td><td class="cell num">0:32</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:32</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:32</td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt"></td></tr><tr class="row odd"><td class="cell mid">2026-10-10</td><td class="cell txt">DJI Mavic 3 Thermal</td><td class="cell txt">M3T-01</td><td class="cell txt">Västerås – Kopparlunden</td><td class="cell mid">19:40</td><td class="cell mid">19:57</td><td class="cell txt">COM/A2</td><td class="cell num">0:17</td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:17</td><td class="cell num">0:17</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">1</td><td class="cell txt">District heating leak survey – thermal, night</td></tr><tr class="row"><td class="cell mid">2026-10-10</td><td class="cell txt">DJI Mavic 3 Thermal</td><td class="cell txt">M3T-01</td><td class="cell txt">Västerås – Kopparlunden</td><td class="cell mid">20:03</td><td class="cell mid">20:25</td><td class="cell txt">COM/A2</td><td class="cell num">0:22</td><td class="cell num">0:22</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:22</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:22</td><td class="cell num">0:22</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">1</td><td class="cell txt"></td></tr><tr class="row odd"><td class="cell mid">2026-10-10</td><td class="cell txt">DJI Mavic 3 Thermal</td><td class="cell txt">M3T-01</td><td class="cell txt">Västerås – Kopparlunden</td><td class="cell mid">20:39</td><td class="cell mid">21:00</td><td class="cell txt">COM/A2</td><td class="cell num">0:21</td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:21</td><td class="cell num">0:21</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">1</td><td class="cell txt"></td></tr><tr class="row"><td class="cell mid">2026-10-11</td><td class="cell txt">DJI Mini 4 Pro</td><td class="cell txt">MINI4-01</td><td class="cell txt">Grinda, Stockholm archipelago</td><td class="cell mid">15:20</td><td class="cell mid">15:32</td><td class="cell txt">PRI/A1</td><td class="cell num">0:12</td><td class="cell num">0:12</td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:12</td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num"></td><td class="cell num">0:12</td><td class="cell num"></td><td class="cell num">1</td><td class="cell num"></td><td class="cell txt">Autumn colours in the archipelago</td></tr>
+          <tr class="sum sum--tot sum-top"><td class="sig-cell" colspan="5" rowspan="3"><div class="sig-cert">Certified true and correct.</div><div class="sig-line"><span class="sig-name3">Pilot's signature</span><span class="sig-fill"></span></div></td><td class="sum-label" colspan="2">Total this page</td><td class="sum-num">5:00</td><td class="sum-num">5:00</td><td class="sum-num">0:00</td><td class="sum-num">0:00</td><td class="sum-num">4:30</td><td class="sum-num">0:00</td><td class="sum-num">0:30</td><td class="sum-num">0:48</td><td class="sum-num">0:00</td><td class="sum-num">1:30</td><td class="sum-num">3:24</td><td class="sum-num">1:36</td><td class="sum-num">10</td><td class="sum-num">5</td><td class="sum-open"></td></tr><tr class="sum sum--tot"><td class="sum-label" colspan="2">Brought forward</td><td class="sum-num">489:06</td><td class="sum-num">489:06</td><td class="sum-num"></td><td class="sum-num"></td><td class="sum-num">483:48</td><td class="sum-num"></td><td class="sum-num">5:18</td><td class="sum-num">7:00</td><td class="sum-num"></td><td class="sum-num">51:00</td><td class="sum-num">464:12</td><td class="sum-num">24:48</td><td class="sum-num">1186</td><td class="sum-num">134</td><td class="sum-open"></td></tr><tr class="sum sum--tot"><td class="sum-label" colspan="2">Total to date</td><td class="sum-num">494:06</td><td class="sum-num">494:06</td><td class="sum-num">0:00</td><td class="sum-num">0:00</td><td class="sum-num">488:18</td><td class="sum-num">0:00</td><td class="sum-num">5:48</td><td class="sum-num">7:48</td><td class="sum-num">0:00</td><td class="sum-num">52:30</td><td class="sum-num">467:36</td><td class="sum-num">26:24</td><td class="sum-num">1196</td><td class="sum-num">139</td><td class="sum-open"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    
+
+    <div class="brand">Blades · digital logbook</div>
+    <div class="pg l">p. 177</div>
+    <div class="pg r">p. 178</div>
+  </div>
+</body>
+</html>

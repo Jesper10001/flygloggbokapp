@@ -1,0 +1,17 @@
+diff --git a/node_modules/@op-engineering/op-sqlite/op-sqlite.podspec b/node_modules/@op-engineering/op-sqlite/op-sqlite.podspec
+index 905d8e9..416f9e9 100644
+--- a/node_modules/@op-engineering/op-sqlite/op-sqlite.podspec
++++ b/node_modules/@op-engineering/op-sqlite/op-sqlite.podspec
+@@ -146,7 +146,11 @@ Pod::Spec.new do |s|
+     log_message.call("[OP-SQLITE] using SQLCipher")
+     exclude_files += ["cpp/sqlite3.c", "cpp/sqlite3.h", "cpp/libsql/OPLibsqlBridge.cpp", "cpp/libsql/OPLibsqlBridge.hpp", "ios/libsql.xcframework/**/*", "ios/libsql_experimental.xcframework/**/*", "ios/turso_sdk_kit.xcframework/**/*"]
+     xcconfig[:GCC_PREPROCESSOR_DEFINITIONS] += " OP_SQLITE_USE_SQLCIPHER=1 HAVE_FULLFSYNC=1 SQLITE_HAS_CODEC SQLITE_TEMP_STORE=3 SQLITE_EXTRA_INIT=sqlcipher_extra_init SQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown"
+-    s.dependency "OpenSSL-Universal"
++    # Blades-patch (patches/, appliceras av patch-package i postinstall): SQLCipher använder Apples CommonCrypto
++    # i stället för OpenSSL-Universal → appen använder bara krypteringen som finns i iOS (exportregler,
++    # ITSAppUsesNonExemptEncryption=false). Filformatet är detsamma: OpenSSL-krypterade databaser öppnas oförändrat.
++    xcconfig[:GCC_PREPROCESSOR_DEFINITIONS] += " SQLCIPHER_CRYPTO_CC"
++    s.frameworks = "Security", "CoreFoundation"
+   elsif use_turso then
+     log_message.call("[OP-SQLITE] using Turso SDK kit")
+     exclude_files += ["cpp/sqlite3.c", "cpp/sqlite3.h", "cpp/OPBridge.hpp", "cpp/OPBridge.cpp", "cpp/sqlcipher/sqlite3.c", "cpp/sqlcipher/sqlite3.h", "cpp/libsql/OPLibsqlBridge.hpp", "cpp/libsql/OPLibsqlBridge.cpp", "ios/libsql_experimental.xcframework/**/*"]

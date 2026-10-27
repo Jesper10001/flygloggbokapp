@@ -1,0 +1,2832 @@
+{
+ "url": "website-v4/index.html",
+ "at": "2026-10-27T17:13:04.499Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 9,
+   "filled": [
+    0.57,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 25,
+    "css": 4,
+    "transitions": 21,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 7738,
+     "screens": 8.6,
+     "words": 228,
+     "img": 10,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 6,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 6,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "hero.jpg",
+      "role-drone.png",
+      "log-in-seconds.jpg",
+      "every-flight.jpg",
+      "paper-logbook.jpg",
+      "airports.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "chars": 30,
+     "lines": 2,
+     "size": 83.5,
+     "vw": 5.8,
+     "font": "Playfair Display",
+     "weight": 400,
+     "tracking": -0.03,
+     "leading": 1.04,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.55,
+     "top": 290,
+     "mixedFonts": [
+      "Playfair Display",
+      "Playfair Display italic"
+     ],
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "lines": 2,
+     "size": 83.5,
+     "font": "Playfair Display"
+    },
+    "headings": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 83.5,
+      "vw": 5.8,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.55,
+      "top": 290,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Helicopter, aeroplane or drone.",
+      "words": 4,
+      "chars": 31,
+      "lines": 1,
+      "size": 63.4,
+      "vw": 4.4,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 1050,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Log a flight in seconds.",
+      "words": 5,
+      "chars": 24,
+      "lines": 1,
+      "size": 60,
+      "vw": 4.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.38,
+      "top": 1595,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Every flight, at a glance.",
+      "words": 5,
+      "chars": 26,
+      "lines": 2,
+      "size": 60,
+      "vw": 4.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.38,
+      "top": 2527,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your paper logbook, digitized.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 60,
+      "vw": 4.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.38,
+      "top": 3459,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "81 030 airports. 246 countries.",
+      "words": 5,
+      "chars": 31,
+      "lines": 2,
+      "size": 60,
+      "vw": 4.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.38,
+      "top": 4391,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Free to start. No surprises.",
+      "words": 5,
+      "chars": 28,
+      "lines": 1,
+      "size": 63.4,
+      "vw": 4.4,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5536,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "0 kr",
+      "words": 2,
+      "chars": 4,
+      "lines": 1,
+      "size": 56,
+      "vw": 3.9,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.25,
+      "top": 5779,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "39 kr / month",
+      "words": 4,
+      "chars": 13,
+      "lines": 1,
+      "size": 56,
+      "vw": 3.9,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.25,
+      "top": 5779,
+      "mixedFonts": [
+       "Playfair Display",
+       "Inter"
+      ],
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Questions",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 63.4,
+      "vw": 4.4,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 6238,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your logbook, finally worth opening.",
+      "words": 5,
+      "chars": 36,
+      "lines": 2,
+      "size": 72,
+      "vw": 5,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.6,
+      "top": 7164,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 11,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 4,
+     "medianWords": 5,
+     "mixedFontHeadings": 9
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.87,
+       "mono": false
+      },
+      {
+       "family": "Playfair Display",
+       "share": 0.13,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      22,
+      24,
+      56,
+      60,
+      63,
+      72,
+      84
+     ],
+     "sizeCount": 13,
+     "notLoaded": [],
+     "body": {
+      "font": "Inter",
+      "size": 17,
+      "leading": 1.55,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 89,
+     "max": {
+      "size": 83.5,
+      "vw": 5.8,
+      "font": "Playfair Display",
+      "text": "The pilot logbook,"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.16,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Free",
+      "above": "0 kr",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 5743
+     },
+     {
+      "text": "Premium",
+      "above": "39 kr / month",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 5743
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#070f1f",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.63,
+      "l": 0.07
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#070f1f",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.63,
+        "l": 0.07
+       }
+      },
+      {
+       "color": "#f2f4f8",
+       "top": 900,
+       "hsl": {
+        "h": 220,
+        "s": 0.3,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#57302d",
+       "top": 1540,
+       "hsl": {
+        "h": 4,
+        "s": 0.32,
+        "l": 0.26
+       }
+      },
+      {
+       "color": "#030304",
+       "top": 2472,
+       "hsl": {
+        "h": 240,
+        "s": 0.14,
+        "l": 0.01
+       }
+      },
+      {
+       "color": "#12141a",
+       "top": 3404,
+       "hsl": {
+        "h": 225,
+        "s": 0.18,
+        "l": 0.09
+       }
+      },
+      {
+       "color": "#0e1d31",
+       "top": 4336,
+       "hsl": {
+        "h": 214,
+        "s": 0.56,
+        "l": 0.12
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 5386,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#4b5b72",
+       "share": 0.42
+      },
+      {
+       "color": "#b9c7da",
+       "share": 0.22
+      },
+      {
+       "color": "#0a1628",
+       "share": 0.17
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.06
+      },
+      {
+       "color": "#19c6e6",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#19c6e6",
+      "hsl": {
+       "h": 189,
+       "s": 0.8,
+       "l": 0.5
+      },
+      "fg": "#04111f"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 5,
+     "inHero": 3,
+     "radius": "pill",
+     "height": 54,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Skip to content",
+      "Download",
+      "Download on the App Store"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "section.closer → radial-gradient(70% 60% at 50% 115%, rgba(25, 198, 230, 0.28), rgba(0, 0, 0, 0) 70%), none"
+     ],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "details 760px",
+      "details 760px",
+      "details 760px",
+      "details 760px",
+      "details 760px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 6,
+     "boxRadius": 32,
+     "squareMedia": 2,
+     "roundedMedia": 4,
+     "mediaRadius": 32,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 4,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1540
+      }
+     ]
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 1
+     }
+    ],
+    "nav": {
+     "links": 5,
+     "fixed": true,
+     "height": 90,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "playfair display",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 7738,
+    "margins": {
+     "left": 120,
+     "right": 120
+    },
+    "sections": [
+     {
+      "sel": "section#top.hero",
+      "tag": "section",
+      "top": 0,
+      "height": 900,
+      "words": 30,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "The pilot logbook,",
+       "size": 84,
+       "tag": "h1"
+      },
+      "left": 136,
+      "right": 679,
+      "textLeft": 136,
+      "textRight": 679,
+      "fullBleed": true,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "section.roles",
+      "tag": "section",
+      "top": 900,
+      "height": 592,
+      "words": 17,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Helicopter, aeroplane",
+       "size": 63,
+       "tag": "h2"
+      },
+      "left": 313,
+      "right": 313,
+      "textLeft": 313,
+      "textRight": 313,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 1540,
+      "height": 900,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Log a flight",
+       "size": 60,
+       "tag": "h2"
+      },
+      "left": 120,
+      "right": 120,
+      "textLeft": 180,
+      "textRight": 711,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 2472,
+      "height": 900,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Every flight,",
+       "size": 60,
+       "tag": "h2"
+      },
+      "left": 120,
+      "right": 120,
+      "textLeft": 180,
+      "textRight": 789,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 3404,
+      "height": 900,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Your paper logbook,",
+       "size": 60,
+       "tag": "h2"
+      },
+      "left": 120,
+      "right": 120,
+      "textLeft": 180,
+      "textRight": 728,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 4336,
+      "height": 900,
+      "words": 14,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "81 030 airports.",
+       "size": 60,
+       "tag": "h2"
+      },
+      "left": 120,
+      "right": 120,
+      "textLeft": 180,
+      "textRight": 752,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#pricing.pricing",
+      "tag": "section",
+      "top": 5386,
+      "height": 852,
+      "words": 56,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Free to start.",
+       "size": 63,
+       "tag": "h2"
+      },
+      "left": 316,
+      "right": 366,
+      "textLeft": 316,
+      "textRight": 366,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "section#faq.faq",
+      "tag": "section",
+      "top": 6238,
+      "height": 756,
+      "words": 152,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 340,
+      "right": 409,
+      "textLeft": 340,
+      "textRight": 409,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "section.closer",
+      "tag": "section",
+      "top": 6994,
+      "height": 633,
+      "words": 18,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Your logbook,",
+       "size": 72,
+       "tag": "h2"
+      },
+      "left": 414,
+      "right": 414,
+      "textLeft": 414,
+      "textRight": 414,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [
+     {
+      "top": 5236,
+      "height": 288
+     },
+     {
+      "top": 6844,
+      "height": 308
+     }
+    ],
+    "h1s": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "size": 84,
+      "top": 290,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 180,
+      "n": 6
+     },
+     {
+      "x": 340,
+      "n": 6
+     },
+     {
+      "x": 136,
+      "n": 3
+     },
+     {
+      "x": 316,
+      "n": 1
+     },
+     {
+      "x": 407,
+      "n": 1
+     },
+     {
+      "x": 472,
+      "n": 1
+     },
+     {
+      "x": 766,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 19,
+    "bodySize": 17,
+    "stage": false,
+    "explains": true,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 7,
+   "filled": [
+    0.73,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 25,
+    "css": 4,
+    "transitions": 21,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 6282,
+     "screens": 6.1,
+     "words": 225,
+     "img": 10,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 6,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 5,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "hero-sm.jpg",
+      "log-in-seconds-sm.jpg",
+      "every-flight-sm.jpg",
+      "paper-logbook-sm.jpg",
+      "airports-sm.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "chars": 30,
+     "lines": 2,
+     "size": 44.5,
+     "vw": 5.8,
+     "font": "Playfair Display",
+     "weight": 400,
+     "tracking": -0.03,
+     "leading": 1.04,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.55,
+     "top": 124,
+     "mixedFonts": [
+      "Playfair Display",
+      "Playfair Display italic"
+     ],
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "lines": 2,
+     "size": 44.5,
+     "font": "Playfair Display"
+    },
+    "headings": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 44.5,
+      "vw": 5.8,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.55,
+      "top": 124,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Helicopter, aeroplane or drone.",
+      "words": 4,
+      "chars": 31,
+      "lines": 1,
+      "size": 36,
+      "vw": 4.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 1278,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Log a flight in seconds.",
+      "words": 5,
+      "chars": 24,
+      "lines": 1,
+      "size": 35.3,
+      "vw": 4.6,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.42,
+      "top": 1686,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Every flight, at a glance.",
+      "words": 5,
+      "chars": 26,
+      "lines": 2,
+      "size": 35.3,
+      "vw": 4.6,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.42,
+      "top": 2236,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your paper logbook, digitized.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 35.3,
+      "vw": 4.6,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.42,
+      "top": 2786,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "81 030 airports. 246 countries.",
+      "words": 5,
+      "chars": 31,
+      "lines": 2,
+      "size": 35.3,
+      "vw": 4.6,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.42,
+      "top": 3336,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Free to start. No surprises.",
+      "words": 5,
+      "chars": 28,
+      "lines": 1,
+      "size": 36,
+      "vw": 4.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 4025,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "0 kr",
+      "words": 2,
+      "chars": 4,
+      "lines": 1,
+      "size": 56,
+      "vw": 7.3,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.85,
+      "top": 4229,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "39 kr / month",
+      "words": 4,
+      "chars": 13,
+      "lines": 1,
+      "size": 56,
+      "vw": 7.3,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.85,
+      "top": 4618,
+      "mixedFonts": [
+       "Playfair Display",
+       "Inter"
+      ],
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Questions",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 36,
+      "vw": 4.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 5017,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your logbook, finally worth opening.",
+      "words": 5,
+      "chars": 36,
+      "lines": 2,
+      "size": 38.4,
+      "vw": 5,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.6,
+      "top": 5801,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 11,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 4,
+     "medianWords": 5,
+     "mixedFontHeadings": 9
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.87,
+       "mono": false
+      },
+      {
+       "family": "Playfair Display",
+       "share": 0.13,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      14,
+      15,
+      16,
+      17,
+      18,
+      35,
+      36,
+      38,
+      45,
+      56
+     ],
+     "sizeCount": 10,
+     "notLoaded": [],
+     "body": {
+      "font": "Inter",
+      "size": 17,
+      "leading": 1.55,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 83,
+     "max": {
+      "size": 56,
+      "vw": 7.3,
+      "font": "Playfair Display",
+      "text": "0 kr"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.16,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Free",
+      "above": "0 kr",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 4193
+     },
+     {
+      "text": "Premium",
+      "above": "39 kr / month",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 4582
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#070f1f",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.63,
+      "l": 0.07
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#070f1f",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.63,
+        "l": 0.07
+       }
+      },
+      {
+       "color": "#f2f4f8",
+       "top": 1182,
+       "hsl": {
+        "h": 220,
+        "s": 0.3,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#57302d",
+       "top": 1653,
+       "hsl": {
+        "h": 4,
+        "s": 0.32,
+        "l": 0.26
+       }
+      },
+      {
+       "color": "#030304",
+       "top": 2203,
+       "hsl": {
+        "h": 240,
+        "s": 0.14,
+        "l": 0.01
+       }
+      },
+      {
+       "color": "#12141a",
+       "top": 2753,
+       "hsl": {
+        "h": 225,
+        "s": 0.18,
+        "l": 0.09
+       }
+      },
+      {
+       "color": "#0e1d31",
+       "top": 3303,
+       "hsl": {
+        "h": 214,
+        "s": 0.56,
+        "l": 0.12
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 3929,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      },
+      {
+       "color": "#0a1628",
+       "top": 4552,
+       "hsl": {
+        "h": 216,
+        "s": 0.6,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#4b5b72",
+       "share": 0.42
+      },
+      {
+       "color": "#b9c7da",
+       "share": 0.22
+      },
+      {
+       "color": "#0a1628",
+       "share": 0.17
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.06
+      },
+      {
+       "color": "#19c6e6",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#19c6e6",
+      "hsl": {
+       "h": 189,
+       "s": 0.8,
+       "l": 0.5
+      },
+      "fg": "#04111f"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 5,
+     "inHero": 3,
+     "radius": "pill",
+     "height": 54,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Skip to content",
+      "Download",
+      "Download on the App Store"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "section.closer → radial-gradient(70% 60% at 50% 115%, rgba(25, 198, 230, 0.28), rgba(0, 0, 0, 0) 70%), none"
+     ],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "details 707px",
+      "details 707px",
+      "details 707px",
+      "details 707px",
+      "details 707px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 6,
+     "boxRadius": 20,
+     "squareMedia": 1,
+     "roundedMedia": 4,
+     "mediaRadius": 20,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.61
+     }
+    ],
+    "nav": {
+     "links": 2,
+     "fixed": true,
+     "height": 84,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "playfair display",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 6282,
+    "margins": {
+     "left": 31,
+     "right": 31
+    },
+    "sections": [
+     {
+      "sel": "section#top.hero",
+      "tag": "section",
+      "top": 0,
+      "height": 1182,
+      "words": 30,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "The pilot logbook,",
+       "size": 45,
+       "tag": "h1"
+      },
+      "left": 31,
+      "right": 255,
+      "textLeft": 31,
+      "textRight": 255,
+      "fullBleed": true,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.roles",
+      "tag": "section",
+      "top": 1182,
+      "height": 423,
+      "words": 17,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Helicopter, aeroplane",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 108,
+      "right": 74,
+      "textLeft": 108,
+      "textRight": 124,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 1653,
+      "height": 530,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Log a flight",
+       "size": 35,
+       "tag": "h2"
+      },
+      "left": 31,
+      "right": 31,
+      "textLeft": 66,
+      "textRight": 379,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 2203,
+      "height": 530,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Every flight,",
+       "size": 35,
+       "tag": "h2"
+      },
+      "left": 31,
+      "right": 31,
+      "textLeft": 66,
+      "textRight": 425,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 2753,
+      "height": 530,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Your paper logbook,",
+       "size": 35,
+       "tag": "h2"
+      },
+      "left": 31,
+      "right": 31,
+      "textLeft": 66,
+      "textRight": 389,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 3303,
+      "height": 530,
+      "words": 14,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "81 030 airports.",
+       "size": 35,
+       "tag": "h2"
+      },
+      "left": 31,
+      "right": 31,
+      "textLeft": 66,
+      "textRight": 403,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#pricing.pricing",
+      "tag": "section",
+      "top": 3929,
+      "height": 1089,
+      "words": 56,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "0 kr",
+       "size": 56,
+       "tag": "p"
+      },
+      "left": 57,
+      "right": 159,
+      "textLeft": 57,
+      "textRight": 159,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#faq.faq",
+      "tag": "section",
+      "top": 5017,
+      "height": 673,
+      "words": 152,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 31,
+      "right": 74,
+      "textLeft": 31,
+      "textRight": 74,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.closer",
+      "tag": "section",
+      "top": 5691,
+      "height": 438,
+      "words": 18,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Your logbook,",
+       "size": 38,
+       "tag": "h2"
+      },
+      "left": 221,
+      "right": 221,
+      "textLeft": 221,
+      "textRight": 221,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer.foot",
+      "tag": "footer",
+      "top": 6129,
+      "height": 153,
+      "words": 14,
+      "media": 0,
+      "middle": 28,
+      "heading": null,
+      "left": 31,
+      "right": 176,
+      "textLeft": 31,
+      "textRight": 176,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "size": 45,
+      "top": 124,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 31,
+      "n": 9
+     },
+     {
+      "x": 57,
+      "n": 8
+     },
+     {
+      "x": 200,
+      "n": 1
+     },
+     {
+      "x": 238,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 19,
+    "bodySize": 17,
+    "stage": false,
+    "explains": true,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 8,
+   "filled": [
+    0.76,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 25,
+    "css": 4,
+    "transitions": 21,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 6014,
+     "screens": 7.1,
+     "words": 225,
+     "img": 10,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 6,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 5,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "hero-sm.jpg",
+      "log-in-seconds-sm.jpg",
+      "every-flight-sm.jpg",
+      "paper-logbook-sm.jpg",
+      "airports-sm.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "chars": 30,
+     "lines": 2,
+     "size": 44,
+     "vw": 11.3,
+     "font": "Playfair Display",
+     "weight": 400,
+     "tracking": -0.03,
+     "leading": 1.04,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.9,
+     "top": 124,
+     "mixedFonts": [
+      "Playfair Display",
+      "Playfair Display italic"
+     ],
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "The pilot logbook, reimagined.",
+     "words": 4,
+     "lines": 2,
+     "size": 44,
+     "font": "Playfair Display"
+    },
+    "headings": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 44,
+      "vw": 11.3,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 124,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Helicopter, aeroplane or drone.",
+      "words": 4,
+      "chars": 31,
+      "lines": 2,
+      "size": 36,
+      "vw": 9.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 929,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Log a flight in seconds.",
+      "words": 5,
+      "chars": 24,
+      "lines": 1,
+      "size": 30.1,
+      "vw": 7.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 1398,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Every flight, at a glance.",
+      "words": 5,
+      "chars": 26,
+      "lines": 1,
+      "size": 30.1,
+      "vw": 7.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 1871,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your paper logbook, digitized.",
+      "words": 4,
+      "chars": 30,
+      "lines": 2,
+      "size": 30.1,
+      "vw": 7.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 2368,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "81 030 airports. 246 countries.",
+      "words": 5,
+      "chars": 31,
+      "lines": 2,
+      "size": 30.1,
+      "vw": 7.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 2896,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Free to start. No surprises.",
+      "words": 5,
+      "chars": 28,
+      "lines": 2,
+      "size": 36,
+      "vw": 9.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 3566,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "0 kr",
+      "words": 2,
+      "chars": 4,
+      "lines": 1,
+      "size": 56,
+      "vw": 14.4,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.76,
+      "top": 3834,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "39 kr / month",
+      "words": 4,
+      "chars": 13,
+      "lines": 1,
+      "size": 56,
+      "vw": 14.4,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.76,
+      "top": 4250,
+      "mixedFonts": [
+       "Playfair Display",
+       "Inter"
+      ],
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Questions",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 36,
+      "vw": 9.2,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 4675,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Your logbook, finally worth opening.",
+      "words": 5,
+      "chars": 36,
+      "lines": 2,
+      "size": 38,
+      "vw": 9.7,
+      "font": "Playfair Display",
+      "weight": 400,
+      "tracking": -0.03,
+      "leading": 1.04,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 5458,
+      "mixedFonts": [
+       "Playfair Display",
+       "Playfair Display italic"
+      ],
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 11,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 4,
+     "medianWords": 5,
+     "mixedFontHeadings": 9
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.87,
+       "mono": false
+      },
+      {
+       "family": "Playfair Display",
+       "share": 0.13,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      14,
+      15,
+      16,
+      17,
+      18,
+      30,
+      36,
+      38,
+      44,
+      56
+     ],
+     "sizeCount": 10,
+     "notLoaded": [],
+     "body": {
+      "font": "Inter",
+      "size": 17,
+      "leading": 1.55,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 41,
+     "max": {
+      "size": 56,
+      "vw": 14.4,
+      "font": "Playfair Display",
+      "text": "0 kr"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.16,
+     "smallText": 0
+    },
+    "eyebrows": [
+     {
+      "text": "Free",
+      "above": "0 kr",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 3797
+     },
+     {
+      "text": "Premium",
+      "above": "39 kr / month",
+      "upper": false,
+      "tracked": false,
+      "mono": false,
+      "pill": false,
+      "size": 17,
+      "top": 4213
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#070f1f",
+     "bodyBgHsl": {
+      "h": 220,
+      "s": 0.63,
+      "l": 0.07
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#070f1f",
+       "top": 0,
+       "hsl": {
+        "h": 220,
+        "s": 0.63,
+        "l": 0.07
+       }
+      },
+      {
+       "color": "#f2f4f8",
+       "top": 833,
+       "hsl": {
+        "h": 220,
+        "s": 0.3,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#57302d",
+       "top": 1368,
+       "hsl": {
+        "h": 4,
+        "s": 0.32,
+        "l": 0.26
+       }
+      },
+      {
+       "color": "#030304",
+       "top": 1841,
+       "hsl": {
+        "h": 240,
+        "s": 0.14,
+        "l": 0.01
+       }
+      },
+      {
+       "color": "#12141a",
+       "top": 2338,
+       "hsl": {
+        "h": 225,
+        "s": 0.18,
+        "l": 0.09
+       }
+      },
+      {
+       "color": "#0e1d31",
+       "top": 2866,
+       "hsl": {
+        "h": 214,
+        "s": 0.56,
+        "l": 0.12
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 3470,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      },
+      {
+       "color": "#0a1628",
+       "top": 4183,
+       "hsl": {
+        "h": 216,
+        "s": 0.6,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#4b5b72",
+       "share": 0.42
+      },
+      {
+       "color": "#b9c7da",
+       "share": 0.22
+      },
+      {
+       "color": "#0a1628",
+       "share": 0.17
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.06
+      },
+      {
+       "color": "#19c6e6",
+       "share": 0.04
+      }
+     ],
+     "button": {
+      "bg": "#19c6e6",
+      "hsl": {
+       "h": 189,
+       "s": 0.8,
+       "l": 0.5
+      },
+      "fg": "#04111f"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 5,
+     "inHero": 3,
+     "radius": "pill",
+     "height": 54,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Skip to content",
+      "Download",
+      "Download on the App Store"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "section.closer → radial-gradient(70% 60% at 50% 115%, rgba(25, 198, 230, 0.28), rgba(0, 0, 0, 0) 70%), none"
+     ],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "details 350px",
+      "details 350px",
+      "details 350px",
+      "details 350px",
+      "details 350px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 6,
+     "boxRadius": 20,
+     "squareMedia": 1,
+     "roundedMedia": 4,
+     "mediaRadius": 20,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 4,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1368
+      }
+     ]
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.47
+     }
+    ],
+    "nav": {
+     "links": 2,
+     "fixed": true,
+     "height": 84,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "playfair display",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 6014,
+    "margins": {
+     "left": 20,
+     "right": 20
+    },
+    "sections": [
+     {
+      "sel": "section#top.hero",
+      "tag": "section",
+      "top": 0,
+      "height": 833,
+      "words": 30,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "The pilot logbook,",
+       "size": 44,
+       "tag": "h1"
+      },
+      "left": 20,
+      "right": 41,
+      "textLeft": 20,
+      "textRight": 41,
+      "fullBleed": true,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.roles",
+      "tag": "section",
+      "top": 833,
+      "height": 487,
+      "words": 17,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Helicopter, aeroplane",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 32,
+      "right": 20,
+      "textLeft": 32,
+      "textRight": 32,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 1368,
+      "height": 453,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Log a flight",
+       "size": 30,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 20,
+      "textLeft": 44,
+      "textRight": 61,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 1841,
+      "height": 477,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Every flight,",
+       "size": 30,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 20,
+      "textLeft": 44,
+      "textRight": 54,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 2338,
+      "height": 508,
+      "words": 12,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Your paper logbook,",
+       "size": 30,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 20,
+      "textLeft": 44,
+      "textRight": 103,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "article.card.rv",
+      "tag": "article",
+      "top": 2866,
+      "height": 508,
+      "words": 14,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "81 030 airports.",
+       "size": 30,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 20,
+      "textLeft": 44,
+      "textRight": 75,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#pricing.pricing",
+      "tag": "section",
+      "top": 3470,
+      "height": 1205,
+      "words": 56,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "0 kr",
+       "size": 56,
+       "tag": "p"
+      },
+      "left": 23,
+      "right": 23,
+      "textLeft": 23,
+      "textRight": 23,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#faq.faq",
+      "tag": "section",
+      "top": 4675,
+      "height": 673,
+      "words": 152,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 20,
+      "right": 61,
+      "textLeft": 20,
+      "textRight": 61,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.closer",
+      "tag": "section",
+      "top": 5348,
+      "height": 437,
+      "words": 18,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Your logbook,",
+       "size": 38,
+       "tag": "h2"
+      },
+      "left": 32,
+      "right": 32,
+      "textLeft": 32,
+      "textRight": 32,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer.foot",
+      "tag": "footer",
+      "top": 5785,
+      "height": 228,
+      "words": 14,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 20,
+      "right": 83,
+      "textLeft": 20,
+      "textRight": 83,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "The pilot logbook, reimagined.",
+      "size": 44,
+      "top": 124,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 20,
+      "n": 9
+     },
+     {
+      "x": 44,
+      "n": 7
+     },
+     {
+      "x": 158,
+      "n": 1
+     },
+     {
+      "x": 191,
+      "n": 1
+     },
+     {
+      "x": 202,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 19,
+    "bodySize": 17,
+    "stage": false,
+    "explains": true,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "mixed-font-headline",
+   "width": 1440,
+   "message": "9 headline(s) switch typeface or to italic mid-line (the \"one italic serif word\" move).",
+   "fix": "Set the whole headline in one face. Emphasis comes from the words.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "eyebrow",
+   "width": 1440,
+   "message": "2 eyebrow/kicker label(s) above headings: \"Free\" above \"0 kr\"; \"Premium\" above \"39 kr / month\"",
+   "fix": "Delete them. If the label carried real information, fold it into the headline or the supporting sentence.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "gradient",
+   "width": 1440,
+   "message": "1 gradient fill(s): section.closer → radial-gradient(70% 60% at 50% 115%, rgba(25, 198, 230, 0.28), rgba(0, 0, 0, 0) 70%), none",
+   "fix": "Use a flat colour or a real image. The only gradient allowed by default is a neutral scrim over a photo for legibility.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "hairline",
+   "width": 1440,
+   "message": "6 thin rule(s)/divider line(s): details 760px | details 760px | details 760px | details 760px",
+   "fix": "Delete. Separate with space, a tone change, or scale. Lines are only for real tables and form fields.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "size-count",
+   "width": 1440,
+   "message": "13 different font sizes (14, 15, 16, 17, 18, 20, 22, 24, 56, 60, 63, 72, 84).",
+   "fix": "A page needs about five: display, heading, lead, body, small.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "grey-body",
+   "width": 1440,
+   "message": "The running text is a soft grey on its ground (6.9:1).",
+   "fix": "Set body copy in the full ink (7:1 or more). Keep the muted ink for secondary notes; pages read thin and unfinished when everything is grey.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "no-footage",
+   "width": 1440,
+   "message": "No video anywhere on the page.",
+   "fix": "Look for one honest clip with scripts/assets.mjs --video (the place, the material, the process) and use it as a muted loop with a poster frame. Defend its absence only if no clip fits the subject."
+  },
+  {
+   "level": "WARN",
+   "id": "measure",
+   "width": 1440,
+   "message": "Longest paragraph runs about 89 characters per line.",
+   "fix": "Cap paragraphs at 45–75 characters (max-width: 60ch)."
+  },
+  {
+   "level": "WARN",
+   "id": "font-not-dealt",
+   "width": 1440,
+   "message": "The sheet dealt Zilla Slab and Zilla Slab, but the page renders Inter, Playfair Display.",
+   "fix": "Load the dealt face (the link on the sheet) and put it first in font-family. A build that falls back to a default face lands on the default look."
+  },
+  {
+   "level": "WARN",
+   "id": "untitled-section",
+   "width": 1440,
+   "message": "A section carries text but no heading: section#faq.faq at 6238px.",
+   "fix": "Name it with a short heading unless it is the continuation of the section above."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/desktop-fold.jpg",
+   "pages": [
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/desktop-page-01.jpg",
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/desktop-page-02.jpg",
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/desktop-page-03.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/tablet-fold.jpg",
+   "pages": [
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/tablet-page-01.jpg",
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/tablet-page-02.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/mobile-fold.jpg",
+   "pages": [
+    "/Users/jespertoreld/Developer/flygloggbokapp/.taste-skill/inspect/mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

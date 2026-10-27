@@ -12,7 +12,8 @@
       },
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_DgvYFsEktlZhlMmQkFXtyKUSDzi"
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "test_DgvYFsEktlZhlMmQkFXtyKUSDzi",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
@@ -22,7 +23,8 @@
       },
       "env": {
         "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR"
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
@@ -32,7 +34,8 @@
       },
       "env": {
         "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR"
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },

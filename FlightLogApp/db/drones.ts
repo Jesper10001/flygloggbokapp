@@ -19,6 +19,7 @@ export interface DroneRegistryEntry {
   notes: string;
   image_url?: string;   // Fleet-foto (valt ur bibliotek)
   cutout_url?: string;  // VisionKit-urklipp för pop-out-effekten
+  image_credit?: string; // fotokredit för Wikimedia-bilden (JSON, utils/photoCredit) — '' = egen bild
   manufacturer?: string;
   c_class?: string;        // EU-klass C0–C6
   max_flight_min?: number; // max flygtid (min)
@@ -44,6 +45,7 @@ export interface DroneModelFleet {
   range_km: number;
   image_url: string;
   cutout_url: string;
+  image_credit: string;  // fotokredit (JSON, utils/photoCredit) — '' = egen bild
   total_hours: number;   // summa flygtid över modellens alla registreringar
   last_flown: string;
   first_flown: string;   // MIN(date) → "First flight" (= pilot FleetCard-footern)
@@ -74,11 +76,12 @@ export async function getDroneUsage(): Promise<DroneUsage[]> {
 }
 
 // Fleet-foto per drönare (valt ur bibliotek) + cachat VisionKit-urklipp.
-export async function updateDroneImage(id: number, fields: { image_url?: string; cutout_url?: string }): Promise<void> {
+export async function updateDroneImage(id: number, fields: { image_url?: string; cutout_url?: string; image_credit?: string }): Promise<void> {
   const db = await getDatabase();
   const sets: string[] = []; const vals: any[] = [];
   if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
   if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
+  if (fields.image_credit !== undefined) { sets.push('image_credit=?'); vals.push(fields.image_credit); }
   if (!sets.length) return;
   vals.push(id);
   await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE id=?`, vals);
@@ -103,6 +106,7 @@ export async function getDroneFleetByModel(): Promise<DroneModelFleet[]> {
             MAX(dr.range_km) AS range_km,
             MAX(dr.image_url) AS image_url,
             MAX(dr.cutout_url) AS cutout_url,
+            MAX(dr.image_credit) AS image_credit,
             COALESCE(ROUND(SUM(f.total_time), 2), 0) AS total_hours,
             COALESCE(MAX(f.date), '') AS last_flown,
             COALESCE(MIN(f.date), '') AS first_flown,
@@ -186,11 +190,12 @@ export async function renameDroneRegistration(droneId: number, newReg: string): 
 }
 
 // Sätt foto/urklipp på ALLA rader för en modell → modell-kortet blir konsekvent.
-export async function updateDroneModelImage(model: string, fields: { image_url?: string; cutout_url?: string }): Promise<void> {
+export async function updateDroneModelImage(model: string, fields: { image_url?: string; cutout_url?: string; image_credit?: string }): Promise<void> {
   const db = await getDatabase();
   const sets: string[] = []; const vals: any[] = [];
   if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
   if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
+  if (fields.image_credit !== undefined) { sets.push('image_credit=?'); vals.push(fields.image_credit); }
   if (!sets.length) return;
   vals.push(model);
   await db.runAsync(`UPDATE drone_registry SET ${sets.join(', ')} WHERE model=?`, vals);
@@ -200,6 +205,7 @@ export async function updateDroneModelImage(model: string, fields: { image_url?:
 export async function persistDroneModelLookup(model: string, fields: {
   manufacturer?: string; drone_type?: string; mtow_g?: number; c_class?: string;
   max_flight_min?: number; max_speed_kmh?: number; ceiling_m?: number; range_km?: number; image_url?: string; cutout_url?: string;
+  image_credit?: string;
 }): Promise<void> {
   const db = await getDatabase();
   const sets: string[] = []; const vals: any[] = [];
@@ -214,7 +220,11 @@ export async function persistDroneModelLookup(model: string, fields: {
   put('max_speed_kmh', fields.max_speed_kmh, positive);
   put('ceiling_m', fields.ceiling_m, positive);
   put('range_km', fields.range_km, positive);
-  if (fields.image_url !== undefined) { sets.push('image_url=?'); vals.push(fields.image_url); }
+  if (fields.image_url !== undefined) {
+    sets.push('image_url=?'); vals.push(fields.image_url);
+    // Ny bild → krediten följer med (även tom), så en gammal kredit aldrig hamnar på en annan bild.
+    sets.push('image_credit=?'); vals.push(fields.image_credit ?? '');
+  }
   if (fields.cutout_url !== undefined) { sets.push('cutout_url=?'); vals.push(fields.cutout_url); }
   if (!sets.length) return;
   vals.push(model);

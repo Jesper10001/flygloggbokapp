@@ -32,6 +32,8 @@ import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 import { TourHost } from '../components/TourHost';
 import { PaywallHost } from '../components/PaywallHost';
+import { useAiConsentStore } from '../store/aiConsentStore';
+import { backfillPhotoCredits } from '../services/photoCreditBackfill';
 import { AppLockGate } from '../components/AppLockGate';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useAppLockStore } from '../store/appLockStore';
@@ -39,6 +41,10 @@ import { useTourStore } from '../store/tourStore';
 import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled, hasRestorableBackup, restoreNow as icloudRestore } from '../services/icloudSync';
 import type { BackupManifest } from '../services/backupManifest';
+import { initCrashReporting } from '../services/crashReporting';
+
+// Kraschrapporter (Sentry) — bara release-byggen med DSN; se services/crashReporting.ts.
+initCrashReporting();
 
 // Erbjud återställning från en hittad iCloud-backup vid nyinstallation. Returnerar true om data
 // återställdes (→ hoppa onboarding och gå direkt in i appen).
@@ -163,6 +169,9 @@ export default function RootLayout() {
         // eller nyckeln saknas (då styr promo/servern premium). Får aldrig blockera eller fälla starten.
         configurePurchases().then(() => refreshEntitlement()).catch(() => {});
         useRegulationStandardStore.getState().load(); // EASA/FAA-val → styr insights hours bank m.m.
+        useAiConsentStore.getState().load(); // AI-samtycke (Settings-reglaget + spärren före AI-anrop)
+        // Fotokredit för Wikimedia-bilder som sparades innan krediten fanns — i bakgrunden efter starten.
+        setTimeout(() => { backfillPhotoCredits().catch(() => {}); }, 8000);
         await checkVersion();
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
@@ -307,6 +316,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/icloud" options={{ title: 'iCloud Storage', presentation: 'modal' }} />
         <Stack.Screen name="settings/encryption" options={{ title: 'Encryption', presentation: 'modal' }} />
         <Stack.Screen name="settings/manage-data" options={{ title: 'Manage app data', presentation: 'modal' }} />
+        <Stack.Screen name="settings/acknowledgements" options={{ title: 'Acknowledgements', presentation: 'modal' }} />
         <Stack.Screen name="transcribe" options={{ title: 'Transcribe' }} />
         <Stack.Screen name="logbook/index" options={{ headerShown: false }} />
         <Stack.Screen name="logbook/create-custom" options={{ title: 'Create custom logbook' }} />

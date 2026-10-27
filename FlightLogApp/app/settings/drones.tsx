@@ -20,6 +20,7 @@ import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { categoryLabel } from '../../constants/droneCategories';
 import * as ImagePicker from 'expo-image-picker';
 import { scanDroneImage } from '../../services/droneScan';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
 
@@ -152,6 +153,7 @@ function DroneFormModal({
       if (isPremium || isMax) { showMonthlyTokenLimitAlert(); } else { Alert.alert(t('premium_modal_title'), t('premium_modal_desc')); }
       return;
     }
+    if (!(await askAiConsent())) return; // AI-samtycke innan kameran öppnas
     try {
       let result;
       if (fromCamera) {
@@ -201,6 +203,7 @@ function DroneFormModal({
         ],
       );
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       if (isTokenQuotaError(e)) {
         if (isPremium || isMax) showMonthlyTokenLimitAlert(); else Alert.alert(t('premium_modal_title'), t('premium_modal_desc'));
       } else {

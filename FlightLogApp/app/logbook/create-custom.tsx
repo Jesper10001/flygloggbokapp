@@ -21,6 +21,7 @@ import {
   analyzeLogbookStructure,
   labelForField, formatForField, flightKeyForField, type StructureScan,
 } from '../../services/logbookStructure';
+import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { saveCustomTemplate, makeUniqueCustomTemplateId } from '../../db/customTemplates';
 import { showQuotaExceededAlert } from '../../utils/quotaAlert';
 
@@ -132,6 +133,7 @@ export default function CreateCustomLogbook() {
       setDetected(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
+      if (isAiConsentError(e)) return; // användaren valde "Not now" — inget fel att visa
       const msg = e?.message ?? '';
       if (msg.includes('QUOTA_EXCEEDED') || msg.includes('quota') || msg.includes('429')) {
         showQuotaExceededAlert(t as any, sv ? 'Analyser slut denna månad.' : 'Analyses exhausted this month.');
@@ -143,11 +145,14 @@ export default function CreateCustomLogbook() {
     }
   };
 
+  // AI-samtycke innan kamera/bibliotek öppnas — kolumnigenkänningen är ett AI-anrop.
   const fromCamera = async () => {
+    if (!(await askAiConsent())) return;
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 });
     if (!r.canceled && r.assets?.[0]) runDetection(r.assets[0].uri);
   };
   const fromLibrary = async () => {
+    if (!(await askAiConsent())) return;
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 });
     if (!r.canceled && r.assets?.[0]) runDetection(r.assets[0].uri);
   };

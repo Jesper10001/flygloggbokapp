@@ -57,6 +57,7 @@ export interface CallAnthropicOptions {
   cacheSystemPrompt?: boolean;           // default true
   timeoutMs?: number;                    // default 30000 — höj för långsamma anrop (t.ex. import-mappning)
   onUsage?: (u: { inputTokens: number; outputTokens: number }) => void; // faktisk tokenförbrukning när svaret är klart
+  consentPrompt?: boolean;               // default true — false för bakgrundsjobb: utan AI-samtycke hoppas anropet över tyst
 }
 
 export interface AnthropicRawResult {
@@ -102,6 +103,13 @@ function reportTokenUsage(total: number): void {
     const { useTokenQuotaStore } = require('../store/tokenQuotaStore');
     useTokenQuotaStore.getState().recordUsage(total);
   } catch { /* storen är valfri — får aldrig fälla ett AI-anrop */ }
+}
+
+// AI-samtycke (App Store 5.1.2(i)): inget lämnar appen förrän användaren tillåtit AI. Kastar
+// AiConsentDeclinedError annars. Lazy require undviker en cirkulär import (samtyckesstoren läser databasen).
+async function requireAiConsent(consentPrompt: boolean | undefined): Promise<void> {
+  const { ensureAiConsent } = require('./aiConsent');
+  await ensureAiConsent({ prompt: consentPrompt !== false });
 }
 
 /** Bygger HTTP-headers — via proxy behövs ingen API-nyckel från appen. */
@@ -150,6 +158,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
     throw new Error('The AI service is not configured in this build.');
   }
+  await requireAiConsent(opts.consentPrompt);
 
   const userContent = typeof opts.userContent === 'string'
     ? [{ type: 'text' as const, text: opts.userContent }]
@@ -226,10 +235,12 @@ export async function callAnthropicWebSearchJson<T = any>(opts: {
   model?: string;               // default Haiku 5.5 (billigast per token)
   timeoutMs?: number;
   feature?: string;             // X-Feature-header → proxyn kan gränssätta/rate-limita funktionen
+  consentPrompt?: boolean;      // som CallAnthropicOptions.consentPrompt
 }): Promise<T> {
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
     throw new Error('The AI service is not configured in this build.');
   }
+  await requireAiConsent(opts.consentPrompt);
   const headers = buildHeaders();
   if (opts.feature) headers['X-Feature'] = opts.feature;
   const timeoutMs = opts.timeoutMs ?? 90000; // web search kan ta tid (flera sökningar)
@@ -330,6 +341,7 @@ export async function callAnthropicJsonStream<T = any>(
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
     throw new Error('The AI service is not configured in this build.');
   }
+  await requireAiConsent(opts.consentPrompt);
   // Lazy require så web-bundlen inte tvingas dra in expo/fetch i onödan.
   const { fetch: streamFetch } = require('expo/fetch');
   const headers = buildHeaders();
@@ -483,6 +495,7 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
     throw new Error('The AI service is not configured in this build.');
   }
+  await requireAiConsent(opts.consentPrompt);
   const headers = buildHeaders();
   const body = buildToolBody(opts, false);
 
@@ -554,6 +567,7 @@ export async function callAnthropicToolStream<T = any>(
   if (!USE_PROXY && (!API_KEY || API_KEY === 'your_api_key_here')) {
     throw new Error('The AI service is not configured in this build.');
   }
+  await requireAiConsent(opts.consentPrompt);
   // Lazy require så web-bundlen inte tvingas dra in expo/fetch i onödan.
   const { fetch: streamFetch } = require('expo/fetch');
   const headers = buildHeaders();
