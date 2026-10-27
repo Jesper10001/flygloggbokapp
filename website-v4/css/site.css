@@ -183,7 +183,9 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   overflow: hidden;
   background: var(--bg, var(--navy));
   display: flex; flex-direction: column;
-  -webkit-transform: translateZ(0);
+  isolation: isolate;
+  -webkit-transform: translateZ(0); transform: translateZ(0);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
 .card img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
 .card-text { position: absolute; left: calc(var(--cw) * 0.05); top: calc(var(--cw) * 0.046); }

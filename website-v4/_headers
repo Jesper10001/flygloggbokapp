@@ -1,0 +1,8 @@
+# Styles and scripts are always checked against the server (cheap ETag check), so an update is
+# seen on the next visit instead of after Cloudflare's default 4-hour browser cache.
+/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+/demo/*
+  Cache-Control: public, max-age=0, must-revalidate

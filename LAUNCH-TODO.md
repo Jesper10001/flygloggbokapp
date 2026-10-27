@@ -18,13 +18,22 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Bakgrundsberikning av Fleet frågar aldrig. Utan samtycke hoppar den över tyst.
   - Reglaget "AI features" finns under Settings → Security, i både pilot- och drönarläge.
 - [ ] **App Store Connect inför inskickningen:**
-  - Prenumerationen (39 kr) ska stå som "Ready to Submit" och kopplas till app-versionen, eftersom första köpet granskas tillsammans med appen. Paid Apps Agreement, bank och skatt ska vara klara.
+  - **Prenumerationen är klar** (kontrollerat 2026-10-27): `blades_premium_monthly`, 1 månad, 39 kr, 175 länder, engelsk text och granskningsskärmdump. Paid Apps-avtalet, bank, skatt, DSA och DAC7 är aktiva.
+  - **Kvar:** koppla ett bygge till version 1.0 (Build → Add Build). Då visas sektionen "In-App Purchases and Subscriptions". Bocka i "Blades Premium Monthly" där, och skicka sedan in (Add for Review → Submit). Den första prenumerationen måste granskas tillsammans med appen.
   - App Privacy: Crash Data för Sentry är publicerad 2026-10-27, och totalt 9 datatyper är deklarerade. Kontrollera att "User Content" (foton/filer till AI, inte kopplat) finns bland dem. Den deklarerades enligt genomgången 2026-10-13.
   - **Content Rights** (exempelbilderna är dina, bekräftat 2026-10-27). Under App Information → Content Rights svarar du:
     - "Does your app contain, show, or access third-party content?" → **Yes**: Wikimedia-foton, flygplatsdata, kartor, väder och nyhetsrubriker.
     - "Do you have all necessary rights?" → **Yes**: allt är licensierat och krediterat under Acknowledgements och på fotona.
   - Åldersgräns, kategori, skärmdumpar för 6,9" iPhone, beskrivning och nyckelord.
-  - Granskningsanteckningar: ingen inloggning, Premium kan testas med sandbox-köp, och AI-funktionerna kräver nät. Första AI-funktionen visar en samtyckesdialog ("Allow AI features?").
+  - Granskningsanteckningar (App Review Information → Notes). Färdig text:
+    ```
+    Blades is a pilot and drone logbook. No account or login is required — all data is stored on the device.
+
+    - Example data: open Settings and tap "Take the Blades introduction" at the bottom. The guided tour logs an example flight and walks through the main features; the example data is removed when the tour ends.
+    - Subscription: "Blades Premium Monthly" can be purchased from the gold "Blades Premium" strip at the top of Settings. Free users can log 20 flights per logbook (pilot and drone); Premium removes the limit and adds a monthly allowance for AI features.
+    - AI features (scanning logbook pages, ACARS and instrument photos, CSV import, aircraft and drone lookup) use Anthropic's Claude through our server and need an internet connection. The app asks for permission before anything is sent ("Allow AI features?"); the choice can be changed in Settings → Security → AI features. A free one-time allowance is included, so these features can be tested without a purchase.
+    - Optional extra database encryption can be turned on in Settings → Security → Encryption.
+    ```
 - [x] **Död kod borttagen:** testprofil-triggern och `testUserSeed.ts` (2026-10-27).
 - [x] **Licenser och källhänvisningar** (klart 2026-10-27).
   - Settings → About → Acknowledgements listar:
@@ -88,7 +97,7 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
     - Ångra med `npx wrangler kv key delete --binding=QUOTA_KV model-map --remote`.
   - Nästa app-build begär Sonnet 5.5 direkt och skickar ingen temperatur till 5.x-modeller.
 - [x] **Den nya sajten är publicerad** (2026-10-27) och verifierad live på blades-app.com: startsidan, /privacy, /terms och /support, flygplatssökningen med satellitbild och inga cookies. Policy- och supporttexterna (kryptering som val, AI-samtycke och Sentry) ingår. Sajten måste fortsätta utan cookies, analys och tredjepartstypsnitt/-skript, annars måste §11 i policyn ändras.
-  - **Ladda upp sajten härefter med:** `npx wrangler pages deploy website-v4 --project-name blades-website` (från repo-roten).
+  - **Ladda upp sajten härefter med:** `./deploy-website.sh` (från repo-roten). Skriptet stämplar CSS/JS med versionsnummer och deployar `website-v4`. Utan stämpling kan besökare se gamla filer i upp till 4 timmar, eftersom zonens Browser Cache TTL är 4 timmar. Alternativt kan du ändra den till "Respect Existing Headers" under Caching → Configuration i Cloudflare.
   - **Kör INTE `… pages deploy website`.** Mappen `website/` är den gamla sajten och skulle ersätta den nya.
   - Proxyn har en route för sajtens flygplatskort, `/web/imagery/…` (deployad 2026-10-27). Den släpper bara in blades-app.com, www, Pages-förhandsvisningar och localhost:3000, med 120 bilder per minut och IP.
 - [x] **Bot Fight Mode avstängd** (2026-10-27). Kontrollerat: blades-app.com, /privacy och api.blades-app.com sätter inga cookies längre.

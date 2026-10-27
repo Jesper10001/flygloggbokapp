@@ -57,7 +57,8 @@
         x += speed * dt;
       }
       x = wrap(x);
-      strip.style.transform = `translate3d(${-x}px, 0, 0)`;
+      const dpr = window.devicePixelRatio || 1;
+      strip.style.transform = `translate3d(${-Math.round(x * dpr) / dpr}px, 0, 0)`;
       raf = requestAnimationFrame(frame);
     };
     const start = () => { if (!raf && visible && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
