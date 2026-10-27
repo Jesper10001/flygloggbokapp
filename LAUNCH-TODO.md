@@ -19,11 +19,18 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 
 ## Gör snart
 
+- [ ] **Deploya proxyn: AI-fixen (2026-10-27).** `cd proxy && npx wrangler deploy`
+  - **Felet:** "The AI response could not be read" vid import, uppslag och skanningar. 5.5-modellerna tänker som standard och lägger ett tankeblock först i svaret, men appen läste bara första blocket.
+  - **Fixen:** proxyn stänger av tänkandet när appen inte bett om det (Sonnet 5.x `between_tools`, Haiku 5.x `disabled`), med självläkning för framtida modeller. Tvingat verktygsval som inte stöds blir `auto`.
+  - Det gäller alla installerade byggen direkt, och svaren blir ungefär hälften så dyra i tokens.
+  - Appen läser dessutom alla textblock från nästa bygge.
+  - **Testa efter deploy:** importera en CSV, gör ett flygplansuppslag och en ACARS- eller drönarskanning.
+
 - [x] **Deploya proxyn igen** (debug-kontrollen, deployat och verifierat 2026-10-26): `cd proxy && npx wrangler deploy`
   - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
   - Den öppna felsökningen `?debug=1` är borttagen.
 - [ ] **Nytt TestFlight-bygge.** Förkontrollerna är klara (2026-10-26, commit b089dcc): tsc, expo-doctor 21/21 och produktionsexport av iOS-bunten. Kör:
-  `cd FlightLogApp && npx eas build --platform ios --profile production --auto-submit`
+  `cd FlightLogApp && npx eas-cli build --platform ios --profile production --auto-submit`
   - Med bygget följer 15 uppdaterade Expo-paket, behörighetstexterna, console-rensningen, krypteringsvalet, glas-flikraden (Liquid Glass), den nya bakgrunden, Workload-panelen och Insights-placeringen. Testlistan står längst ner.
   - **Installera ovanpå nuvarande TestFlight-version först, utan att radera appen**, så att uppgraderingen av krypteringen testas.
 - [ ] **Testa efter nytt bygge (debug-kontrollen):**

@@ -10,6 +10,13 @@
 //     listan aktuell och pekar om försvunna modeller i förväg; vid ett "modellen finns inte" hämtas den direkt.
 //  4) Omdirigeringar i kod (DEFAULT_MODEL_MAP — t.ex. gamla app-byggens Sonnet 4.6 → Sonnet 5.5) som KV-
 //     nyckeln "model-map" kan överstyra utan deploy: {"claude-haiku-4-5":"claude-haiku-5-5"} eller {"haiku":[…]}.
+//  5) Generation 5+ TÄNKER som standard när `thinking` saknas → svaret börjar med ett thinking-block som
+//     appens byggen inte läser (de tar content[0].text → "The AI response could not be read"), och tankeorden
+//     kostar (Haiku 5.5: ~1 400 extra per anrop). Saknar requesten `thinking` stängs det av: Sonnet 5.x kräver
+//     {type:'between_tools'}, övriga {type:'disabled'}. Avvisar en modell varianten läses felmeddelandet → den
+//     andra varianten (eller ingen) provas och valet minns per modell.
+//  6) Tvingat verktygsval (tool_choice "tool"/"any") stöds inte av alla nya modeller (Sonnet 5.5) → samma
+//     modell provas igen med "auto" (appen tar då verktygsblocket, eller JSON ur texten som reserv).
 // Andra fel (rate limit, överlast, ogiltig request) skickas oförändrade till appen.
 
 const MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
@@ -54,11 +61,32 @@ export interface FallbackResult { resp: Response; requested: string; used: strin
 // Per isolat: omdirigeringar, modeller som avvisar sampling-parametrar, och KV-kartan (kort cache).
 const resolvedMemo = new Map<string, string>();
 const noSampling = new Set<string>();
+// Per isolat: fungerande "tänk inte"-inställning per modell (null = skicka ingen) + modeller utan tvingat verktyg.
+type ThinkingOff = { type: 'disabled' } | { type: 'between_tools' } | null;
+const thinkingMemo = new Map<string, ThinkingOff>();
+const noForcedTool = new Set<string>();
 let mapMemo: { v: Record<string, string | string[]>; at: number } | null = null;
 let latestMemo: { v: Record<string, string>; at: number } | null = null;
 
 // Modeller som avvisar temperature/top_p/top_k (Opus 4.7/4.8 och generation 5+) → skickas utan dem direkt.
 const rejectsSampling = (m: string) => /^claude-(?:opus-4-[78]|[a-z]+-(?:[5-9]|\d{2})(?:-|$))/.test(m);
+
+// Generation 5+ tänker som standard (Opus 4.7/4.8 gör det inte → rörs inte).
+const thinksByDefault = (m: string) => /^claude-[a-z]+-(?:[5-9]|\d{2})(?:-|$)/.test(m);
+/** "Tänk inte"-inställningen som skickas när appen inte angett `thinking` (undefined = rör inte requesten). */
+function thinkingOffFor(model: string): ThinkingOff | undefined {
+  if (thinkingMemo.has(model)) return thinkingMemo.get(model)!;
+  if (!thinksByDefault(model)) return undefined;
+  // Sonnet 5+ stänger av med between_tools (avvisar disabled); övriga med disabled. Fel → självläkning nedan.
+  return /^claude-sonnet-(?:[5-9]|\d{2})(?:-|$)/.test(model) ? { type: 'between_tools' } : { type: 'disabled' };
+}
+/** Nästa variant att prova när API:t avvisat tänkande-inställningen (undefined = inget mer att prova). */
+function nextThinkingOff(current: ThinkingOff | undefined, message: string): ThinkingOff | undefined {
+  // "between_tools is not supported for this model" → disabled; "send between_tools instead" → between_tools.
+  if (/between_tools[^.]*not supported/i.test(message)) return current?.type === 'disabled' ? null : { type: 'disabled' };
+  if (/between_tools/i.test(message)) return current?.type === 'between_tools' ? null : { type: 'between_tools' };
+  return current === null ? undefined : null; // tänkande-parametern stöds inte alls → skicka utan
+}
 
 const familyOf = (m: string) =>
   /haiku/.test(m) ? 'haiku' : /sonnet/.test(m) ? 'sonnet' : /opus/.test(m) ? 'opus' : /fable/.test(m) ? 'fable' : '';
@@ -155,6 +183,20 @@ const isSamplingRejected = (status: number, e: { type: string; message: string }
 const SAMPLING = ['temperature', 'top_p', 'top_k'];
 const hasSampling = (b: Record<string, unknown>) => SAMPLING.some((k) => k in b);
 const withoutSampling = (b: Record<string, unknown>) => { const c = { ...b }; for (const k of SAMPLING) delete c[k]; return c; };
+const isThinkingRejected = (status: number, e: { type: string; message: string }) =>
+  status === 400 && e.type === 'invalid_request_error' && /\bthinking\b/i.test(e.message);
+const withThinking = (b: Record<string, unknown>, t: ThinkingOff) => {
+  const c = { ...b };
+  if (t) c.thinking = t; else delete c.thinking;
+  return c;
+};
+const isForcedTool = (b: Record<string, unknown>) => {
+  const tc = b.tool_choice as { type?: string } | undefined;
+  return tc?.type === 'tool' || tc?.type === 'any';
+};
+const isForcedToolRejected = (status: number, e: { type: string; message: string }) =>
+  status === 400 && e.type === 'invalid_request_error' && /tool_choice/i.test(e.message) && /not supported/i.test(e.message);
+const withAutoToolChoice = (b: Record<string, unknown>) => ({ ...b, tool_choice: { type: 'auto' } });
 
 /**
  * POST /v1/messages med modellfallback. Streamade svar skickas orörda vidare (fel för saknad modell
@@ -172,13 +214,17 @@ export async function callWithModelFallback(bodyText: string, deps: FallbackDeps
   }
 
   const chain = await modelChain(requested, deps.kv);
+  const appSetThinking = 'thinking' in body; // appen bestämmer själv → rörs aldrig
   let lastStatus = 404, lastText = '', lastHeaders: HeadersInit = { 'Content-Type': 'application/json' };
   let discovered = false;
   for (let idx = 0; idx < chain.length; idx++) {
     const model = chain[idx];
     let attempt: Record<string, unknown> = { ...body, model };
     if (noSampling.has(model) || rejectsSampling(model)) attempt = withoutSampling(attempt);
-    for (let tries = 0; tries < 2; tries++) {
+    let thinkingOff = appSetThinking ? undefined : thinkingOffFor(model);
+    if (thinkingOff !== undefined) attempt = withThinking(attempt, thinkingOff);
+    if (noForcedTool.has(model) && isForcedTool(attempt)) attempt = withAutoToolChoice(attempt);
+    for (let tries = 0; tries < 5; tries++) {
       const resp = await doFetch(MESSAGES_URL, { method: 'POST', headers, body: JSON.stringify(attempt) });
       if (resp.ok) {
         if (model !== requested) {
@@ -194,6 +240,22 @@ export async function callWithModelFallback(bodyText: string, deps: FallbackDeps
         noSampling.add(model);
         attempt = withoutSampling(attempt);
         continue; // samma modell, utan temperature/top_p/top_k
+      }
+      if (!appSetThinking && isThinkingRejected(resp.status, err)) {
+        const next = nextThinkingOff(thinkingOff, err.message);
+        if (next !== undefined) {
+          thinkingOff = next;
+          thinkingMemo.set(model, next);
+          attempt = withThinking(attempt, next);
+          deps.log?.(`[thinking] ${model} → ${next ? next.type : 'not sent'}`);
+          continue; // samma modell, annan "tänk inte"-variant
+        }
+      }
+      if (isForcedToolRejected(resp.status, err) && isForcedTool(attempt)) {
+        noForcedTool.add(model);
+        attempt = withAutoToolChoice(attempt);
+        deps.log?.(`[tool-choice] ${model} → auto`);
+        continue; // samma modell, verktygsval "auto"
       }
       if (isModelGone(resp.status, err)) {
         deps.log?.(`[model-fallback] ${model} unavailable: ${err.message}`);
@@ -245,4 +307,6 @@ export async function refreshModelRouting(deps: FallbackDeps, requestedModels: s
 }
 
 /** Endast för tester: nollställ isolat-minnet. */
-export function _resetModelFallbackMemo(): void { resolvedMemo.clear(); noSampling.clear(); mapMemo = null; latestMemo = null; }
+export function _resetModelFallbackMemo(): void {
+  resolvedMemo.clear(); noSampling.clear(); thinkingMemo.clear(); noForcedTool.clear(); mapMemo = null; latestMemo = null;
+}

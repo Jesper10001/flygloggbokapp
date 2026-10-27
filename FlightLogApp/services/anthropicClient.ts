@@ -196,7 +196,12 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   }
 
   const data = await response.json();
-  const text = data.content?.[0]?.text ?? '';
+  // Svaret kan börja med andra block än text (t.ex. thinking på nyare modeller) → ta texten ur alla textblock.
+  // Bara content[0] gav "The AI response could not be read" när Sonnet 5.5 tänkte först (2026-10-27).
+  const text = (Array.isArray(data.content) ? data.content : [])
+    .filter((c: any) => c?.type === 'text')
+    .map((c: any) => c.text ?? '')
+    .join('');
   const stopReason = data.stop_reason ?? null;
   const inputTokens = data.usage?.input_tokens ?? 0;
   const outputTokens = data.usage?.output_tokens ?? 0;
