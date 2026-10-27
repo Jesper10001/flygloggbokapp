@@ -16,7 +16,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import {
-  getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn,
+  getTemplate, ASSIGNABLE_TIME_FIELDS, slotKind, type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
 import {
   buildBookSpreads, type ColumnTotals, type LogbookSpread,
@@ -161,17 +161,26 @@ export default function LogbookScreen() {
   const current = visibleSpreads[safeIndex];
   const sheetMax = Math.min(520, Math.round(height * 0.62));
 
+  // Tom kolumn under "Pilot function time" → funktionstider; övriga tomma kolumner → övriga tidstyper.
+  const assignKind = selectedBook && assignTarget ? slotKind(getTemplate(selectedBook.template_id), assignTarget) : 'other';
+  // Alla typer av rätt sort som inte redan finns i boken (mallens kolumner + en ANNAN tom kolumns val).
+  // Typer med loggad tid först (med summan som ledtråd), sedan resten — man kan förbereda en kolumn i förväg.
   const availableTypes = useMemo(() => {
-    if (!selectedBook) return [];
+    if (!selectedBook || !assignTarget) return [];
     const base = getTemplate(selectedBook.template_id);
     const used = new Set<string>();
     for (const c of [...base.left_columns, ...base.right_columns]) if (c.flightKey) used.add(c.flightKey);
     if (used.has('tt_total')) used.add('total_time');
     if (used.has('sp_se')) used.add('se_time');
     if (used.has('sp_me')) used.add('me_time');
-    const hasData = (key: string) => flights.some((f) => (parseFloat(String((f as any)[key])) || 0) > 0);
-    return ASSIGNABLE_TIME_FIELDS.filter((a) => !used.has(a.key) && hasData(a.key));
-  }, [selectedBook, flights]);
+    const custom = parseJson<Record<string, string>>(selectedBook.custom_cols, {});
+    for (const [colId, key] of Object.entries(custom)) if (colId !== assignTarget) used.add(key);
+    const logged = (key: string) => flights.reduce((sum, f) => sum + (parseFloat(String((f as any)[key])) || 0), 0);
+    const options = ASSIGNABLE_TIME_FIELDS
+      .filter((a) => a.kind === assignKind && !used.has(a.key))
+      .map((a) => ({ ...a, logged: logged(a.key) }));
+    return [...options.filter((o) => o.logged > 0), ...options.filter((o) => o.logged <= 0)];
+  }, [selectedBook, flights, assignTarget, assignKind]);
 
   // Öppna alltid på SENASTE uppslaget när man går in i en bok (eller byter bok).
   // Vänta tills ready=true (FlatList är monterad efter orienterings-täckaren), annars
@@ -431,7 +440,7 @@ export default function LogbookScreen() {
         <View style={styles.sheetBackdrop}>
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
             <SheetHeader title={t('dlb_pick_time_type')} onClose={() => setAssignOpen(false)} />
-            <Text style={styles.sheetHint}>{t('dlb_pick_time_type_sub')}</Text>
+            <Text style={styles.sheetHint}>{t(assignKind === 'function' ? 'dlb_pick_time_type_sub_function' : 'dlb_pick_time_type_sub_other')}</Text>
             <ScrollView style={{ maxHeight: sheetMax }}>
               {assignTarget && parseJson<Record<string, string>>(selectedBook?.custom_cols, {})[assignTarget] ? (
                 <TouchableOpacity style={styles.ovRow} onPress={() => applyAssign(null)} activeOpacity={0.7}>
@@ -443,10 +452,14 @@ export default function LogbookScreen() {
                 <Text style={{ color: Colors.textMuted, fontSize: 13, padding: 16, textAlign: 'center' }}>{t('dlb_no_types')}</Text>
               ) : availableTypes.map((a) => {
                 const active = !!assignTarget && parseJson<Record<string, string>>(selectedBook?.custom_cols, {})[assignTarget] === a.key;
+                const loggedLabel = a.logged > 0
+                  ? `${a.format === 'int' ? Math.round(a.logged) : `${Math.round(a.logged * 10) / 10} h`} ${t('dlb_logged')}`
+                  : t('dlb_not_logged');
                 return (
                   <TouchableOpacity key={a.key} style={[styles.ovRow, active && styles.ovRowActive]} onPress={() => applyAssign(a.key)} activeOpacity={0.7}>
                     <Ionicons name="time-outline" size={18} color={active ? Colors.primary : Colors.textMuted} />
-                    <Text style={[styles.ovTitle, active && { color: Colors.primary }]}>{a.label}</Text>
+                    <Text style={[styles.ovTitle, { flex: 1 }, active && { color: Colors.primary }]}>{a.label}</Text>
+                    <Text style={{ fontSize: 12, color: a.logged > 0 ? Colors.textSecondary : Colors.textMuted }}>{loggedLabel}</Text>
                   </TouchableOpacity>
                 );
               })}

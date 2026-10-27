@@ -688,10 +688,12 @@ const scanChooserStyles = StyleSheet.create({
   card: { width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.cardBorder, paddingTop: 22, paddingBottom: 16, paddingHorizontal: 20, alignItems: 'center' },
   title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
   body: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginBottom: 14 },
-  // Explicit width+height (INTE aspectRatio) → deterministisk liten ruta; maxHeight = hård spärr
-  // så bilden aldrig kan svälla ut och täcka skärmen. resizeMode="contain" ryms inuti rutan.
-  img: { width: 156, height: 188, maxHeight: 195, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated },
-  caption: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 8, marginBottom: 16, maxWidth: 230, lineHeight: 15 },
+  // Två exempelbilder i rad (delar kortets bredd). Fast höjd (INTE aspectRatio) → deterministisk liten ruta;
+  // maxHeight = hård spärr så bilden aldrig kan svälla ut och täcka skärmen. resizeMode="contain" ryms inuti.
+  examples: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 14 },
+  example: { flex: 1, alignItems: 'center' },
+  img: { width: '100%', height: 160, maxHeight: 170, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated },
+  caption: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 7, lineHeight: 15 },
   btn: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 13, paddingVertical: 13, marginTop: 8 },
   btnTxt: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
   cancel: { alignSelf: 'stretch', paddingVertical: 12, alignItems: 'center', marginTop: 4 },
@@ -4251,8 +4253,17 @@ export default function AddFlightScreen() {
           <Pressable style={scanChooserStyles.card} onPress={(e) => e.stopPropagation()}>
             <Text style={scanChooserStyles.title}>ACARS/Instrument scan</Text>
             <Text style={scanChooserStyles.body}>Photograph the ACARS flight log (OUT · OFF · ON · IN) or your instruments, or pick an existing image.</Text>
-            <Image source={require('../../assets/Flightdata_AW109.jpg')} style={scanChooserStyles.img} resizeMode="contain" />
-            <Text style={scanChooserStyles.caption}>Example picture of flight log from a Leonardo helicopter</Text>
+            {/* Två exempel bredvid varandra: helikopterns flygdatalogg + trafikflygets ACARS-logg */}
+            <View style={scanChooserStyles.examples}>
+              <View style={scanChooserStyles.example}>
+                <Image source={require('../../assets/Flightdata_AW109.jpg')} style={scanChooserStyles.img} resizeMode="contain" />
+                <Text style={scanChooserStyles.caption}>Leonardo AW109{'\n'}helicopter flight log</Text>
+              </View>
+              <View style={scanChooserStyles.example}>
+                <Image source={require('../../assets/ACARS.JPG')} style={scanChooserStyles.img} resizeMode="contain" />
+                <Text style={scanChooserStyles.caption}>Airbus ACARS{'\n'}flight log (MCDU)</Text>
+              </View>
+            </View>
             <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>
               <Ionicons name="camera" size={18} color={Colors.textInverse} />
               <Text style={scanChooserStyles.btnTxt}>Camera</Text>

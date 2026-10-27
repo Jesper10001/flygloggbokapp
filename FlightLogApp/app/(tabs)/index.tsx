@@ -67,6 +67,7 @@ import { StressInfoButton } from '../../components/StressInfo';
 import * as Haptics from 'expo-haptics';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 import { workloadIndex } from '../../utils/workload';
+import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
 
@@ -554,27 +555,25 @@ function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto
 
   return (
     <View style={{ marginHorizontal: -12, marginTop: -6 }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+      {/* Höjden följer kortet som visas → konstant avstånd till sidprickarna (components/AutoHeightPager). */}
+      <AutoHeightPager
+        pageWidth={W}
         snapToInterval={W}
         decelerationRate="fast"
-        scrollEventThrottle={16}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
       >
         {recent.map((f, i) => (
-          <View key={f.id} style={{ width: W }}>
-            <LatestFlightCard
-              flight={f}
-              accent={accent}
-              placeNames={placeNames}
-              onPress={() => onPress(f)}
-              onAddPhoto={onAddPhoto}
-              showLabel={i === 0}
-            />
-          </View>
+          <LatestFlightCard
+            key={f.id}
+            flight={f}
+            accent={accent}
+            placeNames={placeNames}
+            onPress={() => onPress(f)}
+            onAddPhoto={onAddPhoto}
+            showLabel={i === 0}
+          />
         ))}
-      </ScrollView>
+      </AutoHeightPager>
       {recent.length > 1 && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 2 }}>
           {recent.map((_, i) => (
@@ -918,7 +917,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (components/WorkloadGauge). */}
-        <WorkloadBar index={stress.index} color={zc} />
+        <WorkloadBar index={stress.index} />
 
         {/* Percentage display */}
         <View style={s.telPctRow}>
@@ -927,7 +926,7 @@ export default function DashboardScreen() {
             {/* Readout rows */}
             {[
               // Alla värden animerar ökningen (prev → nytt) efter en loggad flight.
-              { l: 'TOTAL', parts: [animTime(st?.total_time ?? 0, pr.total)], c: Colors.gold },
+              { l: 'TOTAL', parts: [animTime(st?.total_time ?? 0, pr.total)], c: Colors.primary },
               { l: 'YTD', parts: [animTime(st?.year_to_date ?? 0, pr.ytd)], c: Colors.primary },
               { l: '14D / AVG', parts: [animTime(stress.hours14, pr.hours14), animTime(stress.baseline14, pr.baseline14)], c: zc },
             ].map(m => (

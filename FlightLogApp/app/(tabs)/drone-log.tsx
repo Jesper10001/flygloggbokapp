@@ -31,6 +31,7 @@ import { DroneFleetCard } from '../../components/logbook-page/DroneFleetCard';
 import { FleetEmptyPreview } from '../../components/logbook-page/FleetEmptyPreview';
 import { DroneModal } from '../../components/DroneModal';
 import { useTabBarSpace } from '../../components/GlassTabBar';
+import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -572,14 +573,13 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
       ) : (
         // Flera → swipebar karusell (en drönare i taget, senast flugen först).
         <>
-          <ScrollView ref={carouselRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast"
+          {/* Höjden följer kortet som visas → konstant avstånd till prickarna och Add drone (AutoHeightPager). */}
+          <AutoHeightPager ref={carouselRef} pageWidth={FLEET_PAGE_W} pagingEnabled decelerationRate="fast"
             onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / FLEET_PAGE_W))}>
             {models.map((m) => (
-              <View key={m.model || m.id} style={{ width: FLEET_PAGE_W }}>
-                <DroneFleetCard m={m} accent={accent} onSaved={load} />
-              </View>
+              <DroneFleetCard key={m.model || m.id} m={m} accent={accent} onSaved={load} />
             ))}
-          </ScrollView>
+          </AutoHeightPager>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
             {models.map((m, i) => (
               <View key={m.model || m.id} style={{ width: i === pageIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === pageIdx ? accent : DR.border }} />

@@ -19,7 +19,7 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
 
 ## Gör snart
 
-- [ ] **Deploya proxyn: AI-fixen (2026-10-27).** `cd proxy && npx wrangler deploy`
+- [x] **Deploya proxyn: AI-fixen** (deployad och verifierad mot den skarpa proxyn 2026-10-27: svaren innehåller bara text och inga tankeblock, och även äldre byggen kan läsa dem). `cd proxy && npx wrangler deploy`
   - **Felet:** "The AI response could not be read" vid import, uppslag och skanningar. 5.5-modellerna tänker som standard och lägger ett tankeblock först i svaret, men appen läste bara första blocket.
   - **Fixen:** proxyn stänger av tänkandet när appen inte bett om det (Sonnet 5.x `between_tools`, Haiku 5.x `disabled`), med självläkning för framtida modeller. Tvingat verktygsval som inte stöds blir `auto`.
   - Det gäller alla installerade byggen direkt, och svaren blir ungefär hälften så dyra i tokens.
@@ -95,12 +95,16 @@ Uppdaterad 2026-10-26. Bocka av med `[x]`.
   - Har du bara flygningar i innevarande månad ska sektionen ligga längst ner, under Milestones.
   - När flygningarna spänner över två kalendermånader, eller om du har importerad historik, ska den ligga på sin vanliga plats direkt efter Hours bank.
 
+- [ ] **Karusellerna följer kortets höjd:** avståndet mellan kortet och sidprickarna ska vara detsamma på varje kort, även när kortens höjd skiljer sig. Ett exempel är en flygning med natt-raden ("40 % night") bredvid en utan.
+  - Gäller dashboardens senaste flygningar (pilot och drönare) och Fleet (pilot och drönare). Knappen Add aircraft/drone ligger alltid lika nära.
+  - När du sveper mellan ett högt och ett lågt kort ska höjden glida mjukt, utan hopp.
+
 - [ ] **Workload-panelen på dashboarden (stapel + ring), pilot och drönare:**
-  - **Stapeln:** ett färgspektrum (grå → cyan → grön → gul → röd) syns svagt hela vägen. Fram till värdet fylls det i färg med en svag glöd, och vredet är en liten vit prick med zonfärgad kant. Det glider fram vid start och efter en loggad flygning. Den vita markeringen i mitten är 100 % (ditt snitt). Allt ska synas tydligt utan att ta över; det tonades ner efter första testet.
-  - **Ringen** är en öppen mätare med samma spektrum. 100 % ligger rakt upp, procenten är vit och zonen visas som en chip i öppningen nedtill. Ökningen animeras efter en loggad flygning (pilot).
-  - **Rubriken:** "WORKLOAD · 14D" är ljusare, och zonen visas som en chip i zonfärgen.
-  - **Kanterna:** vid 0 % (ny användare) och vid väldigt hög belastning ska vredet och glöden synas helt, inte klippas.
-  - **Info-knappen (i):** förklaringen har nu även zonen LIGHT (cyan).
+  - **Stapeln och ringen** är lugna, i appens cyan: dämpad till klar fram till en liten vit prick med cyan kant. De har ingen regnbågsskala och ska kännas naturliga mot resten av dashboarden.
+  - **Mittmarkeringen** på stapeln och toppmarkeringen på ringen visar 100 % (ditt snitt). Pricken glider fram vid start och efter en loggad flygning.
+  - **Zonfärgen syns bara** i etiketten vid "WORKLOAD · 14D", i den lilla zontexten under ringen och i värdet för 14D/AVG.
+  - **TOTAL och YTD** är alltid cyan.
+  - **Info-knappen (i):** förklaringen har även zonen LIGHT (cyan).
 
 - [ ] **Ny bakgrund (navy-gradient bakom flikarna):**
   - Flikskärmarna har inte längre en platt navy, utan blått ljus uppifrån (även bakom statusraden och headern), ett svagt cyan sken nere till vänster (drönarens accentfärg i drönarläget) och en djupare botten. Gäller dashboard, loggbok (List, Book och Fleet), Insights och Settings i båda lägena.

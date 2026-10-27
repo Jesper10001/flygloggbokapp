@@ -15,6 +15,7 @@ import { FONT_SERIF, FONT_MONO } from './tokens';
 import { FleetCard } from './FleetCard';
 import { FleetEmptyPreview } from './FleetEmptyPreview';
 import { useTabBarSpace } from '../GlassTabBar';
+import { AutoHeightPager } from '../AutoHeightPager';
 
 const PAGE_W = Dimensions.get('window').width - 28; // karusell-sidbredd (matchar tidigare fullbreddskort)
 
@@ -70,14 +71,13 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
         ) : (
           // Flera → swipebar karusell (en farkost i taget, senast flugen först).
           <>
-            <ScrollView ref={carouselRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} decelerationRate="fast"
+            {/* Höjden följer kortet som visas → konstant avstånd till prickarna och Add aircraft (AutoHeightPager). */}
+            <AutoHeightPager ref={carouselRef} pageWidth={PAGE_W} pagingEnabled decelerationRate="fast"
               onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / PAGE_W))}>
               {sorted.map((ac) => (
-                <View key={ac.aircraft_type} style={{ width: PAGE_W }}>
-                  <FleetCard ac={ac} accent={accent} onSaved={load} />
-                </View>
+                <FleetCard key={ac.aircraft_type} ac={ac} accent={accent} onSaved={load} />
               ))}
-            </ScrollView>
+            </AutoHeightPager>
             {/* Sid-indikator (aktiv = accent, längre) */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
               {sorted.map((ac, i) => (

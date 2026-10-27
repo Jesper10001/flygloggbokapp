@@ -40,6 +40,7 @@ import { Marquee } from '../../components/Marquee';
 import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 import { workloadIndex } from '../../utils/workload';
+import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 const SERIF = 'Georgia';
 const MONO = 'Menlo';
@@ -206,13 +207,13 @@ export default function DroneDashboardScreen() {
           )}
         </View>
         {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (= pilot, components/WorkloadGauge). */}
-        <WorkloadBar index={stress.index} color={zc} />
+        <WorkloadBar index={stress.index} />
         {/* Ring + readouts */}
         <View style={s.telPctRow}>
           <StressRing stress={stress} size={110} />
           <View style={{ flex: 1, gap: 6 }}>
             {[
-              { l: 'TOTAL', v: decimalToHHMM(stats?.total_time ?? 0), c: Colors.gold },
+              { l: 'TOTAL', v: decimalToHHMM(stats?.total_time ?? 0), c: Colors.primary },
               { l: 'YTD', v: decimalToHHMM(stats?.year_to_date ?? 0), c: Colors.primary },
               { l: '14D / AVG', v: `${decimalToHHMM(stress.hours14)} / ${decimalToHHMM(stress.baseline14)}`, c: zc },
             ].map((m) => (
@@ -228,15 +229,14 @@ export default function DroneDashboardScreen() {
       {/* ── 2. Latest flight-karusell ── */}
       {recent.length > 0 && (
         <View style={{ marginTop: 16 }}>
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={width - 24} decelerationRate="fast"
-            scrollEventThrottle={16} onMomentumScrollEnd={(e) => setLatestPage(Math.round(e.nativeEvent.contentOffset.x / (width - 24)))}>
+          {/* Höjden följer kortet som visas → konstant avstånd till sidprickarna (= pilot, AutoHeightPager). */}
+          <AutoHeightPager pageWidth={width - 24} pagingEnabled snapToInterval={width - 24} decelerationRate="fast"
+            onMomentumScrollEnd={(e) => setLatestPage(Math.round(e.nativeEvent.contentOffset.x / (width - 24)))}>
             {recent.map((f, idx) => (
-              <View key={f.id} style={{ width: width - 24 }}>
-                <DroneLatestFlightCard flight={f} accent={accent} showLabel={idx === 0} onPress={() => router.push(`/drone-flight/${f.id}`)}
-                  onAddPhoto={(fl) => router.push(`/drone-flight/add?id=${fl.id}&addPhoto=1`)} />
-              </View>
+              <DroneLatestFlightCard key={f.id} flight={f} accent={accent} showLabel={idx === 0} onPress={() => router.push(`/drone-flight/${f.id}`)}
+                onAddPhoto={(fl) => router.push(`/drone-flight/add?id=${fl.id}&addPhoto=1`)} />
             ))}
-          </ScrollView>
+          </AutoHeightPager>
           {recent.length > 1 && (
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 2 }}>
               {recent.map((_, i) => <View key={i} style={{ width: latestPage === i ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: latestPage === i ? accent : DR.border }} />)}
