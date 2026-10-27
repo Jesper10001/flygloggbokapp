@@ -15,6 +15,7 @@ interface Env {
   REVENUECAT_WEBHOOK_AUTH?: string; // delad hemlighet: Authorization-headern i RevenueCat-webhooken.
   ARCGIS_API_KEY?: string;          // ArcGIS Location Platform API-nyckel (privilegie: Basemaps) — share-kortets satellitbilder. Secret.
   MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate Limiting-binding (wrangler.toml)
+  WEB_MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate limit för webbplatsens tiles, per IP (wrangler.toml)
 }
 
 // ── Token-baserad AI-kvot (input+output per device) — den ENDA aktiva spärren ──
@@ -103,6 +104,28 @@ function corsHeaders(_origin: string | null): Record<string, string> {
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Device-ID, X-Premium, X-Tier, X-App-Key, X-Feature',
     'Access-Control-Max-Age': '86400',
+  };
+}
+
+// Webbplatsens egna anrop (flygplatskortets satellitbild): bara vår sajt, dess Pages-förhandsvisningar och
+// lokal utveckling. En <img>-tile skickar ingen Origin → Referer räcker då (webbläsaren skickar sajtens origin).
+// Origin/Referer kan förfalskas utanför en webbläsare — rate limit per IP är det egentliga skyddet.
+const WEB_ORIGINS = new Set(['https://blades-app.com', 'https://www.blades-app.com', 'http://localhost:3000']);
+const WEB_PREVIEW = /^https:\/\/[a-z0-9-]+\.blades-website\.pages\.dev$/;
+function allowedWebOrigin(request: Request): string | null {
+  const ok = (o: string) => WEB_ORIGINS.has(o) || WEB_PREVIEW.test(o);
+  const origin = request.headers.get('Origin');
+  if (origin) return ok(origin) ? origin : null;
+  const referer = request.headers.get('Referer');
+  if (!referer) return null;
+  try { const o = new URL(referer).origin; return ok(o) ? o : null; } catch { return null; }
+}
+function webCorsHeaders(origin: string): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin, Referer',
   };
 }
 
@@ -918,6 +941,48 @@ export default {
       return new Response(JSON.stringify({ providers }), {
         headers: { 'Content-Type': 'application/json', 'Cache-Control': providers ? 'private, max-age=86400' : 'no-store' },
       });
+    }
+
+    // ── Webbplatsen: satellitbild till flygplatskortet. GET /web/imagery/{z}/{y}/{x} + /web/imagery/attribution ──
+    // Samma Esri-uppslag och nyckel som appens /map/imagery, men grindat på vår sajts origin och rate-limitat
+    // per IP (webben har inget enhets-id). IP:n hashas till limiter-nyckeln och sparas inte. Ingen edge-cache.
+    if (url.pathname.startsWith('/web/imagery')) {
+      const webOrigin = allowedWebOrigin(request);
+      if (!webOrigin) return new Response('Forbidden', { status: 403 });
+      const cors = webCorsHeaders(webOrigin);
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+      if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: cors });
+      if (env.WEB_MAP_LIMITER) {
+        const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+        const { success } = await env.WEB_MAP_LIMITER.limit({ key: `web:${await hashDevice(ip)}` });
+        if (!success) return new Response('Too many requests', { status: 429, headers: { ...cors, 'Retry-After': '60' } });
+      }
+      if (url.pathname === '/web/imagery/attribution') {
+        const boxes = url.searchParams.getAll('b').slice(0, 4)
+          .map((b) => b.split(',').map(Number))
+          .filter((b) => b.length === 5 && b.every((v) => Number.isFinite(v)));
+        const attr = await loadImageryAttribution(env);
+        const providers = attr && boxes.length ? imageryProviders(attr.rows, boxes) : null;
+        return new Response(JSON.stringify({ providers }), {
+          headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': providers ? 'private, max-age=86400' : 'no-store' },
+        });
+      }
+      const webTile = url.pathname.match(/^\/web\/imagery\/(\d{1,2})\/(\d{1,6})\/(\d{1,6})$/);
+      if (!webTile) return new Response('Not found', { status: 404, headers: cors });
+      const z = +webTile[1], y = +webTile[2], x = +webTile[3], n = 2 ** z;
+      // Kortet visar ett flygfält: z12–16 räcker; inga världsöversikter att skrapa.
+      if (z < 12 || z > MAP_TILE_MAX_ZOOM || x >= n || y >= n) return new Response('Bad tile', { status: 400, headers: cors });
+      if (!env.ARCGIS_API_KEY) return new Response('Map imagery not configured', { status: 503, headers: cors });
+      try {
+        const upstream = await fetch(`${ESRI_IMAGERY_TILE}/${z}/${y}/${x}?token=${encodeURIComponent(env.ARCGIS_API_KEY)}`, { cf: NO_EDGE_CACHE } as RequestInit);
+        const ct = upstream.headers.get('Content-Type') ?? '';
+        if (!upstream.ok || !ct.startsWith('image/')) {
+          return new Response('Tile unavailable', { status: 502, headers: { ...cors, 'Cache-Control': 'no-store' } });
+        }
+        return new Response(upstream.body, { headers: { ...cors, 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' } });
+      } catch {
+        return new Response('Tile unavailable', { status: 502, headers: { ...cors, 'Cache-Control': 'no-store' } });
+      }
     }
 
     // ── Token-saldo: månadens AI-förbrukning för denna device (Settings-mätaren) ──

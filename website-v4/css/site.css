@@ -81,6 +81,7 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   backdrop-filter: blur(16px) saturate(140%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
 }
+.nav-logo { display: flex; align-items: center; min-height: 44px; }
 .nav-logo img { height: 26px; width: auto; }
 .nav-links { display: flex; gap: 32px; margin-left: auto; }
 .nav-links a { color: #d6deea; text-decoration: none; font-size: 15px; font-weight: 500; transition: color 0.2s ease; }

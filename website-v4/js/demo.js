@@ -124,6 +124,8 @@
     section.querySelectorAll('.mode-btn').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
     swaps.forEach((el) => { el.textContent = el.dataset[mode]; });
     book.src = book.dataset[mode];
+    const open = section.querySelector('.book-open');
+    if (open) open.href = book.dataset[mode];
     renderFleet();
   }));
 
@@ -143,6 +145,7 @@
   const arc = (a1, o1, a2, o2) => Math.acos(Math.min(1, Math.sin(a1 * toRad) * Math.sin(a2 * toRad) + Math.cos(a1 * toRad) * Math.cos(a2 * toRad) * Math.cos((o2 - o1) * toRad))) / toRad;
 
   let world = null;
+  let picked = null;
   let index = null;
 
   const pin = (d) => {
@@ -150,7 +153,8 @@
     el.className = `gp gp-${d.kind}`;
     if (d.kind === 'cluster') el.textContent = fmt(d.n);
     else el.textContent = d.icao;
-    el.title = d.kind === 'ap' ? d.icao : `${d.n.toLocaleString('en-US')} airports`;
+    if (d.kind === 'sel') el.className = 'gp gp-ap gp-sel';
+    el.title = d.kind === 'cluster' ? `${d.n.toLocaleString('en-US')} airports` : d.icao;
     return el;
   };
 
@@ -159,6 +163,8 @@
     const pov = world.pointOfView();
     const span = Math.min(360, pov.altitude * SPAN);
     // Clusters all the way out (Supercluster, as in the app's map); on the far side of the globe nothing is drawn.
+    // A chosen airport (Find airport) is shown on its own, with nothing on top of it.
+    if (picked) { world.htmlElementsData([{ kind: 'sel', icao: picked.icao, lat: picked.lat, lng: picked.lng }]); return; }
     if (!index) { world.htmlElementsData([]); return; }
     // A smaller globe on screen gets coarser clusters, so the pins keep their spacing on a phone.
     const px = Math.log2(Math.max(0.35, Math.min(globeEl.clientWidth, globeEl.clientHeight) / 640));
@@ -210,6 +216,22 @@
     c.autoRotate = !reduce; c.autoRotateSpeed = 0.55;
     c.enablePan = false; c.enableZoom = false; c.enableRotate = false;
     c.addEventListener('change', scheduleRefresh);
+    // The airport search (js/airport.js) flies the globe to an airport and marks it, then lets it turn again.
+    window.bladesGlobe = {
+      show(ap) {
+        picked = ap;
+        c.autoRotate = false;
+        world.pointOfView({ lat: ap.lat, lng: ap.lng, altitude: 0.42 }, reduce ? 0 : 1600);
+        refresh();
+      },
+      release() {
+        picked = null;
+        c.autoRotate = !reduce;
+        const pov = world.pointOfView();
+        world.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: 2.3 }, reduce ? 0 : 1200);
+        refresh();
+      },
+    };
 
     const res = await fetch('data/airports.json');
     const rows = await res.json();

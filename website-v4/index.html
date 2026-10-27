@@ -44,19 +44,19 @@
 
   <section class="roles" aria-labelledby="roles-h">
     <h2 id="roles-h">Manned or unmanned. <em>Or both.</em></h2>
-    <p class="section-sub">Two logbooks in one app, each built around how that flying is really logged.</p>
+    <p class="section-sub">Two logbooks. One app.</p>
     <div class="role-cards">
       <article class="role-card">
         <span class="role-icon" aria-hidden="true">
           <svg viewBox="0 0 64 64"><path d="M32 5c2 0 3 2.2 3 5v13l20 11v5l-20-6v12l6 5v4l-9-3-9 3v-4l6-5V33L9 39v-5l20-11V10c0-2.8 1-5 3-5z"/></svg>
         </span>
         <h3>Manned aircraft</h3>
-        <p>Aeroplanes and helicopters, from first solo to the left seat. Block times in UTC, with PIC, co-pilot, dual and instructor time, and the multi-pilot, night and IFR splits your authority asks for.</p>
+        <p>From first solo to the left seat.</p>
         <ul>
-          <li>EASA, FAA and Swedish logbook layouts, page for page, with totals carried forward</li>
-          <li>Night worked out from civil twilight along your route, and mixed VFR/IFR flights split for you</li>
-          <li>Progress towards CPL and ATPL, and your recency, at a glance</li>
-          <li>For helicopters: NVG time, hot refuels and temporary landing sites</li>
+          <li>Your paper logbook, page for page</li>
+          <li>Night and IFR worked out for you</li>
+          <li>CPL and ATPL progress at a glance</li>
+          <li>NVG and hot refuels for helicopters</li>
         </ul>
       </article>
       <article class="role-card">
@@ -64,16 +64,16 @@
           <svg viewBox="0 0 64 64"><rect x="25" y="25" width="14" height="14" rx="4"/><path d="M26.5 26.5 18 18M37.5 26.5 46 18M26.5 37.5 18 46M37.5 37.5 46 46"/><circle cx="14" cy="14" r="8"/><circle cx="50" cy="14" r="8"/><circle cx="14" cy="50" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="32" cy="32" r="2.2"/></svg>
         </span>
         <h3>Unmanned aircraft</h3>
-        <p>Drones, from open-category flights to Specific operations. Every log records the category, operation and mode, the airframe and its registration, and where it flew.</p>
+        <p>From open category to Specific operations.</p>
         <ul>
-          <li>A1, A2, A3 and Specific, with VLOS, EVLOS and BVLOS time per flight</li>
-          <li>Multirotor, fixed-wing and VTOL airframes in one fleet, with MTOW and registrations</li>
-          <li>Flight data read from a DJI or Autel screenshot, or imported from CSV</li>
-          <li>Mission type, maximum altitude, observer and second pilot on every log</li>
+          <li>A1 to A3 and Specific, VLOS to BVLOS</li>
+          <li>Logged straight from your DJI or Autel screen</li>
+          <li>Every airframe in one fleet</li>
+          <li>Mission, altitude and crew on every flight</li>
         </ul>
       </article>
     </div>
-    <p class="role-both"><span>Fly both?</span> Keep two separate logbooks, each with its own dashboard, fleet and totals, and switch with one tap.</p>
+    <p class="role-both"><span>Fly both?</span> Switch logbooks with one tap.</p>
   </section>
 
   <section class="cards" id="features" aria-label="Features">
@@ -131,6 +131,7 @@
       <div class="book-frame" tabindex="0" aria-label="Logbook spread, scroll sideways to see the whole spread">
         <iframe class="book" src="demo/logbook-pilot.html" data-manned="demo/logbook-pilot.html" data-unmanned="demo/logbook-drone.html" title="Logbook spread rendered by the BLADES app" loading="lazy" scrolling="no" tabindex="-1"></iframe>
       </div>
+      <p class="book-hint">Swipe for the whole spread · <a class="book-open" href="demo/logbook-pilot.html" target="_blank" rel="noopener">Open full size</a></p>
     </div>
 
     <div class="demo demo-fleet">
@@ -145,8 +146,18 @@
       <div class="globe-panel">
         <div class="globe-text">
           <h3>Every airport on Earth.</h3>
-          <p>69 288 open airports in 246 countries, clustered as in the app.</p>
+          <p>81 080 airports in 246 countries, clustered as in the app.</p>
         </div>
+        <div class="ap-find">
+          <div class="ap-search">
+            <span class="ap-sicon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></span>
+            <input id="ap-q" type="text" placeholder="Find airport — ICAO / IATA" autocomplete="off" autocapitalize="characters" spellcheck="false"
+              role="combobox" aria-label="Find airport by ICAO, IATA or name" aria-autocomplete="list" aria-controls="ap-list" aria-expanded="false">
+            <button type="button" class="ap-clear" aria-label="Clear search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button>
+          </div>
+          <ul class="ap-list" id="ap-list" role="listbox" aria-label="Airports" hidden></ul>
+        </div>
+        <div class="ap-result" aria-live="polite" hidden></div>
         <div class="globe" id="globe" aria-label="A globe with every airport, clustered"></div>
       </div>
     </div>
@@ -232,5 +243,6 @@
 <script src="js/site.js" defer></script>
 <script src="js/demo-data.js" defer></script>
 <script src="js/demo.js" defer></script>
+<script src="js/airport.js" defer></script>
 </body>
 </html>

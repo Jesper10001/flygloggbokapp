@@ -98,7 +98,14 @@
           "faceIDPermission": "Face ID is used to unlock the app when app lock is enabled."
         }
       ],
-      "@sentry/react-native"
+      [
+        "@sentry/react-native",
+        {
+          "organization": "jesper-toreld",
+          "project": "blades-ios",
+          "url": "https://de.sentry.io/"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

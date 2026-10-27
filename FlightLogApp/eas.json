@@ -24,7 +24,8 @@
       "env": {
         "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://dab56361d6e980fbee7a4b5f0adc8fd8@o4512330025598976.ingest.de.sentry.io/4512330034839632"
       }
     },
     "production": {
@@ -35,7 +36,8 @@
       "env": {
         "EXPO_PUBLIC_PROXY_URL": "https://api.blades-app.com",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_OZcorzUPfZFbrOjzufnopUaEaJR",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://dab56361d6e980fbee7a4b5f0adc8fd8@o4512330025598976.ingest.de.sentry.io/4512330034839632"
       }
     }
   },

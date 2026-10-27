@@ -49,3 +49,13 @@ namespace_id = "4211"
   [ratelimits.simple]
   limit = 180
   period = 60
+
+# Rate limit för webbplatsens satellit-tiles (GET /web/imagery/…) per IP (hashad) — flygplatskortet på
+# blades-app.com behöver ~20 tiles per flygplats. Skyddar Esri-kvoten mot skrapning via sajten.
+[[ratelimits]]
+name = "WEB_MAP_LIMITER"
+namespace_id = "4212"
+
+  [ratelimits.simple]
+  limit = 120
+  period = 60

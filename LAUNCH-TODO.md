@@ -92,19 +92,19 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Nödspak utan deploy (behövs normalt inte): `npx wrangler kv key put --binding=QUOTA_KV model-map '{"<gammalt-id>":"<nytt-id>"}' --remote`
     - Ångra med `npx wrangler kv key delete --binding=QUOTA_KV model-map --remote`.
   - Nästa app-build begär Sonnet 5.5 direkt och skickar ingen temperatur till 5.x-modeller.
-- [ ] **Ladda upp sajten** (integritetspolicyn nämner inte längre unpkg):
-  `npx wrangler pages deploy website --project-name blades-website`
-- [ ] **Cloudflare: stäng av Bot Fight Mode** under Security → Bots för blades-app.com.
-  - Skyddet sätter cookien `cf_clearance`, medan integritetspolicyn lovar "inga cookies".
-  - Det kan också stoppa appens anrop till api.blades-app.com.
-  - Be Claude kontrollera efteråt att cookien är borta.
-- [ ] **Slå på kraschrapportering (Sentry)** (inbyggt 2026-10-27, avstängt tills det finns en DSN):
-  1. Skapa ett gratiskonto på sentry.io. Välj **EU-regionen** och ett React Native-projekt.
-  2. Projektinställningar → Security & Privacy → slå på **"Prevent Storing of IP Addresses"**. Integritetspolicyn lovar det.
-  3. Lägg DSN:en som `EXPO_PUBLIC_SENTRY_DSN` under `production` → `env` i `FlightLogApp/eas.json`. DSN:en är inte hemlig och är gjord för att ligga i appen. Bygg sedan nytt.
-  4. App Privacy: lägg till "Crash Data" och "Other Diagnostic Data" (inte kopplat till användaren, ingen spårning).
-  5. Senare, för läsbara stacktraces: en `SENTRY_AUTH_TOKEN` som EAS-secret, ta bort `SENTRY_DISABLE_AUTO_UPLOAD` i production och byt `metro.config.js` till `getSentryExpoConfig`.
-  - Slår du inte på Sentry före lansering: ta bort Sentry-styckena i integritetspolicyn.
+- [ ] **Publicera den nya sajten.** Policy- och supporttexterna (kryptering som val, AI-samtycke och Sentry) är införda i den nya sajten (2026-10-27). Sajten måste fortsätta utan cookies, analys och tredjepartstypsnitt/-skript, annars måste §11 i policyn ändras.
+- [x] **Bot Fight Mode avstängd** (2026-10-27). Kontrollerat: blades-app.com, /privacy och api.blades-app.com sätter inga cookies längre.
+- [ ] **Liten sak: `www.blades-app.com` har ingen DNS-post** och går inte att nå alls. Lägg till `www` som domän i Cloudflare Pages, eller som en omdirigering till blades-app.com.
+- [ ] **Kraschrapportering (Sentry):**
+  - [x] Kontot och projektet är skapade (2026-10-27): org `jesper-toreld`, projekt `blades-ios`, EU-region (de.sentry.io). "Prevent Storing of IP Addresses" är på, och Data Scrubber + default scrubbers är på.
+  - [x] DSN:en ligger i `eas.json` (preview + production), och pluginet pekar på org/projekt. Verifierat att DSN:en bakas in i en release-bundle.
+    - Lokalt krävs `--clear`, eftersom Metro-cachen annars behåller det gamla värdet. EAS bygger alltid utan cache.
+  - [ ] Nytt bygge: rapporteringen är på från och med det.
+  - [ ] App Privacy: "Crash Data" och "Other Diagnostic Data" (instruktion till Claude in Chrome finns i chatten 2026-10-27).
+  - [ ] Senare, för läsbara stacktraces:
+    1. Skapa en `SENTRY_AUTH_TOKEN` som EAS-secret.
+    2. Ta bort `SENTRY_DISABLE_AUTO_UPLOAD` i production.
+    3. Byt `metro.config.js` till `getSentryExpoConfig`.
 - [ ] **PDF-exporten hämtar typsnitt från Google Fonts** (`services/pdfExport/templates/modernBlades.ts` och `editorial.ts`). Det skickar användarens IP-adress till Google varje gång en PDF skapas, och det nämns inte i integritetspolicyn. Välj:
   - bädda in typsnitten i appen (rekommenderas; Inter och Cormorant är OFL, och JetBrains Mono finns redan)
   - eller nämn Google Fonts i policyn.
@@ -160,7 +160,9 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Rundturens Fleet-kort och Fleet-tomtillståndet ska också visa kredit, i tomtillståndet som en rad under korten.
   - Efter en CSV-import med många typer ska alla kort få bild.
 - [ ] **Acknowledgements** (Settings → About, pilot och drönare): tre sektioner. Tryck på en rad för att se upphovsrätt, licenstext och länk.
-- [ ] **Sentry:** inget ska synas och inget ska krascha. När DSN:en är inlagd: framkalla ett fel och kontrollera att det dyker upp i Sentry.
+- [ ] **Sentry:** inget ska synas i appen och inget ska krascha.
+  - Öppna appen några gånger. Inom några minuter ska Sentry (de.sentry.io → blades-ios → Releases) visa den nya versionen med sessioner. Det bekräftar att rapporteringen är igång utan att något behöver krascha.
+  - Riktiga fel dyker upp under Issues.
 
 - [ ] **Workload för nya användare och ett rättat snitt (pilot + drönare):**
   - **Ny användare:** logga den första flygningen. Stapeln och ringen ska lägga sig mitt på, på 100 % (NORMAL), inte på max. De första cirka två månaderna glider värdet mjukt mot det verkliga, och därefter gäller det fullt ut.
