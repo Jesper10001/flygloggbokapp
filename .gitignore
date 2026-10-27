@@ -4,3 +4,5 @@
 # iCloud eviction placeholders
 *.icloud
 .*.icloud
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
