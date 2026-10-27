@@ -19,15 +19,10 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Reglaget "AI features" finns under Settings → Security, i både pilot- och drönarläge.
 - [ ] **App Store Connect inför inskickningen:**
   - Prenumerationen (39 kr) ska stå som "Ready to Submit" och kopplas till app-versionen, eftersom första köpet granskas tillsammans med appen. Paid Apps Agreement, bank och skatt ska vara klara.
-  - App Privacy:
-    - "User Content" (foton/filer till AI, inte kopplat till användaren) om det saknas.
-    - Om Sentry slås på: "Crash Data" och "Other Diagnostic Data", inte kopplat till användaren och ingen spårning.
-  - **Content Rights:** bekräfta att du har rätt till allt innehåll. Bekräfta särskilt att exempelbilderna är dina egna eller fria:
-    - `assets/sample-photos/`
-    - `assets/ACARS.JPG` och `assets/Flightdata_AW109.jpg`
-    - `assets/logbooks/*.png`
-
-    Fleet-foton från Wikimedia har nu kredit per bild, och övrigt krediteras under Settings → About → Acknowledgements.
+  - App Privacy: Crash Data för Sentry är publicerad 2026-10-27, och totalt 9 datatyper är deklarerade. Kontrollera att "User Content" (foton/filer till AI, inte kopplat) finns bland dem. Den deklarerades enligt genomgången 2026-10-13.
+  - **Content Rights** (exempelbilderna är dina, bekräftat 2026-10-27). Under App Information → Content Rights svarar du:
+    - "Does your app contain, show, or access third-party content?" → **Yes**: Wikimedia-foton, flygplatsdata, kartor, väder och nyhetsrubriker.
+    - "Do you have all necessary rights?" → **Yes**: allt är licensierat och krediterat under Acknowledgements och på fotona.
   - Åldersgräns, kategori, skärmdumpar för 6,9" iPhone, beskrivning och nyckelord.
   - Granskningsanteckningar: ingen inloggning, Premium kan testas med sandbox-köp, och AI-funktionerna kräver nät. Första AI-funktionen visar en samtyckesdialog ("Allow AI features?").
 - [x] **Död kod borttagen:** testprofil-triggern och `testUserSeed.ts` (2026-10-27).
@@ -92,7 +87,10 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Nödspak utan deploy (behövs normalt inte): `npx wrangler kv key put --binding=QUOTA_KV model-map '{"<gammalt-id>":"<nytt-id>"}' --remote`
     - Ångra med `npx wrangler kv key delete --binding=QUOTA_KV model-map --remote`.
   - Nästa app-build begär Sonnet 5.5 direkt och skickar ingen temperatur till 5.x-modeller.
-- [ ] **Publicera den nya sajten.** Policy- och supporttexterna (kryptering som val, AI-samtycke och Sentry) är införda i den nya sajten (2026-10-27). Sajten måste fortsätta utan cookies, analys och tredjepartstypsnitt/-skript, annars måste §11 i policyn ändras.
+- [x] **Den nya sajten är publicerad** (2026-10-27) och verifierad live på blades-app.com: startsidan, /privacy, /terms och /support, flygplatssökningen med satellitbild och inga cookies. Policy- och supporttexterna (kryptering som val, AI-samtycke och Sentry) ingår. Sajten måste fortsätta utan cookies, analys och tredjepartstypsnitt/-skript, annars måste §11 i policyn ändras.
+  - **Ladda upp sajten härefter med:** `npx wrangler pages deploy website-v4 --project-name blades-website` (från repo-roten).
+  - **Kör INTE `… pages deploy website`.** Mappen `website/` är den gamla sajten och skulle ersätta den nya.
+  - Proxyn har en route för sajtens flygplatskort, `/web/imagery/…` (deployad 2026-10-27). Den släpper bara in blades-app.com, www, Pages-förhandsvisningar och localhost:3000, med 120 bilder per minut och IP.
 - [x] **Bot Fight Mode avstängd** (2026-10-27). Kontrollerat: blades-app.com, /privacy och api.blades-app.com sätter inga cookies längre.
 - [ ] **Liten sak: `www.blades-app.com` har ingen DNS-post** och går inte att nå alls. Lägg till `www` som domän i Cloudflare Pages, eller som en omdirigering till blades-app.com.
 - [ ] **Kraschrapportering (Sentry):**
@@ -100,7 +98,9 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - [x] DSN:en ligger i `eas.json` (preview + production), och pluginet pekar på org/projekt. Verifierat att DSN:en bakas in i en release-bundle.
     - Lokalt krävs `--clear`, eftersom Metro-cachen annars behåller det gamla värdet. EAS bygger alltid utan cache.
   - [ ] Nytt bygge: rapporteringen är på från och med det.
-  - [ ] App Privacy: "Crash Data" och "Other Diagnostic Data" (instruktion till Claude in Chrome finns i chatten 2026-10-27).
+  - [x] App Privacy är publicerad (2026-10-27): "Crash Data" (App Functionality, inte kopplad, ingen spårning).
+    - Other Diagnostic Data och Performance Data fanns redan som kopplade, eftersom proxyns telemetri sparas mot det pseudonyma enhets-id:t. Det är rätt så: samma typ samlas in både kopplad och okopplad, och då ska den kopplade anges.
+    - Sentrys sessioner täcks av Product Interaction, som redan är deklarerad.
   - [ ] Senare, för läsbara stacktraces:
     1. Skapa en `SENTRY_AUTH_TOKEN` som EAS-secret.
     2. Ta bort `SENTRY_DISABLE_AUTO_UPLOAD` i production.
@@ -116,11 +116,9 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
 - [x] **Esri-nyckel inlagd i proxyn** (2026-10-26). Verifierat att satellitbilder och källhänvisningar levereras.
 - [ ] **Ta bort den gamla Esri-nyckeln** (den som går ut 2027-01-24). Skriv "klart" till Claude in Chrome.
-- [ ] **Påminnelse: Esri-nyckeln går ut efter max 1 år** (runt 2027-10-26, se exakt datum i ArcGIS). Skapa en ny före dess och kör `cd proxy && npx wrangler secret put ARCGIS_API_KEY`, annars försvinner Route-lagret.
+- [ ] **Påminnelse: Esri-nyckeln går ut efter max 1 år** (runt 2027-10-26, se exakt datum i ArcGIS). Skapa en ny före dess och kör `cd proxy && npx wrangler secret put ARCGIS_API_KEY`, annars försvinner Route-lagret och satellitbilden i sajtens flygplatskort.
 - [ ] **iCloud:** testa återställning på en annan enhet.
-- [ ] **Sajten:**
-  - drönarvarianter för How it works och kartan
-  - ev. ta om Insights-bilden, som visar PIC "May 2039"
+- [x] **Sajten:** de gamla punkterna (drönarvarianter för How it works och kartan, Insights-bilden med "May 2039") gällde den gamla sajten. Den nya sajten har inte de sektionerna.
 - [ ] **Flygplatsdatabasen:** verifiera ~4 000 äldre poster mot OurAirports, och radera inget i blindo.
 
 ## Klart

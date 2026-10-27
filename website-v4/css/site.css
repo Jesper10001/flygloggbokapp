@@ -174,29 +174,28 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .strip, .set { display: flex; gap: var(--gap); }
 .strip { width: max-content; will-change: transform; }
 .card {
+  /* Sizes come from the card width (--cw), not container queries: Safari mislays size-contained
+     flex items inside the moving band and draws the cards on top of each other. */
   position: relative;
-  flex: 0 0 var(--cw);
+  flex: none;
+  width: var(--cw); min-width: var(--cw);
   border-radius: clamp(20px, 2.4vw, 30px);
   overflow: hidden;
   background: var(--bg, var(--navy));
-  container-type: inline-size;
   display: flex; flex-direction: column;
+  -webkit-transform: translateZ(0);
 }
-.card img { width: 100%; height: auto; -webkit-user-drag: none; }
-.card-text { position: absolute; left: 5cqi; top: 4.6cqi; }
-.card h2 { max-width: 64cqi; color: var(--cream); font-size: max(5cqi, 30px); }
-.card p { max-width: 34cqi; margin-top: 1.3cqi; color: var(--mist); font-size: max(2cqi, 14px); line-height: 1.4; }
+.card img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
+.card-text { position: absolute; left: calc(var(--cw) * 0.05); top: calc(var(--cw) * 0.046); }
+.card h2 { max-width: calc(var(--cw) * 0.64); color: var(--cream); font-size: max(calc(var(--cw) * 0.05), 30px); }
+.card p { max-width: calc(var(--cw) * 0.34); margin-top: calc(var(--cw) * 0.013); color: var(--mist); font-size: max(calc(var(--cw) * 0.02), 14px); line-height: 1.4; }
 
-@container (max-width: 520px) {
-  .card-text { position: static; order: -1; max-width: none; padding: 30px 24px 8px; }
-  .card h2 { font-size: clamp(30px, 8.6cqi, 42px); }
-  .card h2, .card p { max-width: none; }
-  .card p { margin-top: 10px; font-size: 17px; }
-  .card img {
-    flex: 1 1 auto; min-height: 92cqi; height: 0; object-fit: cover; object-position: var(--pos, 50% 60%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%);
-    mask-image: linear-gradient(to bottom, transparent, #000 18%);
-  }
+/* Narrow cards (phones): the heading sits above the picture instead of on it. */
+@media (max-width: 640px) {
+  .card-text { position: static; order: -1; padding: 30px 24px 8px; }
+  .card h2 { max-width: none; font-size: clamp(30px, calc(var(--cw) * 0.086), 42px); }
+  .card p { max-width: none; margin-top: 10px; font-size: 17px; }
+  .card img { margin-top: auto; height: calc(var(--cw) * 0.92); object-fit: cover; object-position: var(--pos, 50% 60%); }
 }
 
 /* ---------- Pricing ---------- */
