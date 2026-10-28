@@ -668,7 +668,7 @@ h1{font-size:26px;line-height:1.1;margin:0;letter-spacing:-.3px}
       card('c-rev', 'Intäkter', m.link,
         '<div class="big">' + val(m.activeSubscriptions) + '<small>betalande kunder</small></div>' +
         '<div class="stats">' + stat(val(m.mrr, true), 'MRR (månadsintäkt)') + stat(val(m.revenue, true), 'Intäkt, 28 dagar') +
-        stat(val(m.newCustomers), 'Nya kunder, 28 dagar') + stat(val(m.activeTrials), 'Provperioder') + '</div>');
+        stat(val(m.newCustomers), 'Nya appanvändare, 28 dagar') + stat(val(m.activeTrials), 'Provperioder') + '</div>');
     } else card('c-rev', 'Intäkter', null, failed(r));
 
     // Stabilitet
@@ -704,7 +704,7 @@ h1{font-size:26px;line-height:1.1;margin:0;letter-spacing:-.3px}
       var w = t.data;
       card('c-traffic', 'Trafik', w.link,
         '<div class="big">' + (w.site ? fmt(w.site.visits7d) : '–') + '<small>besök på sajten, 7 dagar</small></div>' +
-        (w.site ? spark(w.site.days.map(function (q) { return q.visits; }), '#00C8E8') : '<p class="note">' + esc(w.siteNote) + '</p>') +
+        (w.site ? spark(w.site.days.map(function (q) { return q.visits; }), '#00C8E8') + '<p class="note">Räknar alla besök, även robotar och sökmotorer.</p>' : '<p class="note">' + esc(w.siteNote) + '</p>') +
         '<div class="stats">' + stat(w.worker ? fmt(w.worker.requests7d) : '–', 'Anrop till proxyn, 7 dagar') + stat(w.worker ? fmt(w.worker.errors7d) : '–', 'Fel i proxyn, 7 dagar') + '</div>');
     } else card('c-traffic', 'Trafik', null, failed(t));
 
