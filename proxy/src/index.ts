@@ -1,7 +1,9 @@
 // Blades API Proxy + Telemetri + Stats-dashboard
 import { callWithModelFallback, refreshModelRouting } from './modelFallback';
+import { handleOps, handleSupportEmail, resolveAeDataset, type OpsEnv } from './ops';
 
-interface Env {
+// OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
+interface Env extends OpsEnv {
   ANTHROPIC_API_KEY: string;
   TELEMETRY: AnalyticsEngineDataset;
   QUOTA_KV: KVNamespace;
@@ -89,9 +91,11 @@ const MODEL_PRICES: [RegExp, number, number][] = [
   [/^claude-opus-5-5/, 4, 20], [/^claude-opus-[45]/, 5, 25],
   [/^claude-fable/, 10, 50],
 ];
-function costUsd(model: string, inTok: number, outTok: number): number {
+// Cachade systemprompter faktureras separat: skrivning 1,25× och läsning 0,1× av indatapriset. De ingår
+// inte i input_tokens, så de måste räknas in här — annars visar telemetrin ungefär hälften av kostnaden.
+function costUsd(model: string, inTok: number, outTok: number, cacheWrite = 0, cacheRead = 0): number {
   const [, pin, pout] = MODEL_PRICES.find(([re]) => re.test(model)) ?? [null, 3, 15];
-  return Math.round(((inTok * pin + outTok * pout) / 1e6) * 10000) / 10000;
+  return Math.round(((inTok * pin + cacheWrite * pin * 1.25 + cacheRead * pin * 0.1 + outTok * pout) / 1e6) * 10000) / 10000;
 }
 
 // Native-appen (iOS) skickar ingen Origin och bryr sig inte om CORS → den påverkas inte.
@@ -542,7 +546,7 @@ function renderStats(ov: any, models: any[], countries: any[], devices: any[], d
   const totalReq = n(ov?.total_requests);
   const uniqueDev = n(ov?.unique_devices);
   const avgLat = n(ov?.avg_latency);
-  const totalCost = n(ov?.total_cost_cents) / 100;
+  const totalCost = n(ov?.total_cost_cents); // double4 lagras i USD (namnet är historiskt)
   const SEK_RATE = 10.5;
   const totalCostSek = totalCost * SEK_RATE;
   const inputTok = n(ov?.total_input_tokens);
@@ -636,7 +640,7 @@ ${models.length > 0 ? `
 ${models.map(r => `<div class="chart-row">
   <div class="chart-label">${r.model ?? 'unknown'}</div>
   <div class="chart-bar-bg"><div class="chart-bar" style="width:${(n(r.requests)/maxReq*100)}%"></div></div>
-  <div class="chart-val">${n(r.requests)} · $${(n(r.cost)/100).toFixed(2)} · ${(n(r.cost)/100*SEK_RATE).toFixed(0)}kr</div>
+  <div class="chart-val">${n(r.requests)} · $${n(r.cost).toFixed(2)} · ${(n(r.cost)*SEK_RATE).toFixed(0)}kr</div>
 </div>`).join('')}` : ''}
 
 ${countries.length > 0 ? `
@@ -839,9 +843,18 @@ export default {
     ).then((routing) => console.log('[model-check]', JSON.stringify(routing))).catch((e) => console.log('[model-check] failed', e?.message)));
   },
 
+  // Supportmejl: Email Routing skickar support@blades-app.com hit → vidarebefordras och räknas (src/ops.ts).
+  async email(message: any, env: Env, _ctx: ExecutionContext): Promise<void> {
+    await handleSupportEmail(message, env);
+  },
+
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin');
+
+    // ── Blades Ops: driftsidan /ops (inloggning, live-siffror) + dess ikoner/manifest ──
+    const opsResponse = await handleOps(request, env, ctx);
+    if (opsResponse) return opsResponse;
 
     // ── Stats (lösenordsskyddad) ──
     if (url.pathname === '/stats' || url.pathname === '/stats/json') {
@@ -855,7 +868,7 @@ export default {
       if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) {
         return new Response('Stats ej konfigurerat. Sätt CF_API_TOKEN och CF_ACCOUNT_ID.', { status: 500 });
       }
-      const ds = 'blades-telemetry';
+      const ds = await resolveAeDataset(env); // TELEMETRY (bindningens namn) — se src/ops.ts
       const [overview, byModel, byCountry, byDevice, daily] = await Promise.all([
         queryAE(env, `SELECT
           SUM(_sample_interval) as total_requests,
@@ -1186,11 +1199,15 @@ export default {
             const mOutAll = [...text.matchAll(/"output_tokens":\s*(\d+)/g)];
             const inTok = mIn ? parseInt(mIn[1], 10) : 0;
             const outTok = mOutAll.length ? parseInt(mOutAll[mOutAll.length - 1][1], 10) : 0;
-            const cost = costUsd(model, inTok, outTok);
+            const mCw = text.match(/"cache_creation_input_tokens":\s*(\d+)/);
+            const mCr = text.match(/"cache_read_input_tokens":\s*(\d+)/);
+            const cacheWrite = mCw ? parseInt(mCw[1], 10) : 0;
+            const cacheRead = mCr ? parseInt(mCr[1], 10) : 0;
+            const cost = costUsd(model, inTok, outTok, cacheWrite, cacheRead);
             if (env.TELEMETRY) {
               env.TELEMETRY.writeDataPoint({
                 blobs: [model, deviceHash, country, 'ok'],
-                doubles: [ms, inTok, outTok, cost],
+                doubles: [ms, inTok, outTok, cost, cacheWrite, cacheRead],
                 indexes: [deviceHash],
               });
             }
@@ -1209,14 +1226,20 @@ export default {
 
       const respBody = await resp.text();
       const ms = Date.now() - t0;
-      let inTok = 0, outTok = 0;
-      try { const j = JSON.parse(respBody); inTok = j.usage?.input_tokens ?? 0; outTok = j.usage?.output_tokens ?? 0; } catch {}
-      const cost = costUsd(model, inTok, outTok);
+      let inTok = 0, outTok = 0, cacheWrite = 0, cacheRead = 0;
+      try {
+        const u = JSON.parse(respBody).usage ?? {};
+        inTok = u.input_tokens ?? 0;
+        outTok = u.output_tokens ?? 0;
+        cacheWrite = u.cache_creation_input_tokens ?? 0;
+        cacheRead = u.cache_read_input_tokens ?? 0;
+      } catch {}
+      const cost = costUsd(model, inTok, outTok, cacheWrite, cacheRead);
 
       if (env.TELEMETRY) {
         env.TELEMETRY.writeDataPoint({
           blobs: [model, deviceHash, country, resp.status === 200 ? 'ok' : `error_${resp.status}`],
-          doubles: [ms, inTok, outTok, cost],
+          doubles: [ms, inTok, outTok, cost, cacheWrite, cacheRead],
           indexes: [deviceHash],
         });
       }

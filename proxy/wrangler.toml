@@ -25,9 +25,29 @@ routes = [
 [triggers]
 crons = ["17 4 * * *"]
 
+# Blades Ops — driftsidan https://api.blades-app.com/ops (src/ops.ts). Hemligheter (wrangler secret put …):
+#   OPS_PASSWORD           lösenordet till /ops
+#   OPS_COOKIE_SECRET      slumpad nyckel som signerar inloggningen:  openssl rand -hex 32 | npx wrangler secret put OPS_COOKIE_SECRET
+#   SENTRY_API_TOKEN       Sentry → intern integration "Blades Ops" (Project/Issue & Event/Organization: Read)
+#   REVENUECAT_METRICS_KEY RevenueCat v2-nyckel med "Charts metrics: Read only"
+#   ASC_ISSUER_ID, ASC_KEY_ID, ASC_VENDOR_NUMBER  App Store Connect API-nyckel + leverantörsnummer
+#   ASC_PRIVATE_KEY        innehållet i AuthKey_<KEYID>.p8:  npx wrangler secret put ASC_PRIVATE_KEY < ~/Downloads/AuthKey_<KEYID>.p8
+#   CF_ANALYTICS_TOKEN     Cloudflare-token: Account Analytics Read + Zone Analytics Read (blades-app.com)
+#   CF_ZONE_ID             zon-id för blades-app.com
+#   SUPPORT_FORWARD_TO     dit supportmejlen vidarebefordras (måste vara verifierad i Email Routing)
+# Email Routing: support@blades-app.com → "Send to a Worker" → blades-api (först EFTER deploy + SUPPORT_FORWARD_TO).
+
 # Icke-hemlig config → [vars] (så den inte nollas vid deploy).
 [vars]
 REVENUECAT_PROJECT_ID = "proj5514c011"
+SENTRY_ORG = "jesper-toreld"
+SENTRY_PROJECT = "blades-ios"
+SENTRY_PROJECT_ID = "4512330034839632"
+ASC_APP_ID = "6798360464"
+# Anthropic-kredit vid ett datum → /ops visar uppskattat saldo (kredit minus proxyns kostnad sedan dess).
+# Uppdatera båda när du fyller på krediten.
+OPS_CREDIT_USD = "24"
+OPS_CREDIT_SINCE = "2026-10-28"
 
 # Telemetri — Cloudflare Analytics Engine (gratis)
 [[analytics_engine_datasets]]

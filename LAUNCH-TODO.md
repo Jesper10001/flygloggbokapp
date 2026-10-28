@@ -2,6 +2,23 @@
 
 Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
+## Efter inskickningen (version 1.0 skickad 2026-10-28)
+
+- [ ] **Vänta på granskningen**, som brukar ta 1–2 dygn. Svara på eventuella frågor från Apple i App Store Connect (App Review / Resolution Center).
+- [ ] **Efter godkännandet:** releasen är manuell. Tryck på "Release This Version" när du vill lansera.
+- [x] **Den nya sajten är publicerad.** Kontrollerat 2026-10-28: `/privacy`, `/terms` och `/support` fungerar, även `.html`-länkarna från appen, och inga cookies sätts. Kvar är bara `www`, se nedan.
+- [ ] **Håll koll** på Sentry (Issues) och RevenueCat (köp och notiser) de första dagarna.
+- [ ] **Kolla mejlen** efter Apple-meddelandet "ITMS-91053 Missing API declaration", se "Kan vänta".
+
+## Blades Ops: driftsidan i telefonen (byggd 2026-10-28)
+
+`https://api.blades-app.com/ops` är en live-översikt med App Store, betalande kunder, krascher, trafik, AI-kostnad och supportmejl. Koden finns i `proxy/src/ops.ts` och är testad mot fejkade tjänster (28/28). Gör stegen i den här ordningen:
+- [ ] Skapa nycklarna med Claude in Chrome-instruktionerna i chatten 2026-10-28: Sentry, RevenueCat, App Store Connect och Cloudflare. Notera också Zone ID och mottagaradressen för support@.
+- [ ] Lägg in hemligheterna och deploya från `proxy`-mappen. Kommandona står i chatten och i `proxy/wrangler.toml`.
+- [ ] Öppna `/ops` i Safari, logga in och välj "Lägg till på hemskärmen". Logga in en gång till i hemskärmsappen.
+- [ ] **Sist:** byt Email Routing-regeln för support@ till "Send to a Worker" → blades-api. Skicka ett testmejl och kontrollera att det kommer fram och syns på sidan.
+- [ ] Säg till Claude vilka kort som visar fel, så justeras de mot de riktiga API:erna.
+
 ## Måste lösas före App Store-inskickning
 
 - [x] **Export compliance** (kod klar 2026-10-27, kräver nytt bygge och test). SQLCipher använder nu Apples CommonCrypto i stället för OpenSSL. Ändringen är en patch av op-sqlites podspec i `FlightLogApp/patches/`, som läggs på automatiskt vid `npm install` (postinstall). Därmed stämmer `ITSAppUsesNonExemptEncryption: false`: appen använder bara krypteringen i iOS.
@@ -17,23 +34,28 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Skanning och import frågar innan kameran eller filväljaren öppnas, och innan en skanning dras från kvoten.
   - Bakgrundsberikning av Fleet frågar aldrig. Utan samtycke hoppar den över tyst.
   - Reglaget "AI features" finns under Settings → Security, i både pilot- och drönarläge.
-- [ ] **App Store Connect inför inskickningen:**
-  - **Prenumerationen är klar** (kontrollerat 2026-10-27): `blades_premium_monthly`, 1 månad, 39 kr, 175 länder, engelsk text och granskningsskärmdump. Paid Apps-avtalet, bank, skatt, DSA och DAC7 är aktiva.
-  - **Kvar:** koppla ett bygge till version 1.0 (Build → Add Build). Då visas sektionen "In-App Purchases and Subscriptions". Bocka i "Blades Premium Monthly" där, och skicka sedan in (Add for Review → Submit). Den första prenumerationen måste granskas tillsammans med appen.
-  - App Privacy: Crash Data för Sentry är publicerad 2026-10-27, och totalt 9 datatyper är deklarerade. Kontrollera att "User Content" (foton/filer till AI, inte kopplat) finns bland dem. Den deklarerades enligt genomgången 2026-10-13.
-  - **Content Rights** (exempelbilderna är dina, bekräftat 2026-10-27). Under App Information → Content Rights svarar du:
-    - "Does your app contain, show, or access third-party content?" → **Yes**: Wikimedia-foton, flygplatsdata, kartor, väder och nyhetsrubriker.
-    - "Do you have all necessary rights?" → **Yes**: allt är licensierat och krediterat under Acknowledgements och på fotona.
-  - Åldersgräns, kategori, skärmdumpar för 6,9" iPhone, beskrivning och nyckelord.
-  - Granskningsanteckningar (App Review Information → Notes). Färdig text:
-    ```
-    Blades is a pilot and drone logbook. No account or login is required — all data is stored on the device.
+- [x] **Inskickad för granskning 2026-10-28:** version 1.0, bygge 1.0.0 (14), tillsammans med Blades Premium Monthly. Före inskickningen testades kryptering, AI-samtycke och sandbox-köp, och nyckelorden byttes. Förberedelsen gjordes av Claude in Chrome.
+  - Utkastet (Draft Submission) innehåller:
+    - iOS 1.0, bygge 1.0.0 (14)
+    - prenumerationsgruppen Blades Premium
+    - Blades Premium Monthly (39 kr / 2,99 USD)
+  - **Klart:**
+    - Content Rights: Yes / Yes.
+    - Granskningsanteckningarna, med kontaktperson och telefon. Ingen inloggning krävs.
+    - Manuell release.
+    - Beskrivningen säger att krypteringen är ett val och slutar med länkarna Privacy och Terms.
+    - Åldersgräns 4+, Free i 175 länder, skärmdumpar, och bygget har ingen "Missing Compliance".
+    - App Store Server Notifications går till RevenueCat (production och sandbox).
+    - RevenueCat-paywallen har Restore, Terms och Privacy.
+  - **Före Submit:**
+    - Testa bygge 14 i TestFlight: kryptering, AI-samtycke och ett sandbox-köp. Kontrollera att Sentry visar version 1.0.0 (14).
+    - Byt gärna nyckelorden (se nedan). Nyckelorden låses när du skickat in.
+  - **Valfritt:**
+    - sekundär kategori Utilities i stället för Lifestyle
+    - granskningskontaktens mejl (syns bara för Apple)
+  - Nyckelord, förbättrade (95 tecken): `aviation,EASA,FAA,UAS,UAV,helicopter,hours,currency,ATPL,CPL,PPL,ACARS,airline,airport,aircraft`. Nuvarande nyckelord upprepar ord som redan finns i namnet och undertiteln (pilot, logbook, flight, drone), och Apple indexerar dem redan därifrån.
+  - **Den nya sajten** måste behålla sökvägarna `/privacy`, `/terms` och `/support`. Appen, paywallen och App Store-texten länkar dit.
 
-    - Example data: open Settings and tap "Take the Blades introduction" at the bottom. The guided tour logs an example flight and walks through the main features; the example data is removed when the tour ends.
-    - Subscription: "Blades Premium Monthly" can be purchased from the gold "Blades Premium" strip at the top of Settings. Free users can log 20 flights per logbook (pilot and drone); Premium removes the limit and adds a monthly allowance for AI features.
-    - AI features (scanning logbook pages, ACARS and instrument photos, CSV import, aircraft and drone lookup) use Anthropic's Claude through our server and need an internet connection. The app asks for permission before anything is sent ("Allow AI features?"); the choice can be changed in Settings → Security → AI features. A free one-time allowance is included, so these features can be tested without a purchase.
-    - Optional extra database encryption can be turned on in Settings → Security → Encryption.
-    ```
 - [x] **Död kod borttagen:** testprofil-triggern och `testUserSeed.ts` (2026-10-27).
 - [x] **Licenser och källhänvisningar** (klart 2026-10-27).
   - Settings → About → Acknowledgements listar:
@@ -60,7 +82,7 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 - [x] **Deploya proxyn igen** (debug-kontrollen, deployat och verifierat 2026-10-26): `cd proxy && npx wrangler deploy`
   - `/entitlement` skickar nu `promo` separat, så appen bara sparar riktiga promokoder lokalt.
   - Den öppna felsökningen `?debug=1` är borttagen.
-- [ ] **Nytt TestFlight-bygge efter lanseringsfixarna (2026-10-27)**, med CommonCrypto-patchen och Sentrys native-modul, så det krävs ett nytt native-bygge. Förkontroller: tsc och produktionsexport är klara. Kör efter commit:
+- [x] **Nytt TestFlight-bygge efter lanseringsfixarna (2026-10-27)**, byggt som 1.0.0 (14), med CommonCrypto-patchen och Sentrys native-modul, så det krävs ett nytt native-bygge. Förkontroller: tsc och produktionsexport är klara. Kör efter commit:
   `cd FlightLogApp && npm install && npx eas-cli build --platform ios --profile production --auto-submit`
   - **Nytt:**
     - AI-samtyckesdialog och reglaget AI features
@@ -101,12 +123,13 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - **Kör INTE `… pages deploy website`.** Mappen `website/` är den gamla sajten och skulle ersätta den nya.
   - Proxyn har en route för sajtens flygplatskort, `/web/imagery/…` (deployad 2026-10-27). Den släpper bara in blades-app.com, www, Pages-förhandsvisningar och localhost:3000, med 120 bilder per minut och IP.
 - [x] **Bot Fight Mode avstängd** (2026-10-27). Kontrollerat: blades-app.com, /privacy och api.blades-app.com sätter inga cookies längre.
-- [ ] **Liten sak: `www.blades-app.com` har ingen DNS-post** och går inte att nå alls. Lägg till `www` som domän i Cloudflare Pages, eller som en omdirigering till blades-app.com.
+- [x] **`www.blades-app.com` skickar vidare till blades-app.com** (2026-10-28): en CNAME-post för `www` (proxad) och omdirigeringsregeln "Redirect from WWW to root" (301, sökväg och query string följer med). Kontrollerat med curl.
+  - [ ] Kvar: slå på **Always Use HTTPS** (SSL/TLS → Edge Certificates). I dag ger `http://www.blades-app.com` fel 522, eftersom regeln bara fångar https.
 - [ ] **Kraschrapportering (Sentry):**
   - [x] Kontot och projektet är skapade (2026-10-27): org `jesper-toreld`, projekt `blades-ios`, EU-region (de.sentry.io). "Prevent Storing of IP Addresses" är på, och Data Scrubber + default scrubbers är på.
   - [x] DSN:en ligger i `eas.json` (preview + production), och pluginet pekar på org/projekt. Verifierat att DSN:en bakas in i en release-bundle.
     - Lokalt krävs `--clear`, eftersom Metro-cachen annars behåller det gamla värdet. EAS bygger alltid utan cache.
-  - [ ] Nytt bygge: rapporteringen är på från och med det.
+  - [x] Bygge 1.0.0 (14) rapporterar. Verifierat 2026-10-28: releasen syns i Sentry med 6 sessioner, 100 % kraschfria och inga fel.
   - [x] App Privacy är publicerad (2026-10-27): "Crash Data" (App Functionality, inte kopplad, ingen spårning).
     - Other Diagnostic Data och Performance Data fanns redan som kopplade, eftersom proxyns telemetri sparas mot det pseudonyma enhets-id:t. Det är rätt så: samma typ samlas in både kopplad och okopplad, och då ska den kopplade anges.
     - Sentrys sessioner täcks av Product Interaction, som redan är deklarerad.
@@ -140,12 +163,12 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
 ## Testa i nästa bygge
 
-- [ ] **SQLCipher via CommonCrypto (VIKTIGAST, testa först):**
+- [x] **SQLCipher via CommonCrypto** (verifierat på bygge 14 2026-10-28: uppgradering med krypteringen på, all data kvar):
   - Installera ovanpå nuvarande TestFlight-version med **extra kryptering påslagen**, utan att radera appen. Appen ska starta, och alla flygningar ska finnas kvar.
   - Slå av och på krypteringen igen och starta om.
   - Testa även en install med krypteringen av.
   - Om loggboken inte öppnas: skicka skärmdump direkt. Det går att backa genom att ta bort patchen.
-- [ ] **AI-samtycke:**
+- [x] **AI-samtycke** (huvudflödet verifierat på bygge 14 2026-10-28: dialogen kommer före skanningen):
   - **Ny installation:** tryck på ACARS/Instrument scan. Dialogen "Allow AI features?" ska komma innan kameraväljaren.
     - "Not now" ska stänga utan felruta.
     - Tryck igen. Dialogen ska komma igen.
@@ -167,7 +190,7 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
   - Rundturens Fleet-kort och Fleet-tomtillståndet ska också visa kredit, i tomtillståndet som en rad under korten.
   - Efter en CSV-import med många typer ska alla kort få bild.
 - [ ] **Acknowledgements** (Settings → About, pilot och drönare): tre sektioner. Tryck på en rad för att se upphovsrätt, licenstext och länk.
-- [ ] **Sentry:** inget ska synas i appen och inget ska krascha.
+- [x] **Sentry** (verifierat 2026-10-28 på bygge 14: 6 sessioner, 100 % kraschfria). Inget ska synas i appen och inget ska krascha.
   - Öppna appen några gånger. Inom några minuter ska Sentry (de.sentry.io → blades-ios → Releases) visa den nya versionen med sessioner. Det bekräftar att rapporteringen är igång utan att något behöver krascha.
   - Riktiga fel dyker upp under Issues.
 
