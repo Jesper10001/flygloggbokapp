@@ -54,7 +54,7 @@
         }
         const want = reduce || focusHeld || t < resumeAt ? 0 : SPEED;
         speed += (want - speed) * Math.min(1, dt * 2);
-        x += speed * dt;
+        x += (speed + (window.bladesScrollBoost || 0)) * dt;
       }
       x = wrap(x);
       const dpr = window.devicePixelRatio || 1;
@@ -124,6 +124,7 @@
   const add = (sel, gap = 90) => {
     document.querySelectorAll(sel).forEach((group) => {
       Array.from(group.children).forEach((el, i) => {
+        if (el.matches('[data-words]')) return;
         el.classList.add('rv');
         el.style.setProperty('--d', `${Math.min(i, 6) * gap}ms`);
         els.push(el);

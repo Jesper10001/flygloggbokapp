@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>BLADES — The pilot logbook, reimagined</title>
+<title>Blades — The digital logbook tailored for you</title>
 <meta name="description" content="A pilot logbook for iPhone, for pilots and drone pilots. Fast to log, easy to copy into your paper book. Free for your first 20 flights.">
 <meta name="theme-color" content="#0a1628">
 <link rel="icon" href="img/blades-mark-128.png" type="image/png">
@@ -15,6 +15,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+<div class="progress" aria-hidden="true"></div>
 
 <header class="nav-wrap">
   <nav class="nav" aria-label="Main">
@@ -32,7 +33,7 @@
 
   <section class="hero" id="top">
     <div class="hero-text">
-      <h1>The pilot logbook, <em>reimagined.</em></h1>
+      <h1 data-split><span class="ht-brand">Blades</span> The digital logbook <em>tailored for you.</em></h1>
       <p class="hero-sub">For pilots and drone pilots. Fast to log, easy to copy into your paper book.</p>
       <div class="hero-cta">
         <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
@@ -42,9 +43,14 @@
     <img class="hero-img" src="img/hero.jpg" srcset="img/hero-sm.jpg 1200w, img/hero.jpg 2400w" sizes="100vw" width="2400" height="1600" fetchpriority="high" alt="Two iPhones with BLADES: the dashboard with the latest flight, ESSA to ESGG, and a paper-style logbook page.">
   </section>
 
-  <section class="roles" aria-labelledby="roles-h">
-    <h2 id="roles-h">Manned or unmanned. <em>Or both.</em></h2>
-    <p class="section-sub">Two logbooks. One app.</p>
+  <section class="say say--dark" aria-labelledby="say-fly">
+    <div class="say-pin">
+      <h2 id="say-fly" class="say-text" data-split>Fly conventional, drones <em>or&nbsp;both.</em></h2>
+      <p class="say-sub">Two logbooks. One app.</p>
+    </div>
+  </section>
+
+  <section class="roles" aria-label="Manned and unmanned logbooks">
     <div class="role-cards">
       <article class="role-card">
         <span class="role-icon" aria-hidden="true">
@@ -74,6 +80,13 @@
       </article>
     </div>
     <p class="role-both"><span>Fly both?</span> Switch logbooks with one tap.</p>
+  </section>
+
+  <section class="say say--dark" aria-labelledby="say-stand">
+    <div class="say-pin">
+      <h2 id="say-stand" class="say-text" data-split>Make your logbook <em>stand&nbsp;out.</em></h2>
+      <p class="say-sub">Every flight, beautifully kept.</p>
+    </div>
   </section>
 
   <section class="cards" id="features" aria-label="Features">
@@ -113,9 +126,16 @@
     </div>
   </section>
 
+  <section class="stats" aria-label="Blades in numbers">
+    <div class="stat"><b data-count="81080">81 080</b><span>airports worldwide</span></div>
+    <div class="stat"><b data-count="246">246</b><span>countries</span></div>
+    <div class="stat"><b data-count="6">6</b><span>logbook layouts</span></div>
+    <div class="stat"><b data-count="0" data-from="20">0</b><span>accounts needed</span></div>
+  </section>
+
   <section class="inapp" id="inside" aria-labelledby="inapp-h">
     <div class="inapp-head">
-      <h2 id="inapp-h">Straight from <em>the app.</em></h2>
+      <h2 id="inapp-h" data-words>Straight from <em>the app.</em></h2>
       <p class="section-sub">Rendered by the app's own code, with a demo pilot and a demo drone operator.</p>
       <div class="mode" role="group" aria-label="Show the logbook for">
         <button type="button" class="mode-btn" data-mode="manned" aria-pressed="true">Manned</button>
@@ -164,7 +184,7 @@
   </section>
 
   <section class="pricing" id="pricing" aria-labelledby="pricing-h">
-    <h2 id="pricing-h">Free to start. <em>No surprises.</em></h2>
+    <h2 id="pricing-h" data-words>Free to start. <em>No surprises.</em></h2>
     <p class="section-sub">No account, no ads. Your logbook stays on your iPhone.</p>
     <div class="plans">
       <div class="plan">
@@ -189,7 +209,7 @@
   </section>
 
   <section class="faq" id="faq" aria-labelledby="faq-h">
-    <h2 id="faq-h">Questions</h2>
+    <h2 id="faq-h" data-words>Questions</h2>
     <div class="faq-list">
       <details>
         <summary>Do I need an account?</summary>
@@ -220,7 +240,7 @@
   </section>
 
   <section class="closer" aria-labelledby="closer-h">
-    <h2 id="closer-h">Your logbook, <em>finally worth opening.</em></h2>
+    <h2 id="closer-h" data-words>Your logbook, <em>finally worth opening.</em></h2>
     <p class="section-sub">Free for your first 20 flights. No account.</p>
     <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
   </section>
@@ -244,5 +264,6 @@
 <script src="js/demo-data.js?v=bf495219" defer></script>
 <script src="js/demo.js?v=32608f2a" defer></script>
 <script src="js/airport.js?v=c1e05d90" defer></script>
+<script src="js/motion.js" defer></script>
 </body>
 </html>

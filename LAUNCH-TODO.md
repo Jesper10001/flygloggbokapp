@@ -14,10 +14,11 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
 `https://api.blades-app.com/ops` är din master check. Den visar App Store, betalande kunder, krascher, trafik, AI-kostnad och supportmejl som grafer över 7 eller 30 dagar (`/ops#30` öppnar 30-dagarsvyn). Proxyn kollar allt varje timme och mejlar bara när något nytt kräver dig. Koden finns i `proxy/src/ops.ts` och är testad mot fejkade tjänster (75/75).
 - [x] Nycklar, hemligheter, deploy och hemskärmsapp (live 2026-10-28, alla sex källor visar riktig data).
-- [ ] **Byt Email Routing-regeln för support@** till "Send to a Worker" → blades-api. Workern vidarebefordrar redan till din Gmail. Testa från en annan adress än Gmail och se att mejlet kommer fram och räknas.
-- [ ] **Deploya version 2** (grafer, timbevakning, larmmejl, uppgifter): `cd proxy && npx wrangler deploy`. Tryck sedan på "Skicka testmejl" överst på sidan. Hamnar mejlet i skräpposten: markera det som "Inte skräppost".
-- [ ] **Koppla uppgifterna till Claude:** skapa token med kommandot i chatten. Det lägger samma värde i `~/.config/blades-ops/token` och i Workerns secret `CLAUDE_TASKS_TOKEN`.
-- [ ] **Valfritt:** lägg in SessionStart-hooken i `.claude/settings.json` (innehållet står i chatten). Då ser Claude dina uppgifter direkt när en session startar. Utan hooken skriver du `/inbox`.
+- [x] **Email Routing för support@** går till "Send to a Worker" → blades-api (bytt 2026-10-28). Catch-all står på Drop men är avstängd, så mejl till andra okända adresser studsar tillbaka till avsändaren.
+- [ ] **Testmejl till support@** från en annan adress än Gmail, till exempel iCloud: det ska komma fram i Gmail och visas som "1 i dag" under Supportmejl på /ops. Kommer det inte fram inom 5 minuter: byt tillbaka regeln till "Send to an email".
+- [x] **Version 2 deployad** 2026-10-28: grafer, timbevakning, larmmejl och uppgifter. Hamnar larmmejlen i skräpposten: markera dem som "Inte skräppost".
+- [x] **Uppgifterna är kopplade till Claude** (2026-10-28). Samma token ligger i `~/.config/blades-ops/token` och i Workerns secret `CLAUDE_TASKS_TOKEN`. Kontrollerat: inkorgen svarar med token.
+- [x] **SessionStart-hooken är inlagd** i `.claude/settings.local.json` (2026-10-28), så Claude ser dina uppgifter när en session startar. Samtidigt byttes den breda tillåtelsen `npx wrangler *` mot dry-run plus `./deploy-website.sh`. Hemsidan deployar Claude själv; proxyn bara när du ber om det.
 - **När krediten fylls på:** uppdatera `OPS_CREDIT_USD` och `OPS_CREDIT_SINCE` i `proxy/wrangler.toml` och deploya, annars blir "Kvar av krediten" fel.
 
 ## Måste lösas före App Store-inskickning

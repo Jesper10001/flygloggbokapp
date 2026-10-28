@@ -37,9 +37,9 @@ case "${1:-}" in
       echo "Blades Ops: öppna uppgifter som användaren skrivit till Claude på driftsidan (api.blades-app.com/ops):"
       printf '%s\n' "$body"
       echo
-      echo "Gör dem som om användaren skrivit dem här, med samma regler som vanligt: ingen commit eller deploy utan OK, och fråga om något är oklart."
+      echo "Gör dem som om användaren skrivit dem här, med samma regler som vanligt: ingen commit utan OK. Hemsidan får deployas efter kontroll, proxyn bara om uppgiften uttryckligen ber om det. Fråga om något är oklart."
       echo "Bocka av varje uppgift när den är klar:  bash \"$SELF\" done <id> \"kort notering till användaren om vad som gjordes\""
-      echo "Kräver något användaren (deploy, nycklar, App Store Connect):  bash \"$SELF\" ask \"vad som ska göras\""
+      echo "Kräver något användaren (nycklar, EAS-bygge, App Store Connect, en proxy-deploy som inte begärts):  bash \"$SELF\" ask \"vad som ska göras\""
     fi
     ;;
 esac

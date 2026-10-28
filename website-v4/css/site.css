@@ -106,14 +106,22 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   width: 100%; max-width: 1280px; margin: 0 auto;
   padding: 120px var(--pad) 80px;
 }
-.hero h1 { color: var(--white); font-size: clamp(44px, 5.8vw, 92px); max-width: 9.5em; }
+.hero h1 {
+  color: var(--white);
+  font-family: var(--sans); font-weight: 800;
+  font-size: clamp(44px, 5.6vw, 92px); line-height: 0.98; letter-spacing: -0.045em;
+  max-width: 8.6em;
+}
+.hero h1 .ht-brand { display: block; margin-bottom: 0.06em; font-size: 1.18em; letter-spacing: -0.055em; }
+.hero h1 em { font-family: var(--serif); font-weight: 500; letter-spacing: -0.025em; }
 .hero-sub { margin-top: 28px; max-width: 24em; color: var(--mist); font-size: clamp(18px, 1.55vw, 23px); line-height: 1.45; }
 .hero-cta { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
 .hero-note { color: var(--mist); font-size: 15px; }
 
 .hero-text > * { animation: arrive 0.9s var(--ease) both; }
-.hero-text > :nth-child(2) { animation-delay: 0.1s; }
-.hero-text > :nth-child(3) { animation-delay: 0.2s; }
+.hero-text > :nth-child(2) { animation-delay: 0.55s; }
+.hero-text > :nth-child(3) { animation-delay: 0.68s; }
+.motion-on .hero-text > h1 { animation: none; }
 .hero-img { animation: fade 1.4s ease both; }
 @keyframes arrive { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: none; } }
@@ -124,9 +132,9 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .roles h2 em, .pricing h2 em { color: var(--cyan-deep); }
 
 /* ---------- Roles: manned and unmanned ---------- */
-.roles { background: var(--light); padding: clamp(96px, 11vw, 150px) var(--pad) 72px; text-align: center; }
+.roles { background: var(--light); padding: clamp(72px, 8vw, 110px) var(--pad) 72px; text-align: center; }
 .role-cards {
-  max-width: 980px; margin: 56px auto 0;
+  max-width: 980px; margin: 0 auto;
   display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
   text-align: left;
 }
@@ -274,7 +282,90 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .js .rv { opacity: 0; transform: translateY(28px); transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); transition-delay: var(--d, 0ms); }
 .js .rv.in { opacity: 1; transform: none; }
 
+/* ================= Motion: scroll progress, statements, word reveals, numbers ================= */
+.progress {
+  position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--cyan), #7be3f5);
+  transform: scaleX(var(--sp, 0)); transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+/* Words, split by js/motion.js. Hidden only once that script has run (html.motion-on). */
+.w { display: inline-block; }
+
+/* The hero title arrives word by word. */
+.motion-on .hero h1 .w { animation: wordIn 0.95s var(--ease) both; animation-delay: calc(0.12s + var(--i) * 70ms); }
+@keyframes wordIn { from { opacity: 0; transform: translateY(0.45em); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* Statements: the words light up one by one while the text stays pinned in the middle of the screen. */
+.say { position: relative; height: 190vh; }
+.say--dark { background: var(--night); color: var(--white); }
+.say-pin {
+  position: sticky; top: 0;
+  height: 100vh; height: 100svh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 0 var(--pad); text-align: center; overflow: hidden;
+}
+.say-pin::before {
+  content: ""; position: absolute; left: 50%; top: 50%; z-index: 0;
+  width: min(1100px, 140vw); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(25, 198, 230, 0.22), rgba(25, 198, 230, 0) 72%);
+  transform: translate(-50%, -50%) scale(calc(0.55 + var(--g, 1) * 0.55));
+  opacity: var(--g, 1);
+  pointer-events: none;
+}
+.say-text {
+  position: relative; z-index: 1;
+  font-family: var(--sans); font-weight: 800;
+  font-size: clamp(46px, 9vw, 152px); line-height: 0.94; letter-spacing: -0.055em;
+  max-width: 10.5ch; text-wrap: balance;
+}
+.say-text em { font-family: var(--serif); font-weight: 500; letter-spacing: -0.03em; color: var(--cyan); }
+.say-sub { position: relative; z-index: 1; margin-top: clamp(22px, 3vw, 36px); color: var(--mist); font-size: clamp(18px, 1.7vw, 24px); }
+.motion-on .say-text .w {
+  --blur: 10px;
+  opacity: calc(0.1 + 0.9 * var(--p, 0));
+  transform: translate3d(0, calc((1 - var(--p, 0)) * 0.35em), 0);
+  filter: blur(calc((1 - var(--p, 0)) * var(--blur)));
+}
+.motion-on .say-text em .w { color: color-mix(in srgb, var(--cyan) calc(var(--p, 0) * 100%), var(--white)); }
+.motion-on .say-sub { opacity: var(--s, 0); transform: translate3d(0, calc((1 - var(--s, 0)) * 16px), 0); }
+
+/* Other headings: the words rise in as the heading comes into view. */
+.motion-on [data-words] .w {
+  opacity: 0; transform: translate3d(0, 0.5em, 0) rotate(2deg); filter: blur(8px);
+  transition: opacity 0.8s var(--ease), transform 0.95s var(--ease), filter 0.8s var(--ease);
+  transition-delay: calc(var(--i) * 75ms);
+}
+.motion-on [data-words].in .w { opacity: 1; transform: none; filter: none; }
+
+/* Numbers */
+.stats {
+  background: var(--light);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;
+  padding: 0 max(var(--pad), calc((100% - 1160px) / 2)) clamp(96px, 11vw, 140px);
+}
+.stat { display: grid; gap: 6px; padding-top: 18px; border-top: 2px solid var(--ink); }
+.stat b { font-family: var(--sans); font-weight: 800; font-size: clamp(40px, 5vw, 76px); line-height: 1; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.stat span { color: var(--muted); font-size: 16px; }
+
+/* Role cards lean towards the pointer (desktop). */
+@media (hover: hover) and (pointer: fine) {
+  .role-card { transform-style: preserve-3d; will-change: transform; }
+  .role-card::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(25, 198, 230, 0.12), transparent 60%);
+    opacity: var(--glow, 0); transition: opacity 0.3s ease;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .say { height: auto; }
+  .say-pin { position: relative; height: auto; padding: clamp(110px, 14vw, 180px) var(--pad); }
+  .motion-on .say-text .w, .motion-on .say-sub, .motion-on [data-words] .w { opacity: 1; transform: none; filter: none; transition: none; color: inherit; }
+  .motion-on .say-text em .w { color: var(--cyan); }
+  .motion-on .hero h1 .w { animation: none; }
+  .progress { display: none; }
   html { scroll-behavior: auto; }
   .hero-text > *, .hero-img { animation: none; }
   .js .rv { opacity: 1; transform: none; transition: none; }
@@ -292,9 +383,12 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   .hero-text { padding: 124px var(--pad) 8px; }
   .hero-img { position: static; height: auto; aspect-ratio: 1 / 1.02; object-position: 70% 50%; }
 
-  .role-cards { grid-template-columns: 1fr; margin-top: 40px; }
+  .role-cards { grid-template-columns: 1fr; }
   .role-both { border-radius: 20px; }
   .marquee { --cw: 82vw; }
+  .say { height: 160vh; }
+  .motion-on .say-text .w { --blur: 0px; }
+  .stats { grid-template-columns: 1fr 1fr; gap: 28px 18px; }
 
   .plans { grid-template-columns: 1fr; }
   .plan { padding: 30px 26px; }
