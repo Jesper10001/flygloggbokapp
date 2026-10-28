@@ -1,6 +1,6 @@
 // Blades API Proxy + Telemetri + Stats-dashboard
 import { callWithModelFallback, refreshModelRouting } from './modelFallback';
-import { handleOps, handleSupportEmail, resolveAeDataset, type OpsEnv } from './ops';
+import { handleOps, handleSupportEmail, resolveAeDataset, runOpsMonitor, OPS_MONITOR_CRON, type OpsEnv } from './ops';
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
 interface Env extends OpsEnv {
@@ -834,8 +834,13 @@ function imageryProviders(rows: AttrRow[], boxes: number[][]): string[] {
 // ── Huvudlogik ─────────────────────────────────────────────────────────────
 
 export default {
-  // Daglig modellkontroll (cron i wrangler.toml): pekar om modeller som försvunnit hos Anthropic i förväg.
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  // Cron (wrangler.toml): Blades Ops-bevakningen varje timme (src/ops.ts) och den dagliga modellkontrollen,
+  // som pekar om modeller som försvunnit hos Anthropic i förväg.
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (event.cron === OPS_MONITOR_CRON) {
+      try { console.log('[ops-monitor]', JSON.stringify(await runOpsMonitor(env))); } catch (e: any) { console.log('[ops-monitor] failed', e?.message); }
+      return;
+    }
     if (!env.ANTHROPIC_API_KEY) return;
     ctx.waitUntil(refreshModelRouting(
       { apiKey: env.ANTHROPIC_API_KEY, kv: env.QUOTA_KV, log: (m) => console.log(m) },

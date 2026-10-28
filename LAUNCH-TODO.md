@@ -12,12 +12,13 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
 ## Blades Ops: driftsidan i telefonen (byggd 2026-10-28)
 
-`https://api.blades-app.com/ops` är en live-översikt med App Store, betalande kunder, krascher, trafik, AI-kostnad och supportmejl. Koden finns i `proxy/src/ops.ts` och är testad mot fejkade tjänster (28/28). Gör stegen i den här ordningen:
-- [ ] Skapa nycklarna med Claude in Chrome-instruktionerna i chatten 2026-10-28: Sentry, RevenueCat, App Store Connect och Cloudflare. Notera också Zone ID och mottagaradressen för support@.
-- [ ] Lägg in hemligheterna och deploya från `proxy`-mappen. Kommandona står i chatten och i `proxy/wrangler.toml`.
-- [ ] Öppna `/ops` i Safari, logga in och välj "Lägg till på hemskärmen". Logga in en gång till i hemskärmsappen.
-- [ ] **Sist:** byt Email Routing-regeln för support@ till "Send to a Worker" → blades-api. Skicka ett testmejl och kontrollera att det kommer fram och syns på sidan.
-- [ ] Säg till Claude vilka kort som visar fel, så justeras de mot de riktiga API:erna.
+`https://api.blades-app.com/ops` är din master check. Den visar App Store, betalande kunder, krascher, trafik, AI-kostnad och supportmejl som grafer över 7 eller 30 dagar (`/ops#30` öppnar 30-dagarsvyn). Proxyn kollar allt varje timme och mejlar bara när något nytt kräver dig. Koden finns i `proxy/src/ops.ts` och är testad mot fejkade tjänster (75/75).
+- [x] Nycklar, hemligheter, deploy och hemskärmsapp (live 2026-10-28, alla sex källor visar riktig data).
+- [ ] **Byt Email Routing-regeln för support@** till "Send to a Worker" → blades-api. Workern vidarebefordrar redan till din Gmail. Testa från en annan adress än Gmail och se att mejlet kommer fram och räknas.
+- [ ] **Deploya version 2** (grafer, timbevakning, larmmejl, uppgifter): `cd proxy && npx wrangler deploy`. Tryck sedan på "Skicka testmejl" överst på sidan. Hamnar mejlet i skräpposten: markera det som "Inte skräppost".
+- [ ] **Koppla uppgifterna till Claude:** skapa token med kommandot i chatten. Det lägger samma värde i `~/.config/blades-ops/token` och i Workerns secret `CLAUDE_TASKS_TOKEN`.
+- [ ] **Valfritt:** lägg in SessionStart-hooken i `.claude/settings.json` (innehållet står i chatten). Då ser Claude dina uppgifter direkt när en session startar. Utan hooken skriver du `/inbox`.
+- **När krediten fylls på:** uppdatera `OPS_CREDIT_USD` och `OPS_CREDIT_SINCE` i `proxy/wrangler.toml` och deploya, annars blir "Kvar av krediten" fel.
 
 ## Måste lösas före App Store-inskickning
 
@@ -163,6 +164,8 @@ Uppdaterad 2026-10-27. Bocka av med `[x]`.
 
 ## Testa i nästa bygge
 
+- [ ] **Loggboken EASA AMC1 FCL.050, summaraderna** (kod rättad 2026-10-28 i `services/logbook/renderSpread.ts`): under FSTD session → "Type" ska Total this page, Brought forward och Total to date vara en hel ruta i bandet, utan hack. Bara rutan under Remarks ska vara öppen. Kolla både en tom bok och en med flygningar, och PDF-exporten.
+  - **Kvar, ej rättat:** i hh:mm-läget klipps fyrsiffriga totaler (t.ex. 1049:00) i smala kolumner som IFR. Sajtens demokopia har en CSS-fix för det; appen inte.
 - [x] **SQLCipher via CommonCrypto** (verifierat på bygge 14 2026-10-28: uppgradering med krypteringen på, all data kvar):
   - Installera ovanpå nuvarande TestFlight-version med **extra kryptering påslagen**, utan att radera appen. Appen ska starta, och alla flygningar ska finnas kvar.
   - Slå av och på krypteringen igen och starta om.

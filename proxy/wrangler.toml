@@ -22,8 +22,14 @@ routes = [
 
 # Daglig modellkontroll 04:17 UTC (src/modelFallback.ts): saknas en modell som appen begär hos Anthropic
 # pekas den om till nästa i familjen innan någon användare märker det.
+# Blades Ops-bevakningen varje timme, minut 7 (OPS_MONITOR_CRON i src/ops.ts — ändra båda ställena ihop).
 [triggers]
-crons = ["17 4 * * *"]
+crons = ["17 4 * * *", "7 * * * *"]
+
+# Larmmejl från bevakningen: ops@blades-app.com → OPS_ALERT_TO, annars SUPPORT_FORWARD_TO.
+# Mottagaren måste vara verifierad i Email Routing. Stäng av med OPS_ALERTS = "off" under [vars].
+[[send_email]]
+name = "ALERT_MAIL"
 
 # Blades Ops — driftsidan https://api.blades-app.com/ops (src/ops.ts). Hemligheter (wrangler secret put …):
 #   OPS_PASSWORD           lösenordet till /ops
@@ -35,6 +41,7 @@ crons = ["17 4 * * *"]
 #   CF_ANALYTICS_TOKEN     Cloudflare-token: Account Analytics Read + Zone Analytics Read (blades-app.com)
 #   CF_ZONE_ID             zon-id för blades-app.com
 #   SUPPORT_FORWARD_TO     dit supportmejlen vidarebefordras (måste vara verifierad i Email Routing)
+#   CLAUDE_TASKS_TOKEN     Claudes nyckel till uppgiftsinkorgen /ops/inbox; samma värde ligger i ~/.config/blades-ops/token
 # Email Routing: support@blades-app.com → "Send to a Worker" → blades-api (först EFTER deploy + SUPPORT_FORWARD_TO).
 
 # Icke-hemlig config → [vars] (så den inte nollas vid deploy).

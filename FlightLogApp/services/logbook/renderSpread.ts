@@ -130,9 +130,11 @@ function spreadBody(opts: RenderSpreadOpts): string {
   const dashAfter = new Set<string>(template.dashed_after ?? []);
 
   const firstNumericIdx = cols.findIndex(isNumericCol);
-  // Endast fri-text-kolumnen (Remarks) lämnas öppen i totals — Sea m.fl. stannar i rutnätet.
+  const lastNumericIdx = cols.map(isNumericCol).lastIndexOf(true);
+  // Endast fri text efter sista talkolumnen (Remarks) lämnas öppen i totals — Sea m.fl. stannar i rutnätet.
+  // En textkolumn mitt bland talen (AMC1:s FSTD "Type") blir en tom ruta i bandet, annars ett hack i summaraden.
   // Guarda mot undefined (en sida kan sakna numeriska kolumner → index-glapp).
-  const isOpenCol = (c?: LogbookColumn) => c?.format === 'text';
+  const isOpenCol = (c?: LogbookColumn) => !!c && c.format === 'text' && cols.indexOf(c) > lastNumericIdx;
 
   // Gruppera intilliggande kolumner med samma group-etikett.
   type Seg = { group?: string; span: number };
