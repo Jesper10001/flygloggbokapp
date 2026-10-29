@@ -5,7 +5,9 @@
 @font-face { font-family: "Chakra Petch"; src: url(../fonts/chakrapetch-semibold.woff2) format("woff2"); font-weight: 600 700; font-display: swap; }
 
 .lfs { position: relative; background: var(--night); color: var(--white); }
-.lfs.lfs-on { height: 560vh; }
+/* One screen pinned, then 460vh of scroll for a flight that runs to the end (--end 1); js/logflight.js sets --end to where
+   the pane on show finishes, so each pane is only as long as its own flight. */
+.lfs.lfs-on { height: calc(100vh + 460vh * var(--end, 1)); }
 .lfs-pin { position: relative; overflow: hidden; min-height: 100vh; min-height: 100svh; }
 .lfs-on .lfs-pin { position: sticky; top: 0; height: 100vh; height: 100svh; }
 /* Two panes side by side: the full log (two phones) and, swiped in from the right, Quicklog + ACARS scan. */
@@ -19,7 +21,7 @@
   position: relative; flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always;
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
   gap: clamp(24px, 4vw, 64px);
-  padding: 90px max(var(--pad), calc((100% - 1240px) / 2)) 30px;
+  padding: 90px max(var(--pad), calc((100% - 1240px) / 2)) 72px;   /* the foot: the switcher (.lfs-nav) */
 }
 
 /* Copy */
@@ -58,26 +60,27 @@
 .lfs-tag b { display: block; font-weight: 700; font-size: 16px; line-height: 1.2; color: var(--white); }
 .lfs-tag em { display: block; margin-top: 2px; font-style: normal; font-size: 13px; color: var(--mist); }
 
-/* "Swipe left for quicklog" (a button too, for a mouse) */
-.lfs-swipe {
-  display: inline-flex; align-items: center; gap: 0; margin-top: 28px; padding: 10px 16px 10px 10px;
-  border: 1px solid rgba(0, 200, 232, 0.45); border-radius: 999px; background: rgba(0, 200, 232, 0.1);
-  font: 600 15px/1 var(--sans); color: var(--white); cursor: pointer;
+/* The three ways to log, one small switcher at the foot of the scene (a swipe moves between them too). The capsule
+   behind the one on show slides along (--x, --w from js/logflight.js). */
+.lfs-nav {
+  position: absolute; left: 50%; bottom: 16px; z-index: 5; transform: translateX(-50%);
+  display: flex; padding: 3px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(8, 16, 30, 0.62);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
 }
-.lfs-swipe:hover { background: rgba(0, 200, 232, 0.18); }
-.lfs-pane .lfs-swipe { margin-top: 22px; }
-.lfs-swipe + .lfs-leg { margin-top: 30px; }
-/* The full log's two ways out: back to Quicklog, on to Scan-log */
-.lfs-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 22px; }
-.lfs-pane .lfs-btns .lfs-swipe { margin-top: 0; }
-.lfs-btns + .lfs-leg { margin-top: 30px; }
-.lfs-swipe svg { width: 18px; height: 18px; fill: none; stroke: #00C8E8; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.lfs-swipe svg + svg { margin-left: -11px; opacity: 0.55; }
-.lfs-swipe span { margin-left: 8px; }
-.lfs-swipe:not(.lfs-back) svg { animation: nudge 1.6s ease-in-out infinite; }
-@keyframes nudge { 0%, 55%, 100% { transform: none; } 25% { transform: translateX(-5px); } }
-.lfs-back { padding: 9px 16px 9px 12px; border-color: rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.06); font-size: 14px; color: var(--mist); }
-.lfs-back svg { stroke: var(--mist); transform: rotate(180deg); }
+.lfs-nav[hidden] { display: none; }
+.lfs-nav::before {
+  content: ""; position: absolute; left: 0; top: 3px; bottom: 3px; width: var(--w, 0); transform: translateX(var(--x, 0));
+  border-radius: 999px; background: rgba(0, 200, 232, 0.14); box-shadow: inset 0 0 0 1px rgba(0, 200, 232, 0.42);
+  transition: transform 0.4s var(--ease), width 0.4s var(--ease);
+}
+.lfs-nav button {
+  position: relative; padding: 8px 15px; border: 0; border-radius: 999px; background: none;
+  font: 600 13px/1 var(--sans); letter-spacing: 0.01em; white-space: nowrap; color: var(--mist); cursor: pointer; transition: color 0.25s ease;
+}
+.lfs-nav button:hover, .lfs-nav button[aria-current="true"] { color: var(--white); }
+.lfs-nav button:focus-visible { outline: 2px solid #00C8E8; outline-offset: 1px; }
+.lfs-copy h2 + .lfs-leg { margin-top: 30px; }
 
 /* Quicklog pane: the steps beside the phone */
 /* The stopwatch: from the tap on Log flight to Save (js/logflight.js runs it with the scroll) */
@@ -103,7 +106,7 @@
 /* A computer with a low screen (a laptop at 720–940 px): the steps beside the Quicklog phone close up, and only the
    step being shown keeps its line of explanation, so the whole list fits beside the phone. */
 @media (min-width: 821px) and (max-height: 940px) {
-  .lfs-pane { padding-top: 84px; padding-bottom: 20px; }
+  .lfs-pane { padding-top: 84px; padding-bottom: 64px; }
   .lfs-pane-b .lfs-copy { align-self: start; }
   .lfb-clock { margin-top: 22px; }
   .lfb-clock b { font-size: clamp(48px, 4.6vw, 64px); }
@@ -113,6 +116,21 @@
   .lfb-steps li::after { top: 24px; bottom: -8px; }
   .lfb-steps b { font-size: 17px; }
   .lfs-on .lfs-pane-b .lfb-steps li:not(.cur) span { display: none; }
+}
+/* A phone on its side, or a very low window: the step being done stays, the rest of the list goes */
+@media (min-width: 821px) and (max-height: 560px) {
+  .lfs-pane { padding-top: 84px; padding-bottom: 52px; }
+  .lfs-copy h2 { font-size: clamp(26px, 3.2vw, 36px); }
+  .lfb-clock { margin-top: 12px; }
+  .lfb-clock b { font-size: 40px; }
+  .lfb-clock span { font-size: 22px; }
+  .lfs-on .lfs-pane-b .lfb-steps li:not(.cur) { display: none; }
+  .lfs-on .lfs-pane-b .lfb-steps li::after { display: none; }
+  /* The phones are small here: each caption is just its full-screen button (the words stay for screen readers) */
+  .lfs-tag { width: auto; padding: 2px; }
+  .lfs-tag b, .lfs-tag em { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .fv-ready .lfs-open { margin-top: 2px; padding: 7px; gap: 0; font-size: 0; }
+  .lfs-open svg { width: 14px; height: 14px; }
 }
 @media (min-width: 821px) {
   .lfs-pane-b { grid-template-columns: minmax(0, 440px) auto; justify-content: center; column-gap: clamp(48px, 9vw, 150px); }
@@ -547,78 +565,6 @@
 .qtl.sel .qc-st { display: none; }
 .ql-more { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px dashed var(--bd); font-size: 12.5px; font-weight: 600; color: var(--mut); }
 .lf-quick .save { margin-top: 12px; }
-
-
-
-/* ---------- Pilot logbook, List mode (components/logbook-page/ListView, FlightCardRow) ---------- */
-.lbp .lb-chips { flex-wrap: nowrap; overflow: hidden; }
-.lbp .lb-chips span { flex: none; }
-.lbm { margin: 0 14px 10px; border-radius: 14px; border: 1px solid var(--bd); background: var(--card); overflow: hidden; }
-.lbm-h { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--sep); }
-.lbm-h .ic { color: var(--acc); font-size: 15px; }
-.lbm-h b { font: 600 16px Fraunces, Georgia, serif; }
-.lbm-h i { flex: 1; }
-.lbm-h em { font: 700 10px "JetBrains Mono", monospace; font-style: normal; color: var(--acc); }
-.lbm-h span { margin-left: -8px; font: 10px "JetBrains Mono", monospace; color: var(--mut); }
-.fr { position: relative; display: flex; align-items: center; gap: 13px; padding: 12px 14px; border-top: 1px solid var(--sep); transition: background-color 0.25s ease; }
-.fr.sel { background: rgba(0, 200, 232, 0.08); }
-.fr-d { width: 34px; flex: none; display: grid; justify-items: center; }
-.fr-d b { font: 600 20px/22px Fraunces, Georgia, serif; }
-.fr-d em { margin-top: 2px; font: 700 8px "JetBrains Mono", monospace; font-style: normal; letter-spacing: 0.7px; color: var(--mut); }
-.fr-m { flex: 1; min-width: 0; display: grid; }
-.fr-r { display: flex; align-items: center; gap: 7px; }
-.fr-r > b { font: 700 14px "JetBrains Mono", monospace; letter-spacing: 0.3px; }
-.fr-b { display: inline-flex; align-items: center; padding: 2px 5px; border-radius: 4px; background: #00C8E81F; border: 1px solid #00C8E855; font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: 0.7px; color: var(--acc); }
-.fr-b.n { background: #5DA9FF1F; border-color: #5DA9FF55; color: #5DA9FF; }
-.fr-b .ic { font-size: 9px; }
-.fr-s { margin-top: 3px; font: 10px "JetBrains Mono", monospace; color: var(--mut); white-space: nowrap; }
-.fr-s b { color: var(--t2); }
-.fr-t { display: grid; justify-items: end; }
-.fr-t b { font: 700 14px "JetBrains Mono", monospace; }
-.fr-t em { margin-top: 2px; font: 9px "JetBrains Mono", monospace; font-style: normal; color: var(--mut); }
-.fr > .ic { color: var(--mut); font-size: 15px; }
-
-/* ---------- Flight detail (app/flight/detail/[id].tsx): a sheet over the logbook ---------- */
-.lf-modal.fd { z-index: 4; }
-.lf-modal.fd::before { background: var(--bg); }
-.fd-h { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 16px 10px; border-bottom: 1px solid var(--sep); }
-.fd-back { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--card); border: 1px solid var(--bd); font-size: 18px; }
-.fd-ti { flex: 1; min-width: 0; display: grid; }
-.fd-tl { display: flex; align-items: center; gap: 6px; }
-.fd-tl > b { font: 600 22px Fraunces, Georgia, serif; white-space: nowrap; }
-.fd-tl .fr-b { padding: 2px 6px; border-radius: 5px; }
-.fd-ti > em { margin-top: 2px; font: 9.5px "JetBrains Mono", monospace; font-style: normal; letter-spacing: 0.4px; color: var(--mut); }
-.fd-tot { display: grid; justify-items: end; }
-.fd-tot b { font: 700 18px "JetBrains Mono", monospace; color: var(--acc); }
-.fd-tot em { font: 8px "JetBrains Mono", monospace; font-style: normal; letter-spacing: 1px; color: var(--mut); }
-.fd-s { gap: 0; padding: 14px 16px 60px; }
-.fd-c { margin-bottom: 12px; border-radius: 14px; border: 1px solid var(--bd); background: var(--card); overflow: hidden; }
-.fd-t { display: block; padding: 9px 14px 4px; font: 700 9px "JetBrains Mono", monospace; letter-spacing: 1.4px; text-transform: uppercase; color: var(--acc); }
-.fd-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--sep); }
-.fd-r span { flex: none; font-size: 13px; color: var(--t2); }
-.fd-r b { min-width: 0; text-align: right; font: 700 13px "JetBrains Mono", monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fd-rm { margin: 0; padding: 4px 14px 12px; font: 13px/19px "JetBrains Mono", monospace; color: var(--mut); }
-.sr { margin-bottom: 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--bd); background: var(--card); display: grid; gap: 10px; }
-.sr-h { display: flex; align-items: center; gap: 8px; }
-.sr-h .ic { color: var(--gold); font-size: 16px; }
-.sr-h b { flex: 1; font-size: 14px; font-weight: 700; }
-.sr-h .ic.up { color: var(--t2); }
-.sr-map { width: 100%; height: auto; border-radius: 10px; display: block; }
-.sr-s { display: flex; align-items: center; gap: 8px; }
-.sr-p { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--gold); background: #FFB83018; color: var(--gold); font-size: 12px; }
-.sr-s em { font: 700 10px "JetBrains Mono", monospace; font-style: normal; color: var(--t2); }
-.sr-t { position: relative; flex: 1; height: 6px; display: flex; border-radius: 3px; overflow: visible; }
-.sr-t i { height: 100%; } .sr-t i:first-child { border-radius: 3px 0 0 3px; } .sr-t i:nth-child(2) { border-radius: 0 3px 3px 0; }
-.sr-t b { position: absolute; right: -7px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; }
-.sr-st { display: flex; align-items: center; justify-content: space-between; }
-.sr-st b { font: 700 13px "JetBrains Mono", monospace; }
-.sr-st span { display: flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid #7FC4FF; background: #7FC4FF22; font: 800 10px "JetBrains Mono", monospace; color: #7FC4FF; }
-.sr-st span i { width: 7px; height: 7px; border-radius: 50%; background: #7FC4FF; }
-.sr-l { display: flex; gap: 16px; }
-.sr-l span { display: flex; align-items: center; gap: 5px; font: 700 9px "JetBrains Mono", monospace; color: var(--mut); }
-.sr-l i { width: 9px; height: 3px; }
-.fd-ed { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 0; border-radius: 13px; border: 1px solid var(--acc); background: #00C8E818; font-size: 14px; font-weight: 700; color: var(--acc); }
-.fd-ed .ic { font-size: 16px; }
 .tb-i { position: relative; }
 
 /* ---------- Full screen: one phone straight on, the steps beside it (js/logflight.js) ---------- */
@@ -678,16 +624,13 @@ html.fv-open { overflow: hidden; }
 @keyframes caret { 50% { opacity: 0; } }
 
 @media (max-width: 820px) {
-  .lfs.lfs-on { height: 520vh; }
-  .lfs-pane { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; justify-items: center; gap: 0; padding: 76px 6px 8px; }
+  .lfs.lfs-on { height: calc(100vh + 420vh * var(--end, 1)); }
+  .lfs-pane { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; justify-items: center; gap: 0; padding: 76px 6px 60px; }
   .lfs-copy { align-self: start; padding: 0 10px; max-width: none; justify-self: stretch; }
   .lfs-copy h2 { font-size: min(30px, 7.6vw); white-space: nowrap; }
   .lfs-leg { display: none; }
-  .lfs-swipe, .lfs-pane .lfs-swipe { margin-top: 12px; padding: 7px 13px 7px 8px; font-size: 13.5px; }
-  .lfs-btns { margin-top: 12px; gap: 8px; }
   .lfs-pane-c h2 { white-space: normal; }
   .lfs-pane-c h2 em { display: block; }   /* "Log from the cockpit," over "no hassle." */
-  .lfs-swipe svg { width: 15px; height: 15px; }
   .lfs-stage { align-self: start; margin-top: 6px; }
   .lfs-tag { width: 140px; padding: 4px; } .lfs-tag b { font-size: 13px; } .lfs-tag em { font-size: 11px; }
   .fv-ready .lfs-open { margin-top: 6px; padding: 4px 9px 4px 8px; font-size: 11px; gap: 4px; }
@@ -718,10 +661,18 @@ html.fv-open { overflow: hidden; }
   .lfb-steps i { display: block; margin-bottom: 8px; font: 700 12px/1 var(--sans); font-style: normal; letter-spacing: 0.08em; color: #00C8E8; }
   .lfb-steps b { font-size: 19px; }
   .lfb-steps span { margin-top: 6px; font-size: 14.5px; }
-  .lfs-pane-b .lfs-swipe { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin: 12px 0 0 10px; }
   .lfs-stage-b { grid-column: 2; grid-row: 3; margin-top: 6px; }
 }
 .lfs:not(.lfs-on) .tap { display: none; }
+/* Full screen in a phone on its side, or a very low window: the title and the step being done, beside a phone the
+   height of the window */
+@media (min-width: 821px) and (max-height: 560px) {
+  .fv-copy h3 { font-size: 24px; }
+  .fv-copy .lfb-steps { margin-top: 12px; }
+  .fv-copy .lfb-steps li:not(.cur) { display: none; }
+  .fv-copy .lfb-steps li::after { display: none; }
+  .fv-hint { margin-top: 12px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .lfs.lfs-on { height: auto; }
   .lfs-on .lfs-pin { position: relative; height: auto; }

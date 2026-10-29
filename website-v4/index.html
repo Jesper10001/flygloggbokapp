@@ -10,10 +10,10 @@
 <link rel="icon" href="img/blades-mark-128.png" type="image/png">
 <link rel="preload" href="fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/site.css?v=8dd614e1">
+<link rel="stylesheet" href="css/site.css?v=0ae2574c">
 <link rel="stylesheet" href="css/demo.css?v=b76b28a9">
-<link rel="stylesheet" href="css/logflight.css?v=68707767">
-<link rel="stylesheet" href="css/more.css?v=b739e60a">
+<link rel="stylesheet" href="css/logflight.css?v=59f0f52c">
+<link rel="stylesheet" href="css/more.css?v=cb005ae1">
 <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
@@ -27,9 +27,10 @@
     <div class="nav-links">
       <details class="nav-dd"><summary>The app<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="#log"><b>Log a flight</b><span>Quicklog in ten seconds, or the full log</span></a><a href="#logbook"><b>Your logbook</b><span>Page for page, as in a paper logbook</span></a><a href="#who"><b>Who it's for</b><span>Student, airline, helicopter and drone</span></a><a href="#inside"><b>Discover Blades functions</b><span>Fleet cards, the global map and more</span></a><a href="#pricing"><b>Pricing</b><span>Free to start, Premium for unlimited</span></a><a href="support.html#frequently-asked-questions"><b>Questions</b><span>Answers before you download</span></a></div></details>
       <details class="nav-dd"><summary>Guides<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="easa-pilot-logbook.html"><b>EASA pilot logbook</b><span>Layouts, columns and currency</span></a><a href="drone-logbook.html"><b>Drone logbook</b><span>Categories, line of sight and roles</span></a><a href="night-time.html"><b>How to log night time</b><span>EASA and FAA rules, explained</span></a></div></details>
+      <details class="nav-dd"><summary>Socials<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="https://www.instagram.com/bladeslogbook/" rel="noopener"><b><svg class="ig" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle class="ig-dot" cx="17.3" cy="6.7" r="1.2"/></svg>Instagram</b><span>@bladeslogbook</span></a></div></details>
       <a href="support.html">Support</a>
     </div>
-    <a class="btn btn-sm" href="https://apps.apple.com/app/id6798360464">Download</a>
+    <a class="btn btn-sm btn-soon" data-store="https://apps.apple.com/app/id6798360464" data-text="Download">Soon on App Store</a>
   </nav>
   <div class="nav-menu" id="nav-menu" hidden>
     <nav class="nm-group" aria-labelledby="nm-h-app">
@@ -51,8 +52,14 @@
         <li style="--i:8"><a href="night-time.html"><span class="nm-t">How to log night time</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
       </ul>
     </nav>
-    <div class="nm-foot" style="--i:9">
-      <a class="btn nm-dl" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+    <nav class="nm-group" aria-labelledby="nm-h-socials">
+      <p class="nm-h" id="nm-h-socials">Socials</p>
+      <ul class="nm-main">
+        <li style="--i:9"><a href="https://www.instagram.com/bladeslogbook/" rel="noopener"><span class="nm-t">Instagram</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a></li>
+      </ul>
+    </nav>
+    <div class="nm-foot" style="--i:10">
+      <a class="btn nm-dl btn-soon" data-store="https://apps.apple.com/app/id6798360464" data-text="Download on the App Store">Soon on App Store</a>
       <nav class="nm-legal" aria-label="Help and legal"><a href="support.html">Support</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
       <a class="nm-mail" href="mailto:support@blades-app.com">support@blades-app.com</a>
     </div>
@@ -65,11 +72,8 @@
     <div class="hero-text">
       <h1 data-split><span class="ht-brand">Blades</span> The digital logbook <em>tailored for you.</em></h1>
       <p class="hero-sub">The pilot and drone logbook for iPhone. Fast to log, easy to copy into your paper book.</p>
-      <div class="hero-cta">
-        <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
-      </div>
     </div>
-    <img class="hero-img" src="img/hero-phones.webp" srcset="img/hero-phones-sm.webp 760w, img/hero-phones.webp 1300w" sizes="(min-width: 821px) 48vw, 92vw" width="1300" height="1905" fetchpriority="high" alt="Two iPhones with BLADES: the dashboard with the latest flight, and the logbook with its activity calendar.">
+    <img class="hero-img" src="img/hero-phones.webp" srcset="img/hero-phones-sm.webp 760w, img/hero-phones.webp 1300w" sizes="(min-width: 821px) 48vw, min(92vw, 500px)" width="1300" height="1905" fetchpriority="high" alt="Two iPhones with BLADES: the dashboard with the latest flight, and the logbook with its activity calendar.">
   </section>
 
   <section class="say say--dark" aria-labelledby="say-fly">
@@ -85,8 +89,7 @@
         <div class="lfs-pane lfs-pane-b" id="lfs-b" aria-labelledby="lfs-hb">
           <div class="lfs-copy">
             <h2 id="lfs-hb">Log a flight. <em>In 10 seconds.</em></h2>
-            <button class="lfs-swipe" type="button" data-go="1" aria-controls="lfs-a"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Swipe for full log</span></button>
-            <div class="lfb-side"><p class="lfb-clock" data-clock="0.035,0.42,7.2"><b>7.2</b><span>s</span><em>From tap to saved</em></p><ol class="lfb-steps"><li data-cur="0,0.05"><i>1/7</i><b>Tap Log flight</b><span>Right on the dashboard.</span></li><li data-cur="0.05,0.14"><i>2/7</i><b>Reverse latest flight</b><span>KJFK → ESSA turned round: route, aircraft and Anna Berg filled in.</span></li><li data-cur="0.14,0.24"><i>3/7</i><b>Block times</b><span>Total, distance and 7:33 of night follow by themselves.</span></li><li data-cur="0.24,0.37"><i>4/7</i><b>Nothing more to type</b><span>A359 SE-RSA, PIC, multi pilot, IFR: all from the last flight.</span></li><li data-cur="0.37,0.44"><i>5/7</i><b>Save</b><span>Night take-off, night landing: already counted.</span></li><li data-cur="0.44,0.6"><i>6/7</i><b>Dashboard</b><span>Totals and workload update at once.</span></li><li data-cur="0.6,1.8"><i>7/7</i><b>Flight detail</b><span>Tap the latest flight: everything that was saved, at a glance.</span></li></ol></div>
+            <div class="lfb-side"><p class="lfb-clock" data-clock="0.035,0.42,7.2"><b>7.2</b><span>s</span><em>From tap to saved</em></p><ol class="lfb-steps"><li data-cur="0,0.05"><i>1/6</i><b>Tap Log flight</b><span>Right on the dashboard.</span></li><li data-cur="0.05,0.14"><i>2/6</i><b>Reverse latest flight</b><span>KJFK → ESSA turned round: route, aircraft and Anna Berg filled in.</span></li><li data-cur="0.14,0.24"><i>3/6</i><b>Block times</b><span>Total, distance and 7:33 of night follow by themselves.</span></li><li data-cur="0.24,0.37"><i>4/6</i><b>Nothing more to type</b><span>A359 SE-BLD, PIC, multi pilot, IFR: all from the last flight.</span></li><li data-cur="0.37,0.44"><i>5/6</i><b>Save</b><span>Night take-off, night landing: already counted.</span></li><li data-cur="0.44,1.8"><i>6/6</i><b>Dashboard</b><span>Totals and workload update at once.</span></li></ol></div>
           </div>
           <div class="lfs-stage lfs-stage-b">
             <div class="lfs-k lfs-kb">
@@ -119,14 +122,14 @@
    <div class="db-lf-r"><b>KJFK</b><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg><b>ESSA</b><span class="db-lf-t"><b>7:40</b><em>FLIGHT TIME</em></span></div>
    <div class="db-lf-n"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>79% night</div>
    <div class="db-lf-a">John F Kennedy Intl Airport → Stockholm-Arlanda Airport</div>
-   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-RSA</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>22:05z</b></span><span><em>Arr</em><b>05:45z</b></span></div>
+   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-BLD</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>22:05z</b></span><span><em>Arr</em><b>05:45z</b></span></div>
   </div>
-  <div class="db-lf" data-on="0.09,2" data-sel="0.615"><i class="tap" data-win="0.6,0.64"></i>
+  <div class="db-lf" data-on="0.09,2">
    <div class="db-lf-h"><span>LATEST FLIGHT</span><b class="db-lf-m">Add media</b><i></i><em>28 Oct 26</em></div>
    <div class="db-lf-r"><b>ESSA</b><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg><b>KJFK</b><span class="db-lf-t"><b>8:35</b><em>FLIGHT TIME</em></span></div>
    <div class="db-lf-n"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>88% night · dark 17:20z</div>
    <div class="db-lf-a">Stockholm-Arlanda Airport → John F Kennedy Intl Airport</div>
-   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-RSA</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
+   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-BLD</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
   </div>
   <div class="db-dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
   <div class="db-log"><span class="db-sq"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3"/></svg></span>
@@ -161,7 +164,7 @@
   </div>
   <div class="tg blk ql-rules" data-scroll="0.24,0.26"><span data-unsel="0.095" style="--on:#00E8A0" class="sel">VFR</span><span data-sel="0.095" style="--on:#00C8E8">IFR</span></div>
   <div class="lfcard">
-   <div class="row2 pk2"><div class="fld" style="flex:1.1"><span class="fl">Aircraft type</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.095">C172</b><b data-on="0.095,2">A359</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div><div class="fld"><span class="fl">Registration</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.095">SE-KXY</b><b data-on="0.095,2">SE-RSA</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div></div>
+   <div class="row2 pk2"><div class="fld" style="flex:1.1"><span class="fl">Aircraft type</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.095">C172</b><b data-on="0.095,2">A359</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div><div class="fld"><span class="fl">Registration</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.095">SE-KXY</b><b data-on="0.095,2">SE-BLD</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div></div>
    <span class="fl">Your role</span>
    <div class="role"><div class="role-g"><span data-sel="0.095">PIC</span><span>SIC</span><span>DUAL</span><span>FI</span><span class="wide">OTHER</span></div>
     <div class="sw"><span class="on">Pilot<br>flying</span><div class="sw-t"><i></i></div><span>Pilot<br>monitoring</span></div>
@@ -180,26 +183,6 @@
   <div class="ql-more"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>Conditions · approach · notes · media — open Full</div>
   <div class="save" data-sel="0.42"><i class="tap" data-win="0.405,0.43"></i><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span>Save</span></div>
  </div></div>
-</div><div class="lf-modal fd" data-present="0.635,0.67" data-dismiss="2,2.1">
- <div class="fd-h"><span class="fd-back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span>
-  <span class="fd-ti"><span class="fd-tl"><b>ESSA → KJFK</b><span class="fr-b">IFR</span><span class="fr-b n">NGT</span></span><em>Wed, 28 Oct 2026</em></span>
-  <span class="fd-tot"><b>8:35</b><em>TOTAL</em></span></div>
- <div class="lf-view"><div class="lf-scr fd-s">
-  <div class="fd-c"><span class="fd-t">Aircraft</span><div class="fd-r"><span>Type</span><b>A359</b></div><div class="fd-r"><span>Registration</span><b>SE-RSA</b></div><div class="fd-r"><span>Engine</span><b>Multi-engine</b></div><div class="fd-r"><span>Operation</span><b>Multi-pilot</b></div></div>
-  <div class="fd-c"><span class="fd-t">Departure</span><div class="fd-r"><span>Place</span><b>ESSA · Stockholm-Arlanda Airport</b></div><div class="fd-r"><span>Time (UTC)</span><b>16:30z</b></div></div>
-  <div class="fd-c"><span class="fd-t">Arrival</span><div class="fd-r"><span>Place</span><b>KJFK · John F Kennedy Intl Airport</b></div><div class="fd-r"><span>Time (UTC)</span><b>01:05z</b></div></div>
-  <div class="fd-c" data-scroll="0.77,0.8"><span class="fd-t">Pilot function time</span><div class="fd-r"><span>PIC</span><b>8:35</b></div></div>
-  <div class="fd-c"><span class="fd-t">Operational condition</span><div class="fd-r"><span>IFR</span><b>8:35</b></div><div class="fd-r"><span>Night</span><b>7:33</b></div></div>
-  <div class="fd-c"><span class="fd-t">Landings</span><div class="fd-r"><span>Night</span><b>1</b></div></div>
-  <div class="fd-c"><span class="fd-t">Remarks</span><p class="fd-rm">SIC: Anna Berg</p></div>
-  <div class="sr" data-scroll="0.85,0.88"><div class="sr-h"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><b>Sun &amp; route</b><svg class="ic up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></div>
-  <svg class="sr-map" viewBox="58 0 963 680" aria-hidden="true"><image href="img/dn-day.jpg" width="1100" height="680"/><rect width="1100" height="680" fill="#060B16" fill-opacity=".35"/><path d="M999.2 246.8 L986.4 241.1 L973.3 235.5 L960.0 230.2 L946.5 225.1 L932.9 220.3 L919.0 215.7 L904.9 211.3 L890.6 207.3 L876.2 203.5 L861.6 200.1" fill="none" stroke="#F2914A" stroke-width="8" stroke-linecap="round"/><path d="M861.6 200.1 L846.9 197.0 L832.0 194.1 L817.0 191.7 L801.9 189.5 L786.7 187.7 L771.4 186.3 L756.1 185.2 L740.7 184.5 L725.3 184.2 L709.9 184.2 L694.5 184.6 L679.2 185.4 L663.8 186.5 L648.6 188.0 L633.4 189.9 L618.3 192.0 L603.3 194.6 L588.5 197.4 L573.8 200.6 L559.2 204.1 L544.8 207.9 L530.6 212.0 L516.5 216.4 L502.7 221.0 L489.0 225.9 L475.6 231.1 L462.3 236.4 L449.3 242.0 L436.5 247.8 L424.0 253.8 L411.6 259.9 L399.5 266.2 L387.6 272.7 L375.9 279.3 L364.5 286.0 L353.3 292.9 L342.3 299.9 L331.6 307.0 L321.0 314.1 L310.7 321.4 L300.6 328.7 L290.7 336.1 L281.0 343.5 L271.5 351.0 L262.3 358.6 L253.2 366.2 L244.3 373.8 L235.6 381.4 L227.0 389.1 L218.7 396.8 L210.5 404.5 L202.5 412.2 L194.6 419.9 L186.9 427.6 L179.4 435.3 L172.0 443.0 L164.8 450.7 L157.7 458.4 L150.7 466.0 L143.9 473.7 L137.2 481.3 L130.6 488.9 L124.2 496.6 L117.9 504.1 L111.7 511.7 L105.6 519.2 L99.6 526.7 L93.7 534.2 L87.9 541.7 L82.2 549.1" fill="none" stroke="#7FC4FF" stroke-width="8" stroke-linecap="round"/><rect x="65.2" y="532.1" width="34" height="34" rx="5" transform="rotate(45 82.2 549.1)" fill="#3FE0FF" stroke="#06101F" stroke-width="4"/><g font-family="Menlo, monospace" font-size="28" font-weight="700" fill="#fff"><rect x="943.2" y="176.8" width="112" height="44" rx="12" fill="#0F1626" fill-opacity=".9"/><text x="999.2" y="208.8" text-anchor="middle">ESSA</text><rect x="66.2" y="589.1" width="112" height="44" rx="12" fill="#0F1626" fill-opacity=".9"/><text x="122.2" y="621.1" text-anchor="middle">KJFK</text></g></svg>
-  <div class="sr-s"><span class="sr-p"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M8 5.5v13l10-6.5z"/></svg></span><em>16:30</em><span class="sr-t"><i style="width:12%;background:#F2914A"></i><i style="width:88%;background:#7FC4FF"></i><b></b></span><em>01:05</em></div>
-  <div class="sr-st"><b>01:05 UTC</b><span><i></i>Night</span></div>
-  <div class="sr-l"><span><i style="background:#F5C84B"></i>Day</span><span><i style="background:#F2914A"></i>Dusk</span><span><i style="background:#7FC4FF"></i>Night</span><span><i style="background:#F291C8"></i>Dawn</span></div>
- </div>
-  <span class="fd-ed"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Open full editor</span>
- </div></div>
 </div></div>
               </div>
             </div>
@@ -208,10 +191,6 @@
         <div class="lfs-pane lfs-pane-a" id="lfs-a" aria-labelledby="lfs-h">
           <div class="lfs-copy">
             <h2 id="lfs-h">In the air. <em>Or on the ground.</em></h2>
-            <div class="lfs-btns">
-              <button class="lfs-swipe lfs-back" type="button" data-go="0" aria-controls="lfs-b"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span>Back to Quicklog</span></button>
-              <button class="lfs-swipe lfs-next" type="button" data-go="2" aria-controls="lfs-c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>Swipe for Scan-log</span></button>
-            </div>
             <p class="lfs-leg"><b>Manned</b> Stockholm → New York, IFR at night.</p>
             <p class="lfs-leg"><b>Unmanned</b> Power line inspection, VLOS and BVLOS.</p>
           </div>
@@ -246,7 +225,7 @@
    <div class="db-lf-r"><b>ESSA</b><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg><b>KJFK</b><span class="db-lf-t"><b>8:35</b><em>FLIGHT TIME</em></span></div>
    <div class="db-lf-n"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>88% night · dark 17:20z</div>
    <div class="db-lf-a">Stockholm-Arlanda Airport → John F Kennedy Intl Airport</div>
-   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-RSA</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
+   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-BLD</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
   </div>
   <div class="db-dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
   <div class="db-log"><span class="db-sq"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3"/></svg></span>
@@ -289,9 +268,9 @@
   <div class="lfcard" data-scroll="0.43,0.47">
    <div class="row2 pk2">
     <div class="fld" style="flex:1.1"><span class="fl">Aircraft type</span><div class="pick" data-win="0.47,0.5"><i class="tap" data-win="0.466,0.482"></i><span class="pv"><b class="ph" data-on="0,0.5">C172</b><b data-on="0.5,2">A359</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div>
-    <div class="fld"><span class="fl">Registration</span><div class="pick" data-win="0.507,0.532"><i class="tap" data-win="0.503,0.517"></i><span class="pv"><b class="ph" data-on="0,0.5">SE-KXY</b><b data-on="0.5,0.532">SE-RSC</b><b data-on="0.532,2">SE-RSA</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div>
+    <div class="fld"><span class="fl">Registration</span><div class="pick" data-win="0.507,0.532"><i class="tap" data-win="0.503,0.517"></i><span class="pv"><b class="ph" data-on="0,0.5">SE-KXY</b><b data-on="0.5,0.532">SE-BLF</b><b data-on="0.532,2">SE-BLD</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div>
     <div class="dd dd-t" data-win="0.47,0.5" style="--rows:4"><span class="ddc" data-sel="0.49"><i class="tap" data-win="0.484,0.5"></i>A359</span><span class="ddc">A333</span><span class="ddc">A321</span><span class="ddc">A320</span></div>
-    <div class="dd dd-r" data-win="0.507,0.532" style="--cols:4"><span class="ddc" data-sel="0.522"><i class="tap" data-win="0.516,0.532"></i>SE-RSA</span><span class="ddc">SE-RSB</span><span class="ddc sel" data-unsel="0.522">SE-RSC</span><span class="ddc">SE-RSD</span></div>
+    <div class="dd dd-r" data-win="0.507,0.532" style="--cols:4"><span class="ddc" data-sel="0.522"><i class="tap" data-win="0.516,0.532"></i>SE-BLD</span><span class="ddc">SE-BLE</span><span class="ddc sel" data-unsel="0.522">SE-BLF</span><span class="ddc">SE-BLG</span></div>
    </div>
    <span class="fl">Your role</span>
    <div class="role"><div class="role-g"><span data-sel="0.54">PIC</span><span>SIC</span><span>DUAL</span><span>FI</span><span class="wide">OTHER</span></div>
@@ -385,7 +364,6 @@
         <div class="lfs-pane lfs-pane-b lfs-pane-c" id="lfs-c" aria-labelledby="lfs-hc">
           <div class="lfs-copy">
             <h2 id="lfs-hc">Log from the cockpit, <em>no hassle.</em></h2>
-            <button class="lfs-swipe lfs-back" type="button" data-go="1" aria-controls="lfs-a"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg><span>Back to full log</span></button>
             <div class="lfb-side"><p class="lfb-clock" data-clock="0.03,0.67,5.8"><b>5.8</b><span>s</span><em>From tap to saved</em></p><ol class="lfb-steps"><li data-cur="0,0.09"><i>1/6</i><b>Tap scan</b><span>On the dashboard, next to Log flight.</span></li><li data-cur="0.09,0.175"><i>2/6</i><b>Camera</b><span>ACARS or instruments, in the moment.</span></li><li data-cur="0.175,0.39"><i>3/6</i><b>Photograph it</b><span>The AOC FLT LOG, straight off the MCDU.</span></li><li data-cur="0.39,0.585"><i>4/6</i><b>Read by AI</b><span>Route, block times, aircraft and flight number.</span></li><li data-cur="0.585,0.675"><i>5/6</i><b>Apply and save</b><span>IFR and Anna Berg, a tap each. Night is worked out: 7:18.</span></li><li data-cur="0.675,2"><i>6/6</i><b>Logged</b><span>5.8 seconds, from tap to saved.</span></li></ol></div>
           </div>
           <div class="lfs-stage lfs-stage-b">
@@ -419,7 +397,7 @@
    <div class="db-lf-r"><b>ESSA</b><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg><b>KJFK</b><span class="db-lf-t"><b>8:35</b><em>FLIGHT TIME</em></span></div>
    <div class="db-lf-n"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>88% night · dark 17:20z</div>
    <div class="db-lf-a">Stockholm-Arlanda Airport → John F Kennedy Intl Airport</div>
-   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-RSA</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
+   <div class="db-lf-s"><span><em>Role</em><b class="cy">PIC</b></span><span><em>Aircraft</em><b>SE-BLD</b></span><span><em>Rules</em><b>IFR</b></span><span><em>Dep</em><b>16:30z</b></span><span><em>Arr</em><b>01:05z</b></span></div>
   </div>
   <div class="db-dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
   <div class="db-log"><span class="db-sq"><i class="tap" data-win="0.02,0.05"></i><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3"/></svg></span>
@@ -454,7 +432,7 @@
   </div>
   <div class="tg blk ql-rules" data-scroll="0.6,0.615"><span data-unsel="0.622" style="--on:#00E8A0" class="sel">VFR</span><span data-sel="0.622" style="--on:#00C8E8"><i class="tap" data-win="0.612,0.628"></i>IFR</span></div>
   <div class="lfcard">
-   <div class="row2 pk2"><div class="fld" style="flex:1.1"><span class="fl">Aircraft type</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.58">C172</b><b data-on="0.58,2">A359</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div><div class="fld"><span class="fl">Registration</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.58">SE-KXY</b><b data-on="0.58,2">SE-RSA</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div></div>
+   <div class="row2 pk2"><div class="fld" style="flex:1.1"><span class="fl">Aircraft type</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.58">C172</b><b data-on="0.58,2">A359</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div><div class="fld"><span class="fl">Registration</span><div class="pick"><span class="pv"><b class="ph" data-on="0,0.58">SE-KXY</b><b data-on="0.58,2">SE-BLD</b></span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><i></i><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div></div></div>
    <span class="fl">Your role</span>
    <div class="role"><div class="role-g"><span class="sel">PIC</span><span>SIC</span><span>DUAL</span><span>FI</span><span class="wide">OTHER</span></div>
     <div class="sw"><span class="on">Pilot<br>flying</span><div class="sw-t"><i></i></div><span>Pilot<br>monitoring</span></div>
@@ -486,7 +464,7 @@
  <div class="sc-ov sc-review" data-win="0.465,0.585"><div class="sc-card sc-rv">
    <div class="sc-rh"><svg class="ic" viewBox="0 0 24 24"><path class="fill" d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9zM18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg><b>AI read these fields</b></div>
    <p class="sc-rs">Tap a row to include or exclude it, then apply.</p>
-   <div class="sc-rows"><div class="sc-rr" data-show="0.470"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Date</em><b>2026-10-30</b></span></div><div class="sc-rr" data-show="0.476"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>From</em><b>KJFK</b></span></div><div class="sc-rr" data-show="0.482"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>To</em><b>ESSA</b></span></div><div class="sc-rr" data-show="0.488"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Off blocks (UTC)</em><b>22:05</b></span></div><div class="sc-rr" data-show="0.494"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>On blocks (UTC)</em><b>05:45</b></span></div><div class="sc-rr" data-show="0.500"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Aircraft type</em><b>A359</b></span></div><div class="sc-rr" data-show="0.506"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Registration</em><b>SE-RSA</b></span></div><div class="sc-rr" data-show="0.512"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Flight no. → remarks</em><b>BLD903</b></span></div><div class="sc-rr off" data-show="0.518"><svg class="ic ck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/></svg><span><em>Takeoff / landing UTC → remarks</em><b>22:21 / 05:31</b></span></div><div class="sc-rr off" data-show="0.524"><svg class="ic ck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/></svg><span><em>Fuel → remarks</em><b>Fuel 92.4 → 8.1 t</b></span></div>
+   <div class="sc-rows"><div class="sc-rr" data-show="0.470"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Date</em><b>2026-10-30</b></span></div><div class="sc-rr" data-show="0.476"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>From</em><b>KJFK</b></span></div><div class="sc-rr" data-show="0.482"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>To</em><b>ESSA</b></span></div><div class="sc-rr" data-show="0.488"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Off blocks (UTC)</em><b>22:05</b></span></div><div class="sc-rr" data-show="0.494"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>On blocks (UTC)</em><b>05:45</b></span></div><div class="sc-rr" data-show="0.500"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Aircraft type</em><b>A359</b></span></div><div class="sc-rr" data-show="0.506"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Registration</em><b>SE-BLD</b></span></div><div class="sc-rr" data-show="0.512"><svg class="ic ck on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="fill"/><path d="M7.5 12.3l3 3 6-6.3" class="w2"/></svg><span><em>Flight no. → remarks</em><b>BLD903</b></span></div><div class="sc-rr off" data-show="0.518"><svg class="ic ck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/></svg><span><em>Takeoff / landing UTC → remarks</em><b>22:21 / 05:31</b></span></div><div class="sc-rr off" data-show="0.524"><svg class="ic ck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/></svg><span><em>Fuel → remarks</em><b>Fuel 92.4 → 8.1 t</b></span></div>
     <div class="sc-tt" data-show="0.535"><em>Total time</em><div><span class="on">Block 7.67h</span><span>Flight 7.17h</span></div></div>
    </div>
    <span class="sc-btn apply"><i class="tap" data-win="0.555,0.575"></i>Apply to flight</span>
@@ -497,7 +475,7 @@
   <div class="sc-vf">
    <div class="sc-scene" data-sel="0.315">
     <i class="sc-glare a"></i><i class="sc-glare b"></i><i class="sc-glare c"></i>
-    <div class="mcdu"><div class="mc-lsk l"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="mc-scr"><span class="mc-w">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AOC&nbsp;FLT&nbsp;LOG&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1/1</span><span class="mc-s">&nbsp;FLT&nbsp;NBR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DATE</span><span class="mc-g">&nbsp;BLD903&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;30OCT</span><span class="mc-s">&nbsp;A/C&nbsp;TYPE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;REG</span><span class="mc-g">&nbsp;A359&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SE-RSA</span><span class="mc-s">&nbsp;FROM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TO</span><span class="mc-g">&nbsp;KJFK&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ESSA</span><span class="mc-s">&nbsp;&nbsp;OUT&nbsp;&nbsp;&nbsp;OFF&nbsp;&nbsp;&nbsp;ON&nbsp;&nbsp;&nbsp;&nbsp;IN</span><span class="mc-g">&nbsp;2205&nbsp;&nbsp;2221&nbsp;&nbsp;0531&nbsp;&nbsp;0545</span><span class="mc-s">&nbsp;BLK&nbsp;TIME&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FLT&nbsp;TIME</span><span class="mc-g">&nbsp;0740&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0710</span><span class="mc-s">&nbsp;FOB&nbsp;OUT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FOB&nbsp;IN</span><span class="mc-c">&nbsp;92.4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8.1&nbsp;&nbsp;T</span><span class="mc-w"><RETURN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PRINT*</span></div><div class="mc-lsk r"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="mc-keys"><b>DIR</b><b>PROG</b><b>PERF</b><b>INIT</b><b>DATA</b><b></b><b>F-PLN</b><b>RAD NAV</b><b>FUEL PRED</b><b>SEC F-PLN</b><b>ATC COMM</b><b>MCDU MENU</b></div></div>
+    <div class="mcdu"><div class="mc-lsk l"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="mc-scr"><span class="mc-w">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AOC&nbsp;FLT&nbsp;LOG&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1/1</span><span class="mc-s">&nbsp;FLT&nbsp;NBR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DATE</span><span class="mc-g">&nbsp;BLD903&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;30OCT</span><span class="mc-s">&nbsp;A/C&nbsp;TYPE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;REG</span><span class="mc-g">&nbsp;A359&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SE-BLD</span><span class="mc-s">&nbsp;FROM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TO</span><span class="mc-g">&nbsp;KJFK&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ESSA</span><span class="mc-s">&nbsp;&nbsp;OUT&nbsp;&nbsp;&nbsp;OFF&nbsp;&nbsp;&nbsp;ON&nbsp;&nbsp;&nbsp;&nbsp;IN</span><span class="mc-g">&nbsp;2205&nbsp;&nbsp;2221&nbsp;&nbsp;0531&nbsp;&nbsp;0545</span><span class="mc-s">&nbsp;BLK&nbsp;TIME&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FLT&nbsp;TIME</span><span class="mc-g">&nbsp;0740&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0710</span><span class="mc-s">&nbsp;FOB&nbsp;OUT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FOB&nbsp;IN</span><span class="mc-c">&nbsp;92.4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8.1&nbsp;&nbsp;T</span><span class="mc-w">&lt;RETURN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PRINT*</span></div><div class="mc-lsk r"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="mc-keys"><b>DIR</b><b>PROG</b><b>PERF</b><b>INIT</b><b>DATA</b><b></b><b>F-PLN</b><b>RAD NAV</b><b>FUEL PRED</b><b>SEC F-PLN</b><b>ATC COMM</b><b>MCDU MENU</b></div></div>
    </div>
    <span class="sc-af" data-win="0.2,0.3"></span>
    <i class="sc-flash" data-win="0.312,0.34"></i>
@@ -515,12 +493,17 @@
           </div>
         </div>
       </div>
+      <nav class="lfs-nav" aria-label="Ways to log a flight" hidden>
+        <button type="button" data-go="0" aria-controls="lfs-b" aria-current="true">Quicklog</button>
+        <button type="button" data-go="1" aria-controls="lfs-a">Full log</button>
+        <button type="button" data-go="2" aria-controls="lfs-c">Scan-log</button>
+      </nav>
     </div>
     <div class="fv" hidden role="dialog" aria-modal="true">
       <div class="fv-bg"></div>
       <div class="fv-scroll" tabindex="-1">
         <div class="fv-track">
-          <div class="fv-pin"><div class="fv-slot"></div><div class="fv-copy" data-for="pilot"><h3 id="fv-h-pilot">Pilot logbook <em>Stockholm → New York</em></h3><ol class="lfb-steps"><li data-cur="0,0.112"><i>1/8</i><b>Route</b><span>ESSA to KJFK. Names and flags fill in.</span></li><li data-cur="0.112,0.198"><i>2/8</i><b>Block times</b><span>16:30 to 01:05 UTC, local times alongside.</span></li><li data-cur="0.198,0.245"><i>3/8</i><b>Worked out for you</b><span>3,397 NM, 8:35 in total, 7:33 of it at night.</span></li><li data-cur="0.245,0.37"><i>4/8</i><b>Conditions</b><span>IFR all the way. Night fills in by itself.</span></li><li data-cur="0.37,0.5"><i>5/8</i><b>Aircraft and crew</b><span>A359 SE-RSA, picked from your fleet. PIC, multi pilot, Anna Berg as SIC.</span></li><li data-cur="0.5,0.67"><i>6/8</i><b>Landings and approach</b><span>Night take-off and landing, ILS 22, one hold.</span></li><li data-cur="0.67,0.76"><i>7/8</i><b>Remarks and save</b><span>One line of remarks. Save.</span></li><li data-cur="0.76,2"><i>8/8</i><b>Dashboard</b><span>Totals, this year and the 14-day workload update.</span></li></ol><p class="fv-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Scroll to fill it in</p></div><div class="fv-copy" data-for="drone"><h3 id="fv-h-drone">Remote pilot logbook <em>Power line inspection</em></h3><ol class="lfb-steps"><li data-cur="0,0.115"><i>1/7</i><b>Mission and site</b><span>Inspection along a power line in Derbyshire.</span></li><li data-cur="0.115,0.232"><i>2/7</i><b>Two flights</b><span>08:15 UTC, 0:42 and 0:36. Total 1:18.</span></li><li data-cur="0.232,0.37"><i>3/7</i><b>Line of sight</b><span>VLOS 31 %, BVLOS 69 %, split by the minute.</span></li><li data-cur="0.37,0.53"><i>4/7</i><b>Drone and crew</b><span>Matrice 350 RTK, picked from your fleet. PIC, James Carter as observer.</span></li><li data-cur="0.53,0.64"><i>5/7</i><b>Logbook fields</b><span>Two landings. Max altitude 390 ft.</span></li><li data-cur="0.64,0.76"><i>6/7</i><b>Remarks and save</b><span>One line of remarks. Save.</span></li><li data-cur="0.76,2"><i>7/7</i><b>Logbook</b><span>The day grows in the activity calendar.</span></li></ol><p class="fv-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Scroll to fill it in</p></div></div>
+          <div class="fv-pin"><div class="fv-slot"></div><div class="fv-copy" data-for="pilot"><h3 id="fv-h-pilot">Pilot logbook <em>Stockholm → New York</em></h3><ol class="lfb-steps"><li data-cur="0,0.112"><i>1/8</i><b>Route</b><span>ESSA to KJFK. Names and flags fill in.</span></li><li data-cur="0.112,0.198"><i>2/8</i><b>Block times</b><span>16:30 to 01:05 UTC, local times alongside.</span></li><li data-cur="0.198,0.245"><i>3/8</i><b>Worked out for you</b><span>3,397 NM, 8:35 in total, 7:33 of it at night.</span></li><li data-cur="0.245,0.37"><i>4/8</i><b>Conditions</b><span>IFR all the way. Night fills in by itself.</span></li><li data-cur="0.37,0.5"><i>5/8</i><b>Aircraft and crew</b><span>A359 SE-BLD, picked from your fleet. PIC, multi pilot, Anna Berg as SIC.</span></li><li data-cur="0.5,0.67"><i>6/8</i><b>Landings and approach</b><span>Night take-off and landing, ILS 22, one hold.</span></li><li data-cur="0.67,0.76"><i>7/8</i><b>Remarks and save</b><span>One line of remarks. Save.</span></li><li data-cur="0.76,2"><i>8/8</i><b>Dashboard</b><span>Totals, this year and the 14-day workload update.</span></li></ol><p class="fv-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Scroll to fill it in</p></div><div class="fv-copy" data-for="drone"><h3 id="fv-h-drone">Remote pilot logbook <em>Power line inspection</em></h3><ol class="lfb-steps"><li data-cur="0,0.115"><i>1/7</i><b>Mission and site</b><span>Inspection along a power line in Derbyshire.</span></li><li data-cur="0.115,0.232"><i>2/7</i><b>Two flights</b><span>08:15 UTC, 0:42 and 0:36. Total 1:18.</span></li><li data-cur="0.232,0.37"><i>3/7</i><b>Line of sight</b><span>VLOS 31 %, BVLOS 69 %, split by the minute.</span></li><li data-cur="0.37,0.53"><i>4/7</i><b>Drone and crew</b><span>Matrice 350 RTK, picked from your fleet. PIC, James Carter as observer.</span></li><li data-cur="0.53,0.64"><i>5/7</i><b>Logbook fields</b><span>Two landings. Max altitude 390 ft.</span></li><li data-cur="0.64,0.76"><i>6/7</i><b>Remarks and save</b><span>One line of remarks. Save.</span></li><li data-cur="0.76,2"><i>7/7</i><b>Logbook</b><span>The day grows in the activity calendar.</span></li></ol><p class="fv-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Scroll to fill it in</p></div></div>
         </div>
         <div class="fv-tail"></div>
       </div>
@@ -546,7 +529,7 @@
         <div class="book-track" data-book="pilot">
           <div class="book-stage">
             <div class="book-frame" tabindex="0" aria-label="Pilot logbook spread, scroll sideways to see the whole spread">
-              <iframe class="book" src="demo/logbook-pilot.html?v=ecdcc943" title="Pilot logbook spread rendered by the BLADES app" scrolling="no" tabindex="-1"></iframe>
+              <div class="book-size"><iframe class="book" src="demo/logbook-pilot.html?v=ecdcc943" title="Pilot logbook spread rendered by the BLADES app" scrolling="no" tabindex="-1"></iframe></div>
             </div>
           </div>
           <p class="book-hint"><span class="book-swipe">Drag the book to read the whole spread</span></p>
@@ -564,7 +547,7 @@
         <div class="book-track" data-book="drone">
           <div class="book-stage">
             <div class="book-frame" tabindex="0" aria-label="Drone logbook spread, scroll sideways to see the whole spread">
-              <iframe class="book" src="demo/logbook-drone.html?v=5879f74a" title="Drone logbook spread rendered by the BLADES app" scrolling="no" tabindex="-1"></iframe>
+              <div class="book-size"><iframe class="book" src="demo/logbook-drone.html?v=5879f74a" title="Drone logbook spread rendered by the BLADES app" scrolling="no" tabindex="-1"></iframe></div>
             </div>
           </div>
           <p class="book-hint"><span class="book-swipe">Drag the book to read the whole spread</span></p>
@@ -678,7 +661,6 @@
     <div class="demo more" id="more">
       <div class="demo-text">
         <h3 id="more-h">And much more.</h3>
-        <p>Eight more things in the app, one after another.</p>
       </div>
       <div class="more-stage" role="region" aria-roledescription="carousel" aria-labelledby="more-h">
         <div class="more-slide is-on" id="airports" data-name="Global map" data-demo="globe">
@@ -792,7 +774,7 @@
           <li>Currency tracking and night time worked out</li>
           <li>100 Blade-coins to try the AI</li>
         </ul>
-        <a class="btn btn-line" href="https://apps.apple.com/app/id6798360464">Get started</a>
+        <a class="btn btn-line btn-soon" data-store="https://apps.apple.com/app/id6798360464" data-text="Get started">Soon on App Store</a>
       </div>
       <div class="plan plan-pro">
         <h3>Premium</h3>
@@ -803,7 +785,7 @@
           <li>Incident news and the weather layer on the airport map</li>
           <li>Cancel any time in iPhone Settings</li>
         </ul>
-        <a class="btn" href="https://apps.apple.com/app/id6798360464">Go Premium</a>
+        <a class="btn btn-soon" data-store="https://apps.apple.com/app/id6798360464" data-text="Go Premium">Soon on App Store</a>
       </div>
     </div>
     <p class="plans-note">Blade-coins pay for the AI: reading an ACARS photo or a drone screenshot, importing a file, looking up an aircraft. <span data-price-note="Prices as in your country&rsquo;s App Store, tax included.">Prices in euro; the App Store shows yours.</span></p>
@@ -818,7 +800,7 @@
   <section class="closer" aria-labelledby="closer-h">
     <h2 id="closer-h" data-words>Your logbook, <em>finally worth opening.</em></h2>
     <p class="section-sub">Free for your first 20 flights. No account.</p>
-    <a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+    <a class="btn btn-soon" data-store="https://apps.apple.com/app/id6798360464" data-text="Download on the App Store">Soon on App Store</a>
   </section>
 
 </main>
@@ -830,6 +812,7 @@
       <a href="support.html">Support</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
+      <a class="foot-ig" href="https://www.instagram.com/bladeslogbook/" rel="noopener"><svg class="ig" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle class="ig-dot" cx="17.3" cy="6.7" r="1.2"/></svg>Instagram</a>
       <a href="mailto:support@blades-app.com">support@blades-app.com</a>
     </nav>
     <p class="foot-copy">© 2026 BLADES</p>
@@ -839,8 +822,8 @@
 <script src="js/site.js?v=0f975d51" defer></script>
 <script src="js/demo-data.js?v=ec03eaf8" defer></script>
 <script src="js/demo.js?v=99f43c7f" defer></script>
-<script src="js/bookflip.js?v=b513014e" defer></script>
-<script src="js/logflight.js?v=e3e4f2a7" defer></script>
+<script src="js/bookflip.js?v=4ff15886" defer></script>
+<script src="js/logflight.js?v=2a317bc1" defer></script>
 <script src="js/airport.js?v=4559c4d2" defer></script>
 <script src="js/more-demos.js?v=973a2eb9" defer></script>
 <script src="js/more.js?v=02e5e28c" defer></script>

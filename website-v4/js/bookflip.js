@@ -19,10 +19,14 @@
   tracks.forEach((track) => {
     const frame = track.querySelector('.book-frame');
     const spread = track.querySelector('.book');
-    const sizer = document.createElement('div');
-    sizer.className = 'book-size';
-    spread.parentNode.insertBefore(sizer, spread);
-    sizer.appendChild(spread);
+    // The wrapper is in the page already: moving a loaded frame into one would load it again.
+    let sizer = spread.parentNode;
+    if (!sizer.classList.contains('book-size')) {
+      sizer = document.createElement('div');
+      sizer.className = 'book-size';
+      spread.parentNode.insertBefore(sizer, spread);
+      sizer.appendChild(spread);
+    }
     const fit = () => {
       let doc;
       try { doc = spread.contentDocument; } catch (e) { return; }
@@ -526,15 +530,16 @@
   books = tracks.map(makeBook);
 
   // The book shown plays once it can first be seen whole (the button plays the other one); scrolling away and back up
-  // the page leaves it as it is.
+  // the page leaves it as it is. In a window lower than the book, "whole" is as much of it as the window holds.
   const first = (b) => { if (!b.seen && b.pane.classList.contains('on')) { b.seen = true; b.play(); } };
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         const b = books.find((x) => x.stage === e.target);
-        if (b && e.isIntersecting) first(b);
+        const room = Math.min(e.boundingClientRect.height, window.innerHeight);
+        if (b && e.isIntersecting && e.intersectionRect.height >= room * 0.9) first(b);
       });
-    }, { threshold: 0.9 });
+    }, { threshold: [0, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1] });
     books.forEach((b) => io.observe(b.stage));
   } else books.forEach(first);
   // Turning a tablet across the phone width: play the book shown for the new width.

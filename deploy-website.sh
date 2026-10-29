@@ -19,4 +19,6 @@ print('Stamped', len(ver), 'files in', len(glob.glob('*.html')), 'pages')
 PY
 cd ../website-functions
 # Run from website-functions/ so Pages picks up its functions/ (the site's own /api/price) next to the pages.
-npx wrangler pages deploy ../website-v4 --project-name blades-website --commit-dirty=true
+# --branch main: production (blades-app.com) whatever git branch this runs on; without it another branch would only
+# make a preview.
+npx wrangler pages deploy ../website-v4 --project-name blades-website --branch main --commit-dirty=true

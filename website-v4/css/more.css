@@ -203,7 +203,7 @@
 .mm .lx-ap i { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--a-cy); border: 2px solid #fff; }
 .mm .lx-ap b { position: absolute; top: -20px; padding: 1px 5px; border-radius: 6px; background: rgba(15, 22, 38, 0.92); font: 800 11px Menlo, var(--mono-a); white-space: nowrap; }
 .mm .lx-ap b.r { right: 4px; } .mm .lx-ap b.l { left: 4px; top: 12px; }
-.mm .lx-badge { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 99px; border: 1px solid #00C8E855; background: rgba(6, 11, 22, 0.7); backdrop-filter: blur(6px); font: 700 7.5px var(--mono-a); letter-spacing: 1.1px; color: var(--a-cy); }
+.mm .lx-badge { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 99px; border: 1px solid #00C8E855; background: rgba(6, 11, 22, 0.7); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font: 700 7.5px var(--mono-a); letter-spacing: 1.1px; color: var(--a-cy); }
 .mm .lx-badge i, .mm .bw-eye i { width: 4px; height: 4px; border-radius: 50%; background: var(--a-cy); }
 .mm .lx-b { padding: 12px 10px; display: grid; gap: 5px; }
 .mm .lx-hero { display: flex; align-items: baseline; gap: 4px; }

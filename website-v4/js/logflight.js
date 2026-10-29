@@ -101,30 +101,21 @@
     s.insertAdjacentHTML('beforeend', '<i class="lf-pt" style="left:0;top:0"></i><i class="lf-pt" style="right:0;top:0"></i><i class="lf-pt" style="right:0;bottom:0"></i><i class="lf-pt" style="left:0;bottom:0"></i>');
   });
 
-  // The first pane's "Swipe for full log" and the italic half of its title
-  const swipe = sec.querySelector('.lfs-pane .lfs-swipe:not(.lfs-back)');
-  const em = swipe && swipe.closest('.lfs-pane').querySelector('h2 em');
+  // The switcher at the foot of the scene (Quicklog · Full log · Scan-log): a button per pane, shown once this runs.
+  const nav = sec.querySelector('.lfs-nav');
+  if (nav && sec.querySelectorAll('.lfs-pane').length > 1) nav.hidden = false;
+  const pin = sec.querySelector('.lfs-pin');
+  const pads = (el) => { const cs = getComputedStyle(el.closest('.lfs-pane')); return [parseFloat(cs.paddingTop) || 0, parseFloat(cs.paddingBottom) || 0]; };
   const fit = () => {
     const phone = window.matchMedia('(max-width: 820px)').matches;
-    // On a phone the title is one line: the swipe hint sits centred under its italic half ("In 10 seconds.").
-    if (swipe && em) {
-      swipe.style.marginLeft = '';
-      if (phone) {
-        const base = parseFloat(getComputedStyle(swipe).marginLeft) || 0;
-        const pane = swipe.closest('.lfs-pane').getBoundingClientRect();
-        const b = swipe.getBoundingClientRect();
-        const e = em.getBoundingClientRect();
-        let x = base + (e.left + e.width / 2) - (b.left + b.width / 2);
-        x = Math.min(x, base + (pane.right - 14) - b.right);     // keep clear of the right edge
-        x = Math.max(x, base - (b.left - pane.left - 10));       // and of the left one
-        swipe.style.marginLeft = `${x.toFixed(1)}px`;
-      }
-    }
     const L = phone ? LAYOUT.phone : LAYOUT.wide;
-    const vh = window.innerHeight;
+    // The room is the pinned stage's own height (100svh), not the window's: with Safari's bars tucked away the window
+    // is taller, and a phone sized to it is cut off at the bottom. Each pane's foot is kept for the switcher.
+    const vh = sec.classList.contains('lfs-on') ? pin.clientHeight : window.innerHeight;
+    const [padA, footA] = pads(stage);
     const s = phone
-      ? Math.min((vh - stage.offsetTop - 12) / L.h, (window.innerWidth - 12) / L.w)   // both phones fit below the title
-      : Math.min(vh * 0.88, 920, vh - 140) / L.h;        // below the pane's top margin, captions included
+      ? Math.min((vh - stage.offsetTop - footA - 4) / L.h, (window.innerWidth - 12) / L.w)   // both phones fit below the title
+      : Math.min(vh * 0.88, 920, vh - padA - footA - 20) / L.h;        // within the pane's margins, captions included
     tags.forEach((t) => {
       const [x, y, where] = L.tag[t.dataset.for];   // a caption sits under its phone, or above it
       t.style.transform = `translate(${(x * s).toFixed(1)}px, ${(y * s).toFixed(1)}px) translate(-50%, ${where === 'above' ? '-100%' : '0'})`;
@@ -137,9 +128,10 @@
     stagesB.forEach((stageB) => {
       // One phone (612 × 1584); on a phone it shares the width with the steps beside it.
       const kB = stageB.querySelector('.lfs-kb');
+      const [padB, footB] = pads(stageB);
       const b = phone
-        ? Math.min((vh - stageB.offsetTop - 14) / 1584, (window.innerWidth * 0.62) / 612)
-        : Math.min(vh * 0.84, 860, vh - 150) / 1584;
+        ? Math.min((vh - stageB.offsetTop - footB - 6) / 1584, (window.innerWidth * 0.62) / 612)
+        : Math.min(vh * 0.84, 860, vh - padB - footB - 30) / 1584;
       stageB.style.setProperty('--bw', `${(612 * b).toFixed(1)}px`);
       stageB.style.setProperty('--bh', `${(1584 * b).toFixed(1)}px`);
       kB.style.setProperty('--k', b.toFixed(5));
@@ -153,25 +145,57 @@
   const paneEls = Array.from(sec.querySelectorAll('.lfs-pane'));
   let active = 0;
   let onArrive = () => {};            // set below: the pane you swipe to starts from its beginning
+  let ends = paneEls.map(() => 1);     // set below: where each pane's flight finishes, on its 0–1 scale
   const setActive = (i) => {
     const moved = i !== active;
     active = i;
     paneEls.forEach((el, j) => { el.inert = j !== i; });
     sec.classList.toggle('lfs-full', paneEls[i].classList.contains('lfs-pane-a'));
+    // The scene is as long as the pane on show needs: past its last step the page goes on.
+    sec.style.setProperty('--end', ends[i].toFixed(3));
+    markNav();
     if (moved) onArrive();
+  };
+  // The capsule behind the switcher's button for the pane on show.
+  function markNav() {
+    if (!nav || nav.hidden) return;
+    nav.querySelectorAll('[data-go]').forEach((b) => {
+      const on = +b.dataset.go === active;
+      if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+      if (on) { nav.style.setProperty('--x', `${b.offsetLeft}px`); nav.style.setProperty('--w', `${b.offsetWidth}px`); }
+    });
+  }
+  // A smooth scroll can be cut short (the page itself still gliding): once the row has stopped short of the pane, put it
+  // there. Only once it has stopped: moved while it still glides, Chrome adds the difference on and it overshoots.
+  let landing = 0;
+  const land = (left) => {
+    cancelAnimationFrame(landing);
+    const from = panes.scrollLeft;
+    const t0 = performance.now();
+    let last = from;
+    let still = 0;
+    let moved = false;
+    const check = (now) => {
+      const x = panes.scrollLeft;
+      if (Math.abs(x - left) <= 2 || now - t0 > 4000) return;
+      moved = moved || Math.abs(x - from) > 1;
+      still = Math.abs(x - last) < 0.5 ? still + 1 : 0;
+      last = x;
+      if (moved ? still >= 8 : now - t0 > 900) { panes.scrollLeft = left; return; }
+      landing = requestAnimationFrame(check);
+    };
+    landing = requestAnimationFrame(check);
   };
   if (panes && paneEls.length > 1) {
     setActive(0);
-    sec.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', (e) => {
+    // A finger on the row takes over from a button's glide.
+    ['pointerdown', 'touchstart', 'wheel'].forEach((ev) => panes.addEventListener(ev, () => cancelAnimationFrame(landing), { passive: true }));
+    sec.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
       const i = +b.dataset.go;
       paneEls[i].inert = false;
       const left = i * panes.clientWidth;
       panes.scrollTo({ left, behavior: reduce ? 'auto' : 'smooth' });
-      // A smooth scroll can be cut short (the page itself still gliding): make sure the row gets there.
-      setTimeout(() => { if (Math.abs(panes.scrollLeft - left) > 2) panes.scrollLeft = left; }, 700);
-      // From the keyboard, focus follows to the other pane's button (a tap leaves no ring behind).
-      const to = paneEls[i].querySelector('[data-go]');
-      if (to && e.detail === 0) setTimeout(() => to.focus({ preventScroll: true }), reduce ? 0 : 450);
+      land(left);
     }));
     let settle = 0;
     panes.addEventListener('scroll', () => {
@@ -183,7 +207,8 @@
         if (i !== active && Math.abs(panes.scrollLeft - i * w) < 2) setActive(i);
       }, 90);
     }, { passive: true });
-    window.addEventListener('resize', () => { panes.scrollLeft = active * panes.clientWidth; });
+    window.addEventListener('resize', () => { panes.scrollLeft = active * panes.clientWidth; markNav(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(markNav);
   }
   if (reduce) return;
 
@@ -328,7 +353,24 @@
   }
 
   sec.classList.add('lfs-on');
+  fit();          // now in the pinned stage's height
   measure();
+
+  // Where each pane's flight finishes: the last moment anything in it changes (values past 1 mean "from then on"),
+  // and a moment more to see it done. The scene's scroll is cut to that, so no pane plays on an empty stretch.
+  const TIMED = ['type', 'tick', 'show', 'sel', 'unsel', 'on', 'win', 'cur', 'scroll', 'bar', 'present', 'dismiss', 't'];
+  const HOLD = 0.06;
+  ends = paneEls.map((pane) => {
+    let end = 0;
+    pane.querySelectorAll(TIMED.map((k) => `[data-${k}]`).join(',')).forEach((el) => {
+      TIMED.forEach((k) => {
+        if (el.dataset[k]) el.dataset[k].split(',').forEach((v) => { if (+v <= 1) end = Math.max(end, +v * sc(el)); });
+      });
+    });
+    pane.querySelectorAll('[data-clock]').forEach((el) => { end = Math.max(end, +el.dataset.clock.split(',')[1] * sc(el)); });
+    return end ? Math.min(1, end + HOLD) : 1;
+  });
+  sec.style.setProperty('--end', ends[active].toFixed(3));
 
   // Progress per pane, and which pane each element is in.
   const FV = paneEls.length;                 // the panes in page order (Quicklog, full log, Scan-log), then full screen
@@ -349,7 +391,7 @@
     const p = clamp(-r.top / Math.max(1, sec.offsetHeight - vh));
 
     // The pane on show follows the scroll; the other one waits at its start, so a swipe always begins there.
-    paneEls.forEach((el, i) => { pv[i] = active === i ? p : 0; });     // a pane not on show waits at its start
+    paneEls.forEach((el, i) => { pv[i] = active === i ? p * ends[i] : 0; });     // a pane not on show waits at its start
     pv[FV] = fvOpen ? fvProgress() : 0;
     // The one-phone panes turn their phone straight on over the first fifth of the scene.
     solos.forEach((s) => { const k = clamp((P(s.scr) - 0.015) / 0.2); turn(s, k * k * (3 - 2 * k)); });
@@ -449,6 +491,9 @@
     const bg = fv.querySelector('.fv-bg');
     const nextSection = sec.nextElementSibling;
     const tail = fv.querySelector('.fv-tail');
+    // The view's own height (100svh, like the page's stage), so the phone in it is never cut off by Safari's bars.
+    const fvPin = fv.querySelector('.fv-pin');
+    const fvRoom = () => (fvPin && fvPin.clientHeight) || window.innerHeight;
 
     // The page phone's screen corners as drawn, grown by the frame (through the same perspective).
     const pageQuad = (k2) => {
@@ -459,8 +504,8 @@
     const place = () => {
       const phone = window.matchMedia('(max-width: 820px)').matches;
       const kk = phone
-        ? Math.min((window.innerHeight - 56) / DH, (window.innerWidth * 0.62) / DW)
-        : Math.min(window.innerHeight * 0.86, 860) / DH;
+        ? Math.min((fvRoom() - 56) / DH, (window.innerWidth * 0.62) / DW)
+        : Math.min(fvRoom() * 0.86, 860) / DH;
       fv.style.setProperty('--dw', `${(DW * kk).toFixed(1)}px`);
       fv.style.setProperty('--dh', `${(DH * kk).toFixed(1)}px`);
       tail.style.height = `${fvScroll.clientHeight}px`;     // exactly one screen: the view lifts away in one screen of scroll
@@ -496,8 +541,7 @@
       if (kind || !paneEls[active].classList.contains('lfs-pane-a')) return;   // only from the full log
       kind = k2;
       opener = btn;
-      const r = sec.getBoundingClientRect();
-      const p = clamp(-r.top / Math.max(1, sec.offsetHeight - window.innerHeight));
+      const p = pv[active];
       fv.hidden = false;
       fv.classList.remove('fv-pilot', 'fv-drone', 'fv-in');
       fv.classList.add(`fv-${k2}`);
@@ -507,7 +551,7 @@
       fvOpen = true;
       measure();
       // Carry on from where the page is (or from the start, if the page has played it through).
-      fvScroll.scrollTop = (p < 0.85 ? p : 0) * fvMax();
+      fvScroll.scrollTop = (p < 0.85 * ends[active] ? p : 0) * fvMax();
       handedOver = false;
       fv.style.removeProperty('--lift');
       fvFrom = fvScroll.scrollTop;
@@ -536,7 +580,7 @@
       const root = document.documentElement;
       const was = root.style.scrollBehavior;
       root.style.scrollBehavior = 'auto';
-      window.scrollTo(0, top + q * (sec.offsetHeight - window.innerHeight));
+      window.scrollTo(0, top + clamp(q / ends[active]) * (sec.offsetHeight - window.innerHeight));
       root.style.scrollBehavior = was;
       update();
       fly(slotQuad(cur), pageQuad(k2), cur, 620, () => {
