@@ -101,10 +101,8 @@
         const span = Math.max(1, sec.offsetHeight - vh);
         const p = clamp(-r.top / span);
         const n = words.length;
-        words.forEach((w, i) => {
-          const local = clamp((p * 0.78 * (n + 1.2) - i) / 1.2);
-          w.style.setProperty('--p', local.toFixed(3));
-        });
+        const t = clamp(p / 0.68) * (n + 0.9);       // every word fully lit by 68% of the stretch
+        words.forEach((w, i) => w.style.setProperty('--p', clamp(t - i).toFixed(3)));
         if (sub) sub.style.setProperty('--s', clamp((p - 0.72) / 0.18).toFixed(3));
         pin.style.setProperty('--g', clamp(p * 1.4).toFixed(3));
       });

@@ -9,22 +9,49 @@
 <link rel="icon" href="img/blades-mark-128.png" type="image/png">
 <link rel="preload" href="fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/site.css?v=3c07dd40">
-<link rel="stylesheet" href="css/doc.css?v=6f9bd1c0">
+<link rel="stylesheet" href="css/site.css?v=8dd614e1">
+<link rel="stylesheet" href="css/doc.css?v=cfa883fd">
 </head>
 <body class="doc-page">
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="nav-wrap">
   <nav class="nav" aria-label="Main">
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu"><span></span><span></span><span></span></button>
     <a class="nav-logo" href="index.html"><img src="img/blades-lockup-h.png" width="1495" height="334" alt="BLADES pilot logbook"></a>
     <div class="nav-links">
-      <a href="index.html#features">Features</a>
-      <a href="index.html#pricing">Pricing</a>
+      <details class="nav-dd"><summary>The app<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="index.html#log"><b>Log a flight</b><span>Quicklog in ten seconds, or the full log</span></a><a href="index.html#logbook"><b>Your logbook</b><span>Page for page, as in a paper logbook</span></a><a href="index.html#who"><b>Who it's for</b><span>Student, airline, helicopter and drone</span></a><a href="index.html#inside"><b>Discover Blades functions</b><span>Fleet cards, the global map and more</span></a><a href="index.html#pricing"><b>Pricing</b><span>Free to start, Premium for unlimited</span></a><a href="support.html#frequently-asked-questions"><b>Questions</b><span>Answers before you download</span></a></div></details>
+      <details class="nav-dd"><summary>Guides<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="easa-pilot-logbook.html"><b>EASA pilot logbook</b><span>Layouts, columns and currency</span></a><a href="drone-logbook.html"><b>Drone logbook</b><span>Categories, line of sight and roles</span></a><a href="night-time.html"><b>How to log night time</b><span>EASA and FAA rules, explained</span></a></div></details>
       <a href="support.html">Support</a>
     </div>
     <a class="btn btn-sm" href="https://apps.apple.com/app/id6798360464">Download</a>
   </nav>
+  <div class="nav-menu" id="nav-menu" hidden>
+    <nav class="nm-group" aria-labelledby="nm-h-app">
+      <p class="nm-h" id="nm-h-app">The app</p>
+      <ul class="nm-main">
+        <li style="--i:0"><a href="index.html#log"><span class="nm-t">Log a flight</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:1"><a href="index.html#logbook"><span class="nm-t">Your logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:2"><a href="index.html#who"><span class="nm-t">Who it's for</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:3"><a href="index.html#inside"><span class="nm-t">Discover Blades functions</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:4"><a href="index.html#pricing"><span class="nm-t">Pricing</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:5"><a href="support.html#frequently-asked-questions"><span class="nm-t">Questions</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+      </ul>
+    </nav>
+    <nav class="nm-group" aria-labelledby="nm-h-guides">
+      <p class="nm-h" id="nm-h-guides">Guides</p>
+      <ul class="nm-main">
+        <li style="--i:6"><a href="easa-pilot-logbook.html"><span class="nm-t">EASA pilot logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:7"><a href="drone-logbook.html"><span class="nm-t">Drone logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:8"><a href="night-time.html"><span class="nm-t">How to log night time</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+      </ul>
+    </nav>
+    <div class="nm-foot" style="--i:9">
+      <a class="btn nm-dl" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+      <nav class="nm-legal" aria-label="Help and legal"><a href="support.html">Support</a><a href="privacy.html">Privacy</a><a href="terms.html" aria-current="page">Terms</a></nav>
+      <a class="nm-mail" href="mailto:support@blades-app.com">support@blades-app.com</a>
+    </div>
+  </div>
 </header>
 
 <main id="main">
@@ -119,10 +146,11 @@
       <a href="terms.html" aria-current="page">Terms</a>
       <a href="mailto:support@blades-app.com">support@blades-app.com</a>
     </nav>
-    <p class="foot-copy">© 2026 BLADES · Built by a pilot in Sweden</p>
+    <p class="foot-copy">© 2026 BLADES</p>
   </div>
 </footer>
 
 <script src="js/doc.js?v=407c1ec7" defer></script>
+<script src="js/nav.js?v=c52e5059" defer></script>
 </body>
 </html>

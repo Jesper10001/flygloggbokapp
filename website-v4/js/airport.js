@@ -252,4 +252,14 @@
     if (window.matchMedia('(max-width: 820px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !result.hidden && document.activeElement !== input) close(); });
+
+  // The card and the runway snippet, for the "Closest airport" slide (js/more-demos.js).
+  window.bladesAirport = { details, card, snippet };
+
+  /* ---------- A few airports to try, one tap each ---------- */
+  document.querySelectorAll('.ap-try [data-icao]').forEach((b) => b.addEventListener('click', async () => {
+    await loadIndex();
+    const r = rows.find((x) => x[0] === b.dataset.icao);
+    if (r) pick(r);
+  }));
 })();

@@ -87,22 +87,55 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .nav-links a { color: #d6deea; text-decoration: none; font-size: 15px; font-weight: 500; transition: color 0.2s ease; }
 .nav-links a:hover { color: var(--white); }
 .nav .btn-sm { margin-left: 8px; }
+/* The app and Guides: lists under the bar, the same groups as the phone menu */
+.nav-links { align-items: center; }
+.nav-dd { position: relative; }
+.nav-dd summary { list-style: none; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #d6deea; font-size: 15px; font-weight: 500; transition: color 0.2s ease; }
+.nav-dd summary::-webkit-details-marker { display: none; }
+.nav-dd summary:hover, .nav-dd[open] summary { color: var(--white); }
+.nav-dd summary svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s ease; }
+.nav-dd[open] summary svg { transform: rotate(180deg); }
+.nav-dd-panel {
+  position: absolute; top: calc(100% + 24px); right: -20px; width: 300px; padding: 8px;
+  display: grid; gap: 2px; border-radius: 18px;
+  background: rgba(7, 15, 31, 0.97); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), 0 24px 50px rgba(0, 0, 0, 0.5);
+  animation: menuIn 0.2s ease both;
+}
+.nav-dd:first-child .nav-dd-panel { right: auto; left: -20px; }   /* The app opens to the right */
+.nav-dd-panel a { display: grid; gap: 2px; padding: 11px 14px; border-radius: 12px; text-decoration: none; }
+.nav-dd-panel a:hover, .nav-dd-panel a[aria-current="page"] { background: rgba(255, 255, 255, 0.06); }
+.nav-dd-panel b { color: var(--white); font-size: 15px; font-weight: 600; }
+.nav-dd-panel a[aria-current="page"] b { color: var(--cyan); }
+.nav-dd-panel span { color: var(--mist); font-size: 13px; }
+.nav-toggle, .nav-menu { display: none; }
 
 /* ---------- Hero ---------- */
 .hero {
   position: relative;
   min-height: max(100svh, 640px);
-  background: var(--night);
+  /* Night sky with a blue horizon glow behind the phones (the picture itself is transparent). */
+  background:
+    radial-gradient(42% 30% at 70% 82%, rgba(30, 150, 255, 0.42), rgba(30, 150, 255, 0) 70%),
+    radial-gradient(70% 22% at 62% 86%, rgba(25, 198, 230, 0.2), rgba(25, 198, 230, 0) 72%),
+    radial-gradient(35% 40% at 78% 30%, rgba(40, 90, 200, 0.18), rgba(40, 90, 200, 0) 70%),
+    linear-gradient(180deg, #040914 0%, #071226 48%, #0b1d3d 78%, #070f1f 100%);
   overflow: hidden;
   display: flex; align-items: center;
 }
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(to top, var(--night) 0%, rgba(7, 15, 31, 0) 12%);
+}
 .hero-img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover; object-position: 50% 50%;
+  position: absolute; z-index: 1;
+  right: max(var(--pad), calc((100% - 1280px) / 2 + 10px)); top: 50%;
+  width: auto; height: min(80vh, 780px); max-width: 50%;
+  object-fit: contain; object-position: 100% 50%;
+  margin-top: calc(min(80vh, 780px) / -2 + 24px);
+  filter: drop-shadow(0 40px 60px rgba(0, 0, 0, 0.55));
 }
 .hero-text {
-  position: relative; z-index: 1;
+  position: relative; z-index: 2;
   width: 100%; max-width: 1280px; margin: 0 auto;
   padding: 120px var(--pad) 80px;
 }
@@ -116,7 +149,6 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .hero h1 em { font-family: var(--serif); font-weight: 500; letter-spacing: -0.025em; }
 .hero-sub { margin-top: 28px; max-width: 24em; color: var(--mist); font-size: clamp(18px, 1.55vw, 23px); line-height: 1.45; }
 .hero-cta { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
-.hero-note { color: var(--mist); font-size: 15px; }
 
 .hero-text > * { animation: arrive 0.9s var(--ease) both; }
 .hero-text > :nth-child(2) { animation-delay: 0.55s; }
@@ -195,6 +227,7 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   -webkit-transform: translateZ(0); transform: translateZ(0);
   -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
+.card picture { display: contents; }
 .card img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
 .card-text { position: absolute; left: calc(var(--cw) * 0.05); top: calc(var(--cw) * 0.046); }
 .card h2 { max-width: calc(var(--cw) * 0.64); color: var(--cream); font-size: max(calc(var(--cw) * 0.05), 30px); }
@@ -205,7 +238,8 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   .card-text { position: static; order: -1; padding: 30px 24px 8px; }
   .card h2 { max-width: none; font-size: clamp(30px, calc(var(--cw) * 0.086), 42px); }
   .card p { max-width: none; margin-top: 10px; font-size: 17px; }
-  .card img { margin-top: auto; height: calc(var(--cw) * 0.92); object-fit: cover; object-position: var(--pos, 50% 60%); }
+  /* Phones get their own crop (img/*-m.jpg, 1000×920) so the screens are big enough to read. */
+  .card img { margin-top: auto; height: calc(var(--cw) * 0.92); object-fit: cover; object-position: 50% 50%; }
 }
 
 /* ---------- Pricing ---------- */
@@ -237,6 +271,9 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 .faq { background: var(--white); padding: 0 var(--pad) clamp(96px, 11vw, 150px); }
 .faq h2 { text-align: center; }
 .faq-list { max-width: 760px; margin: 48px auto 0; }
+/* On the home page the questions are a pointer to the support page, where the answers are */
+.faq-sub { max-width: 46ch; margin: 18px auto 0; text-align: center; color: var(--muted); font-size: clamp(17px, 1.4vw, 19px); }
+.faq-cta { margin-top: 30px; text-align: center; }
 .faq details { border-bottom: 1px solid var(--line); }
 .faq summary {
   list-style: none; cursor: pointer;
@@ -254,7 +291,6 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 }
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq details p { padding: 0 40px 24px 0; max-width: 62ch; color: var(--muted); }
-.faq-more { max-width: 760px; margin: 28px auto 0; color: var(--muted); }
 
 /* ---------- Closer ---------- */
 .closer {
@@ -368,20 +404,100 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   .progress { display: none; }
   html { scroll-behavior: auto; }
   .hero-text > *, .hero-img { animation: none; }
+  .nav-menu, .nm-main li, .nm-foot { animation: none; }
   .js .rv { opacity: 1; transform: none; transition: none; }
   .role-card, .btn { transition: none; }
 }
 
 /* ---------- Tablet and phone ---------- */
 @media (max-width: 820px) {
-  .nav { height: 56px; padding: 0 8px 0 18px; }
+  .nav { height: 56px; padding: 0 8px 0 6px; gap: 8px; }
   .nav-links { display: none; }
   .nav .btn-sm { margin-left: auto; }
   .nav-logo img { height: 22px; }
 
+  /* Phone menu: the button left of the logo opens the sections (js/nav.js). */
+  .nav-toggle {
+    display: grid; align-content: center; justify-items: center; gap: 5px;
+    flex: none; width: 44px; height: 44px; padding: 0;
+    border: 0; border-radius: 50%; cursor: pointer;
+    background: rgba(255, 255, 255, 0.07);
+    transition: background-color 0.2s ease;
+  }
+  .nav-toggle:active { background: rgba(255, 255, 255, 0.14); }
+  .nav-toggle span { display: block; width: 18px; height: 2px; border-radius: 2px; background: var(--white); transition: transform 0.3s var(--ease), opacity 0.2s ease; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  /* The open menu fills the screen under the bar: sections first, then download, help and legal. */
+  .nav { position: relative; z-index: 2; }
+  .nav-menu {
+    position: fixed; inset: 0; z-index: 1;
+    display: flex; flex-direction: column;
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 92px var(--pad) max(26px, env(safe-area-inset-bottom));
+    pointer-events: auto;
+    background:
+      radial-gradient(90% 45% at 100% 0%, rgba(25, 198, 230, 0.16), transparent 70%),
+      radial-gradient(80% 40% at 0% 100%, rgba(52, 110, 200, 0.2), transparent 70%),
+      var(--night);
+    animation: menuIn 0.3s ease both;
+  }
+  .nav-menu[hidden] { display: none; }
+  .nm-group + .nm-group { margin-top: 26px; }
+  .nm-h { margin: 0 0 2px; font: 700 11px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--cyan); }
+  .nm-main { list-style: none; margin: 0; padding: 0; }
+  .nm-main li { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  .nm-main li, .nm-foot { animation: nmIn 0.55s var(--ease) both; animation-delay: calc(60ms + var(--i, 0) * 45ms); }
+  .nm-main a {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px;
+    padding: 11px 2px; color: var(--white); text-decoration: none;
+  }
+  .nm-t { font-weight: 700; font-size: 22px; line-height: 1.15; letter-spacing: -0.025em; transition: color 0.2s ease; }
+  .nm-main a[aria-current="page"] .nm-t { color: var(--cyan); }
+  .nm-d { grid-column: 1; margin-top: 4px; font-size: 14px; line-height: 1.3; color: var(--mist); }
+  .nm-ar {
+    grid-column: 2; grid-row: 1 / span 2; width: 22px; height: 22px;
+    fill: none; stroke: var(--cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    transition: transform 0.25s var(--ease);
+  }
+  .nm-main a:hover .nm-t, .nm-main a:active .nm-t { color: var(--cyan); }
+  .nm-main a:hover .nm-ar, .nm-main a:active .nm-ar { transform: translateX(4px); }
+  .nm-foot { margin-top: auto; padding-top: 30px; display: grid; justify-items: center; gap: 16px; }
+  .nm-dl { width: 100%; height: 54px; }
+  .nm-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .nm-legal a {
+    padding: 9px 18px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    color: #d6deea; font-size: 14px; font-weight: 500; text-decoration: none;
+  }
+  .nm-legal a[aria-current="page"] { color: var(--cyan); box-shadow: inset 0 0 0 1px rgba(25, 198, 230, 0.6); background: rgba(25, 198, 230, 0.1); }
+  .nm-mail { color: var(--mist); font-size: 14px; text-decoration: none; }
+  html.nav-open { overflow: hidden; }
+  @keyframes menuIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes nmIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  /* Short screens (iPhone SE): titles only, so help and legal stay in view. */
+  @media (max-height: 700px) {
+    .nm-main a { padding: 8px 2px; }
+    .nm-t { font-size: 20px; }
+    .nm-group + .nm-group { margin-top: 18px; }
+    .nm-foot { padding-top: 22px; gap: 12px; }
+  }
+
+  /* One picture behind the words: the phones sit low on the right, partly behind the text and button. */
   .hero { display: block; min-height: 0; }
-  .hero-text { padding: 124px var(--pad) 8px; }
-  .hero-img { position: static; height: auto; aspect-ratio: 1 / 1.02; object-position: 70% 50%; }
+  .hero-text { position: relative; z-index: 2; padding: 124px var(--pad) 112vw; }
+  .hero-sub { max-width: 15em; }
+  .hero-img {
+    inset: auto; right: -14vw; bottom: 2vw; top: auto; margin: 0;
+    width: 92vw; height: auto; max-width: none;
+  }
+  .hero::after {
+    background:
+      linear-gradient(to top, var(--night) 0%, rgba(7, 15, 31, 0.6) 7%, rgba(7, 15, 31, 0) 20%),
+      linear-gradient(90deg, rgba(7, 15, 31, 0.82) 0%, rgba(7, 15, 31, 0.5) 42%, rgba(7, 15, 31, 0) 72%),
+      linear-gradient(180deg, rgba(7, 15, 31, 0.6) 0%, rgba(7, 15, 31, 0) 38%);
+  }
 
   .role-cards { grid-template-columns: 1fr; }
   .role-both { border-radius: 20px; }
@@ -394,4 +510,63 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   .plan { padding: 30px 26px; }
 
   .foot-copy { margin-left: 0; width: 100%; }
+}
+
+/* ---------- Who it's for: four kinds of flying ---------- */
+.who { background: var(--white); padding: clamp(96px, 11vw, 150px) 0; text-align: center; }
+.who h2, .who .section-sub { padding: 0 var(--pad); }
+.who h2, .switch h2 { font-size: clamp(36px, 4.4vw, 64px); color: var(--ink); }
+.who h2 em, .switch h2 em { color: var(--cyan-deep); }
+/* The cards flow past in a band, like the feature band above (js/site.js) */
+.marquee-who { --cw: clamp(290px, 25vw, 360px); --gap: 18px; margin-top: 56px; text-align: left; }
+.who-card { flex: none; width: var(--cw); display: flex; flex-direction: column; gap: 12px; padding: 30px 28px 32px; border-radius: 26px; background: var(--light); }
+.who-card h3 { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1.05; letter-spacing: -0.02em; color: var(--ink); }
+.who-card ul { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 10px; color: var(--muted); font-size: 15.5px; line-height: 1.45; }
+.who-card li { position: relative; padding-left: 18px; }
+.who-card li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--cyan-deep); }
+
+/* ---------- Switch in minutes ---------- */
+.switch { background: var(--light); padding: clamp(96px, 11vw, 150px) var(--pad); }
+.switch-in { max-width: 1060px; margin: 0 auto; }
+.switch-head { text-align: center; }
+.switch-from { list-style: none; padding: 0; margin: 40px auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 880px; }
+.switch-from li { padding: 10px 18px; border-radius: 999px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; font-size: 15px; color: var(--ink); }
+.switch-from li:last-child { background: var(--navy); color: var(--white); box-shadow: none; }
+.switch-ways { margin-top: 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.switch-ways div { padding-top: 18px; border-top: 2px solid var(--ink); }
+.switch-ways h3 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.switch-ways p { margin-top: 8px; color: var(--muted); font-size: 15.5px; line-height: 1.5; }
+.switch-note { margin-top: 36px; text-align: center; color: var(--muted); font-size: 15px; }
+
+/* ---------- Your logbook is yours ---------- */
+.trust {
+  padding: clamp(96px, 11vw, 150px) max(var(--pad), calc((100% - 1160px) / 2));
+  background: radial-gradient(70% 60% at 85% 0%, rgba(25, 198, 230, 0.12), transparent 70%), var(--navy);
+  color: var(--white); text-align: center;
+}
+.trust h2 { font-size: clamp(36px, 4.4vw, 64px); color: var(--white); }
+.trust-grid { margin-top: 56px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 36px; text-align: left; }
+.trust-grid div { padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.22); }
+.trust-grid h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.015em; }
+.trust-grid p { margin-top: 8px; color: var(--mist); font-size: 16px; line-height: 1.5; }
+.trust-note { margin-top: 48px; color: var(--mist); font-size: 15px; }
+
+/* ---------- Prices ---------- */
+.plan .price { margin-top: 18px; display: flex; align-items: baseline; gap: 8px; }
+.plan .price b { font-family: var(--sans); font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -0.04em; }
+.plan .price span { color: var(--muted); font-size: 17px; }
+.plan-pro .price span { color: var(--mist); }
+.plan .price + ul { margin-top: 24px; }
+.plans-note { max-width: 640px; margin: 28px auto 0; color: var(--muted); font-size: 15px; }
+
+@media (max-width: 1000px) {
+  .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .switch-ways, .trust-grid { grid-template-columns: 1fr; }
+  .marquee-who { --cw: min(320px, 78vw); --gap: 14px; margin-top: 40px; }
+  .who-card { padding: 24px 22px 26px; }
+  .who-card h3 { font-size: 28px; }
+  .switch-from li { padding: 8px 14px; font-size: 14px; }
+  .trust-grid { gap: 26px; }
 }

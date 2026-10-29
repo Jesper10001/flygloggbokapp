@@ -6,3 +6,6 @@
 .*.icloud
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# Cloudflare Pages build cache for the site functions
+website-functions/.wrangler/

@@ -97,3 +97,15 @@
   .doc-toc a { padding: 5px 0; }
   .doc-toc a[aria-current="true"] { background: none; }
 }
+
+/* Landing pages and guides (drone-logbook, easa-pilot-logbook, night-time) */
+.doc-note { padding: 14px 18px; border-radius: 14px; background: var(--light); font-size: 15.5px; color: var(--muted); }
+.doc-fig { margin: 24px 0 0; }
+.doc-fig img, .doc-grid img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 0 0 1px var(--line), 0 12px 30px rgba(10, 22, 40, 0.12); }
+.doc-fig figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.doc-body ul.doc-grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 18px; }
+.doc-grid li { padding: 0; display: grid; gap: 8px; }
+.doc-grid li + li { margin-top: 0; }
+.doc-grid span { font-size: 14px; font-weight: 600; color: var(--ink); }
+.doc-cta { margin-top: 48px !important; }
+@media (max-width: 640px) { .doc-body ul.doc-grid { grid-template-columns: 1fr; } }

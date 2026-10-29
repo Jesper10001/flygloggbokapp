@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EASA Pilot Logbook App for iPhone — BLADES</title>
+<meta name="description" content="An EASA pilot logbook for iPhone, laid out like AMC1 FCL.050 and the Professional Pilot Logbook. Night time worked out along your route, currency tracking, CSV and PDF export. No account.">
+<link rel="canonical" href="https://blades-app.com/easa-pilot-logbook">
+<meta name="theme-color" content="#0a1628">
+<link rel="icon" href="img/blades-mark-128.png" type="image/png">
+<link rel="preload" href="fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/site.css?v=8dd614e1">
+<link rel="stylesheet" href="css/doc.css?v=cfa883fd">
+</head>
+<body class="doc-page">
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu"><span></span><span></span><span></span></button>
+    <a class="nav-logo" href="index.html"><img src="img/blades-lockup-h.png" width="1495" height="334" alt="BLADES pilot logbook"></a>
+    <div class="nav-links">
+      <details class="nav-dd"><summary>The app<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="index.html#log"><b>Log a flight</b><span>Quicklog in ten seconds, or the full log</span></a><a href="index.html#logbook"><b>Your logbook</b><span>Page for page, as in a paper logbook</span></a><a href="index.html#who"><b>Who it's for</b><span>Student, airline, helicopter and drone</span></a><a href="index.html#inside"><b>Discover Blades functions</b><span>Fleet cards, the global map and more</span></a><a href="index.html#pricing"><b>Pricing</b><span>Free to start, Premium for unlimited</span></a><a href="support.html#frequently-asked-questions"><b>Questions</b><span>Answers before you download</span></a></div></details>
+      <details class="nav-dd"><summary>Guides<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="nav-dd-panel"><a href="easa-pilot-logbook.html" aria-current="page"><b>EASA pilot logbook</b><span>Layouts, columns and currency</span></a><a href="drone-logbook.html"><b>Drone logbook</b><span>Categories, line of sight and roles</span></a><a href="night-time.html"><b>How to log night time</b><span>EASA and FAA rules, explained</span></a></div></details>
+      <a href="support.html">Support</a>
+    </div>
+    <a class="btn btn-sm" href="https://apps.apple.com/app/id6798360464">Download</a>
+  </nav>
+  <div class="nav-menu" id="nav-menu" hidden>
+    <nav class="nm-group" aria-labelledby="nm-h-app">
+      <p class="nm-h" id="nm-h-app">The app</p>
+      <ul class="nm-main">
+        <li style="--i:0"><a href="index.html#log"><span class="nm-t">Log a flight</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:1"><a href="index.html#logbook"><span class="nm-t">Your logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:2"><a href="index.html#who"><span class="nm-t">Who it's for</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:3"><a href="index.html#inside"><span class="nm-t">Discover Blades functions</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:4"><a href="index.html#pricing"><span class="nm-t">Pricing</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:5"><a href="support.html#frequently-asked-questions"><span class="nm-t">Questions</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+      </ul>
+    </nav>
+    <nav class="nm-group" aria-labelledby="nm-h-guides">
+      <p class="nm-h" id="nm-h-guides">Guides</p>
+      <ul class="nm-main">
+        <li style="--i:6"><a href="easa-pilot-logbook.html" aria-current="page"><span class="nm-t">EASA pilot logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:7"><a href="drone-logbook.html"><span class="nm-t">Drone logbook</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+        <li style="--i:8"><a href="night-time.html"><span class="nm-t">How to log night time</span><svg class="nm-ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a></li>
+      </ul>
+    </nav>
+    <div class="nm-foot" style="--i:9">
+      <a class="btn nm-dl" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a>
+      <nav class="nm-legal" aria-label="Help and legal"><a href="support.html">Support</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav>
+      <a class="nm-mail" href="mailto:support@blades-app.com">support@blades-app.com</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <header class="doc-hero">
+    <div class="doc-hero-in">
+      <h1>An EASA logbook <em>on your iPhone.</em></h1>
+      <p class="doc-meta">Blades for aeroplane and helicopter pilots</p>
+    </div>
+  </header>
+
+  <div class="doc-wrap has-toc">
+    <nav class="doc-toc" aria-label="On this page">
+      <p class="doc-toc-h">On this page</p>
+      <ol><li><a href="#columns">The columns you need</a></li><li><a href="#layouts">Layouts</a></li><li><a href="#night">Night time</a></li><li><a href="#currency">Currency</a></li><li><a href="#crew">Multi-pilot and simulators</a></li><li><a href="#import">Bring your logbook</a></li><li><a href="#price">Price</a></li></ol>
+    </nav>
+    <article class="doc-body">
+<p class="doc-lede">Blades logs every flight with the columns an EASA logbook asks for, and lays the pages out like the book you already keep. Copy them across by hand, or export them as a PDF.</p>
+<p class="doc-note">Blades follows the published layouts; it isn't an approved or certified logbook. Check with your authority what they accept, and keep your paper logbook for signatures if they need them.</p>
+
+<h2 id="columns">The columns you need</h2>
+<p>Date, aircraft type and registration, departure and arrival with UTC times, single-pilot time (single- and multi-engine), multi-pilot time, total time, name of the PIC, day and night landings, night and IFR time, PIC, co-pilot, dual and instructor time, FSTD sessions and remarks. Totals for the page, brought forward and to date are added up for you.</p>
+
+<h2 id="layouts">Layouts</h2>
+<ul class="doc-grid">
+  <li><img src="img/layouts/easa-amc1-fcl050.webp?v=2" width="640" height="218" loading="lazy" alt="A spread in the EASA AMC1 FCL.050 layout."><span>EASA AMC1 FCL.050</span></li>
+  <li><img src="img/layouts/easa-professional-pilot.webp?v=2" width="640" height="210" loading="lazy" alt="A spread in the Professional Pilot Logbook layout."><span>Professional Pilot Logbook</span></li>
+  <li><img src="img/layouts/easa-pilot-logbook.webp?v=2" width="640" height="222" loading="lazy" alt="A spread in the Pilot logbook layout."><span>Pilot logbook</span></li>
+  <li><img src="img/layouts/faa-61-51.webp?v=2" width="640" height="230" loading="lazy" alt="A spread in the FAA 14 CFR 61.51 layout."><span>FAA 14 CFR 61.51</span></li>
+</ul>
+<p>Pick one per logbook. Or photograph a page of your own logbook and Blades builds a layout from its columns.</p>
+
+<h2 id="night">Night time</h2>
+<p>Blades follows your route from departure to arrival and counts the time between the end of evening civil twilight and the start of morning civil twilight, as EASA defines night. Take-offs and landings are marked day or night by the sun at each airport. It's filled in for you and you can always change it. <a href="night-time.html">How to log night time</a>.</p>
+
+<h2 id="currency">Currency</h2>
+<p>Passenger currency by day and by night, instrument currency, and expiry dates for your IR, medical and ratings, under EASA, UK CAA or FAA rules. Simulator sessions count where the rules allow: FFS for landings, and FFS, FTD and FNPT II for approaches.</p>
+
+<h2 id="crew">Multi-pilot and simulators</h2>
+<ul>
+  <li>Pilot flying or monitoring, multi-pilot and SIC time, and the second pilot by name.</li>
+  <li>2D and 3D approaches, holds and NVG time.</li>
+  <li>Simulator sessions in an FFS, FTD, FNPT I or II, BITD, CPT/PPT or CBT.</li>
+  <li>Log straight from a photo of the ACARS flight log: the route and block times come in by themselves.</li>
+</ul>
+
+<h2 id="import">Bring your logbook</h2>
+<p>Import from ForeFlight, LogTen Pro, mccPILOTLOG, MyFlightbook, Logbook Pro, APDL or eFlightbook, or any CSV or Excel file. You can also start from the totals in your book. Imported flights don't count towards the 20 free ones. Importing uses Blade-coins; you get 100 to start.</p>
+
+<h2 id="price">Price</h2>
+<p>Free for 20 flights you log in the app. <strong>Premium is <span data-price>€2.99</span> a month</strong> for unlimited flights and 250 Blade-coins a month. No account, and your logbook stays on your iPhone either way.</p>
+      <p class="doc-cta"><a class="btn" href="https://apps.apple.com/app/id6798360464">Download on the App Store</a></p>
+      <p class="doc-back"><a href="index.html">← Back to BLADES</a></p>
+    </article>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <a href="index.html"><img class="foot-logo" src="img/blades-lockup-h.png" width="1495" height="334" alt="BLADES pilot logbook" loading="lazy"></a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="support.html">Support</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="mailto:support@blades-app.com">support@blades-app.com</a>
+    </nav>
+    <p class="foot-copy">© 2026 BLADES</p>
+  </div>
+</footer>
+
+
+<script src="js/doc.js?v=407c1ec7" defer></script>
+<script src="js/nav.js?v=c52e5059" defer></script>
+<script src="js/price.js?v=eae6b8ff" defer></script>
+</body>
+</html>

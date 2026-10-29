@@ -1,37 +1,11 @@
-/* BLADES — "Straight from the app": manned/unmanned switch, the logbook spread, fleet cards and the airport globe. */
+/* BLADES — the app's fleet cards (aircraft and drones, taking turns) and the airport globe. (The logbook has its own
+   section, js/bookflip.js.) */
 (() => {
   const section = document.getElementById('inside');
   if (!section) return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FLEET = window.BLADES_FLEET || { manned: [], unmanned: [], credits: {} };
   const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let mode = 'manned';
-
-  /* ---------- Logbook spread: the app's HTML at its own size, scaled to the frame ---------- */
-  const frame = section.querySelector('.book-frame');
-  const book = section.querySelector('.book');
-  const sizer = document.createElement('div');
-  sizer.className = 'book-size';
-  book.parentNode.insertBefore(sizer, book);
-  sizer.appendChild(book);
-  const fitBook = () => {
-    let doc;
-    try { doc = book.contentDocument; } catch (e) { return; }
-    if (!doc || !doc.body) return;
-    const w = Math.max(doc.documentElement.scrollWidth, doc.body.scrollWidth);
-    book.style.width = `${w}px`;
-    book.style.height = '10px';
-    const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
-    book.style.height = `${h}px`;
-    const phone = window.matchMedia('(max-width: 820px)').matches;
-    const s = phone ? Math.max(0.5, frame.clientWidth / w) : Math.min(1, frame.clientWidth / w);
-    book.style.transform = `scale(${s})`;
-    sizer.style.width = `${w * s}px`;
-    sizer.style.height = `${h * s}px`;
-  };
-  book.addEventListener('load', fitBook);
-  window.addEventListener('resize', fitBook);
-  if (book.contentDocument && book.contentDocument.readyState === 'complete') fitBook();
 
   /* ---------- Fleet cards ---------- */
   const strip = document.getElementById('fleet');
@@ -52,10 +26,19 @@
     return c ? `<a class="fc-credit" href="${esc(c.page)}" target="_blank" rel="noopener">Photo: ${esc(c.author)} · ${esc(c.license)} · Wikimedia Commons</a>` : '';
   };
   const foot = (a) => `<div class="fc-foot"><div><span>First flight</span><b>${a.first}</b></div><div><span>Last flown</span><b>${a.last}</b></div></div>`;
-  const banner = (a) => `<div class="fc-banner"><img src="img/fleet/${a.key}.jpg" alt="" loading="lazy" draggable="false">${credit(a.key)}</div>`;
+  // The banner as in the app (components/logbook-page/FleetCard.tsx): the photo fades into the card, and a cut-out
+  // of the aircraft (the app lifts it with Apple's subject lift; here made beforehand, img/fleet/cut/) sits on top
+  // in the same place and spills over the edge. Mavic 3T stands on its case, so it keeps the plain banner.
+  const AR = {da42: 1.4307, h125: 1.4977, r44: 1.493, m300: 1.5764, at76: 1.4977, m30t: 1.5, m4t: 1.6517, m3t: 1.5, c172: 1.7021, h145: 1.3333, wingtra: 1.4977};
+  const CUT = new Set(['at76', 'c172', 'da42', 'h125', 'h145', 'r44', 'm300', 'm30t', 'm4t', 'wingtra']);
+  const banner = (a) => {
+    const ar = AR[a.key] || 1.5;
+    const cut = CUT.has(a.key) ? `<div class="fc-cutwrap"><img class="fc-cut" src="img/fleet/cut/${a.key}.webp" alt="" loading="lazy" draggable="false" style="--ar:${ar}"></div>` : '';
+    return `<div class="fc-top"><div class="fc-banner"><img class="fc-photo" src="img/fleet/${a.key}.jpg" alt="" loading="lazy" draggable="false" style="--ar:${ar}">${credit(a.key)}</div>${cut}</div>`;
+  };
 
   const aircraftCard = (a) => `
-    <article class="fc" aria-label="${esc(a.maker)} ${esc(a.type)}">
+    <article class="fc${CUT.has(a.key) ? ' has-cut' : ''}" aria-label="${esc(a.maker)} ${esc(a.type)}">
       ${banner(a)}
       <div class="fc-body">
         <div class="fc-head">
@@ -71,7 +54,7 @@
     </article>`;
 
   const droneCard = (d) => `
-    <article class="fc drone" aria-label="${esc(d.maker)} ${esc(d.type)}">
+    <article class="fc drone${CUT.has(d.key) ? ' has-cut' : ''}" aria-label="${esc(d.maker)} ${esc(d.type)}">
       ${banner(d)}
       <div class="fc-body">
         <div class="fc-head"><div><p class="fc-type">${esc(d.type)}</p><p class="fc-maker">${esc(d.maker)}</p></div></div>
@@ -83,51 +66,32 @@
       </div>
     </article>`;
 
+  // Every other card a drone: aircraft, drone, aircraft, … (the longer list finishes the row). The cards flow on a band
+  // like the feature cards above (js/site.js); it holds still while a card's registrations are open.
   const renderFleet = () => {
     if (!strip) return;
-    const list = mode === 'manned' ? FLEET.manned : FLEET.unmanned;
-    strip.innerHTML = list.map(mode === 'manned' ? aircraftCard : droneCard).join('');
-    strip.scrollLeft = 0;
+    const cards = [];
+    for (let i = 0; i < Math.max(FLEET.manned.length, FLEET.unmanned.length); i += 1) {
+      if (FLEET.manned[i]) cards.push(aircraftCard(FLEET.manned[i]));
+      if (FLEET.unmanned[i]) cards.push(droneCard(FLEET.unmanned[i]));
+    }
+    strip.innerHTML = cards.join('');
   };
   if (strip) {
-    strip.addEventListener('click', (e) => {
+    renderFleet();
+    const band = strip.closest('.marquee');
+    const flow = band && window.bladesMarquee ? window.bladesMarquee(band) : null;
+    // "Show all" opens a card's registrations (on the band's copies too, which keep working buttons).
+    (band || strip).addEventListener('click', (e) => {
       const btn = e.target.closest('.fc-more');
       if (!btn) return;
       const open = btn.getAttribute('aria-expanded') !== 'true';
       btn.closest('.fc-regs').querySelectorAll('.fc-reg').forEach((r, i) => { if (i > 2) r.hidden = !open; });
       btn.setAttribute('aria-expanded', String(open));
       btn.textContent = open ? 'Show fewer' : `Show all ${btn.closest('.fc-regs').querySelectorAll('.fc-reg').length}`;
+      if (flow) flow.hold(!!(band.querySelector('.fc-more[aria-expanded="true"]')));
     });
-    // Grab and drag the row with a mouse; touch and trackpads scroll it natively.
-    let drag = null;
-    strip.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('a, button')) return;
-      drag = { x: e.clientX, left: strip.scrollLeft, moved: false, id: e.pointerId };
-    });
-    strip.addEventListener('pointermove', (e) => {
-      if (!drag) return;
-      const dx = e.clientX - drag.x;
-      if (!drag.moved && Math.abs(dx) > 4) { drag.moved = true; strip.setPointerCapture(drag.id); strip.classList.add('is-dragging'); }
-      if (drag.moved) strip.scrollLeft = drag.left - dx;
-    });
-    const end = () => { if (drag && drag.moved) strip.classList.remove('is-dragging'); drag = null; };
-    strip.addEventListener('pointerup', end);
-    strip.addEventListener('pointercancel', end);
-    renderFleet();
   }
-
-  /* ---------- Manned / unmanned ---------- */
-  const swaps = Array.from(section.querySelectorAll('.demo-text [data-manned]'));
-  section.querySelectorAll('.mode-btn').forEach((btn) => btn.addEventListener('click', () => {
-    if (btn.dataset.mode === mode) return;
-    mode = btn.dataset.mode;
-    section.querySelectorAll('.mode-btn').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-    swaps.forEach((el) => { el.textContent = el.dataset[mode]; });
-    book.src = book.dataset[mode];
-    const open = section.querySelector('.book-open');
-    if (open) open.href = book.dataset[mode];
-    renderFleet();
-  }));
 
   /* ---------- Airport globe: globe.gl + Supercluster, turning on its own; loaded when it comes near ---------- */
   const globeEl = document.getElementById('globe');
@@ -224,6 +188,9 @@
         world.pointOfView({ lat: ap.lat, lng: ap.lng, altitude: 0.42 }, reduce ? 0 : 1600);
         refresh();
       },
+      // Off screen in the carousel (js/more.js) the globe rests.
+      pause() { world.pauseAnimation(); },
+      resume() { world.resumeAnimation(); },
       release() {
         picked = null;
         c.autoRotate = !reduce;
@@ -232,6 +199,9 @@
         refresh();
       },
     };
+    // Started while another slide of the carousel is showing: rest until its own comes up.
+    const slide = globeEl.closest('.more-slide');
+    if (slide && !slide.classList.contains('is-on')) world.pauseAnimation();
 
     const res = await fetch('data/airports.json');
     const rows = await res.json();

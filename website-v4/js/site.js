@@ -1,10 +1,11 @@
-/* BLADES — the flowing feature band (hold to stop, drag to move), and gentle entrances as sections scroll into view. Content is never left hidden. */
+/* BLADES — the flowing bands of cards (hold to stop, drag to move), and gentle entrances as sections scroll into view. Content is never left hidden. */
 (() => {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---------- Feature band: flows on its own, stops while you hold it, follows your drag ---------- */
-  const marquee = document.querySelector('.marquee');
-  if (marquee) {
+  /* ---------- Bands (features, who it's for, the fleet cards): flow on their own, stop while you hold them, follow your drag
+     A band marked data-later is started by the script that fills it (js/demo.js, window.bladesMarquee). In a band
+     marked data-live the copies keep working buttons (a card's "Show all"); otherwise they are inert. ---------- */
+  const band = (marquee) => {
     const SPEED = 34;         // px per second when flowing
     const RESUME = 1600;      // ms of stillness after you let go before it flows again
     const strip = marquee.querySelector('.strip');
@@ -13,10 +14,13 @@
 
     // Copies of the set make the loop seamless; they are hidden from screen readers and keyboard.
     const copies = [];
+    const live = marquee.hasAttribute('data-live');
     const addCopy = () => {
       const c = set.cloneNode(true);
+      c.removeAttribute('id');
       c.setAttribute('aria-hidden', 'true');
-      c.inert = true;
+      if (live) c.querySelectorAll('button, a').forEach((el) => { el.tabIndex = -1; });
+      else c.inert = true;
       strip.appendChild(c);
       copies.push(c);
     };
@@ -70,6 +74,7 @@
     let vel = 0;
     marquee.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('button, a')) return;      // a button in a card is pressed, not the band
       held = true;
       speed = 0;
       fling = 0;
@@ -117,7 +122,14 @@
     window.addEventListener('resize', measure);
     window.addEventListener('load', measure);
     start();
-  }
+    // For the script that fills the band: hold it still (a card opened to read), measure it again.
+    return {
+      hold(on) { focusHeld = on; if (!on) resumeAt = performance.now() + RESUME; },
+      measure,
+    };
+  };
+  window.bladesMarquee = band;
+  document.querySelectorAll('.marquee:not([data-later])').forEach(band);
 
   /* ---------- Entrances ---------- */
   const els = [];

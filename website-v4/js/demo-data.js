@@ -1,4 +1,4 @@
-/* Demo fleet. Aeroplanes: hours, registrations and dates from demo-data/blades-demo-pilot-fixed-wing.csv. Helicopters: the HEMS test profile (testUserSeed.ts, seedMannedPilot2), reproduced with its own RNG. Drones: Matrice 30T/4T and Mavic 3 Thermal from demo-data/blades-demo-drone-commercial.csv; Matrice 300 RTK and WingtraOne are illustrative. Specs from the app's reference table (aircraftLookup.ts) where it has them, otherwise published figures. Photos fetched the way the app does (wikiPhoto.ts) and checked to show the right model. */
+/* Demo fleet. Aeroplanes: hours, registrations and dates from demo-data/blades-demo-pilot-fixed-wing.csv. Helicopters: the HEMS test profile (testUserSeed.ts, seedMannedPilot2), reproduced with its own RNG. Drones: Matrice 30T/4T and Mavic 3 Thermal from demo-data/blades-demo-drone-commercial.csv; Matrice 300 RTK and WingtraOne are illustrative. Specs from the app's reference table (aircraftLookup.ts) where it has them, otherwise published figures. Photos fetched the way the app does (wikiPhoto.ts) and checked to show the right model. Registrations beyond the CSVs' are illustrative; each model's hours are shared among them, the total unchanged. */
 window.BLADES_FLEET = {
  "manned": [
   {
@@ -11,7 +11,23 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "SE-HEM",
-     "517:12"
+     "179:34"
+    ],
+    [
+     "SE-JRL",
+     "129:17"
+    ],
+    [
+     "SE-JRP",
+     "93:05"
+    ],
+    [
+     "SE-HMB",
+     "67:01"
+    ],
+    [
+     "SE-JRN",
+     "48:15"
     ]
    ],
    "perf": [
@@ -101,7 +117,23 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "SE-JLL",
-     "1318:42"
+     "457:49"
+    ],
+    [
+     "SE-JBM",
+     "329:38"
+    ],
+    [
+     "SE-HUM",
+     "237:20"
+    ],
+    [
+     "SE-JFE",
+     "170:53"
+    ],
+    [
+     "SE-JPS",
+     "123:02"
     ]
    ],
    "perf": [
@@ -134,15 +166,23 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "SE-KBT",
-     "113:45"
+     "63:46"
     ],
     [
      "SE-KFR",
-     "60:29"
+     "45:54"
     ],
     [
      "SE-KUR",
-     "9:25"
+     "33:03"
+    ],
+    [
+     "SE-KML",
+     "23:48"
+    ],
+    [
+     "SE-IRG",
+     "17:08"
     ]
    ],
    "perf": [
@@ -175,7 +215,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "SE-JRB",
-     "192:36"
+     "73:44"
+    ],
+    [
+     "SE-HHK",
+     "53:06"
+    ],
+    [
+     "SE-JVC",
+     "38:14"
+    ],
+    [
+     "SE-JOG",
+     "27:32"
     ]
    ],
    "perf": [
@@ -208,11 +260,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "SE-MLF",
-     "23:53"
+     "14:00"
     ],
     [
      "SE-MLE",
-     "12:42"
+     "10:05"
+    ],
+    [
+     "SE-MLG",
+     "7:16"
+    ],
+    [
+     "SE-MLH",
+     "5:14"
     ]
    ],
    "perf": [
@@ -247,11 +307,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "M300-01",
-     "124:10"
+     "71:29"
     ],
     [
      "M300-02",
-     "62:32"
+     "51:28"
+    ],
+    [
+     "M300-03",
+     "37:04"
+    ],
+    [
+     "M300-04",
+     "26:41"
     ]
    ],
    "kind": "Multirotor",
@@ -271,7 +339,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "WING-01",
-     "64:15"
+     "24:36"
+    ],
+    [
+     "WING-02",
+     "17:43"
+    ],
+    [
+     "WING-03",
+     "12:45"
+    ],
+    [
+     "WING-04",
+     "9:11"
     ]
    ],
    "kind": "VTOL",
@@ -291,7 +371,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "M30T-01",
-     "75:40"
+     "28:58"
+    ],
+    [
+     "M30T-02",
+     "20:52"
+    ],
+    [
+     "M30T-03",
+     "15:01"
+    ],
+    [
+     "M30T-04",
+     "10:49"
     ]
    ],
    "kind": "Multirotor",
@@ -311,7 +403,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "M4T-01",
-     "40:51"
+     "15:38"
+    ],
+    [
+     "M4T-02",
+     "11:16"
+    ],
+    [
+     "M4T-03",
+     "8:07"
+    ],
+    [
+     "M4T-04",
+     "5:50"
     ]
    ],
    "kind": "Multirotor",
@@ -331,7 +435,19 @@ window.BLADES_FLEET = {
    "regs": [
     [
      "M3T-01",
-     "18:45"
+     "7:11"
+    ],
+    [
+     "M3T-02",
+     "5:10"
+    ],
+    [
+     "M3T-03",
+     "3:43"
+    ],
+    [
+     "M3T-04",
+     "2:41"
     ]
    ],
    "kind": "Multirotor",
