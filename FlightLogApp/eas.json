@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 12.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
     "development": {
@@ -18,6 +19,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "ios": {
         "simulator": false
       },
@@ -30,6 +32,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "ios": {
         "simulator": false
       },
@@ -39,6 +42,10 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_SENTRY_DSN": "https://dab56361d6e980fbee7a4b5f0adc8fd8@o4512330025598976.ingest.de.sentry.io/4512330034839632"
       }
+    },
+    "testflight": {
+      "extends": "production",
+      "channel": "preview"
     }
   },
   "submit": {
@@ -48,6 +55,9 @@
         "ascAppId": "6798360464",
         "appleTeamId": "8KLT4DPJ55"
       }
+    },
+    "testflight": {
+      "extends": "production"
     }
   }
 }

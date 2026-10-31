@@ -8,6 +8,7 @@ import type { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { canUseLiquidGlass } from '../utils/liquidGlass';
 
 // expo-router har en egen kopia av bottom-tabs → ta typen från Tabs-komponentens tabBar-prop.
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -36,20 +37,6 @@ export function useTabBarSpace(): number {
   return barBottom(insets.bottom) + TAB_BAR_HEIGHT;
 }
 
-// Liquid Glass bara när både iOS 26+ och native-modulen finns. Modulen kräver ett bygge där den är länkad —
-// saknas den kastar kontrollen, och då används blur i stället (ingen krasch).
-let liquidGlass: boolean | null = null;
-function canUseLiquidGlass(): boolean {
-  if (liquidGlass === null) {
-    try {
-      const glass = require('expo-glass-effect');
-      liquidGlass = !!glass.isLiquidGlassAvailable() && !!glass.isGlassEffectAPIAvailable();
-    } catch {
-      liquidGlass = false;
-    }
-  }
-  return liquidGlass;
-}
 
 function GlassSurface() {
   if (canUseLiquidGlass()) {

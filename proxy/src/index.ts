@@ -1,6 +1,7 @@
 // Blades API Proxy + Telemetri + Stats-dashboard
 import { callWithModelFallback, refreshModelRouting } from './modelFallback';
 import { handleOps, handleSupportEmail, resolveAeDataset, runOpsMonitor, OPS_MONITOR_CRON, type OpsEnv } from './ops';
+import { costUsd } from './pricing';
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
 interface Env extends OpsEnv {
@@ -83,20 +84,7 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 // Lägg till nya ID:n här när en app-build börjar begära dem. (Gamla byggens 4.6/4.5 pekas om i modelFallback.)
 const APP_MODELS = ['claude-sonnet-4-6', 'claude-sonnet-5-5', 'claude-opus-4-8', 'claude-haiku-4-5', 'claude-haiku-5-5'];
 
-// USD per miljon tokens (indata, utdata) enligt Anthropics prislista 2026-10-26 → telemetrins kostnad följer
-// modellen som faktiskt svarade. Okänd modell → Sonnet 4.6-pris.
-const MODEL_PRICES: [RegExp, number, number][] = [
-  [/^claude-haiku-5-5/, 0.1, 0.5], [/^claude-haiku-4-5/, 1, 5],
-  [/^claude-sonnet-5/, 2, 10], [/^claude-sonnet-4/, 3, 15],
-  [/^claude-opus-5-5/, 4, 20], [/^claude-opus-[45]/, 5, 25],
-  [/^claude-fable/, 10, 50],
-];
-// Cachade systemprompter faktureras separat: skrivning 1,25× och läsning 0,1× av indatapriset. De ingår
-// inte i input_tokens, så de måste räknas in här — annars visar telemetrin ungefär hälften av kostnaden.
-function costUsd(model: string, inTok: number, outTok: number, cacheWrite = 0, cacheRead = 0): number {
-  const [, pin, pout] = MODEL_PRICES.find(([re]) => re.test(model)) ?? [null, 3, 15];
-  return Math.round(((inTok * pin + cacheWrite * pin * 1.25 + cacheRead * pin * 0.1 + outTok * pout) / 1e6) * 10000) / 10000;
-}
+// Kostnaden per anrop (prislistan och cachade promptar) ligger i src/pricing.ts — delas med Ops-assistenten.
 
 // Native-appen (iOS) skickar ingen Origin och bryr sig inte om CORS → den påverkas inte.
 // Genom att bara tillåta website-origin blockeras webbläsar-anrop från andra sajter (t.ex. en

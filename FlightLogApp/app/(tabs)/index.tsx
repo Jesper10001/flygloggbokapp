@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'rea
 import {
   View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
-  Alert, Linking,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -626,7 +626,7 @@ export default function DashboardScreen() {
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
-  const { updateAvailable, news, storeUrl, check: checkVersion } = useVersionStore();
+  const { updateAvailable, news, check: checkVersion } = useVersionStore();
   const [spreadPrompt, setSpreadPrompt] = useState<SpreadPrompt | null>(null);
   const loadPrompt = useCallback(() => {
     getDashboardSpreadPrompt().then(setSpreadPrompt).catch(() => setSpreadPrompt(null));
@@ -837,26 +837,7 @@ export default function DashboardScreen() {
       {/* Hälsningsfrasen är tillfälligt dold (SHOW_GREETING=false) men koden behålls nedan. */}
       {SHOW_GREETING && <Text style={greetingStyle}>{greeting}</Text>}
 
-      {/* ── App news / update banner ── */}
-      {updateAvailable && (
-        <TouchableOpacity
-          style={s.newsBanner}
-          activeOpacity={0.8}
-          onPress={() => {
-            Alert.alert(t('update_available'), t('update_available_sub'), [
-              { text: t('cancel'), style: 'cancel' },
-              { text: 'App Store', onPress: () => Linking.openURL(storeUrl) },
-            ]);
-          }}
-        >
-          <Ionicons name="arrow-up-circle" size={18} color={Colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.newsBannerTitle}>{t('update_available')}</Text>
-            <Text style={s.newsBannerBody}>{t('update_available_sub')}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-        </TouchableOpacity>
-      )}
+      {/* ── App news ── (en ny version visas av UpdateAvailableModal, som kommer tillbaka varje gång appen öppnas) */}
       {news && !updateAvailable && (
         <View style={[s.newsBanner, news.type === 'warning' && { borderColor: Colors.warning + '44', backgroundColor: Colors.warning + '08' }]}>
           <Ionicons name={news.type === 'warning' ? 'alert-circle' : 'information-circle'} size={18} color={news.type === 'warning' ? Colors.warning : Colors.info} />

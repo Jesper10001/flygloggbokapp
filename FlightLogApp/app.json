@@ -3,6 +3,14 @@
     "name": "Blades",
     "slug": "blades-joint-logbook",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3e7e3c1a-87dd-4aff-95a3-d98170a0f924",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "default",
     "icon": "./assets/applogo-cyanonnavy.png",
     "userInterfaceStyle": "dark",

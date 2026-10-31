@@ -1,7 +1,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Application from 'expo-application';
 import type { DB } from '@op-engineering/op-sqlite';
 import { createManagedDb, dbFileExists, openDbFile, type ManagedDb, type SqliteDb } from './sqlite';
 import { getDbKey, getOrCreateDbKey } from '../services/dbKey';
+import { reportError } from '../services/crashReporting';
 
 // Loggboken ligger i EN av två filer, och filnamnet ÄR läget → läget går alltid att härleda från disken:
 //  - PLAIN_FILE: standard. Ingen extra kryptering — filen skyddas av iOS dataskydd.
@@ -63,6 +65,63 @@ async function resolveLiveFile(): Promise<{ file: DbFile; marker: DbFile | null;
   return { file, marker, otherExists: exists[otherFile(file)] };
 }
 
+// ── Säkerhetskopia före uppgradering ─────────────────────────────────────────────────────────────────────────
+// Första gången en ny version av appen startar (nytt bygge ELLER ny EAS-uppdatering — migrationerna ligger i JS)
+// kopieras loggboken till en egen fil INNAN migrationerna körs, och kopian verifieras (samma tabeller, samma antal
+// rader, integritetskontroll). Kopian ligger bredvid loggboken med samma kryptering och nyckel; de två senaste
+// sparas. Går en uppgradering någonsin snett kan loggboken återställas därifrån (en återställning kan skickas
+// som EAS-uppdatering). Får aldrig stoppa appstarten: misslyckas kopian körs appen vidare som förut.
+const LAST_VERSION_KEY = 'last_code_version';
+const BACKUP_PREFIX = 'preupdate-';
+const BACKUPS_KEPT = 2;
+
+/** Bygget (version + byggnummer) plus vilken EAS-uppdatering som körs, t.ex. "1.0.1+15/embedded". */
+function currentCodeVersion(): string {
+  let update = 'embedded';
+  try {
+    const Updates = require('expo-updates');
+    if (Updates?.isEnabled && Updates.updateId && !Updates.isEmbeddedLaunch) update = String(Updates.updateId).slice(0, 8);
+  } catch { /* expo-updates saknas (äldre dev-klient) */ }
+  return `${Application.nativeApplicationVersion ?? '?'}+${Application.nativeBuildVersion ?? '?'}/${update}`;
+}
+
+async function backupBeforeUpgrade(conn: DB, key: string, version: string): Promise<void> {
+  // Ny installation (inget schema än) → inget att kopiera.
+  const hasSettings = (conn.executeSync("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'").rows ?? []).length > 0;
+  if (!hasSettings) return;
+  const last = (conn.executeSync('SELECT value AS v FROM settings WHERE key = ?', [LAST_VERSION_KEY]).rows?.[0] as any)?.v ?? null;
+  if (last === version) return;
+
+  const dbPath = conn.getDbPath();
+  const dir = dbPath.slice(0, dbPath.lastIndexOf('/') + 1);
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-'); // 20261031-211500
+  const name = `${BACKUP_PREFIX}${stamp}.db`;
+  let attached = false;
+  try {
+    try { conn.executeSync('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* exporten läser genom WAL ändå */ }
+    conn.executeSync('ATTACH DATABASE ? AS bak KEY ?', [dir + name, key]); // nyckeln binds som parameter
+    attached = true;
+    await conn.execute("SELECT sqlcipher_export('bak')"); // tung kopiering på bakgrundstråd → UI:t lever
+    const userVersion = Number((conn.executeSync('PRAGMA user_version').rows?.[0] as any)?.user_version ?? 0);
+    conn.executeSync(`PRAGMA bak.user_version = ${userVersion}`);
+    conn.executeSync('DETACH DATABASE bak');
+    attached = false;
+    const copy = openDbFile(name, key);
+    try { await verifyCopy(conn, copy); } finally { try { copy.close(); } catch { /* ignore */ } }
+  } catch (e) {
+    if (attached) { try { conn.executeSync('DETACH DATABASE bak'); } catch { /* ignore */ } }
+    await FileSystem.deleteAsync('file://' + dir + name, { idempotent: true }).catch(() => {});
+    throw e;
+  }
+  // Behåll de nyaste kopiorna (namnen sorteras i tidsordning).
+  const all = (await FileSystem.readDirectoryAsync('file://' + dir).catch(() => [] as string[]))
+    .filter((f) => f.startsWith(BACKUP_PREFIX) && f.endsWith('.db'))
+    .sort();
+  for (const old of all.slice(0, Math.max(0, all.length - BACKUPS_KEPT))) {
+    await FileSystem.deleteAsync('file://' + dir + old, { idempotent: true }).catch(() => {});
+  }
+}
+
 // Delad init-promise: db exponeras FÖRST när schema + migrationer körts klart. Utan detta kan en
 // parallell anropare (komponent/store på mount) få en halv-initierad db och köra frågor innan nya
 // kolumner lagts till (t.ex. "table icao_airports has no column named gps").
@@ -76,12 +135,19 @@ export async function getDatabase(): Promise<SqliteDb> {
       const key = file === ENC_FILE ? await getDbKey() : '';
       const conn = openDbFile(file, key);
       const d = createManagedDb(conn);
+      const version = currentCodeVersion();
+      try {
+        await backupBeforeUpgrade(conn, key, version);
+      } catch (e) {
+        reportError(e, { where: 'backupBeforeUpgrade' }); // aldrig stoppande — appen startar som förut
+      }
       try {
         await initializeDatabase(d);
       } catch (e) {
         try { conn.close(); } catch { /* ignore */ }
         throw e;
       }
+      try { await d.runAsync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [LAST_VERSION_KEY, version]); } catch { /* nästa start försöker igen */ }
       liveFile = file;
       db = d;
       // Markören skrivs först när filen bevisligen gick att öppna. Rester av en avbruten konvertering raderas
@@ -330,6 +396,13 @@ async function addColumnIfMissingOnTable(db: SqliteDb, table: string, col: strin
   }
 }
 
+// REGLER för migrationer — testas av scripts/test-db-upgrade.cjs mot alla taggade byggen före varje bygge:
+//  1. Bara lägga till: CREATE TABLE IF NOT EXISTS och ADD COLUMN med DEFAULT. Aldrig DROP, RENAME eller ändrad
+//     betydelse för en befintlig kolumn → både äldre och nyare appversioner kan läsa samma databas.
+//  2. Allt här körs vid VARJE start och måste tåla det (idempotent). En användare som hoppar över flera versioner
+//     får då allt som saknas på en gång.
+//  3. Engångsändringar av data skyddas med en flagga i settings och rör bara det felet gäller.
+// Före migrationerna tas en verifierad säkerhetskopia när versionen ändrats (backupBeforeUpgrade ovan).
 async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissing(db, 'status',       `TEXT NOT NULL DEFAULT 'manual'`);
   await addColumnIfMissing(db, 'source',       `TEXT NOT NULL DEFAULT 'manual'`);

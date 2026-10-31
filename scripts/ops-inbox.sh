@@ -6,6 +6,7 @@
 #   bash scripts/ops-inbox.sh                        visa öppna uppgifter till Claude
 #   bash scripts/ops-inbox.sh done <id> "notering"   bocka av (noteringen syns på sidan)
 #   bash scripts/ops-inbox.sh ask "text"             lägg en uppgift till användaren på sidan
+#   bash scripts/ops-inbox.sh sentry <id>            hela felrapporten för ett Sentry-fel (JSON, via proxyn)
 #
 # Token: ~/.config/blades-ops/token, samma värde som Workerns secret CLAUDE_TASKS_TOKEN.
 # Den skickas via stdin till curl (syns inte i processlistan) och skrivs aldrig ut.
@@ -25,6 +26,11 @@ case "${1:-}" in
   ask)
     [ -n "${2:-}" ] || { echo "Användning: bash $SELF ask \"text\"" >&2; exit 2; }
     auth | curl -sS --max-time 10 -H @- --data-urlencode "text=$2" "$BASE/add"
+    echo
+    ;;
+  sentry)
+    case "${2:-}" in ''|*[!0-9]*) echo "Användning: bash $SELF sentry <fel-id (siffror)>" >&2; exit 2 ;; esac
+    auth | curl -sS --max-time 20 -H @- "$BASE/sentry?id=$2"
     echo
     ;;
   *)
