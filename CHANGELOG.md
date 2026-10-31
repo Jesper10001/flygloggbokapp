@@ -25,7 +25,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
   - Nytt glaskort (Liquid Glass på iOS 26) med App Storens "What's New".
   - Urvalet är högst tre rader med etiketterna NEW, FIXED och IMPROVED, och knapparna heter "Update" och "Not now".
   - Bannern "Update available" på dashboarden är borttagen.
-- **Dev-builden låtsas att nästa version finns** (`DEV_SIMULATE_UPDATE`), för att visa popupen. Det påverkar aldrig riktiga byggen.
+- **Testläge för popupen i dev-builden** (`DEV_SIMULATE_UPDATE` i `store/versionStore.ts`): låtsas att nästa version finns. Det är avstängt som standard och påverkar aldrig riktiga byggen.
 - **Bygg bara från committad kod** (`requireCommit` i `eas.json`).
 - **Uppgraderingstestet för databasen** (`scripts/test-db-upgrade.cjs`) körs mot alla taggade byggen.
 

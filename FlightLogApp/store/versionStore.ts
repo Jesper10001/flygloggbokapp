@@ -20,9 +20,9 @@ const BUNDLE_ID = Application.applicationId ?? 'com.blades.jointlogbook';
 const DEFAULT_STORE_URL = 'https://apps.apple.com';
 
 // Testläge för dev-builden: låtsas att nästa version (t.ex. 1.0.1) ligger i App Store, så att man ser hur
-// användarna notifieras (popupen och bannern på dashboarden, badgen under About). __DEV__ är alltid false i
-// riktiga byggen → syns aldrig i TestFlight eller App Store. Sätt till false när du testat klart.
-const DEV_SIMULATE_UPDATE = __DEV__ && true;
+// användarna notifieras (popupen och badgen under About). __DEV__ är alltid false i riktiga byggen → syns
+// aldrig i TestFlight eller App Store. Byt false → true för att visa popupen igen.
+const DEV_SIMULATE_UPDATE = __DEV__ && false;
 const APP_STORE_PAGE = 'https://apps.apple.com/app/id6798360464';
 const DEV_EXAMPLE_NOTES = [
   'New: Small fixes now reach you right away, without waiting for an App Store update.',

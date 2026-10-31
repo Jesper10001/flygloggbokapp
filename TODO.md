@@ -307,10 +307,10 @@ Det mesta bör redan finnas i bygge 14 och kan testas nu. Rättningen av AMC1-lo
 - **Modellbyte utan deploy** (nödspak, behövs normalt inte): `npx wrangler kv key put --binding=QUOTA_KV model-map '{"<gammalt-id>":"<nytt-id>"}' --remote`. Ångra med `npx wrangler kv key delete --binding=QUOTA_KV model-map --remote`.
 - **Larmmejl från Ops** som hamnar i skräpposten: markera dem som "Inte skräppost".
 - **"What's New in This Version" i App Store Connect** visas i appens uppdateringspopup.
-  - Skriv en rad per nyhet och börja gärna med `New:`, `Fixed:` eller `Improved:`. Då får varje rad rätt ikon.
-  - De fyra första raderna visas.
+  - Skriv en rad per nyhet och börja med `New:`, `Fixed:` eller `Improved:`. Då får raden rätt etikett.
+  - Popupen visar de tre första sådana raderna, och "And more fixes and improvements." om det finns fler. Ta texterna från What's New i CHANGELOG.md.
   - Exempel: `Fixed: Logbook totals in the EASA AMC1 layout now fill every column.`
-- **Dev-builden låtsas att 1.0.1 finns** (`DEV_SIMULATE_UPDATE` i `FlightLogApp/store/versionStore.ts`), för att visa uppdateringspopupen. Det påverkar aldrig riktiga byggen. Stäng av när du testat klart.
+- **Visa popupen i dev-builden igen:** sätt `DEV_SIMULATE_UPDATE` till `true` i `FlightLogApp/store/versionStore.ts`. Det påverkar aldrig riktiga byggen.
 
 ## Arkiv (klart)
 
