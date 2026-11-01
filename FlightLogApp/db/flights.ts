@@ -362,6 +362,15 @@ export async function getManualFlightCount(): Promise<number> {
   return r?.count ?? 0;
 }
 
+/** Ändringar från skanningen som justerats mot sidans summa (visas på flygningens sida tills den kontrollerats). */
+export async function getScanAdjustments(flightId: number): Promise<{ field_name: string; old_value: string; new_value: string; reason: string }[]> {
+  const db = await getDatabase();
+  return db.getAllAsync(
+    `SELECT field_name, old_value, new_value, reason FROM audit_log WHERE flight_id=? AND reason LIKE 'Adjusted during the logbook scan%' ORDER BY id`,
+    [flightId],
+  );
+}
+
 export async function getFlaggedFlights(): Promise<Flight[]> {
   const db = await getDatabase();
   return await db.getAllAsync<Flight>(

@@ -9,6 +9,7 @@ import { layoutFromTemplate, buildLayoutContext, buildSideLayoutContext, type Lo
 import { buildScanVocab } from './scanVocab';
 import { validateAgainstVocab } from './scanValidate';
 import { mergeSpreadParsed } from './spreadMerge';
+import { buildPageGrid, remapRawGridX, remapBoxX, type PageGrid, type RawGrid } from './scanGeometry';
 import { reconcileBlockTime } from '../utils/flightTime';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -23,8 +24,12 @@ const OCR_USE_STREAM = process.env.EXPO_PUBLIC_OCR_STREAM === '1';
 // Stäng av med EXPO_PUBLIC_OCR_SPLIT=0. (Full nytta + säkerhet kommer med Fas 1: dewarp-capture.)
 const OCR_SPLIT_SPREAD = process.env.EXPO_PUBLIC_OCR_SPLIT !== '0';
 
-// Fas 0: Claude Opus som primär OCR-läsare (kvalitet före kostnad). Byt här för att revertera.
-const OCR_MODEL = 'claude-opus-4-8';
+// OCR-läsare: Sonnet 5.5 (2026-11-01). Samma kvalitet som användaren testat i dev-builden, ungefär dubbelt så
+// snabb och halva kostnaden mot Opus 5.5 (tiden domineras av svarets längd). Appens egna kontroller (summor
+// per kolumn, Vision, regler) fångar det som läses fel. EXPO_PUBLIC_OCR_MODEL sätter en annan modell.
+// ("Haiku först" testades 2026-11-01 och valdes bort: 88,5 % lika celler mot Sonnet, och felaktiga klockslag
+// som sidans summor inte kan avslöja.)
+export const OCR_MODEL = process.env.EXPO_PUBLIC_OCR_MODEL || 'claude-sonnet-5-5';
 
 // JSON-schema för OCR-verktyget. Alla fält valfria → modellen utelämnar tomma.
 // Fältnamnen matchar det parseOcrResponse() redan läser, så inget annat behöver ändras.
@@ -69,8 +74,6 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
           other_time_labels: { type: 'object', additionalProperties: { type: 'string' } },
           needs_review: { type: 'boolean' },
           review_reason: { type: 'string' },
-          overall_confidence: { type: 'number' },
-          row_y_pct: { type: 'number' },
           remarks_suggestion: {
             type: 'object',
             properties: {
@@ -79,16 +82,6 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
               original_text: { type: 'string' },
               confidence: { type: 'number' },
               reason: { type: 'string' },
-            },
-          },
-          time_mismatch: {
-            type: 'object',
-            properties: {
-              anchor_total_h: { type: 'number' },
-              read_dep: { type: 'string' },
-              read_arr: { type: 'string' },
-              computed_dep_if_arr_correct: { type: 'string' },
-              computed_arr_if_dep_correct: { type: 'string' },
             },
           },
           field_issues: {
@@ -100,7 +93,13 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
                 reason: { type: 'string' },
                 confidence: { type: 'number' },
                 suggested_value: { type: 'string' },
-                x_pct: { type: 'number' },
+                box: {
+                  type: 'object',
+                  properties: {
+                    left: { type: 'number' }, top: { type: 'number' },
+                    right: { type: 'number' }, bottom: { type: 'number' },
+                  },
+                },
               },
               required: ['field'],
             },
@@ -118,7 +117,6 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
           resolved: { type: 'string' },
           registration: { type: 'string' },
           first_row: { type: 'integer' },
-          rows: { type: 'array', items: { type: 'integer' } },
           confidence: { type: 'number' },
         },
       },
@@ -129,6 +127,7 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
         brought_forward: { type: ['number', 'null'] },
         total_this_page: { type: ['number', 'null'] },
         total_to_date: { type: ['number', 'null'] },
+        this_page_by_field: { type: 'object', additionalProperties: { type: 'number' } },
       },
     },
     page_numbers: {
@@ -138,25 +137,32 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
         right: { type: ['integer', 'null'] },
       },
     },
-    image_layout: {
+    grid: {
       type: 'object',
       properties: {
-        orientation: { type: 'string', enum: ['landscape', 'portrait'] },
-        logbook_bounds: {
-          type: 'object',
-          properties: {
-            x_pct: { type: 'number' },
-            y_pct: { type: 'number' },
-            w_pct: { type: 'number' },
-            h_pct: { type: 'number' },
+        table_top: { type: 'number' },
+        table_bottom: { type: 'number' },
+        rows_printed: { type: 'integer' },
+        columns: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              index: { type: 'integer' },
+              field: { type: 'string' },
+              left: { type: 'number' },
+              right: { type: 'number' },
+            },
           },
         },
       },
+      required: ['table_top', 'table_bottom', 'columns'],
     },
   },
-  required: ['flights'],
+  required: ['flights', 'grid'],
 };
 import { buildContextHint } from '../db/ocrLearned';
+import { scanQuotaWeight } from '../utils/tokenGate';
 
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
@@ -181,16 +187,9 @@ Läs fälten i denna ordning per rad:
      - Räkna (arr − dep) → jämför mot total_time
      - Om avvikelse > 5 min: dep eller arr är troligen fel-OCR'ad
        (vanligt i handskrift: 3↔8, 0↔6, 5↔6, 1↔7, 7↔9)
-     - Behåll ALLTID total_time som det står. Anpassa dep/arr, INTE tvärtom.
-     - Sätt needs_review=true och inkludera time_mismatch i JSON:
-       "time_mismatch": {
-         "anchor_total_h": 1.5,
-         "read_dep": "13:00",
-         "read_arr": "16:30",
-         "computed_dep_if_arr_correct": "15:00",
-         "computed_arr_if_dep_correct": "14:30"
-       }
-     Användaren väljer sedan vilken tid som är rätt.
+     - Behåll ALLTID total_time som det står. Returnera dep/arr som du läser dem.
+     - Appen räknar själv ut avvikelsen och frågar användaren — skriv INTE time_mismatch, och flagga dep/arr
+       i field_issues bara om själva siffran är svårläst.
   3. Övriga kolumner — VIKTIGT: om en COLUMN MAPPING finns i scan-profilen,
      använd ALLTID kolumnpositionen för att avgöra om ett värde är PIC, Dual,
      Co-pilot eller Instructor. Gissa ALDRIG baserat på värdet — samma tid
@@ -391,6 +390,13 @@ Exempel med fullt namn:
 Användaren får en Ja/Nej-prompt och kan välja att acceptera eller behålla
 värdet i remarks.
 
+SIMULATOR (VIKTIGT): En kolumn med rubriken (tryckt eller handskriven) "Simulator", "Simulator time", "Sim",
+"FSTD", "FFS", "FNPT" eller "Synthetic training" innehåller simulatortid. Lägg sådana värden i "sim" och sätt
+flight_type="sim" — ALDRIG i dual, pic eller någon annan funktionstid. En rad som saknar total flygtid men har
+simulatortid är ett simulatorpass: utelämna total_time och landningar för den raden. Ett tal i
+simulatorkolumnen hör ALDRIG hemma i "Total time of flight" — kontrollera vilken kolumn talet faktiskt står i.
+Funktionstid (PIC, Co-pilot, Dual, Instructor) kan aldrig vara längre än radens totala flygtid.
+
 OTHER TYPE OF FLIGHT TIME (VIKTIGT):
 Om scan-profilen anger other_flight_time-kolumner, läs värdena i dessa kolumner
 för varje rad. Returnera dem som:
@@ -399,20 +405,41 @@ för varje rad. Returnera dem som:
 
 other_time_labels: läs kolumnhuvudet (kan vara handskrivet, t.ex. "AR landings",
 "NVD", "NVG") och returnera det. Om kolumnen är tom/ingen rubrik: "".
-other_times: decimalvärdet i kolumnen för den raden. 0 om tomt.
+other_times: decimalvärdet i kolumnen för den raden. Utelämna tomma.
 
-Dessa värden ska ALLTID flaggas i field_issues med reason som beskriver vad
-kolumnen verkar innehålla, t.ex.:
-  { "field": "other_flight_time", "reason": "NVD-tid — bekräfta", "confidence": 0.7,
-    "suggested_value": "0.7" }
-Användaren får bekräfta vad tiden avser (NVG, NVD, etc.) innan den loggas.
+UNDANTAG: en kolumn vars rubrik betyder simulator ("Simulator time", "Sim", "FSTD" …) är INTE other_times —
+värdet går till "sim" och raden får flight_type="sim" (se SIMULATOR). Kolumner som räknar något annat än tid
+(t.ex. "AR landings" = antal autorotationslandningar) returneras som other_times med sin rubrik.
+
+Flagga bara other_times i field_issues när rubriken saknas eller är oläslig — en tydlig rubrik behöver ingen
+fråga. Användaren bekräftar annars vad tiden avser (NVG, NVD, etc.).
 
 SIDVALIDERING:
 - Om sidan har radsummor: kontrollera att radsumman matchar "Total this page"
 - Kontrollera att "Brought forward" + "Total this page" = "Total to date"
 - Returnera page_totals med fälten: brought_forward, total_this_page, total_to_date (alla som decimal, null om ej synliga)
+- page_totals.this_page_by_field = raden "Total this page" för VARJE kolumn som har en tryckt/skriven summa,
+  med samma fältnamn som i flights: { "total_time": 14.6, "dual": 13.4, "sim": 4.2, "landings_day": 45, … }.
+  Appen jämför radernas summa med dessa och flaggar kolumner som inte går ihop.
 - Returnera page_numbers: de tryckta sidnumren på uppslaget ({left, right}, heltal eller null om ej synliga)
-- Returnera image_layout: orientation ('landscape'/'portrait') och logbook_bounds (x_pct/y_pct/w_pct/h_pct, i % av bilden) för var själva loggboken sitter i fotot
+
+GEOMETRI (KRÄVS — appen ritar rutor direkt på bilden där användaren ska granska):
+- Alla positioner i PROCENT (0–100) av HELA bilden du ser: x från vänsterkanten, y från överkanten. En decimal.
+- grid.table_top = y för överkanten av första TRYCKTA flygningsraden (direkt under kolumnrubrikerna).
+- grid.table_bottom = y för underkanten av sista TRYCKTA flygningsraden (direkt ovanför summeringsraderna
+  "Total this page"/"Brought forward"). Räkna med tomma tryckta rader — tabellens hela höjd.
+- grid.rows_printed = antal tryckta flygningsrader på sidan (ifyllda + tomma).
+- grid.columns = en post per kolumn på BÅDA sidorna av uppslaget (även högersidans PIC, Co-pilot, Dual,
+  Instructor, "Other type of flight time", Synthetic training, Landings day, Landings night och Remarks):
+  { index, field, left, right }. index = kolumnens nummer i kolumnlistan (om en lista finns), field =
+  fältnamnet (samma namn som i flights), left/right = kolumnens tryckta vänster- och högerlinje.
+  field = det fält du lägger kolumnens VÄRDEN i. Har piloten skrivit en tid i en handskriven kolumn (t.ex.
+  "Simulator time" under "Other type of flight time") och du returnerar den som sim, får DEN kolumnen field
+  "sim" — inte en tryckt kolumn (t.ex. "Synthetic training session") där inget står. En tom tryckt kolumn
+  utan värden får field null.
+- Varje flygning: row_index = den TRYCKTA radpositionen (1 = översta raden), även om rader ovanför är tomma.
+- field_issues-post: box { left, top, right, bottom } tätt runt det osäkra värdet — BARA när fältet saknar kolumn
+  i grid.columns (annars räknar appen fram cellen själv).
 
 ICAO-VALIDERING:
 - ICAO-koder är alltid exakt 4 bokstäver
@@ -422,13 +449,24 @@ ICAO-VALIDERING:
   off-airport-plats / ZZZZ (t.ex. ett fältnamn, en militärbas med lokal kod).
   Returnera den text du ser och flagga med field_issues om du är osäker.
 
-TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → returnera 0.
+LANDNINGAR: läs ALLTID kolumnen Landings (Day/Night) för varje rad och returnera landings_day och
+landings_night med det tal som står där. Talen kan vara stora (t.ex. 7, 12, 20 vid skol- eller
+landningsträning) — anta aldrig 1. Står kolumnen tom, utelämna fältet.
+
+TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → utelämna fältet (appen tolkar det som 0).
 Varje flygning (ej sim) bör ha minst 1 landning — flagga om 0.
 
+SPRÅK FÖR FÖRKLARINGAR: review_reason och field_issues[].reason visas för piloten i appen — skriv dem på
+ENGELSKA, korta (högst ~12 ord), t.ex. "Last digit could be 3 or 8". suggested_value bara om det skiljer sig
+från värdet du returnerade.
+
 KONFIDENS:
-- overall_confidence (0–1): ≥0.95 = auto-godkänd, <0.80 = needs_review=true
 - field_issues: array med osäkra fält (confidence <0.85). Format:
   { "field": "...", "reason": "...", "confidence": 0.55, "suggested_value": "..." }
+- needs_review=true bara när något på raden är osäkert.
+
+KOMPAKT SVAR (svarets längd styr tiden): ta bara med fält som har innehåll. Utelämna tomma strängar, 0,
+null, false, tomma listor/objekt, flight_type "normal", needs_review false och tom review_reason.
 
 AIRCRAFT-DETEKTERING (KRITISKT):
 Innan du returnerar flights-listan, gruppera de unika luftfartyg du sett på
@@ -439,7 +477,6 @@ sidan. Returnera fältet aircraft_detections[] på toppnivå. Varje entry:
   "resolved": "A109",             // din bedömning av ICAO-typkoden
   "registration": "SE-JVC",       // första registrering du såg för denna typ
   "first_row": 1,                 // vilken rad på sidan den först dyker upp
-  "rows": [1, 2, 3, 4],           // alla rader som har denna as_written
   "confidence": 0.88              // hur säker du är på tolkningen
 }
 
@@ -450,62 +487,26 @@ den finns, annars separat.
 
 Användaren får bekräfta aircraft_detections innan resten av reviewen visas.
 
-Returnera ENBART ett JSON-objekt:
+Returnera ENBART ett JSON-objekt. Exempel (bara fält med innehåll; tomma tidkolumner, tomma listor och
+standardvärden utelämnas):
 {
   "aircraft_detections": [
-    {
-      "as_written": "",
-      "resolved": "",
-      "registration": "",
-      "first_row": 1,
-      "rows": [],
-      "confidence": 0.0
-    }
+    { "as_written": "C172", "resolved": "C172", "registration": "SE-ABC", "first_row": 1, "confidence": 0.95 }
   ],
   "flights": [
-    {
-      "date": "YYYY-MM-DD",
-      "aircraft_type": "",
-      "registration": "",
-      "dep_place": "",
-      "dep_utc": "HH:MM",
-      "arr_place": "",
-      "arr_utc": "HH:MM",
-      "total_time": 0.0,
-      "ifr": 0.0,
-      "night": 0.0,
-      "pic": 0.0,
-      "co_pilot": 0.0,
-      "dual": 0.0,
-      "instructor": 0.0,
-      "multi_pilot": 0.0,
-      "single_pilot": 0.0,
-      "picus": 0.0,
-      "spic": 0.0,
-      "nvg": 0.0,
-      "second_pilot": "",
-      "sim": 0.0,
-      "flight_type": "normal",
-      "landings_day": 0,
-      "landings_night": 0,
-      "remarks": "",
-      "other_times": {},
-      "other_time_labels": {},
-      "needs_review": false,
-      "review_reason": null,
-      "remarks_suggestion": null,
-      "time_mismatch": null,
-      "overall_confidence": 0.0,
-      "field_issues": []
-    }
+    { "row_index": 1, "date": "2024-05-12", "aircraft_type": "C172", "registration": "SE-ABC",
+      "dep_place": "ESSB", "dep_utc": "09:10", "arr_place": "ESSB", "arr_utc": "10:40",
+      "total_time": 1.5, "dual": 1.5, "landings_day": 4, "remarks": "Circuits" },
+    { "row_index": 2, "date": "2024-05-14", "aircraft_type": "C172", "registration": "SE-ABC",
+      "dep_place": "ESSB", "dep_utc": "13:05", "arr_place": "ESKN", "arr_utc": "14:00",
+      "total_time": 0.9, "pic": 0.9, "landings_day": 1, "needs_review": true,
+      "field_issues": [{ "field": "arr_utc", "reason": "Last digit could be 0 or 6", "confidence": 0.6, "suggested_value": "14:06" }] }
   ],
-  "page_totals": {
-    "brought_forward": null,
-    "total_this_page": null,
-    "total_to_date": null
-  },
-  "page_numbers": { "left": null, "right": null },
-  "image_layout": { "orientation": "landscape", "logbook_bounds": { "x_pct": 0, "y_pct": 0, "w_pct": 100, "h_pct": 100 } }
+  "page_totals": { "brought_forward": 120.4, "total_this_page": 2.4, "total_to_date": 122.8,
+    "this_page_by_field": { "total_time": 2.4, "dual": 1.5, "pic": 0.9, "landings_day": 5 } },
+  "page_numbers": { "left": 12, "right": 13 },
+  "grid": { "table_top": 31.5, "table_bottom": 84.0, "rows_printed": 14,
+    "columns": [{ "index": 1, "field": "date", "left": 2.1, "right": 7.8 }] }
 }
 
 Returnera BARA JSON, inga förklaringar.`;
@@ -625,15 +626,16 @@ export type ImageLayout = {
 
 export type OcrPageResult = {
   flights: OcrFlightResult[];
-  pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null };
+  pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null; by_field?: Record<string, number> };
   aircraftDetections: AircraftDetection[];
   pageNumbers: { left: number | null; right: number | null };
   imageLayout: ImageLayout;
+  grid: PageGrid | null;     // var rader och kolumner sitter i bilden (granskningsvyn)
 };
 
 // Hämtar den aktiva digitala bokens layout (eller null). Layouten är auktoritativ
 // kolumnkarta för OCR och avgör om uppslaget kan delas vid ryggen (M4).
-async function getActiveBookLayout(): Promise<LogbookLayout | null> {
+export async function getActiveBookLayout(): Promise<LogbookLayout | null> {
   try {
     const book = await getActiveDigitalBook();
     if (!book) return null;
@@ -675,12 +677,13 @@ async function splitSpread(base64: string, leftFraction: number): Promise<{ left
 }
 
 // Kör ETT tool-use-anrop för en bild + given prompt-text.
-async function runOcrCall(base64: string, mediaType: string, userText: string): Promise<any> {
+async function runOcrCall(base64: string, mediaType: string, userText: string, model = OCR_MODEL): Promise<any> {
   const toolOpts = {
-    model: OCR_MODEL,
+    model,
     system: SYSTEM_PROMPT,
     maxTokens: 16000,
     toolName: 'emit_flights',
+    quotaWeight: scanQuotaWeight(),   // premium: en coin räcker till dubbelt så många tokens vid skanning (som proxyn)
     toolDescription: 'Returnera alla extraherade flygningsrader från loggbokssidan',
     inputSchema: OCR_TOOL_SCHEMA,
     userContent: [
@@ -694,7 +697,7 @@ async function runOcrCall(base64: string, mediaType: string, userText: string): 
 }
 
 // Gemensam efterbehandling: vokabulär-validering (M3). Best-effort.
-async function finalizeResult(result: OcrPageResult): Promise<OcrPageResult> {
+async function finalizeResult(result: OcrPageResult, timeAddition = 0): Promise<OcrPageResult> {
   try {
     const vocab = await buildScanVocab();
     result.flights = validateAgainstVocab(result.flights, vocab);
@@ -708,7 +711,13 @@ async function finalizeResult(result: OcrPageResult): Promise<OcrPageResult> {
     const anchor = parseFloat(String(f.total_time ?? '').replace(',', '.'));
     const rec = reconcileBlockTime(f.dep_utc, f.arr_utc, anchor);
     if (!rec) return f;                                            // dep/arr saknas/ogiltig
-    if (!rec.mismatch) return f.time_mismatch ? { ...f, time_mismatch: undefined } : f; // rensa falskt larm
+    // Bokens bekräftade tillägg (t.ex. +0.2 h för helikopter) räknas bort före jämförelsen.
+    const recAdd = timeAddition > 0 && anchor - timeAddition > 0 ? reconcileBlockTime(f.dep_utc, f.arr_utc, anchor - timeAddition) : null;
+    if (!rec.mismatch || (recAdd && !recAdd.mismatch)) {
+      const ours = !!f.review_reason?.startsWith('Time:');
+      if (!f.time_mismatch && !ours) return f;
+      return { ...f, time_mismatch: undefined, ...(ours ? { needs_review: false, review_reason: undefined } : {}) }; // rensa falskt larm
+    }
     return {
       ...f,
       needs_review: true,
@@ -732,8 +741,20 @@ export async function ocrScanPage(
   mediaType: string,
   timeFormat: TimeFormat = 'decimal',
   prevContext?: PageContext,
+  opts: { useBookLayout?: boolean; timeAddition?: number; focus?: 'exact' | 'balanced' | 'totals'; model?: string } = {},
 ): Promise<OcrPageResult> {
+  const model = opts.model ?? OCR_MODEL;
   let baseContext = '';
+  const add = opts.timeAddition && opts.timeAddition > 0 ? opts.timeAddition : 0;
+  // Användarens fokus: färre frågor (field_issues) om sådant som inte är viktigt för hen → kortare svar.
+  if (opts.focus === 'balanced') {
+    baseContext += `\n\nANVÄNDARENS FOKUS: flygningarna ska stämma i huvudsak och summorna exakt. Läs tidskolumner, landningar och sidans summor (this_page_by_field) noggrant. Flagga (field_issues) bara osäkerhet i datum, typ, registrering, platser, tidskolumner och landningar — inte i klockslag, namn eller anmärkningar.`;
+  } else if (opts.focus === 'totals') {
+    baseContext += `\n\nANVÄNDARENS FOKUS: bara summorna. Läs tidskolumnerna, landningarna och sidans summor (Brought forward, Total this page per kolumn i this_page_by_field, Total to date) exakt — det är det viktigaste i svaret. Flagga (field_issues) bara osäkra siffror i tidskolumner och landningar. Flagga inte datum, platser, klockslag, typ, registrering, namn eller anmärkningar.`;
+  }
+  if (add) {
+    baseContext += `\n\nTILLÄGG PÅ FLYGTIDEN (pilotens bekräftade regel för den här loggboken): total flygtid = (ankomst − avgång) + ${add} h. Avgång och ankomst är lyft och landning; uppstart, taxi och avstängning läggs till. En rad där total = (ankomst − avgång) + ${add} h är RÄTT: sätt inte time_mismatch, needs_review eller field_issues för det, och ändra inga tider.`;
+  }
   if (prevContext) {
     baseContext = `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
   }
@@ -748,8 +769,9 @@ export async function ocrScanPage(
 
   const t0 = Date.now();
   const secs = () => ((Date.now() - t0) / 1000).toFixed(1);
-  const layout = await getActiveBookLayout();
-  console.log(`[OCR] ▶ Skanning startar. Aktiv bok-layout: ${layout ? `JA (${layout.pageMode}, ${layout.columns.length} kol)` : 'NEJ'}`);
+  // Användaren kan ha sagt att den fotade boken inte har samma upplägg som boken i appen.
+  const layout = opts.useBookLayout === false ? null : await getActiveBookLayout();
+  console.log(`[OCR] ▶ Skanning startar (${model}). Aktiv bok-layout: ${layout ? `JA (${layout.pageMode}, ${layout.columns.length} kol)` : 'NEJ'}`);
 
   // ── M4: dela uppslaget vid ryggen och läs en sida per anrop (parallellt) ──
   if (OCR_SPLIT_SPREAD && layout && layout.pageMode === 'spread') {
@@ -760,13 +782,18 @@ export async function ocrScanPage(
         const sideText = (side: 'left' | 'right') =>
           `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${captureNote}${buildSideLayoutContext(layout, side)}${baseContext}`;
         const [lp, rp] = await Promise.all([
-          runOcrCall(halves.left, mediaType, sideText('left')),
-          runOcrCall(halves.right, mediaType, sideText('right')),
+          runOcrCall(halves.left, mediaType, sideText('left'), model),
+          runOcrCall(halves.right, mediaType, sideText('right'), model),
         ]);
-        const merged = mergeSpreadParsed(lp, rp);
+        const lf = layout.leftWidthFraction;
+        const lpFull = remapHalf(lp, 0, lf, layout.columns.filter((c) => c.page === 'left'));
+        const rpFull = remapHalf(rp, lf * 100, 1 - lf, layout.columns.filter((c) => c.page === 'right'));
+        const merged = mergeSpreadParsed(lpFull, rpFull);
         if (merged) {
           console.log(`[OCR] ✅ SPLIT-VÄG AKTIV — vänster+höger ihopslaget, ${merged.flights.length} rader, ${secs()}s`);
-          return finalizeResult(parseOcrResponse(merged));
+          const result = parseOcrResponse(merged);
+          result.grid = buildPageGrid(combineHalfGrids(lpFull?.grid, rpFull?.grid), layout, null);
+          return finalizeResult(result, add);
         }
         console.log(`[OCR] ⚠️  Split lästes men merge blev osäker (vänster ${lp?.flights?.length ?? 0} / höger ${rp?.flights?.length ?? 0} rader) — faller tillbaka.`);
       } catch (e) {
@@ -786,10 +813,54 @@ export async function ocrScanPage(
     base64,
     mediaType,
     `${timeFormatHint(timeFormat)} Extrahera alla flygningar från denna loggbokssida.${omitNote}${captureNote}${contextHint}`,
+    model,
   );
   const result = parseOcrResponse(parsed);
+  result.grid = buildPageGrid(parsed?.grid, layout, layout ? layout.columns.map((c) => ({ field: c.field, label: c.label })) : null);
   console.log(`[OCR] 📄 HELA-UPPSLAG-VÄG (ett anrop) — ${result.flights.length} rader, ${secs()}s`);
-  return finalizeResult(result);
+  return finalizeResult(result, add);
+}
+
+// Halvsidans geometri (procent av halvan) → hela uppslaget: x = offset + x·scale. Kolumnernas index i
+// sidans egen lista byts mot fält och rubrik, så att vänster och höger kan läggas i samma rutnät.
+function remapHalf(parsed: any, offsetPct: number, scale: number, sideCols: { field: string | null; label: string }[]): any {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  const grid: RawGrid | undefined = parsed.grid && typeof parsed.grid === 'object'
+    ? {
+        ...parsed.grid,
+        columns: (Array.isArray(parsed.grid.columns) ? parsed.grid.columns : []).map((c: any) => {
+          const idx = Number(c?.index);
+          const col = Number.isFinite(idx) && idx >= 1 && idx <= sideCols.length ? sideCols[idx - 1] : null;
+          return { left: c?.left, right: c?.right, field: col?.field ?? c?.field, label: col?.label ?? c?.field };
+        }),
+      }
+    : undefined;
+  const flights = Array.isArray(parsed.flights)
+    ? parsed.flights.map((fl: any) => ({
+        ...fl,
+        field_issues: Array.isArray(fl?.field_issues)
+          ? fl.field_issues.map((i: any) => ({
+              ...i,
+              box: remapBoxX(i?.box, offsetPct, scale),
+              x_pct: typeof i?.x_pct === 'number' ? offsetPct + i.x_pct * scale : i?.x_pct,
+            }))
+          : fl?.field_issues,
+      }))
+    : parsed.flights;
+  return { ...parsed, flights, grid: remapRawGridX(grid, offsetPct, scale) };
+}
+
+function combineHalfGrids(a: RawGrid | undefined, b: RawGrid | undefined): RawGrid | undefined {
+  if (!a && !b) return undefined;
+  const avg = (x?: number, y?: number) => {
+    const xs = [x, y].map(Number).filter(Number.isFinite);
+    return xs.length ? xs.reduce((s, n) => s + n, 0) / xs.length : undefined;
+  };
+  return {
+    table_top: avg(a?.table_top, b?.table_top),
+    table_bottom: avg(a?.table_bottom, b?.table_bottom),
+    columns: [...(a?.columns ?? []), ...(b?.columns ?? [])],
+  };
 }
 
 // Gemensam parser — används av både ocrScanLogbook och ocrScanPage
@@ -825,6 +896,9 @@ function parseOcrResponse(parsed: any): OcrPageResult {
             confidence: Number(i.confidence ?? 0),
             x_pct: typeof i.x_pct === 'number' ? i.x_pct : undefined,
             suggested_value: i.suggested_value ? String(i.suggested_value) : undefined,
+            box: i.box && typeof i.box === 'object' ? {
+              left: Number(i.box.left), top: Number(i.box.top), right: Number(i.box.right), bottom: Number(i.box.bottom),
+            } : undefined,
           }))
       : [];
     return {
@@ -843,10 +917,13 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       pic: String(f.pic ?? '0'),
       co_pilot: String(f.co_pilot ?? '0'),
       dual: String(f.dual ?? '0'),
-      landings_day: String(f.landings_day ?? '1'),
+      landings_day: String(f.landings_day ?? '0'),   // utelämnat = tom cell (simulatorpass, eller inget skrivet)
       landings_night: String(f.landings_night ?? '0'),
       remarks: f.remarks ?? '',
       flight_type: f.flight_type === 'sim' ? 'sim' : f.flight_type === 'touch_and_go' ? 'touch_and_go' : 'normal',
+      // Simulatortiden: utan den fick ett simulatorpass rätt total men tom simulatortid (rapporten visade
+      // "Simulator 0 vs 4.2"). Står bara total på en sim-rad är total = simulatortiden.
+      sim: Number(f.sim) > 0 ? String(f.sim) : f.flight_type === 'sim' && Number(f.total_time) > 0 ? String(f.total_time) : undefined,
       sim_category: f.sim_category !== undefined ? String(f.sim_category) : undefined,
       multi_pilot: f.multi_pilot !== undefined ? String(f.multi_pilot) : undefined,
       single_pilot: f.single_pilot !== undefined ? String(f.single_pilot) : undefined,
@@ -871,6 +948,7 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       time_mismatch: validMismatch,
       overall_confidence: overallConfidence,
       row_y_pct: typeof f.row_y_pct === 'number' ? f.row_y_pct : undefined,
+      row_index: Number.isFinite(Number(f.row_index)) && Number(f.row_index) > 0 ? Number(f.row_index) : undefined,
       field_issues: fieldIssues,
     } as OcrFlightResult;
   });
@@ -896,6 +974,9 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       brought_forward: pt.brought_forward ?? null,
       total_this_page: pt.total_this_page ?? null,
       total_to_date: pt.total_to_date ?? null,
+      by_field: pt.this_page_by_field && typeof pt.this_page_by_field === 'object'
+        ? Object.fromEntries(Object.entries(pt.this_page_by_field).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)]))
+        : undefined,
     },
     aircraftDetections: detections,
     pageNumbers: {
@@ -911,6 +992,7 @@ function parseOcrResponse(parsed: any): OcrPageResult {
         h_pct: Number(parsed.image_layout?.logbook_bounds?.h_pct ?? 100),
       },
     },
+    grid: null,   // sätts i ocrScanPage, som vet vilken kolumnlista skannern fick
   };
 }
 

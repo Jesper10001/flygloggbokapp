@@ -97,6 +97,22 @@ export function repairTruncatedJson(s: string): string {
 // Rapporterar EVERY AI-anrops tokenförbrukning till den lokala kvot-storen
 // (oavsett anropstyp — OCR, lookup, import, flightscan, allt delar samma pott).
 // Lazy require undviker en cirkulär import (storen importerar inget härifrån).
+// Dev: förbrukningen per anrop i Metro-loggen (tokens, cache, tid och ungefär hur många Blade coins det
+// motsvarar: proxyn räknar input + output, 200 tokens per coin). Syns aldrig i riktiga byggen.
+// Kostnaden räknas som proxyns telemetri (proxy/src/pricing.ts): USD per miljon tokens, cache-skrivning 1,25×
+// och cache-läsning 0,1× av indatapriset, 10,5 kr per dollar.
+const DEV_PRICES: [RegExp, number, number][] = [
+  [/^claude-haiku-5-5/, 0.1, 0.5], [/^claude-sonnet-5/, 2, 10], [/^claude-opus-5-5/, 4, 20], [/^claude-opus-[45]/, 5, 25],
+];
+function devLogUsage(model: string | undefined, usage: any, t0: number, weight = 1): void {
+  if (!__DEV__ || !usage) return;
+  const inp = usage.input_tokens ?? 0, out = usage.output_tokens ?? 0;
+  const cr = usage.cache_read_input_tokens ?? 0, cw = usage.cache_creation_input_tokens ?? 0;
+  const [, pin, pout] = DEV_PRICES.find(([re]) => re.test(model ?? '')) ?? [null, 3, 15];
+  const usd = (inp * pin + cw * pin * 1.25 + cr * pin * 0.1 + out * pout) / 1e6;
+  console.log(`[AI] ${model ?? '?'} · in ${inp} · cache read ${cr} · cache write ${cw} · out ${out} · ${((Date.now() - t0) / 1000).toFixed(1)} s · ${(usd * 10.5).toFixed(2)} kr (${usd.toFixed(4)}) · ≈ ${Math.ceil((inp + out) * weight / 200)} coins${weight !== 1 ? ` (vikt ${weight})` : ''}`);
+}
+
 function reportTokenUsage(total: number): void {
   if (total <= 0) return;
   try {
@@ -170,6 +186,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
     : opts.system;
 
   const headers = buildHeaders();
+  const t0 = Date.now();
 
   // Timeout för API-anrop — 30s som standard, höjbart per anrop via timeoutMs
   const timeoutMs = opts.timeoutMs ?? 30000;
@@ -215,6 +232,7 @@ export async function callAnthropicRaw(opts: CallAnthropicOptions): Promise<Anth
   const inputTokens = data.usage?.input_tokens ?? 0;
   const outputTokens = data.usage?.output_tokens ?? 0;
   reportTokenUsage(inputTokens + outputTokens);
+  devLogUsage(opts.model, data.usage, t0);
   try {
     opts.onUsage?.({ inputTokens, outputTokens });
   } catch { /* usage-rapportering får aldrig fälla anropet */ }
@@ -452,6 +470,7 @@ export async function callAnthropicJsonStream<T = any>(
 
 export interface ToolCallOptions extends CallAnthropicOptions {
   toolName: string;                      // verktygets namn (t.ex. 'emit_flights')
+  quotaWeight?: number;                  // andel av tokens som dras från kvoten (skanning 0.5, som proxyn)
   inputSchema: Record<string, any>;      // JSON-schema för verktygets input (top-level type:'object')
   toolDescription?: string;
 }
@@ -498,6 +517,7 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   await requireAiConsent(opts.consentPrompt);
   const headers = buildHeaders();
   const body = buildToolBody(opts, false);
+  const t0 = Date.now();
 
   // 60s tak (omit-empty + tool-use gör svaren kortare än tidigare 30s-version)
   const abortController = new AbortController();
@@ -519,7 +539,8 @@ export async function callAnthropicTool<T = any>(opts: ToolCallOptions): Promise
   }
 
   const data = await response.json();
-  reportTokenUsage((data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0));
+  reportTokenUsage(Math.ceil(((data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0)) * (opts.quotaWeight ?? 1)));
+  devLogUsage(opts.model, data.usage, t0, opts.quotaWeight ?? 1);
   const content = Array.isArray(data.content) ? data.content : [];
   const toolBlock = content.find((c: any) => c.type === 'tool_use');
   if (toolBlock?.input !== undefined) {

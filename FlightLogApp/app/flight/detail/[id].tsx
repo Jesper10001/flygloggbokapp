@@ -8,7 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import type { Flight } from '../../../types/flight';
-import { getFlightById, deleteFlight } from '../../../db/flights';
+import { getFlightById, deleteFlight, getScanAdjustments, verifyFlight } from '../../../db/flights';
+import { label as fieldLabel } from '../../../services/scanFields';
 import { batchPlaceNames, getAirportByIcao } from '../../../db/icao';
 import { useFlightStore } from '../../../store/flightStore';
 import { useTimeFormat } from '../../../hooks/useTimeFormat';
@@ -47,6 +48,13 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
   const [names, setNames] = useState<Record<string, string>>({});
   // Riktiga flygplatsnamn (icao_airports.name) för dep/arr — ICAO följt av namn (fallback: bara ICAO).
   const [full, setFull] = useState<{ dep: string; arr: string }>({ dep: '', arr: '' });
+  // Värden som justerades vid skanningen så att kolumnen gick ihop med sidans summa i pappersboken.
+  const [adjustments, setAdjustments] = useState<{ field_name: string; old_value: string; new_value: string; reason: string }[]>([]);
+  const markChecked = async () => {
+    await verifyFlight(id);
+    setFlight(await getFlightById(id));
+    setAdjustments([]);
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete flight', "This can't be undone.", [
@@ -64,6 +72,7 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
     if (!id) return;
     getFlightById(id).then((f) => {
       setFlight(f);
+      if (f?.status === 'flagged') getScanAdjustments(id).then(setAdjustments).catch(() => {});
       if (f) {
         batchPlaceNames([f.dep_place, f.arr_place].filter(Boolean)).then(setNames);
         Promise.all([getAirportByIcao(f.dep_place), getAirportByIcao(f.arr_place)]).then(([dp, ar]) => {
@@ -158,6 +167,32 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: insets.bottom + 30 }}>
+        {/* Justerad vid skanningen: kolumnen gick inte ihop med sidans summa i pappersboken, och flygningen
+            ändrades så att den gör det. Syns tills piloten kontrollerat den mot boken. */}
+        {f.status === 'flagged' && adjustments.length > 0 && (
+          <View style={{ marginBottom: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.warning + '88', backgroundColor: Colors.warning + '14', padding: 14, gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="alert-circle" size={18} color={Colors.warning} />
+              <Text style={{ flex: 1, color: Colors.warning, fontSize: 14, fontWeight: '800' }}>Adjusted to match your paper logbook</Text>
+            </View>
+            {adjustments.map((a, i) => (
+              <View key={i} style={{ gap: 2 }}>
+                <Text style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary }}>
+                  {fieldLabel(a.field_name)}: {a.old_value} → {a.new_value}
+                </Text>
+                <Text style={{ fontSize: 12.5, lineHeight: 17, color: Colors.textSecondary }}>{a.reason}</Text>
+              </View>
+            ))}
+            <Text style={{ fontSize: 12.5, lineHeight: 17, color: Colors.textSecondary }}>
+              Check this flight against your paper logbook. Editing the flight also marks it as checked.
+            </Text>
+            <TouchableOpacity onPress={markChecked} activeOpacity={0.8}
+              style={{ alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.warning }}>
+              <Text style={{ color: Colors.textInverse, fontSize: 14, fontWeight: '700' }}>Mark as checked</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {visibleSections.map((s) => (
           <View key={s.title} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card }}>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: accent, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 4 }}>{s.title}</Text>

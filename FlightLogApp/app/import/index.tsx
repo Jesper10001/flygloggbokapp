@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator,
+  Alert, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PremiumModal } from '../../components/PremiumModal';
+import { BladeProgress } from '../../components/BladeProgress';
 import { presentPaywall } from '../../services/purchases';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError, tokensToCoins } from '../../utils/tokenGate';
 import type { OcrFlightResult } from '../../types/flight';
@@ -363,6 +364,20 @@ export default function ImportScreen() {
     return () => clearInterval(id);
   }, [importing]);
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Laddskärmen med Blade-myntet (samma som skanningen): visas under hela importen, stannar en stund med
+  // bock när filen är läst och tonar sedan bort över förhandsvisningen.
+  const [overlay, setOverlay] = useState<'hidden' | 'busy' | 'done'>('hidden');
+  const overlayFade = useRef(new Animated.Value(1)).current;
+  const overlayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedAt = useRef(0);
+  useEffect(() => () => { if (overlayTimer.current) clearTimeout(overlayTimer.current); }, []);
+  const finishOverlay = () => {
+    setOverlay('done');
+    overlayTimer.current = setTimeout(() => {
+      Animated.timing(overlayFade, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true })
+        .start(() => setOverlay('hidden'));
+    }, 1100);
+  };
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState('');
   const [totalTimeCol, setTotalTimeCol] = useState(''); // vald varaktighetskolumn (Block/Air/Flight) → total_time
@@ -585,6 +600,10 @@ export default function ImportScreen() {
 
     setFileName(file.name);
     setImporting(true);
+    if (overlayTimer.current) clearTimeout(overlayTimer.current);
+    startedAt.current = Date.now();
+    overlayFade.setValue(1);
+    setOverlay('busy');
     setResult(null);
     setNightBasis(null); setNightEst(null); setNightApplied(false); setManualNight({}); setSkippedExpanded(false);
     setProgress({ current: 0, total: 0 });
@@ -601,6 +620,7 @@ export default function ImportScreen() {
     setOpenPilots(false);
     setAirportMeta({});
 
+    let ok = false;
     try {
       const res = await importFromFile(file.uri, (current, total) => setProgress({ current, total }));
       setResult(res);
@@ -684,6 +704,7 @@ export default function ImportScreen() {
         if (row) dbData[t] = { speedKts: row.cruise_speed_kts ?? 0, endH: row.endurance_h ?? 0 };
       }
       setDbTypeData(dbData);
+      ok = true;
     } catch (e: any) {
       if (isAiConsentError(e)) { setResult(null); setFileName(''); return; } // "Not now" → tillbaka till filvalet
       if (isTokenQuotaError(e)) {
@@ -700,6 +721,8 @@ export default function ImportScreen() {
         .finally(() => setSummaryLoading(false));
     } finally {
       setImporting(false);
+      // Lyckad import → bock och övertoning; fel eller avbrott → felkortet/filvalet syns direkt.
+      if (ok) finishOverlay(); else setOverlay('hidden');
     }
   };
 
@@ -861,6 +884,34 @@ export default function ImportScreen() {
     });
     setNightApplied(true);
   };
+
+  const stage = progress.current;
+  const flightsFound = result?.flights.length ?? 0;
+  const progressLayer = overlay !== 'hidden' ? (
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayFade }]}>
+      <BladeProgress
+        status={overlay === 'done' ? 'done' : 'busy'}
+        safeTop={false}
+        eyebrow={overlay === 'done' ? 'IMPORT READY' : 'IMPORTING'}
+        title={overlay === 'done' ? (flightsFound === 1 ? '1 flight found' : `${flightsFound} flights found`) : 'Importing your logbook'}
+        body={overlay === 'done' ? 'Opening the preview…'
+          : stage === 0 ? `Opening ${fileName || 'the file'}.`
+            : stage === 1 ? ANALYZE_STEPS[stepIdx % ANALYZE_STEPS.length]
+              : stage === 2 ? 'Reading every flight in the file.'
+                : 'Checking aircraft and airports against your logbook.'}
+        steps={[
+          { label: 'Read the file', state: overlay === 'done' || stage > 0 ? 'done' : 'active' },
+          { label: 'Match the columns', state: overlay === 'done' || stage > 1 ? 'done' : stage === 1 ? 'active' : 'todo' },
+          { label: 'Read every flight', state: overlay === 'done' || stage > 2 ? 'done' : stage === 2 ? 'active' : 'todo' },
+          { label: 'Check aircraft and airports', state: overlay === 'done' ? 'done' : stage === 3 ? 'active' : 'todo' },
+        ]}
+        progress={stage === 0 ? 0.08 : stage === 1 ? 0.7 : stage === 2 ? 0.85 : 0.95}
+        progressMs={stage === 0 ? 1200 : stage === 1 ? 20000 : stage === 2 ? 2500 : 3000}
+        startedAt={startedAt.current}
+        footnote="Nothing is saved until you approve it."
+      />
+    </Animated.View>
+  ) : null;
 
   return (
     <>
@@ -1455,6 +1506,7 @@ export default function ImportScreen() {
       )}
 
     </ScrollView>
+    {progressLayer}
     <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature="CSV / Excel import" />
     </>
   );

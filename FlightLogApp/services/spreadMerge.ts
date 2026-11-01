@@ -46,7 +46,12 @@ export function mergeSpreadParsed(left: any, right: any): any | null {
   return {
     flights: merged,
     aircraft_detections: (left?.aircraft_detections?.length ? left.aircraft_detections : right?.aircraft_detections) ?? [],
-    page_totals: left?.page_totals ?? right?.page_totals ?? {},
+    // Summorna per kolumn står på båda sidorna (total tid till vänster, dual/landningar till höger).
+    page_totals: {
+      ...(right?.page_totals ?? {}),
+      ...(left?.page_totals ?? {}),
+      this_page_by_field: { ...(left?.page_totals?.this_page_by_field ?? {}), ...(right?.page_totals?.this_page_by_field ?? {}) },
+    },
     page_numbers: left?.page_numbers ?? right?.page_numbers ?? {},
   };
 }

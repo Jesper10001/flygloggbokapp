@@ -32,6 +32,7 @@ import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 import { TourHost } from '../components/TourHost';
 import { PaywallHost } from '../components/PaywallHost';
+import { CoinShopHost } from '../components/CoinShopSheet';
 import { useAiConsentStore } from '../store/aiConsentStore';
 import { backfillPhotoCredits } from '../services/photoCreditBackfill';
 import { AppLockGate } from '../components/AppLockGate';
@@ -292,8 +293,11 @@ export default function RootLayout() {
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
+        <Stack.Screen name="flight/scan-review" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
+        <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="import/scan-crop" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
         <Stack.Screen name="drone-import/index" options={{ title: 'Import CSV', presentation: 'modal' }} />
@@ -332,6 +336,7 @@ export default function RootLayout() {
       <SplashOverlay />
       <TourHost />
       <PaywallHost />
+      <CoinShopHost />
       <AppLockGate />
     </GestureHandlerRootView>
   );

@@ -1,11 +1,15 @@
 // Blades API Proxy + Telemetri + Stats-dashboard
 import { callWithModelFallback, refreshModelRouting } from './modelFallback';
 import { handleOps, handleSupportEmail, resolveAeDataset, runOpsMonitor, OPS_MONITOR_CRON, type OpsEnv } from './ops';
+import { handleSupportForm } from './supportForm';
 import { costUsd } from './pricing';
+import { quotaTokens } from './quotaWeight';
+import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
 interface Env extends OpsEnv {
   ANTHROPIC_API_KEY: string;
+  QUOTA_EXEMPT_DEVICES?: string;   // kommaseparerade device-hashar (d2_…) som inte förbrukar Blade coins — tillfälligt, för utveckling (wrangler.toml [vars])
   TELEMETRY: AnalyticsEngineDataset;
   QUOTA_KV: KVNamespace;
   CF_API_TOKEN: string;
@@ -19,6 +23,7 @@ interface Env extends OpsEnv {
   ARCGIS_API_KEY?: string;          // ArcGIS Location Platform API-nyckel (privilegie: Basemaps) — share-kortets satellitbilder. Secret.
   MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate Limiting-binding (wrangler.toml)
   WEB_MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate limit för webbplatsens tiles, per IP (wrangler.toml)
+  WEB_FORM_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate limit för webbplatsens supportformulär, per IP (wrangler.toml)
 }
 
 // ── Token-baserad AI-kvot (input+output per device) — den ENDA aktiva spärren ──
@@ -61,6 +66,24 @@ function tokenKey(deviceHash: string, tier: string): string {
   return tier === 'free'
     ? `tokens:${deviceHash}:lifetime`
     : `tokens:${deviceHash}:${currentMonth()}`;
+}
+
+// Enheter i QUOTA_EXEMPT_DEVICES (utvecklarens telefon medan skanningen byggs) stoppas inte av token-taket
+// och räknas inte mot det. Kostnaden syns ändå i telemetrin/Ops. Töm listan när funktionen är klar.
+function quotaExempt(env: { QUOTA_EXEMPT_DEVICES?: string }, hash: string): boolean {
+  return (env.QUOTA_EXEMPT_DEVICES ?? '').split(',').map((x) => x.trim()).filter(Boolean).includes(hash);
+}
+
+// Drar ett anrops tokens: först månadspotten, sedan köpta coins (credits.ts). Utan köpta coins som förut.
+async function chargeTokens(kv: KVNamespace, dk: DevKeys, tier: string, tokens: number): Promise<void> {
+  if (tokens <= 0) return;
+  const credits = await getCredits(kv, dk.hash);
+  if (credits <= 0) { await addTokens(kv, dk, tier, tokens); return; }
+  const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
+  const used = parseInt((await kv.get(tokenKey(dk.hash, tier))) ?? '0', 10) || 0;
+  const { addUsed, takeCredits } = splitCharge(used, limit, credits, tokens);
+  if (addUsed > 0) await addTokens(kv, dk, tier, addUsed);
+  if (takeCredits > 0) await kv.put(`credits:${dk.hash}`, String(Math.max(0, credits - takeCredits)));
 }
 
 async function addTokens(kv: KVNamespace, dk: DevKeys, tier: string, tokens: number): Promise<void> {
@@ -949,6 +972,9 @@ export default {
       });
     }
 
+    // ── Webbplatsen: supportformuläret (src/supportForm.ts) → ett mejl till supportinkorgen, inget sparas ──
+    if (url.pathname === '/web/support') return handleSupportForm(request, env, allowedWebOrigin(request));
+
     // ── Webbplatsen: satellitbild till flygplatskortet. GET /web/imagery/{z}/{y}/{x} + /web/imagery/attribution ──
     // Samma Esri-uppslag och nyckel som appens /map/imagery, men grindat på vår sajts origin och rate-limitat
     // per IP (webben har inget enhets-id). IP:n hashas till limiter-nyckeln och sparas inte. Ingen edge-cache.
@@ -1002,7 +1028,10 @@ export default {
         : 0;
       const premium = tier === 'premium';
       const period = tier === 'free' ? 'lifetime' : currentMonth();
-      return new Response(JSON.stringify({ used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium }), {
+      const exempt = quotaExempt(env, dk.hash);
+      // Köpta coins (tokens) går aldrig ut och visas för sig; bara Premium kan köpa fler.
+      const credits = env.QUOTA_KV ? await getCredits(env.QUOTA_KV, dk.hash) : 0;   // negativt = skuld efter återbetalning
+      return new Response(JSON.stringify({ used: exempt ? 0 : used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium, exempt, credits, can_buy: premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
@@ -1096,7 +1125,24 @@ export default {
         return new Response('unauthorized', { status: 401 });
       }
       let appUserId = '';
-      try { appUserId = String(((JSON.parse(await request.text()) as any)?.event?.app_user_id) ?? ''); } catch { /* ogiltig body */ }
+      let event: any = null;
+      try { event = (JSON.parse(await request.text()) as any)?.event ?? null; appUserId = String(event?.app_user_id ?? ''); } catch { /* ogiltig body */ }
+      // Köpt coin-paket (förbrukningsbart köp) → köpta coins för enheten (app_user_id = X-Device-ID).
+      if (appUserId && env.QUOTA_KV && event?.type === 'NON_RENEWING_PURCHASE' && COIN_PACKS[String(event?.product_id ?? '')]) {
+        const dkBuyer = await deviceKeys(appUserId);
+        const tx = String(event?.transaction_id ?? event?.id ?? '');
+        const added = await grantPurchase(env.QUOTA_KV, dkBuyer.hash, tx, String(event.product_id));
+        console.log(`[credits] ${event.product_id} ${added ? `+${added} tokens` : 'redan krediterad'}`);
+        return new Response('ok');
+      }
+      // Återbetalt coin-köp (för engångsköp skickar RevenueCat CANCELLATION) → coinsen dras tillbaka.
+      if (appUserId && env.QUOTA_KV && event?.type === 'CANCELLATION' && COIN_PACKS[String(event?.product_id ?? '')]) {
+        const dkBuyer = await deviceKeys(appUserId);
+        const tx = String(event?.transaction_id ?? event?.id ?? '');
+        const taken = await revokePurchase(env.QUOTA_KV, dkBuyer.hash, tx, String(event.product_id));
+        console.log(`[credits] återbetald ${event.product_id} ${taken ? `−${taken} tokens` : '(inget att dra)'}`);
+        return new Response('ok');
+      }
       if (appUserId && env.QUOTA_KV) {
         const active = await rcActive(appUserId, env);
         await env.QUOTA_KV.put(await premiumKey(appUserId), active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
@@ -1140,22 +1186,27 @@ export default {
     try {
       const body = await request.text();
       let model = 'unknown';
-      try { model = JSON.parse(body).model ?? 'unknown'; } catch {}
+      let parsedBody: any = null;
+      try { parsedBody = JSON.parse(body); model = parsedBody.model ?? 'unknown'; } catch {}
 
       // ── Server-side tier: promo ELLER RevenueCat (aldrig klient-headern) ──
       const tierHeader = await resolveTier(deviceId, env);
+      const exempt = quotaExempt(env, dk.hash);
 
       // (Incident news hanteras numera av den cachade GET /incident-news — ingen web search här.)
 
       // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
-      if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV) {
+      if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV && !exempt) {
         const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
         const tUsed = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tierHeader), tokenKey(dk.legacy, tierHeader), tokenTtl(tierHeader)) ?? '0', 10);
-        if (tUsed >= tLimit) {
+        const tCredits = await getCredits(env.QUOTA_KV, dk.hash);
+        if (!hasAllowance(tUsed, tLimit, tCredits)) {
           return new Response(JSON.stringify({
             error: 'token_quota_exceeded',
             used: tUsed,
             limit: tLimit,
+            credits: tCredits,
+            can_buy: tierHeader === 'premium',
             message: `Monthly AI token quota exceeded (${tUsed}/${tLimit})`,
           }), {
             status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
@@ -1204,7 +1255,7 @@ export default {
                 indexes: [deviceHash],
               });
             }
-            await addTokens(env.QUOTA_KV, dk, tierHeader, inTok + outTok);
+            if (!exempt) await chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader));
           } catch {}
         })());
         return new Response(toClient, {
@@ -1237,7 +1288,8 @@ export default {
         });
       }
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
-      ctx.waitUntil(addTokens(env.QUOTA_KV, dk, tierHeader, inTok + outTok));
+      // Skanning av loggbok räknas med halva antalet tokens för premium (quotaWeight.ts).
+      if (!exempt) ctx.waitUntil(chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader)));
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

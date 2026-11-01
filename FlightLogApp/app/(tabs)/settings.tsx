@@ -12,7 +12,8 @@ import * as Application from 'expo-application';
 import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
-import { tokensToCoins } from '../../utils/tokenGate';
+import { tokensToCoins, openCoinShop } from '../../utils/tokenGate';
+import { coinShopAvailable } from '../../services/coinPacks';
 import { Colors } from '../../constants/colors';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { exportToCSV } from '../../services/export';
@@ -190,6 +191,10 @@ function CollapsibleSectionHeader({
     </TouchableOpacity>
   );
 }
+
+// Skanningen av pappersloggboken är pausad i riktiga byggen ("coming soon") men öppen i dev-builden medan
+// den byggs om. __DEV__ är alltid false i TestFlight/App Store. Byt till true när den ska lanseras.
+const SCAN_OPEN = __DEV__;
 
 // ── Huvudskärm ─────────────────────────────────────────────────────────────
 
@@ -568,6 +573,7 @@ export default function SettingsScreen() {
         const gFull = (low ? ['#FFD27A', '#FFB830'] : ['#7DF2FF', '#00B4D8']) as [string, string];
         const partColor = low ? '#FFB830' : '#1CD8F5';
         const isFree = tokenUsage.month === 'lifetime';
+        const extraCoins = tokensToCoins(tokenUsage.credits ?? 0);   // köpta, går aldrig ut
         return (
           <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -585,6 +591,13 @@ export default function SettingsScreen() {
                     <Text style={{ color: countColor }}>{leftCoins.toLocaleString('en-US')}</Text>
                     <Text style={{ color: '#56708C', fontWeight: '500' }}> / {limitCoins.toLocaleString('en-US')}</Text>
                   </Text>
+                  {/* Köp fler coins (bara Premium) — diskret, som hjälpikonen */}
+                  {(isPremium || isMax) && coinShopAvailable() && (
+                    <TouchableOpacity onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} hitSlop={10}
+                      accessibilityLabel="Buy more Blade coins" style={{ marginLeft: 8 }}>
+                      <Ionicons name="add-circle-outline" size={19} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 {/* Segmenterad mätare (10 celler) */}
                 <View style={{ flexDirection: 'row', gap: 4, marginTop: 10, marginBottom: 6 }}>
@@ -609,6 +622,36 @@ export default function SettingsScreen() {
                     ? 'Free one-time Blade-coins · upgrade for a monthly refill'
                     : 'Left this month · refills monthly'}
                 </Text>
+
+                {/* Köpta coins: egen guldfärgad stapel — de går aldrig ut och används efter månadens. Skalan
+                    är det största paketet (500 coins). */}
+                {extraCoins > 0 && (
+                  <View style={{ marginTop: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gold }}>Extra coins</Text>
+                      <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700', color: Colors.gold }}>{extraCoins.toLocaleString('en-US')}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 4, marginTop: 8, marginBottom: 6 }}>
+                      {Array.from({ length: CELLS }).map((_, i) => {
+                        const xf = Math.min(1, extraCoins / 500) * CELLS;
+                        const isFull = i < Math.floor(xf);
+                        const part = i === Math.floor(xf) ? xf - Math.floor(xf) : 0;
+                        return (
+                          <View key={i} style={{ flex: 1, height: 8, borderRadius: 2, backgroundColor: '#2A2414' }}>
+                            {isFull ? (
+                              <LinearGradient colors={['#FFE29A', '#F2B53A']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                                style={{ flex: 1, borderRadius: 2, shadowColor: '#FFC24A', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
+                            ) : part > 0 ? (
+                              <View style={{ width: `${Math.max(10, Math.round(part * 100))}%`, height: '100%', borderRadius: 2, backgroundColor: '#F2B53A' }} />
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <Text style={{ fontSize: 12, color: Colors.textMuted }}>Purchased · never expire</Text>
+                  </View>
+                )}
+
               </View>
             </View>
           </View>
@@ -748,15 +791,21 @@ export default function SettingsScreen() {
             onClick={() => router.push('/import')}
             separatorColor={Colors.background}
           />
-          {/* Scan logbook images — pausad inför lansering, visas som "coming soon". */}
-          {isPilot && <Row
+          {/* Scan logbook images — "coming soon" i riktiga byggen, öppen i dev (SCAN_OPEN). */}
+          {isPilot && (SCAN_OPEN ? <Row
+            icon="camera-outline" iconColor={Colors.primary}
+            title={t('import_scan_title')}
+            subtitle="Photograph your paper logbook"
+            onClick={() => router.push('/import/scan')}
+            separatorColor={Colors.background}
+          /> : <Row
             icon="camera-outline" iconColor={Colors.textMuted}
             title={t('import_scan_title')}
             subtitle={t('coming_soon')}
             right={<Text style={styles.soonPill}>SOON</Text>}
             pressable={false}
             separatorColor={Colors.background}
-          />}
+          />)}
           <Row
             icon="create-outline" iconColor={Colors.primary}
             title={t('import_manual_title')}
@@ -987,6 +1036,11 @@ export default function SettingsScreen() {
             <Text style={{ color: Colors.textMuted, fontSize: 13, lineHeight: 19 }}>
               When your coins run out, these smart features pause until your next refill — everything else in the app keeps working as normal.
             </Text>
+            {(isPremium || isMax) && coinShopAvailable() && (
+              <Text style={{ color: Colors.textMuted, fontSize: 13, lineHeight: 19 }}>
+                Need more? Tap + next to your balance to buy extra coins. They never expire and are used after your monthly coins.
+              </Text>
+            )}
             <TouchableOpacity onPress={() => setShowCoinInfo(false)} activeOpacity={0.85}
               style={{ marginTop: 4, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
               <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Got it</Text>

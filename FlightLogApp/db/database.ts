@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Application from 'expo-application';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import type { DB } from '@op-engineering/op-sqlite';
 import { createManagedDb, dbFileExists, openDbFile, type ManagedDb, type SqliteDb } from './sqlite';
 import { getDbKey, getOrCreateDbKey } from '../services/dbKey';
@@ -78,10 +79,14 @@ const BACKUPS_KEPT = 2;
 /** Bygget (version + byggnummer) plus vilken EAS-uppdatering som körs, t.ex. "1.0.1+15/embedded". */
 function currentCodeVersion(): string {
   let update = 'embedded';
-  try {
-    const Updates = require('expo-updates');
-    if (Updates?.isEnabled && Updates.updateId && !Updates.isEmbeddedLaunch) update = String(Updates.updateId).slice(0, 8);
-  } catch { /* expo-updates saknas (äldre dev-klient) */ }
+  // Fråga först om native-modulen finns: ett require() som misslyckas fångas INTE av try/catch här, eftersom
+  // Metro själv rapporterar det som ett krascherande fel (guardedLoadModule). Äldre byggen saknar expo-updates.
+  if (requireOptionalNativeModule('ExpoUpdates')) {
+    try {
+      const Updates = require('expo-updates');
+      if (Updates?.isEnabled && Updates.updateId && !Updates.isEmbeddedLaunch) update = String(Updates.updateId).slice(0, 8);
+    } catch { /* ingen uppdateringsinfo → "embedded" */ }
+  }
   return `${Application.nativeApplicationVersion ?? '?'}+${Application.nativeBuildVersion ?? '?'}/${update}`;
 }
 
@@ -677,6 +682,19 @@ async function runMigrations(db: SqliteDb): Promise<void> {
     }
   } catch {
     // om städningen fallerar (t.ex. schema saknas) — ignorera; den försöker igen nästa start
+  }
+
+  // Engångsstädning: skanningen sparade "ZZZZ" som en tillfällig plats utan koordinater (0°/0°), så att
+  // flygningar till ZZZZ ritades vid ekvatorn. ZZZZ ska aldrig vara en plats → ta bort raden en gång.
+  // Flygningarna behåller ZZZZ som plats-kod. Guardad med settings-flagga.
+  try {
+    const done = await db.getFirstAsync<{ v: string }>(`SELECT value as v FROM settings WHERE key = 'zzzz_place_removed'`).catch(() => null);
+    if (!done) {
+      await db.runAsync(`DELETE FROM icao_airports WHERE UPPER(icao) = 'ZZZZ'`);
+      await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('zzzz_place_removed', '1')`);
+    }
+  } catch {
+    // försöker igen nästa start
   }
 
   // Engångsstädning: en tidigare import-bugg dumpade appens egna export-kolumner ("Flight type: Normal",

@@ -10,6 +10,8 @@ export interface TokenUsage {
   limit: number;
   month: string;    // "YYYY-MM"
   enforced: boolean; // om taket faktiskt spärrar (server-side switch)
+  credits: number;   // köpta coins kvar, i tokens (går aldrig ut; används efter månadspotten)
+  canBuy: boolean;   // får köpa fler coins (bara Premium)
 }
 
 export async function fetchTokenUsage(): Promise<TokenUsage | null> {
@@ -26,7 +28,10 @@ export async function fetchTokenUsage(): Promise<TokenUsage | null> {
     if (!r.ok) return null;
     const j = await r.json();
     if (typeof j?.used !== 'number' || typeof j?.limit !== 'number') return null;
-    return { used: j.used, limit: j.limit, month: String(j.month ?? ''), enforced: !!j.enforced };
+    return {
+      used: j.used, limit: j.limit, month: String(j.month ?? ''), enforced: !!j.enforced,
+      credits: typeof j.credits === 'number' ? j.credits : 0, canBuy: !!j.can_buy,
+    };
   } catch {
     return null;
   }

@@ -26,7 +26,148 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
   - Urvalet är högst tre rader med etiketterna NEW, FIXED och IMPROVED, och knapparna heter "Update" och "Not now".
   - Bannern "Update available" på dashboarden är borttagen.
 - **Testläge för popupen i dev-builden** (`DEV_SIMULATE_UPDATE` i `store/versionStore.ts`): låtsas att nästa version finns. Det är avstängt som standard och påverkar aldrig riktiga byggen.
+- **Köp av extra Blade coins (byggt, avstängt tills produkterna finns):** `COIN_PACKS_ENABLED` i `services/coinPacks.ts`.
+  - **Bara för Premium:** 100 coins för 29 kr, 250 för 39 kr och 500 för 59 kr, som förbrukningsbara App Store-köp via RevenueCat (erbjudandet `coins`). Köpta coins går aldrig ut (App Review 3.1.1). Månadens 250 används först, och köpta coins följer med till nästa månad.
+  - **Proxyn** (`proxy/src/credits.ts`, inte deployad) har ett eget saldo per enhet för köpta coins utan utgångstid. RevenueCat-webhooken lägger till köpet, en gång per transaktion, och appen kan aldrig lägga till coins själv. Spärren släpper igenom när det finns coins kvar i månadspotten eller köpta coins. Förbrukningen tar månadspotten först och sedan köpta coins (`splitCharge`). `/tokens` och spärrsvaret visar köpta coins och om enheten får köpa.
+  - **Köpbladet** (`components/CoinShopSheet.tsx`, öppnas via `openCoinShop`): man väljer ett paket och köper med en knapp, och bladet väntar sedan in coinsen från proxyn. Bladet är stramt och nästan helt neutralt: vit markering för valt paket och dämpade märken, och bara köpknappen har appens blå färg. Bakgrunden är Liquid Glass på iOS 26 och oskärpa på äldre iOS. En gratisanvändare ser Premium i stället. När coinsen tar slut öppnas bladet i stället för meddelandet. I dev-builden visas bladet utan köp.
+  - **Köpet går via RevenueCats paywall** för erbjudandet `coins` (`presentCoinPaywall`), som designas i RevenueCat. Det egna köpbladet är bara reserv om paywallen saknas, och syns i dev-förhandsvisningen. Efter köpet väntar appen in coinsen (`awaitPurchasedCredits`) och fortsätter till exempel skanningen. En gratisanvändare får Premium-paywallen.
+  - **Återbetalda köp dras tillbaka** (`revokePurchase`, webhooken CANCELLATION för en coin-produkt), en gång per transaktion. Har coinsen redan använts blir saldot en skuld. Skulden minskar månadspotten tills den är betald eller tas ut av nästa köp. Kom återbetalningen före köpet krediteras köpet aldrig.
+  - **Settings:** ett diskret + bredvid saldot (bara Premium, samma stil som hjälpikonen) öppnar köpbladet. Köpta coins visas i en egen guldfärgad stapel under den blå, men först när man har köpta coins.
+  - **Skanningen** pausar när coinsen tar slut. Det som är läst och alla foton finns kvar, köpbladet öppnas, och läsningen fortsätter där den stannade när coinsen kommit fram. Både läsningsskärmen och översikten per uppslag har knappen "Get more coins".
+- **CSV-/Excel-importen har samma laddskärm som skanningen:**
+  - Det snurrande Blade-myntet, rubrik, förlopp med tid och stegen "Read the file", "Match the columns", "Read every flight" och "Check aircraft and airports".
+  - När filen är läst stannar myntet med en bock ("N flights found") och skärmen tonar över till förhandsvisningen. Vid fel visas felkortet direkt.
+  - Laddskärmen är en gemensam komponent (`components/BladeProgress.tsx`, med `BladeCoin`); `ScanProgress` bygger nu på den.
+- **Skanning av pappersloggboken, ny UX.** Funktionen är öppen bara i dev-builden (`SCAN_OPEN` i `app/(tabs)/settings.tsx`); riktiga byggen visar fortfarande "coming soon".
+  - **Ny kamera** (`modules/scan-camera`, native, kräver nytt bygge):
+    - liggande läge med en ram som anpassar sig efter bokens proportioner
+    - hittar uppslaget med Apple Vision och visar konturen live
+    - kontrollerar inramning, vinkel, ljus, skärpa och att telefonen hålls still, och tar sedan bilden själv
+    - rätar upp perspektivet och beskär till boken
+    - nästa uppslag tas när sidan har vänts
+    - manuell avtryckare, Auto av/på och lampa
+    - upp till 5 uppslag med förhandsvisning och radering
+  - **Ny startsida** (`app/import/scan.tsx`):
+    - tre steg som förklarar hur det går till
+    - vilken loggboksmall som läses, eller en uppmaning att välja mall först
+    - knapparna "Open camera" och "Choose photos instead"
+    - Byggen utan den nya kameran använder iPhones dokumentskanner.
+  - **Ny granskning, "arbetsbordet"** (`app/flight/scan-review.tsx`), ersätter `flight/review` i skanningsflödet:
+    - uppslaget i helskärm (liggande) med zoom
+    - medan Claude läser sveper en linje över sidan
+    - Claude ritar ovanpå bilden: gula rutor där den är osäker, med det den läste som etikett; gröna när de är klara
+    - prickar per rad visar om raden har något kvar att granska
+    - Tryck på en ruta, eller på vilket värde som helst, så zoomar vyn in på cellen. Panelen visar vad Claude läste, varför och hur säker den var, med förslag, "Looks right" och "Change". Rättningen skrivs i en rad ovanför tangentbordet, med flygplatssök för ICAO-fälten.
+    - särskilda val för tidskonflikter, förslag i anteckningarna, nya flygplanstyper (gäller alla rader med samma skrivning), simulatortyp och tidsroll
+    - hoppa över eller ta med rader
+    - "Readings" visar Claudes läsning i varje cell
+    - Uppslagen läses ett i taget med sidväljare. Ett uppslag som inte gick att läsa kan läsas om.
+    - Import varnar för punkter som inte är granskade.
+  - **Skannern returnerar nu rutnätet:**
+    - tabellens över- och underkant, och varje kolumns kanter
+    - en tryckt radposition per flygning och en ruta per osäkert värde
+    - Halvorna räknas om vid ryggen när uppslaget delas (`services/scanGeometry.ts`, test i `scripts/test-scan-geometry.cjs`). Utan rutnät används mallens kolumnbredder.
+  - **Sparlogiken** är flyttad till `services/scanImport.ts`, med samma regler som förut. Rättelser sparas som inlärda ledtrådar för nästa skanning.
+  - **Arbetsbordet, omgjort efter första testet:**
+    - loggboken överst i liggande läge (skärmens egen `orientation`, eftersom låset inte fungerade i modalfönstret)
+    - ringen runt problemet, med resten av sidan nedtonad
+    - frågan under boken med Claudes läsning, varför och hur säker den är; "Looks right", förslag eller rätt värde; sedan nästa problem
+    - Fel uppslag i bildspelet kan läsas om.
+    - Färgerna: grått väntar på sin tur, gult är det som frågas om nu och grönt är klart.
+    - Samma fråga på tre rader eller fler blir en fråga ("Looks right for all 12" eller "One by one"), med värdena som knappar.
+    - Förslag som är samma som det som redan står döljs.
+    - Claudes förklaringar skrivs på engelska och kort.
+    - Tangentbordet visas i liggande läge: expo-screen-orientations lås följer nu skärmen. Utan det vreds skärmen till stående när man skrev.
+    - Medan Claude läser visas en skanningsanimation och stegen (hitta boken, läsa raderna, markera) i stället för fotot. När läsningen är klar vibrerar telefonen och sidan tonar fram.
+    - Foton där boken ligger på tvären vrids rätt. Alla bilder utom Blades egen kamera (`oriented`) prövas i 0°, 90° och 270°, och den vridning där Apple Vision läser mest text väljs (`textScore`). Orimligt smala beskärningar hoppas över.
+    - Orienteringen styrs bara av expo-screen-orientation, som i bokvyn. Startsidan, kameran och granskningen är vanliga skärmar, inte modalfönster, och har ingen egen `orientation`. Läsläget är stående; granskningen och rapporten är liggande; appen blir stående igen när man går ur. Tidigare blandades två system, och appen kunde fastna med liggande innehåll i stående skärm.
+    - **Hela granskningen är stående** (användarens val): läsningen, frågorna och rapporten. Bara kameran är liggande. Frågepanelen staplar fråga, svar och raden uppifrån och ned i full bredd, och knapptexterna får två rader. Topraden har Readings som ikon och "Report". Flera uppslag får sidknappar på en egen rad. Redigeringsraden har etiketten ovanför fältet. Rapporten är en lista med en flygning per rad: datum, typ, registrering och totaltid överst, rutt med tider under och övriga värden sist. Save ligger fast längst ner.
+    - **Högra sidan granskas också.**
+      - Kolumner som saknas i Claudes rutnät (ofta hela högersidan) läggs till från de tryckta rubrikerna som Apple Vision hittar, till exempel PIC, Dual, Landings Day/Night och Remarks (`completeGridFromHeaders`).
+      - Saknas en kolumn ändå används Claudes ruta kring värdet, justerad med rutnätets rättning, i stället för hela raden (`mappedBoxRect`).
+    - **Landningar kontrolleras mot Vision.** Skiljer sig talet i cellen från Claudes, eller har Claude inte läst något och appen fyllt i 1, blir det en fråga med Visions tal som förslag (`crossCheckCounts`). Instruktionen till Claude kräver nu kolumner för båda sidorna och att landningarna alltid läses ("anta aldrig 1").
+    - **Läsningsskärmen** (`components/scan/ScanProgress.tsx`):
+      - Blade-myntet snurrar konstant och långsamt runt sin lodräta axel som ett mynt: ett jämnt varv per 5 s, med baksidan spegelvänd som på ett riktigt mynt. Fram- och baksidan är två lager som förskjuts åt varsitt håll med kanten emellan, så att kanten byter sida när baksidan kommer fram. Annars såg myntet ut att vända tillbaka i stället för att snurra vidare, utan snabb snurr och paus, och utan omstart när "hitta boken" byter till "läsa". När läsningen är klar bromsar det mjukt framåt till framsidan. Det är platt teknik: bredden följer |cos|, med skugga och kant på högkant och ett mjukt radiellt ljussken. En 3D-rotation med perspektiv skar bort halva skärmen på iOS.
+      - etikett, förloppslinje med tid och tidslinjen med stegen
+      - Alla animationer går på den inbyggda animationstråden, så inget hackar medan appen arbetar.
+      - Klart → myntet stannar framåtvänt med en grön bock, resultatet visas en stund och skärmen tonar över till sidan medan frågepanelen glider upp.
+    - **"Frame the logbook"** (`app/import/scan-crop.tsx`) för foton ur kamerarullen:
+      - Användaren vrider bilden (90° åt gången) och beskär den med hörnen. Ramen har kamerans formspråk, tredjedelslinjer och nedtonat utanför.
+      - Blades föreslår vridning och ram med Apple Vision (`services/scanFrame.ts`) men skriver inte över användarens justeringar.
+      - Beskärningen görs från originalet i full upplösning. Ett foto i taget.
+    - **Simulatortid:**
+      - Kolumner som heter "Simulator time", "Sim", "FSTD" eller liknande, även handskrivna under "Other type of flight time", läses som `sim` med `flight_type` sim, aldrig som Dual.
+      - Funktionstid (PIC, Co-pilot, Dual, Instructor) längre än total flygtid flaggas som omöjlig.
+      - En rad utan total flygtid men med funktionstid får frågan "Is this a simulator session?". Ett tryck flyttar tiden till simulatorfältet, nollar landningarna och frågar efter simulatortyp.
+      - Även en rad med total tid men utan funktionstid får frågan, eftersom simulatortid ibland läses in i "Total time of flight". Det gäller också när Claude är osäker på total- mot simulatortid ("It is simulator time"). Flera sådana rader kan rättas med ett tryck ("Simulator session for all N"). Instruktionen säger uttryckligen att ett tal i simulatorkolumnen aldrig hör till total flygtid.
+    - **Simulatortid under "Other type of flight time":** kolumner med rubriker som "Simulator time", "Sim" eller "FSTD" blir simulatortid även när Claude lagt värdet i `other_times`. Raden blir då ett simulatorpass (`prepareFlight`). Claude flaggar inte längre "other times" med tydlig rubrik, vilket ger färre frågor och kortare svar.
+    - **Utökad editor i rapporten** (`components/scan/FlightEditor.tsx`): tryck på en flygning för att redigera alla fält, välja "Flight" eller "Simulator" och simulatortyp. Fält som inte är granskade är gula. Simulatorpass märks i listan.
+    - **Dev-builden provar Sonnet 5.5** för att mäta snabbheten. Riktiga byggen har Opus 5.5. Modellen loggas per skanning.
+    - **Rutnätet är obligatoriskt** i skannerns schema (Sonnet hoppade annars över det och inga ringar ritades). Koordinater som bråk (0–1) tolkas som procent. Loggen visar vad skannern gav.
+    - **Summor per kolumn:**
+      - Claude läser av sidans "Total this page" för varje kolumn (`this_page_by_field`, med båda halvorna vid ryggdelning).
+      - Arbetsbordet ringar in kolumner vars radsumma inte stämmer. Rapporten listar varje sådan kolumn och vilka som stämmer (`columnTotals`).
+      - Kontrollen räknar alla rader på sidan, även rader som redan finns i loggboken eller lämnas utanför. Tidigare gav dubbletter falska varningar ("1.2 vs 14.6").
+    - **Fast tillägg på flygtiden (t.ex. +0.2 h för helikopter):**
+      - Bakgrund: EASA räknar helikopterns flygtid från rotorstart till rotorstopp (FCL.010). Böcker där avgång och ankomst är lyft och landning lägger därför ofta till 0.2 h.
+      - Har minst tre rader, och minst hälften av raderna med tider, samma tillägg (0.1–0.5 h), frågar granskningen en gång: "Yes, this book adds 0.2 h" eller "No, check each row". Det ersätter "Times don't add up" på varje rad (`detectTimeAddition`, `fitsTimeAddition`).
+      - Ett ja sparas (`scan_time_addition`). Nästa skanning får Claude regeln i instruktionen, och tids-avstämningen räknar bort tillägget, så att de raderna inte flaggas alls. Rader som ändå inte stämmer får förslag som räknar med tillägget.
+      - Skanningens startsida visar regeln under "Learned from your logbook" och har en "Forget"-knapp.
+    - **Modell, pris och kortare svar (2026-11-01):**
+      - **Sonnet 5.5 läser även i riktiga byggen** (`OCR_MODEL`), i stället för Opus 5.5. Det är samma modell som testats i dev-builden: ungefär dubbelt så snabb och halva kostnaden.
+      - **För premium räcker en coin till dubbelt så många tokens vid skanning** (400 i stället för 200). Gratisnivån betalar full taxa, eftersom den inte har betalat något (ändrat 2026-11-01, ej deployat än). Proxyn känner igen skanningen på själva anropet: verktyget `emit_flights` tvingat och ensamt, en bild och högst 16 000 tokens i svaret. Den drar då halva antalet tokens (`proxy/src/quotaWeight.ts`). Appen speglar det i sin lokala räknare (`SCAN_QUOTA_WEIGHT`). Proxyn är deployad 2026-11-01 (version f912f1b3).
+      - **Kortare svar med samma innehåll:**
+        - Exemplet i instruktionen visar bara fält med innehåll; förut visade det alla ~30 fält med nollor. "TOMMA FÄLT" säger nu "utelämna" i stället för "returnera 0".
+        - Claude skriver inte längre `time_mismatch`, som appen räknar själv, eller `overall_confidence`, `image_layout`, `rows` och `x_pct`, som skanningsflödet inte använder.
+        - `box` skickas bara när fältet saknar kolumn i rutnätet.
+      - **Simulatortiden mappas från Claudes svar** (`sim` i parsern). Förut fick en simulatorrad rätt total men tom simulatortid, och rapporten visade "Simulator 0 vs 4.2".
+      - **"Haiku först" testades och valdes bort.** Haiku 5.5 läste på 9,8 s för 0,03 kr, men bara 88,5 % av cellerna var lika med Sonnet. Haiku läste klockslag fel, som sidans summor inte kan avslöja. När summorna inte stämde blev det Haiku och sedan Sonnet: långsammare, och båda drar coins.
+      - **Dev-loggen** visar tokens, cache, tid, kostnad i kronor och coins per anrop, tiden per uppslag och varje läst rad (`[SCAN] 📋`), så att skanningar kan jämföras cell för cell.
+      - **Mätning, samma uppslag med 12 rader:** Sonnet med den gamla instruktionen tog 29,3 s, 5 164 tokens output och 35 coins. Nu tar det 23,4 s, 3 933 tokens och 15 coins, och 0,48 kr med cache.
+    - **Uppslaget visas alltid liggande och rättvänt** (`orientationScore`, `bookAspect` i `scanAlign.ts`). iPhones dokumentskanner lämnade ett liggande uppslag stående, och appen behöll det, så att rutnät och ringar blev fel. Orsaken: vridningen valdes efter hur mycket text Vision läste, men Vision läser text på högkant nästan lika bra (0° = 822, 90° = 859). Nu avgör tre saker: att boken är liggande, att orden står på rad (bredare än höga) och att de tryckta rubrikerna står ovanför "Total this page"/"Total to date", vilket avgör upp och ner. Det gäller både kamerans väg (`findLogbook`) och förslaget i "Frame the logbook" för kamerarullen (`scanFrame.ts`, som nu prövar alla fyra vridningarna). Testat i `test-scan-geometry.cjs` (13).
+    - **Talfält kopplas till kolumnen där värdena står** (`relocateColumnsByValues` i `scanAlign.ts`). Simulatortiden stod i en handskriven kolumn "Simulator time" under "Other type of flight time", men rutnätet kopplade sim till den tryckta, tomma "Synthetic training session". Ringar och avläsningar hamnade därför på den tomma kolumnen, och det såg ut som att Claude missat 1.4. Hittar Vision värdena nästan aldrig i fältets kolumn men på de flesta rader i en annan, oanvänd kolumn, kopplas fältet om dit. Instruktionen säger också att kolumnen får fältet där värdena står. Testat i `test-scan-geometry.cjs` (12).
+    - **Samma val på flera rader blir en fråga**, till exempel simulatortyp på tre simulatorpass. Ett tryck på FFS, FTD, FNPT … gäller alla raderna, och "One by one" finns kvar.
+    - **Scan report omgjord för många uppslag (upp till ~10)** (`components/scan/ScanReport.tsx`):
+      - Överst en sammanfattning: flygningar, flygtid (utan simulatorpass) och hur många sidor vars summor stämmer, plus märken för ogranskat, justerat, simulator och dubbletter.
+      - Ett hopfällbart avsnitt per uppslag med bokens sidnummer (`pageLabels`), period, flygningar och timmar. Avsnittet visar också sidans summor, Blades mot boken, kolumn för kolumn ("Dual 25.3 / 24.3 ✗"). Med fler än två uppslag är bara de som behöver ses över utfällda.
+      - En kompakt rad per flygning (datum, typ, registrering, rutt, tid) med märken på en rad under: SIM, ADJUSTED, ogranskat och dubblett. Det tar ungefär en tredjedel av den tidigare höjden. Ett tryck öppnar alla värden.
+      - "ALL SPREADS" visar det som sparas, med simulatortid för sig och aldrig i flygtiden.
+    - **Sidans summa är facit: justera flygningar i stället för totalen.** När en kolumn inte går ihop med "Total this page" ersätts "The page total is wrong" av "Adjust flights to match 24.3" och "Keep the readings":
+      - Användaren trycker på den eller de flygningar som är fel. Skillnaden fördelas i hela tiondelar (eller hela landningar) med `distributeDifference`, och förhandsvisningen står bredvid raden (2.4→1.4). Rader där Claude var osäker på fältet är förvalda, och simulatorpass kan inte väljas för total tid.
+      - Justerade flygningar märks i rapporten ("ADJUSTED TO MATCH THE PAGE TOTAL · DUAL 2.4 → 1.4") och i sparbeskedet.
+      - När de sparas får flygningen `status='flagged'` och en rad i `audit_log` per fält, med sida och rad i pappersboken (`SCAN_ADJUST_REASON`).
+      - Flygningens sida visar en gul ruta, "Adjusted to match your paper logbook", med gammalt och nytt värde, var i boken och "Mark as checked" (`verifyFlight`). Att redigera flygningen markerar den också som kontrollerad.
+      - Inga databasändringar: kolumnen `status` och tabellen `audit_log` fanns redan.
+    - **Claudes avläsningar bredvid kolumnen:** när en kolumn inte går ihop, eller en tal-cell är vald, visas det Claude läst till vänster om varje rad (– där inget lästs). Längst ner står radernas summa (Σ), grön om den stämmer med sidans och gul annars. Ett tryck öppnar cellen, så att felet syns och rättas utan att man trycker igenom varje cell. Avläsningarna är aldrig större än bokens celler; en minsta storlek gjorde dem högre än raderna, så att de överlappade. Ett simulatorpass visas som "SIM" i kolumnen för total tid, både här och i ögonvyn (`bookCell`). I boken är den cellen tom, och simulatortiden står i simulatorkolumnen. Appen sparar fortfarande passets längd som total tid internt, och summakontrollen räknar inte med simulatorpass.
+    - **Rutorna följer raderna på en buktande sida** (`measureRows` i `scanAlign.ts`, `rowCenter`/`rowBand` i `scanGeometry.ts`):
+      - Raderna antogs förut vara jämnt fördelade mellan tabellens över- och underkant, så att rutorna längre ner kunde glida en halv rad fel och täcka två celler.
+      - Nu mäts varje rads läge mot Visions ord på raden, i både text och tal, och vänster och höger sida mäts för sig. Först mäts värden som bara finns på en rad, sedan upprepade värden i ett smalt fönster. Punkter som avviker från grannarna slängs, och mellan mätpunkterna interpoleras avvikelsen.
+      - Träff-testet och cellerna för Visions landningskoll använder samma radband. Testat i `test-scan-geometry.cjs` (11).
+    - **Landningar i fel kolumn (dag ↔ natt):**
+      - **Rutnätet rättas från de tryckta "D" och "N"** under "Landings" (`landingSubHeaders` i `completeGridFromHeaders`). Claudes landningskolumner kunde hamna en kolumn fel: "natt" låg över dagens siffror, så att Vision såg dagens tal i nattcellen. Testat i `test-scan-geometry.cjs` (8b).
+      - **Självkontroll före Visions landningsfrågor:** går landningskolumnerna ihop med sidans "Total this page" stämmer Claudes läsning, och då ställs ingen fråga. Står Visions tal redan i grannkolumnen på samma rad blir frågan "Which column is it in?", utan förslag som skulle räkna talet två gånger.
+      - **"Wrong column?"** i frågepanelen: knappar som flyttar talet till kolumnen till vänster eller höger, till exempel "← 3 to Day landings". Grannkolumnerna kommer från rutnätet och är av samma slag (tid ↔ tid, antal ↔ antal). Utan rutnät gäller dag ↔ natt. En flytt lärs inte in som en felläst siffra.
+    - **"What matters most to you?"** på skanningens startsida, före fotograferingen. Valet sparas (`scan_focus`, `setScanFocus`) och styr både Claude och granskningen (`worthAsking`):
+      - **Every flight, exactly:** allt Claude är osäker på (som tidigare).
+      - **Flights mostly, totals exactly:** frågor om datum, typ, registrering, platser, simulator och nya typer. En osäker siffra frågas bara om när kolumnen inte går ihop med sidans summa. Inga frågor om klockslag, anmärkningar eller "check this row".
+      - **Only the totals:** bara kolumner som inte går ihop, och osäkra siffror i just de kolumnerna. Nya flygplanstyper får Claudes tolkning utan fråga.
+      - En siffra i en kolumn utan summa att jämföra med frågas alltid om. Claude får fokuset i instruktionen och flaggar färre fält, vilket ger kortare svar.
+    - **Frågepanelen** har en tätare bakgrund (50 % mörk ton ovanpå glaset). Knapparna för föregående, nästa och förminska är större (38 pt, runda).
+    - **Landningar:** en tom cell blir 0 i stället för 1. Ett handskrivet tal över skiljelinjen dag/natt räknas bara som dag.
+    - **Modell:** skanningen använder Claude Opus 5.5 i stället för Opus 4.8, som är nyare och ~20 % billigare per token. `EXPO_PUBLIC_OCR_MODEL` kan sätta t.ex. Sonnet 5.5 för ett snabbhetstest.
+    - **Nya flygplan i rapporten** ser ut och fungerar exakt som CSV-importens "Aircraft data" (`NewAircraftSection`).
+    - **Myntet** har tjocklek (kantlager som glider isär), en glansrand som sveper över och en skugga under som smalnar på högkant.
+    - **Startsidan** har samma uppbyggnad och stil som Import logbook: rubrik, streckat kamerakort, kortrad för fotobiblioteket, frågan om upplägget, "How it works" och "Works best with".
+    - **Tidszon "UTC" eller "Local"** för tiderna i boken, i inramningen och i rapporten. Valet sparas (`scan_time_basis`). Lokal tid räknas om till UTC per flygplats när raderna sparas, med sommartid via land/region, och datumet följer avgången (`localTimesToUtc` i `services/scanImport.ts`).
+    - **Startsidan** är ett modalfönster som de andra importerna i Settings (dra ned för att stänga, ingen tillbakaknapp). Kameran och granskningen ersätter modalfönstret (`router.replace`) och blir vanliga skärmar, där orienteringen fungerar.
+    - **New aircraft** fungerar som vid CSV-import: marschfart, uthållighet, SP/MP, SE/ME och flygplan/helikopter, förifyllt med AI och sparat i flottan (`components/scan/NewAircraftCard.tsx`).
+    - Inget sparas förrän "Save".
+  - Fältreglerna (etiketter, tidsformat och tolkning) ligger i `services/scanFields.ts`.
+  - **Apple Vision (på telefonen)** letar upp loggboken i fotot och beskär till den innan Claude läser, även för foton ur kamerarullen eller skärmdumpar (`services/scanAlign.ts`). Claudes lästa värden matchas sedan mot Visions ord, och rutnätet rättas med en robust linjär anpassning, så att ringarna hamnar på rätt cell. I testet rättas ett rutnät som låg 25 % fel till under 1 %.
+- **Proxyn: `QUOTA_EXEMPT_DEVICES`** (wrangler.toml [vars]). Enheter i listan stoppas inte av token-taket och förbrukar inga Blade coins. Det är tillfälligt, för utvecklarens telefon medan skanningen byggs. Dev-builden visar enhetens hash under Scan logbook.
 - **Bygg bara från committad kod** (`requireCommit` i `eas.json`).
+- **ZZZZ blir aldrig en plats:** skanningen sparade ZZZZ som en tillfällig plats utan koordinater, så att flygningar ritades vid 0°/0°. `addTemporaryPlace` och skanningens sparlogik hoppar nu över ZZZZ, och uppslagen ger ZZZZ aldrig koordinater (`isOffAirportCode`). En engångsrättning tar bort en redan sparad ZZZZ-rad (`zzzz_place_removed`).
+- **Utvecklingsservern:** `app.config.js` ger `expo start` en fast runtime-version (`dev-server`). Med policyn "fingerprint" räknades fingeravtrycket om vid varje manifest-anrop (~20 s), och dev-bygget gav upp med "Could not reach". Byggen, `eas update` och `expo export` får fortfarande det riktiga fingeravtrycket.
 - **Uppgraderingstestet för databasen** (`scripts/test-db-upgrade.cjs`) körs mot alla taggade byggen.
 
 ## 1.0.0 (14) – inskickad 2026-10-28

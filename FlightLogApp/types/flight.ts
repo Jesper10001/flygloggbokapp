@@ -172,9 +172,15 @@ export interface OcrFlightResult extends FlightFormData {
   };
   // Ungefärlig vertikal position av raden i bilden (0=topp, 100=botten)
   row_y_pct?: number;
+  // Tryckt radposition på sidan (1 = översta raden) — granskningsvyn placerar raden i bilden med den.
+  row_index?: number;
   // Specifika fält AI är osäker på. UI visar BARA dessa fält på flaggade
   // rader (plus "Visa alla fält"-toggle). Om tom array → visa alla fält.
-  field_issues?: { field: string; reason: string; confidence: number; x_pct?: number; suggested_value?: string }[];
+  field_issues?: {
+    field: string; reason: string; confidence: number; x_pct?: number; suggested_value?: string;
+    box?: { left: number; top: number; right: number; bottom: number };   // procent av bilden
+    from?: string;   // fältet värdet kommer från (t.ex. dual när det kan vara simulatortid)
+  }[];
   // Övergripande säkerhet 0–1 på hela raden. ≥ 0.95 = fast-track (komprimerad
   // rad, auto-godkänd) om needs_review=false.
   overall_confidence?: number;

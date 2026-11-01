@@ -171,6 +171,56 @@ export async function presentManageSubscription(): Promise<boolean> {
   return false;
 }
 
+/**
+ * Coin-paketen ur RevenueCats offering "coins", med App Store-priset. Tom lista om köp inte är möjliga
+ * (ingen nyckel/native-modul, eller offeringen finns inte än).
+ */
+export async function getCoinPackages(): Promise<{ productId: string; priceString: string; pkg: PurchasesPackage }[]> {
+  if (!configured || !Purchases) return [];
+  try {
+    const { COIN_OFFERING_ID } = require('./coinPacks');
+    const offerings = await Purchases.getOfferings();
+    const offering: PurchasesOffering | undefined = offerings?.all?.[COIN_OFFERING_ID];
+    return (offering?.availablePackages ?? []).map((pkg: PurchasesPackage) => ({
+      productId: pkg.product.identifier, priceString: pkg.product.priceString, pkg,
+    }));
+  } catch { return []; }
+}
+
+/**
+ * RevenueCats designade paywall för coin-paketen (erbjudandet "coins", designas i RevenueCat-dashboarden).
+ * 'unavailable' om paywallen eller erbjudandet saknas → anroparen visar det egna köpbladet i stället.
+ */
+export async function presentCoinPaywall(): Promise<'purchased' | 'cancelled' | 'unavailable'> {
+  if (!configured || !Purchases || !RevenueCatUI) return 'unavailable';
+  try {
+    const { COIN_OFFERING_ID } = require('./coinPacks');
+    const offerings = await Purchases.getOfferings();
+    const offering = offerings?.all?.[COIN_OFFERING_ID];
+    if (!offering) return 'unavailable';
+    const result = await RevenueCatUI.presentPaywall({ offering });
+    const { PAYWALL_RESULT } = require('react-native-purchases-ui');
+    if (result === PAYWALL_RESULT.PURCHASED) return 'purchased';
+    if (result === PAYWALL_RESULT.NOT_PRESENTED || result === PAYWALL_RESULT.ERROR) return 'unavailable';
+    return 'cancelled';
+  } catch { return 'unavailable'; }
+}
+
+/**
+ * Köper ett coin-paket (förbrukningsbart). Coinsen läggs till av proxyn när RevenueCat meddelar köpet;
+ * anroparen väntar in dem via /tokens (waitForCredits).
+ */
+export async function purchaseCoinPackage(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
+  if (!configured || !Purchases) return 'unavailable';
+  try {
+    await Purchases.purchasePackage(pkg);
+    return 'success';
+  } catch (e: any) {
+    if (e?.userCancelled) return 'cancelled';
+    return 'error';
+  }
+}
+
 /** Återställer tidigare köp (t.ex. ny enhet/ominstallation, samma Apple-ID). */
 export async function restorePurchases(): Promise<PurchaseOutcome> {
   if (!configured || !Purchases) return 'unavailable';

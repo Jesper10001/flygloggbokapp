@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, Image,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -12,29 +11,83 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/scanQuotaStore';
 import { presentPaywall } from '../../services/purchases';
-import { setScanImage, setScanBatch } from '../../store/scanStore';
+import { setScanBatch, setScanSources, setScanUseBookLayout, getScanUseBookLayout, setScanFocus, getScanFocus, type ScanImage, type ScanFocus } from '../../store/scanStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { askAiConsent } from '../../services/aiConsent';
+import { getActiveDigitalBook } from '../../db/digitalBooks';
+import { getAnyTemplate } from '../../db/customTemplates';
+import { isScanCameraAvailable } from '../../modules/scan-camera';
+import { getDeviceId } from '../../services/anthropicClient';
+import * as Crypto from 'expo-crypto';
+import { getSetting, setSetting } from '../../db/flights';
+
+// Startsidan för att skanna pappersloggboken: hur det går till, vilken loggbok som läses, och vägen in i
+// kameran (eller fotobiblioteket). Själva kameran ligger i scan-camera.tsx, granskningen i flight/review.
+
+const MAX_SPREADS = 5;
+const OCR_WIDTH = 2000;
+
+type BookInfo = { name: string; layout: string; rows: number } | null;
+
+// Vad som är viktigt för användaren styr hur många frågor granskningen ställer (scan-review: worthAsking)
+// och vad Claude lägger kraft på (ocr.ts).
+const FOCUS_OPTIONS: { key: ScanFocus; title: string; desc: string }[] = [
+  { key: 'exact', title: 'Every flight, exactly', desc: 'Every value must match my logbook. Claude asks about anything it is unsure of.' },
+  { key: 'balanced', title: 'Flights mostly, totals exactly', desc: 'Dates, aircraft and places must be right, and the totals exact. Fewer questions.' },
+  { key: 'totals', title: 'Only the totals', desc: 'Only the page totals have to match. Claude asks only when a column doesn\'t add up.' },
+];
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
-  const sv = t('yes') === 'Ja';
   const router = useRouter();
   const { isPremium } = useFlightStore();
-  const {
-    load, totalRemaining, monthlyRemaining, extraScans,
-    canScan, loaded,
-  } = useScanQuotaStore();
+  const { load, totalRemaining, monthlyRemaining, extraScans, canScan, loaded } = useScanQuotaStore();
+  const cameraAvailable = isScanCameraAvailable();
 
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [rotation, setRotation] = useState(0);
+  const [book, setBook] = useState<BookInfo | undefined>(undefined);
+  const [sameLayout, setSameLayout] = useState(getScanUseBookLayout());
+  const chooseLayout = (same: boolean) => { setSameLayout(same); setScanUseBookLayout(same); };
   const [working, setWorking] = useState(false);
   const [showBuy, setShowBuy] = useState(false);
-  const [showPremium, setShowPremium] = useState(false);
+  const [devHash, setDevHash] = useState<string | null>(null);
+  const [focus, setFocus] = useState<ScanFocus>(getScanFocus());
+  const chooseFocus = (f: ScanFocus) => { setFocus(f); setScanFocus(f); setSetting('scan_focus', f).catch(() => {}); };
+  useEffect(() => {
+    getSetting('scan_focus').then((v) => {
+      if (v === 'exact' || v === 'balanced' || v === 'totals') { setFocus(v); setScanFocus(v); }
+    }).catch(() => {});
+  }, []);
+  // Regel som användaren bekräftat i en tidigare skanning: total = avgång → ankomst + tillägg (t.ex. 0.2 h).
+  const [addition, setAddition] = useState<number | null>(null);
+  const forgetAddition = () => { setAddition(null); setSetting('scan_time_addition', '').catch(() => {}); };
 
   useEffect(() => { load(); }, []);
 
-  const hasFreeTrial = !isPremium && loaded && totalRemaining() > 0;
+  // Dev: enhetens hash som proxyn använder (samma som hashDevice i proxy/src/index.ts). Står den i
+  // QUOTA_EXEMPT_DEVICES kostar skanningarna inga Blade coins medan funktionen byggs.
+  useEffect(() => {
+    if (!__DEV__) return;
+    Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `blades-device:v2:${getDeviceId()}`)
+      .then((hex) => setDevHash(`d2_${hex.slice(0, 32)}`))
+      .catch(() => {});
+  }, []);
+
+  // Läses om när man kommer tillbaka från loggbokssidan (där mallen väljs).
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const b = await getActiveDigitalBook();
+        const tpl = b ? await getAnyTemplate(b.template_id) : null;
+        if (alive) setBook(b && tpl ? { name: b.name, layout: tpl.name, rows: b.rows_per_spread } : null);
+      } catch {
+        if (alive) setBook(null);
+      }
+      const add = parseFloat((await getSetting('scan_time_addition').catch(() => null)) ?? '');
+      if (alive) setAddition(add > 0 ? add : null);
+    })();
+    return () => { alive = false; };
+  }, []));
 
   if (!isPremium && loaded && totalRemaining() <= 0) {
     return (
@@ -44,202 +97,78 @@ export default function ScanImportScreen() {
     );
   }
 
-  // OCR-granskningen är ett AI-anrop → samtycke innan kamera/bibliotek/dokumentscanner öppnas, och innan
-  // en skanning förbrukas (kvoten dras före granskningssidans AI-anrop).
-  const pickImage = async (fromCamera: boolean) => {
-    if (!(await askAiConsent())) return;
-    if (fromCamera) {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(t('permission_required'), t('camera_permission'));
-        return;
-      }
-    }
-    const result = fromCamera
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
-    if (result.canceled || !result.assets?.[0]) return;
-    setImageUri(result.assets[0].uri);
-    setRotation(0);
+  // OCR är ett AI-anrop → samtycke innan kameran/biblioteket öppnas, och kvoten kontrolleras först.
+  const ready = async (): Promise<boolean> => {
+    if (!canScan()) { setShowBuy(true); return false; }
+    return askAiConsent();
   };
 
-  const pickBatch = async () => {
-    if (!(await askAiConsent())) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-      allowsMultipleSelection: true,
-      selectionLimit: 5,
-      orderedSelection: true,
-    });
-    if (result.canceled || !result.assets?.length) return;
-    setWorking(true);
-    try {
-      const images: { base64: string; mediaType: 'image/jpeg' }[] = [];
-      for (const asset of result.assets) {
-        // Ingen auto-rotation: ram-aspekten säger inget om bokens orientering
-        // (stående foto av liggande bok = rätt orienterad bok). Modellen klarar
-        // rotation, och användaren kan rotera manuellt i förhandsvisningen.
-        const actions: ImageManipulator.Action[] = [];
-        actions.push({ resize: { width: 2000 } });
-        const prepared = await ImageManipulator.manipulateAsync(
-          asset.uri, actions,
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-        );
-        if (prepared.base64) images.push({ base64: prepared.base64, mediaType: 'image/jpeg' });
-      }
-      if (images.length === 0) { Alert.alert(t('error'), t('could_not_process_image')); return; }
-      setScanBatch(images);
-      router.push('/flight/review?batch=1&imp=1');
-    } catch (e: any) {
-      Alert.alert(t('error'), e.message);
-    } finally {
-      setWorking(false);
-    }
+  const toReview = async (images: ScanImage[]) => {
+    for (let i = 0; i < images.length; i++) await useScanQuotaStore.getState().consumeScan();
+    setScanBatch(images);
+    router.replace('/flight/scan-review');   // ersätter modalfönstret (se openCamera)
   };
 
-  const checkImageQuality = async (uri: string): Promise<{ ok: boolean; reason: string }> => {
-    try {
-      // Resize to small thumbnail for fast analysis
-      const thumb = await ImageManipulator.manipulateAsync(
-        uri, [{ resize: { width: 100 } }],
-        { format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-      if (!thumb.base64) return { ok: true, reason: '' };
-
-      // Analyze brightness from base64: sample bytes, check average luminance
-      const raw = atob(thumb.base64);
-      let totalBrightness = 0;
-      let darkPixels = 0;
-      const sampleSize = Math.min(raw.length, 3000);
-      for (let i = 0; i < sampleSize; i++) {
-        const val = raw.charCodeAt(i);
-        totalBrightness += val;
-        if (val < 40) darkPixels++;
-      }
-      const avgBrightness = totalBrightness / sampleSize;
-      const darkRatio = darkPixels / sampleSize;
-
-      // Too dark: average brightness very low or >60% dark pixels
-      if (avgBrightness < 60 || darkRatio > 0.6) {
-        return { ok: false, reason: sv
-          ? 'Bilden verkar för mörk. Fotografera i bättre ljus och se till att loggboken fyller hela bilden.'
-          : 'The image appears too dark. Take the photo in better lighting and make sure the logbook fills the frame.'
-        };
-      }
-
-      // Check if logbook fills enough of the image (low content ratio)
-      const ratio = thumb.width && thumb.height ? Math.max(thumb.width, thumb.height) / Math.min(thumb.width, thumb.height) : 1;
-      if (ratio > 3) {
-        return { ok: false, reason: sv
-          ? 'Loggboken verkar ta en liten del av bilden. Gå närmare eller croppa bilden.'
-          : 'The logbook seems to take a small part of the image. Move closer or crop the image.'
-        };
-      }
-
-      return { ok: true, reason: '' };
-    } catch {
-      return { ok: true, reason: '' };
+  const prepare = async (uris: string[], compress: number, cropped: boolean) => {
+    const images: ScanImage[] = [];
+    for (const uri of uris) {
+      // Ingen auto-rotation: modellen klarar en roterad bok, och ramens form säger inget om bokens.
+      const out = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: OCR_WIDTH } }], {
+        compress, format: ImageManipulator.SaveFormat.JPEG, base64: true,
+      });
+      if (out.base64) images.push({ base64: out.base64, mediaType: 'image/jpeg', width: out.width, height: out.height, cropped });
     }
+    return images;
   };
 
-  const handleScan = async () => {
-    if (!canScan()) { setShowBuy(true); return; }
-    if (!imageUri) return;
-    if (!(await askAiConsent())) return;
-    setWorking(true);
-    try {
-      // Check image quality BEFORE consuming scan
-      const quality = await checkImageQuality(imageUri);
-      if (!quality.ok) {
-        setWorking(false);
-        Alert.alert(
-          sv ? '⚠️ Bildkvalitet' : '⚠️ Image quality',
-          quality.reason + '\n\n' + (sv ? 'Vill du skanna ändå? Det kostar en skanning.' : 'Scan anyway? This will use one scan.'),
-          [
-            { text: sv ? 'Byt bild' : 'Change image', style: 'cancel' },
-            { text: sv ? 'Skanna ändå' : 'Scan anyway', onPress: () => doScan() },
-          ],
-        );
-        return;
-      }
-      await doScan();
-    } catch (e: any) {
-      Alert.alert(t('error'), e.message);
-      setWorking(false);
+  const openCamera = async () => {
+    if (!(await ready())) return;
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t('permission_required'), t('camera_permission'));
+      return;
     }
+    // replace: startsidan är ett modalfönster; kameran måste vara en vanlig skärm för att kunna bli liggande.
+    if (cameraAvailable) { router.replace('/import/scan-camera'); return; }
+    await scanWithSystemScanner();
   };
 
-  const doScan = async () => {
-    setWorking(true);
-    try {
-      // Ingen auto-rotation (se batch-vägen). Endast användarens manuella rotation.
-      const actions: ImageManipulator.Action[] = [];
-      if (rotation !== 0) actions.push({ rotate: rotation });
-      actions.push({ resize: { width: 2000 } });
-      const img = await ImageManipulator.manipulateAsync(
-        imageUri!, actions,
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-      if (!img.base64) { Alert.alert(t('error'), t('could_not_process_image')); return; }
-      await useScanQuotaStore.getState().consumeScan();
-      setScanImage(img.base64, 'image/jpeg');
-      router.push('/flight/review?imp=1');
-    } catch (e: any) {
-      Alert.alert(t('error'), e.message);
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  // Native dokument-scanner (VisionKit / ML Kit): beskär till boken, rätar upp
-  // perspektiv och orienterar rätt — användaren justerar hörn + godkänner i den
-  // inbyggda skärmen. Returnerar rena bild-URI:er redo för OCR.
-  // Lazy-require så appen inte kraschar i en build UTAN modulen (före ombyggnad).
-  const scanWithDocScanner = async () => {
-    if (!(await askAiConsent())) return;
+  // Byggen utan den nya kameran: iOS inbyggda dokumentskanner (beskär och rätar upp, men vet inget om
+  // loggböcker). Lazy-require så att appen inte kraschar i ett bygge utan modulen.
+  const scanWithSystemScanner = async () => {
     let DocumentScanner: any;
     try {
       DocumentScanner = require('react-native-document-scanner-plugin').default;
     } catch {
-      Alert.alert(
-        sv ? 'Bygg om appen' : 'Rebuild needed',
-        sv
-          ? 'Dokument-scannern är en native modul och kräver att appen byggs om (EAS build) innan den kan användas.'
-          : 'The document scanner is a native module — rebuild the app (EAS build) to use it.',
-      );
+      Alert.alert('Camera not available', 'Choose photos from your library instead.');
       return;
     }
     try {
       const { scannedImages, status } = await DocumentScanner.scanDocument({
-        maxNumDocuments: 5,
-        croppedImageQuality: 90,
+        maxNumDocuments: MAX_SPREADS, croppedImageQuality: 90,
       });
-      if (status === 'cancel' || !scannedImages || scannedImages.length === 0) return;
+      if (status === 'cancel' || !scannedImages?.length) return;
       setWorking(true);
-      const images: { base64: string; mediaType: 'image/jpeg' }[] = [];
-      for (const uri of scannedImages) {
-        // Scannern har redan beskurit/rätat upp/orienterat — bara resize + base64.
-        const img = await ImageManipulator.manipulateAsync(
-          uri, [{ resize: { width: 2000 } }],
-          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-        );
-        if (img.base64) images.push({ base64: img.base64, mediaType: 'image/jpeg' });
-      }
+      const images = await prepare(scannedImages, 0.85, true);
       if (images.length === 0) { Alert.alert(t('error'), t('could_not_process_image')); return; }
-      if (images.length === 1) {
-        await useScanQuotaStore.getState().consumeScan();
-        setScanImage(images[0].base64, 'image/jpeg');
-        router.push('/flight/review?imp=1');
-      } else {
-        setScanBatch(images);
-        router.push('/flight/review?batch=1&imp=1');
-      }
+      await toReview(images);
     } catch (e: any) {
-      Alert.alert(t('error'), e?.message ?? (sv ? 'Skanningen misslyckades' : 'Scan failed'));
+      Alert.alert(t('error'), e?.message ?? 'Scan failed');
     } finally {
       setWorking(false);
     }
+  };
+
+  const choosePhotos = async () => {
+    if (!(await ready())) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], quality: 0.9,
+      allowsMultipleSelection: true, selectionLimit: MAX_SPREADS, orderedSelection: true,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    // Varje foto vrids och beskärs i "Frame the logbook" innan det läses (originalet i full upplösning).
+    setScanSources(result.assets.map((a) => ({ uri: a.uri, width: a.width, height: a.height })));
+    router.replace('/import/scan-crop');
   };
 
   const remaining = loaded ? totalRemaining() : 0;
@@ -248,110 +177,145 @@ export default function ScanImportScreen() {
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <Text style={s.title}>{t('scan_import_title')}</Text>
-      <Text style={s.subtitle}>{t('scan_import_desc')}</Text>
-
-      {/* Quota bar — bara när de lokala skanningskvoterna är påslagna (annars styrs AI-gränsen av proxyns
-          Blade-coins och räknaren skulle visa "9999"). */}
-      {QUOTAS_ENABLED && (
-      <View style={s.quotaCard}>
-        <View style={s.quotaRow}>
-          <Text style={s.quotaLabel}>{t('scan_remaining')}</Text>
-          <Text style={[s.quotaValue, remaining === 0 && { color: Colors.danger }]}>
-            {remaining}
-          </Text>
-        </View>
-        <View style={s.quotaBarBg}>
-          <View style={[s.quotaBarFill, { width: `${Math.min(100, (monthly / MONTHLY_QUOTA) * 100)}%` }]} />
-        </View>
-        <Text style={s.quotaDetail}>
-          {monthly}/{MONTHLY_QUOTA} {t('scan_monthly')}
-          {extra > 0 ? `  +  ${extra} ${t('scan_extra')}` : ''}
-        </Text>
+      {/* Samma uppbyggnad och stil som Import logbook (app/import/index.tsx). */}
+      <View style={s.hero}>
+        <Text style={s.title}>Scan logbook</Text>
+        <Text style={s.subtitle}>Photograph your paper logbook. Claude reads every row, and you check anything it is unsure of before it is saved.</Text>
       </View>
-      )}
 
-      {!imageUri ? (
-        <>
-          {/* Tips */}
-          <View style={s.tipsCard}>
-            <Text style={s.tipsTitle}>{t('scan_tips_title')}</Text>
-            {[
-              t('scan_tip_1'),
-              t('scan_tip_2'),
-              t('scan_tip_3'),
-              t('scan_tip_4'),
-              t('scan_tip_5'),
-            ].map((tip, i) => (
-              <View key={i} style={s.tipRow}>
-                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                <Text style={s.tipText}>{tip}</Text>
-              </View>
+      {/* Före skanningen: vad är viktigt? Avgör hur många frågor Claude ställer. */}
+      <View style={s.infoCard}>
+        <Text style={s.infoTitle}>What matters most to you?</Text>
+        <View style={s.focusList}>
+          {FOCUS_OPTIONS.map((o) => {
+            const on = focus === o.key;
+            return (
+              <TouchableOpacity key={o.key} style={[s.focusRow, on && s.focusRowOn]} onPress={() => chooseFocus(o.key)} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityState={{ selected: on }}>
+                <View style={[s.radio, on && s.radioOn]}>{on && <View style={s.radioDot} />}</View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.stepTitle, on && { color: Colors.primary }]}>{o.title}</Text>
+                  <Text style={s.stepDesc}>{o.desc}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      <TouchableOpacity style={[s.uploadCard, working && { opacity: 0.85 }]} onPress={openCamera} disabled={working} activeOpacity={0.9}>
+        <View style={s.uploadIconWrap}>
+          {working ? <ActivityIndicator color={Colors.primary} size="large" /> : <Ionicons name="camera-outline" size={30} color={Colors.primary} />}
+        </View>
+        <Text style={s.uploadTitle}>{working ? 'Preparing…' : 'Photograph your logbook'}</Text>
+        {!working && (
+          <Text style={s.uploadSub}>
+            {cameraAvailable
+              ? 'Hold your phone sideways. The camera takes the photo when the whole spread is sharp.'
+              : 'This build uses the iPhone document scanner. The new logbook camera comes with the next app build.'}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity style={s.rowCard} onPress={choosePhotos} disabled={working} activeOpacity={0.8}>
+        <View style={s.rowIcon}><Ionicons name="images-outline" size={18} color={Colors.primary} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.rowTitle}>Choose photos from your library</Text>
+          <Text style={s.rowSub}>Up to {MAX_SPREADS} photos. You frame each one before it is read.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* Bara om användaren redan har en loggbok i appen: samma upplägg som den man fotar? Ja → skannern får
+          bokens kolumner. Ingen bok → ingen fråga, Claude läser kolumnerna själv. */}
+      {book ? (
+        <View style={s.infoCard}>
+          <Text style={s.infoTitle}>Your logbook in Blades</Text>
+          <View>
+            <Text style={s.stepTitle}>{book.layout}</Text>
+            <Text style={s.stepDesc}>Is the logbook you're scanning laid out the same way?</Text>
+          </View>
+          <View style={s.choiceRow}>
+            {([[true, 'Same layout'], [false, 'Different']] as const).map(([v, text]) => (
+              <TouchableOpacity key={text} style={[s.choiceBtn, sameLayout === v && s.choiceBtnOn]} onPress={() => chooseLayout(v)}
+                accessibilityRole="radio" accessibilityState={{ selected: sameLayout === v }}>
+                <Text style={[s.choiceText, sameLayout === v && s.choiceTextOn]}>{text}</Text>
+              </TouchableOpacity>
             ))}
           </View>
+        </View>
+      ) : null}
 
-          {/* Välj bild */}
-          <View style={s.stepHeader}>
-            <Text style={s.stepHeaderText}>
-              {t('scan_choose_image') ?? 'Select image'}
-            </Text>
-          </View>
-          <View style={s.actionCards}>
-            <TouchableOpacity style={s.actionCard} onPress={scanWithDocScanner} activeOpacity={0.8}>
-              <Ionicons name="scan" size={28} color={Colors.primary} />
-              <Text style={s.actionCardTitle}>{sv ? 'Skanna loggbok' : 'Scan logbook'}</Text>
-              <Text style={s.actionCardSub}>{sv ? 'Beskär & rätar upp automatiskt' : 'Auto-crop & straighten'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.actionCard} onPress={() => pickImage(false)} activeOpacity={0.8}>
-              <Ionicons name="images" size={28} color={Colors.primary} />
-              <Text style={s.actionCardTitle}>{t('scan_library')}</Text>
-              <Text style={s.actionCardSub}>{t('scan_library_sub')}</Text>
+      {addition ? (
+        <View style={s.infoCard}>
+          <Text style={s.infoTitle}>Learned from your logbook</Text>
+          <View style={s.learnedRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.stepTitle}>Total time = departure → arrival + {addition} h</Text>
+              <Text style={s.stepDesc}>You confirmed this in an earlier scan, so those rows aren't questioned.</Text>
+            </View>
+            <TouchableOpacity onPress={forgetAddition} hitSlop={8} accessibilityLabel="Forget this rule">
+              <Text style={s.forget}>Forget</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      ) : null}
 
-          <TouchableOpacity style={s.batchBtn} onPress={pickBatch} activeOpacity={0.8}>
-            <Ionicons name="copy-outline" size={16} color={Colors.primary} />
-            <Text style={s.batchBtnText}>{t('scan_batch')}</Text>
-            <Text style={s.batchBtnSub}>{t('scan_batch_sub')}</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          {/* Preview */}
-          <View style={s.previewContainer}>
-            <Image
-              source={{ uri: imageUri }}
-              style={[s.preview, { transform: [{ rotate: `${rotation}deg` }] }]}
-              resizeMode="contain"
-            />
+      {/* Hur det går till — en verklig ordningsföljd, därav siffrorna */}
+      <View style={s.infoCard}>
+        <Text style={s.infoTitle}>How it works</Text>
+        {[
+          ['Photograph each spread', 'Use the camera, or choose photos and frame the logbook in each one.'],
+          ['Claude reads every row', `Up to ${MAX_SPREADS} spreads per scan. Anything Claude is unsure of is circled on the page.`],
+          ['Check and save', 'Answer the questions one at a time, see every flight in the scan report, then save. Nothing is saved until you approve.'],
+        ].map(([title, body], i) => (
+          <View key={title} style={s.stepRow}>
+            <View style={s.stepBubble}><Text style={s.stepNum}>{i + 1}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.stepTitle}>{title}</Text>
+              <Text style={s.stepDesc}>{body}</Text>
+            </View>
           </View>
-          <View style={s.previewActions}>
-            <TouchableOpacity style={s.previewBtn} onPress={() => { setImageUri(null); setRotation(0); }}>
-              <Ionicons name="close-circle-outline" size={18} color={Colors.textSecondary} />
-              <Text style={s.previewBtnText}>{t('change_image')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.previewBtn} onPress={() => setRotation(r => (r + 90) % 360)}>
-              <Ionicons name="refresh" size={18} color={Colors.primary} />
-              <Text style={[s.previewBtnText, { color: Colors.primary }]}>{t('rotate')} {rotation}°</Text>
-            </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={s.infoCard}>
+        <Text style={s.infoTitle}>Works best with</Text>
+        {([
+          ['sunny-outline', 'Even light', 'no shadows or glare on the pages'],
+          ['scan-outline', 'The whole spread', 'both pages, including the totals at the bottom'],
+          ['reader-outline', 'Readable writing', 'one spread per photo, held straight'],
+        ] as const).map(([icon, term, desc]) => (
+          <View key={term} style={s.bulletRow}>
+            <Ionicons name={icon} size={15} color={Colors.primary} />
+            <Text style={s.bulletTerm}>{term}</Text>
+            <Text style={[s.bulletDesc, { flex: 1 }]}>{desc}</Text>
           </View>
-          <TouchableOpacity
-            style={[s.scanBtn, working && { opacity: 0.5 }]}
-            onPress={handleScan}
-            disabled={working}
-            activeOpacity={0.85}
-          >
-            {working ? (
-              <><ActivityIndicator color={Colors.textInverse} /><Text style={s.scanBtnText}>{t('importing')}</Text></>
-            ) : (
-              <><Ionicons name="sparkles" size={18} color={Colors.textInverse} /><Text style={s.scanBtnText}>{t('import_with_ai')}</Text></>
-            )}
-          </TouchableOpacity>
-        </>
+        ))}
+      </View>
+
+      {__DEV__ && devHash && (
+        <Text style={s.devHash} selectable>Dev · device for free scans: {devHash}</Text>
       )}
 
-      {/* Slut på skanningar: gratis → riktiga Premium-betalväggen (RevenueCat); Premium → kvoten fylls på
-          nästa månad. (Tidigare "köp"/"top-up" här delade ut skanningar UTAN betalning — borttaget.) */}
+      {/* Bara när de lokala skanningskvoterna är påslagna (annars styr proxyns Blade-coins). */}
+      {QUOTAS_ENABLED && (
+        <View style={s.quotaCard}>
+          <View style={s.quotaRow}>
+            <Text style={s.quotaLabel}>{t('scan_remaining')}</Text>
+            <Text style={[s.quotaValue, remaining === 0 && { color: Colors.danger }]}>{remaining}</Text>
+          </View>
+          <View style={s.quotaBarBg}>
+            <View style={[s.quotaBarFill, { width: `${Math.min(100, (monthly / MONTHLY_QUOTA) * 100)}%` }]} />
+          </View>
+          <Text style={s.quotaDetail}>
+            {monthly}/{MONTHLY_QUOTA} {t('scan_monthly')}
+            {extra > 0 ? `  +  ${extra} ${t('scan_extra')}` : ''}
+          </Text>
+        </View>
+      )}
+
+      {/* Slut på skanningar: gratis → Premium-betalväggen (RevenueCat); Premium → fylls på nästa månad. */}
       {showBuy && (
         <View style={s.buyOverlay}>
           <View style={s.buySheet}>
@@ -360,11 +324,11 @@ export default function ScanImportScreen() {
             <Text style={s.buySheetDesc}>{isPremium ? t('scan_no_scans_desc') : t('scan_no_scans_free_desc')}</Text>
             {!isPremium && (
               <TouchableOpacity
-                style={[s.packCard, { borderColor: Colors.gold + '88', justifyContent: 'center' }]}
+                style={s.packCard}
                 onPress={() => { setShowBuy(false); presentPaywall('Logbook scan'); }}
                 activeOpacity={0.8}
               >
-                <Text style={[s.packTitle, { color: Colors.gold, textAlign: 'center' }]}>{t('scan_see_premium')}</Text>
+                <Text style={s.packTitle}>{t('scan_see_premium')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setShowBuy(false)}>
@@ -379,10 +343,66 @@ export default function ScanImportScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, paddingBottom: 48, gap: 16 },
+  content: { padding: 16, paddingBottom: 40, gap: 12 },
 
-  title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  // Samma mått och färger som Import logbook (app/import/index.tsx).
+  hero: { gap: 4, marginBottom: 2 },
+  title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
   subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  uploadCard: {
+    alignItems: 'center', gap: 8, paddingVertical: 26, paddingHorizontal: 18,
+    borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.primary + '80',
+    backgroundColor: Colors.primary + '0D',
+  },
+  uploadIconWrap: {
+    width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '33',
+  },
+  uploadTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 2 },
+  uploadSub: { color: Colors.textSecondary, fontSize: 12.5, textAlign: 'center', lineHeight: 17 },
+  rowCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14,
+  },
+  rowIcon: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '33',
+  },
+  rowTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  rowSub: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+  infoCard: {
+    backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder,
+    padding: 14, gap: 12,
+  },
+  infoTitle: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  stepBubble: {
+    width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary + '1C', borderWidth: 1, borderColor: Colors.primary + '33', marginTop: 1,
+  },
+  stepNum: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
+  stepTitle: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
+  stepDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+  learnedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  focusList: { gap: 8 },
+  focusRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  focusRowOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '14' },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.textMuted, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  radioOn: { borderColor: Colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  forget: { color: Colors.dangerLight, fontSize: 13.5, fontWeight: '700' },
+  bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bulletTerm: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+  bulletDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17 },
+  choiceRow: { flexDirection: 'row', gap: 8 },
+  choiceBtn: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  choiceBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+  choiceText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  choiceTextOn: { color: Colors.primary },
+  devHash: { color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', textAlign: 'center' },
 
   quotaCard: {
     backgroundColor: Colors.card, borderRadius: 12, padding: 14,
@@ -391,94 +411,20 @@ const s = StyleSheet.create({
   quotaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   quotaLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   quotaValue: { color: Colors.primary, fontSize: 22, fontWeight: '800', fontFamily: 'Menlo' },
-  quotaBarBg: {
-    height: 4, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden',
-  },
+  quotaBarBg: { height: 4, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' },
   quotaBarFill: { height: 4, borderRadius: 2, backgroundColor: Colors.primary },
   quotaDetail: { color: Colors.textMuted, fontSize: 11 },
-
-  tipsCard: {
-    backgroundColor: Colors.elevated, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 8,
-  },
-  tipsTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  tipText: { color: Colors.textSecondary, fontSize: 13, flex: 1, lineHeight: 18 },
-
-  stepCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.primary + '44',
-  },
-  stepCardDone: { borderColor: Colors.success + '44' },
-  stepBadge: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  stepBadgeText: { color: Colors.textInverse, fontSize: 13, fontWeight: '800' },
-  stepTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  stepSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
-  stepHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4,
-  },
-  stepHeaderText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-
-  actionCards: { flexDirection: 'row', gap: 10 },
-  actionCard: {
-    flex: 1, backgroundColor: Colors.card, borderRadius: 14, padding: 20,
-    borderWidth: 1, borderColor: Colors.cardBorder, alignItems: 'center', gap: 8,
-  },
-  actionCardTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  actionCardSub: { color: Colors.textMuted, fontSize: 11, textAlign: 'center' },
-
-  batchBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.card, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.cardBorder,
-  },
-  batchBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
-  batchBtnSub: { color: Colors.textMuted, fontSize: 11, flex: 1 },
-
-  buySection: {
-    backgroundColor: Colors.elevated, borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 8,
-  },
-  buySectionTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  buySectionDesc: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
-
-  packCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.card, borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: Colors.primary + '44', gap: 10,
-  },
-  packTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  packSub: { color: Colors.textMuted, fontSize: 11 },
-  packPrice: { color: Colors.primary, fontSize: 18, fontWeight: '800' },
-
-  previewContainer: {
-    height: 220, borderRadius: 12, overflow: 'hidden',
-    backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
-  },
-  preview: { flex: 1 },
-  previewActions: {
-    flexDirection: 'row', justifyContent: 'center', gap: 20,
-  },
-  previewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 },
-  previewBtnText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-
-  scanBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 15,
-  },
-  scanBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
 
   buyOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24,
   },
-  buySheet: {
-    backgroundColor: Colors.surface, borderRadius: 18, padding: 20, alignItems: 'center', gap: 10,
-  },
+  buySheet: { backgroundColor: Colors.surface, borderRadius: 18, padding: 20, alignItems: 'center', gap: 10 },
   buySheetTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
   buySheetDesc: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  packCard: {
+    alignSelf: 'stretch', alignItems: 'center', backgroundColor: Colors.card, borderRadius: 10, padding: 14,
+    borderWidth: 1, borderColor: Colors.gold + '88',
+  },
+  packTitle: { color: Colors.gold, fontSize: 14, fontWeight: '700' },
 });

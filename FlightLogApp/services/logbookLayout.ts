@@ -21,6 +21,7 @@ export interface LayoutColumn {
   type: LayoutFieldType;
   group?: string;           // tryckt grupphuvud (ges till modellen)
   page: 'left' | 'right';   // vilken fysisk sida — ger split-gränsen gratis
+  width: number;            // mallens relativa bredd — reservgeometri när skannern inte anger kolumnkanter
   validate?: LayoutValidate;
 }
 
@@ -91,6 +92,7 @@ export function layoutFromTemplate(t: LogbookTemplate, customCols?: Record<strin
         type,
         group: c.group,
         page,
+        width: c.width || 50,
         validate: validateFor(field, type),
       };
     });

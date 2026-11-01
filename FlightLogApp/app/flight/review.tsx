@@ -1464,7 +1464,7 @@ export default function ReviewScreen() {
         for (const field of ['dep_place', 'arr_place'] as const) {
           const val = (row.data[field] ?? '').toUpperCase();
           if (!val) continue;
-          if (val.length > 4 || val.startsWith('ZZ')) {
+          if (val !== 'ZZZZ' && (val.length > 4 || val.startsWith('ZZ'))) {
             try {
               const { generateTemporaryIcao } = require('../../db/icao');
               const tempCode = val === 'ZZZZ' ? 'ZZZZ' : await generateTemporaryIcao(val);

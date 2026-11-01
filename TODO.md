@@ -11,7 +11,30 @@ Uppdaterad 2026-10-31. Bocka av med `[x]` och flytta klara punkter till arkivet 
 - [ ] **Testmejl till support@** från en annan adress än Gmail, till exempel iCloud. Det ska komma fram i Gmail och visas som "1 i dag" under Supportmejl i Ops. Kommer det inte fram inom 5 minuter: byt tillbaka Email Routing-regeln till "Send to an email".
 - [ ] **Always Use HTTPS** i Cloudflare (SSL/TLS → Edge Certificates). I dag ger `http://www.blades-app.com` fel 522.
 - [ ] **Beslut: regiongränser från OpenStreetMap (ODbL)** för DR Kongo och Kazakstan. De krediteras och erbjuds på begäran, vilket uppfyller licensen. Alternativet Natural Earth är public domain men föråldrat där. Säg till om du vill byta.
+- [ ] **Skanningskameran (ny native-modul):** kräver ett nytt dev-bygge, `cd FlightLogApp && npx eas-cli build -p ios --profile development`. Hela arbetskopian måste vara committad först (`requireCommit`). Testa sedan Settings → Import → Scan logbook images:
+  - kameran är liggande och ramen anpassar sig efter boken
+  - avtryckaren går själv när uppslaget är i ramen, skarpt och stilla
+  - nästa uppslag tas först efter att sidan har vänts, utan dubbletter
+  - lampan och Auto fungerar
+  - Done leder till granskningen
+  - Notera dev-raden längst ner (sharp, lum, cov, diff), så att trösklarna kan justeras.
+- [ ] **Testa granskningen ("arbetsbordet")** redan i nuvarande dev-bygge: Settings → Import → Scan logbook images → Choose photos instead → välj ett foto av ett uppslag.
+  - Hamnar de gula rutorna på rätt celler?
+  - Zoomar ett tryck in på rätt ställe?
+  - Fungerar "Readings"?
+  - Fungerar rättningen ovanför tangentbordet?
+  - Blir importen rätt?
+  - Säg till om rutorna hamnar fel, så justeras geometrin.
+- [ ] **Töm `QUOTA_EXEMPT_DEVICES` i `proxy/wrangler.toml`** och deploya proxyn när skanningen fungerar. Då kostar skanningar Blade coins igen även för din telefon.
 - [ ] **Beslut: PDF-exportens typsnitt** hämtas från Google Fonts (`services/pdfExport/templates/modernBlades.ts` och `editorial.ts`). Det skickar användarens IP-adress till Google och står inte i integritetspolicyn. Rekommenderat: bädda in typsnitten (Inter och Cormorant är OFL), så kan det följa med 1.0.1.
+
+- [ ] **Köp av extra Blade coins (byggt, avstängt).** Bara Premium: 100 coins för 29 kr, 250 för 39 kr och 500 för 59 kr. Köpta coins går aldrig ut och används efter månadens 250. Görs när 1.0 är godkänd, i den här ordningen:
+  1. **Stabilt id först (Claude).** I dag hör saldot ihop med iOS-id:t `identifierForVendor`, som byts om användaren raderar appen. Då skulle köpta coins försvinna. Id:t ska ligga i Keychain i stället och användas av både proxyn och RevenueCat.
+  2. **Du, i App Store Connect:** skapa tre förbrukningsbara produkter, `blades_coins_100` (29 kr), `blades_coins_250` (39 kr) och `blades_coins_500` (59 kr), med en skärmdump av köpbladet för granskningen.
+  3. **Du, i RevenueCat:** lägg till produkterna och ett erbjudande med id `coins`. Kontrollera att webhooken (`/revenuecat-webhook`) skickar NON_RENEWING_PURCHASE.
+  4. **Terms och integritetspolicyn.** Förslag till Terms, på engelska: *"Blade coins. Blade coins are a virtual in-app credit for using certain features of Blades. When you buy coins you receive a limited, personal, non-transferable and revocable licence to use them in the app — you do not own them. Coins have no monetary value, cannot be exchanged for money or anything else, cannot be transferred to another person or account, and are not refundable except where required by law or granted by Apple under its refund policies. If a purchase is refunded or reversed, the coins from it are removed; if they have already been used, the amount is deducted from future coins. Purchased coins do not expire. Monthly coins included with Premium do not carry over."* Lägg en kort rad om detta i coin-paywallen i RevenueCat också, till exempel "Coins have no cash value and can't be transferred."
+  4b. **RevenueCat:** designa paywallen för erbjudandet `coins`. Kontrollera att webhooken skickar CANCELLATION för återbetalda engångsköp. Kolla också om RevenueCat kan svara på Apples förfrågningar om förbrukning vid återbetalning (CONSUMPTION_REQUEST), och slå på det i så fall.
+  5. **Claude:** sätt `COIN_PACKS_ENABLED = true` i `FlightLogApp/services/coinPacks.ts` och deploya proxyn (`proxy/src/credits.ts`) när du säger till. Testa ett köp i sandlådan: coinsen ska komma fram, och en skanning som stannat ska fortsätta.
 
 ## Nästa bygge (1.0.1)
 

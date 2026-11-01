@@ -194,6 +194,7 @@ export async function getTempPlaceByName(name: string): Promise<IcaoAirport | nu
 }
 
 export async function getAirportByIcao(icao: string): Promise<IcaoAirport | null> {
+  if (isOffAirportCode(icao)) return null;
   const db = await getDatabase();
   return await db.getFirstAsync<IcaoAirport>(
     'SELECT * FROM icao_airports WHERE icao=?',
@@ -240,7 +241,7 @@ export async function getBestAirportByCity(city: string): Promise<IcaoAirport | 
 // riktiga flygplatser prioriteras före off-airport vid krock. Prioritet: ICAO → IATA → GPS.
 export async function getAirportByAnyCode(code: string): Promise<IcaoAirport | null> {
   const c = code.trim().toUpperCase();
-  if (!c) return null;
+  if (!c || isOffAirportCode(c)) return null;
   const db = await getDatabase();
   // 1) Exakt matchning först (indexerad → snabb, täcker de allra flesta koderna).
   const exact = await db.getFirstAsync<IcaoAirport>(
@@ -308,7 +309,7 @@ export async function getAirportCoordinates(
   const db = await getDatabase();
   const placeholders = icaoCodes.map(() => '?').join(',');
   return await db.getAllAsync<{ icao: string; name: string; lat: number; lon: number }>(
-    `SELECT icao, name, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL`,
+    `SELECT icao, name, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL AND icao != 'ZZZZ'`,
     icaoCodes
   );
 }
@@ -321,7 +322,7 @@ export async function getAirportTzInfo(
   const db = await getDatabase();
   const placeholders = icaoCodes.map(() => '?').join(',');
   return await db.getAllAsync<{ icao: string; country: string; region: string; lat: number; lon: number }>(
-    `SELECT icao, country, region, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL`,
+    `SELECT icao, country, region, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL AND icao != 'ZZZZ'`,
     icaoCodes
   );
 }
@@ -404,6 +405,9 @@ export async function updateUserAirport(
 }
 
 export async function addTemporaryPlace(icao: string, name: string, lat = 0, lon = 0): Promise<void> {
+  // ZZZZ är "ingen platsbeteckning" och används för många olika platser → sparas aldrig som en plats
+  // (annars hamnar den på 0°/0° i kartor och avstånd).
+  if (isOffAirportCode(icao)) return;
   const db = await getDatabase();
   const displayName = name || icao.toUpperCase();
 
