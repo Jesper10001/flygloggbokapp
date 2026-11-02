@@ -109,6 +109,58 @@ export function bookAspect(words: VisionBox[], pxW: number, pxH: number): number
   return ((x1 - x0) * pxW) / Math.max(1e-6, (y1 - y0) * pxH);
 }
 
+/**
+ * Hur mycket boken lutar i fotot, i grader (positivt = raderna lutar nedåt åt höger), eller 0 när det inte
+ * går att säga säkert. Ett foto är sällan helt rakt, och redan 2° gör att en rad glider mer än en rad över ett
+ * uppslag.
+ *
+ * Följer riktiga textrader: varje ord kopplas till närmaste ord till höger som står på nästan samma höjd
+ * (högst ~70 % av ordhöjden upp eller ner), så att kedjan aldrig kan hoppa till nästa rad. (En projektion
+ * över hela bilden lurades av tabellens rutnät: orden i rader och kolumner bildar diagonaler, och
+ * radavstånd/kolumnavstånd gav en falsk lutning på ~5,6°.) En rät linje anpassas till varje kedja som
+ * sträcker sig en bit över bilden; svaret är medianen. Lutar kedjorna olika (t.ex. vänster och höger sida åt
+ * olika håll) returneras 0 — då rättar radmätningen per sida i stället.
+ */
+export function estimateSkew(words: VisionBox[], pxW: number, pxH: number): number {
+  const ws = words
+    .filter((w) => norm(w.text).length >= 1 && w.h > 0 && w.h < 0.08)
+    .map((w) => ({ x: (w.x + w.w / 2) * pxW, y: (w.y + w.h / 2) * pxH, h: w.h * pxH, w: w.w * pxW }))
+    .sort((a, b) => a.x - b.x);
+  if (ws.length < 20) return 0;
+  const medW = [...ws].sort((a, b) => a.w - b.w)[ws.length >> 1].w;
+  const maxDx = Math.max(medW * 4, pxW * 0.08);
+
+  // Närmaste granne till höger på samma höjd; varje ord tas högst en gång som granne.
+  const next = new Array<number>(ws.length).fill(-1);
+  const taken = new Set<number>();
+  for (let i = 0; i < ws.length; i++) {
+    let best = -1, bestDx = Infinity;
+    for (let j = i + 1; j < ws.length && ws[j].x - ws[i].x <= maxDx; j++) {
+      const dx = ws[j].x - ws[i].x;
+      if (dx < medW * 0.3 || taken.has(j)) continue;
+      if (Math.abs(ws[j].y - ws[i].y) > 0.7 * Math.max(ws[i].h, ws[j].h)) continue;
+      if (dx < bestDx) { bestDx = dx; best = j; }
+    }
+    if (best >= 0) { next[i] = best; taken.add(best); }
+  }
+  const angles: number[] = [];
+  for (let i = 0; i < ws.length; i++) {
+    if (taken.has(i)) continue;                      // kedjan börjar bara vid ett ord utan granne till vänster
+    const chain: typeof ws = [];
+    for (let k = i; k >= 0; k = next[k]) chain.push(ws[k]);
+    if (chain.length < 4 || chain[chain.length - 1].x - chain[0].x < pxW * 0.2) continue;
+    const mx = chain.reduce((u, p) => u + p.x, 0) / chain.length, my = chain.reduce((u, p) => u + p.y, 0) / chain.length;
+    let num = 0, den = 0;
+    for (const p of chain) { num += (p.x - mx) * (p.y - my); den += (p.x - mx) ** 2; }
+    if (den > 0) angles.push((Math.atan(num / den) * 180) / Math.PI);
+  }
+  if (angles.length < 3) return 0;
+  angles.sort((a, b) => a - b);
+  const q = (f: number) => angles[Math.min(angles.length - 1, Math.floor(f * angles.length))];
+  if (q(0.75) - q(0.25) > 1.5) return 0;            // raderna lutar olika → ingen gemensam vridning
+  return Math.round(q(0.5) * 100) / 100;
+}
+
 /** Flyttar ord till en beskuren bilds koordinater (och tar bort ord utanför). */
 export function wordsInCrop(words: VisionBox[], crop: Rect): VisionBox[] {
   return words
@@ -229,8 +281,10 @@ export function measureRows(grid: PageGrid, rows: AlignRow[], words: VisionBox[]
     seen.set(k, (seen.get(k) ?? 0) + 1);
   }
 
-  const collect = (g: PageGrid, onlyUnique: boolean, win: number) => {
-    const found: Record<Side, Map<number, number[]>> = { left: new Map(), right: new Map() };
+  type Pt = { x: number; y: number };
+  // winY: hur långt från radens förväntade höjd (i rader), winX: hur långt utanför kolumnen (i kolumnbredder).
+  const collect = (g: PageGrid, onlyUnique: boolean, winY: number, winX: number) => {
+    const found: Record<Side, Map<number, Pt[]>> = { left: new Map(), right: new Map() };
     for (const row of rows) {
       for (const [field, raw] of Object.entries(row.values)) {
         const v = norm(raw);
@@ -241,34 +295,58 @@ export function measureRows(grid: PageGrid, rows: AlignRow[], words: VisionBox[]
         const cy = cell.y + cell.h / 2;
         const hits = tokens.filter((t) => {
           const tx = t.x + t.w / 2, ty = t.y + t.h / 2;
-          if (tx < cell.x - cell.w * 0.15 || tx > cell.x + cell.w * 1.15 || Math.abs(ty - cy) > h * win) return false;
+          if (tx < cell.x - cell.w * winX || tx > cell.x + cell.w * (1 + winX) || Math.abs(ty - cy) > h * winY) return false;
           return t.n === v || (v.length >= 4 && (t.n.includes(v) || withinEdit1(t.n, v)));
         });
         if (hits.length === 0) continue;
         const best = hits.reduce((p, q) => (Math.abs(p.y + p.h / 2 - cy) <= Math.abs(q.y + q.h / 2 - cy) ? p : q));
         const side: Side = cell.x + cell.w / 2 >= spine ? 'right' : 'left';
         const list = found[side].get(row.rowIndex) ?? [];
-        list.push(best.y + best.h / 2);
+        list.push({ x: best.x + best.w / 2, y: best.y + best.h / 2 });
         found[side].set(row.rowIndex, list);
       }
     }
     return found;
   };
 
-  const median = (xs: number[]) => { const s = [...xs].sort((p, q) => p - q); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-  // Radens mitt = median av träffarna; en punkt vars avvikelse skiljer sig mer än 0,3 rad från grannarnas slängs.
-  const clean = (m: Map<number, number[]>): [number, number][] => {
-    const pts = [...m.entries()].map(([r, ys]) => [r, median(ys)] as [number, number]).sort((p, q) => p[0] - q[0]);
+  const median = (xs: number[]) => { const s2 = [...xs].sort((p, q) => p - q); const m = s2.length >> 1; return s2.length % 2 ? s2[m] : (s2[m - 1] + s2[m]) / 2; };
+  // Lutningen inom en sida: på varje rad med träffar långt isär jämförs höjden; medianen av dy/dx.
+  const slopeOf = (m: Map<number, Pt[]>): { slope: number; xref: number } | undefined => {
+    const all = [...m.values()].flat();
+    if (all.length < 4) return undefined;
+    const samples: number[] = [];
+    for (const pts of m.values()) {
+      const sorted = [...pts].sort((p, q) => p.x - q.x);
+      for (let i = 0; i < sorted.length; i++) for (let j = i + 1; j < sorted.length; j++) {
+        const dx = sorted[j].x - sorted[i].x;
+        if (dx >= 0.06) samples.push((sorted[j].y - sorted[i].y) / dx);
+      }
+    }
+    if (samples.length < 3) return undefined;
+    const slope = Math.max(-0.2, Math.min(0.2, median(samples)));
+    return { slope, xref: median(all.map((p) => p.x)) };
+  };
+  // Radens mitt vid xref = median av träffarna (lutningen räknad bort); en punkt vars avvikelse skiljer sig mer
+  // än 0,3 rad från grannarnas slängs.
+  const clean = (m: Map<number, Pt[]>, sl?: { slope: number; xref: number }): [number, number][] => {
+    const pts = [...m.entries()]
+      .map(([r, ps]) => [r, median(ps.map((p) => p.y - (sl ? sl.slope * (p.x - sl.xref) : 0)))] as [number, number])
+      .sort((p, q) => p[0] - q[0]);
     const off = pts.map(([r, y]) => y - (grid.tableTop + (r - 0.5) * h));
     return pts.filter((_, i) => Math.abs(off[i] - median(off.slice(Math.max(0, i - 2), i + 3))) <= h * 0.3);
   };
+  const build = (found: Record<Side, Map<number, Pt[]>>): PageGrid => {
+    const sl = { left: slopeOf(found.left), right: slopeOf(found.right) };
+    return { ...grid, spine, rowSlopes: sl, rowCenters: { left: clean(found.left, sl.left), right: clean(found.right, sl.right) } };
+  };
 
-  const first = collect(grid, true, 0.9);
-  const g1: PageGrid = { ...grid, spine, rowCenters: { left: clean(first.left), right: clean(first.right) } };
-  const second = collect(g1, false, 0.45);
-  const left = clean(second.left), right = clean(second.right);
-  if (left.length === 0 && right.length === 0) return g1.rowCenters!.left!.length || g1.rowCenters!.right!.length ? g1 : grid;
-  return { ...grid, spine, rowCenters: { left, right } };
+  // Steg 1: unika värden (datum, klockslag) i ett brett fönster — tål sneda och förskjutna kolumner.
+  const g1 = build(collect(grid, true, 0.9, 0.6));
+  // Steg 2: alla värden i ett smalt fönster runt de redan rättade (och lutade) raderna.
+  const g2 = build(collect(g1, false, 0.45, 0.2));
+  const n = (g: PageGrid) => (g.rowCenters?.left?.length ?? 0) + (g.rowCenters?.right?.length ?? 0);
+  if (n(g2) > 0) return g2;
+  return n(g1) > 0 ? g1 : grid;
 }
 
 // Tryckta kolumnrubriker → fält. Används när Claudes rutnät saknar en kolumn (t.ex. hela högersidan).
@@ -399,7 +477,37 @@ export function relocateColumnsByValues(grid: PageGrid, rows: { rowIndex: number
       const n = hitsIn(c);
       if (n > (best?.n ?? 0)) best = { c, n };
     }
-    if (!best || best.n < Math.max(2, Math.ceil(withValue.length * 0.6))) continue;
+    if (!best || best.n < Math.max(2, Math.ceil(withValue.length * 0.6))) {
+      // Ingen kolumn i rutnätet där värdena står (t.ex. en handskriven "Simulator time" som Claude inte gav
+      // någon kolumn): kolumnen läggs där Vision läser värdena — samma x på raderna, utanför kolumner som
+      // redan hör till andra fält (total, dual …, där samma tal kan stå).
+      const taken = columns.filter((c) => c.field && c.field !== field && used.has(c.field));
+      const xsAt: number[] = [];
+      for (const r of withValue) {
+        const want = digits(r.values[field]);
+        const hits = words.filter((t) => {
+          const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+          const b = rowBand(grid, r.rowIndex, cx);
+          return cy >= b.y && cy <= b.y + b.h && digits(t.text) === want && !taken.some((c) => cx >= c.left && cx <= c.right);
+        });
+        if (hits.length === 1) xsAt.push(hits[0].x + hits[0].w / 2);
+      }
+      if (xsAt.length < Math.max(2, Math.ceil(withValue.length * 0.6))) continue;
+      const sx = [...xsAt].sort((u, v) => u - v);
+      if (sx[sx.length - 1] - sx[0] > 0.04) continue;                    // inte en kolumn
+      const mid = sx[Math.floor(sx.length / 2)];
+      const widths = columns.filter((c) => c.field && NUMERIC_FIELDS.includes(c.field)).map((c) => c.right - c.left).sort((u, v) => u - v);
+      const w = col ? col.right - col.left : widths.length ? widths[Math.floor(widths.length / 2)] : 0.04;
+      // En omappad kolumn (eller "other…") som redan täcker platsen tar fältet; annars en ny kolumn där.
+      const host = columns.find((c) => c !== col && mid >= c.left && mid <= c.right && (!c.field || /^other/.test(c.field)));
+      if (col && mid >= col.left && mid <= col.right) continue;
+      const cleared = columns.map((c) => (c === col ? { ...c, field: null } : c));
+      columns = host
+        ? cleared.map((c) => (c === host ? { ...c, field } : c))
+        : [...cleared, { field, label: col?.label ?? field, left: mid - w / 2, right: mid + w / 2 }].sort((a, b) => a.left - b.left);
+      moved.push(`${field} → där värdena står (x ${Math.round(mid * 100)} %)`);
+      continue;
+    }
     const target = best.c;
     columns = columns.map((c) => (c === target ? { ...c, field } : c === col ? { ...c, field: null } : c));
     moved.push(`${field} → "${target.label}"`);

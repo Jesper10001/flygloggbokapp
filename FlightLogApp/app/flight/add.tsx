@@ -49,6 +49,7 @@ import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRS
 import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { useProfileStore } from '../../store/profileStore';
 import { useTourStore } from '../../store/tourStore';
+import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from '../../services/flightDrafts';
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
 import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
@@ -627,6 +628,12 @@ function makeStyles() {
       paddingVertical: 15, marginTop: 12, gap: 8,
     },
     saveBtnText: { color: Colors.textInverse, fontSize: 17, fontWeight: '700' },
+    draftBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      borderRadius: 12, paddingVertical: 13, marginTop: 10,
+      borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
+    },
+    draftBtnText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '700' },
   });
 }
 
@@ -723,8 +730,9 @@ export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { editId, aiImport, addPhoto } = useLocalSearchParams<{ editId?: string; aiImport?: string; addPhoto?: string }>();
+  const { editId, aiImport, addPhoto, draft: draftParam } = useLocalSearchParams<{ editId?: string; aiImport?: string; addPhoto?: string; draft?: string }>();
   const isEdit = !!editId;
+  const fromDraft = draftParam === '1' && !isEdit;   // fortsätter ett sparat utkast (dashboardens kort)
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium, isMax } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
@@ -1187,6 +1195,65 @@ export default function AddFlightScreen() {
     });
   }, [editId]);
 
+  // ── Utkast ("Save as draft") ─────────────────────────────────────────────
+  // Formulärets tillstånd sparas som utkast (services/flightDrafts) och läses tillbaka när man fortsätter från
+  // dashboarden. Med: själva formuläret, roll och överlägg, sim-togglar, besättning, stopp, inflygningar,
+  // halvsparade platser, media och de manuella lägena (så att autot inte skriver över det man fyllt i).
+  const draftSnapshot = () => ({
+    form, role, fi, examinerOverlay, safetyPilotOverlay, simDual, simFi, simPf, logFull, pilotMode, pilotModeManual,
+    crewMembers, extraPilots, approaches, routeStops, pendingPlaces, photoUri, mediaType,
+    nightManual, landingsManual, takeoffsManual, pilotFlyingManual, timeMode, belowExpanded,
+  });
+  useEffect(() => {
+    if (!fromDraft) return;
+    loadFlightDraft('pilot').then((d) => {
+      const st = d?.state as ReturnType<typeof draftSnapshot> | undefined;
+      if (!st) return;
+      if (st.form) setForm({ ...EMPTY, ...st.form });
+      if (st.role) setRole(st.role);
+      setFi(!!st.fi); setExaminerOverlay(!!st.examinerOverlay); setSafetyPilotOverlay(!!st.safetyPilotOverlay);
+      setSimDual(!!st.simDual); setSimFi(!!st.simFi); setSimPf(!!st.simPf);
+      if (typeof st.logFull === 'boolean') setLogFull(st.logFull);
+      if (st.pilotMode) setPilotMode(st.pilotMode);
+      setPilotModeManual(!!st.pilotModeManual);
+      if (Array.isArray(st.crewMembers) && st.crewMembers.length) setCrewMembers(st.crewMembers);
+      if (Array.isArray(st.extraPilots)) setExtraPilots(st.extraPilots);
+      if (st.approaches) setApproaches(st.approaches);
+      if (Array.isArray(st.routeStops)) setRouteStops(st.routeStops);
+      if (Array.isArray(st.pendingPlaces)) setPendingPlaces(st.pendingPlaces);
+      if (st.photoUri) setPhotoUri(st.photoUri);
+      if (st.mediaType) setMediaType(st.mediaType);
+      setNightManual(!!st.nightManual); setLandingsManual(!!st.landingsManual);
+      setTakeoffsManual(!!st.takeoffsManual); setPilotFlyingManual(!!st.pilotFlyingManual);
+      if (st.timeMode) setTimeMode(st.timeMode);
+      if (typeof st.belowExpanded === 'boolean') setBelowExpanded(st.belowExpanded);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDraft]);
+  const saveAsDraft = async () => {
+    const labels = draftLabels({ from: form.dep_place || form.dep_place_raw, to: form.arr_place || form.arr_place_raw, date: form.date,
+      aircraft: [form.aircraft_type, form.registration].filter(Boolean).join(' ') });
+    const write = async () => {
+      try {
+        await saveFlightDraft('pilot', { savedAt: new Date().toISOString(), ...labels, state: draftSnapshot() });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        router.back();
+      } catch (e: any) {
+        Alert.alert(t('error'), e?.message ?? 'Could not save the draft.');
+      }
+    };
+    // Ett utkast per läge: finns redan ett annat (inte det man fortsätter på) frågar appen först.
+    const existing = fromDraft ? null : await loadFlightDraft('pilot');
+    if (existing) {
+      Alert.alert('Replace your draft?', `You already have an unfinished draft (${existing.title}). Saving this one replaces it.`, [
+        { text: t('cancel'), style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: () => { write(); } },
+      ]);
+      return;
+    }
+    await write();
+  };
+
   // Slå upp koordinater för dep/arr (för natt-uträkning + lokal tid-hint).
   useEffect(() => {
     let alive = true;
@@ -1487,7 +1554,9 @@ export default function AddFlightScreen() {
       const last = ((form.flight_type === 'sim' ? simList[0] : realList[0]) ?? null) as Flight | null;
       if (last) {
         getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
-        if (!isEdit) {
+        // Ett utkast har redan sina värden — förifyll inte över dem.
+        if (fromDraft) { /* inget */ }
+        else if (!isEdit) {
           setForm((prev) => ({
             ...prev,
             aircraft_type: last.aircraft_type,
@@ -1497,8 +1566,8 @@ export default function AddFlightScreen() {
         } else if (last.flight_rules) {
           setForm((prev) => ({ ...prev, flight_rules: last.flight_rules, ifr: '0', vfr: '0' }));
         }
-        // Förvald roll baserat på senaste flygningen (bara för nya flygningar)
-        if (!isEdit) {
+        // Förvald roll baserat på senaste flygningen (bara för nya flygningar, inte utkast)
+        if (!isEdit && !fromDraft) {
           const r: PrimaryRole =
             (last.picus ?? 0) > 0 ? 'picus' :
             (last.spic ?? 0) > 0 ? 'spic' :
@@ -2241,6 +2310,8 @@ export default function AddFlightScreen() {
         savedId = Number(editId);
       } else {
         savedId = await insertFlight(finalData, { source: 'manual' });
+        // Flygningen kom från ett utkast → utkastet är klart och tas bort.
+        if (fromDraft && savedId) clearFlightDraft('pilot').catch(() => {});
       }
       if (demo) {
         await Promise.all([loadFlights(), loadStats()]);
@@ -4056,6 +4127,15 @@ export default function AddFlightScreen() {
             </TouchableOpacity>
           );
         })()}
+
+        {/* Spara som utkast: fortsätt senare från dashboarden (inte vid redigering eller i rundturen). */}
+        {!isEdit && !tourActive && (
+          <TouchableOpacity style={styles.draftBtn} onPress={saveAsDraft} disabled={saving} activeOpacity={0.8}
+            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later from the dashboard.">
+            <Ionicons name="document-text-outline" size={18} color={Colors.textSecondary} />
+            <Text style={styles.draftBtnText}>Save as draft</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
 

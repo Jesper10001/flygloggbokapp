@@ -1,20 +1,21 @@
-// Centrerad modal efter CSV-import när Fleet-datan berikats/uppdaterats. GLOBAL (renderas i
-// _layout, som ToastHost) eftersom import-skärmen ofta hunnit stängas när bakgrundsberikningen
-// blir klar. Kort sammanfattning + knapp till Fleet-sidan; X uppe till vänster struntar i den.
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// Popup när Fleet-datan (spec + bild) hämtats i bakgrunden efter en import: CSV, skanning av pappersboken
+// eller drönarimport. GLOBAL (renderas i _layout, som ToastHost) eftersom importskärmen ofta hunnit stängas
+// när bakgrundshämtningen blir klar. Samma stil som appens övriga popup-rutor (GlassDialog).
 import { router } from 'expo-router';
 import { create } from 'zustand';
-import { Colors } from '../constants/colors';
+import { GlassDialog, DialogIcon } from './GlassDialog';
+import { useFlightStore } from '../store/flightStore';
 
-// Info om berikningen (för partiell-hämtning/uppgraderings-läget). null = enkel "klart"-variant.
+// Info om hämtningen (för delvis hämtat / slut på coins). null = enkel "klart"-variant.
 export interface FleetDoneInfo { enriched: number; total: number; remaining: number; stoppedForQuota: boolean; }
+export type FleetSource = 'csv' | 'scan' | 'drone';
 
 interface FleetDoneStore {
   visible: boolean;
   info: FleetDoneInfo | null;
   fleetRoute: string | null; // vart "Navigate to fleet" går (drönare vs pilot). null = pilotens loggbok-flik.
-  show: (info?: FleetDoneInfo, fleetRoute?: string) => void;
+  source: FleetSource;
+  show: (info?: FleetDoneInfo, fleetRoute?: string, source?: FleetSource) => void;
   hide: () => void;
 }
 
@@ -22,82 +23,58 @@ export const useFleetDoneStore = create<FleetDoneStore>((set) => ({
   visible: false,
   info: null,
   fleetRoute: null,
-  show: (info, fleetRoute) => set({ visible: true, info: info ?? null, fleetRoute: fleetRoute ?? null }),
+  source: 'csv',
+  show: (info, fleetRoute, source) => set({ visible: true, info: info ?? null, fleetRoute: fleetRoute ?? null, source: source ?? (fleetRoute ? 'drone' : 'csv') }),
   hide: () => set({ visible: false }),
 }));
 
+const FROM: Record<FleetSource, string> = { csv: 'your import', scan: 'your logbook scan', drone: 'your import' };
+
 export function FleetDoneHost() {
-  const visible = useFleetDoneStore((s) => s.visible);
-  const info = useFleetDoneStore((s) => s.info);
-  const fleetRoute = useFleetDoneStore((s) => s.fleetRoute);
-  const hide = useFleetDoneStore((s) => s.hide);
+  const { visible, info, fleetRoute, source, hide } = useFleetDoneStore();
+  const premium = useFlightStore((s) => s.isPremium);
 
   const goFleet = () => {
     hide();
-    // Drönar-import skickar egen rutt (drönar-loggbokens Fleet-flik); annars pilotens loggbok-flik.
-    if (fleetRoute) { router.push({ pathname: fleetRoute, params: { view: 'fleet', t: String(Date.now()) } } as any); return; }
-    router.push({ pathname: '/(tabs)/log', params: { view: 'fleet', t: String(Date.now()) } } as any);
+    // Drönarimporten skickar egen rutt (drönarloggbokens Fleet-flik); annars pilotens loggbok-flik.
+    setTimeout(() => {
+      if (fleetRoute) router.push({ pathname: fleetRoute, params: { view: 'fleet', t: String(Date.now()) } } as any);
+      else router.push({ pathname: '/(tabs)/log', params: { view: 'fleet', t: String(Date.now()) } } as any);
+    }, 180);
   };
-  const goUpgrade = () => {
-    hide();
-    router.push('/settings/premium' as any);
-  };
+  const goUpgrade = () => { hide(); setTimeout(() => router.push('/settings/premium' as any), 180); };
 
-  // Pausad pga slut på Blade-coins → visa hur många som hämtades + uppgraderingsknapp.
+  // Slut på Blade coins mitt i hämtningen: hur många som hämtades, och vad som gäller för resten.
   const partial = !!info?.stoppedForQuota && info.remaining > 0;
+  const n = info?.enriched ?? 0;
+  const aircraft = n === 1 ? '1 aircraft' : `${n} aircraft`;
 
+  if (partial) {
+    return (
+      <GlassDialog
+        visible={visible}
+        onClose={hide}
+        icon={<DialogIcon name="airplane" />}
+        eyebrow="Fleet partly updated"
+        title={`${info!.enriched} of ${info!.total} aircraft`}
+        body={premium
+          ? `Specs and photos are in for ${info!.enriched} of the aircraft from ${FROM[source]}. You're out of Blade coins this month, so the remaining ${info!.remaining} are fetched when your coins refill, or open one in your fleet to fetch it.`
+          : `Specs and photos are in for ${info!.enriched} of the aircraft from ${FROM[source]}. You're out of Blade coins. Blades Premium fetches the remaining ${info!.remaining}.`}
+        primary={premium ? { label: 'Navigate to fleet', onPress: goFleet } : { label: 'Upgrade to Blades Premium', onPress: goUpgrade }}
+        secondary={premium ? { label: 'Not now', onPress: hide } : { label: 'Navigate to fleet', onPress: goFleet }}
+      />
+    );
+  }
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={hide}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <TouchableOpacity onPress={hide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.close} activeOpacity={0.7}>
-            <Ionicons name="close" size={22} color={Colors.textSecondary} />
-          </TouchableOpacity>
-          <View style={styles.iconWrap}>
-            <Ionicons name={partial ? 'server' : 'airplane'} size={26} color={Colors.primary} />
-          </View>
-          {partial ? (
-            <>
-              <Text style={styles.title}>Fleet partly updated</Text>
-              <Text style={styles.body}>
-                Fetched specs & images for {info!.enriched} of {info!.total} aircraft. You're out of Blade-coins —
-                upgrade to Blades Premium to fetch the remaining {info!.remaining}.
-              </Text>
-              <TouchableOpacity onPress={goUpgrade} style={styles.btn} activeOpacity={0.85}>
-                <Text style={styles.btnText}>Upgrade to Blades Premium</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={goFleet} style={styles.btnGhost} activeOpacity={0.7}>
-                <Text style={styles.btnGhostText}>Go to fleet page</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={styles.title}>Fleet updated</Text>
-              <Text style={styles.body}>Your fleet of aircraft has been updated after the CSV import. Check it out!</Text>
-              <TouchableOpacity onPress={goFleet} style={styles.btn} activeOpacity={0.85}>
-                <Text style={styles.btnText}>Navigate to fleet page</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
+    <GlassDialog
+      visible={visible}
+      onClose={hide}
+      icon={<DialogIcon name="airplane" />}
+      eyebrow="Fleet updated"
+      title="Your fleet is ready"
+      body={n > 0 ? `Specs and photos for ${aircraft} from ${FROM[source]} are now in your fleet.` : `Your fleet has been updated after ${FROM[source]}.`}
+      primary={{ label: 'Navigate to fleet', onPress: goFleet }}
+      secondary={{ label: 'Not now', onPress: hide }}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  card: {
-    width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.primary + '55',
-    paddingTop: 30, paddingBottom: 20, paddingHorizontal: 22, alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 10,
-  },
-  close: { position: 'absolute', top: 12, left: 12, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  iconWrap: { width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
-  body: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
-  btn: { alignSelf: 'stretch', backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  btnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
-  btnGhost: { alignSelf: 'stretch', paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  btnGhostText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
-});

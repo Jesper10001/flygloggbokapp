@@ -84,7 +84,7 @@
   // The spreads there are pictures of (left page numbers), and the latest flight's spread (scratchpad render-book.cjs).
   const BOOKS = {
     pilot: { first: 63, last: 85, latest: 79, ratio: 549 / 1514, cover: 'PILOT<br>LOGBOOK' },
-    drone: { first: 41, last: 63, latest: 57, ratio: 753 / 1410, cover: 'REMOTE PILOT<br>LOGBOOK' },
+    drone: { first: 41, last: 63, latest: 57, ratio: 621 / 1410, cover: 'REMOTE PILOT<br>LOGBOOK' },
   };
   const LEAVES = 5;                // pages turned by the opening: the contents, then the four spreads before the latest
   const DURATION = 6200;           // ms of the opening, from the closed cover to the latest spread
@@ -106,9 +106,9 @@
     // A page's picture: sharp on a high-density computer screen, and for the spread seen close up on a phone.
     const url = (page) => {
       const hi = phone.matches ? page === B.latest || page === B.latest + 1 : SHARP;
-      return `img/book/${kind}-${page}${hi ? '-2x' : ''}.webp?v=1`;
+      return `img/book/${kind}-${page}${hi ? '-2x' : ''}.webp?v=3`;
     };
-    const tocUrl = () => `img/book/${kind}-toc${SHARP && !phone.matches ? '-2x' : ''}.webp?v=1`;
+    const tocUrl = () => `img/book/${kind}-toc${SHARP && !phone.matches ? '-2x' : ''}.webp?v=3`;
     const L = (i) => url(spreads[i]);         // left page of spread i
     const R = (i) => url(spreads[i] + 1);     // right page of spread i
     const loaded = new Set();
@@ -166,17 +166,12 @@
     const openLeft = leaves[LEAVES].children[1];           // the left page lying open (the last leaf turned)
     const openRight = base.firstElementChild;
 
-    // Under the book: which pages are open, and a button either way.
-    const nav = document.createElement('div');
-    nav.className = 'book-nav';
-    nav.innerHTML = '<button type="button" class="bn-btn" data-turn="-1" aria-label="Previous pages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>'
-      + '<span class="bn-pages" aria-live="polite"></span>'
-      + '<button type="button" class="bn-btn" data-turn="1" aria-label="Next pages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>'
-      + '<span class="bn-hint"></span>';
-    stage.insertAdjacentElement('afterend', nav);
-    const navPages = nav.querySelector('.bn-pages');
-    const navHint = nav.querySelector('.bn-hint');
-    const [prevBtn, nextBtn] = nav.querySelectorAll('.bn-btn');
+    // The pages are turned on the book itself (a swipe, a drag, a click on a page, the arrow keys); which pages are open
+    // is read out, not shown.
+    const navPages = document.createElement('span');
+    navPages.className = 'bn-pages';
+    navPages.setAttribute('aria-live', 'polite');
+    stage.insertAdjacentElement('afterend', navPages);
 
     // The opening's pages: leaf i shows the right page of the spread before on its front (leaf 1: the contents) and
     // the left page of its own spread on its back, ending on the latest spread.
@@ -292,8 +287,6 @@
     const label = () => {
       const p = spreads[idx];
       navPages.textContent = `Pages ${p}–${p + 1}`;
-      prevBtn.disabled = idx <= 0;
-      nextBtn.disabled = idx >= spreads.length - 1;
     };
     // The spreads either side, ready before they are turned to.
     const readyNear = () => {
@@ -307,7 +300,6 @@
       playing = false;
       track.classList.add('flip-done', 'flip-browse');
       flip.style.setProperty('--tl', edges());
-      navHint.textContent = phone.matches ? 'Swipe to turn the page' : 'Drag, click a page or use the arrow keys';
       label();
       readyNear();
     }
@@ -360,10 +352,6 @@
       turning.raf = requestAnimationFrame(step);
     }
     const turn = (dir) => { if (lift(dir)) settle(true, 620); };
-    nav.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-turn]');
-      if (b && !b.disabled) turn(+b.dataset.turn);
-    });
     stage.addEventListener('keydown', (e) => {
       if (!browsing) return;
       if (e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
@@ -395,7 +383,7 @@
       cam.s = Math.min(3, (window.innerHeight * 0.62) / (bookH * 1.044));
       const ZOOM = 1100;
       const HOLD = 250;
-      const GLIDE = 5200;
+      const GLIDE = 3800;
       const t0 = performance.now();
       const step = (now) => {
         const t = now - t0;

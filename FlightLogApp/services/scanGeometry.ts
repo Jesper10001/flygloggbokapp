@@ -26,6 +26,9 @@ export interface PageGrid {
   // Uppmätta radmitter (y) per sida av uppslaget, från Visions ord på raden: [radnummer, y]. Raderna är inte
   // jämnt fördelade när sidan buktar (nära ryggen); mellan mätpunkterna interpoleras avvikelsen (measureRows).
   rowCenters?: { left?: [number, number][]; right?: [number, number][] };
+  // Radernas lutning inom varje sida (dy/dx i bildens andelar) kring xref — ett snett foto, eller sidor som
+  // lutar olika (bok i V-form). rowCenters gäller vid xref.
+  rowSlopes?: { left?: { slope: number; xref: number }; right?: { slope: number; xref: number } };
   spine?: number;            // x där uppslaget delas i vänster/höger sida (standard 0.5)
 }
 
@@ -87,6 +90,7 @@ export function buildPageGrid(
   rawIn: RawGrid | undefined,
   layout: LogbookLayout | null,
   columnList: { field: string | null; label: string }[] | null,
+  preferScanner = false,   // foto (skanningsgranskningen): mallens bredder stämmer inte med bilden → Claudes kolumner
 ): PageGrid | null {
   const raw = toPercentGrid(rawIn);
   const printed = Number(raw?.rows_printed);
@@ -113,7 +117,7 @@ export function buildPageGrid(
 
   const templateCols = layout ? templateColumns(layout) : [];
   // Skannerns kolumner används om de täcker en rimlig del av mallens; annars mallens bredder.
-  const useScannerCols = cols.length >= Math.max(3, Math.round(templateCols.length * 0.5));
+  const useScannerCols = cols.length >= (preferScanner ? 3 : Math.max(3, Math.round(templateCols.length * 0.5)));
   const columns = useScannerCols ? cols : templateCols;
   if (columns.length === 0) return null;
 
@@ -160,17 +164,21 @@ export function rowCenter(grid: PageGrid, rowIndex: number, x?: number): number 
   const uniform = (r: number) => grid.tableTop + (r - 0.5) * h;
   const side = x != null && x >= (grid.spine ?? 0.5) ? 'right' : 'left';
   const own = grid.rowCenters?.[side];
-  const anchors = own && own.length ? own : grid.rowCenters?.[side === 'left' ? 'right' : 'left'];
-  if (!anchors || anchors.length === 0) return uniform(rowIndex);
+  const useSide = own && own.length ? side : side === 'left' ? 'right' : 'left';
+  const anchors = grid.rowCenters?.[useSide];
+  // Lutningen inom sidan: raden ligger högre/lägre ju längre från xref kolumnen står.
+  const sl = grid.rowSlopes?.[side] ?? grid.rowSlopes?.[useSide];
+  const tilt = sl && x != null ? sl.slope * (x - sl.xref) : 0;
+  if (!anchors || anchors.length === 0) return uniform(rowIndex) + tilt;
   const off = anchors.map(([r, y]) => [r, y - uniform(r)] as const);
-  if (rowIndex <= off[0][0]) return uniform(rowIndex) + off[0][1];
+  if (rowIndex <= off[0][0]) return uniform(rowIndex) + off[0][1] + tilt;
   const last = off[off.length - 1];
-  if (rowIndex >= last[0]) return uniform(rowIndex) + last[1];
+  if (rowIndex >= last[0]) return uniform(rowIndex) + last[1] + tilt;
   for (let i = 0; i < off.length - 1; i++) {
     const [r0, o0] = off[i], [r1, o1] = off[i + 1];
-    if (rowIndex >= r0 && rowIndex <= r1) return uniform(rowIndex) + o0 + ((rowIndex - r0) / (r1 - r0)) * (o1 - o0);
+    if (rowIndex >= r0 && rowIndex <= r1) return uniform(rowIndex) + o0 + ((rowIndex - r0) / (r1 - r0)) * (o1 - o0) + tilt;
   }
-  return uniform(rowIndex);
+  return uniform(rowIndex) + tilt;
 }
 
 /** Radens band (y, höjd) vid x — höjden följer avståndet till grannraderna. */

@@ -286,6 +286,33 @@ console.log('12. Ett talfält flyttas till kolumnen där värdena faktiskt står
   ok(!moved.some((m) => m.startsWith('dual')), 'dual flyttas inte till AR landings');
 }
 
+console.log('16. Simulatortid i en handskriven kolumn som rutnätet saknar: kolumnen läggs där värdena står');
+{
+  const h = 0.05;
+  const grid = { tableTop: 0.2, tableBottom: 0.8, rowsPerPage: 12, source: 'aligned', columns: [
+    { field: 'total_time', label: 'Total time', left: 0.10, right: 0.15 },
+    { field: 'sim', label: 'Simulator time', left: 0.30, right: 0.35 },    // Claude: under Co-Pilot (fel)
+    { field: 'dual', label: 'Dual', left: 0.45, right: 0.50 },
+    { field: null, label: 'AR landings', left: 0.55, right: 0.62 },
+    // Ingen kolumn vid x 0.70–0.75, där "Simulator time" faktiskt står.
+    { field: 'landings_day', label: 'D', left: 0.80, right: 0.84 },
+  ] };
+  const cy = (r) => 0.2 + (r - 0.5) * h;
+  const word = (text, cx, r) => ({ text, x: cx - 0.012, y: cy(r) - 0.008, w: 0.024, h: 0.016 });
+  const rows = [], words = [];
+  for (let r = 1; r <= 9; r++) { rows.push({ rowIndex: r, values: { total_time: '1.4', dual: '1.4' } }); words.push(word('1.4', 0.125, r), word('1.4', 0.475, r)); }
+  for (let r = 10; r <= 12; r++) { rows.push({ rowIndex: r, values: { sim: '1.4', total_time: '1.4', flight_type: 'sim' } }); words.push(word('1.4', 0.725, r)); }
+  const { grid: g, moved } = A.relocateColumnsByValues(grid, rows, words);
+  const simCell = G.cellRect(g, 11, 'sim');
+  ok(moved.some((m) => m.startsWith('sim')), `sim läggs där värdena står (${moved.join(', ')})`);
+  ok(simCell && Math.abs(simCell.x + simCell.w / 2 - 0.725) < 0.01, `rutan för simulatortid på rad 11 hamnar vid x 0.725 (${simCell && (simCell.x + simCell.w / 2).toFixed(3)})`);
+  ok(g.columns.filter((c) => c.field === 'sim').length === 1, 'bara en sim-kolumn');
+  ok(g.columns.find((c) => c.field === 'dual').left === 0.45 && g.columns.find((c) => c.field === 'total_time').left === 0.10, 'total och dual (samma tal 1.4) rörs inte');
+  // Samma tal på olika ställen (ingen gemensam kolumn) → inget flyttas.
+  const scattered = [...words.filter((w) => !(w.text === '1.4' && Math.abs(w.x + 0.012 - 0.725) < 1e-6)), word('1.4', 0.66, 10), word('1.4', 0.92, 11), word('1.4', 0.70, 12)];
+  ok(!A.relocateColumnsByValues(grid, rows, scattered).moved.some((m) => m.startsWith('sim')), 'utspridda träffar flyttar inte sim');
+}
+
 console.log('13. Vridningen: ett liggande uppslag som kommer stående (dokumentskannern) vrids rätt');
 {
   // Rättvänt uppslag 2000×1300 px: rubriker överst, rader med ord, summeringsraden nederst.
@@ -313,6 +340,73 @@ console.log('13. Vridningen: ett liggande uppslag som kommer stående (dokuments
   ok(A.bookAspect(scanned, sw, sh) < 1, 'boken står på högkant i den skannade bilden');
   ok(score(up, W, H) > score(rot(up, 180), W, H), 'rättvänt slår upp och ner');
   ok(A.orientationScore(up, W, H) > A.orientationScore(scanned, sw, sh), 'ord på rad slår ord på högkant');
+}
+
+console.log('14. Lutningen mäts (snett foto) så att bilden kan rätas upp');
+{
+  const W = 2000, H = 1300;
+  const page = (deg) => {
+    const ws = [], tn = Math.tan((deg * Math.PI) / 180);
+    for (let r = 0; r < 14; r++) for (let c = 0; c < 12; c++) {
+      const x = 80 + c * 150, y = 200 + r * 60 + x * tn;     // raderna lutar deg grader (nedåt åt höger om positivt)
+      ws.push({ text: 'AB' + r + c, x: (x - 40) / W, y: (y - 12) / H, w: 80 / W, h: 24 / H });
+    }
+    return ws;
+  };
+  for (const deg of [0, 2, -3.5, 1.2]) {
+    const est = A.estimateSkew(page(deg), W, H);
+    ok(Math.abs(est - deg) <= 0.15, `lutning ${deg}° mäts till ${est}°`);
+  }
+  ok(A.estimateSkew(page(2).slice(0, 10), W, H) === 0, 'för få ord → 0');
+  // Tabell med glesa kolumner (radavstånd 60, kolumnavstånd 600 px): diagonalerna lutar ~5,7° men raderna är raka.
+  const grid = (deg, colGap) => {
+    const ws = [], tn = Math.tan((deg * Math.PI) / 180);
+    for (let r = 0; r < 14; r++) for (let c = 0; c < 6; c++) {
+      for (let k = 0; k < 3; k++) {                       // tre ord per cell, som "ETHB 08:10 1.7"
+        const x = 60 + c * colGap + k * 70, y = 200 + r * 60 + x * tn;
+        ws.push({ text: 'W' + r + c + k, x: (x - 25) / W, y: (y - 12) / H, w: 50 / W, h: 24 / H });
+      }
+    }
+    return ws;
+  };
+  ok(Math.abs(A.estimateSkew(grid(0, 330), W, H)) <= 0.15, `rakt tabellrutnät → ~0° (${A.estimateSkew(grid(0, 330), W, H)}°), inte diagonalen`);
+  ok(Math.abs(A.estimateSkew(grid(2, 330), W, H) - 2) <= 0.15, `lutat tabellrutnät 2° → ${A.estimateSkew(grid(2, 330), W, H)}°`);
+  // Vänster sida lutar +3°, höger −3° (bok i V-form): ingen gemensam vridning.
+  const left = grid(3, 330).filter((w) => w.x < 0.5), right = grid(-3, 330).filter((w) => w.x >= 0.5);
+  ok(A.estimateSkew([...left, ...right], W, H) === 0, 'sidorna lutar åt olika håll → 0');
+}
+
+console.log('15. Raderna lutar inom varje sida (bok i V-form): rutan hamnar rätt även långt från mitten');
+{
+  const h = 0.05;
+  const grid = { tableTop: 0.2, tableBottom: 0.8, rowsPerPage: 12, source: 'aligned', columns: [
+    { field: 'date', label: 'Date', left: 0.02, right: 0.1 },
+    { field: 'dep_place', label: 'Dep', left: 0.1, right: 0.16 },
+    { field: 'dep_utc', label: 'Time', left: 0.16, right: 0.22 },
+    { field: 'arr_utc', label: 'Arr', left: 0.38, right: 0.44 },
+    { field: 'pic', label: 'PIC', left: 0.55, right: 0.6 },
+    { field: 'dual', label: 'Dual', left: 0.62, right: 0.67 },
+    { field: 'remarks', label: 'Remarks', left: 0.85, right: 0.97 },
+  ] };
+  const uniform = (r) => 0.2 + (r - 0.5) * h;
+  // Vänster sida lutar nedåt åt höger, höger sida uppåt åt höger (dy/dx).
+  const y = (r, x) => uniform(r) + (x < 0.5 ? 0.06 * (x - 0.25) : -0.05 * (x - 0.75));
+  const rows = [], words = [];
+  const word = (text, cx, r) => words.push({ text, x: cx - 0.012, y: y(r, cx) - 0.008, w: 0.024, h: 0.016 });
+  for (let r = 1; r <= 12; r++) {
+    const date = `2023-02-${10 + r}`, dep = `08:${10 + r}`, arr = `10:${10 + r}`, pic = (1 + r / 10).toFixed(1), rem = 'REM' + r;
+    rows.push({ rowIndex: r, values: { date, dep_place: 'ESCF', dep_utc: dep, arr_utc: arr, pic, dual: '1.7', remarks: rem } });
+    word(date, 0.06, r); word('ESCF', 0.13, r); word(dep, 0.19, r); word(arr, 0.41, r);
+    word(pic, 0.575, r); word('1.7', 0.645, r); word(rem, 0.91, r);
+  }
+  const g = A.measureRows(grid, rows, words);
+  const c = (r, f) => { const x = G.cellRect(g, r, f); return x.y + x.h / 2; };
+  for (const [f, x] of [['date', 0.06], ['arr_utc', 0.41], ['pic', 0.575], ['remarks', 0.91]]) {
+    for (const r of [1, 6, 12]) ok(Math.abs(c(r, f) - y(r, x)) < 0.25 * h, `${f} rad ${r} hamnar rätt (${((c(r, f) - y(r, x)) / h).toFixed(2)} rad)`);
+  }
+  ok(g.rowSlopes && g.rowSlopes.left && Math.abs(g.rowSlopes.left.slope - 0.06) < 0.01, `vänster sidas lutning mäts (${g.rowSlopes?.left?.slope?.toFixed(3)})`);
+  ok(g.rowSlopes && g.rowSlopes.right && Math.abs(g.rowSlopes.right.slope + 0.05) < 0.01, `höger sidas lutning mäts (${g.rowSlopes?.right?.slope?.toFixed(3)})`);
+  ok(G.hitTest(g, 0.91, y(7, 0.91)).rowIndex === 7, 'tryck på anmärkningen på rad 7 träffar rad 7');
 }
 
 console.log(fails === 0 ? '\ninga fel' : `\n${fails} fel`);

@@ -14,6 +14,9 @@ import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins, openCoinShop } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
+import { ExtraCoinsBar } from '../../components/ExtraCoinsBar';
+import { CoinInfoDialog } from '../../components/CoinInfoDialog';
+import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { Colors } from '../../constants/colors';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { exportToCSV } from '../../services/export';
@@ -623,34 +626,8 @@ export default function SettingsScreen() {
                     : 'Left this month · refills monthly'}
                 </Text>
 
-                {/* Köpta coins: egen guldfärgad stapel — de går aldrig ut och används efter månadens. Skalan
-                    är det största paketet (500 coins). */}
-                {extraCoins > 0 && (
-                  <View style={{ marginTop: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gold }}>Extra coins</Text>
-                      <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700', color: Colors.gold }}>{extraCoins.toLocaleString('en-US')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 4, marginTop: 8, marginBottom: 6 }}>
-                      {Array.from({ length: CELLS }).map((_, i) => {
-                        const xf = Math.min(1, extraCoins / 500) * CELLS;
-                        const isFull = i < Math.floor(xf);
-                        const part = i === Math.floor(xf) ? xf - Math.floor(xf) : 0;
-                        return (
-                          <View key={i} style={{ flex: 1, height: 8, borderRadius: 2, backgroundColor: '#2A2414' }}>
-                            {isFull ? (
-                              <LinearGradient colors={['#FFE29A', '#F2B53A']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-                                style={{ flex: 1, borderRadius: 2, shadowColor: '#FFC24A', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
-                            ) : part > 0 ? (
-                              <View style={{ width: `${Math.max(10, Math.round(part * 100))}%`, height: '100%', borderRadius: 2, backgroundColor: '#F2B53A' }} />
-                            ) : null}
-                          </View>
-                        );
-                      })}
-                    </View>
-                    <Text style={{ fontSize: 12, color: Colors.textMuted }}>Purchased · never expire</Text>
-                  </View>
-                )}
+                {/* Köpta coins (delas med drönarläget) — samma komponent i båda lägena */}
+                <ExtraCoinsBar coins={extraCoins} captionColor={Colors.textMuted} />
 
               </View>
             </View>
@@ -1019,114 +996,22 @@ export default function SettingsScreen() {
 
 
       {/* Blade-coins — förklarande popup */}
-      <Modal visible={showCoinInfo} transparent animationType="fade" onRequestClose={() => setShowCoinInfo(false)}>
-        <Pressable onPress={() => setShowCoinInfo(false)} style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 420, backgroundColor: Colors.surface, borderRadius: 18, padding: 20, gap: 12, borderWidth: 1, borderColor: Colors.cardBorder }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 30, height: 30 }} resizeMode="contain" />
-              <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>Blade-coins</Text>
-              <TouchableOpacity onPress={() => setShowCoinInfo(false)} hitSlop={10}><Ionicons name="close" size={22} color={Colors.textMuted} /></TouchableOpacity>
-            </View>
-            <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 21 }}>
-              Blade-coins power the app's smart features — automatic aircraft & drone lookups (specs and photos), scanning and reading data from images, and other assisted tasks that do the typing for you.
-            </Text>
-            <Text style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 21 }}>
-              Each smart action spends a few coins. Free accounts get a one-time batch to try them out; Premium refills your coins every month.
-            </Text>
-            <Text style={{ color: Colors.textMuted, fontSize: 13, lineHeight: 19 }}>
-              When your coins run out, these smart features pause until your next refill — everything else in the app keeps working as normal.
-            </Text>
-            {(isPremium || isMax) && coinShopAvailable() && (
-              <Text style={{ color: Colors.textMuted, fontSize: 13, lineHeight: 19 }}>
-                Need more? Tap + next to your balance to buy extra coins. They never expire and are used after your monthly coins.
-              </Text>
-            )}
-            <TouchableOpacity onPress={() => setShowCoinInfo(false)} activeOpacity={0.85}
-              style={{ marginTop: 4, backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
-              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Got it</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <CoinInfoDialog visible={showCoinInfo} onClose={() => setShowCoinInfo(false)} shopHint={(isPremium || isMax) && coinShopAvailable()} />
 
       <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature={premiumFeatureName} />
 
       {/* ── Export logbook pages: välj antal siduppslag ── */}
-      <Modal visible={pagesModal} transparent animationType="fade" onRequestClose={() => setPagesModal(false)}>
-        <Pressable
-          onPress={() => setPagesModal(false)}
-          style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={{ width: '100%', maxWidth: 440, backgroundColor: Colors.surface, borderRadius: 18, padding: 20, gap: 14 }}
-          >
-            <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '800' }}>{t('export_logbook_pages')}</Text>
-            <Text style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 19 }}>{t('dlb_export_choose')}</Text>
-            {/* 3 / 5 / 10 */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {[3, 5, 10].map((n) => {
-                const active = pagesChoice === n;
-                return (
-                  <TouchableOpacity
-                    key={n} onPress={() => setPagesChoice(n)} activeOpacity={0.8}
-                    style={{
-                      flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
-                      backgroundColor: active ? Colors.primary : Colors.elevated,
-                      borderWidth: 1, borderColor: active ? Colors.primary : Colors.border,
-                    }}
-                  >
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: active ? Colors.textInverse : Colors.textPrimary }}>{n}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {/* Whole logbook */}
-            <TouchableOpacity
-              onPress={() => setPagesChoice('whole')} activeOpacity={0.8}
-              style={{
-                paddingVertical: 13, borderRadius: 12, alignItems: 'center',
-                backgroundColor: pagesChoice === 'whole' ? Colors.primary : Colors.elevated,
-                borderWidth: 1, borderColor: pagesChoice === 'whole' ? Colors.primary : Colors.border,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'whole' ? Colors.textInverse : Colors.textPrimary }}>Whole logbook</Text>
-            </TouchableOpacity>
-            {/* Custom pages */}
-            <TouchableOpacity
-              onPress={() => setPagesChoice('custom')} activeOpacity={0.8}
-              style={{
-                paddingVertical: 13, borderRadius: 12, alignItems: 'center',
-                backgroundColor: pagesChoice === 'custom' ? Colors.primary : Colors.elevated,
-                borderWidth: 1, borderColor: pagesChoice === 'custom' ? Colors.primary : Colors.border,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '800', color: pagesChoice === 'custom' ? Colors.textInverse : Colors.textPrimary }}>Custom pages</Text>
-            </TouchableOpacity>
-            {pagesChoice === 'custom' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <TextInput
-                  value={pagesCustom}
-                  onChangeText={(v) => setPagesCustom(v.replace(/\D/g, ''))}
-                  keyboardType="number-pad"
-                  placeholder={String(pagesTotal)}
-                  placeholderTextColor={Colors.textMuted}
-                  style={{ width: 90, backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: Colors.textPrimary, fontSize: 16, borderWidth: 1, borderColor: Colors.border, textAlign: 'center' }}
-                />
-                <Text style={{ color: Colors.textMuted, fontSize: 13 }}>{t('dlb_export_max')} {pagesTotal}</Text>
-              </View>
-            )}
-            <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 17 }}>{t('dlb_export_note')}</Text>
-            <TouchableOpacity
-              onPress={runPagesExport} activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15 }}
-            >
-              <Ionicons name="share-outline" size={18} color={Colors.textInverse} />
-              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>{t('dlb_export_btn')}</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <ExportPagesDialog
+        visible={pagesModal}
+        onClose={() => setPagesModal(false)}
+        choice={pagesChoice}
+        onChoice={setPagesChoice}
+        custom={pagesCustom}
+        onCustom={setPagesCustom}
+        total={pagesTotal}
+        onExport={runPagesExport}
+        text={{ title: t('export_logbook_pages'), choose: t('dlb_export_choose'), whole: 'Whole logbook', customPages: 'Custom pages', of: t('dlb_export_max'), note: t('dlb_export_note'), exportBtn: t('dlb_export_btn') }}
+      />
 
     </ScrollView>
   );

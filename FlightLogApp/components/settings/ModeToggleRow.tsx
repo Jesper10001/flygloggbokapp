@@ -1,13 +1,14 @@
 // LOGBOOK-rad med segment-toggle PILOT | DRONE (handoff variant B4). Knoppen glider (Animated translateX)
 // och bytet bekräftas med en dialog + lätt haptik innan appläget faktiskt skiftas. Delad av pilot- och
 // drönar-settings. Själva lägesbytet (switchProfile) sköts av föräldern via onConfirmSwitch.
-// Dialogen är en egen Modal (ser ut som iOS-alerten) i stället för Alert.alert — en native alert kan inte
-// visa den gröna raden som lugnar användaren att datan i läget man lämnar finns kvar.
+// Dialogen är appens popup-ruta (GlassDialog) i stället för Alert.alert — en native alert kan inte visa den
+// gröna raden som lugnar användaren att datan i läget man lämnar finns kvar.
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Modal } from 'react-native';
+import { View, Text, Pressable, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { DR } from '../../constants/droneTheme';
+import { GlassDialog, DialogIcon } from '../GlassDialog';
 
 const SAFE_GREEN = DR.success; // "datan finns kvar" — tydligt grön (cyan-accenten skulle smälta ihop)
 
@@ -59,36 +60,23 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
 
   return (
     <>
-    <Modal visible={dialog.open} transparent animationType="fade" statusBarTranslucent onRequestClose={close}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
-        <View accessibilityViewIsModal style={{
-          width: '100%', maxWidth: 340, padding: 22, paddingTop: 24, borderRadius: 30, gap: 14,
-          backgroundColor: '#161B24', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
-          shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 16,
-        }}>
-          <Text accessibilityRole="header" style={{ fontSize: 19, fontWeight: '700', color: '#FFFFFF' }}>
-            {toDrone ? 'Switch to Drone logbook?' : 'Switch to Pilot logbook?'}
-          </Text>
+    <GlassDialog
+      visible={dialog.open}
+      onClose={close}
+      icon={<DialogIcon name={toDrone ? 'hardware-chip-outline' : 'airplane-outline'} />}
+      eyebrow="Logbook"
+      title={toDrone ? 'Switch to Drone logbook?' : 'Switch to Pilot logbook?'}
+      body={
+        <Text style={{ color: Colors.textSecondary, fontSize: 14.5, lineHeight: 20, textAlign: 'center', marginTop: 2 }}>
+          {toDrone ? 'This switches the whole app to your Drone logbook.' : 'This switches the whole app to your Pilot logbook.'}
+          {'\n'}
           {/* Andra meningen i grönt: datan i läget man lämnar ligger kvar orörd (egna tabeller). */}
-          <Text style={{ fontSize: 16, lineHeight: 22, color: 'rgba(235,241,248,0.72)' }}>
-            {toDrone ? 'This switches the whole app to your Drone logbook.' : 'This switches the whole app to your Pilot logbook.'}
-            {'\n'}
-            <Text style={{ color: SAFE_GREEN }}>{toDrone ? 'All data in Pilot mode is saved.' : 'All data in Drone mode is saved.'}</Text>
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
-            {([['Cancel', close], ['Switch', confirm]] as const).map(([label, onPress]) => (
-              <Pressable key={label} onPress={onPress} accessibilityRole="button"
-                style={({ pressed }) => ({
-                  flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: pressed ? 'rgba(255,255,255,0.17)' : 'rgba(255,255,255,0.09)',
-                })}>
-                <Text style={{ fontSize: 17, fontWeight: '600', color: '#FFFFFF' }}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </View>
-    </Modal>
+          <Text style={{ color: SAFE_GREEN }}>{toDrone ? 'All data in Pilot mode is saved.' : 'All data in Drone mode is saved.'}</Text>
+        </Text>
+      }
+      primary={{ label: 'Switch', onPress: confirm }}
+      secondary={{ label: 'Cancel', onPress: close }}
+    />
     <View style={{
       marginHorizontal: 20, marginTop: 24, height: 64, paddingLeft: 20, paddingRight: 10, borderRadius: 16,
       backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row', alignItems: 'center',

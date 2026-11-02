@@ -80,6 +80,8 @@ export default function LogbookScreen() {
   // för att landa på Your books. Flaggan sattes av BookSetupSheet; consume() läser + nollställer den.
   useFocusEffect(useCallback(() => {
     if (useLogbookSetupStore.getState().consume()) setSetup({ mode: 'create', initial: null });
+    // Tillbaka från "Edit columns": läs om böckerna, så att boken ritas med den ändrade mallen.
+    if (!loadingRef.current) reloadBooksRef.current?.();
   }, []));
 
   const listRef = useRef<FlatList>(null);
@@ -91,6 +93,9 @@ export default function LogbookScreen() {
     setBooks(bks);
     return bks;
   }, []);
+  const reloadBooksRef = useRef(reloadBooks);
+  const loadingRef = useRef(true);
+  loadingRef.current = loading;
 
   useEffect(() => {
     (async () => {

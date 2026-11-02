@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
-import { getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
+import { getAllAircraftTypes, getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
 import { isAiConsentError } from '../../services/aiConsent';
 import { useTourStore } from '../../store/tourStore';
@@ -129,6 +129,17 @@ export function FleetCard({ ac, accent, onSaved }: {
     // Namnbyte: uppdaterar registret OCH alla flighter (loggbok/export följer med).
     const newType = typeName.trim().toUpperCase();
     const renamed = !!newType && newType !== ac.aircraft_type;
+    // Namnet finns redan i flottan → typerna slås ihop (samma luftfartyg skrivet på två sätt, t.ex. EC135T1 och
+    // EC35). Bekräftas först; den befintliga typens uppgifter behålls.
+    const merging = renamed && (await getAllAircraftTypes().catch(() => [])).some((t) => t.aircraft_type.toUpperCase() === newType);
+    if (merging) {
+      const ok = await new Promise<boolean>((res) => Alert.alert(
+        `Merge into ${newType}?`,
+        `${newType} is already in your fleet. All flights and registrations of ${ac.aircraft_type} move to ${newType}, and ${ac.aircraft_type} is removed. ${newType} keeps its own specs and photo.`,
+        [{ text: 'Cancel', style: 'cancel', onPress: () => res(false) }, { text: 'Merge', onPress: () => res(true) }],
+      ));
+      if (!ok) return;
+    }
     if (renamed) await renameAircraftType(ac.aircraft_type, newType);
     const target = renamed ? newType : ac.aircraft_type;
     // Registrerings-namnbyten (fritext): uppdaterar flighter + registret överallt.
@@ -136,7 +147,7 @@ export function FleetCard({ ac, accent, onSaved }: {
       const nv = val.trim().toUpperCase();
       if (nv && nv !== oldReg.toUpperCase()) await renameRegistration(oldReg, nv);
     }
-    await updateAircraftFleetFields(target, {
+    if (!merging) await updateAircraftFleetFields(target, {
       vne: parseFloat(s.vne) || 0, cruise_speed_kts: parseInt(s.cruise) || 0, ceiling_ft: parseInt(s.ceiling) || 0,
       mtow: parseFloat(s.mtow) || 0, empty_weight_kg: parseFloat(s.empty) || 0, fuel_capacity_l: parseFloat(s.fuel) || 0,
       range_nm: parseFloat(s.range) || 0, endurance_h: parseFloat(s.endur) || 0, fuel_burn: parseFloat(s.consum) || 0,

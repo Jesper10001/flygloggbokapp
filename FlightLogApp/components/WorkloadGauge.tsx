@@ -4,11 +4,13 @@
 //  - LoadRing: öppen 270°-mätare i samma cyan, 100 % rakt upp (samma logik som stapelns mittmarkering),
 //    procenten i vitt och zonen som liten text i öppningen.
 // Lugnt mot resten av dashboarden: zonfärgen visas bara i rubrikens etikett, ringens zontext och 14D/AVG-värdet.
-import { useEffect, useRef, type ReactNode } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, AccessibilityInfo } from 'react-native';
+import { useIsFocused } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Line, LinearGradient as SvgLinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 import { Colors } from '../constants/colors';
+import { stressZone } from '../utils/workload';
 
 export type LoadZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
 
@@ -31,6 +33,95 @@ export function ZoneChip({ zone, color }: { zone: LoadZone; color: string }) {
     <View style={[s.chip, { backgroundColor: color + '1F', borderColor: color + '59' }]}>
       <Text style={[s.chipText, { color }]} maxFontSizeMultiplier={1.2}>{zone.toUpperCase()}</Text>
     </View>
+  );
+}
+
+/**
+ * Stressfactor-knappen (ersätter zonetiketten i WORKLOAD-raden): minigrafen över de senaste två månaderna, utan
+ * ram, som ett levande EKG. Bara den streckade linjen (ditt normala, 100 %) syns hela tiden; kurvan ritas fram från vänster till höger med en
+ * lysande prick (i zonfärgen för periodens snitt) tills hela grafen är belyst, tonas snabbt ut och börjar om — ett varv var 6:e sekund. Varje bit av linjen har dagens zonfärg.
+ * Höjden skalas mellan grafens eget lägsta och högsta värde och
+ * exponentiellt, så att låga dagar blir en lugn baslinje och höga dagar spikar (mer som ett EKG). Svepet ritas om bildruta för bildruta i JS (animerade
+ * streckmönster i SVG uppdateras inte pålitligt). Går bara när dashboarden syns; stilla med "Reducera rörelse".
+ */
+const SWEEP_MS = 5500, HOLD_MS = 250, FADE_MS = 250;   // helt belyst var 6:e sekund
+const CYCLE_MS = SWEEP_MS + HOLD_MS + FADE_MS;
+const EKG_K = 2.4;   // hur kraftigt höga värden förstärks (0 = linjärt)
+
+export function StressFactorChip({ zone, values, onPress }: { zone: LoadZone; values: number[]; onPress: () => void }) {
+  const color = loadZoneColor(zone);
+  const W = 64, H = 20, PAD = 3;                              // PAD: plats för prickens glöd vid kanterna
+  const n = values.length;
+  // Skalan rymmer alltid ditt normala (100 %), så att den streckade linjen alltid syns.
+  const lo = Math.min(100, n ? Math.min(...values) : 100);
+  const hi = Math.max(lo + 20, 100, n ? Math.max(...values) : 0);  // små skillnader förstoras inte till brus
+  const yOf = (v: number) => {
+    const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    const e = (Math.exp(EKG_K * t) - 1) / (Math.exp(EKG_K) - 1);
+    return PAD + (H - 2 * PAD) * (1 - e);
+  };
+  const xs = values.map((_, i) => PAD + (n > 1 ? (i / (n - 1)) * (W - 2 * PAD) : (W - 2 * PAD) / 2));
+  const ys = values.map(yOf);
+  const cols = values.map((v) => loadZoneColor(stressZone(v)));
+
+  // Bitar efter zon fram till x = upTo (en del av sista linjen om svepet är mitt i den).
+  const pieces = (upTo: number) => {
+    const out: { d: string; c: string }[] = [];
+    for (let i = 1; i < n; i++) {
+      if (xs[i - 1] >= upTo) break;
+      const f = xs[i] <= upTo ? 1 : (upTo - xs[i - 1]) / (xs[i] - xs[i - 1]);
+      const ex = xs[i - 1] + (xs[i] - xs[i - 1]) * f, ey = ys[i - 1] + (ys[i] - ys[i - 1]) * f;
+      const last = out[out.length - 1];
+      if (last && last.c === cols[i]) last.d += ` L ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+      else out.push({ c: cols[i], d: `M ${xs[i - 1].toFixed(1)} ${ys[i - 1].toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}` });
+    }
+    return out;
+  };
+
+  // Svepet: tid i cykeln → hur långt pricken kommit och hur synlig den klara kurvan är.
+  const focused = useIsFocused();
+  const [still, setStill] = useState(false);
+  const [ms, setMs] = useState(SWEEP_MS);
+  useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setStill).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!focused || still || n < 2) { setMs(SWEEP_MS); return; }
+    const start = Date.now();
+    let raf = 0, last = 0;
+    const tick = () => {
+      const now = Date.now();
+      if (now - last >= 24) { last = now; setMs((now - start) % CYCLE_MS); }   // ~40 bilder/s räcker
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [focused, still, n]);
+
+  const prog = Math.min(1, ms / SWEEP_MS);
+  const lit = ms <= SWEEP_MS + HOLD_MS ? 1 : Math.max(0, 1 - (ms - SWEEP_MS - HOLD_MS) / FADE_MS);
+  const headX = PAD + prog * (W - 2 * PAD);
+  let headY = ys[0] ?? H / 2;
+  for (let i = 1; i < n; i++) {
+    if (xs[i] >= headX) { const f = (headX - xs[i - 1]) / Math.max(1e-6, xs[i] - xs[i - 1]); headY = ys[i - 1] + (ys[i] - ys[i - 1]) * f; break; }
+  }
+  const normalY = yOf(100);
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
+      accessibilityRole="button" accessibilityLabel={`Stressfactor. Last two months: ${zone}`} style={s.sfChip}>
+      <Svg width={W} height={H}>
+        <Line x1={PAD} x2={W - PAD} y1={normalY} y2={normalY} stroke="#FFFFFF" strokeOpacity={0.3} strokeWidth={0.8} strokeDasharray="2 2" />
+        {/* Den klara kurvan fram till pricken */}
+        {lit > 0 && pieces(headX).map((sg, k) => (
+          <Path key={`n${k}`} d={sg.d} stroke={sg.c} strokeOpacity={lit} strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+        {n > 1 && lit > 0 && prog < 1 && (
+          <>
+            <Circle cx={headX} cy={headY} r={4.5} fill={color} opacity={0.22} />
+            <Circle cx={headX} cy={headY} r={2} fill={color} />
+          </>
+        )}
+      </Svg>
+    </TouchableOpacity>
   );
 }
 
@@ -135,6 +226,7 @@ export function LoadRing({ value, pct, color, zone, size = 110, children }: {
 const s = StyleSheet.create({
   chip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7, borderWidth: 0.8 },
   chipText: { fontSize: 8.5, fontWeight: '800', letterSpacing: 1, opacity: 0.9 },
+  sfChip: { paddingVertical: 1 },
   track: { height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.07)', marginVertical: 5 },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 3, overflow: 'hidden' },
   avgTick: {

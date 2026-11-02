@@ -5,6 +5,7 @@
 import { getDatabase } from './database';
 import { getSetting, setSetting, getFlights } from './flights';
 import { getTemplate } from '../constants/logbookTemplates';
+import { ensureCustomTemplatesLoaded } from './customTemplates';
 import { buildBookSpreads } from '../services/logbook/paginate';
 import { assignFlightsToBooks, sliceForBook, resolveOpeningBalance } from '../services/logbook/books';
 
@@ -68,6 +69,7 @@ export async function ensureDigitalBooksMigrated(): Promise<void> {
 
 export async function listDigitalBooks(kind: BookKind = 'digital'): Promise<DigitalBook[]> {
   if (kind === 'digital') await ensureDigitalBooksMigrated(); // migrationen gäller bara manned
+  await ensureCustomTemplatesLoaded();   // böcker med egen mall ritas med getTemplate (synkront)
   const db = await getDatabase();
   return db.getAllAsync<DigitalBook>(
     `SELECT * FROM logbook_books WHERE kind=? ORDER BY display_order ASC, id ASC`,

@@ -32,7 +32,7 @@ import { LatestFlightCard } from '../../components/logbook-page/LatestFlightCard
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
-import { getStressHours, getSetting, getFlightsWithPhotos, updateFlightNight } from '../../db/flights';
+import { getStressHours, getStressDaily, getSetting, getFlightsWithPhotos, updateFlightNight } from '../../db/flights';
 import { hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/photoSync';
 import { useVersionStore } from '../../store/versionStore';
 import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
@@ -63,11 +63,12 @@ const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
-import { WorkloadBar, LoadRing, ZoneChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
+import { WorkloadBar, LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
 import { StressInfoButton } from '../../components/StressInfo';
+import { DraftBanner } from '../../components/DraftBanner';
 import * as Haptics from 'expo-haptics';
 import { useTabBarSpace } from '../../components/GlassTabBar';
-import { workloadIndex } from '../../utils/workload';
+import { workloadIndex, stressSeries, stressFactorSummary, type StressZone as FactorZone } from '../../utils/workload';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
@@ -605,6 +606,15 @@ export default function DashboardScreen() {
   const { formatTime } = useTimeFormat();
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
+  // Stressfactor-knappen: snittet av Flight load de senaste 60 dagarna (färgen) + kurvan i knappen.
+  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[] }>({ zone: 'normal', values: [] });
+  const loadFactor = useCallback(() => {
+    getStressDaily().then((daily) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const series = stressSeries(daily, new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10), today);
+      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index) });
+    }).catch(() => {});
+  }, []);
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausar sid-scroll medan globen snurras
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tryck på globen → val-meny
   const globeMenuAnim = useRef(new Animated.Value(0)).current; // 0=dold, 1=synlig → mjuk fade/slide av alla tre knappar samtidigt
@@ -636,6 +646,7 @@ export default function DashboardScreen() {
     loadStats();
     loadFlights();
     getStressHours().then(({ recent14, yearAvg14, historyDays }) => { setStress(computeStress(recent14, yearAvg14, historyDays)); setStressReady(true); });
+    loadFactor();
     getSetting('profile_first_name').then(v => setProfileName(v ?? ''));
     checkVersion();
     loadPrompt();
@@ -645,6 +656,7 @@ export default function DashboardScreen() {
     loadStats();
     loadFlights();
     getStressHours().then(({ recent14, yearAvg14, historyDays }) => { setStress(computeStress(recent14, yearAvg14, historyDays)); setStressReady(true); });
+    loadFactor();
     loadPrompt();
     // Göm vädret när man LÄMNAR dashboarden (blur) — off-screen, så det syns aldrig försvinna och inget
     // hoppar under scroll. Nästa gång man kommer tillbaka är det redan dolt → måste dra ner och hämta igen.
@@ -884,8 +896,9 @@ export default function DashboardScreen() {
         <View style={s.telGaugeHeader}>
           {/* Vänster: WORKLOAD-etikett + state-text (t.ex. NORMAL) bredvid varandra */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
-            <ZoneChip zone={stress.zone} color={zc} />
+            <Text style={s.telGaugeLabel}>WORKLOAD</Text>
+            {/* Stressfactor: färgad efter de senaste två månaderna → sidan med Flight load över tid. */}
+            <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push('/stressfactor')} />
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
           {mode === 'manned' && !wx && (
@@ -1014,6 +1027,8 @@ export default function DashboardScreen() {
           <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : Colors.primary} />
         </TouchableOpacity>
       </View>
+      {/* Ofullständigt utkast från Log Flight ("Save as draft") → fortsätt där man slutade. */}
+      <DraftBanner mode="pilot" onOpen={() => router.push('/flight/add?draft=1')} />
 
       {/* ── Pilot / drone sections ── */}
       {(

@@ -1,19 +1,24 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, TextInput } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import type { TimeFormat } from '../../store/timeFormatStore';
 import type { ScanRow } from '../../services/scanImport';
-import { display, label, COUNT } from '../../services/scanFields';
+import { label, COUNT } from '../../services/scanFields';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import { NewAircraftSection, type AircraftInput } from './NewAircraftCard';
 import type { ColumnCheck } from '../../services/scanImport';
+import { viaText, type TypeVia } from '../../services/scanTypes';
+import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, NVG_BADGE, SIM_BADGE } from '../logbook-page/tokens';
+import { dayOfMonth, weekdayShort } from '../logbook-page/flightDisplay';
 
-// Skanningsrapporten (stående), byggd för att överblicka många uppslag (upp till ~10):
-//  - överst en sammanfattning: flygningar, flygtid och hur många sidor som stämmer med bokens summor
-//  - ett hopfällbart avsnitt per uppslag med bokens sidnummer, kontroll kolumn för kolumn mot sidans
-//    "Total this page" (Blades / boken) och en kompakt rad per flygning
-//  - nya flygplanstyper som vid CSV-import, och Save längst ner
+// Skanningsrapporten (stående), likadan för ett uppslag som för många (upp till tio):
+//  - överst en sammanfattning: flygningar och flygtid, ögat (uppslagen som loggbok) och second pilots
+//  - ett avsnitt för hela skanningen: bokens sidor ("p. 78–86"), sidans summor kolumn för kolumn mot
+//    "Total this page" (flera uppslag: summan, och det som inte stämmer uppslag för uppslag) och flygningarna
+//    som i Logbook-listan (kort per flygning, år och månad, det senaste överst)
+//  - flygplanstyper (matchade mot flottan, nya som vid CSV-import), och Save längst ner
 // Ett tryck på en flygning öppnar alla värden (FlightEditor). Simulatorpass räknas aldrig som flygtid.
 // Inget sparas förrän "Save".
 
@@ -27,6 +32,36 @@ const SHORT: Record<string, string> = {
   ifr: 'IFR', night: 'Night', landings_day: 'Ldg D', landings_night: 'Ldg N', nvg: 'NVG',
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Den andra pilotens roll (samma nycklar som Log Flight; COP visas som SIC). Ett tryck byter till nästa.
+const CREW_ROLES = ['PIC', 'COP', 'FI', 'SPIC', 'PICUS'];
+const CREW_ROLE_NAME: Record<string, string> = { PIC: 'PIC', COP: 'SIC', FI: 'Instructor', SPIC: 'SPIC', PICUS: 'PICUS' };
+const roleName = (k?: string) => CREW_ROLE_NAME[k ?? ''] ?? 'Role';
+const nextRole = (k?: string) => CREW_ROLES[(CREW_ROLES.indexOf(k ?? '') + 1) % CREW_ROLES.length];
+
+// Namnet på den andra piloten, rättas direkt (sparas när fältet lämnas).
+function CrewName({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => { setText(value); }, [value]);
+  const commit = () => { const v = text.trim(); if (v && v !== value) onCommit(v); else setText(value); };
+  return (
+    <TextInput value={text} onChangeText={setText} onEndEditing={commit} onSubmitEditing={commit} returnKeyType="done"
+      autoCorrect={false} autoCapitalize="characters" style={s.crewInput} placeholder="Name" placeholderTextColor={Colors.textMuted}
+      accessibilityLabel="Second pilot's name" />
+  );
+}
+
+// Liten märkning som i loggbokens rader (FlightCardRow): IFR, natt, NVG, SIM.
+function Badge({ color, label: text, ion, mci }: { color: string; label?: string; ion?: keyof typeof Ionicons.glyphMap; mci?: keyof typeof MaterialCommunityIcons.glyphMap }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: color + '1F', borderColor: color + '55', borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
+      {ion ? <Ionicons name={ion} size={9} color={color} /> : null}
+      {mci ? <MaterialCommunityIcons name={mci} size={10} color={color} /> : null}
+      {text ? <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.7, color }}>{text}</Text> : null}
+    </View>
+  );
+}
 
 export type CellState = 'open' | 'changed' | null;
 
@@ -35,11 +70,16 @@ export function ScanReport(p: {
   columnChecks: ColumnCheck[];
   spreads: number;
   pageLabels?: (string | null)[];     // bokens sidnummer per uppslag, t.ex. "p. 40–41"
+  pageNumbers?: { left: number | null; right: number | null }[];   // samma som tal (rubrikens "p. 78–86")
   timeFormat: TimeFormat;
   cellState: (rowKey: string, field: string) => CellState;
   duplicates: Set<string>;
   openCount: number;
-  newTypes: { type: string; registrations: string[]; rows: number }[];
+  newTypes: { type: string; registrations: string[]; rows: number; aka?: string[]; groupId?: string }[];
+  // Skrivsätt som fått en typ som redan finns i flottan (services/scanTypes.ts), och varför.
+  fleetMatches?: { id: string; to: string; from: string[]; rows: number; via: TypeVia }[];
+  onKeepSeparate?: (groupId: string) => void;
+  onNameType?: (groupId: string, name: string) => void;
   aircraft: Record<string, AircraftInput>;
   aircraftLoading: Set<string>;
   aircraftFailed: Set<string>;
@@ -50,6 +90,9 @@ export function ScanReport(p: {
   onAircraftChange: (type: string, v: AircraftInput) => void;
   onOpenFlight: (rowKey: string) => void;
   onToggleSkip: (rowKey: string) => void;
+  onEditField?: (rowKey: string, field: string, value: string) => void;   // rättelser direkt i rapporten (second pilot)
+  onPresentLogbook?: (page: number) => void;   // uppslaget som loggbok, för att jämföra med pappersboken
+  paperFixes?: { page: number; field: string }[];   // summor som är felräknade i pappersboken (rättas efter Save)
   onBack: () => void;
   onSave: () => void;
 }) {
@@ -66,35 +109,63 @@ export function ScanReport(p: {
   const rowOpen = (r: ScanRow) => ALL_FIELDS.filter((f) => p.cellState(r.key, f) === 'open').length;
   const checksFor = (pg: number) => p.columnChecks.filter((c) => c.page === pg);
   const pageRowsOf = (pg: number) => rows.filter((r) => r.page === pg).sort((a, b) => a.rowIndex - b.rowIndex);
-  const needsLook = (pg: number) => checksFor(pg).some((c) => !c.ok) || pageRowsOf(pg).some((r) => rowOpen(r) > 0 || (r.adjusted?.length ?? 0) > 0);
 
   // Med många uppslag är bara de som behöver ses över utfällda.
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(pages.filter((pg) => pages.length <= 2 || needsLook(pg))));
-  const toggle = (pg: number) => setExpanded((e) => { const n = new Set(e); if (n.has(pg)) n.delete(pg); else n.add(pg); return n; });
+  const [listOpen, setListOpen] = useState(true);
+  // Bokens sidor i skanningen, lägsta till högsta ("p. 78–86").
+  const pageNums = (p.pageNumbers ?? []).flatMap((n) => [n.left, n.right]).filter((n): n is number => typeof n === 'number' && n > 0);
+  const pageRange = pageNums.length
+    ? (Math.min(...pageNums) === Math.max(...pageNums) ? `p. ${pageNums[0]}` : `p. ${Math.min(...pageNums)}–${Math.max(...pageNums)}`)
+    : pages.length === 1 ? p.pageLabels?.[0] ?? null : null;
+  // Second pilots ur anmärkningen (hela skanningen, i bokens ordning) och om listan är utfälld.
+  const crew = pages.flatMap((pg) => pageRowsOf(pg).filter((r) => r.fromRemarks));
+  const [crewOpen, setCrewOpen] = useState(false);
+  // Ögat ("View as logbook") öppnar första uppslaget med flygningar.
+  const firstWithRows = pages.find((pg) => pageRowsOf(pg).length > 0) ?? 0;
 
-  const checkedPages = pages.filter((pg) => checksFor(pg).length > 0);
-  const matching = checkedPages.filter((pg) => checksFor(pg).every((c) => c.ok)).length;
   const adjustedCount = rows.filter((r) => (r.adjusted?.length ?? 0) > 0 && isIn(r)).length;
   const simCount = included.filter(isSim).length;
+  const paperFix = (pg: number, field: string) => !!p.paperFixes?.some((f) => f.page === pg && f.field === field);
+  const paperCount = p.paperFixes?.length ?? 0;
+  const status = [
+    ...(p.openCount > 0 ? [{ text: `${p.openCount} unchecked`, warn: true }] : []),
+    ...(adjustedCount > 0 ? [{ text: `${adjustedCount} adjusted to the page total`, warn: true }] : []),
+    ...(paperCount > 0 ? [{ text: `${paperCount} ${paperCount === 1 ? 'total' : 'totals'} to fix on paper`, warn: false }] : []),
+    ...(p.duplicates.size > 0 ? [{ text: `${p.duplicates.size} already in your logbook`, warn: false }] : []),
+  ];
 
-  // Ett värde på flygningsraden: gul botten = inte granskat, blå text = ändrat.
-  const V = ({ r, field, text, style }: { r: ScanRow; field: string; text?: string; style?: any }) => {
-    const st = p.cellState(r.key, field);
-    const v = text ?? display(r.data, field, timeFormat);
-    return (
-      <Text numberOfLines={1} style={[s.v, style, !v && s.vEmpty, st === 'open' && s.vOpen, st === 'changed' && s.vChanged]}>
-        {v || '—'}
-      </Text>
-    );
-  };
 
-  const shortDate = (d: string) => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(d || ''); return m ? `${m[2]}.${m[1]}` : d || ''; };
   const period = (rs: ScanRow[]) => {
     const ds = rs.map((r) => r.data.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
     if (!ds.length) return '';
     const fmt = (d: string) => `${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
     const a = fmt(ds[0]), b = fmt(ds[ds.length - 1]);
     return a === b ? a : a.slice(-4) === b.slice(-4) ? `${a.slice(0, 3)}–${b}` : `${a} – ${b}`;
+  };
+
+  // Rollen som i loggboken (roleLabel): PIC, PICUS, SPIC, SIC, DUAL, INSTR; simulatorpass utan roll → SIM.
+  const roleOf = (r: ScanRow) => (num(r, 'pic') > 0 ? 'PIC' : num(r, 'picus') > 0 ? 'PICUS' : num(r, 'spic') > 0 ? 'SPIC'
+    : num(r, 'co_pilot') > 0 ? 'SIC' : num(r, 'dual') > 0 ? 'DUAL' : num(r, 'instructor') > 0 ? 'INSTR' : isSim(r) ? 'SIM' : '—');
+  // Gul botten = inte granskat, blå text = ändrat (som tidigare i tabellen).
+  const hl = (r: ScanRow, field: string) => {
+    const st = p.cellState(r.key, field);
+    return st === 'open' ? s.vOpen : st === 'changed' ? s.vChanged : null;
+  };
+  // Som loggboken: senaste datum (och klockslag) överst; samma dag i bokens ordning baklänges.
+  const newestFirst = (a: ScanRow, b: ScanRow) => (b.data.date || '').localeCompare(a.data.date || '')
+    || (b.data.dep_utc || '').localeCompare(a.data.dep_utc || '') || b.page - a.page || b.rowIndex - a.rowIndex;
+  const yearOf = (r: ScanRow) => (/^\d{4}-\d{2}-/.test(r.data.date || '') ? Number(r.data.date.slice(0, 4)) : null);
+  // År → månad i bokens ordning (raderna på uppslaget), som Logbook-listans rubriker.
+  const groupByMonth = (rs: ScanRow[]) => {
+    const out: { key: string; year: number | null; month: number | null; yearStart: boolean; rows: ScanRow[] }[] = [];
+    for (const r of rs) {
+      const y = yearOf(r);
+      const m = y != null ? Number(r.data.date.slice(5, 7)) - 1 : null;
+      const last = out[out.length - 1];
+      if (last && last.year === y && last.month === m) { last.rows.push(r); continue; }
+      out.push({ key: `${y}-${m}-${r.key}`, year: y, month: m, yearStart: !last || last.year !== y, rows: [r] });
+    }
+    return out;
   };
 
   return (
@@ -112,128 +183,240 @@ export function ScanReport(p: {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: p.insets.bottom + 110 }} showsVerticalScrollIndicator={false}>
-        {/* Sammanfattning */}
-        <View style={s.summary}>
-          <Stat value={String(included.length)} label={included.length === 1 ? 'flight' : 'flights'} />
-          <View style={s.sumDivider} />
-          <Stat value={fmtH(sumOf(included, 'total_time'))} label="flight time" />
-          <View style={s.sumDivider} />
-          <Stat
-            value={checkedPages.length ? `${matching}/${checkedPages.length}` : '–'}
-            label={checkedPages.length === 1 ? 'page total matches' : 'page totals match'}
-            tone={!checkedPages.length ? undefined : matching === checkedPages.length ? 'ok' : 'warn'}
-          />
-        </View>
-        {(p.openCount > 0 || adjustedCount > 0 || p.duplicates.size > 0 || simCount > 0) && (
-          <View style={s.chips}>
-            {p.openCount > 0 && <Chip tone="warn" icon="ellipse" text={`${p.openCount} unchecked`} />}
-            {adjustedCount > 0 && <Chip tone="warn" icon="git-compare-outline" text={`${adjustedCount} adjusted to the page total`} />}
-            {simCount > 0 && <Chip tone="info" icon="desktop-outline" text={`${simCount} simulator · ${fmtH(sumOf(included, 'sim'))}`} />}
-            {p.duplicates.size > 0 && <Chip icon="copy-outline" text={`${p.duplicates.size} already in your logbook`} />}
+        {/* Sammanfattning: flygningar och flygtid, ögat (uppslagen som loggbok) och second pilots ur anmärkningen. */}
+        <LinearGradient colors={[Colors.primary + '24', 'rgba(15,30,58,0.55)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
+          <View style={s.heroTop}>
+            <View style={s.heroStat}>
+              <Text style={s.heroValue}>{included.length}</Text>
+              <Text style={s.heroLabel}>{included.length === 1 ? 'FLIGHT' : 'FLIGHTS'}</Text>
+            </View>
+            <View style={s.heroStat}>
+              <Text style={s.heroValue}>
+                {fmtH(sumOf(included, 'total_time'))}{timeFormat === 'decimal' ? <Text style={s.heroUnit}> h</Text> : null}
+              </Text>
+              <Text style={s.heroLabel}>FLIGHT TIME</Text>
+            </View>
+            {p.onPresentLogbook && rows.length > 0 && (
+              <TouchableOpacity style={s.eyeBtn} onPress={() => p.onPresentLogbook!(firstWithRows)} activeOpacity={0.8}
+                accessibilityRole="button" accessibilityLabel={pages.length > 1 ? `View the ${pages.length} spreads as a logbook` : 'View as logbook'}>
+                <Ionicons name="eye-outline" size={22} color={Colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+          {status.length > 0 && (
+            <Text style={s.heroStatus}>
+              {status.map((x, i) => (
+                <Text key={x.text} style={x.warn ? { color: Colors.warning } : null}>{i > 0 ? '   ·   ' : ''}{x.text}</Text>
+              ))}
+            </Text>
+          )}
+          {/* Second pilot ur anmärkningen (rubriken säger "name of PIC"): fäll ut för att se och rätta namn och roll. */}
+          {crew.length > 0 && (
+            <>
+              <TouchableOpacity style={s.heroRow} onPress={() => setCrewOpen((o) => !o)} activeOpacity={0.75}
+                accessibilityRole="button" accessibilityState={{ expanded: crewOpen }} accessibilityLabel={`${crew.length} second pilots from the remarks`}>
+                <Ionicons name="people-outline" size={17} color={Colors.textSecondary} />
+                <Text style={s.heroRowTitle}>Second pilots</Text>
+                <Text style={s.heroRowCount}>{crew.length}</Text>
+                <Ionicons name={crewOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              {crewOpen && (
+                <View style={{ paddingBottom: 4 }}>
+                  <Text style={s.crewNote}>From the remarks. Tap a role to change it, or a name to correct it.</Text>
+                  {crew.map((r, k) => (
+                    <View key={r.key}>
+                      {pages.length > 1 && (k === 0 || crew[k - 1].page !== r.page) && (
+                        <Text style={s.crewSpread}>{p.pageLabels?.[r.page] ?? `Spread ${r.page + 1}`}</Text>
+                      )}
+                      <View style={s.crewRow}>
+                        <Text style={s.crewDate}>{/^\d{4}-\d{2}-\d{2}$/.test(r.data.date || '') ? `${Number(r.data.date.slice(8, 10))} ${MONTHS[Number(r.data.date.slice(5, 7)) - 1]}` : `Row ${r.rowIndex}`}</Text>
+                        <CrewName value={r.data.second_pilot ?? ''} onCommit={(v) => p.onEditField?.(r.key, 'second_pilot', v)} />
+                        <TouchableOpacity style={s.crewRole} onPress={() => p.onEditField?.(r.key, 'second_pilot_role', nextRole(r.data.second_pilot_role))}
+                          activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Role ${roleName(r.data.second_pilot_role)}. Tap to change.`}>
+                          <Text style={s.crewRoleText}>{roleName(r.data.second_pilot_role)}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </LinearGradient>
 
-        {/* Ett avsnitt per uppslag */}
-        {pages.map((pg) => {
-          const pr = pageRowsOf(pg);
-          const inPage = pr.filter(isIn);
-          const checks = checksFor(pg);
-          const bad = checks.filter((c) => !c.ok).length;
-          const open = expanded.has(pg);
-          const lbl = p.pageLabels?.[pg];
-          const status = bad > 0 ? 'warn' : checks.length ? 'ok' : 'none';
+        {/* Hela skanningen i ett avsnitt, som i loggboken: bokens sidor i rubriken ("p. 78–86"), sidans summor och
+            flygningarna per år och månad med det senaste överst. */}
+        {(() => {
+          const allChecks = pages.flatMap((pg) => checksFor(pg).map((c) => ({ ...c, pg })));
+          const off = allChecks.filter((c) => !c.ok);
+          const multi = pages.length > 1;
+          // En kolumn per fält (i ordningen de först förekommer); flera uppslag → summan av uppslagens rader.
+          const cols = [...new Set(allChecks.map((c) => c.field))].map((field) => {
+            const cs = allChecks.filter((c) => c.field === field);
+            const bad = cs.filter((c) => !c.ok);
+            return { field, sum: cs.reduce((t, c) => t + c.sum, 0), printed: cs.reduce((t, c) => t + c.printed, 0), bad, fix: bad.length > 0 && bad.every((c) => paperFix(c.pg, c.field)) };
+          });
+          const unread = multi ? pages.filter((pg) => pageRowsOf(pg).length > 0 && checksFor(pg).length === 0) : [];
+          const sorted = [...rows].sort(newestFirst);
+          const inAll = sorted.filter(isIn);
+          const status = off.length ? 'warn' : allChecks.length ? 'ok' : 'none';
+          const spreadName = (pg: number) => p.pageLabels?.[pg] ?? `spread ${pg + 1}`;
           return (
-            <View key={pg} style={s.spread}>
-              <TouchableOpacity style={s.spreadHead} onPress={() => toggle(pg)} activeOpacity={0.75}
-                accessibilityRole="button" accessibilityState={{ expanded: open }}>
+            <View style={s.spread}>
+              <TouchableOpacity style={s.spreadHead} onPress={() => setListOpen((o) => !o)} activeOpacity={0.75}
+                accessibilityRole="button" accessibilityState={{ expanded: listOpen }}>
                 <Ionicons
                   name={status === 'warn' ? 'alert-circle' : status === 'ok' ? 'checkmark-circle' : 'remove-circle-outline'}
                   size={20} color={status === 'warn' ? Colors.warning : status === 'ok' ? Colors.success : Colors.textMuted}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.spreadTitle} numberOfLines={1}>
-                    {pages.length > 1 ? `Spread ${pg + 1}` : 'Spread'}{lbl ? ` · ${lbl}` : ''}
-                  </Text>
+                  <Text style={s.spreadTitle} numberOfLines={1}>{multi ? 'Spreads' : 'Spread'}{pageRange ? ` · ${pageRange}` : ''}</Text>
                   <Text style={s.spreadSub} numberOfLines={1}>
-                    {inPage.length === 1 ? '1 flight' : `${inPage.length} flights`} · {fmtH(sumOf(inPage, 'total_time'))} h
-                    {period(pr) ? ` · ${period(pr)}` : ''}
-                    {bad > 0 ? ` · ${bad} total${bad === 1 ? '' : 's'} off` : ''}
+                    {multi ? `${pages.length} spreads · ` : ''}{inAll.length === 1 ? '1 flight' : `${inAll.length} flights`} · {fmtH(sumOf(inAll, 'total_time'))} h
+                    {period(rows) ? ` · ${period(rows)}` : ''}
                   </Text>
                 </View>
-                <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
+                <Ionicons name={listOpen ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
               </TouchableOpacity>
 
-              {open && (
+              {listOpen && (
                 <>
-                  {/* Sidans summor: Blades mot boken, kolumn för kolumn */}
+                  {/* Sidans summor: radernas summa per kolumn, mot det som står i boken. Bara det som inte stämmer märks. */}
                   <View style={s.ledger}>
-                    <Text style={s.ledgerTitle}>PAGE TOTALS · BLADES / BOOK</Text>
-                    {checks.length ? (
-                      <View style={s.ledgerChips}>
-                        {checks.map((c) => (
-                          <View key={c.field} style={[s.lchip, c.ok ? s.lchipOk : s.lchipBad]}>
-                            <Text style={s.lchipLabel}>{SHORT[c.field] ?? label(c.field)}</Text>
-                            <Text style={[s.lchipValue, { color: c.ok ? Colors.success : Colors.warning }]}>
-                              {c.ok ? fmtV(c.field, c.printed) : `${fmtV(c.field, c.sum)} / ${fmtV(c.field, c.printed)}`}
-                            </Text>
-                            <Ionicons name={c.ok ? 'checkmark' : 'close'} size={13} color={c.ok ? Colors.success : Colors.warning} />
-                          </View>
-                        ))}
+                    <View style={s.ledgerHead}>
+                      <Text style={s.ledgerTitle}>PAGE TOTALS</Text>
+                      {allChecks.length > 0 && (
+                        <Text style={[s.ledgerState, off.some((c) => !paperFix(c.pg, c.field)) && { color: Colors.warning }]}>
+                          {off.length ? `${off.length} ${off.length === 1 ? "doesn't" : "don't"} match the book` : multi ? `All ${pages.length - unread.length} spreads match the book` : 'Match the book'}
+                        </Text>
+                      )}
+                    </View>
+                    {cols.length ? (
+                      <View style={s.ledgerGrid}>
+                        {cols.map((c) => {
+                          const warn = c.bad.length > 0 && !c.fix;
+                          return (
+                            <View key={c.field} style={s.lcell}>
+                              <Text style={s.lcellLabel} numberOfLines={1}>{(SHORT[c.field] ?? label(c.field)).toUpperCase()}</Text>
+                              <Text style={[s.lcellValue, warn && { color: Colors.warning }]}>{fmtV(c.field, c.sum)}</Text>
+                              {c.bad.length > 0 && (
+                                <Text style={[s.lcellBook, warn && { color: Colors.warning }]} numberOfLines={1}>
+                                  {/* Ett uppslag: bokens värde. Flera: vilket uppslag (detaljerna står under tabellen). */}
+                                  {multi ? (c.bad.length === 1 ? spreadName(c.bad[0].pg) : `${c.bad.length} spreads`) : `${c.fix ? 'fix book' : 'book'} ${fmtV(c.field, c.printed)}`}
+                                </Text>
+                              )}
+                            </View>
+                          );
+                        })}
                       </View>
                     ) : (
-                      <Text style={s.ledgerNone}>No page totals were read on this spread, so there's nothing to compare with.</Text>
+                      <Text style={s.ledgerNoneIn}>No page totals were read{multi ? '' : ' on this spread'}.</Text>
+                    )}
+                    {/* Flera uppslag: summan som inte stämmer, uppslag för uppslag (sidorna, raderna och boken). */}
+                    {multi && (off.length > 0 || unread.length > 0) && (
+                      <View style={s.ledgerLines}>
+                        {off.map((c) => {
+                          const fix = paperFix(c.pg, c.field);
+                          return (
+                            <Text key={`${c.pg}:${c.field}`} style={[s.ledgerLine, !fix && { color: Colors.warning }]}>
+                              {spreadName(c.pg)} · {SHORT[c.field] ?? label(c.field)} {fmtV(c.field, c.sum)}, {fix ? 'fix the book' : 'book'} {fmtV(c.field, c.printed)}
+                            </Text>
+                          );
+                        })}
+                        {unread.length > 0 && (
+                          <Text style={s.ledgerLine}>No page totals read on {unread.map(spreadName).join(', ')}.</Text>
+                        )}
+                      </View>
                     )}
                   </View>
-
-                  {/* Flygningarna, en rad var */}
-                  <View style={s.tableHead}>
-                    <Text style={[s.th, { width: 22 }]} />
-                    <Text style={[s.th, { width: 42 }]}>DATE</Text>
-                    <Text style={[s.th, { width: 50 }]}>TYPE</Text>
-                    <Text style={[s.th, { width: 58 }]}>REG</Text>
-                    <Text style={[s.th, { flex: 1 }]}>ROUTE</Text>
-                    <Text style={[s.th, { width: 38, textAlign: 'right' }]}>TOTAL</Text>
-                    <View style={{ width: 14 }} />
-                  </View>
-                  {pr.length === 0 && <Text style={s.ledgerNone}>No flights were read on this spread.</Text>}
-                  {pr.map((r) => {
-                    const dup = p.duplicates.has(r.key);
-                    const off = r.skip || dup;
-                    const openN = rowOpen(r);
-                    const tags: { text: string; color: string }[] = [];
-                    if (isSim(r)) tags.push({ text: `SIM ${fmtH(num(r, 'total_time'))}${r.data.sim_category ? ` · ${String(r.data.sim_category).replace(/_/g, ' ').toUpperCase()}` : ''}`, color: Colors.primary });
-                    for (const a of r.adjusted ?? []) tags.push({ text: `ADJUSTED ${(SHORT[a.field] ?? label(a.field)).toUpperCase()} ${a.from}→${a.to}`, color: Colors.warning });
-                    if (openN > 0) tags.push({ text: `${openN} UNCHECKED`, color: Colors.warning });
-                    if (dup) tags.push({ text: 'ALREADY IN YOUR LOGBOOK', color: Colors.textMuted });
-                    else if (r.skip) tags.push({ text: 'LEFT OUT', color: Colors.textMuted });
+                  {/* Flygningarna som i loggboken (Logbook-listan): år och månad, det senaste överst. */}
+                  {rows.length === 0 && <Text style={s.ledgerNone}>No flights were read.</Text>}
+                  {groupByMonth(sorted).map((g) => {
+                    const inG = g.rows.filter(isIn);
+                    const hours = sumOf(inG, 'total_time');
+                    const inYear = inAll.filter((r) => yearOf(r) === g.year);
                     return (
-                      <View key={r.key} style={[s.fl, off && { opacity: 0.45 }]}>
-                        <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={8} disabled={dup} style={{ width: 22 }}
-                          accessibilityRole="checkbox" accessibilityState={{ checked: !off }} accessibilityLabel={`Include row ${r.rowIndex}`}>
-                          <Ionicons name={off ? 'square-outline' : 'checkbox'} size={18} color={off ? Colors.textMuted : Colors.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={s.flBody} onPress={() => p.onOpenFlight(r.key)} activeOpacity={0.7}
-                          accessibilityLabel={`Flight on row ${r.rowIndex}. Tap to see and edit all values.`}>
-                          <View style={s.flMain}>
-                            <V r={r} field="date" text={shortDate(r.data.date)} style={{ width: 42 }} />
-                            <V r={r} field="aircraft_type" style={{ width: 50 }} />
-                            <V r={r} field="registration" style={{ width: 58 }} />
-                            <View style={s.route}>
-                              <V r={r} field="dep_place" style={s.vPlace} />
-                              <Text style={s.arrow}>→</Text>
-                              <V r={r} field="arr_place" style={s.vPlace} />
-                            </View>
-                            <V r={r} field="total_time" text={isSim(r) ? '–' : undefined} style={s.vTotal} />
+                      <View key={g.key}>
+                        {g.yearStart && (
+                          <View style={s.yearHead}>
+                            <Text style={s.yearTitle}>{g.year ?? 'Unknown date'}</Text>
+                            {g.year != null && (
+                              <Text style={s.yearMeta}>
+                                <Text style={{ color: Colors.primary }}>{fmtH(sumOf(inYear, 'total_time'))}h</Text>
+                                {'  '}{inYear.length} flights
+                              </Text>
+                            )}
                           </View>
-                          {tags.length > 0 && (
-                            <Text style={s.tags} numberOfLines={1}>
-                              {tags.map((t, i) => (
-                                <Text key={i} style={{ color: t.color }}>{i > 0 ? '  ·  ' : ''}{t.text}</Text>
-                              ))}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                        <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                        )}
+                        {g.month != null && (
+                          <View style={s.monthHead}>
+                            <Text style={s.monthTitle}>{MONTH_FULL[g.month]}</Text>
+                            <Text style={s.monthMeta}><Text style={{ color: Colors.primary }}>{fmtH(hours)}h</Text>  ·  {inG.length} flt</Text>
+                          </View>
+                        )}
+                        {g.rows.map((r, idx) => {
+                          const dup = p.duplicates.has(r.key);
+                          const off = r.skip || dup;
+                          const openN = rowOpen(r);
+                          const tags: { text: string; color: string }[] = [];
+                          if (isSim(r) && r.data.sim_category) tags.push({ text: String(r.data.sim_category).replace(/_/g, ' ').toUpperCase(), color: SIM_BADGE });
+                          for (const a of r.adjusted ?? []) tags.push({ text: `ADJUSTED ${(SHORT[a.field] ?? label(a.field)).toUpperCase()} ${a.from}→${a.to}`, color: Colors.warning });
+                          if (openN > 0) tags.push({ text: `${openN} UNCHECKED`, color: Colors.warning });
+                          if (dup) tags.push({ text: 'ALREADY IN YOUR LOGBOOK', color: Colors.textMuted });
+                          else if (r.skip) tags.push({ text: 'LEFT OUT', color: Colors.textMuted });
+                          const role = roleOf(r);
+                          const picRole = role === 'PIC' || role === 'PICUS' || role === 'SPIC';
+                          const date = r.data.date || '';
+                          const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
+                          return (
+                            <View key={r.key} style={[s.card, idx === 0 && { borderTopWidth: 0 }, off && { opacity: 0.45 }]}>
+                              <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={8} disabled={dup} style={{ width: 20 }}
+                                accessibilityRole="checkbox" accessibilityState={{ checked: !off }} accessibilityLabel={`Include row ${r.rowIndex}`}>
+                                <Ionicons name={off ? 'square-outline' : 'checkbox'} size={18} color={off ? Colors.textMuted : Colors.primary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity style={s.cardBody} onPress={() => p.onOpenFlight(r.key)} activeOpacity={0.7}
+                                accessibilityLabel={`Flight on row ${r.rowIndex}. Tap to see and edit all values.`}>
+                                {/* Datumchip: dag + veckodag (år och månad står i rubrikerna) */}
+                                <View style={s.dateChip}>
+                                  <Text style={[s.day, hl(r, 'date')]}>{validDate ? dayOfMonth(date) : '?'}</Text>
+                                  <Text style={s.weekday}>{validDate ? weekdayShort(date) : ''}</Text>
+                                </View>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                  <View style={s.routeRow}>
+                                    <Text style={s.routeText} numberOfLines={1}>
+                                      <Text style={hl(r, 'dep_place')}>{r.data.dep_place || '—'}</Text>
+                                      {' → '}
+                                      <Text style={hl(r, 'arr_place')}>{r.data.arr_place || '—'}</Text>
+                                    </Text>
+                                    {num(r, 'ifr') > 0 ? <Badge color={Colors.primary} label="IFR" /> : null}
+                                    {num(r, 'night') > 0 ? <Badge color={NIGHT_BADGE} ion="moon" /> : null}
+                                    {num(r, 'nvg') > 0 ? <Badge color={NVG_BADGE} mci="binoculars" /> : null}
+                                    {isSim(r) ? <Badge color={SIM_BADGE} mci="desktop-classic" label="SIM" /> : null}
+                                  </View>
+                                  <Text numberOfLines={1} style={s.subLine}>
+                                    <Text style={{ color: picRole ? Colors.primary : Colors.textSecondary, fontWeight: '700' }}>{role}</Text>
+                                    {' · '}<Text style={hl(r, 'aircraft_type')}>{r.data.aircraft_type || '—'}</Text>
+                                    {r.data.registration ? <Text>{' '}<Text style={hl(r, 'registration')}>{r.data.registration}</Text></Text> : null}
+                                  </Text>
+                                  {tags.length > 0 && (
+                                    <Text style={s.tags} numberOfLines={1}>
+                                      {tags.map((t, i) => (
+                                        <Text key={i} style={{ color: t.color }}>{i > 0 ? '  ·  ' : ''}{t.text}</Text>
+                                      ))}
+                                    </Text>
+                                  )}
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                  <Text style={[s.cardTime, hl(r, isSim(r) ? 'sim' : 'total_time')]}>{fmtH(num(r, 'total_time'))}</Text>
+                                  <Text style={s.cardUtc}>
+                                    <Text style={hl(r, 'dep_utc')}>{r.data.dep_utc || '—'}</Text> · <Text style={hl(r, 'arr_utc')}>{r.data.arr_utc || '—'}</Text>z
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                              <Ionicons name="chevron-forward" size={15} color={Colors.textMuted} />
+                            </View>
+                          );
+                        })}
                       </View>
                     );
                   })}
@@ -241,22 +424,7 @@ export function ScanReport(p: {
               )}
             </View>
           );
-        })}
-
-        {/* Alla uppslag tillsammans (det som sparas). Simulatortid för sig, aldrig i flygtiden. */}
-        {pages.length > 1 && (
-          <View style={s.totals}>
-            <Text style={s.totalsLabel}>ALL SPREADS · WHAT WILL BE SAVED</Text>
-            <Text style={s.totalsText}>
-              {[
-                `Total ${fmtH(sumOf(included, 'total_time'))}`,
-                ...['pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night'].filter((f) => sumOf(included, f) > 0).map((f) => `${SHORT[f]} ${fmtH(sumOf(included, f))}`),
-                ...(sumOf(included, 'landings_day') + sumOf(included, 'landings_night') > 0 ? [`Landings ${Math.round(sumOf(included, 'landings_day') + sumOf(included, 'landings_night'))}`] : []),
-                ...(simCount ? [`Sim ${fmtH(sumOf(included, 'sim'))}`] : []),
-              ].join('  ·  ')}
-            </Text>
-          </View>
-        )}
+        })()}
 
         <View style={s.basisRow}>
           <View style={{ flex: 1 }}>
@@ -273,13 +441,34 @@ export function ScanReport(p: {
           </View>
         </View>
 
-        <Text style={s.hint}>Tap a flight to see and edit all its values, including whether it was a simulator session. Untick a flight to leave it out. Yellow = not checked, blue = changed.</Text>
-
+        {/* Skrivsätt i boken som är typer man redan har: flottans namn används, så att Fleet och typvalet i Log
+            Flight inte får dubbletter. Fel matchning → "Keep separate". */}
+        {(p.fleetMatches?.length ?? 0) > 0 && (
+          <View style={{ gap: 8, marginTop: 4 }}>
+            <Text style={s.section}>MATCHED TO YOUR FLEET</Text>
+            <View style={s.matchCard}>
+              {p.fleetMatches!.map((m, k) => (
+                <View key={m.id} style={[s.matchRow, k > 0 && s.matchRowBorder]}>
+                  <Ionicons name="git-merge-outline" size={16} color={Colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.matchTitle} numberOfLines={2}>{m.from.join(', ')} → {m.to}</Text>
+                    <Text style={s.matchSub}>{m.rows === 1 ? '1 flight' : `${m.rows} flights`} · {viaText(m.via)} as {m.to} in your fleet</Text>
+                  </View>
+                  {p.onKeepSeparate && (
+                    <TouchableOpacity onPress={() => p.onKeepSeparate!(m.id)} hitSlop={8} accessibilityRole="button">
+                      <Text style={s.matchLink}>Keep separate</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         {p.newTypes.length > 0 && (
           <View style={{ gap: 8, marginTop: 4 }}>
             <Text style={s.section}>NEW AIRCRAFT</Text>
             <NewAircraftSection types={p.newTypes} values={p.aircraft} loading={p.aircraftLoading} failed={p.aircraftFailed}
-              onChange={p.onAircraftChange} />
+              onChange={p.onAircraftChange} onName={p.onNameType} onSeparate={p.onKeepSeparate} />
           </View>
         )}
       </ScrollView>
@@ -295,25 +484,6 @@ export function ScanReport(p: {
   );
 }
 
-function Stat({ value, label: text, tone }: { value: string; label: string; tone?: 'ok' | 'warn' }) {
-  return (
-    <View style={s.stat}>
-      <Text style={[s.statValue, tone === 'ok' && { color: Colors.success }, tone === 'warn' && { color: Colors.warning }]} numberOfLines={1}>{value}</Text>
-      <Text style={s.statLabel} numberOfLines={1}>{text}</Text>
-    </View>
-  );
-}
-
-function Chip({ text, icon, tone }: { text: string; icon: keyof typeof Ionicons.glyphMap; tone?: 'warn' | 'info' }) {
-  const color = tone === 'warn' ? Colors.warning : tone === 'info' ? Colors.primary : Colors.textSecondary;
-  return (
-    <View style={[s.chip, { borderColor: color + '66', backgroundColor: color + '14' }]}>
-      <Ionicons name={icon} size={11} color={color} />
-      <Text style={[s.chipText, { color }]}>{text}</Text>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
@@ -322,55 +492,79 @@ const s = StyleSheet.create({
   title: { color: '#fff', fontSize: 17, fontWeight: '800' },
   subtitle: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
 
-  summary: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14,
-    backgroundColor: 'rgba(15,30,58,0.75)', borderWidth: 1, borderColor: Colors.cardBorder,
-  },
-  sumDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: Colors.cardBorder },
-  stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { color: '#fff', fontSize: 22, fontWeight: '800', fontFamily: MONO, fontVariant: ['tabular-nums'] },
-  statLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9, borderWidth: 1 },
-  chipText: { fontSize: 12, fontWeight: '700' },
+
+  hero: { borderRadius: 18, borderWidth: 1, borderColor: Colors.primary + '33', paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6, overflow: 'hidden' },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 22, paddingBottom: 12 },
+  heroStat: { gap: 3 },
+  heroValue: { fontFamily: FONT_SERIF, fontSize: 34, fontWeight: '600', color: '#fff', fontVariant: ['tabular-nums'], lineHeight: 38 },
+  heroUnit: { fontFamily: FONT_SERIF, fontSize: 18, color: Colors.textSecondary },
+  heroLabel: { fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textMuted },
+  eyeBtn: {
+    marginLeft: 'auto', width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: Colors.primary + '14',
+  },
+  heroStatus: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, paddingBottom: 10 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.12)' },
+  heroRowTitle: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  heroRowCount: { color: Colors.textSecondary, fontSize: 13, fontFamily: FONT_MONO, fontWeight: '700' },
 
   spread: { borderRadius: 14, backgroundColor: 'rgba(15,30,58,0.75)', borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' },
   spreadHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 12 },
   spreadTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
   spreadSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 1, fontVariant: ['tabular-nums'] },
 
-  ledger: { marginHorizontal: 12, marginBottom: 8, padding: 10, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.22)', gap: 7 },
-  ledgerTitle: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
-  ledgerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  crewNote: { color: Colors.textMuted, fontSize: 12, lineHeight: 16, paddingBottom: 6 },
+  crewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)' },
+  crewSpread: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginTop: 8, marginBottom: 2 },
+  crewDate: { width: 48, color: Colors.textSecondary, fontSize: 12, fontFamily: FONT_MONO },
+  crewInput: { flex: 1, color: Colors.textPrimary, fontSize: 13.5, fontFamily: FONT_MONO, fontWeight: '700', paddingVertical: 5, paddingHorizontal: 8, borderRadius: 7, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  crewRole: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', minWidth: 62, alignItems: 'center' },
+  crewRoleText: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
+  // Sidans summor som en enkel tabell: etikett ovanför värdet, inga ramar eller färger utom det som inte stämmer.
+  ledger: { marginHorizontal: 14, marginBottom: 6, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
+  ledgerHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 },
+  ledgerTitle: { fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textMuted },
+  ledgerState: { fontSize: 11.5, color: Colors.textMuted },
+  ledgerGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
+  lcell: { width: '25%', gap: 2 },
+  lcellLabel: { fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1, color: Colors.textMuted },
+  lcellValue: { fontFamily: FONT_MONO, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  lcellBook: { fontFamily: FONT_MONO, fontSize: 9.5, color: Colors.textMuted },
+  ledgerLines: { marginTop: 10, gap: 4 },
+  ledgerLine: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textMuted, lineHeight: 16 },
+  ledgerNoneIn: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, paddingBottom: 8 },
   ledgerNone: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, paddingHorizontal: 12, paddingBottom: 8 },
-  lchip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  lchipOk: { borderColor: Colors.success + '55', backgroundColor: Colors.success + '10' },
-  lchipBad: { borderColor: Colors.warning + '77', backgroundColor: Colors.warning + '16' },
-  lchipLabel: { color: Colors.textSecondary, fontSize: 11.5, fontWeight: '700' },
-  lchipValue: { fontSize: 12.5, fontWeight: '800', fontFamily: MONO, fontVariant: ['tabular-nums'] },
+  matchCard: { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12 },
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  matchRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  matchTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
+  matchSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  matchLink: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
 
-  tableHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 4 },
-  th: { color: Colors.textMuted, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.6 },
-  fl: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder,
-  },
-  flBody: { flex: 1, gap: 3 },
-  flMain: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  route: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3, minWidth: 0 },
-  arrow: { color: Colors.textMuted, fontSize: 11 },
   v: { color: '#fff', fontSize: 12.5, fontFamily: MONO, borderRadius: 4, overflow: 'hidden' },
-  vPlace: { flexShrink: 1 },
-  vTotal: { width: 38, textAlign: 'right', fontSize: 14, fontWeight: '700' },
   vEmpty: { color: Colors.textMuted },
   vOpen: { backgroundColor: 'rgba(255,184,48,0.28)' },
   vChanged: { color: Colors.primary, fontWeight: '700' },
-  tags: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.5 },
+  tags: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.5, marginTop: 3 },
+  // Loggbokens rader (FlightCardRow) och rubriker (YearMonthAccordion)
+  yearHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
+  yearTitle: { fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary },
+  yearMeta: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textSecondary },
+  monthHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6 },
+  monthTitle: { fontFamily: FONT_SERIF, fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
+  monthMeta: { fontFamily: FONT_MONO, fontSize: 10.5, color: Colors.textSecondary },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingLeft: 12, paddingRight: 10, borderTopWidth: 1, borderTopColor: Colors.separator },
+  cardBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dateChip: { width: 30, alignItems: 'center' },
+  day: { fontFamily: FONT_SERIF, fontSize: 20, fontWeight: '600', color: Colors.textPrimary, lineHeight: 22, borderRadius: 4, overflow: 'hidden' },
+  weekday: { fontFamily: FONT_MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.7, color: Colors.textMuted, textTransform: 'uppercase', marginTop: 2 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  routeText: { flexShrink: 1, fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.3 },
+  subLine: { fontFamily: FONT_MONO, fontSize: 10, color: Colors.textMuted, marginTop: 3 },
+  cardTime: { fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary, borderRadius: 4, overflow: 'hidden' },
+  cardUtc: { fontFamily: FONT_MONO, fontSize: 9, color: Colors.textMuted, marginTop: 2 },
 
-  totals: { padding: 12, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.25)', gap: 4 },
-  totalsLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
-  totalsText: { color: '#fff', fontSize: 13, fontFamily: MONO, lineHeight: 19 },
 
   basisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(15,30,58,0.75)', borderWidth: 1, borderColor: Colors.cardBorder },
   basisLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
@@ -381,7 +575,6 @@ const s = StyleSheet.create({
   segText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
   segTextOn: { color: Colors.primary, fontWeight: '800' },
   section: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-  hint: { color: Colors.textMuted, fontSize: 12, lineHeight: 17 },
 
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, backgroundColor: Colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   save: { height: 52, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },

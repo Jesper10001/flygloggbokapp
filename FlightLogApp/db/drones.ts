@@ -1,7 +1,7 @@
 import { getDatabase } from './database';
 import { getDroneBackfill } from './droneBackfill';
 import { parseDroneCrew } from '../constants/droneRoles';
-import { computeStressHours, type StressHours } from './stress';
+import { computeStressHours, loadDailyHours, type StressHours } from './stress';
 
 // Fritt textfält i DB så vi klarar både civila (A1/A2/A3/Specific/Certified)
 // och militära scheman (MRPAS/RPAS/NATO-C1-Mini etc.)
@@ -768,6 +768,11 @@ export async function getDroneStats(): Promise<DroneStats> {
 // daterade vid historikens början → skulle annars ge max-belastning eller ett uppblåst snitt). = pilot; db/stress.ts.
 export async function getDroneStressHours(): Promise<StressHours> {
   return computeStressHours('drone_flights', `COALESCE(source, '') != 'summary'`);
+}
+
+/** Timmar per dag för Stressfactor (samma urval som getDroneStressHours). */
+export async function getDroneStressDaily(): Promise<Record<string, number>> {
+  return loadDailyHours('drone_flights', `COALESCE(source, '') != 'summary'`);
 }
 
 /** Distinkta senaste startplatser (för snabbvals-chips i Log Flight), senast använda först. */

@@ -22,6 +22,7 @@ export interface ScanRow {
   // Värden som användaren justerat så att kolumnen går ihop med sidans "Total this page" (boken är facit för
   // totalerna). Flygningen markeras när den sparas, med var i boken avvikelsen finns.
   adjusted?: { field: string; from: string; to: string; printed: number }[];
+  fromRemarks?: boolean;  // second pilot hämtad ur anmärkningen automatiskt (rubriken säger "name of PIC")
 }
 
 /**
@@ -146,6 +147,26 @@ export function prepareFlight(f: OcrFlightResult): OcrFlightResult {
       issues.push({ field: 'sim', reason: `${total} h with no pilot function time (PIC, Co-pilot, Dual). If this was a simulator session, the time belongs under simulator.`, confidence: 0.4, suggested_value: String(total), from: 'total_time' });
       flag('Total time without function time');
     }
+    // PIC + Co-pilot + Dual = total på varje flygning. Går det inte ihop har en kolumn oftast glidit en rad
+    // (högersidan läst mot fel rad på vänstersidan) — då är just funktionstiden osäker.
+    const fnOf = (f: string) => parseFloat(String((data as any)[f] ?? '0')) || 0;
+    const fn = fnOf('pic') + fnOf('co_pilot') + fnOf('dual');
+    const instr = fnOf('instructor');
+    const off = (x: number) => Math.abs(total - x) > 0.05;
+    if (total > 0 && fn > 0 && off(fn) && off(fn + instr) && !(instr > 0 && !off(instr))) {
+      const field = (['dual', 'pic', 'co_pilot'] as const).reduce((a, b) => (fnOf(b) > fnOf(a) ? b : a));
+      if (!issues.some((i) => i.field === field)) {
+        issues.push({ field, reason: `PIC + Co-pilot + Dual is ${Math.round(fn * 10) / 10} h, but the total is ${total} h.`, confidence: 0.5 });
+        flag('Function time does not match total');
+      }
+    }
+  }
+
+  // Initialer, namn och PICUS/SPIC/NVG i anmärkningen → förslag (förut Claudes remarks_suggestion, som var en
+  // tredjedel av svaret). Samma regler som prompten hade; granskningen frågar en gång för hela boken.
+  if (!data.remarks_suggestion && data.remarks) {
+    const sg = suggestFromRemarks(data.remarks, !!data.second_pilot);
+    if (sg) data.remarks_suggestion = sg;
   }
 
   // VFR-tid och flygregler härleds ur total och IFR (som tidigare).
@@ -180,7 +201,7 @@ export function flagUnknownIcaos(f: OcrFlightResult, unknown: Set<string>): OcrF
   for (const field of ['dep_place', 'arr_place'] as const) {
     const code = (f[field] ?? '').toUpperCase();
     if (code && unknown.has(code) && !issues.some((i) => i.field === field)) {
-      issues.push({ field, reason: `${code} isn't a known airport. Correct it, or keep it as an off-airport place.`, confidence: 0.3 });
+      issues.push({ field, reason: `${code} isn't in the airport database — probably misread. Choose the right airport, or keep ${code} as written.`, confidence: 0.3 });
       changed = true;
     }
   }
@@ -281,8 +302,122 @@ export function columnTotals(rows: ScanRow[], page: number, printed: Record<stri
     }, 0);
     // Kolumner som ingen rad har något värde i och där sidan säger 0 är ointressanta.
     if (sum === 0 && value === 0) continue;
+    // En "sidsumma" som är orimligt mycket större än raderna är nästan alltid "Total to date" eller
+    // "Brought forward" som lästs som "Total this page" — ingen jämförelse (och ingen fråga om att justera).
+    const isCount = COUNT_FIELDS.has(field);
+    if (value > sum * 3 && value - sum > (isCount ? 30 : 15)) continue;
     const tol = COUNT_FIELDS.has(field) ? 0.5 : 0.05;
     out.push({ page, field, sum: Math.round(sum * 100) / 100, printed: value, ok: Math.abs(sum - value) < tol });
+  }
+  return out;
+}
+
+// ── Felräknad sidsumma i pappersboken ───────────────────────────────────────
+// Ibland är det inte Claude som läst fel, utan "Total this page" som räknats fel i pappersboken. Tecken på
+// det: varje flygning stämmer med sina blocktider, eller sidans övriga summor går ihop med raderna. Då väljer
+// användaren mellan att rätta summan (följdsummorna i boken listas i en guide efteråt, scanPaperFixes.ts)
+// och att behålla den — då föreslår Blades vilka flygningar som justeras (suggestAdjustRows).
+
+const FUNCTION_FIELDS = ['pic', 'co_pilot', 'dual', 'instructor'];
+const CONDITION_FIELDS = ['ifr', 'night', 'multi_pilot', 'single_pilot', 'nvg', 'picus', 'spic'];
+const numOf = (v: unknown) => parseFloat(String(v ?? '0').replace(',', '.')) || 0;
+
+/** Stämmer sidans flygtider med blocktiderna — samma tillägg på alla rader, bara avrundning ifrån? */
+export function rowsMatchBlockTimes(rows: ScanRow[], page: number): boolean {
+  const flights = rows.filter((r) => r.page === page && !r.skip && r.data.flight_type !== 'sim');
+  const offs = flights.map((r) => timeAddition(r.data)).filter((x): x is number => x != null);
+  if (offs.length < 3 || offs.length < flights.length * 0.8) return false;
+  const med = [...offs].sort((a, b) => a - b)[Math.floor(offs.length / 2)];
+  // En tiondel för mycket eller för lite på en rad (en felläsning) hamnar utanför 0.07.
+  return med > -0.1 && med < 0.55 && offs.every((o) => Math.abs(o - med) <= 0.07);
+}
+
+/**
+ * Pekar sidans egna summor ut kolumnens summa som felräknad? PIC + Co-pilot + Dual + Instructor ska bli Total
+ * time. Går sidans tryckta summor inte ihop, men gör det när kolumnens tryckta summa byts mot radernas, är det
+ * den summan i boken som är fel.
+ */
+export function pageTotalsPointAt(rows: ScanRow[], page: number, field: string, printed: Record<string, number> | undefined): boolean {
+  if (!printed || typeof printed.total_time !== 'number') return false;
+  const fns = FUNCTION_FIELDS.filter((f) => typeof printed[f] === 'number');
+  if (!fns.length || (field !== 'total_time' && !fns.includes(field))) return false;
+  const rowSum = rows
+    .filter((r) => r.page === page && !(field === 'total_time' && r.data.flight_type === 'sim'))
+    .reduce((s, r) => s + numOf((r.data as any)[field]), 0);
+  const v = (f: string) => (f === field ? rowSum : printed[f]);
+  const asPrinted = fns.reduce((s, f) => s + printed[f], 0);
+  const withRows = fns.reduce((s, f) => s + v(f), 0);
+  return Math.abs(asPrinted - printed.total_time) >= 0.05 && Math.abs(withRows - v('total_time')) < 0.05;
+}
+
+/**
+ * Blades förslag när sidans summa ska stå kvar: vilka flygningar som justeras, i turordning
+ * (distributeDifference ger de första den största delen). Så få flygningar som möjligt och högst 0.2 h
+ * (en landning) var — osäkra avläsningar först, sedan de längsta (minst relativ ändring). Flygningar där en
+ * annan kolumn som redan går ihop skulle behöva ändras med (t.ex. Dual = hela flygtiden) tas sist.
+ */
+export function suggestAdjustRows(
+  rows: ScanRow[], page: number, field: string, diff: number,
+  printed: Record<string, number> | undefined, uncertain: Set<string>,
+): string[] {
+  const isCount = COUNT_FIELDS.has(field);
+  const step = isCount ? 1 : 0.1;
+  const units = Math.abs(Math.round(diff / step));
+  if (!units) return [];
+  const okCols = new Set(columnTotals(rows, page, printed).filter((c) => c.ok).map((c) => c.field));
+  const cands = rows.filter((r) => r.page === page && !r.skip && numOf((r.data as any)[field]) > 0
+    && !(field === 'total_time' && r.data.flight_type === 'sim'));
+  if (!cands.length) return [];
+  const perRow = isCount ? 1 : 2;
+  const pick = (k: number) => {
+    const maxDelta = Math.ceil(units / k) * step;
+    return cands.map((r) => ({ key: r.key, s: score(r, maxDelta) })).sort((a, b) => b.s - a.s).slice(0, k);
+  };
+  const k = Math.min(cands.length, Math.max(1, Math.ceil(units / perRow)));
+  const first = pick(k);
+  if (first.every((x) => x.s >= 0)) return first.map((x) => x.key);
+  // Hellre lite mer på färre flygningar (högst 0.3 h / en landning) än att en kolumn som går ihop börjar avvika.
+  const clean = pick(cands.length).filter((x) => x.s >= 0).length;
+  const widest = isCount ? 1 : 3;
+  if (clean > 0 && clean * widest >= units) {
+    const k2 = Math.min(clean, Math.max(1, Math.ceil(units / perRow)), cands.length);
+    const second = pick(Math.max(k2, Math.ceil(units / widest)));
+    if (second.every((x) => x.s >= 0)) return second.map((x) => x.key);
+  }
+  return first.map((x) => x.key);
+
+  function score(r: ScanRow, maxDelta: number) {
+    const v = numOf((r.data as any)[field]);
+    let s = v;                                                      // längre flygning → mindre relativ ändring
+    if (uncertain.has(r.key)) s += 100;
+    if (diff < 0 && v - maxDelta < step - 1e-9) s -= 1000;          // får inte bli 0 eller negativ
+    if (field === 'total_time') {
+      const tt = numOf(r.data.total_time);
+      // Kolumner som följer med flygtiden men redan går ihop med sidans summa skulle börja avvika.
+      const follows = (f: string) => numOf((r.data as any)[f]) > 0
+        && (FUNCTION_FIELDS.includes(f) ? Math.abs(numOf((r.data as any)[f]) - tt) < 0.05 : diff < 0 && numOf((r.data as any)[f]) > tt - maxDelta + 1e-9);
+      if ([...FUNCTION_FIELDS, ...CONDITION_FIELDS].some((f) => follows(f) && okCols.has(f))) s -= 50;
+    } else if (diff > 0 && !isCount && numOf((r.data as any)[field]) + maxDelta > numOf(r.data.total_time) + 1e-9) {
+      s -= 500;                                                     // får inte bli längre än flygtiden
+    }
+    return s;
+  }
+}
+
+/**
+ * Följdändringar när flygtiden på en rad justeras: funktionstiden som täckte hela flygningen följer med,
+ * och villkorstider (natt, IFR …) får inte bli längre än flygtiden.
+ */
+export function followTotalTime(data: OcrFlightResult, newTotal: number): { field: string; from: string; to: string }[] {
+  const old = numOf(data.total_time);
+  const out: { field: string; from: string; to: string }[] = [];
+  for (const f of FUNCTION_FIELDS) {
+    const v = numOf((data as any)[f]);
+    if (v > 0 && Math.abs(v - old) < 0.05) out.push({ field: f, from: String((data as any)[f]), to: String(newTotal) });
+  }
+  for (const f of CONDITION_FIELDS) {
+    const v = numOf((data as any)[f]);
+    if (v > newTotal + 1e-9) out.push({ field: f, from: String((data as any)[f]), to: String(newTotal) });
   }
   return out;
 }
@@ -333,6 +468,269 @@ export function detectTimeAddition(rows: ScanRow[]): { hours: number; rows: numb
   return best && best.rows >= 3 && best.rows >= timed * 0.5 ? best : null;
 }
 
+// ── Anmärkningar: andrepilot, PICUS/SPIC/NVG ─────────────────────────────────
+
+// Flyg- och inflygningstermer som aldrig är en andrepilots initialer.
+const NOT_INITIALS = new Set([
+  'ILS', 'NDB', 'VOR', 'GPS', 'RNAV', 'LOC', 'DME', 'PAR', 'GCA', 'RNP', 'LPV', 'LNAV', 'VNAV', 'RVR', 'GLS', 'SRA',
+  'ASR', 'NPA', 'PA', 'APV', 'PC', 'OPC', 'LPC', 'CRM', 'IR', 'VFR', 'IFR', 'SE', 'ME', 'SP', 'MP', 'NVG', 'NVD',
+  'NAV', 'SIM', 'OEI', 'AEO', 'TER', 'XC', 'PF', 'PM', 'AR', 'LL', 'LLR', 'KF', 'FF', 'ERF', 'TIS', 'TGL', 'TNG',
+  'CPL', 'PPL', 'FI', 'TRI', 'TRE', 'MCC', 'SAR', 'HEMS', 'IMC', 'VMC', 'SID', 'ATC', 'EMERG', 'SOLO',
+]);
+const NAME_WORDS = new Set(['Check', 'Solo', 'Flight', 'Night', 'Local', 'Training', 'Navigation', 'Circuits', 'Cross', 'Country', 'Ferry', 'Test', 'Skill', 'Proficiency']);
+
+/**
+ * Förslag ur anmärkningen: initialer först i texten ("SZ, NDB" → andrepilot SZ), ett ensamt för- och
+ * efternamn, eller PICUS/SPIC/NVG följt av en tid. original_text är bara det som flyttas.
+ */
+export function suggestFromRemarks(remarks: string, hasSecondPilot: boolean): OcrFlightResult['remarks_suggestion'] {
+  const text = remarks.trim();
+  const timed = /\b(PICUS|PIC\/US|P\/US|SPIC|S\/PIC|NVG|NVD|NVIS)\s*(\d+[.,]\d)\b/i.exec(text);
+  if (!hasSecondPilot) {
+    const first = /^([A-ZÅÄÖ]{2,3})(?=$|[\s,;:/.-])/.exec(text);
+    if (first && !NOT_INITIALS.has(first[1])) {
+      return { field: 'second_pilot', value: first[1], original_text: first[1], confidence: 0.7, reason: 'Initials at the start of the remarks' };
+    }
+    const name = /^([A-ZÅÄÖ][a-zåäöéü]+)\s+([A-ZÅÄÖ][a-zåäöéü]+(?:-[A-ZÅÄÖ][a-zåäöéü]+)?)$/.exec(text);
+    if (name && !NAME_WORDS.has(name[1]) && !NAME_WORDS.has(name[2])) {
+      return { field: 'second_pilot', value: text, original_text: text, confidence: 0.7, reason: 'A full name in the remarks' };
+    }
+  }
+  if (timed) {
+    const kind = timed[1].toUpperCase();
+    const field = kind.startsWith('S') ? 'spic' : kind.startsWith('N') ? 'nvg' : 'picus';
+    return { field, value: timed[2].replace(',', '.'), original_text: timed[0], confidence: 0.7, reason: `${kind} time in the remarks` };
+  }
+  return undefined;
+}
+
+// ── Andrepilot ur anmärkningen, automatiskt ─────────────────────────────────
+// Säger anmärkningskolumnens tryckta rubrik att befälhavarens eller den andra pilotens namn skrivs där ("name
+// of PIC or if another"), är namnet eller initialerna först i anmärkningen den piloten. Då sätts second pilot
+// direkt, med roll efter flygningen: SIC om den har egen PIC-tid, annars PIC (användarens regel). Var Claude
+// osäker på anmärkningen frågas raden som förut (med namnet som förslag).
+
+/** Säger rubriktexten (Visions ord på sidan) att pilotens namn skrivs i anmärkningen? */
+export function headerNamesPilot(texts: string[]): boolean {
+  const all = texts.join(' ').replace(/\s+/g, ' ');
+  return /name\s+of\s+(the\s+)?(p\.?\s?i\.?\s?c\b|pilot|commander|captain)/i.test(all)
+    || /befälhavare(ns)?\s+namn|namn\s+på\s+befälhavare/i.test(all);
+}
+
+const DITTO = /^(?=.*[-–—"'”〃])[\s\-–—"'”〃|lI1]+$/;          // "-11-", "〃", '"' …
+const NOT_NAMES = new Set(['LINE', 'BASE', 'TYPE', 'RATING', 'EXAM', 'REVALIDATION', 'RENEWAL', 'MISSION', 'SAR', 'HEMS', 'HOIST',
+  'SLING', 'MOUNTAIN', 'SLOPE', 'AUTOROTATION', 'AUTOS', 'INSTRUMENT', 'SIMULATOR', 'SOLO', 'DUAL', 'CHECK', 'LOCAL', 'TRAINING',
+  'NAVIGATION', 'CIRCUITS', 'FERRY', 'TEST', 'SKILL', 'PROFICIENCY', 'NIGHT', 'FLIGHT', 'CROSS', 'COUNTRY', 'APPROACH', 'APPROACHES']);
+
+/** Namnet eller initialerna först i anmärkningen ("SVEN, IFR" → SVEN, "Anna Berg" → Anna Berg). */
+function leadingName(remarks: string): string | null {
+  const m = /^([A-ZÅÄÖ][A-Za-zÅÄÖåäöéü]{1,15}(?:[\s-][A-ZÅÄÖ][a-zåäöéü]+)?)(?=$|[\s,;:/.])/.exec(remarks.trim());
+  if (!m) return null;
+  if (/^[A-Z]{4}\s*[-–>]\s*[A-Z]{4}/.test(remarks.trim())) return null;   // en rutt ("ESKN-ESSA"), inget namn
+  const first = m[1].split(/[\s-]/)[0].toUpperCase();
+  if (NOT_INITIALS.has(first) || NOT_NAMES.has(first) || /^(PICUS|SPIC|NVG|NVD|NVIS)$/.test(first)) return null;
+  return m[1];
+}
+
+// Resten av anmärkningen när namnet flyttats. Ett ditto-tecken ("-11-") får stå kvar som det är skrivet.
+const restOfRemarks = (remarks: string, moved: string) =>
+  remarks.replace(moved, '').replace(/^(?:[\s,;:/.]+|-\s+)+/, '').replace(/\s{2,}/g, ' ').trim();
+
+/** Sätter second pilot ur anmärkningen på raderna (per uppslag, i radordning). Antal satta. */
+export function applyPilotNamesFromRemarks(rows: ScanRow[]): number {
+  let n = 0;
+  const pages = new Map<number, ScanRow[]>();
+  for (const r of rows) { const l = pages.get(r.page) ?? []; l.push(r); pages.set(r.page, l); }
+  for (const list of pages.values()) {
+    let prev: { name: string; rest: string } | null = null;        // för ditto ("-11-") på nästa rad
+    for (const r of [...list].sort((a, b) => a.rowIndex - b.rowIndex)) {
+      const d = r.data;
+      if (r.skip) continue;
+      if (d.second_pilot) { prev = r.fromRemarks ? { name: d.second_pilot, rest: d.remarks ?? '' } : null; continue; }
+      const remarks = String(d.remarks ?? '').trim();
+      let name: string | null = null, rest = remarks;
+      if (remarks && DITTO.test(remarks)) { if (prev) { name = prev.name; rest = prev.rest; } }
+      else {
+        const rs = d.remarks_suggestion;
+        if (rs?.field === 'second_pilot') { name = rs.value; rest = restOfRemarks(remarks, rs.original_text); }
+        else { const lead = remarks ? leadingName(remarks) : null; if (lead) { name = lead; rest = restOfRemarks(remarks, lead); } }
+      }
+      if (name && [d.dep_place, d.arr_place].some((p) => (p ?? '').toUpperCase() === name!.toUpperCase())) name = null;   // en plats
+      if (!name) { prev = null; continue; }
+      prev = { name, rest };
+      const unsure = (d.field_issues ?? []).some((x) => x.field === 'remarks' || x.field === 'second_pilot');
+      if (unsure) {
+        // Osäker läsning → frågas, med namnet som förslag.
+        if (!DITTO.test(remarks)) {
+          const base = d.remarks_suggestion?.field === 'second_pilot' ? d.remarks_suggestion : { field: 'second_pilot', value: name, original_text: name };
+          r.data = { ...d, remarks_suggestion: { ...base, confidence: 0.5, reason: 'Name of the PIC in the remarks, but the reading is unsure' } };
+        }
+        continue;
+      }
+      r.data = { ...d, second_pilot: name, second_pilot_role: numOf(d.pic) > 0 ? 'COP' : 'PIC', remarks: rest, remarks_suggestion: undefined } as OcrFlightResult;
+      r.fromRemarks = true;
+      n++;
+    }
+  }
+  return n;
+}
+
+// ── Raderna i ordning: datum, dubbelrader ────────────────────────────────────
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const sameRowScore = (a: OcrFlightResult, b: OcrFlightResult) =>
+  (['date', 'registration', 'dep_utc', 'arr_utc', 'total_time', 'dual', 'pic', 'landings_day', 'landings_night'] as const)
+    .filter((f) => String((a as any)[f] ?? '') !== '' && String((a as any)[f] ?? '') === String((b as any)[f] ?? '')).length;
+
+/**
+ * En rad som lästs två gånger syns knappt i granskningen (den hamnar ovanpå originalet) men räknas i summan.
+ * Är kolumnen exakt en rads värde för stor och är den raden en kopia av grannen (eller delar radplats med en
+ * annan), är det troligen den — inte summan i pappersboken — som är fel.
+ */
+export function findExtraRow(rows: ScanRow[], page: number, field: string, diff: number, rowsPerPage?: number): ScanRow | null {
+  if (!(diff < 0)) return null;
+  const pageRows = rows.filter((r) => r.page === page && !r.skip).sort((a, b) => a.rowIndex - b.rowIndex);
+  const tooMany = !!rowsPerPage && pageRows.length > rowsPerPage;
+  let best: ScanRow | null = null, bestScore = -1;
+  pageRows.forEach((r, i) => {
+    if (field === 'total_time' && r.data.flight_type === 'sim') return;
+    if (Math.abs(numOf((r.data as any)[field]) + diff) >= 0.05) return;     // raden är precis överskottet
+    const shared = pageRows.some((o) => o !== r && o.rowIndex === r.rowIndex);
+    const copy = Math.max(i > 0 ? sameRowScore(pageRows[i - 1].data, r.data) : 0, i + 1 < pageRows.length ? sameRowScore(pageRows[i + 1].data, r.data) : 0);
+    if (!(shared || copy >= 4 || (tooMany && copy >= 2))) return;
+    const sc = (shared ? 10 : 0) + copy + (tooMany ? 2 : 0);
+    if (sc >= bestScore) { best = r; bestScore = sc; }                       // lika: den senare av två kopior
+  });
+  return best;
+}
+
+/**
+ * Kontroller över raderna på ett uppslag (kod, inte modellen): datum som går bakåt, samma datum men tidigare
+ * på dagen än raden ovanför (en kolumn har glidit en rad), och fler rader än sidan har tryckta rader (en rad
+ * lästes två gånger). Lägger till field_issues på datumet; "Skip row" i granskningen tar bort en dubbelrad.
+ */
+export function checkRowSequence(rows: ScanRow[], rowsPrinted?: number): void {
+  const sorted = [...rows].filter((r) => !r.skip).sort((a, b) => a.rowIndex - b.rowIndex);
+  const ask = (r: ScanRow, reason: string) => {
+    const issues = r.data.field_issues ?? [];
+    if (issues.some((i) => i.field === 'date')) return;
+    r.data = { ...r.data, field_issues: [...issues, { field: 'date', reason, confidence: 0.5 }], needs_review: true };
+  };
+  // Dubbelraden först, så att den frågan vinner över datumfrågan på samma rad.
+  if (rowsPrinted && sorted.length > rowsPrinted) {
+    let best = -1, bestScore = -1;
+    for (let i = 1; i < sorted.length; i++) {
+      const sc = sameRowScore(sorted[i - 1].data, sorted[i].data);
+      if (sc > bestScore) { best = i; bestScore = sc; }
+    }
+    if (best > 0) ask(sorted[best], `The page has ${rowsPrinted} rows but ${sorted.length} were read — this row may be read twice.`);
+  }
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1].data, b = sorted[i].data;
+    if (!ISO_DATE.test(a.date ?? '') || !ISO_DATE.test(b.date ?? '')) continue;
+    if (b.date < a.date) { ask(sorted[i], 'Earlier than the row above — check the date.'); continue; }
+    if (b.date !== a.date) continue;
+    const aDep = clockMin(a.dep_utc), aArr = clockMin(a.arr_utc), bDep = clockMin(b.dep_utc);
+    if (aDep == null || aArr == null || bDep == null || aArr < aDep) continue;   // över midnatt: ingen slutsats
+    if (bDep + 5 < aArr) ask(sorted[i], 'Same date as the row above but earlier in the day — check the date.');
+  }
+}
+
+/**
+ * Bokens radantal: samma bok har lika många tryckta rader på varje uppslag. Har minst två tidigare uppslag
+ * samma antal används det (Claudes egen räkning kan bli fel just på uppslaget där en rad lästs två gånger).
+ */
+export function typicalRowsPerPage(seen: number[], current?: number): number | undefined {
+  const counts = new Map<number, number>();
+  for (const n of seen) if (n > 0) counts.set(n, (counts.get(n) ?? 0) + 1);
+  let best: [number, number] | null = null;
+  for (const e of counts) if (!best || e[1] > best[1]) best = e;
+  return best && best[1] >= 2 ? best[0] : current;
+}
+
+/**
+ * Simulatortid som hamnat i en "Other type of flight time"-kolumn (Claude blandade ihop kolumnerna): rader
+ * utan total flygtid och utan funktionstid men med ett värde där. Går sidans simulatorsumma ihop när de
+ * värdena räknas som simulator, är det simulatorpass — de flyttas dit (sidans summa bekräftar).
+ */
+export function reconcileSimColumn(rows: ScanRow[], page: number, printed: Record<string, number> | undefined): void {
+  const target = printed?.sim;
+  if (!(typeof target === 'number' && target > 0)) return;
+  const num = (v: unknown) => parseFloat(String(v ?? '0')) || 0;
+  const pageRows = rows.filter((r) => r.page === page && !r.skip);
+  const simSum = pageRows.reduce((s, r) => s + num(r.data.sim), 0);
+  if (Math.abs(simSum - target) < 0.05) return;
+  const cands = pageRows.flatMap((r) => {
+    const d = r.data;
+    if (d.flight_type === 'sim' || num(d.total_time) > 0 || ['pic', 'co_pilot', 'dual', 'instructor'].some((f) => num((d as any)[f]) > 0)) return [];
+    const vals = Object.entries(d.other_times ?? {}).filter(([, v]) => v > 0);
+    return vals.length === 1 ? [{ r, key: vals[0][0], value: vals[0][1] }] : [];
+  });
+  const extra = cands.reduce((s, c) => s + c.value, 0);
+  if (!cands.length || Math.abs(simSum + extra - target) >= 0.05) return;
+  for (const { r, key, value } of cands) {
+    const others = { ...(r.data.other_times ?? {}) };
+    delete others[key];
+    const issues = (r.data.field_issues ?? []).filter((i) => i.field !== key && i.field !== 'other_flight_time');
+    if (!issues.some((i) => i.field === 'sim_category')) issues.push({ field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 });
+    r.data = { ...r.data, flight_type: 'sim', sim: String(value), total_time: String(value), other_times: others, field_issues: issues, needs_review: true };
+  }
+}
+
+/**
+ * Bokens tillägg (t.ex. +0.2 h) skrivet i cellen ("1.2 + 0.2") men läst utan tillägget: tiden är då exakt
+ * tillägget lägre än radens total. Går kolumnen ihop med sidans "Total this page" när tillägget läggs till på
+ * just de raderna, läggs det till (sidans summa bekräftar). Returnerar antalet rättade celler.
+ */
+export function reconcileAddition(rows: ScanRow[], page: number, printed: Record<string, number> | undefined, add: number | null | undefined): number {
+  if (!printed || !(typeof add === 'number' && add > 0)) return 0;
+  const num = (v: unknown) => parseFloat(String(v ?? '0')) || 0;
+  let fixed = 0;
+  for (const field of ['dual', 'pic', 'co_pilot', 'instructor', 'ifr', 'night']) {
+    const target = printed[field];
+    if (typeof target !== 'number') continue;
+    const pageRows = rows.filter((r) => r.page === page && !r.skip && r.data.flight_type !== 'sim');
+    const sum = pageRows.reduce((acc, r) => acc + num((r.data as any)[field]), 0);
+    if (Math.abs(sum - target) < 0.05) continue;
+    const short = pageRows.filter((r) => {
+      const v = num((r.data as any)[field]);
+      return v > 0 && Math.abs(num(r.data.total_time) - v - add) < 0.05;
+    });
+    if (!short.length || Math.abs(sum + short.length * add - target) >= 0.05) continue;
+    for (const r of short) {
+      const v = Math.round((num((r.data as any)[field]) + add) * 10) / 10;
+      // Frågan "PIC + Co-pilot + Dual is …" gällde just det här och behövs inte längre.
+      const issues = (r.data.field_issues ?? []).filter((x) => !(x.field === field && /^PIC \+ Co-pilot \+ Dual/.test(x.reason)));
+      r.data = { ...r.data, [field]: String(v), field_issues: issues };
+      fixed++;
+    }
+  }
+  return fixed;
+}
+
+/**
+ * Samma tal under Day och Night på en rad, när bara den ena kolumnen går ihop med sidans summa: talet är
+ * nästan alltid skrivet i fel kolumn, överstruket och omskrivet i den andra (vanligt vid nattflygning).
+ * → fråga om värdet i kolumnen som inte går ihop, med 0 som förslag.
+ */
+export function checkLandingPairs(rows: ScanRow[], page: number, printed: Record<string, number> | undefined): void {
+  const checks = columnTotals(rows, page, printed);
+  const ok = (f: string) => checks.find((c) => c.field === f)?.ok;
+  const bad = ok('landings_day') === false && ok('landings_night') !== false ? 'landings_day'
+    : ok('landings_night') === false && ok('landings_day') !== false ? 'landings_night' : null;
+  if (!bad) return;
+  const other = bad === 'landings_day' ? 'landings_night' : 'landings_day';
+  for (const r of rows) {
+    if (r.page !== page || r.skip) continue;
+    const v = Number((r.data as any)[bad]) || 0;
+    if (v <= 0 || v !== (Number((r.data as any)[other]) || 0)) continue;
+    const issues = r.data.field_issues ?? [];
+    if (issues.some((i) => i.field === bad)) continue;
+    const where = other === 'landings_night' ? 'Night' : 'Day';
+    r.data = { ...r.data, needs_review: true, field_issues: [...issues, { field: bad, reason: `The same ${v} is under ${where}. Is this one struck out?`, confidence: 0.4, suggested_value: '0' }] };
+  }
+}
+
 export interface SaveSummary {
   saved: number;
   adjusted: number;       // sparade flygningar som justerats mot sidans summa (markerade)
@@ -340,6 +738,7 @@ export interface SaveSummary {
   duplicates: number;
   bookName: string | null;
   pageLabel: string;
+  ids: Record<string, number>;   // ScanRow.key → flygningens id (sparad nu eller redan i loggboken)
 }
 
 /** Sparar alla rader som inte hoppats över. Samma regler som den gamla granskningen. */
@@ -352,6 +751,7 @@ export async function saveScanRows(
 ): Promise<SaveSummary> {
   let saved = 0, skipped = 0, duplicates = 0, adjusted = 0;
   const savedIds: number[] = [];
+  const ids: Record<string, number> = {};   // rad → flygning (ny, eller den som redan fanns)
   const db = await getDatabase();
 
   for (const row of rows) {
@@ -362,7 +762,7 @@ export async function saveScanRows(
       `SELECT id FROM flights WHERE date=? AND dep_place=? AND arr_place=? AND ABS(total_time - ?) < 0.05 LIMIT 1`,
       [d.date, d.dep_place, d.arr_place, parseFloat(d.total_time) || 0],
     );
-    if (dup) { duplicates++; continue; }
+    if (dup) { duplicates++; ids[row.key] = dup.id; continue; }
     mapOtherTimes(d);
     deriveMultiPilot(d);
     // Platser som inte är ICAO-koder (namn eller ZZ…) → tillfällig plats med egen kod.
@@ -377,7 +777,7 @@ export async function saveScanRows(
       } catch { /* behåll värdet */ }
     }
     const id = await insertFlight(d, { source: 'ocr', originalData: JSON.stringify(row.original) });
-    if (id) savedIds.push(id);
+    if (id) { savedIds.push(id); ids[row.key] = id; }
     saved++;
     // Justerad mot sidans summa → markerad flygning + en rad i ändringsloggen per fält, med var i boken.
     if (id && row.adjusted?.length) {
@@ -405,13 +805,9 @@ export async function saveScanRows(
     try { await addToAircraftRegistry(type, reg); } catch { /* ignorera */ }
   }
 
-  // Okända ICAO-koder som behölls → tillfälliga platser.
-  for (const icao of opts.unknownIcaos) {
-    if (isOffAirportCode(icao)) continue;
-    const stillUsed = rows.some((r) => !r.skip && [r.data.dep_place, r.data.arr_place].some((p) => (p ?? '').toUpperCase() === icao));
-    if (!stillUsed) continue;
-    try { await addTemporaryPlace(icao, icao); } catch { /* redan tillagd */ }
-  }
+  // Okända ICAO-koder som behölls blir INTE off-airport-platser (användarens regel): en kod som inte finns i
+  // databasen är oftast en felläsning (ESCC för ESCF). Koden står kvar på flygningen som den skrevs, utan
+  // plats och utan position, tills användaren rättar den. (opts.unknownIcaos används inte längre här.)
 
   // Koppla till den aktiva pappersboken via de tryckta sidnumren.
   const book = await getActiveBook();
@@ -427,7 +823,7 @@ export async function saveScanRows(
   }
 
   const pageLabel = opts.pageNumbers.filter((p) => p.left).map((p) => `${p.left}–${p.right ?? (p.left! + 1)}`).join(', ');
-  return { saved, adjusted, skipped, duplicates, bookName: book && pageLabel ? book.name : null, pageLabel };
+  return { saved, adjusted, skipped, duplicates, bookName: book && pageLabel ? book.name : null, pageLabel, ids };
 }
 
 /** Användarens rättelser lär skannern: nästa skanning får dem som ledtrådar (db/ocrLearned). */

@@ -109,3 +109,46 @@
 .doc-grid span { font-size: 14px; font-weight: 600; color: var(--ink); }
 .doc-cta { margin-top: 48px !important; }
 @media (max-width: 640px) { .doc-body ul.doc-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Guides: the list on /guides, "More guides" at the end of each guide ---------- */
+.doc-updated { white-space: nowrap; }
+.doc-guides { max-width: 760px; margin: 0 auto; }
+.guide-list { list-style: none; margin: 28px 0 0 !important; padding: 0 !important; display: grid; gap: 14px; }
+.guide-list li { margin: 0 !important; padding: 0 !important; }
+.guide-list a { display: grid; gap: 4px; padding: 22px 24px; border-radius: 20px; text-decoration: none; background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line), 0 10px 30px rgba(10, 22, 40, 0.06); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.guide-list a:hover { box-shadow: inset 0 0 0 1px rgba(7, 134, 163, 0.5), 0 14px 34px rgba(10, 22, 40, 0.1); transform: translateY(-1px); }
+.gl-k { font-size: 12.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cyan-deep); }
+.guide-list b { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 2.4vw, 30px); line-height: 1.15; color: var(--ink); }
+.gl-d { font-size: 16px; line-height: 1.55; color: #26364c; }
+.guide-more { margin-top: 28px !important; font-size: 16px; color: var(--muted); }
+.doc-related { margin-top: 56px !important; padding-top: 28px; border-top: 1px solid var(--line); }
+.doc-body .doc-related h2 { margin: 0; font-size: 22px; }
+.doc-related ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.doc-related li { margin: 0 !important; padding: 0; }
+.doc-related a { display: grid; gap: 2px; padding: 14px 16px; border-radius: 14px; text-decoration: none; background: var(--light); transition: box-shadow 0.2s ease; }
+.doc-related a:hover { box-shadow: inset 0 0 0 1px rgba(7, 134, 163, 0.5); }
+.doc-related b { font-size: 16px; font-weight: 650; color: var(--ink); }
+.doc-related span { font-size: 14px; color: var(--muted); }
+
+/* Guides: tables, questions and quoted rule text */
+.doc-body h3 { margin-top: 30px; font-size: 18px; font-weight: 650; line-height: 1.35; color: var(--ink); }
+.doc-body h3 + p, .doc-body h3 + ul { margin-top: 8px; }
+.doc-body q { font-style: italic; color: var(--ink); }
+.doc-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+.doc-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+.doc-table th { padding: 12px 14px; text-align: left; vertical-align: bottom; font-size: 13px; font-weight: 650; letter-spacing: 0.02em; color: var(--muted); background: var(--light); }
+.doc-table td { padding: 12px 14px; vertical-align: top; border-top: 1px solid var(--line); color: #26364c; }
+.doc-table td:first-child { font-weight: 600; color: var(--ink); }
+@media (max-width: 600px) {
+  /* On a phone each row of a guide table becomes a small card, its headings as labels */
+  .doc-table-wrap { overflow: visible; box-shadow: none; }
+  .doc-table { min-width: 0; }
+  .doc-table thead { display: none; }
+  .doc-table tr { display: block; margin-top: 10px; padding: 12px 14px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+  .doc-table td { display: block; padding: 3px 0; border: 0; }
+  .doc-table td::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 650; letter-spacing: 0.02em; color: var(--muted); }
+  .doc-table td:first-child::before { display: none; }
+  .doc-table td:first-child { font-size: 16px; }
+}
+.doc-guides > .guide-list:first-child { margin-top: 0 !important; }

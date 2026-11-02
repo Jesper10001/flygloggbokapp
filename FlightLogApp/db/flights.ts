@@ -2,7 +2,7 @@ import { getDatabase } from './database';
 import type { Flight, FlightFormData, FlightStats } from '../types/flight';
 import { parseFlightTime } from '../utils/format';
 import { syncBackfillRow, PREV_EXP_REMARK } from './backfill';
-import { computeStressHours, type StressHours } from './stress';
+import { computeStressHours, loadDailyHours, type StressHours } from './stress';
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -433,6 +433,23 @@ export async function getRegistrationsForType(
     .filter((r) => !flownSet.has(r.registration.toUpperCase()))
     .map((r) => ({ registration: r.registration, hours: 0, last_flown: '', flightCount: 0 }));
   return [...flown, ...extra];
+}
+
+// Varje registrering i flottan och typen den flugits som (flest flygningar först), plus registret. Skanningen
+// använder det för att en känd registrering alltid ska få flottans typ (services/scanTypes.ts).
+export async function getFleetRegistrationTypes(): Promise<{ registration: string; aircraft_type: string; n: number }[]> {
+  const db = await getDatabase();
+  const flown = await db.getAllAsync<{ registration: string; aircraft_type: string; n: number }>(
+    `SELECT UPPER(registration) as registration, UPPER(aircraft_type) as aircraft_type, COUNT(*) as n
+     FROM flights WHERE registration != '' AND aircraft_type != '' AND flight_type != 'sim'
+     GROUP BY UPPER(registration), UPPER(aircraft_type)`,
+  );
+  const reg = await db.getAllAsync<{ registration: string; aircraft_type: string }>(
+    `SELECT DISTINCT UPPER(registration) as registration, UPPER(aircraft_type) as aircraft_type
+     FROM aircraft_registry WHERE registration != '' AND aircraft_type != ''`,
+  );
+  const seen = new Set(flown.map((r) => `${r.registration}|${r.aircraft_type}`));
+  return [...flown, ...reg.filter((r) => !seen.has(`${r.registration}|${r.aircraft_type}`)).map((r) => ({ ...r, n: 0 }))];
 }
 
 // Byt namn på en registrering → uppdaterar BÅDE flighter OCH registret (namnet följer med överallt).
@@ -1623,6 +1640,11 @@ export async function deleteSavedCrewName(name: string): Promise<void> {
 // början — de skulle annars ge max-belastning eller ett uppblåst snitt. Beräkningen: db/stress.ts.
 export async function getStressHours(): Promise<StressHours> {
   return computeStressHours('flights', `flight_type != 'summary' AND COALESCE(remarks, '') != ?`, [PREV_EXP_REMARK]);
+}
+
+/** Timmar per dag för Stressfactor (samma urval som getStressHours). */
+export async function getStressDaily(): Promise<Record<string, number>> {
+  return loadDailyHours('flights', `flight_type != 'summary' AND COALESCE(remarks, '') != ?`, [PREV_EXP_REMARK]);
 }
 
 export async function getDailyHours14(): Promise<{ date: string; hours: number }[]> {

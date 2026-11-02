@@ -10,6 +10,7 @@ import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { GlassDialog, DialogIcon } from './GlassDialog';
 import { useTourStore, beginTour } from '../store/tourStore';
 import { TOURS } from '../constants/tourSteps';
 import { useFlightStore } from '../store/flightStore';
@@ -341,23 +342,19 @@ function Checklist({ mode, stepKey, title, onFinish, onBack, onGo }: {
 
 // ── Fråga efter onboarding ───────────────────────────────────────────────────
 function TourPrompt({ onYes, onLater }: { onYes: () => void; onLater: () => void }) {
+  // Samma stil som appens övriga popup-rutor (GlassDialog). Tryck utanför stänger inte: man väljer Ja eller Senare.
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: '#0006' }]} onPress={() => { /* svälj */ }} />
-      <View style={styles.promptWrap}>
-        <Animated.View entering={FadeInDown.duration(260)} style={styles.promptCard}>
-          <View style={styles.promptIcon}><Ionicons name="compass-outline" size={24} color={Colors.primary} /></View>
-          <Text style={styles.promptTitle}>Take a quick tour?</Text>
-          <Text style={styles.promptBody}>A short guided walk through Blades — where everything lives and how to log your flying. Takes about a minute.</Text>
-          <TouchableOpacity onPress={onYes} activeOpacity={0.85} style={styles.promptYes}>
-            <Text style={styles.nextText}>Yes, show me</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onLater} activeOpacity={0.8} style={styles.promptLater}>
-            <Text style={styles.promptLaterText}>Maybe later</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-    </View>
+    <GlassDialog
+      visible
+      onClose={onLater}
+      closeOnScrim={false}
+      icon={<DialogIcon name="compass-outline" />}
+      eyebrow="Welcome to Blades"
+      title="Take a quick tour?"
+      body="A short guided walk through Blades: where everything lives and how to log your flying. It takes about a minute."
+      primary={{ label: 'Yes, show me', onPress: onYes }}
+      secondary={{ label: 'Maybe later', onPress: onLater }}
+    />
   );
 }
 
@@ -392,12 +389,4 @@ const styles = StyleSheet.create({
   clLabel: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: '700' },
   clRowSub: { color: Colors.textMuted, fontSize: 11.5, marginTop: 1 },
 
-  promptWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
-  promptCard: { width: '100%', maxWidth: 400, backgroundColor: Colors.card, borderRadius: 20, padding: 22, borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 14 },
-  promptIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '44', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  promptTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
-  promptBody: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginBottom: 8 },
-  promptYes: { alignSelf: 'stretch', backgroundColor: Colors.primary, borderRadius: 13, paddingVertical: 13, alignItems: 'center' },
-  promptLater: { alignSelf: 'stretch', paddingVertical: 11, alignItems: 'center' },
-  promptLaterText: { color: Colors.textSecondary, fontSize: 14.5, fontWeight: '700' },
 });

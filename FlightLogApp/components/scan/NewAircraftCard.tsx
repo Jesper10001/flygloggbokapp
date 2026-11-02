@@ -18,12 +18,15 @@ export interface AircraftInput {
 
 export const emptyAircraftInput = (): AircraftInput => ({ speed: '', endurance: '', crew: [], engine: '', category: '', ai: [] });
 
-export function NewAircraftSection({ types, values, loading, failed, onChange }: {
-  types: { type: string; registrations: string[]; rows: number }[];
+export function NewAircraftSection({ types, values, loading, failed, onChange, onName, onSeparate }: {
+  // aka: skrivsätt i boken som slagits ihop till typen (services/scanTypes.ts); groupId identifierar dem.
+  types: { type: string; registrations: string[]; rows: number; aka?: string[]; groupId?: string }[];
   values: Record<string, AircraftInput>;
   loading: Set<string>;
   failed: Set<string>;
   onChange: (type: string, v: AircraftInput) => void;
+  onName?: (groupId: string, name: string) => void;      // ett av skrivsätten blir typens namn
+  onSeparate?: (groupId: string) => void;                // skrivsätten blir egna typer
 }) {
   const { t } = useTranslation();
   if (types.length === 0) return null;
@@ -42,7 +45,7 @@ export function NewAircraftSection({ types, values, loading, failed, onChange }:
         <Text style={[s.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>SPEED (kts)</Text>
         <Text style={[s.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>ENDUR. (h)</Text>
       </View>
-      {types.map(({ type }) => {
+      {types.map(({ type, aka, groupId }) => {
         const v = values[type] ?? emptyAircraftInput();
         const ai = new Set(v.ai);
         const set = (patch: Partial<AircraftInput>, field: string) => onChange(type, { ...v, ...patch, ai: v.ai.filter((f) => f !== field) });
@@ -73,6 +76,25 @@ export function NewAircraftSection({ types, values, loading, failed, onChange }:
                 maxLength={4}
               />
             </View>
+            {/* Skrivsätten i boken som är samma luftfartyg: ett tryck gör det till typens namn, eller håll isär. */}
+            {aka && aka.length > 0 && groupId && (
+              <View style={s.akaBox}>
+                <Text style={s.akaText}>Also written as {aka.join(', ')} in your logbook — one aircraft, so one type. Tap a name to use it instead.</Text>
+                <View style={s.akaRow}>
+                  {[type, ...aka].map((name) => (
+                    <TouchableOpacity key={name} style={[s.akaChip, name === type && s.akaChipOn]} disabled={name === type || !onName}
+                      onPress={() => onName?.(groupId, name)} activeOpacity={0.75} accessibilityRole="button" accessibilityState={{ selected: name === type }}>
+                      <Text style={[s.akaChipText, name === type && { color: Colors.primary }]}>{name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {onSeparate && (
+                    <TouchableOpacity onPress={() => onSeparate(groupId)} hitSlop={8} accessibilityRole="button" style={{ marginLeft: 'auto' }}>
+                      <Text style={s.akaLink}>Keep separate</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
             <View style={s.crewRow}>
               {(['sp', 'mp'] as const).map((key) => {
                 const active = v.crew.includes(key);
@@ -140,6 +162,13 @@ const s = StyleSheet.create({
   },
   speedUnit: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', width: 24 },
   typeBlock: { gap: 6 },
+  akaBox: { gap: 6, paddingHorizontal: 2 },
+  akaText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 16 },
+  akaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  akaChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  akaChipOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '1A' },
+  akaChipText: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  akaLink: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
   crewRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 2 },
   crewBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,

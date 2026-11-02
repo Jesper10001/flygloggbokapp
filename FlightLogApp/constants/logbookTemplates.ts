@@ -87,7 +87,21 @@ export interface LogbookTemplate {
   descriptionKey?: string;    // i18n-nyckel för detaljtext under omslaget
   header_rows?: LogbookHeaderCell[][]; // explicit nästlad rubrik
   dashed_after?: string[];    // kolumn-id vars högerkant ritas streckad
-  summary_layout?: 'bf-top' | 'bottom'; // var brought forward-raden hamnar
+  summary_layout?: 'bf-top' | 'bottom'; // historiskt; alla böcker ritas nu 'bottom' (applyBookRules, renderSpread)
+}
+
+/**
+ * Bokregeln (användarens, 2026-11-02) — gäller ALLA loggböcker, även egna och de som skapas från skanningen:
+ * längst ner står alltid Total this page, Brought forward och Total to date, i den ordningen, med pilotens
+ * signatur till vänster om raderna — samma stil som de inbyggda böckerna. Resten (kolumner, bredder, rader per
+ * uppslag) är fritt. Läggs på varje egen mall när den registreras eller sparas.
+ */
+export function applyBookRules(t: LogbookTemplate): LogbookTemplate {
+  return {
+    ...t,
+    summary_layout: 'bottom',
+    footer: { this_page_total: true, brought_forward: true, total_to_date: true, signature: true },
+  };
 }
 
 export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
@@ -500,8 +514,53 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
   },
 ];
 
+// Användarens egna mallar (db/customTemplates: "Custom logbook" och böcker skapade från en skanning).
+// Registreras här när de läses eller sparas, så att getTemplate hittar dem synkront. Förut föll en egen
+// mall tillbaka på standardmallen i Dina böcker, förhandsvisningen och exporten.
+const CUSTOM_TEMPLATES = new Map<string, LogbookTemplate>();
+
+export function registerCustomTemplates(list: LogbookTemplate[], replaceAll = false): void {
+  if (replaceAll) CUSTOM_TEMPLATES.clear();
+  for (const t of list) CUSTOM_TEMPLATES.set(t.id, applyBookRules(t));
+}
+
+export function unregisterCustomTemplate(id: string): void {
+  CUSTOM_TEMPLATES.delete(id);
+}
+
 export function getTemplate(id: string): LogbookTemplate {
-  return LOGBOOK_TEMPLATES.find((t) => t.id === id) ?? LOGBOOK_TEMPLATES[0];
+  return LOGBOOK_TEMPLATES.find((t) => t.id === id) ?? CUSTOM_TEMPLATES.get(id) ?? LOGBOOK_TEMPLATES[0];
+}
+
+// Grupper över kolumnerna som i en EASA-bok, efter vilket fält kolumnen visar (flightKey).
+const BOOK_GROUP: Record<string, string> = {
+  aircraft_type: 'Aircraft', registration: 'Aircraft',
+  dep_place: 'Departure', dep_utc: 'Departure', arr_place: 'Arrival', arr_utc: 'Arrival',
+  ifr: 'Operational condition time', night: 'Operational condition time',
+  pic: 'Pilot function time', co_pilot: 'Pilot function time', dual: 'Pilot function time', instructor: 'Pilot function time',
+  landings_day: 'Landings', landings_night: 'Landings',
+};
+export const bookGroupFor = (flightKey?: string): string | undefined => (flightKey ? BOOK_GROUP[flightKey] : undefined);
+
+/**
+ * Tvåradig rubrik som i en riktig bok: gruppen över sina kolumner, och kolumner utan grupp över båda raderna.
+ * En kolumn utan fält får colId, så att man kan trycka på rubriken och ge den en tidstyp (som i AMC1-mallen).
+ */
+export function bookHeaderRows(cols: LogbookColumn[]): LogbookHeaderCell[][] {
+  const cell = (c: LogbookColumn): LogbookHeaderCell => ({ label: c.label, ...(c.flightKey ? {} : { colId: c.id }) });
+  if (!cols.some((c) => c.group)) return [cols.map(cell)];
+  const top: LogbookHeaderCell[] = [];
+  const sub: LogbookHeaderCell[] = [];
+  for (let i = 0; i < cols.length;) {
+    const g = cols[i].group;
+    if (!g) { top.push({ ...cell(cols[i]), rowSpan: 2 }); i++; continue; }
+    let j = i;
+    while (j < cols.length && cols[j].group === g) j++;
+    top.push({ label: g, colSpan: j - i });
+    for (let k = i; k < j; k++) sub.push(cell(cols[k]));
+    i = j;
+  }
+  return [top, sub];
 }
 
 // Hjälpare — formatera ett fält enligt kolumnen

@@ -11,31 +11,29 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/scanQuotaStore';
 import { presentPaywall } from '../../services/purchases';
-import { setScanBatch, setScanSources, setScanUseBookLayout, getScanUseBookLayout, setScanFocus, getScanFocus, type ScanImage, type ScanFocus } from '../../store/scanStore';
+import { setScanBatch, setScanSources, setScanUseBookLayout, getScanUseBookLayout, setScanFocus, MAX_SPREADS, type ScanImage } from '../../store/scanStore';
+import { useScanBookStore, sessionsOf } from '../../store/scanBookStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { askAiConsent } from '../../services/aiConsent';
 import { getActiveDigitalBook } from '../../db/digitalBooks';
 import { getAnyTemplate } from '../../db/customTemplates';
 import { isScanCameraAvailable } from '../../modules/scan-camera';
+import { isAvailable as visionAvailable } from '../../modules/apple-vision-ocr';
 import { getDeviceId } from '../../services/anthropicClient';
 import * as Crypto from 'expo-crypto';
 import { getSetting, setSetting } from '../../db/flights';
+import { loadLedger } from '../../services/paperLedger';
+import { ledgerStatus, type LedgerStatus } from '../../services/scanPaperFixes';
+import { PaperFixGuide } from '../../components/scan/PaperFixGuide';
+import { useTimeFormatStore } from '../../store/timeFormatStore';
+import { GlassDialog } from '../../components/GlassDialog';
 
 // Startsidan för att skanna pappersloggboken: hur det går till, vilken loggbok som läses, och vägen in i
 // kameran (eller fotobiblioteket). Själva kameran ligger i scan-camera.tsx, granskningen i flight/review.
 
-const MAX_SPREADS = 5;
 const OCR_WIDTH = 2000;
 
 type BookInfo = { name: string; layout: string; rows: number } | null;
-
-// Vad som är viktigt för användaren styr hur många frågor granskningen ställer (scan-review: worthAsking)
-// och vad Claude lägger kraft på (ocr.ts).
-const FOCUS_OPTIONS: { key: ScanFocus; title: string; desc: string }[] = [
-  { key: 'exact', title: 'Every flight, exactly', desc: 'Every value must match my logbook. Claude asks about anything it is unsure of.' },
-  { key: 'balanced', title: 'Flights mostly, totals exactly', desc: 'Dates, aircraft and places must be right, and the totals exact. Fewer questions.' },
-  { key: 'totals', title: 'Only the totals', desc: 'Only the page totals have to match. Claude asks only when a column doesn\'t add up.' },
-];
 
 export default function ScanImportScreen() {
   const { t } = useTranslation();
@@ -50,18 +48,34 @@ export default function ScanImportScreen() {
   const [working, setWorking] = useState(false);
   const [showBuy, setShowBuy] = useState(false);
   const [devHash, setDevHash] = useState<string | null>(null);
-  const [focus, setFocus] = useState<ScanFocus>(getScanFocus());
-  const chooseFocus = (f: ScanFocus) => { setFocus(f); setScanFocus(f); setSetting('scan_focus', f).catch(() => {}); };
+  // Förra valet av fokus ("What matters most to you?") förväljs när granskningen frågar efter läsningen.
   useEffect(() => {
     getSetting('scan_focus').then((v) => {
-      if (v === 'exact' || v === 'balanced' || v === 'totals') { setFocus(v); setScanFocus(v); }
+      if (v === 'exact' || v === 'balanced' || v === 'totals') setScanFocus(v);
     }).catch(() => {});
   }, []);
   // Regel som användaren bekräftat i en tidigare skanning: total = avgång → ankomst + tillägg (t.ex. 0.2 h).
   const [addition, setAddition] = useState<number | null>(null);
   const forgetAddition = () => { setAddition(null); setSetting('scan_time_addition', '').catch(() => {}); };
+  // Felräknade summor i pappersboken från tidigare skanningar (services/paperLedger.ts) → kortet öppnar guiden.
+  const [paper, setPaper] = useState<LedgerStatus | null>(null);
+  const [paperGuide, setPaperGuide] = useState(false);
+  const { timeFormat } = useTimeFormatStore();
+  const reloadPaper = () => loadLedger().then((l) => setPaper(ledgerStatus(l))).catch(() => {});
 
   useEffect(() => { load(); }, []);
+
+  // "Scan your whole logbook": en pågående skanning av hela boken visas på kortet (fortsätt där man var).
+  const wholeBook = useScanBookStore((st) => st.project);
+  const loadBook = useScanBookStore((st) => st.load);
+  useEffect(() => { loadBook(); }, []);
+  const bookSessions = wholeBook ? sessionsOf(wholeBook.photos) : [];
+  const bookSaved = bookSessions.filter((x) => x.saved).length;
+  const openWholeBook = async () => {
+    if (!(await ready())) return;
+    // replace: startsidan är ett modalfönster; granskningen och kameran öppnas ovanpå helbokssidan.
+    router.replace('/import/scan-book');
+  };
 
   // Dev: enhetens hash som proxyn använder (samma som hashDevice i proxy/src/index.ts). Står den i
   // QUOTA_EXEMPT_DEVICES kostar skanningarna inga Blade coins medan funktionen byggs.
@@ -85,6 +99,7 @@ export default function ScanImportScreen() {
       }
       const add = parseFloat((await getSetting('scan_time_addition').catch(() => null)) ?? '');
       if (alive) setAddition(add > 0 ? add : null);
+      if (alive) reloadPaper();
     })();
     return () => { alive = false; };
   }, []));
@@ -121,8 +136,20 @@ export default function ScanImportScreen() {
     return images;
   };
 
-  const openCamera = async () => {
+  // "Photograph your logbook" → först valet kamera eller fotoalbum (samtycke och kvot kontrolleras innan).
+  // Kameran/väljaren öppnas när rutan stängts helt — iOS visar inte två presentationer samtidigt.
+  const [sourcePicker, setSourcePicker] = useState(false);
+  const startScan = async () => {
     if (!(await ready())) return;
+    setSourcePicker(true);
+  };
+  const pickSource = (src: 'camera' | 'library') => {
+    setSourcePicker(false);
+    setTimeout(() => { (src === 'camera' ? openCamera(true) : choosePhotos(true)).catch(() => {}); }, 320);
+  };
+
+  const openCamera = async (checked = false) => {
+    if (!checked && !(await ready())) return;
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
       Alert.alert(t('permission_required'), t('camera_permission'));
@@ -159,16 +186,26 @@ export default function ScanImportScreen() {
     }
   };
 
-  const choosePhotos = async () => {
-    if (!(await ready())) return;
+  const choosePhotos = async (checked = false) => {
+    if (!checked && !(await ready())) return;
+    // quality 1: ingen omkodning i väljaren (granskningen skalar och kodar ändå) → snabbare tillbaka.
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], quality: 0.9,
+      mediaTypes: ['images'], quality: visionAvailable() ? 1 : 0.9,
       allowsMultipleSelection: true, selectionLimit: MAX_SPREADS, orderedSelection: true,
     });
     if (result.canceled || !result.assets?.length) return;
-    // Varje foto vrids och beskärs i "Frame the logbook" innan det läses (originalet i full upplösning).
-    setScanSources(result.assets.map((a) => ({ uri: a.uri, width: a.width, height: a.height })));
-    router.replace('/import/scan-crop');
+    // Utan Apple Vision vrids och beskärs varje foto i "Frame the logbook" innan det läses.
+    if (!visionAvailable()) {
+      setScanSources(result.assets.map((a) => ({ uri: a.uri, width: a.width, height: a.height })));
+      router.replace('/import/scan-crop');
+      return;
+    }
+    // Annars direkt till läsningen: granskningen förbereder fotona (skalar och kodar) och hittar boken i
+    // varje foto, vrider den rätt, rätar upp och beskär (findLogbook). Inget görs här, så att läsningsskärmen
+    // syns direkt efter valet.
+    await toReview(result.assets.map((a) => ({
+      base64: '', sourceUri: a.uri, mediaType: 'image/jpeg' as const, width: a.width, height: a.height, cropped: false, oriented: false,
+    })));
   };
 
   const remaining = loaded ? totalRemaining() : 0;
@@ -183,48 +220,59 @@ export default function ScanImportScreen() {
         <Text style={s.subtitle}>Photograph your paper logbook. Claude reads every row, and you check anything it is unsure of before it is saved.</Text>
       </View>
 
-      {/* Före skanningen: vad är viktigt? Avgör hur många frågor Claude ställer. */}
-      <View style={s.infoCard}>
-        <Text style={s.infoTitle}>What matters most to you?</Text>
-        <View style={s.focusList}>
-          {FOCUS_OPTIONS.map((o) => {
-            const on = focus === o.key;
-            return (
-              <TouchableOpacity key={o.key} style={[s.focusRow, on && s.focusRowOn]} onPress={() => chooseFocus(o.key)} activeOpacity={0.8}
-                accessibilityRole="radio" accessibilityState={{ selected: on }}>
-                <View style={[s.radio, on && s.radioOn]}>{on && <View style={s.radioDot} />}</View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.stepTitle, on && { color: Colors.primary }]}>{o.title}</Text>
-                  <Text style={s.stepDesc}>{o.desc}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      <TouchableOpacity style={[s.uploadCard, working && { opacity: 0.85 }]} onPress={openCamera} disabled={working} activeOpacity={0.9}>
+      <TouchableOpacity style={[s.uploadCard, working && { opacity: 0.85 }]} onPress={startScan} disabled={working} activeOpacity={0.9}>
         <View style={s.uploadIconWrap}>
           {working ? <ActivityIndicator color={Colors.primary} size="large" /> : <Ionicons name="camera-outline" size={30} color={Colors.primary} />}
         </View>
         <Text style={s.uploadTitle}>{working ? 'Preparing…' : 'Photograph your logbook'}</Text>
         {!working && (
           <Text style={s.uploadSub}>
-            {cameraAvailable
-              ? 'Hold your phone sideways. The camera takes the photo when the whole spread is sharp.'
-              : 'This build uses the iPhone document scanner. The new logbook camera comes with the next app build.'}
+            Take the photos now, or choose photos you've already taken. Up to {MAX_SPREADS} spreads per scan.
           </Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity style={s.rowCard} onPress={choosePhotos} disabled={working} activeOpacity={0.8}>
-        <View style={s.rowIcon}><Ionicons name="images-outline" size={18} color={Colors.primary} /></View>
+      {/* En hel bok på en gång: alla foton förbereds direkt och formatet läses från första uppslaget; sedan
+          granskas boken tio uppslag i taget (app/import/scan-book). */}
+      <TouchableOpacity style={s.rowCard} onPress={openWholeBook} disabled={working} activeOpacity={0.8} accessibilityRole="button">
+        <View style={s.rowIcon}><Ionicons name="library-outline" size={18} color={Colors.primary} /></View>
         <View style={{ flex: 1 }}>
-          <Text style={s.rowTitle}>Choose photos from your library</Text>
-          <Text style={s.rowSub}>Up to {MAX_SPREADS} photos. You frame each one before it is read.</Text>
+          <Text style={s.rowTitle}>{wholeBook?.photos.length ? 'Continue scanning your whole logbook' : 'Scan your whole logbook'}</Text>
+          <Text style={s.rowSub}>
+            {wholeBook?.photos.length
+              ? `${wholeBook.photos.length} ${wholeBook.photos.length === 1 ? 'spread' : 'spreads'} · ${bookSaved} of ${bookSessions.length} ${bookSessions.length === 1 ? 'part' : 'parts'} saved${wholeBook.flightsSaved ? ` · ${wholeBook.flightsSaved} flights` : ''}`
+              : `Add every spread at once. Blades straightens the photos and reads your logbook's format, then you check ${MAX_SPREADS} spreads at a time.`}
+          </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
       </TouchableOpacity>
+
+      <GlassDialog
+        visible={sourcePicker}
+        onClose={() => setSourcePicker(false)}
+        eyebrow="SCAN LOGBOOK"
+        title="Photograph your logbook"
+        body="Take the photos now, or choose photos you've already taken."
+        secondary={{ label: 'Cancel', onPress: () => setSourcePicker(false) }}
+      >
+        <View style={s.sourceList}>
+          {([
+            ['camera', 'camera-outline', 'Take photos', cameraAvailable
+              ? 'Hold your phone sideways. The camera takes the photo when the whole spread is sharp.'
+              : 'Uses the iPhone document scanner. The new logbook camera comes with the next app build.'],
+            ['library', 'images-outline', 'Choose from your photos', `Up to ${MAX_SPREADS} photos. Blades finds and straightens the logbook in each one.`],
+          ] as const).map(([key, icon, title, sub]) => (
+            <TouchableOpacity key={key} style={s.sourceRow} onPress={() => pickSource(key)} activeOpacity={0.8} accessibilityRole="button">
+              <View style={s.rowIcon}><Ionicons name={icon} size={20} color={Colors.primary} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowTitle}>{title}</Text>
+                <Text style={s.rowSub}>{sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </GlassDialog>
 
       {/* Bara om användaren redan har en loggbok i appen: samma upplägg som den man fotar? Ja → skannern får
           bokens kolumner. Ingen bok → ingen fråga, Claude läser kolumnerna själv. */}
@@ -261,13 +309,30 @@ export default function ScanImportScreen() {
         </View>
       ) : null}
 
+      {paper && paper.open > 0 ? (
+        <TouchableOpacity style={s.rowCard} onPress={() => setPaperGuide(true)} activeOpacity={0.8}>
+          <View style={[s.rowIcon, !paper.ready && { backgroundColor: Colors.warning + '1A' }]}>
+            <Ionicons name={paper.ready ? 'create-outline' : 'hourglass-outline'} size={18} color={paper.ready ? Colors.primary : Colors.warning} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowTitle}>Paper logbook fixes</Text>
+            <Text style={s.rowSub}>
+              {paper.ready
+                ? `Ready: ${paper.open === 1 ? 'a miscounted total' : `${paper.open} miscounted totals`} to fix, with every total after them.`
+                : `${paper.open === 1 ? 'A miscounted total' : `${paper.open} miscounted totals`} found. Wait with your paper logbook until it's scanned to the page you're writing on.`}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
+
       {/* Hur det går till — en verklig ordningsföljd, därav siffrorna */}
       <View style={s.infoCard}>
         <Text style={s.infoTitle}>How it works</Text>
         {[
-          ['Photograph each spread', 'Use the camera, or choose photos and frame the logbook in each one.'],
+          ['Photograph each spread', 'Use the camera, or choose photos from your library.'],
           ['Claude reads every row', `Up to ${MAX_SPREADS} spreads per scan. Anything Claude is unsure of is circled on the page.`],
-          ['Check and save', 'Answer the questions one at a time, see every flight in the scan report, then save. Nothing is saved until you approve.'],
+          ['Check and save', 'Choose how much you want to check — you see the estimated time first. Answer the questions one at a time, see every flight in the scan report, then save. Nothing is saved until you approve.'],
         ].map(([title, body], i) => (
           <View key={title} style={s.stepRow}>
             <View style={s.stepBubble}><Text style={s.stepNum}>{i + 1}</Text></View>
@@ -337,6 +402,7 @@ export default function ScanImportScreen() {
           </View>
         </View>
       )}
+      {paperGuide && <PaperFixGuide visible timeFormat={timeFormat} onClose={() => { setPaperGuide(false); reloadPaper(); }} />}
     </ScrollView>
   );
 }
@@ -360,6 +426,11 @@ const s = StyleSheet.create({
   },
   uploadTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 2 },
   uploadSub: { color: Colors.textSecondary, fontSize: 12.5, textAlign: 'center', lineHeight: 17 },
+  sourceList: { alignSelf: 'stretch', gap: 8, marginTop: 14 },
+  sourceRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.06)',
+  },
   rowCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 14,
@@ -384,15 +455,6 @@ const s = StyleSheet.create({
   stepTitle: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
   stepDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
   learnedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  focusList: { gap: 8 },
-  focusRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface,
-  },
-  focusRowOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '14' },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.textMuted, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  radioOn: { borderColor: Colors.primary },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
   forget: { color: Colors.dangerLight, fontSize: 13.5, fontWeight: '700' },
   bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   bulletTerm: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },

@@ -18,6 +18,7 @@ import {
   LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate,
 } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
+import { getScannedTemplateId } from '../../services/logbook/bookFromScan';
 import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { FONT_SERIF } from '../logbook-page/tokens';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
@@ -65,15 +66,22 @@ export function BookSetupSheet({
   // Custom-mallar (användarskapade böcker) — laddas och uppdateras vid fokus så
   // en nyss skapad mall dyker upp direkt när man kommer tillbaka från skaparen.
   const [custom, setCustom] = useState<LogbookTemplate[]>([]);
+  // Formatet från den senaste skanningen av pappersboken ("Scanned logbook", services/logbook/bookFromScan):
+  // först i listan och förvalt när en ny bok skapas.
+  const [scannedId, setScannedId] = useState<string | null>(null);
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       getCustomTemplates().then((c) => { if (alive) setCustom(c); }).catch(() => {});
+      getScannedTemplateId().then((id) => { if (alive) setScannedId(id); }).catch(() => {});
       return () => { alive = false; };
     }, []),
   );
 
-  const allTemplates = useMemo(() => [...LOGBOOK_TEMPLATES, ...custom], [custom]);
+  const allTemplates = useMemo(() => {
+    const scanned = custom.filter((c) => c.id === scannedId);
+    return [...scanned, ...LOGBOOK_TEMPLATES, ...custom.filter((c) => c.id !== scannedId)];
+  }, [custom, scannedId]);
   const resolveTpl = (id: string) => allTemplates.find((x) => x.id === id) ?? getTemplate(id);
   const pickable = useMemo(
     // 'sv-easa-standard' är utfasad — visas inte längre som valbar mall (befintliga
@@ -274,6 +282,15 @@ export function BookSetupSheet({
     // matcha rader mot vald mall om användaren inte avvikit
     setRows(String(resolveTpl(id).rows_per_spread));
   };
+  // Ny bok: den skannade bokens format förväljs (en gång, när mallen laddats), om användaren inte valt själv.
+  const scannedPicked = useRef(false);
+  useEffect(() => {
+    if (mode !== 'create' || initial?.template_id || scannedPicked.current || !scannedId) return;
+    if (!custom.some((c) => c.id === scannedId)) return;
+    scannedPicked.current = true;
+    chooseTemplate(scannedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scannedId, custom]);
 
   const handleSave = async () => {
     const fp = Math.max(1, parseInt(firstPage, 10) || 1);
@@ -354,11 +371,22 @@ export function BookSetupSheet({
           <Text style={s.dropdownTxt} numberOfLines={1}>{template.name}</Text>
           <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
+        {template.id === scannedId && (
+          <Text style={s.hint}>{sv ? 'Samma kolumner som pappersboken du skannade.' : 'The same columns as the paper logbook you scanned.'}</Text>
+        )}
         <TouchableOpacity style={s.customBtn} onPress={() => { useLogbookSetupStore.getState().requestReopen(); onClose(); router.push('/logbook/create-custom'); }} activeOpacity={0.85}>
           <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
           <Text style={s.customBtnTxt}>{sv ? 'Egen loggbok' : 'Custom logbook'}</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
         </TouchableOpacity>
+        {/* Egen mall (t.ex. från en skanning): ändra kolumnerna i samma editor. */}
+        {template.id.startsWith('custom-') && (
+          <TouchableOpacity style={[s.customBtn, { borderStyle: 'solid' }]} onPress={() => { onClose(); router.push(`/logbook/create-custom?template=${encodeURIComponent(template.id)}`); }} activeOpacity={0.85}>
+            <Ionicons name="create-outline" size={18} color={Colors.primary} />
+            <Text style={s.customBtnTxt}>{sv ? `Ändra kolumnerna i ${template.name}` : `Edit the columns of ${template.name}`}</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
 
         {/* Böcker döps automatiskt (1st/2nd… Logbook) — inget namnfält. */}
 
@@ -509,6 +537,7 @@ export function BookSetupSheet({
                 <TemplateRow
                   key={tpl.id}
                   tpl={tpl}
+                  scanned={tpl.id === scannedId}
                   active={tpl.id === templateId}
                   onPress={() => { chooseTemplate(tpl.id); setLayoutOpen(false); }}
                   // Öga → förhandsvisning: stäng dropdownen först, öppna sedan helskärms-previewn
@@ -669,11 +698,12 @@ function FullscreenSpread({ spread, tpl, timeFormat, onClose }: {
   );
 }
 
-function TemplateRow({ tpl, active, onPress, onPreview }: { tpl: LogbookTemplate; active: boolean; onPress: () => void; onPreview: () => void }) {
+function TemplateRow({ tpl, active, scanned, onPress, onPreview }: { tpl: LogbookTemplate; active: boolean; scanned?: boolean; onPress: () => void; onPreview: () => void }) {
   return (
     <View style={[s.tplRow, active && s.tplRowActive]}>
       <TouchableOpacity style={s.tplMain} onPress={onPress} activeOpacity={0.85}>
         <Text style={[s.tplName, active && { color: Colors.primary }]} numberOfLines={1}>{tpl.name}</Text>
+        {scanned && <Text style={s.hint}>From your scan</Text>}
       </TouchableOpacity>
       <TouchableOpacity onPress={onPreview} hitSlop={8} style={s.tplPreviewBtn} activeOpacity={0.7}>
         <Ionicons name="eye-outline" size={18} color={Colors.primary} />

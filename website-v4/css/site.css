@@ -161,7 +161,12 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 
 .hero-text > * { animation: arrive 0.9s var(--ease) both; }
 .hero-text > :nth-child(2) { animation-delay: 0.55s; }
-.motion-on .hero-text > h1 { animation: none; }
+.hero-text > h1 { animation: none; }
+/* The title is there from the first paint, half lit and soft, and comes into focus word by word once js/motion.js has
+   split it (so the page's largest words count as shown at once). Should the script not run, it comes into focus
+   by itself after a moment. */
+.js:not(.motion-on) .hero h1 { opacity: 0.35; filter: blur(6px); animation: heroFocus 0.6s ease 2.5s forwards; }
+@keyframes heroFocus { to { opacity: 1; filter: none; } }
 .hero-img { animation: fade 1.4s ease both; }
 @keyframes arrive { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: none; } }
@@ -341,7 +346,7 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 
 /* The hero title arrives word by word. */
 .motion-on .hero h1 .w { animation: wordIn 0.95s var(--ease) both; animation-delay: calc(0.12s + var(--i) * 70ms); }
-@keyframes wordIn { from { opacity: 0; transform: translateY(0.45em); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes wordIn { from { opacity: 0.35; filter: blur(6px); } to { opacity: 1; filter: none; } }
 
 /* Statements: the words light up one by one while the text stays pinned in the middle of the screen. */
 .say { position: relative; height: 190vh; }
@@ -411,6 +416,7 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
   .motion-on .say-text .w, .motion-on .say-sub, .motion-on [data-words] .w { opacity: 1; transform: none; filter: none; transition: none; color: inherit; }
   .motion-on .say-text em .w { color: var(--cyan); }
   .motion-on .hero h1 .w { animation: none; }
+  .js:not(.motion-on) .hero h1 { opacity: 1; filter: none; animation: none; }
   .progress { display: none; }
   html { scroll-behavior: auto; }
   .hero-text > *, .hero-img { animation: none; }
@@ -520,6 +526,9 @@ h1 em, h2 em { font-style: italic; color: var(--cyan); }
 /* ---------- Who it's for: four kinds of flying ---------- */
 .who { background: var(--white); padding: clamp(96px, 11vw, 150px) 0; text-align: center; }
 .who h2, .who .section-sub { padding: 0 var(--pad); }
+.who-guides { margin-top: 14px; padding: 0 var(--pad); font-size: 15px; line-height: 1.6; color: var(--muted); }
+.who-guides a { color: var(--cyan-deep); font-weight: 600; text-decoration: none; }
+.who-guides a:hover { text-decoration: underline; text-underline-offset: 0.18em; }
 .who h2, .switch h2 { font-size: clamp(36px, 4.4vw, 64px); color: var(--ink); }
 .who h2 em, .switch h2 em { color: var(--cyan-deep); }
 /* The cards flow past in a band, like the feature band above (js/site.js) */

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/colors';
+import { GlassDialog, dialogStyles } from './GlassDialog';
 import { useTranslation } from '../hooks/useTranslation';
 import { useTimeFormat } from '../hooks/useTimeFormat';
 import { getDualFlightsMissingPilotTracking, setFlightDual } from '../db/flights';
@@ -22,7 +22,6 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
   const { t } = useTranslation();
   const { formatTime } = useTimeFormat();
   const { loadStats } = useFlightStore();
-  const insets = useSafeAreaInsets();
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(false);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
@@ -100,85 +99,53 @@ export function MissingDualModal({ visible, onClose, onCountUpdate, onTotalDualU
     setFlights(flights.filter(f => f.id !== flightId));
   };
 
+  const added = displayedValue > 0 ? formatTime(displayedValue) : null;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[s.backdrop, { paddingTop: insets.top }]}>
-        <View style={s.container}>
-          <View style={s.header}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={s.title}>Missing DUAL hours?</Text>
-                {displayedValue > 0 && (
-                  <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>+{formatTime(displayedValue)}</Text>
-                )}
+    <GlassDialog
+      visible={visible}
+      onClose={onClose}
+      eyebrow="Missing hours"
+      title="Missing DUAL hours?"
+      body={
+        <Text style={s.note}>
+          {added ? <Text style={s.added}>+{added} added · </Text> : null}Changes are listed under Settings › Audit log.
+        </Text>
+      }
+      primary={{ label: 'Done', onPress: onClose }}
+    >
+      {loading ? (
+        <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 32 }} />
+      ) : flights.length === 0 ? (
+        <Text style={s.emptyText}>No DUAL flights without pilot time tracking</Text>
+      ) : (
+        <ScrollView style={s.list} showsVerticalScrollIndicator={false}>
+          {flights.map((flight, index) => (
+            <View key={flight.id} style={[dialogStyles.row, index === flights.length - 1 && { borderBottomWidth: 0 }]}>
+              <Text style={dialogStyles.rowTitle}>
+                {placeNames[flight.dep_place] || flight.dep_place} → {placeNames[flight.arr_place] || flight.arr_place}
+              </Text>
+              <Text style={dialogStyles.rowMeta}>{flight.date} · {flight.aircraft_type} · {formatTime(flight.dual)}h dual</Text>
+              <View style={s.buttonGroup}>
+                <TouchableOpacity style={[dialogStyles.pill, { flex: 1 }]} onPress={() => handleSaveDual(flight.id, flight)} activeOpacity={0.8}>
+                  <Ionicons name="checkmark" size={18} color={Colors.textPrimary} />
+                  <Text style={dialogStyles.pillTxt}>Yes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[dialogStyles.pillGhost, { flex: 1 }]} onPress={() => handleSkipDual(flight.id)} activeOpacity={0.7}>
+                  <Text style={dialogStyles.pillGhostTxt}>No</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Changes visible in settings {'>'}  audit log</Text>
             </View>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Ionicons name="close" size={24} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 40 }} />
-          ) : flights.length === 0 ? (
-            <View style={s.emptyContainer}>
-              <Text style={s.emptyText}>No DUAL flights without pilot time tracking</Text>
-            </View>
-          ) : (
-            <ScrollView style={s.list} showsVerticalScrollIndicator={false}>
-              {flights.map((flight, index) => (
-                <View key={flight.id} style={[s.flightRow, index < flights.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.separator }]}>
-                  <View style={s.flightInfo}>
-                    <Text style={s.route}>
-                      {placeNames[flight.dep_place] || flight.dep_place} → {placeNames[flight.arr_place] || flight.arr_place}
-                    </Text>
-                    <Text style={s.meta}>
-                      {flight.date} · {flight.aircraft_type} · {formatTime(flight.dual)}h dual
-                    </Text>
-                  </View>
-
-                  <View style={s.buttonGroup}>
-                    <TouchableOpacity
-                      style={[s.actionBtn, s.confirmBtn]}
-                      onPress={() => handleSaveDual(flight.id, flight)}
-                    >
-                      <Ionicons name="checkmark" size={20} color={Colors.textInverse} />
-                      <Text style={[s.actionBtnText, { color: Colors.textInverse }]}>Yes</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[s.actionBtn, s.cancelBtn]}
-                      onPress={() => handleSkipDual(flight.id)}
-                    >
-                      <Ionicons name="close" size={20} color={Colors.textPrimary} />
-                      <Text style={[s.actionBtnText, { color: Colors.textPrimary }]}>No</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    </Modal>
+          ))}
+        </ScrollView>
+      )}
+    </GlassDialog>
   );
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 20 },
-  container: { backgroundColor: Colors.card, borderRadius: 16, maxHeight: '80%', borderWidth: 1, borderColor: Colors.border },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.separator },
-  title: { color: Colors.textPrimary, fontSize: 17, fontWeight: '700', flex: 1 },
-  list: { paddingHorizontal: 16 },
-  emptyContainer: { padding: 32, alignItems: 'center' },
-  emptyText: { color: Colors.textMuted, fontSize: 14, textAlign: 'center' },
-  flightRow: { paddingVertical: 16 },
-  flightInfo: { marginBottom: 12 },
-  route: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
-  meta: { color: Colors.textSecondary, fontSize: 12 },
-  buttonGroup: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
-  confirmBtn: { backgroundColor: Colors.primary },
-  cancelBtn: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  actionBtnText: { fontSize: 14, fontWeight: '600' },
+  note: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginTop: 2 },
+  added: { color: Colors.gold, fontWeight: '800' },
+  list: { alignSelf: 'stretch', maxHeight: 360, marginTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.14)' },
+  emptyText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 18 },
+  buttonGroup: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 10 },
 });

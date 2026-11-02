@@ -497,7 +497,7 @@
 .db-ph-o svg { width: 12px; height: 12px; }
 .db-ph-m { position: absolute; left: 12px; bottom: 10px; font: 9px Georgia, serif; font-style: normal; color: rgba(255, 255, 255, 0.75); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
 .db-ph-b { position: absolute; right: 12px; bottom: 10px; font: 900 7px Georgia, serif; letter-spacing: 2px; color: #FFB830AA; }
-.db-globe { width: 440px; height: 440px; margin: 10px 0 0 -31px; border-radius: 50%; background: url(../img/earth-night.jpg) 30% 40% / 210% 100%; box-shadow: inset -40px -30px 80px rgba(0, 0, 0, 0.85), inset 20px 20px 60px rgba(135, 206, 250, 0.12), 0 0 40px rgba(135, 206, 250, 0.35); }
+.db-globe { width: 440px; height: 440px; margin: 10px 0 0 -31px; border-radius: 50%; background: url(../img/earth-night-1600.webp) 30% 40% / 210% 100%; box-shadow: inset -40px -30px 80px rgba(0, 0, 0, 0.85), inset 20px 20px 60px rgba(135, 206, 250, 0.12), 0 0 40px rgba(135, 206, 250, 0.35); }
 
 /* drone logbook (list) */
 .lb-top { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 10px; border-bottom: 1px solid var(--sep); }

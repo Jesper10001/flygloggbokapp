@@ -6,7 +6,7 @@
 // inbyggda + custom så galleriet och scan-väljaren ser allt på ett ställe.
 
 import { getDatabase } from './database';
-import { LOGBOOK_TEMPLATES, type LogbookTemplate } from '../constants/logbookTemplates';
+import { LOGBOOK_TEMPLATES, registerCustomTemplates, unregisterCustomTemplate, type LogbookTemplate } from '../constants/logbookTemplates';
 
 interface CustomTemplateRow {
   id: string;
@@ -14,6 +14,8 @@ interface CustomTemplateRow {
   json: string;
   created_at: string;
 }
+
+let loaded = false;   // de egna mallarna är inlästa i getTemplates register
 
 /** Alla användarskapade mallar (senast skapad först). Trasig JSON hoppas över. */
 export async function getCustomTemplates(): Promise<LogbookTemplate[]> {
@@ -29,7 +31,15 @@ export async function getCustomTemplates(): Promise<LogbookTemplate[]> {
       // Ignorera en mall vars JSON inte går att tolka — hellre dölj än krascha.
     }
   }
+  registerCustomTemplates(out, true);   // getTemplate hittar dem synkront
+  loaded = true;
   return out;
+}
+
+/** Läser in de egna mallarna en gång per körning (innan en bok ritas med getTemplate). */
+export async function ensureCustomTemplatesLoaded(): Promise<void> {
+  if (loaded) return;
+  try { await getCustomTemplates(); } catch { /* utan egna mallar används standardmallen */ }
 }
 
 /** Inbyggda + custom-mallar i en lista (custom sist). */
@@ -53,11 +63,13 @@ export async function saveCustomTemplate(tpl: LogbookTemplate): Promise<void> {
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, json = excluded.json`,
     [tpl.id, tpl.name, JSON.stringify(tpl)],
   );
+  registerCustomTemplates([tpl]);
 }
 
 export async function deleteCustomTemplate(id: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM custom_templates WHERE id = ?', [id]);
+  unregisterCustomTemplate(id);
 }
 
 /**

@@ -6,3 +6,10 @@
   Cache-Control: public, max-age=0, must-revalidate
 /demo/*
   Cache-Control: public, max-age=0, must-revalidate
+
+# The same site on Cloudflare's own addresses (blades-website.pages.dev, previews, single deployments) stays out of
+# search results, so Google only lists blades-app.com.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

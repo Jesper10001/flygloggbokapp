@@ -72,18 +72,8 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
           remarks: { type: 'string' },
           other_times: { type: 'object', additionalProperties: { type: 'number' } },
           other_time_labels: { type: 'object', additionalProperties: { type: 'string' } },
-          needs_review: { type: 'boolean' },
-          review_reason: { type: 'string' },
-          remarks_suggestion: {
-            type: 'object',
-            properties: {
-              field: { type: 'string' },
-              value: { type: 'string' },
-              original_text: { type: 'string' },
-              confidence: { type: 'number' },
-              reason: { type: 'string' },
-            },
-          },
+          // needs_review, review_reason och remarks_suggestion räknar appen ut själv (scanImport.prepareFlight):
+          // de stod för ungefär en tredjedel av svaret och därmed av tiden och kostnaden.
           field_issues: {
             type: 'array',
             items: {
@@ -137,6 +127,7 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
         right: { type: ['integer', 'null'] },
       },
     },
+    remarks_pilot_names: { type: 'boolean' },
     grid: {
       type: 'object',
       properties: {
@@ -177,6 +168,26 @@ ARBETSORDNING (SKA FÖLJAS):
 2. För varje rad: lös ditto-symboler och tomma fält mot senast kända värde per kolumn
 3. Uppdatera rolling state för varje kolumn innan du går till nästa rad
 4. Returnera slutliga JSON:en först när ALLA rader är bearbetade sekventiellt
+
+RADER OCH KOLUMNER (MYCKET VIKTIGT — de vanligaste felen):
+- Varje TRYCKT rad är en flygning eller tom. Räkna de tryckta raderna uppifrån på BÅDA sidorna (tomma rader
+  räknas) innan du läser värdena. Rad N på vänstersidan fortsätter på rad N på högersidan.
+- Läs varje rad längs SAMMA linje över hela uppslaget: datum, tider, total, funktionstid, landningar och
+  anmärkning på rad N hör ihop. Ett värde får aldrig hamna på en annan rad än den där det står.
+- En tom cell är tom. Flytta ALDRIG upp ett värde från raden under för att fylla den. (Vanligt fel: när
+  översta cellen i en kolumn är tom förskjuts hela kolumnen en rad uppåt.) Exempel: Landings Day är tom på
+  rad 1 och har 7 på rad 2 → rad 1 får inga landningar och rad 2 får 7 — inte 7 på rad 1. Jämför med en
+  kolumn som har värden på varje rad (t.ex. Dual eller Total) för att se vilken rad ett tal står på.
+- Antalet flygningar kan aldrig vara fler än grid.rows_printed. Har du fått en rad för mycket har du läst
+  samma rad två gånger — hitta den och ta bort den.
+- Kontroll per flygning: total_time = PIC + Co-pilot + Dual. Stämmer det inte på flera rader i följd har
+  en kolumn glidit en rad — räkna raderna igen.
+- Datum ökar nedåt; flera flygningar samma datum står i tidsordning. Läs datum och klockslag på samma rad.
+- ÖVERSTRUKET: ett värde med ett streck över eller genom sig är ogiltigt — använd ersättningsvärdet
+  (bredvid eller ovanför). Står ett överstruket tal och ett nytt tal i samma cell (t.ex. "14" överstruket
+  och "2" bredvid) är värdet bara det nya talet (2) — skriv ALDRIG ihop siffrorna (142). Är ett tal
+  överstruket i en kolumn och omskrivet i grannkolumnen (t.ex. Day → Night eller Day → AR landings) gäller
+  det bara där det INTE är överstruket.
 
 LÄSORDNING INOM EN RAD (VIKTIGT):
 Läs fälten i denna ordning per rad:
@@ -228,14 +239,14 @@ LUFTFARTYGSTYP — viktigt:
 - Står ofta i en smal kolumn, kan vara förkortat: "C172", "PA-28", "B737", "A320", "TB20", "DA40"
 - Samma typ upprepas ofta på flera rader — om en rad saknar typ, ärv från närmaste föregående rad
 - Skriv alltid utan bindestreck om det är oklart: "C172" inte "C-172"
-- Om typen är helt oläslig, returnera "" och sätt needs_review=true
+- Om typen är helt oläslig, returnera "" och flagga den i field_issues
 
 REGISTRATION — viktigt:
 - Format: 2 bokstäver (landkod) + bindestreck + 3 bokstäver, t.ex. SE-KXY, OY-ABC, G-ABCD
 - Ibland skrivs bara de sista 3 bokstäverna (t.ex. "KXY") — behåll då som det är
 - Samma registration upprepas ofta på flera rader — om en rad saknar reg, ärv från föregående
 - Förväxla inte O (bokstav) med 0 (nolla) i registration
-- Om registration är oläslig, returnera "" och sätt needs_review=true
+- Om registration är oläslig, returnera "" och flagga den i field_issues
 
 SEKVENTIELL RAD-FÖR-RAD-LÄSNING (VIKTIGT):
 Läs raderna i ordning uppifrån och ned. Håll ett "rolling state" för varje kolumn
@@ -246,7 +257,9 @@ efterföljande rader.
 
 ARVSREGEL FÖR TOMMA FÄLT:
 Om aircraft_type, registration, dep_place eller arr_place är tom på en rad men
-föregående rad har värden, ärv dessa värden och sätt needs_review=false.
+föregående rad har värden, ärv dessa värden. UNDANTAG: ett simulatorpass med tom registreringscell har
+ingen registrering — ärv aldrig flygplanets registrering till en sim-rad (bara om ett ditto-tecken står i
+just den cellen).
 
 DITO-SYMBOL (MYCKET VIKTIGT — LÄS NOGA):
 Om ett fält innehåller någon av följande symboler — eller liknande "same as
@@ -288,9 +301,8 @@ Ditto-regeln gäller ALLA kolumner utan undantag: date, aircraft_type,
 registration, dep_place, dep_utc, arr_place, arr_utc. Returnera ALDRIG
 ditto-symbolen som värde — alltid det lösta värdet.
 
-Om en ditto-symbol står på sidans första rad utan föregående värde, markera
-needs_review=true med reason="ditto utan föregående värde" och lämna fältet
-tomt.
+Om en ditto-symbol står på sidans första rad utan föregående värde, lämna fältet
+tomt och flagga det i field_issues med reason "Ditto with no value above".
 
 BOKSTAVSFÖRVÄXLINGAR I HANDSKRIFT — MYCKET VANLIGT:
 - A ↔ H (t.ex. ETAB ↔ ETHB, A109 ↔ H109)
@@ -311,8 +323,8 @@ SIFFERVALIDERING — dessa förväxlas ofta i handskrift:
 Validera alltid siffror mot kontext: en flygtid på 9.1h är osannolik för kortdistansflyg, medan 1.9h eller 1.7h är troligare.
 
 TIDSVALIDERING:
-- Beräkna alltid flygtid från avg/landningstid och jämför med angiven flygtid
-- Om avvikelsen är >0.1h, flagga raden för manuell granskning med reason
+- Appen räknar själv ut om avgång → ankomst går ihop med total_time och frågar användaren. Flagga INTE
+  sådana avvikelser i field_issues — flagga bara siffror som är svårlästa.
 - Flygtider anges i decimalform (1.5) eller hh:mm (1:30) — hantera båda, returnera alltid decimal
 
 DECIMAL-AVRUNDNING (VIKTIGT):
@@ -334,66 +346,24 @@ Piloter skriver ibland en addition direkt i ett tidsfält, t.ex. "1.2 + 0.2"
 eller "0.8+0.4" istället för totalen. Beräkna summan och returnera resultatet
 som ett enda decimalvärde (1.2 + 0.2 → 1.4, 0.8 + 0.4 → 1.2). Detta gäller
 alla tidsfält: total_time, pic, co_pilot, dual, ifr, night, instructor, etc.
-Markera INTE raden som needs_review enbart pga addition — det är ett vanligt
-skrivsätt och summan är entydig.
+Flagga det INTE — det är ett vanligt skrivsätt och summan är entydig. "+ 0.2" sträcker sig ofta in i
+nästa kolumn: det hör till tiden till vänster och är ALDRIG ett värde i nästa kolumn. Exempel: i Dual står
+"1.3 + 0.2" och "+ 0.2" når in i kolumnen AR landings → dual = 1.5, och AR landings är tom på den raden.
 
-REMARKS-KLASSIFICERING:
-Om innehållet i remarks-fältet matchar ett specifikt mönster kan det egentligen
-höra hemma i ett annat fält. Föreslå detta via "remarks_suggestion"-objektet.
-
-VIKTIGT: Remarks och andrepilot delar ALLTID samma kolumn i EASA-loggböcker.
-Texten i remarks-kolumnen kan vara:
-  a) Bara andrepilot-signatur (t.ex. "SZ", "JON", "HES")
-  b) Bara anmärkning (t.ex. "ILS", "NDB", "check ride", "PC")
-  c) Blandning (t.ex. "AXA PC", "JON ILS 28R", "SZ NDB")
-
-REGLER FÖR ATT SKILJA ANDREPILOT FRÅN ANMÄRKNING:
-- Följande är ALLTID flyg-/inflygningstermer, ALDRIG andrepiloter:
-  ILS, NDB, VOR, GPS, RNAV, LOC, DME, PAR, GCA, RNP, LPV, LNAV, VNAV,
-  RVR, GLS, SRA, ASR, NPA, PA, APV, PC, OPC, LPC, CRM, IR, VFR, IFR,
-  SE, ME, SP, MP
-- 2-3 bokstavskoder (A-Z) som INTE matchar ovan → föreslå second_pilot
-- Om scanningsprofilen anger crewFormat, matcha mot det mönstret
-- Om kolumnen har BÅDE en kort bokstavskod OCH en flygterm:
-  Separera dem: bokstavskoden → second_pilot, resten → remarks
-  T.ex. "AXA PC" → second_pilot="AXA", remarks="PC"
-  T.ex. "SZ NDB" → second_pilot="SZ", remarks="NDB"
-
-Mönster att känna igen:
-- 2-3 bokstavskod (A-Z) som inte är flygterm → föreslå second_pilot
-- "PIC/us", "PICUS", "P/us" → föreslå picus-fältet
-- "SPIC", "SP/c" → föreslå spic-fältet
-- "NVG"/"NVD" följt av tid → föreslå nvg-fältet
-- "touch and go" → överväg flight_type = 'touch_and_go'
-- Fullständigt för- + efternamn som står ensamt (t.ex. "Johan Johansson", "Anna Berg")
-  → föreslå second_pilot med HELA namnet som värde. Abbreviera INTE här — appen förkortar
-  själv till "J. Johansson" på förslagsknapparna. (Namn insprängt i en mening, t.ex.
-  "check ride with John Smith", lämnas kvar i remarks.)
-
-Skicka ALLTID remarks_suggestion om du identifierar en andrepilot. Format:
-{
-  "field": "second_pilot",
-  "value": "SZ",
-  "original_text": "SZ NDB",
-  "confidence": 0.80,
-  "reason": "2-bokstavskod — andrepilotens signatur, NDB kvar i remarks"
-}
-Exempel med fullt namn:
-{
-  "field": "second_pilot",
-  "value": "Johan Johansson",
-  "original_text": "Johan Johansson",
-  "confidence": 0.85,
-  "reason": "Fullt för- + efternamn = andrepilotens namn (appen förkortar till J. Johansson)"
-}
-
-Användaren får en Ja/Nej-prompt och kan välja att acceptera eller behålla
-värdet i remarks.
+ANMÄRKNINGAR OCH ANDREPILOT:
+Remarks-kolumnen innehåller ofta andrepilotens/instruktörens initialer eller namn följt av anmärkningar
+(t.ex. "SZ, NDB" eller "PUA, IFR RNAV"). Returnera remarks EXAKT som det står — inklusive initialer och
+namn. Flytta dem inte och skicka inget förslag: appen känner själv igen initialer, namn, PICUS/SPIC/NVG och
+frågar användaren en gång för hela boken. Sätt bara second_pilot om boken har en egen kolumn för det.
+Säger remarks-kolumnens TRYCKTA rubrik att befälhavarens eller den andra pilotens namn skrivs där (t.ex.
+"name of PIC", "name of PIC or if another"), sätt remarks_pilot_names = true. Är du osäker på hur ett namn
+eller initialer i remarks ska läsas, flagga det i field_issues med field "remarks".
 
 SIMULATOR (VIKTIGT): En kolumn med rubriken (tryckt eller handskriven) "Simulator", "Simulator time", "Sim",
 "FSTD", "FFS", "FNPT" eller "Synthetic training" innehåller simulatortid. Lägg sådana värden i "sim" och sätt
 flight_type="sim" — ALDRIG i dual, pic eller någon annan funktionstid. En rad som saknar total flygtid men har
-simulatortid är ett simulatorpass: utelämna total_time och landningar för den raden. Ett tal i
+simulatortid är ett simulatorpass: utelämna total_time (landningar som står skrivna på raden läses som vanligt
+— simulatorlandningar räknas för recency). Ett tal i
 simulatorkolumnen hör ALDRIG hemma i "Total time of flight" — kontrollera vilken kolumn talet faktiskt står i.
 Funktionstid (PIC, Co-pilot, Dual, Instructor) kan aldrig vara längre än radens totala flygtid.
 
@@ -404,8 +374,9 @@ för varje rad. Returnera dem som:
   "other_time_labels": { "other_flight_time": "AR landings", "other_flight_time_2": "NVD" }
 
 other_time_labels: läs kolumnhuvudet (kan vara handskrivet, t.ex. "AR landings",
-"NVD", "NVG") och returnera det. Om kolumnen är tom/ingen rubrik: "".
-other_times: decimalvärdet i kolumnen för den raden. Utelämna tomma.
+"NVD", "NVG") och returnera det BARA på den första raden där kolumnen har ett värde — appen använder samma
+rubrik för resten av sidan.
+other_times: värdet i kolumnen för den raden. Utelämna tomma.
 
 UNDANTAG: en kolumn vars rubrik betyder simulator ("Simulator time", "Sim", "FSTD" …) är INTE other_times —
 värdet går till "sim" och raden får flight_type="sim" (se SIMULATOR). Kolumner som räknar något annat än tid
@@ -418,7 +389,8 @@ SIDVALIDERING:
 - Om sidan har radsummor: kontrollera att radsumman matchar "Total this page"
 - Kontrollera att "Brought forward" + "Total this page" = "Total to date"
 - Returnera page_totals med fälten: brought_forward, total_this_page, total_to_date (alla som decimal, null om ej synliga)
-- page_totals.this_page_by_field = raden "Total this page" för VARJE kolumn som har en tryckt/skriven summa,
+- page_totals.this_page_by_field = ENDAST raden "Total this page" (inte "Brought forward" eller "Total to date",
+  som står strax under/över och är mycket större) för VARJE kolumn som har en tryckt/skriven summa,
   med samma fältnamn som i flights: { "total_time": 14.6, "dual": 13.4, "sim": 4.2, "landings_day": 45, … }.
   Appen jämför radernas summa med dessa och flaggar kolumner som inte går ihop.
 - Returnera page_numbers: de tryckta sidnumren på uppslaget ({left, right}, heltal eller null om ej synliga)
@@ -456,17 +428,18 @@ landningsträning) — anta aldrig 1. Står kolumnen tom, utelämna fältet.
 TOMMA FÄLT: Om en tidkolumn (pic, dual, ifr, night etc.) är tom → utelämna fältet (appen tolkar det som 0).
 Varje flygning (ej sim) bör ha minst 1 landning — flagga om 0.
 
-SPRÅK FÖR FÖRKLARINGAR: review_reason och field_issues[].reason visas för piloten i appen — skriv dem på
-ENGELSKA, korta (högst ~12 ord), t.ex. "Last digit could be 3 or 8". suggested_value bara om det skiljer sig
-från värdet du returnerade.
+SPRÅK FÖR FÖRKLARINGAR: field_issues[].reason visas för piloten i appen — skriv den på ENGELSKA och kort
+(högst 6 ord), t.ex. "Could be 3 or 8". suggested_value bara om det skiljer sig från värdet du returnerade.
 
 KONFIDENS:
 - field_issues: array med osäkra fält (confidence <0.85). Format:
-  { "field": "...", "reason": "...", "confidence": 0.55, "suggested_value": "..." }
-- needs_review=true bara när något på raden är osäkert.
+  { "field": "...", "reason": "...", "confidence": 0.5, "suggested_value": "..." }
+- Varje osäkerhet är en field_issues-post för just det fältet. Skriv aldrig om fotot (vinkel, skärpa,
+  förskjutning, skuggor); appen hanterar det själv.
 
-KOMPAKT SVAR (svarets längd styr tiden): ta bara med fält som har innehåll. Utelämna tomma strängar, 0,
-null, false, tomma listor/objekt, flight_type "normal", needs_review false och tom review_reason.
+KOMPAKT SVAR (svarets längd styr tiden och kostnaden): ta bara med fält som har innehåll. Utelämna tomma
+strängar, 0, null, false, tomma listor/objekt och flight_type "normal". Skriv inte needs_review,
+review_reason eller remarks_suggestion — appen räknar ut dem. confidence med en decimal.
 
 AIRCRAFT-DETEKTERING (KRITISKT):
 Innan du returnerar flights-listan, gruppera de unika luftfartyg du sett på
@@ -499,8 +472,8 @@ standardvärden utelämnas):
       "total_time": 1.5, "dual": 1.5, "landings_day": 4, "remarks": "Circuits" },
     { "row_index": 2, "date": "2024-05-14", "aircraft_type": "C172", "registration": "SE-ABC",
       "dep_place": "ESSB", "dep_utc": "13:05", "arr_place": "ESKN", "arr_utc": "14:00",
-      "total_time": 0.9, "pic": 0.9, "landings_day": 1, "needs_review": true,
-      "field_issues": [{ "field": "arr_utc", "reason": "Last digit could be 0 or 6", "confidence": 0.6, "suggested_value": "14:06" }] }
+      "total_time": 0.9, "pic": 0.9, "landings_day": 1,
+      "field_issues": [{ "field": "arr_utc", "reason": "Could be 0 or 6", "confidence": 0.6, "suggested_value": "14:06" }] }
   ],
   "page_totals": { "brought_forward": 120.4, "total_this_page": 2.4, "total_to_date": 122.8,
     "this_page_by_field": { "total_time": 2.4, "dual": 1.5, "pic": 0.9, "landings_day": 5 } },
@@ -509,7 +482,7 @@ standardvärden utelämnas):
     "columns": [{ "index": 1, "field": "date", "left": 2.1, "right": 7.8 }] }
 }
 
-Returnera BARA JSON, inga förklaringar.`;
+Svara ENBART med ett anrop av verktyget emit_flights — ingen text före eller efter, inga förklaringar.`;
 
 // ── Summera sida ─────────────────────────────────────────────────────────────
 
@@ -629,6 +602,7 @@ export type OcrPageResult = {
   pageTotals: { brought_forward: number | null; total_this_page: number | null; total_to_date: number | null; by_field?: Record<string, number> };
   aircraftDetections: AircraftDetection[];
   pageNumbers: { left: number | null; right: number | null };
+  remarksPilotNames?: boolean;   // remarks-rubriken säger att pilotens namn står där ("name of PIC")
   imageLayout: ImageLayout;
   grid: PageGrid | null;     // var rader och kolumner sitter i bilden (granskningsvyn)
 };
@@ -741,7 +715,8 @@ export async function ocrScanPage(
   mediaType: string,
   timeFormat: TimeFormat = 'decimal',
   prevContext?: PageContext,
-  opts: { useBookLayout?: boolean; timeAddition?: number; focus?: 'exact' | 'balanced' | 'totals'; model?: string } = {},
+  // layout: bokens format läst i "Scan your whole logbook" (scanFormat) — används i stället för den digitala bokens.
+  opts: { useBookLayout?: boolean; layout?: LogbookLayout | null; timeAddition?: number; focus?: 'exact' | 'balanced' | 'totals'; model?: string; wholeSpread?: boolean } = {},
 ): Promise<OcrPageResult> {
   const model = opts.model ?? OCR_MODEL;
   let baseContext = '';
@@ -753,28 +728,31 @@ export async function ocrScanPage(
     baseContext += `\n\nANVÄNDARENS FOKUS: bara summorna. Läs tidskolumnerna, landningarna och sidans summor (Brought forward, Total this page per kolumn i this_page_by_field, Total to date) exakt — det är det viktigaste i svaret. Flagga (field_issues) bara osäkra siffror i tidskolumner och landningar. Flagga inte datum, platser, klockslag, typ, registrering, namn eller anmärkningar.`;
   }
   if (add) {
-    baseContext += `\n\nTILLÄGG PÅ FLYGTIDEN (pilotens bekräftade regel för den här loggboken): total flygtid = (ankomst − avgång) + ${add} h. Avgång och ankomst är lyft och landning; uppstart, taxi och avstängning läggs till. En rad där total = (ankomst − avgång) + ${add} h är RÄTT: sätt inte time_mismatch, needs_review eller field_issues för det, och ändra inga tider.`;
+    baseContext += `\n\nTILLÄGG PÅ FLYGTIDEN (pilotens bekräftade regel för den här loggboken): total flygtid = (ankomst − avgång) + ${add} h. Avgång och ankomst är lyft och landning; uppstart, taxi och avstängning läggs till. En rad där total = (ankomst − avgång) + ${add} h är RÄTT: sätt inte time_mismatch, needs_review eller field_issues för det, och ändra inga tider. Står tillägget skrivet i en cell ("1.2 + ${add}") är värdet summan (${(1.2 + add).toFixed(1)}) — i ALLA tidskolumner (total, Dual, PIC …), aldrig bara första talet.`;
   }
   if (prevContext) {
-    baseContext = `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
+    // += (inte =): annars försvann fokus och tillägget ovan på varje sida efter den första.
+    baseContext += `\n\nKONTEXT FRÅN FÖREGÅENDE SIDA (sida ${prevContext.page_number ?? '?'}):\nSista radens värden: date="${prevContext.last_date}", aircraft_type="${prevContext.last_aircraft_type}", registration="${prevContext.last_registration}", dep_place="${prevContext.last_dep_place}", arr_place="${prevContext.last_arr_place}"\nAnvänd dessa som rolling state för ditto-symboler på denna sidas FÖRSTA rad.`;
   }
   // Bifoga inlärda mappningar från tidigare skanningar
   const learnedHint = await buildContextHint();
   if (learnedHint) baseContext += `\n\n${learnedHint}`;
 
-  const omitNote = ' Utelämna alla fält som är 0, tomma eller saknas — de tolkas automatiskt som 0/tom. Returnera bara fält och rader med verkligt innehåll. Schemat ovan är illustrativt, inte ett krav att fylla varje fält.';
+  const omitNote = ' Utelämna alla fält som är 0, tomma eller saknas — de tolkas automatiskt som 0/tom. Returnera bara fält och rader med verkligt innehåll. Schemat ovan är illustrativt, inte ett krav att fylla varje fält. Anropa emit_flights direkt, utan någon text.';
 
   // Robusthet för verkliga foton: marginaler, rotation, kant-beskurna/svaga rader.
-  const captureNote = ' OM FOTOT: Boken fyller kanske inte hela bilden — ignorera mörk bakgrund/yta runt omkring. Bilden kan vara roterad (vänd) — läs den oavsett orientering. Läs VARJE rad i flygnings-tabellen, även svaga, ljusa eller delvis skymda kant-rader; hoppa ALDRIG över en rad bara för att en kant är beskuren — returnera raden ändå och sätt needs_review=true för det som är osäkert. Sikta på att returnera lika många rader som tabellen faktiskt har ifyllda.';
+  const captureNote = ' OM FOTOT: Boken fyller kanske inte hela bilden — ignorera mörk bakgrund/yta runt omkring. Bilden kan vara roterad (vänd) — läs den oavsett orientering. Läs VARJE rad i flygnings-tabellen, även svaga, ljusa eller delvis skymda kant-rader; hoppa ALDRIG över en rad bara för att en kant är beskuren — returnera raden ändå och flagga det som är osäkert i field_issues. Returnera lika många rader som tabellen faktiskt har ifyllda — aldrig fler än det finns tryckta rader.';
 
   const t0 = Date.now();
   const secs = () => ((Date.now() - t0) / 1000).toFixed(1);
   // Användaren kan ha sagt att den fotade boken inte har samma upplägg som boken i appen.
-  const layout = opts.useBookLayout === false ? null : await getActiveBookLayout();
-  console.log(`[OCR] ▶ Skanning startar (${model}). Aktiv bok-layout: ${layout ? `JA (${layout.pageMode}, ${layout.columns.length} kol)` : 'NEJ'}`);
+  const layout = opts.layout !== undefined ? opts.layout : opts.useBookLayout === false ? null : await getActiveBookLayout();
+  console.log(`[OCR] ▶ Skanning startar (${model}). ${opts.layout ? 'Bokens skannade format' : 'Aktiv bok-layout'}: ${layout ? `JA (${layout.pageMode}, ${layout.columns.length} kol)` : 'NEJ'}`);
 
   // ── M4: dela uppslaget vid ryggen och läs en sida per anrop (parallellt) ──
-  if (OCR_SPLIT_SPREAD && layout && layout.pageMode === 'spread') {
+  // wholeSpread (skanningsgranskningen): aldrig delat. Ryggens läge i mallen stämmer inte med ett foto som
+  // beskurits automatiskt (det varierar från foto till foto), och kolumnerna kopplades då fel.
+  if (OCR_SPLIT_SPREAD && !opts.wholeSpread && layout && layout.pageMode === 'spread') {
     const halves = await splitSpread(base64, layout.leftWidthFraction);
     if (halves) {
       console.log(`[OCR] ✂️  Uppslag delat vid ${Math.round(layout.leftWidthFraction * 100)}% — läser vänster+höger parallellt...`);
@@ -816,7 +794,9 @@ export async function ocrScanPage(
     model,
   );
   const result = parseOcrResponse(parsed);
-  result.grid = buildPageGrid(parsed?.grid, layout, layout ? layout.columns.map((c) => ({ field: c.field, label: c.label })) : null);
+  // Kolumnerna kopplas till fält via mallens nummer — utom i skanningsgranskningen, där Claude anger fältet
+  // direkt (numren i en mall från en tidigare skanning stämmer inte alltid med kolumnerna Claude ser).
+  result.grid = buildPageGrid(parsed?.grid, layout, layout && !opts.wholeSpread ? layout.columns.map((c) => ({ field: c.field, label: c.label })) : null, !!opts.wholeSpread);
   console.log(`[OCR] 📄 HELA-UPPSLAG-VÄG (ett anrop) — ${result.flights.length} rader, ${secs()}s`);
   return finalizeResult(result, add);
 }
@@ -865,7 +845,11 @@ function combineHalfGrids(a: RawGrid | undefined, b: RawGrid | undefined): RawGr
 
 // Gemensam parser — används av både ocrScanLogbook och ocrScanPage
 function parseOcrResponse(parsed: any): OcrPageResult {
+  // Rubriken för "Other type of flight time" skrivs bara på första raden med värde (kortare svar) → ärvs nedåt.
+  let lastLabels: Record<string, string> | undefined;
   const flights: OcrFlightResult[] = (parsed.flights ?? []).map((f: any) => {
+    if (f.other_time_labels && typeof f.other_time_labels === 'object' && Object.keys(f.other_time_labels).length) lastLabels = { ...lastLabels, ...f.other_time_labels };
+    else if (f.other_times && typeof f.other_times === 'object' && lastLabels) f = { ...f, other_time_labels: lastLabels };
     const rs = f.remarks_suggestion;
     const validSuggestion = rs && typeof rs === 'object' && rs.field && rs.value && Number(rs.confidence ?? 0) >= 0.6
       ? {
@@ -942,7 +926,8 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       other_time_labels: f.other_time_labels && typeof f.other_time_labels === 'object'
         ? Object.fromEntries(Object.entries(f.other_time_labels).map(([k, v]) => [k, String(v ?? '')]))
         : undefined,
-      needs_review: Boolean(f.needs_review),
+      // Claude skriver inte needs_review längre: en rad behöver granskas när den har en osäker cell.
+      needs_review: Boolean(f.needs_review) || fieldIssues.length > 0,
       review_reason: f.review_reason ?? undefined,
       remarks_suggestion: validSuggestion,
       time_mismatch: validMismatch,
@@ -974,15 +959,14 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       brought_forward: pt.brought_forward ?? null,
       total_this_page: pt.total_this_page ?? null,
       total_to_date: pt.total_to_date ?? null,
-      by_field: pt.this_page_by_field && typeof pt.this_page_by_field === 'object'
-        ? Object.fromEntries(Object.entries(pt.this_page_by_field).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)]))
-        : undefined,
+      by_field: numberMap(pt.this_page_by_field),
     },
     aircraftDetections: detections,
     pageNumbers: {
       left: typeof pn.left === 'number' ? pn.left : null,
       right: typeof pn.right === 'number' ? pn.right : null,
     },
+    remarksPilotNames: parsed.remarks_pilot_names === true,
     imageLayout: {
       orientation: parsed.image_layout?.orientation === 'portrait' ? 'portrait' : 'landscape',
       logbook_bounds: {
@@ -994,6 +978,12 @@ function parseOcrResponse(parsed: any): OcrPageResult {
     },
     grid: null,   // sätts i ocrScanPage, som vet vilken kolumnlista skannern fick
   };
+}
+
+// { fält: tal } ur Claudes svar; annat än tal filtreras bort.
+function numberMap(x: any): Record<string, number> | undefined {
+  if (!x || typeof x !== 'object') return undefined;
+  return Object.fromEntries(Object.entries(x).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)]));
 }
 
 export interface AircraftDetection {

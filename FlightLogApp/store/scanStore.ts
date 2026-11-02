@@ -1,4 +1,10 @@
-// Buffer för OCR-bilder — stöder enkel skanning (1 bild) och batch (2–5 bilder)
+import type { PageContext } from '../services/ocr';
+
+// Buffer för OCR-bilder — stöder enkel skanning (1 bild) och batch (upp till MAX_SPREADS bilder)
+
+// Högst så många uppslag per skanning (kameran, fotoväljaren, granskningen). En hel bok delas upp i omgångar
+// om lika många i "Scan your whole logbook" (app/import/scan-book).
+export const MAX_SPREADS = 10;
 
 export interface ScanImage {
   base64: string;
@@ -7,6 +13,12 @@ export interface ScanImage {
   height?: number;
   cropped?: boolean; // redan beskuren till boken (kameran/dokumentskannern) — annars letar granskningen upp boken
   oriented?: boolean; // rättvänd (Blades kamera vet hur telefonen hölls) — annars prövas 90°/270°
+  sourceUri?: string; // foto ur biblioteket som inte förberetts än (base64 tom): granskningen förbereder det
+                      // själv, så att läsningsskärmen syns direkt efter valet
+  // Redan förberett i "Scan your whole logbook" (vridet, rätat, beskuret): bilden som fil, Visions ord, var
+  // Claudes läsning sparas (läses inte om, och kostar inga nya coins, om omgången öppnas igen) och vilka
+  // sidnummer uppslaget bör ha (om Claude inte läser dem).
+  prepared?: { uri: string; wordsUri: string; readUri: string; expected?: { left: number; right: number | null } };
 }
 
 let pendingImages: ScanImage[] = [];
@@ -26,8 +38,22 @@ export function clearScanImage() {
 
 // Batch — flera bilder
 export function setScanBatch(images: ScanImage[]) {
-  pendingImages = images.slice(0, 5);
+  pendingImages = images.slice(0, MAX_SPREADS);
 }
+
+// En omgång i "Scan your whole logbook": vilka foton, bokens format (id i scanFormat) och sista flygningen
+// från förra omgången (ditto-tecken på första raden). ledger = bokens första och sista uppslag (vänster sida)
+// för pappersbokens lista. Läses och töms av granskningen.
+export interface ScanBookSession {
+  projectId: string;
+  photoIds: string[];
+  formatId: string | null;
+  ctx?: PageContext;
+  ledger?: { start: number | null; latest: number | null };
+}
+let bookSession: ScanBookSession | null = null;
+export function setScanBookSession(s: ScanBookSession | null) { bookSession = s; }
+export function takeScanBookSession(): ScanBookSession | null { const s = bookSession; bookSession = null; return s; }
 
 export function getScanBatch(): ScanImage[] {
   return [...pendingImages];
@@ -47,7 +73,7 @@ export function getScanUseBookLayout(): boolean { return useBookLayout; }
 // innan de läses. Full upplösning — beskärningen görs från originalet.
 export interface ScanSource { uri: string; width: number; height: number }
 let sources: ScanSource[] = [];
-export function setScanSources(list: ScanSource[]) { sources = list.slice(0, 5); }
+export function setScanSources(list: ScanSource[]) { sources = list.slice(0, MAX_SPREADS); }
 export function getScanSources(): ScanSource[] { return [...sources]; }
 
 // Tiderna i den fotade boken: UTC eller lokal tid. Lokal räknas om till UTC per flygplats när raderna sparas.

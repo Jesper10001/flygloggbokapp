@@ -14,7 +14,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { WorkloadBar, LoadRing, ZoneChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
+import { WorkloadBar, LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
+import { DraftBanner } from '../../components/DraftBanner';
 import { StressInfoButton } from '../../components/StressInfo';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -25,7 +26,7 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
-import { getDroneStressHours, getDroneFlights, droneModeLabel, type DroneFlight } from '../../db/drones';
+import { getDroneStressHours, getDroneStressDaily, getDroneFlights, droneModeLabel, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -39,7 +40,7 @@ import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { Marquee } from '../../components/Marquee';
 import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 import { useTabBarSpace } from '../../components/GlassTabBar';
-import { workloadIndex } from '../../utils/workload';
+import { workloadIndex, stressSeries, stressFactorSummary, type StressZone as FactorZone } from '../../utils/workload';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 const SERIF = 'Georgia';
@@ -103,6 +104,8 @@ export default function DroneDashboardScreen() {
   const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
   const stats = tourDemo ? DEMO_DRONE_STATS : realDroneStats;
   const [stress, setStress] = useState<StressData>(computeStress(0, 0));
+  // Stressfactor-knappen (som pilot): snittet av Flight load de senaste 60 dagarna + kurvan i knappen.
+  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[] }>({ zone: 'normal', values: [] });
   const [latestPage, setLatestPage] = useState(0); // aktiv sida i latest-flight-karusellen (= manned prickar)
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
@@ -132,6 +135,10 @@ export default function DroneDashboardScreen() {
     loadFlights();
     loadStats();
     getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14, h.historyDays))).catch(() => {});
+    getDroneStressDaily().then((daily) => {
+      const series = stressSeries(daily, new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10), new Date().toISOString().slice(0, 10));
+      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index) });
+    }).catch(() => {});
     return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
 
@@ -192,8 +199,8 @@ export default function DroneDashboardScreen() {
         <View style={s.telGaugeHeader}>
           {/* Vänster: WORKLOAD-etikett + zon bredvid varandra (= pilot) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={s.telGaugeLabel}>WORKLOAD · 14D</Text>
-            <ZoneChip zone={stress.zone} color={zc} />
+            <Text style={s.telGaugeLabel}>WORKLOAD</Text>
+            <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push({ pathname: '/stressfactor', params: { mode: 'drone' } })} />
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) = pilot */}
           {!wx && (
@@ -260,6 +267,8 @@ export default function DroneDashboardScreen() {
           <Ionicons name="book" size={22} color={accent} />
         </TouchableOpacity>
       </View>
+      {/* Ofullständigt utkast från Log Flight ("Save as draft") → fortsätt där man slutade (= pilot). */}
+      <DraftBanner mode="drone" onOpen={() => router.push('/drone-flight/add?draft=1')} />
 
       {/* ── 4. Fotokarusell ── (högre zIndex än globen så att globen bleeder UPP bakom
               karusellen och touch över karusellen aldrig griper globen — = manned) */}

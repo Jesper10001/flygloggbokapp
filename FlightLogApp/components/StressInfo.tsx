@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { GlassDialog, DialogIcon } from './GlassDialog';
 import { loadZoneColor } from './WorkloadGauge';
 
 export function StressInfoButton({ accent = Colors.primary, style }: { accent?: string; style?: ViewStyle }) {
@@ -20,24 +21,21 @@ export function StressInfoButton({ accent = Colors.primary, style }: { accent?: 
       <TouchableOpacity onPress={() => setOpen(true)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7} style={style}>
         <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        {/* Backdrop som SYSKON (absolut bakom) → sheet:en har ingen Pressable-förälder, så ScrollView:n
-            scrollar fritt (en Pressable runt scrollen äter annars svep-gesten på iOS). */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Pressable onPress={() => setOpen(false)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
-          <View style={{ width: '100%', maxWidth: 400, maxHeight: '82%', backgroundColor: Colors.card, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, padding: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Ionicons name="pulse" size={20} color={accent} />
-              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800', flex: 1 }}>Flight load</Text>
-              <TouchableOpacity onPress={() => setOpen(false)} hitSlop={8}><Ionicons name="close" size={20} color={Colors.textMuted} /></TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+      <GlassDialog
+        visible={open}
+        onClose={() => setOpen(false)}
+        icon={<DialogIcon name="pulse" color={accent} />}
+        eyebrow="How it works"
+        title="Flight load"
+        primary={{ label: 'Got it', onPress: () => setOpen(false) }}
+      >
+        <ScrollView style={{ alignSelf: 'stretch', maxHeight: 380, marginTop: 12 }} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
               <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20 }}>
                 Flight load compares how much you've flown recently against your own normal pace, so you can spot when you're ramping up faster than usual.
               </Text>
               <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 12 }}>
                 <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>How it's calculated: </Text>
-                your flight hours over the last <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>14 days</Text> divided by your typical 14-day total (your average over the past 12 months), shown as a percentage.
+                your flight hours over the last <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>14 days</Text> divided by your normal 14-day total, shown as a percentage. Your normal changes over time: it's based on the past 12 months, with recent months counting more, so it follows how you fly now.
               </Text>
               <Text style={{ color: Colors.textSecondary, fontSize: 13.5, lineHeight: 20, marginTop: 12 }}>
                 <Text style={{ color: Colors.textPrimary, fontWeight: '700' }}>100%</Text> = flying at your usual pace. Above 100% means more than normal (higher load); below means less.
@@ -54,9 +52,7 @@ export function StressInfoButton({ accent = Colors.primary, style }: { accent?: 
                 New to Blades? While it learns your normal pace, Flight load rests at 100% (your first couple of weeks) and then gradually starts to follow your real numbers. Imported flights count right away. Totals you add as a lump sum (manual import, previous experience) don't count as recent flying. This is an awareness cue about workload and fatigue risk — not a medical or official fitness-to-fly measure.
               </Text>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </GlassDialog>
     </>
   );
 }

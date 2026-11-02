@@ -15,6 +15,35 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- **Scan report: renare överst** (`components/scan/ScanReport.tsx`):
+  - Sammanfattningen är ett kort med flygningar och flygtid i stor serif, och ett öga till höger som öppnar uppslagen som loggbok (ersätter knappen "View as logbook" och siffran "page totals match").
+  - "Second pilots" (antal, fälls ut) ligger i samma kort.
+  - Det som behöver ses över står som en kort rad i kortet ("1 unchecked · 2 adjusted to the page total"). Simulatorchippet är borta.
+- **Scan report: ett avsnitt för hela skanningen, likadant för ett uppslag som för tio.** Rubriken visar alla bokens sidor som skannats ("Spreads · p. 78–87"). Flygningarna står som i loggboken: år och månad med det senaste överst, och fallande datum inom månaden. Rutan "All spreads · what will be saved" är borttagen. Sidans summor visar för flera uppslag summan av uppslagen; en kolumn som inte stämmer märks med uppslaget ("p. 82–83"), och under tabellen står varje avvikelse ("p. 82–83 · Night 2.8, book 2.9") och uppslag utan lästa summor. Sidetiketten blir "p. 12" när uppslaget har ett nummer, inte "p. 12–12".
+- **Scan report: sidans summor som en enkel tabell**: etikett ovanför värdet, fyra per rad, utan ramar och färger. Bara en summa som inte stämmer märks, i gult med bokens värde under ("book 4.8"). Rubriken säger "Match the book" eller hur många som inte stämmer.
+- **Scan report: hjälptexten under "Times in the book" är borttagen.**
+- **"Create a digital logbook using this format" är borttagen** ur rapporten och den liggande loggboksvyn. I stället sparas bokens format vid Save som mallen "Scanned logbook" (`services/logbook/bookFromScan.ts`, från uppslaget med flest lästa rader), och när man skapar sin digitala loggbok står den först, förvald och märkt "From your scan" (`components/logbook/BookSetupSheet.tsx`). Mallen från förra skanningen uppdateras, utom när en bok redan använder den (då skapas en ny, så att bokens kolumner aldrig ändras).
+- **Scan logbook: samma luftfartyg blir en typ, och flottans typer används** (`services/scanTypes.ts`, test `scripts/test-scan-types.cjs`). Förut blev varje skrivsätt i boken en egen typ i flottan (t.ex. EC35, EC135 och EC135T1 för samma helikopter), vilket rubbade Fleet, statistiken och typvalet i Log Flight. Nu gäller hela skanningen:
+  - Skrivsätt slås ihop när de har samma registrering, när Claude läst samma ICAO-typkod för dem, eller när det ena är det andra med ett variantsuffix (EC135 / EC135T1, B206 / B206L) och typkoderna inte säger emot. PA28 och PA28R, eller A320 och A321, hålls isär.
+  - Finns typen redan i flottan får raderna flottans namn: en känd registrering ger flottans typ för den, samma namn räknas oavsett bindestreck och mellanslag, typkoden kan vara flottans namn, och ett variantsuffix av en flottyp räcker.
+  - Rapporten visar "Matched to your fleet" (t.ex. "EC135T1, EC35 → EC135 · same registration") med "Keep separate". Nya typer visar "Also written as …", där ett tryck gör ett annat skrivsätt till typens namn.
+  - Frågan "New aircraft type" ställs en gång per typ (alla skrivsätt), och svaret gäller alla rader. En typ som ändrats på en enskild rad lämnas som den är.
+  - Ersätter den gamla avbildningen per uppslag (bara när typkoden fanns i flottan, eller i fokus "totals").
+- **Fleet: byta namn till en typ som redan finns slår ihop dem efter en fråga** ("Merge into EC35?"). Den befintliga typen behåller sina uppgifter och sitt foto; förut skrevs de över utan fråga (`components/logbook-page/FleetCard.tsx`).
+- **Scan logbook: läsningen stannar när granskningen stängs.** Förut fortsatte kedjan av läsningar i bakgrunden, uppslag för uppslag, och drog coins för uppslag som ingen skulle granska (sett i "Scan your whole logbook": del 1 startades och lämnades, och uppslag 1–5 lästes ändå). Ett anrop som redan skickats blir klart. I en hel bok sparas det, så det kostar inget igen.
+  - Stänga en vanlig skanning med lästa uppslag frågar nu "Discard this scan?" och säger att de lästa uppslagen och deras coins går förlorade.
+  - I en del av en hel bok sägs att de lästa uppslagen är sparade och inte kostar något igen.
+- **Scan your whole logbook: formatläsningen räknas med full vikt i appen**, som i proxyn (som bara ger `emit_flights` skanningspris). Förut visade appen halva kostnaden direkt och resten drogs när saldot hämtades från proxyn. Delarna visar ungefär vad ett uppslag kostar ("about 15 coins each" för Premium).
+- **Scan logbook: "Scan your whole logbook"** (`app/import/scan-book.tsx`, `store/scanBookStore.ts`), ett kort under "Photograph your logbook":
+  - Man lägger till alla uppslag på en gång, från fotoalbumet (ingen gräns) eller med skanningskameran (upp till 60 per runda, `scan-camera?book=1`).
+  - Varje foto förbereds direkt när det lagts till: boken letas upp, vrids rättvänd, rätas upp och beskärs. Fotona sparas som filer i appens dokumentmapp med Visions ord och en miniatyr. Granskningen hoppar sedan över det steget.
+  - Loggbokens format läses en gång från första uppslaget med ett litet Claude-anrop (`services/scanFormat.ts`): kolumner med fält och sida, rader per sida, tidsformat, summeringsrader, sidnummer och om anmärkningen har pilotens namn. Formatet sparas med ett id (settings `scan_formats`), och varje omgång bär id:t med sig. Granskningen ger Claude formatet som kolumnlista (samma väg som en digital boks mall, `ocrScanPage` `layout`) och bokens tidsformat, i stället för att boken tolkas på nytt i varje omgång.
+  - Sidspann: bokens första sida och sista skrivna sida. Det förifylls från första uppslagets sidnummer, kontrolleras mot antalet foton ("Pages 1–80 are 40 spreads …"), ger varje foto sina sidnummer (används när Claude inte läser dem) och blir bokens början och slut i pappersbokens lista (`ledger.start/latest`).
+  - Boken granskas i delar om tio uppslag ("Parts · 10 spreads each", Start/Continue). Sista flygningen i en del följer med till nästa (ditto på första raden). En sparad del markeras med bock, och dess bilder raderas (miniatyren finns kvar).
+  - Claudes läsning sparas per foto. Stängs granskningen eller appen mitt i en del kostar det inga nya coins att öppna den igen. Uppslag som inte gick att läsa blir kvar till en senare del.
+  - Fotona kan flyttas och tas bort. Allt sparas på telefonen (settings `scan_book_project`) och fortsätter där man var. "Discard this logbook scan" tar bort fotona; sparade flygningar finns kvar.
+- **Scan logbook: upp till 10 uppslag per skanning** (förut 5), i kameran, fotoväljaren och granskningen (`MAX_SPREADS` i `store/scanStore.ts`). Uppslagsraden överst i granskningen rullar i sidled och följer uppslaget som visas.
+- **Scan logbook: bilderna hålls som filer, inte base64 i minnet** (mindre minne vid många uppslag). Förberedelsen (hitta, vrida, räta, beskära) ligger i `services/scanPrepare.ts` och arbetar med filer hela vägen; Apple Vision läser filen direkt. Bilden läses som base64 först när Claude ska läsa den och släpps efter anropet. Granskningens egna filer i cachen raderas när den stängs.
 - **Loggboken:** summaraderna i mallen EASA AMC1 FCL.050 har inget hack under FSTD "Type" längre. Det gäller även PDF-exporten (`services/logbook/renderSpread.ts`).
 - **Rättningar utan granskning (EAS Update med Expo):**
   - expo-updates med runtime-version via fingerprint.
@@ -124,9 +153,166 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
       - **"Haiku först" testades och valdes bort.** Haiku 5.5 läste på 9,8 s för 0,03 kr, men bara 88,5 % av cellerna var lika med Sonnet. Haiku läste klockslag fel, som sidans summor inte kan avslöja. När summorna inte stämde blev det Haiku och sedan Sonnet: långsammare, och båda drar coins.
       - **Dev-loggen** visar tokens, cache, tid, kostnad i kronor och coins per anrop, tiden per uppslag och varje läst rad (`[SCAN] 📋`), så att skanningar kan jämföras cell för cell.
       - **Mätning, samma uppslag med 12 rader:** Sonnet med den gamla instruktionen tog 29,3 s, 5 164 tokens output och 35 coins. Nu tar det 23,4 s, 3 933 tokens och 15 coins, och 0,48 kr med cache.
+    - **Träffsäkerhet och kortare svar efter mätning mot facit (16 uppslag, p24–55, 2026-11-01):**
+      - **Bugg:** fokus ("What matters most to you?") och tillägget (+0.2 h) följde bara med på första uppslaget. Föregående sidas kontext skrev över dem (`baseContext =` i `ocrScanPage`, nu `+=`).
+      - **Nya läsregler med exempel i instruktionen:**
+        - Varje rad läses längs samma linje över uppslaget.
+        - En tom cell är tom, så kolumnen glider inte upp en rad.
+        - Aldrig fler rader än de tryckta.
+        - PIC + Co-pilot + Dual = total.
+        - Datum i ordning.
+        - Överstrukna tal är ogiltiga ("14" överstruket och "2" bredvid ger 2, inte 142).
+        - "+ 0.2" hör till tiden till vänster och inte till nästa kolumn.
+        - Ett simpass ärver ingen registrering.
+      - **Kortare svar** (−25 % tokens, −24 % tid, −20 % kostnad per uppslag):
+        - Claude skickar inte `remarks_suggestion`, `needs_review` eller `review_reason`.
+        - Rubriken för "Other type of flight time" kommer bara en gång per sida.
+        - Inga egna flaggor för tider som inte går ihop, eftersom appen kontrollerar dem själv.
+        - Ingen text före verktygsanropet.
+      - **Kontroller i koden** (`services/scanImport.ts`):
+        - Initialer, namn och PICUS/SPIC/NVG i anmärkningen (`suggestFromRemarks`).
+        - PIC + Co-pilot + Dual mot total.
+        - Datum som går bakåt eller krockar i tid med raden ovanför, och en rad som lästs två gånger, med bokens radantal från tidigare uppslag (`checkRowSequence`, `typicalRowsPerPage`).
+        - Simulatortid i fel kolumn flyttas när sidans summa bekräftar det (`reconcileSimColumn`).
+        - Samma tal under Day och Night föreslås som överstruket (`checkLandingPairs`).
+      - **Granskningen:**
+        - En fråga för initialerna i hela skanningen ("Move to Second pilot on all N") i stället för en per rad.
+        - Flytten behåller resten av anmärkningen ("SZ, NDB" ger SZ och "NDB").
+        - Ett simpass behåller sina landningar.
+      - **Testat och struket:** kontroll av bokens egen räkning (brought forward + sidan = to date). Summaraderna lästes för osäkert och gav falsklarm.
+      - **Mätning** (gammal kod 2 körningar, ny 3, exakt läge):
+        - Fel per körning: 85 → 45.
+        - Flygningar helt rätt: 71 → 82 %.
+        - Frågor: 260 → 91.
+        - En bok på 70 sidor: ~440 premium-coins och 12,6 kr (förut ~500 och 15,5 kr).
+        - Kvar: H/N-förväxling (ETHB/ETNB) och en datumkolumn som glider på ett uppslag.
+    - **"View as logbook"** (förut "Present as logbook for cross-reference") i Scan report, under sidans summor för varje uppslag (`components/scan/LogbookCrossRef.tsx`). Alla skannade uppslag visas, man sveper mellan dem eller använder pilarna, och vyn öppnar på uppslaget man tryckte på:
+      - Uppslaget ritas som en loggbok i liggande helskärm, med samma renderare som Dina böcker.
+      - Kolumnerna, ordningen, bredderna och vänster/höger sida kommer från det fotade uppslagets rutnät (`services/logbook/scanSpread.ts`). Flygningarna står på sina tryckta rader, så att man kan lägga pappersboken bredvid och jämföra rad för rad.
+      - Simulatorpass står i FSTD och inte i total tid, och andrepilotens initialer står först i anmärkningen som i boken.
+      - Bara "Total this page", räknad på raderna (`onlyThisPageTotal` i `renderSpread`). Appen känner inte bokens brought forward och to date, och tomma kolumner får ingen summa.
+      - **"By column"** går igenom kolumnerna en i taget som Transcribe (`TranscribeOverlay`), utan de tomma (`skipEmptyColumns`).
+      - Saknas rutnätet används mallen "Pilot logbook".
+      - Har ena sidan angetts i halvsidans koordinater (kolumnerna överlappar), avgör fältet sidan, och varje sida får halva bredden.
+    - **"Use as my digital logbook"** (bara när man inte har en digital loggbok än), i rapporten under uppslaget och i loggboksvyn:
+      - Det skannade uppslagets layout blir den digitala loggboken, så att man slipper välja mall och kolumner.
+      - Boken skapas när skanningen sparas (`services/logbook/bookFromScan.ts`):
+        - Mallen "Scanned logbook" sparas som en egen mall (`bookTemplateFromScan`), med samma kolumner, ordning, bredder och sidor som boken.
+        - Rubriken har grupper som i en riktig bok (`bookHeaderRows`), och brought forward, total this page, total to date och signatur.
+        - Kolumner som appen inte sparar något i (tomma, AR landings) blir tomma kolumner med bokens rubrik och ett "+" för att välja tidstyp. NVG/NVD blir NVG-tid.
+      - Boken ("1st Logbook") börjar på den första skannade sidan. Den förankras på den senaste skannade flygningen, på samma sida och rad som i pappersboken (`saveScanRows` returnerar flygningarnas id). Sparbeskedet har "Open logbook".
+      - **Ändra efteråt:** bokinställningarna har "Edit the columns of …" för en egen mall. Den öppnar Custom logbook-editorn med mallen ifylld (`?template=`).
+        - Kolumnernas id och bredder behålls, så att bokens val för tomma kolumner består.
+        - Nya egna mallar får också grupprubriker och valbara tomma kolumner.
+- **Nya flygplan efter en skanning hämtas i sin helhet i bakgrunden** (spec och bild, `enrichFleetInBackground`), som efter CSV-importen. När det är klart visas "Fleet updated" med "Navigate to fleet". Sparbeskedet säger att det pågår.
+- **Popup-rutorna har samma stil som uppdateringspopupen** (`components/GlassDialog.tsx`), som är förlagan och inte ändrad:
+  - Liquid Glass på iOS 26, annars mörk blur med hårfin ljus kant.
+  - Radie 30 och fjäderanimation in och ut.
+  - Cyan eyebrow, stor rubrik och dämpad text.
+  - En neutral glaskapsel som huvudknapp och en textknapp under. Tryck utanför stänger.
+  - Flyttade till den:
+    - "Fleet updated": texten följer källan (import, skanning). En premiumanvändare som får slut på coins uppmanas inte längre att uppgradera.
+    - Flight load-infon.
+    - Missing DUAL/Instructor/NVG.
+    - Blade coins-infon och Export logbook pages, nu en gemensam komponent för pilot och drönare (`CoinInfoDialog`, `ExportPagesDialog`).
+    - Bytet mellan pilot- och drönarläge, promokoden och rundturens fråga "Take a quick tour?".
+  - Ark som glider upp (Premium, gratisgränsen, köp av coins, bokinställningar) och systemets egna Alert-rutor är oförändrade.
+- **Skanningen: vem man flög med, ur anmärkningen.** Frågan "Move it / Keep in remarks" är ersatt.
+  - Rutan visar rollen (tryck för att byta, som i Log Flight men utskriven) och namnet (penna för att rätta). Rollerna är Pilot in command, Second in command, Flight instructor, Student pilot in command och PIC under supervision.
+  - Under rutan finns knapparna "Save" och "Ignore".
+  - Förval: Pilot in command om flygningen saknar egen PIC-tid, annars Second in command. Pilot in command går inte att välja när man själv har PIC-tid.
+  - Sparas som `second_pilot` och `second_pilot_role`.
+  - Gruppfrågan för alla initialer har samma ruta med förvalet "By flight: PIC or SIC" (PIC eller SIC per flygning), plus "Save", "Ignore" och "One by one".
+- **Skanningen: förslag på liknande flygplatser** när en platskod är okänd eller osäker (`services/placeSuggest.ts`):
+  - En bokstav i taget byts mot de som ofta förväxlas i handskrift (H↔N, A↔H, O↔D, U↔V …), och bara koder som finns i flygplatsdatabasen behålls.
+  - Ordning: koder som förekommer i skanningen eller i loggboken kommer först.
+  - Högst fyra flygplatser, och "ZZZZ" sist. Förut stod det "Off-airport (ZZZZ)".
+  - Det sker i koden och inte med AI, så det kostar inga coins.
+- **Skanningen: bokens tillägg (+0.2 h) skrivet i cellen** ("1.2 + 0.2") men läst som 1.2 rättas (`reconcileAddition`): går kolumnen ihop med sidans summa när tillägget läggs till på de rader där tiden är exakt tillägget under totalen, läggs det till.
+  - Det körs när uppslaget läses (med den sparade regeln) och på redan lästa uppslag när man svarar ja på regeln.
+  - Instruktionen säger också att "1.2 + 0.2" är 1.4 i alla tidskolumner när regeln är känd.
+- **Skanningens översikt:** "page totals" heter nu "totals match". Siffran är hur många av sidans skrivna kolumnsummor som raderna går ihop med, till exempel 3 av 4.
+- **Book-vyn visade sidan för stor** efter att man varit i den liggande helskärmsboken, till exempel via "Open logbook" efter skanningen. Orsaken var att WebViewn behöll den liggande förstoringen. Sidorna ritas nu om när bredden ändras, i både pilot- och drönarböcker, och en ogiltig kolumnbredd i en egen mall ersätts.
+- **Egna loggboksmallar ritades med standardmallen** i Dina böcker, förhandsvisningen, Book-vyn och exporten. Orsaken var att `getTemplate` bara kände de inbyggda mallarna. Nu registreras de egna mallarna när de läses eller sparas (`registerCustomTemplates`, `ensureCustomTemplatesLoaded` i `listDigitalBooks`), och Dina böcker läser om böckerna när man kommer tillbaka från editorn.
+- **Skanning från kamerarullen: "Frame the logbook" hoppas över** (startsidans texter ändrade därefter). Fotona går direkt till läsningen, där boken hittas, vrids rätt, rätas upp och beskärs (`findLogbook`). Fotona skickas med upp till 3000 px längsta sida, och det Claude läser krymps till 2000 px efter beskärningen, så att boken behåller skärpan.
+  - Läsningsskärmen visar det som första steg: "Finding the logbook · photo 2 of 5" → "Logbook found in all 5 photos". Alla foton letas upp efter varandra på enheten medan Claude läser det första (`locate` i `scan-review.tsx`), så att det inte blir någon extra väntan.
+  - Utan Apple Vision (äldre bygge) används "Frame the logbook" som förut.
+- **Log Flight: "Save as draft"** (pilot och drönare), en knapp under Save. Ett ofullständigt formulär sparas som utkast (`services/flightDrafts.ts`, ett per läge i inställningarna) och fortsätts från dashboarden. Kortet "Unfinished draft · ESSA → ESGG · 12 Oct · AT76 SE-MVA" ligger under Log flight-knappen (`DraftBanner`). Ett tryck fortsätter, och krysset slänger utkastet efter en fråga.
+  - Med i utkastet: formuläret, roll och överlägg, sim-val, besättning, stopp, inflygningar, halvsparade platser, media och de manuella lägena (natt, landningar, starter, pilot flying), så att autot inte skriver över det man fyllt i. Drönare: formulär, roll, besättning, flygpass, villkorens råvärden och media.
+  - Förifyllningen från senaste flygningen hoppas över när man fortsätter ett utkast.
+  - Finns redan ett annat utkast frågar appen "Replace your draft?". När flygningen sparas på riktigt tas utkastet bort.
+  - Knappen visas inte vid redigering eller i rundturen. Ett utkast är ingen flygning: det räknas inte mot gratisgränsen och syns inte i loggboken.
+- **Scan report: sidsummorna står per uppslag.** Den samlade rutan med alla uppslags summor överst är borttagen, eftersom samma information står per uppslag.
+- **Scan report: ett tryck på en flygning öppnar en flygsida som i loggboken** (`components/scan/FlightEditor.tsx`).
+  - Rubriken visar rutt, märken, datum och tid, och avsnitten är Aircraft, Crew, Departure och Arrival (med flygplatsnamn), Pilot function time, Operational condition, Simulator, Landings och Remarks, plus kartan med dag och natt. Ogranskade värden har gul botten.
+  - I stället för "Find photos" och "Open full editor" finns en Edit-knapp. Den gör värdena redigerbara direkt på sidan: alla rader, även tomma, samt Flight/Simulator, simulatortyp och den andra pilotens roll. Värdena tolkas när fältet lämnas, och fel värde ger röd ram. "Leave this flight out" och "Include this flight" finns kvar.
+- **Scan report: flygningarna visas som i Logbook-listan.**
+  - Korten har dag och veckodag, "DEP → ARR" med IFR-, natt-, NVG- och SIM-märken, roll (färgad för PIC), typ och registrering, tiden samt avgång och ankomst i UTC.
+  - De är grupperade per år och månad med timmar och antal, i samma stil som loggbokens rubriker, och i bokens ordning per uppslag.
+  - Kryssrutan (ta med / lämna utanför), gul botten för ogranskade värden, blå text för ändrade och raden med ADJUSTED, UNCHECKED, ALREADY IN YOUR LOGBOOK och LEFT OUT finns kvar. Ett tryck öppnar flygningen som förut.
+- **Skanningen: frågor om tiden på simulatorpass pekar på simulatorkolumnen.** Ett simulatorpass sparas med tiden både som simulatortid och total_time, och Claude flaggar ofta osäkerheten på total_time. Frågan ringade då in den tomma "Total time of flight"-cellen på vänstersidan, fast värdet står i simulatorkolumnen längre till höger. Nu blir den en fråga om "Simulator time" med cellen där värdet står, och avläsningarna visas i den kolumnen, när rutnätet har en simulatorkolumn. En ändring av värdet uppdaterar både simulatortiden och total_time (`setField`).
+  - **Simulatorkolumnen hamnar där värdena står, även när rutnätet saknar den.** Claude kan lägga "sim" på fel kolumn (t.ex. Co-Pilot) och inte ge någon kolumn alls för en handskriven "Simulator time". Då fanns inget att flytta till, och rutan missade cellen. Nu lägger `relocateColumnsByValues` kolumnen där Apple Vision läser värdena: samma x på minst 60 % av raderna, inom 4 % av bredden, och utanför kolumner som redan hör till andra fält (samma tal kan stå i Total eller Dual). Finns en omappad kolumn där tar den fältet, annars blir det en ny kolumn med samma bredd. Testat i `test-scan-geometry.cjs` (16).
+- **Drönarsidans Settings: plustecknet för att köpa fler Blade coins**, som på pilotsidan (bara Premium, och bara när coin-butiken är på). Blade coins-infon nämner butiken.
+  - Coins delas mellan pilot- och drönarläget, eftersom saldot hämtas per enhet från proxyn varje gång sidan visas. Köpta coins syns därför i båda lägena med samma guldstapel ("Extra coins", gemensam komponent `ExtraCoinsBar`). Bildtexten säger "Purchased · never expire · shared by pilot and drone mode".
+- **Bokregeln för alla loggböcker** (`applyBookRules` i `constants/logbookTemplates.ts`): längst ner står alltid Total this page, Brought forward och Total to date, i den ordningen, med pilotens signatur till vänster om raderna. Det är samma stil som de inbyggda böckerna. Resten (kolumner, bredder, rader) är fritt.
+  - Gäller egna böcker, böcker skapade från skanningen ("Use as my digital logbook") och redigerade mallar. Mallar som redan finns, som din "1st Logbook" från skanningen som hade Brought forward överst, följer regeln när de läses in.
+  - Renderaren (Dina böcker, Book-vyn, PDF-exporten) har inte längre läget med Brought forward överst. Har en egen bok för få textkolumner före siffrorna för en signaturcell, står signaturen under tabellen till vänster.
+  - Editorn sparar alltid enligt regeln; värdena från bildanalysen för summaraderna används inte längre.
+- **Flight load: ditt normala väger nyare månader mer** (`normalFromMonths` i `utils/workload.ts`, används av dashboarden och Stressfactor). Ditt normala 14-dagarssnitt bygger fortfarande på det senaste året, men varje månad väger efter hur nyligen den var, med en halveringstid på 120 dagar. Ditt normala ändras över tid och följer nu hur du flyger nu (ny tjänst, säsong), medan ett helt år håller det stabilt. Dashboardens procent kan därför ändras något. Infotexten om Flight load är uppdaterad.
+- **Ny: Stressfactor.** Zonetiketten i dashboardens WORKLOAD-rad (pilot och drönare) är ersatt av en knapp som bara är en minigraf över de senaste 60 dagarna (`StressFactorChip`), utan ram, som ett levande EKG.
+  - Bara den streckade linjen för ditt normala (100 %) syns hela tiden, och skalan rymmer den alltid. Ingen grå kurva visar i förväg var linjen går. Kurvan ritas fram från vänster till höger med en lysande prick i zonfärgen för periodens snitt, tills hela grafen är belyst (svepet tar 5,5 s). Sedan tonas den snabbt ut och börjar om, ett varv var 6:e sekund. Svepet ritas om bildruta för bildruta i JS (cirka 40 bilder/s), eftersom animerade streckmönster i SVG inte uppdaterades pålitligt och kurvan hoppade från grå till ifylld.
+  - Höjden skalas mellan grafens eget lägsta och högsta värde och exponentiellt, så att låga dagar blir en lugn baslinje och höga dagar spikar, som ett EKG.
+  - Varje bit av linjen har dagens zonfärg.
+  - Animationen går bara när dashboarden syns (`useIsFocused`) och står still med "Reducera rörelse".
+  - Ringen och stapeln visar som förut de senaste 14 dagarna.
+  - Stressfactor-arket hade dubbel marginal överst på iOS (statusfältets marginal i ett ark som redan börjar under det). Marginalen är borta, och arket har en dragbygel.
+  - Knappen öppnar Stressfactor-sidan (`app/stressfactor.tsx`), med fokus på grafen och de intensiva perioderna:
+    - De senaste två månaderna står på en rad överst: zonen och snittet.
+    - Ovanför grafen står vald dag (standard idag) med procent, zon och timmar.
+    - Grafen visar timmar de senaste 14 dagarna uppåt och tid åt höger. Ditt normala är en egen streckad linje som rör sig över tid, med normal-korridoren (70–130 %) och zonerna ovanför (130–170 %, 170 %+) runt sig. Dina timmar är färgade efter dagens zon. Perioderna är skuggade, och man drar för att se en dag. Under grafen väljs 2M, 6M, 1Y eller All.
+    - 6M, 1Y och All: skalan förankras i ditt normala, så att enstaka extremer inte förstör grafen. Nederkanten ligger på halva ditt normala (aldrig över korridoren), så semester och uppehåll hamnar under. Överkanten visar alltid ELEVATED-bandet, och bara de högsta 2 % av dagarna går över. Det som ligger utanför ritas mot kanten, nedtonat och med en liten pil (▼/▲). Avläsningen visar det verkliga värdet. Vid låga nivåer (under 3 h) börjar skalan på noll.
+    - 1Y och All har en logaritmisk timaxel ("Log scale"), så att enstaka toppar inte trycker ihop resten. De visar ett mått varannan vecka: 14-dagarsfönstret som slutar den dagen, räknat bakåt från idag, så att fönstren inte överlappar. Linjen är en mjuk kurva genom punkterna (monoton kubisk interpolation, ingen översväng). Mycket lång historik glesas ut till en multipel av två veckor, till exempel 70 dagar för 18 år. Att dra i grafen hoppar mellan mätpunkterna. 2M och 6M visar varje dag.
+    - Tidsaxeln väljer intervall efter vad som får plats: halvmånader (2M), månader (6M), varannan månad (1Y), halvår eller vartannat år (All). Årtalet står vid januari, och etiketter som skulle krocka eller hamna utanför kanten hoppas över. Förut fick All en etikett per kvartal, och med många års historik blev det oläsligt.
+    - "Busy periods" listar perioder över 130 % i minst 3 dagar, med datum, topp och en stapel för längden. Ett tryck lyser upp perioden i grafen och visar toppen. (2M, 6M och 1Y.)
+    - **All visar bara hur ditt normala har ändrats över tid**, inte Stressfactor: en mjuk linje med fyllnad i cyan, skala från 0, varannan vecka (glesare vid mycket lång historik). Avläsningen visar "Your normal now · X h per 14 days", och vid dragning värdet för punkten. Under grafen står "Your normal over time" med nu (och ändringen mot ett år sedan), högsta och lägsta, med datum.
+    - Längst ner finns en zonskala och en kort förklaring.
+  - Varje dag räknas som dashboardens siffra gjorde den dagen (`stressSeries` i `utils/workload.ts`, `loadDailyHours` i `db/stress.ts`). Testat mot dashboardens räkning: 0 avvikelser på 401 dagar, tre års historik på ~10 ms.
+- **Off-airport-platser utan position hamnade vid ekvatorn (0°/0°)** på globen, kartan över besökta flygplatser, delningskortet och i natt-tidsberäkningen. En plats som inte placerats sparas med 0/0; `getAirportCoordinates` och `getAirportTzInfo` hoppar nu över den, så att den saknar position tills användaren placerat den.
+- **Skanningen gör inte längre okända koder till off-airport-platser.** En kod som inte finns i flygplatsdatabasen (t.ex. ESCC, troligen ESCF) står kvar på flygningen som den skrevs, utan plats och position, tills den rättas. Frågan i granskningen säger "isn't in the airport database — probably misread" och föreslår liknande flygplatser. Gäller både nya granskningen (`saveScanRows`) och den äldre (`review.tsx`). Platser skrivna som namn (t.ex. ett sjukhus) blir fortfarande off-airport-platser utan position.
+- **Skanningens startsida: "Choose photos from your library" är borttagen som egen knapp.** "Photograph your logbook" öppnar i stället ett val (GlassDialog): "Take photos" (kameran) eller "Choose from your photos" (fotoalbumet). Samtycke och kvot kontrolleras innan valet, och kameran eller väljaren öppnas när rutan stängts.
+- **Skanningen: "What matters most to you?" frågas precis innan granskningen**, inte på startsidan (`FocusDialog`). Rutan visas när första uppslaget är läst, med uppskattad tid och träffsäkerhet per val: "Est time: 4 min · Est accuracy: 98.8%".
+  - Claude läser nu alltid lika noggrant; valet avgör bara vilka frågor man får (`worthAsking`). Benchmarken visade att fokus i instruktionen gjorde läsningen sämre (registreringar 69 % rätt i "totals"-läget mot 99 %).
+  - Tiden räknas på frågorna valet ger i de lästa uppslagen, uppräknat till alla uppslag i skanningen (sekunder per frågeslag + rapporten). Träffsäkerheten räknas ur benchmarken: ~1 % av värdena är fel utan att någon fråga pekar på dem, och ungefär var fjärde fråga gäller ett verkligt fel; det man inte får frågor om blir kvar. Förra valet är förvalt.
+  - Med "Only the totals" gäller Claudes tolkning av nya flygplanstyper, som förut.
+- **Skanningen: highlights hamnade på fel kolumner** (simulatortid på vänstersidans Night, anmärkningen mitt på högersidan) efter att en digital loggbok skapats från en skanning. Med en bok och "Same layout" delades fotot vid mallens rygg och läses som två halvor, och kolumnerna kopplades till fält via mallens nummer. Ett automatiskt beskuret foto har inte ryggen på samma ställe, och numren stämde inte med kolumnerna Claude såg. Granskningen läser nu alltid hela uppslaget i ett anrop (`wholeSpread` i `ocrScanPage`, samma väg som benchmarken), Claude anger fältet direkt, och Claudes kolumner används framför mallens bredder (`buildPageGrid(…, preferScanner)`). Mallen följer fortfarande med som beskrivning av kolumnerna.
+- **Skanningen: second pilot ur anmärkningen sätts automatiskt** när anmärkningskolumnens tryckta rubrik säger att pilotens namn skrivs där ("name of PIC or if another"). Claude anger det (`remarks_pilot_names`) och Apple Vision läser rubriken (`headerNamesPilot`); det räcker att ett av dem gör det.
+  - Namnet eller initialerna först i anmärkningen blir second pilot, med roll efter flygningen: SIC om den har egen PIC-tid, annars PIC (`applyPilotNamesFromRemarks`). Ditto ("-11-") tar raden ovanför. Rutter ("ESKN-ESSA"), platser på raden, förkortningar (IFR, ILS …) och ord som "Circuits" räknas inte som namn.
+  - Var Claude osäker på anmärkningen frågas raden som förut, nu med texten "Claude isn't sure of the reading".
+  - Gäller hela skanningen, även uppslag som redan lästs. Rapporten visar "N second pilots from the remarks".
+- **Skanningen: direkt till läsningsskärmen efter fotovalet.** Fotona skalades och kodades på startsidan (~1 s per foto) innan skärmen bytte. Nu görs det i granskningen, foto för foto, som en del av "Finding the logbook" (`sourceUri` i `ScanImage`, `locate`). Väljaren kodar inte heller om bilderna längre (`quality: 1`).
+- **Skanningen: när en kolumn inte går ihop med sidans summa finns nu två vägar:**
+  - **"Correct my total to 19.2":** flygningarna står kvar som de är skrivna. Under knappen finns en info-knapp ("What happens to my paper logbook?") som förklarar guiden som kommer efteråt och att man ska vänta med ändringarna.
+    - **Regel (användarens): ändra ingenting i pappersboken förrän hela boken är skannad, fram till sidan man skriver på nu.** En ändring mitt i boken ändrar varje summa efter den. Därför sparas varje skannat uppslag (sidnummer, Brought forward, Total this page och Total to date) och varje felräknad summa mellan skanningarna (settings `scan_paper_ledger`, `services/paperLedger.ts`, `mergeScan`/`ledgerStatus` i `services/scanPaperFixes.ts`). Ett uppslag som skannas igen ersätter det gamla.
+    - **Början** känns igen på första sidan (1–2) eller Brought forward 0, annars svarar man "p. 76 is the first page of my logbook". **Sidan man skriver på** känns igen på att den inte är full och saknar summor, annars svarar man "I'm writing on p. 80–81 now".
+    - **Guiden (`PaperFixGuide`) har två lägen.** "Wait with your paper logbook" visar det som hittats och det som saknas (början, hål som "p. 8–75", sidorna efter). "Fix your page totals" visar alla handändringar uppslag för uppslag när boken är komplett; på sidan man skriver på bara Brought forward. Bockarna sparas, "All fixed" tömmer listan, och "Clear the list" börjar om (annan loggbok).
+    - Guiden öppnas efter Save och från kortet "Paper logbook fixes" på skanningens startsida.
+  - **"Keep 17.5 · adjust flights":** Blades föreslår vilka flygningar som ändras (`suggestAdjustRows`). Det blir så få flygningar som möjligt, högst 0.2 h var, och osäkra avläsningar först. Flygningar där en annan kolumn som redan går ihop skulle börja avvika undviks (då hellre 0.3 h på färre flygningar). Ett tryck lägger till eller tar bort en flygning. När flygtiden ändras följer funktionstiden som täckte hela flygningen med, och natt/IFR kortas om de blir längre (`followTotalTime`). Allt markeras på flygningen som förut.
+  - **Felräknad summa sägs rakt ut** ("Page total looks miscounted") när varje flygning stämmer med sina blocktider (`rowsMatchBlockTimes`) eller sidans övriga summor går ihop med raderna (`pageTotalsPointAt`), och Claude inte var osäker i kolumnen. Då är rättelsen förstahandsvalet.
+  - **Dubbelläst rad går före:** är kolumnen exakt en rads värde för stor och ser raden ut som en kopia av grannen (eller delar radplats med en annan), föreslås "Skip row 7" (`findExtraRow`). En sådan rad syns knappt, eftersom den hamnar ovanpå originalet. "It's a real flight" visar de vanliga vägarna.
+  - Rapporten visar summor som ska rättas i boken med en penna och chippet "1 total to fix in your paper logbook".
+  - **Innan man börjar med frågorna** visas en ruta (GlassDialog) om några sidsummor inte går ihop, med uppslag, kolumn och siffror: gå igenom problemen först (oftast en felläsning); är summan i pappersboken felräknad guidar Blades genom ändringarna efteråt, och inget ska ändras i boken innan dess. Visas en gång per skanning.
     - **Uppslaget visas alltid liggande och rättvänt** (`orientationScore`, `bookAspect` i `scanAlign.ts`). iPhones dokumentskanner lämnade ett liggande uppslag stående, och appen behöll det, så att rutnät och ringar blev fel. Orsaken: vridningen valdes efter hur mycket text Vision läste, men Vision läser text på högkant nästan lika bra (0° = 822, 90° = 859). Nu avgör tre saker: att boken är liggande, att orden står på rad (bredare än höga) och att de tryckta rubrikerna står ovanför "Total this page"/"Total to date", vilket avgör upp och ner. Det gäller både kamerans väg (`findLogbook`) och förslaget i "Frame the logbook" för kamerarullen (`scanFrame.ts`, som nu prövar alla fyra vridningarna). Testat i `test-scan-geometry.cjs` (13).
     - **Talfält kopplas till kolumnen där värdena står** (`relocateColumnsByValues` i `scanAlign.ts`). Simulatortiden stod i en handskriven kolumn "Simulator time" under "Other type of flight time", men rutnätet kopplade sim till den tryckta, tomma "Synthetic training session". Ringar och avläsningar hamnade därför på den tomma kolumnen, och det såg ut som att Claude missat 1.4. Hittar Vision värdena nästan aldrig i fältets kolumn men på de flesta rader i en annan, oanvänd kolumn, kopplas fältet om dit. Instruktionen säger också att kolumnen får fältet där värdena står. Testat i `test-scan-geometry.cjs` (12).
     - **Samma val på flera rader blir en fråga**, till exempel simulatortyp på tre simulatorpass. Ett tryck på FFS, FTD, FNPT … gäller alla raderna, och "One by one" finns kvar.
+    - **Rutorna följer raderna även när sidorna lutar olika** (bok i V-form, perspektiv). `measureRows` mäter radernas lutning inom varje sida (`rowSlopes`), så att en rad kan ligga högre i ena kanten av en sida än i den andra. Unika värden söks i ett bredare fönster, som tål sneda kolumner, och anmärkningar används som mätpunkter. Höger sida hade förut ofta inga mätpunkter alls och lånade då vänster sidas rader. Testat i `test-scan-geometry.cjs` (15).
+    - **Frågorna visar vilken cell de gäller:** under rubriken står till exempel "Row 5 · Remarks", "Whole column · Day landings" eller "Row 8 · Departure and arrival time".
+    - **Värden går att rätta i frågorna:**
+      - Anmärkningsfrågan ("JEV looks like the second pilot") visar förslaget i en ruta med penna, så att man kan rätta det, till exempel till JEN, innan det flyttas. Rättelsen sparas som inlärd koppling.
+      - "Times don't add up" har rutor för avgång och ankomst som går att rätta direkt (`editTarget`).
+    - **Snett foto rätas upp innan Claude läser** (`estimateSkew` i `scanAlign.ts`). Mätningen följer riktiga textrader: varje ord kopplas till närmaste ord till höger på nästan samma höjd, och en rät linje anpassas till varje sådan kedja. Den första versionen, en projektion över hela bilden, lurades av tabellens rutnät. Orden bildar diagonaler, och den mätte 5,6° på ett rakt foto. Bilden vrids bara när raderna lutar 0,6–6° åt samma håll, och mäts igen efteråt. Blev den inte klart rakare används originalet. Redan 2° lutning gör att en rad glider mer än en rad över ett uppslag. Testat i `test-scan-geometry.cjs` (14).
+    - **Orimliga sidsummor ignoreras** (`columnTotals`). En summa som är mer än 3 gånger radernas och tydligt större är nästan alltid "Total to date" eller "Brought forward". Den ger ingen fråga, till exempel inte "Adjust flights to match 1678" för landningar. Instruktionen säger att det bara är raden "Total this page" som gäller.
+    - **Frågan "Check this row" är borttagen.** Claude markerade ibland en hel rad utan att säga vilket värde det gällde, och ibland handlade det om fotot ("Right-page rows slightly offset in photo"). Det gick inte att göra något med. Instruktionen kräver nu att varje osäkerhet gäller ett bestämt fält, och att Claude aldrig skriver om fotot.
+    - **Översikten efter läsningen** följer samma stil som laddskärmen och rapporten: etiketten "SCAN READY · P. 30–31" (eller "SPREAD 1 OF 3"), rubriken "10 things to check", tre mätvärden (flygningar, flygtid utan simulatorpass och sidans summor, gröna om de stämmer) och en blå "Start checking" i stället för den gula knappen. Texten om "gula markeringar" är borta, eftersom markeringarna är grå tills man kommer till dem.
     - **Scan report omgjord för många uppslag (upp till ~10)** (`components/scan/ScanReport.tsx`):
       - Överst en sammanfattning: flygningar, flygtid (utan simulatorpass) och hur många sidor vars summor stämmer, plus märken för ogranskat, justerat, simulator och dubbletter.
       - Ett hopfällbart avsnitt per uppslag med bokens sidnummer (`pageLabels`), period, flygningar och timmar. Avsnittet visar också sidans summor, Blades mot boken, kolumn för kolumn ("Dual 25.3 / 24.3 ✗"). Med fler än två uppslag är bara de som behöver ses över utfällda.

@@ -291,11 +291,13 @@ export default function RootLayout() {
         <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="stressfactor" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="flight/scan-review" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
+        <Stack.Screen name="import/scan-book" options={{ title: 'Whole logbook', headerBackTitle: 'Back' }} />
         <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/scan-crop" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />

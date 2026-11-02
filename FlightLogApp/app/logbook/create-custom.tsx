@@ -8,7 +8,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert,
   ActivityIndicator, Modal, Platform,
 } from 'react-native';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -16,13 +16,13 @@ import * as Haptics from 'expo-haptics';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
-import type { LogbookColumn, LogbookTemplate } from '../../constants/logbookTemplates';
+import { bookGroupFor, bookHeaderRows, type LogbookColumn, type LogbookTemplate } from '../../constants/logbookTemplates';
 import {
   analyzeLogbookStructure,
   labelForField, formatForField, flightKeyForField, type StructureScan,
 } from '../../services/logbookStructure';
 import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
-import { saveCustomTemplate, makeUniqueCustomTemplateId } from '../../db/customTemplates';
+import { saveCustomTemplate, makeUniqueCustomTemplateId, getAnyTemplate } from '../../db/customTemplates';
 import { showQuotaExceededAlert } from '../../utils/quotaAlert';
 
 interface EditCol {
@@ -31,7 +31,12 @@ interface EditCol {
   fieldKey: string;          // '' = omappad fri kolumn
   page: 'left' | 'right';
   dateFormat?: string;       // bara för date-kolumn: ordning dag/månad/år
+  width?: number;            // befintlig mall: kolumnens bredd (t.ex. från det fotade uppslaget)
+  keepId?: string;           // befintlig mall: kolumnens id, så att bokens val för tomma kolumner består
 }
+
+// flightKey i en sparad mall → fältet i väljaren (render-nycklarna för total tid och simulator).
+const FIELD_FOR_KEY: Record<string, string> = { tt_total: 'total_time', fstd: 'sim' };
 
 // Datumformat (ordning dag/månad/år) för date-kolumnen.
 const DATE_FORMATS: { key: string; ex: string }[] = [
@@ -78,6 +83,9 @@ export default function CreateCustomLogbook() {
   const { t } = useTranslation();
   const router = useRouter();
   const sv = t('yes') === 'Ja';
+  // ?template=<id> → ändra en befintlig egen mall (t.ex. den som skapades från en skanning).
+  const params = useLocalSearchParams<{ template?: string }>();
+  const [editing, setEditing] = useState<LogbookTemplate | null>(null);
 
   // Att skapa en custom logbook sker i stående (bara den faktiska boken är liggande).
   useEffect(() => {
@@ -89,14 +97,31 @@ export default function CreateCustomLogbook() {
   const [name, setName] = useState('');
   const [rows, setRows] = useState(12);
   const [cols, setCols] = useState<EditCol[]>([]);
-  const [footer, setFooter] = useState({ brought_forward: true, this_page_total: true, total_to_date: true });
   const [pickerFor, setPickerFor] = useState<number | 'add' | null>(null); // uid = ändra kolumn, 'add' = ny
+
+  useEffect(() => {
+    const id = params.template ? String(params.template) : '';
+    if (!id) return;
+    getAnyTemplate(id).then((tpl) => {
+      if (!tpl || !tpl.id.startsWith('custom-')) return;
+      let seq = 0;
+      const toEdit = (c: LogbookColumn, page: 'left' | 'right'): EditCol => ({
+        uid: seq++, label: c.label, fieldKey: c.flightKey ? FIELD_FOR_KEY[c.flightKey] ?? c.flightKey : '', page,
+        dateFormat: c.date_format, width: c.width, keepId: c.id,
+      });
+      setEditing(tpl);
+      setName(tpl.name);
+      setRows(tpl.rows_per_spread);
+      setCols([...tpl.left_columns.map((c) => toEdit(c, 'left')), ...tpl.right_columns.map((c) => toEdit(c, 'right'))]);
+      setDetected(true);
+    }).catch(() => {});
+  }, [params.template]);
 
   // Native header (samma som övriga sidor) — titeln följer steget (foto → justera kolumnerna).
   const navigation = useNavigation();
   useEffect(() => {
-    navigation.setOptions({ title: detected ? (sv ? 'Justera kolumnerna' : 'Adjust the columns') : (sv ? 'Skapa egen loggbok' : 'Create custom logbook') });
-  }, [detected, sv, navigation]);
+    navigation.setOptions({ title: editing ? (sv ? 'Ändra kolumnerna' : 'Edit columns') : detected ? (sv ? 'Justera kolumnerna' : 'Adjust the columns') : (sv ? 'Skapa egen loggbok' : 'Create custom logbook') });
+  }, [detected, editing, sv, navigation]);
 
   const runDetection = async (uri: string) => {
     setBusy(true);
@@ -125,11 +150,6 @@ export default function CreateCustomLogbook() {
       });
       setCols(edit);
       if (struct.rows_per_page > 0) setRows(struct.rows_per_page);
-      setFooter({
-        brought_forward: !!struct.summary_rows.brought_forward,
-        this_page_total: !!struct.summary_rows.total_this_page,
-        total_to_date: !!struct.summary_rows.total_to_date,
-      });
       setDetected(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
@@ -187,7 +207,7 @@ export default function CreateCustomLogbook() {
         return [...p, { uid, label, fieldKey: key, page: p.length && p[p.length - 1].page === 'right' ? 'right' : 'left' }];
       });
     } else if (pickerFor !== null) {
-      updateCol(pickerFor, { fieldKey: key, label });
+      updateCol(pickerFor, { fieldKey: key, label, keepId: undefined });   // nytt fält → ny kolumn
     }
     setPickerFor(null);
   };
@@ -197,28 +217,41 @@ export default function CreateCustomLogbook() {
     if (!cols.length) { Alert.alert(sv ? 'Inga kolumner' : 'No columns', sv ? 'Lägg till minst en kolumn.' : 'Add at least one column.'); return; }
     setBusy(true);
     try {
+      const usedIds = new Set<string>();
       const toCol = (e: EditCol): LogbookColumn => {
         const format = e.fieldKey ? formatForField(e.fieldKey) : 'decimal';
+        const flightKey = e.fieldKey ? flightKeyForField(e.fieldKey) : undefined;
+        // Befintligt id behålls (bokens val för tomma kolumner hänger på det), annars ett nytt unikt.
+        let id = e.keepId && !usedIds.has(e.keepId) ? e.keepId : e.fieldKey ? `${e.fieldKey}_${e.uid}` : `col_${e.uid}`;
+        while (usedIds.has(id)) id = `${id}_${e.uid}`;
+        usedIds.add(id);
         return {
-          id: e.fieldKey ? `${e.fieldKey}_${e.uid}` : `col_${e.uid}`,
-          label: e.label.trim() || labelForField(e.fieldKey) || 'Column',
-          flightKey: e.fieldKey ? flightKeyForField(e.fieldKey) : undefined,
-          format,
-          width: widthFor(format),
+          id,
+          // Byts fältet följer rubriken med; en tom kolumn behåller bokens tryckta rubrik.
+          label: e.fieldKey ? (e.label.trim() || labelForField(e.fieldKey)) : (e.label.trim() || ''),
+          flightKey,
+          format: e.fieldKey ? format : undefined,
+          width: e.width ?? widthFor(format),
+          ...(bookGroupFor(flightKey) ? { group: bookGroupFor(flightKey) } : {}),
           ...(format === 'date' ? { date_format: e.dateFormat || 'iso' } : {}),
         };
       };
-      const id = await makeUniqueCustomTemplateId(finalName);
+      const id = editing ? editing.id : await makeUniqueCustomTemplateId(finalName);
+      const left = cols.filter((c) => c.page === 'left').map(toCol);
+      const right = cols.filter((c) => c.page === 'right').map(toCol);
       const tpl: LogbookTemplate = {
         id,
         name: finalName,
         rows_per_spread: Math.max(1, rows),
         language: 'en',
         time_format: 'decimal', // tidsformat styrs globalt (ingen toggle här)
-        left_columns: cols.filter((c) => c.page === 'left').map(toCol),
-        right_columns: cols.filter((c) => c.page === 'right').map(toCol),
+        left_columns: left,
+        right_columns: right,
+        // Rubrik som i en riktig bok: grupper över kolumnerna, tomma kolumner går att ge en tidstyp.
+        header_rows: bookHeaderRows([...left, ...right]),
+        // Bokregeln (applyBookRules): summaraderna längst ner i fast ordning, signaturen till vänster.
         summary_layout: 'bottom',
-        footer: { ...footer, signature: true },
+        footer: { this_page_total: true, brought_forward: true, total_to_date: true, signature: true },
       };
       await saveCustomTemplate(tpl);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

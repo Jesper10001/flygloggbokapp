@@ -302,6 +302,11 @@ export async function batchPlaceNames(icaos: string[]): Promise<Record<string, s
   return result;
 }
 
+// En plats utan position (off-airport som inte placerats än) sparas med 0°/0° — den har inga koordinater
+// förrän användaren placerat den, och hoppas över här (annars hamnar den vid ekvatorn på globen och i
+// kartor, och natt-tid räknas där).
+const HAS_POSITION = `lat IS NOT NULL AND lon IS NOT NULL AND NOT (lat = 0 AND lon = 0) AND icao != 'ZZZZ'`;
+
 export async function getAirportCoordinates(
   icaoCodes: string[]
 ): Promise<{ icao: string; name: string; lat: number; lon: number }[]> {
@@ -309,7 +314,7 @@ export async function getAirportCoordinates(
   const db = await getDatabase();
   const placeholders = icaoCodes.map(() => '?').join(',');
   return await db.getAllAsync<{ icao: string; name: string; lat: number; lon: number }>(
-    `SELECT icao, name, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL AND icao != 'ZZZZ'`,
+    `SELECT icao, name, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND ${HAS_POSITION}`,
     icaoCodes
   );
 }
@@ -322,7 +327,7 @@ export async function getAirportTzInfo(
   const db = await getDatabase();
   const placeholders = icaoCodes.map(() => '?').join(',');
   return await db.getAllAsync<{ icao: string; country: string; region: string; lat: number; lon: number }>(
-    `SELECT icao, country, region, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND lat IS NOT NULL AND icao != 'ZZZZ'`,
+    `SELECT icao, country, region, lat, lon FROM icao_airports WHERE icao IN (${placeholders}) AND ${HAS_POSITION}`,
     icaoCodes
   );
 }

@@ -22,7 +22,7 @@ const MARGIN = 10;     // desk-marginal vi skickar till renderSpread
 const ZOOM = 2.2;      // hur mycket uppslaget förstoras (läsbarhet)
 
 export function TranscribeOverlay({
-  spread, template, pilotName, timeFormat, signature, onClose,
+  spread, template, pilotName, timeFormat, signature, onClose, onlyThisPageTotal, skipEmptyColumns,
 }: {
   spread: LogbookSpread;
   template: LogbookTemplate;
@@ -30,12 +30,13 @@ export function TranscribeOverlay({
   timeFormat: 'decimal' | 'hhmm';
   signature?: SignatureData | null;
   onClose: () => void;
+  onlyThisPageTotal?: boolean;   // skannat uppslag: bara "Total this page"
+  skipEmptyColumns?: boolean;    // gå bara igenom kolumner som har något värde (jämförelse med pappersboken)
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width: winW, height: winH } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
-  const [colIndex, setColIndex] = useState(0);
   const [aspect, setAspect] = useState<number | null>(null); // höjd/bredd
   // Scroll-offset som Animated.Value → rektangeln flyttas nativt i synk med scrollen (ingen JS-släpning).
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -49,6 +50,20 @@ export function TranscribeOverlay({
   }, []);
 
   const columns = useMemo(() => [...template.left_columns, ...template.right_columns], [template]);
+  // Stegen = kolumnerna som gås igenom (index i columns). Tomma kolumner hoppas över vid jämförelse.
+  const steps = useMemo(() => {
+    const all = columns.map((_, i) => i);
+    if (!skipEmptyColumns) return all;
+    const filled = (v: any) => {
+      if (v === undefined || v === null) return false;
+      const n = parseFloat(String(v));
+      return Number.isFinite(n) ? n !== 0 : String(v).trim() !== '';
+    };
+    const kept = all.filter((i) => !!columns[i].flightKey && spread.flights.some((f) => filled((f as any)[columns[i].flightKey!])));
+    return kept.length ? kept : all;
+  }, [columns, spread, skipEmptyColumns]);
+  const [step, setStep] = useState(0);
+  const colIndex = steps[Math.min(step, steps.length - 1)] ?? 0;
 
   // Kolumnernas mittpunkter (CSS-px) + dokumentbredd (viewport).
   const { centers, lefts, viewportWidth } = useMemo(() => {
@@ -87,8 +102,8 @@ export function TranscribeOverlay({
 
   const col = columns[colIndex];
   const colLabel = col ? (col.group ? `${col.group} · ${col.label}` : col.label) : '';
-  const isLastCol = colIndex >= columns.length - 1;
-  const isFirstCol = colIndex <= 0;
+  const isLastCol = step >= steps.length - 1;
+  const isFirstCol = step <= 0;
 
   // Rektangel runt kolumnens datarutor (12 rader) + ev. summering. Vänster/höger följer
   // horisontell panorering (scrollX), topp/botten följer vertikal (scrollY); containern
@@ -129,6 +144,7 @@ export function TranscribeOverlay({
                   signature={signature}
                   interactive={false}
                   margin={MARGIN}
+                  onlyThisPageTotal={onlyThisPageTotal}
                   onAspect={setAspect}
                   onGeometry={setGeom}
                 />
@@ -154,19 +170,19 @@ export function TranscribeOverlay({
         <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
           <TouchableOpacity
             style={[s.arrow, isFirstCol ? s.arrowCancel : null]}
-            onPress={() => { if (isFirstCol) onClose(); else setColIndex((i) => Math.max(0, i - 1)); }}
+            onPress={() => { if (isFirstCol) onClose(); else setStep((i) => Math.max(0, i - 1)); }}
             activeOpacity={0.85}
           >
             <Ionicons name={isFirstCol ? 'close' : 'chevron-back'} size={26} color={isFirstCol ? Colors.textInverse : Colors.textSecondary} />
           </TouchableOpacity>
 
           <View style={s.dots}>
-            <Text style={s.dotsText}>{colIndex + 1} / {columns.length}</Text>
+            <Text style={s.dotsText}>{step + 1} / {steps.length}</Text>
           </View>
 
           <TouchableOpacity
             style={[s.arrow, isLastCol ? s.arrowDone : s.arrowNext]}
-            onPress={() => { if (isLastCol) onClose(); else setColIndex((i) => Math.min(columns.length - 1, i + 1)); }}
+            onPress={() => { if (isLastCol) onClose(); else setStep((i) => Math.min(steps.length - 1, i + 1)); }}
             activeOpacity={0.85}
           >
             <Ionicons name={isLastCol ? 'checkmark' : 'chevron-forward'} size={26} color={Colors.textInverse} />

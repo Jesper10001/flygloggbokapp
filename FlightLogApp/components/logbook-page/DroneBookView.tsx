@@ -149,13 +149,13 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
           <>
             {/* vänster sida (överst) — full bredd */}
             <View style={{ width: '100%', height: width * ratioL, backgroundColor: DR.background }}>
-              <SpreadWebView spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
+              <SpreadWebView key={`L-${Math.round(width)}`} spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
                 width={width} signature={signature} interactive={false} bare bgColor={DR.background} side="left" margin={0}
                 onAspect={(r) => { if (r > 0 && Math.abs(r - ratioL) > 0.01) setRatioL(r); }} />
             </View>
             {/* höger sida (under) — full bredd */}
             <View style={{ width: '100%', height: width * ratioR, backgroundColor: DR.background, marginTop: 6 }}>
-              <SpreadWebView spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
+              <SpreadWebView key={`R-${Math.round(width)}`} spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
                 width={width} signature={signature} interactive={false} bare bgColor={DR.background} side="right" margin={0}
                 onAspect={(r) => { if (r > 0 && Math.abs(r - ratioR) > 0.01) setRatioR(r); }} />
             </View>

@@ -1490,10 +1490,8 @@ export default function ReviewScreen() {
         }
       }
 
-      // Save unknown ICAOs as temporary places
-      for (const icao of unknownIcaos) {
-        try { await addTemporaryPlace(icao, icao); } catch { /* redan tillagd */ }
-      }
+      // Okända ICAO-koder blir INTE off-airport-platser: koden står kvar som den skrevs, utan plats och
+      // position, tills användaren rättar den (samma regel som skanningsgranskningen).
 
       // Link to active paper logbook
       const book = await getActiveBook();

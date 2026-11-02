@@ -150,15 +150,16 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 2, paddingBottom: tabSpace + 28 }} showsVerticalScrollIndicator={false}>
         {current ? (
           <>
-            {/* vänster sida (överst) — full bredd */}
+            {/* vänster sida (överst) — full bredd. key = bredden: vreds skärmen medan sidan ritades (t.ex. tillbaka
+                från den liggande helskärmsboken) behöll WebViewn den liggande förstoringen och visade sidan för stor. */}
             <View style={{ width: '100%', height: width * ratioL, backgroundColor: Colors.background }}>
-              <SpreadWebView spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
+              <SpreadWebView key={`L-${Math.round(width)}`} spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
                 width={width} signature={signature} interactive={false} bare bgColor={Colors.background} side="left" margin={0}
                 onAspect={(r) => { if (r > 0 && Math.abs(r - ratioL) > 0.01) setRatioL(r); }} />
             </View>
             {/* höger sida (under) — full bredd */}
             <View style={{ width: '100%', height: width * ratioR, backgroundColor: Colors.background, marginTop: 6 }}>
-              <SpreadWebView spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
+              <SpreadWebView key={`R-${Math.round(width)}`} spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
                 width={width} signature={signature} interactive={false} bare bgColor={Colors.background} side="right" margin={0}
                 onAspect={(r) => { if (r > 0 && Math.abs(r - ratioR) > 0.01) setRatioR(r); }} />
             </View>

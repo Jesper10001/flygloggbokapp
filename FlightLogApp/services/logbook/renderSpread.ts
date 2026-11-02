@@ -29,6 +29,9 @@ export interface RenderSpreadOpts {
   bare?: boolean;
   /** rendera bara en halva av uppslaget (en fysisk sida) — för stående delad vy. */
   side?: 'left' | 'right';
+  /** bara "Total this page" (ingen brought forward/to date eller signatur) — ett skannat uppslag, där appen
+   *  inte känner bokens löpande summor. */
+  onlyThisPageTotal?: boolean;
 }
 
 // Kolumnerna för en sida (eller hela uppslaget).
@@ -238,20 +241,13 @@ function spreadBody(opts: RenderSpreadOpts): string {
     dataRows.push(`<tr class="row${r % 2 ? ' odd' : ''}">${cells}</tr>`);
   }
 
-  const bfTop = template.summary_layout !== 'bottom';
-  let topBF = '';
+  // Bokregeln (constants/logbookTemplates: applyBookRules) gäller alla böcker: Total this page, Brought forward
+  // och Total to date längst ner, i den ordningen, med pilotens signatur till vänster om raderna.
   let bottomRows = '';
   let sigBlock = '';
-  if (bfTop) {
-    topBF = summaryRow('Brought forward', spread.brought_forward, 'bf', false);
-    bottomRows =
-      summaryRow('Total this page', spread.total_this_page, 'tot', true, true) +
-      summaryRow('Total to date', spread.total_to_date, 'tot', true);
-    sigBlock =
-      `<div class="sig"><span class="cert">Certified true and correct.</span>` +
-      `<span class="sname">Pilot's signature</span><span class="line">${sigInk}</span></div>`;
+  if (opts.onlyThisPageTotal) {
+    bottomRows = summaryRow('Total this page', spread.total_this_page, 'tot', false, true);   // tom kolumn = tom summa, som i boken
   } else {
-    // Bokstil: pilotsignatur till vänster om Total this page / Brought forward / Total to date.
     const labelSpan = Math.min(2, firstNumericIdx) || 1;
     const sigSpan = Math.max(0, firstNumericIdx - labelSpan);
     // Delad högersida saknar etikettkolumner (firstNumericIdx===0): rendera bara
@@ -276,6 +272,12 @@ function spreadBody(opts: RenderSpreadOpts): string {
     const sigCell = !noLabels && sigSpan > 0
       ? `<td class="sig-cell" colspan="${sigSpan}" rowspan="3"><div class="sig-cert">Certified true and correct.</div><div class="sig-line"><span class="sig-name3">Pilot's signature</span><span class="sig-fill">${sigInk}</span></div></td>`
       : '';
+    // För få textkolumner före siffrorna för en signaturcell (egen bok) → signaturen under tabellen, till vänster.
+    if (!noLabels && sigSpan === 0 && opts.side !== 'right') {
+      sigBlock =
+        `<div class="sig"><span class="cert">Certified true and correct.</span>` +
+        `<span class="sname">Pilot's signature</span><span class="line">${sigInk}</span></div>`;
+    }
     bottomRows =
       `<tr class="sum sum--tot sum-top">${sigCell}${rightCells('Total this page', spread.total_this_page, true)}</tr>` +
       `<tr class="sum sum--tot">${rightCells('Brought forward', spread.brought_forward, false)}</tr>` +
@@ -297,7 +299,6 @@ function spreadBody(opts: RenderSpreadOpts): string {
         <colgroup>${cols.map((c) => `<col style="width:${c.width}px" />`).join('')}</colgroup>
         <thead>${headerHTML}</thead>
         <tbody>
-          ${topBF}
           ${dataRows.join('')}
           ${bottomRows}
         </tbody>
@@ -415,7 +416,11 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
 `;
 }
 
+// Kolumnbredd som går att rita: en egen mall med trasig bredd (null/NaN) gav förut en ogiltig viewport.
+const safeWidth = (c: LogbookColumn) => (Number.isFinite(c.width) && c.width > 0 ? c.width : 50);
+
 export function renderSpreadHTML(opts: RenderSpreadOpts): string {
+  opts = { ...opts, template: { ...opts.template, left_columns: opts.template.left_columns.map((c) => ({ ...c, width: safeWidth(c) })), right_columns: opts.template.right_columns.map((c) => ({ ...c, width: safeWidth(c) })) } };
   const cols = colsForSide(opts.template, opts.side);
   const contentWidth = cols.reduce((s, c) => s + c.width, 0);
   const pagePad = 16;

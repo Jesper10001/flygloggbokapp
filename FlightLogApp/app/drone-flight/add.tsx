@@ -57,6 +57,7 @@ import { CondBar } from '../../components/logflight/CondBar';
 import { MaxAltBar } from '../../components/logflight/MaxAltBar';
 import { TolRow } from '../../components/logflight/MiniStepper';
 import { useTourStore } from '../../store/tourStore';
+import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from '../../services/flightDrafts';
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
 import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
@@ -144,9 +145,10 @@ const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 export default function AddDroneFlightScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; addPhoto?: string; scan?: string }>();
+  const params = useLocalSearchParams<{ id?: string; addPhoto?: string; scan?: string; draft?: string }>();
   const editId = params.id ? parseInt(params.id, 10) : null;
   const isEdit = !!editId;
+  const fromDraft = params.draft === '1' && !isEdit;   // fortsätter ett sparat utkast (dashboardens kort)
   // Media (bild/video) — = pilotläget: väljs i formuläret och sparas på flygningen.
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
@@ -460,6 +462,27 @@ export default function AddDroneFlightScreen() {
         return;
       }
 
+      // Utkast: formulärets sparade tillstånd tillbaka (ingen förifyllning från senaste flygningen).
+      if (fromDraft) {
+        const d = await loadFlightDraft('drone').catch(() => null);
+        const st = d?.state as ReturnType<typeof draftSnapshot> | undefined;
+        if (st) {
+          if (st.form) setForm((p) => ({ ...p, ...st.form }));
+          if (st.role) setRole(st.role);
+          if (Array.isArray(st.extraPilots)) setExtraPilots(st.extraPilots);
+          if (Array.isArray(st.passes) && st.passes.length) setPasses(st.passes);
+          if (Array.isArray(st.fullLegs) && st.fullLegs.length) setFullLegs(st.fullLegs);
+          setNightManual(!!st.nightManual);
+          if (st.timeMode) setTimeMode(st.timeMode);
+          if (st.condRaw) setCondRaw(st.condRaw);
+          setRulesOpen(!!st.rulesOpen);
+          setShowLandingPoint(!!st.showLandingPoint);
+          if (st.photoUri) setPhotoUri(st.photoUri);
+          if (st.mediaType) setMediaType(st.mediaType);
+          return;
+        }
+      }
+
       const last = (await getDroneFlights(1))[0];
       if (last) {
         const lastDrone = ds.find((d) => d.id === last.drone_id);
@@ -689,6 +712,36 @@ export default function AddDroneFlightScreen() {
   }, []);
 
   // demo = rundturens loggningsdemon: sparar tyst (ingen gräns-popup, ingen navigering) och returnerar id:t.
+  // ── Utkast ("Save as draft") ─────────────────────────────────────────────
+  // Formulärets tillstånd sparas som utkast (services/flightDrafts) och läses tillbaka när man fortsätter från
+  // dashboarden: formuläret, roll, besättning, flygpassen, villkorens råvärden, media och manuella lägen.
+  const draftSnapshot = () => ({
+    form, role, extraPilots, passes, fullLegs, nightManual, timeMode, condRaw, rulesOpen, showLandingPoint, photoUri, mediaType,
+  });
+  const saveAsDraft = async () => {
+    const drone = drones.find((d) => d.id === form.drone_id);
+    const labels = draftLabels({ from: form.location, to: form.landing_location || form.location, date: form.date,
+      aircraft: drone ? [drone.model, drone.registration].filter(Boolean).join(' ') : '' });
+    const write = async () => {
+      try {
+        await saveFlightDraft('drone', { savedAt: new Date().toISOString(), ...labels, state: draftSnapshot() });
+        router.back();
+      } catch (e: any) {
+        Alert.alert(t('error'), e?.message ?? 'Could not save the draft.');
+      }
+    };
+    // Ett utkast per läge: finns redan ett annat (inte det man fortsätter på) frågar appen först.
+    const existing = fromDraft ? null : await loadFlightDraft('drone');
+    if (existing) {
+      Alert.alert('Replace your draft?', `You already have an unfinished draft (${existing.title}). Saving this one replaces it.`, [
+        { text: t('cancel'), style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: () => { write(); } },
+      ]);
+      return;
+    }
+    await write();
+  };
+
   const save = async (sameSession = false, demo = false) => {
     // Gratisgräns för manuellt loggade drönarflygningar (ny, ej redigering). Kollas mot DB varje spar
     // så även "same session"-flödet stoppas vid gränsen.
@@ -742,7 +795,11 @@ export default function AddDroneFlightScreen() {
     try {
       let flightId: number;
       if (isEdit && editId) { await updateDroneFlight(editId, dataToSave); flightId = editId; }
-      else { flightId = await insertDroneFlight(dataToSave); }
+      else {
+        flightId = await insertDroneFlight(dataToSave);
+        // Flygningen kom från ett utkast → utkastet är klart och tas bort.
+        if (fromDraft) clearFlightDraft('drone').catch(() => {});
+      }
       // Spara/uppdatera media på flygningen (rör inte ev. synkad photo_local_id).
       await setDroneFlightPhoto(flightId, savedPhotoUri, mediaType);
       await Promise.all([loadFlights(), loadStats()]);
@@ -1956,6 +2013,14 @@ export default function AddDroneFlightScreen() {
           <Text style={styles.saveBtnText}>{saving ? t('saving') : t('save')}</Text>
           <TourPress id="ld-save" radius={12} />
         </TouchableOpacity>
+        {/* Spara som utkast: fortsätt senare från dashboarden (inte vid redigering eller i rundturen). */}
+        {!isEdit && !tourActive && (
+          <TouchableOpacity style={styles.draftBtn} onPress={saveAsDraft} disabled={saving} activeOpacity={0.8}
+            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later from the dashboard.">
+            <Ionicons name="document-text-outline" size={17} color={DR.text2} />
+            <Text style={styles.draftBtnText}>Save as draft</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {showDate && Platform.OS === 'android' && (
@@ -2449,6 +2514,12 @@ function makeStyles(accent: string) {
       paddingVertical: 15, marginTop: 20,
     },
     saveBtnText: { color: DR.inkOnAccent, fontSize: 16, fontWeight: '700' },
+    draftBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      paddingVertical: 13, marginTop: 10, borderRadius: 12,
+      borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated,
+    },
+    draftBtnText: { color: DR.text2, fontSize: 14.5, fontWeight: '700' },
     saveAgainBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
       paddingVertical: 12, marginTop: 8, borderRadius: 12,

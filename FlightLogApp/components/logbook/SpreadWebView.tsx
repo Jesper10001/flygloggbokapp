@@ -11,7 +11,7 @@ import type { LogbookSpread } from '../../services/logbook/paginate';
 import type { SignatureData } from '../SignaturePad';
 
 export const SpreadWebView = memo(function SpreadWebView({
-  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onAssign, onAspect, onGeometry,
+  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onlyThisPageTotal, onAssign, onAspect, onGeometry,
 }: {
   spread: LogbookSpread;
   template: LogbookTemplate;
@@ -25,6 +25,7 @@ export const SpreadWebView = memo(function SpreadWebView({
   bare?: boolean;        // ingen beige bakgrund/skugga runt sidan
   bgColor?: string;      // bakgrund bakom uppslaget (t.ex. navy i inline-vyn)
   side?: 'left' | 'right'; // rendera bara en halva (en fysisk sida)
+  onlyThisPageTotal?: boolean; // skannat uppslag: bara "Total this page"
   onAssign?: (colId: string) => void;
   onAspect?: (ratio: number) => void;   // ratio = renderad höjd / bredd
   // Datarutornas geometri (CSS-px) för transkriberings-rektangeln: första dataradens
@@ -33,8 +34,8 @@ export const SpreadWebView = memo(function SpreadWebView({
   onGeometry?: (g: { top: number; botData: number; botSum: number; colX?: number[] }) => void;
 }) {
   const html = useMemo(
-    () => renderSpreadHTML({ template, spread, rowsPerSpread: spread.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side }),
-    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side],
+    () => renderSpreadHTML({ template, spread, rowsPerSpread: spread.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal }),
+    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal],
   );
   // Vid behov: mät uppslagets naturliga höjd/bredd + datarutornas Y-gränser och rapportera tillbaka.
   const injected = (onAspect || onGeometry)

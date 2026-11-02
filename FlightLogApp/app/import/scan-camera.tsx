@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,7 +14,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { getSetting, setSetting } from '../../db/flights';
 import { useScanQuotaStore } from '../../store/scanQuotaStore';
-import { setScanBatch, type ScanImage } from '../../store/scanStore';
+import { setScanBatch, MAX_SPREADS, type ScanImage } from '../../store/scanStore';
+import { useScanBookStore } from '../../store/scanBookStore';
 import {
   ScanCameraView, isScanCameraAvailable,
   type ScanCameraHandle, type ScanStatus, type ScanCapture, type ScanState,
@@ -23,7 +24,8 @@ import {
 // Kameran för att skanna pappersloggboken. Liggande läge, en ram att passa in uppslaget i; kameran tar
 // bilden själv när hela uppslaget är i ramen, skarpt och stilla. Sedan vänder man sida och nästa tas.
 
-const MAX_SPREADS = 5;              // samma tak som granskningen (scanStore)
+// En hel bok ("Scan your whole logbook", ?book=1): fler uppslag i taget; fotona läggs i bokens skanning.
+const BOOK_MAX = 60;
 const ASPECT_KEY = 'scan_guide_aspect';
 const DEFAULT_ASPECT = 1.5;
 const OCR_WIDTH = 2000;             // samma bredd som övriga skanningsvägar
@@ -61,7 +63,9 @@ export default function ScanCameraScreen() {
   const [preparing, setPreparing] = useState(false);
   const lastAspect = useRef(DEFAULT_ASPECT);
 
-  const full = spreads.length >= MAX_SPREADS;
+  const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
+  const max = bookMode ? BOOK_MAX : MAX_SPREADS;
+  const full = spreads.length >= max;
 
   // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs —
   // direkt, och en gång till när övergången är klar.
@@ -137,6 +141,12 @@ export default function ScanCameraScreen() {
   // kan ritas på rätt ställe.
   const finish = async () => {
     if (spreads.length === 0 || preparing) return;
+    if (bookMode) {
+      // Fotona (filer i cachen) förbereds i bokens skanning — inget kodas här.
+      await useScanBookStore.getState().addPhotos(spreads.map((sp) => ({ uri: sp.uri, width: sp.width, height: sp.height, cropped: true })));
+      router.back();
+      return;
+    }
     setPreparing(true);
     try {
       const images: ScanImage[] = [];
@@ -163,7 +173,7 @@ export default function ScanCameraScreen() {
   const guideInsets: [number, number, number, number] = [insets.top + 64, rightCol, insets.bottom + 18, insets.left + 18];
 
   const hint = full
-    ? `That's ${MAX_SPREADS} spreads, the most per scan. Tap Done.`
+    ? `That's ${max} spreads, the most per ${bookMode ? 'round' : 'scan'}. Tap Done.`
     : status.state === 'turnPage' && spreads.length > 0
       ? `Spread ${spreads.length} captured. Turn the page`
       : !autoCapture && (status.state === 'ready' || status.state === 'holdStill')
@@ -261,7 +271,7 @@ export default function ScanCameraScreen() {
               <View style={s.badge}><Text style={s.badgeText}>{spreads.length}</Text></View>
             </>
           ) : (
-            <Text style={s.thumbEmptyText}>0/{MAX_SPREADS}</Text>
+            <Text style={s.thumbEmptyText}>0/{max}</Text>
           )}
         </TouchableOpacity>
       </View>

@@ -257,9 +257,9 @@ window.bladesMoreDemos = (() => {
       box.innerHTML = `
         <div class="msh">
           <div class="sh-card">
-            <img class="sh-photo" src="img/dash-photo.jpg" alt="">
+            <img class="sh-photo" src="img/example-photo.webp" alt="">
             <div class="sh-l sh-perf">
-              <div class="sh-stats"><div><span>Distance</span><b>378 km</b></div><div><span>Pace</span><b>0:09 /km</b></div><div><span>Elev gained</span><b>7,620 m</b></div></div>
+              <div class="sh-stats"><div><span>Distance</span><b>378 km</b></div><div><span>Pace</span><b>0:13 /km</b></div><div><span>Elev gained</span><b>1,067 m</b></div></div>
               ${lockup}
             </div>
             <div class="sh-l sh-route">
@@ -268,13 +268,13 @@ window.bladesMoreDemos = (() => {
               <div class="sh-tile sh-a"><div class="sh-img"></div><span class="sh-ic"><b>ESSB</b><em>Departure</em></span></div>
               <div class="sh-tile sh-b"><div class="sh-img"></div><span class="sh-ic"><b>ESGG</b><em>Arrival</em></span></div>
               ${lockup.replace('sh-lock', 'sh-lock tl')}
-              <div class="sh-bottom"><i class="sh-hair"></i><span class="sh-date">28 OCT 2026</span>
-                <div class="sh-row"><div><b>204<i>NM</i></b><span>DISTANCE</span></div><div><b>25,000<i>FT</i></b><span>MAX ALT</span></div><div><b>189<i>KT</i></b><span>AVG SPEED</span></div></div></div>
+              <div class="sh-bottom"><i class="sh-hair"></i><span class="sh-date">24 OCT 2026</span>
+                <div class="sh-row"><div><b>204<i>NM</i></b><span>DISTANCE</span></div><div><b>3,500<i>FT</i></b><span>MAX ALT</span></div><div><b>144<i>KT</i></b><span>AVG SPEED</span></div></div></div>
             </div>
             <div class="sh-l sh-post">
               <div class="sh-title"><i>From</i><b>Stockholm</b><i>to Gothenburg</i></div>
-              <span class="sh-edge">No. 352 · 2026.10.28 · afternoon flight</span>
-              <div class="sh-ft"><span>FLIGHT TIME</span><b>1:05h · AT76</b></div>
+              <span class="sh-edge">No. 352 · 2026.10.24 · afternoon flight</span>
+              <div class="sh-ft"><span>FLIGHT TIME</span><b>1:25h · AW139</b></div>
               ${lockup}
             </div>
           </div>

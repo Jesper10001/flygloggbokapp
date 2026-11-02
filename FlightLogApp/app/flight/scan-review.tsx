@@ -9,41 +9,55 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Colors } from '../../constants/colors';
 import { canUseLiquidGlass } from '../../utils/liquidGlass';
 import { ocrScanPage, getActiveBookLayout, OCR_MODEL, type AircraftDetection, type PageContext } from '../../services/ocr';
 import {
-  getScanBatch, clearScanImage, getScanUseBookLayout, getScanTimeBasis, setScanTimeBasis, getScanFocus,
-  type TimeBasis, type ScanFocus,
+  getScanBatch, clearScanImage, getScanUseBookLayout, getScanTimeBasis, setScanTimeBasis, getScanFocus, setScanFocus, takeScanBookSession,
+  type TimeBasis, type ScanFocus, type ScanBookSession,
 } from '../../store/scanStore';
+import { useScanBookStore } from '../../store/scanBookStore';
+import { loadScanFormat, formatToLayout, type ScanFormat } from '../../services/scanFormat';
+import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
+import { resolveScanTypes, typeKey, isVariant, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
+import { formatTimeValue } from '../../hooks/useTimeFormat';
 import type { TimeFormat } from '../../store/timeFormatStore';
 import { useFlightStore } from '../../store/flightStore';
 import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { presentPaywall } from '../../services/purchases';
-import { getAllAircraftTypes, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting } from '../../db/flights';
+import { getAllAircraftTypes, getFleetRegistrationTypes, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting } from '../../db/flights';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import { ScanReport, type CellState } from '../../components/scan/ScanReport';
 import { ScanProgress, type ScanPhase } from '../../components/scan/ScanProgress';
 import { FlightEditor } from '../../components/scan/FlightEditor';
+import { LogbookCrossRef } from '../../components/scan/LogbookCrossRef';
+import { saveScannedTemplate } from '../../services/logbook/bookFromScan';
+import { similarAirports } from '../../services/placeSuggest';
+import { enrichFleetInBackground } from '../../services/fleetEnrich';
+import { useFleetDoneStore } from '../../components/FleetDoneModal';
 import { emptyAircraftInput, type AircraftInput } from '../../components/scan/NewAircraftCard';
 import { saveLearnedMapping } from '../../db/ocrLearned';
 import {
   label, display, parseInput, inputValue, shapeInput, DURATION, CLOCK, PLACE, COUNT, UPPER, CHOICES, chipKey,
 } from '../../services/scanFields';
-import { isAvailable as visionAvailable, recognize } from '../../modules/apple-vision-ocr';
 import {
   prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, findDuplicateKeys, columnTotals,
-  detectTimeAddition, fitsTimeAddition, distributeDifference, type ScanRow,
+  detectTimeAddition, fitsTimeAddition, distributeDifference, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
+  rowsMatchBlockTimes, pageTotalsPointAt, suggestAdjustRows, followTotalTime, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, type ScanRow,
 } from '../../services/scanImport';
+import { mergeScan, ledgerStatus, type PaperFix, type LedgerSpread } from '../../services/scanPaperFixes';
+import { loadLedger, saveLedger } from '../../services/paperLedger';
+import { PaperFixGuide } from '../../components/scan/PaperFixGuide';
+import { GlassDialog, DialogIcon, dialogStyles } from '../../components/GlassDialog';
+import { FocusDialog, type FocusEstimate } from '../../components/scan/FocusDialog';
 import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  logbookBounds, wordsInCrop, alignGrid, textScore, orientationScore, bookAspect, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, type VisionBox,
+  alignGrid, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -78,8 +92,9 @@ interface Issue {
   suggestions: Suggestion[];
   rect: Rect | null;
   aircraft?: { asWritten: string; resolved: string };
-  group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[] };   // samma fråga på flera rader
+  group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[]; remarks?: boolean };   // samma fråga på flera rader
   moves?: { side: 'left' | 'right'; field: string }[];   // "fel kolumn": grannkolumnerna värdet kan flyttas till
+  column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number } };   // radsumma mot sidans summa
 }
 
 // Grannkolumnerna (vänster/höger) till ett tal i boken, av samma slag (tid ↔ tid, antal ↔ antal). Från
@@ -104,13 +119,16 @@ function neighbourColumns(grid: PageGrid | null, field: string): { side: 'left' 
 
 type PageStatus = 'waiting' | 'finding' | 'reading' | 'done' | 'error';
 interface PageState {
-  base64: string;
   mediaType: 'image/jpeg' | 'image/png';
-  uri: string;
+  uri: string;            // bilden som fil (file://) — läses som base64 först när Claude ska läsa den
   width: number;
   height: number;
   cropped: boolean;
   oriented: boolean;
+  prepared: boolean;      // redan förberedd (locate letar inte upp boken igen)
+  wordsUri?: string;      // förberedd i "Scan your whole logbook": Visions ord, Claudes sparade läsning och
+  readUri?: string;       // sidnumren uppslaget bör ha
+  expected?: { left: number; right: number | null };
   status: PageStatus;
   error?: string;
   grid: PageGrid | null;
@@ -129,6 +147,24 @@ function bookCell(d: OcrFlightResult, field: string, fmt: TimeFormat): string {
   return display(d, field, fmt);
 }
 
+// Vem man flög med, ur anmärkningen: samma roller som Log Flight (nyckeln COP = SIC), här utskrivna helt.
+const CREW_ROLES = [
+  { key: 'PIC', label: 'Pilot in command' },
+  { key: 'COP', label: 'Second in command' },
+  { key: 'FI', label: 'Flight instructor' },
+  { key: 'SPIC', label: 'Student pilot in command' },
+  { key: 'PICUS', label: 'PIC under supervision' },
+];
+const BY_FLIGHT = 'by_flight';   // gruppfrågan: PIC eller SIC per flygning
+const ownPic = (d: OcrFlightResult) => (parseFloat(String(d.pic ?? '0')) || 0) > 0;
+// Utan egen PIC-tid var den andra piloten PIC; med egen PIC-tid kan den andra inte vara PIC → SIC.
+const defaultCrewRole = (d: OcrFlightResult) => (ownPic(d) ? 'COP' : 'PIC');
+const crewRoleFor = (d: OcrFlightResult, role: string) => (role === BY_FLIGHT ? defaultCrewRole(d) : role === 'PIC' && ownPic(d) ? 'COP' : role);
+
+// Anmärkningen utan det som flyttats till ett annat fält ("SZ, NDB" − "SZ" → "NDB").
+const withoutSuggestion = (remarks: string | undefined, moved: string) =>
+  (remarks ?? '').replace(moved, '').replace(/^[\s,;:/.-]+/, '').replace(/\s{2,}/g, ' ').trim();
+
 // Klockslag ± timmar (över midnatt).
 const shiftClock = (t: string, h: number) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t);
@@ -137,7 +173,7 @@ const shiftClock = (t: string, h: number) => {
   return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
 };
 
-// Användarens fokus (startsidan) avgör vilka frågor som är värda att ställa:
+// Användarens fokus (valet innan granskningen, FocusDialog) avgör vilka frågor som är värda att ställa:
 //  exact    – allt Claude är osäker på
 //  balanced – kärndata (datum, typ, registrering, platser), simulator och nya typer; osäkra siffror bara när
 //             kolumnen inte går ihop med sidans summa
@@ -155,11 +191,25 @@ function worthAsking(i: Issue, focus: ScanFocus, colOk: Map<string, boolean>): b
   return false;                           // tider som inte går ihop, anmärkningar, "kolla raden"
 }
 
+// Uppskattningen i "What matters most to you?" (FocusDialog). Tid: sekunder per fråga efter slag, plus
+// en stund i rapporten. Träffsäkerhet ur benchmarken (16 uppslag mot facit, 2026-11-01): ~1 % av värdena
+// är fel utan att någon fråga pekar på dem, och ungefär var fjärde fråga gäller ett verkligt fel — det
+// man inte får frågor om blir kvar. Värden per rad: de 15 som benchmarken jämför.
+const QUESTION_SECONDS: Record<IssueKind, number> = { value: 6, choice: 6, mismatch: 10, remark: 8, aircraft: 15, row: 10, group: 12, column: 25, addition: 8 };
+const REPORT_SECONDS = 20;
+const SILENT_ERROR_RATE = 0.0099;
+const ERROR_PER_QUESTION = 0.24;
+const VALUES_PER_ROW = 15;
+
 // addition: bokens tillägg på flygtiden — bekräftat (accepted) eller upptäckt i raderna (candidate).
 function deriveIssues(
   rows: ScanRow[], pages: PageState[], known: Set<string>, expanded: Set<string>,
   addition: { accepted: number | null; candidate: { hours: number; rows: number } | null },
   focus: ScanFocus = 'exact',
+  placeAlts: Record<string, string[]> = {},
+  realRows: Set<string> = new Set(),   // kolumnfrågor där den misstänkta dubbelraden är en riktig flygning
+  typeGroups: TypeGroup[] = [],        // flygplanstyperna, ihopslagna och kontrollerade mot flottan
+  typeChoice: Record<string, string> = {},
 ): Issue[] {
   const out: Issue[] = [];
   const add = addition.accepted;
@@ -169,12 +219,17 @@ function deriveIssues(
     const d = row.data;
     const cell = (f: string) => (grid ? cellRect(grid, row.rowIndex, f) : null);
     const whole = grid ? rowRect(grid, row.rowIndex) : null;
-    let rowHasIssue = false;
 
-    for (const fi of d.field_issues ?? []) {
+    const seenFields = new Set<string>();
+    for (const raw of d.field_issues ?? []) {
+      // Simulatorpass: tiden står i simulatorkolumnen (total_time är tom i boken), men appen sparar den även som
+      // total_time. En osäker total_time på ett simulatorpass frågas därför som simulatortid, med cellen där
+      // värdet står — när rutnätet har en simulatorkolumn.
+      const fi = d.flight_type === 'sim' && raw.field === 'total_time' && grid && columnFor(grid, 'sim') ? { ...raw, field: 'sim' } : raw;
+      if (seenFields.has(fi.field)) continue;
+      seenFields.add(fi.field);
       if (fi.field === 'remarks' && d.remarks_suggestion) continue;
       if ((fi.field === 'dep_utc' || fi.field === 'arr_utc') && d.time_mismatch) continue;
-      rowHasIssue = true;
       const choice = !!CHOICES[fi.field];
       const suggestions: Suggestion[] = [];
       if (fi.field === 'sim' && fi.from && fi.suggested_value) suggestions.push({ label: 'Yes, simulator session', field: 'sim', value: fi.suggested_value, toSim: fi.from });
@@ -183,7 +238,15 @@ function deriveIssues(
         if ((parseFloat(v) || 0) > 0) suggestions.push({ label: 'It is simulator time', field: 'sim', value: v, toSim: fi.field });
       }
       else if (fi.suggested_value && !choice) suggestions.push({ label: fi.suggested_value, field: fi.field, value: fi.suggested_value });
-      if (fi.field === 'dep_place' || fi.field === 'arr_place') suggestions.push({ label: 'Off-airport (ZZZZ)', field: fi.field, value: 'ZZZZ' });
+      if (fi.field === 'dep_place' || fi.field === 'arr_place') {
+        // Liknande flygplatser (en förväxlingsbar bokstav, t.ex. ETNB → ETHB), högst fyra, och ZZZZ sist.
+        const cur = String((d as any)[fi.field] ?? '').toUpperCase();
+        for (const alt of placeAlts[cur] ?? []) {
+          if (alt !== cur && !suggestions.some((x) => x.value.toUpperCase() === alt)) suggestions.push({ label: alt, field: fi.field, value: alt });
+        }
+        suggestions.splice(4);
+        suggestions.push({ label: 'ZZZZ', field: fi.field, value: 'ZZZZ' });
+      }
       out.push({
         id: `${row.key}:f:${fi.field}`, kind: choice ? 'choice' : 'value', page: row.page, rowKey: row.key,
         field: fi.field, title: label(fi.field), reason: fi.reason, confidence: fi.confidence || undefined,
@@ -196,7 +259,6 @@ function deriveIssues(
     // Med bokens bekräftade tillägg (t.ex. +0.2 h) stämmer raden → ingen fråga.
     const addFits = add != null && !!d.time_mismatch && fitsTimeAddition(d, add);
     if (d.time_mismatch && !addFits) {
-      rowHasIssue = true;
       const tm = d.time_mismatch;
       // Med tillägget ska avgång → ankomst vara total minus tillägget.
       const air = add != null ? Math.round(Math.max(0, tm.anchor_total_h - add) * 10) / 10 : tm.anchor_total_h;
@@ -215,53 +277,56 @@ function deriveIssues(
     }
 
     if (d.remarks_suggestion) {
-      rowHasIssue = true;
       const rs = d.remarks_suggestion;
       out.push({
         id: `${row.key}:remark`, kind: 'remark', page: row.page, rowKey: row.key, field: 'remarks',
         title: 'Something in the remarks',
-        reason: `"${rs.original_text}" looks like the ${label(rs.field).toLowerCase()}: ${rs.value}. Move it there?`,
+        reason: rs.field === 'second_pilot'
+          ? rs.confidence < 0.6
+            ? `"${rs.original_text}" looks like the name of the pilot you flew with, but Claude isn't sure of the reading. Check it, choose their role and save.`
+            : `"${rs.original_text}" in the remarks looks like who you flew with. Choose their role and save.`
+          : `"${rs.original_text}" looks like the ${label(rs.field).toLowerCase()}: ${rs.value}. Move it there?`,
         confidence: rs.confidence,
         suggestions: [{ label: 'Yes, move it', field: rs.field, value: rs.value }],
         rect: cell('remarks') ?? whole,
       });
     }
 
-    // Raden var bara flaggad för tiden, som nu stämmer med bokens tillägg.
-    const timeReview = addFits && /time|arriv|depart|block|total|\d:\d\d/i.test(d.review_reason || 'time');
-    if (d.needs_review && !rowHasIssue && !timeReview) {
-      out.push({
-        id: `${row.key}:row`, kind: 'row', page: row.page, rowKey: row.key, field: '',
-        title: 'Check this row', reason: d.review_reason || 'Claude was unsure about this row.',
-        suggestions: [], rect: whole,
-      });
-    }
+    // Ingen fråga om "hela raden": utan ett bestämt fält kan användaren inte göra något med den (och
+    // Claude skrev ibland om fotot, t.ex. "rows slightly offset in photo"). Varje osäkerhet ska vara ett fält.
   }
 
-  // Nya flygplanstyper (finns inte i registret) → bekräfta där typen först står.
-  pages.forEach((p, pageIdx) => {
-    for (const det of p.detections) {
-      if (known.has(det.resolved.toUpperCase())) continue;
-      const aw = det.as_written.toUpperCase();
-      const pageRows = rows.filter((r) => r.page === pageIdx && !r.skip);
-      const target = pageRows.find((r) => r.rowIndex === det.first_row && (r.original.aircraft_type || '').toUpperCase() === aw)
-        ?? pageRows.find((r) => (r.original.aircraft_type || '').toUpperCase() === aw);
-      if (!target) continue;
-      const similar = [...known].filter((k) => k !== det.resolved.toUpperCase() && (k.startsWith(aw.slice(0, 2)) || aw.includes(k))).slice(0, 3);
-      const count = rows.filter((r) => (r.original.aircraft_type || '').toUpperCase() === aw).length;
-      out.push({
-        id: `ac:${pageIdx}:${aw}`, kind: 'aircraft', page: pageIdx, rowKey: target.key, field: 'aircraft_type',
-        title: 'New aircraft type',
-        reason: `Written as "${det.as_written}"${count > 1 ? ` on ${count} rows` : ''}. Claude thinks it's ${det.resolved}. Your answer applies to every row with the same entry.`,
-        confidence: det.confidence || undefined,
-        suggestions: [det.resolved, ...similar].filter(Boolean).map((t) => ({ label: t, field: 'aircraft_type', value: t })),
-        rect: p.grid ? cellRect(p.grid, target.rowIndex, 'aircraft_type') ?? rowRect(p.grid, target.rowIndex) : null,
-        aircraft: { asWritten: aw, resolved: det.resolved },
-      });
-    }
-  });
+  // Nya flygplanstyper (finns inte i flottan) → en fråga per typ, där den först står. Skrivsätt som är samma
+  // luftfartyg ("EC135", "EC135T1", "EC35") är redan ihopslagna, så svaret gäller alla deras rader.
+  for (const g of typeGroups) {
+    if (g.fleet || known.has(g.suggested)) continue;
+    const keys = new Set(g.members.map((m) => m.key));
+    const target = rows
+      .filter((r) => !r.skip && keys.has(typeKey(r.original.aircraft_type || r.data.aircraft_type)))
+      .sort((a, b) => a.page - b.page || a.rowIndex - b.rowIndex)[0];
+    if (!target) continue;
+    const p = pages[target.page];
+    const written = g.members.map((m) => m.display);
+    const similar = [...known].filter((k) => g.members.some((m) => isVariant(k, m.key) || (k.startsWith(m.key.slice(0, 2)) && k !== m.key))).slice(0, 3);
+    const chosen = g.members.map((m) => typeChoice[m.key]).find(Boolean);
+    const code = g.designator ? ` Claude thinks it's ${g.designator}.` : '';
+    out.push({
+      id: `ac:${g.id}`, kind: 'aircraft', page: target.page, rowKey: target.key, field: 'aircraft_type',
+      title: 'New aircraft type',
+      reason: written.length > 1
+        ? `Written as ${written.slice(0, -1).join(', ')} and ${written[written.length - 1]} on ${g.rows} rows — one aircraft.${code} Your answer applies to all of them.`
+        : `Written as "${written[0]}"${g.rows > 1 ? ` on ${g.rows} rows` : ''}.${code} Your answer applies to every row with the same entry.`,
+      confidence: undefined,
+      suggestions: [...new Set([g.suggested, ...written, ...(g.designator ? [g.designator] : []), ...similar])]
+        .map((t) => ({ label: t, field: 'aircraft_type', value: t })),
+      rect: p?.grid ? cellRect(p.grid, target.rowIndex, 'aircraft_type') ?? rowRect(p.grid, target.rowIndex) : null,
+      aircraft: { asWritten: g.id, resolved: chosen ?? g.suggested },
+    });
+  }
 
-  // Kolumner vars radsumma inte stämmer med sidans "Total this page" → hela kolumnen ringas in.
+  // Kolumner vars radsumma inte stämmer med sidans "Total this page" → hela kolumnen ringas in. Pekar allt på
+  // att det är summan i pappersboken som räknats fel (flygningarna stämmer med blocktiderna, eller sidans
+  // övriga summor går ihop med raderna) och Claude inte var osäker i kolumnen, sägs det rakt ut.
   pages.forEach((p, pageIdx) => {
     if (p.status !== 'done' || !p.grid) return;
     for (const c of columnTotals(rows, pageIdx, p.totals?.by_field)) {
@@ -271,12 +336,26 @@ function deriveIssues(
       if (!first) continue;
       const count = c.field.startsWith('landings');
       const fmt = (n: number) => (count ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
+      const diff = Math.round((c.printed - c.sum) * 100) / 100;
+      // En rad som lästs två gånger går före allt annat (den räknas men syns knappt).
+      const extra = realRows.has(`col:${pageIdx}:${c.field}`) ? null : findExtraRow(rows, pageIdx, c.field, diff, p.grid.rowsPerPage);
+      const tooMany = rows.filter((r) => r.page === pageIdx && !r.skip).length > p.grid.rowsPerPage;
+      const uncertain = out.some((i) => (i.kind === 'value' || i.kind === 'group') && i.page === pageIdx && i.field === c.field);
+      const blocks = c.field === 'total_time' && diff < 0 && rowsMatchBlockTimes(rows, pageIdx);
+      const miscounted = !extra && !tooMany && !uncertain && (blocks || pageTotalsPointAt(rows, pageIdx, c.field, p.totals?.by_field));
+      const off = `${fmt(Math.abs(diff))}${count ? (Math.abs(diff) === 1 ? ' landing' : ' landings') : ' h'} ${diff < 0 ? 'short' : 'over'}`;
       out.push({
         id: `col:${pageIdx}:${c.field}`, kind: 'column', page: pageIdx, rowKey: first.key, field: c.field,
-        title: `${label(c.field)} doesn't add up`,
-        reason: `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}. One of the values in the column is probably misread — tap it to change it.`,
+        title: extra ? `Row ${extra.rowIndex} may be read twice` : miscounted ? 'Page total looks miscounted' : `${label(c.field)} doesn't add up`,
+        reason: extra
+          ? `The rows add up to ${fmt(c.sum)} — exactly ${fmt(-diff)} more than the page total (${fmt(c.printed)}). Row ${extra.rowIndex} looks like a copy of the row next to it, so Claude probably read it twice.`
+          : miscounted
+            ? `${blocks ? 'Every flight matches its block time' : 'Your other page totals agree with the flights'}, and the rows add up to ${fmt(c.sum)} — but the page total says ${fmt(c.printed)}, ${off}. Most likely a counting slip in your paper logbook.`
+            : `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}. One of the values in the column is probably misread — tap it to change it.`,
         suggestions: [],
-        rect: col ? { x: col.left, y: p.grid.tableTop, w: col.right - col.left, h: p.grid.tableBottom - p.grid.tableTop } : null,
+        rect: extra ? rowRect(p.grid, extra.rowIndex)
+          : col ? { x: col.left, y: p.grid.tableTop, w: col.right - col.left, h: p.grid.tableBottom - p.grid.tableTop } : null,
+        column: { sum: c.sum, printed: c.printed, miscounted, extraRow: extra ? { key: extra.key, rowIndex: extra.rowIndex } : undefined },
       });
     }
   });
@@ -317,6 +396,26 @@ function deriveIssues(
     });
   }
 
+  // Initialer först i anmärkningen på många rader (instruktörens/andrepilotens signatur) → EN fråga för hela
+  // skanningen i stället för en per rad (99 frågor i en helikopterbok på 16 uppslag).
+  const REMARK_KEY = 'remark|second_pilot';
+  const remarkMembers = expanded.has(REMARK_KEY) ? [] : out.filter((i) => i.kind === 'remark' && rowOf.get(i.rowKey)?.data.remarks_suggestion?.field === 'second_pilot');
+  const groupedRemarks = new Set<string>();
+  if (remarkMembers.length >= 2) {
+    remarkMembers.forEach((m) => groupedRemarks.add(m.id));
+    const first = remarkMembers[0];
+    const names = [...new Set(remarkMembers.map((m) => rowOf.get(m.rowKey)?.data.remarks_suggestion?.value).filter(Boolean))];
+    out.push({
+      id: `grp:${REMARK_KEY}`, kind: 'group', page: first.page, rowKey: first.rowKey, field: 'second_pilot',
+      title: `Second pilot on ${remarkMembers.length} rows`,
+      reason: remarkMembers.every((m) => (rowOf.get(m.rowKey)?.data.remarks_suggestion?.confidence ?? 1) < 0.6)
+        ? `Claude isn't sure how to read these names in the remarks (${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}). Check them, choose their role and save.`
+        : `The remarks start with initials (${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}), which look like who you flew with. Choose their role and save them on all ${remarkMembers.length} flights.`,
+      suggestions: [], rect: first.rect,
+      group: { key: REMARK_KEY, members: remarkMembers.map((m) => m.id), rects: first.rect ? [first.rect] : [], remarks: true },
+    });
+  }
+
   // Samma fråga på många rader (t.ex. "1.2+0.2" i varje rad) → en fråga för alla. Nyckeln är fält +
   // förklaring utan siffror. Användaren kan välja att gå igenom dem en i taget (expanded).
   const buckets = new Map<string, Issue[]>();
@@ -346,7 +445,7 @@ function deriveIssues(
     });
   }
 
-  return out.filter((i) => !grouped.has(i.id) && !hidden.has(i.id)).sort((a, b) => Number(b.kind === 'addition') - Number(a.kind === 'addition')
+  return out.filter((i) => !grouped.has(i.id) && !hidden.has(i.id) && !groupedRemarks.has(i.id)).sort((a, b) => Number(b.kind === 'addition') - Number(a.kind === 'addition')
     || a.page - b.page
     || (rowOf.get(a.rowKey)?.rowIndex ?? 0) - (rowOf.get(b.rowKey)?.rowIndex ?? 0)
     || (a.rect?.x ?? 0) - (b.rect?.x ?? 0));
@@ -356,56 +455,6 @@ const contains = (r: Rect, x: number, y: number, pad = 0) =>
   x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
 
 type Selection = { kind: 'issue'; id: string } | { kind: 'cell'; rowKey: string; field: string } | null;
-
-// Letar upp boken i fotot med Apple Vision och beskär till den. Bilden prövas också vriden 90° och 270°,
-// och den vridning där Vision läser mest text vinner (en bok på tvären blir rättvänd). Returnerar
-// orden i den slutliga bildens koordinater, eller null om Vision inte finns i bygget.
-async function findLogbook(page: PageState): Promise<{ base64: string; width: number; height: number; words: VisionBox[] } | null> {
-  if (!visionAvailable()) return null;
-  const tmp = `${FileSystem.cacheDirectory}scan_find_${Date.now()}.jpg`;
-  type Cand = { deg: number; uri: string; width: number; height: number; base64: string; words: VisionBox[] };
-  try {
-    await FileSystem.writeAsStringAsync(tmp, page.base64, { encoding: FileSystem.EncodingType.Base64 });
-    const cands: Cand[] = [];
-    const tryRotation = async (deg: number) => {
-      if (deg === 0) {
-        cands.push({ deg, uri: tmp, width: page.width, height: page.height, base64: page.base64, words: await recognize(page.base64).catch(() => []) });
-        return;
-      }
-      const r = await ImageManipulator.manipulateAsync(tmp, [{ rotate: deg }], { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-      if (r.base64) cands.push({ deg, uri: r.uri, width: r.width, height: r.height, base64: r.base64, words: await recognize(r.base64).catch(() => []) });
-    };
-    await tryRotation(0);
-    // Ett uppslag är liggande. Står boken på högkant (t.ex. iPhones dokumentskanner, som lämnar bilden
-    // stående) prövas 90° och 270°; ligger den men ser upp och ner ut prövas 180°. Vilken som vinner avgörs av
-    // orientationScore (ord på rad, rubriker ovanför summorna) — inte av textmängden, som Vision läser lika
-    // bra på högkant. Blades kamera och "Frame the logbook" vet redan hur boken ligger (oriented).
-    const landscape = (c: Cand) => bookAspect(c.words, c.width, c.height) >= 1;
-    const score = (c: Cand) => orientationScore(c.words, c.width, c.height) + (landscape(c) ? 3 : 0) + textScore(c.words) / 1e5;
-    if (!page.oriented) {
-      const c0 = cands[0];
-      if (!landscape(c0)) { await tryRotation(90); await tryRotation(270); }
-      else if (orientationScore(c0.words, c0.width, c0.height) < 0) await tryRotation(180);
-    }
-    const best = cands.reduce((a, b) => (score(b) > score(a) ? b : a));
-    console.log(`[SCAN] Vridning: ${cands.map((c) => `${c.deg}°=${score(c).toFixed(1)}`).join(' ')} → ${best.deg}°`);
-
-    let b = page.cropped ? null : logbookBounds(best.words);
-    if (b && (b.w < 0.3 || b.h < 0.12)) b = null;                 // orimligt smal → behåll hela bilden
-    if (!b || (b.w > 0.92 && b.h > 0.92)) return { base64: best.base64, width: best.width, height: best.height, words: best.words };
-    const crop = {
-      originX: Math.round(b.x * best.width), originY: Math.round(b.y * best.height),
-      width: Math.round(b.w * best.width), height: Math.round(b.h * best.height),
-    };
-    const out = await ImageManipulator.manipulateAsync(best.uri, [{ crop }], { compress: 0.88, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-    if (!out.base64) return null;
-    return { base64: out.base64, width: out.width, height: out.height, words: wordsInCrop(best.words, b) };
-  } catch {
-    return null;
-  } finally {
-    FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
-  }
-}
 
 // ── Skärmen ──────────────────────────────────────────────────────────────────
 
@@ -429,10 +478,20 @@ export default function ScanReviewScreen() {
   const [saving, setSaving] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
   const [known, setKnown] = useState<Set<string>>(new Set());
+  // Flottans registreringar med typ, isärhållna skrivsätt ("Keep separate") och valt namn per skrivsätt.
+  const [fleetRegs, setFleetRegs] = useState<FleetInfo['regs']>([]);
+  const [typeSeparate, setTypeSeparate] = useState<Set<string>>(new Set());
+  const [typeChoice, setTypeChoice] = useState<Record<string, string>>({});
+  const typeEdited = useRef(new Set<string>());   // rader där användaren själv ändrat typen
   const [airportHits, setAirportHits] = useState<{ icao: string; name: string }[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [stage, setStage] = useState<'review' | 'report'>('review');
   const [editorKey, setEditorKey] = useState<string | null>(null);
+  const [remarkRoles, setRemarkRoles] = useState<Record<string, string>>({});
+  // Förslag på liknande flygplatser per osäker platskod, och hur ofta koderna förekommer i skanningen.
+  const [placeAlts, setPlaceAlts] = useState<Record<string, string[]>>({});
+  const placeCounts = useRef(new Map<string, number>());   // vald roll per anmärkningsfråga
+  const [crossRefPage, setCrossRefPage] = useState<number | null>(null);   // uppslaget som loggbok (rapporten)
   const [timeBasis, setTimeBasisState] = useState<TimeBasis>(getScanTimeBasis());
   useEffect(() => {
     getSetting('scan_time_basis').then((v) => { if (v === 'utc' || v === 'local') { setTimeBasisState(v); setScanTimeBasis(v); } }).catch(() => {});
@@ -450,9 +509,26 @@ export default function ScanReviewScreen() {
   useEffect(() => {
     learnedAddition.current?.then((n) => { if (n && additionRef.current == null) { additionRef.current = n; setAddition(n); } });
   }, []);
-  const focus = useRef<ScanFocus>(getScanFocus()).current;
+  // Fokus väljs när första uppslaget är läst (FocusDialog), inte före skanningen: Claude läser alltid lika
+  // noggrant (med fokus i instruktionen blev läsningen sämre, t.ex. registreringar 69 % i "totals"), och
+  // valet avgör bara vilka frågor som ställs. null = inte valt än (alla frågor räknas).
+  const [focus, setFocus] = useState<ScanFocus | null>(null);
+  const [focusPick, setFocusPick] = useState<ScanFocus>(getScanFocus());   // förval: förra valet
+  const [choosingFocus, setChoosingFocus] = useState(false);
+  const focusRef = useRef<ScanFocus>('exact');
+  // Fältet som tangentbordet redigerar när det inte är frågans eget (t.ex. ankomsttiden i "Times don't add up").
+  const [editTarget, setEditTarget] = useState<string | null>(null);
   // Justering mot sidans summa: kolumnfrågan som justeras och de valda raderna (radnycklar).
   const [adjust, setAdjust] = useState<{ issueId: string; keys: string[] } | null>(null);
+  // Kolumnfrågor där användaren sagt att summan i pappersboken är felräknad (Correct my total) → guiden efter Save.
+  const [paperFixed, setPaperFixed] = useState<Set<string>>(new Set());
+  const [paperGuide, setPaperGuide] = useState(false);
+  const [totalsAlert, setTotalsAlert] = useState(false);     // "Page totals don't add up" innan man börjar
+  const totalsAlertShown = useRef(false);
+  const pilotNamesRef = useRef(false);                        // remarks-rubriken: "name of PIC" (applyPilotNamesFromRemarks)
+  const [correctInfo, setCorrectInfo] = useState(false);     // info-knappen under "Correct my total"
+  // Kolumnfrågor där användaren sagt att den misstänkta dubbelraden är en riktig flygning.
+  const [realRows, setRealRows] = useState<Set<string>>(new Set());
   const [duplicates, setDuplicates] = useState<Set<string>>(new Set());
   const [aircraft, setAircraft] = useState<Record<string, AircraftInput>>({});
   const [acLoading, setAcLoading] = useState<Set<string>>(new Set());
@@ -462,6 +538,20 @@ export default function ScanReviewScreen() {
 
   const pagesRef = useRef<PageState[]>([]);
   const layoutRef = useRef<LogbookLayout | null>(null);
+  // "Scan your whole logbook": omgången (vilka foton, bokens format) och formatet självt.
+  const bookRef = useRef<ScanBookSession | null>(null);
+  const bookFormatRef = useRef<ScanFormat | null>(null);
+  // Granskningen är stängd: kedjan av läsningar slutar (förut fortsatte den i bakgrunden och drog coins för
+  // uppslag som ingen skulle granska). Ett anrop som redan skickats blir klart; i en hel bok sparas det.
+  const closedRef = useRef(false);
+  useEffect(() => () => { closedRef.current = true; }, []);
+  // Bilder som granskningen själv skrivit till cachen (kamerans foton, förberedda bilder) → raderas när den stängs.
+  const tempFiles = useRef(new Set<string>());
+  // Uppslagsraden överst: rullas så att uppslaget som visas syns.
+  const pillScroll = useRef<ScrollView>(null);
+  const pillX = useRef<Record<number, number>>({});
+  useEffect(() => { pillScroll.current?.scrollTo({ x: Math.max(0, (pillX.current[activePage] ?? 0) - 60), animated: true }); }, [activePage]);
+  useEffect(() => () => { tempFiles.current.forEach((f) => { FileSystem.deleteAsync(f, { idempotent: true }).catch(() => {}); }); }, []);
   const knownRef = useRef<Set<string>>(new Set());
   const unknownIcaos = useRef<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
@@ -513,41 +603,83 @@ export default function ScanReviewScreen() {
 
   // ── Läsning: hitta boken → Claude läser → ringarna justeras mot Visions ord ──
 
+  // Boken letas upp (vrids, rätas, beskärs) i alla foton direkt efter varandra, på enheten, medan Claude
+  // läser det första (services/scanPrepare). Läsningsskärmen bockar av foto för foto. Varje foto letas upp en
+  // gång (även vid retry). Foton från "Scan your whole logbook" är redan förberedda: bara orden läses in.
+  const located = useRef(new Map<number, Promise<{ words: VisionBox[] } | null>>());
+  const [locatedCount, setLocatedCount] = useState(0);
+  const locate = (i: number) => {
+    let job = located.current.get(i);
+    if (!job) {
+      job = (async () => {
+        const pg = pagesRef.current[i];
+        if (pg.prepared) {
+          const words: VisionBox[] = pg.wordsUri
+            ? await FileSystem.readAsStringAsync(pg.wordsUri).then((t) => JSON.parse(t)).catch(() => [])
+            : [];
+          setLocatedCount((n) => n + 1);
+          return { words };
+        }
+        const out = await prepareSpread({ uri: pg.uri, width: pg.width, height: pg.height, cropped: pg.cropped, oriented: pg.oriented }).catch(() => null);
+        if (out && out.uri !== pg.uri) {
+          tempFiles.current.add(out.uri);
+          patchPage(i, { uri: out.uri, width: out.width, height: out.height, mediaType: mediaTypeOf(out.uri), cropped: pg.cropped || out.found, prepared: true });
+        } else if (out) patchPage(i, { prepared: true });
+        setLocatedCount((n) => n + 1);
+        return out ? { words: out.words } : null;
+      })();
+      located.current.set(i, job);
+    }
+    return job;
+  };
+
   const readPage = useCallback(async (i: number, ctx: PageContext | undefined, chain: boolean) => {
     let page = pagesRef.current[i];
-    if (!page) return;
+    if (!page || closedRef.current) return;
     let next = ctx;
     try {
       patchPage(i, { status: 'finding', error: undefined });
       const tStart = Date.now();
-      const found = await findLogbook(page);
+      const found = await locate(i);
       const tFound = Date.now();
       const words: VisionBox[] = found?.words ?? [];
-      if (found && found.base64 !== page.base64) {
-        patchPage(i, { base64: found.base64, uri: `data:image/jpeg;base64,${found.base64}`, width: found.width, height: found.height, mediaType: 'image/jpeg', cropped: true });
-        page = pagesRef.current[i];
-      }
+      page = pagesRef.current[i];
 
       patchPage(i, { status: 'reading' });
       const timeAddition = additionRef.current ?? (await learnedAddition.current) ?? undefined;
-      const readWith = (model: string) => ocrScanPage(page.base64, page.mediaType, fmtRef.current, ctx,
-        { useBookLayout: getScanUseBookLayout(), timeAddition, focus, model });
-      const result: PageRead = await readWith(OCR_MODEL);
+      // Redan läst i en tidigare öppning av samma omgång ("Scan your whole logbook"): läsningen är sparad och
+      // kostar inga nya coins.
+      const cached: PageRead | null = page.readUri
+        ? await FileSystem.readAsStringAsync(page.readUri).then((t) => JSON.parse(t)).catch(() => null)
+        : null;
+      // Granskningen stängdes medan boken letades upp: inget nytt anrop (det skulle kosta coins i onödan).
+      if (closedRef.current && !cached) return;
+      let result: PageRead;
+      if (cached) {
+        result = cached;
+        console.log(`[SCAN] Uppslag ${i + 1}: Claudes sparade läsning används (${result.flights.length} rader)`);
+      } else {
+        // Bilden läses från filen först nu och släpps efter anropet (ingen base64 i minnet mellan läsningarna).
+        const base64 = await FileSystem.readAsStringAsync(page.uri, { encoding: FileSystem.EncodingType.Base64 }).catch(() => '');
+        if (!base64) throw new Error("Couldn't open the photo. Choose it again from your library.");
+        // En omgång ur en hel bok: bokens format (läst från första uppslaget) är kolumnlistan, och bokens eget
+        // tidsformat styr tolkningen.
+        result = await ocrScanPage(base64, page.mediaType, bookFormatRef.current?.timeFormat ?? fmtRef.current, ctx,
+          { useBookLayout: getScanUseBookLayout(), ...(bookFormatRef.current ? { layout: layoutRef.current } : {}), timeAddition, model: OCR_MODEL, wholeSpread: true });
+        if (page.readUri) FileSystem.writeAsStringAsync(page.readUri, JSON.stringify(result)).catch(() => {});
+      }
+      // Sidnumren lästes inte: de sidnummer uppslaget bör ha enligt bokens sidspann.
+      if (result.pageNumbers.left == null && page.expected) result = { ...result, pageNumbers: { ...page.expected } };
       const tRead = Date.now();
       const unknown = await findUnknownIcaos(result.flights);
       unknown.forEach((c) => unknownIcaos.current.add(c));
       let grid = result.grid ?? (layoutRef.current ? buildPageGrid(undefined, layoutRef.current, null) : null);
       console.log(`[SCAN] Rutnät från skannern: ${result.grid ? `${result.grid.source}, ${result.grid.columns.length} kolumner, tabell ${Math.round(result.grid.tableTop * 100)}–${Math.round(result.grid.tableBottom * 100)} %` : 'INGET'}${!result.grid && grid ? ' → mallens bredder' : ''}`);
 
-      const autoType = new Map<string, string>();
-      for (const det of result.aircraftDetections) {
-        if (knownRef.current.has(det.resolved.toUpperCase()) || focus === 'totals') autoType.set(det.as_written.toUpperCase(), det.resolved.toUpperCase());
-      }
-
+      // Flygplanstyperna kontrolleras mot flottan och slås ihop för hela skanningen (services/scanTypes.ts,
+      // effekten "Flygplanstyperna" nedan) — inte här, per uppslag.
       const newRows: ScanRow[] = result.flights.map((f, idx) => {
-        let data = flagUnknownIcaos(prepareFlight(f), unknown);
-        const mapped = autoType.get((data.aircraft_type || '').toUpperCase());
-        if (mapped) data = { ...data, aircraft_type: mapped };
+        const data = flagUnknownIcaos(prepareFlight(f), unknown);
         let rowIndex = f.row_index ?? 0;
         if (!rowIndex && grid && typeof f.row_y_pct === 'number') {
           rowIndex = Math.floor((f.row_y_pct / 100 - grid.tableTop) / ((grid.tableBottom - grid.tableTop) / grid.rowsPerPage)) + 1;
@@ -555,6 +687,42 @@ export default function ScanReviewScreen() {
         if (!rowIndex || rowIndex < 1) rowIndex = idx + 1;
         return { key: `${i}:${rowIndex}:${idx}`, page: i, rowIndex, data, original: { ...f }, skip: false };
       });
+      // Datum som går bakåt eller krockar med raden ovanför, och fler rader än sidan har (en rad läst två gånger).
+      // Radantalet tas från bokens tidigare uppslag när de är överens (samma bok, samma tryck).
+      const rowsPrinted = typicalRowsPerPage(pagesRef.current.filter((_, k) => k !== i).map((p) => p.grid?.rowsPerPage ?? 0), grid?.rowsPerPage);
+      checkRowSequence(newRows, rowsPrinted);
+      // Simulatortid i fel kolumn ("Other type of flight time") när sidans simulatorsumma bekräftar det.
+      reconcileSimColumn(newRows, i, result.pageTotals?.by_field);
+      // Bokens tillägg (+0.2 h) som stod i cellen men lästes utan: läggs till när sidans summa bekräftar det.
+      const added = reconcileAddition(newRows, i, result.pageTotals?.by_field, timeAddition);
+      if (added) console.log(`[SCAN] Tillägget ${timeAddition} h lagt till på ${added} celler (sidans summa bekräftar)`);
+      // Samma tal under Day och Night när bara ena kolumnen går ihop med sidans summa → troligen överstruket.
+      checkLandingPairs(newRows, i, result.pageTotals?.by_field);
+      // Säger anmärkningens rubrik att pilotens namn står där ("name of PIC") sätts second pilot automatiskt:
+      // SIC om flygningen har egen PIC-tid, annars PIC. Gäller hela skanningen (samma bok), även uppslag som
+      // redan lästs. Osäkra läsningar frågas som förut.
+      if (!pilotNamesRef.current && (result.remarksPilotNames || headerNamesPilot(words.map((w) => w.text)))) {
+        pilotNamesRef.current = true;
+        console.log(`[SCAN] Anmärkningens rubrik: pilotens namn står där (${result.remarksPilotNames ? 'Claude' : 'Vision'})`);
+        setRows((prev) => { const copy = prev.map((r) => ({ ...r })); return applyPilotNamesFromRemarks(copy) ? copy : prev; });
+      }
+      if (pilotNamesRef.current) {
+        const set = applyPilotNamesFromRemarks(newRows);
+        if (set) console.log(`[SCAN] Second pilot ur anmärkningen på ${set} rader`);
+      }
+      // Osäkra eller okända platskoder → liknande flygplatser som förslag (i bakgrunden, ingen AI).
+      for (const r of newRows) for (const f of ['dep_place', 'arr_place'] as const) {
+        const c = String(r.data[f] ?? '').toUpperCase();
+        if (c) placeCounts.current.set(c, (placeCounts.current.get(c) ?? 0) + 1);
+      }
+      const unsure = new Set(newRows.flatMap((r) => (r.data.field_issues ?? [])
+        .filter((x) => x.field === 'dep_place' || x.field === 'arr_place')
+        .map((x) => String((r.data as any)[x.field] ?? '').toUpperCase())).filter(Boolean));
+      for (const code of unsure) {
+        similarAirports(code, placeCounts.current).then((alts) => {
+          if (alts.length) setPlaceAlts((m) => (m[code] ? m : { ...m, [code]: alts }));
+        }).catch(() => {});
+      }
 
       // Ringarna exakt: Claudes värden matchas mot orden Vision hittade i samma bild.
       if (grid && words.length > 0) {
@@ -573,10 +741,10 @@ export default function ScanReviewScreen() {
         grid = measureRows(grid, newRows.map((r) => ({
           rowIndex: r.rowIndex,
           values: Object.fromEntries(['date', 'registration', 'aircraft_type', 'dep_place', 'arr_place', 'dep_utc', 'arr_utc', 'second_pilot',
-            'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'landings_day', 'landings_night']
+            'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'landings_day', 'landings_night', 'remarks']
             .map((key) => [key, String((r.original as any)[key] ?? '')])),
         })), words);
-        console.log(`[SCAN] Rader uppmätta mot Vision: vänster ${grid.rowCenters?.left?.length ?? 0}, höger ${grid.rowCenters?.right?.length ?? 0}`);
+        console.log(`[SCAN] Rader uppmätta mot Vision: vänster ${grid.rowCenters?.left?.length ?? 0}, höger ${grid.rowCenters?.right?.length ?? 0} · lutning ${grid.rowSlopes?.left?.slope?.toFixed(3) ?? '–'} / ${grid.rowSlopes?.right?.slope?.toFixed(3) ?? '–'}`);
         // Talfält vars värden står i en annan kolumn än rutnätet säger (t.ex. simulatortid i en handskriven
         // "Simulator time" i stället för den tryckta "Synthetic training session") kopplas om dit.
         const relocated = relocateColumnsByValues(grid, newRows.map((r) => ({
@@ -633,7 +801,7 @@ export default function ScanReviewScreen() {
           console.log(`[SCAN] 📋 R${row.rowIndex} ${cells.join(' ')}${qs.length ? ` · frågor: ${qs.join(',')}` : ''}`);
         }
         const sec = (ms: number) => (ms / 1000).toFixed(1);
-        console.log(`[SCAN] ⏱ Uppslag ${i + 1}: ${sec(Date.now() - tStart)} s totalt (hitta boken ${sec(tFound - tStart)} s · Claude ${sec(tRead - tFound)} s · efterarbete ${sec(Date.now() - tRead)} s) · ${newRows.length} rader · fokus ${focus}`);
+        console.log(`[SCAN] ⏱ Uppslag ${i + 1}: ${sec(Date.now() - tStart)} s totalt (hitta boken ${sec(tFound - tStart)} s · Claude ${sec(tRead - tFound)} s · efterarbete ${sec(Date.now() - tRead)} s) · ${newRows.length} rader · fokus ${focusRef.current}`);
       }
       setRows((prev) => [...prev.filter((r) => r.page !== i), ...newRows]);
       patchPage(i, { status: 'done', grid, pageNumbers: result.pageNumbers, detections: result.aircraftDetections, totals: result.pageTotals });
@@ -655,7 +823,7 @@ export default function ScanReviewScreen() {
       }
       patchPage(i, { status: 'error', error: e?.message ?? 'Could not read this spread.' });
     }
-    if (chain && i + 1 < pagesRef.current.length) readPage(i + 1, next, true);
+    if (chain && !closedRef.current && i + 1 < pagesRef.current.length) readPage(i + 1, next, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -663,9 +831,19 @@ export default function ScanReviewScreen() {
     (async () => {
       const batch = getScanBatch();
       clearScanImage();
+      const book = takeScanBookSession();
+      bookRef.current = book;
       if (batch.length === 0) { setFatal('There are no photos to read. Go back and scan again.'); return; }
-      const sized = await Promise.all(batch.map(async (img) => {
-        const uri = `data:${img.mediaType};base64,${img.base64}`;
+      const stamp = Date.now();
+      const sized: PageState[] = await Promise.all(batch.map(async (img, i) => {
+        // Bilderna hålls som filer: kamerans (base64) skrivs till cachen, bibliotekets foton visas från
+        // väljarens fil tills locate förberett dem, och en hel boks foton är redan förberedda.
+        let uri = img.prepared?.uri ?? img.sourceUri ?? '';
+        if (!uri && img.base64) {
+          uri = `${FileSystem.cacheDirectory}scan_page_${stamp}_${i}.${img.mediaType === 'image/png' ? 'png' : 'jpg'}`;
+          await FileSystem.writeAsStringAsync(uri, img.base64, { encoding: FileSystem.EncodingType.Base64 });
+          tempFiles.current.add(uri);
+        }
         let { width, height } = img;
         if (!width || !height) {
           const sz = await new Promise<{ w: number; h: number }>((res) =>
@@ -673,20 +851,30 @@ export default function ScanReviewScreen() {
           width = sz.w; height = sz.h;
         }
         return {
-          base64: img.base64, mediaType: img.mediaType, uri, width: width!, height: height!, cropped: !!img.cropped, oriented: !!img.oriented,
+          mediaType: img.prepared ? 'image/jpeg' : img.mediaType, uri, width: width!, height: height!,
+          cropped: !!img.cropped, oriented: !!img.oriented, prepared: !!img.prepared,
+          wordsUri: img.prepared?.wordsUri, readUri: img.prepared?.readUri, expected: img.prepared?.expected,
           status: 'waiting' as const, grid: null, pageNumbers: { left: null, right: null }, detections: [], totals: null,
         };
       }));
       pagesRef.current = sized;
       setPages(sized);
+      // En omgång ur en hel bok: bokens format (id:t följer med omgången) i stället för den digitala bokens mall.
+      const format = book ? await loadScanFormat(book.formatId) : null;
+      bookFormatRef.current = format;
+      getFleetRegistrationTypes().then(setFleetRegs).catch(() => {});
       const [types, layout] = await Promise.all([
         getAllAircraftTypes().catch(() => []),
-        getScanUseBookLayout() ? getActiveBookLayout() : Promise.resolve(null),
+        format ? Promise.resolve(formatToLayout(format)) : getScanUseBookLayout() ? getActiveBookLayout() : Promise.resolve(null),
       ]);
       knownRef.current = new Set(types.map((t: any) => String(t.aircraft_type ?? '').toUpperCase()).filter(Boolean));
       setKnown(knownRef.current);
       layoutRef.current = layout;
-      readPage(0, undefined, true);
+      // Formatet vet redan om anmärkningens rubrik säger att pilotens namn står där.
+      if (format?.remarksPilotNames) pilotNamesRef.current = true;
+      if (format) console.log(`[SCAN] Omgång ur hel bok: format ${format.id}, ${sized.length} uppslag${book?.ctx ? `, fortsätter efter ${book.ctx.last_date}` : ''}`);
+      readPage(0, book?.ctx, true);
+      for (let i = 0; i < sized.length && !closedRef.current; i++) await locate(i);   // resten letas upp medan första läses
     })();
   }, [readPage]);   // readPage är stabil → körs en gång
 
@@ -705,24 +893,117 @@ export default function ScanReviewScreen() {
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const panelEnter = useRef(new Animated.Value(0)).current;
   const startedAt = useRef(Date.now()).current;
+  // Innan granskningen börjar: "What matters most to you?" (FocusDialog) med uppskattad tid och träffsäkerhet.
   useEffect(() => {
     if (readingPhase || overlay !== 'visible') return;
+    if (!focus) { setChoosingFocus(true); return; }
     setOverlay('finishing');
     const t = setTimeout(() => {
       Animated.parallel([
         Animated.timing(overlayOpacity, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
         Animated.timing(panelEnter, { toValue: 1, duration: 620, delay: 180, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]).start(() => setOverlay('hidden'));
-    }, 1300);
+    }, 350);   // resultatet har redan synts bakom valet
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readingPhase]);
+  }, [readingPhase, focus]);
 
   const additionCandidate = useMemo(() => detectTimeAddition(rows), [rows]);
-  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus),
-    [rows, pages, known, expanded, addition, additionCandidate, focus]);
+  // ── Flygplanstyperna: kontrollerade mot flottan och ihopslagna för hela skanningen (services/scanTypes.ts) ──
+  // Samma luftfartyg skrivet på flera sätt ("EC135", "EC135T1", "EC35") blir EN typ, och finns typen i flottan
+  // (samma registrering, samma namn, samma typkod eller ett variantsuffix) får raderna flottans namn. Raderna
+  // uppdateras här; en typ som användaren ändrat på en enskild rad lämnas.
+  const typeRes = useMemo(() => resolveScanTypes(
+    rows.filter((r) => !r.skip).map((r) => ({ written: r.original.aircraft_type || r.data.aircraft_type || '', registration: r.data.registration })),
+    pages.flatMap((p) => p.detections),
+    { types: [...known], regs: fleetRegs },
+    typeSeparate,
+  ), [rows, pages, known, fleetRegs, typeSeparate]);
+  const typeFor = (g: TypeGroup) => g.members.map((m) => typeChoice[m.key]).find(Boolean) ?? g.suggested;
+  useEffect(() => {
+    const want = (r: ScanRow) => {
+      if (typeEdited.current.has(r.key)) return null;
+      const g = typeRes.groupOf.get(typeKey(r.original.aircraft_type || r.data.aircraft_type));
+      return g ? typeFor(g) : null;
+    };
+    const differs = (r: ScanRow) => { const t = want(r); return t != null && (r.data.aircraft_type || '').toUpperCase() !== t; };
+    if (!rows.some(differs)) return;
+    setRows((prev) => prev.map((r) => (differs(r) ? { ...r, data: { ...r.data, aircraft_type: want(r)! } } : r)));
+    const merged = typeRes.groups.filter((g) => g.members.length > 1 || g.fleet);
+    if (merged.length) console.log(`[SCAN] Typer: ${merged.map((g) => `${g.members.map((m) => m.display).join('/')} → ${typeFor(g)}${g.fleet ? ` (flottan, ${g.via})` : ''}`).join(' · ')}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeRes, typeChoice]);
+  // Rapporten: "Keep separate" och namnet på en ny typ.
+  const keepTypesSeparate = (groupId: string) => {
+    const g = typeRes.groups.find((x) => x.id === groupId);
+    if (!g) return;
+    touched.current = true;
+    setTypeChoice((c) => { const n = { ...c }; for (const m of g.members) delete n[m.key]; return n; });
+    setTypeSeparate((st) => new Set([...st, ...g.members.map((m) => m.key)]));
+  };
+  const nameType = (groupId: string, name: string) => {
+    const g = typeRes.groups.find((x) => x.id === groupId);
+    if (!g || !name.trim()) return;
+    touched.current = true;
+    setTypeChoice((c) => ({ ...c, ...Object.fromEntries(g.members.map((m) => [m.key, name.trim().toUpperCase()])) }));
+  };
+
+  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice),
+    [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice]);
   const isDone = (i: Issue) => !!resolved[i.id] || (!!i.group && i.group.members.every((m) => resolved[m]));
+
+  // Innan man börjar med frågorna: går några sidsummor inte ihop sägs det en gång, och att Blades guidar genom
+  // ändringarna i pappersboken efteråt om rättningarna här inte löser det. Uppslag som läses senare räknas när
+  // de kommer (rutan visas ändå bara en gång).
+  const columnProblems = issues.filter((i) => i.kind === 'column' && !isDone(i));
+  useEffect(() => {
+    if (totalsAlertShown.current || overlay !== 'hidden' || typing || columnProblems.length === 0) return;
+    totalsAlertShown.current = true;
+    setTotalsAlert(true);
+  }, [overlay, typing, columnProblems.length]);
   const openIssues = issues.filter((i) => !isDone(i));
+
+  // Uppskattning per val medan "What matters most to you?" visas: frågorna valet ställer i de lästa
+  // uppslagen, uppräknat till alla uppslag i skanningen (tiden). Träffsäkerheten är en andel och räknas på
+  // de lästa uppslagen (se konstanterna vid deriveIssues).
+  const focusEstimates = useMemo((): Record<ScanFocus, FocusEstimate> | null => {
+    if (!choosingFocus) return null;
+    const done = pages.filter((p) => p.status === 'done').length;
+    if (!done) return null;
+    const factor = Math.max(done, pages.filter((p) => p.status !== 'error').length) / done;
+    const values = rows.filter((r) => !r.skip && pages[r.page]?.status === 'done').length * VALUES_PER_ROW;
+    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice);
+    const size = (i: Issue) => (i.kind === 'column' ? 0 : i.group ? i.group.members.length : 1);
+    const exact = derive('exact');
+    const exactSize = exact.reduce((n, i) => n + size(i), 0);
+    const out = {} as Record<ScanFocus, FocusEstimate>;
+    for (const f of ['exact', 'balanced', 'totals'] as ScanFocus[]) {
+      const list = f === 'exact' ? exact : derive(f);
+      const seconds = REPORT_SECONDS + factor * list.reduce((n, i) => n + (QUESTION_SECONDS[i.kind] ?? 8), 0);
+      const unasked = Math.max(0, exactSize - list.reduce((n, i) => n + size(i), 0));
+      const wrong = SILENT_ERROR_RATE * values + ERROR_PER_QUESTION * unasked;
+      out[f] = { seconds, accuracy: values > 0 ? Math.max(0, 1 - wrong / values) : null };
+    }
+    return out;
+  }, [choosingFocus, rows, pages, known, expanded, addition, additionCandidate, placeAlts, realRows]);
+
+  const startChecking = () => {
+    const f = focusPick;
+    focusRef.current = f;
+    setScanFocus(f);
+    setSetting('scan_focus', f).catch(() => {});
+    // Bara summorna: nya flygplanstyper frågas inte om → Claudes tolkning gäller (redan lästa uppslag; nästa
+    // uppslag får den direkt vid läsningen).
+    if (f === 'totals') {
+      const map = new Map(pagesRef.current.flatMap((pg) => pg.detections.map((d) => [d.as_written.toUpperCase(), d.resolved.toUpperCase()] as [string, string])));
+      if (map.size) setRows((prev) => prev.map((r) => {
+        const t = map.get((r.data.aircraft_type || '').toUpperCase());
+        return t ? { ...r, data: { ...r.data, aircraft_type: t } } : r;
+      }));
+    }
+    setChoosingFocus(false);
+    setFocus(f);
+  };
   const rowByKey = useMemo(() => new Map(rows.map((r) => [r.key, r])), [rows]);
 
   // Typer som inte finns i flottan än → "New aircraft" i rapporten.
@@ -737,8 +1018,19 @@ export default function ScanReviewScreen() {
       if (r.data.registration) e.regs.add(r.data.registration.toUpperCase());
       m.set(t, e);
     }
-    return [...m.entries()].map(([type, e]) => ({ type, registrations: [...e.regs], rows: e.rows }));
-  }, [rows, known]);
+    // Skrivsätten som slagits ihop till typen ("Also written as …" i rapporten).
+    return [...m.entries()].map(([type, e]) => {
+      const g = typeRes.groups.find((x) => typeFor(x) === type);
+      const aka = g ? g.members.map((x) => x.display).filter((d) => d !== type) : [];
+      return { type, registrations: [...e.regs], rows: e.rows, aka, groupId: g?.id, designator: g?.designator ?? undefined };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, known, typeRes, typeChoice]);
+  // Skrivsätt som fått flottans typ (rapporten: "Matched to your fleet", med "Keep separate").
+  const fleetMatches = useMemo(() => typeRes.groups
+    .filter((g) => g.fleet && g.via && typeChoice[g.members[0].key] == null)
+    .map((g) => ({ id: g.id, to: g.fleet!, via: g.via!, rows: g.rows, from: g.members.map((m) => m.display).filter((d) => typeKey(d) !== typeKey(g.fleet)) }))
+    .filter((x) => x.from.length > 0), [typeRes, typeChoice]);
 
   useEffect(() => {
     if (stage !== 'report') return;
@@ -818,6 +1110,7 @@ export default function ScanReviewScreen() {
 
   const select = (sel: Selection) => {
     setAdjust(null);
+    setEditTarget(null);
     Keyboard.dismiss();
     setTyping(false);
     setAirportHits([]);
@@ -825,7 +1118,8 @@ export default function ScanReviewScreen() {
     if (!sel) { zoomTo(null); return; }
     const row = rowByKey.get(sel.kind === 'issue' ? issues.find((i) => i.id === sel.id)?.rowKey ?? '' : sel.rowKey);
     const field = sel.kind === 'issue' ? issues.find((i) => i.id === sel.id)?.field ?? '' : sel.field;
-    setDraft(row && field ? inputValue(row.data, field, fmtRef.current) : '');
+    const rs = sel.kind === 'issue' && issues.find((i) => i.id === sel.id)?.kind === 'remark' ? row?.data.remarks_suggestion : undefined;
+    setDraft(rs ? rs.value : row && field ? inputValue(row.data, field, fmtRef.current) : '');
     const go = () => zoomTo(rectFor(sel));
     if (row && row.page !== activePage) { setActivePage(row.page); setTimeout(go, 80); } else go();
   };
@@ -840,7 +1134,13 @@ export default function ScanReviewScreen() {
 
   const setField = (rowKey: string, field: string, value: string) => {
     touched.current = true;
-    setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, data: { ...r.data, [field]: value } } : r)));
+    if (field === 'aircraft_type' && (rows.find((r) => r.key === rowKey)?.data.aircraft_type || '').toUpperCase() !== value.toUpperCase()) typeEdited.current.add(rowKey);
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== rowKey) return r;
+      // Simulatorpass: passets längd är både simulatortid och total tid (appens modell) — håll dem lika.
+      const sync = r.data.flight_type === 'sim' && (field === 'sim' || field === 'total_time') ? { sim: value, total_time: value } : {};
+      return { ...r, data: { ...r.data, [field]: value, ...sync } };
+    }));
   };
 
   const nextOpen = (afterId?: string, justResolved?: string) => {
@@ -886,6 +1186,12 @@ export default function ScanReviewScreen() {
     additionRef.current = h;
     setAddition(h);
     setSetting('scan_time_addition', String(h)).catch(() => {});
+    // Redan lästa uppslag: tillägget som stod i cellerna men lästes utan läggs till där sidans summa bekräftar.
+    setRows((prev) => {
+      const copy = prev.map((r) => ({ ...r }));
+      pagesRef.current.forEach((pg, idx) => reconcileAddition(copy, idx, pg.totals?.by_field, h));
+      return copy;
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     select(n ? { kind: 'issue', id: n.id } : null);
   };
@@ -907,11 +1213,32 @@ export default function ScanReviewScreen() {
     resolve(issue.id, 'changed');
   };
 
-  // Justera flygningar mot sidans summa. Förval: rader där Claude var osäker på just det fältet.
+  // Justera flygningar mot sidans summa (summan i boken står kvar). Blades förslag är förvalt: så få
+  // flygningar som möjligt, högst 0.2 h var, osäkra avläsningar först (suggestAdjustRows). Ett tryck på en
+  // flygning lägger till eller tar bort den.
   const startAdjust = (issue: Issue) => {
-    const keys = issues.filter((i) => i.kind === 'value' && i.page === issue.page && i.field === issue.field && !isDone(i)).map((i) => i.rowKey);
-    setAdjust({ issueId: issue.id, keys: [...new Set(keys)] });
+    const uncertain = new Set(issues.filter((i) => i.kind === 'value' && i.page === issue.page && i.field === issue.field && !isDone(i)).map((i) => i.rowKey));
+    const diff = issue.column ? Math.round((issue.column.printed - issue.column.sum) * 100) / 100 : 0;
+    const keys = suggestAdjustRows(rows, issue.page, issue.field, diff, pagesRef.current[issue.page]?.totals?.by_field, uncertain);
+    setAdjust({ issueId: issue.id, keys: keys.length ? keys : [...uncertain] });
   };
+  // "Correct my total": flygningarna stämmer, summan i pappersboken är fel. Rättelsen (och följdsummorna)
+  // listas i guiden efter Save.
+  const correctPaperTotal = (issue: Issue) => {
+    setPaperFixed((f) => new Set([...f, issue.id]));
+    resolve(issue.id, 'ok');
+  };
+  // "Skip row N": dubbelraden lämnas utanför, kolumnen går ihop och frågan försvinner.
+  const skipExtraRow = (issue: Issue) => {
+    const key = issue.column?.extraRow?.key;
+    if (!key) return;
+    touched.current = true;
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, skip: true } : r)));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const n = nextOpen(issue.id, issue.id);
+    select(n ? { kind: 'issue', id: n.id } : null);
+  };
+
   const toggleAdjustRow = (key: string, field: string) => {
     const r = rowByKey.get(key);
     if (!r || (field === 'total_time' && r.data.flight_type === 'sim')) return;   // simulatorpass räknas inte i total tid
@@ -923,26 +1250,28 @@ export default function ScanReviewScreen() {
     setRows((prev) => prev.map((r) => {
       const nv = values.get(r.key);
       if (nv == null) return r;
-      const from = r.adjusted?.find((a) => a.field === field)?.from ?? String((r.data as any)[field] ?? '0');
-      return {
-        ...r,
-        data: { ...r.data, [field]: String(nv) },
-        adjusted: [...(r.adjusted ?? []).filter((a) => a.field !== field), { field, from, to: String(nv), printed }],
-      };
+      // Flygtiden ändras → funktionstiden som täckte hela flygningen följer med, och natt/IFR … kortas
+      // om de blir längre än flygtiden. Alla ändringar markeras på flygningen.
+      const changes = [{ field, from: String((r.data as any)[field] ?? '0'), to: String(nv) },
+        ...(field === 'total_time' ? followTotalTime(r.data, nv) : [])];
+      let adjusted = r.adjusted ?? [];
+      const data: any = { ...r.data };
+      for (const c of changes) {
+        const from = adjusted.find((a) => a.field === c.field)?.from ?? c.from;
+        data[c.field] = c.to;
+        adjusted = [...adjusted.filter((a) => a.field !== c.field), { field: c.field, from, to: c.to, printed }];
+      }
+      return { ...r, data, adjusted };
     }));
     setAdjust(null);
     resolve(issue.id, 'changed');
   };
 
-  const applyAircraft = (issue: Issue, type: string) => {
-    const aw = issue.aircraft!.asWritten;
-    touched.current = true;
-    setRows((prev) => prev.map((r) => ((r.original.aircraft_type || '').toUpperCase() === aw
-      ? { ...r, data: { ...r.data, aircraft_type: type.toUpperCase() } } : r)));
-  };
+  // Svaret på "New aircraft type" gäller alla skrivsätt i typen (asWritten = gruppens id).
+  const applyAircraft = (issue: Issue, type: string) => nameType(issue.aircraft!.asWritten, type);
 
-  // Simulatorpass: tiden flyttas till simulator, total tid = simulatortid (som parsern gör), inga landningar,
-  // och en fråga om simulatortyp läggs till.
+  // Simulatorpass: tiden flyttas till simulator, total tid = simulatortid (som parsern gör), och en fråga om
+  // simulatortyp läggs till. Landningar som står på raden behålls (simulatorlandningar räknas för recency).
   const toSimulator = (items: { rowKey: string; sg: Suggestion }[]) => {
     const by = new Map(items.map((x) => [x.rowKey, x.sg]));
     touched.current = true;
@@ -950,7 +1279,7 @@ export default function ScanReviewScreen() {
       const sg = by.get(r.key);
       if (!sg) return r;
       return { ...r, data: {
-        ...r.data, flight_type: 'sim', sim: sg.value, total_time: sg.value, ...(sg.toSim !== 'total_time' ? { [sg.toSim!]: '0' } : {}), landings_day: '0', landings_night: '0',
+        ...r.data, flight_type: 'sim', sim: sg.value, total_time: sg.value, ...(sg.toSim !== 'total_time' ? { [sg.toSim!]: '0' } : {}),
         field_issues: [...(r.data.field_issues ?? []).filter((i) => i.field !== 'sim_category'),
           { field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 }],
       } };
@@ -971,16 +1300,35 @@ export default function ScanReviewScreen() {
     resolve(issue.id, 'changed');
   };
 
+  // Initialerna i anmärkningen → Second pilot på alla rader i gruppen (en fråga för hela skanningen).
+  const applyGroupRemarks = (issue: Issue) => {
+    if (!issue.group?.remarks) return;
+    const keys = new Set(issue.group.members.map((id) => id.replace(/:remark$/, '')));
+    touched.current = true;
+    setRows((prev) => prev.map((r) => {
+      const rs = r.data.remarks_suggestion;
+      if (!keys.has(r.key) || !rs) return r;
+      const role = crewRoleFor(r.data, remarkRoles[issue.id] ?? BY_FLIGHT);
+      return { ...r, data: { ...r.data, [rs.field]: rs.value, second_pilot_role: role, remarks: withoutSuggestion(r.data.remarks, rs.original_text) } };
+    }));
+    resolve(issue.id, 'changed');
+  };
+
   const applySuggestion = (issue: Issue, sg: Suggestion) => {
     const row = rowByKey.get(issue.rowKey);
     if (!row) return;
     if (issue.kind === 'aircraft') applyAircraft(issue, sg.value);
     else if (issue.kind === 'remark') {
       const rs = row.data.remarks_suggestion!;
-      const cleaned = (row.data.remarks ?? '').replace(rs.original_text, '').replace(/\s{2,}/g, ' ').trim();
+      const cleaned = withoutSuggestion(row.data.remarks, rs.original_text);
       touched.current = true;
-      setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, data: { ...r.data, [rs.field]: rs.value, remarks: cleaned } } : r)));
-      if (rs.field === 'second_pilot') saveLearnedMapping('second_pilot', rs.original_text, rs.value).catch(() => {});
+      // sg.value = Claudes förslag, eller det användaren rättat det till (t.ex. JEV → JEN).
+      const value = sg.value || rs.value;
+      // Second pilot sparas med vald roll (förval: PIC utan egen PIC-tid, annars SIC).
+      const role = rs.field === 'second_pilot' ? crewRoleFor(row.data, remarkRoles[issue.id] ?? defaultCrewRole(row.data)) : undefined;
+      setRows((prev) => prev.map((r) => (r.key === row.key
+        ? { ...r, data: { ...r.data, [rs.field]: value, remarks: cleaned, ...(role ? { second_pilot_role: role } : {}) } } : r)));
+      if (rs.field === 'second_pilot') saveLearnedMapping('second_pilot', rs.original_text, value).catch(() => {});
     } else if (sg.toSim) toSimulator([{ rowKey: row.key, sg }]);
     else if (issue.kind === 'choice') setField(row.key, sg.field, chipKey(sg.value));
     else setField(row.key, sg.field, sg.value);
@@ -996,6 +1344,28 @@ export default function ScanReviewScreen() {
 
   const save = () => {
     if (!selectedRow || !selField) return;
+    if (editTarget) {
+      const value = parseInput(editTarget, draft, fmtRef.current);
+      if (value == null) {
+        Alert.alert('Check the value', CLOCK.has(editTarget) ? 'Write the time as HH:MM.' : `That doesn't look like a valid ${label(editTarget).toLowerCase()}.`);
+        return;
+      }
+      setField(selectedRow.key, editTarget, value);
+      setEditTarget(null);
+      Keyboard.dismiss(); setTyping(false);
+      if (selectedIssue) resolve(selectedIssue.id, 'changed');
+      return;
+    }
+    const rs = selectedIssue?.kind === 'remark' ? selectedRow.data.remarks_suggestion : undefined;
+    if (rs && selectedIssue) {
+      const value = parseInput(rs.field, draft, fmtRef.current);
+      if (!value) { Alert.alert('Check the value', `Write the ${label(rs.field).toLowerCase()}.`); return; }
+      Keyboard.dismiss(); setTyping(false);
+      // Second pilot: namnet står kvar i rutan; "Save" sparar det med vald roll. Övrigt flyttas direkt.
+      if (rs.field === 'second_pilot') { setDraft(value); return; }
+      applySuggestion(selectedIssue, { label: value, field: rs.field, value });
+      return;
+    }
     const value = parseInput(selField, draft, fmtRef.current);
     if (value == null) {
       Alert.alert('Check the value', selField === 'date' ? 'Write the date as YYYY-MM-DD.'
@@ -1089,6 +1459,21 @@ export default function ScanReviewScreen() {
     go();
   };
 
+  // Bokens tryckta rader per uppslag: samma bok har lika många på varje uppslag.
+  const rowsPerPageOf = (pg: number) => typicalRowsPerPage(pages.map((p) => p.grid?.rowsPerPage ?? 0), pages[pg]?.grid?.rowsPerPage) ?? 12;
+
+  // Rättelserna i pappersboken: bara kolumner som fortfarande inte går ihop (ändrade användaren en avläsning
+  // efteråt så att summan stämmer, behövs ingen rättelse).
+  const paperFixes: PaperFix[] = [...paperFixed].flatMap((id) => {
+    const [, pg, field] = id.split(':');
+    const page = Number(pg);
+    const c = columnTotals(rows, page, pages[page]?.totals?.by_field).find((x) => x.field === field);
+    return c && !c.ok ? [{ page, field, from: c.printed, to: c.sum }] : [];
+  });
+
+  // Efter Save: tillbaka till dashboarden, eller till "Scan your whole logbook" när det var en omgång ur en hel bok.
+  const leave = () => (bookRef.current ? router.back() : router.dismissAll());
+
   const saveReport = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -1105,16 +1490,83 @@ export default function ScanReviewScreen() {
       const toSave = rows.map((r) => (duplicates.has(r.key) ? { ...r, skip: true } : r));
       await saveLearnedCorrections(toSave);
       const sum = await saveScanRows(toSave, { unknownIcaos: unknownIcaos.current, pageNumbers: pages.map((p) => p.pageNumbers), timeBasis });
+      // Bokens format blir mallen "Scanned logbook", förvald när man skapar sin digitala loggbok. Från uppslaget
+      // med flest lästa rader (tydligast rutnät).
+      try {
+        const best = pages.map((p, idx) => ({ idx, n: rows.filter((r) => r.page === idx && !r.skip).length, grid: p.grid }))
+          .filter((x) => x.grid && x.n > 0).sort((a, b) => b.n - a.n)[0];
+        if (best) {
+          const id = await saveScannedTemplate({ rows: toSave.filter((r) => r.page === best.idx), grid: best.grid, rowsPerPage: rowsPerPageOf(best.idx) });
+          if (id) console.log(`[SCAN] Bokens format sparat som mall ${id} (uppslag ${best.idx + 1})`);
+        }
+      } catch (e) { console.warn('[SCAN] Kunde inte spara bokens format:', e); }
       await Promise.all([loadFlights(), loadStats()]);
+      // En omgång ur en hel bok: de lästa uppslagen markeras som sparade (bilderna raderas), och sista flygningen
+      // följer med till nästa omgång. Uppslag som inte gick att läsa blir kvar och hamnar i en senare omgång.
+      const book = bookRef.current;
+      let bookLeft: number | null = null;
+      if (book) {
+        const kept = toSave.filter((r) => !r.skip).sort((a, b) => a.page - b.page || a.rowIndex - b.rowIndex);
+        const last = kept[kept.length - 1]?.data;
+        const doneIds = book.photoIds.filter((_, idx) => pages[idx]?.status === 'done');
+        await useScanBookStore.getState().sessionSaved(doneIds, sum.saved, last ? {
+          last_date: last.date, last_aircraft_type: last.aircraft_type, last_registration: last.registration,
+          last_dep_place: last.dep_place, last_arr_place: last.arr_place, page_number: (pages[kept[kept.length - 1].page]?.pageNumbers.left ?? undefined) as number | undefined,
+        } : undefined);
+        bookLeft = useScanBookStore.getState().project?.photos.filter((ph) => ph.savedIn == null).length ?? 0;
+      }
+      // Nya flygplanstyper: hela Fleet-datan (spec + bild) hämtas i bakgrunden, som efter CSV-importen.
+      // Popupen "Fleet updated" visas när det är klart (global, skärmen har då oftast stängts).
+      const fetchTypes = newTypes.map((n) => n.type);
+      if (fetchTypes.length) {
+        enrichFleetInBackground(fetchTypes).then((res) => {
+          if (res.enriched > 0 || res.stoppedForQuota) useFleetDoneStore.getState().show(res, undefined, 'scan');
+        }).catch(() => {});
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const dups = duplicates.size + sum.duplicates;
       const parts = [`${sum.saved} ${sum.saved === 1 ? 'flight' : 'flights'} saved.`];
       if (sum.skipped - duplicates.size > 0) parts.push(`${sum.skipped - duplicates.size} left out.`);
       if (dups) parts.push(`${dups} already in your logbook.`);
       if (sum.adjusted) parts.push(`${sum.adjusted} adjusted to match the page totals — marked in your logbook so you can check them against the paper book.`);
-      if (newTypes.length) parts.push(`${newTypes.length} new aircraft added to your fleet.`);
+      if (newTypes.length) parts.push(`${newTypes.length} new aircraft added to your fleet. Their specs and photos are fetched in the background.`);
       if (sum.bookName) parts.push(`Linked to ${sum.bookName}, pages ${sum.pageLabel}.`);
-      Alert.alert('Saved', parts.join(' '), [{ text: 'OK', onPress: () => router.dismissAll() }]);
+      if (bookLeft != null) parts.push(bookLeft ? `${bookLeft === 1 ? 'One spread is' : `${bookLeft} spreads are`} left in your logbook scan.` : 'Every spread in your logbook scan is saved.');
+      // Felräknade summor i pappersboken: guiden med alla handändringar visas innan skanningen stängs.
+      // Pappersbokens lista: varje skannat uppslag (för täckningen) och de felräknade summorna. Guiden visar
+      // ändringarna först när hela boken är skannad fram till sidan man skriver på (scanPaperFixes.ts).
+      let ledgerNote: { added: number; unplaced: number; ready: boolean } | null = null;
+      try {
+        const stored = await loadLedger();
+        const wasReady = ledgerStatus(stored).ready;
+        // En hel bok: sidspannet användaren angav är bokens första och sista uppslag.
+        const range = bookRef.current?.ledger;
+        const before = range ? { ...stored, start: range.start ?? stored.start, latest: range.latest ?? stored.latest } : stored;
+        const scanned: (LedgerSpread | null)[] = pages.map((pg, idx) => {
+          if (pg.status !== 'done' || pg.pageNumbers.left == null) return null;
+          // Sidan man skriver på nu: inte full och utan summor längst ner.
+          const totalled = pg.totals?.total_this_page != null || Object.keys(pg.totals?.by_field ?? {}).length > 0;
+          return {
+            left: pg.pageNumbers.left, right: pg.pageNumbers.right,
+            bf: pg.totals?.brought_forward ?? null, tp: pg.totals?.total_this_page ?? null, td: pg.totals?.total_to_date ?? null,
+            full: totalled || rows.filter((r) => r.page === idx).length >= rowsPerPageOf(idx),
+          };
+        });
+        const { ledger, added, unplaced } = mergeScan(before, scanned, paperFixes);
+        await saveLedger(ledger);
+        const ready = ledgerStatus(ledger).ready;
+        if (added || unplaced || (ready && !wasReady)) ledgerNote = { added, unplaced, ready };
+      } catch (e) { console.warn('[SCAN] Kunde inte spara pappersbokens lista:', e); }
+      if (ledgerNote) {
+        const n = ledgerNote.added;
+        if (ledgerNote.ready) parts.push("Your logbook is now scanned all the way to the page you're writing on — next you'll see every change to make in your paper logbook.");
+        else if (n) parts.push(`Blades noted ${n === 1 ? 'a miscounted page total' : `${n} miscounted page totals`} in your paper logbook. Wait with any changes until it's scanned all the way to the page you're writing on — next you'll see what's missing.`);
+        if (ledgerNote.unplaced) parts.push(`${ledgerNote.unplaced === 1 ? 'One miscounted total' : `${ledgerNote.unplaced} miscounted totals`} couldn't be added to the list, because the page number wasn't read. Scan that spread again with the page number in the photo.`);
+        const show = ledgerNote.ready || n > 0;
+        Alert.alert('Saved', parts.join(' '), [{ text: show ? (ledgerNote.ready ? 'Show the changes' : 'Show the list') : 'OK', onPress: () => (show ? setPaperGuide(true) : leave()) }]);
+        return;
+      }
+      Alert.alert('Saved', parts.join(' '), [{ text: 'OK', onPress: leave }]);
     } catch (e: any) {
       Alert.alert("Couldn't save", e?.message ?? 'Try again.');
     } finally {
@@ -1143,6 +1595,7 @@ export default function ScanReviewScreen() {
   };
   const patchRow = (rowKey: string, patch: Partial<OcrFlightResult>) => {
     touched.current = true;
+    if ('aircraft_type' in patch) typeEdited.current.add(rowKey);
     setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, data: { ...r.data, ...patch } } : r)));
     resolveFields(rowKey, [...Object.keys(patch), 'sim']);
   };
@@ -1166,11 +1619,28 @@ export default function ScanReviewScreen() {
     return now !== was ? 'changed' : null;
   };
 
+  // Stänga: läsningen slutar. I en hel bok är de lästa uppslagen sparade (öppnas delen igen kostar de inga
+  // coins); i en vanlig skanning försvinner de, och coinsen de kostat kommer inte tillbaka.
   const close = () => {
-    if (!touched.current) { router.back(); return; }
-    Alert.alert('Discard this scan?', 'Your corrections will be lost.', [
+    const read = pagesRef.current.filter((p) => p.status === 'done').length;
+    const busy = pagesRef.current.some((p) => p.status === 'reading' || p.status === 'finding' || p.status === 'waiting');
+    const exit = () => { closedRef.current = true; router.back(); };
+    if (bookRef.current) {
+      if (!touched.current) { exit(); return; }
+      Alert.alert('Leave this part?', `Your corrections will be lost. The spreads read so far are kept — opening this part again doesn't read them again or cost coins.${busy ? ' Reading stops when you leave.' : ''}`, [
+        { text: 'Keep checking', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: exit },
+      ]);
+      return;
+    }
+    if (!touched.current && !read && !busy) { exit(); return; }
+    Alert.alert('Discard this scan?', [
+      touched.current ? 'Your corrections will be lost.' : '',
+      read ? `The ${read === 1 ? 'spread' : `${read} spreads`} read so far ${read === 1 ? 'is' : 'are'} lost, and the coins ${read === 1 ? 'it' : 'they'} used aren't returned.` : '',
+      busy ? 'Reading stops when you leave.' : '',
+    ].filter(Boolean).join(' '), [
       { text: 'Keep checking', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      { text: 'Discard', style: 'destructive', onPress: exit },
     ]);
   };
 
@@ -1199,8 +1669,10 @@ export default function ScanReviewScreen() {
   const adjusting = !!(adjust && selectedIssue?.kind === 'column' && adjust.issueId === selectedIssue.id && readField && readCheck);
   const adjDiff = readCheck ? Math.round((readCheck.printed - readCheck.sum) * 100) / 100 : 0;
   const adjNew = new Map<string, number>();
+  let adjMost = 0;   // största ändringen på en flygning
   if (adjusting && readField) {
     const deltas = distributeDifference(adjust!.keys.length, adjDiff, COUNT.has(readField) ? 1 : 0.1);
+    adjMost = Math.max(0, ...deltas.map(Math.abs));
     adjust!.keys.forEach((key, i) => {
       const cur = parseFloat(String((rowByKey.get(key)?.data as any)?.[readField] ?? '0')) || 0;
       adjNew.set(key, Math.round((cur + deltas[i]) * 100) / 100);
@@ -1211,6 +1683,9 @@ export default function ScanReviewScreen() {
   const fmtDiff = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${isCount ? Math.abs(Math.round(n)) : Math.abs(n).toFixed(1)}${isCount ? '' : ' h'}`;
   const position = selectedIssue && !isDone(selectedIssue) ? openIssues.findIndex((i) => i.id === selectedIssue.id) + 1 : 0;
 
+  // En anmärkningsfråga redigerar förslagets fält (t.ex. Second pilot), inte själva anmärkningen.
+  const remarkSg = selectedIssue?.kind === 'remark' ? selectedRow?.data.remarks_suggestion : undefined;
+  const kbField = editTarget ?? (remarkSg ? remarkSg.field : selField);
   const compactBar = typing && selectedRow ? (
         <View style={[s.compactWrap, { bottom: kbHeight + 6, left: insets.left + 12, right: insets.right + 12 }]}>
           {airportHits.length > 0 && (
@@ -1224,11 +1699,11 @@ export default function ScanReviewScreen() {
             </View>
           )}
           <Glass style={s.compact}>
-            <Text style={s.compactLabel} numberOfLines={1}>{label(selField)} · row {selectedRow.rowIndex}</Text>
+            <Text style={s.compactLabel} numberOfLines={1}>{label(kbField)} · row {selectedRow.rowIndex}</Text>
             <View style={s.compactRow}>
-            <ValueInput inputRef={inputRef} field={selField} value={draft} onChange={onDraft} onSubmit={save} timeFormat={timeFormat}
+            <ValueInput inputRef={inputRef} field={kbField} value={draft} onChange={onDraft} onSubmit={save} timeFormat={timeFormat}
               onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} autoFocus />
-            <TouchableOpacity onPress={() => { setDraft(inputValue(selectedRow.data, selField, timeFormat)); Keyboard.dismiss(); }} hitSlop={8}>
+            <TouchableOpacity onPress={() => { setDraft(remarkSg && !editTarget ? remarkSg.value : inputValue(selectedRow.data, kbField, timeFormat)); setEditTarget(null); Keyboard.dismiss(); }} hitSlop={8}>
               <Text style={s.compactCancel}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.saveBtn} onPress={save}><Text style={s.saveText}>Save</Text></TouchableOpacity>
@@ -1239,7 +1714,7 @@ export default function ScanReviewScreen() {
 
   const allFailed = pages.length > 0 && pages.every((pg) => pg.status === 'error');
   const curIdx = Math.max(0, pages.findIndex((pg) => pg.status === 'finding' || pg.status === 'reading' || pg.status === 'waiting'));
-  const scanPhase: ScanPhase = overlay === 'finishing' ? 'done' : allFailed ? 'error'
+  const scanPhase: ScanPhase = overlay === 'finishing' || choosingFocus ? 'done' : allFailed ? 'error'
     : pages[curIdx]?.status === 'reading' ? 'reading' : 'finding';
   const progressLayer = overlay !== 'hidden' ? (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents={overlay === 'finishing' ? 'none' : 'auto'}>
@@ -1247,6 +1722,7 @@ export default function ScanReviewScreen() {
         phase={scanPhase}
         spread={curIdx + 1}
         spreads={pages.length || 1}
+        located={locatedCount}
         summary={{ flights: rows.length, open: openIssues.length }}
         error={pages[0]?.error}
         startedAt={startedAt}
@@ -1266,12 +1742,18 @@ export default function ScanReviewScreen() {
           rows={rows}
           columnChecks={pages.flatMap((pg, idx) => columnTotals(rows, idx, pg.totals?.by_field))}
           spreads={pages.length}
-          pageLabels={pages.map((pg) => (pg.pageNumbers.left ? `p. ${pg.pageNumbers.left}–${pg.pageNumbers.right ?? pg.pageNumbers.left + 1}` : null))}
+          pageLabels={pages.map((pg) => (pg.pageNumbers.left
+            ? (pg.pageNumbers.right === pg.pageNumbers.left ? `p. ${pg.pageNumbers.left}` : `p. ${pg.pageNumbers.left}–${pg.pageNumbers.right ?? pg.pageNumbers.left + 1}`)
+            : null))}
+          pageNumbers={pages.map((pg) => pg.pageNumbers)}
           timeFormat={timeFormat}
           cellState={cellState}
           duplicates={duplicates}
           openCount={openIssues.length}
           newTypes={newTypes}
+          fleetMatches={fleetMatches}
+          onKeepSeparate={keepTypesSeparate}
+          onNameType={nameType}
           aircraft={aircraft}
           aircraftLoading={acLoading}
           aircraftFailed={acFailed}
@@ -1281,7 +1763,10 @@ export default function ScanReviewScreen() {
           insets={insets}
           onAircraftChange={(type, v) => setAircraft((a) => ({ ...a, [type]: v }))}
           onOpenFlight={(rowKey) => setEditorKey(rowKey)}
+          onEditField={editField}
           onToggleSkip={(rowKey) => { touched.current = true; setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, skip: !r.skip } : r))); }}
+          onPresentLogbook={setCrossRefPage}
+          paperFixes={paperFixes}
           onBack={() => { setStage('review'); setSelection(null); setZoom(1); }}
           onSave={saveReport}
         />
@@ -1296,6 +1781,17 @@ export default function ScanReviewScreen() {
             onClose={() => setEditorKey(null)}
           />
         )}
+        {crossRefPage != null && pages[crossRefPage] && (
+          <LogbookCrossRef
+            spreads={pages.map((pg, idx) => ({ page: idx, rows: rows.filter((r) => r.page === idx), grid: pg.grid, pageNumbers: pg.pageNumbers }))
+              .filter((sp) => sp.rows.length > 0)}
+            initialPage={crossRefPage}
+            rowsPerPage={rowsPerPageOf(crossRefPage)}
+            timeFormat={timeFormat}
+            onClose={() => setCrossRefPage(null)}
+          />
+        )}
+        {paperGuide && <PaperFixGuide visible timeFormat={timeFormat} onClose={() => { setPaperGuide(false); leave(); }} />}
       </View>
     );
   }
@@ -1442,11 +1938,13 @@ export default function ScanReviewScreen() {
       )}
       {!typing && pages.length > 1 && (
         <View style={[s.pillRow, { top: insets.top + 54, left: insets.left + 12, right: insets.right + 12 }]}>
-            <View style={s.pagePills}>
+            {/* Upp till tio uppslag: raden rullar i sidled och följer uppslaget som visas. */}
+            <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pagePills}>
               {pages.map((p, i) => {
                 const open = issues.filter((x) => x.page === i && !isDone(x)).length;
                 return (
                   <TouchableOpacity key={i} onPress={() => { setActivePage(i); select(null); }}
+                    onLayout={(e) => { pillX.current[i] = e.nativeEvent.layout.x; }}
                     style={[s.pagePill, i === activePage && s.pagePillActive]} accessibilityLabel={`Spread ${i + 1}`}>
                     <Text style={[s.pagePillText, i === activePage && s.pagePillTextActive]}>{i + 1}</Text>
                     {(p.status === 'reading' || p.status === 'finding' || p.status === 'waiting') && <ActivityIndicator size="small" color={Colors.textSecondary} style={{ transform: [{ scale: 0.6 }] }} />}
@@ -1455,7 +1953,7 @@ export default function ScanReviewScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
         </View>
       )}
 
@@ -1474,10 +1972,16 @@ export default function ScanReviewScreen() {
               row={selectedRow}
               done={selectedIssue ? (isDone(selectedIssue) ? (resolved[selectedIssue.id] ?? 'ok') : undefined) : undefined}
               groupValues={selectedIssue?.group ? selectedIssue.group.members.map((id) => {
-                const m = id.split(':f:');
-                const r = rowByKey.get(m[0]);
-                return { id, row: r?.rowIndex ?? 0, value: r ? display(r.data, selectedIssue.field, timeFormat) : '', done: !!resolved[id] };
+                const r = rowByKey.get(id.includes(':f:') ? id.split(':f:')[0] : id.replace(/:remark$/, ''));
+                const value = !r ? '' : selectedIssue.group?.remarks ? r.data.remarks_suggestion?.value ?? '' : display(r.data, selectedIssue.field, timeFormat);
+                return { id, row: r?.rowIndex ?? 0, value, done: !!resolved[id] };
               }) : undefined}
+              onGroupRemarks={() => selectedIssue && applyGroupRemarks(selectedIssue)}
+              crewRole={selectedIssue ? remarkRoles[selectedIssue.id] ?? (selectedIssue.kind === 'group' ? BY_FLIGHT : defaultCrewRole(selectedRow.data)) : undefined}
+              crewRoleOptions={selectedIssue?.kind === 'group'
+                ? [{ key: BY_FLIGHT, label: 'By flight: PIC or SIC', disabled: false }, ...CREW_ROLES.map((r) => ({ ...r, disabled: false }))]
+                : CREW_ROLES.map((r) => ({ ...r, disabled: r.key === 'PIC' && ownPic(selectedRow.data) }))}
+              onCrewRole={(k) => selectedIssue && setRemarkRoles((m) => ({ ...m, [selectedIssue.id]: k }))}
               onExpand={(startAt) => selectedIssue && expandGroup(selectedIssue, startAt)}
               onGroupSim={() => selectedIssue && applyGroupSim(selectedIssue)}
               onGroupChoice={(v) => selectedIssue && applyGroupChoice(selectedIssue, v)}
@@ -1486,8 +1990,16 @@ export default function ScanReviewScreen() {
               adjust={selectedIssue?.kind === 'column' && readCheck && readField ? {
                 active: adjusting, count: adjust?.keys.length ?? 0, diff: fmtDiff(adjDiff),
                 printed: isCount ? String(Math.round(readCheck.printed)) : String(readCheck.printed),
+                sum: isCount ? String(Math.round(readCheck.sum)) : String(Math.round(readCheck.sum * 10) / 10),
+                most: fmtDiff(adjMost).replace(/^[+−]/, ''),
+                miscounted: !!selectedIssue.column?.miscounted,
+                extraRow: selectedIssue.column?.extraRow?.rowIndex,
+                onSkipExtra: () => skipExtraRow(selectedIssue),
+                onRealRow: () => setRealRows((r) => new Set([...r, selectedIssue.id])),
                 valid: adjValid,
                 onStart: () => startAdjust(selectedIssue),
+                onCorrect: () => correctPaperTotal(selectedIssue),
+                onCorrectInfo: () => setCorrectInfo(true),
                 onApply: () => { if (adjValid) applyAdjust(selectedIssue, readField, readCheck.printed, adjNew); },
                 onCancel: () => setAdjust(null),
               } : undefined}
@@ -1497,6 +2009,7 @@ export default function ScanReviewScreen() {
               draft={draft}
               timeFormat={timeFormat}
               onEdit={() => setTyping(true)}
+              onEditField={(field) => { if (!selectedRow) return; setEditTarget(field); setDraft(inputValue(selectedRow.data, field, timeFormat)); setTyping(true); }}
               onSave={save}
               onConfirm={confirm}
               onSuggestion={(sg) => selectedIssue && applySuggestion(selectedIssue, sg)}
@@ -1515,6 +2028,10 @@ export default function ScanReviewScreen() {
               pagesCount={pages.length}
               activePage={activePage}
               flights={importCount}
+              pageLabel={page?.pageNumbers.left ? `p. ${page.pageNumbers.left}–${page.pageNumbers.right ?? page.pageNumbers.left + 1}` : null}
+              hours={formatTimeValue(rows.filter((r) => r.page === activePage && !r.skip && r.data.flight_type !== 'sim')
+                .reduce((acc, r) => acc + (parseFloat(r.data.total_time) || 0), 0), timeFormat)}
+              totals={(() => { const c = columnTotals(rows, activePage, page?.totals?.by_field); return { ok: c.filter((x) => x.ok).length, checked: c.length }; })()}
               open={openIssues.length}
               busy={busy}
               onStart={() => { const n = nextOpen(); if (n) select({ kind: 'issue', id: n.id }); }}
@@ -1529,21 +2046,108 @@ export default function ScanReviewScreen() {
       )}
       </Animated.View>
       {progressLayer}
+
+      <FocusDialog
+        visible={choosingFocus}
+        value={focusPick}
+        estimates={focusEstimates}
+        spreads={pages.length}
+        stillReading={pages.some((p) => p.status === 'waiting' || p.status === 'finding' || p.status === 'reading')}
+        onChange={setFocusPick}
+        onStart={startChecking}
+      />
+
+      <GlassDialog
+        visible={totalsAlert}
+        onClose={() => setTotalsAlert(false)}
+        icon={<DialogIcon name="calculator-outline" color={Colors.warning} />}
+        eyebrow="PAGE TOTALS"
+        title={columnProblems.length === 1 ? "A page total doesn't add up" : `${columnProblems.length} page totals don't add up`}
+        body={"Blades added up your flights and compared them with the totals in your logbook. Go through the problems first — usually it's a misread value you fix with a tap.\n\nIf a total in your paper logbook itself turns out to be miscounted, Blades guides you through every change afterwards. Don't change anything in your paper logbook before that."}
+        align="left"
+        primary={{ label: 'Got it', onPress: () => setTotalsAlert(false) }}
+      >
+        {columnProblems.slice(0, 4).map((i) => {
+          const pn = pages[i.page]?.pageNumbers;
+          const where = pn?.left ? `p. ${pn.left}–${pn.right ?? pn.left + 1}` : `Spread ${i.page + 1}`;
+          return (
+            <View key={i.id} style={dialogStyles.row}>
+              <Text style={dialogStyles.rowTitle}>{where} · {label(i.field)}</Text>
+              {i.column && <Text style={dialogStyles.rowMeta}>Flights {Math.round(i.column.sum * 10) / 10} · page total {i.column.printed}</Text>}
+            </View>
+          );
+        })}
+      </GlassDialog>
+
+      <GlassDialog
+        visible={correctInfo}
+        onClose={() => setCorrectInfo(false)}
+        icon={<DialogIcon name="book-outline" />}
+        eyebrow="CORRECT MY TOTAL"
+        title="A guide for your paper logbook"
+        body={"Your flights are saved as written, and Blades notes that this page total is miscounted.\n\nAfterwards you get a guide with every change to make in your paper logbook: this page total, and every Brought forward and Total to date after it.\n\nWait with the changes until your whole logbook is scanned, up to the page you're writing on now — a change in the middle changes every total after it. Blades keeps the list until then."}
+        align="left"
+        primary={{ label: 'Got it', onPress: () => setCorrectInfo(false) }}
+      />
     </View>
   );
 }
 
 // ── Frågepanelen under boken ─────────────────────────────────────────────────
 
+// Rutan för vem man flög med: rollen till vänster (tryck → lista, som i Log Flight men utskriven) och namnet till
+// höger (penna → rätta). PIC går inte att välja när man själv har PIC-tid på flygningen.
+function CrewRoleBox({ role, options, onRole, name, onEditName }: {
+  role?: string; options: { key: string; label: string; disabled: boolean }[]; onRole?: (k: string) => void;
+  name: string; onEditName?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.key === role) ?? options[0];
+  return (
+    <View style={{ gap: 6, alignSelf: 'stretch' }}>
+      <View style={[s.valueBox, { flex: 0 }]}>
+        <TouchableOpacity onPress={() => setOpen((o) => !o)} style={s.roleBtn} accessibilityRole="button" accessibilityLabel={`Role: ${current?.label ?? ''}`}>
+          <Text style={s.roleBtnText} numberOfLines={1}>{current?.label ?? 'Role'}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }} onPress={onEditName} disabled={!onEditName}
+          accessibilityLabel={onEditName ? 'Change the name' : undefined}>
+          <Text style={[s.valueText, { fontSize: 20, flex: 1 }]} numberOfLines={1}>{name}</Text>
+          {onEditName ? <Ionicons name="pencil" size={15} color={Colors.textSecondary} /> : null}
+        </TouchableOpacity>
+      </View>
+      {open && (
+        <View style={s.roleList}>
+          {options.map((o) => (
+            <TouchableOpacity key={o.key} disabled={o.disabled} onPress={() => { onRole?.(o.key); setOpen(false); }}
+              style={[s.roleOpt, o.disabled && { opacity: 0.35 }]} accessibilityState={{ selected: o.key === current?.key, disabled: o.disabled }}>
+              <Text style={[s.roleOptText, o.key === current?.key && { color: Colors.primary }]}>{o.label}</Text>
+              {o.disabled ? <Text style={s.roleOptNote}>You were PIC</Text> : o.key === current?.key ? <Ionicons name="checkmark" size={16} color={Colors.primary} /> : null}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function QuestionPanel(p: {
   issue: Issue | null; field: string; row: ScanRow; done?: 'ok' | 'changed'; position: number; openCount: number;
   groupValues?: { id: string; row: number; value: string; done: boolean }[]; onExpand: (startAt?: string) => void; onGroupSim: () => void;
+  onGroupRemarks: () => void;
+  crewRole?: string;
+  crewRoleOptions?: { key: string; label: string; disabled: boolean }[];
+  onCrewRole?: (key: string) => void;
   onAcceptAddition: () => void;
   onGroupChoice: (value: string) => void;
   movable: string; onMove: (to: string) => void;
-  adjust?: { active: boolean; count: number; diff: string; printed: string; valid: boolean; onStart: () => void; onApply: () => void; onCancel: () => void };
+  adjust?: {
+    active: boolean; count: number; diff: string; printed: string; sum: string; most: string; miscounted: boolean; valid: boolean;
+    extraRow?: number; onSkipExtra: () => void; onRealRow: () => void; onCorrectInfo: () => void;
+    onStart: () => void; onCorrect: () => void; onApply: () => void; onCancel: () => void;
+  };
   draft: string; timeFormat: TimeFormat;
-  onEdit: () => void; onSave: () => void; onConfirm: () => void;
+  onEdit: () => void; onEditField: (field: string) => void; onSave: () => void; onConfirm: () => void;
   onSuggestion: (s: Suggestion) => void; onSkipRow: () => void; onPrev: () => void; onNext: () => void; onClose: () => void;
 }) {
   const { issue, field, row, done, timeFormat } = p;
@@ -1566,10 +2170,7 @@ function QuestionPanel(p: {
     <View style={s.q}>
       <View style={s.qLeft}>
         <View style={s.qHead}>
-          <Text style={s.eyebrow}>
-            {p.position ? `PROBLEM ${p.position} OF ${p.openCount}` : done ? 'CHECKED' : 'EDIT'} · {issue?.kind === 'column' ? 'WHOLE COLUMN'
-              : issue?.kind === 'addition' ? `${issue.group?.members.length ?? 0} ROWS` : `ROW ${row.rowIndex}`}
-          </Text>
+          <Text style={s.eyebrow}>{p.position ? `PROBLEM ${p.position} OF ${p.openCount}` : done ? 'CHECKED' : 'EDIT'}</Text>
           <View style={{ flex: 1 }} />
           {p.openCount > 1 && (
             <>
@@ -1580,6 +2181,17 @@ function QuestionPanel(p: {
           <TouchableOpacity style={s.navBtn} onPress={p.onClose} hitSlop={4} accessibilityLabel="Show the whole page"><Ionicons name="contract-outline" size={20} color="#fff" /></TouchableOpacity>
         </View>
         <Text style={s.qTitle} numberOfLines={1}>{issue ? issue.title : label(field)}</Text>
+        {/* Vilken cell det gäller: rad och kolumn i boken */}
+        <View style={s.cellRef}>
+          <Ionicons name="grid-outline" size={12} color={Colors.primary} />
+          <Text style={s.cellRefText} numberOfLines={1}>
+            {!issue ? `Row ${row.rowIndex} · ${label(field)}`
+              : issue.kind === 'column' ? `Whole column · ${label(issue.field)}`
+              : issue.kind === 'addition' || issue.kind === 'group' ? `${issue.group?.members.length ?? 0} rows · ${label(issue.field)}`
+              : issue.kind === 'mismatch' ? `Row ${row.rowIndex} · Departure and arrival time`
+              : `Row ${row.rowIndex} · ${label(issue.field)}`}
+          </Text>
+        </View>
         <Text style={s.qText} numberOfLines={5}>{question}</Text>
       </View>
 
@@ -1598,6 +2210,29 @@ function QuestionPanel(p: {
             )}
             <TouchableOpacity style={s.btnSecondary} onPress={() => p.onExpand()}>
               <Text style={s.btnSecondaryText}>One by one</Text>
+            </TouchableOpacity>
+          </>
+        ) : issue?.kind === 'group' && issue.group?.remarks ? (
+          <>
+            {/* Initialerna på alla rader: flytta alla, gå igenom dem en i taget, eller låt dem stå kvar. */}
+            <View style={s.chips}>
+              {[...new Set((p.groupValues ?? []).map((g) => g.value).filter(Boolean))].slice(0, 8).map((v) => (
+                <View key={v} style={s.groupChip}><Text style={s.groupChipValue}>{v}</Text></View>
+              ))}
+            </View>
+            {!done && <CrewRoleBox role={p.crewRole} options={p.crewRoleOptions ?? []} onRole={p.onCrewRole} name={`${(p.groupValues ?? []).length} flights`} />}
+            {!done && (
+              <View style={s.answerRow}>
+                <TouchableOpacity style={[s.btnPrimary, { flex: 1 }]} onPress={p.onGroupRemarks}>
+                  <Text style={s.btnPrimaryText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.btnSecondary, { flex: 1 }]} onPress={p.onConfirm}>
+                  <Text style={s.btnSecondaryText}>Ignore</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity onPress={() => p.onExpand()} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 4 }}>
+              <Text style={s.textLink}>One by one</Text>
             </TouchableOpacity>
           </>
         ) : issue?.kind === 'group' ? (
@@ -1640,21 +2275,59 @@ function QuestionPanel(p: {
             <Text style={s.qHint}>Blades remembers a yes for your next scans.</Text>
           </>
         ) : issue?.kind === 'mismatch' ? (
-          issue.suggestions.map((sg) => (
-            <TouchableOpacity key={sg.field} style={s.option} onPress={() => p.onSuggestion(sg)}>
-              <Text style={s.optionText} numberOfLines={2}>{sg.label}</Text>
-              <Text style={s.optionSub} numberOfLines={2}>{label(sg.field)} becomes {sg.value}</Text>
-            </TouchableOpacity>
-          ))
+          <>
+            {issue.suggestions.map((sg) => (
+              <TouchableOpacity key={sg.field} style={s.option} onPress={() => p.onSuggestion(sg)}>
+                <Text style={s.optionText} numberOfLines={2}>{sg.label}</Text>
+                <Text style={s.optionSub} numberOfLines={2}>{label(sg.field)} becomes {sg.value}</Text>
+              </TouchableOpacity>
+            ))}
+            {/* Eller rätta tiderna själv */}
+            <View style={s.answerRow}>
+              {(['dep_utc', 'arr_utc'] as const).map((f) => (
+                <TouchableOpacity key={f} style={[s.valueBox, { height: 44 }]} onPress={() => p.onEditField(f)} accessibilityLabel={`Change ${label(f)}`}>
+                  <Text style={s.remarkField}>{f === 'dep_utc' ? 'Dep' : 'Arr'}</Text>
+                  <Text style={[s.valueText, { fontSize: 17 }]} numberOfLines={1}>{display(d, f, p.timeFormat) || '—'}</Text>
+                  <Ionicons name="pencil" size={14} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : issue?.kind === 'remark' && issue.suggestions[0]?.field === 'second_pilot' ? (
+          <>
+            {/* Vem man flög med: rollen (tryck för att byta, som i Log Flight) och namnet (penna för att rätta, t.ex. JEV → JEN). */}
+            <CrewRoleBox
+              role={p.crewRole} options={p.crewRoleOptions ?? []} onRole={p.onCrewRole}
+              name={p.draft || issue.suggestions[0]?.value} onEditName={p.onEdit}
+            />
+            <View style={s.answerRow}>
+              <TouchableOpacity style={[s.btnPrimary, { flex: 1 }]} onPress={() => p.onSuggestion({ ...issue.suggestions[0], value: p.draft || issue.suggestions[0].value })}>
+                <Text style={s.btnPrimaryText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.btnSecondary, { flex: 1 }]} onPress={p.onConfirm}><Text style={s.btnSecondaryText}>Ignore</Text></TouchableOpacity>
+            </View>
+          </>
         ) : issue?.kind === 'remark' ? (
           <>
-            <TouchableOpacity style={s.btnPrimary} onPress={() => p.onSuggestion(issue.suggestions[0])}><Text style={s.btnPrimaryText}>Yes, move it</Text></TouchableOpacity>
-            <TouchableOpacity style={s.btnSecondary} onPress={p.onConfirm}><Text style={s.btnSecondaryText}>No, keep it</Text></TouchableOpacity>
+            {/* PICUS/SPIC/NVG-tid i anmärkningen: går att rätta innan den flyttas. */}
+            <TouchableOpacity style={s.valueBox} onPress={p.onEdit} accessibilityLabel={`Change ${label(issue.suggestions[0]?.field ?? '')}`}>
+              <Text style={s.remarkField}>{label(issue.suggestions[0]?.field ?? '')}</Text>
+              <Text style={[s.valueText, { fontSize: 20 }]} numberOfLines={1}>{p.draft || issue.suggestions[0]?.value}</Text>
+              <Ionicons name="pencil" size={15} color={Colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={s.answerRow}>
+              <TouchableOpacity style={[s.btnPrimary, { flex: 1 }]} onPress={() => p.onSuggestion({ ...issue.suggestions[0], value: p.draft || issue.suggestions[0].value })}>
+                <Text style={s.btnPrimaryText}>Move it</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.btnSecondary, { flex: 1 }]} onPress={p.onConfirm}><Text style={s.btnSecondaryText}>Ignore</Text></TouchableOpacity>
+            </View>
           </>
         ) : issue?.kind === 'column' && p.adjust?.active ? (
           <>
             <Text style={s.qHint}>
-              Tap the flight{p.adjust.count === 1 ? '' : 's'} that {p.adjust.count === 1 ? 'is' : 'are'} wrong. The difference ({p.adjust.diff}) is split between them, and they're marked so you can check them in your paper logbook.
+              {p.adjust.count
+                ? `Blades picked ${p.adjust.count === 1 ? '1 flight' : `${p.adjust.count} flights`} and split the difference (${p.adjust.diff}) between them — at most ${p.adjust.most} each. Tap a flight to add or remove it. They're marked so you can find them later.`
+                : `Tap the flights that are wrong. The difference (${p.adjust.diff}) is split between them, and they're marked so you can check them in your paper logbook.`}
             </Text>
             <View style={s.answerRow}>
               <TouchableOpacity style={[s.btnPrimary, { flex: 1 }, !p.adjust.valid && { opacity: 0.4 }]} disabled={!p.adjust.valid} onPress={p.adjust.onApply}>
@@ -1663,13 +2336,49 @@ function QuestionPanel(p: {
               <TouchableOpacity style={s.btnSecondary} onPress={p.adjust.onCancel}><Text style={s.btnSecondaryText}>Cancel</Text></TouchableOpacity>
             </View>
           </>
+        ) : issue?.kind === 'column' && p.adjust?.extraRow != null && !done ? (
+          <>
+            <View style={s.answerRow}>
+              <TouchableOpacity style={[s.btnPrimary, { flex: 1 }]} onPress={p.adjust.onSkipExtra}>
+                <Text style={s.btnPrimaryText}>Skip row {p.adjust.extraRow}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.btnSecondary, { flex: 1 }]} onPress={p.adjust.onRealRow}>
+                <Text style={s.btnSecondaryText}>It's a real flight</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.qHint}>The copy is left out of the import. Nothing changes in your paper logbook.</Text>
+          </>
+        ) : issue?.kind === 'column' && p.adjust ? (
+          // Två vägar: rätta summan i pappersboken (flygningarna står kvar, guiden efter Save listar alla
+          // följdändringar) eller behåll summan och låt Blades justera flygningar (inget att ändra på papper).
+          // Pekar allt på en felräknad summa är rättelsen förstahandsvalet, annars justeringen.
+          <>
+            {!done && (() => {
+              const correct = (primary: boolean) => (
+                <View key="correct" style={s.colOption}>
+                  <TouchableOpacity style={primary ? s.btnPrimary : s.btnSecondary} onPress={p.adjust!.onCorrect}>
+                    <Text style={primary ? s.btnPrimaryText : s.btnSecondaryText}>Correct my total to {p.adjust!.sum}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.infoLink} onPress={p.adjust!.onCorrectInfo} hitSlop={6} accessibilityRole="button">
+                    <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
+                    <Text style={s.infoLinkText}>Flights stay as written. What happens to my paper logbook?</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+              const keep = (primary: boolean) => (
+                <View key="keep" style={s.colOption}>
+                  <TouchableOpacity style={primary ? s.btnPrimary : s.btnSecondary} onPress={p.adjust!.onStart}>
+                    <Text style={primary ? s.btnPrimaryText : s.btnSecondaryText}>Keep {p.adjust!.printed} · adjust flights</Text>
+                  </TouchableOpacity>
+                  <Text style={s.optionHint}>Blades suggests which flights to change so they add up. Nothing to fix on paper.</Text>
+                </View>
+              );
+              return p.adjust!.miscounted ? [correct(true), keep(false)] : [keep(true), correct(false)];
+            })()}
+            {!done && !p.adjust.miscounted && <Text style={s.qHint}>Or tap one of Claude's readings next to the rows to fix a misread value.</Text>}
+          </>
         ) : issue?.kind === 'column' ? (
           <>
-            {!done && p.adjust && (
-              <TouchableOpacity style={s.btnPrimary} onPress={p.adjust.onStart}>
-                <Text style={s.btnPrimaryText}>Adjust flights to match {p.adjust.printed}</Text>
-              </TouchableOpacity>
-            )}
             {!done && <TouchableOpacity style={s.btnSecondary} onPress={p.onConfirm}><Text style={s.btnSecondaryText}>Keep the readings</Text></TouchableOpacity>}
             <Text style={s.qHint}>Your page total stays as written. Claude's readings are next to each row; tap one to fix a misread value.</Text>
           </>
@@ -1769,6 +2478,7 @@ function ValueInput({ inputRef, field, value, onChange, onSubmit, onFocus, onBlu
 
 function Overview(p: {
   page?: PageState; pagesCount: number; activePage: number; flights: number; open: number; busy: boolean;
+  pageLabel: string | null; hours: string; totals: { ok: number; checked: number };
   onStart: () => void; onImport: () => void; onRetry: () => void; onGetCoins: () => void; coinsLabel: string;
 }) {
   const st = p.page?.status;
@@ -1810,21 +2520,38 @@ function Overview(p: {
       </View>
     );
   }
+  // Läsningen klar: samma uppbyggnad som laddskärmen och rapporten — etikett, rubrik, tre mätvärden, en knapp.
+  const totalsTone = p.totals.checked ? (p.totals.ok === p.totals.checked ? Colors.success : Colors.warning) : '#fff';
   return (
     <View style={s.q}>
       <View style={s.qLeft}>
-        <Text style={s.qTitle}>
-          {p.flights === 1 ? 'Claude read 1 flight' : `Claude read ${p.flights} flights`}
-          {p.open > 0 ? `, ${p.open} ${p.open === 1 ? 'thing needs' : 'things need'} a look` : '. Everything is checked'}
+        <Text style={s.ovEyebrow}>
+          {p.pagesCount > 1 ? `SPREAD ${p.activePage + 1} OF ${p.pagesCount}` : 'SCAN READY'}{p.pageLabel ? ` · ${p.pageLabel.toUpperCase()}` : ''}
+        </Text>
+        <Text style={s.ovTitle}>
+          {p.open > 0 ? `${p.open} ${p.open === 1 ? 'thing' : 'things'} to check` : 'Everything looks right'}
         </Text>
         <Text style={s.qText}>
-          {p.open > 0 ? 'The yellow marks show where Claude is unsure. You go through them one at a time.' : 'Tap any value on the page if you want to change it.'}
+          {p.open > 0
+            ? 'Each one is marked on the page. Go through them one at a time, then review the flights and save.'
+            : 'Review the flights in the scan report and save. Tap any value on the page to change it.'}
           {p.busy ? ' The next spread is still being read.' : ''}
         </Text>
       </View>
+      <View style={s.ovStats}>
+        <View style={s.ovStat}><Text style={s.ovValue}>{p.flights}</Text><Text style={s.ovLabel}>{p.flights === 1 ? 'flight' : 'flights'}</Text></View>
+        <View style={s.ovDivider} />
+        <View style={s.ovStat}><Text style={s.ovValue}>{p.hours}</Text><Text style={s.ovLabel}>flight time</Text></View>
+        <View style={s.ovDivider} />
+        <View style={s.ovStat}>
+          <Text style={[s.ovValue, { color: totalsTone }]}>{p.totals.checked ? `${p.totals.ok}/${p.totals.checked}` : '–'}</Text>
+          {/* Kolumner med en skriven "Total this page" vars rader summerar till den (t.ex. 3 av 4). */}
+          <Text style={s.ovLabel}>totals match</Text>
+        </View>
+      </View>
       <View style={s.overviewBtns}>
         {p.open > 0 ? (
-          <TouchableOpacity style={s.btnWarn} onPress={p.onStart}>
+          <TouchableOpacity style={s.btnPrimary} onPress={p.onStart}>
             <Text style={s.btnPrimaryText}>Start checking</Text>
             <Ionicons name="arrow-forward" size={16} color={Colors.textInverse} />
           </TouchableOpacity>
@@ -2023,6 +2750,10 @@ const s = StyleSheet.create({
   qFoot: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 'auto' },
   qCtx: { flex: 1, color: Colors.textSecondary, fontSize: 12 },
   qHint: { color: Colors.textSecondary, fontSize: 12, textAlign: 'center' },
+  colOption: { gap: 5 },
+  optionHint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 16, paddingHorizontal: 4 },
+  infoLink: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4 },
+  infoLinkText: { flex: 1, color: Colors.primary, fontSize: 12, lineHeight: 16, fontWeight: '600' },
   skipLink: { color: Colors.dangerLight, fontSize: 13, fontWeight: '600' },
 
   answerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -2031,6 +2762,16 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
   },
   valueText: { flex: 1, color: '#fff', fontSize: 22, fontFamily: MONO, fontWeight: '600' },
+  remarkField: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
+  roleBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '58%', paddingVertical: 4, paddingRight: 10, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: 'rgba(255,255,255,0.18)' },
+  roleBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '800', flexShrink: 1 },
+  roleList: { borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
+  roleOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  roleOptText: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: '600' },
+  roleOptNote: { color: Colors.textMuted, fontSize: 11.5, fontWeight: '600' },
+  textLink: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  cellRef: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
+  cellRefText: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
   input: { flex: 1, height: 40, color: '#fff', fontSize: 18, fontFamily: MONO, fontWeight: '600' },
   saveBtn: { height: 44, paddingHorizontal: 18, borderRadius: 12, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
   groupChip: {
@@ -2060,6 +2801,16 @@ const s = StyleSheet.create({
   optionSub: { color: Colors.textSecondary, fontSize: 12 },
 
   overviewBtns: { marginTop: 'auto' },
+  ovEyebrow: { color: Colors.primary, fontSize: 11, fontWeight: '700', letterSpacing: 1.6, fontFamily: MONO },
+  ovTitle: { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.3, marginTop: 2 },
+  ovStats: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.22)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)',
+  },
+  ovStat: { flex: 1, alignItems: 'center', gap: 1 },
+  ovDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.14)' },
+  ovValue: { color: '#fff', fontSize: 19, fontWeight: '800', fontFamily: MONO, fontVariant: ['tabular-nums'] },
+  ovLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
   btnPrimary: { minHeight: 44, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, flexDirection: 'row', gap: 6 },
   btnPrimaryText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   btnWarn: { minHeight: 46, borderRadius: 12, backgroundColor: Colors.warning, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, flexDirection: 'row', gap: 8 },

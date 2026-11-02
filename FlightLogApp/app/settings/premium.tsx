@@ -12,6 +12,7 @@ import { setSetting } from '../../db/flights';
 import { redeemPromo } from '../../services/promo';
 import { getPremiumOffering, purchasePackage, restorePurchases } from '../../services/purchases';
 import { useToastStore } from '../../components/Toast';
+import { GlassDialog, DialogIcon } from '../../components/GlassDialog';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 
 // ── Navy palette (premium screen is ALWAYS dark) ─────────────────────────
@@ -221,33 +222,32 @@ export default function PremiumScreen() {
       </ScrollView>
 
       {/* Promo code → låser upp Blades Premium gratis (obegränsad tid) */}
-      <Modal visible={promoOpen} transparent animationType="fade" onRequestClose={() => setPromoOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: '#000000AA', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <View style={{ width: '100%', maxWidth: 380, backgroundColor: N.surface, borderRadius: 18, padding: 20, gap: 14, borderWidth: 1, borderColor: N.cardBorder }}>
-            <Text style={{ fontFamily: 'Georgia', fontSize: 19, color: N.text }}>Promo code</Text>
-            <Text style={{ fontSize: 13, color: N.text3, lineHeight: 18 }}>Enter your code to unlock Blades Premium.</Text>
-            <TextInput
-              value={promoCode}
-              onChangeText={setPromoCode}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              placeholder="Code"
-              placeholderTextColor={N.text4}
-              style={{ backgroundColor: N.elevated, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: N.text, fontSize: 16, fontWeight: '700', letterSpacing: 1, borderWidth: 1, borderColor: N.cardBorder }}
-              returnKeyType="done"
-              onSubmitEditing={applyPromo}
-            />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: N.cardBorder }} activeOpacity={0.8} onPress={() => { setPromoOpen(false); setPromoCode(''); }}>
-                <Text style={{ color: N.text2, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: N.gold, opacity: promoBusy ? 0.7 : 1 }} activeOpacity={0.85} onPress={applyPromo} disabled={promoBusy}>
-                {promoBusy ? <ActivityIndicator size="small" color={N.bg} /> : <Text style={{ color: N.bg, fontSize: 14, fontWeight: '800' }}>Apply</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <GlassDialog
+        visible={promoOpen}
+        onClose={() => { setPromoOpen(false); setPromoCode(''); }}
+        icon={<DialogIcon name="pricetag-outline" color={N.gold} />}
+        eyebrow="Blades Premium"
+        title="Promo code"
+        body="Enter your code to unlock Blades Premium."
+        primary={{ label: promoBusy ? 'Checking…' : 'Apply', onPress: applyPromo, disabled: promoBusy || !promoCode.trim() }}
+        secondary={{ label: 'Cancel', onPress: () => { setPromoOpen(false); setPromoCode(''); } }}
+      >
+        <TextInput
+          value={promoCode}
+          onChangeText={setPromoCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          placeholder="Code"
+          placeholderTextColor={N.text4}
+          style={{
+            alignSelf: 'stretch', marginTop: 16, height: 52, borderRadius: 16, paddingHorizontal: 16, textAlign: 'center',
+            backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)',
+            color: N.text, fontSize: 18, fontWeight: '700', letterSpacing: 2,
+          }}
+          returnKeyType="done"
+          onSubmitEditing={applyPromo}
+        />
+      </GlassDialog>
     </View>
   );
 }
