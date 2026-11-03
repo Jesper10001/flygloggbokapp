@@ -8,6 +8,10 @@
 //         Bygger inget nytt. Körs bara när du sagt "publicera".
 //   node scripts/publish-update.mjs preview "…" --dry-run
 //       → exporterar och kontrollerar paketet, men laddar inte upp.
+//   node scripts/publish-update.mjs preview "…" --notes "Fixed: …|Improved: …"
+//       → vad som är nytt, på engelska, för "Blades was updated"-popupen (UpdateAppliedModal). Raderna skiljs med |
+//         och börjar med New:, Fixed: eller Improved: som App Store-texten. Följer med när paketet flyttas till
+//         production, så skriv för användarna.
 //
 // Säkerhet:
 //  • .env läses aldrig (EXPO_NO_DOTENV=1) — där ligger utvecklarnycklar som aldrig får hamna i appen.
@@ -22,7 +26,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dryRun = process.argv.includes('--dry-run'); // exportera och kontrollera, men ladda inte upp
-const [target, ...rest] = process.argv.slice(2).filter((a) => a !== '--dry-run');
+const args = process.argv.slice(2).filter((a) => a !== '--dry-run');
+const notesAt = args.indexOf('--notes');
+const notes = notesAt >= 0 ? (args.splice(notesAt, 2)[1] ?? '').split('|').map((l) => l.trim()).filter(Boolean).join('\n') : '';
+const [target, ...rest] = args;
 const message = rest.join(' ').trim();
 const usage = () => {
   console.error('Användning:\n  node scripts/publish-update.mjs preview "vad som ändrats"\n  node scripts/publish-update.mjs production ["notering"]');
@@ -47,6 +54,8 @@ const eas = JSON.parse(readFileSync(path.join(root, 'eas.json'), 'utf8'));
 const buildEnv = eas.build?.production?.env ?? {};
 const env = { ...process.env, ...buildEnv, EXPO_NO_DOTENV: '1', NODE_ENV: 'production' };
 for (const k of Object.keys(env)) if (k.startsWith('EXPO_PUBLIC_') && !(k in buildEnv)) delete env[k];
+// Popupen "Blades was updated" visar de här raderna (tom = bara rubriken).
+env.EXPO_PUBLIC_UPDATE_NOTES = notes;
 
 const out = path.join(root, 'dist-update');
 rmSync(out, { recursive: true, force: true });
@@ -105,6 +114,7 @@ const expected = [
   [host(buildEnv.EXPO_PUBLIC_PROXY_URL), 'proxyadressen'],
   [buildEnv.EXPO_PUBLIC_REVENUECAT_IOS_KEY, 'RevenueCat-nyckeln'],
   [host(buildEnv.EXPO_PUBLIC_SENTRY_DSN), 'Sentry-adressen'],
+  ...(notes ? [[notes.split('\n')[0], 'raderna från --notes']] : []),
 ].filter(([v]) => !v || !text.includes(v));
 if (expected.length) {
   rmSync(out, { recursive: true, force: true });

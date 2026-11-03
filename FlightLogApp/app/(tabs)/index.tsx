@@ -19,6 +19,7 @@ import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
+import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { useTourStore } from '../../store/tourStore';
 import { DEMO_FLIGHTS, DEMO_STATS } from '../../constants/tourDemoData';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
@@ -1121,6 +1122,7 @@ export default function DashboardScreen() {
 
     {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
     <UpdateAvailableModal />
+    <UpdateAppliedModal />
   </>);
 }
 

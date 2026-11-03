@@ -16,6 +16,7 @@ import { useAcarsScanStart } from '../../components/AcarsScanChooser';
 import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
+import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { DraftBanner } from '../../components/DraftBanner';
 import { useToastStore } from '../../components/Toast';
 import { FONT_MONO, FONT_SERIF } from '../../components/logbook-page/tokens';
@@ -217,6 +218,7 @@ export default function EssentialHome() {
         secondary={{ label: 'Cancel', onPress: closeMode }}
       />
       <UpdateAvailableModal />
+      <UpdateAppliedModal />
     </View>
   );
 }

@@ -40,7 +40,7 @@
 ## Rättning via EAS Update (utan granskning)
 
 1. Kör databastestet, eftersom rättningen kan innehålla nya migrationer.
-2. `node FlightLogApp/scripts/publish-update.mjs preview "<vad som rättats>"`. Testa sedan i TestFlight-appen genom att starta om den två gånger.
+2. `node FlightLogApp/scripts/publish-update.mjs preview "<vad som rättats>" --notes "Fixed: <för användarna, på engelska>|Improved: <…>"`. Testa sedan i TestFlight-appen genom att starta om den två gånger. Vid andra starten visas popupen "Blades was updated" med raderna ur `--notes` en gång.
 3. Efter "publicera": `node FlightLogApp/scripts/publish-update.mjs production`.
 4. Lägg till raden i `CHANGELOG.md`.
 
