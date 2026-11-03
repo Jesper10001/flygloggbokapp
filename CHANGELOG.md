@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- "Update ready" är en ruta i mitten (GlassDialog, samma stil som "Blades was updated") med "Restart now" och "Later" i stället för kapseln överst. Den väntar på rundturen, App Store-popupen och "Blades was updated", så att två rutor aldrig ligger på varandra. "Downloading update"-kapseln medan hämtningen pågår är kvar.
 - Blades Essential: startsidan visar total flygtid och YTD (H:MM, som dashboarden) där det stod "Essential". Logbook-sidan har aktivitetskalendern (månad×år-heatmap + almanackan) under åren, för pilot och drönare. "Open this day in logbook" fäller upp dagen och ramar in den i samma lista.
 - Foto-synk: rutorna hämtar Photos egen miniatyr (ph:// + id) i rätt storlek, även för videor. En återupptagen granskning gav förut videofilen som bild, och den kan Image inte rita, så rutan var tom. Förladdningen av nästa flygnings bilder i full storlek (från iCloud över mobilnätet) är borta, liksom nedladdningen av originalfoton utanför dev-bygget. Rutor som inte hunnit visas har en snurra.
 - "Places to pin"-rutan har två val per plats: "Place on map" och "Change to ZZZZ". ZZZZ-valet byter platsen mot ZZZZ (off-airport, ingen position behövs) på alla flygningar där den står (avgång, ankomst, mellanlandning) och tar bort den tillfälliga platsen. Varje ändring loggas i flygningens ändringslogg med det gamla namnet (`replacePlaceOnFlights` i db/flights.ts).

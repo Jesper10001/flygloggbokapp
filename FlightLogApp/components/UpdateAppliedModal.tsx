@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import * as Updates from 'expo-updates';
+import { create } from 'zustand';
 import { Colors } from '../constants/colors';
 import { GlassDialog } from './GlassDialog';
 import { getSetting, setSetting } from '../db/flights';
@@ -16,6 +17,10 @@ import { useTourStore } from '../store/tourStore';
 const APP_ICON = require('../assets/applogo-cyanonnavy.png');
 const SEEN_KEY = 'last_seen_update_id';
 const KIND_LABEL: Record<ReleaseNote['kind'], string> = { new: 'New', fix: 'Fixed', improved: 'Improved', other: '' };
+
+// Rutan är öppen: "Update ready" (UpdateDownloadBanner) väntar tills den stängts. Händer när ännu en rättning
+// hämtats medan den här visar den förra.
+export const useUpdateAppliedOpen = create<{ open: boolean }>(() => ({ open: false }));
 
 /** Id för uppdateringen som körs, om det är en nedladdad EAS Update (inte appens inbyggda kod eller dev). */
 function runningUpdateId(): string | null {
@@ -41,10 +46,15 @@ export function UpdateAppliedModal() {
   };
 
   const { notes, more } = parseReleaseNotes(process.env.EXPO_PUBLIC_UPDATE_NOTES ?? '');
+  const visible = !!updateId && !tourActive && !storeUpdate;
+  useEffect(() => {
+    useUpdateAppliedOpen.setState({ open: visible });
+    return () => useUpdateAppliedOpen.setState({ open: false }); // skärmen kan lämnas medan rutan är öppen
+  }, [visible]);
 
   return (
     <GlassDialog
-      visible={!!updateId && !tourActive && !storeUpdate}
+      visible={visible}
       onClose={close}
       icon={<View style={s.iconWrap}><Image source={APP_ICON} style={s.icon} accessibilityIgnoresInvertColors /></View>}
       eyebrow="UPDATED"
