@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Skanning: simulatorpass som lästs som flygtid (talet i "Synthetic training session" hamnade i Total time och Dual) blir simulatorpass när Apple Vision ser talet i simulatorcellen och sidans simulatorsumma bekräftar. Simulatortid kopierad till IFR, Dual och liknande på ett simulatorpass tas bort när sidans summa visar att den är för mycket. En felläst "Total this page" rättas när Vision läser radernas summa i summarutan (t.ex. nattlandningar 37 → 48). Färre falska "doesn't add up".
 - Skanningen av pappersloggboken är öppen i TestFlight-bygget (kanalen preview) för test, utöver dev-builden, och enhetens hash för gratis testskanningar finns där som osynlig text längst ner. Håll fingret där och välj Kopiera (gäller även dev-builden). App Store-bygget visar fortfarande "coming soon".
 - Sentry: källkartor laddas upp i App Store- och TestFlight-bygget (token `SENTRY_AUTH_TOKEN` i EAS, miljön production) och när en rättning publiceras med `scripts/publish-update.mjs`. Krascher visar då fil och rad. Metro använder `getSentryExpoConfig`, och ett uppladdningsfel stoppar inte bygget (`SENTRY_ALLOW_FAILURE`).
 - Scan your whole logbook: "Take photos" (Blades kamera) står nu först i valet av hur uppslagen läggs till, före "Choose from your photos". Valet syns bara i byggen med den nya kameran.

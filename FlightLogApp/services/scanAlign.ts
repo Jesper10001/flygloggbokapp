@@ -557,6 +557,102 @@ export function crossCheckCounts(
   return out;
 }
 
+// ── Simulatorpass och sidans summor, kontrollerade med Vision ────────────────────────────────────────────────
+
+export interface SpillRow { key: string; rowIndex: number; skip?: boolean; data: Record<string, any> }
+
+const SPILL_FIELDS = ['pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'multi_pilot', 'single_pilot'];
+const numVal = (v: unknown) => parseFloat(String(v ?? '0').replace(',', '.')) || 0;
+const tenths = (v: number) => String(Math.round(v * 10));
+const hasColumn = (grid: PageGrid, field: string) => grid.columns.some((c) => c.field === field);
+// Tom cell enligt Vision — bara när boken har just den kolumnen (annars vet vi inget).
+const visionEmpty = (grid: PageGrid, rowIndex: number, field: string, words: VisionBox[]) =>
+  hasColumn(grid, field) && visionDigitsInCell(grid, rowIndex, field, words) == null;
+
+/**
+ * Simulatorpass som Claude läst in som flygtid: talet i "Synthetic training session" hamnade i Total time (och
+ * kopierades ofta till Dual eller IFR), och simulatorkolumnen blev tom. Tecknet är att sidans simulatorsumma
+ * saknar just så mycket som raderna har för mycket. Rader där Vision ser talet i simulatorcellen men inget i
+ * flygtidscellen blir simulatorpass, om de tillsammans fyller exakt det som saknas. Kopior av simulatortiden i
+ * funktions- och villkorskolumner tas bort där cellen är tom, eller där sidans summa för kolumnen visar att
+ * just de värdena är för mycket. Returnerar nycklarna för de rader som ändrats.
+ */
+export function reconcileSimSpill(rows: SpillRow[], printed: Record<string, number> | undefined, grid: PageGrid | null, words: VisionBox[]): string[] {
+  if (!printed) return [];
+  const live = rows.filter((r) => !r.skip);
+  const changed = new Set<string>();
+  const dropIssues = (r: SpillRow, fields: string[]) => (r.data.field_issues ?? []).filter((i: { field: string }) => !fields.includes(i.field));
+
+  // 1. Flygtid som egentligen är simulatortid.
+  const target = printed.sim;
+  if (grid && words.length && hasColumn(grid, 'sim') && hasColumn(grid, 'total_time') && typeof target === 'number' && target > 0) {
+    const deficit = target - live.reduce((s, r) => s + numVal(r.data.sim), 0);
+    const cands = deficit > 0.05 ? live.filter((r) => {
+      const t = numVal(r.data.total_time);
+      if (r.data.flight_type === 'sim' || !(t > 0) || numVal(r.data.sim) > 0) return false;
+      const simCell = visionDigitsInCell(grid, r.rowIndex, 'sim', words);
+      return visionEmpty(grid, r.rowIndex, 'total_time', words) && simCell != null && digitsOf(simCell) === tenths(t);
+    }) : [];
+    if (cands.length && Math.abs(cands.reduce((s, r) => s + numVal(r.data.total_time), 0) - deficit) < 0.05) {
+      for (const r of cands) {
+        const v = String(r.data.total_time);
+        const copies = SPILL_FIELDS.filter((f) => Math.abs(numVal(r.data[f]) - numVal(v)) < 0.05 && visionEmpty(grid, r.rowIndex, f, words));
+        const issues = dropIssues(r, ['sim', 'total_time', ...copies]);
+        if (!issues.some((i: { field: string }) => i.field === 'sim_category')) issues.push({ field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 });
+        r.data = { ...r.data, ...Object.fromEntries(copies.map((f) => [f, '0'])), flight_type: 'sim', sim: v, total_time: v, field_issues: issues, needs_review: true };
+        changed.add(r.key);
+      }
+    }
+  }
+
+  // 2. Simulatortiden kopierad till en annan kolumn på ett simulatorpass.
+  for (const f of SPILL_FIELDS) {
+    const printedF = printed[f];
+    if (typeof printedF !== 'number') continue;
+    const excess = live.reduce((s, r) => s + numVal(r.data[f]), 0) - printedF;
+    if (excess <= 0.05) continue;
+    const cands = live.filter((r) => {
+      const v = numVal(r.data[f]);
+      const sim = numVal(r.data.sim) || numVal(r.data.total_time);
+      // Står ett tal i cellen enligt Vision är det skrivet där — då rörs det inte.
+      return r.data.flight_type === 'sim' && v > 0 && Math.abs(v - sim) < 0.05
+        && !(grid && words.length && hasColumn(grid, f) && visionDigitsInCell(grid, r.rowIndex, f, words) != null);
+    });
+    if (!cands.length || Math.abs(cands.reduce((s, r) => s + numVal(r.data[f]), 0) - excess) >= 0.05) continue;
+    for (const r of cands) {
+      r.data = { ...r.data, [f]: '0', field_issues: dropIssues(r, [f]) };
+      changed.add(r.key);
+    }
+  }
+  return [...changed];
+}
+
+/**
+ * Sidans summor ("Total this page") som Claude läst fel: går en kolumn inte ihop, men Vision läser radernas
+ * summa i kolumnens summaruta nedanför raderna, är det summan som lästs fel (ofta talet från grannkolumnen,
+ * t.ex. dagens landningar som nattens). Returnerar de rättade summorna per fält.
+ */
+export function pageTotalsByVision(rows: SpillRow[], printed: Record<string, number> | undefined, grid: PageGrid | null, words: VisionBox[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!printed || !grid || !words.length || !rows.length) return out;
+  const lastRow = Math.max(...rows.map((r) => r.rowIndex));
+  const lastBand = Math.max(lastRow, grid.rowsPerPage) + 2;
+  for (const [field, value] of Object.entries(printed)) {
+    if (typeof value !== 'number' || !hasColumn(grid, field)) continue;
+    const isCount = field === 'landings_day' || field === 'landings_night';
+    // Samma summa som columnTotals (scanImport.ts): sidans alla rader, utan simulatorpass i flygtiden.
+    const sum = rows.reduce((s, r) => (field === 'total_time' && r.data.flight_type === 'sim' ? s : s + numVal(r.data[field])), 0);
+    if (Math.abs(sum - value) < (isCount ? 0.5 : 0.05) || !(sum > 0)) continue;
+    const want = isCount ? String(Math.round(sum)) : tenths(sum);
+    const margin = field === 'landings_night' ? 0.25 : field === 'landings_day' ? 0.1 : 0;
+    for (let k = lastRow + 1; k <= lastBand; k++) {
+      const d = visionDigitsInCell(grid, k, field, words, margin);
+      if (d != null && digitsOf(d) === want) { out[field] = isCount ? Math.round(sum) : Math.round(sum * 10) / 10; break; }
+    }
+  }
+  return out;
+}
+
 // ── Bokens kolumner: samma tryck på varje uppslag ────────────────────────────────────────────────────────────
 // Varje uppslag läses för sig, och Claude uppskattar kolumnernas lägen på nytt varje gång. Ibland anges de i
 // procent av en sida i stället för hela uppslaget (kolumnerna blir utdragna eller hoptryckta). Men de tryckta

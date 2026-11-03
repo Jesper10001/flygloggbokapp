@@ -464,5 +464,66 @@ console.log('15. Raderna lutar inom varje sida (bok i V-form): rutan hamnar rät
   ok(noWords.grid === wrong, 'utan Visions ord behålls Claudes rutnät');
 }
 
+console.log('17. Simulatorpass lästa som flygtid och felläst sidsumma (uppslag ur riktig skanning)');
+{
+  // 12 rader, rad k har mitten 0.2 + (k − 0.5) · 0.05.
+  const grid = { tableTop: 0.2, tableBottom: 0.8, rowsPerPage: 12, spine: 0.5, source: 'aligned',
+    columns: [
+      { field: 'total_time', label: 'Total', left: 0.30, right: 0.36 },
+      { field: 'ifr', label: 'IFR', left: 0.37, right: 0.42 },
+      { field: 'dual', label: 'Dual', left: 0.60, right: 0.66 },
+      { field: 'sim', label: 'Synthetic', left: 0.80, right: 0.86 },
+      { field: 'landings_day', label: 'D', left: 0.87, right: 0.90 },
+      { field: 'landings_night', label: 'N', left: 0.90, right: 0.93 },
+    ] };
+  const col = (f) => grid.columns.find((c) => c.field === f);
+  const word = (f, row, text) => ({ text, x: col(f).left + 0.012, y: 0.2 + (row - 0.5) * 0.05 - 0.01, w: 0.03, h: 0.02 });
+  // Pappret: flygtid och Dual på flygningarna, rad 3–7 är simulatorpass (bara i simulatorkolumnen).
+  const paper = [2.4, 1.5, null, null, null, null, null, 1.7, 1.7, 1.7, 1.7, 1.9];
+  const simPaper = { 3: 1.5, 4: 1.6, 5: 1.5, 6: 1.5, 7: 1.5 };
+  const words = [];
+  paper.forEach((v, i) => { if (v != null) { words.push(word('total_time', i + 1, v.toFixed(1))); words.push(word('dual', i + 1, v.toFixed(1))); } });
+  for (const [r, v] of Object.entries(simPaper)) words.push(word('sim', Number(r), v.toFixed(1)));
+  // Claude: simulatortiden i Total time och Dual, simulatorkolumnen tom.
+  const read = () => paper.map((v, i) => {
+    const t = v ?? simPaper[i + 1];
+    return { key: `r${i + 1}`, rowIndex: i + 1, data: { total_time: String(t), dual: String(t), sim: '0', flight_type: 'normal', field_issues: [] } };
+  });
+  const printed = { total_time: 12.6, dual: 12.6, sim: 7.6 };
+  const rows = read();
+  const changed = A.reconcileSimSpill(rows, printed, grid, words);
+  const sum = (f, pred = () => true) => Math.round(rows.filter(pred).reduce((s, r) => s + (parseFloat(r.data[f]) || 0), 0) * 10) / 10;
+  ok(changed.length === 5, `fem rader blir simulatorpass (${changed.length})`);
+  ok(rows.slice(2, 7).every((r) => r.data.flight_type === 'sim' && r.data.dual === '0'), 'rad 3–7: simulator, ingen Dual');
+  ok(sum('total_time', (r) => r.data.flight_type !== 'sim') === 12.6 && sum('dual') === 12.6 && sum('sim') === 7.6, 'flygtid, Dual och simulator går ihop med sidan');
+  ok(rows.slice(2, 7).every((r) => r.data.field_issues.some((i) => i.field === 'sim_category')), 'frågan om simulatortyp läggs till');
+
+  // Vision ser ett annat tal i simulatorcellen → ingen ändring (summan bekräftar inte).
+  const rows2 = read();
+  const words2 = words.map((w) => (w.x === col('sim').left + 0.012 && Math.abs(w.y - (0.2 + 3.5 * 0.05 - 0.01)) < 1e-9 ? { ...w, text: '2.1' } : w));
+  ok(A.reconcileSimSpill(rows2, printed, grid, words2).length === 0 && rows2.every((r) => r.data.flight_type === 'normal'), 'går det inte ihop exakt rörs inget');
+  // Utan Visions ord rörs inget.
+  const rows3 = read();
+  ok(A.reconcileSimSpill(rows3, printed, grid, []).length === 0, 'utan Vision ingen ändring');
+
+  // Simulatorpass med simulatortiden kopierad till IFR: sidans IFR-summa visar att just den är för mycket.
+  const rows4 = [
+    { key: 's1', rowIndex: 1, data: { flight_type: 'sim', sim: '2.4', total_time: '2.4', ifr: '2.4', field_issues: [] } },
+    { key: 'f2', rowIndex: 2, data: { flight_type: 'normal', total_time: '2.4', ifr: '2.4', field_issues: [] } },
+    { key: 'f3', rowIndex: 3, data: { flight_type: 'normal', total_time: '2.6', ifr: '2.6', field_issues: [] } },
+  ];
+  const words4 = [word('sim', 1, '2.4'), word('total_time', 2, '2.4'), word('ifr', 2, '2.4'), word('total_time', 3, '2.6'), word('ifr', 3, '2.6')];
+  A.reconcileSimSpill(rows4, { ifr: 5.0, sim: 2.4 }, grid, words4);
+  ok(rows4[0].data.ifr === '0' && rows4[1].data.ifr === '2.4', 'IFR-kopian på simulatorpasset tas bort, flygningarnas står kvar');
+
+  // Nattlandningar: raderna blir 48, Claude läste 37 som sidans summa, Vision läser 48 i summarutan.
+  const nights = [6, 7, 10, 1, 8, 7, 8, 1];
+  const rows5 = nights.map((n, i) => ({ key: `n${i}`, rowIndex: i + 2, data: { landings_night: String(n) } }));
+  const total13 = { ...word('landings_night', 13, '48'), x: col('landings_night').left + 0.008, w: 0.014 };
+  ok(A.pageTotalsByVision(rows5, { landings_night: 37 }, grid, [total13]).landings_night === 48, 'felläst summa rättas till radernas 48');
+  const other = { ...total13, text: '37' };
+  ok(Object.keys(A.pageTotalsByVision(rows5, { landings_night: 37 }, grid, [other])).length === 0, 'Vision läser 37 → summan står kvar (frågan ställs)');
+}
+
 console.log(fails === 0 ? '\ninga fel' : `\n${fails} fel`);
 process.exit(fails === 0 ? 0 : 1);

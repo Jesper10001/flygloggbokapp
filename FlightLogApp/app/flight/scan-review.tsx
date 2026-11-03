@@ -59,7 +59,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, type VisionBox,
+  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -800,6 +800,16 @@ export default function ScanReviewScreen() {
             pageInputs.current.set(k, { ...input, score: again.score });
             patchPage(k, { grid: again.grid });
           });
+        }
+
+        // Simulatorpass lästa som flygtid (och simulatortid kopierad till Dual, IFR …): Vision och sidans summor avgör.
+        const spilled = reconcileSimSpill(newRows, result.pageTotals?.by_field, grid, words);
+        if (spilled.length) console.log(`[SCAN] Simulatorpass rättade efter Vision och sidans summor: ${spilled.length} rader`);
+        // "Total this page" som lästs fel: Vision läser radernas summa i kolumnens summaruta.
+        const visionTotals = pageTotalsByVision(newRows, result.pageTotals?.by_field, grid, words);
+        if (Object.keys(visionTotals).length) {
+          console.log(`[SCAN] Sidans summor rättade efter Vision: ${Object.entries(visionTotals).map(([f, v]) => `${f} ${result.pageTotals?.by_field?.[f]} → ${v}`).join(', ')}`);
+          result = { ...result, pageTotals: { ...result.pageTotals, by_field: { ...(result.pageTotals?.by_field ?? {}), ...visionTotals } } };
         }
 
         // Landningar: jämför med vad Vision läser i samma cell. Olika → en fråga med Visions tal som förslag.

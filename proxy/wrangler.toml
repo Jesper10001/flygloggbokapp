@@ -56,8 +56,9 @@ ASC_APP_ID = "6798360464"
 OPS_CREDIT_USD = "24"
 OPS_CREDIT_SINCE = "2026-10-28"
 # Enheter som inte förbrukar Blade coins (device-hash d2_…, kommaseparerat). TILLFÄLLIGT medan skanningen
-# byggs: utvecklarens telefon. Hashen visas i dev-builden under Scan logbook. Töm när funktionen är klar.
-QUOTA_EXEMPT_DEVICES = "d2_a0f0212c5d9be5b34ea21561f618ef5d"
+# byggs: utvecklarens telefon, dev-builden och TestFlight-appen (olika id, alltså två hashar). Hashen finns som
+# osynlig text längst ner under Scan logbook i testbyggena. Töm när funktionen är klar.
+QUOTA_EXEMPT_DEVICES = "d2_a0f0212c5d9be5b34ea21561f618ef5d,d2_54d3a615a4ac5571d3ecde9eff12d4db"
 
 # Telemetri — Cloudflare Analytics Engine (gratis)
 [[analytics_engine_datasets]]
