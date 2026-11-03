@@ -31,7 +31,9 @@ import { presentManageSubscription, presentPaywall } from '../../services/purcha
 import { useAppModeStore } from '../../store/appModeStore';
 import { useAppVariantStore } from '../../store/appVariantStore';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
+import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useFlightStore } from '../../store/flightStore';
+import { decimalToHHMM } from '../../hooks/useTimeFormat';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { SCAN_OPEN } from '../../store/scanStore';
 
@@ -74,6 +76,15 @@ function MenuRow({ icon, label, accent, hasMenu, busy, onPress, onRef }: {
   );
 }
 
+function Total({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={s.total} accessible accessibilityLabel={`${label === 'YTD' ? 'Year to date' : 'Total flight time'}, ${value}`}>
+      <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text style={s.totalLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function EssentialHome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -86,12 +97,20 @@ export default function EssentialHome() {
   const standard = useRegulationStandardStore((st) => st.standard);
   const paying = isPremium || isMax;
   const { t } = useTranslation();
+  const pilotStats = useFlightStore((st) => st.stats);
+  const droneStats = useDroneFlightStore((st) => st.stats);
+  const stats = isDrone ? droneStats : pilotStats;
 
   useEffect(() => { loadAccent(); }, [loadAccent]);
-  // Gratisgränsen i Log Flight räknar sparade flygningar.
+  // Gratisgränsen i Log Flight räknar sparade flygningar. Totalerna överst läses om efter varje loggad flygning.
   useFocusEffect(useCallback(() => {
-    if (isDrone) useFlightStore.getState().loadDroneFlightCount();
-    else useFlightStore.getState().loadFlights();
+    if (isDrone) {
+      useFlightStore.getState().loadDroneFlightCount();
+      useDroneFlightStore.getState().loadStats().catch(() => {});
+    } else {
+      useFlightStore.getState().loadFlights();
+      useFlightStore.getState().loadStats().catch(() => {});
+    }
   }, [isDrone]));
 
   const acarsScan = useAcarsScanStart();
@@ -169,7 +188,11 @@ export default function EssentialHome() {
       <AppBackground accent={accent} />
       <ScrollView contentContainerStyle={[s.content, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16 }]} showsVerticalScrollIndicator={false}>
         <Text style={s.eyebrow}>{isDrone ? 'DRONE LOGBOOK' : 'PILOT LOGBOOK'}</Text>
-        <Text style={s.title}>Essential</Text>
+        {/* Total flygtid och i år, alltid H:MM som på dashboarden ("–" tills de lästs, i stället för 0:00). */}
+        <View style={s.totals}>
+          <Total label="TOTAL FLIGHT TIME" value={stats ? decimalToHHMM(stats.total_time ?? 0) : '–'} />
+          <Total label="YTD" value={stats ? decimalToHHMM(stats.year_to_date ?? 0) : '–'} />
+        </View>
 
         <View style={s.draft}>
           <DraftBanner mode={isDrone ? 'drone' : 'pilot'} onOpen={() => router.push(isDrone ? '/drone-flight/add?draft=1' : '/flight/add?draft=1')} />
@@ -241,7 +264,10 @@ const HAIRLINE = 'rgba(255,255,255,0.12)';
 const s = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 20 },
   eyebrow: { fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', letterSpacing: 2.2, color: Colors.textSecondary },
-  title: { fontFamily: FONT_SERIF, fontSize: 38, fontWeight: '500', letterSpacing: -0.4, color: Colors.textPrimary, marginTop: 8, marginBottom: 14 },
+  totals: { flexDirection: 'row', gap: 24, marginTop: 8, marginBottom: 14 },
+  total: { flexShrink: 1 },
+  totalValue: { fontFamily: FONT_SERIF, fontSize: 38, fontWeight: '500', letterSpacing: -0.4, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  totalLabel: { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', letterSpacing: 1.8, color: Colors.textSecondary, marginTop: 2 },
   draft: { marginTop: -10, marginBottom: 14 },
   rows: { borderTopWidth: 1, borderTopColor: HAIRLINE, marginBottom: 20 },
   row: { height: 72, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: HAIRLINE },

@@ -148,7 +148,8 @@ export function ActivitySection() {
 // Fristående "activity calendar" (årskalender + almenacka) för loggbokssidan.
 // Äger egen data-pipeline (flights → tz → localDaily → dailyAll/records), samma
 // som ActivitySection, men utan bars/line-ramen. Renderas längst ner i List-vyn.
-export function HeatmapCalendar() {
+// onOpenDay: en dag med flera flygningar visas i den egna listan (Essential har inte flikarnas loggbok).
+export function HeatmapCalendar({ onOpenDay }: { onOpenDay?: (date: string) => void } = {}) {
   const C = useInsightsTheme();
   const D = useInsightsData();
   const flights = useFlightStore((s) => s.flights);
@@ -186,7 +187,7 @@ export function HeatmapCalendar() {
       <Text style={[st.head, { color: C.text2, marginBottom: 10 }]}>ACTIVITY CALENDAR</Text>
       <MonthYearHeatmap C={C} monthly={D.monthly} curY={now.getFullYear()} curM={now.getMonth()} sel={sel} setSel={setSel} records={records} />
       <View style={{ height: 1, backgroundColor: C.separator, marginVertical: 5 }} />
-      <IsoMonth C={C} sel={sel} setSel={setSel} dailyAll={dailyAll} dayIds={localDaily.ids} records={records} />
+      <IsoMonth C={C} sel={sel} setSel={setSel} dailyAll={dailyAll} dayIds={localDaily.ids} records={records} onOpenDay={onOpenDay} />
     </View>
   );
 }
@@ -253,11 +254,12 @@ function MonthYearHeatmap({ C, monthly, curY, curM, sel, setSel, records }: {
 }
 
 // ── Isometric 3D month view ──
-function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
+function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records, onOpenDay }: {
   C: InsightsTheme; sel: { y: number; m: number }; setSel: (s: { y: number; m: number }) => void;
   dailyAll: { date: string; hours: number }[];
   dayIds: Map<string, number[]>;
   records: { allTime: { date: string; hours: number } | null; yearBest: { date: string; hours: number } | null };
+  onOpenDay?: (date: string) => void;
 }) {
   const router = useRouter();
   const flights = useFlightStore((s) => s.flights);
@@ -364,6 +366,7 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records }: {
     const sorted = [...dayFlights].sort((a, b) => (a.dep_utc || '').localeCompare(b.dep_utc || '') || a.id - b.id);
     const last = sorted[sorted.length - 1];
     if (!last) return;
+    if (onOpenDay) { onOpenDay(last.date); return; }
     const [yy, mm] = last.date.split('-');
     router.push({ pathname: '/(tabs)/log', params: { focusFlightId: String(last.id), focusDate: last.date, focusYear: yy, focusMonth: String(Number(mm)), t: String(Date.now()) } } as any);
   };

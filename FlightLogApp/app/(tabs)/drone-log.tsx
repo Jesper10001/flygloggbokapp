@@ -316,7 +316,7 @@ export function DroneYearMonthAccordion({ flights, accent, forceOpen, focusKey, 
 }
 
 // Aktivitetskalender (= manned HeatmapCalendar): månad×år-heatmap (tappbar) + iso-almanacka.
-function DroneActivityCalendar({ flights, accent }: { flights: DroneFlight[]; accent: string }) {
+export function DroneActivityCalendar({ flights, accent }: { flights: DroneFlight[]; accent: string }) {
   const now = new Date();
   const [sel, setSel] = useState<{ y: number; m: number }>({ y: now.getFullYear(), m: now.getMonth() });
   return (
