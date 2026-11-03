@@ -59,7 +59,9 @@ env.EXPO_PUBLIC_UPDATE_NOTES = notes;
 
 const out = path.join(root, 'dist-update');
 rmSync(out, { recursive: true, force: true });
-run(['expo', 'export', '--platform', 'ios', '--output-dir', out, '--source-maps'], env);
+// --clear: Metros cache minns EXPO_PUBLIC_-värden från förra exporten (eller dev-servern), så utan den kan
+// gamla --notes eller fel miljö följa med.
+run(['expo', 'export', '--platform', 'ios', '--output-dir', out, '--source-maps', '--clear'], env);
 
 // Kontroll av paketet innan uppladdning.
 const files = [];
