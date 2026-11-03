@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, ScrollView,
-  KeyboardAvoidingView, Platform,
+  View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { continentForCountry } from '../constants/continents';
@@ -11,19 +10,16 @@ import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
-import { getAirportCoordinates, getAllTemporaryPlaces, getUnlocatedTemporaryPlaces, updateUserAirport, getSeedAirports } from '../db/icao';
+import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
 import { topCountryThumb } from '../utils/thumbRegion';
 import { AirportInfoCard } from './AirportInfoCard';
-import type { IcaoAirport } from '../types/flight';
 import { Colors } from '../constants/colors';
-import { useTranslation } from '../hooks/useTranslation';
 import { useFlightStore } from '../store/flightStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
-import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
+import { usePlacedPlaces } from './PlacesToPinNotice';
 
 // Region som ramar in en uppsättning punkter (för Apple-kartan).
 function fitRegion(pts: { lat: number; lon: number }[]) {
@@ -156,7 +152,6 @@ function makeStyles() {
 // asButton: liten pill-knapp (öppnar samma modal) — används i globens övre hörn på dashboarden.
 export function AirportMapWidget({ compact = false, rightSlot, asButton = false }: { compact?: boolean; rightSlot?: ReactNode; asButton?: boolean } = {}) {
   const styles = makeStyles();
-  const { t } = useTranslation();
   const router = useRouter();
   const [airports, setAirports] = useState<AirportPoint[]>([]);
   const [allIcaos, setAllIcaos] = useState<string[]>([]);
@@ -171,32 +166,12 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [countryList, setCountryList] = useState<{ code: string; name: string; count: number }[]>([]);
-  const [unlocated, setUnlocated] = useState<IcaoAirport[]>([]);
-  const [placingPlace, setPlacingPlace] = useState<IcaoAirport | null>(null);
-  const [placedCoord, setPlacedCoord] = useState<{ lat: number; lon: number } | null>(null);
-  const placeMapRef = useRef<MapView>(null);
-  const [pinSat, setPinSat] = useState(true); // placerings-kartan: satellit (hybrid) som default
-  const [pinSearch, setPinSearch] = useState('');
-  const [pinSearching, setPinSearching] = useState(false);
-  // Sök i placerings-kartan → centrera + sätt pin. Apples geokodning (CLGeocoder via expo-location) —
-  // ingen tredjepartstjänst och inget platstillstånd krävs. Ingen träff → kastar → inget händer.
-  const geocodePin = async () => {
-    const q = pinSearch.trim();
-    if (!q) return;
-    setPinSearching(true);
-    try {
-      const [hit] = await Location.geocodeAsync(q);
-      if (hit) {
-        setPlacedCoord({ lat: hit.latitude, lon: hit.longitude });
-        placeMapRef.current?.animateToRegion({ latitude: hit.latitude, longitude: hit.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 450);
-      }
-    } catch {}
-    finally { setPinSearching(false); }
-  };
   const insets = useSafeAreaInsets();
   const { isPremium } = useFlightStore();
 
   const flightCount = useFlightStore((s) => s.flightCount);
+  // En plats som fått position i "places to pin" (PlacesToPinNotice) → kartan läser om flygplatserna.
+  const placedVersion = usePlacedPlaces((s) => s.version);
 
   useEffect(() => {
     getSeedAirports().then(data => { setSeedData(data); setCountryList(buildCountryList(data)); });
@@ -219,10 +194,8 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
       setAirports([...regular, ...temps]);
       setLandingCounts(await getAirportLandingCounts());
       setLastFlight(await getAirportLastFlight());
-      const unloc = await getUnlocatedTemporaryPlaces();
-      setUnlocated(unloc);
     })();
-  }, [flightCount]);
+  }, [flightCount, placedVersion]);
 
   // Period-filter: All time / This year / Custom (visitDate >= valt från-datum).
   const periodStart = useMemo(() => {
@@ -359,47 +332,6 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
         </View>
       </TouchableOpacity>
-      )}
-
-      {/* Unlocated temp places banner */}
-      {unlocated.length > 0 && (
-        <View style={{
-          backgroundColor: Colors.warning + '12', borderRadius: 12,
-          borderWidth: 1, borderColor: Colors.warning + '33',
-          padding: 12, marginBottom: 8, gap: 8,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="location-outline" size={16} color={Colors.warning} />
-            <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>
-              {unlocated.length} {unlocated.length === 1 ? 'off-airport place' : 'off-airport places'} missing position
-            </Text>
-          </View>
-          {unlocated.map(p => (
-            <TouchableOpacity
-              key={p.icao}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: Colors.card, borderRadius: 8, padding: 10,
-                borderWidth: 1, borderColor: Colors.cardBorder,
-              }}
-              onPress={() => { setPlacingPlace(p); setPlacedCoord(null); setPinSearch(p.name || p.icao); }}
-              activeOpacity={0.75}
-            >
-              <View style={{
-                width: 28, height: 28, borderRadius: 14,
-                backgroundColor: '#2E7D32' + '22', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Ionicons name="pin" size={14} color="#2E7D32" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{p.icao}</Text>
-                <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{p.name}</Text>
-              </View>
-              <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '600' }}>Place</Text>
-              <Ionicons name="chevron-forward" size={12} color={Colors.textMuted} />
-            </TouchableOpacity>
-          ))}
-        </View>
       )}
 
       {/* Fullskärmskarta (Apple Maps) */}
@@ -570,146 +502,6 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
         )}
       </Modal>
 
-      {/* Pin placement modal */}
-      <Modal
-        visible={!!placingPlace}
-        animationType="slide"
-        onRequestClose={() => setPlacingPlace(null)}
-      >
-        {/* KeyboardAvoidingView: sök/spara-baren skjuts upp ovanför tangentbordet så
-            textrutan syns medan man skriver (kartan krymper istället). */}
-        <KeyboardAvoidingView style={styles.modal} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {placingPlace && (
-            <View style={styles.webview}>
-              {/* Samma karta som "visited airports" (react-native-maps / Apple Maps på iOS).
-                  Tryck för att placera pin, dra för att finjustera. */}
-              <MapView
-                ref={placeMapRef}
-                style={{ flex: 1 }}
-                initialRegion={{
-                  latitude: airports.length > 0 ? airports[0].lat : 59.3,
-                  longitude: airports.length > 0 ? airports[0].lon : 18.0,
-                  latitudeDelta: 6, longitudeDelta: 6,
-                }}
-                mapType={pinSat ? 'hybrid' : 'standard'}
-                userInterfaceStyle="dark"
-                showsPointsOfInterests={false}
-                showsCompass={false}
-                toolbarEnabled={false}
-                onPress={(e) => setPlacedCoord({ lat: e.nativeEvent.coordinate.latitude, lon: e.nativeEvent.coordinate.longitude })}
-              >
-                {placedCoord && (
-                  <Marker
-                    draggable
-                    coordinate={{ latitude: placedCoord.lat, longitude: placedCoord.lon }}
-                    onDragEnd={(e) => setPlacedCoord({ lat: e.nativeEvent.coordinate.latitude, lon: e.nativeEvent.coordinate.longitude })}
-                    pinColor="#2E7D32"
-                    title={placingPlace.name || placingPlace.icao}
-                  />
-                )}
-              </MapView>
-              {/* Kartläge-växel: standard ↔ satellit — nere till höger, ovanför sök-baren */}
-              <TouchableOpacity
-                onPress={() => setPinSat((s) => !s)}
-                activeOpacity={0.8}
-                style={{
-                  position: 'absolute', bottom: 12, right: 16, height: 36,
-                  flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12,
-                  borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)',
-                  borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)',
-                }}
-              >
-                <Ionicons name={pinSat ? 'map' : 'globe'} size={15} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{pinSat ? 'Map' : 'Satellite'}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Search + Save bar */}
-          <View style={{
-            paddingBottom: insets.bottom + 12, paddingTop: 10, paddingHorizontal: 16,
-            backgroundColor: 'rgba(10,22,40,0.95)',
-            borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)',
-            gap: 10,
-          }}>
-            {/* Search row */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                style={{
-                  flex: 1, backgroundColor: 'rgba(255,255,255,0.08)',
-                  borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-                  color: '#fff', fontSize: 14, fontWeight: '500',
-                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-                }}
-                value={pinSearch}
-                onChangeText={setPinSearch}
-                placeholder={t('search_place_ph')}
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                returnKeyType="search"
-                autoCorrect={false}
-                onSubmitEditing={geocodePin}
-              />
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#2E7D32', borderRadius: 10,
-                  paddingHorizontal: 14, justifyContent: 'center',
-                }}
-                onPress={geocodePin}
-              >
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-                  {pinSearching ? '...' : 'Search'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Buttons row */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity
-              style={{
-                flex: 1, paddingVertical: 13, borderRadius: 10, alignItems: 'center',
-                borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.elevated,
-              }}
-              onPress={() => { setPlacingPlace(null); setPlacedCoord(null); }}
-            >
-              <Text style={{ color: Colors.textSecondary, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                flex: 2, paddingVertical: 13, borderRadius: 10, alignItems: 'center',
-                backgroundColor: placedCoord ? '#2E7D32' : Colors.textMuted,
-                flexDirection: 'row', justifyContent: 'center', gap: 6,
-              }}
-              disabled={!placedCoord}
-              onPress={async () => {
-                if (!placingPlace || !placedCoord) return;
-                await updateUserAirport(placingPlace.icao, placingPlace.name, placedCoord.lat, placedCoord.lon);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setUnlocated(prev => prev.filter(p => p.icao !== placingPlace.icao));
-                setAirports(prev => [...prev, {
-                  icao: placingPlace.icao, name: placingPlace.name,
-                  lat: placedCoord.lat, lon: placedCoord.lon, temporary: true,
-                }]);
-                setPlacingPlace(null);
-                setPlacedCoord(null);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="checkmark-circle" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Save position</Text>
-            </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Close button */}
-          <TouchableOpacity
-            style={[styles.closeBtn, { top: insets.top + 12 }]}
-            onPress={() => { setPlacingPlace(null); setPlacedCoord(null); }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close" size={20} color="#fff" />
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
     </>
   );
 }

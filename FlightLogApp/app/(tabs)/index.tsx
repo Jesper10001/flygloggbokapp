@@ -15,6 +15,7 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { maybeStartIntroTour } from '../../store/tourStore';
 import { Colors } from '../../constants/colors';
 import { AirportMapWidget } from '../../components/AirportMapWidget';
+import { PlacesToPinNotice } from '../../components/PlacesToPinNotice';
 import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
@@ -1057,6 +1058,9 @@ export default function DashboardScreen() {
           <View style={{ marginTop: 8, marginHorizontal: -12, alignItems: 'center', zIndex: 1 }}>
             <View style={{ width: '100%', alignItems: 'center' }}>
               <DashboardGlobe onGrab={setGlobeGrabbed} onTap={() => setGlobeMenuOpen((v) => !v)} />
+              {/* Platser utan position: liten notis i globens övre vänstra hörn (hinten står till höger). Rutan den
+                  öppnar tar en plats i taget, så globmenyn hålls kort och dess stängknapp syns. */}
+              {!globeMenuOpen && <PlacesToPinNotice style={{ position: 'absolute', top: 9, left: 24 }} />}
               {/* Val-meny (enkel-tryck): tre rektangulära kort, centrerade över globen.
                   Alltid monterad men fadar/glider in/ut samtidigt via globeMenuAnim. */}
               <Animated.View

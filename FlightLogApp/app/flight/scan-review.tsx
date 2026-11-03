@@ -59,7 +59,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, type VisionBox,
+  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -96,7 +96,7 @@ interface Issue {
   aircraft?: { asWritten: string; resolved: string };
   group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[]; remarks?: boolean };   // samma fråga på flera rader
   moves?: { side: 'left' | 'right'; field: string }[];   // "fel kolumn": grannkolumnerna värdet kan flyttas till
-  column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number } };   // radsumma mot sidans summa
+  column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number }; move?: ColumnMove };   // radsumma mot sidans summa
 }
 
 // Grannkolumnerna (vänster/höger) till ett tal i boken, av samma slag (tid ↔ tid, antal ↔ antal). Från
@@ -212,6 +212,7 @@ function deriveIssues(
   realRows: Set<string> = new Set(),   // kolumnfrågor där den misstänkta dubbelraden är en riktig flygning
   typeGroups: TypeGroup[] = [],        // flygplanstyperna, ihopslagna och kontrollerade mot flottan
   typeChoice: Record<string, string> = {},
+  wordsOf: (page: number) => VisionBox[] = () => [],   // Visions ord per uppslag (för värden i grannkolumnen)
 ): Issue[] {
   const out: Issue[] = [];
   const add = addition.accepted;
@@ -331,7 +332,18 @@ function deriveIssues(
   // övriga summor går ihop med raderna) och Claude inte var osäker i kolumnen, sägs det rakt ut.
   pages.forEach((p, pageIdx) => {
     if (p.status !== 'done' || !p.grid) return;
-    for (const c of columnTotals(rows, pageIdx, p.totals?.by_field)) {
+    const totals = columnTotals(rows, pageIdx, p.totals?.by_field);
+    // Värden lästa i grannkolumnen: en kolumn har exakt så mycket för mycket som grannen saknar (t.ex. Dual som
+    // egentligen står under Co-pilot). Vision avgör vilka rader; båda kolumnernas frågor erbjuder flytten först.
+    const moves: ColumnMove[] = [];
+    for (const c of totals) {
+      if (c.ok || c.sum <= c.printed) continue;
+      for (const n of neighbourColumns(p.grid, c.field)) {
+        const plan = columnMovePlan(rows.filter((r) => r.page === pageIdx), p.totals?.by_field, p.grid, wordsOf(pageIdx), c.field, n.field, n.side);
+        if (plan) { moves.push(plan); break; }
+      }
+    }
+    for (const c of totals) {
       if (c.ok) continue;
       const col = columnFor(p.grid, c.field);
       const first = rows.find((r) => r.page === pageIdx && !r.skip);
@@ -339,25 +351,35 @@ function deriveIssues(
       const count = c.field.startsWith('landings');
       const fmt = (n: number) => (count ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
       const diff = Math.round((c.printed - c.sum) * 100) / 100;
+      const move = moves.find((m) => m.from === c.field || m.to === c.field);
       // En rad som lästs två gånger går före allt annat (den räknas men syns knappt).
-      const extra = realRows.has(`col:${pageIdx}:${c.field}`) ? null : findExtraRow(rows, pageIdx, c.field, diff, p.grid.rowsPerPage);
+      const extra = move || realRows.has(`col:${pageIdx}:${c.field}`) ? null : findExtraRow(rows, pageIdx, c.field, diff, p.grid.rowsPerPage);
       const tooMany = rows.filter((r) => r.page === pageIdx && !r.skip).length > p.grid.rowsPerPage;
       const uncertain = out.some((i) => (i.kind === 'value' || i.kind === 'group') && i.page === pageIdx && i.field === c.field);
       const blocks = c.field === 'total_time' && diff < 0 && rowsMatchBlockTimes(rows, pageIdx);
-      const miscounted = !extra && !tooMany && !uncertain && (blocks || pageTotalsPointAt(rows, pageIdx, c.field, p.totals?.by_field));
+      const miscounted = !move && !extra && !tooMany && !uncertain && (blocks || pageTotalsPointAt(rows, pageIdx, c.field, p.totals?.by_field));
       const off = `${fmt(Math.abs(diff))}${count ? (Math.abs(diff) === 1 ? ' landing' : ' landings') : ' h'} ${diff < 0 ? 'short' : 'over'}`;
+      const n = move?.keys.length ?? 0;
+      const where = move?.evidence === 'vision' ? `on the page ${n === 1 ? 'it stands' : 'they stand'} under ${label(move.to)}` : `${n === 1 ? 'it probably belongs' : 'they probably belong'} under ${label(move?.to ?? '')}`;
+      const pad = 0.008;
+      const moveRect = move?.boxes.length ? unionRect(move.boxes.map((b) => ({ x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad }))) : null;
       out.push({
         id: `col:${pageIdx}:${c.field}`, kind: 'column', page: pageIdx, rowKey: first.key, field: c.field,
         title: extra ? `Row ${extra.rowIndex} may be read twice` : miscounted ? 'Page total looks miscounted' : `${label(c.field)} doesn't add up`,
-        reason: extra
+        reason: move
+          ? move.from === c.field
+            ? `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)} — and ${label(move.to)} is short by exactly ${fmt(move.amount)}. Claude read ${n} ${n === 1 ? 'time' : 'times'} as ${label(c.field)}, but ${where}.`
+            : `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)} — exactly what ${label(move.from)} has too much. Claude read ${n} ${n === 1 ? 'time' : 'times'} as ${label(move.from)}, but ${where}.`
+          : extra
           ? `The rows add up to ${fmt(c.sum)} — exactly ${fmt(-diff)} more than the page total (${fmt(c.printed)}). Row ${extra.rowIndex} looks like a copy of the row next to it, so Claude probably read it twice.`
           : miscounted
             ? `${blocks ? 'Every flight matches its block time' : 'Your other page totals agree with the flights'}, and the rows add up to ${fmt(c.sum)} — but the page total says ${fmt(c.printed)}, ${off}. Most likely a counting slip in your paper logbook.`
             : `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}. One of the values in the column is probably misread — tap it to change it.`,
         suggestions: [],
+        // Flytten markerar talen där Vision ser dem (rutnätet kan ligga snett), annars hela kolumnen.
         rect: extra ? rowRect(p.grid, extra.rowIndex)
-          : col ? { x: col.left, y: p.grid.tableTop, w: col.right - col.left, h: p.grid.tableBottom - p.grid.tableTop } : null,
-        column: { sum: c.sum, printed: c.printed, miscounted, extraRow: extra ? { key: extra.key, rowIndex: extra.rowIndex } : undefined },
+          : moveRect ?? (col ? { x: col.left, y: p.grid.tableTop, w: col.right - col.left, h: p.grid.tableBottom - p.grid.tableTop } : null),
+        column: { sum: c.sum, printed: c.printed, miscounted, extraRow: extra ? { key: extra.key, rowIndex: extra.rowIndex } : undefined, move },
       });
     }
   });
@@ -1077,7 +1099,9 @@ export default function ScanReviewScreen() {
     setTypeChoice((c) => ({ ...c, ...Object.fromEntries(g.members.map((m) => [m.key, name.trim().toUpperCase()])) }));
   };
 
-  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice),
+  // Visions ord per uppslag, sparade när uppslaget lästes (pageInputs fylls innan raderna sätts).
+  const wordsOf = (page: number) => pageInputs.current.get(page)?.words ?? [];
+  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice, wordsOf),
     [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice]);
   const isDone = (i: Issue) => !!resolved[i.id] || (!!i.group && i.group.members.every((m) => resolved[m]));
 
@@ -1101,7 +1125,7 @@ export default function ScanReviewScreen() {
     if (!done) return null;
     const factor = Math.max(done, pages.filter((p) => p.status !== 'error').length) / done;
     const values = rows.filter((r) => !r.skip && pages[r.page]?.status === 'done').length * VALUES_PER_ROW;
-    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice);
+    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice, wordsOf);
     const size = (i: Issue) => (i.kind === 'column' ? 0 : i.group ? i.group.members.length : 1);
     const exact = derive('exact');
     const exactSize = exact.reduce((n, i) => n + size(i), 0);
@@ -1304,8 +1328,9 @@ export default function ScanReviewScreen() {
   // Frågor som en regel just tog bort (raderna här är från före uppdateringen).
   const coveredByRule = (i: Issue) => !!rowByKey.get(i.rowKey) && !!ruleFor(rulesRef.current, i.field, (rowByKey.get(i.rowKey)!.data as any)[i.field]);
 
-  const nextOpen = (afterId?: string, justResolved?: string) => {
-    const open = issues.filter((i) => !isDone(i) && i.id !== justResolved && !coveredByRule(i));
+  const nextOpen = (afterId?: string, justResolved?: string | string[]) => {
+    const skip = new Set([justResolved ?? []].flat());
+    const open = issues.filter((i) => !isDone(i) && !skip.has(i.id) && !coveredByRule(i));
     if (open.length === 0) return null;
     const idx = afterId ? issues.findIndex((i) => i.id === afterId) : -1;
     return open.find((i) => issues.indexOf(i) > idx) ?? open[0];
@@ -1372,6 +1397,21 @@ export default function ScanReviewScreen() {
     touched.current = true;
     setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, data: { ...r.data, [to]: v, [issue.field]: '0' } } : r)));
     resolve(issue.id, 'changed');
+  };
+  // "Move N flights to Co-pilot": värdena flyttas till grannkolumnen på raderna Vision pekade ut. Båda
+  // kolumnerna går då ihop, så båda frågorna är klara.
+  const moveColumnRows = (issue: Issue) => {
+    const mv = issue.column?.move;
+    if (!mv) return;
+    touched.current = true;
+    const keys = new Set(mv.keys);
+    setRows((prev) => prev.map((r) => (keys.has(r.key)
+      ? { ...r, data: { ...r.data, [mv.to]: String((r.data as any)[mv.from] ?? ''), [mv.from]: '0' } } : r)));
+    const both = [`col:${issue.page}:${mv.from}`, `col:${issue.page}:${mv.to}`];
+    setResolved((r) => ({ ...r, ...Object.fromEntries(both.map((id) => [id, 'changed' as const])) }));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const n = nextOpen(issue.id, both);
+    select(n ? { kind: 'issue', id: n.id } : null);
   };
 
   // Justera flygningar mot sidans summa (summan i boken står kvar). Blades förslag är förvalt: så få
@@ -1856,7 +1896,7 @@ export default function ScanReviewScreen() {
   const isCount = !!readField && COUNT.has(readField);
   // En öppen osäker cell i kolumnen som ensam förklarar skillnaden (t.ex. en överstruken 11 som ska vara 0
   // eller stå under Night) → summafrågan pekar dit först, före justering och rättelse av summan.
-  const culprit = selectedIssue?.kind === 'column' && readField && readCheck && !adjusting && adjDiff !== 0
+  const culprit = selectedIssue?.kind === 'column' && !selectedIssue.column?.move && readField && readCheck && !adjusting && adjDiff !== 0
     ? openIssues.filter((i) => i.kind === 'value' && i.page === selectedIssue.page && i.field === readField)
       .map((i) => ({ i, r: rowByKey.get(i.rowKey) }))
       .filter(({ i, r }) => {
@@ -2060,7 +2100,9 @@ export default function ScanReviewScreen() {
                 )}
             </View>
 
-            {readField && page.grid && (() => {
+            {/* Avläsningarna står till vänster om rutnätets kolumn. Vid en flytt mellan kolumner ligger rutnätet ofta
+                snett, så de skulle täcka talen frågan handlar om → dolda tills man väljer att justera. */}
+            {readField && page.grid && !(selectedIssue?.kind === 'column' && selectedIssue.column?.move && !adjusting) && (() => {
               const grid = page.grid;
               const col = columnFor(grid, readField);
               if (!col) return null;
@@ -2198,6 +2240,16 @@ export default function ScanReviewScreen() {
                 miscounted: !!selectedIssue.column?.miscounted,
                 extraRow: selectedIssue.column?.extraRow?.rowIndex,
                 culpritRow: culprit?.r?.rowIndex,
+                move: selectedIssue.column?.move ? (() => {
+                  const mv = selectedIssue.column.move;
+                  const n = mv.keys.length;
+                  const what = `${n} flight${n === 1 ? '' : 's'}`;
+                  return {
+                    label: selectedIssue.field === mv.from ? `Move ${what} to ${label(mv.to)}` : `Move ${what} from ${label(mv.from)}`,
+                    hint: `Then both ${label(mv.from)} and ${label(mv.to)} add up. Nothing to fix on paper.`,
+                    onPress: () => moveColumnRows(selectedIssue),
+                  };
+                })() : undefined,
                 onCulprit: () => { if (culprit) select({ kind: 'issue', id: culprit.i.id }); },
                 onSkipExtra: () => skipExtraRow(selectedIssue),
                 onRealRow: () => setRealRows((r) => new Set([...r, selectedIssue.id])),
@@ -2350,6 +2402,7 @@ function QuestionPanel(p: {
     active: boolean; count: number; diff: string; printed: string; sum: string; most: string; miscounted: boolean; valid: boolean;
     extraRow?: number; onSkipExtra: () => void; onRealRow: () => void; onCorrectInfo: () => void;
     culpritRow?: number; onCulprit: () => void;
+    move?: { label: string; hint: string; onPress: () => void };
     onStart: () => void; onCorrect: () => void; onApply: () => void; onCancel: () => void;
   };
   draft: string; timeFormat: TimeFormat;
@@ -2579,6 +2632,15 @@ function QuestionPanel(p: {
                   <Text style={s.optionHint}>Blades suggests which flights to change so they add up. Nothing to fix on paper.</Text>
                 </View>
               );
+              // Värdena står i grannkolumnen → flytten först (exakt), justering och rättelse som andrahandsval.
+              if (p.adjust!.move) return [(
+                <View key="move" style={s.colOption}>
+                  <TouchableOpacity style={s.btnPrimary} onPress={p.adjust!.move.onPress}>
+                    <Text style={s.btnPrimaryText}>{p.adjust!.move.label}</Text>
+                  </TouchableOpacity>
+                  <Text style={s.optionHint}>{p.adjust!.move.hint}</Text>
+                </View>
+              ), keep(false), correct(false)];
               // En osäker cell förklarar hela skillnaden → den först, de andra vägarna blir andrahandsval.
               if (p.adjust!.culpritRow != null) return [(
                 <View key="culprit" style={s.colOption}>
@@ -2590,7 +2652,7 @@ function QuestionPanel(p: {
               ), keep(false), correct(false)];
               return p.adjust!.miscounted ? [correct(true), keep(false)] : [keep(true), correct(false)];
             })()}
-            {!done && !p.adjust.miscounted && <Text style={s.qHint}>Or tap one of Claude's readings next to the rows to fix a misread value.</Text>}
+            {!done && !p.adjust.miscounted && !p.adjust.move && <Text style={s.qHint}>Or tap one of Claude's readings next to the rows to fix a misread value.</Text>}
           </>
         ) : issue?.kind === 'column' ? (
           <>

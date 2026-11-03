@@ -9,7 +9,7 @@
 // Ren logik utan I/O → testbar (scripts/test-scan-geometry.cjs).
 
 import type { PageGrid, Rect } from './scanGeometry';
-import { cellRect, rowBand } from './scanGeometry';
+import { cellRect, columnFor, rowBand } from './scanGeometry';
 
 export interface VisionBox { text: string; x: number; y: number; w: number; h: number; confidence?: number } // 0–1, origo uppe till vänster
 
@@ -651,6 +651,86 @@ export function pageTotalsByVision(rows: SpillRow[], printed: Record<string, num
     }
   }
   return out;
+}
+
+// ── Värden lästa i grannkolumnen ─────────────────────────────────────────────────────────────────────────────
+
+export interface ColumnMove {
+  from: string;                       // kolumnen med för mycket
+  to: string;                         // grannen som saknar lika mycket
+  keys: string[];                     // raderna vars värde flyttas
+  amount: number;                     // det som flyttas, sammanlagt
+  evidence: 'vision' | 'totals';      // Vision såg var talen står, eller bara sidans summor
+  boxes: Rect[];                      // där de flyttade talen står i bilden (tomt utan Vision)
+}
+
+/**
+ * Claude har läst en del av raderna i grannkolumnen: den ena kolumnen har exakt så mycket för mycket som
+ * grannen saknar (t.ex. Dual 15.8 mot sidans 4.7 och Co-pilot 0 mot 11.1). Vilka rader avgör Vision: talen
+ * står i två grupper på olika x, och gruppen på grannens sida (side) flyttas. Rutnätet kan ligga snett, så
+ * lägena jämförs med varandra och inte med cellerna. Står alla talen i en grupp, eller saknas Vision, flyttas
+ * alla raderna, men bara om de tillsammans är exakt det som saknas. Annars null (då är det inte säkert).
+ */
+export function columnMovePlan(
+  rows: SpillRow[], printed: Record<string, number> | undefined, grid: PageGrid | null, words: VisionBox[],
+  from: string, to: string, side: 'left' | 'right',
+): ColumnMove | null {
+  const pf = printed?.[from], pt = printed?.[to];
+  // Total tid räknas utan simulatorpass och har egna regler (reconcileSimSpill).
+  if (typeof pf !== 'number' || typeof pt !== 'number' || from === 'total_time' || to === 'total_time') return null;
+  const isCount = from.startsWith('landings');
+  const tol = isCount ? 0.5 : 0.05;
+  const live = rows.filter((r) => !r.skip);
+  const sumOf = (f: string) => live.reduce((s, r) => s + numVal(r.data[f]), 0);
+  const excess = sumOf(from) - pf;
+  if (excess <= tol || Math.abs(pt - sumOf(to) - excess) >= tol) return null;
+  const cands = live.filter((r) => numVal(r.data[from]) > 0 && !(numVal(r.data[to]) > 0));
+  const fits = (list: SpillRow[]) => list.length > 0 && Math.abs(list.reduce((s, r) => s + numVal(r.data[from]), 0) - excess) < tol;
+  const amount = isCount ? Math.round(excess) : Math.round(excess * 10) / 10;
+  const plan = (list: SpillRow[], evidence: ColumnMove['evidence'], boxes: Rect[]): ColumnMove =>
+    ({ from, to, keys: list.map((r) => r.key), amount, evidence, boxes });
+  if (!cands.length) return null;
+
+  const cf = grid ? columnFor(grid, from) : null, ct = grid ? columnFor(grid, to) : null;
+  if (grid && cf && ct && words.length) {
+    // Talet på raden, inom de två kolumnerna och en kolumnbredd runt dem. Exakt en träff per rad, annars vet vi inte.
+    const w = Math.min(cf.right - cf.left, ct.right - ct.left);
+    const lo = Math.min(cf.left, ct.left) - w, hi = Math.max(cf.right, ct.right) + w;
+    const hit = new Map<string, VisionBox>();
+    for (const r of cands) {
+      const want = isCount ? String(Math.round(numVal(r.data[from]))) : tenths(numVal(r.data[from]));
+      const hits = words.filter((t) => {
+        const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+        if (cx < lo || cx > hi || t.w > w * 1.6) return false;
+        const b = rowBand(grid, r.rowIndex, cx);
+        return cy >= b.y && cy <= b.y + b.h && digitsOf(t.text) === want;
+      });
+      if (hits.length === 1) hit.set(r.key, hits[0]);
+    }
+    // Vision läser handskrift ojämnt: några rader får sakna träff. De avgörs av summan, men bara om exakt en
+    // kombination av dem går ihop (annars gissar vi inte).
+    const found = cands.filter((r) => hit.has(r.key));
+    const unknown = cands.filter((r) => !hit.has(r.key));
+    if (found.length >= 2 && found.length >= cands.length * 0.6 && unknown.length <= 3) {
+      const boxes = (list: SpillRow[]) => list.map((r) => { const t = hit.get(r.key)!; return { x: t.x, y: t.y, w: t.w, h: t.h }; });
+      const xs = found.map((r) => ({ r, x: hit.get(r.key)!.x + hit.get(r.key)!.w / 2 })).sort((a, b) => a.x - b.x);
+      let gap = 0, at = -1;
+      for (let k = 1; k < xs.length; k++) if (xs[k].x - xs[k - 1].x > gap) { gap = xs[k].x - xs[k - 1].x; at = k; }
+      const subsets = unknown.reduce<SpillRow[][]>((acc, r) => [...acc, ...acc.map((sub) => [...sub, r])], [[]]);
+      const only = (base: SpillRow[]) => {
+        const ok = subsets.map((sub) => [...base, ...sub]).filter(fits);
+        return ok.length === 1 ? ok[0] : null;
+      };
+      if (at > 0 && gap >= w * 0.35) {
+        const side1 = (side === 'left' ? xs.slice(0, at) : xs.slice(at)).map((e) => e.r);
+        const moving = only(side1);
+        if (moving) return plan(moving, 'vision', boxes(side1));
+      }
+      // En grupp (eller en delning som inte går ihop): bara när alla raderna ska flyttas.
+      return fits(cands) ? plan(cands, 'vision', boxes(found)) : null;
+    }
+  }
+  return fits(cands) ? plan(cands, 'totals', []) : null;
 }
 
 // ── Bokens kolumner: samma tryck på varje uppslag ────────────────────────────────────────────────────────────

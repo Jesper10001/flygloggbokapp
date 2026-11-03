@@ -525,5 +525,52 @@ console.log('17. Simulatorpass lästa som flygtid och felläst sidsumma (uppslag
   ok(Object.keys(A.pageTotalsByVision(rows5, { landings_night: 37 }, grid, [other])).length === 0, 'Vision läser 37 → summan står kvar (frågan ställs)');
 }
 
+console.log('18. Värden lästa i grannkolumnen (Dual som egentligen är Co-pilot, uppslag ur riktig skanning)');
+{
+  // Rutnätet ligger snett: Co-pilot spänner över både Co-pilot och Dual på pappret, Dual ligger en kolumn för långt
+  // till höger. På pappret står talen i Co-pilot (x 0.30) utom rad 3, 4 och 6 som står i Dual (x 0.42).
+  const grid = { tableTop: 0.2, tableBottom: 0.8, rowsPerPage: 12, spine: 0.5, source: 'aligned',
+    columns: [
+      { field: 'total_time', label: 'Total', left: 0.02, right: 0.10 },
+      { field: 'pic', label: 'PIC', left: 0.13, right: 0.25 },
+      { field: 'co_pilot', label: 'Co-pilot', left: 0.25, right: 0.47 },
+      { field: 'dual', label: 'Dual', left: 0.465, right: 0.565 },
+    ] };
+  const at = (x, row, text) => ({ text, x: x - 0.015, y: 0.2 + (row - 0.5) * 0.05 - 0.01, w: 0.03, h: 0.02 });
+  const dual = [1.5, 1.7, 1.6, 1.5, 1.6, 1.6, 0, 1.6, 1.6, 1.5, 1.6, 0];
+  const onPaperDual = new Set([3, 4, 6]);
+  const words = [];
+  dual.forEach((v, i) => {
+    if (!v) return;
+    words.push(at(0.06, i + 1, v.toFixed(1)));                                   // total time längst till vänster
+    words.push(at(onPaperDual.has(i + 1) ? 0.42 : 0.30, i + 1, v.toFixed(1)));
+  });
+  words.push(at(0.06, 7, '1.7'), at(0.16, 7, '1.7'));                           // rad 7: PIC
+  const read = () => dual.map((v, i) => ({ key: `r${i + 1}`, rowIndex: i + 1,
+    data: { total_time: String(v || 1.7), pic: i === 6 ? '1.7' : '0', co_pilot: '0', dual: String(v) } }));
+  const printed = { pic: 1.7, co_pilot: 11.1, dual: 4.7 };
+  const plan = A.columnMovePlan(read(), printed, grid, words, 'dual', 'co_pilot', 'left');
+  ok(plan && plan.evidence === 'vision' && plan.amount === 11.1, `en plan efter Vision som flyttar 11.1 (${JSON.stringify(plan && { e: plan.evidence, a: plan.amount })})`);
+  ok(plan && plan.keys.join(',') === 'r1,r2,r5,r8,r9,r10,r11', `raderna som står under Co-pilot flyttas (${plan && plan.keys.join(',')})`);
+  ok(plan && plan.boxes.length === 7 && plan.boxes.every((b) => b.x < 0.35), 'markeringen ligger där talen står, inte i rutnätets Dual');
+  // Utan Vision avgör inte summorna vilka rader (alla raderna är 15.8, inte 11.1).
+  ok(A.columnMovePlan(read(), printed, grid, [], 'dual', 'co_pilot', 'left') === null, 'utan Vision ingen gissning');
+  // Grannen saknar inte exakt lika mycket → ingen plan.
+  ok(A.columnMovePlan(read(), { ...printed, co_pilot: 10.0 }, grid, words, 'dual', 'co_pilot', 'left') === null, 'summorna går inte ihop → ingen plan');
+  // Alla talen står i Co-pilot och alla saknas där → alla flyttas.
+  const words2 = words.map((w) => (Math.abs(w.x + 0.015 - 0.42) < 1e-9 ? { ...w, x: 0.30 - 0.015 } : w));
+  const all = A.columnMovePlan(read(), { pic: 1.7, co_pilot: 15.8, dual: 0 }, grid, words2, 'dual', 'co_pilot', 'left');
+  ok(all && all.keys.length === 10, `hela kolumnen flyttas (${all && all.keys.length})`);
+  // Vision läser inte rad 2 (1.7) och rad 4 (1.5): bara en kombination går ihop (rad 2 flyttas, rad 4 står kvar).
+  const unread = (w) => !(Math.abs(w.y - (0.2 + 1.5 * 0.05 - 0.01)) < 1e-9 && w.x > 0.2) && !(Math.abs(w.y - (0.2 + 3.5 * 0.05 - 0.01)) < 1e-9 && w.x > 0.2);
+  const partial = A.columnMovePlan(read(), printed, grid, words.filter(unread), 'dual', 'co_pilot', 'left');
+  ok(partial && partial.keys.join(',') === 'r1,r5,r8,r9,r10,r11,r2', `rader Vision missat avgörs av summan (${partial && partial.keys.join(',')})`);
+  // Vision missar två rader med samma tal (rad 3 och 5, båda 1.6): två kombinationer går ihop → ingen gissning.
+  const unread2 = (w) => !([2.5, 4.5].some((k) => Math.abs(w.y - (0.2 + k * 0.05 - 0.01)) < 1e-9) && w.x > 0.2);
+  ok(A.columnMovePlan(read(), printed, grid, words.filter(unread2), 'dual', 'co_pilot', 'left') === null, 'flera möjliga kombinationer → ingen plan');
+  // Fel sida (grannen till höger) → gruppen till höger är 4.7, inte 11.1 → hela kolumnen går inte heller → ingen plan.
+  ok(A.columnMovePlan(read(), printed, grid, words, 'dual', 'co_pilot', 'right') === null, 'fel sida ger ingen plan');
+}
+
 console.log(fails === 0 ? '\ninga fel' : `\n${fails} fel`);
 process.exit(fails === 0 ? 0 : 1);
