@@ -118,7 +118,9 @@ if (dryRun) {
   process.exit(0);
 }
 
-run(['eas-cli', 'update', '--branch', 'preview', '--message', message, '--platform', 'ios',
+// --environment krävs av nyare eas-cli. Paketet är redan byggt (--skip-bundler), så miljön ändrar inget i det;
+// production är samma miljö som TestFlight- och App Store-bygget.
+run(['eas-cli', 'update', '--branch', 'preview', '--message', message, '--platform', 'ios', '--environment', 'production',
   '--skip-bundler', '--input-dir', out, '--non-interactive'], env);
 
 // Källkartor till Sentry, så att en krasch i uppdateringen visar fil och rad. Uppdateringen är redan publicerad,
