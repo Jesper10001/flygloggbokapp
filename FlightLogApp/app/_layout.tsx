@@ -31,6 +31,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
+import { UpdateDownloadBanner } from '../components/UpdateDownloadBanner';
 import { TourHost } from '../components/TourHost';
 import { PaywallHost } from '../components/PaywallHost';
 import { CoinShopHost } from '../components/CoinShopSheet';
@@ -174,7 +175,9 @@ export default function RootLayout() {
         useAiConsentStore.getState().load(); // AI-samtycke (Settings-reglaget + spärren före AI-anrop)
         // Fotokredit för Wikimedia-bilder som sparades innan krediten fanns — i bakgrunden efter starten.
         setTimeout(() => { backfillPhotoCredits().catch(() => {}); }, 8000);
-        await checkVersion();
+        // Versionskollen (App Store + proxyn) i bakgrunden: på ett segt nät, t.ex. medan en EAS Update hämtas,
+        // höll den annars kvar starten i upp till 8 s. "Update available" och "Update required" visas när den är klar.
+        checkVersion().catch(() => {});
         const { mode } = useAppModeStore.getState();
         await useThemeStore.getState().applyForMode(mode);
         const onboarded = await getSetting('has_onboarded');
@@ -346,6 +349,7 @@ export default function RootLayout() {
       <ToastHost />
       <FleetDoneHost />
       <SplashOverlay />
+      <UpdateDownloadBanner />
       <TourHost />
       <PaywallHost />
       <CoinShopHost />

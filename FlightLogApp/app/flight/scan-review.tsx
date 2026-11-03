@@ -447,9 +447,22 @@ function deriveIssues(
     });
   }
 
+  // Ordningen: kolumn för kolumn från vänster, uppifrån och ned, så att man inte hoppar mellan bokens vänster-
+  // och högersida. Kolumnens summa sist i kolumnen: den går ofta ihop när cellerna ovanför är rättade (en
+  // överstruken siffra, fel kolumn), och då behövs ingen justering. Bokens tilläggsregel och en dubbelläst rad
+  // först, de påverkar hela uppslaget.
+  const rank = (i: Issue) => (i.kind === 'addition' ? 0 : i.column?.extraRow ? 1 : 2);
+  const colX = (i: Issue) => {
+    const grid = pages[i.page]?.grid;
+    const col = grid ? columnFor(grid, i.field) : null;
+    return col ? col.left : i.rect?.x ?? Number.MAX_SAFE_INTEGER;
+  };
+  const rowY = (i: Issue) => (i.kind === 'column' ? Number.MAX_SAFE_INTEGER : rowOf.get(i.rowKey)?.rowIndex ?? 0);
   return out.filter((i) => !grouped.has(i.id) && !hidden.has(i.id) && !groupedRemarks.has(i.id)).sort((a, b) => Number(b.kind === 'addition') - Number(a.kind === 'addition')
     || a.page - b.page
-    || (rowOf.get(a.rowKey)?.rowIndex ?? 0) - (rowOf.get(b.rowKey)?.rowIndex ?? 0)
+    || rank(a) - rank(b)
+    || colX(a) - colX(b)
+    || rowY(a) - rowY(b)
     || (a.rect?.x ?? 0) - (b.rect?.x ?? 0));
 }
 
@@ -1841,6 +1854,19 @@ export default function ScanReviewScreen() {
   }
   const adjValid = adjusting && adjNew.size > 0 && [...adjNew.values()].every((v) => v >= 0);
   const isCount = !!readField && COUNT.has(readField);
+  // En öppen osäker cell i kolumnen som ensam förklarar skillnaden (t.ex. en överstruken 11 som ska vara 0
+  // eller stå under Night) → summafrågan pekar dit först, före justering och rättelse av summan.
+  const culprit = selectedIssue?.kind === 'column' && readField && readCheck && !adjusting && adjDiff !== 0
+    ? openIssues.filter((i) => i.kind === 'value' && i.page === selectedIssue.page && i.field === readField)
+      .map((i) => ({ i, r: rowByKey.get(i.rowKey) }))
+      .filter(({ i, r }) => {
+        if (!r) return false;
+        const cur = parseFloat(String((r.data as any)[readField] ?? '')) || 0;
+        const alts = [0, ...i.suggestions.filter((x) => x.field === readField).map((x) => parseFloat(x.value) || 0)];
+        return alts.some((v) => Math.abs(v - cur - adjDiff) < (isCount ? 0.5 : 0.05));
+      })
+      .sort((a, b) => a.r!.rowIndex - b.r!.rowIndex)[0] ?? null
+    : null;
   const fmtDiff = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${isCount ? Math.abs(Math.round(n)) : Math.abs(n).toFixed(1)}${isCount ? '' : ' h'}`;
   const position = selectedIssue && !isDone(selectedIssue) ? openIssues.findIndex((i) => i.id === selectedIssue.id) + 1 : 0;
 
@@ -2171,6 +2197,8 @@ export default function ScanReviewScreen() {
                 most: fmtDiff(adjMost).replace(/^[+−]/, ''),
                 miscounted: !!selectedIssue.column?.miscounted,
                 extraRow: selectedIssue.column?.extraRow?.rowIndex,
+                culpritRow: culprit?.r?.rowIndex,
+                onCulprit: () => { if (culprit) select({ kind: 'issue', id: culprit.i.id }); },
                 onSkipExtra: () => skipExtraRow(selectedIssue),
                 onRealRow: () => setRealRows((r) => new Set([...r, selectedIssue.id])),
                 valid: adjValid,
@@ -2321,6 +2349,7 @@ function QuestionPanel(p: {
   adjust?: {
     active: boolean; count: number; diff: string; printed: string; sum: string; most: string; miscounted: boolean; valid: boolean;
     extraRow?: number; onSkipExtra: () => void; onRealRow: () => void; onCorrectInfo: () => void;
+    culpritRow?: number; onCulprit: () => void;
     onStart: () => void; onCorrect: () => void; onApply: () => void; onCancel: () => void;
   };
   draft: string; timeFormat: TimeFormat;
@@ -2550,6 +2579,15 @@ function QuestionPanel(p: {
                   <Text style={s.optionHint}>Blades suggests which flights to change so they add up. Nothing to fix on paper.</Text>
                 </View>
               );
+              // En osäker cell förklarar hela skillnaden → den först, de andra vägarna blir andrahandsval.
+              if (p.adjust!.culpritRow != null) return [(
+                <View key="culprit" style={s.colOption}>
+                  <TouchableOpacity style={s.btnPrimary} onPress={p.adjust!.onCulprit}>
+                    <Text style={s.btnPrimaryText}>Check row {p.adjust!.culpritRow} first</Text>
+                  </TouchableOpacity>
+                  <Text style={s.optionHint}>Claude wasn't sure of that reading, and fixing it would make the column add up.</Text>
+                </View>
+              ), keep(false), correct(false)];
               return p.adjust!.miscounted ? [correct(true), keep(false)] : [keep(true), correct(false)];
             })()}
             {!done && !p.adjust.miscounted && <Text style={s.qHint}>Or tap one of Claude's readings next to the rows to fix a misread value.</Text>}

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
-// Startsekvensen väntar på versionskollen → aldrig mer än några sekunder per anrop (en hängande
-// uppkoppling får inte hålla kvar appen på en tom skärm före onboarding/dashboard).
+// Aldrig mer än några sekunder per anrop: en hängande uppkoppling får inte låta "Update required" eller
+// "Update available" dröja (kollen körs i bakgrunden vid start, se app/_layout.tsx).
 function fetchWithTimeout(url: string, ms = 4000): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
