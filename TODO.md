@@ -40,11 +40,12 @@ Uppdaterad 2026-10-31. Bocka av med `[x]` och flytta klara punkter till arkivet 
 
 Efter att 1.0 är släppt, i den här ordningen. Hela släpprutinen står i `RELEASE.md`, och vad som är nytt står i `CHANGELOG.md`.
 
-1. [ ] **Påminnelse: källkartor till Sentry (cirka 10 minuter för dig).** Då visar varje krasch exakt fil och rad, i stället för en position i den hopbakade appkoden. Det görs före bygget, eftersom det ändrar byggkonfigurationen.
-   - **Du:** skapa en token i Sentry (Settings → Organization Tokens). Spara den som hemlighet i EAS med `cd FlightLogApp && npx eas-cli env:create`: namnet `SENTRY_AUTH_TOKEN`, synligheten "secret" och miljön "production". Klistra in token när kommandot frågar, aldrig i chatten.
+1. [x] **Påminnelse: källkartor till Sentry (cirka 10 minuter för dig).** Då visar varje krasch exakt fil och rad, i stället för en position i den hopbakade appkoden. Det görs före bygget, eftersom det ändrar byggkonfigurationen.
+   - **Du:** skapa en token i Sentry (Settings → Organization Tokens). Spara den som hemlighet i EAS med `cd FlightLogApp && npx eas-cli env:create`: namnet `SENTRY_AUTH_TOKEN`, synligheten "sensitive" och miljön "production". Med "sensitive" kan även publiceringsskriptet för rättningar ladda upp källkartor. Med "secret" kan bara EAS-servrarna läsa token. Klistra in token när kommandot frågar, aldrig i chatten.
    - **Claude:** tar bort `SENTRY_DISABLE_AUTO_UPLOAD` i `eas.json`, byter `metro.config.js` till `getSentryExpoConfig` och lägger till uppladdning av källkartor i publiceringsskriptet för rättningar.
-2. [ ] **Licenser:** `cd FlightLogApp && node scripts/gen-licenses.mjs` (cirka 2 minuter), som före varje release.
-3. [ ] **Version:** höj `"version"` i `FlightLogApp/app.json` till `1.0.1`. Döp om "Unreleased" i `CHANGELOG.md` till 1.0.1 och välj What's New-raderna.
+2. [x] **Licenser:** `cd FlightLogApp && node scripts/gen-licenses.mjs` (cirka 2 minuter), som före varje release.
+3. [ ] **Version:** höj `"version"` i `FlightLogApp/app.json` till `1.0.1` först i bygget som skickas in (användarens beslut 2026-11-03: testbyggen före det heter 1.0.0). Döp om "Unreleased" i `CHANGELOG.md` till 1.0.1 och välj What's New-raderna.
+3b. [ ] **Nya paywalls** till nästa release (användaren 2026-11-03), till exempel Blades Max och coin-paketen.
 4. [ ] **Commita allt och kör databastestet:** `node FlightLogApp/scripts/test-db-upgrade.cjs`, som ska sluta med "inga fel". EAS bygger bara committad kod.
 5. [ ] **Bygg två gånger:** först `npx eas-cli build -p ios --profile testflight`, sedan `npx eas-cli build -p ios --profile production`. Skicka båda med `npx eas-cli submit -p ios --profile production --latest` efter varje bygge. Testflight-bygget får det lägre numret: installera det på din telefon, det läser testkanalen för rättningar. Det högre numret skickas in för granskning. Tagga båda (`ios/1.0.1-<bygge>`) och skicka upp taggarna med `git push origin --tags`.
 6. [ ] **Integritetspolicyn:** lägg till Expo före inskickningen. Förslag: *"App updates: when you open the app it checks Expo (EAS Update) for a newer version of the app's code. Expo receives your IP address, your device platform and a random installation ID to deliver the update. No logbook data is sent."* Se också över App Privacy i App Store Connect.

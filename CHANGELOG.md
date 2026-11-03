@@ -15,6 +15,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Skanningen av pappersloggboken är öppen i TestFlight-bygget (kanalen preview) för test, utöver dev-builden, och enhetens hash för gratis testskanningar finns där som osynlig text längst ner. Håll fingret där och välj Kopiera (gäller även dev-builden). App Store-bygget visar fortfarande "coming soon".
+- Sentry: källkartor laddas upp i App Store- och TestFlight-bygget (token `SENTRY_AUTH_TOKEN` i EAS, miljön production) och när en rättning publiceras med `scripts/publish-update.mjs`. Krascher visar då fil och rad. Metro använder `getSentryExpoConfig`, och ett uppladdningsfel stoppar inte bygget (`SENTRY_ALLOW_FAILURE`).
 - Scan your whole logbook: "Take photos" (Blades kamera) står nu först i valet av hur uppslagen läggs till, före "Choose from your photos". Valet syns bara i byggen med den nya kameran.
 - Blades Essential: en enklare variant av appen (Log flight, Logbook, Import, Export, Security, Logbook mode, Settings, Subscription) med samma data; väljs under pilot/drönar-växlaren i Settings. Pages-export väljer loggbokstyp med förhandsvisning utan att en digital bok behöver skapas, och Fleet-data hämtas först vid byte till Extensive.
 - **Dashboard: Stressfactor-knappen visas bara med flygningar de senaste två månaderna** (pilot och drönare). Utan flygningar är kurvan bara ett platt streck.

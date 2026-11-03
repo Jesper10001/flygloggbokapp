@@ -10,7 +10,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/scanQuotaStore';
 import { presentPaywall } from '../../services/purchases';
-import { setScanUseBookLayout, getScanUseBookLayout, setScanFromOnboarding, MAX_SPREADS, spreadLimit } from '../../store/scanStore';
+import { setScanUseBookLayout, getScanUseBookLayout, setScanFromOnboarding, MAX_SPREADS, spreadLimit, TEST_BUILD } from '../../store/scanStore';
 import { useScanBookStore, sessionsOf } from '../../store/scanBookStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { askAiConsent } from '../../services/aiConsent';
@@ -76,10 +76,11 @@ export default function ScanImportScreen() {
     router.replace('/import/scan-book');
   };
 
-  // Dev: enhetens hash som proxyn använder (samma som hashDevice i proxy/src/index.ts). Står den i
-  // QUOTA_EXEMPT_DEVICES kostar skanningarna inga Blade coins medan funktionen byggs.
+  // Testbyggen: enhetens hash som proxyn använder (samma som hashDevice i proxy/src/index.ts). Står den i
+  // QUOTA_EXEMPT_DEVICES kostar skanningarna inga Blade coins medan funktionen byggs. TestFlight-appen har ett
+  // annat id än dev-builden (annat bundle-id), så den får en egen hash.
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!TEST_BUILD) return;
     Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `blades-device:v2:${getDeviceId()}`)
       .then((hex) => setDevHash(`d2_${hex.slice(0, 32)}`))
       .catch(() => {});
@@ -221,8 +222,9 @@ export default function ScanImportScreen() {
         ))}
       </View>
 
-      {__DEV__ && devHash && (
-        <Text style={s.devHash} selectable>Dev · device for free scans: {devHash}</Text>
+      {/* Osynlig: håll fingret längst ner på sidan och välj Kopiera. Bara hashen kopieras. */}
+      {TEST_BUILD && devHash && (
+        <Text style={s.devHash} selectable accessibilityLabel="Device id for free test scans">{devHash}</Text>
       )}
 
       {/* Bara när de lokala skanningskvoterna är påslagna (annars styr proxyns Blade-coins). */}
@@ -321,7 +323,7 @@ const s = StyleSheet.create({
   choiceBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
   choiceText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
   choiceTextOn: { color: Colors.primary },
-  devHash: { color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', textAlign: 'center' },
+  devHash: { color: 'transparent', fontSize: 11, fontFamily: 'Menlo', textAlign: 'center', paddingVertical: 12 },
 
   quotaCard: {
     backgroundColor: Colors.card, borderRadius: 12, padding: 14,

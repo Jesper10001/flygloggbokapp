@@ -14,6 +14,7 @@
 //  • Proxyadress, RevenueCat-nyckel och Sentry-DSN tas ur eas.json → build.production.env, samma som App Store-bygget.
 //    Saknas något av dem i paketet avbryts publiceringen (annars slutar köp eller felrapporter fungera för alla).
 //  • Paketet exporteras först och genomsöks efter hemliga nycklar innan något laddas upp.
+//  • Källkartorna går till Sentry efter publiceringen. Token hämtas ur EAS (miljön production) och skrivs aldrig ut.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -49,7 +50,7 @@ for (const k of Object.keys(env)) if (k.startsWith('EXPO_PUBLIC_') && !(k in bui
 
 const out = path.join(root, 'dist-update');
 rmSync(out, { recursive: true, force: true });
-run(['expo', 'export', '--platform', 'ios', '--output-dir', out], env);
+run(['expo', 'export', '--platform', 'ios', '--output-dir', out, '--source-maps'], env);
 
 // Kontroll av paketet innan uppladdning.
 const files = [];
@@ -67,10 +68,21 @@ if (!bundles.length || !existsSync(path.join(out, 'metadata.json'))) {
   process.exit(1);
 }
 const text = bundles.map((f) => readFileSync(f).toString('latin1')).join('\n');
+// Källkartorna går också iväg (till Sentry), så de genomsöks efter nycklar på samma sätt.
+const maps = [];
+const walkMaps = (dir) => {
+  for (const name of readdirSync(dir)) {
+    const p = path.join(dir, name);
+    if (statSync(p).isDirectory()) walkMaps(p);
+    else if (name.endsWith('.map')) maps.push(p);
+  }
+};
+walkMaps(out);
+const mapText = maps.map((f) => readFileSync(f).toString('latin1')).join('\n');
 const leaks = [
   [/sk-ant-[A-Za-z0-9_-]{8,}/, 'en Anthropic-nyckel'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'en privat nyckel'],
-].filter(([re]) => re.test(text)).map(([, what]) => what);
+].filter(([re]) => re.test(text) || re.test(mapText)).map(([, what]) => what);
 // Exakta värden ur .env (utvecklarnycklar) som inte är publika produktionsvärden får aldrig finnas i paketet.
 // Breda mönster som "sk_" ger falsklarm i Hermes-paketet, där strängarna ligger tätt ihop. Värdena skrivs aldrig ut.
 const dotenv = path.join(root, '.env');
@@ -80,7 +92,7 @@ if (existsSync(dotenv)) {
     const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
     if (!m) continue;
     const value = m[2].replace(/^(['"])(.*)\1$/, '$2');
-    if (value.length >= 12 && !publicValues.has(value) && text.includes(value)) leaks.push(`värdet av ${m[1]} ur .env`);
+    if (value.length >= 12 && !publicValues.has(value) && (text.includes(value) || mapText.includes(value))) leaks.push(`värdet av ${m[1]} ur .env`);
   }
 }
 if (leaks.length) {
@@ -99,7 +111,7 @@ if (expected.length) {
   console.error(`\nAvbrutet: paketet saknar ${expected.map(([, what]) => what).join(', ')} från eas.json. Inget har laddats upp.`);
   process.exit(1);
 }
-console.log(`\nKontroll OK: ${bundles.length} paket, inga nycklar, produktionsvärdena finns med.`);
+console.log(`\nKontroll OK: ${bundles.length} paket och ${maps.length} källkartor, inga nycklar, produktionsvärdena finns med.`);
 if (dryRun) {
   rmSync(out, { recursive: true, force: true });
   console.log('Torrkörning: inget laddades upp.');
@@ -108,5 +120,16 @@ if (dryRun) {
 
 run(['eas-cli', 'update', '--branch', 'preview', '--message', message, '--platform', 'ios',
   '--skip-bundler', '--input-dir', out, '--non-interactive'], env);
+
+// Källkartor till Sentry, så att en krasch i uppdateringen visar fil och rad. Uppdateringen är redan publicerad,
+// så ett fel här stoppar ingenting — kraschen syns då bara utan källkod.
+const sentryPlugin = (JSON.parse(readFileSync(path.join(root, 'app.json'), 'utf8')).expo?.plugins ?? [])
+  .find((p) => Array.isArray(p) && p[0] === '@sentry/react-native')?.[1] ?? {};
+const upload = maps.length ? spawnSync('npx', ['eas-cli', 'env:exec', 'production',
+  `npx sentry-expo-upload-sourcemaps ${path.basename(out)}`, '--non-interactive'], {
+  cwd: root, stdio: 'inherit',
+  env: { ...env, SENTRY_ORG: sentryPlugin.organization, SENTRY_PROJECT: sentryPlugin.project, SENTRY_URL: sentryPlugin.url },
+}) : { status: 1 };
+if (upload.status !== 0) console.warn('\nVarning: källkartorna kom inte fram till Sentry. Uppdateringen fungerar, men krascher i den visas utan fil och rad.');
 rmSync(out, { recursive: true, force: true });
 console.log('\nKlart: uppdateringen ligger på testkanalen. Starta om TestFlight-appen två gånger: första starten hämtar, andra använder den.');

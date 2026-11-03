@@ -2,9 +2,11 @@
 // extensioner (t.ex. 'png') som assets — versalt .PNG tolkades som källkod och
 // kraschade bundlingen. Här registreras versala bildextensioner som assets så
 // require('../assets/Foo.PNG') fungerar (och framtida .PNG-filer också).
-const { getDefaultConfig } = require('expo/metro-config');
+// Sentrys version av Expos standardkonfig: lägger ett debug-id i varje paket så att källkartorna som laddas upp
+// (App Store-bygget och scripts/publish-update.mjs) hittar rätt fil och rad vid en krasch.
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 const upperImageExts = ['PNG', 'JPG', 'JPEG'];
 for (const ext of upperImageExts) {

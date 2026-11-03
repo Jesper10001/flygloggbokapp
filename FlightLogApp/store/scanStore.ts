@@ -1,3 +1,4 @@
+import * as Updates from 'expo-updates';
 import type { PageContext } from '../services/ocr';
 
 // Buffer för OCR-bilder — stöder enkel skanning (1 bild) och batch (upp till MAX_SPREADS bilder)
@@ -10,9 +11,11 @@ export const MAX_SPREADS = 10;
 // coins kvar att prova resten av appen med; tre kan tömma potten innan typerna hunnit slås upp.
 export const FREE_SPREADS = 2;
 export const spreadLimit = (paying: boolean) => (paying ? MAX_SPREADS : FREE_SPREADS);
-// Skanningen av pappersloggboken är pausad i riktiga byggen ("coming soon") men öppen i dev-builden medan den
-// byggs om. __DEV__ är alltid false i TestFlight/App Store. Byt till true när den ska lanseras.
-export const SCAN_OPEN = __DEV__;
+// Testbygge: dev-builden eller TestFlight-bygget (kanalen preview, bara din telefon). Aldrig App Store-bygget.
+export const TEST_BUILD = __DEV__ || Updates.channel === 'preview';
+// Skanningen av pappersloggboken är pausad i App Store-bygget ("coming soon") men öppen i testbyggena medan den
+// testas. Byt till true när den ska lanseras.
+export const SCAN_OPEN = TEST_BUILD;
 
 export interface ScanImage {
   base64: string;
