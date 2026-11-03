@@ -1103,6 +1103,40 @@ export async function getMonthlyHours(): Promise<{ year: number; month: number; 
   );
 }
 
+const PLACE_FIELDS = ['dep_place', 'arr_place', 'stop_place'] as const;
+
+// Antal flygningar där en plats står (avgång, ankomst eller mellanlandning).
+export async function countFlightsAtPlace(place: string): Promise<number> {
+  const p = place.trim().toUpperCase();
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) as n FROM flights WHERE UPPER(dep_place)=? OR UPPER(arr_place)=? OR UPPER(stop_place)=?`, [p, p, p]);
+  return row?.n ?? 0;
+}
+
+// Byt en plats på alla flygningar, t.ex. en off-airport-plats utan position → ZZZZ ("places to pin" på
+// dashboarden). Varje ändrat fält loggas i audit-loggen med det gamla namnet. Returnerar antal flygningar.
+export async function replacePlaceOnFlights(oldPlace: string, newPlace: string, reason: string): Promise<number> {
+  const from = oldPlace.trim().toUpperCase();
+  const to = newPlace.trim().toUpperCase();
+  if (!from || !to || from === to) return 0;
+  const db = await getDatabase();
+  const ids = new Set<number>();
+  await db.withTransactionAsync(async () => {
+    for (const field of PLACE_FIELDS) {
+      const hits = await db.getAllAsync<{ id: number; v: string }>(`SELECT id, ${field} as v FROM flights WHERE UPPER(${field})=?`, [from]);
+      for (const h of hits) {
+        await db.runAsync(
+          `INSERT INTO audit_log (flight_id, field_name, old_value, new_value, reason) VALUES (?,?,?,?,?)`,
+          [h.id, field, h.v, to, reason]);
+        await db.runAsync(`UPDATE flights SET ${field}=? WHERE id=?`, [to, h.id]);
+        ids.add(h.id);
+      }
+    }
+  });
+  return ids.size;
+}
+
 export async function getVisitedAirportIcaos(): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ icao: string }>(
