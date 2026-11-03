@@ -73,6 +73,9 @@ function buildHtml(assets: GlobeAssets, rings: Ring[], heat: Heat[], view: ViewC
     } catch(e){}
 
     function post(m){ try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(m); } catch(e){} }
+    // iOS kan ta tillbaka grafiken (WebGL) i bakgrunden eller vid minnesbrist. three.js återhämtar sig inte
+    // själv, så globen står still. Säg till RN, som laddar om den.
+    try { world.renderer().domElement.addEventListener('webglcontextlost', function(e){ e.preventDefault(); post('gl-lost'); }, false); } catch(e){}
     var sX = 0, sY = 0, sT = 0, lastTap = 0, tapTimer = null;
     document.addEventListener('touchstart', function(e){ post('grab'); var t = e.touches[0]; if (t){ sX = t.clientX; sY = t.clientY; sT = Date.now(); } }, { passive: true });
     document.addEventListener('touchend', function(e){
@@ -123,6 +126,7 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
   const flights = useDroneCount();
   const webRef = useRef<any>(null);
   const ready = useRef(false);
+  const [webKey, setWebKey] = useState(0); // räknas upp när globen startas om (se restart)
   const [initial, setInitial] = useState<{ rings: Ring[]; heat: Heat[] } | null>(null);
   const assets = useGlobeAssets();
 
@@ -146,11 +150,19 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
   );
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
 
+  // Samma omstart som DashboardGlobe: WebViewns process stängd eller grafiken (WebGL) borttagen av iOS.
+  const restart = useCallback(() => {
+    ready.current = false;
+    onGrab?.(false);
+    setWebKey((k) => k + 1);
+  }, [onGrab]);
+
   return (
     <View style={{ width: W, height: visibleH, alignSelf: 'center' }}>
       {html ? (
         <View style={{ position: 'absolute', left, top, width: canvas, height: canvas }}>
           <WebView
+            key={webKey}
             ref={webRef}
             originWhitelist={['*']}
             source={{ html }}
@@ -160,10 +172,12 @@ export function DroneDashboardGlobe({ onGrab, onTap }: { onGrab?: (grabbing: boo
             scrollEnabled={false}
             bounces={false}
             androidLayerType="hardware"
-            onLoadEnd={() => { ready.current = true; }}
+            onLoadEnd={() => { ready.current = true; if (webKey > 0) pushUpdate(); }}
+            onContentProcessDidTerminate={restart}
             onMessage={(e) => {
               const d = e.nativeEvent.data;
-              if (d === 'grab') onGrab?.(true);
+              if (d === 'gl-lost') restart();
+              else if (d === 'grab') onGrab?.(true);
               else if (d === 'release') onGrab?.(false);
               else if (d === 'tap') onTap?.();
             }}

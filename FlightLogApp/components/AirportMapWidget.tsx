@@ -14,7 +14,8 @@ import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '.
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
 import { topCountryThumb } from '../utils/thumbRegion';
-import { AirportInfoCard } from './AirportInfoCard';
+import { AirportInfoCard, MetarPopup } from './AirportInfoCard';
+import type { AirportMetar } from '../services/weather';
 import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
@@ -158,6 +159,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedAirport, setSelectedAirport] = useState<string | null>(null);
+  const [metarPopup, setMetarPopup] = useState<AirportMetar | null>(null); // väderrutan som overlay över kartan
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlight, setLastFlight] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [satellite, setSatellite] = useState(false); // kartläge (standard) förvalt
@@ -338,7 +340,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
       <Modal
         visible={modalVisible}
         animationType="slide"
-        onRequestClose={() => { setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); }}
+        onRequestClose={() => { setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); setMetarPopup(null); }}
       >
         <View style={styles.modal}>
           {(() => {
@@ -385,11 +387,13 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   name={ap?.name}
                   landingCount={count}
                   lastText={lf ? fmtVisit(lf.date) : fmtVisit(ap?.visitDate)}
+                  // Kartan glider undan först: en Modal som stängs samtidigt som en ny skärm öppnas kan låsa iOS.
                   onLastPress={lf ? () => {
-                    setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null);
-                    router.push(`/flight/detail/${lf.id}` as any);
+                    setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); setMetarPopup(null);
+                    setTimeout(() => router.push(`/flight/detail/${lf.id}` as any), 450);
                   } : undefined}
-                  onClose={() => setSelectedAirport(null)}
+                  onOpenMetar={setMetarPopup}
+                  onClose={() => { setSelectedAirport(null); setMetarPopup(null); }}
                 />
               </View>
             );
@@ -470,11 +474,14 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           {/* Close button */}
           <TouchableOpacity
             style={[styles.closeBtn, { top: insets.top + 12 }]}
-            onPress={() => { setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); }}
+            onPress={() => { setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); setMetarPopup(null); }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
+
+          {/* METAR från flygplatskortet: overlay, ingen Modal ovanpå kartan (den slutar annars svara). */}
+          {metarPopup && <MetarPopup metar={metarPopup} onClose={() => setMetarPopup(null)} />}
         </View>
 
         {/* Datum-väljare för Custom-period (från-datum fram till idag) */}

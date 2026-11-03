@@ -137,6 +137,9 @@ function buildHtml(assets: GlobeAssets, rings: Ring[], arcs: Arc[], heat: Heat[]
     // Enkel-tap → öppna kart-val-menyn i RN. Dubbel-tap → cykla effekt manuellt (utöver auto var 15:e s).
     // Enkel-tappen fördröjs 340 ms för att kunna skiljas från en dubbel-tap.
     function post(m){ try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(m); } catch(e){} }
+    // iOS kan ta tillbaka grafiken (WebGL) i bakgrunden eller vid minnesbrist. three.js återhämtar sig inte
+    // själv, så globen står still. Säg till RN, som laddar om den.
+    try { world.renderer().domElement.addEventListener('webglcontextlost', function(e){ e.preventDefault(); post('gl-lost'); }, false); } catch(e){}
     var sX = 0, sY = 0, sT = 0, lastTap = 0, tapTimer = null;
     document.addEventListener('touchstart', function(e){
       post('grab');
@@ -239,6 +242,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
   const flightCount = useFlightStore((st) => st.flightCount); // ändras när flighter läggs till/tas bort
   const webRef = useRef<any>(null); // WebView-instans (injectJavaScript)
   const ready = useRef(false); // WebViewn har laddat klart → säkert att injicera
+  const [webKey, setWebKey] = useState(0); // räknas upp när globen startas om (se restart)
   const [initial, setInitial] = useState<{ rings: Ring[]; arcs: Arc[]; heat: Heat[] } | null>(null);
   const assets = useGlobeAssets();
 
@@ -276,6 +280,15 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
   );
   useFocusEffect(useCallback(() => { pushUpdate(); }, [pushUpdate]));
 
+  // iOS stänger WebViewns process vid minnesbrist (t.ex. med satellitkartan öppen) eller tar tillbaka
+  // grafiken i bakgrunden. Då står globen still och svarar inte på svep tills appen startas om. Ladda om den
+  // i stället, och släpp sid-scrollen (ett "release" från en död process kommer aldrig).
+  const restart = useCallback(() => {
+    ready.current = false;
+    onGrab?.(false);
+    setWebKey((k) => k + 1);
+  }, [onGrab]);
+
   return (
     // Sektionen reserverar bara visibleH i scroll-flödet; själva canvasen är absolut placerad och
     // större → globen bleeder ut över kanterna (bakgrundskänsla) utan att sträcka layouten.
@@ -283,6 +296,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
       {html ? (
         <View style={{ position: 'absolute', left, top, width: canvas, height: canvas }}>
           <WebView
+            key={webKey}
             ref={webRef}
             originWhitelist={['*']}
             source={{ html }}
@@ -292,10 +306,13 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
             scrollEnabled={false}
             bounces={false}
             androidLayerType="hardware"
-            onLoadEnd={() => { ready.current = true; }}
+            // Efter en omstart har HTML:en den första datan: hämta det senaste.
+            onLoadEnd={() => { ready.current = true; if (webKey > 0) pushUpdate(); }}
+            onContentProcessDidTerminate={restart}
             onMessage={(e) => {
               const d = e.nativeEvent.data;
-              if (d === 'grab') onGrab?.(true);
+              if (d === 'gl-lost') restart();
+              else if (d === 'grab') onGrab?.(true);
               else if (d === 'release') onGrab?.(false);
               else if (d.indexOf('radius:') === 0) {
                 const r = parseFloat(d.slice(7));

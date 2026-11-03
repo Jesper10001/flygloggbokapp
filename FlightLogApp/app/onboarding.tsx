@@ -358,9 +358,9 @@ export default function OnboardingScreen() {
                 subtitle={sv ? 'Namn för din loggbok och export.' : 'Name for your logbook and exports.'} />
 
               <ScrollView style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-                <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Jesper' : 'e.g. John'} />
-                <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Toreld' : 'e.g. Doe'} />
-                <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. JT' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />
+                <Field label={sv ? 'Förnamn' : 'First name'} value={firstName} onChangeText={setFirstName} placeholder={sv ? 'T.ex. Anna' : 'e.g. John'} />
+                <Field label={sv ? 'Efternamn' : 'Last name'} value={lastName} onChangeText={setLastName} placeholder={sv ? 'T.ex. Andersson' : 'e.g. Doe'} />
+                <Field label={sv ? 'Initialer' : 'Initials'} value={initials} onChangeText={setInitials} placeholder={sv ? 'T.ex. AA' : 'e.g. JD'} maxLength={3} autoCapitalize="characters" />
                 {/* Legitimation/credentials-fält borttaget inför lansering. */}
                 {/* Operatörs-ID (drönare) — flyttat hit från eget steg, ovanför Pilot signature. */}
                 {mainRole === 'pilot-unmanned' && (

@@ -42,7 +42,6 @@ import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } f
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
 import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
-import { AppVariantRow } from '../../components/settings/AppVariantRow';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
@@ -967,7 +966,7 @@ export default function SettingsScreen() {
       </Card>
       )}
 
-      {/* Byt hela loggboken — LOGBOOK-rad med PILOT|DRONE-toggle (handoff B4). Stannar kvar på Settings. */}
+      {/* Byt hela loggboken (PILOT|DRONE, stannar kvar på Settings) och appvariant (EXTENSIVE|ESSENTIAL) i ett kort. */}
       <ModeToggleRow
         mode={isDrone ? 'drone' : 'manned'}
         onConfirmSwitch={(target) => {
@@ -980,7 +979,6 @@ export default function SettingsScreen() {
           }
         }}
       />
-      <AppVariantRow />
 
       {/* Blades introduction — diskret textlänk (handoff B4). */}
       <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>

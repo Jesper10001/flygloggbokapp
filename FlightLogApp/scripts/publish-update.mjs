@@ -8,10 +8,12 @@
 //         Bygger inget nytt. Körs bara när du sagt "publicera".
 //   node scripts/publish-update.mjs preview "…" --dry-run
 //       → exporterar och kontrollerar paketet, men laddar inte upp.
-//   node scripts/publish-update.mjs preview "…" --notes "Fixed: …|Improved: …"
-//       → vad som är nytt, på engelska, för "Blades was updated"-popupen (UpdateAppliedModal). Raderna skiljs med |
-//         och börjar med New:, Fixed: eller Improved: som App Store-texten. Följer med när paketet flyttas till
-//         production, så skriv för användarna.
+//   Vad som är nytt ("Blades was updated"-popupen, UpdateAppliedModal) står i constants/updateNotes.json: en ny
+//   post överst (id +1) per uppdatering, committad med koden, med bara den uppdateringens egna ändringar på engelska.
+//   Popupen visar posterna sedan användaren senast såg den, så den som hoppat över några får de största.
+//   Följer med när paketet flyttas till production, så skriv för användarna.
+//   node scripts/publish-update.mjs preview "…" --no-notes
+//       → en tyst rättning utan ny post (popupen visar då bara rubriken).
 //
 // Säkerhet:
 //  • .env läses aldrig (EXPO_NO_DOTENV=1) — där ligger utvecklarnycklar som aldrig får hamna i appen.
@@ -26,9 +28,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dryRun = process.argv.includes('--dry-run'); // exportera och kontrollera, men ladda inte upp
-const args = process.argv.slice(2).filter((a) => a !== '--dry-run');
-const notesAt = args.indexOf('--notes');
-const notes = notesAt >= 0 ? (args.splice(notesAt, 2)[1] ?? '').split('|').map((l) => l.trim()).filter(Boolean).join('\n') : '';
+const noNotes = process.argv.includes('--no-notes');
+if (process.argv.includes('--notes')) {
+  console.error('--notes används inte längre: lägg raderna som en ny post överst i constants/updateNotes.json (id +1) och committa.');
+  process.exit(2);
+}
+const args = process.argv.slice(2).filter((a) => a !== '--dry-run' && a !== '--no-notes');
 const [target, ...rest] = args;
 const message = rest.join(' ').trim();
 const usage = () => {
@@ -54,13 +59,32 @@ const eas = JSON.parse(readFileSync(path.join(root, 'eas.json'), 'utf8'));
 const buildEnv = eas.build?.production?.env ?? {};
 const env = { ...process.env, ...buildEnv, EXPO_NO_DOTENV: '1', NODE_ENV: 'production' };
 for (const k of Object.keys(env)) if (k.startsWith('EXPO_PUBLIC_') && !(k in buildEnv)) delete env[k];
-// Popupen "Blades was updated" visar de här raderna (tom = bara rubriken).
-env.EXPO_PUBLIC_UPDATE_NOTES = notes;
+
+// Popupens rader: constants/updateNotes.json. Varje post ska ha ett eget id och märkta rader.
+const notesData = JSON.parse(readFileSync(path.join(root, 'constants', 'updateNotes.json'), 'utf8'));
+const entries = notesData.updates ?? [];
+const notesProblem = entries.find((e, i) => !Number.isInteger(e.id) || e.id < 1 || (i > 0 && e.id >= entries[i - 1].id)
+  || !Array.isArray(e.notes) || !e.notes.length || e.notes.some((l) => typeof l !== 'string' || !/^(New|Improved|Fixed):\s\S/.test(l)));
+if (notesProblem) {
+  console.error(`\nAvbrutet: constants/updateNotes.json, post ${notesProblem.id ?? '?'}: id:n ska minska nedåt i listan och varje rad börja med New:, Improved: eller Fixed:.`);
+  process.exit(1);
+}
+const newest = entries[0];
+// Förra uppdateringens post står i dess meddelande ("[notes N]"). Samma post igen = ingen ny post skrevs.
+const listed = spawnSync('npx', ['eas-cli', 'update:list', '--branch', 'preview', '--limit', '1', '--json', '--non-interactive'], { cwd: root, encoding: 'utf8' });
+const lastNotes = Number((listed.stdout ?? '').match(/\[notes (\d+)\]/)?.[1] ?? 0);
+if (!noNotes && (!newest || newest.id <= lastNotes)) {
+  console.error(`\nAvbrutet: ingen ny post i constants/updateNotes.json sedan förra uppdateringen (post ${lastNotes}). Lägg till en överst (id ${lastNotes + 1}) och committa, eller kör med --no-notes för en tyst rättning.`);
+  process.exit(1);
+}
+const notes = !noNotes && newest ? newest.notes : [];
+const publishMessage = newest ? `${message} [notes ${newest.id}]` : message;
+console.log(notes.length ? `Popupen visar (post ${newest.id}):\n  ${notes.join('\n  ')}` : 'Ingen ny post: popupen visar bara rubriken.');
 
 const out = path.join(root, 'dist-update');
 rmSync(out, { recursive: true, force: true });
 // --clear: Metros cache minns EXPO_PUBLIC_-värden från förra exporten (eller dev-servern), så utan den kan
-// gamla --notes eller fel miljö följa med.
+// fel miljö följa med.
 run(['expo', 'export', '--platform', 'ios', '--output-dir', out, '--source-maps', '--clear'], env);
 
 // Kontroll av paketet innan uppladdning.
@@ -113,14 +137,14 @@ if (leaks.length) {
 }
 const host = (u) => { try { return new URL(u).host; } catch { return ''; } };
 const expected = [
-  [host(buildEnv.EXPO_PUBLIC_PROXY_URL), 'proxyadressen'],
-  [buildEnv.EXPO_PUBLIC_REVENUECAT_IOS_KEY, 'RevenueCat-nyckeln'],
-  [host(buildEnv.EXPO_PUBLIC_SENTRY_DSN), 'Sentry-adressen'],
-  ...(notes ? [[notes.split('\n')[0], 'raderna från --notes']] : []),
+  [host(buildEnv.EXPO_PUBLIC_PROXY_URL), 'proxyadressen ur eas.json'],
+  [buildEnv.EXPO_PUBLIC_REVENUECAT_IOS_KEY, 'RevenueCat-nyckeln ur eas.json'],
+  [host(buildEnv.EXPO_PUBLIC_SENTRY_DSN), 'Sentry-adressen ur eas.json'],
+  ...(notes.length ? [[notes[0], 'raderna ur constants/updateNotes.json']] : []),
 ].filter(([v]) => !v || !text.includes(v));
 if (expected.length) {
   rmSync(out, { recursive: true, force: true });
-  console.error(`\nAvbrutet: paketet saknar ${expected.map(([, what]) => what).join(', ')} från eas.json. Inget har laddats upp.`);
+  console.error(`\nAvbrutet: paketet saknar ${expected.map(([, what]) => what).join(", ")}. Inget har laddats upp.`);
   process.exit(1);
 }
 console.log(`\nKontroll OK: ${bundles.length} paket och ${maps.length} källkartor, inga nycklar, produktionsvärdena finns med.`);
@@ -132,7 +156,7 @@ if (dryRun) {
 
 // --environment krävs av nyare eas-cli. Paketet är redan byggt (--skip-bundler), så miljön ändrar inget i det;
 // production är samma miljö som TestFlight- och App Store-bygget.
-run(['eas-cli', 'update', '--branch', 'preview', '--message', message, '--platform', 'ios', '--environment', 'production',
+run(['eas-cli', 'update', '--branch', 'preview', '--message', publishMessage, '--platform', 'ios', '--environment', 'production',
   '--skip-bundler', '--input-dir', out, '--non-interactive'], env);
 
 // Källkartor till Sentry, så att en krasch i uppdateringen visar fil och rad. Uppdateringen är redan publicerad,

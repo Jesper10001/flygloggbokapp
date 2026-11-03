@@ -2,8 +2,10 @@
 // ICAO + namn (till höger, radbryts) + IATA·höjd·typ + frekvenser, och LANDINGS/LAST under.
 // Under ICAO en väder-molnsymbol — visas BARA om flygplatsen har EGEN METAR; klick → METAR-popup
 // (Decoded/Raw-toggle). Baninfo visas inte här (banor ritas på kartan).
+// På kartorna (Visited airports, Global map) visar föräldern METAR-rutan som overlay (MetarPopup via
+// onOpenMetar): en native Modal ovanpå kartans Modal gör att Apple-kartan slutar svara på iOS.
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { getAirportFreq } from '../constants/airportFreq';
@@ -25,7 +27,7 @@ function flagEmoji(cc?: string | null): string {
   return String.fromCodePoint(...[...c].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
-export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, freqStats, onMetar }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, freqStats, onMetar, onOpenMetar }: {
   icao: string;
   name?: string;
   country?: string | null;    // ISO alpha-2 landskod → flagga under ICAO
@@ -41,6 +43,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
   onToggleFavorite?: () => void;
   freqStats?: boolean;        // Find airport: dölj iata·höjd·typ-metan, visa frekvenser som stora staplade kolumner
   onMetar?: (m: AirportMetar | null) => void; // rapporterar hämtad METAR uppåt (t.ex. vind → aktiv bana i snippeten)
+  onOpenMetar?: (m: AirportMetar) => void;    // satt → föräldern visar METAR-rutan (MetarPopup) i stället för en egen Modal
 }) {
   const meta = [iata || null, alt != null ? `${alt} ft` : null, type ? (TYPE_LABEL[type] || type) : null].filter(Boolean).join('  ·  ');
   const showLandings = landingCount !== undefined;
@@ -59,10 +62,14 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
   const [metar, setMetar] = useState<AirportMetar | null>(null);
   const [metarLoading, setMetarLoading] = useState(true);
   const [wxOpen, setWxOpen] = useState(false);
-  const [view, setView] = useState<'decoded' | 'raw'>('decoded');
+  const openMetar = () => {
+    if (!metar) return;
+    if (onOpenMetar) onOpenMetar(metar);
+    else setWxOpen(true);
+  };
   useEffect(() => {
     let alive = true;
-    setMetar(null); setWxOpen(false); setView('decoded'); setMetarLoading(true);
+    setMetar(null); setWxOpen(false); setMetarLoading(true);
     onMetar?.(null); // nollställ tills ny hämtats (t.ex. banhighlight)
     fetchAirportMetar(icao)
       .then((r) => { if (alive) { setMetar(r); setMetarLoading(false); onMetar?.(r); } })
@@ -87,7 +94,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
           <Text style={{ color: accent, fontSize: 22, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 1 }}>{icao}</Text>
           {!!flag && <Text style={{ fontSize: 20, marginTop: 3 }}>{flag}</Text>}
           {!freqStats && metar && (
-            <TouchableOpacity onPress={() => setWxOpen(true)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 6 }}>
+            <TouchableOpacity onPress={openMetar} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 6 }}>
               <Ionicons name="partly-sunny-outline" size={29} color={accent} />
             </TouchableOpacity>
           )}
@@ -110,7 +117,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
               metarLoading ? (
                 <Text style={{ color: Colors.textMuted, fontSize: 11.5, fontWeight: '600', marginTop: 5, fontFamily: 'ChakraPetch-SemiBold' }}>Fetching weather{dots}</Text>
               ) : metar ? (
-                <TouchableOpacity activeOpacity={0.7} onPress={() => setWxOpen(true)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 5 }}>
+                <TouchableOpacity activeOpacity={0.7} onPress={openMetar} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 5 }}>
                   {metar.category && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: categoryColor(metar.category), marginTop: 4 }} />}
                   <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 11.5, fontWeight: '600', lineHeight: 16 }}>{metar.brief}</Text>
                 </TouchableOpacity>
@@ -186,40 +193,57 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
         </TouchableOpacity>
       )}
 
-      {/* METAR-popup (moln-klick) — liten ruta, Decoded/Raw-toggle */}
-      {metar && (
+      {/* METAR-popup (moln-klick) som egen Modal, bara där kortet inte ligger på en karta (Find airport). */}
+      {metar && !onOpenMetar && (
         <Modal visible={wxOpen} transparent animationType="fade" onRequestClose={() => setWxOpen(false)}>
-          <Pressable onPress={() => setWxOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 340, backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' }}>
-              {/* header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
-                {metar.category && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: categoryColor(metar.category) }} />}
-                <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.5 }}>METAR {metar.icao}</Text>
-                {!!metar.timeZ && <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] }}>{metar.timeZ}</Text>}
-                <View style={{ flex: 1 }} />
-                <TouchableOpacity onPress={() => setWxOpen(false)} hitSlop={10}><Ionicons name="close" size={18} color={Colors.textSecondary} /></TouchableOpacity>
-              </View>
-              {/* Decoded / Raw */}
-              <View style={{ flexDirection: 'row', alignSelf: 'flex-start', marginHorizontal: 14, marginTop: 12, backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 3 }}>
-                {(['decoded', 'raw'] as const).map((m) => (
-                  <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)}
-                    style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 7, backgroundColor: view === m ? accent : 'transparent' }}>
-                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: view === m ? Colors.textInverse : Colors.textSecondary }}>{m === 'decoded' ? 'Decoded' : 'Raw'}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {/* body */}
-              <ScrollView style={{ maxHeight: 240 }} contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 12 }}>
-                <Text style={view === 'raw'
-                  ? { fontFamily: 'JetBrainsMono', fontSize: 12.5, color: Colors.textSecondary, lineHeight: 19 }
-                  : { fontSize: 14, color: Colors.textPrimary, lineHeight: 21 }}>
-                  {view === 'decoded' ? metar.text : (metar.raw || metar.text)}
-                </Text>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
+          <MetarSheet metar={metar} accent={accent} onClose={() => setWxOpen(false)} />
         </Modal>
       )}
     </View>
+  );
+}
+
+/** METAR-rutan som overlay över hela föräldern (kartornas Modal), utan någon egen native Modal. */
+export function MetarPopup({ metar, accent = Colors.info, onClose }: { metar: AirportMetar; accent?: string; onClose: () => void }) {
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 90 }]}>
+      <MetarSheet metar={metar} accent={accent} onClose={onClose} />
+    </View>
+  );
+}
+
+// Liten ruta med Decoded/Raw-toggle, mörk bakgrund runt om (tryck utanför stänger).
+function MetarSheet({ metar, accent, onClose }: { metar: AirportMetar; accent: string; onClose: () => void }) {
+  const [view, setView] = useState<'decoded' | 'raw'>('decoded');
+  return (
+    <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 340, backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' }}>
+        {/* header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
+          {metar.category && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: categoryColor(metar.category) }} />}
+          <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.5 }}>METAR {metar.icao}</Text>
+          {!!metar.timeZ && <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] }}>{metar.timeZ}</Text>}
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={onClose} hitSlop={10}><Ionicons name="close" size={18} color={Colors.textSecondary} /></TouchableOpacity>
+        </View>
+        {/* Decoded / Raw */}
+        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', marginHorizontal: 14, marginTop: 12, backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 3 }}>
+          {(['decoded', 'raw'] as const).map((m) => (
+            <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)}
+              style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 7, backgroundColor: view === m ? accent : 'transparent' }}>
+              <Text style={{ fontSize: 12.5, fontWeight: '700', color: view === m ? Colors.textInverse : Colors.textSecondary }}>{m === 'decoded' ? 'Decoded' : 'Raw'}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* body */}
+        <ScrollView style={{ maxHeight: 240 }} contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+          <Text style={view === 'raw'
+            ? { fontFamily: 'JetBrainsMono', fontSize: 12.5, color: Colors.textSecondary, lineHeight: 19 }
+            : { fontSize: 14, color: Colors.textPrimary, lineHeight: 21 }}>
+            {view === 'decoded' ? metar.text : (metar.raw || metar.text)}
+          </Text>
+        </ScrollView>
+      </Pressable>
+    </Pressable>
   );
 }

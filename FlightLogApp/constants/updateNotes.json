@@ -1,0 +1,14 @@
+{
+  "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
+  "updates": [
+    {
+      "id": 1,
+      "date": "2026-11-03",
+      "notes": [
+        "Fixed: The maps no longer stop responding after you open an airport's weather.",
+        "Fixed: The globe on the dashboard comes back by itself if it stops moving.",
+        "Improved: This message now only shows what's new since your last update."
+      ]
+    }
+  ]
+}

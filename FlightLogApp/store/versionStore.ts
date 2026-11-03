@@ -33,7 +33,7 @@ const DEV_EXAMPLE_NOTES = [
 ].join('\n');
 
 const HIGHLIGHT = /^(new|fixed|fix|improved|improvement)\s*[:–-]\s*/i;
-const POPUP_MAX = 3; // popupen visar bara det viktigaste
+export const POPUP_MAX = 3; // popupen visar bara det viktigaste
 
 /** En rad under "What's new" i uppdateringspopupen. */
 export interface ReleaseNote {
@@ -45,14 +45,15 @@ export interface ReleaseNote {
 // Bara det väsentligaste visas: finns rader som börjar med "New:", "Fixed:" eller "Improved:" är det de
 // (högst 3, i den ordning de står) — övriga rader står kvar i App Store men räknas bara som "and more".
 // Saknas sådana rader visas de 3 första. more = det finns fler rader än popupen visar.
-export function parseReleaseNotes(raw: unknown): { notes: ReleaseNote[]; more: boolean } {
+// max: hur många rader som tas med (services/updateNotes.ts tar alla och väljer själv).
+export function parseReleaseNotes(raw: unknown, max = POPUP_MAX): { notes: ReleaseNote[]; more: boolean } {
   const text = Array.isArray(raw) ? raw.join('\n') : typeof raw === 'string' ? raw : '';
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:[•●▪◦*–-]|\d+[.)])\s*/, '').trim())
     .filter((l) => l.length > 2);
   const tagged = lines.filter((l) => HIGHLIGHT.test(l));
-  const notes = (tagged.length ? tagged : lines).slice(0, POPUP_MAX).map((l): ReleaseNote => {
+  const notes = (tagged.length ? tagged : lines).slice(0, max).map((l): ReleaseNote => {
     const m = l.match(HIGHLIGHT);
     const word = (m?.[1] ?? l.split(/\s/)[0]).toLowerCase();
     const kind: ReleaseNote['kind'] = /^(new|added|introducing)/.test(word) ? 'new' : /^fix/.test(word) ? 'fix'

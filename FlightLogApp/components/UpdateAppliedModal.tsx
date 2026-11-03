@@ -1,8 +1,8 @@
 // "Blades was updated"-popupen: visas en gång när appen startat med en ny EAS Update (rättningar utan App Store).
 // Samma utseende som "Update available" (UpdateAvailableModal, förlagan som lämnas orörd) via GlassDialog, men
-// inget att göra: uppdateringen är redan installerad. Vad som är nytt bakas in i paketet när det publiceras
-// (scripts/publish-update.mjs --notes "Fixed: …|Improved: …" → EXPO_PUBLIC_UPDATE_NOTES), med samma radformat
-// som App Store-texten. Utan noter visas bara rubriken och brödtexten.
+// inget att göra: uppdateringen är redan installerad. Vad som är nytt står i constants/updateNotes.json, en post
+// per uppdatering, och bara posterna sedan popupen senast visades tas med (services/updateNotes.ts). Utan nya
+// poster visas bara rubriken och brödtexten.
 
 import { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
@@ -11,11 +11,13 @@ import { create } from 'zustand';
 import { Colors } from '../constants/colors';
 import { GlassDialog } from './GlassDialog';
 import { getSetting, setSetting } from '../db/flights';
-import { parseReleaseNotes, useVersionStore, type ReleaseNote } from '../store/versionStore';
+import { useVersionStore, type ReleaseNote } from '../store/versionStore';
+import { NOTES_ID, PREVIOUS_NOTES_ID, notesSince } from '../services/updateNotes';
 import { useTourStore } from '../store/tourStore';
 
 const APP_ICON = require('../assets/applogo-cyanonnavy.png');
 const SEEN_KEY = 'last_seen_update_id';
+const NOTES_KEY = 'last_seen_update_notes'; // senaste posten i constants/updateNotes.json som användaren redan har
 const KIND_LABEL: Record<ReleaseNote['kind'], string> = { new: 'New', fix: 'Fixed', improved: 'Improved', other: '' };
 
 // Rutan är öppen: "Update ready" (UpdateDownloadBanner) väntar tills den stängts. Händer när ännu en rättning
@@ -32,21 +34,37 @@ export function UpdateAppliedModal() {
   const tourActive = useTourStore((st) => st.active || !!st.promptMode);
   // Väntar till App Store-popupen är borta, så att två rutor aldrig ligger på varandra.
   const storeUpdate = useVersionStore((st) => st.updateAvailable || st.forceUpdate);
-  const [updateId, setUpdateId] = useState<string | null>(null);
+  const [shown, setShown] = useState<{ updateId: string; notes: ReleaseNote[]; more: boolean } | null>(null);
 
   useEffect(() => {
-    const id = runningUpdateId();
-    if (!id) return;
-    getSetting(SEEN_KEY).then((seen) => { if (seen !== id) setUpdateId(id); }).catch(() => {});
+    if (__DEV__ || !Updates.isEnabled) return;
+    (async () => {
+      const raw = await getSetting(NOTES_KEY);
+      const since = raw && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      const id = runningUpdateId();
+      // Bygget självt (App Store eller TestFlight): allt i listan följer med det, och App Store visar What's New.
+      if (!id) {
+        if (since == null || since < NOTES_ID) await setSetting(NOTES_KEY, String(NOTES_ID));
+        return;
+      }
+      const seen = await getSetting(SEEN_KEY);
+      if (seen === id) return;
+      // Inget sparat (appen hade koden före listan): har en popup visats förut är bara den senaste posten ny.
+      setShown({ updateId: id, ...notesSince(since ?? (seen ? PREVIOUS_NOTES_ID : null)) });
+    })().catch(() => {});
   }, []);
 
   const close = () => {
-    if (updateId) setSetting(SEEN_KEY, updateId).catch(() => {});
-    setUpdateId(null);
+    if (shown) {
+      setSetting(SEEN_KEY, shown.updateId).catch(() => {});
+      setSetting(NOTES_KEY, String(NOTES_ID)).catch(() => {});
+    }
+    setShown(null);
   };
 
-  const { notes, more } = parseReleaseNotes(process.env.EXPO_PUBLIC_UPDATE_NOTES ?? '');
-  const visible = !!updateId && !tourActive && !storeUpdate;
+  const notes = shown?.notes ?? [];
+  const more = shown?.more ?? false;
+  const visible = !!shown && !tourActive && !storeUpdate;
   useEffect(() => {
     useUpdateAppliedOpen.setState({ open: visible });
     return () => useUpdateAppliedOpen.setState({ open: false }); // skärmen kan lämnas medan rutan är öppen

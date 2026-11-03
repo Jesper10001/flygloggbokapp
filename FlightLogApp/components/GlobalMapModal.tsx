@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
-import { AirportInfoCard } from './AirportInfoCard';
+import { AirportInfoCard, MetarPopup } from './AirportInfoCard';
 import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
@@ -120,6 +120,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [mapSearch, setMapSearch] = useState('');
   const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null);
+  const [metarPopup, setMetarPopup] = useState<AirportMetar | null>(null); // väderrutan som overlay över kartan
+  useEffect(() => { setMetarPopup(null); }, [focusAirport]);
   const [flyTo, setFlyTo] = useState(false);               // "Fly to XXXX" → plan-overlay (rutt/distans/förbrukning)
   const [flyToFrozen, setFlyToFrozen] = useState(false);   // fryser snippet-markörerna strax före avmontering (ingen kart-krasch)
   const [flyToMetar, setFlyToMetar] = useState<AirportMetar | null>(null); // vind från kortet → aktiv bana i snippeten
@@ -990,6 +992,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 lastText={lf ? fmtVisit(lf.date) : undefined}
                 onLastPress={lf ? () => setDetailFlightId(lf.id) : undefined}
                 onClose={() => setFocusAirport(null)}
+                onOpenMetar={setMetarPopup}
                 isFavorite={favorites.has(focusAirport[0])}
                 onToggleFavorite={() => toggleFavorite(focusAirport[0])}
               />
@@ -1015,6 +1018,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   accent={Colors.primary}
                   onClose={closeFlyTo}
                   onMetar={setFlyToMetar}
+                  onOpenMetar={setMetarPopup}
                   freqStats
                 />
                 <AirportNavPanel
@@ -1046,10 +1050,14 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             <FlightDetailView
               id={detailFlightId}
               onBack={() => setDetailFlightId(null)}
-              onEdit={(fid) => { setDetailFlightId(null); closeMap(); router.push(`/flight/add?editId=${fid}` as any); }}
+              // Kartan glider undan först: en Modal som stängs samtidigt som en ny skärm öppnas kan låsa iOS.
+              onEdit={(fid) => { setDetailFlightId(null); closeMap(); setTimeout(() => router.push(`/flight/add?editId=${fid}` as any), 450); }}
             />
           </View>
         )}
+
+        {/* METAR från flygplatskortet: overlay överst, ingen Modal ovanpå kartan (den slutar annars svara). */}
+        {metarPopup && <MetarPopup metar={metarPopup} accent={flyTo ? Colors.primary : Colors.info} onClose={() => setMetarPopup(null)} />}
       </View>
     </Modal>
   );

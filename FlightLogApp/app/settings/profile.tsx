@@ -15,7 +15,7 @@ const FIELDS = [
   { key: 'profile_initials', label: 'initials', placeholder: 'JS', maxLength: 4 },
   { key: 'profile_email', label: 'email', placeholder: 'name@example.com', optional: true, keyboardType: 'email-address' as const },
   { key: 'profile_phone', label: 'phone', placeholder: '+46 70 123 45 67', optional: true, keyboardType: 'phone-pad' as const },
-  { key: 'profile_company', label: 'company', placeholder: 'Scandinavian Helicopter AB', optional: true },
+  { key: 'profile_company', label: 'company', placeholder: 'Your workplace', optional: true },
   { key: 'profile_title', label: 'job_title', placeholder: 'Airline pilot', optional: true },
 ] as const;
 
@@ -41,10 +41,6 @@ export default function ProfileScreen() {
     })();
   }, []);
 
-  const initials = form.profile_initials
-    || `${(form.profile_first_name ?? '')[0] ?? ''}${(form.profile_last_name ?? '')[0] ?? ''}`.toUpperCase()
-    || '?';
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -69,18 +65,6 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Avatar preview */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <Text style={styles.avatarName}>
-            {form.profile_first_name || form.profile_last_name
-              ? `${form.profile_first_name ?? ''} ${form.profile_last_name ?? ''}`.trim()
-              : t('your_name')}
-          </Text>
-        </View>
-
         {/* Grunddata */}
         <Text style={styles.sectionHeader}>{t('profile_basic')}</Text>
         <View style={styles.card}>
@@ -162,17 +146,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-
-  avatarSection: { alignItems: 'center', marginBottom: 24 },
-  avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarText: { fontSize: 28, fontWeight: '800', color: Colors.textInverse, letterSpacing: -0.5 },
-  avatarName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },
-  avatarSub: { fontSize: 12, color: Colors.textMuted, marginTop: 4 },
 
   sectionHeader: {
     fontSize: 11, fontWeight: '700', color: Colors.textMuted,
