@@ -82,16 +82,18 @@ export default function PhotoSyncScreen() {
   const W = Dimensions.get('window').width;
   const thumb = Math.floor((W - 32 - 16) / 3); // 3 kolumner, 16px padding + 8px gaps
 
-  // Förladda nästa flights bilder medan användaren granskar aktuell.
-  useEffect(() => {
-    const next = matches[index + 1];
-    if (next) next.assets.slice(0, 9).forEach((a) => { Image.prefetch(a.uri).catch(() => {}); });
-  }, [index, matches]);
+  // Ingen förladdning av nästa flygning: Image.prefetch av ph:// hämtar bilden i full storlek (från iCloud över
+  // mobilnätet), och det köade rutorna man faktiskt tittar på. Rutorna hämtar en liten miniatyr när de visas.
 
-  // Lös upp AKTUELL flights bild-uri:er till file:// (bara ph:// blir svart i dev). Bara nuvarande
-  // flight (få kandidater) → snabbt. Video hoppas över (ingen frame här).
+  // Rutorna som visar sin bild (snurra tills dess).
+  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
+  useEffect(() => { setLoaded({}); }, [cur]);
+
+  // Lös upp AKTUELL flights bild-uri:er till file://, bara i dev-bygget där ph:// blir svart. I App Store- och
+  // TestFlight-bygget laddade det ner varje originalfoto från iCloud, så där används Photos egen miniatyr.
+  // Video hoppas över (ingen frame här).
   useEffect(() => {
-    if (!cur) return;
+    if (!cur || !__DEV__) return;
     let alive = true;
     setResolvedUris({});
     (async () => {
@@ -299,7 +301,16 @@ export default function PhotoSyncScreen() {
             return (
               <TouchableOpacity key={a.id} activeOpacity={0.75} onPress={() => link(a.id)}
                 style={{ width: thumb, height: thumb, borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.elevated }}>
-                <Image source={{ uri: resolvedUris[a.id] ?? a.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                {/* Miniatyren via Photos (ph:// + id): rätt storlek för rutan, även för videor. a.uri kan vara själva
+                    videofilen (återupptagen granskning), och den kan Image inte rita → tom ruta. */}
+                <Image source={{ uri: resolvedUris[a.id] ?? `ph://${a.id}` }} style={{ width: '100%', height: '100%' }} resizeMode="cover"
+                  onLoad={() => setLoaded((m) => (m[a.id] ? m : { ...m, [a.id]: true }))}
+                  onError={() => setLoaded((m) => (m[a.id] ? m : { ...m, [a.id]: true }))} />
+                {!loaded[a.id] && (
+                  <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator color={Colors.textMuted} />
+                  </View>
+                )}
                 {/* Förhandsgranska (fångar trycket → kopplar ej) */}
                 <TouchableOpacity onPress={() => openPreview(a)} hitSlop={8}
                   style={{ position: 'absolute', top: 4, left: 4, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}>
