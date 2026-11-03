@@ -1,3 +1,4 @@
+import { SCAN_OPEN } from '../../store/scanStore';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
@@ -41,6 +42,7 @@ import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } f
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
 import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
+import { AppVariantRow } from '../../components/settings/AppVariantRow';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
@@ -194,10 +196,6 @@ function CollapsibleSectionHeader({
     </TouchableOpacity>
   );
 }
-
-// Skanningen av pappersloggboken är pausad i riktiga byggen ("coming soon") men öppen i dev-builden medan
-// den byggs om. __DEV__ är alltid false i TestFlight/App Store. Byt till true när den ska lanseras.
-const SCAN_OPEN = __DEV__;
 
 // ── Huvudskärm ─────────────────────────────────────────────────────────────
 
@@ -982,6 +980,7 @@ export default function SettingsScreen() {
           }
         }}
       />
+      <AppVariantRow />
 
       {/* Blades introduction — diskret textlänk (handoff B4). */}
       <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>

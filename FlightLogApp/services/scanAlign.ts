@@ -556,3 +556,147 @@ export function crossCheckCounts(
   }
   return out;
 }
+
+// ── Bokens kolumner: samma tryck på varje uppslag ────────────────────────────────────────────────────────────
+// Varje uppslag läses för sig, och Claude uppskattar kolumnernas lägen på nytt varje gång. Ibland anges de i
+// procent av en sida i stället för hela uppslaget (kolumnerna blir utdragna eller hoptryckta). Men de tryckta
+// kolumnerna är desamma i hela boken; bara fotot skiljer (förskjutning och skala, per sida av uppslaget).
+// Därför: kolumnerna från uppslaget som stämmer bäst med bilden blir bokens mall, och mallen läggs på de andra
+// uppslagen med Visions ord som ankare. Det som stämmer bäst med orden i bilden vinner, så ett bra rutnät byts
+// aldrig mot ett sämre.
+
+export interface BookColumns { columns: PageGrid['columns']; spine: number; score: number }
+export interface GridChoice { grid: PageGrid; source: 'own' | 'repaired' | 'book'; score: number; scores: Record<string, number> }
+
+const LEFT_FIELDS = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'ifr', 'night']);
+const RIGHT_FIELDS = new Set(['pic', 'co_pilot', 'dual', 'instructor', 'sim', 'landings_day', 'landings_night', 'remarks', 'second_pilot']);
+const NUMERIC_VALUE = new Set(['total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'landings_day', 'landings_night', 'multi_pilot', 'single_pilot', 'nvg']);
+// Värden som nästan bara står på ett ställe på raden: bra ankare för kolumnerna.
+const ANCHOR_VALUES = ['dep_utc', 'arr_utc', 'registration', 'date'];
+const COLUMN_HEADERS: [RegExp, string][] = [...HEADER_FIELDS, [/^TOTAL$/, 'total_time']];
+
+const digitsOf = (v: unknown) => String(v ?? '').replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+
+/**
+ * Hur väl rutnätet stämmer med bilden: andelen värden som Vision läser i "sin" cell, med avdrag för kolumner som
+ * går in i varandra eller har orimlig bredd (en jättebred kolumn skulle annars träffa allt).
+ */
+export function gridScore(grid: PageGrid, rows: AlignRow[], words: VisionBox[]): number {
+  const tokens = words.map((w) => ({ ...w, n: norm(w.text) })).filter((w) => w.n.length >= 1);
+  let hits = 0, total = 0;
+  for (const row of rows) {
+    for (const [field, raw] of Object.entries(row.values)) {
+      const numeric = NUMERIC_VALUE.has(field);
+      const v = numeric ? digitsOf(raw) : norm(raw);
+      if (!v || v === '0' || (!numeric && v.length < 3)) continue;
+      const cell = cellRect(grid, row.rowIndex, field);
+      if (!cell || !grid.columns.some((c) => c.field === field)) { total++; continue; }
+      total++;
+      const inside = tokens.filter((t) => {
+        const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+        return cx >= cell.x && cx <= cell.x + cell.w && cy >= cell.y && cy <= cell.y + cell.h && t.w <= cell.w * 1.6;
+      });
+      const hit = numeric
+        ? digitsOf(inside.map((t) => t.text).join('')) === v
+        : inside.some((t) => t.n === v || (v.length >= 4 && withinEdit1(t.n, v)));
+      if (hit) hits++;
+    }
+  }
+  if (total === 0) return -1;
+  const cols = grid.columns.filter((c) => c.field).slice().sort((a, b) => a.left - b.left);
+  const widths = cols.map((c) => c.right - c.left).sort((a, b) => a - b);
+  const median = widths[Math.floor(widths.length / 2)] ?? 0;
+  let faults = 0;
+  cols.forEach((c, i) => {
+    if (i > 0 && cols[i - 1].right - c.left > 0.012) faults++;
+    const w = c.right - c.left;
+    if (c.field !== 'remarks' && (w > median * 2.6 || w < median * 0.35)) faults++;
+  });
+  return hits / total - faults * 0.06;
+}
+
+/**
+ * Lägger bokens mall på ett nytt foto: en förskjutning och skala per sida av uppslaget, anpassad mot tryckta
+ * rubriker och värden som bara står på ett ställe (klockslag, registreringar). Null utan säkra ankare.
+ */
+export function mapBookColumns(book: BookColumns, grid: PageGrid, rows: AlignRow[], words: VisionBox[]): PageGrid | null {
+  const tokens = words.map((w) => ({ ...w, n: norm(w.text) })).filter((w) => w.n.length >= 2);
+  const centre = (c: { left: number; right: number }) => (c.left + c.right) / 2;
+  const colOf = (field: string) => book.columns.find((c) => c.field === field);
+  const pairs: { pred: number; obs: number; weight: number }[] = [];
+
+  const header = words.filter((w) => w.y + w.h <= grid.tableTop + 0.01 && w.y >= grid.tableTop - 0.3);
+  const seen = new Set<string>();
+  for (const w of header) {
+    const hit = COLUMN_HEADERS.find(([re]) => re.test(norm(w.text)));
+    const col = hit && colOf(hit[1]);
+    if (!hit || !col || seen.has(hit[1])) continue;
+    seen.add(hit[1]);
+    pairs.push({ pred: centre(col), obs: w.x + w.w / 2, weight: 2 });
+  }
+  const dn = landingSubHeaders(header, header.find((w) => norm(w.text).includes('LANDING')));
+  if (dn) {
+    const d = colOf('landings_day'), n = colOf('landings_night');
+    if (d) pairs.push({ pred: centre(d), obs: dn.d, weight: 2 });
+    if (n) pairs.push({ pred: centre(n), obs: dn.n, weight: 2 });
+  }
+  for (const row of rows) {
+    for (const field of ANCHOR_VALUES) {
+      const v = norm(row.values[field]);
+      const col = colOf(field);
+      if (!col || v.length < 3) continue;
+      const hits = tokens.filter((t) => t.n === v);
+      if (hits.length === 1) pairs.push({ pred: centre(col), obs: hits[0].x + hits[0].w / 2, weight: 1 });
+    }
+  }
+
+  const fit = (ps: typeof pairs) => robustFit(ps, 0.02, 0.6, 1.6);
+  const all = fit(pairs);
+  const left = fit(pairs.filter((p) => p.pred < book.spine)) ?? all;
+  const right = fit(pairs.filter((p) => p.pred >= book.spine)) ?? all;
+  if (!left && !right) return null;
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+  const columns = book.columns.map((c) => {
+    const f = (centre(c) < book.spine ? left : right) ?? left ?? right!;
+    return { ...c, left: clamp01(f.a + f.b * c.left), right: clamp01(f.a + f.b * c.right) };
+  }).sort((a, b) => a.left - b.left);
+  const onLeft = book.columns.filter((c) => centre(c) < book.spine);
+  const spineAt = left ? left.a + left.b * Math.max(...onLeft.map((c) => c.right), book.spine) : grid.spine ?? 0.5;
+  return { ...grid, columns, spine: clamp01(spineAt) };
+}
+
+/**
+ * Claude angav en sidas kolumner i procent av sidan i stället för hela uppslaget: vänstersidans fält sträcker sig
+ * över ryggen, eller högersidans börjar före den. Då skalas de om till rätt halva. Null om inget tyder på det.
+ */
+export function repairHalfPageColumns(grid: PageGrid): PageGrid | null {
+  const spine = grid.spine ?? 0.5;
+  const onLeft = grid.columns.filter((c) => c.field && LEFT_FIELDS.has(c.field));
+  const onRight = grid.columns.filter((c) => c.field && RIGHT_FIELDS.has(c.field));
+  const leftWide = onLeft.length >= 2 && Math.max(...onLeft.map((c) => c.right)) > spine + 0.05;
+  const rightWide = onRight.length >= 2 && Math.min(...onRight.map((c) => c.left)) < spine - 0.05;
+  if (!leftWide && !rightWide) return null;
+  const columns = grid.columns.map((c) => {
+    if (leftWide && c.field && LEFT_FIELDS.has(c.field)) return { ...c, left: c.left * spine, right: c.right * spine };
+    if (rightWide && c.field && RIGHT_FIELDS.has(c.field)) return { ...c, left: spine + c.left * (1 - spine), right: spine + c.right * (1 - spine) };
+    return c;
+  });
+  return { ...grid, columns: columns.sort((a, b) => a.left - b.left) };
+}
+
+/** Bästa rutnätet för uppslaget: det egna, det omskalade eller bokens mall, efter hur väl de stämmer med bilden. */
+export function chooseBookGrid(own: PageGrid, rows: AlignRow[], words: VisionBox[], book: BookColumns | null): GridChoice {
+  const ownScore = gridScore(own, rows, words);
+  let best: GridChoice = { grid: own, source: 'own', score: ownScore, scores: { own: ownScore } };
+  const consider = (g: PageGrid | null, source: GridChoice['source']) => {
+    if (!g) return;
+    const measured = measureRows(g, rows, words);
+    const score = gridScore(measured, rows, words);
+    best.scores[source] = score;
+    if (score > best.score + 0.03) best = { ...best, grid: measured, source, score };
+  };
+  const fixed = repairHalfPageColumns(own);
+  if (fixed) consider(alignGrid(fixed, rows, words).grid, 'repaired');
+  if (book) consider(mapBookColumns(book, own, rows, words), 'book');
+  return best;
+}

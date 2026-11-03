@@ -1,3 +1,5 @@
+import { SCAN_OPEN, FREE_SPREADS } from '../store/scanStore';
+import { useFlightStore } from '../store/flightStore';
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, Dimensions, type ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -47,15 +49,16 @@ const SUB_ROLES: Record<MainRole, { key: SubRole; icon: MCI; title_en: string; t
   ],
 };
 
-// Bild per roll/underroll (tryck på bilden för att välja). HEMS saknar bild →
+// Bild per roll/underroll (tryck på bilden för att välja). Onboarding-bilderna har svart bakgrund och eget sken,
+// och smälter ihop med skärmens svarta bakgrund (ingen skugga: den skulle bli fyrkantig). HEMS saknar bild →
 // faller tillbaka på det gamla ikon-kortet.
 const ROLE_IMG: Record<MainRole, ImageSourcePropType> = {
-  'pilot-manned': require('../assets/Pilot-helicopter.PNG'),
-  'pilot-unmanned': require('../assets/Drone-military.PNG'),
+  'pilot-manned': require('../assets/onboarding-helicopter.png'),
+  'pilot-unmanned': require('../assets/onboarding-drone.png'),
 };
 const SUBROLE_IMG: Partial<Record<SubRole, ImageSourcePropType>> = {
-  rotary: require('../assets/Pilot-helicopter.PNG'),
-  fixed: require('../assets/Pilot-fixedwing.PNG'),
+  rotary: require('../assets/onboarding-helicopter.png'),
+  fixed: require('../assets/onboarding-airplane.png'),
   commercial: require('../assets/Drone-commersial.PNG'),
   military: require('../assets/Drone-military.PNG'),
   hobby: require('../assets/Drone-hobby.PNG'),
@@ -294,14 +297,14 @@ export default function OnboardingScreen() {
                 <ScrollView style={{ flex: 1, alignSelf: 'stretch' }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 20, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
                   {pilot && (
                     <TouchableOpacity onPress={choosePilot} activeOpacity={0.75} style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
-                      <Image source={ROLE_IMG['pilot-manned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                      <Image source={ROLE_IMG['pilot-manned']} style={{ width: IMG, height: IMG }} resizeMode="contain" />
                       <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? pilot.title_sv : pilot.title_en}</Text>
                       <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? pilot.desc_sv : pilot.desc_en}</Text>
                     </TouchableOpacity>
                   )}
                   {drone && (
                     <TouchableOpacity onPress={chooseDrone} activeOpacity={0.75} style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
-                      <Image source={ROLE_IMG['pilot-unmanned']} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#FFB830' }]} resizeMode="contain" />
+                      <Image source={ROLE_IMG['pilot-unmanned']} style={{ width: IMG, height: IMG }} resizeMode="contain" />
                       <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? drone.title_sv : drone.title_en}</Text>
                       <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? drone.desc_sv : drone.desc_en}</Text>
                     </TouchableOpacity>
@@ -314,7 +317,7 @@ export default function OnboardingScreen() {
           {/* ── Sub-role ── */}
           {step === 'subrole' && mainRole && (() => {
             // Samma lösning som roll-valet: stora farkostbilder (helikopter/flygplan), ingen knapp-chrome,
-            // diagonal placering, tryck på farkosten för att välja, glödande halo bakom.
+            // tryck på farkosten för att välja. Skenet bakom ligger i bilderna.
             const subs = SUB_ROLES[mainRole];
             const IMG = Math.round(Dimensions.get('window').width * 0.56);
             const pick = (key: SubRole) => { setPendingSub(key); setStep('profile'); }; // regelverk/tidsformat väljs på profilsidan
@@ -333,7 +336,7 @@ export default function OnboardingScreen() {
                     return (
                       <TouchableOpacity key={r.key} onPress={() => pick(r.key)} activeOpacity={0.75}
                         style={{ alignItems: 'center', gap: 6, maxWidth: 320 }}>
-                        <Image source={img} style={[{ width: IMG, height: IMG }, s.roleGlow, { shadowColor: '#00C8E8' }]} resizeMode="contain" />
+                        <Image source={img} style={{ width: IMG, height: IMG }} resizeMode="contain" />
                         <Text style={[s.roleChoiceTitle, { textAlign: 'center' }]}>{sv ? r.title_sv : r.title_en}</Text>
                         <Text style={[s.roleChoiceDesc, { textAlign: 'center' }]}>{sv ? r.desc_sv : r.desc_en}</Text>
                       </TouchableOpacity>
@@ -406,6 +409,8 @@ export default function OnboardingScreen() {
                 <MaterialCommunityIcons name={mci} size={30} color={accent} />
               </View>
             );
+            const st = useFlightStore.getState();
+            const paying = st.isPremium || st.isMax;
             return (
             <>
               <View style={{ flex: 1, alignSelf: 'stretch', justifyContent: 'center', gap: 20 }}>
@@ -413,7 +418,15 @@ export default function OnboardingScreen() {
                   title={sv ? 'Har du redan flygtimmar?' : 'Do you already have flight hours?'}
                   subtitle={sv ? 'Få in dina tidigare timmar så att statistiken stämmer från dag ett.' : 'Bring in your previous hours so your stats are right from day one.'} />
                 <View style={{ gap: 14, alignSelf: 'stretch' }}>
-                  {/* "Scan paper logbook" borttaget (väntande projekt). */}
+                  {/* Skanna pappersboken: bara piloter, och bara när skanningen är öppen (SCAN_OPEN). */}
+                  {SCAN_OPEN && manned(mainRole) && (
+                    <OptionCard leading={bigLead('camera-outline')} accent={accent}
+                      title={sv ? 'Skanna din loggbok' : 'Scan your logbook'}
+                      desc={paying
+                        ? (sv ? 'Fota din pappersloggbok' : 'Photograph your paper logbook')
+                        : (sv ? `Fota upp till ${FREE_SPREADS} uppslag gratis` : `Photograph up to ${FREE_SPREADS} spreads for free`)}
+                      onPress={() => finalize('/import/scan', true)} />
+                  )}
                   <OptionCard leading={bigLead('pencil-outline')} accent={accent}
                     title={sv ? 'Ange starttotal' : 'Enter starting total'}
                     desc={sv ? 'Skriv in dina totala timmar manuellt' : 'Type in your total hours manually'}
@@ -641,7 +654,6 @@ const s = StyleSheet.create({
   roleChoiceDesc: { fontSize: 13.5, color: C.textSecondary, lineHeight: 18, marginTop: 4 },
   // Glödande halo bakom de nästan svarta farkostbilderna → syns mot svart bakgrund.
   // iOS-skuggan följer PNG:ns alfa (siluetten); shadowColor sätts per bild.
-  roleGlow: { shadowOpacity: 0.95, shadowRadius: 34, shadowOffset: { width: 0, height: 0 } },
 
   // Navy ruta med guldig kantlinje på svart bakgrund (vald → accent-ring).
   card: {

@@ -22,5 +22,5 @@ export interface CoinPack {
 export const COIN_PACKS: CoinPack[] = [
   { productId: 'blades_coins_100', coins: 100, fallbackPrice: '29 kr' },
   { productId: 'blades_coins_250', coins: 250, fallbackPrice: '39 kr', badge: 'Popular' },
-  { productId: 'blades_coins_500', coins: 500, fallbackPrice: '59 kr', badge: 'Best value' },
+  { productId: 'blades_coins_500', coins: 500, fallbackPrice: '69 kr', badge: 'Best value' },
 ];

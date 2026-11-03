@@ -141,7 +141,8 @@ export function buildLayoutContext(layout: LogbookLayout): string {
     + `\nBoken har ${layout.rowsPerPage} rader per sida. Tidsformat: ${layout.timeFormat === 'hhmm' ? 'HH:MM' : 'decimal'}.`
     + `\nKolumner i ordning (vänster→höger över uppslaget):\n${lines.join('\n')}`
     + `\nAnvänd kolumnpositionen för att avgöra vilket fält ett värde tillhör — gissa ALDRIG på värdet.`
-    + ` Kopiera ALDRIG ett värde mellan kolumner. Tom kolumn → utelämna fältet.`;
+    + ` Kopiera ALDRIG ett värde mellan kolumner. Tom kolumn → utelämna fältet.`
+    + `\ngrid.columns: left och right är ALLTID procent av HELA bilden (hela uppslaget), aldrig av en sida — också för kolumner märkta vänster eller höger sida.`;
 }
 
 /**

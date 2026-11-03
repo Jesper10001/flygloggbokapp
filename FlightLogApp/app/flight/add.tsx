@@ -1,3 +1,4 @@
+import { AcarsScanChooser, pickScanImage, CHOOSER_CLOSE_MS } from '../../components/AcarsScanChooser';
 import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
@@ -62,6 +63,7 @@ import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
 import type { Flight, FlightFormData, ValidationIssue } from '../../types/flight';
 import runwayData from '../../assets/runways.json';
+import { isEssential } from '../../services/essentialFleet';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -690,24 +692,6 @@ const avStyles = StyleSheet.create({
   },
 });
 
-// "ACARS/Instrument scan"-väljaren: bild + exempeltext + Camera/Library/Cancel (ersätter Alert).
-const scanChooserStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  card: { width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.cardBorder, paddingTop: 22, paddingBottom: 16, paddingHorizontal: 20, alignItems: 'center' },
-  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
-  body: { color: Colors.textSecondary, fontSize: 13.5, lineHeight: 19, textAlign: 'center', marginBottom: 14 },
-  // Två exempelbilder i rad (delar kortets bredd). Fast höjd (INTE aspectRatio) → deterministisk liten ruta;
-  // maxHeight = hård spärr så bilden aldrig kan svälla ut och täcka skärmen. resizeMode="contain" ryms inuti.
-  examples: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginBottom: 14 },
-  example: { flex: 1, alignItems: 'center' },
-  img: { width: '100%', height: 160, maxHeight: 170, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated },
-  caption: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 7, lineHeight: 15 },
-  btn: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 13, paddingVertical: 13, marginTop: 8 },
-  btnTxt: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
-  cancel: { alignSelf: 'stretch', paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  cancelTxt: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
-});
-
 function ValidationWarnings({ issues }: { issues: ValidationIssue[] }) {
   const styles = makeStyles();
   const warnings = issues.filter((i) => i.severity === 'warning');
@@ -730,7 +714,7 @@ export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { editId, aiImport, addPhoto, draft: draftParam } = useLocalSearchParams<{ editId?: string; aiImport?: string; addPhoto?: string; draft?: string }>();
+  const { editId, scanImage, addPhoto, draft: draftParam } = useLocalSearchParams<{ editId?: string; scanImage?: string; addPhoto?: string; draft?: string }>();
   const isEdit = !!editId;
   const fromDraft = draftParam === '1' && !isEdit;   // fortsätter ett sparat utkast (dashboardens kort)
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium, isMax } = useFlightStore();
@@ -2020,7 +2004,7 @@ export default function AddFlightScreen() {
     const r = scanResolveRef.current; scanResolveRef.current = null;
     // iOS: vänta tills modalen faktiskt stängts innan image picker/kamera presenteras — annars
     // krockar presentationen (modal stänger fortfarande) och bibliotek-väljaren dyker aldrig upp.
-    setTimeout(() => r?.(s), 350);
+    setTimeout(() => r?.(s), CHOOSER_CLOSE_MS);
   };
 
   // Flightscan-review: AI-lästa fält granskas/godkänns innan de fylls i formuläret
@@ -2113,23 +2097,17 @@ export default function AddFlightScreen() {
     });
     if (!source) return;
 
-    let picked: ImagePicker.ImagePickerResult;
-    if (source === 'camera') {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('Camera', 'Camera permission is needed to scan the ACARS or your instruments.');
-        return;
-      }
-      picked = await ImagePicker.launchCameraAsync({ quality: 1 });
-    } else {
-      picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
-    }
-    if (picked.canceled || !picked.assets[0]) return;
+    const uri = await pickScanImage(source);
+    if (uri) await readScanImage(uri);
+  };
+
+  // Bilden är vald (här, eller på dashboarden innan Log Flight öppnades): AI läser den och granskningen visas.
+  const readScanImage = async (uri: string) => {
     setAiLoading(true);
     try {
       // ACARS/Instrument scan: AI läser bilden (ACARS/AOC FLT LOG, instrument, EFB, spårningsapp) och
       // services/flightScan normaliserar — datum utan år/månad, tider utan sekunder, block-/flygtid, bränsle.
-      const r = await scanFlightImage(picked.assets[0].uri);
+      const r = await scanFlightImage(uri);
       console.log('📸 ACARS/INSTRUMENT SCAN — tolkat: ' + JSON.stringify(r));
 
       // ── Bygg review-kortet — inget fylls i förrän användaren godkänt ──────
@@ -2191,20 +2169,12 @@ export default function AddFlightScreen() {
   };
 
   useEffect(() => {
-    if (aiImport === '1') {
-      // Starta inte AI-importen om gratisgränsen är nådd (mount-effekten visar Premium-uppmaningen).
-      (async () => {
-        if (isNewManual && !isPremium && !isMax) {
-          const n = await getManualFlightCount().catch(() => 0);
-          if (n >= FREE_TIER_LIMIT) return;
-        }
-        setTimeout(() => importFromImage(), 500);
-      })();
-    }
+    // ACARS-bilden valdes på dashboarden: läs den när skärmen kommit upp.
+    if (scanImage) setTimeout(() => readScanImage(scanImage), 400);
     if (addPhoto === '1') {
       setTimeout(() => pickMedia('image'), 500);
     }
-  }, [aiImport, addPhoto]);
+  }, [scanImage, addPhoto]);
 
   // demo = rundturens loggningsdemon: sparar tyst (inga popups, ingen navigering) och returnerar id:t.
   const performSave = async (overrides?: Partial<FlightFormData>, skipOverlap = false, demo = false): Promise<number | null> => {
@@ -2334,7 +2304,8 @@ export default function AddFlightScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Uppmana att placera de nya platserna på kartan (dashboard: "Unlocated places"-bannern).
-      if (usedPending.length > 0) {
+      // Essential har ingen karta: platsen finns kvar och kan placeras i Extensive.
+      if (usedPending.length > 0 && !isEssential()) {
         const one = usedPending.length === 1;
         Alert.alert(
           'New place saved',
@@ -4131,7 +4102,7 @@ export default function AddFlightScreen() {
         {/* Spara som utkast: fortsätt senare från dashboarden (inte vid redigering eller i rundturen). */}
         {!isEdit && !tourActive && (
           <TouchableOpacity style={styles.draftBtn} onPress={saveAsDraft} disabled={saving} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later from the dashboard.">
+            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later.">
             <Ionicons name="document-text-outline" size={18} color={Colors.textSecondary} />
             <Text style={styles.draftBtnText}>Save as draft</Text>
           </TouchableOpacity>
@@ -4330,37 +4301,7 @@ export default function AddFlightScreen() {
         onGoPremium={() => { setShowLimitModal(false); presentPaywall(); }}
       />
 
-      {/* ACARS/Instrument scan — väljar-modal med exempelbild + orienterande text */}
-      <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>
-        <Pressable style={scanChooserStyles.backdrop} onPress={() => chooseScanSource(null)}>
-          <Pressable style={scanChooserStyles.card} onPress={(e) => e.stopPropagation()}>
-            <Text style={scanChooserStyles.title}>ACARS/Instrument scan</Text>
-            <Text style={scanChooserStyles.body}>Photograph the ACARS flight log (OUT · OFF · ON · IN) or your instruments, or pick an existing image.</Text>
-            {/* Två exempel bredvid varandra: helikopterns flygdatalogg + trafikflygets ACARS-logg */}
-            <View style={scanChooserStyles.examples}>
-              <View style={scanChooserStyles.example}>
-                <Image source={require('../../assets/Flightdata_AW109.jpg')} style={scanChooserStyles.img} resizeMode="contain" />
-                <Text style={scanChooserStyles.caption}>Leonardo AW109{'\n'}helicopter flight log</Text>
-              </View>
-              <View style={scanChooserStyles.example}>
-                <Image source={require('../../assets/ACARS.JPG')} style={scanChooserStyles.img} resizeMode="contain" />
-                <Text style={scanChooserStyles.caption}>Airbus ACARS{'\n'}flight log (MCDU)</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>
-              <Ionicons name="camera" size={18} color={Colors.textInverse} />
-              <Text style={scanChooserStyles.btnTxt}>Camera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={scanChooserStyles.btn} onPress={() => chooseScanSource('library')} activeOpacity={0.85}>
-              <Ionicons name="images" size={18} color={Colors.textInverse} />
-              <Text style={scanChooserStyles.btnTxt}>Photo library</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={scanChooserStyles.cancel} onPress={() => chooseScanSource(null)} activeOpacity={0.7}>
-              <Text style={scanChooserStyles.cancelTxt}>Cancel</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AcarsScanChooser visible={scanChooserOpen} onChoose={chooseScanSource} />
 
       <AddPilotModal
         visible={addPilot.visible}
@@ -4382,7 +4323,7 @@ export default function AddFlightScreen() {
             </Text>
             <TouchableOpacity
               style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 32, marginTop: 16 }}
-              onPress={() => { setReviewPromptCount(0); setShowPilotModal(false); router.push('/(tabs)/log' as any); }}
+              onPress={() => { setReviewPromptCount(0); setShowPilotModal(false); router.push((isEssential() ? '/essential/logbook' : '/(tabs)/log') as any); }}
               activeOpacity={0.85}
             >
               <Text style={{ color: '#0A1628', fontSize: 15, fontWeight: '800' }}>Review</Text>

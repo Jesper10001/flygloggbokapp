@@ -213,11 +213,11 @@ export const translations = {
     import_section: 'Import',
     import_csv_title: 'Import CSV / Excel',
     import_csv_sub: 'AI maps columns automatically',
-    import_scan_title: 'Scan logbook images',
+    import_scan_title: 'Logbook scan',
     import_scan_sub: 'AI reads and imports flights from photos',
 
     // Scan import screen
-    scan_import_title: 'Scan logbook',
+    scan_import_title: 'Logbook scan',
     scan_remaining: 'Scans remaining',
     scan_monthly: 'monthly',
     scan_extra: 'extra',

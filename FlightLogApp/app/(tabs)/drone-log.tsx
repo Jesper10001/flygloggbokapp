@@ -239,7 +239,7 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
 // År→månad-accordion (klon av manned YearMonthAccordion) — år kollapsade default,
 // månads-dropdowns, max 3 år + "Previous years".
 const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-function DroneYearMonthAccordion({ flights, accent, forceOpen, focusKey, onOpen }: {
+export function DroneYearMonthAccordion({ flights, accent, forceOpen, focusKey, onOpen }: {
   flights: DroneFlight[]; accent: string; forceOpen: boolean; focusKey?: string | null; onOpen: (id: number) => void;
 }) {
   const years = useMemo(() => {

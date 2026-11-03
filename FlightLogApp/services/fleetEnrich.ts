@@ -6,6 +6,7 @@ import { persistAircraftFleetLookup, updateAircraftFleetFields, getAllAircraftTy
 import { hasTokenQuota, isTokenQuotaError } from '../utils/tokenGate';
 import { hasAiConsent } from './aiConsent';
 import { serializeCredit } from '../utils/photoCredit';
+import { isEssential, rememberSkippedAircraft } from './essentialFleet';
 
 let running = false;
 
@@ -20,6 +21,12 @@ export interface FleetEnrichResult {
  *  utan argument sveper den alla oberikade typer (t.ex. efter CSV-import). Sekventiellt + coin-gated:
  *  hämtar SÅ MÅNGA potten räcker till och PAUSAR sen (faller inte) — resten kräver fler Blade-coins. */
 export async function enrichFleetInBackground(types?: string[]): Promise<FleetEnrichResult> {
+  // Blades Essential visar ingen Fleet: spara typerna och hämta dem när man byter till Extensive.
+  if (isEssential()) {
+    const skipped = types ?? (await getAllAircraftTypes()).filter((a) => !a.image_url && !a.maker && !a.vne).map((a) => a.aircraft_type);
+    await rememberSkippedAircraft(skipped).catch(() => {});
+    return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false };
+  }
   if (running) { console.log('[fleetEnrich] already running → skip'); return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false }; }
   // Bakgrundsjobb frågar aldrig om AI-samtycke — utan samtycke berikas inget (kortets knapp frågar).
   if (!(await hasAiConsent())) { console.log('[fleetEnrich] no AI consent → skip'); return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false }; }

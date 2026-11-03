@@ -1,3 +1,4 @@
+import { useAcarsScanStart } from '../../components/AcarsScanChooser';
 import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions,
@@ -40,7 +41,9 @@ import { useNightUpdateStore } from '../../store/nightUpdateStore';
 import { getDashboardSpreadPrompt, setAckedSpread, type SpreadPrompt } from '../../db/digitalBooks';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { setScanImage } from '../../store/scanStore';
+import { setScanImage, SCAN_OPEN } from '../../store/scanStore';
+import { ScanSpeedDial } from '../../components/ScanSpeedDial';
+import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
 import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
@@ -68,7 +71,7 @@ import { StressInfoButton } from '../../components/StressInfo';
 import { DraftBanner } from '../../components/DraftBanner';
 import * as Haptics from 'expo-haptics';
 import { useTabBarSpace } from '../../components/GlassTabBar';
-import { workloadIndex, stressSeries, stressFactorSummary, type StressZone as FactorZone } from '../../utils/workload';
+import { workloadIndex, stressSeries, stressFactorSummary, hasFlightsIn, type StressZone as FactorZone } from '../../utils/workload';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 // ── Stress helpers ──────────────────────────────────────────────────────────
@@ -607,12 +610,13 @@ export default function DashboardScreen() {
   const [stress, setStress] = useState<StressData>({ index: 0, zone: 'low', hours14: 0, baseline14: 0, advice: '' });
   const [stressReady, setStressReady] = useState(false);  // sant efter första stress-beräkningen
   // Stressfactor-knappen: snittet av Flight load de senaste 60 dagarna (färgen) + kurvan i knappen.
-  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[] }>({ zone: 'normal', values: [] });
+  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[]; active: boolean }>({ zone: 'normal', values: [], active: false });
   const loadFactor = useCallback(() => {
     getStressDaily().then((daily) => {
       const today = new Date().toISOString().slice(0, 10);
-      const series = stressSeries(daily, new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10), today);
-      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index) });
+      const from = new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10);
+      const series = stressSeries(daily, from, today);
+      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index), active: hasFlightsIn(daily, from, today) });
     }).catch(() => {});
   }, []);
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausar sid-scroll medan globen snurras
@@ -809,6 +813,8 @@ export default function DashboardScreen() {
       Alert.alert(t('error'), e?.message ?? 'Failed');
     }
   };
+  const acarsScan = useAcarsScanStart();
+  const logbookScan = useLogbookScanStart();
   const quickLogbookScan = useCallback(async () => {
     // Scan är gratis men Blade-coins-mätad: free-användare går via den kvot-hanterade scan-skärmen
     // (fri provpott + köp), premium/max får inline-genvägen direkt från dashboarden.
@@ -897,8 +903,8 @@ export default function DashboardScreen() {
           {/* Vänster: WORKLOAD-etikett + state-text (t.ex. NORMAL) bredvid varandra */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.telGaugeLabel}>WORKLOAD</Text>
-            {/* Stressfactor: färgad efter de senaste två månaderna → sidan med Flight load över tid. */}
-            <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push('/stressfactor')} />
+            {/* Stressfactor: färgad efter de senaste två månaderna → sidan med Flight load över tid. Bara med flygningar under perioden. */}
+            {factor.active && <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push('/stressfactor')} />}
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
           {mode === 'manned' && !wx && (
@@ -1012,9 +1018,11 @@ export default function DashboardScreen() {
 
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
       <View style={s.logRow}>
-        <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/flight/add?aiImport=1')} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="ACARS/Instrument scan">
-          <Ionicons name="scan-outline" size={22} color={Colors.primary} />
-        </TouchableOpacity>
+        {/* Logbook scan är öppen bara när skanningen är lanserad (SCAN_OPEN); annars går knappen direkt till ACARS. */}
+        <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" options={[
+          ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),
+          { key: 'acars', label: 'ACARS scan', icon: 'hardware-chip-outline' as const, onPress: acarsScan.start },
+        ]} />
         <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />
         <TouchableOpacity
           style={s.sideBtn}
@@ -1029,6 +1037,8 @@ export default function DashboardScreen() {
       </View>
       {/* Ofullständigt utkast från Log Flight ("Save as draft") → fortsätt där man slutade. */}
       <DraftBanner mode="pilot" onOpen={() => router.push('/flight/add?draft=1')} />
+      {acarsScan.chooser}
+      {logbookScan.chooser}
 
       {/* ── Pilot / drone sections ── */}
       {(

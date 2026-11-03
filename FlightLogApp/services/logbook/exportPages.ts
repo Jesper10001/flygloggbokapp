@@ -14,7 +14,7 @@ import {
   getTemplate, ASSIGNABLE_TIME_FIELDS,
   type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
-import { buildBookSpreads, type LogbookSpread } from './paginate';
+import { buildBookSpreads, computeBroughtForward, type LogbookSpread } from './paginate';
 import { assignFlightsToBooks, resolveOpeningBalance } from './books';
 import { renderSpreadsPDF } from './renderSpread';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
@@ -102,6 +102,13 @@ export async function getLogbookSpreadCount(bookId?: number, kind: BookKind = 'd
  */
 export async function exportLogbookPages(count: number, bookId?: number, kind: BookKind = 'digital'): Promise<number> {
   const { template, spreads, pilotName, timeFormat, signature } = await loadLogbook(bookId, kind);
+  return shareSpreads(template, spreads, count, kind, pilotName, timeFormat, signature);
+}
+
+async function shareSpreads(
+  template: LogbookTemplate, spreads: LogbookSpread[], count: number, kind: BookKind,
+  pilotName: string, timeFormat: 'decimal' | 'hhmm', signature: LoadedLogbook['signature'],
+): Promise<number> {
   if (spreads.length === 0) return 0;
   const n = Math.max(1, Math.min(Math.round(count), spreads.length));
   // Senaste N uppslagen, senaste först (fallande).
@@ -122,4 +129,38 @@ export async function exportLogbookPages(count: number, bookId?: number, kind: B
     });
   }
   return n;
+}
+
+// ── Export utan digital bok (Blades Essential): alla flygningar i vald mall, från sida 1 ──
+
+/** Alla flygningar för exporten. Summeringsrader och dolda backfill-poster behålls: de ger bokens ingående balans. */
+export async function loadExportFlights(kind: BookKind = 'digital'): Promise<Flight[]> {
+  if (kind === 'drone') {
+    const [df, meta] = await Promise.all([getDroneFlights(10000), loadDroneMetaById()]);
+    return df.map((d) => droneToFlightRow(d, d.drone_id != null ? meta.get(d.drone_id) : undefined));
+  }
+  return getFlights(10000);
+}
+
+export function templateSpreads(flights: Flight[], template: LogbookTemplate): LogbookSpread[] {
+  const rows = flights.filter((f) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]');
+  return buildBookSpreads(rows, template, {
+    startingPage: 1,
+    rowsPerSpread: template.rows_per_spread,
+    openingBalance: computeBroughtForward(flights, template, 0),
+    leadingEmptyRows: 0,
+  });
+}
+
+/** Exporterar de senaste `count` uppslagen i vald mall. */
+export async function exportTemplatePages(template: LogbookTemplate, flights: Flight[], count: number, kind: BookKind = 'digital'): Promise<number> {
+  const [sg, fn, ln] = await Promise.all([
+    getSetting('pilot_signature'),
+    getSetting('profile_first_name'),
+    getSetting('profile_last_name'),
+  ]);
+  let signature: LoadedLogbook['signature'] = null;
+  try { signature = sg ? JSON.parse(sg) : null; } catch { signature = null; }
+  const pilotName = [fn, ln].filter(Boolean).join(' ');
+  return shareSpreads(template, templateSpreads(flights, template), count, kind, pilotName, useTimeFormatStore.getState().timeFormat, signature);
 }

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,6 +46,7 @@ import { useVersionStore } from '../../store/versionStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
 import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
+import { AppVariantRow } from '../../components/settings/AppVariantRow';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview } from '../../services/dronePhotoSync';
@@ -60,6 +62,7 @@ type SectionKey = 'logbook' | 'import' | 'export' | 'app' | 'about';
 
 export default function DroneSettingsScreen() {
   const router = useRouter();
+  const droneScan = useDroneScanStart();
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const profile = useProfileStore((s) => s.profile);
@@ -270,6 +273,7 @@ export default function DroneSettingsScreen() {
 
   return (
     <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 40 }}>
+      {droneScan.chooser}
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
         <Text style={{ fontFamily: FONT_SERIF, fontSize: 26, fontWeight: '600', color: DR.text }}>Settings</Text>
@@ -467,7 +471,7 @@ export default function DroneSettingsScreen() {
       {expanded === 'import' && (
         <SectionCard>
           <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
-          <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="Log flights from a DJI / Autel screenshot" onPress={() => router.push('/drone-flight/add?scan=1')} separatorColor={DR.background} />
+          <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="Log flights from a DJI / Autel screenshot" onPress={droneScan.start} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />
         </SectionCard>
@@ -585,6 +589,7 @@ export default function DroneSettingsScreen() {
           }
         }}
       />
+      <AppVariantRow />
 
       {/* Blades introduction — diskret textlänk (handoff B4). */}
       <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>

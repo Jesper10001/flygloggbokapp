@@ -1,3 +1,4 @@
+import { HowItWorks } from '../../components/HowItWorks';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import {
@@ -75,14 +76,6 @@ function makeStyles() {
       padding: 14, gap: 12,
     },
     infoTitle: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-    stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    stepBubble: {
-      width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: Colors.primary + '1C', borderWidth: 1, borderColor: Colors.primary + '33', marginTop: 1,
-    },
-    stepNum: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
-    stepTitle: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
-    stepDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
     bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     bulletTerm: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
     bulletDesc: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17 },
@@ -959,18 +952,7 @@ export default function ImportScreen() {
       {/* Hur importen funkar + tillförlitlighet — visas före filval */}
       {!importing && !result && (
         <>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>How it works</Text>
-            {HOW_IT_WORKS.map((s) => (
-              <View key={s.n} style={styles.stepRow}>
-                <View style={styles.stepBubble}><Text style={styles.stepNum}>{s.n}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>{s.t}</Text>
-                  <Text style={styles.stepDesc}>{s.d}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          <HowItWorks steps={HOW_IT_WORKS} />
 
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Accepted file formats</Text>

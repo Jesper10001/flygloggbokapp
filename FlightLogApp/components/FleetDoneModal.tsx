@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { create } from 'zustand';
 import { GlassDialog, DialogIcon } from './GlassDialog';
 import { useFlightStore } from '../store/flightStore';
+import { useAppVariantStore } from '../store/appVariantStore';
 
 // Info om hämtningen (för delvis hämtat / slut på coins). null = enkel "klart"-variant.
 export interface FleetDoneInfo { enriched: number; total: number; remaining: number; stoppedForQuota: boolean; }
@@ -24,7 +25,11 @@ export const useFleetDoneStore = create<FleetDoneStore>((set) => ({
   info: null,
   fleetRoute: null,
   source: 'csv',
-  show: (info, fleetRoute, source) => set({ visible: true, info: info ?? null, fleetRoute: fleetRoute ?? null, source: source ?? (fleetRoute ? 'drone' : 'csv') }),
+  show: (info, fleetRoute, source) => {
+    // Blades Essential har ingen Fleet-vy att skicka vidare till. Datan hämtas ändå i bakgrunden.
+    if (useAppVariantStore.getState().variant === 'essential') return;
+    set({ visible: true, info: info ?? null, fleetRoute: fleetRoute ?? null, source: source ?? (fleetRoute ? 'drone' : 'csv') });
+  },
   hide: () => set({ visible: false }),
 }));
 

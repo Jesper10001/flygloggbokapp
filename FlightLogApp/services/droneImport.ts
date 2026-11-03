@@ -9,6 +9,7 @@ import { callAnthropicJson, callAnthropicRaw } from './anthropicClient';
 import { enrichDroneFleet } from './droneLookup';
 import { hasTokenQuota } from '../utils/tokenGate';
 import { hasAiConsent } from './aiConsent';
+import { isEssential, rememberSkippedDrones } from './essentialFleet';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt.
 const DRONE_MAPPING_PROMPT = `Du är expert på DRÖNAR-/RPAS-loggboksformat (DJI, Autel, generisk drönarlogg, samt appens egna exporter "Blades": kolumner Date, Drone type, Registration, Location, Mission type, Category, Flight mode, Flight time, VLOS, EVLOS, BVLOS, Pilot function, PIC time, SIC / Co-pilot time, Dual time, Instructor time, RPIC time, Payload operator time, Mission commander time, Observer time, Safety pilot time, Examiner time, Max altitude (ft), Night, Crew, Remarks — eller samma tidskolumner med "(h)" i stället för "time", t.ex. "Total time (h)", "PIC (h)", "Observer (h)". Äldre Blades-exporter har "Max altitude (m)" och "Observer").
@@ -496,6 +497,17 @@ export async function enrichImportedDroneModels(
   rows: ParsedDroneRow[],
 ): Promise<{ enriched: number; total: number; remaining: number; stoppedForQuota: boolean }> {
   const models = [...new Set(rows.map((r) => (r.drone_type || '').trim()).filter(Boolean))];
+  // Blades Essential visar ingen Fleet: spara modellerna och hämta dem när man byter till Extensive.
+  if (isEssential()) {
+    await rememberSkippedDrones(models).catch(() => {});
+    return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false };
+  }
+  return enrichDroneModels(models);
+}
+
+export async function enrichDroneModels(
+  models: string[],
+): Promise<{ enriched: number; total: number; remaining: number; stoppedForQuota: boolean }> {
   // Bakgrundsjobb frågar aldrig om AI-samtycke — utan samtycke berikas inget (kortets knapp frågar).
   if (!(await hasAiConsent())) return { enriched: 0, total: 0, remaining: 0, stoppedForQuota: false };
   let enriched = 0;

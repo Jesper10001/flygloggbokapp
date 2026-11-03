@@ -103,6 +103,10 @@ export function stressFactorSummary(series: StressPoint[]): { avg: number; zone:
   return { avg, zone: stressZone(avg), peak, daysAbove: series.filter((p) => p.index > 130).length };
 }
 
+/** Finns någon flygtid i perioden? Utan flygningar säger Stressfactor-knappen ingenting och visas inte. */
+export const hasFlightsIn = (daily: Record<string, number>, from: string, to: string): boolean =>
+  Object.entries(daily).some(([d, h]) => d >= from && d <= to && h > 0);
+
 /** Sammanhängande perioder över normalt (> 130 %) i minst `minDays` dagar, nyast först. */
 export function busyPeriods(series: StressPoint[], minDays = 3): { from: string; to: string; days: number; peak: number }[] {
   const out: { from: string; to: string; days: number; peak: number }[] = [];

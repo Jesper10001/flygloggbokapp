@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
-import { GlassDialog } from '../../components/GlassDialog';
+import { GlassDialog, DialogOption } from '../../components/GlassDialog';
 import { askAiConsent } from '../../services/aiConsent';
 import { isScanCameraAvailable } from '../../modules/scan-camera';
 import { useScanQuotaStore } from '../../store/scanQuotaStore';
@@ -361,18 +361,12 @@ export default function ScanBookScreen() {
         secondary={{ label: 'Cancel', onPress: () => setSourcePicker(false) }}
       >
         <View style={s.sourceList}>
+          {/* Kameran först: den hittar uppslaget, rätar upp det och tar bilden själv, vilket ger bättre läsning än egna foton. */}
           {([
-            ['library', 'images-outline', 'Choose from your photos', 'Pick every spread at once — Blades keeps the order you choose them in.'],
             ...(cameraAvailable ? [['camera', 'camera-outline', 'Take photos', 'Turn the pages one by one. The camera takes each photo when the spread is sharp.']] : []),
+            ['library', 'images-outline', 'Choose from your photos', 'Pick every spread at once — Blades keeps the order you choose them in.'],
           ] as [ 'library' | 'camera', keyof typeof Ionicons.glyphMap, string, string][]).map(([key, icon, title, sub]) => (
-            <TouchableOpacity key={key} style={s.sourceRow} onPress={() => pickSource(key)} activeOpacity={0.8} accessibilityRole="button">
-              <View style={s.rowIcon}><Ionicons name={icon} size={20} color={Colors.primary} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowTitle}>{title}</Text>
-                <Text style={s.rowSub}>{sub}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
-            </TouchableOpacity>
+            <DialogOption key={key} icon={icon} title={title} sub={sub} onPress={() => pickSource(key)} />
           ))}
         </View>
       </GlassDialog>
@@ -453,14 +447,4 @@ const s = StyleSheet.create({
   discard: { color: Colors.dangerLight, fontSize: 13.5, fontWeight: '700' },
 
   sourceList: { alignSelf: 'stretch', gap: 8, marginTop: 14 },
-  sourceRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  rowIcon: {
-    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '33',
-  },
-  rowTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  rowSub: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
 });

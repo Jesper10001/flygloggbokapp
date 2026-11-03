@@ -409,5 +409,60 @@ console.log('15. Raderna lutar inom varje sida (bok i V-form): rutan hamnar rät
   ok(G.hitTest(g, 0.91, y(7, 0.91)).rowIndex === 7, 'tryck på anmärkningen på rad 7 träffar rad 7');
 }
 
+// ── Bokens kolumner: samma tryck, olika foton ──
+{
+  console.log('Bokens kolumner: mallen från ett bra uppslag räddar ett uppslag med fel kolumner');
+  // Bokens tryck i uppslagets koordinater (vänster sida 0–0.5, höger 0.5–1).
+  const COLS = [
+    ['date', 0.02, 0.07], ['dep_place', 0.07, 0.13], ['dep_utc', 0.13, 0.18], ['arr_place', 0.18, 0.24], ['arr_utc', 0.24, 0.29],
+    ['registration', 0.29, 0.35], ['total_time', 0.35, 0.40], ['ifr', 0.40, 0.45], ['night', 0.45, 0.49],
+    ['pic', 0.52, 0.57], ['co_pilot', 0.57, 0.62], ['dual', 0.62, 0.67], ['sim', 0.70, 0.75],
+  ];
+  const HEAD = { total_time: 'Total', ifr: 'IFR', night: 'Night', pic: 'PIC', co_pilot: 'Co-Pilot', dual: 'Dual', sim: 'Synthetic' };
+  const rowsIn = Array.from({ length: 10 }, (_, k) => ({
+    rowIndex: k + 1,
+    values: { date: `2023-09-${String(k + 1).padStart(2, '0')}`, dep_place: 'ETHB', dep_utc: `08:${String(10 + k)}`, arr_place: 'ETHB', arr_utc: `10:${String(20 + k)}`, registration: `826${k}`, total_time: '2.4', ifr: '2.4', dual: '2.4' },
+  }));
+  // Ett foto: förskjutning och skala per sida. Vision läser värden och rubriker där de faktiskt står.
+  const photo = (ax, bx) => {
+    const X = (x) => ax + bx * x, top = 0.25, h = 0.05, out = [];
+    const put = (text, field, y) => { const c = COLS.find((q) => q[0] === field); const cx = X((c[1] + c[2]) / 2); out.push({ text, x: cx - 0.012, y: y - 0.008, w: 0.024, h: 0.016 }); };
+    for (const [f, t] of Object.entries(HEAD)) put(t, f, top - 0.04);
+    rowsIn.forEach((r) => { for (const [f, v] of Object.entries(r.values)) put(v, f, top + h * (r.rowIndex - 0.5)); });
+    return out;
+  };
+  const gridFrom = (cols, ax = 0, bx = 1) => ({ tableTop: 0.25, tableBottom: 0.75, rowsPerPage: 10, source: 'scanner', spine: 0.5,
+    columns: cols.map(([field, l, r]) => ({ field, label: field, left: ax + bx * l, right: ax + bx * r })) });
+
+  const wordsA = photo(0, 1), good = gridFrom(COLS);
+  const goodScore = A.gridScore(good, rowsIn, wordsA);
+  ok(goodScore > 0.9, `rätt rutnät får hög poäng (${goodScore.toFixed(2)})`);
+
+  // Vänstersidans kolumner i procent av sidan (utdragna ×2), som i skärmdumpen.
+  const stretched = gridFrom(COLS.map(([f, l, r]) => (l < 0.5 ? [f, l * 2, r * 2] : [f, l, r])));
+  const badScore = A.gridScore(stretched, rowsIn, wordsA);
+  ok(badScore < goodScore - 0.3, `utdragna kolumner får låg poäng (${badScore.toFixed(2)})`);
+  const fixed = A.repairHalfPageColumns(stretched);
+  ok(fixed && Math.abs(fixed.columns.find((c) => c.field === 'total_time').left - 0.35) < 0.001, 'halvsideskoordinater skalas om');
+  ok(A.repairHalfPageColumns(good) === null, 'rätt rutnät rörs inte');
+
+  // Nästa foto är förskjutet och lite mindre, och Claudes kolumner är fel (dual hoptryckt under PIC).
+  const wordsB = photo(0.03, 0.93);
+  const wrong = gridFrom(COLS.map(([f, l, r]) => (f === 'dual' ? [f, 0.53, 0.54] : [f, l, r])));
+  const book = { columns: good.columns, spine: 0.5, score: goodScore };
+  const choice = A.chooseBookGrid(wrong, rowsIn, wordsB, book);
+  ok(choice.source === 'book', `bokens mall väljs (${JSON.stringify(choice.scores)})`);
+  const dual = choice.grid.columns.find((c) => c.field === 'dual');
+  ok(Math.abs((dual.left + dual.right) / 2 - (0.03 + 0.93 * 0.645)) < 0.01, 'dual hamnar där den står på fotot');
+  ok(choice.score > 0.9, `valda rutnätet stämmer (${choice.score.toFixed(2)})`);
+
+  // Ett rutnät som redan stämmer byts inte, och utan ankare görs inget.
+  const keep = A.chooseBookGrid(good, rowsIn, wordsA, book);
+  ok(keep.source === 'own' && keep.grid === good, 'ett bra rutnät behålls');
+  ok(A.mapBookColumns(book, good, [], []) === null, 'utan ord: ingen mall');
+  const noWords = A.chooseBookGrid(wrong, rowsIn, [], book);
+  ok(noWords.grid === wrong, 'utan Visions ord behålls Claudes rutnät');
+}
+
 console.log(fails === 0 ? '\ninga fel' : `\n${fails} fel`);
 process.exit(fails === 0 ? 0 : 1);

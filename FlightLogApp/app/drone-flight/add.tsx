@@ -5,6 +5,8 @@ import {
   InputAccessoryView, Keyboard, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { pickScanImage, CHOOSER_CLOSE_MS } from '../../components/AcarsScanChooser';
+import { DroneScanChooser, DENIED_TEXT } from '../../components/DroneScanChooser';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -61,6 +63,7 @@ import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from 
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
 import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
+import { isEssential, rememberSkippedDrones } from '../../services/essentialFleet';
 
 const today = new Date().toISOString().split('T')[0];
 const nowHHMM = () => {
@@ -145,7 +148,7 @@ const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 export default function AddDroneFlightScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string; addPhoto?: string; scan?: string; draft?: string }>();
+  const params = useLocalSearchParams<{ id?: string; addPhoto?: string; scanImage?: string; draft?: string }>();
   const editId = params.id ? parseInt(params.id, 10) : null;
   const isEdit = !!editId;
   const fromDraft = params.draft === '1' && !isEdit;   // fortsätter ett sparat utkast (dashboardens kort)
@@ -547,7 +550,7 @@ export default function AddDroneFlightScreen() {
     setScanChooserOpen(false);
     const r = scanResolveRef.current; scanResolveRef.current = null;
     // iOS: vänta tills modalen stängts innan kamera/bibliotek presenteras (annars dyker väljaren aldrig upp).
-    setTimeout(() => r?.(src), 350);
+    setTimeout(() => r?.(src), CHOOSER_CLOSE_MS);
   };
 
   const startLogScan = async () => {
@@ -562,19 +565,16 @@ export default function AddDroneFlightScreen() {
       setScanChooserOpen(true);
     });
     if (!source) return;
-    let picked: ImagePicker.ImagePickerResult;
-    if (source === 'camera') {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Camera', 'Camera permission is needed to photograph your flight log.'); return; }
-      picked = await ImagePicker.launchCameraAsync({ quality: 1 });
-    } else {
-      picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false });
-    }
-    if (picked.canceled || !picked.assets[0]) return;
+    const uri = await pickScanImage(source, DENIED_TEXT);
+    if (uri) await readLogImage(uri);
+  };
+
+  // Bilden är vald (här, eller på dashboarden/i Settings innan Log Flight öppnades): AI läser alla rader.
+  const readLogImage = async (uri: string) => {
     setScanLoading(true);
     try {
       const [res, existing] = await Promise.all([
-        scanDroneFlightLog(picked.assets[0].uri),
+        scanDroneFlightLog(uri),
         getDroneFlights(100000).catch(() => []),
       ]);
       if (!res.days.length) {
@@ -644,17 +644,11 @@ export default function AddDroneFlightScreen() {
       short ? { day: 'numeric', month: 'short', year: 'numeric' } : { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     : iso);
 
-  // ?scan=1 (dashboardens Instrument scan / Settings → Scan controller log) → starta skanningen direkt.
+  // Bilden valdes på dashboarden eller i Settings (useDroneScanStart): läs den när skärmen kommit upp.
   useEffect(() => {
-    if (params.scan !== '1' || isEdit) return;
-    (async () => {
-      // Gratisgränsen nådd → mount-effekten visar Premium-uppmaningen; starta då inte skanningen.
-      if (!isPremium && !isMax) {
-        const n = await getDroneFlightCount().catch(() => 0);
-        if (n >= FREE_TIER_LIMIT_DRONE) return;
-      }
-      setTimeout(() => startLogScan(), 500);
-    })();
+    if (!params.scanImage || isEdit) return;
+    const t = setTimeout(() => readLogImage(params.scanImage!), 400);
+    return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Natt-AUTO: hämta enhetens plats + räkna nattandel ur dep/arr-tid (UTC) för flygdagen.
@@ -964,7 +958,9 @@ export default function AddDroneFlightScreen() {
     if (entry) await setDrone(entry);
     // Auto-hämta fleet-data (bild + specar + c_class) direkt för den nya modellen (token-styrt), sedan
     // uppdatera valet så kategorin ev. härleds ur hämtad c_class. CSV-import påverkas inte.
-    if (data.model && hasTokenQuota()) {
+    if (data.model && isEssential()) {
+      rememberSkippedDrones([data.model]).catch(() => {}); // Essential visar ingen Fleet: hämtas vid byte till Extensive
+    } else if (data.model && hasTokenQuota()) {
       enrichDroneFleet(data.model, { background: true })
         .then((r) => persistDroneModelLookup(data.model, {
           manufacturer: r.manufacturer, drone_type: r.drone_type, mtow_g: r.mtow_g, c_class: r.c_class,
@@ -2016,7 +2012,7 @@ export default function AddDroneFlightScreen() {
         {/* Spara som utkast: fortsätt senare från dashboarden (inte vid redigering eller i rundturen). */}
         {!isEdit && !tourActive && (
           <TouchableOpacity style={styles.draftBtn} onPress={saveAsDraft} disabled={saving} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later from the dashboard.">
+            accessibilityRole="button" accessibilityLabel="Save as draft. Finish the flight later.">
             <Ionicons name="document-text-outline" size={17} color={DR.text2} />
             <Text style={styles.draftBtnText}>Save as draft</Text>
           </TouchableOpacity>
@@ -2169,26 +2165,7 @@ export default function AddDroneFlightScreen() {
         </View>
       </Modal>
 
-      {/* Instrument scan — källa: skärmdump ur biblioteket (vanligast) eller foto av skärmen */}
-      <Modal visible={scanChooserOpen} transparent animationType="fade" onRequestClose={() => chooseScanSource(null)}>
-        <Pressable style={styles.scanBackdrop} onPress={() => chooseScanSource(null)}>
-          <Pressable style={styles.scanCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.scanTitle}>Scan flight log</Text>
-            <Text style={styles.scanBody}>Pick a screenshot of the flight list in your drone app — for example DJI Fly → Flight Data Center — or photograph the screen. Every flight in the image is read, date by date.</Text>
-            <TouchableOpacity style={styles.scanBtn} onPress={() => chooseScanSource('library')} activeOpacity={0.85}>
-              <Ionicons name="images" size={18} color={DR.inkOnAccent} />
-              <Text style={styles.scanBtnText}>Photo library</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.scanBtn} onPress={() => chooseScanSource('camera')} activeOpacity={0.85}>
-              <Ionicons name="camera" size={18} color={DR.inkOnAccent} />
-              <Text style={styles.scanBtnText}>Camera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.scanCancel} onPress={() => chooseScanSource(null)} activeOpacity={0.7}>
-              <Text style={styles.scanCancelText}>{t('cancel')}</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <DroneScanChooser visible={scanChooserOpen} onChoose={chooseScanSource} />
 
       {/* Instrument scan — datumväljare: före första loggningen och efter varje Save (fler dagar kvar). */}
       <Modal visible={!!scanPicker} transparent animationType="fade" onRequestClose={closeScanPicker}>

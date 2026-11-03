@@ -23,6 +23,9 @@ export interface ScanRow {
   // totalerna). Flygningen markeras när den sparas, med var i boken avvikelsen finns.
   adjusted?: { field: string; from: string; to: string; printed: number }[];
   fromRemarks?: boolean;  // second pilot hämtad ur anmärkningen automatiskt (rubriken säger "name of PIC")
+  // Användaren tog bort second pilot (texten var ingen person): texten är tillbaka i anmärkningen och hämtas inte
+  // igen. Det som behövs för att ångra.
+  crewRemoved?: { name: string; role: string; remarks: string };
 }
 
 /**
@@ -546,6 +549,7 @@ export function applyPilotNamesFromRemarks(rows: ScanRow[]): number {
     for (const r of [...list].sort((a, b) => a.rowIndex - b.rowIndex)) {
       const d = r.data;
       if (r.skip) continue;
+      if (r.crewRemoved) { prev = null; continue; }
       if (d.second_pilot) { prev = r.fromRemarks ? { name: d.second_pilot, rest: d.remarks ?? '' } : null; continue; }
       const remarks = String(d.remarks ?? '').trim();
       let name: string | null = null, rest = remarks;

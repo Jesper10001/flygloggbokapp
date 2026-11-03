@@ -9,6 +9,7 @@ import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
 import { setFlightPhotoLocalId } from '../db/flights';
 import { getAssetDisplay, getFlightPhotoCandidates, getPhotoPermissionStatus, requestPhotoPermission, isPhotoSyncAvailable } from '../services/photoSync';
+import { useAppVariantStore } from '../store/appVariantStore';
 import type { Flight } from '../types/flight';
 
 const fmtDur = (s: number) => `${Math.floor((s || 0) / 60)}:${String(Math.round(s || 0) % 60).padStart(2, '0')}`;
@@ -20,6 +21,7 @@ export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }
   const [full, setFull] = useState(false);
   const [picking, setPicking] = useState(false);
   const [cands, setCands] = useState<MediaLibrary.Asset[] | null>(null);
+  const essential = useAppVariantStore((st) => st.variant) === 'essential';
 
   const resolve = useCallback(async () => {
     if (!flight.photo_local_id) { setUri(null); return; }
@@ -88,6 +90,8 @@ export function FlightSyncedPhoto({ flight, accent = Colors.primary, onChanged }
 
   // Ingen koppling → liten "hitta foton"-knapp.
   if (!hasLink) {
+    // Blades Essential visar inte foto-sökningen. Ett redan kopplat foto syns fortfarande.
+    if (essential) return null;
     return (
       <>
         <TouchableOpacity onPress={openPicker} activeOpacity={0.8}

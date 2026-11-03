@@ -2,6 +2,7 @@
 // med progress → AI-kolumnmappning → analysis summary (AI) → "inside data"-summering + "Drone data"
 // (inline-editor per modell, AI sätter airframe/vikt/klass) → import (source='import') + registrering
 // + berikning. Layouten motsvarar pilotens Import (samma summering + Aircraft data-sektion).
+import { HowItWorks } from '../../components/HowItWorks';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -262,18 +263,7 @@ export default function DroneImportCsvScreen() {
       {/* Intro — visas före filval */}
       {!importing && !result && !importError && (
         <>
-          <View style={s.infoCard}>
-            <Text style={s.infoTitle}>How it works</Text>
-            {HOW_IT_WORKS.map((step) => (
-              <View key={step.n} style={s.stepRow}>
-                <View style={[s.stepBubble, { backgroundColor: accent + '22' }]}><Text style={[s.stepNum, { color: accent }]}>{step.n}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.stepTitle}>{step.t}</Text>
-                  <Text style={s.stepDesc}>{step.d}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          <HowItWorks steps={HOW_IT_WORKS} accent={accent} />
           <View style={s.infoCard}>
             <Text style={s.infoTitle}>Accepted file formats</Text>
             {ACCEPTED_FORMATS.map((f) => (
@@ -501,11 +491,6 @@ const s = StyleSheet.create({
   uploadSub: { color: DR.muted, fontSize: 12.5, textAlign: 'center' },
   infoCard: { backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border, padding: 14, gap: 12 },
   infoTitle: { color: DR.text, fontSize: 15, fontWeight: '800' },
-  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  stepBubble: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepNum: { fontSize: 13, fontWeight: '800' },
-  stepTitle: { color: DR.text, fontSize: 13.5, fontWeight: '700' },
-  stepDesc: { color: DR.text2, fontSize: 12.5, lineHeight: 18, marginTop: 2 },
   bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   bulletTerm: { color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', width: 78 },
   bulletDesc: { color: DR.text2, fontSize: 12.5 },

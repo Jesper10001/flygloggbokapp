@@ -14,7 +14,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { getSetting, setSetting } from '../../db/flights';
 import { useScanQuotaStore } from '../../store/scanQuotaStore';
-import { setScanBatch, MAX_SPREADS, type ScanImage } from '../../store/scanStore';
+import { setScanBatch, spreadLimit, type ScanImage } from '../../store/scanStore';
+import { useFlightStore } from '../../store/flightStore';
 import { useScanBookStore } from '../../store/scanBookStore';
 import {
   ScanCameraView, isScanCameraAvailable,
@@ -64,7 +65,8 @@ export default function ScanCameraScreen() {
   const lastAspect = useRef(DEFAULT_ASPECT);
 
   const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
-  const max = bookMode ? BOOK_MAX : MAX_SPREADS;
+  const { isPremium, isMax } = useFlightStore();
+  const max = bookMode ? BOOK_MAX : spreadLimit(isPremium || isMax);
   const full = spreads.length >= max;
 
   // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs —

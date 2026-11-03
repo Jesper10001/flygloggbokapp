@@ -19,6 +19,7 @@ import { FONT_SERIF, FONT_MONO, NIGHT_BADGE } from '../../../components/logbook-
 import { arrUtc, parseDate } from '../../../components/logbook-page/flightDisplay';
 import { placeCode } from '../../../utils/format';
 import { isCabinLine } from '../../../utils/remarksManaged';
+import { useAppVariantStore } from '../../../store/appVariantStore';
 
 const DASH = '—';
 
@@ -42,6 +43,7 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const accent = Colors.primary;
+  const essential = useAppVariantStore((st) => st.variant) === 'essential';
   const { formatTime } = useTimeFormat();
   const { loadFlights, loadStats } = useFlightStore();
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -214,10 +216,12 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
           </View>
         </View>
 
-        {/* Sun route */}
-        <View style={{ marginBottom: 12 }}>
-          <DayNightMap flight={f} />
-        </View>
+        {/* Sun route (inte i Blades Essential) */}
+        {!essential && (
+          <View style={{ marginBottom: 12 }}>
+            <DayNightMap flight={f} />
+          </View>
+        )}
 
         {/* Uppladdad bild/video */}
         {f.photo_uri ? (

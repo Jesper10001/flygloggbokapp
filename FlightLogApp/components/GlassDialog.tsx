@@ -5,7 +5,7 @@
 // de ser likadana ut i hela appen.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, type ViewStyle, type StyleProp } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, type ViewStyle, type StyleProp, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -43,6 +43,20 @@ export function DialogIcon({ name, color = Colors.primary }: { name: keyof typeo
         <Ionicons name={name} size={28} color={color} />
       </View>
     </View>
+  );
+}
+
+// Ett val i en popup-ruta: ikon, rubrik, kort förklaring och pil (t.ex. kamera eller fotoalbum).
+export function DialogOption({ icon, title, sub, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={d.option} onPress={onPress} activeOpacity={0.8} accessibilityRole="button">
+      <View style={d.optionIcon}><Ionicons name={icon} size={20} color={Colors.primary} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={d.optionTitle}>{title}</Text>
+        <Text style={d.optionSub}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+    </TouchableOpacity>
   );
 }
 
@@ -142,6 +156,16 @@ export const dialogStyles = StyleSheet.create({
 });
 
 const d = StyleSheet.create({
+  option: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  optionIcon: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '33',
+  },
+  optionTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  optionSub: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
   scrim: { backgroundColor: 'rgba(4,10,20,0.55)' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   card: {

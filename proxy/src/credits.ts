@@ -12,7 +12,7 @@
 export const TOKENS_PER_COIN = 200;
 
 // App Store-produkterna (förbrukningsbara) → antal coins. Priser sätts i App Store Connect:
-// 100 = 29 kr, 250 = 39 kr, 500 = 59 kr.
+// 100 = 29 kr, 250 = 39 kr, 500 = 69 kr.
 export const COIN_PACKS: Record<string, number> = {
   blades_coins_100: 100,
   blades_coins_250: 250,

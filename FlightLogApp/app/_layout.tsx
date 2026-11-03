@@ -17,6 +17,7 @@ import { useTimeFormatStore } from '../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../store/altitudeUnitStore';
 import { useThemeStore } from '../store/themeStore';
 import { useAppModeStore } from '../store/appModeStore';
+import { useAppVariantStore } from '../store/appVariantStore';
 import { useFlightStore } from '../store/flightStore';
 import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
@@ -189,13 +190,17 @@ export default function RootLayout() {
           ]);
           if (backup && await offerICloudRestore(backup)) {
             const m2 = useAppModeStore.getState().mode;
+            // Flikarna skickar vidare till Essential om den återställda säkerhetskopian använder den.
+            await useAppVariantStore.getState().load();
             router.replace((m2 === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)') as any);
             return;
           }
         }
         // Drönarläge → navigera EXPLICIT till drönar-dashboarden. '/(tabs)' löser sig annars
         // till ankaret 'index' (manned, href:null i drönarläge) → svart skärm vid omstart.
-        const dest = !onboarded ? '/onboarding' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
+        await useAppVariantStore.getState().load();
+        const essential = useAppVariantStore.getState().variant === 'essential';
+        const dest = !onboarded ? '/onboarding' : essential ? '/essential' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
         router.replace(dest as any);
       } catch (err: any) {
         // Startfel (oftast DB kunde inte öppnas — korrupt fil eller SQLCipher-nyckel saknas).
@@ -288,6 +293,11 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="essential/index" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="essential/logbook" options={{ headerShown: false }} />
+        <Stack.Screen name="essential/security" options={{ headerShown: false }} />
+        <Stack.Screen name="essential/settings" options={{ headerShown: false }} />
+        <Stack.Screen name="essential/export-pages" options={{ headerShown: false }} />
         <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
@@ -296,7 +306,7 @@ export default function RootLayout() {
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="flight/scan-review" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
-        <Stack.Screen name="import/scan" options={{ title: 'Scan logbook', presentation: 'modal' }} />
+        <Stack.Screen name="import/scan" options={{ title: 'Logbook scan', presentation: 'modal' }} />
         <Stack.Screen name="import/scan-book" options={{ title: 'Whole logbook', headerBackTitle: 'Back' }} />
         <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/scan-crop" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />

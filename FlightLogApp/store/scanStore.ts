@@ -5,6 +5,14 @@ import type { PageContext } from '../services/ocr';
 // Högst så många uppslag per skanning (kameran, fotoväljaren, granskningen). En hel bok delas upp i omgångar
 // om lika många i "Scan your whole logbook" (app/import/scan-book).
 export const MAX_SPREADS = 10;
+// Gratisanvändare: högst så många uppslag per skanning. Engångspotten är 100 Blade coins, ett uppslag kostar
+// 25–33 coins med gratisnivåns taxa och varje ny flygplanstyp ca 6 (uppslag + Fleet-data). Två uppslag lämnar
+// coins kvar att prova resten av appen med; tre kan tömma potten innan typerna hunnit slås upp.
+export const FREE_SPREADS = 2;
+export const spreadLimit = (paying: boolean) => (paying ? MAX_SPREADS : FREE_SPREADS);
+// Skanningen av pappersloggboken är pausad i riktiga byggen ("coming soon") men öppen i dev-builden medan den
+// byggs om. __DEV__ är alltid false i TestFlight/App Store. Byt till true när den ska lanseras.
+export const SCAN_OPEN = __DEV__;
 
 export interface ScanImage {
   base64: string;
@@ -51,6 +59,10 @@ export interface ScanBookSession {
   ctx?: PageContext;
   ledger?: { start: number | null; latest: number | null };
 }
+// Skanningen startades från onboardingen: efter Save går man till dashboarden, inte tillbaka dit.
+let fromOnboarding = false;
+export function setScanFromOnboarding(v: boolean) { fromOnboarding = v; }
+export function getScanFromOnboarding(): boolean { return fromOnboarding; }
 let bookSession: ScanBookSession | null = null;
 export function setScanBookSession(s: ScanBookSession | null) { bookSession = s; }
 export function takeScanBookSession(): ScanBookSession | null { const s = bookSession; bookSession = null; return s; }

@@ -14,11 +14,13 @@ import { Colors } from '../../constants/colors';
 import { canUseLiquidGlass } from '../../utils/liquidGlass';
 import { ocrScanPage, getActiveBookLayout, OCR_MODEL, type AircraftDetection, type PageContext } from '../../services/ocr';
 import {
-  getScanBatch, clearScanImage, getScanUseBookLayout, getScanTimeBasis, setScanTimeBasis, getScanFocus, setScanFocus, takeScanBookSession,
+  getScanBatch, clearScanImage, getScanUseBookLayout, getScanTimeBasis, setScanTimeBasis, getScanFocus, setScanFocus, takeScanBookSession, getScanFromOnboarding, setScanFromOnboarding,
   type TimeBasis, type ScanFocus, type ScanBookSession,
 } from '../../store/scanStore';
 import { useScanBookStore } from '../../store/scanBookStore';
-import { loadScanFormat, formatToLayout, type ScanFormat } from '../../services/scanFormat';
+import { loadScanFormat, saveScanFormat, formatToLayout, type ScanFormat } from '../../services/scanFormat';
+import { applyValueRules, undoValueRule, noteAnswer, ruleFor, ruleClassOf, upper, type ValueRule, type RuleStash } from '../../services/scanValueRules';
+import { resolveNames } from '../../services/scanNames';
 import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
 import { resolveScanTypes, typeKey, isVariant, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
@@ -28,7 +30,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { presentPaywall } from '../../services/purchases';
-import { getAllAircraftTypes, getFleetRegistrationTypes, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting } from '../../db/flights';
+import { getAllAircraftTypes, getFleetRegistrationTypes, getSecondPilotCounts, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting } from '../../db/flights';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import { ScanReport, type CellState } from '../../components/scan/ScanReport';
 import { ScanProgress, type ScanPhase } from '../../components/scan/ScanProgress';
@@ -57,7 +59,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, type VisionBox,
+  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -483,6 +485,22 @@ export default function ScanReviewScreen() {
   const [typeSeparate, setTypeSeparate] = useState<Set<string>>(new Set());
   const [typeChoice, setTypeChoice] = useState<Record<string, string>>({});
   const typeEdited = useRef(new Set<string>());   // rader där användaren själv ändrat typen
+  // Andrepiloterna: namnen som redan finns, isärhållna namn, och rader användaren själv ändrat.
+  const [knownNames, setKnownNames] = useState<{ name: string; n: number }[]>([]);
+  const [nameSeparate, setNameSeparate] = useState<Set<string>>(new Set());
+  const crewEdited = useRef(new Set<string>());
+  const nameWritten = useRef(new Map<string, string>());   // namnet som det lästes, per rad
+  // Svar som lärs under skanningen (services/scanValueRules.ts): samma svar tre gånger gäller resten av boken.
+  const rulesRef = useRef<ValueRule[]>([]);
+  const [rules, setRules] = useState<ValueRule[]>([]);
+  const ruleStash = useRef(new Map<string, RuleStash>());
+  const ruleAnswers = useRef(new Map<string, Set<string>>());
+  const [learnNote, setLearnNote] = useState<{ text: string; rule: ValueRule } | null>(null);
+  const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bokens kolumner: mallen från uppslaget som stämmer bäst med bilden, och det som behövs för att pröva om
+  // redan lästa uppslag när en bättre mall kommer (scanAlign.chooseBookGrid).
+  const bookGridRef = useRef<BookColumns | null>(null);
+  const pageInputs = useRef(new Map<number, { rows: AlignRow[]; words: VisionBox[]; score: number }>());
   const [airportHits, setAirportHits] = useState<{ icao: string; name: string }[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [stage, setStage] = useState<'review' | 'report'>('review');
@@ -687,6 +705,9 @@ export default function ScanReviewScreen() {
         if (!rowIndex || rowIndex < 1) rowIndex = idx + 1;
         return { key: `${i}:${rowIndex}:${idx}`, page: i, rowIndex, data, original: { ...f }, skip: false };
       });
+      // Det användaren redan svarat tre gånger (t.ex. ETNB → ETHB) frågas inte igen.
+      const learned = applyValueRules(newRows, rulesRef.current, ruleStash.current);
+      learned.forEach((r, k) => { newRows[k] = r; });
       // Datum som går bakåt eller krockar med raden ovanför, och fler rader än sidan har (en rad läst två gånger).
       // Radantalet tas från bokens tidigare uppslag när de är överens (samma bok, samma tryck).
       const rowsPrinted = typicalRowsPerPage(pagesRef.current.filter((_, k) => k !== i).map((p) => p.grid?.rowsPerPage ?? 0), grid?.rowsPerPage);
@@ -754,6 +775,32 @@ export default function ScanReviewScreen() {
         })), words);
         grid = relocated.grid;
         if (relocated.moved.length) console.log(`[SCAN] Kolumner omkopplade efter var värdena står: ${relocated.moved.join(', ')}`);
+        // Samma tryck på varje uppslag: det rutnät som stämmer bäst med bilden vinner, och det bästa hittills blir
+        // bokens mall. Blir mallen bättre prövas redan lästa uppslag om, så att de också får rätt kolumner.
+        const SCORE_FIELDS = ['aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'landings_day', 'landings_night'];
+        const scoreRows: AlignRow[] = newRows.map((r) => ({
+          rowIndex: r.rowIndex,
+          values: Object.fromEntries(SCORE_FIELDS.filter((f) => !(f === 'total_time' && r.data.flight_type === 'sim'))
+            .map((f) => [f, String((r.data as any)[f] ?? '')]).filter(([, v]) => v !== '')),
+        }));
+        const choice = chooseBookGrid(grid, scoreRows, words, bookGridRef.current);
+        grid = choice.grid;
+        console.log(`[SCAN] Kolumner uppslag ${i + 1}: ${Object.entries(choice.scores).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(' · ')} → ${choice.source}`);
+        pageInputs.current.set(i, { rows: scoreRows, words, score: choice.score });
+        // Vision läser handskrift ojämnt, så nivån är låg; varje uppslag väljer ändå det som stämmer bäst.
+        if (choice.score >= 0.2 && choice.score > (bookGridRef.current?.score ?? -1)) {
+          const book: BookColumns = { columns: grid.columns, spine: grid.spine ?? 0.5, score: choice.score };
+          bookGridRef.current = book;
+          pageInputs.current.forEach((input, k) => {
+            const pg = pagesRef.current[k];
+            if (k === i || !pg?.grid) return;
+            const again = chooseBookGrid(pg.grid, input.rows, input.words, book);
+            if (again.source === 'own') return;
+            console.log(`[SCAN] Uppslag ${k + 1} fick bokens kolumner (${input.score.toFixed(2)} → ${again.score.toFixed(2)})`);
+            pageInputs.current.set(k, { ...input, score: again.score });
+            patchPage(k, { grid: again.grid });
+          });
+        }
 
         // Landningar: jämför med vad Vision läser i samma cell. Olika → en fråga med Visions tal som förslag.
         const checks = crossCheckCounts(grid, newRows.map((r) => ({
@@ -862,6 +909,12 @@ export default function ScanReviewScreen() {
       // En omgång ur en hel bok: bokens format (id:t följer med omgången) i stället för den digitala bokens mall.
       const format = book ? await loadScanFormat(book.formatId) : null;
       bookFormatRef.current = format;
+      if (format) bookGridRef.current = format.template ?? { columns: format.columns.map((c) => ({ field: c.field, label: c.label, left: c.left, right: c.right })), spine: format.spine, score: -1 };
+      getSecondPilotCounts().then(setKnownNames).catch(() => {});
+      try {
+        const saved = JSON.parse((await getSetting('scan_value_rules')) || '[]');
+        if (Array.isArray(saved)) { rulesRef.current = saved; setRules(saved); }
+      } catch { /* inga sparade regler */ }
       getFleetRegistrationTypes().then(setFleetRegs).catch(() => {});
       const [types, layout] = await Promise.all([
         getAllAircraftTypes().catch(() => []),
@@ -933,6 +986,59 @@ export default function ScanReviewScreen() {
     if (merged.length) console.log(`[SCAN] Typer: ${merged.map((g) => `${g.members.map((m) => m.display).join('/')} → ${typeFor(g)}${g.fleet ? ` (flottan, ${g.via})` : ''}`).join(' · ')}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeRes, typeChoice]);
+  // Andrepiloterna, på samma sätt (services/scanNames.ts): WOLFF, Wolff och WOFF blir ett namn, det mest använda.
+  const nameRes = useMemo(() => resolveNames(
+    rows.filter((r) => !r.skip && r.data.second_pilot && !crewEdited.current.has(r.key)).map((r) => nameWritten.current.get(r.key) ?? r.data.second_pilot!),
+    knownNames, nameSeparate,
+  ), [rows, knownNames, nameSeparate]);
+  useEffect(() => {
+    const want = (r: ScanRow) => {
+      if (!r.data.second_pilot || crewEdited.current.has(r.key)) return null;
+      const written = nameWritten.current.get(r.key) ?? r.data.second_pilot;
+      const name = nameRes.nameOf(written);
+      return name !== r.data.second_pilot ? { written, name } : null;
+    };
+    if (!rows.some((r) => want(r))) return;
+    setRows((prev) => prev.map((r) => {
+      const w = want(r);
+      if (!w) return r;
+      nameWritten.current.set(r.key, w.written);
+      return { ...r, data: { ...r.data, second_pilot: w.name } };
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameRes]);
+  const nameMatches = nameRes.groups.filter((g) => g.spellings.length > 0)
+    .map((g) => ({ id: g.id, to: g.name, from: g.spellings, rows: g.rows, similar: g.similar }));
+  const keepNamesSeparate = (id: string) => {
+    touched.current = true;
+    setNameSeparate((st) => new Set([...st, ...id.split('|')]));
+  };
+  // Second pilot som inte var en person (Claude tog text i anmärkningen för ett namn): tillbaka till anmärkningen.
+  const removeCrew = (rowKey: string) => {
+    touched.current = true;
+    crewEdited.current.add(rowKey);
+    nameWritten.current.delete(rowKey);
+    setRows((prev) => prev.map((r) => {
+      const name = r.data.second_pilot;
+      if (r.key !== rowKey || !name) return r;
+      const current = r.data.remarks ?? '';
+      const original = r.original.remarks ?? '';
+      const remarks = original.toUpperCase().includes(name.toUpperCase()) ? original : [name, current].filter(Boolean).join(' ');
+      return {
+        ...r,
+        crewRemoved: { name, role: r.data.second_pilot_role ?? '', remarks: current },
+        data: { ...r.data, second_pilot: '', second_pilot_role: '', remarks },
+      };
+    }));
+  };
+  const restoreCrew = (rowKey: string) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== rowKey || !r.crewRemoved) return r;
+      const { name, role, remarks } = r.crewRemoved;
+      const { crewRemoved: _gone, ...rest } = r;
+      return { ...rest, data: { ...r.data, second_pilot: name, second_pilot_role: role, remarks } };
+    }));
+  };
   // Rapporten: "Keep separate" och namnet på en ny typ.
   const keepTypesSeparate = (groupId: string) => {
     const g = typeRes.groups.find((x) => x.id === groupId);
@@ -1135,6 +1241,9 @@ export default function ScanReviewScreen() {
   const setField = (rowKey: string, field: string, value: string) => {
     touched.current = true;
     if (field === 'aircraft_type' && (rows.find((r) => r.key === rowKey)?.data.aircraft_type || '').toUpperCase() !== value.toUpperCase()) typeEdited.current.add(rowKey);
+    if (field === 'second_pilot') { crewEdited.current.add(rowKey); nameWritten.current.delete(rowKey); }
+    const before = rows.find((r) => r.key === rowKey);
+    if (before && upper((before.data as any)[field]) !== upper(value)) learnAnswer(field, rowKey, (before.data as any)[field], value);
     setRows((prev) => prev.map((r) => {
       if (r.key !== rowKey) return r;
       // Simulatorpass: passets längd är både simulatortid och total tid (appens modell) — håll dem lika.
@@ -1143,8 +1252,37 @@ export default function ScanReviewScreen() {
     }));
   };
 
+  // Samma svar tre gånger → regel för resten av boken. Frågorna försvinner, och raden visas ett tag med "Undo".
+  const showLearned = (text: string, rule: ValueRule) => {
+    setLearnNote({ text, rule });
+    if (learnTimer.current) clearTimeout(learnTimer.current);
+    learnTimer.current = setTimeout(() => setLearnNote(null), 7000);
+  };
+  const saveRules = (next: ValueRule[]) => {
+    rulesRef.current = next;
+    setRules(next);
+    setSetting('scan_value_rules', JSON.stringify(next)).catch(() => {});
+  };
+  const learnAnswer = (field: string, rowKey: string, from: unknown, to: unknown) => {
+    const rule = noteAnswer(ruleAnswers.current, rulesRef.current, field, rowKey, from, to);
+    if (!rule) return;
+    saveRules([...rulesRef.current, rule]);
+    const n = rows.filter((r) => r.key !== rowKey && (ruleFor([rule], 'dep_place', r.data.dep_place) || ruleFor([rule], 'arr_place', r.data.arr_place) || ruleFor([rule], 'registration', r.data.registration))).length;
+    setRows((prev) => applyValueRules(prev, [rule], ruleStash.current));
+    console.log(`[SCAN] Lärt: ${rule.from} → ${rule.to} (${n} rader till)`);
+    showLearned(rule.from === rule.to ? `${rule.from} is right. Won't ask again.` : `${rule.from} is now ${rule.to}${n ? ` on ${n} more ${n === 1 ? 'row' : 'rows'}` : ''}.`, rule);
+  };
+  const undoRule = (rule: ValueRule) => {
+    saveRules(rulesRef.current.filter((r) => !(r.cls === rule.cls && r.from === rule.from)));
+    ruleAnswers.current.delete(`${rule.cls}|${rule.from}|${rule.to}`);
+    setRows((prev) => undoValueRule(prev, rule, ruleStash.current));
+    setLearnNote(null);
+  };
+  // Frågor som en regel just tog bort (raderna här är från före uppdateringen).
+  const coveredByRule = (i: Issue) => !!rowByKey.get(i.rowKey) && !!ruleFor(rulesRef.current, i.field, (rowByKey.get(i.rowKey)!.data as any)[i.field]);
+
   const nextOpen = (afterId?: string, justResolved?: string) => {
-    const open = issues.filter((i) => !isDone(i) && i.id !== justResolved);
+    const open = issues.filter((i) => !isDone(i) && i.id !== justResolved && !coveredByRule(i));
     if (open.length === 0) return null;
     const idx = afterId ? issues.findIndex((i) => i.id === afterId) : -1;
     return open.find((i) => issues.indexOf(i) > idx) ?? open[0];
@@ -1339,6 +1477,10 @@ export default function ScanReviewScreen() {
   const confirm = () => {
     if (!selectedIssue) { select(null); return; }
     if (selectedIssue.kind === 'aircraft') { applySuggestion(selectedIssue, { label: '', field: 'aircraft_type', value: selectedIssue.aircraft!.resolved }); return; }
+    if (ruleClassOf(selectedIssue.field)) {
+      const keys = selectedIssue.group ? selectedIssue.group.members.map((m) => m.split(':f:')[0]) : [selectedIssue.rowKey];
+      for (const k of keys) { const v = (rowByKey.get(k)?.data as any)?.[selectedIssue.field]; learnAnswer(selectedIssue.field, k, v, v); }
+    }
     resolve(selectedIssue.id, 'ok');
   };
 
@@ -1472,7 +1614,12 @@ export default function ScanReviewScreen() {
   });
 
   // Efter Save: tillbaka till dashboarden, eller till "Scan your whole logbook" när det var en omgång ur en hel bok.
-  const leave = () => (bookRef.current ? router.back() : router.dismissAll());
+  const leave = () => {
+    if (bookRef.current) { router.back(); return; }
+    // Från onboardingen ligger den kvar under i stacken: till dashboarden, som efter en CSV-import.
+    if (getScanFromOnboarding()) { setScanFromOnboarding(false); router.replace('/(tabs)'); return; }
+    router.dismissAll();
+  };
 
   const saveReport = async () => {
     if (savingRef.current) return;
@@ -1514,6 +1661,10 @@ export default function ScanReviewScreen() {
           last_dep_place: last.dep_place, last_arr_place: last.arr_place, page_number: (pages[kept[kept.length - 1].page]?.pageNumbers.left ?? undefined) as number | undefined,
         } : undefined);
         bookLeft = useScanBookStore.getState().project?.photos.filter((ph) => ph.savedIn == null).length ?? 0;
+        // Nästa del börjar med kolumnerna som stämde bäst här.
+        if (bookFormatRef.current && bookGridRef.current && bookGridRef.current.score >= 0) {
+          saveScanFormat({ ...bookFormatRef.current, template: bookGridRef.current }).catch(() => {});
+        }
       }
       // Nya flygplanstyper: hela Fleet-datan (spec + bild) hämtas i bakgrunden, som efter CSV-importen.
       // Popupen "Fleet updated" visas när det är klart (global, skärmen har då oftast stängts).
@@ -1752,6 +1903,12 @@ export default function ScanReviewScreen() {
           openCount={openIssues.length}
           newTypes={newTypes}
           fleetMatches={fleetMatches}
+          onRemoveCrew={removeCrew}
+          onRestoreCrew={restoreCrew}
+          nameMatches={nameMatches}
+          onKeepNamesSeparate={keepNamesSeparate}
+          learned={rules.map((r) => ({ rule: r, rows: [...ruleStash.current.values()].filter((x) => x.rule.cls === r.cls && x.rule.from === r.from).length })).filter((x) => x.rows > 0)}
+          onUndoRule={undoRule}
           onKeepSeparate={keepTypesSeparate}
           onNameType={nameType}
           aircraft={aircraft}
@@ -1933,6 +2090,16 @@ export default function ScanReviewScreen() {
           <TouchableOpacity style={[s.importBtn, (importCount === 0 || busy) && { opacity: 0.45 }]} onPress={openReport} accessibilityLabel="Scan report">
             <Text style={s.importText}>Report</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textInverse} />
+          </TouchableOpacity>
+        </View>
+      )}
+      {/* Något lärdes av svaren: raderna rättades och frågorna försvann. */}
+      {learnNote && !typing && (
+        <View style={[s.learnBar, { top: insets.top + (pages.length > 1 ? 100 : 54), left: insets.left + 12, right: insets.right + 12 }]}>
+          <Ionicons name="sparkles" size={15} color={Colors.primary} />
+          <Text style={s.learnText} numberOfLines={2}>{learnNote.text}</Text>
+          <TouchableOpacity onPress={() => undoRule(learnNote.rule)} hitSlop={10} accessibilityRole="button">
+            <Text style={s.learnUndo}>Undo</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -2716,6 +2883,9 @@ const s = StyleSheet.create({
 
   topBar: { position: 'absolute', height: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  learnBar: { position: 'absolute', zIndex: 20, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#0F2A40', borderWidth: 1, borderColor: Colors.primary + '55' },
+  learnText: { flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  learnUndo: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
   pagePills: { flexDirection: 'row', gap: 6 },
   pillRow: { position: 'absolute', flexDirection: 'row', gap: 6 },
   pagePill: {

@@ -687,6 +687,14 @@ export async function setFlightInstructor(id: number, hours: number): Promise<vo
   await db.runAsync('UPDATE flights SET instructor=? WHERE id=?', [hours, id]);
 }
 
+// Alla andrepiloter med antal flygningar: skanningen matchar lästa namn mot dem (services/scanNames.ts).
+export async function getSecondPilotCounts(): Promise<{ name: string; n: number }[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<{ name: string; n: number }>(
+    `SELECT second_pilot as name, COUNT(*) as n FROM flights WHERE second_pilot != '' AND second_pilot IS NOT NULL GROUP BY second_pilot`,
+  );
+}
+
 export async function getRecentSecondPilots(limit = 10): Promise<string[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<{ second_pilot: string }>(

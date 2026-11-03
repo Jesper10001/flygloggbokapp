@@ -10,6 +10,7 @@ import {
   Dimensions, Alert, Animated, RefreshControl, ActivityIndicator, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,7 +41,7 @@ import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { Marquee } from '../../components/Marquee';
 import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
 import { useTabBarSpace } from '../../components/GlassTabBar';
-import { workloadIndex, stressSeries, stressFactorSummary, type StressZone as FactorZone } from '../../utils/workload';
+import { workloadIndex, stressSeries, stressFactorSummary, hasFlightsIn, type StressZone as FactorZone } from '../../utils/workload';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 const SERIF = 'Georgia';
@@ -94,6 +95,7 @@ function relDate(iso: string): string {
 
 export default function DroneDashboardScreen() {
   const router = useRouter();
+  const droneScan = useDroneScanStart();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const accent = useDroneAccentStore((s) => s.color);
@@ -105,7 +107,7 @@ export default function DroneDashboardScreen() {
   const stats = tourDemo ? DEMO_DRONE_STATS : realDroneStats;
   const [stress, setStress] = useState<StressData>(computeStress(0, 0));
   // Stressfactor-knappen (som pilot): snittet av Flight load de senaste 60 dagarna + kurvan i knappen.
-  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[] }>({ zone: 'normal', values: [] });
+  const [factor, setFactor] = useState<{ zone: FactorZone; values: number[]; active: boolean }>({ zone: 'normal', values: [], active: false });
   const [latestPage, setLatestPage] = useState(0); // aktiv sida i latest-flight-karusellen (= manned prickar)
   const [globeGrabbed, setGlobeGrabbed] = useState(false); // pausa scroll medan globen snurras (= manned)
   const [globeMenuOpen, setGlobeMenuOpen] = useState(false); // enkel-tap → kart-val-meny (= manned)
@@ -136,8 +138,10 @@ export default function DroneDashboardScreen() {
     loadStats();
     getDroneStressHours().then((h) => setStress(computeStress(h.recent14, h.yearAvg14, h.historyDays))).catch(() => {});
     getDroneStressDaily().then((daily) => {
-      const series = stressSeries(daily, new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10), new Date().toISOString().slice(0, 10));
-      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index) });
+      const from = new Date(Date.now() - 59 * 86400000).toISOString().slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
+      const series = stressSeries(daily, from, today);
+      setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index), active: hasFlightsIn(daily, from, today) });
     }).catch(() => {});
     return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
@@ -200,7 +204,7 @@ export default function DroneDashboardScreen() {
           {/* Vänster: WORKLOAD-etikett + zon bredvid varandra (= pilot) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.telGaugeLabel}>WORKLOAD</Text>
-            <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push({ pathname: '/stressfactor', params: { mode: 'drone' } })} />
+            {factor.active && <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push({ pathname: '/stressfactor', params: { mode: 'drone' } })} />}
           </View>
           {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) = pilot */}
           {!wx && (
@@ -252,10 +256,11 @@ export default function DroneDashboardScreen() {
         </View>
       )}
 
+      {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
       <View style={s.logRow}>
         <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
-          onPress={() => router.push('/drone-flight/add?scan=1')}>
+          onPress={droneScan.start}>
           <Ionicons name="scan-outline" size={22} color={accent} />
         </TouchableOpacity>
         <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>

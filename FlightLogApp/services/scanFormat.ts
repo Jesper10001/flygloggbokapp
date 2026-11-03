@@ -8,6 +8,7 @@ import { callAnthropicTool } from './anthropicClient';
 import { OCR_MODEL } from './ocr';
 import { getSetting, setSetting } from '../db/flights';
 import type { LogbookLayout, LayoutColumn, LayoutFieldType } from './logbookLayout';
+import type { BookColumns } from './scanAlign';
 
 export interface ScanFormatColumn {
   label: string;
@@ -28,6 +29,7 @@ export interface ScanFormat {
   footer: { broughtForward: boolean; totalThisPage: boolean; totalToDate: boolean };
   pageNumbers: { left: number | null; right: number | null };   // första uppslagets tryckta sidnummer
   spine: number;                // 0–1, var vänstersidan slutar
+  template?: BookColumns;       // kolumnerna från uppslaget som stämt bäst med bilden (nästa del börjar med dem)
 }
 
 // Fälten en kolumn kan läsas till (samma som skannerns flights-schema och mallarnas layout).

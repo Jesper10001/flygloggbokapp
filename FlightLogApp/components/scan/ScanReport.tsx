@@ -10,6 +10,7 @@ import { formatTimeValue } from '../../hooks/useTimeFormat';
 import { NewAircraftSection, type AircraftInput } from './NewAircraftCard';
 import type { ColumnCheck } from '../../services/scanImport';
 import { viaText, type TypeVia } from '../../services/scanTypes';
+import type { ValueRule } from '../../services/scanValueRules';
 import { FONT_SERIF, FONT_MONO, NIGHT_BADGE, NVG_BADGE, SIM_BADGE } from '../logbook-page/tokens';
 import { dayOfMonth, weekdayShort } from '../logbook-page/flightDisplay';
 
@@ -79,6 +80,13 @@ export function ScanReport(p: {
   // Skrivsätt som fått en typ som redan finns i flottan (services/scanTypes.ts), och varför.
   fleetMatches?: { id: string; to: string; from: string[]; rows: number; via: TypeVia }[];
   onKeepSeparate?: (groupId: string) => void;
+  // Namn som blivit ett (WOFF → WOLFF), och svar som lärts under skanningen (ETNB → ETHB).
+  nameMatches?: { id: string; to: string; from: string[]; rows: number; similar: boolean }[];
+  onKeepNamesSeparate?: (id: string) => void;
+  onRemoveCrew?: (rowKey: string) => void;      // second pilot som inte var en person → tillbaka till anmärkningen
+  onRestoreCrew?: (rowKey: string) => void;
+  learned?: { rule: ValueRule; rows: number }[];
+  onUndoRule?: (rule: ValueRule) => void;
   onNameType?: (groupId: string, name: string) => void;
   aircraft: Record<string, AircraftInput>;
   aircraftLoading: Set<string>;
@@ -112,6 +120,7 @@ export function ScanReport(p: {
 
   // Med många uppslag är bara de som behöver ses över utfällda.
   const [listOpen, setListOpen] = useState(true);
+  const [fixOpen, setFixOpen] = useState(false);
   // Bokens sidor i skanningen, lägsta till högsta ("p. 78–86").
   const pageNums = (p.pageNumbers ?? []).flatMap((n) => [n.left, n.right]).filter((n): n is number => typeof n === 'number' && n > 0);
   const pageRange = pageNums.length
@@ -214,20 +223,29 @@ export function ScanReport(p: {
           {crew.length > 0 && (
             <>
               <TouchableOpacity style={s.heroRow} onPress={() => setCrewOpen((o) => !o)} activeOpacity={0.75}
-                accessibilityRole="button" accessibilityState={{ expanded: crewOpen }} accessibilityLabel={`${crew.length} second pilots from the remarks`}>
+                accessibilityRole="button" accessibilityState={{ expanded: crewOpen }} accessibilityLabel={`${crew.filter((r) => !r.crewRemoved).length} second pilots from the remarks`}>
                 <Ionicons name="people-outline" size={17} color={Colors.textSecondary} />
                 <Text style={s.heroRowTitle}>Second pilots</Text>
-                <Text style={s.heroRowCount}>{crew.length}</Text>
+                <Text style={s.heroRowCount}>{crew.filter((r) => !r.crewRemoved).length}</Text>
                 <Ionicons name={crewOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
               </TouchableOpacity>
               {crewOpen && (
                 <View style={{ paddingBottom: 4 }}>
-                  <Text style={s.crewNote}>From the remarks. Tap a role to change it, or a name to correct it.</Text>
+                  <Text style={s.crewNote}>From the remarks. Tap a role to change it, or a name to correct it. Not a person? Tap ✕ and the text goes back to the remarks.</Text>
                   {crew.map((r, k) => (
                     <View key={r.key}>
                       {pages.length > 1 && (k === 0 || crew[k - 1].page !== r.page) && (
                         <Text style={s.crewSpread}>{p.pageLabels?.[r.page] ?? `Spread ${r.page + 1}`}</Text>
                       )}
+                      {r.crewRemoved ? (
+                      <View style={s.crewRow}>
+                        <Text style={s.crewDate}>{/^\d{4}-\d{2}-\d{2}$/.test(r.data.date || '') ? `${Number(r.data.date.slice(8, 10))} ${MONTHS[Number(r.data.date.slice(5, 7)) - 1]}` : `Row ${r.rowIndex}`}</Text>
+                        <Text style={s.crewGone} numberOfLines={1}>{r.crewRemoved.name} · in remarks</Text>
+                        <TouchableOpacity onPress={() => p.onRestoreCrew?.(r.key)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Undo, make ${r.crewRemoved.name} the second pilot again`}>
+                          <Text style={s.crewUndo}>Undo</Text>
+                        </TouchableOpacity>
+                      </View>
+                      ) : (
                       <View style={s.crewRow}>
                         <Text style={s.crewDate}>{/^\d{4}-\d{2}-\d{2}$/.test(r.data.date || '') ? `${Number(r.data.date.slice(8, 10))} ${MONTHS[Number(r.data.date.slice(5, 7)) - 1]}` : `Row ${r.rowIndex}`}</Text>
                         <CrewName value={r.data.second_pilot ?? ''} onCommit={(v) => p.onEditField?.(r.key, 'second_pilot', v)} />
@@ -235,7 +253,11 @@ export function ScanReport(p: {
                           activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Role ${roleName(r.data.second_pilot_role)}. Tap to change.`}>
                           <Text style={s.crewRoleText}>{roleName(r.data.second_pilot_role)}</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity onPress={() => p.onRemoveCrew?.(r.key)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${r.data.second_pilot} is not a person. Move it back to the remarks.`}>
+                          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+                        </TouchableOpacity>
                       </View>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -272,7 +294,7 @@ export function ScanReport(p: {
                 <View style={{ flex: 1 }}>
                   <Text style={s.spreadTitle} numberOfLines={1}>{multi ? 'Spreads' : 'Spread'}{pageRange ? ` · ${pageRange}` : ''}</Text>
                   <Text style={s.spreadSub} numberOfLines={1}>
-                    {multi ? `${pages.length} spreads · ` : ''}{inAll.length === 1 ? '1 flight' : `${inAll.length} flights`} · {fmtH(sumOf(inAll, 'total_time'))} h
+                    {inAll.length === 1 ? '1 flight' : `${inAll.length} flights`} · {fmtH(sumOf(inAll, 'total_time'))} h
                     {period(rows) ? ` · ${period(rows)}` : ''}
                   </Text>
                 </View>
@@ -285,49 +307,46 @@ export function ScanReport(p: {
                   <View style={s.ledger}>
                     <View style={s.ledgerHead}>
                       <Text style={s.ledgerTitle}>PAGE TOTALS</Text>
-                      {allChecks.length > 0 && (
-                        <Text style={[s.ledgerState, off.some((c) => !paperFix(c.pg, c.field)) && { color: Colors.warning }]}>
-                          {off.length ? `${off.length} ${off.length === 1 ? "doesn't" : "don't"} match the book` : multi ? `All ${pages.length - unread.length} spreads match the book` : 'Match the book'}
-                        </Text>
+                      {allChecks.length > 0 && off.length === 0 && (
+                        <Text style={s.ledgerState}>{multi ? `All ${pages.length - unread.length} spreads match the book` : 'Match the book'}</Text>
                       )}
                     </View>
                     {cols.length ? (
                       <View style={s.ledgerGrid}>
-                        {cols.map((c) => {
-                          const warn = c.bad.length > 0 && !c.fix;
-                          return (
-                            <View key={c.field} style={s.lcell}>
-                              <Text style={s.lcellLabel} numberOfLines={1}>{(SHORT[c.field] ?? label(c.field)).toUpperCase()}</Text>
-                              <Text style={[s.lcellValue, warn && { color: Colors.warning }]}>{fmtV(c.field, c.sum)}</Text>
-                              {c.bad.length > 0 && (
-                                <Text style={[s.lcellBook, warn && { color: Colors.warning }]} numberOfLines={1}>
-                                  {/* Ett uppslag: bokens värde. Flera: vilket uppslag (detaljerna står under tabellen). */}
-                                  {multi ? (c.bad.length === 1 ? spreadName(c.bad[0].pg) : `${c.bad.length} spreads`) : `${c.fix ? 'fix book' : 'book'} ${fmtV(c.field, c.printed)}`}
-                                </Text>
-                              )}
-                            </View>
-                          );
-                        })}
+                        {cols.map((c) => (
+                          <View key={c.field} style={s.lcell}>
+                            <Text style={s.lcellLabel} numberOfLines={1}>{(SHORT[c.field] ?? label(c.field)).toUpperCase()}</Text>
+                            <Text style={s.lcellValue}>{fmtV(c.field, c.sum)}</Text>
+                          </View>
+                        ))}
                       </View>
                     ) : (
                       <Text style={s.ledgerNoneIn}>No page totals were read{multi ? '' : ' on this spread'}.</Text>
                     )}
-                    {/* Flera uppslag: summan som inte stämmer, uppslag för uppslag (sidorna, raderna och boken). */}
-                    {multi && (off.length > 0 || unread.length > 0) && (
-                      <View style={s.ledgerLines}>
-                        {off.map((c) => {
-                          const fix = paperFix(c.pg, c.field);
-                          return (
-                            <Text key={`${c.pg}:${c.field}`} style={[s.ledgerLine, !fix && { color: Colors.warning }]}>
-                              {spreadName(c.pg)} · {SHORT[c.field] ?? label(c.field)} {fmtV(c.field, c.sum)}, {fix ? 'fix the book' : 'book'} {fmtV(c.field, c.printed)}
-                            </Text>
-                          );
-                        })}
-                        {unread.length > 0 && (
-                          <Text style={s.ledgerLine}>No page totals read on {unread.map(spreadName).join(', ')}.</Text>
-                        )}
-                      </View>
+                    {/* Det som inte stämmer med boken: fälls ut, uppslag för uppslag. */}
+                    {off.length > 0 && (
+                      <TouchableOpacity style={s.fixHead} onPress={() => setFixOpen((o) => !o)} activeOpacity={0.75}
+                        accessibilityRole="button" accessibilityState={{ expanded: fixOpen }}>
+                        <Ionicons name="alert-circle" size={16} color={Colors.warning} />
+                        <Text style={s.fixTitle}>Needs manual correction</Text>
+                        <Text style={s.fixCount}>{off.length}</Text>
+                        <Ionicons name={fixOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
+                      </TouchableOpacity>
                     )}
+                    {fixOpen && off.map((c) => {
+                      const fix = paperFix(c.pg, c.field);
+                      return (
+                        <View key={`${c.pg}:${c.field}`} style={s.fixRow}>
+                          <Text style={s.fixName}>{label(c.field)}{p.pageLabels?.[c.pg] ? ` · ${p.pageLabels[c.pg]}` : multi ? ` · spread ${c.pg + 1}` : ''}</Text>
+                          <Text style={s.fixText}>
+                            {fix
+                              ? `Change the total in your paper logbook from ${fmtV(c.field, c.printed)} to ${fmtV(c.field, c.sum)}.`
+                              : `The flights add up to ${fmtV(c.field, c.sum)}, but the page total in the book is ${fmtV(c.field, c.printed)}.`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    {unread.length > 0 && <Text style={s.ledgerLine}>No page totals read on {unread.map(spreadName).join(', ')}.</Text>}
                   </View>
                   {/* Flygningarna som i loggboken (Logbook-listan): år och månad, det senaste överst. */}
                   {rows.length === 0 && <Text style={s.ledgerNone}>No flights were read.</Text>}
@@ -464,6 +483,50 @@ export function ScanReport(p: {
             </View>
           </View>
         )}
+        {/* Samma person skriven på flera sätt blir ett namn; fel matchning → "Keep separate". */}
+        {(p.nameMatches?.length ?? 0) > 0 && (
+          <View style={{ gap: 8, marginTop: 4 }}>
+            <Text style={s.section}>SAME PERSON</Text>
+            <View style={s.matchCard}>
+              {p.nameMatches!.map((m, k) => (
+                <View key={m.id} style={[s.matchRow, k > 0 && s.matchRowBorder]}>
+                  <Ionicons name="person-outline" size={16} color={Colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.matchTitle} numberOfLines={2}>{m.from.join(', ')} → {m.to}</Text>
+                    <Text style={s.matchSub}>{m.rows === 1 ? '1 flight' : `${m.rows} flights`} · {m.similar ? 'similar name' : 'same name'}</Text>
+                  </View>
+                  {m.similar && p.onKeepNamesSeparate && (
+                    <TouchableOpacity onPress={() => p.onKeepNamesSeparate!(m.id)} hitSlop={8} accessibilityRole="button">
+                      <Text style={s.matchLink}>Keep separate</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+        {/* Samma svar tre gånger gäller resten av boken. */}
+        {(p.learned?.length ?? 0) > 0 && (
+          <View style={{ gap: 8, marginTop: 4 }}>
+            <Text style={s.section}>LEARNED FROM YOUR ANSWERS</Text>
+            <View style={s.matchCard}>
+              {p.learned!.map(({ rule, rows: n }, k) => (
+                <View key={`${rule.cls}:${rule.from}`} style={[s.matchRow, k > 0 && s.matchRowBorder]}>
+                  <Ionicons name="sparkles-outline" size={16} color={Colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.matchTitle} numberOfLines={1}>{rule.from === rule.to ? `${rule.from} is right` : `${rule.from} → ${rule.to}`}</Text>
+                    <Text style={s.matchSub}>{n === 1 ? '1 value' : `${n} values`} {rule.from === rule.to ? 'not asked about' : 'changed'}</Text>
+                  </View>
+                  {p.onUndoRule && (
+                    <TouchableOpacity onPress={() => p.onUndoRule!(rule)} hitSlop={8} accessibilityRole="button">
+                      <Text style={s.matchLink}>Undo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         {p.newTypes.length > 0 && (
           <View style={{ gap: 8, marginTop: 4 }}>
             <Text style={s.section}>NEW AIRCRAFT</Text>
@@ -517,6 +580,8 @@ const s = StyleSheet.create({
   crewNote: { color: Colors.textMuted, fontSize: 12, lineHeight: 16, paddingBottom: 6 },
   crewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)' },
   crewSpread: { color: Colors.textMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginTop: 8, marginBottom: 2 },
+  crewGone: { flex: 1, color: Colors.textMuted, fontSize: 13, fontFamily: FONT_MONO, paddingVertical: 6 },
+  crewUndo: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
   crewDate: { width: 48, color: Colors.textSecondary, fontSize: 12, fontFamily: FONT_MONO },
   crewInput: { flex: 1, color: Colors.textPrimary, fontSize: 13.5, fontFamily: FONT_MONO, fontWeight: '700', paddingVertical: 5, paddingHorizontal: 8, borderRadius: 7, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
   crewRole: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', minWidth: 62, alignItems: 'center' },
@@ -530,9 +595,13 @@ const s = StyleSheet.create({
   lcell: { width: '25%', gap: 2 },
   lcellLabel: { fontFamily: FONT_MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1, color: Colors.textMuted },
   lcellValue: { fontFamily: FONT_MONO, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
-  lcellBook: { fontFamily: FONT_MONO, fontSize: 9.5, color: Colors.textMuted },
-  ledgerLines: { marginTop: 10, gap: 4 },
-  ledgerLine: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textMuted, lineHeight: 16 },
+  ledgerLine: { fontSize: 12, color: Colors.textMuted, lineHeight: 17, marginTop: 8 },
+  fixHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 11, paddingBottom: 3, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
+  fixTitle: { flex: 1, color: Colors.textPrimary, fontSize: 13.5, fontWeight: '700' },
+  fixCount: { color: Colors.textSecondary, fontSize: 13, fontFamily: FONT_MONO, fontWeight: '700' },
+  fixRow: { paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)', marginTop: 6 },
+  fixName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+  fixText: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 17, marginTop: 2 },
   ledgerNoneIn: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, paddingBottom: 8 },
   ledgerNone: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, paddingHorizontal: 12, paddingBottom: 8 },
   matchCard: { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12 },

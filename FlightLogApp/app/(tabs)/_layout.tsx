@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Tabs, useRouter } from 'expo-router';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import { useAppVariantStore } from '../../store/appVariantStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Text, View, TouchableOpacity, Image } from 'react-native';
@@ -26,6 +27,7 @@ export default function TabsLayout() {
   const [scanBadge, setScanBadge] = useState(false);
   const isDrone = mode === 'drone';
   const router = useRouter();
+  const variant = useAppVariantStore((st) => st.variant);
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   useEffect(() => { loadAccent(); }, [loadAccent]);
@@ -57,6 +59,9 @@ export default function TabsLayout() {
       setScanBadge(flightCount - startCount >= PAGE_SIZE);
     })();
   }, [flightCount]);
+
+  // Blades Essential har egna skärmar: alla vägar in i flikarna (t.ex. efter en sparad flygning) går dit.
+  if (variant === 'essential') return <Redirect href="/essential" />;
 
   return (
     // Bakgrunden (navy-gradient) ritas en gång bakom alla flikar; scener och header är genomskinliga.
