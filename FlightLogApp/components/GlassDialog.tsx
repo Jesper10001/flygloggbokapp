@@ -6,6 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, type ViewStyle, type StyleProp, TouchableOpacity } from 'react-native';
+import { useShareSheetStore } from '../services/shareFile';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -79,10 +80,13 @@ export function GlassDialog(p: {
   const { height } = useWindowDimensions();
   const progress = useSharedValue(0);
   const [mounted, setMounted] = useState(p.visible);
+  // Medan delningsrutan är uppe öppnas ingen ny ruta (den skulle låsa skärmen); en som redan syns får vara kvar.
+  const blocked = useShareSheetStore((st) => st.open) && !mounted;
 
   // In: fjäder (som uppdateringspopupen). Ut: kort tona, sedan avmonteras rutan.
   useEffect(() => {
     if (p.visible) {
+      if (blocked) return;
       setMounted(true);
       progress.value = 0;
       progress.value = withSpring(1, { damping: 18, stiffness: 210, mass: 0.9 });
@@ -91,7 +95,7 @@ export function GlassDialog(p: {
     progress.value = withTiming(0, { duration: 160 });
     const t = setTimeout(() => setMounted(false), 170);
     return () => clearTimeout(t);
-  }, [p.visible, progress]);
+  }, [p.visible, blocked, progress]);
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const cardStyle = useAnimatedStyle(() => ({

@@ -12,18 +12,35 @@ const num = (f: Flight, k: string) => (f as any)[k] || 0;
 
 export interface JourneyPt { date: Date; cum: number }
 
-/** Har loggboken minst "two months of history"? Samma villkor som journey-kurvan (≥ 2 månadspunkter från första
- *  flygningens månad t.o.m. innevarande månad, sim borträknat) → Experience & projections har en projektion att visa. */
-export function hasTwoMonthsOfHistory(flights: Flight[]): boolean {
-  let first: string | null = null;
+// Experience & projections visar en projektion först när takten bygger på riktig historik: minst 60 dagar
+// sedan första flygningen och minst 10 flygningar (simulatorpass räknas inte, som i projektionen).
+export const PROJECTION_MIN_DAYS = 60;
+export const PROJECTION_MIN_FLIGHTS = 10;
+
+export interface ProjectionUnlock {
+  ready: boolean;
+  flights: number;            // flygningar utan simulatorpass
+  days: number;               // dagar sedan första flygningen
+  firstDate: Date | null;
+  unlockDate: Date | null;    // första flygningen + 60 dagar
+}
+
+export function projectionUnlock(flights: Flight[], today = new Date()): ProjectionUnlock {
+  let first: string | null = null, n = 0;
   for (const f of flights) {
     if (f.flight_type === 'sim' || !f.date) continue;
-    const k = f.date.slice(0, 7);
-    if (!first || k < first) first = k;
+    n++;
+    if (!first || f.date < first) first = f.date;
   }
-  if (!first) return false;
-  const now = new Date();
-  return first < `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  if (!first) return { ready: false, flights: 0, days: 0, firstDate: null, unlockDate: null };
+  const [y, m, d] = first.slice(0, 10).split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.max(0, Math.round((t0.getTime() - start.getTime()) / 86400000));
+  return {
+    ready: days >= PROJECTION_MIN_DAYS && n >= PROJECTION_MIN_FLIGHTS,
+    flights: n, days, firstDate: start, unlockDate: new Date(y, m - 1, d + PROJECTION_MIN_DAYS),
+  };
 }
 
 export interface InsightsData {
@@ -34,6 +51,7 @@ export interface InsightsData {
   monthly: Record<string, number>;
   journey: JourneyPt[];
   journeyPic: JourneyPt[];
+  seriesFor: (key: string) => JourneyPt[];
   haveFor: (key: string) => number;
   rateFor: (key: string) => number;
   metDateFor: (key: string, required: number) => string | null;
@@ -139,6 +157,23 @@ export function useInsightsData(): InsightsData {
       return null;
     };
 
+    // Kumulativ månadsserie för valfri kategori (samma regler som valOf), från kategorins första månad med tid
+    // t.o.m. innevarande månad. Byggs första gången den behövs.
+    const seriesCache = new Map<string, JourneyPt[]>([['total', journey], ['pic', journeyPic]]);
+    const seriesFor = (key: string): JourneyPt[] => {
+      let s = seriesCache.get(key);
+      if (!s) {
+        const map: Record<string, number> = {};
+        for (const f of real) {
+          const v = f.date ? valOf(f, key) : 0;
+          if (v > 0) map[f.date.slice(0, 7)] = (map[f.date.slice(0, 7)] || 0) + v;
+        }
+        s = buildJourney(map);
+        seriesCache.set(key, s);
+      }
+      return s;
+    };
+
     const yearStart = `${new Date().getFullYear()}-01-01`;
     return {
       total: stats?.total_time ?? sumSince('0000-01-01'),
@@ -147,7 +182,7 @@ export function useInsightsData(): InsightsData {
       m6: sumSince(monthsAgoISO(6)),
       m12: stats?.last_12_months ?? sumSince(monthsAgoISO(12)),
       cats, counts, landings: { day: stats?.total_landings_day ?? 0, night: stats?.total_landings_night ?? 0 },
-      monthly, journey, journeyPic, haveFor, rateFor, metDateFor,
+      monthly, journey, journeyPic, seriesFor, haveFor, rateFor, metDateFor,
     };
   }, [flights, stats]);
 }

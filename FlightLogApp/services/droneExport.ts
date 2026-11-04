@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from './shareFile';
 import { getDroneFlights, droneModeHours, droneModeLabel, droneAltIn, type DroneFlight } from '../db/drones';
 import { useAltitudeUnitStore } from '../store/altitudeUnitStore';
 import { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } from '../constants/droneRoles';
@@ -94,7 +95,7 @@ export async function exportDroneToCSV(): Promise<void> {
   });
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, {
+    await shareFileAsync(path, {
       mimeType: 'text/csv',
       dialogTitle: 'Export drone log — CSV',
     });

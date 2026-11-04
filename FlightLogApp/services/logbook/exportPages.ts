@@ -4,6 +4,7 @@
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from '../shareFile';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getFlights, getSetting } from '../../db/flights';
 import { listDigitalBooks, type BookKind } from '../../db/digitalBooks';
@@ -122,7 +123,7 @@ async function shareSpreads(
   await FileSystem.deleteAsync(dest, { idempotent: true });
   await FileSystem.copyAsync({ from: uri, to: dest });
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(dest, {
+    await shareFileAsync(dest, {
       mimeType: 'application/pdf',
       dialogTitle: 'Logbook pages',
       UTI: 'com.adobe.pdf',

@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from './shareFile';
 import { getFlights, getFlightStats } from '../db/flights';
 import type { Flight } from '../types/flight';
 
@@ -134,7 +135,7 @@ export async function exportToCSV(standard: 'easa' | 'faa' | 'caa' = 'easa'): Pr
   });
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, {
+    await shareFileAsync(path, {
       mimeType: 'text/csv',
       dialogTitle: 'Export logbook — CSV',
     });
@@ -193,7 +194,7 @@ export async function exportCustomCSV(opts: CustomExportOpts): Promise<void> {
   });
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, {
+    await shareFileAsync(path, {
       mimeType: 'text/csv',
       dialogTitle: 'Custom CSV Export',
     });
@@ -467,7 +468,7 @@ export async function exportToPDF(): Promise<void> {
   });
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, {
+    await shareFileAsync(path, {
       mimeType: 'text/html',
       dialogTitle: 'Export logbook — open in Safari → Share → Print',
       UTI: 'public.html',
@@ -479,51 +480,62 @@ export async function exportToPDF(): Promise<void> {
 // Exporterar drone_flights (helt separat loggbok — rör aldrig flights-tabellen).
 // EASA-orienterade kolumner: datum, UAS, plats, kategori, flygläge, tid, höjd m.m.
 
-export async function exportDroneFlightsToCSV(): Promise<void> {
-  const { getDroneFlights, droneModeHours, droneModeLabel, droneAltIn } = require('../db/drones');
+// Drönarexportens kolumner, delade av standardexporten och Custom CSV export. time = timmar (decimaltimmar i
+// standardexporten, valbart H:MM i custom). optional = visas i standardexporten bara när någon flygning har data där.
+type DroneCol = { key: string; header: string; value: (f: any) => string | number; time?: boolean; optional?: boolean; hasData?: (f: any) => boolean };
+
+function droneColumns(): DroneCol[] {
+  const { droneModeHours, droneModeLabel, droneAltIn } = require('../db/drones');
   const altUnit: 'ft' | 'm' = require('../store/altitudeUnitStore').useAltitudeUnitStore.getState().unit; // importen läser båda
   const { DRONE_OTHER_ROLES, DRONE_ROLE_LABEL, droneRoleOf, dronePicTime, droneCrewExportText } = require('../constants/droneRoles');
-  const flights = await getDroneFlights(99999);
-
-  type DCol = { header: string; value: (f: any) => string | number; optional?: boolean; hasData?: (f: any) => boolean };
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const hasText = (s: string | null | undefined) => !!s && String(s).trim() !== '';
   // Valfri tidskolumn (decimaltimmar) — visas bara när någon flygning har tid där.
-  const hoursCol = (header: string, hours: (f: any) => number): DCol => ({ header, value: f => round2(hours(f)), optional: true, hasData: f => hours(f) > 0 });
+  const hoursCol = (key: string, header: string, hours: (f: any) => number): DroneCol => ({ key, header, value: f => round2(hours(f)), time: true, optional: true, hasData: f => hours(f) > 0 });
 
-  const cols: DCol[] = [
-    { header: 'Date',              value: f => f.date },
-    { header: 'UAS type',          value: f => f.drone_type ?? '' },
-    { header: 'Registration',      value: f => f.registration ?? '' },
-    { header: 'Take-off time',     value: f => f.takeoff_time ?? '', optional: true, hasData: f => hasText(f.takeoff_time) },
-    { header: 'Location',          value: f => f.location ?? '' },
-    { header: 'Latitude',          value: f => f.lat || '', optional: true, hasData: f => !!f.lat },
-    { header: 'Longitude',         value: f => f.lon || '', optional: true, hasData: f => !!f.lon },
-    { header: 'Landing point',     value: f => f.landing_location ?? '', optional: true, hasData: f => hasText(f.landing_location) },
-    { header: 'Mission',           value: f => f.mission_type ?? '', optional: true, hasData: f => hasText(f.mission_type) },
-    { header: 'Category',          value: f => f.category ?? '', optional: true, hasData: f => hasText(f.category) },
-    { header: 'Flight mode',       value: f => droneModeLabel(f) },
-    { header: 'Total time (h)',    value: f => f.total_time ?? 0 },
+  return [
+    { key: 'date',             header: 'Date',              value: f => f.date },
+    { key: 'drone_type',       header: 'UAS type',          value: f => f.drone_type ?? '' },
+    { key: 'registration',     header: 'Registration',      value: f => f.registration ?? '' },
+    { key: 'takeoff_time',     header: 'Take-off time',     value: f => f.takeoff_time ?? '', optional: true, hasData: f => hasText(f.takeoff_time) },
+    { key: 'location',         header: 'Location',          value: f => f.location ?? '' },
+    { key: 'lat',              header: 'Latitude',          value: f => f.lat || '', optional: true, hasData: f => !!f.lat },
+    { key: 'lon',              header: 'Longitude',         value: f => f.lon || '', optional: true, hasData: f => !!f.lon },
+    { key: 'landing_location', header: 'Landing point',     value: f => f.landing_location ?? '', optional: true, hasData: f => hasText(f.landing_location) },
+    { key: 'mission_type',     header: 'Mission',           value: f => f.mission_type ?? '', optional: true, hasData: f => hasText(f.mission_type) },
+    { key: 'category',         header: 'Category',          value: f => f.category ?? '', optional: true, hasData: f => hasText(f.category) },
+    { key: 'flight_mode',      header: 'Flight mode',       value: f => droneModeLabel(f) },
+    { key: 'total_time',       header: 'Total time (h)',    value: f => f.total_time ?? 0, time: true },
     // Tid per siktläge (delad tid exakt) — visas när någon flygning har tid i läget.
-    { header: 'VLOS (h)',          value: f => round2(droneModeHours(f).vlos), optional: true, hasData: f => droneModeHours(f).vlos > 0 },
-    { header: 'EVLOS (h)',         value: f => round2(droneModeHours(f).evlos), optional: true, hasData: f => droneModeHours(f).evlos > 0 },
-    { header: 'BVLOS (h)',         value: f => round2(droneModeHours(f).bvlos), optional: true, hasData: f => droneModeHours(f).bvlos > 0 },
+    { key: 'vlos',             header: 'VLOS (h)',          value: f => round2(droneModeHours(f).vlos), time: true, optional: true, hasData: f => droneModeHours(f).vlos > 0 },
+    { key: 'evlos',            header: 'EVLOS (h)',         value: f => round2(droneModeHours(f).evlos), time: true, optional: true, hasData: f => droneModeHours(f).evlos > 0 },
+    { key: 'bvlos',            header: 'BVLOS (h)',         value: f => round2(droneModeHours(f).bvlos), time: true, optional: true, hasData: f => droneModeHours(f).bvlos > 0 },
     // Pilot function + tid per roll (valfria). PIC/SIC/Dual/Instructor som i loggboken — instruktör, RPIC och
     // examinator räknas även som PIC, safety pilot som co-pilot; övriga roller = hela flygtiden i egen kolumn.
-    { header: 'Pilot function',    value: f => DRONE_ROLE_LABEL[droneRoleOf(f)], optional: true, hasData: f => droneRoleOf(f) !== 'pic' },
-    hoursCol('PIC (h)',            f => dronePicTime(f)),
-    hoursCol('SIC / Co-pilot (h)', f => f.co_pilot_fpv || 0),
-    hoursCol('Dual (h)',           f => f.dual || 0),
-    hoursCol('Instructor (h)',     f => f.instructor || 0),
-    ...(DRONE_OTHER_ROLES as string[]).map((r) => hoursCol(`${DRONE_ROLE_LABEL[r]} (h)`, f => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
-    { header: `Max altitude (${altUnit})`, value: f => droneAltIn(f.max_altitude_m, altUnit) || '', optional: true, hasData: f => droneAltIn(f.max_altitude_m, altUnit) > 0 },
-    { header: 'Night',             value: f => (f.is_night ? 'Yes' : ''), optional: true, hasData: f => !!f.is_night },
-    { header: 'Wind (m/s)',        value: f => f.wind_ms || '', optional: true, hasData: f => !!f.wind_ms },
+    { key: 'pilot_function',   header: 'Pilot function',    value: f => DRONE_ROLE_LABEL[droneRoleOf(f)], optional: true, hasData: f => droneRoleOf(f) !== 'pic' },
+    hoursCol('pic',            'PIC (h)',            f => dronePicTime(f)),
+    hoursCol('co_pilot',       'SIC / Co-pilot (h)', f => f.co_pilot_fpv || 0),
+    hoursCol('dual',           'Dual (h)',           f => f.dual || 0),
+    hoursCol('instructor',     'Instructor (h)',     f => f.instructor || 0),
+    ...(DRONE_OTHER_ROLES as string[]).map((r) => hoursCol(`role_${r}`, `${DRONE_ROLE_LABEL[r]} (h)`, f => (droneRoleOf(f) === r ? f.total_time || 0 : 0))),
+    { key: 'max_altitude',     header: `Max altitude (${altUnit})`, value: f => droneAltIn(f.max_altitude_m, altUnit) || '', optional: true, hasData: f => droneAltIn(f.max_altitude_m, altUnit) > 0 },
+    { key: 'night',            header: 'Night',             value: f => (f.is_night ? 'Yes' : ''), optional: true, hasData: f => !!f.is_night },
+    { key: 'wind',             header: 'Wind (m/s)',        value: f => f.wind_ms || '', optional: true, hasData: f => !!f.wind_ms },
     // Besättning med roll (Second pilot + fler, inkl. observatörer) — ersätter den gamla Observer-kolumnen.
-    { header: 'Crew',              value: f => droneCrewExportText(f), optional: true, hasData: f => droneCrewExportText(f) !== '' },
-    { header: 'Remarks',           value: f => f.remarks ?? '', optional: true, hasData: f => hasText(f.remarks) },
+    { key: 'crew',             header: 'Crew',              value: f => droneCrewExportText(f), optional: true, hasData: f => droneCrewExportText(f) !== '' },
+    { key: 'remarks',          header: 'Remarks',           value: f => f.remarks ?? '', optional: true, hasData: f => hasText(f.remarks) },
   ];
+}
 
+/** Drönarkolumnerna Custom CSV export kan välja bland (nyckel + standardrubrik). */
+export function droneExportColumnList(): CustomColumn[] {
+  return droneColumns().map(({ key, header }) => ({ key, header: header.replace(/ \(h\)$/, '') }));
+}
+
+export async function exportDroneFlightsToCSV(): Promise<void> {
+  const { getDroneFlights } = require('../db/drones');
+  const flights = await getDroneFlights(99999);
+  const cols = droneColumns();
   const activeCols = cols.filter(c => !c.optional || flights.some((f: any) => c.hasData!(f)));
   const headers = activeCols.map(c => c.header);
   const rows = flights.map((f: any) => activeCols.map(c => c.value(f)).map(escapeCSV).join(','));
@@ -532,9 +544,33 @@ export async function exportDroneFlightsToCSV(): Promise<void> {
   const filename = `drone_logbook_${new Date().toISOString().split('T')[0]}.csv`;
   const path = FileSystem.documentDirectory + filename;
 
-  await FileSystem.writeAsStringAsync(path, '﻿' + csv, { encoding: FileSystem.EncodingType.UTF8 });
+  await FileSystem.writeAsStringAsync(path, '\uFEFF' + csv, { encoding: FileSystem.EncodingType.UTF8 });
+  await shareFileAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export drone logbook — CSV' });
+}
 
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export drone logbook — CSV' });
-  }
+/** Custom CSV export för drönarloggboken: valda kolumner i vald ordning, egna rubriker, avgränsare och tidsformat. */
+export async function exportCustomDroneCSV(opts: CustomExportOpts): Promise<void> {
+  const { getDroneFlights } = require('../db/drones');
+  const flights = await getDroneFlights(99999);
+  const byKey = new Map(droneColumns().map((c) => [c.key, c]));
+  const sep = opts.separator;
+  const escapeVal = (val: string | number | null | undefined): string => {
+    const s = String(val ?? '');
+    return s.includes(sep) || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const cols = opts.columns.filter((c) => byKey.has(c.key));
+  const valueOf = (f: any, key: string) => {
+    const col = byKey.get(key)!;
+    const v = col.value(f);
+    if (!col.time) return v;
+    const n = parseFloat(String(v)) || 0;
+    return opts.timeFormat === 'hhmm' ? toHHMM(n) : n;
+  };
+  const headers = cols.map((c) => escapeVal(c.header));
+  const rows = flights.map((f: any) => cols.map((c) => escapeVal(valueOf(f, c.key))).join(sep));
+
+  const csv = [headers.join(sep), ...rows].join('\r\n');
+  const path = FileSystem.documentDirectory + `drone_logbook_custom_${new Date().toISOString().split('T')[0]}.csv`;
+  await FileSystem.writeAsStringAsync(path, '\uFEFF' + csv, { encoding: FileSystem.EncodingType.UTF8 });
+  await shareFileAsync(path, { mimeType: 'text/csv', dialogTitle: 'Custom CSV Export' });
 }

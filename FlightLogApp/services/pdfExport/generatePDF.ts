@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from '../shareFile';
 import { aggregateCV } from './aggregateCV';
 import { renderEASA } from './templates/easa';
 import { renderModern } from './templates/modernBlades';
@@ -23,7 +24,7 @@ export async function exportPilotPDF(template: PdfTemplate): Promise<string> {
     base64: false,
   });
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
+    await shareFileAsync(uri, {
       mimeType: 'application/pdf',
       dialogTitle: 'Pilot Statement of Experience',
       UTI: 'com.adobe.pdf',

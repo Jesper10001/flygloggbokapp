@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 3,
+      "date": "2026-11-04",
+      "notes": [
+        "New: Experience & projections has a new look. Drag your target on the chart, try another pace and follow your goals.",
+        "New: Custom CSV export for your drone logbook, and drone CSV import now works like the pilot import.",
+        "Fixed: Sharing an export no longer risks freezing the app."
+      ]
+    },
+    {
       "id": 2,
       "date": "2026-11-04",
       "notes": [

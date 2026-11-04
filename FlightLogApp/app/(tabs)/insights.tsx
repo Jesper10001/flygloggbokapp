@@ -2,7 +2,7 @@
 // så fliken funkar direkt; sektionerna byts successivt mot den nya designen
 // (HeroTotals / HoursBank / ActivitySection / GoalCard / LicenceJourney).
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -14,7 +14,7 @@ import { HoursBank } from '../../components/insights/HoursBank';
 import { GoalCard } from '../../components/insights/GoalCard';
 import { LicenceJourney } from '../../components/insights/LicenceJourney';
 import { MilestonesSection } from '../../components/insights/MilestonesSection';
-import { hasTwoMonthsOfHistory } from '../../components/insights/insightsData';
+import { projectionUnlock } from '../../components/insights/insightsData';
 import { DroneInsights } from '../../components/insights/DroneInsights';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 
@@ -29,9 +29,11 @@ export default function InsightsScreen() {
   // Ladda om vid fokus så tomt-tillståndet/innehållet speglar aktuell loggbok (som drönar-Insights).
   useFocusEffect(useCallback(() => { loadStats(); loadFlights(); }, [loadStats, loadFlights]));
 
-  // Experience & projections behöver "two months of history" för en projektion. Tills dess ligger sektionen
-  // längst ner (under Milestones); med tillräcklig historik är den tillbaka på sin vanliga plats.
-  const projectionsReady = useMemo(() => hasTwoMonthsOfHistory(flights), [flights]);
+  // Experience & projections låses upp efter 60 dagar och 10 flygningar (projectionUnlock). Tills dess ligger
+  // sektionen längst ner (under Milestones); upplåst är den tillbaka på sin vanliga plats.
+  const projectionsReady = useMemo(() => projectionUnlock(flights).ready, [flights]);
+  // Medan målet dras i projektionsdiagrammet står sidan still.
+  const [chartDrag, setChartDrag] = useState(false);
 
   if (mode === 'drone') return <DroneInsights />;
   if (mode !== 'manned') return <View style={{ flex: 1 }} />;
@@ -50,15 +52,16 @@ export default function InsightsScreen() {
   return (
     <ScrollView
       style={{ flex: 1 }}
+      scrollEnabled={!chartDrag}
       contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}
       keyboardShouldPersistTaps="handled"
     >
       <HeroTotals />
       <HoursBank />
-      {projectionsReady && <GoalCard />}
+      {projectionsReady && <GoalCard onDrag={setChartDrag} />}
       <LicenceJourney />
       <MilestonesSection />
-      {!projectionsReady && <GoalCard />}
+      {!projectionsReady && <GoalCard onDrag={setChartDrag} />}
     </ScrollView>
   );
 }

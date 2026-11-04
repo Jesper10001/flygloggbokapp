@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from '../services/shareFile';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoOverlay from '../modules/video-overlay';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -348,11 +349,11 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         const out = `${FileSystem.cacheDirectory}flight-share-${Date.now()}.mp4`;
         const result = await VideoOverlay.burnOverlay(f.photo_uri, overlayPng, out);
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(result, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
+          await shareFileAsync(result, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
         }
       } else if (isVid) {
         // Native-modulen saknas (t.ex. Expo Go) → dela råvideon utan filter.
-        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
+        if (await Sharing.isAvailableAsync()) await shareFileAsync(f.photo_uri, { mimeType: 'video/mp4', dialogTitle: 'Share flight' });
       } else {
         // Foto: fånga kortet via ViewShot och dela som PNG. Route: vänta in satellitrutornas tiles (max 3 s)
         // så att bilden inte fångas halvladdad.
@@ -363,7 +364,7 @@ export function FlightShareCard({ flight, depName, arrName, visible, onClose, fo
         }
         const uri = await viewShotRef.current.capture();
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share flight' });
+          await shareFileAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share flight' });
         }
       }
     } catch (e) {

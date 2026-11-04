@@ -6,7 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
-import { exportCustomCSV } from '../../services/export';
+import { useLocalSearchParams } from 'expo-router';
+import { exportCustomCSV, exportCustomDroneCSV, droneExportColumnList } from '../../services/export';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 
 type ColumnDef = {
@@ -71,7 +72,10 @@ const DEFAULT_ENABLED = new Set([
   'arr_place', 'arr_utc', 'total_time',
 ]);
 
-const getDefaultEnabled = () => DEFAULT_ENABLED;
+// Drönarloggboken (?mode=drone): drönarens kolumner (samma som standardexporten) och drönarens standardval.
+const DRONE_DEFAULT_ENABLED = new Set(['date', 'drone_type', 'registration', 'location', 'flight_mode', 'total_time']);
+
+const getDefaultEnabled = (drone: boolean) => (drone ? DRONE_DEFAULT_ENABLED : DEFAULT_ENABLED);
 
 interface DraggableRowProps {
   col: ColumnDef;
@@ -155,11 +159,12 @@ const DraggableRow = ({
 
 export default function CustomExportScreen() {
   const { t } = useTranslation();
-  const defaultEnabled = getDefaultEnabled();
+  const drone = useLocalSearchParams<{ mode?: string }>().mode === 'drone';
+  const defaultEnabled = getDefaultEnabled(drone);
 
   const [columns, setColumns] = useState<ColumnDef[]>(() => {
     let selectionIdx = 0;
-    return ALL_COLUMNS.map(c => {
+    return (drone ? droneExportColumnList() : ALL_COLUMNS).map(c => {
       const isEnabled = defaultEnabled.has(c.key);
       return {
         key: c.key,
@@ -235,7 +240,7 @@ export default function CustomExportScreen() {
     }
     setExporting(true);
     try {
-      await exportCustomCSV({
+      await (drone ? exportCustomDroneCSV : exportCustomCSV)({
         columns: enabledColumns.map(c => ({
           key: c.key,
           header: c.customHeader.trim() || c.defaultHeader,

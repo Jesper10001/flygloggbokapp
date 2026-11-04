@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import { shareFileAsync } from '../../services/shareFile';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -73,7 +74,7 @@ export function MilestoneShareCard({ visible, onClose, data, accent = Colors.acc
       if (!shotRef.current?.capture) return;
       const uri = await shotRef.current.capture();
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'BLADES' });
+        await shareFileAsync(uri, { mimeType: 'image/png', dialogTitle: 'BLADES' });
       }
     } catch (e) {
       console.warn('Milestone share failed', e);

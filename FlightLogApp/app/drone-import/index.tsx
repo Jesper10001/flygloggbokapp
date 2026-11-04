@@ -1,10 +1,10 @@
-// "Import CSV" (drönare) — speglar pilotens import-UI men drönaranpassad: Hero + upload-dropzone
-// med progress → AI-kolumnmappning → analysis summary (AI) → "inside data"-summering + "Drone data"
-// (inline-editor per modell, AI sätter airframe/vikt/klass) → import (source='import') + registrering
-// + berikning. Layouten motsvarar pilotens Import (samma summering + Aircraft data-sektion).
+// "Import CSV" (drönare) — samma utseende och flöde som pilotens Import: Hero + upload-dropzone → filval →
+// laddskärmen med Blade-myntet (BladeProgress) under AI-kolumnmappningen → resultatrad (format, fil, coins,
+// rader) + kollapsbar AI-analys → "inside data"-summering + "Drone data" (inline-editor per modell, AI sätter
+// airframe/vikt/klass) → Save all (source='import') + registrering + berikning.
 import { HowItWorks } from '../../components/HowItWorks';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput, Animated, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,10 +15,12 @@ import { useToastStore } from '../../components/Toast';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import { lookupDrone } from '../../services/droneLookup';
 import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
-import { hasTokenQuota } from '../../utils/tokenGate';
+import { hasTokenQuota, tokensToCoins } from '../../utils/tokenGate';
+import { BladeProgress } from '../../components/BladeProgress';
+import { pickImportFile } from '../../services/import';
 import { CIVIL_CATEGORIES, MILITARY_TOP_LEVEL, categoryFromCClass } from '../../constants/droneCategories';
 import {
-  pickAndImportDroneCsv, saveDroneImport, generateDroneImportSummary, registerImportedDrones, enrichImportedDroneModels,
+  importDroneFromFile, saveDroneImport, generateDroneImportSummary, registerImportedDrones, enrichImportedDroneModels,
   type DroneImportResult, type ParsedDroneRow,
 } from '../../services/droneImport';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
@@ -32,7 +34,7 @@ const ACCEPTED_FORMATS = [
   { icon: 'document-text-outline', t: '.csv', d: 'comma, semicolon, tab or pipe separated' },
   { icon: 'document-outline', t: '.txt', d: 'plain-text exports' },
 ];
-const ANALYZE_STEPS = ['Identifying your log format…', 'Mapping the columns…', 'Detecting date & time formats…'];
+const ANALYZE_STEPS = ['Identifying your log format…', 'Mapping the columns…', 'Detecting date & time formats…', 'Matching drones and categories…'];
 
 const AIRFRAMES: [Airframe, string][] = [['multirotor', 'Multirotor'], ['helicopter', 'Single-rotor'], ['fixedwing', 'Fixed-wing']];
 const CLASS_OPTS = [...CIVIL_CATEGORIES, ...MILITARY_TOP_LEVEL] as string[];
@@ -79,6 +81,29 @@ export default function DroneImportCsvScreen() {
   const lookedUpRef = useRef<Set<string>>(new Set());                         // auto-lookup: kör en gång per modell
   const [openLocations, setOpenLocations] = useState(false);
   const [openDrones, setOpenDrones] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad AI-analys som standard (= piloten)
+
+  // Roterande stegtext medan filen läses (byts varannan sekund).
+  useEffect(() => {
+    if (!importing) { setStepIdx(0); return; }
+    const id = setInterval(() => setStepIdx((i) => i + 1), 2000);
+    return () => clearInterval(id);
+  }, [importing]);
+
+  // Laddskärmen med Blade-myntet (= pilotens import): under hela läsningen, en stund med bock när filen är
+  // läst, sedan tonar den bort över förhandsvisningen.
+  const [overlay, setOverlay] = useState<'hidden' | 'busy' | 'done'>('hidden');
+  const overlayFade = useRef(new Animated.Value(1)).current;
+  const overlayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedAt = useRef(0);
+  useEffect(() => () => { if (overlayTimer.current) clearTimeout(overlayTimer.current); }, []);
+  const finishOverlay = () => {
+    setOverlay('done');
+    overlayTimer.current = setTimeout(() => {
+      Animated.timing(overlayFade, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true })
+        .start(() => setOverlay('hidden'));
+    }, 1100);
+  };
 
   const rows = result?.rows ?? EMPTY_ROWS;
 
@@ -184,23 +209,29 @@ export default function DroneImportCsvScreen() {
   const pick = async () => {
     // Kolumnmappningen är ett AI-anrop → samtycke innan filväljaren öppnas.
     if (!(await askAiConsent())) return;
-    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({});
+    // Filen väljs först; laddskärmen visas bara medan en vald fil läses (inte bakom filväljaren).
+    const file = await pickImportFile();
+    if (!file) return;
+    setFileName(file.name);
+    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setSummaryExpanded(false);
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
-    const rot = setInterval(() => setStepIdx((i) => i + 1), 2000);
+    if (overlayTimer.current) clearTimeout(overlayTimer.current);
+    startedAt.current = Date.now();
+    overlayFade.setValue(1);
+    setOverlay('busy');
     try {
-      const r = await pickAndImportDroneCsv((current, total) => setProgress({ current, total }));
-      clearInterval(rot);
-      if (!r) { setImporting(false); return; }
-      setFileName(r.fileName); setResult(r.result); setImporting(false);
-      fetchSummary(r.result, r.fileName);
+      const r = await importDroneFromFile(file.uri, (current, total) => setProgress({ current, total }));
+      setResult(r); setImporting(false);
+      finishOverlay();
+      fetchSummary(r, file.name);
     } catch (e: any) {
-      clearInterval(rot);
       setImporting(false);
+      setOverlay('hidden');
       if (isAiConsentError(e)) return; // "Not now" → tillbaka till filvalet
       const msg = e?.message ?? 'Import failed.';
       setImportError(msg);
-      fetchSummary(null, fileName || 'file', msg);
+      fetchSummary(null, file.name, msg);
     }
   };
 
@@ -235,24 +266,55 @@ export default function DroneImportCsvScreen() {
     ? (progress.current === 0 ? 'Reading file…'
       : progress.current === 1 ? ANALYZE_STEPS[stepIdx % ANALYZE_STEPS.length]
       : progress.current === 2 ? 'Parsing rows…' : 'Done!')
-    : 'Choose file';
+    : 'Choose file to import';
 
   const timeRows: [string, number][] = stats ? [
     ['Total', stats.hours], ['VLOS', stats.byMode.VLOS], ['EVLOS', stats.byMode.EVLOS], ['BVLOS', stats.byMode.BVLOS],
     ['Night', stats.tf.night], ['IFR', stats.tf.ifr], ['Co-pilot / FPV', stats.tf.fpv], ['Dual', stats.tf.dual], ['Instructor', stats.tf.instr],
   ] : [];
 
+  const stage = progress.current;
+  const flightsFound = rows.length;
+  const analysisCount = aiSummary.split('\n').filter((l) => l.trim()).length;
+  const progressLayer = overlay !== 'hidden' ? (
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayFade }]}>
+      <BladeProgress
+        status={overlay === 'done' ? 'done' : 'busy'}
+        safeTop={false}
+        eyebrow={overlay === 'done' ? 'IMPORT READY' : 'IMPORTING'}
+        title={overlay === 'done' ? (flightsFound === 1 ? '1 flight found' : `${flightsFound} flights found`) : 'Importing your drone log'}
+        body={overlay === 'done' ? 'Opening the preview…'
+          : stage === 0 ? `Opening ${fileName || 'the file'}.`
+            : stage === 1 ? ANALYZE_STEPS[stepIdx % ANALYZE_STEPS.length]
+              : stage === 2 ? 'Reading every flight in the file.'
+                : 'Checking drones and categories.'}
+        steps={[
+          { label: 'Read the file', state: overlay === 'done' || stage > 0 ? 'done' : 'active' },
+          { label: 'Match the columns', state: overlay === 'done' || stage > 1 ? 'done' : stage === 1 ? 'active' : 'todo' },
+          { label: 'Read every flight', state: overlay === 'done' || stage > 2 ? 'done' : stage === 2 ? 'active' : 'todo' },
+          { label: 'Check the drones', state: overlay === 'done' ? 'done' : stage === 3 ? 'active' : 'todo' },
+        ]}
+        progress={stage === 0 ? 0.08 : stage === 1 ? 0.7 : stage === 2 ? 0.85 : 0.95}
+        progressMs={stage === 0 ? 1200 : stage === 1 ? 20000 : stage === 2 ? 2500 : 3000}
+        startedAt={startedAt.current}
+        footnote="Nothing is saved until you approve it."
+      />
+    </Animated.View>
+  ) : null;
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 14 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <>
+    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 12 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       <View style={{ gap: 4, marginBottom: 2 }}>
         <Text style={s.title}>Import drone log</Text>
-        <Text style={s.subtitle}>Bring your flights in from a CSV file.</Text>
+        <Text style={s.subtitle}>Upload an export file from your drone-log app. Claude identifies the format and maps the columns for you.</Text>
       </View>
 
-      {/* Upload-dropzone */}
+      {/* Upload-dropzone (hela kortet är tryckytan) — döljs när en analys visas */}
       {!result && (
-        <TouchableOpacity style={[s.uploadCard, importing && { opacity: 0.85 }]} onPress={pick} disabled={importing} activeOpacity={0.9}>
-          <View style={[s.uploadIconWrap, { backgroundColor: accent + '18' }]}>
+        <TouchableOpacity style={[s.uploadCard, { borderColor: accent + '80', backgroundColor: accent + '0D' }, importing && { opacity: 0.85 }]}
+          onPress={pick} disabled={importing} activeOpacity={0.9}>
+          <View style={[s.uploadIconWrap, { backgroundColor: accent + '1A', borderColor: accent + '33' }]}>
             {importing ? <ActivityIndicator color={accent} size="large" /> : <Ionicons name="cloud-upload-outline" size={32} color={accent} />}
           </View>
           <Text style={s.uploadTitle}>{uploadTitle}</Text>
@@ -260,8 +322,8 @@ export default function DroneImportCsvScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Intro — visas före filval */}
-      {!importing && !result && !importError && (
+      {/* Hur importen funkar + filformat — visas före filval (och kvar ovanför ett fel) */}
+      {!importing && !result && (
         <>
           <HowItWorks steps={HOW_IT_WORKS} accent={accent} />
           <View style={s.infoCard}>
@@ -277,47 +339,63 @@ export default function DroneImportCsvScreen() {
         </>
       )}
 
-      {/* Importfel */}
+      {/* Importfel — inline-kort med AI-förklaring (i stället för Alert) */}
       {importError && !result && !importing && (
-        <View style={[s.infoCard, { borderColor: DR.danger + '55' }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="alert-circle" size={16} color={DR.danger} />
-            <Text style={{ color: DR.danger, fontSize: 14, fontWeight: '800' }}>Import failed</Text>
+        <View style={[s.aiCard, { borderColor: DR.danger + '55' }]}>
+          <View style={s.aiCardHeader}>
+            <Ionicons name="alert-circle" size={15} color={DR.danger} />
+            <Text style={[s.aiCardTitle, { color: DR.danger }]}>Import failed</Text>
           </View>
           {summaryLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator size="small" color={DR.danger} /><Text style={{ color: DR.text2, fontSize: 12 }}>Analyzing…</Text>
+            <View style={s.aiLoadingRow}>
+              <ActivityIndicator size="small" color={DR.danger} />
+              <Text style={s.aiLoadingText}>Analyzing imported data…</Text>
             </View>
           ) : <AnalysisList text={aiSummary || importError} accent={accent} />}
-          <TouchableOpacity onPress={pick} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: accent + '55' }}>
-            <Ionicons name="swap-horizontal-outline" size={16} color={accent} /><Text style={{ color: accent, fontWeight: '800', fontSize: 13 }}>Try another file</Text>
-          </TouchableOpacity>
         </View>
       )}
 
       {/* Förhandsvisning */}
       {result && (
         <>
-          <TouchableOpacity onPress={pick} disabled={saving} activeOpacity={0.85}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '18' }}>
-            <Ionicons name="swap-horizontal-outline" size={17} color={accent} />
-            <Text style={{ color: accent, fontSize: 14, fontWeight: '800' }}>Choose a different file</Text>
-          </TouchableOpacity>
+          <View style={s.resultHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.resultFormat}>{result.detectedFormat}</Text>
+              <Text style={s.resultFile} numberOfLines={1}>{fileName}</Text>
+              {result.tokensUsed > 0 && (
+                <Text style={s.tokenUsedText}>{tokensToCoins(result.tokensUsed).toLocaleString('en-US')} Blade-coins used for import</Text>
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <StatPill label="Rows" value={String(result.totalRows)} />
+              <StatPill label="Mapped" value={String(result.mappedRows)} color={DR.success} />
+            </View>
+          </View>
 
-          {/* AI-analys */}
-          <View style={s.infoCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="sparkles-outline" size={15} color={accent} />
-              <Text style={s.infoTitle}>Import analysis</Text>
+          {/* AI-analys — kollapsbar fritextsammanfattning (2 rader syns, tryck för allt) */}
+          <TouchableOpacity style={[s.aiCard, { borderColor: accent + '33' }]} onPress={() => setSummaryExpanded((v) => !v)} activeOpacity={0.8}
+            disabled={summaryLoading || !aiSummary || analysisCount <= 2}>
+            <View style={s.aiCardHeader}>
+              <Ionicons name="sparkles" size={14} color={accent} />
+              <Text style={[s.aiCardTitle, { color: accent }]}>Import analysis</Text>
+              {!summaryLoading && !!aiSummary && analysisCount > 2 && (
+                <Ionicons name={summaryExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={DR.muted} style={{ marginLeft: 'auto' }} />
+              )}
             </View>
             {summaryLoading ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <ActivityIndicator size="small" color={accent} /><Text style={{ color: DR.text2, fontSize: 12 }}>Analyzing imported data…</Text>
+              <View style={s.aiLoadingRow}>
+                <ActivityIndicator size="small" color={accent} />
+                <Text style={s.aiLoadingText}>Analyzing imported data…</Text>
               </View>
-            ) : aiSummary ? <AnalysisList text={aiSummary} accent={accent} /> : (
-              <Text style={{ color: DR.muted, fontSize: 12.5 }}>Detected {result.detectedFormat} · {result.mappedRows}/{result.totalRows} rows mapped.</Text>
+            ) : aiSummary ? (
+              <>
+                <AnalysisList text={aiSummary} accent={accent} max={summaryExpanded ? undefined : 2} />
+                {!summaryExpanded && analysisCount > 2 && <Text style={[s.aiReadMore, { color: accent }]}>Read more</Text>}
+              </>
+            ) : (
+              <Text style={s.aiLoadingText}>Detected {result.detectedFormat} · {result.mappedRows}/{result.totalRows} rows mapped.</Text>
             )}
-          </View>
+          </TouchableOpacity>
 
           {/* Vad filen innehåller — samma presentation som pilotens Import ("inside data") */}
           {stats && (
@@ -452,20 +530,43 @@ export default function DroneImportCsvScreen() {
           ))}
 
           {rows.length > 0 && (
-            <TouchableOpacity onPress={doImport} disabled={saving} activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15, backgroundColor: accent, opacity: saving ? 0.6 : 1 }}>
-              {saving ? <ActivityIndicator color={DR.inkOnAccent} /> : <Ionicons name="cloud-upload-outline" size={18} color={DR.inkOnAccent} />}
-              <Text style={{ color: DR.inkOnAccent, fontSize: 15, fontWeight: '800' }}>{saving ? 'Importing…' : `Import ${rows.length} ${rows.length === 1 ? 'flight' : 'flights'}`}</Text>
+            <TouchableOpacity onPress={doImport} disabled={saving} activeOpacity={0.8}
+              style={[s.saveBtn, { backgroundColor: accent }, saving && { opacity: 0.6 }]}>
+              {saving ? <ActivityIndicator color={DR.inkOnAccent} /> : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color={DR.inkOnAccent} />
+                  <Text style={[s.saveBtnText, { color: DR.inkOnAccent }]}>Save all ({rows.length})</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
+
+          <Text style={s.hint}>All imported data is saved with source "import" and can be reviewed under Imported data.</Text>
+
+          {/* Byt fil — uploadkortet är dolt när en analys visas, så ge en väg tillbaka */}
+          <TouchableOpacity style={s.chooseOtherBtn} onPress={pick} disabled={importing || saving} activeOpacity={0.7}>
+            <Ionicons name="swap-horizontal-outline" size={15} color={DR.text2} />
+            <Text style={s.chooseOtherText}>Choose a different file</Text>
+          </TouchableOpacity>
         </>
       )}
     </ScrollView>
+    {progressLayer}
+    </>
   );
 }
 
-function AnalysisList({ text, accent }: { text: string; accent: string }) {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+function StatPill({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={[s.statValue, color ? { color } : null]}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function AnalysisList({ text, accent, max }: { text: string; accent: string; max?: number }) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, max);
   return (
     <View style={{ gap: 6 }}>
       {lines.map((line, i) => {
@@ -485,15 +586,34 @@ function AnalysisList({ text, accent }: { text: string; accent: string }) {
 const s = StyleSheet.create({
   title: { color: DR.text, fontSize: 24, fontWeight: '800' },
   subtitle: { color: DR.text2, fontSize: 14, lineHeight: 20 },
-  uploadCard: { alignItems: 'center', gap: 10, paddingVertical: 30, paddingHorizontal: 16, backgroundColor: DR.surface, borderRadius: 16, borderWidth: 1.5, borderColor: DR.border, borderStyle: 'dashed' },
-  uploadIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
-  uploadTitle: { color: DR.text, fontSize: 16, fontWeight: '800', textAlign: 'center' },
-  uploadSub: { color: DR.muted, fontSize: 12.5, textAlign: 'center' },
-  infoCard: { backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border, padding: 14, gap: 12 },
-  infoTitle: { color: DR.text, fontSize: 15, fontWeight: '800' },
+  uploadCard: { alignItems: 'center', gap: 8, paddingVertical: 26, paddingHorizontal: 18, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed' },
+  uploadIconWrap: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  uploadTitle: { color: DR.text, fontSize: 17, fontWeight: '800', marginTop: 2, textAlign: 'center' },
+  uploadSub: { color: DR.text2, fontSize: 12.5, textAlign: 'center', lineHeight: 17 },
+  infoCard: { backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border, padding: 14, gap: 12 },
+  infoTitle: { color: DR.muted, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
   bulletRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  bulletTerm: { color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', width: 78 },
-  bulletDesc: { color: DR.text2, fontSize: 12.5 },
+  bulletTerm: { color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' },
+  bulletDesc: { color: DR.text2, fontSize: 12.5, lineHeight: 17 },
+  // AI-analys-kortet (= pilotens)
+  aiCard: { backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, padding: 14, gap: 10 },
+  aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  aiCardTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  aiLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  aiLoadingText: { color: DR.muted, fontSize: 13, fontStyle: 'italic' },
+  aiReadMore: { fontSize: 12, fontWeight: '700', marginTop: -2 },
+  // Resultatraden (= pilotens): format, fil, coins, Rows/Mapped
+  resultHeader: { backgroundColor: DR.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: DR.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  resultFormat: { color: DR.text, fontSize: 15, fontWeight: '700' },
+  resultFile: { color: DR.text2, fontSize: 12, marginTop: 2 },
+  tokenUsedText: { color: DR.muted, fontSize: 11, fontFamily: 'Menlo', marginTop: 3 },
+  statValue: { color: DR.text, fontSize: 16, fontWeight: '800' },
+  statLabel: { color: DR.muted, fontSize: 9, textTransform: 'uppercase' },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingVertical: 15, gap: 8, marginTop: 8 },
+  saveBtnText: { fontSize: 16, fontWeight: '700' },
+  hint: { color: DR.muted, fontSize: 11, textAlign: 'center' },
+  chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, marginTop: 2 },
+  chooseOtherText: { color: DR.text2, fontSize: 13, fontWeight: '600' },
   // Drone data-sektionen (motsvarar pilotens gyllene "Aircraft data")
   dataSection: { backgroundColor: DR.warning + '14', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: DR.warning + '55', gap: 10 },
   dataHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },

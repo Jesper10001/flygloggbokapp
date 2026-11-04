@@ -476,8 +476,8 @@ export default function DroneSettingsScreen() {
         </SectionCard>
       )}
 
-      {/* ── E. Data & Export — exporterar BARA drone_flights ── */}
-      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'export'} onPress={() => toggleSection('export')}>Data & Export</CollapsibleSectionHeader>
+      {/* ── E. Export — exporterar BARA drone_flights ── */}
+      <CollapsibleSectionHeader accent={accent} expanded={expanded === 'export'} onPress={() => toggleSection('export')}>Export</CollapsibleSectionHeader>
       {expanded === 'export' && (
         <SectionCard>
           <Row accent={accent} icon="book-outline" iconColor={accent} title="Export logbook pages"
@@ -485,8 +485,11 @@ export default function DroneSettingsScreen() {
             right={exportingPages ? <ActivityIndicator size="small" color={accent} /> : undefined} />
           <Row accent={accent} icon="download-outline" iconColor={accent} title="Export CSV"
             subtitle={flightCount > 0 ? `${flightCount} drone ${flightCount === 1 ? 'flight' : 'flights'}` : 'No flights yet'}
-            onPress={handleExportCsv} border={false}
+            onPress={handleExportCsv} separatorColor={DR.background}
             right={exporting ? <ActivityIndicator size="small" color={accent} /> : undefined} />
+          <Row accent={accent} icon="options-outline" iconColor={accent} title="Custom CSV export"
+            subtitle="Choose columns, headers, format and separator"
+            onPress={() => router.push({ pathname: '/settings/custom-export', params: { mode: 'drone' } })} border={false} />
         </SectionCard>
       )}
 
