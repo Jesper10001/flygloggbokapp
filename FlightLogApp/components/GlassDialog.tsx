@@ -7,6 +7,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, type ViewStyle, type StyleProp, TouchableOpacity } from 'react-native';
 import { useShareSheetStore } from '../services/shareFile';
+import { useMapScreenStore } from '../store/mapScreenStore';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -81,7 +82,9 @@ export function GlassDialog(p: {
   const progress = useSharedValue(0);
   const [mounted, setMounted] = useState(p.visible);
   // Medan delningsrutan är uppe öppnas ingen ny ruta (den skulle låsa skärmen); en som redan syns får vara kvar.
-  const blocked = useShareSheetStore((st) => st.open) && !mounted;
+  const shareOpen = useShareSheetStore((st) => st.open);
+  const mapOpen = useMapScreenStore((st) => st.open);
+  const blocked = (shareOpen || mapOpen) && !mounted;
 
   // In: fjäder (som uppdateringspopupen). Ut: kort tona, sedan avmonteras rutan.
   useEffect(() => {

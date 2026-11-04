@@ -15,6 +15,25 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- **Best week och Longest XC** är omgjorda efter designvyn "Best Week & Longest XC". Reglerna för vilken vecka och vilken dag som räknas är oförändrade.
+  - **Korten i Insights** (`MilestoneMapCards`) är lika breda och har Apple-kartan (standard, mörkt läge) som förhandsbild. Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt.
+  - **Best week:**
+    - timmarna stort och en rad med dagar, sektorer, landningar och flygplatser
+    - "Day by day" som tunna staplar: den valda dagen i cyan, lokala flygningar på basen mörkare och resor ljusare
+    - den valda dagens flygningar med tider och landningar
+    - kartan som förhandsbild, topp 5 och "Open week in logbook"
+  - **Basen** är flygplatsen med flest lokala flygningar (start och landning på samma ställe). Hooken räknar nu också landningar och koordinater (`weekGeo`).
+  - **Longest XC:**
+    - distansen stort och rutten som en linje där avstånden motsvarar benen
+    - kartan som förhandsbild, benen med markstopp och topp 5
+    - "Open flight detail". Share är borttagen.
+  - **Uppspelning i helskärm:** ett tryck på kartan öppnar den på Apple-kartan (`best-week-map`, `longest-xc-map`, `fullScreenModal`).
+    - Best week spelas upp en dag i taget, och ringen runt basen växer till när dagen har lokala flygningar.
+    - Longest XC spelas upp med ett plan, eller en helikopter med snurrande rotor om farkosten är en helikopter i flottan. Man kan dra i tidslinjen.
+    - Kartan går inte att vrida.
+  - **Låsningsskydd:** medan en helskärmskarta är öppen väntar GlassDialog (`useMapScreenStore`), samma skydd som för delningsrutan.
+- Projections och Next licence har lugnare färger. Cyan finns kvar för den flugna kurvan och valda lägen. Projektionen, målet, ETA och etiketten vid målet är vita och grå (`soft`, `quiet` i insightsTheme), och klara licenser och uppfyllda krav är grå i stället för gröna.
+- Projections och Next licence: kurvorna är 20 px högre (184 i stället för 164). För att ge plats har Projections knappar Target/Pace/Goals, även de låsta, blivit lägre (40 i stället för 54). Next licence-kortets växling Chart/List och stegen PPL → CPL → ATPL har mindre text, men samma träffyta (`hitSlop`).
 - **Next licence** (Insights) är omgjort i samma kompakta stil som Projections, efter designvyns rad 3:
   - **Stege och siffror:** stegen PPL → CPL → ATPL väljer licens. Klara licenser är gröna med år, den pågående är guld med procent. Stegen ersätter "Show completed licences". Under den står READY (snittet av kraven, vart och ett högst 100 %) och MET med LED-siffror, och ETA, eller COMPLETE för en klar licens. Raden under säger vilket krav som sätter datumet och visar det troliga fönstret.
   - **Chart** (`LicenceChart`) visar hur redo man är över tid: historik i cyan, projektion i streckad guld mot taket på 100 %, en punkt där varje krav blir klart och en svag guldkil för fönstret. Under kurvan ligger en ruta per återstående krav med månad. Ett tryck på rutan markerar kravet i kurvan med timmar kvar.

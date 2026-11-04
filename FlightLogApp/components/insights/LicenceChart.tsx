@@ -11,7 +11,7 @@ import type { InsightsTheme } from './insightsTheme';
 import { readyAt, projAt, hoursTxt, type LicReq, type LicState } from './licenceState';
 
 const MONO = 'JetBrainsMono';
-const H = 164, L = 4, T = 12, B = 144, TAPE = 56, SC = 1.12;
+const H = 184, L = 4, T = 12, B = 164, TAPE = 56, SC = 1.12;
 
 export function LicenceChart({ C, S, nowA, startA, focus }: {
   C: InsightsTheme; S: LicState; nowA: number;
@@ -20,7 +20,7 @@ export function LicenceChart({ C, S, nowA, startA, focus }: {
 }) {
   const [W, setW] = useState(0);
   const R = W - TAPE;
-  const accent = S.done ? C.success : C.gold;
+  const accent = C.soft;
 
   let body = null;
   if (W > 0) {
@@ -93,23 +93,23 @@ export function LicenceChart({ C, S, nowA, startA, focus }: {
         <Svg width={W} height={H}>
           <Defs>
             <LinearGradient id="licArea" x1="0" x2="0" y1="0" y2="1">
-              <Stop offset="0" stopColor={C.primary} stopOpacity={0.3} />
+              <Stop offset="0" stopColor={C.primary} stopOpacity={0.22} />
               <Stop offset="1" stopColor={C.primary} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Path d={[0.25, 0.5, 0.75].map((v) => `M ${L} ${f1(y(v))} H ${R}`).join(' ')} fill="none" stroke={C.separator} strokeWidth={1} />
-          {cone ? <Path d={cone} fill={C.gold} fillOpacity={0.09} /> : null}
+          {cone ? <Path d={cone} fill={C.soft} fillOpacity={0.06} /> : null}
           {!S.done ? <Path d={`M ${f1(x(nowA))} ${T} L ${f1(x(nowA))} ${B}`} fill="none" stroke={C.text2} strokeWidth={1} strokeDasharray="1 3" opacity={0.6} /> : null}
           <Path d={area} fill="url(#licArea)" />
-          <Path d={`M ${L} ${f1(y(1))} L ${R} ${f1(y(1))}`} fill="none" stroke={accent} strokeWidth={1.1} strokeDasharray="4 4" opacity={0.9} />
-          {fp ? <Path d={`M ${f1(fp.x)} ${f1(fp.y + 6)} L ${f1(fp.x)} ${B}`} fill="none" stroke={C.primary} strokeWidth={1} strokeDasharray="2 3" opacity={0.8} /> : null}
-          {proj ? <Path d={proj} fill="none" stroke={C.gold} strokeWidth={2.1} strokeDasharray="6 4" strokeLinecap="round" /> : null}
+          <Path d={`M ${L} ${f1(y(1))} L ${R} ${f1(y(1))}`} fill="none" stroke={C.quiet} strokeWidth={1.1} strokeDasharray="4 4" />
+          {fp ? <Path d={`M ${f1(fp.x)} ${f1(fp.y + 6)} L ${f1(fp.x)} ${B}`} fill="none" stroke={C.text2} strokeWidth={1} strokeDasharray="2 3" opacity={0.7} /> : null}
+          {proj ? <Path d={proj} fill="none" stroke={C.soft} strokeWidth={1.8} strokeDasharray="5 4" strokeLinecap="round" opacity={0.85} /> : null}
           <Path d={hist} fill="none" stroke={C.primary} strokeWidth={2.3} strokeLinejoin="round" strokeLinecap="round" />
-          {metPts.length ? <Path d={dots(metPts, 3.5)} fill={C.success} stroke={C.card} strokeWidth={1.5} /> : null}
-          {openPts.length ? <Path d={dots(openPts, 3.8)} fill={C.card} stroke={C.primary} strokeWidth={1.8} /> : null}
-          {fp ? <Circle cx={fp.x} cy={fp.y} r={5.5} fill={C.primary} stroke={C.card} strokeWidth={2} /> : null}
-          {glow ? <Circle cx={glow.x} cy={glow.y} r={9} fill={accent} opacity={0.22} /> : null}
-          {glow ? <Circle cx={glow.x} cy={glow.y} r={4.5} fill={accent} /> : null}
+          {metPts.length ? <Path d={dots(metPts, 3.5)} fill={C.text2} stroke={C.card} strokeWidth={1.5} /> : null}
+          {openPts.length ? <Path d={dots(openPts, 3.8)} fill={C.card} stroke={C.text2} strokeWidth={1.6} /> : null}
+          {fp ? <Circle cx={fp.x} cy={fp.y} r={5} fill={C.text} stroke={C.card} strokeWidth={2} /> : null}
+          {glow ? <Circle cx={glow.x} cy={glow.y} r={8} fill={accent} opacity={0.14} /> : null}
+          {glow ? <Circle cx={glow.x} cy={glow.y} r={4} fill={accent} /> : null}
           {!S.done ? <Circle cx={x(nowA)} cy={y(S.ready)} r={5} fill={C.primary} stroke={C.card} strokeWidth={2.5} /> : null}
           {[0.25, 0.5, 0.75].map((v) => (
             <SvgText key={v} x={R + 6} y={y(v) + 3} fontSize={9} fontFamily={MONO} fill={v <= S.ready ? C.muted : C.text2}>{`${v * 100}%`}</SvgText>
@@ -121,7 +121,6 @@ export function LicenceChart({ C, S, nowA, startA, focus }: {
         <View pointerEvents="none" style={{
           position: 'absolute', right: 0, top: y(1) - 11, minWidth: 58, height: 22, paddingHorizontal: 6, borderRadius: 7, backgroundColor: accent,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
-          shadowColor: accent, shadowOpacity: 0.32, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
         }}>
           {S.done ? <Ionicons name="checkmark" size={11} color={C.deep} /> : null}
           <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.deep }}>{S.code}</Text>
@@ -129,7 +128,7 @@ export function LicenceChart({ C, S, nowA, startA, focus }: {
         {fp ? (
           <View pointerEvents="none" style={{
             position: 'absolute', left: Math.max(0, Math.min(R - fw, fp.x - fw / 2)), top: fp.y < 40 ? fp.y + 12 : fp.y - 30,
-            height: 20, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: C.primary, backgroundColor: C.deep, justifyContent: 'center',
+            height: 20, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: C.quiet, backgroundColor: C.deep, justifyContent: 'center',
           }}>
             <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.text }}>{focusText}</Text>
           </View>

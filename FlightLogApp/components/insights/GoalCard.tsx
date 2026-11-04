@@ -137,12 +137,12 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
   return (
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-        <Ionicons name="trending-up" size={17} color={C.primary} />
+        <Ionicons name="trending-up" size={17} color={C.text2} />
         <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
         <TouchableOpacity onPress={() => openSheet('target')} accessibilityLabel={`${labelOf(metric)} time. Change the kind of time`}
           style={[st.chip, { borderColor: C.border, backgroundColor: C.elevated }]}>
-          <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.primary }}>{labelOf(metric)}</Text>
-          <Ionicons name="chevron-down" size={11} color={C.primary} />
+          <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.text }}>{labelOf(metric)}</Text>
+          <Ionicons name="chevron-down" size={11} color={C.muted} />
         </TouchableOpacity>
       </View>
 
@@ -156,15 +156,15 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
         </View>
         <Ionicons name="arrow-forward" size={14} color={C.text2} style={{ marginBottom: 6 }} />
         <View style={{ gap: 3 }}>
-          <Text style={[st.cap, { color: C.gold }]}>TARGET</Text>
+          <Text style={[st.cap, { color: C.text2 }]}>TARGET</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-            <Text style={[st.led, { color: C.gold }]}>{led(tgt)}</Text>
-            <Text style={[st.unit, { color: C.gold }]}>h</Text>
+            <Text style={[st.led, { color: C.soft }]}>{led(tgt)}</Text>
+            <Text style={[st.unit, { color: C.muted }]}>h</Text>
           </View>
         </View>
         <View style={{ flex: 1, alignItems: 'flex-end', gap: 1, minWidth: 0 }}>
           <Text style={[st.cap, { color: C.text2 }]}>ETA</Text>
-          <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 24, fontWeight: '600', color: C.gold }}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 24, fontWeight: '600', color: C.text }}>
             {etaM != null ? mLabel(nowA + etaM) : '—'}
           </Text>
         </View>
@@ -180,7 +180,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
         snap={snap} minTarget={minTarget} nowA={nowA} onTarget={(v) => setTarget(v)} onDrag={onDrag} />
 
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        <Opener C={C} label="TARGET" value={`${fmtIntH(tgt)} h`} valueColor={C.gold} onPress={() => openSheet('target')} />
+        <Opener C={C} label="TARGET" value={`${fmtIntH(tgt)} h`} valueColor={C.text} onPress={() => openSheet('target')} />
         <Opener C={C} label="PACE" value={`${one(pace)} h/mo`} valueColor={paceMode === 'r12' ? C.text : C.primary} onPress={() => openSheet('pace')} />
         <Opener C={C} label="GOALS" value={nextGoal?.at != null ? `Next ${mShort(nextGoal.at)}` : goals.length ? `${goals.length} done` : 'Add one'}
           valueColor={C.text} onPress={() => openSheet('goals')} />
@@ -203,8 +203,8 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
                 <Stepper label="Lower the target" icon="remove" onPress={() => setTarget(Math.max(minTarget, tgt - snap))} />
                 <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-                    <Text style={[st.led, { fontSize: 30, color: C.gold }]}>{led(tgt)}</Text>
-                    <Text style={[st.unit, { color: C.gold }]}>h</Text>
+                    <Text style={[st.led, { fontSize: 30, color: C.soft }]}>{led(tgt)}</Text>
+                    <Text style={[st.unit, { color: C.muted }]}>h</Text>
                   </View>
                   <Text style={[st.small, { color: C.text2 }]}>{etaM != null ? `ETA ${mLabel(nowA + etaM)} · ${dur(etaM)}` : 'No pace yet'}</Text>
                 </View>
@@ -218,9 +218,9 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
                   const sel = q === tgt;
                   return (
                     <TouchableOpacity key={q} onPress={() => setTarget(q)} accessibilityLabel={`Set the target to ${fmtIntH(q)} hours`}
-                      style={[st.quick, { borderColor: sel ? C.gold : C.border, backgroundColor: sel ? C.gold + '24' : C.elevated }]}>
-                      <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: sel ? C.gold : C.text }}>{fmtIntH(q)}</Text>
-                      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: sel ? C.gold : C.text2 }}>
+                      style={[st.quick, { borderColor: sel ? C.soft : C.border, backgroundColor: sel ? C.soft + '14' : C.elevated }]}>
+                      <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: C.text }}>{fmtIntH(q)}</Text>
+                      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: sel ? C.text : C.text2 }}>
                         {pace > 0 ? mShort(nowA + Math.ceil((q - have) / pace)) : '—'}
                       </Text>
                     </TouchableOpacity>
@@ -229,7 +229,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
               </View>
             </View>
             {hasWindow ? (
-              <Text style={[st.note, { color: C.gold, borderColor: C.gold + '38', backgroundColor: C.gold + '14' }]}>
+              <Text style={[st.note, { color: C.text2, borderColor: C.border, backgroundColor: C.elevated }]}>
                 Likely between {mLabel(fastA!)} and {mLabel(slowA!)}, depending on how much you fly. The shaded wedge on the chart.
               </Text>
             ) : null}
@@ -254,7 +254,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
                   </View>
                 ))}
               </View>
-              <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 14 + (pace / barMax) * 56, borderTopWidth: 1.5, borderStyle: 'dashed', borderColor: C.gold }} />
+              <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 14 + (pace / barMax) * 56, borderTopWidth: 1.5, borderStyle: 'dashed', borderColor: C.soft }} />
             </View>
             <View style={[st.seg, { backgroundColor: C.deep }]}>
               {([['r3', 'Last 3 mo'], ['r12', 'Last 12 mo'], ['career', 'Career']] as const).map(([k, label]) => {
@@ -273,7 +273,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
               <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
                 <Text style={[st.small, { color: C.text2 }]}>What if you fly more or less?</Text>
                 <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', textAlign: 'center',
-                  color: paceMode === 'r12' ? C.text : diff >= 0 ? C.success : C.gold }}>{paceDelta}</Text>
+                  color: paceMode === 'r12' ? C.text : diff >= 0 ? C.primary : C.text2 }}>{paceDelta}</Text>
               </View>
               <Stepper label="Fly more each month" icon="add" onPress={() => { setPaceMode('custom'); setCustomPace(Math.round((pace + paceStep) * 10) / 10); }} />
             </View>
@@ -288,7 +288,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
             ) : null}
             <View>
               {built.map((b, i) => {
-                const next = i === firstOpen, color = b.reached ? C.success : next ? C.gold : C.text2;
+                const next = i === firstOpen, color = b.reached ? C.text2 : next ? C.text : C.muted;
                 const pct = Math.min(1, b.h / b.g.hours);
                 return (
                   <View key={`${b.g.key}-${b.g.hours}-${b.idx}`} style={{ flexDirection: 'row', gap: 11 }}>
@@ -301,14 +301,14 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
                           <Text style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: C.text }}>{labelOf(b.g.key)} {fmtIntH(b.g.hours)} h</Text>
-                          {next ? <Text style={[st.tag, { backgroundColor: C.gold, color: C.deep }]}>NEXT</Text> : null}
+                          {next ? <Text style={[st.tag, { backgroundColor: C.soft, color: C.deep }]}>NEXT</Text> : null}
                         </View>
-                        <Text style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: '700', color: b.reached ? C.success : next ? C.gold : C.text }}>
+                        <Text style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: '700', color: b.reached ? C.text2 : C.text }}>
                           {b.at == null ? '—' : b.reached ? `✓ ${mLabel(b.at)}` : mLabel(b.at)}
                         </Text>
                       </View>
                       <View style={{ height: 5, borderRadius: 3, backgroundColor: C.elevated, overflow: 'hidden' }}>
-                        <View style={{ height: 5, borderRadius: 3, width: `${pct * 100}%`, backgroundColor: b.reached ? C.success : next ? C.gold : C.primary }} />
+                        <View style={{ height: 5, borderRadius: 3, width: `${pct * 100}%`, backgroundColor: b.reached ? C.quiet : next ? C.primary : C.primary + '88' }} />
                       </View>
                       <Text style={[st.small, { color: C.text2 }]}>
                         {b.reached ? `Reached · ${fmtIntH(b.h)} h now`
@@ -341,8 +341,8 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
                   <Stepper label="Fewer hours" icon="remove" onPress={() => setAddHours(Math.max(addStep, addHours - addStep))} />
                   <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-                      <Text style={[st.led, { fontSize: 26, color: C.gold }]}>{led(addHours)}</Text>
-                      <Text style={[st.unit, { color: C.gold }]}>h</Text>
+                      <Text style={[st.led, { fontSize: 26, color: C.soft }]}>{led(addHours)}</Text>
+                      <Text style={[st.unit, { color: C.muted }]}>h</Text>
                     </View>
                     <Text style={[st.small, { color: C.text2 }]}>
                       {addHave >= addHours ? 'Already reached' : addM != null ? `${mLabel(nowA + addM)} · in ${dur(addM)}` : 'No pace yet'}
@@ -373,9 +373,9 @@ function Opener({ C, label, value, valueColor, onPress }: { C: InsightsTheme; la
     <TouchableOpacity onPress={onPress} accessibilityLabel={`${label.toLowerCase()}: ${value}`} style={[st.opener, { borderColor: C.border, backgroundColor: C.elevated }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={[st.cap, { color: C.text2 }]}>{label}</Text>
-        <Ionicons name="chevron-forward" size={11} color={C.text2} />
+        <Ionicons name="chevron-forward" size={10} color={C.text2} />
       </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: valueColor }}>{value}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: valueColor }}>{value}</Text>
     </TouchableOpacity>
   );
 }
@@ -396,7 +396,7 @@ const st = StyleSheet.create({
   led: { fontFamily: FONT_LED7, fontWeight: '800', fontSize: 22 },
   unit: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
   chip: { minHeight: 32, paddingLeft: 11, paddingRight: 8, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  opener: { flex: 1, minHeight: 54, borderRadius: 12, borderWidth: 1, paddingVertical: 7, paddingHorizontal: 9, justifyContent: 'center', gap: 4 },
+  opener: { flex: 1, minHeight: 40, borderRadius: 11, borderWidth: 1, paddingVertical: 5, paddingHorizontal: 9, justifyContent: 'center', gap: 2 },
   grid3: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chipBig: { width: '31.8%', minHeight: 42, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 14 },

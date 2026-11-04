@@ -51,19 +51,19 @@ export function ProjectionsLocked({ unlock }: { unlock: ProjectionUnlock }) {
         <Text style={[st.cap, { color: C.muted }]}>{label.toUpperCase()}</Text>
         <Ionicons name="lock-closed" size={10} color={C.muted} />
       </View>
-      <Text style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: C.border }}>{'—'}</Text>
+      <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: C.border }}>{'—'}</Text>
     </TouchableOpacity>
   );
 
   const progressRow = (icon: 'calendar-outline' | 'airplane-outline', title: string, value: string, frac: number, done: boolean, note: string) => (
     <View style={{ gap: 5 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-        <Ionicons name={done ? 'checkmark-circle' : icon} size={13} color={done ? C.success : C.text2} />
-        <Text style={[st.cap, { flex: 1, color: done ? C.success : C.text2 }]}>{title}</Text>
-        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: done ? C.success : C.text }}>{value}</Text>
+        <Ionicons name={done ? 'checkmark-circle' : icon} size={13} color={done ? C.text : C.text2} />
+        <Text style={[st.cap, { flex: 1, color: done ? C.text : C.text2 }]}>{title}</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.text }}>{value}</Text>
       </View>
       <View style={{ height: 4, borderRadius: 2, backgroundColor: C.elevated, overflow: 'hidden' }}>
-        <View style={{ height: 4, borderRadius: 2, width: `${Math.max(3, frac * 100)}%`, backgroundColor: done ? C.success : C.primary }} />
+        <View style={{ height: 4, borderRadius: 2, width: `${Math.max(3, frac * 100)}%`, backgroundColor: done ? C.quiet : C.primary }} />
       </View>
       <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.text2 }}>{note}</Text>
     </View>
@@ -72,7 +72,7 @@ export function ProjectionsLocked({ unlock }: { unlock: ProjectionUnlock }) {
   return (
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-        <Ionicons name="trending-up" size={17} color={C.primary} />
+        <Ionicons name="trending-up" size={17} color={C.text2} />
         <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
         <TouchableOpacity onPress={nudge} activeOpacity={1} accessibilityState={{ disabled: true }} accessibilityLabel="Kind of time, locked"
           style={[st.chip, { borderColor: C.border, backgroundColor: C.deep }]}>
@@ -117,8 +117,8 @@ export function ProjectionsLocked({ unlock }: { unlock: ProjectionUnlock }) {
           </Defs>
           <Path d="M 4 40 H 272 M 4 76 H 272 M 4 112 H 272" fill="none" stroke={C.separator} strokeWidth={1} />
           <Path d="M 4 146 C 60 144 96 136 130 120 C 160 106 178 94 196 84" fill="none" stroke={C.primary} strokeWidth={2.3} strokeLinecap="round" strokeDasharray="2 5" opacity={0.35} />
-          <Path d="M 196 84 L 266 38" fill="none" stroke={C.gold} strokeWidth={2} strokeDasharray="6 5" strokeLinecap="round" opacity={0.28} />
-          <Path d="M 4 32 H 272" fill="none" stroke={C.gold} strokeWidth={1} strokeDasharray="4 4" opacity={0.2} />
+          <Path d="M 196 84 L 266 38" fill="none" stroke={C.soft} strokeWidth={2} strokeDasharray="6 5" strokeLinecap="round" opacity={0.28} />
+          <Path d="M 4 32 H 272" fill="none" stroke={C.quiet} strokeWidth={1} strokeDasharray="4 4" opacity={0.2} />
           <Rect x={0} y={0} width={328} height={168} fill="url(#lockFade)" />
         </Svg>
         <Animated.View style={{ alignItems: 'center', gap: 8, transform: [{ translateX: shake }] }}>
@@ -131,7 +131,7 @@ export function ProjectionsLocked({ unlock }: { unlock: ProjectionUnlock }) {
           </View>
           <View style={{ alignItems: 'center', gap: 1 }}>
             <Text style={[st.cap, { color: C.text2 }]}>PROJECTION UNLOCKS</Text>
-            <Text style={{ fontFamily: SERIF, fontSize: 23, fontWeight: '600', color: C.gold }}>{headline}</Text>
+            <Text style={{ fontFamily: SERIF, fontSize: 23, fontWeight: '600', color: C.text }}>{headline}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 10.5, color: C.text2 }}>{subline}</Text>
           </View>
         </Animated.View>
@@ -155,5 +155,5 @@ const st = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 16, paddingTop: 14, paddingHorizontal: 14, paddingBottom: 12, gap: 10 },
   cap: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.3 },
   chip: { minHeight: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  tile: { flex: 1, minHeight: 54, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', paddingVertical: 7, paddingHorizontal: 9, justifyContent: 'center', gap: 4 },
+  tile: { flex: 1, minHeight: 40, borderRadius: 11, borderWidth: 1, borderStyle: 'dashed', paddingVertical: 5, paddingHorizontal: 9, justifyContent: 'center', gap: 2 },
 });

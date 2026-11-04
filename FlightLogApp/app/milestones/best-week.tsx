@@ -1,232 +1,268 @@
-import React, { useEffect, useRef } from 'react';
+// Best week: veckan med mest flygtid (måndag–söndag, samma regel som stats). Timmarna stort överst, dagar, sektorer,
+// landningar och flygplatser på en rad, dag för dag som tunna staplar (lokala flygningar på basen mörkare, resor
+// ljusare), den valda dagens flygningar, veckans karta som förhandsbild (ett tryck spelar upp veckan i helskärm),
+// topp 5 och "Open week in logbook".
+
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Polyline } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
-import { useTranslation } from '../../hooks/useTranslation';
 import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails';
-import { monthShort } from '../../utils/dateLabels';
-import { BWDayBars } from '../../components/milestones/BWDayBars';
-import {
-  MilestoneHeader, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
-} from '../../components/milestones/MilestoneUI';
+import { StaticMap, AirportMarker, HomeMarker, arcCoords, regionFor, MAP_GOLD } from '../../components/milestones/MilestoneMap';
+import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
-function dayHeader(iso: string, dow: string, language: string): string {
-  const [, m, d] = iso.split('-').map(Number);
-  return `${dow.toUpperCase()} ${String(d).padStart(2, '0')} ${monthShort(language, (m || 1) - 1).toUpperCase()}`;
-}
+const DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const BAR = 112;
+
 function hhmm(h: number): string {
-  const hours = Math.floor(h);
-  const mins = Math.round((h - hours) * 60);
-  return `${hours}:${String(mins).padStart(2, '0')}`;
+  const total = Math.round(h * 60);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+const weekNo = (label: string) => (label.match(/W(\d+)/) || [])[1] || '';
+function dayTitle(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  return `${DOW_LONG[dt.getDay()]} ${dt.getDate()} ${MONTH_LONG[dt.getMonth()]}`;
 }
 
 export default function BestWeekScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const accent = Colors.accent;
   const stats = useFlightStore(s => s.stats);
-  const { t, language } = useTranslation();
   // Utan parametrar = bästa veckan. Med ?week= = en av topp 5-veckorna (#2–5), öppnad från listan nedan.
   const params = useLocalSearchParams<{ week?: string; rank?: string; label?: string; hours?: string }>();
   const sub = !!params.week;
   const rank = sub ? Number(params.rank) || 0 : 1;
+  const weekStart = sub ? params.week : stats?.best_week_start || undefined;
+  const weekLabel = sub ? params.label ?? '' : stats?.best_week_label || '';
   const weekHours = sub ? parseFloat(params.hours ?? '') || 0 : stats?.best_week_hours ?? 0;
+  const d = useBestWeekFull(weekStart, weekLabel, weekHours);
 
-  const d = useBestWeekFull(
-    sub ? params.week : stats?.best_week_start || undefined,
-    sub ? params.label ?? '' : stats?.best_week_label || '',
-    weekHours,
-  );
+  // Dagen med mest flygtid är vald från början; ett tryck på en stapel väljer en annan.
+  const [picked, setPicked] = useState<number | null>(null);
+  const busiest = d.days.reduce((best, x, i) => (x.hours > (d.days[best]?.hours ?? -1) ? i : best), 0);
+  const sel = picked ?? busiest;
 
   // Topp 5-rad → samma vy för den veckan. Från bästa veckan läggs ett kort ovanpå; på ett sådant kort
   // byts innehållet på plats (setParams) och #1 stänger kortet → "tillbaka" landar alltid på bästa veckan.
   const scrollRef = useRef<ScrollView>(null);
-  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [params.week]);
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); setPicked(null); }, [params.week]);
   const openWeek = (w: BWTop5Row) => {
     if (w.current) return;
     if (sub && w.rank === 1) { router.back(); return; }
     const p = { week: w.weekStart, rank: String(w.rank), label: w.label, hours: String(w.hours) };
     if (sub) router.setParams(p); else router.push({ pathname: '/milestones/best-week', params: p });
   };
+  const openMap = () => {
+    if (!weekStart) return;
+    router.push({ pathname: '/milestones/best-week-map', params: { week: weekStart, label: weekLabel, hours: String(weekHours) } });
+  };
+  const openLogbook = () => {
+    // Loggboken med veckans flygningar inramade (veckan kan spänna över två månader).
+    const isos = d.days.map((x) => x.iso).filter(Boolean).sort();
+    const start = isos[0], end = isos[isos.length - 1];
+    if (!start || !end) { router.push('/log'); return; }
+    const [y, m] = start.split('-').map(Number);
+    router.push({ pathname: '/log', params: { focusStart: start, focusEnd: end, focusYear: String(y), focusMonth: String(m), t: String(Date.now()) } });
+  };
 
-  const maxTop5 = Math.max(1, ...d.top5.map(t => t.hours));
-  const cmpMax = Math.max(d.hoursNum, d.baselineWeek, 0.1);
-  const daysWithFlights = d.days.filter(day => day.flights.length > 0);
+  const maxDay = Math.max(0.1, ...d.days.map((x) => x.hours));
+  const selDay = d.days[sel];
+  const geo = d.geo;
+  const home = geo?.home ? geo.coords[geo.home] : undefined;
+  const trips = d.days.flatMap((day, i) => day.flights.filter((f) => !f.local && geo?.coords[f.dep] && geo?.coords[f.arr]).map((f) => ({ ...f, day: i })));
+  const away = [...new Set(trips.flatMap((t) => [t.dep, t.arr]))].filter((k) => k !== geo?.home);
+  const region = regionFor(Object.values(geo?.coords ?? {}));
+  const caption = [
+    rank === 1 ? 'Your best week so far' : `#${rank} of your best weeks`,
+    d.vsAvg > 0 ? `${d.vsAvg.toFixed(1)}× your usual ${d.baselineLabel}` : '',
+  ].filter(Boolean).join(', ');
+  const maxTop = Math.max(0.1, ...d.top5.map((w) => w.hours));
 
   return (
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-      <MilestoneHeader
-        title={sub ? t('ms.bw_rank_title').replace('{n}', String(rank)) : t('ms.best_week')}
-        accent={accent}
-        topInset={insets.top}
-        onBack={() => router.back()}
-      />
+      <View style={[s.header, { paddingTop: Math.min(insets.top, 6) + 8 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={10} style={s.back} accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={20} color={Colors.textSecondary} />
+        </Pressable>
+        <Text style={s.title}>{rank === 1 ? 'Best week' : `#${rank} best week`}</Text>
+      </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <View style={s.hero}>
-          <View style={s.heroRow}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 40, gap: 34 }} showsVerticalScrollIndicator={false}>
+        <View style={{ gap: 4, paddingTop: 10 }}>
+          <Text style={s.eyebrow}>{`WEEK ${weekNo(weekLabel)} · ${d.rangeLabel}`.toUpperCase()}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
             <Text style={s.heroNum}>{d.hoursLabel || hhmm(weekHours)}</Text>
-            <Text style={[s.heroUnit, { color: accent }]}>{t('ms.hrs')}</Text>
+            <Text style={[s.heroUnit, { color: Colors.accent }]}>h</Text>
           </View>
-          <Text style={s.heroCaption}>
-            {(d.weekLabel || '').toUpperCase()}{d.rangeLabel ? ` · ${d.rangeLabel.toUpperCase()}` : ''}
-          </Text>
+          <Text style={s.caption}>{caption}</Text>
         </View>
 
-        {/* Day bars panel */}
-        <View style={s.section}>
-          <Card style={{ padding: 18 }}>
-            <View style={s.panelHead}>
-              <Text style={[s.panelEyebrow, { color: accent }]}>{t('ms.bw_day_by_day').toUpperCase()}</Text>
-              <Text style={s.panelMeta}>{d.daysFlown} / 7 {t('ms.bw_days_flown').toUpperCase()}</Text>
+        <View style={s.strip}>
+          {[[`${d.daysFlown}/7`, 'DAYS'], [String(d.sectors), 'SECTORS'], [String(d.landings), 'LANDINGS'], [String(d.airports), 'AIRPORTS']].map(([v, l], i) => (
+            <View key={l} style={[s.stripCell, i > 0 && { borderLeftWidth: 1, borderLeftColor: Colors.separator }]}>
+              <Text style={s.stripValue}>{v}</Text>
+              <Text style={s.stripLabel}>{l}</Text>
             </View>
-            <View style={{ height: 150 }}>
-              <BWDayBars days={d.days} accent={accent} />
-            </View>
-            <View style={s.statRow}>
-              <StatBlock label={t('ms.sectors')} value={String(d.sectors)} color={accent} />
-              <StatBlock label={t('ms.airports')} value={String(d.airports)} color={Colors.textSecondary} />
-              <StatBlock label={t('ms.bw_top_day')} value={d.topDay} color={accent} />
-              <StatBlock label={t('ms.bw_vs_avg')} value={d.vsAvg > 0 ? `${d.vsAvg.toFixed(1)}×` : '—'} color={Colors.textSecondary} />
-            </View>
-          </Card>
+          ))}
         </View>
 
-        {/* Comparison vs baseline */}
-        {d.baselineWeek > 0 && (
-          <View style={s.section}>
-            <SectionHead eyebrow={t('ms.bw_pace')} title={t('ms.bw_against_typical')} accent={accent} />
-            <Card style={{ marginTop: 14, padding: 16, gap: 14 }}>
-              <CompareBar tag={t('ms.bw_this_week').toUpperCase()} label={d.hoursLabel} pct={(d.hoursNum / cmpMax) * 100} accent={accent} primary />
-              <CompareBar tag={t('ms.bw_typical_avg').toUpperCase()} label={d.baselineLabel} pct={(d.baselineWeek / cmpMax) * 100} accent={accent} primary={false} />
-            </Card>
-          </View>
-        )}
-
-        {/* Sectors list grouped by day */}
-        {daysWithFlights.length > 0 && (
-          <View style={s.section}>
-            <SectionHead eyebrow={t('ms.bw_flights')} title={`${d.sectors} ${d.sectors === 1 ? t('ms.sector_one') : t('ms.sector_many')}`} accent={accent} />
-            <Card style={{ marginTop: 14, overflow: 'hidden' }}>
-              {daysWithFlights.map((day, di) => (
-                <View key={day.iso}>
-                  <View style={s.dayHead}>
-                    <Text style={[s.dayHeadLeft, { color: accent }]}>{dayHeader(day.iso, day.dow, language)}</Text>
-                    <Text style={s.dayHeadRight}>{hhmm(day.hours)} {t('ms.total').toUpperCase()}</Text>
+        <View style={{ gap: 10 }}>
+          <Text style={s.eyebrow}>DAY BY DAY</Text>
+          <View style={{ flexDirection: 'row', height: 164 }}>
+            {d.days.map((day, i) => {
+              const on = i === sel, rest = day.hours <= 0;
+              const loc = day.flights.filter((f) => f.local).reduce((sum, f) => sum + f.hours, 0);
+              const awayH = Math.max(0, day.hours - loc);
+              const seg = (h: number, color: string) => h > 0
+                ? <View style={{ width: 8, borderRadius: 4, height: Math.max(4, (h / maxDay) * BAR), backgroundColor: color }} />
+                : null;
+              return (
+                <Pressable key={day.iso} onPress={() => setPicked(i)} style={s.dayCol} accessibilityRole="button" accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${dayTitle(day.iso)}, ${rest ? 'no flying' : `${hhmm(day.hours)} hours`}`}>
+                  <Text style={[s.dayHours, { color: on ? Colors.accent : Colors.textSecondary }]}>{rest ? '—' : hhmm(day.hours)}</Text>
+                  <View style={{ alignItems: 'center', gap: 2 }}>
+                    {seg(awayH, on ? '#7FE4F3' : '#7D8FA5')}
+                    {rest ? <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#22344A' }} /> : seg(loc, on ? Colors.accent : '#3A4D66')}
                   </View>
-                  {day.flights.map((f, fi) => (
-                    <Pressable
-                      key={f.id}
-                      onPress={() => router.push(`/flight/detail/${f.id}`)}
-                      style={({ pressed }) => [s.flightRow, fi > 0 && s.flightRowBorder, { opacity: pressed ? 0.6 : 1 }]}
-                    >
-                      <View style={[s.flightDot, { backgroundColor: accent }]} />
-                      <View style={s.flightRoute}>
-                        <Text style={s.flightIcao}>{f.dep}</Text>
-                        <Text style={[s.flightArrow, { color: accent }]}>→</Text>
-                        <Text style={s.flightIcao}>{f.arr}</Text>
-                      </View>
-                      <Text style={s.flightRole}>{f.isPic ? 'PIC' : ''}</Text>
-                      <Text style={[s.flightDur, { color: accent }]}>{f.dur}</Text>
-                    </Pressable>
-                  ))}
-                  {di < daysWithFlights.length - 1 && <View style={s.daySep} />}
-                </View>
-              ))}
-            </Card>
+                  <Text style={[s.dayDow, { color: on ? Colors.accent : rest ? Colors.textMuted : Colors.textSecondary }]}>{day.dow}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        )}
-
-        {/* Top 5 weeks */}
-        {d.top5.length > 0 && (
-          <View style={s.section}>
-            <SectionHead eyebrow={t('ms.career_ladder')} title={t('ms.bw_top5')} accent={accent} />
-            <Card style={{ marginTop: 14, padding: 16 }}>
-              <Top5Bars
-                accent={accent}
-                items={d.top5.map(w => ({
-                  rank: w.rank, label: w.label, range: w.range,
-                  value: hhmm(w.hours), unit: t('ms.hrs'),
-                  pct: (w.hours / maxTop5) * 100, current: w.current,
-                  onPress: () => openWeek(w),
-                }))}
-              />
-            </Card>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <Legend color="#3A4D66" label={`Local at ${geo?.home ?? 'base'}`} />
+            <Legend color="#7D8FA5" label="Away" />
           </View>
-        )}
-
-        {/* CTAs */}
-        <View style={[s.section, { gap: 10 }]}>
-          <GhostCTA label={t('ms.bw_open_logbook')} icon="list-outline" onPress={() => {
-            // Öppna loggboken med veckans flighter inramade i cyan (samma som kalenderns "Open in logbook",
-            // men ett helt datumintervall — veckan kan spänna över två månader).
-            const isos = d.days.map((x) => x.iso).filter(Boolean).sort();
-            const start = isos[0], end = isos[isos.length - 1];
-            if (!start || !end) { router.push('/log'); return; }
-            const [y, m] = start.split('-').map(Number);
-            router.push({ pathname: '/log', params: { focusStart: start, focusEnd: end, focusYear: String(y), focusMonth: String(m), t: String(Date.now()) } });
-          }} />
         </View>
+
+        {selDay ? (
+          <View>
+            <View style={s.dayHead}>
+              <Text style={s.dayTitle}>{dayTitle(selDay.iso)}</Text>
+              <Text style={s.dayTotal}>{selDay.hours > 0 ? hhmm(selDay.hours) : '—'}</Text>
+            </View>
+            {selDay.flights.length ? selDay.flights.map((f) => (
+              <Pressable key={f.id} onPress={() => router.push(`/flight/detail/${f.id}`)} style={s.row}>
+                <View style={{ width: 44, gap: 2 }}>
+                  <Text style={s.rowOff}>{f.depUtc || '—'}</Text>
+                  <Text style={s.rowOn}>{f.arrUtc || ''}</Text>
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={s.rowRoute}>{f.local ? `${f.dep} · local` : `${f.dep} → ${f.arr}`}</Text>
+                  <Text style={[s.rowSub, { color: f.local ? Colors.accent : Colors.textSecondary }]}>
+                    {f.landings} {f.landings === 1 ? 'landing' : 'landings'}
+                  </Text>
+                </View>
+                <Text style={s.rowDur}>{f.dur}</Text>
+              </Pressable>
+            )) : <Text style={s.restText}>No flying this day.</Text>}
+          </View>
+        ) : null}
+
+        {region ? (
+          <View style={{ gap: 12 }}>
+            <Text style={s.eyebrow}>WHERE</Text>
+            <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the week">
+              <StaticMap region={region} style={s.map}>
+                {trips.map((t, i) => (
+                  <Polyline key={`${t.id}-${i}`} coordinates={arcCoords(geo!.coords[t.dep], geo!.coords[t.arr])}
+                    strokeColor={t.day === sel ? MAP_GOLD : 'rgba(255,184,48,0.3)'} strokeWidth={t.day === sel ? 2.2 : 1.4} lineCap="round" />
+                ))}
+                {away.map((k) => <AirportMarker key={k} p={geo!.coords[k]} icao={k} />)}
+                {home && geo?.home ? (
+                  <HomeMarker p={home} label={geo.localCount ? `${geo.home} · ${geo.localCount} local · ${geo.localLandings} landings` : geo.home} />
+                ) : null}
+              </StaticMap>
+              <View style={s.expand}><Ionicons name="expand-outline" size={14} color="#C8CDD3" /></View>
+              <View style={s.replay}>
+                <Ionicons name="play" size={11} color={Colors.textInverse} />
+                <Text style={s.replayText}>Replay the week</Text>
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {d.top5.length > 0 ? (
+          <View>
+            <Text style={[s.eyebrow, { paddingBottom: 6 }]}>YOUR TOP 5 WEEKS</Text>
+            {d.top5.map((w) => (
+              <Pressable key={w.weekStart} onPress={() => openWeek(w)} style={s.topRow} accessibilityRole="button">
+                <Text style={[s.topRank, { color: w.current ? Colors.gold : Colors.textMuted }]}>{w.rank}</Text>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                    <Text style={s.topLabel}>{w.label.replace('W', 'Week ')}</Text>
+                    <Text style={s.topRange}>{w.range}</Text>
+                  </View>
+                  <View style={{ height: 2, backgroundColor: Colors.separator }}>
+                    <View style={{ height: 2, width: `${(w.hours / maxTop) * 100}%`, backgroundColor: w.current ? Colors.accent : '#2A4E70' }} />
+                  </View>
+                </View>
+                <Text style={s.topHours}>{hhmm(w.hours)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        <Pressable onPress={openLogbook} style={({ pressed }) => [s.ghost, { opacity: pressed ? 0.7 : 1 }]}>
+          <Ionicons name="list-outline" size={15} color={Colors.accent} />
+          <Text style={s.ghostText}>Open week in logbook</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
 }
 
-function CompareBar({ tag, label, pct, accent, primary }: {
-  tag: string; label: string; pct: number; accent: string; primary: boolean;
-}) {
-  const { t } = useTranslation();
+function Legend({ color, label }: { color: string; label: string }) {
   return (
-    <View style={{ gap: 6 }}>
-      <View style={s.cmpRow}>
-        <Text style={[s.cmpTag, { color: primary ? accent : Colors.textMuted }]}>{tag}</Text>
-        <Text style={[s.cmpVal, { color: primary ? Colors.textPrimary : Colors.textSecondary }]}>
-          {label}<Text style={s.cmpUnit}> {t('ms.hrs')}</Text>
-        </Text>
-      </View>
-      <View style={[s.cmpTrack, { height: primary ? 8 : 5 }]}>
-        <View style={[s.cmpFill, { width: `${Math.min(100, pct)}%`, backgroundColor: primary ? accent : Colors.cardBorder, shadowColor: accent, shadowOpacity: primary ? 0.5 : 0 }]} />
-      </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      <Text style={{ fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary }}>{label}</Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  hero: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18, gap: 14 },
-  heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  heroNum: { fontFamily: SERIF, fontSize: 84, lineHeight: 84, fontWeight: '500', letterSpacing: -3, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
-  heroUnit: { fontFamily: MONO, fontSize: 16, fontWeight: '700', letterSpacing: 2 },
-  heroCaption: { fontFamily: MONO, fontSize: 11, fontWeight: '600', color: Colors.textSecondary, letterSpacing: 0.8 },
-
-  section: { paddingHorizontal: 20, marginTop: 18 },
-
-  panelHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 },
-  panelEyebrow: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8 },
-  panelMeta: { fontFamily: MONO, fontSize: 10, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.8 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.separator },
-
-  cmpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  cmpTag: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.6 },
-  cmpVal: { fontFamily: MONO, fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  cmpUnit: { fontSize: 9, color: Colors.textMuted, letterSpacing: 1.4 },
-  cmpTrack: { borderRadius: 99, overflow: 'hidden', backgroundColor: 'rgba(127,168,200,0.08)' },
-  cmpFill: { height: '100%', borderRadius: 99, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
-
-  dayHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
-  dayHeadLeft: { fontFamily: MONO, fontSize: 10, fontWeight: '700', letterSpacing: 1.6 },
-  dayHeadRight: { fontFamily: MONO, fontSize: 10, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.8 },
-  flightRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11 },
-  flightRowBorder: { borderTopWidth: 1, borderTopColor: Colors.separator },
-  flightDot: { width: 6, height: 6, borderRadius: 3 },
-  flightRoute: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  flightIcao: { fontFamily: MONO, fontSize: 13, fontWeight: '700', letterSpacing: 0.4, color: Colors.textPrimary },
-  flightArrow: { fontFamily: MONO, fontSize: 13, fontWeight: '700' },
-  flightRole: { fontFamily: MONO, fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8, width: 28, textAlign: 'right' },
-  flightDur: { fontFamily: MONO, fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], width: 46, textAlign: 'right' },
-  daySep: { height: 1, backgroundColor: Colors.cardBorder },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingBottom: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: SERIF, fontSize: 17, fontWeight: '600', color: Colors.textPrimary },
+  eyebrow: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textSecondary },
+  heroNum: { fontFamily: SERIF, fontSize: 76, lineHeight: 80, fontWeight: '600', letterSpacing: -2, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  heroUnit: { fontFamily: MONO, fontSize: 14, fontWeight: '700' },
+  caption: { fontFamily: MONO, fontSize: 11.5, lineHeight: 17, color: Colors.textSecondary },
+  strip: { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.separator },
+  stripCell: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 14 },
+  stripValue: { fontFamily: SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary },
+  stripLabel: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.1, color: Colors.textSecondary },
+  dayCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  dayHours: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700' },
+  dayDow: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
+  dayHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  dayTitle: { fontFamily: SERIF, fontSize: 19, fontWeight: '600', color: Colors.textPrimary },
+  dayTotal: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.accent },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  rowOff: { fontFamily: MONO, fontSize: 10, fontWeight: '700', color: Colors.textPrimary },
+  rowOn: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
+  rowRoute: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
+  rowSub: { fontFamily: MONO, fontSize: 10 },
+  rowDur: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
+  restText: { fontFamily: MONO, fontSize: 11, color: Colors.textSecondary, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  map: { height: 240, borderRadius: 16, borderWidth: 1, borderColor: Colors.separator },
+  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
+  replay: { position: 'absolute', right: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.accent, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textInverse },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  topRank: { width: 18, fontFamily: SERIF, fontSize: 18, fontWeight: '600' },
+  topLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
+  topRange: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
+  topHours: { width: 46, textAlign: 'right', fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
+  ghost: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  ghostText: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.accent },
 });

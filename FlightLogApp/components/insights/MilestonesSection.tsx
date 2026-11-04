@@ -1,6 +1,6 @@
 // Milestones (Best Week + Longest XC) — flyttad från dashboarden till insights botten.
-// Självförsörjande: hämtar stats/premium/detaljer själv och renderar de två kompaktkorten.
-import { View, Text, Dimensions, StyleSheet } from 'react-native';
+// Självförsörjande: hämtar stats/premium/detaljer själv och renderar de två korten med kartan som förhandsbild.
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
@@ -8,15 +8,9 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
 import { monthShort } from '../../utils/dateLabels';
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
-import { BWCardCompact } from '../milestones/BWCardCompact';
-import { LXCardCompact } from '../milestones/LXCardCompact';
+import { BestWeekMapCard, LongestXcMapCard } from '../milestones/MilestoneMapCards';
 import { presentPaywall } from '../../services/purchases';
 
-function hoursToHM(dec: number): string {
-  const h = Math.floor(dec);
-  const m = Math.round((dec - h) * 60);
-  return `${h}h ${String(m).padStart(2, '0')}m`;
-}
 function lxDateShort(iso: string | undefined, language: string): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);
@@ -33,32 +27,24 @@ export function MilestonesSection() {
   const bestWeek = useBestWeekDetails(st?.best_week_start || undefined);
   const xcLegs = useLongestXcLegs(st?.longest_xc_date || undefined);
 
-  const totalW = Dimensions.get('window').width - 24 - 10;
-  const lxCardW = Math.round(totalW * 0.44);
-  const bwCardW = totalW - lxCardW;
 
   return (
     <View>
       <Text style={sx.sectionHeader}>{t('ms.section_milestones')}</Text>
       <View style={sx.milestoneRow}>
-        <BWCardCompact
-          width={bwCardW}
+        <BestWeekMapCard
           hoursLabel={decimalToHHMM(st?.best_week_hours ?? 0)}
           weekLabel={st?.best_week_label || '—'}
-          sectors={bestWeek.sectors}
-          airports={bestWeek.airports}
-          days={bestWeek.days}
+          details={bestWeek}
           onPress={() => {
             if (!isPremium) { presentPaywall('Best week'); return; }
             if (st?.best_week_start) router.push('/milestones/best-week');
           }}
         />
-        <LXCardCompact
-          width={lxCardW}
+        <LongestXcMapCard
           distanceNm={st?.longest_xc_km ?? 0}
           routeFrom={st?.longest_xc_first_dep || '—'}
           routeTo={st?.longest_xc_last_arr || '—'}
-          durationLabel={hoursToHM(st?.longest_xc_hours ?? 0)}
           dateShort={lxDateShort(st?.longest_xc_date, language)}
           legs={xcLegs}
           onPress={() => {

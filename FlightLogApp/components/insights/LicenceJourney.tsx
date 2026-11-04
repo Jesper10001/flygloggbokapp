@@ -7,7 +7,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useInsightsTheme } from './insightsTheme';
@@ -84,7 +83,7 @@ export function LicenceJourney() {
     return (
       <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-          <Ionicons name="ribbon-outline" size={17} color={C.primary} />
+          <Ionicons name="ribbon-outline" size={17} color={C.text2} />
           <Text style={{ fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Next licence</Text>
         </View>
         <Text style={{ fontFamily: MONO, fontSize: 12, color: C.text3, lineHeight: 18 }}>
@@ -105,7 +104,6 @@ export function LicenceJourney() {
   const shown = view ?? (unlock.ready ? 'chart' : 'list');
   const datesLocked = !unlock.ready && !S.done;
   const etaA = S.etaM != null ? nowA + S.etaM : null;
-  const accent = S.done ? C.success : C.gold;
   const tap = () => { Haptics.selectionAsync().catch(() => {}); };
 
   const flightsLeft = Math.max(0, PROJECTION_MIN_FLIGHTS - unlock.flights);
@@ -131,7 +129,7 @@ export function LicenceJourney() {
 
   const etaHead = S.done ? 'COMPLETE' : 'ETA';
   const etaText = S.done ? mLabel(S.doneA ?? nowA) : datesLocked ? 'Locked' : etaA != null ? mLabel(etaA) : '—';
-  const etaColor = datesLocked ? C.muted : accent;
+  const etaColor = datesLocked ? C.muted : C.text;
   const readyPct = S.done ? 100 : Math.min(99, Math.floor(S.ready * 100));
 
   // Rutorna under kurvan: kraven som återstår i den ordning de blir klara, eller en klar licens krav i den ordning de blev klara.
@@ -149,7 +147,7 @@ export function LicenceJourney() {
   return (
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-        <Ionicons name="ribbon-outline" size={17} color={C.primary} />
+        <Ionicons name="ribbon-outline" size={17} color={C.text2} />
         <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Next licence</Text>
         <View style={[st.seg, { backgroundColor: C.deep }]}>
           {(['chart', 'list'] as const).map((v) => {
@@ -157,9 +155,10 @@ export function LicenceJourney() {
             return (
               <TouchableOpacity key={v} onPress={() => { tap(); setView(v); }} accessibilityRole="button" accessibilityState={{ selected: on }}
                 accessibilityLabel={v === 'chart' ? 'Show as chart' : 'Show as list'}
+                hitSlop={{ top: 8, bottom: 8 }}
                 style={[st.segBtn, { backgroundColor: on ? C.elevated : 'transparent' }]}>
-                <Ionicons name={v === 'chart' ? 'analytics-outline' : 'list'} size={12} color={on ? C.primary : C.muted} />
-                <Text style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: on ? C.primary : C.muted }}>{v === 'chart' ? 'Chart' : 'List'}</Text>
+                <Ionicons name={v === 'chart' ? 'analytics-outline' : 'list'} size={11} color={on ? C.text : C.muted} />
+                <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: on ? C.text : C.muted }}>{v === 'chart' ? 'Chart' : 'List'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -169,21 +168,22 @@ export function LicenceJourney() {
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {IDS.map((id, i) => {
           const L2 = states[id], on = id === sel, cur = id === current && !L2.done;
-          const color = L2.done ? C.success : cur ? C.gold : C.muted;
+          const color = cur || on ? C.text : L2.done ? C.text2 : C.muted;
           const pct = Math.min(99, Math.floor(L2.ready * 100));
           return (
             <View key={id} style={{ flexDirection: 'row', alignItems: 'center', flex: i ? 1 : 0, minWidth: 0 }}>
-              {i > 0 ? <View style={{ flex: 1, minWidth: 6, height: 1.5, backgroundColor: states[IDS[i - 1]].done ? C.success + '73' : C.border }} /> : null}
+              {i > 0 ? <View style={{ flex: 1, minWidth: 6, height: 1, backgroundColor: C.border }} /> : null}
               <TouchableOpacity onPress={() => { tap(); setSelId(id); setFocus(null); }} accessibilityRole="button" accessibilityState={{ selected: on }}
                 accessibilityLabel={L2.done && L2.doneA != null ? `${L2.code}, complete ${mLabel(L2.doneA)}` : `${L2.code}, ${pct} percent ready`}
+                hitSlop={{ top: 8, bottom: 8 }}
                 style={[st.rung, {
-                  borderColor: on ? color : L2.done ? C.success + '59' : cur ? C.gold + '8C' : C.border,
+                  borderColor: on ? 'rgba(255,255,255,0.55)' : C.border,
                   borderStyle: L2.done || cur ? 'solid' : 'dashed',
-                  backgroundColor: on ? color + '1F' : 'transparent',
+                  backgroundColor: on ? C.elevated : 'transparent',
                 }]}>
-                {L2.done ? <Ionicons name="checkmark" size={11} color={color} /> : null}
-                <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color }}>{L2.code}</Text>
-                <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 11, fontWeight: '500', color: L2.done ? C.success + 'BF' : cur ? C.gold : C.muted }}>
+                {L2.done ? <Ionicons name="checkmark" size={10} color={color} /> : null}
+                <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color }}>{L2.code}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '500', color: C.muted }}>
                   {L2.done && L2.doneA != null ? yShort(L2.doneA) : `${pct}%`}
                 </Text>
               </TouchableOpacity>
@@ -196,8 +196,8 @@ export function LicenceJourney() {
         <View style={{ gap: 3 }}>
           <Text style={[st.cap, { color: C.text2 }]}>READY</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-            <Text style={[st.led, { color: S.done ? C.success : C.text }]}>{readyPct}</Text>
-            <Text style={[st.unit, { color: S.done ? C.success : C.primary }]}>%</Text>
+            <Text style={[st.led, { color: C.text }]}>{readyPct}</Text>
+            <Text style={[st.unit, { color: C.muted }]}>%</Text>
           </View>
         </View>
         <View style={{ width: 1, height: 30, backgroundColor: C.border, marginBottom: 2 }} />
@@ -222,10 +222,10 @@ export function LicenceJourney() {
         datesLocked ? (
           <View style={[st.lockBox, { backgroundColor: C.deep, borderColor: C.border }]}>
             <View style={[st.lockIcon, { borderColor: C.border, backgroundColor: C.elevated }]}>
-              <Ionicons name="lock-closed" size={16} color={C.gold} />
+              <Ionicons name="lock-closed" size={16} color={C.text2} />
             </View>
             <Text style={{ fontFamily: SERIF, fontSize: 16, fontWeight: '600', color: C.text }}>Dates come later</Text>
-            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.gold, textAlign: 'center' }}>{lockWhen}</Text>
+            <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.text, textAlign: 'center' }}>{lockWhen}</Text>
             <Text style={{ fontFamily: MONO, fontSize: 10, color: C.text2, textAlign: 'center', lineHeight: 15 }}>
               A projection needs {PROJECTION_MIN_DAYS} days of history and {PROJECTION_MIN_FLIGHTS} flights. Your hours are in the list.
             </Text>
@@ -245,9 +245,9 @@ export function LicenceJourney() {
                         accessibilityRole="button" accessibilityState={{ selected: on }}
                         accessibilityLabel={S.done ? `${r.label}, met ${mLabel(r.metA ?? nowA)}`
                           : `${r.label}, ${toGoTxt(r.toGo)} hours to go${r.m != null ? `, ${mLabel(nowA + r.m)}` : ''}`}
-                        style={[st.tile, { borderColor: on ? C.primary : C.border, backgroundColor: on ? C.primary + '1F' : C.elevated }]}>
+                        style={[st.tile, { borderColor: on ? C.primary : isLim ? C.quiet : C.border, backgroundColor: on ? C.primary + '1A' : C.elevated }]}>
                         <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, color: C.text2 }}>{r.short.toUpperCase()}</Text>
-                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: S.done ? C.success : isLim ? C.gold : C.text }}>{value}</Text>
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: S.done ? C.text2 : C.text }}>{value}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -262,28 +262,23 @@ export function LicenceJourney() {
             const isLim = !S.done && !datesLocked && S.etaM != null && r === S.lim;
             const pct = Math.min(1, r.have / r.required);
             const when = r.met ? `✓ ${mShort(r.metA ?? nowA)}` : datesLocked ? `${toGoTxt(r.toGo)} h to go` : r.m != null ? mShort(nowA + r.m) : 'No pace';
-            const whenColor = r.met ? C.success : datesLocked ? C.text2 : r.m == null ? C.muted : isLim ? C.gold : C.text;
+            const whenColor = r.met || datesLocked ? C.text2 : r.m == null ? C.muted : C.text;
             return (
               <View key={r.key} style={{ gap: 5 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                   <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 12, fontWeight: '600', color: C.text }}>{r.label}</Text>
                   {isLim ? (
-                    <View style={{ paddingVertical: 2, paddingHorizontal: 5, borderRadius: 5, backgroundColor: C.gold + '24' }}>
-                      <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.8, color: C.gold }}>SETS THE DATE</Text>
+                    <View style={{ paddingVertical: 2, paddingHorizontal: 5, borderRadius: 5, borderWidth: 1, borderColor: C.quiet }}>
+                      <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.8, color: C.soft }}>SETS THE DATE</Text>
                     </View>
                   ) : null}
                   <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: whenColor }}>{when}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: C.elevated, overflow: 'hidden' }}>
-                    {isLim ? (
-                      <LinearGradient colors={[C.primary, C.gold]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 3 }} />
-                    ) : (
-                      <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 3, backgroundColor: r.met ? C.success : C.primary }} />
-                    )}
+                    <View style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 3, backgroundColor: r.met ? C.quiet : C.primary }} />
                   </View>
-                  <Text style={{ minWidth: 74, textAlign: 'right', fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: r.met ? C.success : C.text }}>
+                  <Text style={{ minWidth: 74, textAlign: 'right', fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: r.met ? C.text2 : C.text }}>
                     {haveTxt(r.have)}<Text style={{ fontWeight: '400', color: C.muted }}>/{hoursTxt(r.required)} h</Text>
                   </Text>
                 </View>
@@ -302,10 +297,10 @@ const st = StyleSheet.create({
   small: { fontFamily: MONO, fontSize: 10 },
   led: { fontFamily: FONT_LED7, fontWeight: '800', fontSize: 22 },
   unit: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
-  seg: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 11 },
-  segBtn: { minHeight: 32, paddingHorizontal: 9, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  rung: { minHeight: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  seg: { flexDirection: 'row', gap: 2, padding: 2, borderRadius: 9 },
+  segBtn: { minHeight: 24, paddingHorizontal: 8, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rung: { minHeight: 26, paddingHorizontal: 8, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   tile: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, paddingVertical: 6, paddingHorizontal: 8, justifyContent: 'center', gap: 4 },
-  lockBox: { height: 164 + 56, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 18 },
+  lockBox: { height: 184 + 52, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 18 },
   lockIcon: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
 });

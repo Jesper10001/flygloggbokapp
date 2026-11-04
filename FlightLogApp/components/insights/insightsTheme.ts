@@ -10,6 +10,7 @@ export interface InsightsTheme {
   border: string; separator: string;
   primary: string; gold: string; silver: string; purple: string;
   success: string; warning: string; danger: string;
+  soft: string; quiet: string;   // lugna toner för projektion, mål och hjälplinjer i Projections och Next licence
   text: string; text2: string; text3: string; muted: string; faint: string;
 }
 
@@ -30,6 +31,8 @@ export function useInsightsTheme(): InsightsTheme {
     success: Colors.success,
     warning: Colors.warning,
     danger: Colors.danger,
+    soft: '#DCE4EE',
+    quiet: '#4A5C72',
     text: Colors.textPrimary,
     text2: Colors.textSecondary,
     text3: Colors.textSecondary,

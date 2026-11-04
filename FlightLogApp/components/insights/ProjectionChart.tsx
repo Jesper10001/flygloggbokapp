@@ -10,7 +10,7 @@ import type { InsightsTheme } from './insightsTheme';
 import type { JourneyPt } from './insightsData';
 
 const MONO = 'JetBrainsMono';
-const H = 164, L = 4, T = 12, B = 144, TAPE = 56;
+const H = 184, L = 4, T = 12, B = 164, TAPE = 56;
 const TICKS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
 
 const absOf = (d: Date) => d.getFullYear() * 12 + d.getMonth();
@@ -106,19 +106,19 @@ export function ProjectionChart({ C, series, have, target, pace, fast, slow, sna
         <Svg width={W} height={H}>
           <Defs>
             <LinearGradient id="projArea" x1="0" x2="0" y1="0" y2="1">
-              <Stop offset="0" stopColor={C.primary} stopOpacity={0.32} />
+              <Stop offset="0" stopColor={C.primary} stopOpacity={0.24} />
               <Stop offset="1" stopColor={C.primary} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Path d={grid} fill="none" stroke={C.separator} strokeWidth={1} />
-          {cone ? <Path d={cone} fill={C.gold} fillOpacity={0.09} /> : null}
+          {cone ? <Path d={cone} fill={C.soft} fillOpacity={0.06} /> : null}
           <Path d={`M ${f1(xNow)} ${T} L ${f1(xNow)} ${B}`} fill="none" stroke={C.text2} strokeWidth={1} strokeDasharray="1 3" opacity={0.6} />
           <Path d={`${hist} L ${f1(xNow)} ${B} L ${f1(x(a0))} ${B} Z`} fill="url(#projArea)" />
-          <Path d={`M ${L} ${f1(yT)} L ${R} ${f1(yT)}`} fill="none" stroke={C.gold} strokeWidth={1.1} strokeDasharray="4 4" opacity={0.9} />
-          {pace > 0 ? <Path d={`M ${f1(xNow)} ${f1(yHave)} L ${f1(x(endA))} ${f1(y(endV))}`} fill="none" stroke={C.gold} strokeWidth={2.1} strokeDasharray="6 4" strokeLinecap="round" /> : null}
+          <Path d={`M ${L} ${f1(yT)} L ${R} ${f1(yT)}`} fill="none" stroke={C.quiet} strokeWidth={1.1} strokeDasharray="4 4" />
+          {pace > 0 ? <Path d={`M ${f1(xNow)} ${f1(yHave)} L ${f1(x(endA))} ${f1(y(endV))}`} fill="none" stroke={C.soft} strokeWidth={1.8} strokeDasharray="5 4" strokeLinecap="round" opacity={0.85} /> : null}
           <Path d={hist} fill="none" stroke={C.primary} strokeWidth={2.3} strokeLinejoin="round" strokeLinecap="round" />
-          {pace > 0 ? <Circle cx={x(endA)} cy={y(endV)} r={9} fill={C.gold} opacity={0.22} /> : null}
-          {pace > 0 ? <Circle cx={x(endA)} cy={y(endV)} r={4.5} fill={C.gold} /> : null}
+          {pace > 0 ? <Circle cx={x(endA)} cy={y(endV)} r={8} fill={C.soft} opacity={0.14} /> : null}
+          {pace > 0 ? <Circle cx={x(endA)} cy={y(endV)} r={4} fill={C.soft} /> : null}
           <Circle cx={xNow} cy={yHave} r={5} fill={C.primary} stroke={C.card} strokeWidth={2.5} />
           {tickLabels.map((t) => (
             <SvgText key={t.v} x={R + 6} y={t.y + 3} fontSize={9} fontFamily={MONO} fill={t.v <= have ? C.muted : C.text2}>{fmtH(t.v)}</SvgText>
@@ -128,9 +128,8 @@ export function ProjectionChart({ C, series, have, target, pace, fast, slow, sna
           ))}
         </Svg>
         <View pointerEvents="none" style={{
-          position: 'absolute', left: R - 2, top: yT - 11, width: 58, height: 22, borderRadius: 7, backgroundColor: C.gold,
+          position: 'absolute', left: R - 2, top: yT - 11, width: 58, height: 22, borderRadius: 7, backgroundColor: C.soft,
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-          shadowColor: C.gold, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
         }}>
           <View style={{ width: 8, height: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 2 }}>
             {[0, 1, 2, 3, 4, 5].map((i) => <View key={i} style={{ width: 2.6, height: 2.6, borderRadius: 1.3, backgroundColor: C.deep }} />)}

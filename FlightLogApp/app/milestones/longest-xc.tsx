@@ -1,44 +1,40 @@
+// Longest XC: dagen med längst sammanlagd distans (samma regel som stats). Distansen stort överst, rutten som en linje
+// där avstånden motsvarar benens längd, dagens karta som förhandsbild (ett tryck spelar upp flygningen i helskärm),
+// benen med markstopp, topp 5 och "Open flight detail".
+
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
-import { useTranslation } from '../../hooks/useTranslation';
 import { useLongestXcFull, type LXTop5Row } from '../../hooks/useMilestoneDetails';
-import { RouteLeafletModal, RouteMapPreview } from '../../components/milestones/RouteLeafletModal';
-import {
-  MilestoneHeader, SectionHead, StatBlock, Card, Top5Bars, GhostCTA, MONO, SERIF,
-} from '../../components/milestones/MilestoneUI';
+import { StaticMap, AirportMarker, regionFor, toLatLng, MAP_GOLD } from '../../components/milestones/MilestoneMap';
+import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
+
+const clockMin = (t: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((t || '').trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const hm = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min) % 60).padStart(2, '0')}`;
 
 export default function LongestXcScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const accent = Colors.accent;
   const stats = useFlightStore(s => s.stats);
-  const { t } = useTranslation();
-  const [mapVisible, setMapVisible] = useState(false);
 
   // Utan parametrar = längsta XC. Med ?date= = en av topp 5-dagarna (#2–5), öppnad från listan nedan.
   const params = useLocalSearchParams<{ date?: string; rank?: string; nm?: string; hours?: string; from?: string; to?: string }>();
   const sub = !!params.date;
   const rank = sub ? Number(params.rank) || 0 : 1;
-
   const d = useLongestXcFull(sub ? {
-    date: params.date,
-    km: Number(params.nm) || 0,
-    hours: parseFloat(params.hours ?? '') || 0,
-    flightId: null,
-    firstDep: params.from,
-    lastArr: params.to,
+    date: params.date, km: Number(params.nm) || 0, hours: parseFloat(params.hours ?? '') || 0,
+    flightId: null, firstDep: params.from, lastArr: params.to,
   } : {
-    date: stats?.longest_xc_date || undefined,
-    km: stats?.longest_xc_km ?? 0,
-    hours: stats?.longest_xc_hours ?? 0,
-    flightId: stats?.longest_xc_id ?? null,
-    firstDep: stats?.longest_xc_first_dep,
-    lastArr: stats?.longest_xc_last_arr,
+    date: stats?.longest_xc_date || undefined, km: stats?.longest_xc_km ?? 0, hours: stats?.longest_xc_hours ?? 0,
+    flightId: stats?.longest_xc_id ?? null, firstDep: stats?.longest_xc_first_dep, lastArr: stats?.longest_xc_last_arr,
   });
 
   // Topp 5-rad → samma vy för den dagen. Från längsta XC läggs ett kort ovanpå; på ett sådant kort
@@ -51,252 +47,186 @@ export default function LongestXcScreen() {
     const p = { date: r.iso, rank: String(r.rank), nm: String(r.nm), hours: String(r.hours), from: r.from, to: r.to };
     if (sub) router.setParams(p); else router.push({ pathname: '/milestones/longest-xc', params: p });
   };
+  const openMap = () => router.push({ pathname: '/milestones/longest-xc-map', params: sub ? { ...params } : {} });
   const detailId = sub ? d.flightId : stats?.longest_xc_id;
 
-  const chips = [
-    d.cruiseKts ? { l: t('ms.lx_cruise'), v: `${d.cruiseKts} KTS` } : null,
-    d.altFl ? { l: t('ms.lx_alt'), v: d.altFl } : null,
-    d.rules ? { l: t('ms.lx_rules'), v: d.rules } : null,
-  ].filter(Boolean) as Array<{ l: string; v: string }>;
-
-  const maxTop5 = Math.max(1, ...d.top5.map(r => r.nm));
+  const legs = d.flightLegs;
+  const strip = legs.filter((l) => l.nm > 0);
+  const stripNm = strip.reduce((s, l) => s + l.nm, 0);
+  const [stripW, setStripW] = useState(0);
+  const region = regionFor(d.legs);
+  const caption = [
+    `${d.distanceKm.toLocaleString('en-US')} km in ${legs.length} ${legs.length === 1 ? 'leg' : 'legs'}`,
+    d.totalLabel ? `${d.totalLabel} in the air` : '',
+    d.aircraftType, d.role,
+  ].filter(Boolean).join(' · ');
 
   return (
     <View style={s.screen}>
       <Stack.Screen options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-      <MilestoneHeader
-        title={sub ? t('ms.lx_rank_title').replace('{n}', String(rank)) : t('ms.longest_xc')}
-        accent={accent}
-        topInset={insets.top}
-        onBack={() => router.back()}
-      />
+      <View style={[s.header, { paddingTop: Math.min(insets.top, 6) + 8 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={10} style={s.back} accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={20} color={Colors.textSecondary} />
+        </Pressable>
+        <Text style={s.title}>{rank === 1 ? 'Longest XC' : `#${rank} longest XC`}</Text>
+      </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <View style={s.hero}>
-          <View style={s.heroRow}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 40, gap: 34 }} showsVerticalScrollIndicator={false}>
+        <View style={{ gap: 4, paddingTop: 10 }}>
+          <Text style={s.eyebrow}>{(rank > 1 ? `#${rank} of your longest days · ` : '') + d.dateLong}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Text style={s.heroNum}>{(d.distanceNm || 0).toLocaleString('en-US')}</Text>
-            <Text style={[s.heroUnit, { color: accent }]}>{t('ms.nm')}</Text>
+            <Text style={s.heroUnit}>NM</Text>
           </View>
-          <Text style={s.heroCaption}>
-            {d.distanceKm.toLocaleString('en-US')} KM · {d.totalLabel} {t('ms.lx_block')} · {d.dateLong.toUpperCase()}
-          </Text>
+          <Text style={s.caption}>{caption}</Text>
         </View>
 
-        {/* Map */}
-        <View style={s.section}>
-          <View style={[s.mapCard, { height: 300 }]}>
-            {d.legs.length >= 2 ? (
-              <RouteMapPreview
-                points={d.legs.map(l => ({ icao: l.icao, name: l.name, lat: l.lat, lon: l.lon }))}
-                accent={accent}
-                height={300}
-              />
-            ) : (
-              <View style={s.mapEmpty}><Text style={s.mapEmptyText}>{t('ms.lx_no_coords')}</Text></View>
-            )}
-            {d.legs.length >= 1 && (
-              <Pressable onPress={() => setMapVisible(true)} style={({ pressed }) => [s.showMapBtn, { borderColor: accent + '55', opacity: pressed ? 0.8 : 1 }]} hitSlop={6}>
-                <Ionicons name="map-outline" size={13} color={accent} />
-                <Text style={[s.showMapText, { color: accent }]}>{t('ms.lx_show_on_map').toUpperCase()}</Text>
-              </Pressable>
-            )}
-            {chips.length > 0 && (
-              <View style={s.chips}>
-                {chips.map(c => (
-                  <View key={c.l} style={s.chip}>
-                    <Text style={s.chipLabel}>{c.l.toUpperCase()}</Text>
-                    <Text style={[s.chipValue, { color: accent }]}>{c.v}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Route legs */}
-        {d.legs.length > 0 && (
-          <View style={s.section}>
-            <SectionHead eyebrow={t('ms.lx_route')} title={legTitle(d.legs.length, t)} accent={accent} />
-            <Card style={{ marginTop: 14, overflow: 'hidden' }}>
-              {d.legs.map((leg, i) => {
-                const isLast = i === d.legs.length - 1;
-                const tag = leg.role === 'dep' ? t('ms.leg_departure') : leg.role === 'arr' ? t('ms.leg_arrival') : t('ms.leg_via');
-                return (
-                  <View key={leg.icao + i}>
-                    <View style={s.legRow}>
-                      <View style={s.legDotWrap}>
-                        <View style={[s.legDot, { borderColor: accent, backgroundColor: leg.role === 'via' ? 'transparent' : accent }]} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={s.legHeadRow}>
-                          <Text style={s.legIcao}>{leg.icao}</Text>
-                          {!!leg.name && <Text style={s.legName} numberOfLines={1}>{leg.name}</Text>}
+        {strip.length > 0 && stripNm > 0 ? (
+          <View style={{ height: 62 }} onLayout={(e) => setStripW(e.nativeEvent.layout.width)}>
+            {stripW > 0 ? (() => {
+              const X0 = 6, X1 = stripW - 6;
+              const codes = [strip[0].from, ...strip.map((l) => l.to)];
+              const names = [strip[0].fromName, ...strip.map((l) => l.toName)];
+              let acc = 0;
+              const xs = [X0, ...strip.map((l) => { acc += l.nm; return X0 + (acc / stripNm) * (X1 - X0); })];
+              return (
+                <>
+                  <View style={[s.stripLine, { left: X0, width: X1 - X0 }]} />
+                  {strip.map((l, i) => (
+                    <Text key={`n${i}`} style={[s.stripNm, { left: (xs[i] + xs[i + 1]) / 2 - 30 }]}>{Math.round(l.nm)} NM</Text>
+                  ))}
+                  {codes.map((k, i) => {
+                    const end = i === 0 || i === codes.length - 1;
+                    const align = i === 0 ? 'left' : i === codes.length - 1 ? 'right' : 'center';
+                    const left = align === 'left' ? xs[i] - 4 : align === 'right' ? xs[i] - 86 : xs[i] - 45;
+                    return (
+                      <React.Fragment key={`c${i}`}>
+                        <View style={[s.stripDot, end ? s.stripEnd : s.stripVia, { left: xs[i] - (end ? 5 : 4) }]} />
+                        <View style={{ position: 'absolute', top: 34, left, width: 90 }}>
+                          <Text style={[s.stripCode, { textAlign: align }]}>{k}</Text>
+                          <Text numberOfLines={1} style={[s.stripName, { textAlign: align }]}>{names[i]}</Text>
                         </View>
-                      </View>
-                      <Text style={[s.legTag, { color: leg.role === 'via' ? Colors.textMuted : accent }]}>{tag.toUpperCase()}</Text>
+                      </React.Fragment>
+                    );
+                  })}
+                </>
+              );
+            })() : null}
+          </View>
+        ) : null}
+
+        {region && d.legs.length >= 2 ? (
+          <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the flight">
+            <StaticMap region={region} style={s.map}>
+              <Polyline coordinates={d.legs.map(toLatLng)} strokeColor={MAP_GOLD} strokeWidth={2.4} lineCap="round" lineJoin="round" />
+              {d.legs.filter((p, i, arr) => arr.findIndex((q) => q.icao === p.icao) === i).map((p) => (
+                <AirportMarker key={p.icao} p={p} icao={p.icao} filled={p.role !== 'via'} />
+              ))}
+            </StaticMap>
+            <View style={s.expand}><Ionicons name="expand-outline" size={14} color="#C8CDD3" /></View>
+            <View style={s.replay}>
+              <Ionicons name="play" size={11} color={Colors.textInverse} />
+              <Text style={s.replayText}>Replay the flight</Text>
+            </View>
+          </Pressable>
+        ) : d.ready ? <Text style={s.caption}>No coordinates for this route.</Text> : null}
+
+        {legs.length > 0 ? (
+          <View>
+            <Text style={[s.eyebrow, { paddingBottom: 8 }]}>THE LEGS</Text>
+            {legs.map((l, j) => {
+              const prevOn = j > 0 ? clockMin(legs[j - 1].on) : null, off = clockMin(l.off);
+              const ground = prevOn != null && off != null ? (off - prevOn + 1440) % 1440 : null;
+              return (
+                <React.Fragment key={`${l.from}-${l.to}-${j}`}>
+                  {j > 0 && ground != null ? (
+                    <View style={s.groundRow}>
+                      <View style={{ width: 40 }} />
+                      <View style={s.groundRail}><View style={{ flex: 1, width: 1.5, backgroundColor: '#2A4E70' }} /></View>
+                      <Text style={s.groundText}>{hm(ground)} on the ground at {l.from}</Text>
                     </View>
-                    {!isLast && <View style={[s.legConnector, { borderColor: accent + '66' }]} />}
+                  ) : null}
+                  <View style={s.legRow}>
+                    <View style={{ width: 40, gap: 2 }}>
+                      <Text style={s.legOff}>{l.off || '—'}</Text>
+                      <Text style={s.legOn}>{l.on}</Text>
+                    </View>
+                    <View style={s.legDot} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={s.legRoute}>{l.from} → {l.to}</Text>
+                      {l.fromName || l.toName ? <Text numberOfLines={1} style={s.legNames}>{l.fromName} to {l.toName}</Text> : null}
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                      <Text style={s.legNm}>{Math.round(l.nm)} NM</Text>
+                      <Text style={s.legNames}>{hm(l.hours * 60)}</Text>
+                    </View>
                   </View>
-                );
-              })}
-            </Card>
+                </React.Fragment>
+              );
+            })}
           </View>
-        )}
+        ) : null}
 
-        {/* On the day */}
-        <View style={s.section}>
-          <SectionHead eyebrow={t('ms.lx_the_flight')} title={t('ms.lx_on_the_day')} accent={accent} />
-          <Card style={{ marginTop: 14, padding: 16 }}>
-            <View style={[s.grid2, s.rowDivider]}>
-              <StatBlock label={t('ms.aircraft')} value={d.aircraftReg || '—'} color={accent} />
-              <StatBlock label={t('ms.type')} value={d.aircraftType || '—'} color={Colors.textSecondary} />
-            </View>
-            <View style={[s.grid3, s.rowDivider, { paddingTop: 14 }]}>
-              <StatBlock label={t('ms.total')} value={d.totalLabel} color={accent} />
-              <StatBlock label={t('ms.day')} value={d.dayLabel} color={Colors.textSecondary} />
-              <StatBlock label={t('ms.night')} value={d.nightLabel} color={Colors.textMuted} />
-            </View>
-            {d.blockOff && d.blockOn && d.sunSegments.length > 0 ? (
-              <View style={{ paddingTop: 14 }}>
-                <Text style={s.subLabel}>{t('ms.lx_sun_window').toUpperCase()}</Text>
-                <SunBar accent={accent} segments={d.sunSegments} blockOff={d.blockOff} blockOn={d.blockOn} />
-              </View>
-            ) : null}
-          </Card>
-        </View>
-
-        {/* Top 5 */}
-        {d.top5.length > 0 && (
-          <View style={s.section}>
-            <SectionHead eyebrow={t('ms.career_ladder')} title={t('ms.lx_top5')} accent={accent} />
-            <Card style={{ marginTop: 14, padding: 16 }}>
-              <Top5Bars
-                accent={accent}
-                items={d.top5.map(r => ({
-                  rank: r.rank, label: r.route, range: r.date,
-                  value: r.nm.toLocaleString('en-US'), unit: t('ms.nm'),
-                  pct: (r.nm / maxTop5) * 100, current: r.current,
-                  onPress: () => openXc(r),
-                }))}
-              />
-            </Card>
+        {d.top5.length > 0 ? (
+          <View>
+            <Text style={[s.eyebrow, { paddingBottom: 6 }]}>YOUR TOP 5 DAYS</Text>
+            {d.top5.map((r) => (
+              <Pressable key={r.iso} onPress={() => openXc(r)} style={s.topRow} accessibilityRole="button">
+                <Text style={[s.topRank, { color: r.current ? Colors.gold : Colors.textMuted }]}>{r.rank}</Text>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text numberOfLines={1} style={s.topRoute}>{r.route}</Text>
+                  <Text style={s.topDate}>{r.date}</Text>
+                </View>
+                <Text style={[s.topNm, { color: r.current ? Colors.gold : Colors.textPrimary }]}>{r.nm.toLocaleString('en-US')} NM</Text>
+              </Pressable>
+            ))}
           </View>
-        )}
+        ) : null}
 
-        {/* CTAs */}
-        <View style={[s.section, { gap: 10 }]}>
-          <GhostCTA
-            label={t('ms.lx_open_detail')}
-            icon="document-text-outline"
-            onPress={() => detailId && router.push(`/flight/detail/${detailId}`)}
-          />
-        </View>
+        <Pressable onPress={() => detailId && router.push(`/flight/detail/${detailId}`)} style={({ pressed }) => [s.ghost, { opacity: pressed ? 0.7 : 1 }]}>
+          <Ionicons name="open-outline" size={15} color={Colors.accent} />
+          <Text style={s.ghostText}>Open flight detail</Text>
+        </Pressable>
       </ScrollView>
-
-      <RouteLeafletModal
-        visible={mapVisible}
-        onClose={() => setMapVisible(false)}
-        points={d.legs.map(l => ({ icao: l.icao, name: l.name, lat: l.lat, lon: l.lon }))}
-        accent={accent}
-      />
-    </View>
-  );
-}
-
-function legTitle(n: number, t: (k: any) => string): string {
-  return n === 2 ? t('ms.lx_route_title_two') : t('ms.lx_route_title_n').replace('{n}', String(n));
-}
-
-// ── Sun & flight window — rutt-medveten dag/skymning/natt över hela flygningen ──
-type SunKind = 'day' | 'twilight' | 'night';
-function SunBar({ accent, segments, blockOff, blockOn }: {
-  accent: string; segments: { startFrac: number; endFrac: number; kind: SunKind }[]; blockOff: string; blockOn: string;
-}) {
-  const { t } = useTranslation();
-  const C: Record<SunKind, string> = { day: '#FFCB4733', twilight: '#7C6FB0AA', night: 'rgba(10,22,45,0.92)' };
-  const legend: { k: SunKind; label: string }[] = [
-    { k: 'day', label: t('ms.day') },
-    { k: 'twilight', label: 'Twilight' },
-    { k: 'night', label: t('ms.night') },
-  ];
-  return (
-    <View style={{ gap: 8 }}>
-      {/* Hela stapeln = flygfönstret (avgång → ankomst), färgat efter solen längs rutten */}
-      <View style={sb.bar}>
-        {segments.map((seg, i) => (
-          <View
-            key={i}
-            style={{
-              position: 'absolute', top: 0, bottom: 0,
-              left: `${seg.startFrac * 100}%`,
-              width: `${Math.max(0.5, (seg.endFrac - seg.startFrac) * 100)}%`,
-              backgroundColor: C[seg.kind],
-            }}
-          />
-        ))}
-      </View>
-      <View style={sb.ticks}>
-        <Text style={[sb.tick, { color: accent }]}>↑ {blockOff}Z</Text>
-        <Text style={[sb.tick, { color: accent }]}>{blockOn}Z ↓</Text>
-      </View>
-      <View style={sb.legend}>
-        {legend.map((it) => (
-          <View key={it.k} style={sb.legendItem}>
-            <View style={[sb.swatch, { backgroundColor: C[it.k] }]} />
-            <Text style={sb.legendText}>{it.label}</Text>
-          </View>
-        ))}
-      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  hero: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18, gap: 14 },
-  heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  heroNum: { fontFamily: SERIF, fontSize: 84, lineHeight: 84, fontWeight: '500', letterSpacing: -3, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
-  heroUnit: { fontFamily: MONO, fontSize: 16, fontWeight: '700', letterSpacing: 2 },
-  heroCaption: { fontFamily: MONO, fontSize: 11, fontWeight: '600', color: Colors.textSecondary, letterSpacing: 0.8 },
-
-  section: { paddingHorizontal: 20, paddingTop: 6, marginTop: 18 },
-
-  mapCard: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.background, position: 'relative' },
-  mapEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  mapEmptyText: { fontFamily: MONO, fontSize: 11, color: Colors.textMuted },
-  showMapBtn: {
-    position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1,
-    backgroundColor: 'rgba(10,22,40,0.82)',
-  },
-  showMapText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1 },
-  chips: { position: 'absolute', left: 12, right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
-  chip: { flex: 1, paddingVertical: 6, paddingHorizontal: 9, borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(10,22,40,0.82)', gap: 2 },
-  chipLabel: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textMuted },
-  chipValue: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
-
-  legRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
-  legDotWrap: { width: 22, alignItems: 'center' },
-  legDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-  legHeadRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  legIcao: { fontFamily: MONO, fontSize: 14, fontWeight: '700', letterSpacing: 0.8, color: Colors.textPrimary },
-  legName: { fontSize: 12.5, color: Colors.textSecondary, flexShrink: 1 },
-  legTag: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4 },
-  legConnector: { marginLeft: 35, height: 18, borderLeftWidth: 1.5, borderStyle: 'dashed' },
-
-  grid2: { flexDirection: 'row', gap: 14 },
-  grid3: { flexDirection: 'row', gap: 14 },
-  rowDivider: { paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.separator },
-  subLabel: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textMuted, marginBottom: 10 },
-});
-
-const sb = StyleSheet.create({
-  bar: { height: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.25)', borderWidth: 1, borderColor: Colors.cardBorder, position: 'relative' },
-  ticks: { flexDirection: 'row', justifyContent: 'space-between' },
-  tick: { fontFamily: MONO, fontSize: 10, color: Colors.textMuted, letterSpacing: 0.5 },
-  legend: { flexDirection: 'row', gap: 14 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  swatch: { width: 10, height: 10, borderRadius: 2, borderWidth: 0.5, borderColor: Colors.cardBorder },
-  legendText: { fontFamily: MONO, fontSize: 9.5, color: Colors.textMuted, letterSpacing: 0.4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingBottom: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: SERIF, fontSize: 17, fontWeight: '600', color: Colors.textPrimary },
+  eyebrow: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textSecondary, textTransform: 'uppercase' },
+  heroNum: { fontFamily: SERIF, fontSize: 76, lineHeight: 80, fontWeight: '600', letterSpacing: -2, color: Colors.gold, fontVariant: ['tabular-nums'] },
+  heroUnit: { fontFamily: MONO, fontSize: 14, fontWeight: '700', color: Colors.gold },
+  caption: { fontFamily: MONO, fontSize: 11.5, lineHeight: 17, color: Colors.textSecondary },
+  stripLine: { position: 'absolute', top: 23, height: 2, backgroundColor: Colors.gold, opacity: 0.55 },
+  stripNm: { position: 'absolute', top: 0, width: 60, textAlign: 'center', fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: Colors.goldLight },
+  stripDot: { position: 'absolute', top: 19, borderRadius: 6 },
+  stripEnd: { width: 10, height: 10, backgroundColor: Colors.gold },
+  stripVia: { width: 8, height: 8, marginTop: 1, backgroundColor: Colors.background, borderWidth: 2, borderColor: Colors.gold },
+  stripCode: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
+  stripName: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
+  map: { height: 250, borderRadius: 16, borderWidth: 1, borderColor: Colors.separator },
+  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
+  replay: { position: 'absolute', left: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.gold, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textInverse },
+  groundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 30 },
+  groundRail: { width: 12, alignSelf: 'stretch', alignItems: 'center' },
+  groundText: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
+  legRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.separator },
+  legOff: { fontFamily: MONO, fontSize: 10, fontWeight: '700', color: Colors.textPrimary },
+  legOn: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
+  legDot: { width: 8, height: 8, borderRadius: 4, marginHorizontal: 2, backgroundColor: Colors.gold },
+  legRoute: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
+  legNames: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
+  legNm: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.gold },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54, borderBottomWidth: 1, borderBottomColor: Colors.separator },
+  topRank: { width: 18, fontFamily: SERIF, fontSize: 18, fontWeight: '600' },
+  topRoute: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
+  topDate: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
+  topNm: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700' },
+  ghost: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  ghostText: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.accent },
 });

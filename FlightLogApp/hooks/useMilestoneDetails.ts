@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getXCLegsForDate, getFlightsForWeek, getStressHours, getAircraftCruiseSpeed, getTopWeeks } from '../db/flights';
+import { getXCLegsForDate, getFlightsForWeek, getStressHours, getAircraftCruiseSpeed, getTopWeeks, getAircraftCategory } from '../db/flights';
 import { getAirportCoordinates } from '../db/icao';
 import { useFlightStore } from '../store/flightStore';
 import { useLanguageStore } from '../store/languageStore';
@@ -37,6 +37,33 @@ function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1.852;
+}
+
+// Veckans geografi för kartorna i Best week: koordinater, basen och de lokala flygningarna där (start och landning
+// på samma ställe). Basen är flygplatsen med flest lokala flygningar, annars den veckan oftast flög från eller till.
+export interface WeekGeo {
+  coords: Record<string, { lat: number; lon: number; name: string }>;
+  home: string | null;
+  localCount: number;
+  localLandings: number;
+}
+export const landingsOf = (f: Flight) => (Number(f.landings_day) || 0) + (Number(f.landings_night) || 0);
+export const isLocalFlight = (f: { dep_place?: string; arr_place?: string }) => !!f.dep_place && f.dep_place === f.arr_place;
+
+async function weekGeo(flights: Flight[]): Promise<WeekGeo> {
+  const icaos = [...new Set(flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))];
+  const rows = await getAirportCoordinates(icaos);
+  const coords: WeekGeo['coords'] = {};
+  rows.forEach((r) => { coords[r.icao] = { lat: r.lat, lon: r.lon, name: r.name }; });
+  const localBy = new Map<string, number>(), anyBy = new Map<string, number>();
+  flights.forEach((f) => {
+    if (isLocalFlight(f)) localBy.set(f.dep_place, (localBy.get(f.dep_place) || 0) + 1);
+    [f.dep_place, f.arr_place].forEach((k) => { if (k) anyBy.set(k, (anyBy.get(k) || 0) + 1); });
+  });
+  const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const home = top(localBy) ?? top(anyBy);
+  const local = flights.filter((f) => isLocalFlight(f) && f.dep_place === home);
+  return { coords, home, localCount: local.length, localLandings: local.reduce((s, f) => s + landingsOf(f), 0) };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -80,14 +107,16 @@ export interface BestWeekDetails {
   days: BestWeekDay[];
   sectors: number;
   airports: number;
+  geo: WeekGeo | null;
+  trips: { from: string; to: string }[];   // flygningar mellan två olika flygplatser, för kartans bågar
 }
 
 export function useBestWeekDetails(weekStart?: string): BestWeekDetails {
   const language = useLanguageStore(s => s.language);
-  const [data, setData] = useState<BestWeekDetails>({ days: [], sectors: 0, airports: 0 });
+  const [data, setData] = useState<BestWeekDetails>({ days: [], sectors: 0, airports: 0, geo: null, trips: [] });
   useEffect(() => {
     let alive = true;
-    if (!weekStart) { setData({ days: [], sectors: 0, airports: 0 }); return; }
+    if (!weekStart) { setData({ days: [], sectors: 0, airports: 0, geo: null, trips: [] }); return; }
     (async () => {
       const flights = await getFlightsForWeek(weekStart);
       const start = parseISO(weekStart);
@@ -102,8 +131,10 @@ export function useBestWeekDetails(weekStart?: string): BestWeekDetails {
         if (day) day.hours += f.total_time ?? 0;
       });
       const airports = new Set(flights.flatMap(f => [f.dep_place, f.arr_place].filter(Boolean)));
-      if (alive) setData({ days, sectors: flights.length, airports: airports.size });
-    })().catch(() => { if (alive) setData({ days: [], sectors: 0, airports: 0 }); });
+      const geo = await weekGeo(flights).catch(() => null);
+      const trips = flights.filter(f => f.dep_place && f.arr_place && !isLocalFlight(f)).map(f => ({ from: f.dep_place, to: f.arr_place }));
+      if (alive) setData({ days, sectors: flights.length, airports: airports.size, geo, trips });
+    })().catch(() => { if (alive) setData({ days: [], sectors: 0, airports: 0, geo: null, trips: [] }); });
     return () => { alive = false; };
   }, [weekStart, language]);
   return data;
@@ -113,7 +144,7 @@ export function useBestWeekDetails(weekStart?: string): BestWeekDetails {
 // FULL — fullscreen views
 // ════════════════════════════════════════════════════════════════════════════
 
-export interface BWFlightRow { id: number; dep: string; arr: string; dur: string; isPic: boolean }
+export interface BWFlightRow { id: number; dep: string; arr: string; dur: string; isPic: boolean; depUtc: string; arrUtc: string; landings: number; local: boolean; hours: number }
 export interface BWDayFull extends BestWeekDay { flights: BWFlightRow[] }
 export interface BWTop5Row { rank: number; label: string; range: string; hours: number; current: boolean; weekStart: string }
 export interface BestWeekFull {
@@ -131,6 +162,8 @@ export interface BestWeekFull {
   baselineLabel: string;
   vsAvg: number;
   top5: BWTop5Row[];
+  landings: number;
+  geo: WeekGeo | null;
 }
 
 export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum?: number): BestWeekFull {
@@ -138,7 +171,7 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
   const [data, setData] = useState<BestWeekFull>({
     ready: false, hoursLabel: '', hoursNum: 0, weekLabel: weekLabel ?? '', rangeLabel: '',
     days: [], daysFlown: 0, sectors: 0, airports: 0, topDay: '—',
-    baselineWeek: 0, baselineLabel: '—', vsAvg: 0, top5: [],
+    baselineWeek: 0, baselineLabel: '—', vsAvg: 0, top5: [], landings: 0, geo: null,
   });
 
   useEffect(() => {
@@ -166,6 +199,11 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
           arr: f.arr_place || '?',
           dur: decimalToHHMM(f.total_time ?? 0),
           isPic: (f.pic ?? 0) > 0,
+          depUtc: f.dep_utc || '',
+          arrUtc: f.arr_utc || '',
+          landings: landingsOf(f),
+          local: isLocalFlight(f),
+          hours: f.total_time ?? 0,
         });
       });
 
@@ -183,6 +221,7 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
       // Top-5 weeks — mirrors the stored best_week query exactly (same filters),
       // so #1 always equals the dashboard's best week.
       const topWeeks = await getTopWeeks(5);
+      const geo = await weekGeo(weekFlights).catch(() => null);
       const top5: BWTop5Row[] = topWeeks.map((w, i) => {
         const mon = parseISO(w.week_start);
         return {
@@ -210,6 +249,8 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
         baselineLabel: decimalToHHMM(baselineWeek),
         vsAvg: baselineWeek > 0 ? total / baselineWeek : 0,
         top5,
+        landings: weekFlights.reduce((sum, f) => sum + landingsOf(f), 0),
+        geo,
       });
     })().catch(() => { /* keep not-ready */ });
     return () => { alive = false; };
@@ -220,6 +261,8 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
 
 // ── Longest XC full ──────────────────────────────────────────────────────────
 export interface LXLeg { icao: string; name: string; lat: number; lon: number; role: 'dep' | 'via' | 'arr' }
+// Ett ben av dagen, med tider (UTC "HH:MM"), avstånd och koordinater för kartan och uppspelningen.
+export interface LXFlightLeg { from: string; to: string; fromName: string; toName: string; off: string; on: string; hours: number; nm: number; a: { lat: number; lon: number } | null; b: { lat: number; lon: number } | null }
 export interface LXTop5Row { rank: number; route: string; nm: number; date: string; current: boolean; iso: string; hours: number; from: string; to: string }
 export interface LongestXcFull {
   ready: boolean;
@@ -245,6 +288,8 @@ export interface LongestXcFull {
   sunset?: string;
   sunSegments: SunSeg[]; // rutt-medveten dag/skymning/natt-profil över flygfönstret
   legs: LXLeg[];
+  flightLegs: LXFlightLeg[];
+  heli: boolean;           // farkosten är en helikopter i flottan (helikoptersymbol i uppspelningen)
   top5: LXTop5Row[];
   flightId: number | null; // dagens representativa flygning (→ "Open flight detail")
 }
@@ -266,7 +311,7 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
     ready: false, distanceNm: 0, distanceKm: 0, durationLabel: '', dateLong: '', dateShort: '',
     routeFrom: firstDep ?? '—', routeTo: lastArr ?? '—', aircraftReg: '', aircraftType: '',
     role: '', rules: undefined, altFl: undefined, cruiseKts: undefined, blockOff: '', blockOn: '',
-    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, sunSegments: [], legs: [], top5: [], flightId: null,
+    totalLabel: '', dayLabel: '', nightLabel: '', sunrise: undefined, sunset: undefined, sunSegments: [], legs: [], flightLegs: [], heli: false, top5: [], flightId: null,
   });
 
   useEffect(() => {
@@ -344,6 +389,18 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
 
       const rules = idFlight?.flight_rules ? idFlight.flight_rules.toUpperCase() : undefined;
 
+      const flightLegs: LXFlightLeg[] = raw.map(l => {
+        const a = cmap.get(l.dep_place), b = cmap.get(l.arr_place);
+        return {
+          from: l.dep_place, to: l.arr_place, fromName: a?.name || '', toName: b?.name || '',
+          off: l.dep_utc || '', on: l.arr_utc || '', hours: l.total_time ?? 0,
+          nm: a && b ? haversineNm(a.lat, a.lon, b.lat, b.lon) : 0,
+          a: a ? { lat: a.lat, lon: a.lon } : null, b: b ? { lat: b.lat, lon: b.lon } : null,
+        };
+      });
+      const legType = raw[0]?.aircraft_type || idFlight?.aircraft_type || '';
+      const heli = legType ? (await getAircraftCategory(legType).catch(() => '')) === 'helicopter' : false;
+
       // Cruise speed from the aircraft registry (0 → hide chip).
       const cruise = idFlight?.aircraft_type
         ? await getAircraftCruiseSpeed(idFlight.aircraft_type).catch(() => 0)
@@ -390,6 +447,8 @@ export function useLongestXcFull(input: XcStatInput): LongestXcFull {
         sunset,
         sunSegments: sunWin?.segments ?? [],
         legs,
+        flightLegs,
+        heli,
         top5,
         flightId: idFlight?.id ?? null,
       });

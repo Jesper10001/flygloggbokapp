@@ -304,6 +304,8 @@ export default function RootLayout() {
         <Stack.Screen name="flight/detail/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="milestones/best-week" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="milestones/longest-xc" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="milestones/best-week-map" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
+        <Stack.Screen name="milestones/longest-xc-map" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="stressfactor" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
