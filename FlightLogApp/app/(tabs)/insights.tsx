@@ -29,7 +29,7 @@ export default function InsightsScreen() {
   // Ladda om vid fokus så tomt-tillståndet/innehållet speglar aktuell loggbok (som drönar-Insights).
   useFocusEffect(useCallback(() => { loadStats(); loadFlights(); }, [loadStats, loadFlights]));
 
-  // Experience & projections låses upp efter 60 dagar och 10 flygningar (projectionUnlock). Tills dess ligger
+  // Projections låses upp efter 60 dagar och 10 flygningar (projectionUnlock). Tills dess ligger
   // sektionen längst ner (under Milestones); upplåst är den tillbaka på sin vanliga plats.
   const projectionsReady = useMemo(() => projectionUnlock(flights).ready, [flights]);
   // Medan målet dras i projektionsdiagrammet står sidan still.

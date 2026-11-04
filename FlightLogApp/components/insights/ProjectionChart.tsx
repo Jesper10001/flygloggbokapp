@@ -1,4 +1,4 @@
-// Kumulativ tid över tid i Experience & projections: historiken (cyan), projektionen mot målet (streckad guld),
+// Kumulativ tid över tid i Projections: historiken (cyan), projektionen mot målet (streckad guld),
 // ett troligt fönster mellan den snabbaste och den långsammaste av användarens takter (svag guldkil) och målet
 // som en guldlinje man drar upp och ner. Skalan står still medan man drar och anpassar sig när man släpper.
 

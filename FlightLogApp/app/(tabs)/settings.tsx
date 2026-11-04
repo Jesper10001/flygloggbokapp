@@ -662,7 +662,7 @@ export default function SettingsScreen() {
         );
       })()}
 
-      {/* Logbook Wrapped flyttad till Insights (mellan Hours bank och Experience & projections). */}
+      {/* Logbook Wrapped flyttad till Insights (mellan Hours bank och Projections). */}
 
 {/* ── C. Loggbok ── */}
       <CollapsibleSectionHeader expanded={expandedSection === 'logbook'} onPress={() => toggleSection('logbook')}>

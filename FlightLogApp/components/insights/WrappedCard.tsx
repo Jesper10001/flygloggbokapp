@@ -1,5 +1,5 @@
 // Logbook Wrapped-ingång i Insights (flyttad från Settings) — placeras mellan Hours bank och
-// Experience & projections. Insights manned-fliken är redan pilot-manned, så bara unlock-checken
+// Projections. Insights manned-fliken är redan pilot-manned, så bara unlock-checken
 // behövs (Wrapped låses upp efter första importen). Uppdateras vid varje fokus på fliken.
 import { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';

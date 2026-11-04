@@ -1,4 +1,4 @@
-// Experience & projections innan loggboken har tillräckligt med historik (60 dagar sedan första flygningen och
+// Projections innan loggboken har tillräckligt med historik (60 dagar sedan första flygningen och
 // 10 flygningar, se projectionUnlock). Samma kort som det upplåsta, men mål, takt och mål-listan är låsta: ett
 // tryck skakar låset och visar vad som saknas i stället för att öppna något.
 
@@ -73,7 +73,7 @@ export function ProjectionsLocked({ unlock }: { unlock: ProjectionUnlock }) {
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
         <Ionicons name="trending-up" size={17} color={C.primary} />
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Experience & projections</Text>
+        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
         <TouchableOpacity onPress={nudge} activeOpacity={1} accessibilityState={{ disabled: true }} accessibilityLabel="Kind of time, locked"
           style={[st.chip, { borderColor: C.border, backgroundColor: C.deep }]}>
           <Ionicons name="lock-closed" size={10} color={C.muted} />

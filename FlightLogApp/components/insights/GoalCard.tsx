@@ -1,4 +1,4 @@
-// Insights §4 — Experience & projections. Kompakt kort: NOW → TARGET → ETA, en kumulativ kurva där målet dras
+// Insights §4 — Projections. Kompakt kort: NOW → TARGET → ETA, en kumulativ kurva där målet dras
 // med fingret (ProjectionChart) och tre delvyer i bottenpaneler: Target (sorts tid och mål), Pace (takten och
 // "tänk om") och Goals (egna mål i den ordning de nås, sparade i settings). Låst tills loggboken har 60 dagar
 // och 10 flygningar (ProjectionsLocked).
@@ -138,7 +138,7 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
         <Ionicons name="trending-up" size={17} color={C.primary} />
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Experience & projections</Text>
+        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
         <TouchableOpacity onPress={() => openSheet('target')} accessibilityLabel={`${labelOf(metric)} time. Change the kind of time`}
           style={[st.chip, { borderColor: C.border, backgroundColor: C.elevated }]}>
           <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.primary }}>{labelOf(metric)}</Text>

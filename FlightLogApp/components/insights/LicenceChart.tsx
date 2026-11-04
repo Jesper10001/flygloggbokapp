@@ -1,103 +1,146 @@
-// En kurva per krav över tid; cirkel vid projicerad/uppnådd 100%, target-linje +
-// datum. Krav på 0 h plottas inte. Delas av LicenceJourney och GoalCard (custom).
-import Svg, { Path, Line as SvgLine, Circle, Text as SvgText, G } from 'react-native-svg';
+// Hur redo man är för en licens över tid: snittet av kraven (vart och ett högst 100 %). Historiken är cyan, projektionen
+// streckad guld mot taket på 100 %, som är licensen. Varje krav får en punkt där det blir (eller blev) uppfyllt, och
+// kravet som sätter datumet lyser. Den svaga guldkilen är det troliga fönstret mellan den snabbaste och den långsammaste
+// takten. Samma geometri och färger som ProjectionChart.
+
+import { useState } from 'react';
 import { View, Text } from 'react-native';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import type { InsightsTheme } from './insightsTheme';
-import type { JourneyPt } from './insightsData';
+import { readyAt, projAt, hoursTxt, type LicReq, type LicState } from './licenceState';
 
 const MONO = 'JetBrainsMono';
-export interface Req { label: string; key: string; required: number }
+const H = 164, L = 4, T = 12, B = 144, TAPE = 56, SC = 1.12;
 
-export function LicenceChart({ C, reqs, journey, haveFor, rateFor, metDateFor }: {
-  C: InsightsTheme; reqs: Req[]; journey: JourneyPt[];
-  haveFor: (k: string) => number; rateFor: (k: string) => number;
-  metDateFor?: (k: string, required: number) => string | null;
+export function LicenceChart({ C, S, nowA, startA, focus }: {
+  C: InsightsTheme; S: LicState; nowA: number;
+  startA: number;                             // första månaden i loggboken
+  focus: string | null;                       // kravet som är markerat i rutorna under kurvan
 }) {
-  if (journey.length < 2) {
-    return (
-      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.faint, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 18, lineHeight: 17 }}>
-        No projection yet — it needs at least two months of history.{'\n'}
-        Once your logged flights span a second month, this chart trends your hours and estimates when you'll reach each requirement.
-      </Text>
+  const [W, setW] = useState(0);
+  const R = W - TAPE;
+  const accent = S.done ? C.success : C.gold;
+
+  let body = null;
+  if (W > 0) {
+    // En pågående licens visar tre år bakåt och fram till datumet, en klar licens hela vägen dit.
+    const etaA = S.etaM != null ? nowA + S.etaM : null;
+    let a0: number, a1: number, histEnd: number;
+    if (S.done) {
+      a0 = startA; a1 = Math.min(nowA, Math.max((S.doneA ?? nowA) + 8, startA + 18)); histEnd = a1;
+    } else {
+      a0 = Math.max(startA, nowA - 36); a1 = Math.max(nowA + 12, Math.min((etaA ?? nowA + 20) + 4, nowA + 120)); histEnd = nowA;
+    }
+    const horizon = Math.max(0, a1 - nowA);
+    const x = (a: number) => L + ((a - a0) / (a1 - a0 || 1)) * (R - L);
+    const y = (v: number) => B - (v / SC) * (B - T);
+    const f1 = (n: number) => n.toFixed(1);
+    const usual = (r: LicReq) => r.pace;
+
+    let hist = '';
+    for (let a = a0; a <= histEnd; a++) hist += `${a === a0 ? 'M' : ' L'} ${f1(x(a))} ${f1(y(readyAt(S, a, nowA)))}`;
+    const area = `${hist} L ${f1(x(histEnd))} ${B} L ${f1(x(a0))} ${B} Z`;
+
+    let proj = '', cone = '';
+    if (!S.done) {
+      const pEnd = S.etaM != null ? Math.min(S.etaM, horizon) : horizon;
+      for (let t = 0; t <= pEnd; t++) proj += `${t ? ' L' : 'M'} ${f1(x(nowA + t))} ${f1(y(projAt(S, t, usual)))}`;
+      if (S.fastM != null && S.slowM != null && S.fastM !== S.slowM) {
+        const fwd: string[] = [], back: string[] = [];
+        for (let u = 0; u <= horizon; u++) {
+          fwd.push(`${f1(x(nowA + u))} ${f1(y(projAt(S, u, (r) => r.fast)))}`);
+          back.unshift(`${f1(x(nowA + u))} ${f1(y(projAt(S, u, (r) => r.slow)))}`);
+        }
+        cone = `M ${fwd.join(' L ')} L ${back.join(' L ')} Z`;
+      }
+    }
+
+    const pointOf = (r: LicReq): { x: number; y: number } | null => {
+      if (r.met) return r.metA != null && r.metA >= a0 && r.metA <= histEnd ? { x: x(r.metA), y: y(readyAt(S, r.metA, nowA)) } : null;
+      if (r.m == null || r.m > horizon) return null;
+      return { x: x(nowA + r.m), y: y(projAt(S, r.m, usual)) };
+    };
+    const metPts: { x: number; y: number }[] = [], openPts: { x: number; y: number }[] = [];
+    for (const r of S.reqs) {
+      if (S.done ? r.metA === S.doneA : r === S.lim) continue;
+      const p = pointOf(r);
+      if (p) (r.met ? metPts : openPts).push(p);
+    }
+    const glow = S.done
+      ? { x: x(S.doneA ?? nowA), y: y(1) }
+      : S.etaM != null ? { x: x(Math.min(nowA + S.etaM, a1)), y: y(projAt(S, Math.min(S.etaM, horizon), usual)) } : null;
+
+    const focusReq = S.reqs.find((r) => r.key === focus) ?? null;
+    const fp = focusReq ? pointOf(focusReq) : null;
+    const focusText = focusReq
+      ? focusReq.met ? `${focusReq.short} met · ${hoursTxt(focusReq.required)} h`
+        : `${focusReq.short} · ${hoursTxt(focusReq.toGo < 10 ? Math.ceil(focusReq.toGo * 10) / 10 : Math.ceil(focusReq.toGo))} h to go`
+      : '';
+    const fw = focusText.length * 6.2 + 18;
+
+    const years: { label: string; x: number }[] = [];
+    const y0 = Math.floor(a0 / 12) + 1, y1 = Math.floor(a1 / 12), every = Math.max(1, Math.ceil((y1 - y0 + 1) / 5));
+    for (let yr = y0; yr <= y1; yr += every) {
+      const xx = x(yr * 12);
+      if (xx >= L + 12 && xx <= R - 12) years.push({ label: `’${String(yr).slice(2)}`, x: xx });
+    }
+    const dots = (pts: { x: number; y: number }[], r: number) =>
+      pts.map((p) => `M ${f1(p.x - r)} ${f1(p.y)} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0`).join(' ');
+
+    body = (
+      <>
+        <Svg width={W} height={H}>
+          <Defs>
+            <LinearGradient id="licArea" x1="0" x2="0" y1="0" y2="1">
+              <Stop offset="0" stopColor={C.primary} stopOpacity={0.3} />
+              <Stop offset="1" stopColor={C.primary} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Path d={[0.25, 0.5, 0.75].map((v) => `M ${L} ${f1(y(v))} H ${R}`).join(' ')} fill="none" stroke={C.separator} strokeWidth={1} />
+          {cone ? <Path d={cone} fill={C.gold} fillOpacity={0.09} /> : null}
+          {!S.done ? <Path d={`M ${f1(x(nowA))} ${T} L ${f1(x(nowA))} ${B}`} fill="none" stroke={C.text2} strokeWidth={1} strokeDasharray="1 3" opacity={0.6} /> : null}
+          <Path d={area} fill="url(#licArea)" />
+          <Path d={`M ${L} ${f1(y(1))} L ${R} ${f1(y(1))}`} fill="none" stroke={accent} strokeWidth={1.1} strokeDasharray="4 4" opacity={0.9} />
+          {fp ? <Path d={`M ${f1(fp.x)} ${f1(fp.y + 6)} L ${f1(fp.x)} ${B}`} fill="none" stroke={C.primary} strokeWidth={1} strokeDasharray="2 3" opacity={0.8} /> : null}
+          {proj ? <Path d={proj} fill="none" stroke={C.gold} strokeWidth={2.1} strokeDasharray="6 4" strokeLinecap="round" /> : null}
+          <Path d={hist} fill="none" stroke={C.primary} strokeWidth={2.3} strokeLinejoin="round" strokeLinecap="round" />
+          {metPts.length ? <Path d={dots(metPts, 3.5)} fill={C.success} stroke={C.card} strokeWidth={1.5} /> : null}
+          {openPts.length ? <Path d={dots(openPts, 3.8)} fill={C.card} stroke={C.primary} strokeWidth={1.8} /> : null}
+          {fp ? <Circle cx={fp.x} cy={fp.y} r={5.5} fill={C.primary} stroke={C.card} strokeWidth={2} /> : null}
+          {glow ? <Circle cx={glow.x} cy={glow.y} r={9} fill={accent} opacity={0.22} /> : null}
+          {glow ? <Circle cx={glow.x} cy={glow.y} r={4.5} fill={accent} /> : null}
+          {!S.done ? <Circle cx={x(nowA)} cy={y(S.ready)} r={5} fill={C.primary} stroke={C.card} strokeWidth={2.5} /> : null}
+          {[0.25, 0.5, 0.75].map((v) => (
+            <SvgText key={v} x={R + 6} y={y(v) + 3} fontSize={9} fontFamily={MONO} fill={v <= S.ready ? C.muted : C.text2}>{`${v * 100}%`}</SvgText>
+          ))}
+          {years.map((yr) => (
+            <SvgText key={yr.label} x={yr.x} y={B + 14} fontSize={9} fontFamily={MONO} fontWeight="700" fill={C.muted} textAnchor="middle">{yr.label}</SvgText>
+          ))}
+        </Svg>
+        <View pointerEvents="none" style={{
+          position: 'absolute', right: 0, top: y(1) - 11, minWidth: 58, height: 22, paddingHorizontal: 6, borderRadius: 7, backgroundColor: accent,
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+          shadowColor: accent, shadowOpacity: 0.32, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+        }}>
+          {S.done ? <Ionicons name="checkmark" size={11} color={C.deep} /> : null}
+          <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.deep }}>{S.code}</Text>
+        </View>
+        {fp ? (
+          <View pointerEvents="none" style={{
+            position: 'absolute', left: Math.max(0, Math.min(R - fw, fp.x - fw / 2)), top: fp.y < 40 ? fp.y + 12 : fp.y - 30,
+            height: 20, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: C.primary, backgroundColor: C.deep, justifyContent: 'center',
+          }}>
+            <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.text }}>{focusText}</Text>
+          </View>
+        ) : null}
+      </>
     );
   }
-  const careerStart = journey[0].date, now = journey[journey.length - 1].date;
-  const mBetween = (a: Date, b: Date) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-  const addM = (d: Date, m: number) => { const x = new Date(d); x.setMonth(x.getMonth() + Math.round(m)); return x; };
-  const fmtD = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
-  const careerMonths = Math.max(1, mBetween(careerStart, now));
-  const COLORS = [C.primary, C.gold, C.success, C.purple, '#5DA9FF', C.danger];
-
-  const built = reqs.map((r, i) => {
-    const have = haveFor(r.key);
-    if (have <= 0) return null;
-    const met = have >= r.required;
-    const slopeHist = have / careerMonths;
-    const rate = rateFor(r.key) || slopeHist || 1;
-    const md = met ? metDateFor?.(r.key, r.required) : null;
-    const completion = met ? (md ? new Date(md) : addM(careerStart, r.required / (slopeHist || 1))) : addM(now, (r.required - have) / rate);
-    return { ...r, have, met, completion, color: COLORS[i % COLORS.length], normNow: have / r.required };
-  }).filter(Boolean) as (Req & { have: number; met: boolean; completion: Date; color: string; normNow: number })[];
-
-  if (!built.length) {
-    return (
-      <Text style={{ fontFamily: MONO, fontSize: 11, color: C.faint, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 18, lineHeight: 17 }}>
-        No projection yet — log flight time toward these requirements and this chart will estimate your completion dates.
-      </Text>
-    );
-  }
-
-  const futureMax = built.reduce((mx, r) => (r.completion > mx ? r.completion : mx), now);
-  const t0 = careerStart.getTime(), t1 = futureMax.getTime();
-  const W = 320, H = 188, padL = 8, padR = 8, padT = 14, padB = 30;
-  const yMaxPct = 1.25;
-  const x = (d: Date) => padL + ((d.getTime() - t0) / (t1 - t0 || 1)) * (W - padL - padR);
-  const y = (pct: number) => padT + (1 - Math.min(pct, yMaxPct) / yMaxPct) * (H - padT - padB);
-  const y100 = y(1);
-  const years: Date[] = [];
-  const yr0 = careerStart.getFullYear(), yr1 = futureMax.getFullYear();
-  const step = Math.max(1, Math.ceil((yr1 - yr0 + 1) / 8));
-  for (let yr = yr0; yr <= yr1; yr++) if ((yr - yr0) % step === 0) years.push(new Date(yr, 0, 1));
 
   return (
-    <View>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <SvgLine x1={padL} y1={y100} x2={W - padR} y2={y100} stroke={C.gold} strokeWidth={1} strokeDasharray="3 3" opacity={0.55} />
-        <SvgText x={padL} y={y100 - 4} fontSize={7.5} fontFamily={MONO} fontWeight="700" fill={C.gold} textAnchor="start">TARGET 100%</SvgText>
-        {years.map((d, i) => (
-          <G key={i}>
-            <SvgLine x1={x(d)} y1={padT} x2={x(d)} y2={H - padB} stroke={C.separator} strokeWidth={1} />
-            <SvgText x={x(d)} y={H - padB + 12} fontSize={8} fontFamily={MONO} fontWeight="700" fill={C.faint} textAnchor="middle">{d.getFullYear()}</SvgText>
-          </G>
-        ))}
-        <SvgLine x1={x(now)} y1={padT} x2={x(now)} y2={H - padB} stroke={C.text3} strokeWidth={1} strokeDasharray="1 3" opacity={0.5} />
-        <SvgText x={x(now)} y={padT - 4} fontSize={7} fontFamily={MONO} fontWeight="700" fill={C.text3} textAnchor="middle">NOW</SvgText>
-        {built.map((r, i) => {
-          const histPath = r.met ? `M ${x(careerStart)} ${y(0)} L ${x(r.completion)} ${y100}` : `M ${x(careerStart)} ${y(0)} L ${x(now)} ${y(r.normNow)}`;
-          const projPath = !r.met ? `M ${x(now)} ${y(r.normNow)} L ${x(r.completion)} ${y100}` : '';
-          return (
-            <G key={i}>
-              <Path d={histPath} fill="none" stroke={r.color} strokeWidth={2} strokeLinecap="round" />
-              {projPath ? <Path d={projPath} fill="none" stroke={r.color} strokeWidth={1.6} strokeDasharray="3 3" opacity={0.85} /> : null}
-              <Circle cx={x(r.completion)} cy={y100} r={4.5} fill={r.met ? r.color : C.deep} stroke={r.color} strokeWidth={2} />
-            </G>
-          );
-        })}
-      </Svg>
-      <View style={{ gap: 6, marginTop: 10 }}>
-        {built.map((r, i) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: r.met ? r.color : C.deep, borderWidth: 2, borderColor: r.color }} />
-            <Text style={{ flex: 1, fontSize: 12, color: C.text2 }}>{r.label}</Text>
-            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.text, minWidth: 64, textAlign: 'right' }}>
-              {Math.round(r.have)}<Text style={{ color: C.muted, fontWeight: '400' }}>/{r.required}h</Text>
-            </Text>
-            <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: r.met ? C.success : C.muted, minWidth: 64, textAlign: 'right' }}>
-              {r.met ? `✓ ${fmtD(r.completion)}` : `→ ${fmtD(r.completion)}`}
-            </Text>
-          </View>
-        ))}
-      </View>
+    <View style={{ height: H }} onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}>
+      {body}
     </View>
   );
 }

@@ -12,7 +12,7 @@ const num = (f: Flight, k: string) => (f as any)[k] || 0;
 
 export interface JourneyPt { date: Date; cum: number }
 
-// Experience & projections visar en projektion först när takten bygger på riktig historik: minst 60 dagar
+// Projections visar en projektion först när takten bygger på riktig historik: minst 60 dagar
 // sedan första flygningen och minst 10 flygningar (simulatorpass räknas inte, som i projektionen).
 export const PROJECTION_MIN_DAYS = 60;
 export const PROJECTION_MIN_FLIGHTS = 10;

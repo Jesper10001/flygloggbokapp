@@ -97,7 +97,7 @@ export function ActivitySection() {
 
   return (
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
-      {/* Header i samma profil som "Experience & projections" (ikon + serif-titel + värde) */}
+      {/* Header i samma profil som "Projections" (ikon + serif-titel + värde) */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 12 }}>
         <Ionicons name="pulse-outline" size={17} color={C.primary} />
         <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '500', color: C.text }}>Hours & load</Text>

@@ -1,4 +1,4 @@
-// Bottenpanel för Experience & projections (Target / Pace / Goals): glider upp över Insights och en mörk bakgrund
+// Bottenpanel för Projections (Target / Pace / Goals): glider upp över Insights och en mörk bakgrund
 // tonar in bakom den. Egen Animated i stället för Modalens "slide", så att bakgrunden tonar och inte glider med.
 // Innehållet ligger kvar medan panelen stängs (föräldern byter det inte förrän nästa öppning).
 
