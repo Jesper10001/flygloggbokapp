@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 6,
+      "date": "2026-11-05",
+      "notes": [
+        "New: Replay your best week on the map, flight by flight.",
+        "Improved: Best week and Longest XC maps are cleaner, with airport codes in cyan.",
+        "Fixed: Flights on a Monday now count towards their own week."
+      ]
+    },
+    {
       "id": 5,
       "date": "2026-11-05",
       "notes": [

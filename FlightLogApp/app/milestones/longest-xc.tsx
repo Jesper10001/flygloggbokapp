@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull, type LXTop5Row } from '../../hooks/useMilestoneDetails';
-import { StaticMap, AirportMarker, regionFor, toLatLng, MAP_GOLD } from '../../components/milestones/MilestoneMap';
+import { StaticMap, AirportMarker, regionFor, toLatLng, MAP_CYAN } from '../../components/milestones/MilestoneMap';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const clockMin = (t: string): number | null => {
@@ -82,11 +82,10 @@ export default function LongestXcScreen() {
         </View>
 
         {strip.length > 0 && stripNm > 0 ? (
-          <View style={{ height: 62 }} onLayout={(e) => setStripW(e.nativeEvent.layout.width)}>
+          <View style={{ height: 52 }} onLayout={(e) => setStripW(e.nativeEvent.layout.width)}>
             {stripW > 0 ? (() => {
               const X0 = 6, X1 = stripW - 6;
               const codes = [strip[0].from, ...strip.map((l) => l.to)];
-              const names = [strip[0].fromName, ...strip.map((l) => l.toName)];
               let acc = 0;
               const xs = [X0, ...strip.map((l) => { acc += l.nm; return X0 + (acc / stripNm) * (X1 - X0); })];
               return (
@@ -102,10 +101,7 @@ export default function LongestXcScreen() {
                     return (
                       <React.Fragment key={`c${i}`}>
                         <View style={[s.stripDot, end ? s.stripEnd : s.stripVia, { left: xs[i] - (end ? 5 : 4) }]} />
-                        <View style={{ position: 'absolute', top: 34, left, width: 90 }}>
-                          <Text style={[s.stripCode, { textAlign: align }]}>{k}</Text>
-                          <Text numberOfLines={1} style={[s.stripName, { textAlign: align }]}>{names[i]}</Text>
-                        </View>
+                        <Text style={[s.stripCode, { position: 'absolute', top: 34, left, width: 90, textAlign: align }]}>{k}</Text>
                       </React.Fragment>
                     );
                   })}
@@ -118,9 +114,9 @@ export default function LongestXcScreen() {
         {region && d.legs.length >= 2 ? (
           <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the flight">
             <StaticMap region={region} style={s.map}>
-              <Polyline coordinates={d.legs.map(toLatLng)} strokeColor={MAP_GOLD} strokeWidth={2.4} lineCap="round" lineJoin="round" />
+              <Polyline coordinates={d.legs.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={2.4} lineCap="round" lineJoin="round" />
               {d.legs.filter((p, i, arr) => arr.findIndex((q) => q.icao === p.icao) === i).map((p) => (
-                <AirportMarker key={p.icao} p={p} icao={p.icao} filled={p.role !== 'via'} />
+                <AirportMarker key={p.icao} p={p} icao={p.icao} />
               ))}
             </StaticMap>
             <View style={s.expand}><Ionicons name="expand-outline" size={14} color="#C8CDD3" /></View>
@@ -172,12 +168,12 @@ export default function LongestXcScreen() {
             <Text style={[s.eyebrow, { paddingBottom: 6 }]}>YOUR TOP 5 DAYS</Text>
             {d.top5.map((r) => (
               <Pressable key={r.iso} onPress={() => openXc(r)} style={s.topRow} accessibilityRole="button">
-                <Text style={[s.topRank, { color: r.current ? Colors.gold : Colors.textMuted }]}>{r.rank}</Text>
+                <Text style={[s.topRank, { color: r.current ? Colors.accent : Colors.textMuted }]}>{r.rank}</Text>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text numberOfLines={1} style={s.topRoute}>{r.route}</Text>
                   <Text style={s.topDate}>{r.date}</Text>
                 </View>
-                <Text style={[s.topNm, { color: r.current ? Colors.gold : Colors.textPrimary }]}>{r.nm.toLocaleString('en-US')} NM</Text>
+                <Text style={[s.topNm, { color: r.current ? Colors.accent : Colors.textPrimary }]}>{r.nm.toLocaleString('en-US')} NM</Text>
               </Pressable>
             ))}
           </View>
@@ -198,19 +194,18 @@ const s = StyleSheet.create({
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: SERIF, fontSize: 17, fontWeight: '600', color: Colors.textPrimary },
   eyebrow: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textSecondary, textTransform: 'uppercase' },
-  heroNum: { fontFamily: SERIF, fontSize: 76, lineHeight: 80, fontWeight: '600', letterSpacing: -2, color: Colors.gold, fontVariant: ['tabular-nums'] },
-  heroUnit: { fontFamily: MONO, fontSize: 14, fontWeight: '700', color: Colors.gold },
+  heroNum: { fontFamily: SERIF, fontSize: 76, lineHeight: 80, fontWeight: '600', letterSpacing: -2, color: Colors.textPrimary, fontVariant: ['tabular-nums'] },
+  heroUnit: { fontFamily: MONO, fontSize: 14, fontWeight: '700', color: Colors.accent },
   caption: { fontFamily: MONO, fontSize: 11.5, lineHeight: 17, color: Colors.textSecondary },
-  stripLine: { position: 'absolute', top: 23, height: 2, backgroundColor: Colors.gold, opacity: 0.55 },
-  stripNm: { position: 'absolute', top: 0, width: 60, textAlign: 'center', fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: Colors.goldLight },
+  stripLine: { position: 'absolute', top: 23, height: 2, backgroundColor: Colors.accent, opacity: 0.5 },
+  stripNm: { position: 'absolute', top: 0, width: 60, textAlign: 'center', fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: Colors.accentLight },
   stripDot: { position: 'absolute', top: 19, borderRadius: 6 },
-  stripEnd: { width: 10, height: 10, backgroundColor: Colors.gold },
-  stripVia: { width: 8, height: 8, marginTop: 1, backgroundColor: Colors.background, borderWidth: 2, borderColor: Colors.gold },
+  stripEnd: { width: 10, height: 10, backgroundColor: Colors.accent },
+  stripVia: { width: 8, height: 8, marginTop: 1, backgroundColor: Colors.background, borderWidth: 2, borderColor: Colors.accent },
   stripCode: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
-  stripName: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
   map: { height: 250, borderRadius: 16, borderWidth: 1, borderColor: Colors.separator },
   expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
-  replay: { position: 'absolute', left: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.gold, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  replay: { position: 'absolute', left: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.accent, flexDirection: 'row', alignItems: 'center', gap: 7 },
   replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textInverse },
   groundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 30 },
   groundRail: { width: 12, alignSelf: 'stretch', alignItems: 'center' },
@@ -218,10 +213,10 @@ const s = StyleSheet.create({
   legRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.separator },
   legOff: { fontFamily: MONO, fontSize: 10, fontWeight: '700', color: Colors.textPrimary },
   legOn: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
-  legDot: { width: 8, height: 8, borderRadius: 4, marginHorizontal: 2, backgroundColor: Colors.gold },
+  legDot: { width: 8, height: 8, borderRadius: 4, marginHorizontal: 2, backgroundColor: Colors.accent },
   legRoute: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
   legNames: { fontFamily: MONO, fontSize: 10, color: Colors.textSecondary },
-  legNm: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.gold },
+  legNm: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.accent },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54, borderBottomWidth: 1, borderBottomColor: Colors.separator },
   topRank: { width: 18, fontFamily: SERIF, fontSize: 18, fontWeight: '600' },
   topRoute: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: Colors.textPrimary },

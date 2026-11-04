@@ -1,5 +1,5 @@
 // Longest XC i helskärm på Apple-kartan, där dagen spelas upp: farkosten (helikopter eller plan efter flottans
-// kategori) flyger längs rutten medan man spelar upp eller drar i tidslinjen. Den flugna sträckan ritas i guld.
+// kategori) flyger längs rutten medan man spelar upp eller drar i tidslinjen. Den flugna sträckan ritas i cyan.
 // Kartan går att flytta och zooma men inte vrida, så att nosen alltid pekar rätt. Medan kartan är öppen väntar appens
 // popup-rutor (useMapScreenStore), annars kan skärmen låsa sig.
 
@@ -14,7 +14,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
 import { useMapScreenStore } from '../../store/mapScreenStore';
 import {
-  AirportMarker, LegLabel, AircraftIcon, regionFor, toLatLng, lerpPt, headingDeg, MAP_GOLD, MAP_WATER, type GeoPt,
+  AirportMarker, LegLabel, AircraftIcon, regionFor, toLatLng, lerpPt, headingDeg, MAP_CYAN, MAP_WATER, type GeoPt,
 } from '../../components/milestones/MilestoneMap';
 import { MONO } from '../../components/milestones/MilestoneUI';
 
@@ -164,13 +164,13 @@ export default function LongestXcMapScreen() {
         pitchEnabled={false}
       >
         {tl.legs.map((l, i) => (
-          <Polyline key={`all${i}`} coordinates={[toLatLng(l.a), toLatLng(l.b)]} strokeColor="rgba(255,184,48,0.45)" strokeWidth={2} lineDashPattern={[6, 6]} />
+          <Polyline key={`all${i}`} coordinates={[toLatLng(l.a), toLatLng(l.b)]} strokeColor="rgba(0,200,232,0.45)" strokeWidth={2} lineDashPattern={[6, 6]} />
         ))}
-        {done.length > 1 ? <Polyline coordinates={done} strokeColor={MAP_GOLD} strokeWidth={3.2} lineCap="round" lineJoin="round" /> : null}
+        {done.length > 1 ? <Polyline coordinates={done} strokeColor={MAP_CYAN} strokeWidth={3.2} lineCap="round" lineJoin="round" /> : null}
         {tl.legs.map((l, i) => (
           <LegLabel key={`nm${i}`} p={lerpPt(l.a, l.b, 0.5)} text={`${Math.round(l.nm)} NM`} />
         ))}
-        {stops.map((x) => <AirportMarker key={x.k} p={x.p} icao={x.k} filled={x.end} />)}
+        {stops.map((x) => <AirportMarker key={x.k} p={x.p} icao={x.k} />)}
         {pos && leg ? (
           <Marker coordinate={toLatLng(pos)} anchor={{ x: 0.5, y: 0.5 }} zIndex={10}>
             <AircraftIcon heli={d.heli} heading={headingDeg(leg.a, leg.b)} spinning={playing} />
@@ -191,7 +191,7 @@ export default function LongestXcMapScreen() {
       <View style={[s.panel, { paddingBottom: insets.bottom + 18 }]}>
         <View style={{ flexDirection: 'row' }}>
           <View style={s.read}><Text style={s.cap}>TIME</Text><Text style={s.val}>{tl.clocks ? `${clock(now)}Z` : clock(t)}</Text></View>
-          <View style={s.read}><Text style={s.cap}>FLOWN</Text><Text style={[s.val, { color: MAP_GOLD }]}>{Math.round(flown)} NM</Text></View>
+          <View style={s.read}><Text style={s.cap}>FLOWN</Text><Text style={[s.val, { color: MAP_CYAN }]}>{Math.round(flown)} NM</Text></View>
           <View style={[s.read, { alignItems: 'flex-end' }]}><Text style={s.cap}>{statusHead}</Text><Text style={s.val}>{statusText}</Text></View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -207,7 +207,7 @@ export default function LongestXcMapScreen() {
               const doneFrac = j < cur ? 1 : j === cur ? frac : 0;
               return (
                 <View key={`seg${j}`} pointerEvents="none" style={[s.seg, { left: `${((l.start - tl.t0) / tl.span) * 100}%`, width: `${((l.end - l.start) / tl.span) * 100}%` }]}>
-                  <View style={{ height: '100%', width: `${doneFrac * 100}%`, backgroundColor: MAP_GOLD }} />
+                  <View style={{ height: '100%', width: `${doneFrac * 100}%`, backgroundColor: MAP_CYAN }} />
                 </View>
               );
             })}
@@ -235,10 +235,10 @@ const s = StyleSheet.create({
   read: { flex: 1, gap: 3 },
   cap: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, color: Colors.textSecondary },
   val: { fontFamily: MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  play: { width: 48, height: 48, borderRadius: 24, backgroundColor: MAP_GOLD, alignItems: 'center', justifyContent: 'center' },
+  play: { width: 48, height: 48, borderRadius: 24, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
   track: { flex: 1, height: 48, justifyContent: 'center' },
   trackBase: { position: 'absolute', left: 0, right: 0, top: 23.5, height: 1, backgroundColor: '#2A4E70' },
   seg: { position: 'absolute', top: 19, height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: '#2A4E70' },
-  knob: { position: 'absolute', top: 12, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 4, borderColor: MAP_GOLD },
+  knob: { position: 'absolute', top: 12, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 4, borderColor: MAP_CYAN },
   edge: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
 });

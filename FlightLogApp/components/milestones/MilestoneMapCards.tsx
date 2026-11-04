@@ -1,5 +1,5 @@
 // Korten för Best week och Longest XC längst ner i Insights: lika breda, med Apple-kartan som förhandsbild.
-// Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt.
+// Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt. Allt i cyan.
 
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Polyline } from 'react-native-maps';
@@ -8,7 +8,7 @@ import { Colors } from '../../constants/colors';
 import { FONT_LED7 } from '../logflight/tokens';
 import type { BestWeekDetails } from '../../hooks/useMilestoneDetails';
 import type { RouteLeg } from './MiniRouteMap';
-import { StaticMap, AirportMarker, HomeMarker, arcCoords, regionFor, toLatLng, MAP_GOLD } from './MilestoneMap';
+import { StaticMap, HomeMarker, arcCoords, regionFor, toLatLng, MAP_CYAN } from './MilestoneMap';
 
 const MONO = 'JetBrainsMono';
 
@@ -29,14 +29,12 @@ export function BestWeekMapCard({ hoursLabel, weekLabel, details, onPress }: { h
   const geo = details.geo;
   const coords = geo?.coords ?? {};
   const trips = details.trips.filter((t) => coords[t.from] && coords[t.to]);
-  const away = [...new Set(trips.flatMap((t) => [t.from, t.to]))].filter((k) => k !== geo?.home);
   const home = geo?.home ? coords[geo.home] : undefined;
   const sub = geo?.localCount ? `${geo.localCount} local · ${geo.localLandings} landings` : `${details.sectors} sectors · ${details.airports} airports`;
   return (
     <CardShell dot={Colors.accent} title="BEST WEEK" onPress={onPress} a11y={`Best week, ${hoursLabel} hours, ${weekLabel}. Open`}>
       <StaticMap region={regionFor(Object.values(coords))} style={c.map}>
-        {trips.map((t, i) => <Polyline key={i} coordinates={arcCoords(coords[t.from], coords[t.to])} strokeColor={MAP_GOLD} strokeWidth={1.5} lineCap="round" />)}
-        {away.map((k) => <AirportMarker key={k} p={coords[k]} icao={k} label={false} />)}
+        {trips.map((t, i) => <Polyline key={i} coordinates={arcCoords(coords[t.from], coords[t.to])} strokeColor={MAP_CYAN} strokeWidth={1.5} lineCap="round" />)}
         {home ? <HomeMarker p={home} size={20} /> : null}
       </StaticMap>
       <View style={c.valueRow}>
@@ -54,17 +52,15 @@ export function BestWeekMapCard({ hoursLabel, weekLabel, details, onPress }: { h
 export function LongestXcMapCard({ distanceNm, routeFrom, routeTo, dateShort, legs, onPress }: {
   distanceNm: number; routeFrom: string; routeTo: string; dateShort: string; legs: RouteLeg[]; onPress: () => void;
 }) {
-  const unique = legs.filter((p, i, arr) => arr.findIndex((q) => q.icao === p.icao) === i);
   const legCount = Math.max(0, legs.length - 1);
   return (
-    <CardShell dot={MAP_GOLD} title="LONGEST XC" onPress={onPress} a11y={`Longest cross-country, ${distanceNm} nautical miles, ${routeFrom} to ${routeTo}. Open`}>
+    <CardShell dot={MAP_CYAN} title="LONGEST XC" onPress={onPress} a11y={`Longest cross-country, ${distanceNm} nautical miles, ${routeFrom} to ${routeTo}. Open`}>
       <StaticMap region={regionFor(legs)} style={c.map}>
-        {legs.length >= 2 ? <Polyline coordinates={legs.map(toLatLng)} strokeColor={MAP_GOLD} strokeWidth={2} lineCap="round" lineJoin="round" /> : null}
-        {unique.map((p) => <AirportMarker key={p.icao} p={p} icao={p.icao} filled={p.role !== 'via'} label={false} />)}
+        {legs.length >= 2 ? <Polyline coordinates={legs.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={2} lineCap="round" lineJoin="round" /> : null}
       </StaticMap>
       <View style={c.valueRow}>
-        <Text style={[c.led, { color: MAP_GOLD }]}>{Math.round(distanceNm).toLocaleString('en-US')}</Text>
-        <Text style={[c.unit, { color: MAP_GOLD }]}>NM</Text>
+        <Text style={c.led}>{Math.round(distanceNm).toLocaleString('en-US')}</Text>
+        <Text style={[c.unit, { color: MAP_CYAN }]}>NM</Text>
       </View>
       <View style={{ gap: 2, marginTop: -4 }}>
         <Text numberOfLines={1} style={c.line}>{routeFrom} → {routeTo}</Text>

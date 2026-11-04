@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails';
-import { StaticMap, AirportMarker, HomeMarker, arcCoords, regionFor, MAP_GOLD } from '../../components/milestones/MilestoneMap';
+import { StaticMap, AirportMarker, HomeMarker, arcCoords, regionFor, MAP_CYAN, MAP_CYAN_DIM } from '../../components/milestones/MilestoneMap';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -173,7 +173,7 @@ export default function BestWeekScreen() {
               <StaticMap region={region} style={s.map}>
                 {trips.map((t, i) => (
                   <Polyline key={`${t.id}-${i}`} coordinates={arcCoords(geo!.coords[t.dep], geo!.coords[t.arr])}
-                    strokeColor={t.day === sel ? MAP_GOLD : 'rgba(255,184,48,0.3)'} strokeWidth={t.day === sel ? 2.2 : 1.4} lineCap="round" />
+                    strokeColor={t.day === sel ? MAP_CYAN : MAP_CYAN_DIM} strokeWidth={t.day === sel ? 2.2 : 1.4} lineCap="round" />
                 ))}
                 {away.map((k) => <AirportMarker key={k} p={geo!.coords[k]} icao={k} />)}
                 {home && geo?.home ? (
@@ -194,7 +194,7 @@ export default function BestWeekScreen() {
             <Text style={[s.eyebrow, { paddingBottom: 6 }]}>YOUR TOP 5 WEEKS</Text>
             {d.top5.map((w) => (
               <Pressable key={w.weekStart} onPress={() => openWeek(w)} style={s.topRow} accessibilityRole="button">
-                <Text style={[s.topRank, { color: w.current ? Colors.gold : Colors.textMuted }]}>{w.rank}</Text>
+                <Text style={[s.topRank, { color: w.current ? Colors.accent : Colors.textMuted }]}>{w.rank}</Text>
                 <View style={{ flex: 1, gap: 6 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                     <Text style={s.topLabel}>{w.label.replace('W', 'Week ')}</Text>

@@ -144,7 +144,7 @@ export function useBestWeekDetails(weekStart?: string): BestWeekDetails {
 // FULL — fullscreen views
 // ════════════════════════════════════════════════════════════════════════════
 
-export interface BWFlightRow { id: number; dep: string; arr: string; dur: string; isPic: boolean; depUtc: string; arrUtc: string; landings: number; local: boolean; hours: number }
+export interface BWFlightRow { id: number; dep: string; arr: string; dur: string; isPic: boolean; depUtc: string; arrUtc: string; landings: number; local: boolean; hours: number; aircraftType: string }
 export interface BWDayFull extends BestWeekDay { flights: BWFlightRow[] }
 export interface BWTop5Row { rank: number; label: string; range: string; hours: number; current: boolean; weekStart: string }
 export interface BestWeekFull {
@@ -204,6 +204,7 @@ export function useBestWeekFull(weekStart?: string, weekLabel?: string, hoursNum
           landings: landingsOf(f),
           local: isLocalFlight(f),
           hours: f.total_time ?? 0,
+          aircraftType: f.aircraft_type || '',
         });
       });
 

@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Best week och Longest XC, andra varvet efter provning på enhet:
+  - **Bara cyan:** allt är cyan i stället för guld, och flygplatserna på kartorna visas bara med sin ICAO-kod, utan prick. Koden ligger strax till höger om linjens ände. Etiketterna hamnade förut bredvid ändpunkten, eftersom `centerOffset` lade dem fel. Nu är markörvyerna symmetriska kring koordinaten.
+  - **Longest XC:** ruttlinjen under distansen visar bara koderna, eftersom namnen gick in i varandra. Distansen är vit med "NM" i cyan, som timmarna i Best week.
+  - **Best week:** veckan spelas upp som Longest XC. Planet, eller helikoptern om farkosten är en helikopter, flyger veckans resor en i taget, ungefär 1,2 sekunder per resa. Flygningar som startar och landar på samma ställe visas inte i uppspelningen. Panelen nederst har kvar dagknapparna, och "FLOWN" visar sjömil i stället för timmar.
+- **Fel rättat:** veckans start räknades fel för måndagar. `date(f.date, 'weekday 1', '-7 days')` lade måndagens flygningar i veckan innan. Det gav "15:30 / 13:36" i Best week, eftersom timmarna inte stämde med veckans dagar. Nu används `date(f.date, '-6 days', 'weekday 1')`, både i stats och i topp 5. Bästa veckan kan därför bli en annan vecka än förut.
 - **Best week och Longest XC** är omgjorda efter designvyn "Best Week & Longest XC". Reglerna för vilken vecka och vilken dag som räknas är oförändrade.
   - **Korten i Insights** (`MilestoneMapCards`) är lika breda och har Apple-kartan (standard, mörkt läge) som förhandsbild. Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt.
   - **Best week:**

@@ -1,6 +1,6 @@
 // Apple-kartan (standard, mörkt läge) för Best week och Longest XC: en stillastående förhandsbild i korten och på
 // sidorna, och samma lager i helskärmskartorna. Här finns också geometrin (bågar, region, avstånd, kurs) och
-// markörerna: flygplatser, basen med en streckad ring och farkosten som rör sig vid uppspelningen.
+// markörerna: flygplatser, basen med en streckad ring och farkosten som rör sig vid uppspelningen. Allt i cyan.
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { View, Text, Animated, Easing, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
@@ -8,8 +8,8 @@ import MapView, { Marker, type Region } from 'react-native-maps';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 const MONO = 'JetBrainsMono';
-export const MAP_GOLD = '#FFB830';
 export const MAP_CYAN = '#00C8E8';
+export const MAP_CYAN_DIM = 'rgba(0,200,232,0.35)';
 export const MAP_WATER = '#1B2733';
 
 export interface GeoPt { lat: number; lon: number }
@@ -89,36 +89,44 @@ export function StaticMap({ region, style, children }: { region?: Region; style?
   );
 }
 
-// Flygplats: guldring (fylld för start och mål) och ICAO-kod bredvid.
-export function AirportMarker({ p, icao, filled, label = true, dim = false }: { p: GeoPt; icao: string; filled?: boolean; label?: boolean; dim?: boolean }) {
+// Flygplats: bara ICAO-koden, strax till höger om punkten där linjen börjar eller slutar. Vyn är symmetrisk kring
+// koordinaten (en lika bred tom yta till vänster), så den hamnar rätt utan centerOffset.
+const LABEL_W = 52;
+export function AirportMarker({ p, icao }: { p: GeoPt; icao: string }) {
   return (
-    <Marker coordinate={toLatLng(p)} tracksViewChanges={false} centerOffset={{ x: label ? 22 : 0, y: 0 }} zIndex={4}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, opacity: dim ? 0 : 1, width: label ? 54 : 10 }}>
-        <View style={[m.dot, filled ? { backgroundColor: MAP_GOLD } : { backgroundColor: MAP_WATER }]} />
-        {label ? <Text style={m.icao}>{icao}</Text> : null}
+    <Marker coordinate={toLatLng(p)} tracksViewChanges={false} zIndex={4}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', width: LABEL_W * 2 }}>
+        <View style={{ width: LABEL_W }} />
+        <Text numberOfLines={1} style={m.icao}>{icao}</Text>
       </View>
     </Marker>
   );
 }
 
-// Basen: en streckad cyan ring som kan pulsera när dagen har lokala flygningar, och en etikett under.
-export function HomeMarker({ p, label, pulse = false, size = 34 }: { p: GeoPt; label?: string; pulse?: boolean; size?: number }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    Animated.timing(scale, { toValue: pulse ? 1.35 : 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-  }, [pulse, scale]);
+// Basen: en streckad cyan ring och en etikett under. Lika hög tom yta ovanför ringen som etiketten under, så att
+// ringens mitt ligger på koordinaten utan centerOffset.
+export function HomeMarker({ p, label, size = 34 }: { p: GeoPt; label?: string; size?: number }) {
   const labelH = label ? 18 : 0;
   return (
-    <Marker coordinate={toLatLng(p)} tracksViewChanges={false} centerOffset={{ x: 0, y: labelH / 2 }} zIndex={5}>
+    <Marker coordinate={toLatLng(p)} tracksViewChanges={false} zIndex={5}>
       <View style={{ alignItems: 'center', width: label ? 220 : size }}>
+        {label ? <View style={{ height: labelH }} /> : null}
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={[m.ring, { width: size, height: size, borderRadius: size / 2, transform: [{ scale }], backgroundColor: pulse ? 'rgba(0,200,232,0.22)' : 'rgba(0,200,232,0.1)' }]} />
+          <View style={[m.ring, { width: size, height: size, borderRadius: size / 2 }]} />
           <View style={m.home} />
         </View>
         {label ? <Text numberOfLines={1} style={m.homeLabel}>{label}</Text> : null}
       </View>
     </Marker>
   );
+}
+
+// En punkt längs en båge (koordinaterna från arcCoords) vid andelen f, med kursen där.
+export function alongArc(pts: LatLng[], f: number): { p: GeoPt; heading: number } {
+  const n = pts.length - 1;
+  const x = Math.max(0, Math.min(1, f)) * n, i = Math.min(n - 1, Math.floor(x)), r = x - i;
+  const a = { lat: pts[i].latitude, lon: pts[i].longitude }, b = { lat: pts[i + 1].latitude, lon: pts[i + 1].longitude };
+  return { p: lerpPt(a, b, r), heading: headingDeg(a, b) };
 }
 
 // Avståndet på ett ben, mitt på benet.
@@ -172,11 +180,10 @@ export function AircraftIcon({ heli, heading, spinning }: { heli: boolean; headi
 }
 
 const m = StyleSheet.create({
-  dot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: MAP_GOLD },
-  icao: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: '#FFD080', textShadowColor: '#000', textShadowRadius: 3 },
-  ring: { position: 'absolute', borderWidth: 1.5, borderStyle: 'dashed', borderColor: MAP_CYAN },
+  icao: { marginLeft: 6, fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: MAP_CYAN, textShadowColor: '#000', textShadowRadius: 3 },
+  ring: { position: 'absolute', borderWidth: 1.5, borderStyle: 'dashed', borderColor: MAP_CYAN, backgroundColor: 'rgba(0,200,232,0.1)' },
   home: { width: 12, height: 12, borderRadius: 6, backgroundColor: MAP_CYAN, borderWidth: 2, borderColor: MAP_WATER },
   homeLabel: { marginTop: 4, height: 14, fontFamily: MONO, fontSize: 10, color: MAP_CYAN, textShadowColor: '#000', textShadowRadius: 3 },
   legPill: { paddingHorizontal: 7, height: 20, justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: '#3A3F46', backgroundColor: 'rgba(18,26,36,0.88)' },
-  legText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: '#FFD080' },
+  legText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: '#9FEAF6' },
 });

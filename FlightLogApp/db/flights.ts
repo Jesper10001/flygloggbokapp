@@ -902,11 +902,12 @@ export async function getFlightStats(): Promise<FlightStats> {
      WHERE strftime('%Y', date) = strftime('%Y', 'now') AND f.flight_type != 'sim'`
   );
 
-  // Vecka med mest flygtid — sim-pass exkluderas (explicit 'sim' + otaggade som överstiger uthållighet)
+  // Vecka med mest flygtid — sim-pass exkluderas (explicit 'sim' + otaggade som överstiger uthållighet).
+  // Veckan börjar på måndagen på eller före datumet ('-6 days', 'weekday 1'), så måndagen hör till sin egen vecka.
   const bestWeek = await db.getFirstAsync<{ hours: number; week_start: string; last_id: number }>(
     `SELECT
        ROUND(SUM(f.total_time), 1) as hours,
-       date(f.date, 'weekday 1', '-7 days') as week_start,
+       date(f.date, '-6 days', 'weekday 1') as week_start,
        MAX(f.id) as last_id
      FROM flights f
      WHERE f.flight_type NOT IN ('sim', 'summary')
@@ -1750,7 +1751,7 @@ export async function getTopWeeks(limit = 5): Promise<{ hours: number; week_star
   return await db.getAllAsync<{ hours: number; week_start: string; last_id: number }>(
     `SELECT
        ROUND(SUM(f.total_time), 1) as hours,
-       date(f.date, 'weekday 1', '-7 days') as week_start,
+       date(f.date, '-6 days', 'weekday 1') as week_start,
        MAX(f.id) as last_id
      FROM flights f
      WHERE f.flight_type NOT IN ('sim', 'summary')
