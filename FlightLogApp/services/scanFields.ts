@@ -4,6 +4,7 @@
 import type { OcrFlightResult } from '../types/flight';
 import type { TimeFormat } from '../store/timeFormatStore';
 import { formatTimeValue, parseTimeInput } from '../hooks/useTimeFormat';
+import { clockValue } from '../utils/format';
 
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -51,12 +52,7 @@ export function parseInput(field: string, text: string, fmt: TimeFormat): string
     const n = parseTimeInput(t, fmt);
     return n == null || n < 0 || n > 24 ? null : String(Math.round(n * 100) / 100);
   }
-  if (CLOCK.has(field)) {
-    if (t === '') return '';
-    const m = t.match(/^(\d{1,2}):?(\d{2})$/);
-    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
-    return `${m[1].padStart(2, '0')}:${m[2]}`;
-  }
+  if (CLOCK.has(field)) return t === '' ? '' : clockValue(t);
   if (COUNT.has(field)) {
     if (t === '') return '0';
     return /^\d{1,3}$/.test(t) ? String(parseInt(t, 10)) : null;

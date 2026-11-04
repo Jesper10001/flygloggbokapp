@@ -92,6 +92,7 @@ interface Issue {
   reason: string;
   confidence?: number;
   suggestions: Suggestion[];
+  readAs?: string;   // Claude läste något som inte kan vara ett värde (klockslaget 07:80); cellen är tömd
   rect: Rect | null;
   aircraft?: { asWritten: string; resolved: string };
   group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[]; remarks?: boolean };   // samma fråga på flera rader
@@ -183,7 +184,7 @@ const shiftClock = (t: string, h: number) => {
 // En siffra i en kolumn som saknar summa att jämföra med frågas alltid om.
 const CORE_FIELDS = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'arr_place', 'sim_category', 'other_time_role']);
 function worthAsking(i: Issue, focus: ScanFocus, colOk: Map<string, boolean>): boolean {
-  if (focus === 'exact' || i.kind === 'column') return true;
+  if (focus === 'exact' || i.kind === 'column' || i.readAs) return true;   // en omöjlig läsning är alltid fel
   if (i.kind === 'value' || i.kind === 'choice') {
     if (i.field === 'sim') return true;   // flygning eller simulator avgör vilken summa tiden hamnar i
     if (DURATION.has(i.field) || COUNT.has(i.field)) return colOk.get(`${i.page}|${i.field}`) !== true;
@@ -241,6 +242,7 @@ function deriveIssues(
         if ((parseFloat(v) || 0) > 0) suggestions.push({ label: 'It is simulator time', field: 'sim', value: v, toSim: fi.field });
       }
       else if (fi.suggested_value && !choice) suggestions.push({ label: fi.suggested_value, field: fi.field, value: fi.suggested_value });
+      for (const v of fi.options ?? []) if (!suggestions.some((x) => x.value === v)) suggestions.push({ label: v, field: fi.field, value: v });
       if (fi.field === 'dep_place' || fi.field === 'arr_place') {
         // Liknande flygplatser (en förväxlingsbar bokstav, t.ex. ETNB → ETHB), högst fyra, och ZZZZ sist.
         const cur = String((d as any)[fi.field] ?? '').toUpperCase();
@@ -252,7 +254,7 @@ function deriveIssues(
       }
       out.push({
         id: `${row.key}:f:${fi.field}`, kind: choice ? 'choice' : 'value', page: row.page, rowKey: row.key,
-        field: fi.field, title: label(fi.field), reason: fi.reason, confidence: fi.confidence || undefined,
+        field: fi.field, title: label(fi.field), reason: fi.reason, confidence: fi.confidence || undefined, readAs: fi.read_as,
         // Cellen först: den är justerad mot Visions ord. Claudes egen ruta bara när fältet saknar kolumn.
         suggestions, rect: cell(fi.field) ?? mappedBoxRect(fi.box, grid) ?? whole,
         moves: choice ? undefined : neighbourColumns(grid, fi.field),
@@ -1552,7 +1554,7 @@ export default function ScanReviewScreen() {
     if (editTarget) {
       const value = parseInput(editTarget, draft, fmtRef.current);
       if (value == null) {
-        Alert.alert('Check the value', CLOCK.has(editTarget) ? 'Write the time as HH:MM.' : `That doesn't look like a valid ${label(editTarget).toLowerCase()}.`);
+        Alert.alert('Check the value', CLOCK.has(editTarget) ? 'Write the time as HH:MM, with hours 00–23 and minutes 00–59.' : `That doesn't look like a valid ${label(editTarget).toLowerCase()}.`);
         return;
       }
       setField(selectedRow.key, editTarget, value);
@@ -1574,7 +1576,7 @@ export default function ScanReviewScreen() {
     const value = parseInput(selField, draft, fmtRef.current);
     if (value == null) {
       Alert.alert('Check the value', selField === 'date' ? 'Write the date as YYYY-MM-DD.'
-        : CLOCK.has(selField) ? 'Write the time as HH:MM.' : `That doesn't look like a valid ${label(selField).toLowerCase()}.`);
+        : CLOCK.has(selField) ? 'Write the time as HH:MM, with hours 00–23 and minutes 00–59.' : `That doesn't look like a valid ${label(selField).toLowerCase()}.`);
       return;
     }
     if (stage === 'report') {
@@ -2421,7 +2423,7 @@ function QuestionPanel(p: {
 
   const question = !issue
     ? `Claude read ${current ? `"${current}"` : 'nothing'} here. Tap the value to change it.`
-    : issue.kind === 'value'
+    : issue.kind === 'value' && !issue.readAs
       ? `Claude read ${current ? `"${current}"` : 'nothing'}${issue.confidence ? ` but is only ${Math.round(issue.confidence * 100)} % sure` : ''}. ${issue.reason}`
       : issue.reason;
 
@@ -2684,7 +2686,12 @@ function QuestionPanel(p: {
                 <Text style={[s.valueText, !current && { color: Colors.textMuted }]} numberOfLines={1}>{current || 'Empty'}</Text>
                 <Ionicons name="pencil" size={15} color={Colors.textSecondary} />
               </TouchableOpacity>
-              {issue && !done && (
+              {/* En omöjlig läsning (07:80) går inte att godkänna: välj en giltig tid, skriv den, eller lämna tomt. */}
+              {issue && !done && issue.readAs && !current ? (
+                <TouchableOpacity style={[s.btnSecondary, { height: 48 }]} onPress={p.onConfirm}>
+                  <Text style={s.btnSecondaryText}>Leave empty</Text>
+                </TouchableOpacity>
+              ) : issue && !done && (
                 <TouchableOpacity style={s.okBtn} onPress={p.onConfirm} accessibilityLabel="Looks right">
                   <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
                   <Text style={s.saveText}>{issue.kind === 'aircraft' ? `Use ${issue.aircraft?.resolved}` : 'Looks right'}</Text>

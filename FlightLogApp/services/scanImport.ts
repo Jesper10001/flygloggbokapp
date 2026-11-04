@@ -11,6 +11,7 @@ import { getActiveBook } from '../db/logbookBooks';
 import { getAirportByIcao, addTemporaryPlace, isOffAirportCode } from '../db/icao';
 import { saveLearnedMapping } from '../db/ocrLearned';
 import { reconcileBlockTime } from '../utils/flightTime';
+import { clockValue } from '../utils/format';
 
 export interface ScanRow {
   key: string;            // stabilt id: `${page}:${rowIndex}`
@@ -52,11 +53,66 @@ const hhmm = (min: number) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
 
+// Handskrivna siffror som lätt läses som en annan, de mest troliga först (3 och 8 förväxlas oftast).
+const LOOKALIKE: Record<string, string> = {
+  '0': '689', '1': '74', '2': '7', '3': '85', '4': '91', '5': '36', '6': '05', '7': '12', '8': '306', '9': '470',
+};
+
+/**
+ * Giltiga klockslag en siffra från en läsning som inte är ett (0780 → 07:30, 07:00, 07:50), högst tre. Först de
+ * som går ihop med total tid och radens andra klockslag (med ett tillägg på upp till 0.5 h, som i helikopterböcker).
+ */
+function clockAlternatives(digits: string, field: 'dep_utc' | 'arr_utc', other: string | null, totalH: number): string[] {
+  const out: string[] = [];
+  for (let pos = 0; pos < digits.length; pos++) {
+    for (const d of LOOKALIKE[digits[pos]] ?? '') {
+      const v = clockValue(digits.slice(0, pos) + d + digits.slice(pos + 1));
+      if (v && !out.includes(v)) out.push(v);
+    }
+  }
+  const min = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+  const gap = (v: string) => {
+    if (!other || !(totalH > 0)) return Infinity;
+    const [dep, arr] = field === 'dep_utc' ? [v, other] : [other, v];
+    const diff = totalH * 60 - ((min(arr) - min(dep) + 1440) % 1440);   // minuter som total tid är längre än blocktiden
+    return diff >= -6 && diff <= 36 ? Math.abs(diff) : Infinity;
+  };
+  return out.map((v, i) => ({ v, i, g: gap(v) })).sort((a, b) => a.g - b.g || a.i - b.i).slice(0, 3).map((x) => x.v);
+}
+
 /** Klientens egna kontroller ovanpå skannerns: returnerar en bearbetad kopia av raden. */
 export function prepareFlight(f: OcrFlightResult): OcrFlightResult {
   const data: OcrFlightResult = { ...f, field_issues: [...(f.field_issues ?? [])] };
   const issues = data.field_issues as Issue[];
   const flag = (reason: string) => { data.needs_review = true; data.review_reason = data.review_reason || reason; };
+
+  // Klockslag som inte finns (07:80, 27:30) blir aldrig ett värde: cellen töms och frågan erbjuder giltiga tider
+  // en siffra bort. Giltiga skrivs som HH:MM ("730" → "07:30"), så att tids-avstämningen kan läsa dem.
+  const clocks = { dep_utc: clockValue(data.dep_utc ?? ''), arr_utc: clockValue(data.arr_utc ?? '') };
+  const total = parseFloat(String(data.total_time ?? '').replace(',', '.')) || 0;
+  for (const field of ['dep_utc', 'arr_utc'] as const) {
+    const raw = String(data[field] ?? '').trim();
+    if (!raw) continue;
+    if (clocks[field]) { data[field] = clocks[field]!; continue; }
+    const m = raw.match(/^(\d{1,2})[:.]?(\d{2})$/);
+    const shown = m ? `${m[1].padStart(2, '0')}:${m[2]}` : raw;
+    const why = !m ? "that isn't a time" : Number(m[2]) > 59 ? 'minutes only go up to 59' : 'hours only go up to 23';
+    const options = m ? clockAlternatives(m[1].padStart(2, '0') + m[2], field, field === 'dep_utc' ? clocks.arr_utc : clocks.dep_utc, total) : [];
+    data[field] = '';
+    for (let i = issues.length - 1; i >= 0; i--) if (issues[i].field === field) issues.splice(i, 1);
+    issues.push({
+      field, confidence: 0, read_as: shown, options,
+      reason: `Claude read "${shown}", but ${why}. ${options.length ? 'Choose the time in your logbook, or type it.' : 'Type the time in your logbook.'}`,
+    });
+    flag('Not a valid time');
+  }
+  // Claudes egna förslag och tidskonflikt: bara riktiga klockslag.
+  for (const i of issues) {
+    if ((i.field === 'dep_utc' || i.field === 'arr_utc') && i.suggested_value) i.suggested_value = clockValue(i.suggested_value) ?? undefined;
+  }
+  const tm = data.time_mismatch;
+  if (tm && (!data.dep_utc || !data.arr_utc || !clockValue(tm.read_dep) || !clockValue(tm.read_arr))) data.time_mismatch = undefined;
+  else if (tm) data.time_mismatch = { ...tm, computed_dep_if_arr_correct: clockValue(tm.computed_dep_if_arr_correct) ?? '', computed_arr_if_dep_correct: clockValue(tm.computed_arr_if_dep_correct) ?? '' };
 
   // "1.2+0.4" i ett tidsfält → summan, men användaren bekräftar.
   const addPattern = /^\s*(\d+[\.,]\d+)\s*\+\s*(\d+[\.,]\d+)\s*$/;

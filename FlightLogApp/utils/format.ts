@@ -42,6 +42,17 @@ export function isValidTime(t: string): boolean {
   })();
 }
 
+// Ett skrivet klockslag ("0730", "7:30", "07.30") som "HH:MM", eller null om det inte finns: timmar 00–23,
+// minuter 00–59. 24:00 är midnatt → 00:00.
+export function clockValue(text: string): string | null {
+  const m = String(text ?? '').trim().match(/^(\d{1,2})[:.]?(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h === 24 && min === 0) return '00:00';
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
 // Beräkna flygtid från avg/arr-tid
 export function calcFlightTime(dep: string, arr: string): number {
   if (!isValidTime(dep) || !isValidTime(arr)) return 0;

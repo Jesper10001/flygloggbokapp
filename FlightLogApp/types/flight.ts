@@ -180,6 +180,8 @@ export interface OcrFlightResult extends FlightFormData {
     field: string; reason: string; confidence: number; x_pct?: number; suggested_value?: string;
     box?: { left: number; top: number; right: number; bottom: number };   // procent av bilden
     from?: string;   // fältet värdet kommer från (t.ex. dual när det kan vara simulatortid)
+    read_as?: string;    // det Claude läste när det inte kan vara ett värde (klockslaget 07:80); cellen är tömd
+    options?: string[];  // giltiga värden att välja bland i stället
   }[];
   // Övergripande säkerhet 0–1 på hela raden. ≥ 0.95 = fast-track (komprimerad
   // rad, auto-godkänd) om needs_review=false.
