@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Rättat: "Manage subscription" på profilsidan gjorde ingenting. Profilsidan öppnades som modalfönster, och RevenueCats Customer Center visas från appens rotvy, som redan visade modalfönstret. Då syntes inget, och knappen fick inget svar. Profilsidan öppnas nu som en vanlig sida med tillbakapil, så att Customer Center och paywallen kan visas ovanpå.
 - Settings har en paywall-knapp direkt under Profile som alltid pekar en nivå uppåt.
   - Gratis: "Upgrade to Premium · Unlimited flights". I TestFlight visar paywallen även Max.
   - Premium: "Upgrade to Max · 500 coins a month". Bara med de nya paywallsen, så i App Store-bygget syns ingen knapp för Premium.

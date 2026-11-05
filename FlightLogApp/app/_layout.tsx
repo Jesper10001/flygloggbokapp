@@ -335,7 +335,8 @@ export default function RootLayout() {
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export', presentation: 'modal' }} />
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
-        <Stack.Screen name="settings/profile" options={{ title: 'Profile', presentation: 'modal' }} />
+        {/* Inte modal: RevenueCats Customer Center och paywall visas från rotvyn och syns inte ovanpå ett modalfönster. */}
+        <Stack.Screen name="settings/profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="settings/logbook-books" options={{ title: 'Physical logbooks', presentation: 'modal' }} />
         <Stack.Screen name="settings/icloud" options={{ title: 'iCloud Storage', presentation: 'modal' }} />
         <Stack.Screen name="settings/encryption" options={{ title: 'Encryption', presentation: 'modal' }} />
