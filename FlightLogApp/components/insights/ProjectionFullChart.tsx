@@ -84,7 +84,8 @@ export function ProjectionFullChart({ C, series, have, target, pace, fast, slow,
       setScrub(null);
       setFrom(startY.current);
     },
-    onPanResponderMove: (_, g) => setFrom(startY.current + g.dy),
+    // locationY/X i målvyn, inte skärmens dx/dy: då fungerar dragningen även när helskärmen är vriden i stående läge.
+    onPanResponderMove: (e) => setFrom(e.nativeEvent.locationY),
     onPanResponderRelease: endDrag,
     onPanResponderTerminate: endDrag,
   })).current;
@@ -97,7 +98,7 @@ export function ProjectionFullChart({ C, series, have, target, pace, fast, slow,
       Haptics.selectionAsync().catch(() => {});
       scrubAt(startX.current);
     },
-    onPanResponderMove: (_, g) => scrubAt(startX.current + g.dx),
+    onPanResponderMove: (e) => scrubAt(e.nativeEvent.locationX),
     onPanResponderRelease: () => setScrub(null),
     onPanResponderTerminate: () => setScrub(null),
   })).current;

@@ -15,6 +15,10 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Helskärmsläget för Projections och Next licence blir liggande direkt. Tidigare visades den liggande layouten i stående läge tills man själv vred telefonen.
+  - Routerna har `orientation: 'landscape'`, så att navigeringen roterar skärmen själv.
+  - Står telefonen ändå kvar i stående läge efter 0,7 s vrider `FullscreenShell` innehållet 90° och byter plats på marginalerna (`SafeAreaInsetsContext`). Statusraden är dold.
+  - Dragningen i kurvorna läser `locationX/Y` i målvyn, så den fungerar även när innehållet är vridet.
 - Kartuppspelningarna efter test på telefon:
   - **Nosen pekar rätt.** Högt upp lägger Apple-kartan inte den vridning vi ber om, utan kartan står kvar med norr upp. Därför pekade nosen fel. Riktningen mäts nu på skärmen (`useScreenAngle`: en punkt bakom och en framför i kursen räknas om med `pointForCoordinate`, åtta gånger i sekunden och när man flyttat kartan).
   - **Helikoptern är mitt i bild** (`chaseCam` med lead 0) och döljs inte av panelen. Panelen är lägre: Longest XC 124 pt och Best week 112 pt, och den växer när sammanfattningen visas.

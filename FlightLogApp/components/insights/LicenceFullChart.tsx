@@ -61,7 +61,8 @@ export function LicenceFullChart({ C, S, nowA, startA, pick, etaM, lim, scaleM, 
       Haptics.selectionAsync().catch(() => {});
       scrubAt(startX.current);
     },
-    onPanResponderMove: (_, g) => scrubAt(startX.current + g.dx),
+    // locationX i målvyn, inte skärmens dx: då fungerar avläsningen även när helskärmen är vriden i stående läge.
+    onPanResponderMove: (e) => scrubAt(e.nativeEvent.locationX),
     onPanResponderRelease: () => setScrub(null),
     onPanResponderTerminate: () => setScrub(null),
   })).current;
