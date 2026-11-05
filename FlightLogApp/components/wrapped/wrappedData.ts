@@ -12,6 +12,8 @@ import { getDatabase } from '../../db/database';
 import { calculateDistance } from '../../db/icao';
 import { getHourTotals, licenceSetFor } from '../EASAProgressChart';
 import { useProfileStore } from '../../store/profileStore';
+import { useFlightStore } from '../../store/flightStore';
+import { needsTimeline, reqHave, type ReqDef } from '../insights/licenceHours';
 import type { FlightStats } from '../../types/flight';
 import type { SeedRow } from '../GlobalAirportMap';
 
@@ -221,11 +223,14 @@ export async function loadWrappedData(): Promise<WrappedData> {
   const totals = await getHourTotals().catch(() => ({} as Record<string, number>));
   const set = licenceSetFor(effectiveSubRole, standard);
   const steps = [set.ppl, set.cpl, set.atpl];
-  const isMet = (s: typeof steps[number]) => s.reqs.every((r) => (totals[r.key] ?? 0) >= r.required);
+  // Simulatorkredit och sammansatta krav (ATPL-natt, PIC/PICUS) räknas pass för pass, som i Next licence.
+  const allFlights = useFlightStore.getState().flights;
+  const haveOf = (r: ReqDef) => needsTimeline(r.key, r.sim) ? reqHave(allFlights, r.key, r.sim) : (totals[r.key] ?? 0);
+  const isMet = (s: typeof steps[number]) => s.reqs.every((r) => haveOf(r) >= r.required);
   const target = steps.find((s) => !isMet(s));
   const licAllMet = !target;
   const lic = licAllMet ? set.atpl : target!;
-  const licBars = lic.reqs.map((r) => ({ label: r.label, have: totals[r.key] ?? 0, need: r.required }));
+  const licBars = lic.reqs.map((r) => ({ label: r.label, have: haveOf(r), need: r.required }));
   const licMetCount = licBars.filter((b) => b.have >= b.need).length;
   const licProgress = Math.round(licBars.reduce((s, b) => s + Math.min(b.have / b.need, 1), 0) / licBars.length * 100);
   const licence = { code: lic.code, allMet: licAllMet, progress: licProgress, metCount: licMetCount, bars: licBars };

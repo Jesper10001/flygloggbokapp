@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 7,
+      "date": "2026-11-05",
+      "notes": [
+        "Fixed: Next licence follows the EASA rules more closely. PPL(A) has no night requirement, and ATPL(H) needs 350 h multi-pilot.",
+        "Improved: Simulator time now counts towards your licence where EASA allows it, up to the limits.",
+        "Improved: ATPL PIC now counts PICUS, and ATPL night counts only as PIC or co-pilot."
+      ]
+    },
+    {
       "id": 6,
       "date": "2026-11-05",
       "notes": [

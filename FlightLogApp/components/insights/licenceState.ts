@@ -40,21 +40,22 @@ function shortOf(label: string, key: string): string {
   if (key === 'total') return 'Total';
   if (key === 'dual') return 'Dual';
   if (key === 'pic') return /^solo/i.test(label) ? 'Solo' : /helicopter/i.test(label) ? 'Heli' : 'PIC';
+  if (key === 'atpl_pic_a' || key === 'atpl_pic_h') return 'PIC';
   if (key === 'xc_pic') return /^solo/i.test(label) ? 'Solo XC' : 'XC PIC';
   if (key === 'xc') return 'XC';
   if (key === 'ifr') return 'IFR';
-  if (key === 'night') return 'Night';
+  if (key === 'night' || key === 'night_pc') return 'Night';
   if (key === 'multi_pilot') return 'Multi-crew';
   return label;
 }
 
 export function buildState(lic: WLicenceSet, D: InsightsData, nowA: number): LicState {
   const reqs: LicReq[] = lic.reqs.filter((q) => q.required > 0).map((q) => {
-    const have = D.haveFor(q.key), series = D.seriesFor(q.key), pace = D.rateFor(q.key);
+    const have = D.haveFor(q.key, q.sim), series = D.seriesFor(q.key, q.sim), pace = D.rateFor(q.key, q.sim);
     const monthly = series.map((p, i) => p.cum - (i ? series[i - 1].cum : 0));
     const natural = [monthly.slice(-3).reduce((a, b) => a + b, 0) / 3, pace, series.length ? have / series.length : 0].filter((p) => p > 0);
     const met = have >= q.required, toGo = Math.max(0, q.required - have);
-    const md = met ? D.metDateFor(q.key, q.required) : null;
+    const md = met ? D.metDateFor(q.key, q.required, q.sim) : null;
     return {
       label: q.label, key: q.key, required: q.required, short: shortOf(q.label, q.key),
       have, met, toGo, pace,

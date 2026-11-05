@@ -6,6 +6,7 @@
 import { useMemo } from 'react';
 import { useFlightStore } from '../../store/flightStore';
 import type { Flight } from '../../types/flight';
+import { reqTimeline, needsTimeline, DERIVED_KEYS, type ReqPoint, type SimCredit } from './licenceHours';
 
 const monthsAgoISO = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); };
 const num = (f: Flight, k: string) => (f as any)[k] || 0;
@@ -51,10 +52,11 @@ export interface InsightsData {
   monthly: Record<string, number>;
   journey: JourneyPt[];
   journeyPic: JourneyPt[];
-  seriesFor: (key: string) => JourneyPt[];
-  haveFor: (key: string) => number;
-  rateFor: (key: string) => number;
-  metDateFor: (key: string, required: number) => string | null;
+  // `sim` = licenskravets simulatorkredit (se licenceHours). Sammansatta nycklar (night_pc, atpl_pic_*) går också.
+  seriesFor: (key: string, sim?: SimCredit) => JourneyPt[];
+  haveFor: (key: string, sim?: SimCredit) => number;
+  rateFor: (key: string, sim?: SimCredit) => number;
+  metDateFor: (key: string, required: number, sim?: SimCredit) => string | null;
 }
 
 export function useInsightsData(): InsightsData {
@@ -127,12 +129,30 @@ export function useInsightsData(): InsightsData {
     // (Backfill läggs INTE på här längre — den speglas till en riktig loggboksrad som redan ingår i
     // `flights`/`stats` ovan, så den räknas automatiskt en gång.)
 
-    const haveFor = (key: string): number => {
+    // Sammansatta mått och simulatorkredit räknas pass för pass i tidsordning (licenceHours).
+    const tlCache = new Map<string, ReqPoint[]>();
+    const timeline = (key: string, sim?: SimCredit): ReqPoint[] => {
+      const ck = `${key}|${sim ? JSON.stringify(sim) : ''}`;
+      let t = tlCache.get(ck);
+      if (!t) { t = reqTimeline(flights, key, sim); tlCache.set(ck, t); }
+      return t;
+    };
+
+    const haveFor = (key: string, sim?: SimCredit): number => {
+      if (needsTimeline(key, sim)) { const t = timeline(key, sim); return t.length ? t[t.length - 1].cum : 0; }
       if (key.includes('+')) { const [a, b] = key.split('+'); return real.filter((f) => num(f, a) > 0).reduce((s, f) => s + num(f, b), 0); }
       if (key === 'total') return stats?.total_time ?? sumSince('0000-01-01');
       return cats[key] ?? 0;
     };
-    const rateFor = (key: string): number => {
+    // Takten bygger bara på riktiga flygningar: simulatorkrediten har ett tak och tar slut.
+    const rateFor = (key: string, _sim?: SimCredit): number => {
+      if (DERIVED_KEYS.has(key)) {
+        const t = timeline(key);
+        const now = t.length ? t[t.length - 1].cum : 0;
+        let then = 0;
+        for (const p of t) { if (p.date >= cut12) break; then = p.cum; }
+        return (now - then) / 12;
+      }
       if (key.includes('+')) { const [a, b] = key.split('+'); return rate((f) => num(f, a) > 0, b); }
       if (key === 'total') return rate(() => true, 'total_time');
       if (key === 'xc') return rate(isXC, 'total_time');
@@ -150,8 +170,9 @@ export function useInsightsData(): InsightsData {
       if (key === 'xc_pic') return (isXC(f) && num(f, 'pic') > 0) ? (f.total_time || 0) : 0;
       return num(f, key);
     };
-    const metDateFor = (key: string, required: number): string | null => {
+    const metDateFor = (key: string, required: number, sim?: SimCredit): string | null => {
       if (required <= 0) return null;
+      if (needsTimeline(key, sim)) return timeline(key, sim).find((p) => p.cum >= required)?.date ?? null;
       let cum = 0;
       for (const f of byDate) { cum += valOf(f, key); if (cum >= required && f.date) return f.date; }
       return null;
@@ -160,8 +181,17 @@ export function useInsightsData(): InsightsData {
     // Kumulativ månadsserie för valfri kategori (samma regler som valOf), från kategorins första månad med tid
     // t.o.m. innevarande månad. Byggs första gången den behövs.
     const seriesCache = new Map<string, JourneyPt[]>([['total', journey], ['pic', journeyPic]]);
-    const seriesFor = (key: string): JourneyPt[] => {
-      let s = seriesCache.get(key);
+    const seriesFor = (key: string, sim?: SimCredit): JourneyPt[] => {
+      const ck = sim ? `${key}|${JSON.stringify(sim)}` : key;
+      let s = seriesCache.get(ck);
+      if (!s && needsTimeline(key, sim)) {
+        // månadens ökning = skillnaden i kumulativt värde (PIC-alternativen är inte summerbara pass för pass)
+        const map: Record<string, number> = {};
+        let prev = 0;
+        for (const p of timeline(key, sim)) { const m = p.date.slice(0, 7); map[m] = (map[m] || 0) + (p.cum - prev); prev = p.cum; }
+        s = buildJourney(map);
+        seriesCache.set(ck, s);
+      }
       if (!s) {
         const map: Record<string, number> = {};
         for (const f of real) {

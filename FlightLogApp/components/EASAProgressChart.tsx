@@ -6,56 +6,65 @@ import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
 import { useProfileStore } from '../store/profileStore';
 import { getDatabase } from '../db/database';
+import type { ReqDef } from './insights/licenceHours';
 
 type Requirement = { label: string; current: number; required: number };
 
-const PPL_A: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 45 },
-  { label: 'Dual instruction', key: 'dual', required: 25 },
-  { label: 'Solo flight', key: 'pic', required: 10 },
-  { label: 'Solo cross-country', key: 'xc_pic', required: 5 },
-  { label: 'Night', key: 'night', required: 5 },
-];
-
-const PPL_H: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 45 },
+// EASA-kraven enligt Part-FCL (Easy Access Rules for Aircrew, okt 2026). `sim` = simulatortid som får räknas.
+// PPL(A): FCL.210.A, inget nattkrav (natt är en egen behörighet, FCL.810). 5 h av de 45 får vara FSTD.
+const PPL_A: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 45, sim: { max: 5 } },
   { label: 'Dual instruction', key: 'dual', required: 25 },
   { label: 'Solo flight', key: 'pic', required: 10 },
   { label: 'Solo cross-country', key: 'xc_pic', required: 5 },
 ];
 
-const CPL_A: { label: string; key: string; required: number }[] = [
+// PPL(H): FCL.210.H.
+const PPL_H: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 45, sim: { max: 5 } },
+  { label: 'Dual instruction', key: 'dual', required: 25 },
+  { label: 'Solo flight', key: 'pic', required: 10 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 5 },
+];
+
+// CPL(A): Appendix 3 E punkt 12 (modulär kurs). 5 h av instrumenttiden får vara i FNPT I/II eller FFS.
+const CPL_A: ReqDef[] = [
   { label: 'Total flight time', key: 'total', required: 200 },
   { label: 'PIC', key: 'pic', required: 100 },
   { label: 'Cross-country PIC', key: 'xc_pic', required: 20 },
-  { label: 'Instrument', key: 'ifr', required: 10 },
+  { label: 'Instrument', key: 'ifr', required: 10, sim: { max: 5, kinds: ['FFS', 'FNPT_II', 'FNPT_I'] } },
   { label: 'Night', key: 'night', required: 5 },
 ];
 
-const ATPL_A: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 1500 },
+// ATPL(A): FCL.510.A(b). Upp till 100 h i FFS/FNPT (högst 25 h FNPT) och 30 h instrumenttid i simulator.
+// PIC räknas med PICUS-alternativen, natten bara som PIC eller co-pilot.
+const ATPL_A: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 1500, sim: { max: 100, fnptMax: 25, kinds: ['FFS', 'FNPT_II', 'FNPT_I'] } },
   { label: 'Multi-crew ops', key: 'multi_pilot', required: 500 },
-  { label: 'PIC', key: 'pic', required: 250 },
+  { label: 'PIC or PICUS', key: 'atpl_pic_a', required: 250 },
   { label: 'Cross-country', key: 'xc', required: 200 },
-  { label: 'Instrument (IFR)', key: 'ifr', required: 75 },
-  { label: 'Night', key: 'night', required: 100 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 75, sim: { max: 30 } },
+  { label: 'Night as PIC/co-pilot', key: 'night_pc', required: 100 },
 ];
 
-const CPL_H: { label: string; key: string; required: number }[] = [
+// CPL(H): Appendix 3 K punkt 8, 10 och 11 (modulär kurs). 5 h av instrumenttiden får vara i simulator (ej BITD).
+const CPL_H: ReqDef[] = [
   { label: 'Total flight time', key: 'total', required: 185 },
   { label: 'PIC', key: 'pic', required: 50 },
   { label: 'Cross-country PIC', key: 'xc_pic', required: 10 },
   { label: 'Dual instruction', key: 'dual', required: 30 },
-  { label: 'Instrument (dual)', key: 'ifr', required: 10 },
+  { label: 'Instrument (dual)', key: 'ifr', required: 10, sim: { max: 5, kinds: ['FFS', 'FTD', 'FNPT_II', 'FNPT_I'] } },
   { label: 'Night', key: 'night', required: 5 },
 ];
 
-const ATPL_H: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 1000 },
-  { label: 'PIC', key: 'pic', required: 250 },
+// ATPL(H): FCL.510.H(c). Upp till 100 h i simulator (högst 25 h FNPT) och 10 h instrumenttid i simulator.
+const ATPL_H: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 1000, sim: { max: 100, fnptMax: 25 } },
+  { label: 'Multi-crew ops', key: 'multi_pilot', required: 350 },
+  { label: 'PIC or PICUS', key: 'atpl_pic_h', required: 250 },
   { label: 'Cross-country', key: 'xc', required: 200 },
-  { label: 'Instrument (IFR)', key: 'ifr', required: 30 },
-  { label: 'Night', key: 'night', required: 100 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 30, sim: { max: 10 } },
+  { label: 'Night as PIC/co-pilot', key: 'night_pc', required: 100 },
 ];
 
 // FAA Requirements
@@ -169,7 +178,7 @@ function forecastDate(remaining: number, ratePerMonth: number): string | null {
 // Returnerar de tre licens-stegen för rätt kategori (helikopter/flygplan via
 // subRole) och regelverk (EASA/FAA/CAA) — samma tabeller som progresskartan.
 // CAA speglar EASA. Återanvänds av Wrapped.
-export type WLicenceSet = { code: string; reqs: { label: string; key: string; required: number }[] };
+export type WLicenceSet = { code: string; reqs: ReqDef[] };
 export function licenceSetFor(subRole: string | undefined, standard: 'easa' | 'faa' | 'caa'): { ppl: WLicenceSet; cpl: WLicenceSet; atpl: WLicenceSet } {
   const isRotary = subRole === 'rotary';
   if (standard === 'faa') {

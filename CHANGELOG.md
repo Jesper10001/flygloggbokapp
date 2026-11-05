@@ -15,6 +15,23 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- EASA-kraven i Next licence och Wrapped är rättade mot Part-FCL (Easy Access Rules for Aircrew, okt 2026):
+  - **PPL(A):** nattkravet på 5 h är borta. Det finns inte i FCL.210.A, eftersom natt är en egen behörighet (FCL.810).
+  - **ATPL(H):** kravet 350 h multi-pilot i helikopter (FCL.510.H(c)(1)) är tillagt.
+  - **Simulatortid** räknas nu där reglerna tillåter det, i den ordning passen flögs och med taken:
+    - **ATPL(A):** högst 100 h FFS/FNPT mot de 1500 h (högst 25 h FNPT), och 30 h instrumenttid i simulator.
+    - **ATPL(H):** 100 h simulator mot de 1000 h (högst 25 h FNPT), och 10 h instrumenttid i simulator.
+    - **PPL(A)/PPL(H):** 5 h simulator mot de 45 h.
+    - **CPL(A)/CPL(H):** 5 h instrumenttid i simulator.
+
+    Ett simulatorpass räknas som instrumenttid med sin loggade IFR-tid, annars med hela passet om det flögs IFR. CPT/PPT och CBT räknas aldrig.
+  - **ATPL-PIC** räknas med PICUS-alternativen:
+    - **ATPL(A):** 500 h PICUS, eller 250 h med minst 70 h PIC och resten PICUS.
+    - **ATPL(H):** 100 h PIC plus 150 h PICUS, eller 250 h PICUS i multi-pilot.
+
+    Kravet heter "PIC or PICUS".
+  - **ATPL-natten** räknar bara natt som PIC eller co-pilot, inte dual.
+  - Beräkningarna ligger i `components/insights/licenceHours.ts` och testas med `scripts/test-licence-hours.cjs`.
 - Best week och Longest XC, andra varvet efter provning på enhet:
   - **Bara cyan:** allt är cyan i stället för guld, och flygplatserna på kartorna visas bara med sin ICAO-kod, utan prick. Koden ligger strax till höger om linjens ände. Etiketterna hamnade förut bredvid ändpunkten, eftersom `centerOffset` lade dem fel. Nu är markörvyerna symmetriska kring koordinaten.
   - **Longest XC:** ruttlinjen under distansen visar bara koderna, eftersom namnen gick in i varandra. Distansen är vit med "NM" i cyan, som timmarna i Best week.
