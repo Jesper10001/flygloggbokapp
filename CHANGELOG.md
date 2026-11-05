@@ -15,7 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
-- Next licence i helskärm: stegen PPL → CPL → ATPL är tre lika breda rutor på två rader, med koden överst och året eller procenten under. Med helikopterkoderna (H) fick stegen inte plats på en rad, och året för klara licenser kapades. Året visas nu i sin helhet (2025).
+- Next licence i helskärm: stegen PPL → CPL → ATPL är tre lika breda rutor på två rader, med koden överst och året eller procenten under. Med helikopterkoderna (H) fick stegen inte plats på en rad, och året för klara licenser kapades. Året visas kort, som ’25.
 - Helskärmsläget för Projections och Next licence blir liggande direkt. Tidigare visades den liggande layouten i stående läge tills man själv vred telefonen.
   - Routerna har `orientation: 'landscape'`, så att navigeringen roterar skärmen själv.
   - Står telefonen ändå kvar i stående läge efter 0,7 s vrider `FullscreenShell` innehållet 90° och byter plats på marginalerna (`SafeAreaInsetsContext`). Statusraden är dold.

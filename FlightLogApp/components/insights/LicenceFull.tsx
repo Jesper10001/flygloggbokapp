@@ -19,6 +19,7 @@ import { FullscreenClose } from './FullscreenShell';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
+const yShort = (a: number) => `’${String(Math.floor(a / 12)).slice(2)}`;
 // Uppnådda timmar avrundas nedåt och återstående uppåt, så ett krav aldrig ser klart ut innan det är det.
 const haveTxt = (h: number) => hoursTxt(h < 10 ? Math.floor(h * 10) / 10 : Math.floor(h));
 const toGoTxt = (h: number) => hoursTxt(h < 10 ? Math.ceil(h * 10) / 10 : Math.ceil(h));
@@ -97,7 +98,7 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
                     <Text numberOfLines={1} adjustsFontSizeToFit style={{ flexShrink: 1, fontFamily: MONO, fontSize: 10, fontWeight: '700', color }}>{L2.code}</Text>
                   </View>
                   <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 9, fontWeight: '500', color: C.muted }}>
-                    {L2.done && L2.doneA != null ? String(Math.floor(L2.doneA / 12)) : `${p}%`}
+                    {L2.done && L2.doneA != null ? yShort(L2.doneA) : `${p}%`}
                   </Text>
                 </TouchableOpacity>
               </View>
