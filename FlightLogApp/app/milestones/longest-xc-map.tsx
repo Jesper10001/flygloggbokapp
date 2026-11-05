@@ -15,9 +15,9 @@ import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
 import { useMapScreenStore } from '../../store/mapScreenStore';
-import { toLatLng, lerpPt, headingDeg, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
+import { toLatLng, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
-  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp,
+  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp, gcPoint, gcPath, gcCourse,
   StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, REPLAY_BG, type GeoCam,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
@@ -32,12 +32,22 @@ const clock = (min: number) => {
 };
 const hm = (min: number) => { const m = Math.round(min); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 
-// Uppspelningens tider i sekunder: titeln, benen (efter flygtid, minst 4,4 s), en stund på marken, sammanfattningen.
-// Flygningen tar ungefär 20 sekunder, hälften så fort som första versionen.
-const INTRO = 3.0, GROUND = 2.4, REVEAL = 4.2, FLY = 19.2, MIN_LEG = 4.4, PITCH = 52;
-const ZOOM_STEP = 0.7;
+// Uppspelningens tider i sekunder: titeln, benen, en stund på marken mellan dem, sammanfattningen.
+const INTRO = 3.0, GROUND = 2.4, REVEAL = 4.2, PITCH = 52, ZOOM_STEP = 0.7;
+// Uppspelningen anpassas efter avståndet, så den känns lika lugn för en helikopterdag och en lång kommersiell flygning:
+// - tiden per ben växer med roten ur avståndet (ett kort ben ~7 s, ett långt ~14 s), hela flygningen högst 45 s;
+// - kamerans höjd följer benets längd, så en stor del av benet syns och farkosten rör sig lugnt över bilden;
+// - lutningen minskar på långa ben (52° → 36°), så man ser marken och inte mest horisont.
+const MIN_LEG = 5.5, MAX_FLY = 45;
+const legSecFor = (nm: number) => clamp(5 + 2.2 * Math.sqrt(nm / 50), MIN_LEG, 14);
+const legAltFor = (nm: number) => clamp(nm * 1852 * 0.38, 15000, 2500000);
+const legPitchFor = (nm: number) => lerp(PITCH, 36, clamp((nm - 100) / 900, 0, 1));
 
-interface PLeg { from: string; to: string; a: GeoPt; b: GeoPt; start: number; end: number; nm: number; brg: number; alt: number; t0: number; t1: number }
+interface PLeg {
+  from: string; to: string; a: GeoPt; b: GeoPt; start: number; end: number; nm: number;
+  brg0: number; brg1: number;             // kursen vid start och landning (storcirkeln)
+  alt: number; pitch: number; t0: number; t1: number;
+}
 
 export default function LongestXcMapScreen() {
   const router = useRouter();
@@ -65,9 +75,9 @@ export default function LongestXcMapScreen() {
     let clocks = ok.length > 0;
     let prevEnd = -Infinity;
     const mk = (l: typeof ok[number], start: number, end: number): PLeg => ({
-      from: l.from, to: l.to, a: l.a!, b: l.b!, start, end, nm: l.nm, brg: headingDeg(l.a!, l.b!),
-      // Kamerans höjd följer benets längd, så både korta och långa ben fyller bilden.
-      alt: clamp(l.nm * 1852 * 0.3, 12000, 60000), t0: 0, t1: 0,
+      from: l.from, to: l.to, a: l.a!, b: l.b!, start, end, nm: l.nm,
+      brg0: gcCourse(l.a!, l.b!, 0), brg1: gcCourse(l.a!, l.b!, 1),
+      alt: legAltFor(l.nm), pitch: legPitchFor(l.nm), t0: 0, t1: 0,
     });
     for (const l of ok) {
       const s0 = clockMin(l.off), e0 = clockMin(l.on);
@@ -88,8 +98,9 @@ export default function LongestXcMapScreen() {
       });
     }
     const air = Math.max(1, legs.reduce((s, l) => s + l.end - l.start, 0));
+    const secs = legs.map((l) => legSecFor(l.nm)), sum = secs.reduce((a, b) => a + b, 0), k = sum > MAX_FLY ? MAX_FLY / sum : 1;
     let t = INTRO;
-    legs.forEach((l, i) => { l.t0 = t; l.t1 = t + Math.max(MIN_LEG, (FLY * (l.end - l.start)) / air); t = l.t1 + (i < legs.length - 1 ? GROUND : 0); });
+    legs.forEach((l, i) => { l.t0 = t; l.t1 = t + Math.max(MIN_LEG, secs[i] * k); t = l.t1 + (i < legs.length - 1 ? GROUND : 0); });
     const flyEnd = legs.length ? t : 0;
     return { legs, clocks, air, flyEnd, total: legs.length ? flyEnd + REVEAL : 0, nm: legs.reduce((s, l) => s + l.nm, 0) };
   }, [d.flightLegs]);
@@ -110,21 +121,25 @@ export default function LongestXcMapScreen() {
   // Var farkosten är vid tiden t: före start, på ett ben, på marken mellan två, eller framme.
   const S = useMemo(() => {
     if (!n) return null;
-    if (t <= legs[0].t0) return { i: 0, f: 0, lin: 0, ground: true, pre: true, g: null as number | null, pos: legs[0].a, camH: legs[0].brg, alt: legs[0].alt };
+    const first = legs[0];
+    if (t <= first.t0) return { i: 0, f: 0, lin: 0, ground: true, pre: true, g: null as number | null, pos: first.a, camH: first.brg0, alt: first.alt, pitch: first.pitch };
     for (let i = 0; i < n; i++) {
       const l = legs[i];
       if (t <= l.t1) {
-        const lin = (t - l.t0) / (l.t1 - l.t0), f = lin * 0.8 + ease(lin) * 0.2;
-        return { i, f, lin, ground: false, pre: false, g: null as number | null, pos: lerpPt(l.a, l.b, f), camH: l.brg, alt: l.alt };
+        const lin = (t - l.t0) / (l.t1 - l.t0), f = lin * 0.85 + ease(lin) * 0.15;
+        return { i, f, lin, ground: false, pre: false, g: null as number | null, pos: gcPoint(l.a, l.b, f), camH: gcCourse(l.a, l.b, f), alt: l.alt, pitch: l.pitch };
       }
       const next = legs[i + 1];
       if (next && t < next.t0) {
-        const g = (t - l.t1) / (next.t0 - l.t1);
-        return { i, f: 1, lin: 1, ground: true, pre: false, g, pos: l.b, camH: angLerp(l.brg, next.brg, ease(g)), alt: lerp(l.alt, next.alt, ease(g)) * (1 - 0.12 * Math.sin(Math.PI * g)) };
+        const g = (t - l.t1) / (next.t0 - l.t1), e = ease(g);
+        return {
+          i, f: 1, lin: 1, ground: true, pre: false, g, pos: l.b, camH: angLerp(l.brg1, next.brg0, e),
+          alt: lerp(l.alt, next.alt, e) * (1 - 0.12 * Math.sin(Math.PI * g)), pitch: lerp(l.pitch, next.pitch, e),
+        };
       }
     }
     const last = legs[n - 1];
-    return { i: n - 1, f: 1, lin: 1, ground: true, pre: false, g: null as number | null, pos: last.b, camH: last.brg, alt: last.alt };
+    return { i: n - 1, f: 1, lin: 1, ground: true, pre: false, g: null as number | null, pos: last.b, camH: last.brg1, alt: last.alt, pitch: last.pitch };
   }, [t, legs, n]);
 
   // Zoomen är en faktor på kamerans höjd (1 = som uppspelningen är tänkt). Knapparna ändrar den när som helst, och
@@ -136,11 +151,11 @@ export default function LongestXcMapScreen() {
   const cam = useMemo<GeoCam | null>(() => {
     if (!ov || !S || !n) return null;
     let c: GeoCam;
-    if (t < INTRO) c = blendCam(ov, chaseCam(legs[0].a, legs[0].brg, legs[0].alt, PITCH), ease((t - 0.9) / (INTRO - 0.9)), true);
-    else if (t <= flyEnd) c = chaseCam(S.pos, S.camH, S.alt, PITCH);
+    if (t < INTRO) c = blendCam(ov, chaseCam(legs[0].a, legs[0].brg0, legs[0].alt, legs[0].pitch), ease((t - 0.9) / (INTRO - 0.9)), true);
+    else if (t <= flyEnd) c = chaseCam(S.pos, S.camH, S.alt, S.pitch);
     else {
       const end = legs[n - 1];
-      c = blendCam(chaseCam(end.b, end.brg, end.alt, PITCH), ov, ease((t - flyEnd) / 2.6), true);
+      c = blendCam(chaseCam(end.b, end.brg1, end.alt, end.pitch), ov, ease((t - flyEnd) / 2.6), true);
     }
     return { ...c, alt: c.alt * zoomK };
   }, [ov, S, t, legs, n, flyEnd, zoomK]);
@@ -181,15 +196,16 @@ export default function LongestXcMapScreen() {
     const flown: GeoPt[][] = [], future: GeoPt[][] = [];
     let head: GeoPt[] = [];
     legs.forEach((l, j) => {
-      if (j < S.i || (j === S.i && S.f >= 1)) flown.push([l.a, l.b]);
+      if (j < S.i || (j === S.i && S.f >= 1)) flown.push(gcPath(l.a, l.b, 0, 1, l.nm));
       else if (j === S.i) {
-        if (S.f > 0) flown.push([l.a, lerpPt(l.a, l.b, S.f)]);
-        future.push([lerpPt(l.a, l.b, S.f), l.b]);
-      } else future.push([l.a, l.b]);
+        if (S.f > 0) flown.push(gcPath(l.a, l.b, 0, S.f, l.nm * S.f));
+        future.push(gcPath(l.a, l.b, S.f, 1, l.nm * (1 - S.f)));
+      } else future.push(gcPath(l.a, l.b, 0, 1, l.nm));
     });
     if (!S.ground) {
-      const l = legs[S.i], hl = Math.min(S.f, 14 / Math.max(1, l.nm));
-      head = Array.from({ length: 7 }, (_, k) => lerpPt(l.a, l.b, S.f - hl + (hl * k) / 6));
+      // Den ljusa spetsen är en fast del av bilden, inte av benet: längre på långa ben där kameran är högre.
+      const l = legs[S.i], hl = Math.min(S.f, Math.max(14, l.nm * 0.04) / Math.max(1, l.nm));
+      head = Array.from({ length: 7 }, (_, k) => gcPoint(l.a, l.b, S.f - hl + (hl * k) / 6));
     }
     return { flown, future, head };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -206,7 +222,7 @@ export default function LongestXcMapScreen() {
       if (want < 0 || want > total) continue;
       let acc = 0;
       for (const l of legs) {
-        if (acc + l.nm >= want) { glow.push(lerpPt(l.a, l.b, (want - acc) / Math.max(1, l.nm))); break; }
+        if (acc + l.nm >= want) { glow.push(gcPoint(l.a, l.b, (want - acc) / Math.max(1, l.nm))); break; }
         acc += l.nm;
       }
     }
@@ -224,10 +240,11 @@ export default function LongestXcMapScreen() {
     : `LANDED · ${legs[n - 1].to}`;
   // Spelas den upp styr kameran vridningen; i paus kan man ha vridit kartan själv.
   const camH = (playing ? null : userHeading) ?? cam?.heading ?? 0;
-  const acBrg = S ? (S.ground && S.g != null ? S.camH : legs[S.i].brg) : 0;
+  const acBrg = S ? S.camH : 0;
   const lift = S && !S.ground ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp(S.lin, 0, 1)), 0.35) + 2 : 2;
   const rv = clamp((t - flyEnd - 1.4) / 0.7, 0, 1);
-  const fog = ((cam?.pitch ?? 0) / PITCH) * 0.9;
+  // Svagare dimma än förut, så satellitbilden syns mot horisonten.
+  const fog = ((cam?.pitch ?? 0) / PITCH) * 0.6;
   const title = `${Math.round(d.distanceNm || plan.nm)} NM · ${d.dateShort}${d.aircraftType ? ` · ${d.aircraftType}` : ''}`;
 
   // Tidslinjen går att dra i (den täcker flygningen, inte titeln och sammanfattningen).

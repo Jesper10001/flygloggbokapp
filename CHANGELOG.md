@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Longest XC-kartan anpassar uppspelningen efter avståndet, så att långa kommersiella flygningar går att följa. I en inspelning från användaren spelades ett ben på 1 517 NM upp på cirka 6 s med kameran på 60 km höjd. Bilden blev grå och man såg inte vart flygningen gick.
+  - **Tid per ben:** `5 + 2,2·√(NM/50)` sekunder, mellan 5,5 och 14 s. Hela flygningen tar högst 45 s.
+  - **Kamerans höjd:** NM·1852·0,38 m, mellan 15 km och 2 500 km. Ett ben på 1 517 NM ses alltså från cirka 1 070 km och ett på 52 NM från 37 km.
+  - **Lutningen** minskar från 52° till 36° mellan 100 och 1 000 NM. Dimman mot horisonten är svagare (0,6 i stället för 0,9).
+  - **Storcirkeln:** benen följer den (`gcPoint`/`gcPath`/`gcCourse` i ReplayKit), både linjen och farkosten, och kameran vrider sig med kursen längs benet. Den ljusa spetsen blir längre på långa ben.
 - Longest XC-kartan:
   - **Halverad takt:** uppspelningen går hälften så fort. Flygningen tar ungefär 20 sekunder, varje ben minst 4,4 s och varje markuppehåll 2,4 s. Titeln, nedstigningen och avslutningen tar också lite längre tid.
   - **Satellit:** en knapp till höger växlar mellan den dämpade kartan och satellit med namn (`hybrid`). Valet sparas i settings (`replay_map_type`).

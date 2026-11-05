@@ -12,7 +12,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { getSetting, setSetting } from '../../db/flights';
-import { AircraftIcon, toLatLng, MAP_CYAN, type GeoPt } from './MilestoneMap';
+import { AircraftIcon, toLatLng, headingDeg, MAP_CYAN, type GeoPt } from './MilestoneMap';
 
 const MONO = 'JetBrainsMono';
 export const REPLAY_BG = '#0C1722';
@@ -42,6 +42,28 @@ export function offsetPt(p: GeoPt, bearing: number, meters: number): GeoPt {
 export function chaseCam(pos: GeoPt, heading: number, alt: number, pitch: number): GeoCam {
   const c = offsetPt(pos, heading, alt * 0.15);
   return { lat: c.lat, lon: c.lon, alt, heading, pitch };
+}
+
+// Storcirkeln mellan två punkter: den riktiga vägen över jordklotet (syns tydligt på långa ben).
+export function gcPoint(a: GeoPt, b: GeoPt, f: number): GeoPt {
+  const r = Math.PI / 180;
+  const la1 = a.lat * r, lo1 = a.lon * r, la2 = b.lat * r, lo2 = b.lon * r;
+  const d = 2 * Math.asin(Math.sqrt(Math.sin((la2 - la1) / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin((lo2 - lo1) / 2) ** 2));
+  if (d < 1e-6) return { lat: lerp(a.lat, b.lat, f), lon: lerp(a.lon, b.lon, f) };
+  const A = Math.sin((1 - f) * d) / Math.sin(d), B = Math.sin(f * d) / Math.sin(d);
+  const x = A * Math.cos(la1) * Math.cos(lo1) + B * Math.cos(la2) * Math.cos(lo2);
+  const y = A * Math.cos(la1) * Math.sin(lo1) + B * Math.cos(la2) * Math.sin(lo2);
+  const z = A * Math.sin(la1) + B * Math.sin(la2);
+  return { lat: Math.atan2(z, Math.sqrt(x * x + y * y)) / r, lon: Math.atan2(y, x) / r };
+}
+// Punkter längs storcirkeln från andelen f0 till f1, tätare ju längre benet är.
+export function gcPath(a: GeoPt, b: GeoPt, f0: number, f1: number, nm: number): GeoPt[] {
+  const n = clamp(Math.ceil(nm / 40), 1, 48);
+  return Array.from({ length: n + 1 }, (_, i) => gcPoint(a, b, f0 + ((f1 - f0) * i) / n));
+}
+// Kursen längs storcirkeln vid andelen f (den ändras längs ett långt ben).
+export function gcCourse(a: GeoPt, b: GeoPt, f: number): number {
+  return headingDeg(gcPoint(a, b, clamp(f - 0.002, 0, 1)), gcPoint(a, b, clamp(f + 0.002, 0, 1)));
 }
 
 // Hur stort ett område är, i km, för att skala kamerans höjd mot översikten (skärmen är högre än bred).
