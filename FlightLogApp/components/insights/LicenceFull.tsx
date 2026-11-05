@@ -19,7 +19,6 @@ import { FullscreenClose } from './FullscreenShell';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
-const yShort = (a: number) => `’${String(Math.floor(a / 12)).slice(2)}`;
 // Uppnådda timmar avrundas nedåt och återstående uppåt, så ett krav aldrig ser klart ut innan det är det.
 const haveTxt = (h: number) => hoursTxt(h < 10 ? Math.floor(h * 10) / 10 : Math.floor(h));
 const toGoTxt = (h: number) => hoursTxt(h < 10 ? Math.ceil(h * 10) / 10 : Math.ceil(h));
@@ -76,26 +75,29 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
           <FullscreenClose C={C} onPress={onClose} />
         </View>
 
+        {/* Stegen som tre lika breda rutor på två rader (koden, sedan året eller procenten), så året syns även för (H). */}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {LIC_IDS.map((id, i) => {
             const L2 = states[id], on = id === sel, cur = id === current && !L2.done;
             const color = cur || on ? C.text : L2.done ? C.text2 : C.muted;
             const p = Math.min(99, Math.floor(L2.ready * 100));
             return (
-              <View key={id} style={{ flexDirection: 'row', alignItems: 'center', flex: i ? 1 : 0, minWidth: 0 }}>
-                {i > 0 ? <View style={{ flex: 1, minWidth: 6, height: 1, backgroundColor: C.border }} /> : null}
+              <View key={id} style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                {i > 0 ? <View style={{ width: 6, height: 1, backgroundColor: C.border }} /> : null}
                 <TouchableOpacity onPress={() => { tap(); useLicenceView.setState({ sel: id }); setFocus(null); }}
                   accessibilityRole="button" accessibilityState={{ selected: on }}
                   accessibilityLabel={L2.done && L2.doneA != null ? `${L2.code}, complete ${mLabel(L2.doneA)}` : `${L2.code}, ${p} percent ready`}
-                  hitSlop={{ top: 8, bottom: 8 }}
+                  hitSlop={{ top: 6, bottom: 6 }}
                   style={[st.rung, {
                     borderColor: on ? 'rgba(255,255,255,0.55)' : C.border, borderStyle: L2.done || cur ? 'solid' : 'dashed',
                     backgroundColor: on ? C.elevated : 'transparent',
                   }]}>
-                  {L2.done ? <Ionicons name="checkmark" size={10} color={color} /> : null}
-                  <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color }}>{L2.code}</Text>
-                  <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '500', color: C.muted }}>
-                    {L2.done && L2.doneA != null ? yShort(L2.doneA) : `${p}%`}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    {L2.done ? <Ionicons name="checkmark" size={9} color={color} /> : null}
+                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ flexShrink: 1, fontFamily: MONO, fontSize: 10, fontWeight: '700', color }}>{L2.code}</Text>
+                  </View>
+                  <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 9, fontWeight: '500', color: C.muted }}>
+                    {L2.done && L2.doneA != null ? String(Math.floor(L2.doneA / 12)) : `${p}%`}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -185,7 +187,7 @@ const st = StyleSheet.create({
   small: { fontFamily: MONO, fontSize: 10 },
   led: { fontFamily: FONT_LED7, fontWeight: '800', fontSize: 22 },
   unit: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
-  rung: { minHeight: 26, paddingHorizontal: 7, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 1 },
+  rung: { flex: 1, minWidth: 0, minHeight: 38, paddingHorizontal: 4, paddingVertical: 4, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 1 },
   paceRow: { minHeight: 36, borderRadius: 9, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10 },
   tile: { flex: 1, minWidth: 0, minHeight: 62, borderRadius: 11, borderWidth: 1, paddingVertical: 6, paddingHorizontal: 8, justifyContent: 'center', gap: 4 },
 });
