@@ -10,7 +10,7 @@ import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
+import { UpgradeCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { CoinInfoDialog } from '../../components/CoinInfoDialog';
 import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { Colors } from '../../constants/colors';
@@ -521,7 +521,8 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
         </TouchableOpacity>
 
-        {/* Blade coins (components/PlanCoinsSection, samma i drönarläget). Abonnemanget ligger på profilsidan. */}
+        {/* Uppgradering uppåt + Blade coins (components/PlanCoinsSection, samma i drönarläget). Hanteringen av abonnemanget ligger på profilsidan. */}
+        <UpgradeCard T={planTheme} />
         <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
       </View>
 

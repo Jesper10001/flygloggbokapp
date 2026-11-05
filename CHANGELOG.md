@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Settings har en paywall-knapp direkt under Profile som alltid pekar en nivå uppåt.
+  - Gratis: "Upgrade to Premium · Unlimited flights". I TestFlight visar paywallen även Max.
+  - Premium: "Upgrade to Max · 500 coins a month". Bara med de nya paywallsen, så i App Store-bygget syns ingen knapp för Premium.
+  - Max: ingen knapp.
+  - Knappen har en svag guldton, och raden på profilsidan heter också "Upgrade to Max".
 - Abonnemanget hanteras på profilsidan i stället för direkt i Settings. Settings har bara Profile och Blade coins överst.
   - Profilsidan är omgjord. Överst står initialerna i en ring, namnet och titel · arbetsplats, och de följer fälten medan man skriver.
   - Därefter kommer "Subscription": nivån (Free, Blades Premium eller Blades Max), vad den ger och en Active-märkning.

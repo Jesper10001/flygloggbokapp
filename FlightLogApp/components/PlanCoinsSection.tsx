@@ -1,5 +1,6 @@
 // Abonnemang och Blade coins. SubscriptionPanel ligger på profilsidan (app/settings/profile.tsx).
-// CoinsCard överst i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): EN mätare för månadens och köpta coins. Månadens ligger först och går åt först; köpta (vita) ligger
+// UpgradeCard direkt under Profile i Settings: alltid nästa nivå uppåt (gratis → Premium, Premium → Max).
+// CoinsCard under den i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): EN mätare för månadens och köpta coins. Månadens ligger först och går åt först; köpta (vita) ligger
 // efter och används när månadens är slut, som proxyn drar dem (proxy/src/credits.ts splitCharge).
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
@@ -27,6 +28,24 @@ const COIN = require('../assets/Blade_coin.PNG');
 const EXTRA = 'rgba(255,255,255,0.86)';
 const TRACK = '#1A2D45';
 const WARN = '#FFB830';
+const GOLD = '#FFB830';
+
+// Paywall-knappen under Profile. Gratis: Premium (paywallen visar även Max i TestFlight). Premium: Max, bara med
+// de nya paywallsen. Max: ingen knapp, det finns inget högre.
+export function UpgradeCard({ T }: { T: PlanTheme }) {
+  const { isPremium, isMax } = useFlightStore();
+  if (isMax || (isPremium && !NEW_PAYWALLS)) return null;
+  const toMax = isPremium;
+  return (
+    <TouchableOpacity style={[st.card, st.upgrade]} activeOpacity={0.7} accessibilityRole="button"
+      accessibilityLabel={toMax ? 'Upgrade to Max, 500 coins a month' : 'Upgrade to Premium, unlimited flights'}
+      onPress={() => { if (toMax) presentPaywall('Blades Max', { upgrade: true }); else presentPaywall(); }}>
+      <Text style={[st.label, { color: GOLD }]}>{toMax ? 'Upgrade to Max' : 'Upgrade to Premium'}</Text>
+      <Text style={[st.upgradeHint, { color: T.label }]} numberOfLines={1}>{toMax ? '500 coins a month' : 'Unlimited flights'}</Text>
+      <Ionicons name="chevron-forward" size={16} color={GOLD} />
+    </TouchableOpacity>
+  );
+}
 
 // Abonnemanget på profilsidan: nivå, vad den ger, och hantering. Gratisnivån får paywallen och Restore.
 export function SubscriptionPanel() {
@@ -66,7 +85,7 @@ export function SubscriptionPanel() {
       {paid ? (
         <>
           <PanelRow label="Manage subscription" onPress={manage} />
-          {showMax && <PanelRow label="Upgrade to Blades Max" value="500 coins a month" onPress={() => { presentPaywall('Blades Max', { upgrade: true }); }} />}
+          {showMax && <PanelRow label="Upgrade to Max" value="500 coins a month" onPress={() => { presentPaywall('Blades Max', { upgrade: true }); }} />}
         </>
       ) : (
         <>
@@ -147,6 +166,11 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
 const st = StyleSheet.create({
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
   label: { flex: 1, fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase' },
+  upgrade: {
+    height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255,184,48,0.07)', borderColor: 'rgba(255,184,48,0.32)',
+  },
+  upgradeHint: { fontSize: 13 },
   planHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14 },
   planName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   perks: { fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
