@@ -92,6 +92,24 @@ export function buildState(lic: WLicenceSet, D: InsightsData, nowA: number): Lic
   };
 }
 
+// Helskärmens takter: ens bästa (den snabbaste av 3 mån, 12 mån och karriären), som de senaste 12 månaderna, eller ens
+// långsammaste. Varje krav i sin egen takt.
+export type LicPace = 'fast' | 'usual' | 'slow';
+export const pacePick = (p: LicPace) => (r: LicReq) => (p === 'fast' ? r.fast : p === 'slow' ? r.slow : r.pace);
+export const monthsAt = (r: LicReq, pick: (r: LicReq) => number): number | null =>
+  r.met ? 0 : pick(r) > 0 ? Math.ceil(r.toGo / pick(r)) : null;
+
+// När licensen blir klar i en takt och vilket krav som sätter datumet. m null = något krav har ingen takt (det är lim).
+export function etaFor(S: LicState, pick: (r: LicReq) => number): { m: number | null; lim: LicReq | null } {
+  let lim: LicReq | null = null, mx = 0;
+  for (const r of S.open) {
+    const m = monthsAt(r, pick);
+    if (m == null) return { m: null, lim: r };
+    if (!lim || m > mx) { mx = m; lim = r; }
+  }
+  return { m: mx, lim };
+}
+
 // Timmar i texter: en decimal under 10 h (5 h-krav syns annars inte), annars hela timmar.
 export function hoursTxt(h: number): string {
   if (h < 10) return String(Math.round(h * 10) / 10);

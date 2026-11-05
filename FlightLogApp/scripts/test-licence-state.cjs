@@ -86,6 +86,12 @@ console.log('ATPL på väg');
   ok(S.fastM != null && S.slowM != null && S.fastM <= S.etaM && S.slowM >= S.etaM, `fönstret ${S.fastM}–${S.slowM} omfattar ${S.etaM}`);
   ok(L.readyAt(S, nowA - 80, nowA) === 0, 'före loggboken är man 0 % redo');
   ok(S.doneA === null, 'ingen klar-månad för en pågående licens');
+
+  // Helskärmens takter: den vanliga ger samma datum som kortet, den bästa och den långsammaste som fönstret.
+  const usual = L.etaFor(S, L.pacePick('usual')), fast = L.etaFor(S, L.pacePick('fast')), slow = L.etaFor(S, L.pacePick('slow'));
+  ok(usual.m === S.etaM && usual.lim === S.lim, `vanlig takt = kortets ETA, fick ${usual.m}`);
+  ok(fast.m === S.fastM && slow.m === S.slowM, `bästa/långsammaste = fönstret, fick ${fast.m}/${slow.m}`);
+  ok(L.monthsAt(S.reqs.find((r) => r.key === 'pic'), L.pacePick('slow')) === 0, 'ett klart krav har 0 månader kvar');
 }
 
 console.log('PPL klar');
@@ -113,6 +119,8 @@ console.log('Krav utan takt');
   ok(S.etaM === null, `ingen ETA när IFR inte flugits på ett år, fick ${S.etaM}`);
   ok(S.lim && S.lim.key === 'ifr', `IFR pekas ut, fick ${S.lim && S.lim.key}`);
   ok(S.reqs.find((r) => r.key === 'ifr').m === null, 'IFR har inget datum');
+  const u = L.etaFor(S, L.pacePick('usual'));
+  ok(u.m === null && u.lim && u.lim.key === 'ifr', 'etaFor: inget datum, IFR pekas ut');
 }
 
 console.log('Tom loggbok');

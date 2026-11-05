@@ -6,40 +6,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useFlightStore } from '../../store/flightStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useInsightsTheme, type InsightsTheme } from './insightsTheme';
 import { useInsightsData, fmtIntH, projectionUnlock } from './insightsData';
+import {
+  MON3, CATS, labelOf, milestonesFor, stepFor, absNow, absOfIso, mLabel, mShort, dur, one, led,
+  useProjectionView, setProjectionMetric, projectionModel, type PaceMode,
+} from './projectionModel';
 import { ProjectionChart } from './ProjectionChart';
 import { ProjectionSheet } from './ProjectionSheet';
 import { ProjectionsLocked } from './ProjectionsLocked';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
-const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const GOALS_KEY = 'projection_goals';
 
-const CATS = [
-  { key: 'total', label: 'Total' }, { key: 'pic', label: 'PIC' }, { key: 'ifr', label: 'IFR' },
-  { key: 'night', label: 'Night' }, { key: 'nvg', label: 'NVG' }, { key: 'multi_pilot', label: 'Multi-pilot' },
-  { key: 'co_pilot', label: 'Co-pilot' }, { key: 'dual', label: 'Dual' }, { key: 'xc', label: 'Cross-country' },
-];
-const labelOf = (k: string) => CATS.find((c) => c.key === k)?.label ?? k;
-
-// Milstolpar efter hur mycket tid man har: steg om 50 h under 150 h, sedan 100, 250 och 500.
-const stepFor = (h: number) => (h < 150 ? 50 : h < 500 ? 100 : h < 1500 ? 250 : 500);
-const milestonesFor = (h: number) => { const s = stepFor(h); const m1 = Math.ceil((h + 1) / s) * s; return [m1, m1 + s, m1 + 2 * s, m1 + 5 * s]; };
-
-const absNow = () => { const d = new Date(); return d.getFullYear() * 12 + d.getMonth(); };
-const absOfIso = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1;
-const mLabel = (a: number) => `${MON3[((a % 12) + 12) % 12]} ${Math.floor(a / 12)}`;
-const mShort = (a: number) => `${MON3[((a % 12) + 12) % 12]} ’${String(Math.floor(a / 12)).slice(2)}`;
-const dur = (m: number) => (m < 12 ? `${m} mo` : `${Math.floor(m / 12)} yr${m % 12 ? ` ${m % 12} mo` : ''}`);
-const one = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
-const led = (h: number) => (h < 100 ? h.toFixed(1) : String(Math.round(h)));
-
-type PaceMode = 'r3' | 'r12' | 'career' | 'custom';
 type SheetKind = 'target' | 'pace' | 'goals';
 interface Goal { key: string; hours: number }
 
@@ -52,10 +37,12 @@ export function GoalCard({ onDrag }: { onDrag?: (active: boolean) => void }) {
 function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
   const C = useInsightsTheme();
   const D = useInsightsData();
-  const [metric, setMetricKey] = useState('total');
-  const [target, setTarget] = useState<number | null>(null);   // null = näst närmaste milstolpen
-  const [paceMode, setPaceMode] = useState<PaceMode>('r12');
-  const [customPace, setCustomPace] = useState(0);
+  // Sorts tid, mål och takt delas med helskärmen (projectionModel).
+  const view = useProjectionView();
+  const { metric, paceMode } = view;
+  const setTarget = (t: number | null) => useProjectionView.setState({ target: t });
+  const setPaceMode = (p: PaceMode) => useProjectionView.setState({ paceMode: p });
+  const setCustomPace = (n: number) => useProjectionView.setState({ customPace: n });
   const [sheet, setSheet] = useState<SheetKind>('target');
   const [open, setOpen] = useState(false);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -73,33 +60,13 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
 
   const nowA = absNow();
   const haveOf = (k: string) => { const s = D.seriesFor(k); return s.length ? s[s.length - 1].cum : 0; };
-  const series = D.seriesFor(metric);
-  const have = haveOf(metric);
-  const monthly = series.map((p, i) => p.cum - (i ? series[i - 1].cum : 0));
-  const P = {
-    r3: monthly.slice(-3).reduce((a, b) => a + b, 0) / 3,
-    r12: D.rateFor(metric),
-    career: series.length ? have / series.length : 0,
-  };
-  const pace = Math.max(0, paceMode === 'custom' ? customPace : P[paceMode]);
-  const snap = stepFor(have) / 10;
-  const minTarget = Math.ceil((have + snap) / snap) * snap;
-  const tgt = Math.max(minTarget, target ?? milestonesFor(have)[1]);
-  const toGo = tgt - have;
-  const etaM = pace > 0 ? Math.ceil(toGo / pace) : null;
-  const natural = [P.r3, P.r12, P.career].filter((p) => p > 0);
-  const fast = natural.length ? Math.max(...natural) : 0, slow = natural.length ? Math.min(...natural) : 0;
-  const fastA = fast > 0 ? nowA + Math.ceil(toGo / fast) : null, slowA = slow > 0 ? nowA + Math.ceil(toGo / slow) : null;
-  const hasWindow = fastA != null && slowA != null && fastA !== slowA;
+  const { series, have, monthly, P, pace, snap, minTarget, tgt, toGo, etaM, fast, slow, fastA, slowA, hasWindow, mult, diff, paceDelta, paceStep } =
+    projectionModel(D, view, nowA);
 
-  const setMetric = (k: string, t: number | null = null) => {
-    setMetricKey(k); setTarget(t);
-    if (paceMode === 'custom') setPaceMode('r12');
-  };
+  const setMetric = setProjectionMetric;
   const openSheet = (s: SheetKind) => { setSheet(s); setAdding(false); setOpen(true); };
 
   // Målen: varje kategori i sin egen 12-månaderstakt, skalad som takten ovan (flyger man mer, flyger man mer av allt).
-  const mult = P.r12 > 0 && pace > 0 ? pace / P.r12 : 1;
   const built = goals.map((g, idx) => {
     const h = haveOf(g.key), reached = h >= g.hours, rate = D.rateFor(g.key) * mult;
     const met = reached ? D.metDateFor(g.key, g.hours) : null;
@@ -108,13 +75,6 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
   }).sort((a, b) => (a.reached === b.reached ? 0 : a.reached ? -1 : 1) || (a.at ?? Infinity) - (b.at ?? Infinity));
   const firstOpen = built.findIndex((b) => !b.reached);
   const nextGoal = firstOpen >= 0 ? built[firstOpen] : null;
-
-  const baseM = P.r12 > 0 ? Math.ceil(toGo / P.r12) : null;
-  const diff = baseM != null && etaM != null ? baseM - etaM : 0;
-  const paceDelta = paceMode === 'r12' ? 'Your usual pace'
-    : diff === 0 ? 'Same month as your usual pace'
-    : diff > 0 ? `${dur(diff)} sooner than usual` : `${dur(-diff)} later than usual`;
-  const paceStep = P.r12 >= 5 ? 1 : 0.5;
 
   const addHave = haveOf(addKey), addStep = stepFor(addHave) / 5;
   const addRate = D.rateFor(addKey) * mult;
@@ -138,7 +98,9 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
         <Ionicons name="trending-up" size={17} color={C.text2} />
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
+        <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Projections</Text>
+        <FullscreenButton C={C} label="Open Projections in full screen" onPress={() => router.push('/projections-full')} />
+        <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={() => openSheet('target')} accessibilityLabel={`${labelOf(metric)} time. Change the kind of time`}
           style={[st.chip, { borderColor: C.border, backgroundColor: C.elevated }]}>
           <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: C.text }}>{labelOf(metric)}</Text>
@@ -365,6 +327,17 @@ function Projections({ onDrag }: { onDrag?: (active: boolean) => void }) {
         )}
       </ProjectionSheet>
     </View>
+  );
+}
+
+// Knappen direkt efter rubriken som öppnar kortet i liggande helskärm (delas med Next licence).
+export function FullscreenButton({ C, label, onPress }: { C: InsightsTheme; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} accessibilityRole="button" accessibilityLabel={label}
+      hitSlop={{ top: 9, bottom: 9, left: 6, right: 9 }}
+      style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.elevated, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name="expand-outline" size={13} color={C.text2} />
+    </TouchableOpacity>
   );
 }
 

@@ -1,22 +1,26 @@
-// Longest XC i helskärm på Apple-kartan, där dagen spelas upp: farkosten (helikopter eller plan efter flottans
-// kategori) flyger längs rutten medan man spelar upp eller drar i tidslinjen. Den flugna sträckan ritas i cyan.
-// Kartan går att flytta och zooma men inte vrida, så att nosen alltid pekar rätt. Medan kartan är öppen väntar appens
-// popup-rutor (useMapScreenStore), annars kan skärmen låsa sig.
+// Longest XC i helskärm på Apple-kartan, uppspelad som en kameraåkning (designvyns "Map replay v3"). Dagens titel
+// tonar in över hela rutten, kameran dyker ner till avgången och följer farkosten snett bakifrån (lutad och vriden i
+// färdriktningen), svänger vid varje mellanlandning, och drar sig till sist upp till hela rutten där ljuspunkter löper
+// längs linjen och sammanfattningen kommer upp. Uppspelningen börjar när kartan öppnas. Tidslinjen går att dra i, och
+// i paus går kartan att flytta. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore), annars kan
+// skärmen låsa sig.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, PanResponder } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Polyline, Marker } from 'react-native-maps';
+import MapView, { Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
 import { useMapScreenStore } from '../../store/mapScreenStore';
+import { toLatLng, lerpPt, headingDeg, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
-  AirportMarker, LegLabel, AircraftIcon, regionFor, toLatLng, lerpPt, headingDeg, MAP_CYAN, MAP_WATER, type GeoPt,
-} from '../../components/milestones/MilestoneMap';
-import { MONO } from '../../components/milestones/MilestoneUI';
+  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp,
+  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, REPLAY_BG, type GeoCam,
+} from '../../components/milestones/ReplayKit';
+import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const clockMin = (t: string): number | null => {
   const m = /^(\d{1,2}):(\d{2})$/.exec((t || '').trim());
@@ -26,8 +30,12 @@ const clock = (min: number) => {
   const m = ((Math.round(min) % 1440) + 1440) % 1440;
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
+const hm = (min: number) => { const m = Math.round(min); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 
-interface TLeg { from: string; to: string; a: GeoPt; b: GeoPt; start: number; end: number; nm: number }
+// Uppspelningens tider i sekunder: titeln, benen (efter flygtid, minst 2,2 s), en stund på marken, sammanfattningen.
+const INTRO = 2.4, GROUND = 1.2, REVEAL = 3.4, FLY = 9.6, PITCH = 52;
+
+interface PLeg { from: string; to: string; a: GeoPt; b: GeoPt; start: number; end: number; nm: number; brg: number; alt: number; t0: number; t1: number }
 
 export default function LongestXcMapScreen() {
   const router = useRouter();
@@ -48,197 +56,321 @@ export default function LongestXcMapScreen() {
     return () => { useMapScreenStore.setState({ open: false }); };
   }, []);
 
-  // Tidslinjen i minuter. Saknas eller krockar klockslagen läggs benen efter varandra med sin flygtid.
-  const tl = useMemo(() => {
+  // Benen med klockslag (för TIME och GS). Saknas eller krockar klockslagen läggs benen efter varandra med sin flygtid.
+  const plan = useMemo(() => {
     const ok = d.flightLegs.filter((l) => l.a && l.b);
-    let legs: TLeg[] = [];
-    let valid = ok.length > 0;
+    let legs: PLeg[] = [];
+    let clocks = ok.length > 0;
     let prevEnd = -Infinity;
+    const mk = (l: typeof ok[number], start: number, end: number): PLeg => ({
+      from: l.from, to: l.to, a: l.a!, b: l.b!, start, end, nm: l.nm, brg: headingDeg(l.a!, l.b!),
+      // Kamerans höjd följer benets längd, så både korta och långa ben fyller bilden.
+      alt: clamp(l.nm * 1852 * 0.3, 12000, 60000), t0: 0, t1: 0,
+    });
     for (const l of ok) {
       const s0 = clockMin(l.off), e0 = clockMin(l.on);
-      if (s0 == null || e0 == null) { valid = false; break; }
+      if (s0 == null || e0 == null) { clocks = false; break; }
       let start = s0, end = e0;
       while (start < prevEnd) start += 1440;
       while (end <= start) end += 1440;
-      legs.push({ from: l.from, to: l.to, a: l.a!, b: l.b!, start, end, nm: l.nm });
+      legs.push(mk(l, start, end));
       prevEnd = end;
     }
-    if (!valid) {
+    if (!clocks) {
       let t = 0;
       legs = ok.map((l) => {
         const dur = Math.max(10, Math.round(l.hours * 60));
-        const leg = { from: l.from, to: l.to, a: l.a!, b: l.b!, start: t, end: t + dur, nm: l.nm };
+        const leg = mk(l, t, t + dur);
         t += dur;
         return leg;
       });
     }
-    const t0 = legs[0]?.start ?? 0, span = Math.max(1, (legs[legs.length - 1]?.end ?? 1) - t0);
-    return { legs, t0, span, total: legs.reduce((s, l) => s + l.nm, 0), clocks: valid };
+    const air = Math.max(1, legs.reduce((s, l) => s + l.end - l.start, 0));
+    let t = INTRO;
+    legs.forEach((l, i) => { l.t0 = t; l.t1 = t + Math.max(2.2, (FLY * (l.end - l.start)) / air); t = l.t1 + (i < legs.length - 1 ? GROUND : 0); });
+    const flyEnd = legs.length ? t : 0;
+    return { legs, clocks, air, flyEnd, total: legs.length ? flyEnd + REVEAL : 0, nm: legs.reduce((s, l) => s + l.nm, 0) };
   }, [d.flightLegs]);
+  const { legs, flyEnd } = plan;
+  const n = legs.length;
 
-  const [t, setT] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tRef = useRef(0);
-  tRef.current = t;
-  const stop = () => { if (timer.current) clearInterval(timer.current); timer.current = null; setPlaying(false); };
-  const play = () => {
-    stop();
-    const start = tRef.current >= tl.span ? 0 : tRef.current;
-    setT(start);
-    setPlaying(true);
-    let now = start;
-    // Hela dagen spelas upp på ungefär åtta sekunder.
-    timer.current = setInterval(() => {
-      now = Math.min(tl.span, now + tl.span / 200);
-      setT(now);
-      if (now >= tl.span) stop();
-    }, 40);
-  };
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+  const mapRef = useRef<MapView>(null);
+  const pts = legs.flatMap((l) => [l.a, l.b]);
+  const { ov, onMapReady } = useOverview(mapRef, pts, { top: insets.top + 110, right: 60, bottom: 260, left: 60 });
+  const { t, playing, play, halt, seek } = useReplay(plan.total);
 
-  // Tidslinjen går att dra i.
+  // Uppspelningen börjar av sig själv när översikten är mätt.
+  const started = useRef(false);
+  useEffect(() => {
+    if (ov && n && !started.current) { started.current = true; play(); }
+  }, [ov, n, play]);
+
+  // Var farkosten är vid tiden t: före start, på ett ben, på marken mellan två, eller framme.
+  const S = useMemo(() => {
+    if (!n) return null;
+    if (t <= legs[0].t0) return { i: 0, f: 0, lin: 0, ground: true, pre: true, g: null as number | null, pos: legs[0].a, camH: legs[0].brg, alt: legs[0].alt };
+    for (let i = 0; i < n; i++) {
+      const l = legs[i];
+      if (t <= l.t1) {
+        const lin = (t - l.t0) / (l.t1 - l.t0), f = lin * 0.8 + ease(lin) * 0.2;
+        return { i, f, lin, ground: false, pre: false, g: null as number | null, pos: lerpPt(l.a, l.b, f), camH: l.brg, alt: l.alt };
+      }
+      const next = legs[i + 1];
+      if (next && t < next.t0) {
+        const g = (t - l.t1) / (next.t0 - l.t1);
+        return { i, f: 1, lin: 1, ground: true, pre: false, g, pos: l.b, camH: angLerp(l.brg, next.brg, ease(g)), alt: lerp(l.alt, next.alt, ease(g)) * (1 - 0.12 * Math.sin(Math.PI * g)) };
+      }
+    }
+    const last = legs[n - 1];
+    return { i: n - 1, f: 1, lin: 1, ground: true, pre: false, g: null as number | null, pos: last.b, camH: last.brg, alt: last.alt };
+  }, [t, legs, n]);
+
+  // Kameran är en funktion av t, så den följer med både uppspelning och dragning i tidslinjen.
+  const cam = useMemo<GeoCam | null>(() => {
+    if (!ov || !S || !n) return null;
+    const chase = (s: NonNullable<typeof S>) => chaseCam(s.pos, s.camH, s.alt, PITCH);
+    if (t < INTRO) return blendCam(ov, chaseCam(legs[0].a, legs[0].brg, legs[0].alt, PITCH), ease((t - 0.9) / (INTRO - 0.9)), true);
+    if (t <= flyEnd) return chase(S);
+    const end = legs[n - 1];
+    return blendCam(chaseCam(end.b, end.brg, end.alt, PITCH), ov, ease((t - flyEnd) / 1.9), true);
+  }, [ov, S, t, legs, n, flyEnd]);
+  const [userHeading, setUserHeading] = useState<number | null>(null);
+  useEffect(() => {
+    if (cam) mapRef.current?.setCamera(toCamera(cam));
+  }, [cam]);
+  const control = (fn: () => void) => { setUserHeading(null); fn(); };
+
+  // Linjerna ritas om åtta gånger i sekunden, inte varje steg (Apple-kartan flimrar annars).
+  const step = Math.floor(t * 8);
+  const lines = useMemo(() => {
+    if (!S) return { flown: [] as GeoPt[][], future: [] as GeoPt[][], head: [] as GeoPt[] };
+    const flown: GeoPt[][] = [], future: GeoPt[][] = [];
+    let head: GeoPt[] = [];
+    legs.forEach((l, j) => {
+      if (j < S.i || (j === S.i && S.f >= 1)) flown.push([l.a, l.b]);
+      else if (j === S.i) {
+        if (S.f > 0) flown.push([l.a, lerpPt(l.a, l.b, S.f)]);
+        future.push([lerpPt(l.a, l.b, S.f), l.b]);
+      } else future.push([l.a, l.b]);
+    });
+    if (!S.ground) {
+      const l = legs[S.i], hl = Math.min(S.f, 14 / Math.max(1, l.nm));
+      head = Array.from({ length: 7 }, (_, k) => lerpPt(l.a, l.b, S.f - hl + (hl * k) / 6));
+    }
+    return { flown, future, head };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, legs]);
+  const headColors = lines.head.map((_, k) => `rgba(230,251,255,${(k / 6).toFixed(2)})`);
+
+  // Avslutningen: tre ljuspunkter löper längs hela rutten när kameran har dragit sig upp.
+  const glow: GeoPt[] = [];
+  const r = (t - flyEnd - 1.3) / 1.6;
+  if (n && r > 0 && r < 1.2) {
+    const total = plan.nm || 1;
+    for (const off of [0, 0.1, 0.2]) {
+      const want = (r - off) * total;
+      if (want < 0 || want > total) continue;
+      let acc = 0;
+      for (const l of legs) {
+        if (acc + l.nm >= want) { glow.push(lerpPt(l.a, l.b, (want - acc) / Math.max(1, l.nm))); break; }
+        acc += l.nm;
+      }
+    }
+  }
+
+  const codes = n ? [legs[0].from, ...legs.map((l) => l.to)] : [];
+  const stops = codes.map((k, i) => ({ k, p: i === 0 ? legs[0].a : legs[i - 1].b, at: i === 0 ? 0 : legs[i - 1].t1 }))
+    .filter((x, i, arr) => arr.findIndex((y) => y.k === x.k) === i);
+  const L = S ? legs[S.i] : null, next = S ? legs[S.i + 1] : undefined;
+  const flownNm = S ? legs.reduce((s, l, j) => s + (j < S.i ? l.nm : j === S.i ? l.nm * S.f : 0), 0) : 0;
+  const clockM = !S || !L ? 0 : S.pre ? legs[0].start : !S.ground ? lerp(L.start, L.end, S.f) : next && S.g != null ? lerp(L.end, next.start, S.g) : legs[n - 1].end;
+  const status = !S || !L ? 'No route on the map' : S.pre ? `READY · ${legs[0].from}`
+    : !S.ground ? `LEG ${S.i + 1} OF ${n} · ${L.from} → ${L.to}`
+    : next && S.g != null ? `ON GROUND · ${L.to} · ${Math.round(next.start - L.end)} MIN`
+    : `LANDED · ${legs[n - 1].to}`;
+  // Spelas den upp styr kameran vridningen; i paus kan man ha vridit kartan själv.
+  const camH = (playing ? null : userHeading) ?? cam?.heading ?? 0;
+  const acBrg = S ? (S.ground && S.g != null ? S.camH : legs[S.i].brg) : 0;
+  const lift = S && !S.ground ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp(S.lin, 0, 1)), 0.35) + 2 : 2;
+  const rv = clamp((t - flyEnd - 0.7) / 0.6, 0, 1);
+  const fog = ((cam?.pitch ?? 0) / PITCH) * 0.9;
+  const title = `${Math.round(d.distanceNm || plan.nm)} NM · ${d.dateShort}${d.aircraftType ? ` · ${d.aircraftType}` : ''}`;
+
+  // Tidslinjen går att dra i (den täcker flygningen, inte titeln och sammanfattningen).
   const [trackW, setTrackW] = useState(1);
-  const trackRef = useRef({ w: 1, span: 1 });
-  trackRef.current = { w: trackW, span: tl.span };
+  const trackRef = useRef({ w: 1, a: 0, b: 1 });
+  trackRef.current = { w: trackW, a: INTRO, b: flyEnd || 1 };
+  const seekRef = useRef(seek);
+  seekRef.current = (v: number) => { setUserHeading(null); seek(v); };
+  const haltRef = useRef(halt);
+  haltRef.current = halt;
+  const toT = (x: number) => { const s = trackRef.current; return s.a + clamp(x / s.w, 0, 1) * (s.b - s.a); };
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: (e) => { stop(); setT(Math.max(0, Math.min(1, e.nativeEvent.locationX / trackRef.current.w)) * trackRef.current.span); },
-    onPanResponderMove: (e) => { setT(Math.max(0, Math.min(1, e.nativeEvent.locationX / trackRef.current.w)) * trackRef.current.span); },
+    onPanResponderGrant: (e) => { haltRef.current(); seekRef.current(toT(e.nativeEvent.locationX)); },
+    onPanResponderMove: (e) => { seekRef.current(toT(e.nativeEvent.locationX)); },
   })).current;
-
-  // Var farkosten är vid tiden t: på ett ben, eller på marken mellan två.
-  const now = tl.t0 + t;
-  let cur = 0, frac = 0, onGround = false;
-  for (let i = 0; i < tl.legs.length; i++) {
-    const l = tl.legs[i];
-    if (now < l.start) { cur = Math.max(0, i - 1); frac = i ? 1 : 0; onGround = true; break; }
-    if (now <= l.end) { cur = i; frac = (now - l.start) / (l.end - l.start); onGround = false; break; }
-    cur = i; frac = 1; onGround = i !== tl.legs.length - 1;
-  }
-  const leg = tl.legs[cur];
-  const pos = leg ? lerpPt(leg.a, leg.b, frac) : null;
-  const flown = tl.legs.reduce((s, l, j) => s + (j < cur ? l.nm : j === cur ? l.nm * frac : 0), 0);
-
-  // Den flugna sträckan ritas om några gånger i sekunden, inte varje bildruta (Apple-kartan flimrar annars).
-  const step = Math.max(1, Math.round((t / tl.span) * 60));
-  const done = useMemo(() => {
-    if (!leg || t <= 0) return [];
-    const pts = [toLatLng(tl.legs[0].a)];
-    tl.legs.forEach((l, j) => {
-      if (j < cur) pts.push(toLatLng(l.b));
-      else if (j === cur) pts.push(toLatLng(lerpPt(l.a, l.b, frac)));
-    });
-    return pts;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, tl]);
-
-  const mapRef = useRef<MapView>(null);
-  const pts = tl.legs.flatMap((l) => [l.a, l.b]);
-  const fit = () => {
-    if (!pts.length) return;
-    mapRef.current?.fitToCoordinates(pts.map(toLatLng), { edgePadding: { top: insets.top + 110, right: 60, bottom: 240, left: 60 }, animated: false });
-  };
-  const codes = tl.legs.length ? [tl.legs[0].from, ...tl.legs.map((l) => l.to)] : [];
-  const stops = codes.map((k, i) => ({ k, p: i === 0 ? tl.legs[0].a : tl.legs[i - 1].b, end: i === 0 || i === codes.length - 1 }))
-    .filter((x, i, arr) => arr.findIndex((y) => y.k === x.k) === i);
-  const landed = t >= tl.span, ready = t <= 0;
-  const statusHead = ready ? 'READY' : landed ? 'LANDED' : onGround ? 'ON GROUND' : `LEG ${cur + 1} OF ${tl.legs.length}`;
-  const statusText = !leg ? '' : ready ? leg.from : landed ? tl.legs[tl.legs.length - 1].to : onGround ? leg.to : `${leg.from}→${leg.to}`;
+  const span = Math.max(0.01, flyEnd - INTRO), knob = clamp((t - INTRO) / span, 0, 1);
 
   return (
-    <View style={{ flex: 1, backgroundColor: MAP_WATER }}>
+    <View style={{ flex: 1, backgroundColor: REPLAY_BG }}>
       <Stack.Screen options={{ headerShown: false, animation: 'fade' }} />
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={regionFor(pts)}
-        onMapReady={fit}
-        mapType="standard"
+        onMapReady={onMapReady}
+        mapType="mutedStandard"
         userInterfaceStyle="dark"
         showsPointsOfInterests={false}
+        showsBuildings={false}
         showsCompass={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
+        showsTraffic={false}
+        toolbarEnabled={false}
+        scrollEnabled={!playing}
+        zoomEnabled={!playing}
+        rotateEnabled
+        pitchEnabled
+        onRegionChangeComplete={() => { mapRef.current?.getCamera().then((c) => setUserHeading(c.heading ?? 0)).catch(() => {}); }}
       >
-        {tl.legs.map((l, i) => (
-          <Polyline key={`all${i}`} coordinates={[toLatLng(l.a), toLatLng(l.b)]} strokeColor="rgba(0,200,232,0.45)" strokeWidth={2} lineDashPattern={[6, 6]} />
+        {lines.future.map((seg, i) => (
+          <Polyline key={`f${i}`} coordinates={seg.map(toLatLng)} strokeColor="rgba(0,200,232,0.4)" strokeWidth={1.8} lineDashPattern={[6, 7]} />
         ))}
-        {done.length > 1 ? <Polyline coordinates={done} strokeColor={MAP_CYAN} strokeWidth={3.2} lineCap="round" lineJoin="round" /> : null}
-        {tl.legs.map((l, i) => (
-          <LegLabel key={`nm${i}`} p={lerpPt(l.a, l.b, 0.5)} text={`${Math.round(l.nm)} NM`} />
+        {lines.flown.map((seg, i) => (
+          <Polyline key={`g${i}`} coordinates={seg.map(toLatLng)} strokeColor="rgba(0,200,232,0.18)" strokeWidth={11} lineCap="round" lineJoin="round" />
         ))}
-        {stops.map((x) => <AirportMarker key={x.k} p={x.p} icao={x.k} />)}
-        {pos && leg ? (
-          <Marker coordinate={toLatLng(pos)} anchor={{ x: 0.5, y: 0.5 }} zIndex={10}>
-            <AircraftIcon heli={d.heli} heading={headingDeg(leg.a, leg.b)} spinning={playing} />
-          </Marker>
-        ) : null}
+        {lines.flown.map((seg, i) => (
+          <Polyline key={`c${i}`} coordinates={seg.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={3} lineCap="round" lineJoin="round" />
+        ))}
+        {lines.head.length > 1 ? <Polyline coordinates={lines.head.map(toLatLng)} strokeColors={headColors} strokeWidth={2.8} lineCap="round" /> : null}
+        {stops.map((x) => <StopMarker key={x.k} p={x.p} code={x.k} visited={t >= x.at} />)}
+        {legs.map((l, j) => (t >= l.t1 && t - l.t1 < 1.5 ? <RippleMarker key={`r${j}`} p={l.b} /> : null))}
+        {glow.map((p, i) => <GlowDot key={`d${i}`} p={p} />)}
+        {S && rv < 1 ? <ReplayAircraft p={S.pos} heli={d.heli} heading={acBrg - camH} spinning={playing && !S.ground} lift={lift} /> : null}
       </MapView>
+      <ReplayShade fog={fog} />
+      <TitleCard t={t} top={insets.top + 190} cap={sub ? 'CROSS-COUNTRY' : 'LONGEST CROSS-COUNTRY'}
+        title={n ? `${legs[0].from} → ${legs[n - 1].to}` : ''} sub={title} />
 
       <View style={[s.top, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} style={s.close} accessibilityLabel="Close the map">
-          <Ionicons name="close" size={18} color={Colors.textPrimary} />
+        <Pressable onPress={() => router.back()} accessibilityLabel="Close the map">
+          <Glass style={s.close}><Ionicons name="close" size={18} color={Colors.textPrimary} /></Glass>
         </Pressable>
-        <View style={s.titlePill}>
+        <Glass style={[s.titlePill, { opacity: clamp((t - 1.8) / 0.5, 0, 1) }]}>
           <Text numberOfLines={1} style={s.titleText}>{codes.join(' → ')}</Text>
-          <Text style={s.titleSub}>{Math.round(d.distanceNm || tl.total)} NM · {d.dateShort}{d.aircraftType ? ` · ${d.aircraftType}` : ''}</Text>
-        </View>
+          <Text numberOfLines={1} style={s.titleSub}>{title}</Text>
+        </Glass>
       </View>
 
-      <View style={[s.panel, { paddingBottom: insets.bottom + 18 }]}>
-        <View style={{ flexDirection: 'row' }}>
-          <View style={s.read}><Text style={s.cap}>TIME</Text><Text style={s.val}>{tl.clocks ? `${clock(now)}Z` : clock(t)}</Text></View>
-          <View style={s.read}><Text style={s.cap}>FLOWN</Text><Text style={[s.val, { color: MAP_CYAN }]}>{Math.round(flown)} NM</Text></View>
-          <View style={[s.read, { alignItems: 'flex-end' }]}><Text style={s.cap}>{statusHead}</Text><Text style={s.val}>{statusText}</Text></View>
+      <Glass style={[s.panel, { bottom: insets.bottom + 8 }]}>
+        <View pointerEvents={rv > 0.5 ? 'none' : 'auto'} style={[s.panelIn, { opacity: 1 - rv }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={s.cap}>FLOWN</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <Text style={s.big}>{Math.round(flownNm)}</Text>
+                <Text style={s.unit}>/ {Math.round(plan.nm)} NM</Text>
+              </View>
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <Text style={s.cap}>TIME</Text>
+              <Text style={s.val}>{plan.clocks ? `${clock(clockM)}Z` : clock(clockM)}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 2, minWidth: 58 }}>
+              <Text style={s.cap}>GS</Text>
+              <Text style={s.val}>{S && L && !S.ground ? `${Math.round(L.nm / Math.max(1 / 60, (L.end - L.start) / 60))} kt` : S?.pre ? '—' : '0 kt'}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <Text numberOfLines={1} style={s.status}>{status}</Text>
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {legs.map((l, j) => {
+                const now = !!S && !S.ground && j === S.i, done = t >= l.t1;
+                return <View key={`dot${j}`} style={{ width: now ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: done || now ? MAP_CYAN : '#2A3B50', opacity: done && !now ? 0.8 : 1 }} />;
+              })}
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable onPress={() => control(() => (playing ? halt() : play()))} disabled={!n} style={[s.play, !n && { opacity: 0.4 }]}
+              accessibilityLabel={playing ? 'Pause the replay' : 'Replay the day'}>
+              <Ionicons name={playing ? 'pause' : 'play'} size={18} color={Colors.textInverse} />
+            </Pressable>
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={s.track} onLayout={(e) => setTrackW(Math.max(1, e.nativeEvent.layout.width))} {...pan.panHandlers}
+                accessible accessibilityRole="adjustable" accessibilityLabel="Replay the day"
+                accessibilityValue={{ text: plan.clocks ? `${clock(clockM)} UTC` : clock(clockM) }}
+                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+                onAccessibilityAction={(e) => { halt(); seekRef.current(t + (e.nativeEvent.actionName === 'increment' ? 1 : -1) * span / 20); }}>
+                <View pointerEvents="none" style={s.trackBase} />
+                {legs.map((l, j) => (
+                  <View key={`seg${j}`} pointerEvents="none" style={[s.seg, { left: `${((l.t0 - INTRO) / span) * 100}%`, width: `${((l.t1 - l.t0) / span) * 100}%` }]}>
+                    <View style={{ height: '100%', width: `${clamp((t - l.t0) / (l.t1 - l.t0), 0, 1) * 100}%`, backgroundColor: MAP_CYAN }} />
+                  </View>
+                ))}
+                <View pointerEvents="none" style={[s.knob, { left: knob * trackW - 10 }]} />
+              </View>
+              <View style={{ height: 12 }}>
+                {stops.map((x, i) => {
+                  const p = i === 0 ? 0 : clamp((x.at - INTRO) / span, 0, 1), lastOne = i === stops.length - 1;
+                  return (
+                    <Text key={`tick${x.k}`} style={[s.tick, { color: t >= x.at ? '#DCE4EE' : '#5D6C7D', textAlign: i === 0 ? 'left' : lastOne ? 'right' : 'center' },
+                      i === 0 ? { left: 0 } : lastOne ? { right: 0 } : { left: p * trackW - 17 }]}>{x.k}</Text>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Pressable onPress={() => (playing ? stop() : play())} style={s.play} accessibilityLabel={playing ? 'Pause the replay' : 'Replay the day'}>
-            <Ionicons name={playing ? 'pause' : 'play'} size={18} color={Colors.textInverse} />
+
+        <View pointerEvents={rv > 0.5 ? 'auto' : 'none'} style={[s.panelIn, { opacity: rv, transform: [{ translateY: (1 - rv) * 12 }] }]}>
+          <Text style={[s.cap, { color: MAP_CYAN, letterSpacing: 2 }]}>{sub ? 'CROSS-COUNTRY' : 'YOUR LONGEST CROSS-COUNTRY'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+            <Text style={s.huge}>{Math.round(d.distanceNm || plan.nm)}</Text>
+            <Text style={[s.unit, { fontSize: 13 }]}>NM</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[[String(n), n === 1 ? 'leg' : 'legs'], [hm(plan.air), 'airborne'], [n ? hm(legs[n - 1].end - legs[0].start) : '—', 'on the day']].map(([v, lbl]) => (
+              <View key={lbl} style={s.fact}>
+                <Text numberOfLines={1} style={s.factVal}>{v}</Text>
+                <Text numberOfLines={1} style={s.factLbl}>{lbl}</Text>
+              </View>
+            ))}
+          </View>
+          <Pressable onPress={() => control(play)} style={s.replay} accessibilityRole="button">
+            <Ionicons name="refresh" size={13} color={MAP_CYAN} />
+            <Text style={s.replayText}>Replay the day</Text>
           </Pressable>
-          <View style={s.track} onLayout={(e) => setTrackW(Math.max(1, e.nativeEvent.layout.width))} {...pan.panHandlers}
-            accessible accessibilityRole="adjustable" accessibilityLabel="Replay the day" accessibilityValue={{ text: tl.clocks ? `${clock(now)} UTC` : clock(t) }}
-            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-            onAccessibilityAction={(e) => { stop(); setT((v) => Math.max(0, Math.min(tl.span, v + (e.nativeEvent.actionName === 'increment' ? 1 : -1) * tl.span / 20))); }}>
-            <View pointerEvents="none" style={s.trackBase} />
-            {tl.legs.map((l, j) => {
-              const doneFrac = j < cur ? 1 : j === cur ? frac : 0;
-              return (
-                <View key={`seg${j}`} pointerEvents="none" style={[s.seg, { left: `${((l.start - tl.t0) / tl.span) * 100}%`, width: `${((l.end - l.start) / tl.span) * 100}%` }]}>
-                  <View style={{ height: '100%', width: `${doneFrac * 100}%`, backgroundColor: MAP_CYAN }} />
-                </View>
-              );
-            })}
-            <View pointerEvents="none" style={[s.knob, { left: (t / tl.span) * trackW - 12 }]} />
-          </View>
         </View>
-        {tl.legs.length ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -8 }}>
-            <Text style={s.edge}>{tl.clocks ? `${clock(tl.t0)}Z ` : ''}{tl.legs[0].from}</Text>
-            <Text style={s.edge}>{tl.legs[tl.legs.length - 1].to}{tl.clocks ? ` ${clock(tl.t0 + tl.span)}Z` : ''}</Text>
-          </View>
-        ) : null}
-      </View>
+      </Glass>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   top: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
-  titlePill: { flexShrink: 1, minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', justifyContent: 'center', gap: 1 },
+  close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  titlePill: { flex: 1, minHeight: 44, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 22, justifyContent: 'center', gap: 1 },
   titleText: { fontFamily: MONO, fontSize: 11.5, fontWeight: '700', color: Colors.textPrimary },
   titleSub: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
-  panel: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 16, paddingHorizontal: 20, gap: 14, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: 'rgba(10,22,40,0.95)', borderTopWidth: 1, borderColor: Colors.cardBorder },
-  read: { flex: 1, gap: 3 },
-  cap: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, color: Colors.textSecondary },
-  val: { fontFamily: MONO, fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  play: { width: 48, height: 48, borderRadius: 24, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
-  track: { flex: 1, height: 48, justifyContent: 'center' },
-  trackBase: { position: 'absolute', left: 0, right: 0, top: 23.5, height: 1, backgroundColor: '#2A4E70' },
-  seg: { position: 'absolute', top: 19, height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: '#2A4E70' },
-  knob: { position: 'absolute', top: 12, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 4, borderColor: MAP_CYAN },
-  edge: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
+  panel: { position: 'absolute', left: 12, right: 12, height: 200 },
+  panelIn: { position: 'absolute', left: 16, right: 16, top: 15, bottom: 13, justifyContent: 'space-between' },
+  cap: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.4, color: '#6E7D8F' },
+  big: { fontFamily: SERIF, fontSize: 32, fontWeight: '600', color: MAP_CYAN, lineHeight: 34 },
+  huge: { fontFamily: SERIF, fontSize: 46, fontWeight: '600', color: Colors.textPrimary, lineHeight: 48, letterSpacing: -1 },
+  unit: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: '#A7B3C2' },
+  val: { fontFamily: MONO, fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+  status: { flexShrink: 1, fontFamily: MONO, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, color: '#DCE4EE' },
+  play: { width: 46, height: 46, borderRadius: 23, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
+  track: { height: 26, justifyContent: 'center' },
+  trackBase: { position: 'absolute', left: 0, right: 0, top: 12.5, height: 1, backgroundColor: '#2A3B50' },
+  seg: { position: 'absolute', top: 8, height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: '#22364C' },
+  knob: { position: 'absolute', top: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 4, borderColor: MAP_CYAN },
+  tick: { position: 'absolute', top: 0, width: 34, fontFamily: MONO, fontSize: 8.5, fontWeight: '700' },
+  fact: { flex: 1, gap: 2, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  factVal: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  factLbl: { fontFamily: MONO, fontSize: 9, color: '#A7B3C2' },
+  replay: { alignSelf: 'flex-start', minHeight: 34, paddingLeft: 11, paddingRight: 14, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(0,200,232,0.5)', backgroundColor: 'rgba(0,200,232,0.1)', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
 });

@@ -4,7 +4,7 @@
 // Datumen följer samma spärr som Projections (projectionUnlock): före 60 dagar och 10 flygningar visas bara timmarna.
 // Data: licenceSetFor + haveFor/rateFor/metDateFor/seriesFor.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -13,11 +13,9 @@ import { useInsightsTheme } from './insightsTheme';
 import { useInsightsData, projectionUnlock, PROJECTION_MIN_DAYS, PROJECTION_MIN_FLIGHTS } from './insightsData';
 import { LicenceChart } from './LicenceChart';
 import { buildState, hoursTxt, type LicReq, type LicState } from './licenceState';
-import { licenceSetFor } from '../EASAProgressChart';
-import { useProfileStore } from '../../store/profileStore';
-import { useRegulationStandardStore } from '../../store/regulationStandardStore';
-import { useFlightStore } from '../../store/flightStore';
-import { getAircraftCategory } from '../../db/flights';
+import { useLicenceSet, useLicenceView, LIC_IDS, type LicId } from './licenceView';
+import { FullscreenButton } from './GoalCard';
+import { router } from 'expo-router';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
@@ -32,54 +30,21 @@ const dayLabel = (d: Date) => `${d.getDate()} ${MON3[d.getMonth()]} ${d.getFullY
 const haveTxt = (h: number) => hoursTxt(h < 10 ? Math.floor(h * 10) / 10 : Math.floor(h));
 const toGoTxt = (h: number) => hoursTxt(h < 10 ? Math.ceil(h * 10) / 10 : Math.ceil(h));
 
-type LicId = 'ppl' | 'cpl' | 'atpl';
-const IDS: LicId[] = ['ppl', 'cpl', 'atpl'];
+const IDS = LIC_IDS;
 
 export function LicenceJourney() {
   const C = useInsightsTheme();
   const D = useInsightsData();
-  const subRole = useProfileStore((s) => s.profile?.subRole);
-  const standard = useRegulationStandardStore((s) => s.standard);
-  const flights = useFlightStore((s) => s.flights);
+  const { standard, flights, set } = useLicenceSet();
   const unlock = useMemo(() => projectionUnlock(flights), [flights]);
   const [view, setView] = useState<'chart' | 'list' | null>(null);   // null = Chart, eller List medan datumen är låsta
-  const [selId, setSelId] = useState<LicId | null>(null);             // null = nästa licens
+  const selId = useLicenceView((s) => s.sel);                          // null = nästa licens, delas med helskärmen
+  const setSelId = (id: LicId | null) => useLicenceView.setState({ sel: id });
   const [focus, setFocus] = useState<string | null>(null);
-
-  // Licenskategori (H/A) baseras på FLOTTAN, inte profilens subRole: har man bara rotary → H, bara
-  // fixed → A, båda → kategorin på den senast flugna farkosten. Faller tillbaka på subRole om
-  // ingen farkostkategori är känd (t.ex. inga loggade flygningar / okategoriserade farkoster).
-  const [fleetCat, setFleetCat] = useState<'rotary' | 'fixed' | null>(null);
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const real = flights.filter((f) => f.flight_type !== 'sim' && f.aircraft_type?.trim());
-      if (!real.length) { if (alive) setFleetCat(null); return; }
-      const types = [...new Set(real.map((f) => f.aircraft_type.trim().toUpperCase()))];
-      const cat = new Map<string, string>();
-      await Promise.all(types.map(async (t) => cat.set(t, await getAircraftCategory(t))));
-      let hasRotary = false, hasFixed = false;
-      for (const t of types) {
-        const c = cat.get(t);
-        if (c === 'helicopter') hasRotary = true;
-        else if (c === 'airplane') hasFixed = true;
-      }
-      let result: 'rotary' | 'fixed' | null = null;
-      if (hasRotary && !hasFixed) result = 'rotary';
-      else if (hasFixed && !hasRotary) result = 'fixed';
-      else if (hasRotary && hasFixed) {
-        const latest = [...real].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-        const lc = cat.get(latest.aircraft_type.trim().toUpperCase());
-        result = lc === 'helicopter' ? 'rotary' : lc === 'airplane' ? 'fixed' : null;
-      }
-      if (alive) setFleetCat(result);
-    })();
-    return () => { alive = false; };
-  }, [flights]);
 
   // "Other"-regelverk: vi modellerar inte dess licensväg → visa ett neutralt kort i stället för
   // EASA/FAA-krav (annars vilseledande). Early-return narrow:ar standard till easa/faa/caa nedan.
-  if (standard === 'other') {
+  if (standard === 'other' || !set) {
     return (
       <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
@@ -95,8 +60,6 @@ export function LicenceJourney() {
 
   const nowA = absNow();
   const startA = D.journey.length ? D.journey[0].date.getFullYear() * 12 + D.journey[0].date.getMonth() : nowA;
-  // Flottan styr; annars profilens subRole.
-  const set = licenceSetFor(fleetCat ?? subRole, standard);
   const states: Record<LicId, LicState> = { ppl: buildState(set.ppl, D, nowA), cpl: buildState(set.cpl, D, nowA), atpl: buildState(set.atpl, D, nowA) };
   const current = IDS.find((id) => !states[id].done) ?? 'atpl';
   const sel = selId ?? current;
@@ -148,7 +111,9 @@ export function LicenceJourney() {
     <View style={[st.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
         <Ionicons name="ribbon-outline" size={17} color={C.text2} />
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Next licence</Text>
+        <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>Next licence</Text>
+        {unlock.ready ? <FullscreenButton C={C} label="Open Next licence in full screen" onPress={() => router.push('/licence-full')} /> : null}
+        <View style={{ flex: 1 }} />
         <View style={[st.seg, { backgroundColor: C.deep }]}>
           {(['chart', 'list'] as const).map((v) => {
             const on = shown === v;

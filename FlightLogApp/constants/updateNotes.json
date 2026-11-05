@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 9,
+      "date": "2026-11-05",
+      "notes": [
+        "New: Best week and Longest XC maps replay like a film, with a camera that follows your flights.",
+        "New: Open Projections and Next licence in landscape full screen with the button next to the title.",
+        "New: Touch and drag the chart to read any month, and see your licence date at your best, usual or slowest pace."
+      ]
+    },
+    {
       "id": 8,
       "date": "2026-11-05",
       "notes": [
