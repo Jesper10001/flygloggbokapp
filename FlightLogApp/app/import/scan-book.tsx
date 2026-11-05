@@ -16,7 +16,7 @@ import {
   type BookPhoto, type BookSession,
 } from '../../store/scanBookStore';
 import { pageStep } from '../../services/scanFormat';
-import { scanQuotaWeight } from '../../utils/tokenGate';
+import { coinsPerSpread as spreadCost } from '../../utils/tokenGate';
 import { label as fieldLabel } from '../../services/scanFields';
 
 // "Scan your whole logbook": alla uppslag läggs till på en gång. Varje foto förbereds direkt (boken letas upp,
@@ -156,7 +156,7 @@ export default function ScanBookScreen() {
   const finish = () => { st.discard(); router.back(); };
 
   // Ungefär vad ett uppslag kostar (proxyns skanningspris: halv vikt för Premium).
-  const coinsPerSpread = Math.round(30 * scanQuotaWeight());
+  const coinsPerSpread = spreadCost();
   const tile = Math.floor((W - 32 - 28 - (COLS - 1) * 8) / COLS);
   const nextPart = sessions.find((x) => !x.saved);
 

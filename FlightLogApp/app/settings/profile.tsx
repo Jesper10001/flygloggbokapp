@@ -1,3 +1,5 @@
+// Profil: vem du är (överst), ditt abonnemang och uppgifterna som hamnar på exporterade sidor. Abonnemanget
+// hanteras här i stället för direkt i Settings (components/PlanCoinsSection → SubscriptionPanel).
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, Alert,
@@ -8,6 +10,7 @@ import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, SignatureModal, type SignatureData } from '../../components/SignaturePad';
+import { SubscriptionPanel } from '../../components/PlanCoinsSection';
 
 const FIELDS = [
   { key: 'profile_first_name', label: 'first_name', placeholder: 'John' },
@@ -18,6 +21,8 @@ const FIELDS = [
   { key: 'profile_company', label: 'company', placeholder: 'Your workplace', optional: true },
   { key: 'profile_title', label: 'job_title', placeholder: 'Airline pilot', optional: true },
 ] as const;
+
+type Field = (typeof FIELDS)[number];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -62,47 +67,55 @@ export default function ProfileScreen() {
 
   if (!loaded) return <View style={styles.container} />;
 
+  // Överst: följer fälten medan man skriver.
+  const first = (form.profile_first_name ?? '').trim();
+  const last = (form.profile_last_name ?? '').trim();
+  const name = [first, last].filter(Boolean).join(' ');
+  const initials = (form.profile_initials ?? '').trim().toUpperCase() || `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
+  const role = [form.profile_title, form.profile_company].map((x) => (x ?? '').trim()).filter(Boolean).join(' · ');
+
+  const fieldRow = (f: Field, isLast: boolean) => (
+    <View key={f.key} style={[styles.fieldRow, isLast && { borderBottomWidth: 0 }]}>
+      <Text style={styles.fieldLabel}>{t(f.label)}</Text>
+      <TextInput
+        style={styles.fieldInput}
+        value={form[f.key] ?? ''}
+        onChangeText={(v) => setForm((prev) => ({ ...prev, [f.key]: v }))}
+        placeholder={f.placeholder}
+        placeholderTextColor={Colors.textMuted}
+        maxLength={'maxLength' in f ? f.maxLength : undefined}
+        keyboardType={'keyboardType' in f ? f.keyboardType : 'default'}
+        autoCapitalize={f.key === 'profile_initials' ? 'characters' : 'keyboardType' in f ? 'none' : 'words'}
+      />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Grunddata */}
+        <View style={styles.hero}>
+          <View style={styles.avatar}>
+            {initials
+              ? <Text style={styles.avatarText}>{initials}</Text>
+              : <Ionicons name="person-outline" size={28} color={Colors.textSecondary} />}
+          </View>
+          <Text style={styles.heroName} numberOfLines={1}>{name || t('your_name')}</Text>
+          {role ? <Text style={styles.heroRole} numberOfLines={1}>{role}</Text> : null}
+        </View>
+
+        <Text style={styles.sectionHeader}>Subscription</Text>
+        <SubscriptionPanel />
+
         <Text style={styles.sectionHeader}>{t('profile_basic')}</Text>
         <View style={styles.card}>
-          {FIELDS.slice(0, 3).map((f, i) => (
-            <View key={f.key} style={[styles.fieldRow, i === 2 && { borderBottomWidth: 0 }]}>
-              <Text style={styles.fieldLabel}>{t(f.label)}</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={form[f.key] ?? ''}
-                onChangeText={(v) => setForm((prev) => ({ ...prev, [f.key]: v }))}
-                placeholder={f.placeholder}
-                placeholderTextColor={Colors.textMuted}
-                maxLength={(f as any).maxLength}
-                autoCapitalize={f.key === 'profile_initials' ? 'characters' : 'words'}
-              />
-            </View>
-          ))}
+          {FIELDS.slice(0, 3).map((f, i) => fieldRow(f, i === 2))}
         </View>
 
-        {/* Kontakt & Organisation */}
         <Text style={styles.sectionHeader}>{t('profile_optional')}</Text>
         <View style={styles.card}>
-          {FIELDS.slice(3).map((f, i) => (
-            <View key={f.key} style={[styles.fieldRow, i === FIELDS.length - 4 && { borderBottomWidth: 0 }]}>
-              <Text style={styles.fieldLabel}>{t(f.label)}</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={form[f.key] ?? ''}
-                onChangeText={(v) => setForm((prev) => ({ ...prev, [f.key]: v }))}
-                placeholder={f.placeholder}
-                placeholderTextColor={Colors.textMuted}
-                keyboardType={(f as any).keyboardType ?? 'default'}
-              />
-            </View>
-          ))}
+          {FIELDS.slice(3).map((f, i) => fieldRow(f, i === FIELDS.length - 4))}
         </View>
 
-        {/* Signatur */}
         <Text style={styles.sectionHeader}>{t('signature_section')}</Text>
         <View style={styles.card}>
           <TouchableOpacity style={[styles.fieldRow, { borderBottomWidth: 0 }]} onPress={() => setSigModal(true)} activeOpacity={0.7}>
@@ -117,9 +130,6 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.hint}>{t('signature_sub')}</Text>
 
-        <Text style={styles.hint}>{t('profile_hint')}</Text>
-
-        {/* Spara */}
         <TouchableOpacity
           style={[styles.saveBtn, saving && { opacity: 0.5 }]}
           onPress={handleSave}
@@ -129,8 +139,7 @@ export default function ProfileScreen() {
           <Ionicons name="checkmark-circle" size={18} color={Colors.textInverse} />
           <Text style={styles.saveBtnText}>{t('save')}</Text>
         </TouchableOpacity>
-
-        <Text style={[styles.hint, { marginTop: 16 }]}>This information will be used in future PDF exports.</Text>
+        <Text style={[styles.hint, { marginTop: 14 }]}>{t('profile_hint')}</Text>
 
         <SignatureModal
           visible={sigModal}
@@ -147,20 +156,30 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
 
+  hero: { alignItems: 'center', paddingTop: 8, paddingBottom: 6, gap: 4 },
+  avatar: {
+    width: 72, height: 72, borderRadius: 36, marginBottom: 8,
+    backgroundColor: Colors.elevated, borderWidth: 1.5, borderColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 24, fontWeight: '700', letterSpacing: 1, color: Colors.textPrimary },
+  heroName: { fontSize: 21, fontWeight: '700', color: Colors.textPrimary },
+  heroRole: { fontSize: 13, color: Colors.textSecondary },
+
   sectionHeader: {
-    fontSize: 11, fontWeight: '700', color: Colors.textMuted,
-    letterSpacing: 0.9, textTransform: 'uppercase',
-    marginBottom: 8, marginTop: 16,
+    fontSize: 11, fontWeight: '700', color: Colors.textSecondary,
+    letterSpacing: 2.2, textTransform: 'uppercase',
+    marginBottom: 8, marginTop: 24, paddingHorizontal: 4,
   },
   card: {
-    backgroundColor: Colors.card, borderRadius: 16,
+    backgroundColor: Colors.card, borderRadius: 14,
     borderWidth: 1, borderColor: Colors.cardBorder,
     overflow: 'hidden',
   },
   fieldRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 0.5, borderBottomColor: Colors.separator,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder,
     gap: 12,
   },
   fieldLabel: {
@@ -178,7 +197,7 @@ const styles = StyleSheet.create({
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16,
-    marginTop: 24,
+    marginTop: 28,
   },
   saveBtnText: { color: Colors.textInverse, fontSize: 15, fontWeight: '800' },
 });

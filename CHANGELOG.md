@@ -15,6 +15,14 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Abonnemanget hanteras på profilsidan i stället för direkt i Settings. Settings har bara Profile och Blade coins överst.
+  - Profilsidan är omgjord. Överst står initialerna i en ring, namnet och titel · arbetsplats, och de följer fälten medan man skriver.
+  - Därefter kommer "Subscription": nivån (Free, Blades Premium eller Blades Max), vad den ger och en Active-märkning.
+    - Betalande: "Manage subscription" och för Premium "Upgrade to Blades Max".
+    - Gratis: knappen "See Premium and Max" (i App Store-bygget "Get Blades Premium") och "Restore purchases".
+  - Fälten och signaturen har samma rubriker och kort som Settings. E-postfältet får inte längre stor bokstav.
+  - I Essential heter raden "Profile and subscription".
+- Rutan "Photograph your logbook" visar hur långt coinsen räcker, till exempel "750 coins · about 50 spreads". Saldot är månadens plus köpta coins, och uppskattningen är 15 coins per uppslag för Premium och Max och 30 för gratisnivån (proxyns skanningstaxa). Gratisanvändare får också raden "With Premium, a spread costs half as many coins." Uppskattningen ligger i `coinsPerSpread()` i `utils/tokenGate.ts`, som helbokssidan också använder.
 - Settings: abonnemang och Blade coins är omgjorda och enklare, likadant i pilot- och drönarläget (`components/PlanCoinsSection.tsx`).
   - Den guldfärgade Blades Premium-strippen är ersatt av raden "Subscription" under Profile, i samma stil som Profile. Den visar Blades Premium eller Blades Max och öppnar hanteringen av abonnemanget, och för gratisnivån paywallen. För Premium-kunder finns en rad till under den, "Blades Max · 500 coins a month", som byter nivå.
   - Blade coins är ett kort med en enda mätare: månadens coins i cyan först och köpta coins i vitt efter. Siffran är totalen. Under mätaren står "250 this month · 500 extra" och datumet för nästa påfyllning.

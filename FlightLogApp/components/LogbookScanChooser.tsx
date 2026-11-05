@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { GlassDialog, DialogOption } from './GlassDialog';
 import { useFlightStore } from '../store/flightStore';
 import { useScanQuotaStore } from '../store/scanQuotaStore';
+import { useTokenQuotaStore } from '../store/tokenQuotaStore';
+import { tokensToCoins, coinsPerSpread } from '../utils/tokenGate';
 import { useTranslation } from '../hooks/useTranslation';
 import { setScanBatch, setScanSources, setScanFocus, setScanFromOnboarding, spreadLimit, type ScanImage } from '../store/scanStore';
 import { askAiConsent } from '../services/aiConsent';
@@ -12,12 +14,35 @@ import { presentPaywall } from '../services/purchases';
 import { getSetting } from '../db/flights';
 import { isScanCameraAvailable } from '../modules/scan-camera';
 import { isAvailable as visionAvailable } from '../modules/apple-vision-ocr';
+import { Colors } from '../constants/colors';
 
 // Logbook scan: rutan som frågar efter kamera eller fotoalbum, och vägen därifrån in i kameran eller läsningen.
 // Används från dashboardens meny (bara rutan, ingen sida bakom) och från sidan Logbook scan.
 
 // iOS visar inte kameran eller fotoväljaren medan rutan fortfarande stängs.
 const CLOSE_MS = 320;
+const COIN = require('../assets/Blade_coin.PNG');
+
+// Hur långt saldot räcker: månadens och köpta coins genom vad ett uppslag ungefär kostar. Gratisnivån betalar
+// dubbelt per uppslag (proxyns skanningstaxa gäller bara Premium och Max), så den får en rad om det.
+function CoinReach({ paid }: { paid: boolean }) {
+  const usage = useTokenQuotaStore((s) => s.usage);
+  if (!usage) return null;
+  const coins = Math.max(0, tokensToCoins(usage.limit) - tokensToCoins(usage.used)) + Math.max(0, tokensToCoins(usage.credits ?? 0));
+  const spreads = Math.floor(coins / coinsPerSpread());
+  const reach = coins <= 0 ? 'no coins left' : spreads < 1 ? 'less than one spread' : `about ${spreads} spread${spreads === 1 ? '' : 's'}`;
+  return (
+    <View style={s.reach}>
+      <View style={s.pill}>
+        <Image source={COIN} style={{ width: 16, height: 16 }} resizeMode="contain" />
+        <Text style={s.pillText}>
+          {coins.toLocaleString('en-US')} coins<Text style={s.pillMuted}> · {reach}</Text>
+        </Text>
+      </View>
+      {!paid && <Text style={s.reachNote}>With Premium, a spread costs half as many coins.</Text>}
+    </View>
+  );
+}
 
 /**
  * `start` kontrollerar kvot och AI-samtycke och öppnar rutan. Lägg `chooser` i skärmen.
@@ -106,6 +131,7 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
       if (onNoScans) onNoScans(); else presentPaywall('Logbook scan');
       return;
     }
+    useTokenQuotaStore.getState().load().catch(() => {}); // färskt saldo till raden i rutan
     if (await askAiConsent()) setOpen(true);
   };
 
@@ -118,6 +144,7 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
       body="Take the photos now, or choose photos you've already taken."
       secondary={{ label: 'Cancel', onPress: () => setOpen(false) }}
     >
+      <CoinReach paid={isPremium || isMax} />
       <View style={s.options}>
         <DialogOption icon="camera-outline" title="Take photos" onPress={() => pick('camera')}
           sub={cameraAvailable
@@ -133,4 +160,12 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
 
 const s = StyleSheet.create({
   options: { alignSelf: 'stretch', gap: 8, marginTop: 14 },
+  reach: { alignItems: 'center', gap: 6, marginTop: 14 },
+  pill: {
+    flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)',
+  },
+  pillText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  pillMuted: { color: Colors.textSecondary, fontWeight: '500' },
+  reachNote: { color: Colors.textSecondary, fontSize: 12, textAlign: 'center' },
 });

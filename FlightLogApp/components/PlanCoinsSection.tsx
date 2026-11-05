@@ -1,13 +1,16 @@
-// Abonnemang och Blade coins överst i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan).
-// SubscriptionCard: raden under Profile som öppnar hanteringen av abonnemanget, eller paywallen för gratisnivån.
-// CoinsCard: EN mätare för månadens och köpta coins. Månadens ligger först och går åt först; köpta (vita) ligger
+// Abonnemang och Blade coins. SubscriptionPanel ligger på profilsidan (app/settings/profile.tsx).
+// CoinsCard överst i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): EN mätare för månadens och köpta coins. Månadens ligger först och går åt först; köpta (vita) ligger
 // efter och används när månadens är slut, som proxyn drar dem (proxy/src/credits.ts splitCharge).
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFlightStore } from '../store/flightStore';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
-import { presentPaywall, presentManageSubscription } from '../services/purchases';
+import { presentPaywall, presentManageSubscription, restorePurchases } from '../services/purchases';
+import { useToastStore } from './Toast';
+import { Colors } from '../constants/colors';
+import { FREE_TIER_LIMIT } from '../constants/easa';
 import { coinShopAvailable } from '../services/coinPacks';
 import { tokensToCoins, openCoinShop } from '../utils/tokenGate';
 import { NEW_PAYWALLS } from '../constants/paywalls';
@@ -25,35 +28,65 @@ const EXTRA = 'rgba(255,255,255,0.86)';
 const TRACK = '#1A2D45';
 const WARN = '#FFB830';
 
-export function SubscriptionCard({ T }: { T: PlanTheme }) {
+// Abonnemanget på profilsidan: nivå, vad den ger, och hantering. Gratisnivån får paywallen och Restore.
+export function SubscriptionPanel() {
   const { isPremium, isMax } = useFlightStore();
+  const [restoring, setRestoring] = useState(false);
   const paid = isPremium || isMax;
-  const plan = isMax ? 'Blades Max' : isPremium ? 'Blades Premium' : null;
+  const plan = isMax ? 'Blades Max' : isPremium ? 'Blades Premium' : 'Free';
+  const perks = isMax ? '500 Blade coins a month · Unlimited flights'
+    : isPremium ? '250 Blade coins a month · Unlimited flights'
+    : `${FREE_TIER_LIMIT} manual flights · 100 Blade coins once`;
   const showMax = NEW_PAYWALLS && isPremium && !isMax;
-  const open = () => {
-    if (paid) presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); });
-    else presentPaywall();
+  const manage = () => { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); };
+  const restore = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    const r = await restorePurchases();
+    setRestoring(false);
+    if (r === 'success') useToastStore.getState().show('Purchases restored');
+    else if (r === 'nothing') useToastStore.getState().show('No previous purchase found');
+    else if (r === 'unavailable') useToastStore.getState().show('Purchases not available yet');
+    else if (r === 'error') Alert.alert('Restore failed', 'Could not restore your purchases. Please try again.');
   };
   return (
-    <View style={[st.card, { backgroundColor: T.card, borderColor: T.border }]}>
-      <TouchableOpacity style={st.row} activeOpacity={0.7} onPress={open} accessibilityRole="button"
-        accessibilityLabel={plan ? `Manage subscription, ${plan}` : 'Subscription, upgrade'}>
-        <Text style={[st.label, { color: T.label }]}>Subscription</Text>
-        <Text style={[st.value, { color: plan ? T.text : T.accent }]} numberOfLines={1}>{plan ?? 'Upgrade'}</Text>
-        <Ionicons name="chevron-forward" size={16} color={T.accent} />
-      </TouchableOpacity>
-      {showMax && (
+    <View style={[st.card, { backgroundColor: Colors.card, borderColor: Colors.cardBorder }]}>
+      <View style={st.planHead}>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={st.planName}>{plan}</Text>
+          <Text style={st.perks}>{perks}</Text>
+        </View>
+        {paid && (
+          <View style={st.chip}>
+            <View style={[st.dot, { backgroundColor: Colors.success }]} />
+            <Text style={st.chipText}>Active</Text>
+          </View>
+        )}
+      </View>
+      {paid ? (
         <>
-          <View style={[st.sep, { backgroundColor: T.border }]} />
-          <TouchableOpacity style={[st.row, { height: 46 }]} activeOpacity={0.7} accessibilityRole="button"
-            accessibilityLabel="Blades Max, 500 coins a month" onPress={() => { presentPaywall('Blades Max', { upgrade: true }); }}>
-            <Text style={[st.label, { color: T.label }]}>Blades Max</Text>
-            <Text style={[st.hint, { color: T.label }]} numberOfLines={1}>500 coins a month</Text>
-            <Ionicons name="chevron-forward" size={16} color={T.accent} />
+          <PanelRow label="Manage subscription" onPress={manage} />
+          {showMax && <PanelRow label="Upgrade to Blades Max" value="500 coins a month" onPress={() => { presentPaywall('Blades Max', { upgrade: true }); }} />}
+        </>
+      ) : (
+        <>
+          <TouchableOpacity style={st.cta} activeOpacity={0.85} onPress={() => { presentPaywall(); }} accessibilityRole="button">
+            <Text style={st.ctaText}>{NEW_PAYWALLS ? 'See Premium and Max' : 'Get Blades Premium'}</Text>
           </TouchableOpacity>
+          <PanelRow label={restoring ? 'Restoring…' : 'Restore purchases'} onPress={restore} />
         </>
       )}
     </View>
+  );
+}
+
+function PanelRow({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={st.panelRow} activeOpacity={0.7} onPress={onPress} accessibilityRole="button">
+      <Text style={st.panelLabel}>{label}</Text>
+      {value ? <Text style={st.panelValue} numberOfLines={1}>{value}</Text> : null}
+      <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+    </TouchableOpacity>
   );
 }
 
@@ -113,11 +146,26 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
 
 const st = StyleSheet.create({
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
-  row: { height: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sep: { height: 1, marginHorizontal: 18 },
   label: { flex: 1, fontSize: 11, fontWeight: '700', letterSpacing: 2.2, textTransform: 'uppercase' },
-  value: { fontSize: 15, fontWeight: '600', textAlign: 'right' },
-  hint: { fontSize: 13 },
+  planHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14 },
+  planName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  perks: { fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    backgroundColor: 'rgba(0,232,160,0.10)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,232,160,0.35)',
+  },
+  chipText: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
+  panelRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, paddingHorizontal: 16,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder,
+  },
+  panelLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  panelValue: { fontSize: 13, color: Colors.textSecondary },
+  cta: {
+    marginHorizontal: 16, marginBottom: 14, height: 48, borderRadius: 12, backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ctaText: { fontSize: 15, fontWeight: '800', color: Colors.textInverse },
   coins: { paddingHorizontal: 18, paddingTop: 15, paddingBottom: 14, gap: 11 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   count: { fontFamily: 'Menlo', fontSize: 15, fontWeight: '700' },

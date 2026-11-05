@@ -30,7 +30,7 @@ import { refreshEntitlement } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { SubscriptionCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
+import { CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { useAiConsentStore } from '../../store/aiConsentStore';
@@ -304,8 +304,7 @@ export default function DroneSettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={accent} />
         </TouchableOpacity>
 
-        {/* Abonnemang + Blade coins (components/PlanCoinsSection, samma som pilotsidan) */}
-        <SubscriptionCard T={planTheme} />
+        {/* Blade coins (components/PlanCoinsSection, samma som pilotsidan). Abonnemanget ligger på profilsidan. */}
         <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
       </View>
 

@@ -24,6 +24,13 @@ export function scanQuotaWeight(): number {
   }
 }
 
+// Ungefär vad ett uppslag kostar att skanna (bild + långt svar ≈ 6 000 tokens): 30 coins för gratisnivån och
+// 15 för Premium och Max, som får skanningstaxan. En uppskattning: tomma sidor kostar mindre, täta mer.
+export const SCAN_COINS_PER_SPREAD = 30;
+export function coinsPerSpread(): number {
+  return Math.round(SCAN_COINS_PER_SPREAD * scanQuotaWeight());
+}
+
 export function hasTokenQuota(): boolean {
   return useTokenQuotaStore.getState().hasQuota();
 }

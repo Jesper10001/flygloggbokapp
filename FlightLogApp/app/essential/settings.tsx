@@ -41,7 +41,7 @@ export default function EssentialSettings() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 16 }}>
         <View>
           <GlassSurface radius={20} />
-          <EssentialRow icon="person-outline" accent={accent} title="Name and signature" subtitle="Shown on your exported pages" onPress={() => router.push('/settings/profile')} />
+          <EssentialRow icon="person-outline" accent={accent} title="Profile and subscription" subtitle="Name, signature and your plan" onPress={() => router.push('/settings/profile')} />
           <EssentialRow icon="time-outline" accent={accent} title="Time format" border={!isDrone}
             right={<View style={{ flexDirection: 'row', gap: 2 }}>{formatBtn('decimal', '1.5')}{formatBtn('hhmm', '1:30')}</View>} />
           {!isDrone && (
