@@ -44,18 +44,30 @@ function shortOf(label: string, key: string): string {
   if (key === 'xc_pic') return /^solo/i.test(label) ? 'Solo XC' : 'XC PIC';
   if (key === 'xc') return 'XC';
   if (key === 'ifr') return 'IFR';
-  if (key === 'night' || key === 'night_pc') return 'Night';
+  if (key === 'night' || key === 'night_pc' || key === 'night_faa_atp') return 'Night';
   if (key === 'multi_pilot') return 'Multi-crew';
+  if (key === 'plane_pic_picus') return 'PIC';
+  if (key === 'xc_dual') return 'XC dual';
+  if (key === 'dual+night') return 'Night dual';
+  if (key === 'dual+ifr') return 'IFR dual';
+  if (key === 'pic+night' || key === 'plane_pic_picus_night') return 'Night PIC';
+  if (key === 'plane_pic_picus_xc' || key === 'heli_xc_pic') return 'XC PIC';
+  if (key === 'heli') return 'Heli';
+  if (key === 'heli_pic' || key === 'heli_pic_picus') return 'Heli PIC';
+  if (key === 'heli_night') return 'Heli night';
+  if (key === 'heli_ifr_pic_picus') return 'Heli IFR';
+  if (/^night_xc_dual_/.test(key)) return 'Night XC';
+  if (key === 'me_time') return 'ME';
   return label;
 }
 
 export function buildState(lic: WLicenceSet, D: InsightsData, nowA: number): LicState {
   const reqs: LicReq[] = lic.reqs.filter((q) => q.required > 0).map((q) => {
-    const have = D.haveFor(q.key, q.sim), series = D.seriesFor(q.key, q.sim), pace = D.rateFor(q.key, q.sim);
+    const have = D.haveFor(q.key, q), series = D.seriesFor(q.key, q), pace = D.rateFor(q.key, q);
     const monthly = series.map((p, i) => p.cum - (i ? series[i - 1].cum : 0));
     const natural = [monthly.slice(-3).reduce((a, b) => a + b, 0) / 3, pace, series.length ? have / series.length : 0].filter((p) => p > 0);
     const met = have >= q.required, toGo = Math.max(0, q.required - have);
-    const md = met ? D.metDateFor(q.key, q.required, q.sim) : null;
+    const md = met ? D.metDateFor(q.key, q.required, q) : null;
     return {
       label: q.label, key: q.key, required: q.required, short: shortOf(q.label, q.key),
       have, met, toGo, pace,

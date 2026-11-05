@@ -15,6 +15,33 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- FAA-kraven i Next licence, Wrapped och Currency är rättade mot 14 CFR Part 61 (eCFR, okt 2026):
+  - **Cross-country** räknas på avståndet fågelvägen till en landningsplats (ankomst eller mellanlandning). För flygplan gäller mer än 50 NM och för helikopter mer än 25 NM (§ 61.1). Saknar en plats position används samma uppskattning som förut. EASA är oförändrat.
+  - **PPL(A)** (§ 61.109(a)): 5 h solo-XC i stället för 3. Nya krav: 3 h XC-utbildning och 3 h instrumentutbildning. Natten är nu nattutbildning (natt med instruktör).
+  - **PPL(H)** (§ 61.109(c)): nya krav på 3 h nattutbildning och 3 h XC-utbildning.
+  - **CPL(A)** (§ 61.129(a)): instrumentutbildning 10 h i stället för 20. Nya krav: 5 h natt som PIC och en natt-XC med instruktör på 2 h, längre än 100 NM fågelvägen. Natt-XC:n räknas som en enskild flygning, inte en summa.
+  - **CPL(H)** (§ 61.129(c)): "Helicopter time" räknar nu all tid i helikopter, inte PIC-tid. Nya krav:
+    - 100 h PIC, varav 35 h i helikopter.
+    - XC som PIC i helikopter.
+    - 5 h instrumentutbildning, som får göras helt i simulator.
+    - 5 h natt som PIC.
+    - En natt-XC med instruktör längre än 50 NM.
+  - **ATP(A)** (§ 61.159):
+    - 250 h som PIC eller PICUS, varav 100 h XC och 25 h natt.
+    - 50 h multi-engine.
+    - Natten får kredit för nattlandningar efter de första 20, högst 25 h.
+  - **ATP(H)** har nu egna krav (§ 61.161):
+    - 1200 h total, 500 h XC, 100 h natt (varav 15 h i helikopter) och 200 h i helikopter (varav 75 h som PIC eller PICUS).
+    - 75 h instrument, varav 25 h i helikopter som PIC eller PICUS.
+  - **Simulatortid (FFS/FTD)** räknas med taken:
+    - PPL: 2,5 h.
+    - CPL(A): 50 h.
+    - CPL(H): 25 h.
+    - ATP(A): 100 h mot totaltiden, 25 h mot instrumenttiden och 25 h FFS mot multi-engine.
+    - ATP(H): 25 h instrumenttid.
+  - **Currency (FAA):** instrumentfönstret är 6 kalendermånader före flygningens månad (§ 61.57(c)), och alla simulatorer utom CPT/PPT och CBT räknas (motsvarar ATD). Passagerarcurrency räknar inte längre FFS-landningar, eftersom FAA bara godkänner dem i en Part 142-kurs.
+  - **CFI:** tipstexten säger att certifikatet inte går ut längre och att behörigheten kräver recent experience inom 24 kalendermånader (§ 61.197).
+  - Positioner och farkostkategori laddas i `components/insights/licenceContext.ts`. `scripts/test-licence-hours.cjs` har FAA-fall.
 - EASA-kraven i Next licence och Wrapped är rättade mot Part-FCL (Easy Access Rules for Aircrew, okt 2026):
   - **PPL(A):** nattkravet på 5 h är borta. Det finns inte i FCL.210.A, eftersom natt är en egen behörighet (FCL.810).
   - **ATPL(H):** kravet 350 h multi-pilot i helikopter (FCL.510.H(c)(1)) är tillagt.

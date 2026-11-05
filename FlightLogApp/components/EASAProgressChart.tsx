@@ -67,40 +67,79 @@ const ATPL_H: ReqDef[] = [
   { label: 'Night as PIC/co-pilot', key: 'night_pc', required: 100 },
 ];
 
-// FAA Requirements
-const FAA_PPL_A: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 40 },
+// FAA-kraven enligt 14 CFR Part 61 (eCFR, okt 2026). Cross-country räknas på avståndet fågelvägen: mer än
+// 50 NM för flygplan och 25 NM för helikopter (§ 61.1). `sim` = FFS/FTD-tid som får räknas.
+const FAA_SIM = ['FFS', 'FTD'] as const;
+const sims = (max: number): ReqDef['sim'] => ({ max, kinds: [...FAA_SIM] });
+
+// § 61.109(a). 2,5 h i FFS/FTD får räknas mot utbildningen.
+const FAA_PPL_A: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 40, sim: sims(2.5) },
   { label: 'Dual instruction', key: 'dual', required: 20 },
   { label: 'Solo flight', key: 'pic', required: 10 },
-  { label: 'Solo cross-country', key: 'xc_pic', required: 3 },
-  { label: 'Night', key: 'night', required: 3 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 5, xcNm: 50 },
+  { label: 'Cross-country training', key: 'xc_dual', required: 3, xcNm: 50 },
+  { label: 'Night training', key: 'dual+night', required: 3 },
+  { label: 'Instrument training', key: 'dual+ifr', required: 3 },
 ];
 
-const FAA_PPL_H: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 40 },
+// § 61.109(c).
+const FAA_PPL_H: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 40, sim: sims(2.5) },
   { label: 'Dual instruction', key: 'dual', required: 20 },
   { label: 'Solo flight', key: 'pic', required: 10 },
-  { label: 'Solo cross-country', key: 'xc_pic', required: 3 },
+  { label: 'Solo cross-country', key: 'xc_pic', required: 3, xcNm: 25 },
+  { label: 'Cross-country training', key: 'xc_dual', required: 3, xcNm: 25 },
+  { label: 'Night training', key: 'dual+night', required: 3 },
 ];
 
-const FAA_CPL_A: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 250 },
+// § 61.129(a). Upp till 50 h i FFS/FTD mot totaltiden. Natten: 5 h solo eller som PIC, och en 2 h natt-XC
+// med instruktör längre än 100 NM fågelvägen.
+const FAA_CPL_A: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 250, sim: sims(50) },
   { label: 'PIC', key: 'pic', required: 100 },
-  { label: 'Cross-country PIC', key: 'xc_pic', required: 50 },
-  { label: 'Instrument', key: 'ifr', required: 20 },
+  { label: 'Cross-country PIC', key: 'xc_pic', required: 50, xcNm: 50 },
+  { label: 'Instrument training', key: 'dual+ifr', required: 10 },
+  { label: 'Night as PIC', key: 'pic+night', required: 5 },
+  { label: 'Night XC with instructor', key: 'night_xc_dual_100', required: 2 },
 ];
 
-const FAA_CPL_H: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 150 },
-  { label: 'Helicopter time', key: 'pic', required: 50 },
-  { label: 'Cross-country PIC', key: 'xc_pic', required: 10 },
+// § 61.129(c). Upp till 25 h i FFS/FTD mot totaltiden; instrumenttiden får göras helt i simulator (även ATD).
+const FAA_CPL_H: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 150, sim: sims(25) },
+  { label: 'Helicopter time', key: 'heli', required: 50 },
+  { label: 'PIC', key: 'pic', required: 100 },
+  { label: 'PIC in helicopters', key: 'heli_pic', required: 35 },
+  { label: 'Cross-country PIC', key: 'heli_xc_pic', required: 10, xcNm: 25 },
+  { label: 'Instrument training', key: 'dual+ifr', required: 5, sim: { max: 5 } },
+  { label: 'Night as PIC', key: 'pic+night', required: 5 },
+  { label: 'Night XC with instructor', key: 'night_xc_dual_50', required: 2 },
 ];
 
-const FAA_ATPL: { label: string; key: string; required: number }[] = [
-  { label: 'Total flight time', key: 'total', required: 1500 },
-  { label: 'Cross-country', key: 'xc', required: 500 },
+// § 61.159. Upp till 100 h i FFS/FTD mot totaltiden, 25 h mot instrumenttiden och 25 h FFS mot klasstiden.
+// 250 h som PIC eller PICUS (SIC som utför PIC-uppgifter), varav 100 h XC och 25 h natt. Natten får kredit
+// för nattlandningar efter de första 20 (§ 61.159(b)).
+const FAA_ATPL_A: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 1500, sim: sims(100) },
+  { label: 'Cross-country', key: 'xc', required: 500, xcNm: 50 },
+  { label: 'Night', key: 'night_faa_atp', required: 100 },
+  { label: 'Multi-engine', key: 'me_time', required: 50, sim: { max: 25, kinds: ['FFS'] } },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 75, sim: sims(25) },
+  { label: 'PIC or PICUS', key: 'plane_pic_picus', required: 250 },
+  { label: 'XC as PIC/PICUS', key: 'plane_pic_picus_xc', required: 100, xcNm: 50 },
+  { label: 'Night as PIC/PICUS', key: 'plane_pic_picus_night', required: 25 },
+];
+
+// § 61.161. Upp till 25 h i FFS/FTD mot instrumenttiden.
+const FAA_ATPL_H: ReqDef[] = [
+  { label: 'Total flight time', key: 'total', required: 1200 },
+  { label: 'Cross-country', key: 'xc', required: 500, xcNm: 25 },
   { label: 'Night', key: 'night', required: 100 },
-  { label: 'Instrument (IFR)', key: 'ifr', required: 75 },
+  { label: 'Night in helicopters', key: 'heli_night', required: 15 },
+  { label: 'Helicopter time', key: 'heli', required: 200 },
+  { label: 'Helicopter PIC/PICUS', key: 'heli_pic_picus', required: 75 },
+  { label: 'Instrument (IFR)', key: 'ifr', required: 75, sim: sims(25) },
+  { label: 'Heli IFR as PIC/PICUS', key: 'heli_ifr_pic_picus', required: 25 },
 ];
 
 async function getAdaptiveRates(): Promise<Record<string, number>> {
@@ -185,7 +224,7 @@ export function licenceSetFor(subRole: string | undefined, standard: 'easa' | 'f
     return {
       ppl: { code: isRotary ? 'PPL(H)' : 'PPL', reqs: isRotary ? FAA_PPL_H : FAA_PPL_A },
       cpl: { code: isRotary ? 'CPL(H)' : 'CPL', reqs: isRotary ? FAA_CPL_H : FAA_CPL_A },
-      atpl: { code: 'ATPL', reqs: FAA_ATPL },
+      atpl: { code: isRotary ? 'ATPL(H)' : 'ATPL', reqs: isRotary ? FAA_ATPL_H : FAA_ATPL_A },
     };
   }
   const sfx = isRotary ? '(H)' : '(A)';
@@ -511,7 +550,7 @@ export function EASAProgressCharts({ standard = 'easa', forceUnlock = false }: {
   if (standard === 'faa') {
     pplReqs = isRotary ? FAA_PPL_H : FAA_PPL_A;
     cplReqs = isRotary ? FAA_CPL_H : FAA_CPL_A;
-    atplReqs = FAA_ATPL;
+    atplReqs = isRotary ? FAA_ATPL_H : FAA_ATPL_A;
     suffix = isRotary ? '(H)' : '';
     pplRef = 'FAA Private Pilot';
     cplRef = 'FAA Commercial Pilot';

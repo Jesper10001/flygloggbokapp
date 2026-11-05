@@ -83,7 +83,7 @@ const FAA_GROUPS: CertGroup[] = [
   { title: 'Ratings', items: [
     { name: 'Instrument Rating', months: 0, hint: 'No expiry — IPC only if instrument currency lapses.' },
     { name: 'Multi-Engine', months: 0, hint: 'No expiry.' },
-    { name: 'CFI (Flight Instructor)', months: 24, hint: 'FAA: expires every 24 months — renew by activity, checkride or FIRC.' },
+    { name: 'CFI (Flight Instructor)', months: 24, hint: 'FAA: no longer expires — keep instructor privileges with recent experience every 24 calendar months (checkride, 5 endorsements with 80% passing, check pilot role or FIRC).' },
   ] },
   { title: 'Medical', items: [
     { name: 'Medical First Class', months: 12, hint: 'FAA: 12 months (under 40) · 6 months (40+) for ATP privileges.' },

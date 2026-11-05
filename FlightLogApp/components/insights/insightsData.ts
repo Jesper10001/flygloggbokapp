@@ -6,7 +6,8 @@
 import { useMemo } from 'react';
 import { useFlightStore } from '../../store/flightStore';
 import type { Flight } from '../../types/flight';
-import { reqTimeline, needsTimeline, DERIVED_KEYS, type ReqPoint, type SimCredit } from './licenceHours';
+import { reqTimeline, needsTimeline, type ReqOpts, type ReqPoint } from './licenceHours';
+import { useLicenceCtx } from './licenceContext';
 
 const monthsAgoISO = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); };
 const num = (f: Flight, k: string) => (f as any)[k] || 0;
@@ -52,16 +53,17 @@ export interface InsightsData {
   monthly: Record<string, number>;
   journey: JourneyPt[];
   journeyPic: JourneyPt[];
-  // `sim` = licenskravets simulatorkredit (se licenceHours). Sammansatta nycklar (night_pc, atpl_pic_*) går också.
-  seriesFor: (key: string, sim?: SimCredit) => JourneyPt[];
-  haveFor: (key: string, sim?: SimCredit) => number;
-  rateFor: (key: string, sim?: SimCredit) => number;
-  metDateFor: (key: string, required: number, sim?: SimCredit) => string | null;
+  // `opts` = licenskravets simulatorkredit och FAA:s XC-avstånd (se licenceHours). Sammansatta nycklar går också.
+  seriesFor: (key: string, opts?: ReqOpts) => JourneyPt[];
+  haveFor: (key: string, opts?: ReqOpts) => number;
+  rateFor: (key: string, opts?: ReqOpts) => number;
+  metDateFor: (key: string, required: number, opts?: ReqOpts) => string | null;
 }
 
 export function useInsightsData(): InsightsData {
   const flights = useFlightStore((s) => s.flights);
   const stats = useFlightStore((s) => s.stats);
+  const lctx = useLicenceCtx(flights);
 
   return useMemo(() => {
     const real = flights.filter((f) => f.flight_type !== 'sim');
@@ -131,23 +133,24 @@ export function useInsightsData(): InsightsData {
 
     // Sammansatta mått och simulatorkredit räknas pass för pass i tidsordning (licenceHours).
     const tlCache = new Map<string, ReqPoint[]>();
-    const timeline = (key: string, sim?: SimCredit): ReqPoint[] => {
-      const ck = `${key}|${sim ? JSON.stringify(sim) : ''}`;
+    const optKey = (key: string, opts?: ReqOpts) => `${key}|${opts?.sim ? JSON.stringify(opts.sim) : ''}|${opts?.xcNm ?? ''}`;
+    const timeline = (key: string, opts?: ReqOpts): ReqPoint[] => {
+      const ck = optKey(key, opts);
       let t = tlCache.get(ck);
-      if (!t) { t = reqTimeline(flights, key, sim); tlCache.set(ck, t); }
+      if (!t) { t = reqTimeline(flights, key, { sim: opts?.sim, xcNm: opts?.xcNm }, lctx); tlCache.set(ck, t); }
       return t;
     };
 
-    const haveFor = (key: string, sim?: SimCredit): number => {
-      if (needsTimeline(key, sim)) { const t = timeline(key, sim); return t.length ? t[t.length - 1].cum : 0; }
+    const haveFor = (key: string, opts?: ReqOpts): number => {
+      if (needsTimeline(key, opts)) { const t = timeline(key, opts); return t.length ? t[t.length - 1].cum : 0; }
       if (key.includes('+')) { const [a, b] = key.split('+'); return real.filter((f) => num(f, a) > 0).reduce((s, f) => s + num(f, b), 0); }
       if (key === 'total') return stats?.total_time ?? sumSince('0000-01-01');
       return cats[key] ?? 0;
     };
     // Takten bygger bara på riktiga flygningar: simulatorkrediten har ett tak och tar slut.
-    const rateFor = (key: string, _sim?: SimCredit): number => {
-      if (DERIVED_KEYS.has(key)) {
-        const t = timeline(key);
+    const rateFor = (key: string, opts?: ReqOpts): number => {
+      if (needsTimeline(key, { xcNm: opts?.xcNm })) {
+        const t = timeline(key, { xcNm: opts?.xcNm });
         const now = t.length ? t[t.length - 1].cum : 0;
         let then = 0;
         for (const p of t) { if (p.date >= cut12) break; then = p.cum; }
@@ -170,9 +173,9 @@ export function useInsightsData(): InsightsData {
       if (key === 'xc_pic') return (isXC(f) && num(f, 'pic') > 0) ? (f.total_time || 0) : 0;
       return num(f, key);
     };
-    const metDateFor = (key: string, required: number, sim?: SimCredit): string | null => {
+    const metDateFor = (key: string, required: number, opts?: ReqOpts): string | null => {
       if (required <= 0) return null;
-      if (needsTimeline(key, sim)) return timeline(key, sim).find((p) => p.cum >= required)?.date ?? null;
+      if (needsTimeline(key, opts)) return timeline(key, opts).find((p) => p.cum >= required)?.date ?? null;
       let cum = 0;
       for (const f of byDate) { cum += valOf(f, key); if (cum >= required && f.date) return f.date; }
       return null;
@@ -181,14 +184,14 @@ export function useInsightsData(): InsightsData {
     // Kumulativ månadsserie för valfri kategori (samma regler som valOf), från kategorins första månad med tid
     // t.o.m. innevarande månad. Byggs första gången den behövs.
     const seriesCache = new Map<string, JourneyPt[]>([['total', journey], ['pic', journeyPic]]);
-    const seriesFor = (key: string, sim?: SimCredit): JourneyPt[] => {
-      const ck = sim ? `${key}|${JSON.stringify(sim)}` : key;
+    const seriesFor = (key: string, opts?: ReqOpts): JourneyPt[] => {
+      const ck = needsTimeline(key, opts) ? optKey(key, opts) : key;
       let s = seriesCache.get(ck);
-      if (!s && needsTimeline(key, sim)) {
+      if (!s && needsTimeline(key, opts)) {
         // månadens ökning = skillnaden i kumulativt värde (PIC-alternativen är inte summerbara pass för pass)
         const map: Record<string, number> = {};
         let prev = 0;
-        for (const p of timeline(key, sim)) { const m = p.date.slice(0, 7); map[m] = (map[m] || 0) + (p.cum - prev); prev = p.cum; }
+        for (const p of timeline(key, opts)) { const m = p.date.slice(0, 7); map[m] = (map[m] || 0) + (p.cum - prev); prev = p.cum; }
         s = buildJourney(map);
         seriesCache.set(ck, s);
       }
@@ -214,7 +217,7 @@ export function useInsightsData(): InsightsData {
       cats, counts, landings: { day: stats?.total_landings_day ?? 0, night: stats?.total_landings_night ?? 0 },
       monthly, journey, journeyPic, seriesFor, haveFor, rateFor, metDateFor,
     };
-  }, [flights, stats]);
+  }, [flights, stats, lctx]);
 }
 
 // Hours bank per tidsintervall. 'all' hanteras separat (stats-baserad, inkl. backfill); övriga

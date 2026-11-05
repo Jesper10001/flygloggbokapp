@@ -60,7 +60,9 @@ export async function getPilotCurrency(): Promise<CurrencyReport> {
 
   const items: CurrencyItem[] = [];
 
-  // ── Passagerarcurrency per rating_class (90 dagar; FFS ingår; egna PF-händelser) ──
+  // ── Passagerarcurrency per rating_class (90 dagar; egna PF-händelser) ──
+  // EASA räknar FFS. FAA godkänner simulatorlandningar bara i en godkänd Part 142-kurs (§ 61.57(a)(3), (b)(2)),
+  // vilket loggboken inte visar, så i FAA-läge räknas bara riktiga flygningar.
   const paxRows = await db.getAllAsync<any>(
     `SELECT COALESCE(NULLIF(ar.rating_class,''), f.aircraft_type) AS grp, f.date AS date,
             (f.takeoffs_day + f.takeoffs_night) AS tos,
@@ -71,7 +73,7 @@ export async function getPilotCurrency(): Promise<CurrencyReport> {
        LEFT JOIN (SELECT aircraft_type, MAX(rating_class) AS rating_class FROM aircraft_registry GROUP BY aircraft_type) ar
          ON ar.aircraft_type = f.aircraft_type
       WHERE f.date >= date('now','-90 days')
-        AND (f.flight_type != 'sim' OR f.sim_category = 'FFS')
+        AND ${ruleset === 'FAA' ? "f.flight_type != 'sim'" : "(f.flight_type != 'sim' OR f.sim_category = 'FFS')"}
         AND (f.takeoffs_day + f.takeoffs_night + f.landings_day + f.landings_night) > 0
       ORDER BY f.date DESC`,
   );
@@ -126,19 +128,21 @@ export async function getPilotCurrency(): Promise<CurrencyReport> {
 
   // ── Instrument ──
   if (ruleset === 'FAA') {
+    // § 61.57(c): de 6 kalendermånaderna före flygningens månad (plus innevarande månad), i flygplan,
+    // FFS, FTD eller ATD (motsvarar FNPT och BITD här).
     const r = await db.getFirstAsync<{ apps: number; holds: number }>(
       `SELECT COALESCE(SUM(app_2d + app_3d),0) AS apps, COALESCE(SUM(holds),0) AS holds
          FROM flights
-        WHERE date >= date('now','-6 months')
-          AND (flight_type != 'sim' OR sim_category IN ('FFS','FTD','FNPT_II'))`,
+        WHERE date >= date('now','start of month','-6 months')
+          AND (flight_type != 'sim' OR sim_category IN ('FFS','FTD','FNPT_II','FNPT_I','BITD'))`,
     );
     const apps = r?.apps ?? 0, holds = r?.holds ?? 0;
     const cur = apps >= 6 && holds >= 1;
     items.push({
       key: 'ifr', label: 'Instrument (6 HITS)',
       status: cur ? 'current' : 'expired',
-      detail: cur ? `${apps} approaches · ${holds} hold (last 6 mo)`
-                  : `Need ${Math.max(0, 6 - apps)} approaches + ${holds >= 1 ? 0 : 1} hold (6 mo) · <12mo: safety pilot · >12mo: IPC`,
+      detail: cur ? `${apps} approaches · ${holds} hold (6 calendar months)`
+                  : `Need ${Math.max(0, 6 - apps)} approaches + ${holds >= 1 ? 0 : 1} hold (6 calendar months) · <12mo: safety pilot · >12mo: IPC`,
     });
   } else {
     const ir = certs.filter((c) => isIR(c.cert_type)).sort((a, b) => (a.expires_date || '9999').localeCompare(b.expires_date || '9999'))[0];

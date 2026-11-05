@@ -14,6 +14,7 @@ import { getHourTotals, licenceSetFor } from '../EASAProgressChart';
 import { useProfileStore } from '../../store/profileStore';
 import { useFlightStore } from '../../store/flightStore';
 import { needsTimeline, reqHave, type ReqDef } from '../insights/licenceHours';
+import { loadLicenceCtx } from '../insights/licenceContext';
 import type { FlightStats } from '../../types/flight';
 import type { SeedRow } from '../GlobalAirportMap';
 
@@ -223,9 +224,10 @@ export async function loadWrappedData(): Promise<WrappedData> {
   const totals = await getHourTotals().catch(() => ({} as Record<string, number>));
   const set = licenceSetFor(effectiveSubRole, standard);
   const steps = [set.ppl, set.cpl, set.atpl];
-  // Simulatorkredit och sammansatta krav (ATPL-natt, PIC/PICUS) räknas pass för pass, som i Next licence.
+  // Simulatorkredit, FAA:s XC-avstånd och sammansatta krav räknas pass för pass, som i Next licence.
   const allFlights = useFlightStore.getState().flights;
-  const haveOf = (r: ReqDef) => needsTimeline(r.key, r.sim) ? reqHave(allFlights, r.key, r.sim) : (totals[r.key] ?? 0);
+  const lctx = await loadLicenceCtx(allFlights).catch(() => null);
+  const haveOf = (r: ReqDef) => needsTimeline(r.key, r) ? reqHave(allFlights, r.key, r, lctx) : (totals[r.key] ?? 0);
   const isMet = (s: typeof steps[number]) => s.reqs.every((r) => haveOf(r) >= r.required);
   const target = steps.find((s) => !isMet(s));
   const licAllMet = !target;

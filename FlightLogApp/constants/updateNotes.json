@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 8,
+      "date": "2026-11-05",
+      "notes": [
+        "Fixed: FAA requirements in Next licence now follow Part 61, with separate ATP requirements for helicopters.",
+        "Improved: FAA cross-country time counts flights that land more than 50 NM away, or 25 NM in a helicopter.",
+        "Improved: FAA instrument currency uses calendar months and counts all training devices."
+      ]
+    },
+    {
       "id": 7,
       "date": "2026-11-05",
       "notes": [
