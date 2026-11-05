@@ -20,6 +20,7 @@ interface Env extends OpsEnv {
   REVENUECAT_SECRET_KEY?: string;   // RevenueCat v2 secret key (sk_…) — läser kunds active entitlements. Secret.
   REVENUECAT_PROJECT_ID?: string;   // RevenueCat projekt-id (proj…) — behövs i v2-URL:en.
   REVENUECAT_WEBHOOK_AUTH?: string; // delad hemlighet: Authorization-headern i RevenueCat-webhooken.
+  REVENUECAT_MAX_ENTITLEMENT_ID?: string; // RevenueCats interna id (entl…) för entitlementet "max". Osatt = ingen Max-nivå.
   ARCGIS_API_KEY?: string;          // ArcGIS Location Platform API-nyckel (privilegie: Basemaps) — share-kortets satellitbilder. Secret.
   MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate Limiting-binding (wrangler.toml)
   WEB_MAP_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> }; // Rate limit för webbplatsens tiles, per IP (wrangler.toml)
@@ -30,13 +31,18 @@ interface Env extends OpsEnv {
 // Räknas ALLTID (syns i appens Settings); spärras när TOKEN_QUOTAS_ENABLED=true.
 // Spärr för CSV-import, flight-scan och aircraft/drone-lookup: dessa funktioner är
 // INTE premium-låsta, bara token-låsta.
-// FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM = per månad.
+// FREE = engångspott (lifetime, nollställs aldrig) · PREMIUM och MAX = per månad (samma månadsnyckel, så ett
+// byte mitt i månaden behåller det som redan gått åt).
 // Visas för användaren som "Blade-coins" (1 coin = 200 tokens) — se appens tokenGate.
 const TOKEN_QUOTAS_ENABLED = true;
 const TOKEN_LIMITS: Record<string, number> = {
   free: 20_000,     // engångspott (lifetime) = 100 Blade-coins
   premium: 50_000,  // per månad = 250 Blade-coins
+  max: 100_000,     // per månad = 500 Blade-coins (Blades Max)
 };
+
+// Betalande nivå (Premium eller Max): obegränsat, köpa coins, nyheter, skanningstaxan.
+const isPaid = (tier: string): boolean => tier !== 'free';
 
 // ── Incident news (hybrid: gratis RSS + EN liten Haiku-pass, server-cachad) ──
 // Kostnadsnyckel: vi hämtar RSS från etablerade flyg-nyhetskällor (gratis) och kör EN Haiku-pass
@@ -61,7 +67,7 @@ const NEWS_FEEDS: { url: string; source: string }[] = [
   { url: 'https://airlive.net/feed/', source: 'AIRLIVE' },
 ];
 
-// Free = lifetime-nyckel (ingen TTL); premium = månadsnyckel (löper ut)
+// Free = lifetime-nyckel (ingen TTL); premium och max = månadsnyckel (löper ut)
 function tokenKey(deviceHash: string, tier: string): string {
   return tier === 'free'
     ? `tokens:${deviceHash}:lifetime`
@@ -189,8 +195,8 @@ async function promoActive(kv: KVNamespace | undefined, dk: DevKeys): Promise<bo
 // (= appens identifierForVendor = RevenueCats app_user_id). Aldrig hashat mot RC.
 const PREMIUM_TTL_POS = 900; // aktiv premium cachas 15 min
 const PREMIUM_TTL_NEG = 60;  // "ingen premium" cachas kort → nyss köpt syns snabbt (även utan webhook)
-// v3 = ny SHA-256-nyckel. Premium-värdet är bara en kort cache av RevenueCat → ingen migrering behövs.
-const premiumKey = async (deviceId: string) => `premium:v3:${await hashDevice(deviceId)}`;
+// v4 = värdet är nivån ('max', 'premium' eller 'free'). Bara en kort cache av RevenueCat → ingen migrering behövs.
+const premiumKey = async (deviceId: string) => `premium:v4:${await hashDevice(deviceId)}`;
 
 // Hämtar kundens aktiva entitlement-id:n + HTTP-status.
 // RÅA customerId (= app_user_id) mot RevenueCat.
@@ -210,30 +216,38 @@ async function rcFetchActive(customerId: string, env: Env): Promise<{ status: nu
   }
 }
 
-// Blades har ETT entitlement ("premium") → vilken aktiv entitlement som helst = premium.
-// (Undviker att matcha RevenueCats interna entl-id mot lookup_key "premium".)
-async function rcActive(customerId: string, env: Env): Promise<boolean> {
+// Vilken aktiv entitlement som helst = premium. Max känns igen på sitt interna entl-id
+// (REVENUECAT_MAX_ENTITLEMENT_ID), eftersom v2-svaret inte innehåller lookup_key "max".
+// Blades Max ger både "premium" och "max", så äldre appar ser en Max-kund som Premium.
+async function rcTier(customerId: string, env: Env): Promise<string> {
   const { ids } = await rcFetchActive(customerId, env);
-  return ids.length > 0;
+  if (!ids.length) return 'free';
+  const maxId = (env.REVENUECAT_MAX_ENTITLEMENT_ID ?? '').trim();
+  return maxId && ids.includes(maxId) ? 'max' : 'premium';
 }
 
-// KV-cachead premium-koll. KV-nyckeln hashas (som promo/token-nycklarna); RC-anropet
-// använder det råa id:t. Negativt svar cachas kort så ett nytt köp syns snabbt.
-async function checkPremium(deviceId: string, env: Env): Promise<boolean> {
-  if (!deviceId || deviceId === 'unknown' || !env.QUOTA_KV) return false;
-  const key = await premiumKey(deviceId);
-  const cached = await env.QUOTA_KV.get(key);
-  if (cached !== null) return cached === '1';
-  const active = await rcActive(deviceId, env);
-  await env.QUOTA_KV.put(key, active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
-  return active;
+// Cachar nivån från RevenueCat. Ingen betald nivå cachas kort så ett nytt köp syns snabbt.
+async function cacheTier(deviceId: string, tier: string, env: Env): Promise<void> {
+  await env.QUOTA_KV.put(await premiumKey(deviceId), tier, { expirationTtl: isPaid(tier) ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
 }
 
-// Server-sanningen för tier: promo-kod ELLER RevenueCat. Ersätter tilliten till
+// KV-cachead nivåkoll. KV-nyckeln hashas (som promo/token-nycklarna); RC-anropet
+// använder det råa id:t.
+async function checkRcTier(deviceId: string, env: Env): Promise<string> {
+  if (!deviceId || deviceId === 'unknown' || !env.QUOTA_KV) return 'free';
+  const cached = await env.QUOTA_KV.get(await premiumKey(deviceId));
+  if (cached !== null) return cached;
+  const tier = await rcTier(deviceId, env);
+  await cacheTier(deviceId, tier, env);
+  return tier;
+}
+
+// Server-sanningen för tier: RevenueCat, och minst premium med en promokod. Ersätter tilliten till
 // klientens X-Tier/X-Premium-headers.
 async function resolveTier(deviceId: string, env: Env): Promise<string> {
-  const promo = await promoActive(env.QUOTA_KV, await deviceKeys(deviceId));
-  return (promo || await checkPremium(deviceId, env)) ? 'premium' : 'free';
+  const tier = await checkRcTier(deviceId, env);
+  if (tier !== 'free') return tier;
+  return (await promoActive(env.QUOTA_KV, await deviceKeys(deviceId))) ? 'premium' : 'free';
 }
 
 // ── Login-sida ─────────────────────────────────────────────────────────────
@@ -1026,12 +1040,12 @@ export default {
       const used = env.QUOTA_KV
         ? parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tier), tokenKey(dk.legacy, tier), tokenTtl(tier)) ?? '0', 10)
         : 0;
-      const premium = tier === 'premium';
+      const premium = isPaid(tier);
       const period = tier === 'free' ? 'lifetime' : currentMonth();
       const exempt = quotaExempt(env, dk.hash);
-      // Köpta coins (tokens) går aldrig ut och visas för sig; bara Premium kan köpa fler.
+      // Köpta coins (tokens) går aldrig ut och visas för sig; bara Premium och Max kan köpa fler.
       const credits = env.QUOTA_KV ? await getCredits(env.QUOTA_KV, dk.hash) : 0;   // negativt = skuld efter återbetalning
-      return new Response(JSON.stringify({ used: exempt ? 0 : used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium, exempt, credits, can_buy: premium }), {
+      return new Response(JSON.stringify({ used: exempt ? 0 : used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium, tier, exempt, credits, can_buy: premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
@@ -1053,7 +1067,7 @@ export default {
     // Premium-only (produktval). Nästan gratis: RSS+Haiku körs max 1 gång/timme för alla ihop.
     if (url.pathname === '/incident-news' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
-      if ((await resolveTier(devId, env)) !== 'premium') {
+      if (!isPaid(await resolveTier(devId, env))) {
         return new Response(JSON.stringify({ error: 'premium_required', message: 'Incident news is a Premium feature.' }), {
           status: 403, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
@@ -1090,7 +1104,7 @@ export default {
     // RevenueCat-SDK:n och får inte ligga kvar som "promo" efter att den gått ut).
     if (url.pathname === '/entitlement' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
-      const premium = (await resolveTier(devId, env)) === 'premium';
+      const premium = isPaid(await resolveTier(devId, env));
       const promo = premium && await promoActive(env.QUOTA_KV, await deviceKeys(devId));
       return new Response(JSON.stringify({ premium, promo }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -1143,10 +1157,7 @@ export default {
         console.log(`[credits] återbetald ${event.product_id} ${taken ? `−${taken} tokens` : '(inget att dra)'}`);
         return new Response('ok');
       }
-      if (appUserId && env.QUOTA_KV) {
-        const active = await rcActive(appUserId, env);
-        await env.QUOTA_KV.put(await premiumKey(appUserId), active ? '1' : '0', { expirationTtl: active ? PREMIUM_TTL_POS : PREMIUM_TTL_NEG });
-      }
+      if (appUserId && env.QUOTA_KV) await cacheTier(appUserId, await rcTier(appUserId, env), env);
       return new Response('ok');
     }
 
@@ -1206,7 +1217,7 @@ export default {
             used: tUsed,
             limit: tLimit,
             credits: tCredits,
-            can_buy: tierHeader === 'premium',
+            can_buy: isPaid(tierHeader),
             message: `Monthly AI token quota exceeded (${tUsed}/${tLimit})`,
           }), {
             status: 429, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

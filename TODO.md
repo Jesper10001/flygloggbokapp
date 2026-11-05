@@ -28,13 +28,41 @@ Uppdaterad 2026-10-31. Bocka av med `[x]` och flytta klara punkter till arkivet 
 - [ ] **Töm `QUOTA_EXEMPT_DEVICES` i `proxy/wrangler.toml`** och deploya proxyn när skanningen fungerar. Då kostar skanningar Blade coins igen även för din telefon.
 - [ ] **Beslut: PDF-exportens typsnitt** hämtas från Google Fonts (`services/pdfExport/templates/modernBlades.ts` och `editorial.ts`). Det skickar användarens IP-adress till Google och står inte i integritetspolicyn. Rekommenderat: bädda in typsnitten (Inter och Cormorant är OFL), så kan det följa med 1.0.1.
 
-- [ ] **Köp av extra Blade coins (byggt, avstängt).** Bara Premium: 100 coins för 29 kr, 250 för 39 kr och 500 för 69 kr. Köpta coins går aldrig ut och används efter månadens 250. Görs när 1.0 är godkänd, i den här ordningen:
-  1. **Stabilt id först (Claude).** I dag hör saldot ihop med iOS-id:t `identifierForVendor`, som byts om användaren raderar appen. Då skulle köpta coins försvinna. Id:t ska ligga i Keychain i stället och användas av både proxyn och RevenueCat.
-  2. **Du, i App Store Connect:** skapa tre förbrukningsbara produkter, `blades_coins_100` (29 kr), `blades_coins_250` (39 kr) och `blades_coins_500` (69 kr), med en skärmdump av köpbladet för granskningen.
-  3. **Du, i RevenueCat:** lägg till produkterna och ett erbjudande med id `coins`. Kontrollera att webhooken (`/revenuecat-webhook`) skickar NON_RENEWING_PURCHASE.
-  4. **Terms och integritetspolicyn.** Förslag till Terms, på engelska: *"Blade coins. Blade coins are a virtual in-app credit for using certain features of Blades. When you buy coins you receive a limited, personal, non-transferable and revocable licence to use them in the app — you do not own them. Coins have no monetary value, cannot be exchanged for money or anything else, cannot be transferred to another person or account, and are not refundable except where required by law or granted by Apple under its refund policies. If a purchase is refunded or reversed, the coins from it are removed; if they have already been used, the amount is deducted from future coins. Purchased coins do not expire. Monthly coins included with Premium do not carry over."* Lägg en kort rad om detta i coin-paywallen i RevenueCat också, till exempel "Coins have no cash value and can't be transferred."
-  4b. **RevenueCat:** designa paywallen för erbjudandet `coins`. Kontrollera att webhooken skickar CANCELLATION för återbetalda engångsköp. Kolla också om RevenueCat kan svara på Apples förfrågningar om förbrukning vid återbetalning (CONSUMPTION_REQUEST), och slå på det i så fall.
-  5. **Claude:** sätt `COIN_PACKS_ENABLED = true` i `FlightLogApp/services/coinPacks.ts` och deploya proxyn (`proxy/src/credits.ts`) när du säger till. Testa ett köp i sandlådan: coinsen ska komma fram, och en skanning som stannat ska fortsätta.
+- [ ] **Nya paywalls: Blades Max och fler Blade coins (förberett 2026-11-05, på bara i TestFlight).**
+  - **Blades Max:** 69 kr i månaden med 500 coins per månad, i samma prenumerationsgrupp som Premium, så att man kan byta nivå.
+  - **Coin-paket:** bara för Premium och Max. 100 coins kostar 29 kr, 250 kostar 39 kr och 500 kostar 69 kr. Köpta coins går aldrig ut och används efter månadens coins.
+  - **I appen:** flaggan `NEW_PAYWALLS` i `FlightLogApp/constants/paywalls.ts` är på bara i kanalen preview (TestFlight).
+  - **I proxyn:** nivån `max` är byggd (500 coins) men inte deployad.
+
+  Görs i den här ordningen:
+  1. [x] **Du, med Claude in Chrome (klart 2026-11-05):** App Store Connect och RevenueCat.
+     - Fyra produkter: Max 69 kr (4,99 USD) och coins 29/39/69 kr. De står som "Missing Metadata" i väntan på skärmdump.
+     - Entitlementen `premium` (`entl3fd488c6ab`, nu även med Max) och `max` (`entlf97ba3e11f`).
+     - Erbjudandena `premium_max` och `coins`, var och en med en publicerad paywall. `standard` är kvar som current.
+  2. **Claude:** Max-id:t ligger i `proxy/wrangler.toml` (torrkörning och nivåtest gröna). Deploya proxyn och publicera appdelen till testkanalen när du säger till.
+  3. **Du, i TestFlight:**
+     - Köp Max direkt från gratisläget. Settings ska visa "Blades Max" och 500 coins.
+     - Bytet från Premium till Max via raden "Blades Max" i Settings slår igenom först vid nästa förnyelse, tills nivåordningen är rättad (punkt 4).
+     - Köp 250 coins. Coinsen ska komma fram, och en skanning som stannat ska fortsätta.
+     - Gör en Restore.
+  4. **Efter att 1.0 är godkänd:**
+     - Ta skärmdumpar av de två paywallsen i TestFlight och ladda upp dem som granskningsskärmdump på de fyra produkterna. Utan den står de som "Missing Metadata", men de fungerar i sandlådan.
+     - **ASC, nivåordningen:** byt så att Blades Max har nivå 1 och Premium nivå 2.
+       - I dag ligger Premium på nivå 1 och Max på nivå 2. Premium-raden var låst under granskningen.
+       - Med fel ordning räknar Apple bytet Premium → Max som en nedgradering, som slår igenom först vid nästa förnyelse.
+       - Måste vara rättat före 1.0.1.
+     - Byt gärna gruppens visningsnamn från "Blades Premium" till "Blades".
+     - **RevenueCat Customer Center:** slå på "Change Plans". Det finns men är avslaget.
+     - **RevenueCat Refund Control** (Lifecycle): ta ställning till om förbrukningsdata ska skickas till Apple vid återbetalning. I dag skickas inget.
+     - Märkningarna på paywallsen ("2× coins", "Popular", "Best value") har RevenueCats gröna standardfärg. Byt till guld om du vill.
+     - Terms och integritetspolicyn: lägg till en rad om Blades Max och den här texten om Blade coins (förslag, på engelska): *"Blade coins. Blade coins are a virtual in-app credit for using certain features of Blades. When you buy coins you receive a limited, personal, non-transferable and revocable licence to use them in the app — you do not own them. Coins have no monetary value, cannot be exchanged for money or anything else, cannot be transferred to another person or account, and are not refundable except where required by law or granted by Apple under its refund policies. If a purchase is refunded or reversed, the coins from it are removed; if they have already been used, the amount is deducted from future coins. Purchased coins do not expire. Monthly coins included with Premium do not carry over."* Lägg en kort rad om detta i coin-paywallen också, till exempel "Coins have no cash value and can't be transferred."
+     - **Stabilt id (Claude) innan coins säljs på riktigt.**
+       - Saldot hör i dag ihop med `identifierForVendor`, som byts om appen raderas. Då skulle köpta coins försvinna.
+       - Förslag: spara dagens `identifierForVendor` i Keychain första gången, och använd det i proxyn och i RevenueCat. Då byts inget id för befintliga användare.
+  5. **I bygget 1.0.1:**
+     - Sätt `NEW_PAYWALLS_LIVE = true` i `FlightLogApp/constants/paywalls.ts`.
+     - Lägg Blades Max och de tre coin-paketen i samma inskickning som 1.0.1 ("Add for Review").
+     - Ingen ändring i RevenueCat behövs: appen öppnar `premium_max`, och `standard` kan ligga kvar som current.
 
 ## Nästa bygge (1.0.1)
 
@@ -45,7 +73,7 @@ Efter att 1.0 är släppt, i den här ordningen. Hela släpprutinen står i `REL
    - **Claude:** tar bort `SENTRY_DISABLE_AUTO_UPLOAD` i `eas.json`, byter `metro.config.js` till `getSentryExpoConfig` och lägger till uppladdning av källkartor i publiceringsskriptet för rättningar.
 2. [x] **Licenser:** `cd FlightLogApp && node scripts/gen-licenses.mjs` (cirka 2 minuter), som före varje release.
 3. [ ] **Version:** höj `"version"` i `FlightLogApp/app.json` till `1.0.1` först i bygget som skickas in (användarens beslut 2026-11-03: testbyggen före det heter 1.0.0). Döp om "Unreleased" i `CHANGELOG.md` till 1.0.1 och välj What's New-raderna.
-3b. [ ] **Nya paywalls** till nästa release (användaren 2026-11-03), till exempel Blades Max och coin-paketen.
+3b. [ ] **Nya paywalls:** sätt `NEW_PAYWALLS_LIVE = true` och skicka in Blades Max och coin-paketen med versionen, se "Nya paywalls" under Nu.
 4. [ ] **Commita allt och kör databastestet:** `node FlightLogApp/scripts/test-db-upgrade.cjs`, som ska sluta med "inga fel". EAS bygger bara committad kod.
 5. [ ] **Bygg två gånger:** först `npx eas-cli build -p ios --profile testflight`, sedan `npx eas-cli build -p ios --profile production`. Skicka båda med `npx eas-cli submit -p ios --profile production --latest` efter varje bygge. Testflight-bygget får det lägre numret: installera det på din telefon, det läser testkanalen för rättningar. Det högre numret skickas in för granskning. Tagga båda (`ios/1.0.1-<bygge>`) och skicka upp taggarna med `git push origin --tags`.
 6. [ ] **Integritetspolicyn:** lägg till Expo före inskickningen. Förslag: *"App updates: when you open the app it checks Expo (EAS Update) for a newer version of the app's code. Expo receives your IP address, your device platform and a random installation ID to deliver the update. No logbook data is sent."* Se också över App Privacy i App Store Connect.

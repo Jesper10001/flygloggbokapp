@@ -36,6 +36,7 @@ import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { tokensToCoins, openCoinShop } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
+import { MaxUpgradeRow } from '../../components/MaxUpgradeRow';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { useAiConsentStore } from '../../store/aiConsentStore';
@@ -319,13 +320,14 @@ export default function DroneSettingsScreen() {
             style={{ height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Blades Premium, ${isPremium || isMax ? 'Active' : 'Upgrade'}`}
+            accessibilityLabel={`${isMax ? 'Blades Max' : 'Blades Premium'}, ${isPremium || isMax ? 'Active' : 'Upgrade'}`}
             onPress={() => { if (isPremium || isMax) { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); } else { presentPaywall(); } }}
           >
-            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase', color: '#FFB830' }}>Blades Premium</Text>
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase', color: '#FFB830' }}>{isMax ? 'Blades Max' : 'Blades Premium'}</Text>
             <Text style={{ fontSize: 12, fontWeight: '500', fontFamily: 'Menlo', color: '#C9B07A' }}>{isPremium || isMax ? 'Active' : 'Upgrade'}</Text>
             <Ionicons name="chevron-forward" size={16} color="#FFB830" />
           </TouchableOpacity>
+          <MaxUpgradeRow />
         </LinearGradient>
       </View>
 

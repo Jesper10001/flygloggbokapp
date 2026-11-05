@@ -148,7 +148,8 @@ export default function RootLayout() {
         checkPromoEntitlement().then(async (res) => {
           if (!res) return;
           const promo = res.promo ?? res.premium;
-          if (res.premium) useFlightStore.getState().setIsPremium(true);
+          // Bara uppåt från free: en Max-nivå från RevenueCat ska inte skrivas om till Premium.
+          if (res.premium && !useFlightStore.getState().isPremium) useFlightStore.getState().setIsPremium(true);
           if (promo) await setSetting('promo_premium', '1').catch(() => {});
           else if (promoCached) {
             await setSetting('promo_premium', '0').catch(() => {});

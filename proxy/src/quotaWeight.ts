@@ -1,5 +1,5 @@
 // Hur mycket ett anrop drar från användarens Blade coins (1 coin = 200 tokens). Skanning av loggbok får
-// dubbelt så många tokens per coin som andra funktioner för PREMIUM: ett uppslag är stort (bild + långt svar),
+// dubbelt så många tokens per coin som andra funktioner för PREMIUM och MAX: ett uppslag är stort (bild + långt svar),
 // och en betalande användare ska kunna skanna en hel bok. Gratisnivån betalar full taxa — den har inte
 // betalat något, så den lägre taxan skulle bara öka kostnaden.
 //
@@ -12,7 +12,7 @@ const SCAN_TOOL = 'emit_flights';
 const SCAN_MAX_TOKENS = 16000;
 
 export function quotaWeight(body: any, tier = 'free'): number {
-  if (tier !== 'premium') return 1;
+  if (tier === 'free') return 1; // Premium och Max får skanningstaxan
   try {
     const tools = Array.isArray(body?.tools) ? body.tools : [];
     const forced = body?.tool_choice?.type === 'tool' && body?.tool_choice?.name === SCAN_TOOL;

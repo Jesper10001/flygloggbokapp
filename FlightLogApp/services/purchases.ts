@@ -18,11 +18,15 @@ import * as Application from 'expo-application';
 import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { getDeviceId } from './anthropicClient';
 import { getSetting } from '../db/flights';
-import { useFlightStore } from '../store/flightStore';
+import { useFlightStore, type SubscriptionTier } from '../store/flightStore';
+import { NEW_PAYWALLS, PLANS_OFFERING_ID } from '../constants/paywalls';
 
 const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
 const ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';
 const ENTITLEMENT_ID = 'premium';
+// Blades Max ger både "premium" och "max", så äldre byggen ser en Max-kund som Premium.
+const MAX_ENTITLEMENT_ID = 'max';
+const MAX_PRODUCT_ID = 'blades_max_monthly';
 
 // Lazy-require: får aldrig fälla en build som saknar native-modulen.
 let Purchases: any = null;
@@ -64,21 +68,26 @@ export async function configurePurchases(): Promise<void> {
     configured = true;
     // Håll premium i synk om Apple förnyar/återkallar prenumerationen i bakgrunden.
     Purchases.addCustomerInfoUpdateListener((info: CustomerInfo) => {
-      applyEntitlement(isEntitlementActive(info)).catch(() => {});
+      applyEntitlement(tierOf(info)).catch(() => {});
     });
   } catch { /* native modul saknas/ej konfigurerad → tyst */ }
 }
 
-function isEntitlementActive(info: CustomerInfo | null | undefined): boolean {
-  try { return !!info?.entitlements?.active?.[ENTITLEMENT_ID]; } catch { return false; }
+function tierOf(info: CustomerInfo | null | undefined): SubscriptionTier {
+  try {
+    const active = info?.entitlements?.active ?? {};
+    // Max känns igen på sitt entitlement, eller på att det är Max-produkten som ger "premium".
+    if (active[MAX_ENTITLEMENT_ID] || active[ENTITLEMENT_ID]?.productIdentifier === MAX_PRODUCT_ID) return 'max';
+    return active[ENTITLEMENT_ID] ? 'premium' : 'free';
+  } catch { return 'free'; }
 }
 
-// Premium = RevenueCat-entitlement ELLER promokod (server-verifierad). Skriver ALDRIG över en
-// aktiv promo till false — de två källorna OR:as ihop.
-async function applyEntitlement(rcActive: boolean): Promise<void> {
+// Nivån = RevenueCat-entitlement, och minst Premium med en promokod (server-verifierad). Skriver ALDRIG över
+// en aktiv promo till free — de två källorna slås ihop.
+async function applyEntitlement(rcTier: SubscriptionTier): Promise<void> {
   const promo = (await getSetting('promo_premium').catch(() => null)) === '1';
-  useFlightStore.getState().setIsPremium(rcActive || promo);
-  refreshTokenQuota(); // Blade-coin-saldot (server /tokens) ska uppdateras direkt när premium ändras
+  useFlightStore.getState().setTier(rcTier === 'free' && promo ? 'premium' : rcTier);
+  refreshTokenQuota(); // Blade-coin-saldot (server /tokens) ska uppdateras direkt när nivån ändras
 }
 
 // Laddar om coin-saldot från proxyns /tokens. Lazy-require undviker cirkulär import. Kör direkt
@@ -98,7 +107,7 @@ export async function refreshEntitlement(): Promise<void> {
   if (!configured || !Purchases) return;
   try {
     const info = await Purchases.getCustomerInfo();
-    await applyEntitlement(isEntitlementActive(info));
+    await applyEntitlement(tierOf(info));
   } catch { /* tyst — behåll cachat läge */ }
 }
 
@@ -118,33 +127,46 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseOu
   if (!configured || !Purchases) return 'unavailable';
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const active = isEntitlementActive(customerInfo);
-    await applyEntitlement(active);
-    return active ? 'success' : 'error';
+    const tier = tierOf(customerInfo);
+    await applyEntitlement(tier);
+    return tier !== 'free' ? 'success' : 'error';
   } catch (e: any) {
     if (e?.userCancelled) return 'cancelled';
     return 'error';
   }
 }
 
+// Erbjudandet med Premium och Max (bara med de nya paywallsen). Undefined = current offering.
+async function plansOffering(): Promise<PurchasesOffering | undefined> {
+  if (!NEW_PAYWALLS) return undefined;
+  try { return (await Purchases.getOfferings())?.all?.[PLANS_OFFERING_ID] ?? undefined; } catch { return undefined; }
+}
+
 /**
  * Visar paywallen. ETT anrop för ALLA triggers (Blades Premium-knappen, slut på coins, premium-
  * funktion). Visar RevenueCats designade paywall när den är tillgänglig; annars den egna fallback-
  * paywallen (usePaywallStore → <PremiumModal> i roten). Returnerar om användaren blev premium.
+ * upgrade: en Premium-användare får paywallen ändå, för att byta till Max.
  */
-export async function presentPaywall(feature?: string): Promise<boolean> {
-  // Redan premium → ingen paywall behövs.
-  try { if (useFlightStore.getState().isPremium) return true; } catch { /* ignore */ }
+export async function presentPaywall(feature?: string, opts?: { upgrade?: boolean }): Promise<boolean> {
+  // Redan premium → ingen paywall behövs, utom för att uppgradera till Max.
+  try {
+    const st = useFlightStore.getState();
+    if (st.isMax || (st.isPremium && !(opts?.upgrade && NEW_PAYWALLS))) return true;
+  } catch { /* ignore */ }
 
   if (configured && Purchases && RevenueCatUI) {
     try {
-      // Visar current offerings paywall (den du designar i RevenueCat). Resultatet bryr vi oss inte
-      // om i detalj — vi läser av entitlement efteråt.
-      await RevenueCatUI.presentPaywall();
+      // Visar erbjudandets paywall (den du designar i RevenueCat). Resultatet bryr vi oss inte om i
+      // detalj — vi läser av entitlement efteråt.
+      const offering = await plansOffering();
+      if (opts?.upgrade && !offering) return false; // utan Max-erbjudandet finns inget att byta till
+      await (offering ? RevenueCatUI.presentPaywall({ offering }) : RevenueCatUI.presentPaywall());
       await refreshEntitlement();
       return useFlightStore.getState().isPremium;
     } catch { /* fall igenom till fallback */ }
   }
+  if (opts?.upgrade) return false; // den egna paywallen har inget Max-kort
 
   // Fallback: egen paywall (innan RC-nyckel/native-rebuild, eller om något fallerar).
   try {
@@ -226,9 +248,9 @@ export async function restorePurchases(): Promise<PurchaseOutcome> {
   if (!configured || !Purchases) return 'unavailable';
   try {
     const info = await Purchases.restorePurchases();
-    const active = isEntitlementActive(info);
-    await applyEntitlement(active);
-    return active ? 'success' : 'nothing';
+    const tier = tierOf(info);
+    await applyEntitlement(tier);
+    return tier !== 'free' ? 'success' : 'nothing';
   } catch (e: any) {
     if (e?.userCancelled) return 'cancelled';
     return 'error';

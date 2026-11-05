@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Nya paywalls förberedda: Blades Max (69 kr i månaden, 500 Blade coins per månad) på samma paywall som Premium, och köp av fler coins (100, 250 eller 500). De är på bara i TestFlight-bygget (flaggan `NEW_PAYWALLS` i `constants/paywalls.ts`) tills de släpps med 1.0.1.
+  - Nivån läses från RevenueCat. Blades Max känns igen på entitlementet `max`, eller på att produkten `blades_max_monthly` ger `premium`. Max ger även `premium`, så äldre byggen ser Max som Premium.
+  - Paywallen öppnar erbjudandet `premium_max`, och coin-köpen erbjudandet `coins`. App Store-bygget använder fortfarande `standard`.
+  - Settings visar "Blades Max" för Max-kunder. För Premium-kunder finns raden "Blades Max · 500 coins / month", som öppnar paywallen för att byta nivå.
+  - Proxyn känner igen Max (100 000 tokens = 500 coins per månad, skanningstaxan och köp av coins) via `REVENUECAT_MAX_ENTITLEMENT_ID` (`entlf97ba3e11f`). Den är inte deployad.
 - Next licence i helskärm: stegen PPL → CPL → ATPL är tre lika breda rutor på två rader, med koden överst och året eller procenten under. Med helikopterkoderna (H) fick stegen inte plats på en rad, och året för klara licenser kapades. Året visas kort, som ’25.
 - Helskärmsläget för Projections och Next licence blir liggande direkt. Tidigare visades den liggande layouten i stående läge tills man själv vred telefonen.
   - Routerna har `orientation: 'landscape'`, så att navigeringen roterar skärmen själv.

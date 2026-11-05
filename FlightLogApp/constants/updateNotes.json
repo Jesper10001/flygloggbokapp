@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 15,
+      "date": "2026-11-05",
+      "notes": [
+        "New: Blades Max, with 500 Blade coins every month, next to Premium on the same paywall.",
+        "New: Buy more Blade coins in packs of 100, 250 or 500. Coins you buy never expire."
+      ]
+    },
+    {
       "id": 14,
       "date": "2026-11-05",
       "notes": [

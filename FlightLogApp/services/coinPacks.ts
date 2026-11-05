@@ -2,10 +2,12 @@
 // krediterar köpet när RevenueCat-webhooken kommer (proxy/src/credits.ts), appen lägger aldrig till coins
 // själv. Köpta coins går aldrig ut och används efter månadens 250.
 //
-// AV tills produkterna finns i App Store Connect + RevenueCat (offering "coins") och proxyn är deployad.
+// På i TestFlight-bygget och av i App Store-bygget tills de släpps (NEW_PAYWALLS i constants/paywalls.ts).
+// Kräver produkterna i App Store Connect och RevenueCats offering "coins".
 // I dev-builden visas köpbladet ändå (COIN_SHOP_PREVIEW) så att designen kan provas — utan köp.
+import { NEW_PAYWALLS } from '../constants/paywalls';
 
-export const COIN_PACKS_ENABLED = false;
+export const COIN_PACKS_ENABLED = NEW_PAYWALLS;
 export const COIN_SHOP_PREVIEW = __DEV__;
 export const coinShopAvailable = () => COIN_PACKS_ENABLED || COIN_SHOP_PREVIEW;
 

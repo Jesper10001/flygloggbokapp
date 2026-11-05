@@ -47,6 +47,8 @@ name = "ALERT_MAIL"
 # Icke-hemlig config → [vars] (så den inte nollas vid deploy).
 [vars]
 REVENUECAT_PROJECT_ID = "proj5514c011"
+# RevenueCats interna id (entl…) för entitlementet "max" (Blades Max). Tomt = ingen Max-nivå, Max-kunder räknas som Premium.
+REVENUECAT_MAX_ENTITLEMENT_ID = "entlf97ba3e11f"
 SENTRY_ORG = "jesper-toreld"
 SENTRY_PROJECT = "blades-ios"
 SENTRY_PROJECT_ID = "4512330034839632"
