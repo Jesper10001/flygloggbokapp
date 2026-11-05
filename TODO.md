@@ -25,7 +25,7 @@ Uppdaterad 2026-10-31. Bocka av med `[x]` och flytta klara punkter till arkivet 
   - Fungerar rättningen ovanför tangentbordet?
   - Blir importen rätt?
   - Säg till om rutorna hamnar fel, så justeras geometrin.
-- [ ] **Töm `QUOTA_EXEMPT_DEVICES` i `proxy/wrangler.toml`** och deploya proxyn när skanningen fungerar. Då kostar skanningar Blade coins igen även för din telefon.
+- [ ] **Töm `QUOTA_EXEMPT_DEVICES` i `proxy/wrangler.toml`** och deploya proxyn när skanningen fungerar. TestFlight-appen togs bort 2026-11-05, och bara dev-builden är kvar. Då kostar skanningar Blade coins även där.
 - [ ] **Beslut: PDF-exportens typsnitt** hämtas från Google Fonts (`services/pdfExport/templates/modernBlades.ts` och `editorial.ts`). Det skickar användarens IP-adress till Google och står inte i integritetspolicyn. Rekommenderat: bädda in typsnitten (Inter och Cormorant är OFL), så kan det följa med 1.0.1.
 
 - [ ] **Nya paywalls: Blades Max och fler Blade coins (förberett 2026-11-05, på bara i TestFlight).**
@@ -39,7 +39,7 @@ Uppdaterad 2026-10-31. Bocka av med `[x]` och flytta klara punkter till arkivet 
      - Fyra produkter: Max 69 kr (4,99 USD) och coins 29/39/69 kr. De står som "Missing Metadata" i väntan på skärmdump.
      - Entitlementen `premium` (`entl3fd488c6ab`, nu även med Max) och `max` (`entlf97ba3e11f`).
      - Erbjudandena `premium_max` och `coins`, var och en med en publicerad paywall. `standard` är kvar som current.
-  2. **Claude:** Max-id:t ligger i `proxy/wrangler.toml` (torrkörning och nivåtest gröna). Deploya proxyn och publicera appdelen till testkanalen när du säger till.
+  2. [x] **Proxyn och testkanalen (klart 2026-11-05):** proxyn är deployad med Max-id:t, och appdelen är publicerad till preview (commit 5108c89, notes 15).
   3. **Du, i TestFlight:**
      - Köp Max direkt från gratisläget. Settings ska visa "Blades Max" och 500 coins.
      - Bytet från Premium till Max via raden "Blades Max" i Settings slår igenom först vid nästa förnyelse, tills nivåordningen är rättad (punkt 4).

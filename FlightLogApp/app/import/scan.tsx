@@ -10,14 +10,12 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanQuotaStore, MONTHLY_QUOTA, QUOTAS_ENABLED } from '../../store/scanQuotaStore';
 import { presentPaywall } from '../../services/purchases';
-import { setScanUseBookLayout, getScanUseBookLayout, setScanFromOnboarding, MAX_SPREADS, spreadLimit, TEST_BUILD } from '../../store/scanStore';
+import { setScanUseBookLayout, getScanUseBookLayout, setScanFromOnboarding, MAX_SPREADS, spreadLimit } from '../../store/scanStore';
 import { useScanBookStore, sessionsOf } from '../../store/scanBookStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { askAiConsent } from '../../services/aiConsent';
 import { getActiveDigitalBook } from '../../db/digitalBooks';
 import { getAnyTemplate } from '../../db/customTemplates';
-import { getDeviceId } from '../../services/anthropicClient';
-import * as Crypto from 'expo-crypto';
 import { getSetting, setSetting } from '../../db/flights';
 import { loadLedger } from '../../services/paperLedger';
 import { ledgerStatus, type LedgerStatus } from '../../services/scanPaperFixes';
@@ -49,7 +47,6 @@ export default function ScanImportScreen() {
   const [book, setBook] = useState<BookInfo | undefined>(undefined);
   const [sameLayout, setSameLayout] = useState(getScanUseBookLayout());
   const chooseLayout = (same: boolean) => { setSameLayout(same); setScanUseBookLayout(same); };
-  const [devHash, setDevHash] = useState<string | null>(null);
   // Regel som användaren bekräftat i en tidigare skanning: total = avgång → ankomst + tillägg (t.ex. 0.2 h).
   const [addition, setAddition] = useState<number | null>(null);
   const [ruleInfo, setRuleInfo] = useState(false);   // rutan med regeln (Keep / Forget)
@@ -75,16 +72,6 @@ export default function ScanImportScreen() {
     // replace: startsidan är ett modalfönster; granskningen och kameran öppnas ovanpå helbokssidan.
     router.replace('/import/scan-book');
   };
-
-  // Testbyggen: enhetens hash som proxyn använder (samma som hashDevice i proxy/src/index.ts). Står den i
-  // QUOTA_EXEMPT_DEVICES kostar skanningarna inga Blade coins medan funktionen byggs. TestFlight-appen har ett
-  // annat id än dev-builden (annat bundle-id), så den får en egen hash.
-  useEffect(() => {
-    if (!TEST_BUILD) return;
-    Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `blades-device:v2:${getDeviceId()}`)
-      .then((hex) => setDevHash(`d2_${hex.slice(0, 32)}`))
-      .catch(() => {});
-  }, []);
 
   // Läses om när man kommer tillbaka från loggbokssidan (där mallen väljs).
   useFocusEffect(useCallback(() => {
@@ -222,11 +209,6 @@ export default function ScanImportScreen() {
         ))}
       </View>
 
-      {/* Osynlig: håll fingret längst ner på sidan och välj Kopiera. Bara hashen kopieras. */}
-      {TEST_BUILD && devHash && (
-        <Text style={s.devHash} selectable accessibilityLabel="Device id for free test scans">{devHash}</Text>
-      )}
-
       {/* Bara när de lokala skanningskvoterna är påslagna (annars styr proxyns Blade-coins). */}
       {QUOTAS_ENABLED && (
         <View style={s.quotaCard}>
@@ -323,7 +305,6 @@ const s = StyleSheet.create({
   choiceBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
   choiceText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
   choiceTextOn: { color: Colors.primary },
-  devHash: { color: 'transparent', fontSize: 11, fontFamily: 'Menlo', textAlign: 'center', paddingVertical: 12 },
 
   quotaCard: {
     backgroundColor: Colors.card, borderRadius: 12, padding: 14,

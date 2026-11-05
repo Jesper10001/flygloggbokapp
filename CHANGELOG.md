@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- TestFlight-appen skannar inte längre gratis. Dess hash är borttagen ur `QUOTA_EXEMPT_DEVICES`, och skanningar drar Blade coins som i App Store-versionen. Fler coins köps i sandlådan. Den osynliga hashtexten längst ner på Scan logbook är borttagen. Dev-builden är fortfarande undantagen.
 - Nya paywalls förberedda: Blades Max (69 kr i månaden, 500 Blade coins per månad) på samma paywall som Premium, och köp av fler coins (100, 250 eller 500). De är på bara i TestFlight-bygget (flaggan `NEW_PAYWALLS` i `constants/paywalls.ts`) tills de släpps med 1.0.1.
   - Nivån läses från RevenueCat. Blades Max känns igen på entitlementet `max`, eller på att produkten `blades_max_monthly` ger `premium`. Max ger även `premium`, så äldre byggen ser Max som Premium.
   - Paywallen öppnar erbjudandet `premium_max`, och coin-köpen erbjudandet `coins`. App Store-bygget använder fortfarande `standard`.
