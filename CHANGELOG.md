@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Settings: abonnemang och Blade coins är omgjorda och enklare, likadant i pilot- och drönarläget (`components/PlanCoinsSection.tsx`).
+  - Den guldfärgade Blades Premium-strippen är ersatt av raden "Subscription" under Profile, i samma stil som Profile. Den visar Blades Premium eller Blades Max och öppnar hanteringen av abonnemanget, och för gratisnivån paywallen. För Premium-kunder finns en rad till under den, "Blades Max · 500 coins a month", som byter nivå.
+  - Blade coins är ett kort med en enda mätare: månadens coins i cyan först och köpta coins i vitt efter. Siffran är totalen. Under mätaren står "250 this month · 500 extra" och datumet för nästa påfyllning.
+  - Köpta coins används först när månadens är slut, som förut (proxyn och appens räknare). Nu syns det i mätaren: det är den cyan delen som krymper först.
+  - Det stora myntet, den guldfärgade "Extra coins"-stapeln (`ExtraCoinsBar`) och `MaxUpgradeRow` är borta.
 - TestFlight-appen skannar inte längre gratis. Dess hash är borttagen ur `QUOTA_EXEMPT_DEVICES`, och skanningar drar Blade coins som i App Store-versionen. Fler coins köps i sandlådan. Den osynliga hashtexten längst ner på Scan logbook är borttagen. Dev-builden är fortfarande undantagen.
 - Nya paywalls förberedda: Blades Max (69 kr i månaden, 500 Blade coins per månad) på samma paywall som Premium, och köp av fler coins (100, 250 eller 500). De är på bara i TestFlight-bygget (flaggan `NEW_PAYWALLS` i `constants/paywalls.ts`) tills de släpps med 1.0.1.
   - Nivån läses från RevenueCat. Blades Max känns igen på entitlementet `max`, eller på att produkten `blades_max_monthly` ger `premium`. Max ger även `premium`, så äldre byggen ser Max som Premium.

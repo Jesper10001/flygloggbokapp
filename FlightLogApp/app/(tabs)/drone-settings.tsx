@@ -4,21 +4,16 @@
 // (JetBrainsMono/Fraunces) — allt matchar manned-settings.
 
 import { useCallback, useState, useEffect, useRef } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Image,
-  LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput, AppState,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput, AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Application from 'expo-application';
 
 import { DR } from '../../constants/droneTheme';
 import { FONT_SERIF } from '../../components/logbook-page/tokens';
-import { ExtraCoinsBar } from '../../components/ExtraCoinsBar';
 import { CoinInfoDialog } from '../../components/CoinInfoDialog';
 import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
@@ -31,12 +26,11 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
 import { useFlightStore } from '../../store/flightStore';
-import { presentPaywall, refreshEntitlement, presentManageSubscription } from '../../services/purchases';
+import { refreshEntitlement } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
-import { tokensToCoins, openCoinShop } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { MaxUpgradeRow } from '../../components/MaxUpgradeRow';
+import { SubscriptionCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { useAiConsentStore } from '../../store/aiConsentStore';
@@ -77,13 +71,13 @@ export default function DroneSettingsScreen() {
   const { loadFlights: loadDroneFlights, loadStats: loadDroneStats } = useDroneFlightStore();
 
   const { isPremium, isMax, setIsPremium } = useFlightStore();
-  const tokenUsage = useTokenQuotaStore((s) => s.usage);
   const timeFormat = useTimeFormatStore((s) => s.timeFormat);
   const setTimeFormat = useTimeFormatStore((s) => s.setTimeFormat);
   const altUnit = useAltitudeUnitStore((s) => s.unit);
   const setAltUnit = useAltitudeUnitStore((s) => s.setUnit);
   const [locGranted, setLocGranted] = useState(false);
   const [showCoinInfo, setShowCoinInfo] = useState(false);
+  const planTheme: PlanTheme = { card: DR.surface, border: DR.border, text: DR.text, label: DR.text3, accent };
   const appLockEnabled = useAppLockStore((s) => s.enabled);
   const appLockAvailable = useAppLockStore((s) => s.available);
 
@@ -310,98 +304,10 @@ export default function DroneSettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={accent} />
         </TouchableOpacity>
 
-        {/* Blades Premium — slank guld-strip (status som text, ingen pill/ikon) */}
-        <LinearGradient
-          colors={['rgba(255,184,48,0.14)', 'rgba(255,184,48,0.03)']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={{ borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,184,48,0.30)', overflow: 'hidden' }}
-        >
-          <TouchableOpacity
-            style={{ height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`${isMax ? 'Blades Max' : 'Blades Premium'}, ${isPremium || isMax ? 'Active' : 'Upgrade'}`}
-            onPress={() => { if (isPremium || isMax) { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); } else { presentPaywall(); } }}
-          >
-            <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 2.4, textTransform: 'uppercase', color: '#FFB830' }}>{isMax ? 'Blades Max' : 'Blades Premium'}</Text>
-            <Text style={{ fontSize: 12, fontWeight: '500', fontFamily: 'Menlo', color: '#C9B07A' }}>{isPremium || isMax ? 'Active' : 'Upgrade'}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FFB830" />
-          </TouchableOpacity>
-          <MaxUpgradeRow />
-        </LinearGradient>
+        {/* Abonnemang + Blade coins (components/PlanCoinsSection, samma som pilotsidan) */}
+        <SubscriptionCard T={planTheme} />
+        <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
       </View>
-
-      {/* ── Blade-coins-mätare ── */}
-      {tokenUsage && (() => {
-        // Handoff B2 (= pilot): 64px mynt till vänster, segmenterad mätare, visar KVARVARANDE coins.
-        const usedCoins = tokensToCoins(tokenUsage.used);
-        const limitCoins = tokensToCoins(tokenUsage.limit);
-        const leftCoins = Math.max(0, limitCoins - usedCoins);
-        const leftPct = limitCoins > 0 ? leftCoins / limitCoins : 0;
-        const CELLS = 10;
-        const fill = leftPct * CELLS;
-        const full = Math.floor(fill);
-        const partial = fill - full;
-        const empty = leftCoins <= 0;
-        const low = !empty && leftPct <= 0.10;
-        const countColor = empty ? '#7F98B2' : low ? '#FFB830' : '#00C8E8';
-        const gFull = (low ? ['#FFD27A', '#FFB830'] : ['#7DF2FF', '#00B4D8']) as [string, string];
-        const partColor = low ? '#FFB830' : '#1CD8F5';
-        const isFree = tokenUsage.month === 'lifetime';
-        const extraCoins = tokensToCoins(tokenUsage.credits ?? 0);   // köpta, går aldrig ut (= pilot)
-        return (
-          <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <Image source={require('../../assets/Blade_coin.PNG')} style={{ width: 64, height: 64 }} resizeMode="contain" />
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: DR.text }}>Blade-coins</Text>
-                    <TouchableOpacity onPress={() => setShowCoinInfo(true)} hitSlop={8} activeOpacity={0.7}>
-                      <Ionicons name="help-circle-outline" size={16} color={DR.muted} />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={{ fontFamily: 'Menlo', fontSize: 15, fontWeight: '700' }}>
-                    <Text style={{ color: countColor }}>{leftCoins.toLocaleString('en-US')}</Text>
-                    <Text style={{ color: '#56708C', fontWeight: '500' }}> / {limitCoins.toLocaleString('en-US')}</Text>
-                  </Text>
-                  {/* Köp fler coins (bara Premium) — som på pilotsidan */}
-                  {(isPremium || isMax) && coinShopAvailable() && (
-                    <TouchableOpacity onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} hitSlop={10}
-                      accessibilityLabel="Buy more Blade coins" style={{ marginLeft: 8 }}>
-                      <Ionicons name="add-circle-outline" size={19} color={DR.text3} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 4, marginTop: 10, marginBottom: 6 }}>
-                  {Array.from({ length: CELLS }).map((_, i) => {
-                    const isFull = i < full;
-                    const isPart = i === full && partial > 0;
-                    return (
-                      <View key={i} style={{ flex: 1, height: 8, borderRadius: 2, backgroundColor: '#1A2D45' }}>
-                        {isFull ? (
-                          <LinearGradient colors={gFull} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-                            style={{ flex: 1, borderRadius: 2, shadowColor: '#00D6FF', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }} />
-                        ) : isPart ? (
-                          <View style={{ width: `${Math.max(10, Math.round(partial * 100))}%`, height: '100%', borderRadius: 2, backgroundColor: partColor }} />
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-                <Text style={{ fontSize: 12, color: DR.muted }}>
-                  {isFree
-                    ? 'Free one-time Blade-coins · upgrade for a monthly refill'
-                    : 'Left this month · refills monthly'}
-                </Text>
-
-                {/* Köpta coins (delas med pilotläget) — samma komponent i båda lägena */}
-                <ExtraCoinsBar coins={extraCoins} captionColor={DR.muted} />
-              </View>
-            </View>
-          </View>
-        );
-      })()}
 
       {/* ── Fria flygningar-mätare: manuellt loggade drönarflygningar mot gratisgränsen.
           Döljs helt för premium/MAX — obegränsade flygningar, så mätaren fyller ingen funktion. ── */}
