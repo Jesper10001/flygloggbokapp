@@ -4,8 +4,8 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { View, Text, Animated, Easing, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
-import MapView, { Marker, type Region } from 'react-native-maps';
-import Svg, { Path, Circle } from 'react-native-svg';
+import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 const MONO = 'JetBrainsMono';
 export const MAP_CYAN = '#00C8E8';
@@ -61,15 +61,16 @@ export function regionFor(points: GeoPt[], pad = 1.7): Region | undefined {
   };
 }
 
-// Förhandsbilden: kartan går inte att flytta eller zooma, ett tryck går till kortet eller sidan runt den.
-export function StaticMap({ region, style, children }: { region?: Region; style?: StyleProp<ViewStyle>; children?: ReactNode }) {
+// Förhandsbilden: kartan går inte att flytta eller zooma, ett tryck går till kortet eller sidan runt den. Den dämpade
+// kartstilen (som i uppspelningen) och kanter som tonar ut i bakgrunden `fade` gör att rutten är det man ser.
+export function StaticMap({ region, style, children, fade }: { region?: Region; style?: StyleProp<ViewStyle>; children?: ReactNode; fade?: string }) {
   return (
     <View style={[{ overflow: 'hidden', backgroundColor: MAP_WATER }, style]} pointerEvents="none">
       {region ? (
         <MapView
           style={StyleSheet.absoluteFill}
           region={region}
-          mapType="standard"
+          mapType="mutedStandard"
           userInterfaceStyle="dark"
           showsPointsOfInterests={false}
           showsBuildings={false}
@@ -85,7 +86,30 @@ export function StaticMap({ region, style, children }: { region?: Region; style?
           {children}
         </MapView>
       ) : null}
+      {fade ? (
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id="mapFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={fade} stopOpacity={0.6} />
+              <Stop offset="0.3" stopColor={fade} stopOpacity={0} />
+              <Stop offset="0.75" stopColor={fade} stopOpacity={0} />
+              <Stop offset="1" stopColor={fade} stopOpacity={0.3} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#mapFade)" />
+        </Svg>
+      ) : null}
     </View>
+  );
+}
+
+// En linje med glöd, som i uppspelningen: en bred genomskinlig linje under en smal. dim = tonad (andra dagar).
+export function GlowLine({ coords, width = 2.2, dim = false }: { coords: LatLng[]; width?: number; dim?: boolean }) {
+  return (
+    <>
+      <Polyline coordinates={coords} strokeColor={dim ? 'rgba(0,200,232,0.07)' : 'rgba(0,200,232,0.2)'} strokeWidth={width * 4} lineCap="round" lineJoin="round" />
+      <Polyline coordinates={coords} strokeColor={dim ? MAP_CYAN_DIM : MAP_CYAN} strokeWidth={width} lineCap="round" lineJoin="round" />
+    </>
   );
 }
 

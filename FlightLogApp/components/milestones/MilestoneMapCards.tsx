@@ -2,13 +2,12 @@
 // Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt. Allt i cyan.
 
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FONT_LED7 } from '../logflight/tokens';
 import type { BestWeekDetails } from '../../hooks/useMilestoneDetails';
 import type { RouteLeg } from './MiniRouteMap';
-import { StaticMap, HomeMarker, arcCoords, regionFor, toLatLng, MAP_CYAN } from './MilestoneMap';
+import { StaticMap, GlowLine, HomeMarker, arcCoords, regionFor, toLatLng, MAP_CYAN } from './MilestoneMap';
 
 const MONO = 'JetBrainsMono';
 
@@ -33,8 +32,8 @@ export function BestWeekMapCard({ hoursLabel, weekLabel, details, onPress }: { h
   const sub = geo?.localCount ? `${geo.localCount} local · ${geo.localLandings} landings` : `${details.sectors} sectors · ${details.airports} airports`;
   return (
     <CardShell dot={Colors.accent} title="BEST WEEK" onPress={onPress} a11y={`Best week, ${hoursLabel} hours, ${weekLabel}. Open`}>
-      <StaticMap region={regionFor(Object.values(coords))} style={c.map}>
-        {trips.map((t, i) => <Polyline key={i} coordinates={arcCoords(coords[t.from], coords[t.to])} strokeColor={MAP_CYAN} strokeWidth={1.5} lineCap="round" />)}
+      <StaticMap region={regionFor(Object.values(coords))} style={c.map} fade={Colors.card}>
+        {trips.map((t, i) => <GlowLine key={i} coords={arcCoords(coords[t.from], coords[t.to])} width={1.6} />)}
         {home ? <HomeMarker p={home} size={20} /> : null}
       </StaticMap>
       <View style={c.valueRow}>
@@ -55,8 +54,8 @@ export function LongestXcMapCard({ distanceNm, routeFrom, routeTo, dateShort, le
   const legCount = Math.max(0, legs.length - 1);
   return (
     <CardShell dot={MAP_CYAN} title="LONGEST XC" onPress={onPress} a11y={`Longest cross-country, ${distanceNm} nautical miles, ${routeFrom} to ${routeTo}. Open`}>
-      <StaticMap region={regionFor(legs)} style={c.map}>
-        {legs.length >= 2 ? <Polyline coordinates={legs.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={2} lineCap="round" lineJoin="round" /> : null}
+      <StaticMap region={regionFor(legs)} style={c.map} fade={Colors.card}>
+        {legs.length >= 2 ? <GlowLine coords={legs.map(toLatLng)} width={2} /> : null}
       </StaticMap>
       <View style={c.valueRow}>
         <Text style={c.led}>{Math.round(distanceNm).toLocaleString('en-US')}</Text>
@@ -75,7 +74,7 @@ const c = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   title: { flex: 1, fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.3, color: Colors.textSecondary },
-  map: { height: 128, borderRadius: 10 },
+  map: { height: 128, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
   led: { fontFamily: FONT_LED7, fontWeight: '800', fontSize: 22, color: Colors.textPrimary },
   unit: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },

@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 10,
+      "date": "2026-11-05",
+      "notes": [
+        "New: Switch the Longest XC map to satellite, and zoom in or out while it plays.",
+        "Improved: The Longest XC replay is slower, so you can follow every leg.",
+        "Improved: Cleaner map previews in Best week and Longest XC."
+      ]
+    },
+    {
       "id": 9,
       "date": "2026-11-05",
       "notes": [

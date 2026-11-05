@@ -18,7 +18,7 @@ import { useMapScreenStore } from '../../store/mapScreenStore';
 import { toLatLng, lerpPt, headingDeg, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
   useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp,
-  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, REPLAY_BG, type GeoCam,
+  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, REPLAY_BG, type GeoCam,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
@@ -32,8 +32,10 @@ const clock = (min: number) => {
 };
 const hm = (min: number) => { const m = Math.round(min); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 
-// Uppspelningens tider i sekunder: titeln, benen (efter flygtid, minst 2,2 s), en stund på marken, sammanfattningen.
-const INTRO = 2.4, GROUND = 1.2, REVEAL = 3.4, FLY = 9.6, PITCH = 52;
+// Uppspelningens tider i sekunder: titeln, benen (efter flygtid, minst 4,4 s), en stund på marken, sammanfattningen.
+// Flygningen tar ungefär 20 sekunder, hälften så fort som första versionen.
+const INTRO = 3.0, GROUND = 2.4, REVEAL = 4.2, FLY = 19.2, MIN_LEG = 4.4, PITCH = 52;
+const ZOOM_STEP = 0.7;
 
 interface PLeg { from: string; to: string; a: GeoPt; b: GeoPt; start: number; end: number; nm: number; brg: number; alt: number; t0: number; t1: number }
 
@@ -87,7 +89,7 @@ export default function LongestXcMapScreen() {
     }
     const air = Math.max(1, legs.reduce((s, l) => s + l.end - l.start, 0));
     let t = INTRO;
-    legs.forEach((l, i) => { l.t0 = t; l.t1 = t + Math.max(2.2, (FLY * (l.end - l.start)) / air); t = l.t1 + (i < legs.length - 1 ? GROUND : 0); });
+    legs.forEach((l, i) => { l.t0 = t; l.t1 = t + Math.max(MIN_LEG, (FLY * (l.end - l.start)) / air); t = l.t1 + (i < legs.length - 1 ? GROUND : 0); });
     const flyEnd = legs.length ? t : 0;
     return { legs, clocks, air, flyEnd, total: legs.length ? flyEnd + REVEAL : 0, nm: legs.reduce((s, l) => s + l.nm, 0) };
   }, [d.flightLegs]);
@@ -125,20 +127,52 @@ export default function LongestXcMapScreen() {
     return { i: n - 1, f: 1, lin: 1, ground: true, pre: false, g: null as number | null, pos: last.b, camH: last.brg, alt: last.alt };
   }, [t, legs, n]);
 
+  // Zoomen är en faktor på kamerans höjd (1 = som uppspelningen är tänkt). Knapparna ändrar den när som helst, och
+  // nyper man i paus följer den nya zoomen med när uppspelningen fortsätter.
+  const [zoomK, setZoomK] = useState(1);
+  const [satellite, toggleSatellite] = useSatellitePref();
+
   // Kameran är en funktion av t, så den följer med både uppspelning och dragning i tidslinjen.
   const cam = useMemo<GeoCam | null>(() => {
     if (!ov || !S || !n) return null;
-    const chase = (s: NonNullable<typeof S>) => chaseCam(s.pos, s.camH, s.alt, PITCH);
-    if (t < INTRO) return blendCam(ov, chaseCam(legs[0].a, legs[0].brg, legs[0].alt, PITCH), ease((t - 0.9) / (INTRO - 0.9)), true);
-    if (t <= flyEnd) return chase(S);
-    const end = legs[n - 1];
-    return blendCam(chaseCam(end.b, end.brg, end.alt, PITCH), ov, ease((t - flyEnd) / 1.9), true);
-  }, [ov, S, t, legs, n, flyEnd]);
+    let c: GeoCam;
+    if (t < INTRO) c = blendCam(ov, chaseCam(legs[0].a, legs[0].brg, legs[0].alt, PITCH), ease((t - 0.9) / (INTRO - 0.9)), true);
+    else if (t <= flyEnd) c = chaseCam(S.pos, S.camH, S.alt, PITCH);
+    else {
+      const end = legs[n - 1];
+      c = blendCam(chaseCam(end.b, end.brg, end.alt, PITCH), ov, ease((t - flyEnd) / 2.6), true);
+    }
+    return { ...c, alt: c.alt * zoomK };
+  }, [ov, S, t, legs, n, flyEnd, zoomK]);
   const [userHeading, setUserHeading] = useState<number | null>(null);
+  const camMode = useRef<'set' | 'animate' | 'skip'>('set');
   useEffect(() => {
-    if (cam) mapRef.current?.setCamera(toCamera(cam));
+    if (!cam) return;
+    const mode = camMode.current;
+    camMode.current = 'set';
+    if (mode === 'skip') return;
+    if (mode === 'animate') mapRef.current?.animateCamera(toCamera(cam), { duration: 300 });
+    else mapRef.current?.setCamera(toCamera(cam));
   }, [cam]);
   const control = (fn: () => void) => { setUserHeading(null); fn(); };
+  // I paus glider kameran till den nya zoomen; under uppspelningen tar nästa steg den.
+  const zoomBy = (f: number) => {
+    const next = clamp(zoomK * f, 0.25, 4);
+    if (Math.abs(next - zoomK) < 1e-3) return;
+    if (!playing) camMode.current = 'animate';
+    setUserHeading(null);
+    setZoomK(next);
+  };
+  const onRegionDone = () => {
+    mapRef.current?.getCamera().then((c) => {
+      setUserHeading(c.heading ?? 0);
+      if (playing || !cam || !c.altitude || Math.abs(c.altitude / cam.alt - 1) <= 0.02) return;
+      const next = clamp((c.altitude / cam.alt) * zoomK, 0.25, 4);
+      if (Math.abs(next - zoomK) < 1e-3) return;
+      camMode.current = 'skip';
+      setZoomK(next);
+    }).catch(() => {});
+  };
 
   // Linjerna ritas om åtta gånger i sekunden, inte varje steg (Apple-kartan flimrar annars).
   const step = Math.floor(t * 8);
@@ -164,7 +198,7 @@ export default function LongestXcMapScreen() {
 
   // Avslutningen: tre ljuspunkter löper längs hela rutten när kameran har dragit sig upp.
   const glow: GeoPt[] = [];
-  const r = (t - flyEnd - 1.3) / 1.6;
+  const r = (t - flyEnd - 2.0) / 2.0;
   if (n && r > 0 && r < 1.2) {
     const total = plan.nm || 1;
     for (const off of [0, 0.1, 0.2]) {
@@ -192,7 +226,7 @@ export default function LongestXcMapScreen() {
   const camH = (playing ? null : userHeading) ?? cam?.heading ?? 0;
   const acBrg = S ? (S.ground && S.g != null ? S.camH : legs[S.i].brg) : 0;
   const lift = S && !S.ground ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp(S.lin, 0, 1)), 0.35) + 2 : 2;
-  const rv = clamp((t - flyEnd - 0.7) / 0.6, 0, 1);
+  const rv = clamp((t - flyEnd - 1.4) / 0.7, 0, 1);
   const fog = ((cam?.pitch ?? 0) / PITCH) * 0.9;
   const title = `${Math.round(d.distanceNm || plan.nm)} NM · ${d.dateShort}${d.aircraftType ? ` · ${d.aircraftType}` : ''}`;
 
@@ -222,7 +256,7 @@ export default function LongestXcMapScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={regionFor(pts)}
         onMapReady={onMapReady}
-        mapType="mutedStandard"
+        mapType={satellite ? 'hybrid' : 'mutedStandard'}
         userInterfaceStyle="dark"
         showsPointsOfInterests={false}
         showsBuildings={false}
@@ -233,7 +267,7 @@ export default function LongestXcMapScreen() {
         zoomEnabled={!playing}
         rotateEnabled
         pitchEnabled
-        onRegionChangeComplete={() => { mapRef.current?.getCamera().then((c) => setUserHeading(c.heading ?? 0)).catch(() => {}); }}
+        onRegionChangeComplete={onRegionDone}
       >
         {lines.future.map((seg, i) => (
           <Polyline key={`f${i}`} coordinates={seg.map(toLatLng)} strokeColor="rgba(0,200,232,0.4)" strokeWidth={1.8} lineDashPattern={[6, 7]} />
@@ -254,11 +288,14 @@ export default function LongestXcMapScreen() {
       <TitleCard t={t} top={insets.top + 190} cap={sub ? 'CROSS-COUNTRY' : 'LONGEST CROSS-COUNTRY'}
         title={n ? `${legs[0].from} → ${legs[n - 1].to}` : ''} sub={title} />
 
+      <MapControls top={insets.top + 64} satellite={satellite} onToggle={toggleSatellite}
+        onZoomIn={() => zoomBy(ZOOM_STEP)} onZoomOut={() => zoomBy(1 / ZOOM_STEP)} />
+
       <View style={[s.top, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} accessibilityLabel="Close the map">
           <Glass style={s.close}><Ionicons name="close" size={18} color={Colors.textPrimary} /></Glass>
         </Pressable>
-        <Glass style={[s.titlePill, { opacity: clamp((t - 1.8) / 0.5, 0, 1) }]}>
+        <Glass style={[s.titlePill, { opacity: clamp((t - 2.2) / 0.6, 0, 1) }]}>
           <Text numberOfLines={1} style={s.titleText}>{codes.join(' → ')}</Text>
           <Text numberOfLines={1} style={s.titleSub}>{title}</Text>
         </Glass>

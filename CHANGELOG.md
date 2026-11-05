@@ -15,6 +15,16 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Longest XC-kartan:
+  - **Halverad takt:** uppspelningen går hälften så fort. Flygningen tar ungefär 20 sekunder, varje ben minst 4,4 s och varje markuppehåll 2,4 s. Titeln, nedstigningen och avslutningen tar också lite längre tid.
+  - **Satellit:** en knapp till höger växlar mellan den dämpade kartan och satellit med namn (`hybrid`). Valet sparas i settings (`replay_map_type`).
+  - **Zoom:** knapparna + och − zoomar in och ut även medan uppspelningen pågår. Zoomen är en faktor på kamerans höjd. Nyper man i paus följer den nya zoomen med när uppspelningen fortsätter.
+  - Knapparna och inställningen finns i `ReplayKit` (`MapControls`, `useSatellitePref`). Best week är oförändrad.
+- Förhandskartorna i Milestones-korten i Insights och på sidorna Best week och Longest XC är stilrenare:
+  - Kartan använder den dämpade stilen (`mutedStandard`) i stället för den gröna och blå, och kanterna tonar ut i bakgrunden (`StaticMap fade`).
+  - Rutterna har samma glöd som i uppspelningen (`GlowLine`), och flygplatserna har samma kodetiketter (`StopMarker`).
+  - Helskärmsknappen och "Replay" är glasknappar, och "Replay" ligger till höger så att den inte täcker Apples logga och "Legal".
+
 - Kartorna för Best week och Longest XC spelas upp som en kameraåkning (designvyns "Map replay v3"). Uppspelningen börjar när kartan öppnas.
   - **Longest XC:** titeln tonar in över hela rutten, och kameran dyker ner och följer farkosten lutad 52° och vriden i färdriktningen. Den svänger vid mellanlandningarna. Linjen har glöd och en ljus spets, ringar pulserar vid varje landning och skuggan visar när farkosten är i luften. Sist drar kameran upp till hela rutten, ljuspunkter löper längs linjen och sammanfattningen visas (distans, ben, tid i luften, tid på dagen). Tidslinjen visar flygningen med kortare markuppehåll, och TIME och GS följer de riktiga klockslagen.
   - **Best week:** veckan spelas upp i kapitel. Dagens namn visas och kameran flyger till dagens flygplatser, lutad 40°. Resorna flygs en i taget. Basen pulserar på lokala dagar och vilodagar visas bara kort. Sist visas hela veckan med ljuspunkter längs alla bågar och en sammanfattning. Ett tryck på en dag hoppar dit.

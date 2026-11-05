@@ -6,12 +6,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull, type LXTop5Row } from '../../hooks/useMilestoneDetails';
-import { StaticMap, AirportMarker, regionFor, toLatLng, MAP_CYAN } from '../../components/milestones/MilestoneMap';
+import { StaticMap, GlowLine, regionFor, toLatLng, MAP_CYAN } from '../../components/milestones/MilestoneMap';
+import { StopMarker, Glass } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const clockMin = (t: string): number | null => {
@@ -113,17 +113,17 @@ export default function LongestXcScreen() {
 
         {region && d.legs.length >= 2 ? (
           <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the flight">
-            <StaticMap region={region} style={s.map}>
-              <Polyline coordinates={d.legs.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={2.4} lineCap="round" lineJoin="round" />
+            <StaticMap region={region} style={s.map} fade={Colors.background}>
+              <GlowLine coords={d.legs.map(toLatLng)} width={2.4} />
               {d.legs.filter((p, i, arr) => arr.findIndex((q) => q.icao === p.icao) === i).map((p) => (
-                <AirportMarker key={p.icao} p={p} icao={p.icao} />
+                <StopMarker key={p.icao} p={p} code={p.icao} visited />
               ))}
             </StaticMap>
-            <View style={s.expand}><Ionicons name="expand-outline" size={14} color="#C8CDD3" /></View>
-            <View style={s.replay}>
-              <Ionicons name="play" size={11} color={Colors.textInverse} />
+            <Glass style={s.expand}><Ionicons name="expand-outline" size={14} color="#DCE4EE" /></Glass>
+            <Glass style={s.replay}>
+              <View style={s.replayIcon}><Ionicons name="play" size={10} color={Colors.textInverse} /></View>
               <Text style={s.replayText}>Replay the flight</Text>
-            </View>
+            </Glass>
           </Pressable>
         ) : d.ready ? <Text style={s.caption}>No coordinates for this route.</Text> : null}
 
@@ -204,9 +204,10 @@ const s = StyleSheet.create({
   stripVia: { width: 8, height: 8, marginTop: 1, backgroundColor: Colors.background, borderWidth: 2, borderColor: Colors.accent },
   stripCode: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
   map: { height: 250, borderRadius: 16, borderWidth: 1, borderColor: Colors.separator },
-  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
-  replay: { position: 'absolute', left: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.accent, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textInverse },
+  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  replay: { position: 'absolute', right: 10, bottom: 10, height: 34, paddingLeft: 5, paddingRight: 13, borderRadius: 17, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  replayIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
+  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
   groundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 30 },
   groundRail: { width: 12, alignSelf: 'stretch', alignItems: 'center' },
   groundText: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },

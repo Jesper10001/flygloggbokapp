@@ -5,10 +5,13 @@
 // rotateEnabled är på, så kartorna har dem på hela tiden.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { View, Text, Animated, Easing, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
+import { View, Text, Pressable, Animated, Easing, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle, Ellipse } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { getSetting, setSetting } from '../../db/flights';
 import { AircraftIcon, toLatLng, MAP_CYAN, type GeoPt } from './MilestoneMap';
 
 const MONO = 'JetBrainsMono';
@@ -229,6 +232,40 @@ export function Glass({ style, children }: { style?: StyleProp<ViewStyle>; child
   );
 }
 
+// Satellit eller vanlig karta i uppspelningen, ihågkommet till nästa gång.
+const MAP_TYPE_KEY = 'replay_map_type';
+export function useSatellitePref(): [boolean, () => void] {
+  const [sat, setSat] = useState(false);
+  useEffect(() => { getSetting(MAP_TYPE_KEY).then((v) => setSat(v === 'satellite')).catch(() => {}); }, []);
+  const toggle = useCallback(() => {
+    setSat((v) => { setSetting(MAP_TYPE_KEY, v ? 'standard' : 'satellite').catch(() => {}); return !v; });
+  }, []);
+  return [sat, toggle];
+}
+
+// Knapparna till höger: satellit/karta, zooma in och zooma ut.
+export function MapControls({ top, satellite, onToggle, onZoomIn, onZoomOut }: {
+  top: number; satellite: boolean; onToggle: () => void; onZoomIn: () => void; onZoomOut: () => void;
+}) {
+  const tap = (fn: () => void) => () => { Haptics.selectionAsync().catch(() => {}); fn(); };
+  return (
+    <View style={[k.controls, { top }]}>
+      <Pressable onPress={tap(onToggle)} accessibilityRole="button" accessibilityLabel={satellite ? 'Show the standard map' : 'Show the satellite map'}>
+        <Glass style={k.ctrl}><Ionicons name={satellite ? 'map-outline' : 'earth'} size={18} color="#FFFFFF" /></Glass>
+      </Pressable>
+      <Glass style={k.zoom}>
+        <Pressable onPress={tap(onZoomIn)} style={k.zoomBtn} accessibilityRole="button" accessibilityLabel="Zoom in">
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+        </Pressable>
+        <View style={k.zoomRule} />
+        <Pressable onPress={tap(onZoomOut)} style={k.zoomBtn} accessibilityRole="button" accessibilityLabel="Zoom out">
+          <Ionicons name="remove" size={20} color="#FFFFFF" />
+        </Pressable>
+      </Glass>
+    </View>
+  );
+}
+
 // Titeln som tonar in över översikten innan kameran dyker ner.
 export function TitleCard({ t, cap, title, sub, top }: { t: number; cap: string; title: string; sub: string; top: number }) {
   const o = clamp(t < 0.2 ? 0 : t < 0.6 ? (t - 0.2) / 0.4 : t < 1.5 ? 1 : 1 - (t - 1.5) / 0.6, 0, 1);
@@ -250,6 +287,11 @@ const k = StyleSheet.create({
   fog: { position: 'absolute', left: 0, right: 0, top: 0, height: '48%' },
   fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 340 },
   glass: { overflow: 'hidden', borderRadius: 26, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  controls: { position: 'absolute', right: 14, gap: 10, alignItems: 'center' },
+  ctrl: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  zoom: { width: 44, borderRadius: 22 },
+  zoomBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  zoomRule: { height: 1, marginHorizontal: 10, backgroundColor: 'rgba(255,255,255,0.12)' },
   title: { position: 'absolute', left: 24, right: 24, alignItems: 'center', gap: 8 },
   titleCap: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 2.4, color: MAP_CYAN },
   titleBig: { fontFamily: 'Fraunces', fontSize: 36, fontWeight: '600', color: '#FFFFFF', textShadowColor: '#000', textShadowRadius: 8 },

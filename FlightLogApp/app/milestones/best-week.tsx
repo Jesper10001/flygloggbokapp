@@ -7,12 +7,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails';
-import { StaticMap, AirportMarker, HomeMarker, arcCoords, regionFor, MAP_CYAN, MAP_CYAN_DIM } from '../../components/milestones/MilestoneMap';
+import { StaticMap, GlowLine, HomeMarker, arcCoords, regionFor, MAP_CYAN } from '../../components/milestones/MilestoneMap';
+import { StopMarker, Glass } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -170,21 +170,20 @@ export default function BestWeekScreen() {
           <View style={{ gap: 12 }}>
             <Text style={s.eyebrow}>WHERE</Text>
             <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the week">
-              <StaticMap region={region} style={s.map}>
+              <StaticMap region={region} style={s.map} fade={Colors.background}>
                 {trips.map((t, i) => (
-                  <Polyline key={`${t.id}-${i}`} coordinates={arcCoords(geo!.coords[t.dep], geo!.coords[t.arr])}
-                    strokeColor={t.day === sel ? MAP_CYAN : MAP_CYAN_DIM} strokeWidth={t.day === sel ? 2.2 : 1.4} lineCap="round" />
+                  <GlowLine key={`${t.id}-${i}`} coords={arcCoords(geo!.coords[t.dep], geo!.coords[t.arr])} width={t.day === sel ? 2.2 : 1.4} dim={t.day !== sel} />
                 ))}
-                {away.map((k) => <AirportMarker key={k} p={geo!.coords[k]} icao={k} />)}
+                {away.map((k) => <StopMarker key={k} p={geo!.coords[k]} code={k} visited={trips.some((t) => t.day === sel && (t.dep === k || t.arr === k))} />)}
                 {home && geo?.home ? (
                   <HomeMarker p={home} label={geo.localCount ? `${geo.home} · ${geo.localCount} local · ${geo.localLandings} landings` : geo.home} />
                 ) : null}
               </StaticMap>
-              <View style={s.expand}><Ionicons name="expand-outline" size={14} color="#C8CDD3" /></View>
-              <View style={s.replay}>
-                <Ionicons name="play" size={11} color={Colors.textInverse} />
+              <Glass style={s.expand}><Ionicons name="expand-outline" size={14} color="#DCE4EE" /></Glass>
+              <Glass style={s.replay}>
+                <View style={s.replayIcon}><Ionicons name="play" size={10} color={Colors.textInverse} /></View>
                 <Text style={s.replayText}>Replay the week</Text>
-              </View>
+              </Glass>
             </Pressable>
           </View>
         ) : null}
@@ -255,9 +254,10 @@ const s = StyleSheet.create({
   rowDur: { fontFamily: MONO, fontSize: 12.5, fontWeight: '700', color: Colors.textPrimary },
   restText: { fontFamily: MONO, fontSize: 11, color: Colors.textSecondary, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: Colors.separator },
   map: { height: 240, borderRadius: 16, borderWidth: 1, borderColor: Colors.separator },
-  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(18,26,36,0.85)', borderWidth: 1, borderColor: '#3A3F46', alignItems: 'center', justifyContent: 'center' },
-  replay: { position: 'absolute', right: 10, bottom: 10, height: 32, paddingLeft: 10, paddingRight: 12, borderRadius: 16, backgroundColor: Colors.accent, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textInverse },
+  expand: { position: 'absolute', right: 10, top: 10, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  replay: { position: 'absolute', right: 10, bottom: 10, height: 34, paddingLeft: 5, paddingRight: 13, borderRadius: 17, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  replayIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
+  replayText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 54, borderBottomWidth: 1, borderBottomColor: Colors.separator },
   topRank: { width: 18, fontFamily: SERIF, fontSize: 18, fontWeight: '600' },
   topLabel: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
