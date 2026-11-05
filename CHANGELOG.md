@@ -15,6 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Kartuppspelningarna efter test på telefon:
+  - **Nosen pekar rätt.** Högt upp lägger Apple-kartan inte den vridning vi ber om, utan kartan står kvar med norr upp. Därför pekade nosen fel. Riktningen mäts nu på skärmen (`useScreenAngle`: en punkt bakom och en framför i kursen räknas om med `pointForCoordinate`, åtta gånger i sekunden och när man flyttat kartan).
+  - **Helikoptern är mitt i bild** (`chaseCam` med lead 0) och döljs inte av panelen. Panelen är lägre: Longest XC 124 pt och Best week 112 pt, och den växer när sammanfattningen visas.
+  - **Best week följer varje resa för sig,** på en höjd efter resans längd, precis som Longest XC. Förut zoomade kameran in per dag, så en dag med både korta och långa resor visades lika utzoomad. Mellan resorna glider kameran till nästa. Lokala dagar ses från 28 km över basen, i stället för halva översiktens höjd. Dagens namn tonar bort när första resan börjat.
+  - **Best week har nu också satellit och zoom.** Valet av satellit delas med Longest XC.
 - Longest XC-kartan anpassar uppspelningen efter avståndet, så att långa kommersiella flygningar går att följa. I en inspelning från användaren spelades ett ben på 1 517 NM upp på cirka 6 s med kameran på 60 km höjd. Bilden blev grå och man såg inte vart flygningen gick.
   - **Tid per ben:** `5 + 2,2·√(NM/50)` sekunder, mellan 5,5 och 14 s. Hela flygningen tar högst 45 s.
   - **Kamerans höjd:** NM·1852·0,38 m, mellan 15 km och 2 500 km. Ett ben på 1 517 NM ses alltså från cirka 1 070 km och ett på 52 NM från 37 km.

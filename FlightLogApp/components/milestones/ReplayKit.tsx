@@ -38,9 +38,9 @@ export function offsetPt(p: GeoPt, bearing: number, meters: number): GeoPt {
   return { lat: p.lat + Math.cos(b) * d, lon: p.lon + (Math.sin(b) * d) / Math.max(0.2, Math.cos((p.lat * Math.PI) / 180)) };
 }
 
-// Kameran snett bakom farkosten: den tittar en bit framför, så farkosten hamnar strax under mitten.
-export function chaseCam(pos: GeoPt, heading: number, alt: number, pitch: number): GeoCam {
-  const c = offsetPt(pos, heading, alt * 0.15);
+// Kameran snett bakom farkosten. lead > 0 = den tittar en bit framför, så farkosten hamnar under mitten; 0 = mitt i bild.
+export function chaseCam(pos: GeoPt, heading: number, alt: number, pitch: number, lead = 0.15): GeoCam {
+  const c = offsetPt(pos, heading, alt * lead);
   return { lat: c.lat, lon: c.lon, alt, heading, pitch };
 }
 
@@ -77,6 +77,27 @@ export function spanKm(pts: GeoPt[]): number {
 }
 
 export const toCamera = (c: GeoCam) => ({ center: { latitude: c.lat, longitude: c.lon }, altitude: c.alt, heading: c.heading, pitch: c.pitch });
+
+// Farkostens riktning på skärmen, mätt på kartan: en punkt bakom och en framför i kursen räknas om till skärmpunkter.
+// MapKit lägger inte alltid den vridning vi ber om (högt upp står kartan kvar med norr upp), så kursen minus kamerans
+// vridning stämmer inte alltid; mätningen gör det. tick styr hur ofta (några gånger i sekunden räcker).
+export function useScreenAngle(mapRef: RefObject<MapView | null>, pos: GeoPt | null, course: number, meters: number, tick: string | number): number {
+  const [ang, setAng] = useState(0);
+  const seq = useRef(0);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!pos || !map) return;
+    const id = ++seq.current;
+    const a = offsetPt(pos, course + 180, meters), b = offsetPt(pos, course, meters);
+    Promise.all([map.pointForCoordinate(toLatLng(a)), map.pointForCoordinate(toLatLng(b))]).then(([p, q]) => {
+      if (id !== seq.current) return;
+      const dx = q.x - p.x, dy = q.y - p.y;
+      if (Math.hypot(dx, dy) >= 0.5) setAng((Math.atan2(dx, -dy) * 180) / Math.PI);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
+  return ang;
+}
 
 // Översikten: kartan ramas in kring punkterna, och kameran MapKit valde läses av och blir uppspelningens start och slut.
 export function useOverview(mapRef: RefObject<MapView | null>, pts: GeoPt[], padding: { top: number; right: number; bottom: number; left: number }) {
@@ -212,8 +233,8 @@ export function ReplayAircraft({ p, heli, heading, spinning, lift }: { p: GeoPt;
   );
 }
 
-// Dimma mot horisonten när kartan lutar, och mörkret bakom panelen.
-export function ReplayShade({ fog }: { fog: number }) {
+// Dimma mot horisonten när kartan lutar, och mörkret bakom panelen (fadeH högt).
+export function ReplayShade({ fog, fadeH = 340 }: { fog: number; fadeH?: number }) {
   return (
     <>
       <View pointerEvents="none" style={[k.fog, { opacity: fog }]}>
@@ -228,7 +249,7 @@ export function ReplayShade({ fog }: { fog: number }) {
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#fog)" />
         </Svg>
       </View>
-      <View pointerEvents="none" style={k.fade}>
+      <View pointerEvents="none" style={[k.fade, { height: fadeH }]}>
         <Svg width="100%" height="100%">
           <Defs>
             <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">

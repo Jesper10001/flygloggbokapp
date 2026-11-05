@@ -18,7 +18,7 @@ import { useMapScreenStore } from '../../store/mapScreenStore';
 import { toLatLng, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
   useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp, gcPoint, gcPath, gcCourse,
-  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, REPLAY_BG, type GeoCam,
+  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle, REPLAY_BG, type GeoCam,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
@@ -109,7 +109,7 @@ export default function LongestXcMapScreen() {
 
   const mapRef = useRef<MapView>(null);
   const pts = legs.flatMap((l) => [l.a, l.b]);
-  const { ov, onMapReady } = useOverview(mapRef, pts, { top: insets.top + 110, right: 60, bottom: 260, left: 60 });
+  const { ov, onMapReady } = useOverview(mapRef, pts, { top: insets.top + 110, right: 60, bottom: 200, left: 60 });
   const { t, playing, play, halt, seek } = useReplay(plan.total);
 
   // Uppspelningen börjar av sig själv när översikten är mätt.
@@ -151,15 +151,16 @@ export default function LongestXcMapScreen() {
   const cam = useMemo<GeoCam | null>(() => {
     if (!ov || !S || !n) return null;
     let c: GeoCam;
-    if (t < INTRO) c = blendCam(ov, chaseCam(legs[0].a, legs[0].brg0, legs[0].alt, legs[0].pitch), ease((t - 0.9) / (INTRO - 0.9)), true);
-    else if (t <= flyEnd) c = chaseCam(S.pos, S.camH, S.alt, S.pitch);
+    // Helikoptern hålls mitt i bild (lead 0), ovanför den låga panelen.
+    if (t < INTRO) c = blendCam(ov, chaseCam(legs[0].a, legs[0].brg0, legs[0].alt, legs[0].pitch, 0), ease((t - 0.9) / (INTRO - 0.9)), true);
+    else if (t <= flyEnd) c = chaseCam(S.pos, S.camH, S.alt, S.pitch, 0);
     else {
       const end = legs[n - 1];
-      c = blendCam(chaseCam(end.b, end.brg1, end.alt, end.pitch), ov, ease((t - flyEnd) / 2.6), true);
+      c = blendCam(chaseCam(end.b, end.brg1, end.alt, end.pitch, 0), ov, ease((t - flyEnd) / 2.6), true);
     }
     return { ...c, alt: c.alt * zoomK };
   }, [ov, S, t, legs, n, flyEnd, zoomK]);
-  const [userHeading, setUserHeading] = useState<number | null>(null);
+  const [regionTick, setRegionTick] = useState(0);
   const camMode = useRef<'set' | 'animate' | 'skip'>('set');
   useEffect(() => {
     if (!cam) return;
@@ -169,18 +170,17 @@ export default function LongestXcMapScreen() {
     if (mode === 'animate') mapRef.current?.animateCamera(toCamera(cam), { duration: 300 });
     else mapRef.current?.setCamera(toCamera(cam));
   }, [cam]);
-  const control = (fn: () => void) => { setUserHeading(null); fn(); };
+  const control = (fn: () => void) => fn();
   // I paus glider kameran till den nya zoomen; under uppspelningen tar nästa steg den.
   const zoomBy = (f: number) => {
     const next = clamp(zoomK * f, 0.25, 4);
     if (Math.abs(next - zoomK) < 1e-3) return;
     if (!playing) camMode.current = 'animate';
-    setUserHeading(null);
     setZoomK(next);
   };
   const onRegionDone = () => {
     mapRef.current?.getCamera().then((c) => {
-      setUserHeading(c.heading ?? 0);
+      setRegionTick((v) => v + 1);
       if (playing || !cam || !c.altitude || Math.abs(c.altitude / cam.alt - 1) <= 0.02) return;
       const next = clamp((c.altitude / cam.alt) * zoomK, 0.25, 4);
       if (Math.abs(next - zoomK) < 1e-3) return;
@@ -238,9 +238,8 @@ export default function LongestXcMapScreen() {
     : !S.ground ? `LEG ${S.i + 1} OF ${n} · ${L.from} → ${L.to}`
     : next && S.g != null ? `ON GROUND · ${L.to} · ${Math.round(next.start - L.end)} MIN`
     : `LANDED · ${legs[n - 1].to}`;
-  // Spelas den upp styr kameran vridningen; i paus kan man ha vridit kartan själv.
-  const camH = (playing ? null : userHeading) ?? cam?.heading ?? 0;
-  const acBrg = S ? S.camH : 0;
+  // Nosen pekar dit farkosten flyger på skärmen, mätt på kartan (åtta gånger i sekunden och när man flyttat kartan).
+  const acAngle = useScreenAngle(mapRef, S ? S.pos : null, S ? S.camH : 0, Math.max(2000, (cam?.alt ?? 20000) * 0.04), `${step}-${regionTick}`);
   const lift = S && !S.ground ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp(S.lin, 0, 1)), 0.35) + 2 : 2;
   const rv = clamp((t - flyEnd - 1.4) / 0.7, 0, 1);
   // Svagare dimma än förut, så satellitbilden syns mot horisonten.
@@ -252,7 +251,7 @@ export default function LongestXcMapScreen() {
   const trackRef = useRef({ w: 1, a: 0, b: 1 });
   trackRef.current = { w: trackW, a: INTRO, b: flyEnd || 1 };
   const seekRef = useRef(seek);
-  seekRef.current = (v: number) => { setUserHeading(null); seek(v); };
+  seekRef.current = seek;
   const haltRef = useRef(halt);
   haltRef.current = halt;
   const toT = (x: number) => { const s = trackRef.current; return s.a + clamp(x / s.w, 0, 1) * (s.b - s.a); };
@@ -299,9 +298,9 @@ export default function LongestXcMapScreen() {
         {stops.map((x) => <StopMarker key={x.k} p={x.p} code={x.k} visited={t >= x.at} />)}
         {legs.map((l, j) => (t >= l.t1 && t - l.t1 < 1.5 ? <RippleMarker key={`r${j}`} p={l.b} /> : null))}
         {glow.map((p, i) => <GlowDot key={`d${i}`} p={p} />)}
-        {S && rv < 1 ? <ReplayAircraft p={S.pos} heli={d.heli} heading={acBrg - camH} spinning={playing && !S.ground} lift={lift} /> : null}
+        {S && rv < 1 ? <ReplayAircraft p={S.pos} heli={d.heli} heading={acAngle} spinning={playing && !S.ground} lift={lift} /> : null}
       </MapView>
-      <ReplayShade fog={fog} />
+      <ReplayShade fog={fog} fadeH={210} />
       <TitleCard t={t} top={insets.top + 190} cap={sub ? 'CROSS-COUNTRY' : 'LONGEST CROSS-COUNTRY'}
         title={n ? `${legs[0].from} → ${legs[n - 1].to}` : ''} sub={title} />
 
@@ -318,21 +317,22 @@ export default function LongestXcMapScreen() {
         </Glass>
       </View>
 
-      <Glass style={[s.panel, { bottom: insets.bottom + 8 }]}>
+      <Glass style={[s.panel, { bottom: insets.bottom + 8, height: 124 + 66 * rv }]}>
         <View pointerEvents={rv > 0.5 ? 'none' : 'auto'} style={[s.panelIn, { opacity: 1 - rv }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14 }}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={s.cap}>FLOWN</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                <Text style={s.big}>{Math.round(flownNm)}</Text>
-                <Text style={s.unit}>/ {Math.round(plan.nm)} NM</Text>
-              </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable onPress={() => control(() => (playing ? halt() : play()))} disabled={!n} style={[s.play, !n && { opacity: 0.4 }]}
+              accessibilityLabel={playing ? 'Pause the replay' : 'Replay the day'}>
+              <Ionicons name={playing ? 'pause' : 'play'} size={16} color={Colors.textInverse} />
+            </Pressable>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
+              <Text style={s.big}>{Math.round(flownNm)}</Text>
+              <Text numberOfLines={1} style={s.unit}>/ {Math.round(plan.nm)} NM</Text>
             </View>
-            <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <View style={{ alignItems: 'flex-end', gap: 1 }}>
               <Text style={s.cap}>TIME</Text>
               <Text style={s.val}>{plan.clocks ? `${clock(clockM)}Z` : clock(clockM)}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end', gap: 2, minWidth: 58 }}>
+            <View style={{ alignItems: 'flex-end', gap: 1, minWidth: 50 }}>
               <Text style={s.cap}>GS</Text>
               <Text style={s.val}>{S && L && !S.ground ? `${Math.round(L.nm / Math.max(1 / 60, (L.end - L.start) / 60))} kt` : S?.pre ? '—' : '0 kt'}</Text>
             </View>
@@ -342,38 +342,32 @@ export default function LongestXcMapScreen() {
             <View style={{ flexDirection: 'row', gap: 4 }}>
               {legs.map((l, j) => {
                 const now = !!S && !S.ground && j === S.i, done = t >= l.t1;
-                return <View key={`dot${j}`} style={{ width: now ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: done || now ? MAP_CYAN : '#2A3B50', opacity: done && !now ? 0.8 : 1 }} />;
+                return <View key={`dot${j}`} style={{ width: now ? 14 : 5, height: 5, borderRadius: 2.5, backgroundColor: done || now ? MAP_CYAN : '#2A3B50', opacity: done && !now ? 0.8 : 1 }} />;
               })}
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => control(() => (playing ? halt() : play()))} disabled={!n} style={[s.play, !n && { opacity: 0.4 }]}
-              accessibilityLabel={playing ? 'Pause the replay' : 'Replay the day'}>
-              <Ionicons name={playing ? 'pause' : 'play'} size={18} color={Colors.textInverse} />
-            </Pressable>
-            <View style={{ flex: 1, gap: 6 }}>
-              <View style={s.track} onLayout={(e) => setTrackW(Math.max(1, e.nativeEvent.layout.width))} {...pan.panHandlers}
-                accessible accessibilityRole="adjustable" accessibilityLabel="Replay the day"
-                accessibilityValue={{ text: plan.clocks ? `${clock(clockM)} UTC` : clock(clockM) }}
-                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-                onAccessibilityAction={(e) => { halt(); seekRef.current(t + (e.nativeEvent.actionName === 'increment' ? 1 : -1) * span / 20); }}>
-                <View pointerEvents="none" style={s.trackBase} />
-                {legs.map((l, j) => (
-                  <View key={`seg${j}`} pointerEvents="none" style={[s.seg, { left: `${((l.t0 - INTRO) / span) * 100}%`, width: `${((l.t1 - l.t0) / span) * 100}%` }]}>
-                    <View style={{ height: '100%', width: `${clamp((t - l.t0) / (l.t1 - l.t0), 0, 1) * 100}%`, backgroundColor: MAP_CYAN }} />
-                  </View>
-                ))}
-                <View pointerEvents="none" style={[s.knob, { left: knob * trackW - 10 }]} />
-              </View>
-              <View style={{ height: 12 }}>
-                {stops.map((x, i) => {
-                  const p = i === 0 ? 0 : clamp((x.at - INTRO) / span, 0, 1), lastOne = i === stops.length - 1;
-                  return (
-                    <Text key={`tick${x.k}`} style={[s.tick, { color: t >= x.at ? '#DCE4EE' : '#5D6C7D', textAlign: i === 0 ? 'left' : lastOne ? 'right' : 'center' },
-                      i === 0 ? { left: 0 } : lastOne ? { right: 0 } : { left: p * trackW - 17 }]}>{x.k}</Text>
-                  );
-                })}
-              </View>
+          <View style={{ gap: 4 }}>
+            <View style={s.track} onLayout={(e) => setTrackW(Math.max(1, e.nativeEvent.layout.width))} {...pan.panHandlers}
+              accessible accessibilityRole="adjustable" accessibilityLabel="Replay the day"
+              accessibilityValue={{ text: plan.clocks ? `${clock(clockM)} UTC` : clock(clockM) }}
+              accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+              onAccessibilityAction={(e) => { halt(); seekRef.current(t + (e.nativeEvent.actionName === 'increment' ? 1 : -1) * span / 20); }}>
+              <View pointerEvents="none" style={s.trackBase} />
+              {legs.map((l, j) => (
+                <View key={`seg${j}`} pointerEvents="none" style={[s.seg, { left: `${((l.t0 - INTRO) / span) * 100}%`, width: `${((l.t1 - l.t0) / span) * 100}%` }]}>
+                  <View style={{ height: '100%', width: `${clamp((t - l.t0) / (l.t1 - l.t0), 0, 1) * 100}%`, backgroundColor: MAP_CYAN }} />
+                </View>
+              ))}
+              <View pointerEvents="none" style={[s.knob, { left: knob * trackW - 8 }]} />
+            </View>
+            <View style={{ height: 11 }}>
+              {stops.map((x, i) => {
+                const p = i === 0 ? 0 : clamp((x.at - INTRO) / span, 0, 1), lastOne = i === stops.length - 1;
+                return (
+                  <Text key={`tick${x.k}`} style={[s.tick, { color: t >= x.at ? '#DCE4EE' : '#5D6C7D', textAlign: i === 0 ? 'left' : lastOne ? 'right' : 'center' },
+                    i === 0 ? { left: 0 } : lastOne ? { right: 0 } : { left: p * trackW - 17 }]}>{x.k}</Text>
+                );
+              })}
             </View>
           </View>
         </View>
@@ -408,20 +402,20 @@ const s = StyleSheet.create({
   titlePill: { flex: 1, minHeight: 44, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 22, justifyContent: 'center', gap: 1 },
   titleText: { fontFamily: MONO, fontSize: 11.5, fontWeight: '700', color: Colors.textPrimary },
   titleSub: { fontFamily: MONO, fontSize: 9.5, color: Colors.textSecondary },
-  panel: { position: 'absolute', left: 12, right: 12, height: 200 },
-  panelIn: { position: 'absolute', left: 16, right: 16, top: 15, bottom: 13, justifyContent: 'space-between' },
+  panel: { position: 'absolute', left: 12, right: 12 },
+  panelIn: { position: 'absolute', left: 14, right: 14, top: 12, bottom: 10, justifyContent: 'space-between' },
   cap: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.4, color: '#6E7D8F' },
-  big: { fontFamily: SERIF, fontSize: 32, fontWeight: '600', color: MAP_CYAN, lineHeight: 34 },
+  big: { fontFamily: SERIF, fontSize: 26, fontWeight: '600', color: MAP_CYAN, lineHeight: 30 },
   huge: { fontFamily: SERIF, fontSize: 46, fontWeight: '600', color: Colors.textPrimary, lineHeight: 48, letterSpacing: -1 },
   unit: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: '#A7B3C2' },
-  val: { fontFamily: MONO, fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  status: { flexShrink: 1, fontFamily: MONO, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, color: '#DCE4EE' },
-  play: { width: 46, height: 46, borderRadius: 23, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
-  track: { height: 26, justifyContent: 'center' },
-  trackBase: { position: 'absolute', left: 0, right: 0, top: 12.5, height: 1, backgroundColor: '#2A3B50' },
-  seg: { position: 'absolute', top: 8, height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: '#22364C' },
-  knob: { position: 'absolute', top: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 4, borderColor: MAP_CYAN },
-  tick: { position: 'absolute', top: 0, width: 34, fontFamily: MONO, fontSize: 8.5, fontWeight: '700' },
+  val: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  status: { flexShrink: 1, fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.6, color: '#DCE4EE' },
+  play: { width: 40, height: 40, borderRadius: 20, backgroundColor: MAP_CYAN, alignItems: 'center', justifyContent: 'center' },
+  track: { height: 18, justifyContent: 'center' },
+  trackBase: { position: 'absolute', left: 0, right: 0, top: 8.5, height: 1, backgroundColor: '#2A3B50' },
+  seg: { position: 'absolute', top: 5, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#22364C' },
+  knob: { position: 'absolute', top: 1, width: 16, height: 16, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 3, borderColor: MAP_CYAN },
+  tick: { position: 'absolute', top: 0, width: 34, fontFamily: MONO, fontSize: 8, fontWeight: '700' },
   fact: { flex: 1, gap: 2, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   factVal: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
   factLbl: { fontFamily: MONO, fontSize: 9, color: '#A7B3C2' },
