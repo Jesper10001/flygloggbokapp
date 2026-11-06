@@ -863,12 +863,13 @@ export async function importFromFile(
   for (const flight of flights) {
     const tt = parseFloat(flight.total_time ?? '0') || 0;
     if (tt <= 0) continue;
-    let clamped = false;
+    const capped: { field: string; from: number; to: number }[] = [];
     for (const f of ['pic', 'co_pilot', 'dual', 'night', 'ifr', 'instructor', 'solo', 'cross_country', 'picus', 'se_time', 'me_time'] as const) {
       const v = parseFloat(flight[f] ?? '0') || 0;
-      if (v > tt + 0.02) { flight[f] = String(tt); clamped = true; }
+      if (v > tt + 0.02) { capped.push({ field: f, from: v, to: tt }); flight[f] = String(tt); }
     }
-    if (clamped) clampedRows++;
+    // Vad som kapades, per flygning → importrapportens "Times cut to the flight time".
+    if (capped.length) { flight.capped = capped; clampedRows++; }
   }
   if (clampedRows > 0) {
     warnings.push(`${clampedRows} row(s) had role time (PIC/night/IFR…) exceeding total time — capped to total.`);
@@ -982,6 +983,8 @@ SPRÅK: säg "flights", "times", "hours", "your file". Använd INTE tekniska ord
 
 INNEHÅLL: vilken app filen verkar komma från (bara om det är tydligt) och det som avviker: tider som kapats, tider eller kategorier som saknas, att en av flera tider valdes som flygtid, konstiga värden. Allt ser bra ut: rad 1 och en eller två OK-rader, ingen CHECK. Nämn inte valet av tid om det bara fanns ett alternativ. Importfel: rad 1 säger att filen inte gick att läsa, en CHECK-rad säger den troliga orsaken och en CHECK-rad hur man exporterar en fil som fungerar.
 
+LÄNKAR: reviewGroups är grupper av flygningar som appen visar under "Before you save" så att användaren kan granska dem. När en CHECK-rad handlar om en av dem: skriv det viktigaste som en länk [[id|text]] i stället för **fet**, med id exakt från reviewGroups och en text på högst tre ord (t.ex. "[[capped|5 flights]] had times longer than the flight, so they were cut." eller "Check the [[note1|6 Oct]] flight."). Ta en CHECK-rad med länk för de viktigaste grupperna (högst tre rader totalt). Hitta aldrig på ett id; finns ingen grupp för saken, använd **fet** som vanligt.
+
 ÅTGÄRDER: FIX bara när det passar, och bara med dessa vägar i fetstil:
 - Timmar i en kategori som filen saknade → "FIX: top up missing hours in **Settings → Imported data → Backfill missing hours**"
 - Nattid saknas (nightMissing är true) → "FIX: tap **Add night time** below to work it out"
@@ -1004,6 +1007,8 @@ export interface ImportSummaryInput {
   warnings?: string[];
   nightMissing?: boolean; // ingen flygning har nattid → rapporten erbjuder "Add night time"
   simHours?: number;      // simulatortid (sim-pass), räknas inte in i totalHours
+  // Flygningar att se över (components/import/ImportReport: reviewForAi) → AI:n länkar till dem med [[id|text]].
+  reviewGroups?: { id: string; title: string; flights: number; about: string; examples: string[] }[];
   error?: string; // satt när importen kastade fel — då beskrivs problemet i stället
 }
 

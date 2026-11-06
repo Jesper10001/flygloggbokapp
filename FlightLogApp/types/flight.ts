@@ -147,6 +147,8 @@ export interface OcrFlightResult extends FlightFormData {
   // Varaktighet per tids-kandidatkolumn (kolumnrubrik → timmar) → låter import-sidan byta
   // vilken kolumn (Block/Air/Flight) som blir loggbokens total_time utan att läsa om filen.
   timeOptions?: Record<string, string>;
+  // Tider som var längre än flygtiden och kapades vid importen (fält, timmar före och efter) → importrapporten.
+  capped?: { field: string; from: number; to: number }[];
   other_times?: Record<string, number>;
   other_time_labels?: Record<string, string>;
   needs_review: boolean;

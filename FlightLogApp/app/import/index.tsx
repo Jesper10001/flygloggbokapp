@@ -29,8 +29,66 @@ import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordi
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import {
   ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
-  type ReportTheme, type CheckStatus,
+  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi,
+  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight,
 } from '../../components/import/ImportReport';
+
+// Flygningar att se över under "Before you save" (och som AI:ns text länkar till): tider som kapades till flygtiden,
+// platser som inte är kända flygplatser (ZZZZ m.fl.) och noteringar från läsningen som nämner ett datum.
+// used = noteringarna som blivit en grupp (de står då inte också under "Notes on your file").
+const CAP_LABEL: Record<string, string> = {
+  pic: 'PIC', co_pilot: 'Co-pilot', dual: 'Dual', night: 'Night', ifr: 'IFR', instructor: 'Instructor', solo: 'Solo',
+  cross_country: 'Cross-country', picus: 'PICUS', se_time: 'SE', me_time: 'ME',
+};
+function buildPilotReview(flights: OcrFlightResult[], unknown: Set<string>, warnings: string[], fmt: (h: number) => string): { groups: ReviewGroup[]; used: Set<string> } {
+  const num = (v: unknown) => parseFloat(String(v ?? '')) || 0;
+  const base = (f: OcrFlightResult, i: number): ReviewFlight => ({
+    idx: i, date: f.date, route: `${f.dep_place || '?'} → ${f.arr_place || '?'}`,
+    sub: [f.aircraft_type, f.registration, fmt(num(f.total_time))].filter(Boolean).join(' · '), detail: '',
+  });
+  const valuesOf = (f: OcrFlightResult) => {
+    const parts = ([['PIC', 'pic'], ['Co-pilot', 'co_pilot'], ['Dual', 'dual'], ['Night', 'night'], ['IFR', 'ifr']] as const)
+      .filter(([, k]) => num((f as any)[k]) > 0).map(([l, k]) => `${l} ${fmt(num((f as any)[k]))}`);
+    const ld = num(f.landings_day), ln = num(f.landings_night);
+    if (ld + ln > 0) parts.push(`Landings ${ld} day, ${ln} night`);
+    if ((f as any).flight_type === 'sim') parts.unshift('Simulator');
+    return parts.join(' · ');
+  };
+  const groups: ReviewGroup[] = [];
+  const used = new Set<string>();
+  const capped = flights.map((f, i) => ({ f, i })).filter(({ f }) => (f.capped?.length ?? 0) > 0);
+  if (capped.length) {
+    const one = capped.length === 1;
+    groups.push({
+      id: 'capped', todo: true, title: 'Times cut to the flight time',
+      about: `${one ? 'A time was' : 'Times were'} longer than the flight itself, so ${one ? 'it was' : 'they were'} cut to the flight time. Check against your logbook.`,
+      flights: capped.map(({ f, i }) => ({ ...base(f, i), detail: f.capped!.map((c) => `${CAP_LABEL[c.field] ?? c.field} ${fmt(c.from)} → ${fmt(c.to)}`).join(' · ') })),
+    });
+    warnings.forEach((w) => { if (/exceeding total time/i.test(w)) used.add(w); });
+  }
+  const odd = flights.map((f, i) => ({ f, i, codes: [f.dep_place, f.arr_place].filter((c): c is string => !!c && unknown.has(c)) })).filter((x) => x.codes.length > 0);
+  if (odd.length) {
+    groups.push({
+      id: 'places', todo: false, title: 'Unlisted places',
+      about: "ZZZZ and codes we don't recognise are saved just as written. That's normal for off-airport landings; check that the places are right.",
+      flights: odd.map(({ f, i, codes }) => ({ ...base(f, i), detail: `Not a known airport: ${[...new Set(codes)].join(', ')}` })),
+    });
+  }
+  let k = 0;
+  warnings.forEach((w) => {
+    if (used.has(w)) return;
+    const ds = datesIn(w);
+    const hits = ds.length ? flights.map((f, i) => ({ f, i })).filter(({ f }) => ds.includes(f.date)) : [];
+    if (!hits.length) return;
+    used.add(w);
+    groups.push({
+      id: `note${++k}`, todo: true, about: w,
+      title: ds.length === 1 ? `${hits.length === 1 ? 'Flight' : 'Flights'} on ${dayMonth(ds[0])}` : `Flights on ${ds.length} dates`,
+      flights: hits.map(({ f, i }) => ({ ...base(f, i), detail: valuesOf(f) })),
+    });
+  });
+  return { groups, used };
+}
 
 // Rapportens färger i pilotläget (samma rapport som drönarläget, components/import/ImportReport).
 const REPORT_THEME: ReportTheme = {
@@ -358,6 +416,7 @@ export default function ImportScreen() {
   const insets = useSafeAreaInsets();
   const { timeFormat, formatTime } = useTimeFormat();
   const T = REPORT_THEME;
+  const fmtH = (h: number) => `${formatTime(h)}${timeFormat === 'decimal' ? ' h' : ''}`;
   // Kom vi hit från onboarding? Då ska en lyckad import gå DIREKT till dashboarden (inte tillbaka till onboarding).
   const { from } = useLocalSearchParams<{ from?: string }>();
   const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
@@ -404,6 +463,9 @@ export default function ImportScreen() {
   const [skippedExpanded, setSkippedExpanded] = useState(false);
   const [scrollOn, setScrollOn] = useState(true); // lås scroll medan man drar en night-bar
   const [openType, setOpenType] = useState<string | null>(null); // flygplanstypen som är utfälld i Aircraft details
+  const [excluded, setExcluded] = useState<Set<number>>(new Set());  // flygningar som lämnas utanför ("Leave out")
+  const toggleLeave = (i: number) => setExcluded((p) => { const n = new Set(p); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  const nav = useCheckNav();
   const [airportMeta, setAirportMeta] = useState<Record<string, { name: string; country: string; known: boolean }>>({});
   // Marschfart + uthållighet för fartygstyper utan registrerade värden
   const [speedInputs, setSpeedInputs] = useState<Record<string, string>>({});
@@ -594,6 +656,8 @@ export default function ImportScreen() {
     setSummaryLoading(false);
     setImportError(null);
     setOpenType(null);
+    setExcluded(new Set());
+    nav.reset();
     setAirportMeta({});
 
     let ok = false;
@@ -604,26 +668,7 @@ export default function ImportScreen() {
 
       // AI-sammanfattning (fritext) — asynkront, blockerar inte förhandsvisningen
       setSummaryLoading(true);
-      const sumDates = res.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
-      generateImportSummary({
-        fileName: file.name,
-        detectedFormat: res.detectedFormat,
-        totalRows: res.totalRows,
-        parsedFlights: res.flights.length,
-        totalHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? 0 : parseFloat(f.total_time) || 0), 0) * 10) / 10,
-        simHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? parseFloat(f.total_time) || 0 : 0), 0) * 10) / 10,
-        dateRange: sumDates.length ? `${sumDates[0]} – ${sumDates[sumDates.length - 1]}` : undefined,
-        aircraft: [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))],
-        airports: [...new Set(res.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))].slice(0, 40) as string[],
-        pilots: [...new Set(res.flights.map((f) => f.second_pilot).filter(Boolean))] as string[],
-        timeCandidates: res.timeCandidates,
-        totalTimeColumn: res.totalTimeColumn,
-        warnings: res.warnings,
-        nightMissing: res.flights.length > 0 && res.flights.every((f) => !(parseFloat(String((f as any).night ?? '0')) > 0)),
-      })
-        .then((s) => setAiSummary(s))
-        .catch(() => setAiSummary(''))
-        .finally(() => setSummaryLoading(false));
+      // (startas efter flygplatskollen nedan: grupperna att se över behöver de okända platserna)
 
       // Förifyll sim-klassning från EXPLICIT sim/FSTD-fält i filen (flight_type='sim' satt i mapRow).
       // Då slipper användaren endurance-pickern för dessa — de är redan kända simulatorpass.
@@ -664,6 +709,29 @@ export default function ImportScreen() {
         }
       }
       setUnknownAirports(unknowns);
+
+      // AI-sammanfattning (fritext) — asynkront, blockerar inte förhandsvisningen
+      const sumDates = res.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
+      generateImportSummary({
+        fileName: file.name,
+        detectedFormat: res.detectedFormat,
+        totalRows: res.totalRows,
+        parsedFlights: res.flights.length,
+        totalHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? 0 : parseFloat(f.total_time) || 0), 0) * 10) / 10,
+        simHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? parseFloat(f.total_time) || 0 : 0), 0) * 10) / 10,
+        dateRange: sumDates.length ? `${sumDates[0]} – ${sumDates[sumDates.length - 1]}` : undefined,
+        aircraft: [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))],
+        airports: [...new Set(res.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))].slice(0, 40) as string[],
+        pilots: [...new Set(res.flights.map((f) => f.second_pilot).filter(Boolean))] as string[],
+        timeCandidates: res.timeCandidates,
+        totalTimeColumn: res.totalTimeColumn,
+        warnings: res.warnings,
+        reviewGroups: reviewForAi(buildPilotReview(res.flights, new Set(unknowns.map((u) => u.icao)), res.warnings, fmtH).groups),
+        nightMissing: res.flights.length > 0 && res.flights.every((f) => !(parseFloat(String((f as any).night ?? '0')) > 0)),
+      })
+        .then((s) => setAiSummary(s))
+        .catch(() => setAiSummary(''))
+        .finally(() => setSummaryLoading(false));
 
       // Hämta koordinater för alla kända platser (för avståndsberäkning)
       const coords = await getAirportCoordinates(places);
@@ -733,6 +801,7 @@ export default function ImportScreen() {
       // ur sim-statistiken). Övriga flygningar default:ar till 'normal'.
       const exceedingIdx = new Set(exceedingFlights.map((e) => e.idx));
       for (let i = 0; i < result.flights.length; i++) {
+        if (excluded.has(i)) continue; // "Leave out" i rapporten
         const f = result.flights[i];
         const ft = flightTypes[i] ?? (exceedingIdx.has(i) ? 'sim' : 'normal');
         const simCat = ft === 'sim' ? (simCategories[i] ?? 'FFS') : '';
@@ -780,11 +849,12 @@ export default function ImportScreen() {
     if (!result) return out;
     const exceed = new Set(exceedingFlights.map((e) => e.idx));
     result.flights.forEach((f, i) => {
+      if (excluded.has(i)) return;
       const ft = flightTypes[i] ?? ((f as any).flight_type === 'sim' || exceed.has(i) ? 'sim' : 'normal');
       if (ft === 'sim') out.add(i);
     });
     return out;
-  }, [result, flightTypes, exceedingFlights]);
+  }, [result, flightTypes, exceedingFlights, excluded]);
 
   const insideData = useMemo(() => {
     if (!result) return null;
@@ -801,6 +871,7 @@ export default function ImportScreen() {
     // Flygtid och rolltider bara för riktiga flygningar; simulatorpassens tid för sig (som skanningsrapporten).
     const cats: Record<string, number> = {};
     result.flights.forEach((f, i) => {
+      if (excluded.has(i)) return;
       if (simIdx.has(i)) { cats.sim = (cats.sim || 0) + (parseFloat(f.total_time) || 0); return; }
       for (const c of CATS) if (c.key !== 'sim') cats[c.key] = (cats[c.key] || 0) + (parseFloat((f as any)[c.key]) || 0);
     });
@@ -809,7 +880,14 @@ export default function ImportScreen() {
     const pilots = [...new Set(result.flights.map((f) => (f.second_pilot || '').trim()).filter(Boolean))];
     const dates = result.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
     return { CATS, cats, icaos, aircraft, pilots, period: periodOf(dates), simCount: simIdx.size };
-  }, [result, simIdx]);
+  }, [result, simIdx, excluded]);
+
+  const review = useMemo(() => (result
+    ? buildPilotReview(result.flights, new Set(unknownAirports.map((u) => u.icao)), result.warnings, fmtH)
+    : { groups: [] as ReviewGroup[], used: new Set<string>() }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [result, unknownAirports, timeFormat]);
+  const included = result ? result.flights.length - excluded.size : 0;
 
   // Flygplatslistan öppnas → slå upp namn + land för koder som saknas (samma som Imported data)
   const resolveAirportMeta = () => {
@@ -1051,6 +1129,22 @@ export default function ImportScreen() {
       ),
     });
   }
+  for (const g of review.groups) {
+    const key = `review-${g.id}`, n = g.flights.length, status: CheckStatus = g.todo ? 'todo' : 'info';
+    checks.push({
+      key, status,
+      render: (first) => (
+        <CheckItem T={T} first={first} icon={g.id === 'capped' ? 'cut-outline' : g.id === 'places' ? 'location-outline' : 'search-outline'}
+          title={g.title} status={status} statusText={g.todo ? `${n} TO CHECK` : `${n} ${n === 1 ? 'FLIGHT' : 'FLIGHTS'}`}
+          summary={g.about} open={!!nav.open[key]} onToggle={() => nav.toggle(key)} highlight={nav.flash === key}>
+          {g.flights.slice(0, 40).map((f) => (
+            <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
+          ))}
+          {n > 40 && <Text style={{ color: T.text2, fontSize: 12.5, textAlign: 'center' }}>+ {n - 40} more {n - 40 === 1 ? 'flight' : 'flights'}</Text>}
+        </CheckItem>
+      ),
+    });
+  }
   if (aircraftRows.length > 0) {
     const looking = aircraftRows.some((r) => r.loading);
     const missing = aircraftRows.filter((r) => r.missing.length > 0).length;
@@ -1154,8 +1248,9 @@ export default function ImportScreen() {
       ),
     });
   }
-  if (result && result.warnings.length > 0) {
-    const ws = result.warnings;
+  const notes = result ? result.warnings.filter((w) => !review.used.has(w)) : [];
+  if (notes.length > 0) {
+    const ws = notes;
     checks.push({
       key: 'notes', status: 'info',
       render: (first) => (
@@ -1176,6 +1271,7 @@ export default function ImportScreen() {
   return (
     <>
     <ScrollView
+      ref={nav.scrollRef}
       style={styles.container}
       contentContainerStyle={[styles.content, result && { paddingBottom: FOOTER_SPACE + insets.bottom + 16 }]}
       keyboardShouldPersistTaps="handled"
@@ -1246,7 +1342,7 @@ export default function ImportScreen() {
           "What we found", det man kan rätta ("Before you save", en rad per sak) och vad filen innehåller. */}
       {result && insideData && (
         <>
-          <ReportHero T={T} flights={result.flights.length}
+          <ReportHero T={T} flights={included}
             time={`${formatTime(insideData.cats.total_time || 0)}${timeFormat === 'decimal' ? ' h' : ''}`}
             sim={(insideData.cats.sim || 0) > 0 ? `${formatTime(insideData.cats.sim)}${timeFormat === 'decimal' ? ' h' : ''}` : undefined}
             period={insideData.period} fileName={fileName} format={result.detectedFormat}
@@ -1254,12 +1350,15 @@ export default function ImportScreen() {
             totalRows={result.totalRows} mappedRows={result.mappedRows} toCheck={checks.filter((c) => c.status === 'todo').length} />
 
           <AnalysisCard T={T} loading={summaryLoading} text={aiSummary}
-            fallback="The summary isn't available right now. Everything below is still ready to import." />
+            fallback="The summary isn't available right now. Everything below is still ready to import."
+            linkIds={new Set(review.groups.map((g) => g.id))} onLink={(id) => nav.go(`review-${id}`)} />
 
           {checks.length > 0 && (
             <>
               <SectionLabel T={T}>BEFORE YOU SAVE</SectionLabel>
-              <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key}>{c.render(i === 0)}</View>)}</CheckGroup>
+              <View onLayout={nav.onGroupLayout}>
+                <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key} onLayout={nav.onItemLayout(c.key)}>{c.render(i === 0)}</View>)}</CheckGroup>
+              </View>
             </>
           )}
 
@@ -1341,8 +1440,8 @@ export default function ImportScreen() {
 
     </ScrollView>
     {result && (
-      <SaveFooter T={T} label={`Save ${result.flights.length.toLocaleString('en-US')} ${result.flights.length === 1 ? 'flight' : 'flights'}`}
-        saving={saving} disabled={result.flights.length === 0} onPress={saveAll} bottom={insets.bottom} />
+      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}`}
+        saving={saving} disabled={included === 0} onPress={saveAll} bottom={insets.bottom} />
     )}
     {progressLayer}
     <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature="CSV / Excel import" />

@@ -26,7 +26,8 @@ import {
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
 import {
   ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
-  type ReportTheme, type CheckStatus,
+  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi,
+  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight,
 } from '../../components/import/ImportReport';
 
 const HOW_IT_WORKS = [
@@ -50,6 +51,49 @@ type DroneInfo = { airframe: Airframe | ''; cls: string; mtow_g: number };
 const EMPTY_ROWS: ParsedDroneRow[] = [];
 
 // AI:s drone_type → airframe-toggeln (vtol viks in i fixed-wing).
+// Flygningar att se över under "Before you save" (och som AI:ns text länkar till), som pilotläget: tider som kapades
+// till flygtiden och noteringar från läsningen som nämner ett datum. used = noteringar som blivit en grupp.
+const CAP_LABEL: Record<string, string> = { night_time: 'Night', ifr: 'IFR', co_pilot_fpv: 'FPV / 2nd pilot', dual: 'Dual', instructor: 'Instructor' };
+function buildDroneReview(rows: ParsedDroneRow[], warnings: string[], fmt: (h: number) => string): { groups: ReviewGroup[]; used: Set<string> } {
+  const base = (r: ParsedDroneRow, i: number): ReviewFlight => ({
+    idx: i, date: r.date, route: r.location || r.drone_type || 'Flight',
+    sub: [r.drone_type, r.registration, fmt(r.total_time)].filter(Boolean).join(' · '), detail: '',
+  });
+  const valuesOf = (r: ParsedDroneRow) => {
+    const parts = [r.category, r.flight_mode].filter(Boolean) as string[];
+    ([['Night', r.night_time], ['IFR', r.ifr], ['FPV / 2nd pilot', r.co_pilot_fpv], ['Dual', r.dual]] as const)
+      .forEach(([l, v]) => { if (v > 0) parts.push(`${l} ${fmt(v)}`); });
+    if (r.landings_day + r.landings_night > 0) parts.push(`Landings ${r.landings_day} day, ${r.landings_night} night`);
+    return parts.join(' · ');
+  };
+  const groups: ReviewGroup[] = [];
+  const used = new Set<string>();
+  const capped = rows.map((r, i) => ({ r, i })).filter(({ r }) => (r.capped?.length ?? 0) > 0);
+  if (capped.length) {
+    const one = capped.length === 1;
+    groups.push({
+      id: 'capped', todo: true, title: 'Times cut to the flight time',
+      about: `${one ? 'A time was' : 'Times were'} longer than the flight itself, so ${one ? 'it was' : 'they were'} cut to the flight time. Check against your log.`,
+      flights: capped.map(({ r, i }) => ({ ...base(r, i), detail: r.capped!.map((c) => `${CAP_LABEL[c.field] ?? c.field} ${fmt(c.from)} → ${fmt(c.to)}`).join(' · ') })),
+    });
+    warnings.forEach((w) => { if (/exceeding total time/i.test(w)) used.add(w); });
+  }
+  let k = 0;
+  warnings.forEach((w) => {
+    if (used.has(w)) return;
+    const ds = datesIn(w);
+    const hits = ds.length ? rows.map((r, i) => ({ r, i })).filter(({ r }) => ds.includes(r.date)) : [];
+    if (!hits.length) return;
+    used.add(w);
+    groups.push({
+      id: `note${++k}`, todo: true, about: w,
+      title: ds.length === 1 ? `${hits.length === 1 ? 'Flight' : 'Flights'} on ${dayMonth(ds[0])}` : `Flights on ${ds.length} dates`,
+      flights: hits.map(({ r, i }) => ({ ...base(r, i), detail: valuesOf(r) })),
+    });
+  });
+  return { groups, used };
+}
+
 function toAirframe(t: string): Airframe | '' {
   if (t === 'multirotor') return 'multirotor';
   if (t === 'helicopter') return 'helicopter';
@@ -77,6 +121,10 @@ export default function DroneImportCsvScreen() {
   const [lookingModels, setLookingModels] = useState<Set<string>>(new Set()); // modeller som slås upp just nu
   const lookedUpRef = useRef<Set<string>>(new Set());                         // auto-lookup: kör en gång per modell
   const [openModel, setOpenModel] = useState<string | null>(null);     // modellen som är utfälld i Drone details
+  const [excluded, setExcluded] = useState<Set<number>>(new Set());     // flygningar som lämnas utanför ("Leave out")
+  const toggleLeave = (i: number) => setExcluded((p) => { const n = new Set(p); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  const nav = useCheckNav();
+  const fmtH = (h: number) => `${formatTime(h)}${timeFormat === 'decimal' ? ' h' : ''}`;
   // Rapportens färger i drönarläget (samma rapport som pilotläget).
   const T: ReportTheme = {
     bg: DR.background, card: DR.surface, elevated: DR.elevated, border: DR.border, separator: DR.separator,
@@ -109,13 +157,14 @@ export default function DroneImportCsvScreen() {
 
   const stats = useMemo(() => {
     if (rows.length === 0) return null;
-    const hours = rows.reduce((s, r) => s + r.total_time, 0);
+    const hours = rows.reduce((s, r, i) => s + (excluded.has(i) ? 0 : r.total_time), 0);
     const byMode = { VLOS: 0, EVLOS: 0, BVLOS: 0 } as Record<string, number>;
     const tf = { night: 0, ifr: 0, fpv: 0, dual: 0, instr: 0 };
     let night = 0;
     const locations = new Set<string>();
     const dates: string[] = [];
-    for (const r of rows) {
+    for (const [i, r] of rows.entries()) {
+      if (excluded.has(i)) continue;
       if (r.h_vlos + r.h_evlos + r.h_bvlos > 0) { byMode.VLOS += r.h_vlos; byMode.EVLOS += r.h_evlos; byMode.BVLOS += r.h_bvlos; }
       else byMode[r.flight_mode] = (byMode[r.flight_mode] || 0) + r.total_time;
       tf.night += r.night_time; tf.ifr += r.ifr; tf.fpv += r.co_pilot_fpv; tf.dual += r.dual; tf.instr += r.instructor;
@@ -125,7 +174,11 @@ export default function DroneImportCsvScreen() {
     }
     dates.sort();
     return { hours, byMode, tf, night, locations: [...locations], dateRange: dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : '' };
-  }, [rows]);
+  }, [rows, excluded]);
+  const review = useMemo(() => (result ? buildDroneReview(result.rows, result.warnings, fmtH) : { groups: [] as ReviewGroup[], used: new Set<string>() }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [result, timeFormat]);
+  const included = rows.length - excluded.size;
 
   // Unika modeller (för Drone data-sektionen).
   const droneModels = useMemo(() => {
@@ -199,6 +252,7 @@ export default function DroneImportCsvScreen() {
         drones: r ? [...new Set(r.rows.map((x) => x.drone_type).filter(Boolean))] : undefined,
         categories: r ? [...new Set(r.rows.map((x) => x.category).filter(Boolean))] : undefined,
         warnings: r?.warnings,
+        reviewGroups: r ? reviewForAi(buildDroneReview(r.rows, r.warnings, fmtH).groups) : undefined,
         error,
       });
       setAiSummary(txt);
@@ -213,7 +267,7 @@ export default function DroneImportCsvScreen() {
     const file = await pickImportFile();
     if (!file) return;
     setFileName(file.name);
-    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setOpenModel(null);
+    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setOpenModel(null); setExcluded(new Set()); nav.reset();
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
     if (overlayTimer.current) clearTimeout(overlayTimer.current);
@@ -240,7 +294,7 @@ export default function DroneImportCsvScreen() {
     setSaving(true);
     try {
       // Applicera per-modell klass på flygningarna + bygg registrerings-info (airframe/vikt/klass).
-      const rowsToSave: ParsedDroneRow[] = rows.map((r) => {
+      const rowsToSave: ParsedDroneRow[] = rows.filter((_, i) => !excluded.has(i)).map((r) => { // utan "Leave out"
         const info = droneData[r.drone_type];
         return info?.cls ? { ...r, category: info.cls } : r;
       });
@@ -356,6 +410,22 @@ export default function DroneImportCsvScreen() {
   );
 
   const checks: { key: string; status: CheckStatus; render: (first: boolean) => ReactNode }[] = [];
+  for (const g of review.groups) {
+    const key = `review-${g.id}`, n = g.flights.length, status: CheckStatus = g.todo ? 'todo' : 'info';
+    checks.push({
+      key, status,
+      render: (first) => (
+        <CheckItem T={T} first={first} icon={g.id === 'capped' ? 'cut-outline' : 'search-outline'}
+          title={g.title} status={status} statusText={g.todo ? `${n} TO CHECK` : `${n} ${n === 1 ? 'FLIGHT' : 'FLIGHTS'}`}
+          summary={g.about} open={!!nav.open[key]} onToggle={() => nav.toggle(key)} highlight={nav.flash === key}>
+          {g.flights.slice(0, 40).map((f) => (
+            <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
+          ))}
+          {n > 40 && <Text style={{ color: T.text2, fontSize: 12.5, textAlign: 'center' }}>+ {n - 40} more {n - 40 === 1 ? 'flight' : 'flights'}</Text>}
+        </CheckItem>
+      ),
+    });
+  }
   if (droneRows.length > 0) {
     const looking = droneRows.some((r) => r.looking);
     const missing = droneRows.filter((r) => r.missing.length > 0).length;
@@ -378,8 +448,9 @@ export default function DroneImportCsvScreen() {
       ),
     });
   }
-  if (result && result.warnings.length > 0) {
-    const ws = result.warnings;
+  const notes = result ? result.warnings.filter((w) => !review.used.has(w)) : [];
+  if (notes.length > 0) {
+    const ws = notes;
     checks.push({
       key: 'notes', status: 'info',
       render: (first) => (
@@ -399,7 +470,7 @@ export default function DroneImportCsvScreen() {
 
   return (
     <>
-    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
+    <ScrollView ref={nav.scrollRef} style={{ flex: 1, backgroundColor: DR.background }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (result ? FOOTER_SPACE + 16 : 40), gap: 12 }}>
       {/* Rubrik — bara innan en fil är läst (rapporten har en egen sammanfattning överst) */}
       {!result && (
@@ -447,19 +518,22 @@ export default function DroneImportCsvScreen() {
           "What we found", det man kan rätta och vad filen innehåller. */}
       {result && (
         <>
-          <ReportHero T={T} flights={rows.length}
+          <ReportHero T={T} flights={included}
             time={`${formatTime(stats?.hours ?? 0)}${timeFormat === 'decimal' ? ' h' : ''}`}
             period={periodOf(rows.map((r) => r.date))} fileName={fileName} format={result.detectedFormat}
             coins={result.tokensUsed > 0 ? tokensToCoins(result.tokensUsed) : 0}
             totalRows={result.totalRows} mappedRows={result.mappedRows} toCheck={checks.filter((c) => c.status === 'todo').length} />
 
           <AnalysisCard T={T} loading={summaryLoading} text={summaryLoading ? null : aiSummary}
+            linkIds={new Set(review.groups.map((g) => g.id))} onLink={(id) => nav.go(`review-${id}`)}
             fallback={`The summary isn't available right now. ${result.mappedRows} of ${result.totalRows} rows are ready to import.`} />
 
           {checks.length > 0 && (
             <>
               <SectionLabel T={T}>BEFORE YOU SAVE</SectionLabel>
-              <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key}>{c.render(i === 0)}</View>)}</CheckGroup>
+              <View onLayout={nav.onGroupLayout}>
+                <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key} onLayout={nav.onItemLayout(c.key)}>{c.render(i === 0)}</View>)}</CheckGroup>
+              </View>
             </>
           )}
 
@@ -501,8 +575,8 @@ export default function DroneImportCsvScreen() {
       )}
     </ScrollView>
     {result && (
-      <SaveFooter T={T} label={`Save ${rows.length.toLocaleString('en-US')} ${rows.length === 1 ? 'flight' : 'flights'}`}
-        saving={saving} disabled={rows.length === 0} onPress={doImport} bottom={insets.bottom} />
+      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}`}
+        saving={saving} disabled={included <= 0} onPress={doImport} bottom={insets.bottom} />
     )}
     {progressLayer}
     </>

@@ -2,9 +2,11 @@
 // Samma byggstenar och utseende i båda lägena (som skanningsrapporten): en sammanfattning överst med flygningar och
 // flygtid, AI:ns korta "What we found", "Before you save" med det man kan rätta (en rad per sak, fälls ut) och
 // "In this file" med tiderna som rutnät och listorna. Save ligger fast längst ner. Färgerna kommer från läget.
+// Flygningar som behöver ses över (kapade tider, okända platser, noteringar med datum) blir egna rader under
+// "Before you save" (ReviewGroup); AI:ns text länkar dit med [[id|text]], och ett tryck skrollar dit och fäller ut.
 
-import { useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, type ScrollView, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FONT_SERIF, FONT_MONO } from '../logbook-page/tokens';
@@ -16,6 +18,47 @@ export interface ReportTheme {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// ── Flygningar att se över ────────────────────────────────────────────────────
+export interface ReviewFlight { idx: number; date: string; route: string; sub: string; detail: string }
+export interface ReviewGroup { id: string; title: string; about: string; todo: boolean; flights: ReviewFlight[] }
+
+// Datum (YYYY-MM-DD) som nämns i en text, t.ex. en notering från läsningen.
+export function datesIn(text: string): string[] {
+  return [...new Set(text.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [])];
+}
+export const dayMonth = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` : d);
+
+// Det AI:n får veta om grupperna, så att den kan länka till dem.
+export const reviewForAi = (gs: ReviewGroup[]) => gs.map((g) => ({
+  id: g.id, title: g.title, flights: g.flights.length, about: g.about,
+  examples: g.flights.slice(0, 2).map((f) => `${f.date} ${f.route}: ${f.detail}`),
+}));
+
+// Skrollar till en rad under "Before you save", fäller ut den och lyser upp den en stund (länkarna i AI:ns text).
+export function useCheckNav() {
+  const scrollRef = useRef<ScrollView>(null);
+  const groupY = useRef(0);
+  const itemY = useRef<Record<string, number>>({});
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [flash, setFlash] = useState<string | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const go = (key: string) => {
+    setOpen((o) => ({ ...o, [key]: true }));
+    setFlash(key);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setFlash(null), 1800);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, groupY.current + (itemY.current[key] ?? 0) - 12), animated: true }), 60);
+  };
+  return {
+    scrollRef, open, flash, go,
+    toggle: (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] })),
+    reset: () => { setOpen({}); setFlash(null); },
+    onGroupLayout: (e: LayoutChangeEvent) => { groupY.current = e.nativeEvent.layout.y; },
+    onItemLayout: (key: string) => (e: LayoutChangeEvent) => { itemY.current[key] = e.nativeEvent.layout.y; },
+  };
+}
 
 // Första och sista datumet som "Mar 2018 – Oct 2026" (samma månad → en gång).
 export function periodOf(dates: string[]): string {
@@ -93,18 +136,38 @@ export function parseAnalysis(text: string): { headline: string; lines: Line[] }
   return { headline, lines };
 }
 
-function Bold({ text, color, strong }: { text: string; color: string; strong: string }) {
+// **fet** = det viktigaste; [[id|text]] = en länk till en grupp under "Before you save" (understruken, med pil).
+// En länk till en grupp som inte finns visas som fet text.
+function Bold({ text, color, strong, link, linkIds, onLink }: {
+  text: string; color: string; strong: string; link: string; linkIds?: Set<string>; onLink?: (id: string) => void;
+}) {
   return (
     <Text style={{ color, fontSize: 13.5, lineHeight: 19 }}>
-      {text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith('**') && p.endsWith('**')
-        ? <Text key={i} style={{ fontWeight: '800', color: strong }}>{p.slice(2, -2)}</Text>
-        : <Text key={i}>{p}</Text>))}
+      {text.split(/(\[\[[^\]|]+\|[^\]]+\]\]|\*\*[^*]+\*\*)/g).filter(Boolean).map((p, i) => {
+        const m = p.match(/^\[\[([^\]|]+)\|([^\]]+)\]\]$/);
+        if (m) {
+          const id = m[1].trim(), label = m[2].replace(/\*\*/g, '');
+          if (onLink && linkIds?.has(id)) {
+            return (
+              <Text key={i} onPress={() => onLink(id)} accessibilityRole="link" suppressHighlighting={false}
+                style={{ fontWeight: '800', color: link, textDecorationLine: 'underline', textDecorationColor: link + '99' }}>
+                {label}<Text style={{ textDecorationLine: 'none' }}>{' ›'}</Text>
+              </Text>
+            );
+          }
+          return <Text key={i} style={{ fontWeight: '800', color: strong }}>{label}</Text>;
+        }
+        return p.startsWith('**') && p.endsWith('**')
+          ? <Text key={i} style={{ fontWeight: '800', color: strong }}>{p.slice(2, -2)}</Text>
+          : <Text key={i}>{p}</Text>;
+      })}
     </Text>
   );
 }
 
-export function AnalysisCard({ T, loading, text, fallback, failed = false }: {
+export function AnalysisCard({ T, loading, text, fallback, failed = false, linkIds, onLink }: {
   T: ReportTheme; loading: boolean; text: string | null; fallback: string; failed?: boolean;
+  linkIds?: Set<string>; onLink?: (id: string) => void;
 }) {
   const tone = failed ? T.danger : T.accent;
   const parsed = text ? parseAnalysis(text) : null;
@@ -130,13 +193,15 @@ export function AnalysisCard({ T, loading, text, fallback, failed = false }: {
         <Text style={{ color: T.text2, fontSize: 13.5, lineHeight: 19 }}>{fallback}</Text>
       ) : (
         <>
-          {!!parsed.headline && <Text style={{ color: T.text, fontSize: 15, fontWeight: '700', lineHeight: 21 }}>{parsed.headline.replace(/\*\*/g, '')}</Text>}
+          {!!parsed.headline && <Text style={{ color: T.text, fontSize: 15, fontWeight: '700', lineHeight: 21 }}>{parsed.headline.replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1').replace(/\*\*/g, '')}</Text>}
           {parsed.lines.map((l, i) => {
             const ic = icon(l.kind);
             return (
               <View key={i} style={{ flexDirection: 'row', gap: 9, alignItems: 'flex-start' }}>
                 <Ionicons name={ic.name} size={l.kind === 'note' ? 6 : 15} color={ic.color} style={{ marginTop: l.kind === 'note' ? 7 : 2 }} />
-                <View style={{ flex: 1 }}><Bold text={l.text} color={T.text2} strong={T.text} /></View>
+                <View style={{ flex: 1 }}>
+                  <Bold text={l.text} color={T.text2} strong={T.text} link={l.kind === 'check' ? T.warning : T.accent} linkIds={linkIds} onLink={onLink} />
+                </View>
               </View>
             );
           })}
@@ -159,15 +224,17 @@ export function CheckGroup({ T, children }: { T: ReportTheme; children: ReactNod
   return <View style={[st.card, { backgroundColor: T.card, borderColor: T.border }]}>{children}</View>;
 }
 
-export function CheckItem({ T, icon, title, summary, status, statusText, first, defaultOpen = false, children }: {
+// open/onToggle = styrd utifrån (useCheckNav); annars håller raden själv reda på om den är utfälld.
+export function CheckItem({ T, icon, title, summary, status, statusText, first, defaultOpen = false, open: openProp, onToggle, highlight, children }: {
   T: ReportTheme; icon: keyof typeof Ionicons.glyphMap; title: string; summary: string; status: CheckStatus;
-  statusText: string; first?: boolean; defaultOpen?: boolean; children?: ReactNode;
+  statusText: string; first?: boolean; defaultOpen?: boolean; open?: boolean; onToggle?: () => void; highlight?: boolean; children?: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [own, setOwn] = useState(defaultOpen);
+  const open = openProp ?? own;
   const color = status === 'todo' ? T.warning : status === 'done' ? T.success : status === 'ai' ? T.accent : T.text2;
   return (
-    <View style={!first && { borderTopWidth: 1, borderTopColor: T.separator }}>
-      <TouchableOpacity style={st.checkHead} onPress={() => setOpen((o) => !o)} activeOpacity={0.75} disabled={!children}
+    <View style={[!first && { borderTopWidth: 1, borderTopColor: T.separator }, highlight && { backgroundColor: color + '14' }]}>
+      <TouchableOpacity style={st.checkHead} onPress={() => (onToggle ? onToggle() : setOwn((o) => !o))} activeOpacity={0.75} disabled={!children}
         accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}. ${statusText}. ${summary}`}>
         <View style={[st.checkIcon, { backgroundColor: color + '1A', borderColor: color + '44' }]}>
           <Ionicons name={icon} size={16} color={color} />
@@ -210,6 +277,28 @@ export function EditRow({ T, title, summary, tag, tagColor, loading, open, onPre
         <Text style={[st.editLink, { color: T.accent }]}>{open ? 'Done' : 'Edit'}</Text>
       </TouchableOpacity>
       {open && children ? <View style={st.editBody}>{children}</View> : null}
+    </View>
+  );
+}
+
+// En flygning att se över: datum, rutt, typ och tid, och på egen rad vad som är speciellt. "Leave out" = sparas inte.
+export function ReviewFlightRow({ T, f, left, onToggleLeave }: { T: ReportTheme; f: ReviewFlight; left: boolean; onToggleLeave: () => void }) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(f.date);
+  return (
+    <View style={[st.revRow, { backgroundColor: T.bg, borderColor: T.border }, left && { opacity: 0.45 }]}>
+      <View style={st.revDate}>
+        <Text style={[st.revDay, { color: T.text }]}>{valid ? Number(f.date.slice(8, 10)) : '?'}</Text>
+        <Text style={[st.revMon, { color: T.muted }]}>{valid ? `${MONTHS[Number(f.date.slice(5, 7)) - 1]} ${f.date.slice(2, 4)}` : ''}</Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={[st.revRoute, { color: T.text }]} numberOfLines={1}>{f.route}</Text>
+        <Text style={[st.revSub, { color: T.text2 }]} numberOfLines={1}>{f.sub}</Text>
+        {!!f.detail && <Text style={[st.revDetail, { color: T.warning }]}>{f.detail}</Text>}
+      </View>
+      <TouchableOpacity onPress={onToggleLeave} hitSlop={10} accessibilityRole="button"
+        accessibilityLabel={left ? `Include the flight on ${f.date} again` : `Leave out the flight on ${f.date}`}>
+        <Text style={[st.revLeave, { color: left ? T.accent : T.text2 }]}>{left ? 'Include' : 'Leave out'}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -293,6 +382,14 @@ const st = StyleSheet.create({
   pill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, borderWidth: 1 },
   pillText: { fontFamily: FONT_MONO, fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
 
+  revRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  revDate: { width: 34, alignItems: 'center' },
+  revDay: { fontFamily: FONT_SERIF, fontSize: 19, fontWeight: '600', lineHeight: 22 },
+  revMon: { fontFamily: FONT_MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 1 },
+  revRoute: { fontFamily: FONT_MONO, fontSize: 13.5, fontWeight: '700', letterSpacing: 0.3 },
+  revSub: { fontFamily: FONT_MONO, fontSize: 10.5 },
+  revDetail: { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+  revLeave: { fontSize: 12.5, fontWeight: '700' },
   editRow: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   editHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   editTitle: { fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },

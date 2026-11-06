@@ -108,6 +108,7 @@ export interface ParsedDroneRow {
   second_pilot: string;      // besättning (Crew-kolumnen + observatörer) — som Log flights Second pilot
   second_pilot_role: string;
   extra_pilots: string;      // JSON [{ role, name }]
+  capped?: { field: string; from: number; to: number }[]; // tider som kapades till flygtiden → importrapporten
   remarks: string;
 }
 
@@ -345,11 +346,11 @@ export async function importDroneFromFile(
 
     // Rolltid/natt/IFR får inte överstiga totaltiden.
     if (r.total_time > 0) {
-      let didClamp = false;
+      const capped: { field: string; from: number; to: number }[] = [];
       for (const f of ['night_time', 'ifr', 'co_pilot_fpv', 'dual', 'instructor'] as const) {
-        if (r[f] > r.total_time + 0.02) { r[f] = r.total_time; didClamp = true; }
+        if (r[f] > r.total_time + 0.02) { capped.push({ field: f, from: r[f], to: r.total_time }); r[f] = r.total_time; }
       }
-      if (didClamp) clamped++;
+      if (capped.length) { r.capped = capped; clamped++; }
     }
     rows.push(r);
   }
@@ -384,6 +385,8 @@ SPRÅK: säg "flights", "times", "hours", "your file". Använd INTE tekniska ord
 
 INNEHÅLL: vilken app filen verkar komma från (bara om det är tydligt) och det som avviker: tider som kapats, saknad flygtid eller datum, okända kategorier, konstiga värden. Allt ser bra ut: rad 1 och en eller två OK-rader, ingen CHECK. Importfel: rad 1 säger att filen inte gick att läsa, en CHECK-rad säger den troliga orsaken och en CHECK-rad hur man exporterar en fil som fungerar.
 
+LÄNKAR: reviewGroups är grupper av flygningar som appen visar under "Before you save" så att användaren kan granska dem. När en CHECK-rad handlar om en av dem: skriv det viktigaste som en länk [[id|text]] i stället för **fet**, med id exakt från reviewGroups och en text på högst tre ord (t.ex. "[[capped|5 flights]] had times longer than the flight, so they were cut." eller "Check the [[note1|6 Oct]] flight."). Ta en CHECK-rad med länk för de viktigaste grupperna (högst tre rader totalt). Hitta aldrig på ett id; finns ingen grupp för saken, använd **fet** som vanligt.
+
 ÅTGÄRDER: FIX bara när det passar, och bara med dessa vägar i fetstil:
 - Timmar i en kategori som filen saknade → "FIX: top up missing hours in **Settings → Imported data → Backfill missing hours**"
 - Granska importen i efterhand → "FIX: review it later in **Settings → Imported data**"
@@ -400,6 +403,8 @@ export interface DroneImportSummaryInput {
   drones?: string[];
   categories?: string[];
   warnings?: string[];
+  // Flygningar att se över (components/import/ImportReport: reviewForAi) → AI:n länkar till dem med [[id|text]].
+  reviewGroups?: { id: string; title: string; flights: number; about: string; examples: string[] }[];
   error?: string;
 }
 
