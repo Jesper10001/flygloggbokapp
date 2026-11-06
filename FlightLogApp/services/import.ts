@@ -1003,6 +1003,7 @@ export interface ImportSummaryInput {
   totalTimeColumn?: string;
   warnings?: string[];
   nightMissing?: boolean; // ingen flygning har nattid → rapporten erbjuder "Add night time"
+  simHours?: number;      // simulatortid (sim-pass), räknas inte in i totalHours
   error?: string; // satt när importen kastade fel — då beskrivs problemet i stället
 }
 

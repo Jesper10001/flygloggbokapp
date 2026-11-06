@@ -27,8 +27,9 @@ export function periodOf(dates: string[]): string {
 }
 
 // ── Sammanfattningen ──────────────────────────────────────────────────────────
-export function ReportHero({ T, flights, time, period, fileName, format, coins, totalRows, mappedRows, toCheck }: {
-  T: ReportTheme; flights: number; time: string; period: string; fileName: string; format: string;
+// sim: simulatortid för sig (pilot), till höger om flygtiden och lite mindre; flygtiden räknar aldrig in den.
+export function ReportHero({ T, flights, time, sim, period, fileName, format, coins, totalRows, mappedRows, toCheck }: {
+  T: ReportTheme; flights: number; time: string; sim?: string; period: string; fileName: string; format: string;
   coins: number; totalRows: number; mappedRows: number; toCheck: number;
 }) {
   const allRead = mappedRows >= totalRows;
@@ -45,6 +46,12 @@ export function ReportHero({ T, flights, time, period, fileName, format, coins, 
           <Text style={[st.heroValue, { color: T.text }]}>{time}</Text>
           <Text style={[st.heroLabel, { color: T.muted }]}>FLIGHT TIME</Text>
         </View>
+        {sim ? (
+          <View style={{ gap: 3 }}>
+            <Text style={[st.heroSim, { color: T.text2 }]}>{sim}</Text>
+            <Text style={[st.heroLabel, { color: T.muted }]}>SIM</Text>
+          </View>
+        ) : null}
       </View>
       {!!period && <Text style={[st.heroPeriod, { color: T.text }]}>{period}</Text>}
       <View style={st.heroStatus}>
@@ -263,8 +270,9 @@ export const FOOTER_SPACE = 96;
 const st = StyleSheet.create({
   hero: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12, overflow: 'hidden', gap: 8 },
   eyebrow: { fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.6 },
-  heroTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 26, marginTop: 2 },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 22, marginTop: 2 },
   heroValue: { fontFamily: FONT_SERIF, fontSize: 34, fontWeight: '600', fontVariant: ['tabular-nums'], lineHeight: 38 },
+  heroSim: { fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', fontVariant: ['tabular-nums'], lineHeight: 26 },
   heroLabel: { fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4 },
   heroPeriod: { fontFamily: FONT_MONO, fontSize: 12, fontWeight: '600', opacity: 0.9 },
   heroStatus: { flexDirection: 'row', flexWrap: 'wrap' },

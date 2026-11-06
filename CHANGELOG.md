@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Rättat: importrapportens flygtid (överst och TOTAL under "In this file") räknade in simulatorpassen. Nu räknas samma pass som sim som när importen sparas (simulatorpass enligt filen, ditt val under "Longer than endurance", eller förvalt sim för flygningar längre än uthålligheten), och deras tid visas för sig: "SIM" till höger om flygtiden i lite mindre storlek, och en SIM-ruta under "In this file". Rolltiderna (PIC, IFR, natt …) räknar inte heller in simulatorpassen. AI:ns sammanfattning får flygtid och simulatortid var för sig.
 - Importrapporten (pilot och drönare): märkningarna "AI FILLED" och "AI" är borttagna (Aircraft/Drone details visar bara "LOOKING UP" eller "X TO CHECK", och raderna bara "MISSING"), rubriken "What we found" är borttagen (kortet börjar med AI:ns mening; "IMPORT FAILED" står kvar vid fel), och "Notes on your file" visar alla noteringar som punkter under en kort rad ("4 notes from reading your file.") i stället för att den första stod som löptext och sedan upprepades.
 - Rättat: AI:n vid importen fick inte veta dagens datum och kallade därför datum från de senaste månaderna för "i framtiden". Dagens datum skickas nu med både till kolumnmappningen och till sammanfattningen.
 - Rapporten efter CSV-import (innan Save) är omgjord, likadan i pilot- och drönarläget (components/import/ImportReport, i skanningsrapportens stil):

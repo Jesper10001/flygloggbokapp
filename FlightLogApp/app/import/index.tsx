@@ -610,7 +610,8 @@ export default function ImportScreen() {
         detectedFormat: res.detectedFormat,
         totalRows: res.totalRows,
         parsedFlights: res.flights.length,
-        totalHours: Math.round(res.flights.reduce((s, f) => s + (parseFloat(f.total_time) || 0), 0) * 10) / 10,
+        totalHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? 0 : parseFloat(f.total_time) || 0), 0) * 10) / 10,
+        simHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? parseFloat(f.total_time) || 0 : 0), 0) * 10) / 10,
         dateRange: sumDates.length ? `${sumDates[0]} – ${sumDates[sumDates.length - 1]}` : undefined,
         aircraft: [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))],
         airports: [...new Set(res.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))].slice(0, 40) as string[],
@@ -772,10 +773,24 @@ export default function ImportScreen() {
   };
 
   // Sammanställning för "vad filen innehåller"-kortet (samma presentation som Imported data)
+  // Simulatorpassen i importen, med samma regel som saveAll: användarens val, annars sim om filen sa sim eller
+  // flygningen är längre än uthålligheten (förvalt sim). Deras tid är simulatortid, inte flygtid.
+  const simIdx = useMemo(() => {
+    const out = new Set<number>();
+    if (!result) return out;
+    const exceed = new Set(exceedingFlights.map((e) => e.idx));
+    result.flights.forEach((f, i) => {
+      const ft = flightTypes[i] ?? ((f as any).flight_type === 'sim' || exceed.has(i) ? 'sim' : 'normal');
+      if (ft === 'sim') out.add(i);
+    });
+    return out;
+  }, [result, flightTypes, exceedingFlights]);
+
   const insideData = useMemo(() => {
     if (!result) return null;
     const CATS: { key: string; label: string }[] = [
       { key: 'total_time', label: 'Total' },
+      { key: 'sim', label: 'Sim' },
       { key: 'pic', label: 'PIC' },
       { key: 'co_pilot', label: 'Co-pilot' },
       { key: 'dual', label: 'Dual' },
@@ -783,16 +798,18 @@ export default function ImportScreen() {
       { key: 'ifr', label: 'IFR' },
       { key: 'night', label: 'Night' },
     ];
+    // Flygtid och rolltider bara för riktiga flygningar; simulatorpassens tid för sig (som skanningsrapporten).
     const cats: Record<string, number> = {};
-    for (const f of result.flights) {
-      for (const c of CATS) cats[c.key] = (cats[c.key] || 0) + (parseFloat((f as any)[c.key]) || 0);
-    }
+    result.flights.forEach((f, i) => {
+      if (simIdx.has(i)) { cats.sim = (cats.sim || 0) + (parseFloat(f.total_time) || 0); return; }
+      for (const c of CATS) if (c.key !== 'sim') cats[c.key] = (cats[c.key] || 0) + (parseFloat((f as any)[c.key]) || 0);
+    });
     const icaos = [...new Set(result.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))] as string[];
     const aircraft = [...new Set(result.flights.map((f) => (f.aircraft_type || '').trim()).filter(Boolean))];
     const pilots = [...new Set(result.flights.map((f) => (f.second_pilot || '').trim()).filter(Boolean))];
     const dates = result.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
-    return { CATS, cats, icaos, aircraft, pilots, period: periodOf(dates) };
-  }, [result]);
+    return { CATS, cats, icaos, aircraft, pilots, period: periodOf(dates), simCount: simIdx.size };
+  }, [result, simIdx]);
 
   // Flygplatslistan öppnas → slå upp namn + land för koder som saknas (samma som Imported data)
   const resolveAirportMeta = () => {
@@ -1231,6 +1248,7 @@ export default function ImportScreen() {
         <>
           <ReportHero T={T} flights={result.flights.length}
             time={`${formatTime(insideData.cats.total_time || 0)}${timeFormat === 'decimal' ? ' h' : ''}`}
+            sim={(insideData.cats.sim || 0) > 0 ? `${formatTime(insideData.cats.sim)}${timeFormat === 'decimal' ? ' h' : ''}` : undefined}
             period={insideData.period} fileName={fileName} format={result.detectedFormat}
             coins={result.tokensUsed > 0 ? tokensToCoins(result.tokensUsed) : 0}
             totalRows={result.totalRows} mappedRows={result.mappedRows} toCheck={checks.filter((c) => c.status === 'todo').length} />
