@@ -15,6 +15,16 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Rapporten efter CSV-import (innan Save) är omgjord, likadan i pilot- och drönarläget (components/import/ImportReport, i skanningsrapportens stil):
+  - Överst en sammanfattning: flygningar och flygtid i stort, perioden ("Mar 2018 – Oct 2026"), om alla rader lästes, hur många saker som behöver ses över, filen och coins.
+  - "What we found" (f.d. Import analysis) är kortare och enklare: en inledande mening och högst tre rader märkta CHECK (gul, visas först), OK (grön) och FIX (åtgärd). AI:n skriver i vardagsspråk utan ord som parsed/mapped/column och fetmarkerar bara det viktigaste. Pilotens AI får veta när nattid saknas och hänvisar då till "Add night time".
+  - "Before you save" samlar allt som går att rätta, en rad per sak med status (SUGGESTED, NEED YOU, AI FILLED, DONE, OPTIONAL) som fälls ut: Add night time (pilot, öppen från början), Aircraft details/Drone details (en rad per typ eller modell med sammanfattning; Edit fäller ut samma fält som förut), Longer than endurance (Sim/Hot refuel och simulatortyp), Longer than range (Off-airport/En-route refuel) och Notes on your file (varningar från läsningen, nu även i pilotläget).
+  - "In this file": tiderna som ett rutnät i stället för en lång lista, och Airports, Aircraft/Drones, Second pilots och Locations som rader som fälls ut.
+  - Save ligger fast längst ner ("Save 1,053 flights"), så man inte behöver skrolla. Sidrubriken och filvalet döljs när rapporten visas.
+  - Notisen och "Choose a different file" längst ner är ihopdragna till ungefär halva höjden (en kort rad: "Nothing is saved until you tap Save. Duplicates are skipped."), och statusen för typer eller drönare som saknar värden heter "X TO CHECK".
+- Drönar-Insights har en Hours bank direkt under översikten, likadan som i pilotläget: Your/All fields, intervallen All/3M/6M/1Y/This yr och två kolumner med Roles (PIC, FPV / 2nd pilot, Dual, Instructor), Category (A1–Certified och egna kategorier), Line of sight, Conditions (Night, VFR, IFR), Mission (Commercial, Private), Flights och Landings. Siffrorna räknas över alla drönarflygningar i databasen (getDroneHoursBank), och All time tar med backfill som stats gör. Kortet delas med pilotläget (HoursBankView), så pilotens Hours bank är oförändrad.
+- Activity-diagrammet (flygningar per månad) längst ner i drönar-Insights är borttaget.
+- Support i Settings (pilot, drönare och Blades Essential) öppnar supportsidan på hemsidan, blades-app.com/support (FAQ och kontaktformulär), i stället för ett mejl till supportadressen. Ny ikon (livboj) och undertexten "FAQ and contact form".
 - Flygningens sida (pilot och drönare) har en Edit-knapp uppe till höger i sidhuvudet, bredvid totaltiden. Knappen "Open full editor" längst ner är borttagen. Rutten i rubriken krymper på en rad om den inte får plats.
 - Stressfactor-sidan är omgjord för att bli enklare (designförslag A):
   - Överst står läget just nu i ord ("Light 55%"), timmarna mot ditt normala och zonskalan med en markör. Den gör att det inte längre står två olika zoner och siffror högst upp.

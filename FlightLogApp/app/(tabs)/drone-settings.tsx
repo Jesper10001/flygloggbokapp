@@ -451,7 +451,7 @@ export default function DroneSettingsScreen() {
               </View>
             ) : undefined
           } />
-        <Row accent={accent} icon="mail" iconColor={DR.text3} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} separatorColor={DR.background} />
+        <Row accent={accent} icon="help-buoy-outline" iconColor={DR.text3} title="Support" subtitle="FAQ and contact form" onPress={() => Linking.openURL('https://blades-app.com/support')} separatorColor={DR.background} />
         <Row accent={accent} icon="globe-outline" iconColor={DR.text3} title="blades-app.com" subtitle="News, guides & support" onPress={() => Linking.openURL('https://blades-app.com')} separatorColor={DR.background} />
         <Row accent={accent} icon="document-text-outline" iconColor={DR.text3} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} separatorColor={DR.background} />
         <Row accent={accent} icon="ribbon-outline" iconColor={DR.text3} title="Acknowledgements" subtitle="Open data, open-source software & licenses" onPress={() => router.push('/settings/acknowledgements')} separatorColor={DR.background} />

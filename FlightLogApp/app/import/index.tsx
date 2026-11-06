@@ -1,11 +1,12 @@
 import { HowItWorks } from '../../components/HowItWorks';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { pickImportFile, importFromFile, generateImportSummary, type ImportResult } from '../../services/import';
 import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
@@ -25,6 +26,18 @@ import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError, tokensToC
 import type { OcrFlightResult } from '../../types/flight';
 import { TextInput as RNTextInput } from 'react-native';
 import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordinates, calculateDistance } from '../../db/icao';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
+import {
+  ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
+  type ReportTheme, type CheckStatus,
+} from '../../components/import/ImportReport';
+
+// Rapportens färger i pilotläget (samma rapport som drönarläget, components/import/ImportReport).
+const REPORT_THEME: ReportTheme = {
+  bg: Colors.background, card: Colors.card, elevated: Colors.elevated, border: Colors.cardBorder, separator: Colors.separator,
+  text: Colors.textPrimary, text2: Colors.textSecondary, muted: Colors.textMuted,
+  accent: Colors.primary, success: Colors.success, warning: Colors.warning, danger: Colors.danger, onAccent: Colors.textInverse,
+};
 
 // Roterande statustexter under AI-mappningen (den längsta fasen) — byts varannan sekund
 const ANALYZE_STEPS = [
@@ -116,7 +129,7 @@ function makeStyles() {
     aiLoadingText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic' },
     aiReadMore: { color: Colors.primary, fontSize: 12, fontWeight: '700', marginTop: -2 },
     tokenUsedText: { color: Colors.textMuted, fontSize: 11, fontFamily: 'Menlo', marginTop: 3 },
-    chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, marginTop: 2 },
+    chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 6 },
     chooseOtherText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
 
     freeNotice: {
@@ -219,6 +232,8 @@ function makeStyles() {
       borderWidth: 1, borderColor: Colors.border,
     },
     speedInputDone: { borderColor: Colors.success + '66', backgroundColor: Colors.success + '12' },
+    fieldLabel: { color: Colors.textSecondary, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.8 },
+    fieldInput: { width: '100%', paddingVertical: 9 },
     speedUnit: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', width: 24 },
 
     exceedSection: {
@@ -340,6 +355,9 @@ export default function ImportScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { timeFormat, formatTime } = useTimeFormat();
+  const T = REPORT_THEME;
   // Kom vi hit från onboarding? Då ska en lyckad import gå DIREKT till dashboarden (inte tillbaka till onboarding).
   const { from } = useLocalSearchParams<{ from?: string }>();
   const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
@@ -377,35 +395,6 @@ export default function ImportScreen() {
   // AI-sammanfattning av importen (fritext) — laddas asynkront efter analysen, även vid fel
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad förhandsvisning som standard
-
-  // Fet-markering (**text**) → fetstilade spans i en punkt.
-  const renderBold = (s: string) =>
-    s.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-      p.startsWith('**') && p.endsWith('**')
-        ? <Text key={i} style={{ fontWeight: '800', color: Colors.textPrimary }}>{p.slice(2, -2)}</Text>
-        : <Text key={i}>{p}</Text>);
-  // Import-analysen som punktlista: "- "/"•"-rader = punkter (prick, eller skiftnyckel för "Fix:"),
-  // övriga rader (t.ex. rått felmeddelande) som vanlig text. bold via **…**.
-  const renderAnalysis = (text: string, expanded: boolean) => {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    const items = lines.map((l) => {
-      const isBullet = /^[-•]\s+/.test(l);
-      const body = l.replace(/^[-•]\s+/, '');
-      return { isBullet, body, isFix: /^fix:/i.test(body) };
-    });
-    const shown = expanded ? items : items.slice(0, 2);
-    return shown.map((it, i) => (
-      <View key={i} style={{ flexDirection: 'row', gap: 7, marginTop: i ? 6 : 2 }}>
-        {it.isBullet ? (
-          <Ionicons name={it.isFix ? 'construct-outline' : 'ellipse'} size={it.isFix ? 12 : 5}
-            color={it.isFix ? Colors.primary : Colors.textMuted} style={{ marginTop: it.isFix ? 2 : 7 }} />
-        ) : null}
-        <Text style={[styles.aiCardText, { flex: 1 }]}>{renderBold(it.body)}</Text>
-      </View>
-    ));
-  };
-  const analysisCount = (aiSummary ?? '').split('\n').filter((l) => l.trim()).length;
   const [importError, setImportError] = useState<string | null>(null);
   // Nattid-uppskattning (när filen saknar night-fält) — fråga om tider är UTC/local + räkna ut.
   const [nightBasis, setNightBasis] = useState<NightBasis | null>(null);
@@ -414,10 +403,7 @@ export default function ImportScreen() {
   const [manualNight, setManualNight] = useState<Record<number, number>>({}); // skippade flygningar: nattid (h) per index
   const [skippedExpanded, setSkippedExpanded] = useState(false);
   const [scrollOn, setScrollOn] = useState(true); // lås scroll medan man drar en night-bar
-  // Expanderbara sektioner i förhandsvisningen (samma mönster som Imported data-sidan)
-  const [openAirports, setOpenAirports] = useState(false);
-  const [openAircraft, setOpenAircraft] = useState(false);
-  const [openPilots, setOpenPilots] = useState(false);
+  const [openType, setOpenType] = useState<string | null>(null); // flygplanstypen som är utfälld i Aircraft details
   const [airportMeta, setAirportMeta] = useState<Record<string, { name: string; country: string; known: boolean }>>({});
   // Marschfart + uthållighet för fartygstyper utan registrerade värden
   const [speedInputs, setSpeedInputs] = useState<Record<string, string>>({});
@@ -606,11 +592,8 @@ export default function ImportScreen() {
     setFlightExplanations({});
     setAiSummary(null);
     setSummaryLoading(false);
-    setSummaryExpanded(false);
     setImportError(null);
-    setOpenAirports(false);
-    setOpenAircraft(false);
-    setOpenPilots(false);
+    setOpenType(null);
     setAirportMeta({});
 
     let ok = false;
@@ -635,6 +618,7 @@ export default function ImportScreen() {
         timeCandidates: res.timeCandidates,
         totalTimeColumn: res.totalTimeColumn,
         warnings: res.warnings,
+        nightMissing: res.flights.length > 0 && res.flights.every((f) => !(parseFloat(String((f as any).night ?? '0')) > 0)),
       })
         .then((s) => setAiSummary(s))
         .catch(() => setAiSummary(''))
@@ -807,30 +791,24 @@ export default function ImportScreen() {
     const aircraft = [...new Set(result.flights.map((f) => (f.aircraft_type || '').trim()).filter(Boolean))];
     const pilots = [...new Set(result.flights.map((f) => (f.second_pilot || '').trim()).filter(Boolean))];
     const dates = result.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
-    return { CATS, cats, icaos, aircraft, pilots, dateRange: dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : '' };
+    return { CATS, cats, icaos, aircraft, pilots, period: periodOf(dates) };
   }, [result]);
 
-  // Expandera flygplatslistan → resolva namn + land för koder som saknas (samma som Imported data)
-  const toggleAirportsPreview = () => {
-    setOpenAirports((prev) => {
-      const next = !prev;
-      if (next && insideData) {
-        const missing = insideData.icaos.filter((ic) => !airportMeta[ic]);
-        if (missing.length) {
-          Promise.all(missing.map((ic) => getAirportByIcao(ic))).then((rows) => {
-            setAirportMeta((m) => {
-              const merged = { ...m };
-              missing.forEach((ic, i) => {
-                const r = rows[i];
-                merged[ic] = { name: r?.name || ic, country: r?.country || '', known: !!r && !r.temporary };
-              });
-              return merged;
-            });
-          }).catch(() => {});
-        }
-      }
-      return next;
-    });
+  // Flygplatslistan öppnas → slå upp namn + land för koder som saknas (samma som Imported data)
+  const resolveAirportMeta = () => {
+    if (!insideData) return;
+    const missing = insideData.icaos.filter((ic) => !airportMeta[ic]);
+    if (!missing.length) return;
+    Promise.all(missing.map((ic) => getAirportByIcao(ic))).then((rows) => {
+      setAirportMeta((m) => {
+        const merged = { ...m };
+        missing.forEach((ic, i) => {
+          const r = rows[i];
+          merged[ic] = { name: r?.name || ic, country: r?.country || '', known: !!r && !r.temporary };
+        });
+        return merged;
+      });
+    }).catch(() => {});
   };
 
   // Byt vilken varaktighetskolumn (Block/Air/Flight) som blir loggbokens total_time — sker lokalt
@@ -906,21 +884,294 @@ export default function ImportScreen() {
     </Animated.View>
   ) : null;
 
+  // ── "Before you save": det man kan rätta, en rad per sak (fälls ut). Varje sak har en status som syns direkt.
+  const aircraftRows = typesNeedingData.map(({ type, hasSpeed, hasEndurance }) => {
+    const sp = speedInputs[type] ?? '', en = enduranceInputs[type] ?? '';
+    const crew = [...(crewTypeInputs[type] ?? new Set<string>())].sort().map((k) => k.toUpperCase());
+    const eng = engineInputs[type] ?? '', cat = categoryInputs[type] ?? '';
+    const missing = [!hasSpeed && !sp && 'speed', !hasEndurance && !en && 'endurance', !cat && 'airplane or helicopter'].filter(Boolean) as string[];
+    const parts = [
+      hasSpeed ? 'speed saved' : sp ? `${sp} kts` : '', hasEndurance ? 'endurance saved' : en ? `${en} h` : '',
+      ...crew, eng.toUpperCase(), cat === 'airplane' ? t('airplane') : cat === 'helicopter' ? t('helicopter') : '',
+    ].filter(Boolean);
+    return { type, hasSpeed, hasEndurance, missing, parts, loading: aiLoadingTypes.has(type), ai: (aiFilledByType[type]?.size ?? 0) > 0 };
+  });
+  const aircraftEditor = (type: string, hasSpeed: boolean, hasEndurance: boolean) => {
+    const crewSet = crewTypeInputs[type] ?? new Set<string>();
+    const ai = aiFilledByType[type] ?? new Set<string>();
+    const aiStyle = { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' } as const;
+    const aiBtn = { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' } as const;
+    return (
+      <>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.fieldLabel}>CRUISE SPEED (KTS)</Text>
+            <RNTextInput
+              style={[styles.speedInput, styles.fieldInput, hasSpeed && styles.speedInputDone, ai.has('speed') && aiStyle]}
+              placeholder={hasSpeed ? '✓ saved' : '110'} placeholderTextColor={hasSpeed ? Colors.success : Colors.textMuted}
+              keyboardType="number-pad" value={speedInputs[type] ?? ''} maxLength={4} editable={!hasSpeed}
+              onChangeText={(v) => { setSpeedInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'speed'); }}
+            />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.fieldLabel}>ENDURANCE (H)</Text>
+            <RNTextInput
+              style={[styles.speedInput, styles.fieldInput, hasEndurance && styles.speedInputDone, ai.has('endurance') && aiStyle]}
+              placeholder={hasEndurance ? '✓ saved' : '3.0'} placeholderTextColor={hasEndurance ? Colors.success : Colors.textMuted}
+              keyboardType="decimal-pad" value={enduranceInputs[type] ?? ''} maxLength={4} editable={!hasEndurance}
+              onChangeText={(v) => { setEnduranceInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'endurance'); }}
+            />
+          </View>
+        </View>
+        <View style={styles.crewRow}>
+          {(['sp', 'mp'] as const).map((key) => {
+            const active = crewSet.has(key);
+            return (
+              <TouchableOpacity key={key} style={[styles.crewBtn, active && styles.crewBtnActive, ai.has('crew') && active && aiBtn]}
+                onPress={() => { toggleCrewForType(type, key); clearAiFlag(type, 'crew'); }} activeOpacity={0.7}>
+                <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{key === 'sp' ? 'SP' : 'MP'}</Text>
+                <Text style={styles.crewBtnSub}>{key === 'sp' ? 'Single pilot' : 'Multi-pilot'}</Text>
+              </TouchableOpacity>
+            );
+          })}
+          {(['se', 'me'] as const).map((key) => {
+            const active = engineInputs[type] === key;
+            return (
+              <TouchableOpacity key={key} style={[styles.crewBtn, active && styles.crewBtnActive, ai.has('engine') && active && aiBtn]}
+                onPress={() => { setEngineInputs((prev) => ({ ...prev, [type]: active ? '' : key })); clearAiFlag(type, 'engine'); }} activeOpacity={0.7}>
+                <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{key === 'se' ? 'SE' : 'ME'}</Text>
+                <Text style={styles.crewBtnSub}>{key === 'se' ? 'Single engine' : 'Multi engine'}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.crewRow}>
+          {(['airplane', 'helicopter'] as const).map((cat) => {
+            const active = categoryInputs[type] === cat;
+            return (
+              <TouchableOpacity key={cat} style={[styles.crewBtn, { flex: 1 }, active && styles.crewBtnActive, ai.has('category') && active && aiBtn]}
+                onPress={() => { setCategoryInputs((prev) => ({ ...prev, [type]: active ? '' : cat })); clearAiFlag(type, 'category'); }} activeOpacity={0.7}>
+                <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{cat === 'airplane' ? t('airplane') : t('helicopter')}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </>
+    );
+  };
+
+  const checks: { key: string; status: CheckStatus; render: (first: boolean) => ReactNode }[] = [];
+  if (result && showNightCard) {
+    const flightsWithNight = (nightEst?.nightFlights ?? 0) + Object.values(manualNight).filter((v) => v > 0).length;
+    checks.push({
+      key: 'night', status: nightApplied ? 'done' : 'todo',
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="moon-outline" title="Add night time" defaultOpen={!nightApplied}
+          status={nightApplied ? 'done' : 'todo'} statusText={nightApplied ? 'ADDED' : 'SUGGESTED'}
+          summary={nightApplied
+            ? `${totalNightIncl} h night added across ${flightsWithNight} ${flightsWithNight === 1 ? 'flight' : 'flights'}.`
+            : `Your file has no night hours. We can work them out from your routes and times for ${nightComputable} ${nightComputable === 1 ? 'flight' : 'flights'}.`}>
+          {nightApplied ? null : (
+            <>
+              <Text style={styles.nightSub}>How are the times in your file written?</Text>
+              <View style={styles.nightToggle}>
+                {(['utc', 'local'] as const).map((b) => (
+                  <TouchableOpacity key={b} onPress={() => chooseNightBasis(b)} activeOpacity={0.85}
+                    style={[styles.nightBtn, nightBasis === b && styles.nightBtnOn]}>
+                    <Text style={[styles.nightBtnTxt, nightBasis === b && styles.nightBtnTxtOn]}>{b === 'utc' ? 'UTC (Z)' : 'Local time'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {nightEst && (
+                <>
+                  <Text style={styles.nightResult}>
+                    About {nightEst.totalNight} h night across {nightEst.nightFlights} flight{nightEst.nightFlights === 1 ? '' : 's'}
+                    {nightEst.skipped > 0 ? `  ·  ${nightEst.skipped} without coordinates or times` : ''}
+                  </Text>
+                  {/* Flygningar som inte gick att räkna → nattid med en night-bar (som i Log Flight). */}
+                  {skippedFlights.length > 0 && (
+                    <>
+                      <TouchableOpacity onPress={() => setSkippedExpanded((v) => !v)} activeOpacity={0.7} style={styles.nightExpandRow}>
+                        <Ionicons name={skippedExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.primary} />
+                        <Text style={styles.nightExpandTxt}>Set night yourself for {skippedFlights.length} flight{skippedFlights.length === 1 ? '' : 's'}</Text>
+                      </TouchableOpacity>
+                      {skippedExpanded && (
+                        <View style={{ gap: 12, marginTop: 2 }}>
+                          {skippedFlights.map(({ f, i }) => {
+                            const tot = parseFloat(String(f.total_time ?? '')) || 0;
+                            const hrs = manualNight[i] ?? 0;
+                            return (
+                              <View key={i} style={styles.skipItem}>
+                                <Text style={styles.skipMeta} numberOfLines={2}>{f.date}  ·  {f.dep_place || '?'} {f.dep_utc || '—'} → {f.arr_place || '?'} {f.arr_utc || '—'}  ·  {tot}h</Text>
+                                <CondBar
+                                  label={t('night')}
+                                  pct={tot > 0 ? (hrs / tot) * 100 : 0}
+                                  onPct={(pc) => setManualNight((prev) => ({ ...prev, [i]: Math.round((pc / 100) * tot * 100) / 100 }))}
+                                  tint={Colors.info}
+                                  totalMin={tot * 60}
+                                  onGrab={() => setScrollOn(false)}
+                                  onRelease={() => setScrollOn(true)}
+                                />
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </>
+                  )}
+                  <TouchableOpacity onPress={applyNight} activeOpacity={0.85} style={styles.nightApply}>
+                    <Ionicons name="checkmark" size={15} color={Colors.textInverse} />
+                    <Text style={styles.nightApplyTxt}>Add {totalNightIncl} h night</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.nightNote}>
+                    Worked out from the sun's position along each route.{nightBasis === 'local' ? ' Local times are converted via longitude, so treat it as approximate near dawn and dusk.' : ''}
+                  </Text>
+                </>
+              )}
+            </>
+          )}
+        </CheckItem>
+      ),
+    });
+  }
+  if (aircraftRows.length > 0) {
+    const looking = aircraftRows.some((r) => r.loading);
+    const missing = aircraftRows.filter((r) => r.missing.length > 0).length;
+    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : aircraftRows.some((r) => r.ai) ? 'ai' : 'done';
+    checks.push({
+      key: 'aircraft', status,
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="airplane-outline" title="Aircraft details" status={status}
+          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : status === 'ai' ? 'AI FILLED' : 'DONE'}
+          summary={`${aircraftRows.length} new ${aircraftRows.length === 1 ? 'type' : 'types'}. Speed and endurance give distances on local flights and spot sim sessions. Change them later in Settings → Aircraft.`}>
+          {aircraftRows.map((r) => (
+            <EditRow key={r.type} T={T} title={r.type} loading={r.loading} open={openType === r.type}
+              onPress={() => setOpenType((o) => (o === r.type ? null : r.type))}
+              summary={r.missing.length ? `Missing ${r.missing.join(', ')}` : r.parts.join(' · ')}
+              tag={r.missing.length ? 'MISSING' : r.ai ? 'AI' : undefined} tagColor={r.missing.length ? T.warning : T.accent}>
+              {aircraftEditor(r.type, r.hasSpeed, r.hasEndurance)}
+            </EditRow>
+          ))}
+        </CheckItem>
+      ),
+    });
+  }
+  if (exceedingFlights.length > 0) {
+    const n = exceedingFlights.length;
+    checks.push({
+      key: 'exceed', status: 'todo',
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="hourglass-outline" title="Longer than endurance" status="todo" statusText={`${n} TO CHECK`}
+          summary={`${n} ${n === 1 ? 'flight is' : 'flights are'} longer than the aircraft can stay airborne. Saved as simulator unless you pick hot refuel. Sim sessions stay out of statistics and the map.`}>
+          {exceedingFlights.map(({ f, idx }) => {
+            const current = flightTypes[idx] ?? 'sim';
+            return (
+              <View key={idx}>
+                <View style={styles.exceedRow}>
+                  <View style={styles.exceedInfo}>
+                    <Text style={styles.exceedRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
+                    <Text style={styles.exceedMeta}>{f.date} · {f.aircraft_type} · {f.total_time}h</Text>
+                  </View>
+                  <View style={styles.exceedToggle}>
+                    <TouchableOpacity style={[styles.exceedBtn, current === 'sim' && styles.exceedBtnSim]}
+                      onPress={() => setFlightTypes((pv) => ({ ...pv, [idx]: 'sim' }))}>
+                      <Text style={[styles.exceedBtnText, current === 'sim' && styles.exceedBtnTextActive]}>Sim</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.exceedBtn, current === 'hot_refuel' && styles.exceedBtnHot]}
+                      onPress={() => setFlightTypes((pv) => ({ ...pv, [idx]: 'hot_refuel' }))}>
+                      <Text style={[styles.exceedBtnText, current === 'hot_refuel' && styles.exceedBtnTextActive]}>Hot refuel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {current === 'sim' && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6, marginLeft: 12 }}>
+                    {(['FFS', 'FTD', 'FNPT_II', 'FNPT_I', 'BITD', 'CPT_PPT', 'CBT'] as const).map((cat) => {
+                      const active = (simCategories[idx] ?? 'FFS') === cat;
+                      return (
+                        <TouchableOpacity key={cat} style={[styles.exceedBtn, active && styles.exceedBtnSim]}
+                          onPress={() => setSimCategories((pv) => ({ ...pv, [idx]: cat }))}>
+                          <Text style={[styles.exceedBtnText, active && styles.exceedBtnTextActive]}>{cat.replace(/_/g, '/')}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </CheckItem>
+      ),
+    });
+  }
+  if (suspiciousFlights.length > 0) {
+    const n = suspiciousFlights.length;
+    const answered = suspiciousFlights.filter(({ idx }) => !!flightExplanations[idx]).length;
+    checks.push({
+      key: 'range', status: answered === n ? 'done' : 'info',
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="navigate-outline" title="Longer than range" status={answered === n ? 'done' : 'info'}
+          statusText={answered === n ? 'DONE' : 'OPTIONAL'}
+          summary={`${n} ${n === 1 ? 'leg is' : 'legs are'} farther than the aircraft can fly on one tank. Say why, or save ${n === 1 ? 'it' : 'them'} as ${n === 1 ? 'it is' : 'they are'}.`}>
+          {suspiciousFlights.map(({ idx, f, distNm, rangeNm }) => {
+            const current = flightExplanations[idx];
+            return (
+              <View key={idx} style={styles.suspiciousRow}>
+                <View style={styles.suspiciousInfo}>
+                  <Text style={styles.suspiciousRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
+                  <Text style={styles.suspiciousMeta}>{f.date} · {f.aircraft_type} · {distNm} nm · range {rangeNm} nm</Text>
+                </View>
+                <View style={styles.suspiciousToggle}>
+                  <TouchableOpacity style={[styles.suspiciousBtn, current === 'temporary' && styles.suspiciousBtnActive]}
+                    onPress={() => setFlightExplanations((pv) => ({ ...pv, [idx]: pv[idx] === 'temporary' ? undefined as any : 'temporary' }))}>
+                    <Text style={[styles.suspiciousBtnText, current === 'temporary' && styles.suspiciousBtnTextActive]}>Off-airport</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.suspiciousBtn, current === 'refuel' && styles.suspiciousBtnRefuel]}
+                    onPress={() => setFlightExplanations((pv) => ({ ...pv, [idx]: pv[idx] === 'refuel' ? undefined as any : 'refuel' }))}>
+                    <Text style={[styles.suspiciousBtnText, current === 'refuel' && styles.suspiciousBtnTextActive]}>En-route refuel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </CheckItem>
+      ),
+    });
+  }
+  if (result && result.warnings.length > 0) {
+    const ws = result.warnings;
+    checks.push({
+      key: 'notes', status: 'info',
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="document-text-outline" title="Notes on your file" status="info"
+          statusText={String(ws.length)} summary={ws[0]}>
+          {ws.length > 1 ? ws.map((w, i) => (
+            <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+              <Ionicons name="information-circle-outline" size={14} color={T.text2} style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, color: T.text2, fontSize: 12.5, lineHeight: 17 }}>{w}</Text>
+            </View>
+          )) : null}
+        </CheckItem>
+      ),
+    });
+  }
+
   return (
     <>
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, result && { paddingBottom: FOOTER_SPACE + insets.bottom + 16 }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets
       scrollEnabled={scrollOn}
     >
-      {/* Hero */}
-      <View style={styles.hero}>
-        <Text style={styles.title}>{t('import_logbook')}</Text>
-        <Text style={styles.subtitle}>{t('import_logbook_sub')}</Text>
-      </View>
+      {/* Rubrik och filval — bara innan en fil är läst (rapporten har en egen sammanfattning överst) */}
+      {!result && (
+        <View style={styles.hero}>
+          <Text style={styles.title}>{t('import_logbook')}</Text>
+          <Text style={styles.subtitle}>{t('import_logbook_sub')}</Text>
+        </View>
+      )}
 
       {/* Upload-dropzone (hela kortet är tryckytan) — döljs när en analys visas */}
       {!result && (
@@ -968,190 +1219,42 @@ export default function ImportScreen() {
         </>
       )}
 
-      {/* Importfel — inline-kort med AI-förklaring (i stället för Alert) */}
+      {/* Importfel — AI:ns förklaring i samma kort som rapportens (i stället för Alert) */}
       {importError && !result && !importing && (
-        <View style={[styles.aiCard, { borderColor: Colors.danger + '55' }]}>
-          <View style={styles.aiCardHeader}>
-            <Ionicons name="alert-circle" size={15} color={Colors.danger} />
-            <Text style={[styles.aiCardTitle, { color: Colors.danger }]}>Import failed</Text>
-          </View>
-          {summaryLoading ? (
-            <View style={styles.aiLoadingRow}>
-              <ActivityIndicator size="small" color={Colors.danger} />
-              <Text style={styles.aiLoadingText}>Analyzing imported data…</Text>
-            </View>
-          ) : (
-            <View>{renderAnalysis(aiSummary || importError || 'Import failed.', true)}</View>
-          )}
-        </View>
+        <AnalysisCard T={T} failed loading={summaryLoading} text={aiSummary || importError || 'Import failed.'} fallback={importError || 'Import failed.'} />
       )}
 
-      {/* Förhandsvisning */}
-      {result && (
+      {/* Rapporten före Save (components/import/ImportReport, samma som drönarläget): sammanfattningen, AI:ns
+          "What we found", det man kan rätta ("Before you save", en rad per sak) och vad filen innehåller. */}
+      {result && insideData && (
         <>
-          {/* Nattid saknas i filen → erbjud uträkning ur rutter + tider (överst, ovanför Import analysis) */}
-          {showNightCard && !nightApplied && (
-            <View style={styles.nightCard}>
-              <View style={styles.nightHeader}>
-                <Ionicons name="moon" size={15} color={Colors.primary} />
-                <Text style={styles.nightTitle}>Add night time?</Text>
-              </View>
-              <Text style={styles.nightSub}>
-                Your file has no night hours. We can estimate them from your routes & times for {nightComputable} flight{nightComputable === 1 ? '' : 's'}. How did you log the times?
-              </Text>
-              <View style={styles.nightToggle}>
-                {(['utc', 'local'] as const).map((b) => (
-                  <TouchableOpacity key={b} onPress={() => chooseNightBasis(b)} activeOpacity={0.85}
-                    style={[styles.nightBtn, nightBasis === b && styles.nightBtnOn]}>
-                    <Text style={[styles.nightBtnTxt, nightBasis === b && styles.nightBtnTxtOn]}>{b === 'utc' ? 'UTC (Z)' : 'Local time'}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {nightEst && (
-                <>
-                  <Text style={styles.nightResult}>
-                    Estimated {nightEst.totalNight} h night across {nightEst.nightFlights} flight{nightEst.nightFlights === 1 ? '' : 's'}
-                    {nightEst.skipped > 0 ? `  ·  ${nightEst.skipped} skipped (missing coords/time)` : ''}
-                  </Text>
+          <ReportHero T={T} flights={result.flights.length}
+            time={`${formatTime(insideData.cats.total_time || 0)}${timeFormat === 'decimal' ? ' h' : ''}`}
+            period={insideData.period} fileName={fileName} format={result.detectedFormat}
+            coins={result.tokensUsed > 0 ? tokensToCoins(result.tokensUsed) : 0}
+            totalRows={result.totalRows} mappedRows={result.mappedRows} toCheck={checks.filter((c) => c.status === 'todo').length} />
 
-                  {/* Skippade flygningar → sätt nattid manuellt med en night-bar (som i Log Flight). */}
-                  {skippedFlights.length > 0 && (
-                    <>
-                      <TouchableOpacity onPress={() => setSkippedExpanded((v) => !v)} activeOpacity={0.7} style={styles.nightExpandRow}>
-                        <Ionicons name={skippedExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.primary} />
-                        <Text style={styles.nightExpandTxt}>Set night manually for {skippedFlights.length} skipped flight{skippedFlights.length === 1 ? '' : 's'}</Text>
-                      </TouchableOpacity>
-                      {skippedExpanded && (
-                        <View style={{ gap: 12, marginTop: 2 }}>
-                          {skippedFlights.map(({ f, i }) => {
-                            const tot = parseFloat(String(f.total_time ?? '')) || 0;
-                            const hrs = manualNight[i] ?? 0;
-                            return (
-                              <View key={i} style={styles.skipItem}>
-                                <Text style={styles.skipMeta} numberOfLines={2}>{f.date}  ·  {f.dep_place || '?'} {f.dep_utc || '—'} → {f.arr_place || '?'} {f.arr_utc || '—'}  ·  {tot}h</Text>
-                                <CondBar
-                                  label={t('night')}
-                                  pct={tot > 0 ? (hrs / tot) * 100 : 0}
-                                  onPct={(p) => setManualNight((prev) => ({ ...prev, [i]: Math.round((p / 100) * tot * 100) / 100 }))}
-                                  tint={Colors.info}
-                                  totalMin={tot * 60}
-                                  onGrab={() => setScrollOn(false)}
-                                  onRelease={() => setScrollOn(true)}
-                                />
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </>
-                  )}
+          <AnalysisCard T={T} loading={summaryLoading} text={aiSummary}
+            fallback="The summary isn't available right now. Everything below is still ready to import." />
 
-                  <TouchableOpacity onPress={applyNight} activeOpacity={0.85} style={styles.nightApply}>
-                    <Ionicons name="checkmark" size={15} color={Colors.textInverse} />
-                    <Text style={styles.nightApplyTxt}>Add to import  ·  {totalNightIncl} h night</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.nightNote}>
-                    Estimated from the sun's position along each route.{nightBasis === 'local' ? ' Local times are converted via longitude — treat as approximate near dawn/dusk.' : ''}
-                  </Text>
-                </>
-              )}
-            </View>
-          )}
-          {nightApplied && (
-            <View style={styles.nightCardDone}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-              <Text style={styles.nightDoneTxt}>Night time added — {totalNightIncl} h across {(nightEst?.nightFlights ?? 0) + Object.values(manualNight).filter((v) => v > 0).length} flights.</Text>
-            </View>
+          {checks.length > 0 && (
+            <>
+              <SectionLabel T={T}>BEFORE YOU SAVE</SectionLabel>
+              <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key}>{c.render(i === 0)}</View>)}</CheckGroup>
+            </>
           )}
 
-          <View style={styles.resultHeader}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultFormat}>{result.detectedFormat}</Text>
-              <Text style={styles.resultFile} numberOfLines={1}>{fileName}</Text>
-              {result.tokensUsed > 0 && (
-                <Text style={styles.tokenUsedText}>{tokensToCoins(result.tokensUsed).toLocaleString('en-US')} Blade-coins used for import</Text>
-              )}
-            </View>
-            <View style={styles.resultStats}>
-              <StatPill label="Rows" value={String(result.totalRows)} />
-              <StatPill label="Mapped" value={String(result.mappedRows)} color={Colors.success} />
-            </View>
-          </View>
+          <SectionLabel T={T}>IN THIS FILE</SectionLabel>
+          <View style={{ backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden' }}>
+            <TotalsGrid T={T} items={insideData.CATS
+              .filter((c) => c.key === 'total_time' || (insideData.cats[c.key] || 0) > 0)
+              .map((c) => ({ label: c.label, value: formatTime(insideData.cats[c.key] || 0) }))} />
 
-          {/* AI-analys — kollapsbar fritextsammanfattning (2 rader syns, tryck för allt) */}
-          <TouchableOpacity
-            style={styles.aiCard}
-            onPress={() => setSummaryExpanded((v) => !v)}
-            activeOpacity={0.8}
-            disabled={summaryLoading || aiSummary === null || analysisCount <= 2}
-          >
-            <View style={styles.aiCardHeader}>
-              <Ionicons name="sparkles" size={14} color={Colors.primary} />
-              <Text style={styles.aiCardTitle}>Import analysis</Text>
-              {!summaryLoading && aiSummary !== null && analysisCount > 2 && (
-                <Ionicons
-                  name={summaryExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={15}
-                  color={Colors.textMuted}
-                  style={{ marginLeft: 'auto' }}
-                />
-              )}
-            </View>
-            {summaryLoading || aiSummary === null ? (
-              <View style={styles.aiLoadingRow}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.aiLoadingText}>Analyzing imported data…</Text>
-              </View>
-            ) : (
-              <>
-                {renderAnalysis(aiSummary || 'Analysis unavailable — the data below is still ready to import.', summaryExpanded)}
-                {!summaryExpanded && analysisCount > 2 && (
-                  <Text style={[styles.aiReadMore, { marginTop: 6 }]}>Read more</Text>
-                )}
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Vad filen innehåller — samma presentation som Settings → Imported data */}
-          {insideData && (
-            <View style={{ backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '18', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="document-attach-outline" size={18} color={Colors.primary} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>
-                    {result.flights.length} {result.flights.length === 1 ? 'flight' : 'flights'} · {(insideData.cats.total_time || 0).toFixed(1)} h
-                  </Text>
-                  {!!insideData.dateRange && (
-                    <Text style={{ color: Colors.textMuted, fontSize: 11.5, marginTop: 2 }}>{insideData.dateRange}</Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Kategoriserad tid (bara > 0 utom Total) */}
-              <View style={{ paddingHorizontal: 14, paddingVertical: 8 }}>
-                {insideData.CATS.filter((c) => c.key === 'total_time' || (insideData.cats[c.key] || 0) > 0).map((c) => (
-                  <View key={c.key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                    <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>{c.label}</Text>
-                    <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{(insideData.cats[c.key] || 0).toFixed(1)} h</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Flygplatser — expanderbar med flaggor */}
-              <TouchableOpacity onPress={toggleAirportsPreview} activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
-                <Ionicons name="location-outline" size={15} color={Colors.primary} />
-                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Airports</Text>
-                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.icaos.length}</Text>
-                <Ionicons name={openAirports ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
-              </TouchableOpacity>
-              {openAirports && (() => {
+            {/* Flygplatser med flaggor; namn och land slås upp när listan öppnas */}
+            <ListRow T={T} icon="location-outline" label="Airports" count={insideData.icaos.length} onOpen={resolveAirportMeta}>
+              {() => {
                 const resolved = insideData.icaos.every((ic) => airportMeta[ic]);
-                if (!resolved) return (
-                  <View style={{ paddingVertical: 16 }}><ActivityIndicator color={Colors.primary} /></View>
-                );
+                if (!resolved) return <View style={{ paddingVertical: 12 }}><ActivityIndicator color={Colors.primary} /></View>;
                 const known = insideData.icaos.filter((ic) => airportMeta[ic].known);
                 const unknown = insideData.icaos.filter((ic) => !airportMeta[ic].known);
                 const row = (ic: string) => {
@@ -1169,7 +1272,7 @@ export default function ImportScreen() {
                   );
                 };
                 return (
-                  <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
+                  <>
                     {known.map(row)}
                     {unknown.length > 0 && (
                       <>
@@ -1178,316 +1281,50 @@ export default function ImportScreen() {
                         {unknown.map(row)}
                       </>
                     )}
-                  </View>
+                  </>
                 );
-              })()}
-
-              {/* Flygfarkoster — expanderbar */}
-              <TouchableOpacity onPress={() => setOpenAircraft((v) => !v)} activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
-                <Ionicons name="airplane-outline" size={15} color={Colors.primary} />
-                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Aircraft</Text>
-                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.aircraft.length}</Text>
-                <Ionicons name={openAircraft ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
-              </TouchableOpacity>
-              {openAircraft && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
-                  {insideData.aircraft.length === 0
-                    ? <Text style={{ color: Colors.textMuted, fontSize: 12 }}>None</Text>
-                    : insideData.aircraft.map((a) => (
-                      <View key={a} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name="airplane" size={13} color={Colors.textMuted} />
-                        <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{a}</Text>
-                      </View>
-                    ))}
+              }}
+            </ListRow>
+            <ListRow T={T} icon="airplane-outline" label="Aircraft" count={insideData.aircraft.length}>
+              {() => insideData.aircraft.map((a) => (
+                <View key={a} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="airplane" size={13} color={Colors.textMuted} />
+                  <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{a}</Text>
                 </View>
-              )}
-
-              {/* Second pilots — expanderbar */}
-              <TouchableOpacity onPress={() => setOpenPilots((v) => !v)} activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.separator }}>
-                <Ionicons name="people-outline" size={15} color={Colors.primary} />
-                <Text style={{ flex: 1, color: Colors.textSecondary, fontSize: 13 }}>Second pilots</Text>
-                <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{insideData.pilots.length}</Text>
-                <Ionicons name={openPilots ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
-              </TouchableOpacity>
-              {openPilots && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
-                  {insideData.pilots.length === 0
-                    ? <Text style={{ color: Colors.textMuted, fontSize: 12 }}>None</Text>
-                    : insideData.pilots.map((p) => (
-                      <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name="person" size={13} color={Colors.textMuted} />
-                        <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13 }}>{p}</Text>
-                      </View>
-                    ))}
+              ))}
+            </ListRow>
+            <ListRow T={T} icon="people-outline" label="Second pilots" count={insideData.pilots.length}>
+              {() => insideData.pilots.map((n) => (
+                <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="person" size={13} color={Colors.textMuted} />
+                  <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 13 }}>{n}</Text>
                 </View>
-              )}
-            </View>
-          )}
+              ))}
+            </ListRow>
+          </View>
 
-          {/* Tidskolumn-väljaren borttagen: block time / total flight time används alltid som totaltid
-              (väljs automatiskt i parsern), så användaren behöver aldrig svara på en fråga här. */}
-
-
-          {/* Marschfart + uthållighet för nya/ofullständiga fartygstyper */}
-          {typesNeedingData.length > 0 && (
-            <View style={styles.speedSection}>
-              <View style={[styles.speedHeader, { flexDirection: 'row', alignItems: 'center' }]}>
-                <Ionicons name="speedometer-outline" size={14} color={Colors.gold} />
-                <Text style={styles.speedTitle}>{t('aircraft_data')}</Text>
-                <View style={{
-                  marginLeft: 'auto',
-                }}>
-                </View>
-              </View>
-              <Text style={styles.speedSubtitle}>{t('aircraft_data_sub')} {t('aircraft_data_edit_later')}</Text>
-              <View style={styles.speedColHeader}>
-                <Text style={[styles.speedType, { color: Colors.textMuted, fontSize: 10 }]}>TYPE</Text>
-                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>SPEED (kts)</Text>
-                <Text style={[styles.speedUnit, { color: Colors.textMuted, fontSize: 10, width: 80, textAlign: 'center' }]}>ENDUR. (h)</Text>
-              </View>
-              {typesNeedingData.map(({ type, hasSpeed, hasEndurance }) => {
-                const crewSet = crewTypeInputs[type] ?? new Set<string>();
-                const ai = aiFilledByType[type] ?? new Set<string>();
-                const aiStyle = { borderColor: Colors.primary, color: Colors.primary, backgroundColor: Colors.primary + '14' } as const;
-                const aiBtn = { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' } as const;
-                const loading = aiLoadingTypes.has(type);
-                const failed = aiFailedTypes.has(type);
-                return (
-                  <View key={type} style={styles.typeBlock}>
-                    <View style={styles.speedRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                        <Text style={styles.speedType}>{type}</Text>
-                        {loading && <ActivityIndicator size="small" color={Colors.primary} />}
-                        {failed && <Ionicons name="alert-circle" size={14} color={Colors.textMuted} />}
-                      </View>
-                      <RNTextInput
-                        style={[
-                          styles.speedInput,
-                          hasSpeed && styles.speedInputDone,
-                          ai.has('speed') && aiStyle,
-                        ]}
-                        placeholder={hasSpeed ? '✓' : '110'}
-                        placeholderTextColor={hasSpeed ? Colors.success : Colors.textMuted}
-                        keyboardType="number-pad"
-                        value={speedInputs[type] ?? ''}
-                        onChangeText={(v) => { setSpeedInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'speed'); }}
-                        maxLength={4}
-                        editable={!hasSpeed}
-                      />
-                      <RNTextInput
-                        style={[
-                          styles.speedInput,
-                          hasEndurance && styles.speedInputDone,
-                          ai.has('endurance') && aiStyle,
-                        ]}
-                        placeholder={hasEndurance ? '✓' : '3.0'}
-                        placeholderTextColor={hasEndurance ? Colors.success : Colors.textMuted}
-                        keyboardType="decimal-pad"
-                        value={enduranceInputs[type] ?? ''}
-                        onChangeText={(v) => { setEnduranceInputs((prev) => ({ ...prev, [type]: v })); clearAiFlag(type, 'endurance'); }}
-                        maxLength={4}
-                        editable={!hasEndurance}
-                      />
-                    </View>
-                    <View style={styles.crewRow}>
-                      {(['sp', 'mp'] as const).map((key) => {
-                        const active = crewSet.has(key);
-                        const aiActive = ai.has('crew') && active;
-                        const label = key === 'sp' ? 'SP' : 'MP';
-                        const sub = key === 'sp' ? 'Single pilot' : 'Multi-pilot';
-                        return (
-                          <TouchableOpacity
-                            key={key}
-                            style={[styles.crewBtn, active && styles.crewBtnActive, aiActive && aiBtn]}
-                            onPress={() => { toggleCrewForType(type, key); clearAiFlag(type, 'crew'); }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
-                            <Text style={styles.crewBtnSub}>{sub}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                      {(['se', 'me'] as const).map((key) => {
-                        const active = engineInputs[type] === key;
-                        const aiActive = ai.has('engine') && active;
-                        const label = key === 'se' ? 'SE' : 'ME';
-                        const sub = key === 'se' ? 'Single engine' : 'Multi engine';
-                        return (
-                          <TouchableOpacity
-                            key={key}
-                            style={[styles.crewBtn, active && styles.crewBtnActive, aiActive && aiBtn]}
-                            onPress={() => { setEngineInputs(prev => ({ ...prev, [type]: active ? '' : key })); clearAiFlag(type, 'engine'); }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>{label}</Text>
-                            <Text style={styles.crewBtnSub}>{sub}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    <View style={styles.crewRow}>
-                      {(['airplane', 'helicopter'] as const).map((cat) => {
-                        const active = categoryInputs[type] === cat;
-                        const aiActive = ai.has('category') && active;
-                        return (
-                          <TouchableOpacity
-                            key={cat}
-                            style={[styles.crewBtn, { flex: 1 }, active && styles.crewBtnActive, aiActive && aiBtn]}
-                            onPress={() => { setCategoryInputs(prev => ({ ...prev, [type]: active ? '' : cat })); clearAiFlag(type, 'category'); }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[styles.crewBtnLabel, active && styles.crewBtnLabelActive]}>
-                              {cat === 'airplane' ? t('airplane') : t('helicopter')}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Misstänkta flygningar — avstånd > 1.5× räckvidd */}
-          {suspiciousFlights.length > 0 && (
-            <View style={styles.suspiciousSection}>
-              <View style={styles.speedHeader}>
-                <Ionicons name="warning-outline" size={14} color={Colors.warning} />
-                <Text style={styles.suspiciousTitle}>Suspicious legs ({suspiciousFlights.length})</Text>
-              </View>
-              <Text style={styles.speedSubtitle}>
-                Distance exceeds 1.5× the range. Provide an explanation or import anyway.
-              </Text>
-              {suspiciousFlights.map(({ idx, f, distNm, rangeNm }) => {
-                const current = flightExplanations[idx];
-                return (
-                  <View key={idx} style={styles.suspiciousRow}>
-                    <View style={styles.suspiciousInfo}>
-                      <Text style={styles.suspiciousRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
-                      <Text style={styles.suspiciousMeta}>
-                        {f.date} · {f.aircraft_type} · {distNm} nm · range {rangeNm} nm
-                      </Text>
-                    </View>
-                    <View style={styles.suspiciousToggle}>
-                      <TouchableOpacity
-                        style={[styles.suspiciousBtn, current === 'temporary' && styles.suspiciousBtnActive]}
-                        onPress={() => setFlightExplanations(p => ({ ...p, [idx]: p[idx] === 'temporary' ? undefined as any : 'temporary' }))}
-                      >
-                        <Text style={[styles.suspiciousBtnText, current === 'temporary' && styles.suspiciousBtnTextActive]}>
-                          Off-airport
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.suspiciousBtn, current === 'refuel' && styles.suspiciousBtnRefuel]}
-                        onPress={() => setFlightExplanations(p => ({ ...p, [idx]: p[idx] === 'refuel' ? undefined as any : 'refuel' }))}
-                      >
-                        <Text style={[styles.suspiciousBtnText, current === 'refuel' && styles.suspiciousBtnTextActive]}>
-                          En-route refuel
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Flygningar som överstiger uthållighet — kategorisera som sim eller hot refuel */}
-          {exceedingFlights.length > 0 && (
-            <View style={styles.exceedSection}>
-              <View style={styles.speedHeader}>
-                <Ionicons name="warning-outline" size={14} color={Colors.warning} />
-                <Text style={styles.exceedTitle}>Longer than endurance — what is it?</Text>
-              </View>
-              <Text style={styles.speedSubtitle}>
-                Sim sessions are excluded from statistics and map. Hot refuel counts as a normal flight.
-              </Text>
-              {exceedingFlights.map(({ f, idx }) => {
-                const current = flightTypes[idx] ?? 'sim';
-                return (
-                  <View key={idx}>
-                    <View style={styles.exceedRow}>
-                      <View style={styles.exceedInfo}>
-                        <Text style={styles.exceedRoute}>{f.dep_place || '?'}→{f.arr_place || '?'}</Text>
-                        <Text style={styles.exceedMeta}>{f.date} · {f.aircraft_type} · {f.total_time}h</Text>
-                      </View>
-                      <View style={styles.exceedToggle}>
-                        <TouchableOpacity
-                          style={[styles.exceedBtn, current === 'sim' && styles.exceedBtnSim]}
-                          onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'sim' }))}
-                        >
-                          <Text style={[styles.exceedBtnText, current === 'sim' && styles.exceedBtnTextActive]}>Sim</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.exceedBtn, current === 'hot_refuel' && styles.exceedBtnHot]}
-                          onPress={() => setFlightTypes((p) => ({ ...p, [idx]: 'hot_refuel' }))}
-                        >
-                          <Text style={[styles.exceedBtnText, current === 'hot_refuel' && styles.exceedBtnTextActive]}>Hot refuel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    {current === 'sim' && (
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6, marginLeft: 12 }}>
-                        {(['FFS','FTD','FNPT_II','FNPT_I','BITD','CPT_PPT','CBT'] as const).map((cat) => {
-                          const active = (simCategories[idx] ?? 'FFS') === cat;
-                          return (
-                            <TouchableOpacity
-                              key={cat}
-                              style={[styles.exceedBtn, active && styles.exceedBtnSim]}
-                              onPress={() => setSimCategories((p) => ({ ...p, [idx]: cat }))}
-                            >
-                              <Text style={[styles.exceedBtnText, active && styles.exceedBtnTextActive]}>
-                                {cat.replace(/_/g, '/')}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Spara-knapp */}
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-            onPress={saveAll}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving ? (
-              <ActivityIndicator color={Colors.textInverse} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
-                <Text style={styles.saveBtnText}>{t('save_all')} ({result.flights.length})</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <Text style={styles.hint}>
-            All imported data is saved with source "import" and can be reviewed in the audit log.
-          </Text>
-
-          {/* Byt fil — uploadkortet är dolt när en analys visas, så ge en väg tillbaka */}
-          <TouchableOpacity
-            style={styles.chooseOtherBtn}
-            onPress={handlePick}
-            disabled={importing || saving}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="swap-horizontal-outline" size={15} color={Colors.textSecondary} />
-            <Text style={styles.chooseOtherText}>Choose a different file</Text>
-          </TouchableOpacity>
+          {/* Kort notis + byt fil (uploadkortet är dolt när en analys visas, så ge en väg tillbaka) */}
+          <View style={{ gap: 2, marginTop: 2 }}>
+            <Text style={styles.hint}>Nothing is saved until you tap Save. Duplicates are skipped.</Text>
+            <TouchableOpacity
+              style={styles.chooseOtherBtn}
+              onPress={handlePick}
+              disabled={importing || saving}
+              activeOpacity={0.7}
+              hitSlop={10}
+            >
+              <Ionicons name="swap-horizontal-outline" size={15} color={Colors.textSecondary} />
+              <Text style={styles.chooseOtherText}>Choose a different file</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 
     </ScrollView>
+    {result && (
+      <SaveFooter T={T} label={`Save ${result.flights.length.toLocaleString('en-US')} ${result.flights.length === 1 ? 'flight' : 'flights'}`}
+        saving={saving} disabled={result.flights.length === 0} onPress={saveAll} bottom={insets.bottom} />
+    )}
     {progressLayer}
     <PremiumModal visible={showPremiumModal} onClose={() => setShowPremiumModal(false)} feature="CSV / Excel import" />
     </>
@@ -1521,16 +1358,6 @@ function FlightPreviewRow({ flight }: { flight: OcrFlightResult }) {
       {flight.needs_review && (
         <Ionicons name="warning" size={12} color={Colors.warning} />
       )}
-    </View>
-  );
-}
-
-function StatPill({ label, value, color }: { label: string; value: string; color?: string }) {
-  const styles = makeStyles();
-  return (
-    <View style={styles.statPill}>
-      <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }

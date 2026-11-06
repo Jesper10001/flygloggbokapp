@@ -10,9 +10,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { DR } from '../../constants/droneTheme';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
-import { getCategoryRecency, type CategoryRecency, type DroneFlight } from '../../db/drones';
+import { getCategoryRecency, type CategoryRecency } from '../../db/drones';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useTabBarSpace } from '../GlassTabBar';
+import { DroneHoursBank } from './DroneHoursBank';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -54,7 +55,6 @@ export function DroneInsights() {
     getCategoryRecency().then(setRecency).catch(() => {});
   }, [loadAccent, loadFlights, loadStats]));
 
-  const monthly = useMemo(() => buildMonthly(flights), [flights]);
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const last90 = useMemo(() => {
     const c = new Date(); c.setDate(c.getDate() - 90); const cut = c.toISOString().slice(0, 10);
@@ -73,9 +73,6 @@ export function DroneInsights() {
 
   const catMax = Math.max(1, ...CAT_KEYS.map((c) => (stats as any)[c.key] || 0));
   const modeMax = Math.max(1, ...MODE_KEYS.map((m) => (stats as any)[m.key] || 0));
-  const monthMax = Math.max(1, ...monthly.map((m) => m.count));
-  // Snitt flygningar per månad under perioden (alla 12 månader, även tomma) → streckad linje i Activity.
-  const monthAvg = monthly.reduce((sum, m) => sum + m.count, 0) / Math.max(1, monthly.length);
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}>
@@ -110,6 +107,9 @@ export function DroneInsights() {
           ))}
         </View>
       </View>
+
+      {/* Hours bank (= pilotläget) */}
+      <DroneHoursBank accent={accent} />
 
       {/* Currency — featured (accent-tonad ram, = manned LicenceJourney) */}
       {recency.length > 0 && (
@@ -146,29 +146,6 @@ export function DroneInsights() {
             const v = (stats as any)[m.key] || 0;
             return <BarRow key={m.key} label={m.label} value={hToHHMM(v)} pct={v / modeMax} accent={accent} />;
           })}
-        </View>
-      </Section>
-
-      {/* Activity */}
-      <Section accent={accent} title="Activity" icon="bar-chart-outline" hint="Flights per month">
-        {/* Staplar i eget område (så snittlinjen kan placeras exakt i samma skala), etiketter under. */}
-        <View style={s.chartBars}>
-          {monthly.map((m, i) => (
-            <View key={i} style={s.chartCol}>
-              <View style={[s.chartBar, { height: `${Math.round((m.count / monthMax) * 100)}%`, backgroundColor: m.count ? accent : DR.elevated }]} />
-            </View>
-          ))}
-          {monthAvg > 0 && (
-            <View pointerEvents="none" style={[s.avgWrap, { bottom: `${(monthAvg / monthMax) * 100}%` }]}>
-              <View style={s.avgDashes}>
-                {Array.from({ length: 34 }, (_, i) => <View key={i} style={s.avgDash} />)}
-              </View>
-              <View style={s.avgTag}><Text style={s.avgTagText}>AVG {monthAvg.toFixed(1)}</Text></View>
-            </View>
-          )}
-        </View>
-        <View style={s.chartLabels}>
-          {monthly.map((m, i) => <Text key={i} style={s.chartLabel}>{m.label}</Text>)}
         </View>
       </Section>
 
@@ -261,26 +238,6 @@ function BarRow({ label, value, unit = 'h', pct, accent }: { label: string; valu
   );
 }
 
-function buildMonthly(flights: DroneFlight[]): { label: string; count: number }[] {
-  const now = new Date();
-  const buckets: { label: string; count: number; key: string }[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      label: d.toLocaleDateString('en-US', { month: 'short' })[0],
-      count: 0,
-    });
-  }
-  const idx: Record<string, number> = {};
-  buckets.forEach((b, i) => { idx[b.key] = i; });
-  for (const f of flights) {
-    const key = (f.date || '').slice(0, 7);
-    if (key in idx) buckets[idx[key]].count++;
-  }
-  return buckets.map(({ label, count }) => ({ label, count }));
-}
-
 const s = StyleSheet.create({
   screen: { flex: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
@@ -322,18 +279,6 @@ const s = StyleSheet.create({
   infoNote: { color: DR.muted, fontSize: 12, lineHeight: 17 },
   infoItemTitle: { color: DR.text, fontSize: 13, fontWeight: '700' },
   infoItemText: { color: DR.text2, fontSize: 12.5, lineHeight: 18 },
-
-  chartBars: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 74, marginTop: 14 },
-  chartCol: { flex: 1, height: '100%', justifyContent: 'flex-end', borderRadius: 4, overflow: 'hidden' },
-  chartBar: { width: '100%', borderRadius: 4, minHeight: 3 },
-  chartLabels: { flexDirection: 'row', gap: 4, marginTop: 5 },
-  chartLabel: { flex: 1, textAlign: 'center', color: DR.muted, fontSize: 9, fontFamily: MONO },
-  // Snittlinje: streckad, ljus (syns både över staplarna och bakgrunden) + liten etikett i högerkanten.
-  avgWrap: { position: 'absolute', left: 0, right: 0, height: 0 },
-  avgDashes: { position: 'absolute', left: 0, right: 0, top: -0.75, flexDirection: 'row', justifyContent: 'space-between' },
-  avgDash: { width: 5, height: 1.5, borderRadius: 1, backgroundColor: DR.text, opacity: 0.9 },
-  avgTag: { position: 'absolute', right: 0, bottom: 3, backgroundColor: DR.surface, borderRadius: 4, borderWidth: 1, borderColor: DR.border, paddingHorizontal: 4, paddingVertical: 1 },
-  avgTagText: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', color: DR.text, letterSpacing: 0.4 },
 
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   placeName: { flex: 1, color: DR.text, fontSize: 13.5, fontWeight: '600' },

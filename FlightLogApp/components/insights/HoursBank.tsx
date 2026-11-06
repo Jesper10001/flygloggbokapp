@@ -1,6 +1,7 @@
 // Insights §2 — Hours bank. ALLA tidskategorier + landningar/starter/approacher i grupper. FAA-läge
 // visar FAA-nattens currency-varianter (starter/landningar) och döljer EASA-begreppen PICUS/SPIC.
 // "Backfill missing hours" ligger under Import → Imported data (dit piloten leds om timmarna inte stämmer).
+// Själva kortet (HoursBankView) delas med drönarläget (DroneHoursBank), som har egna grupper och färger.
 
 import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -12,11 +13,13 @@ import { useRegulationStandardStore } from '../../store/regulationStandardStore'
 import { FONT_LED7 } from '../logflight/tokens';
 
 const MONO = 'JetBrainsMono';
-type Item = { label: string; v: number };
-type Group = { title: string; unit: string; items: Item[] };
+export type BankItem = { label: string; v: number };
+export type BankGroup = { title: string; unit: string; items: BankItem[] };
+// Färgerna kortet behöver (pilot: useInsightsTheme, drönare: DR + accenten).
+export type BankTheme = { card: string; border: string; separator: string; primary: string; text: string; text2: string; text3: string; muted: string; faint: string };
 // Tidsintervall för hours bank (sliding toggle under rubrikraden). All time = default.
 const RANGES: [BankRange, string][] = [['all', 'All'], ['m3', '3M'], ['m6', '6M'], ['y1', '1Y'], ['ytd', 'This yr']];
-const rangeCut = (range: BankRange): string => {
+export const rangeCut = (range: BankRange): string => {
   if (range === 'all') return '0000-01-01';
   if (range === 'ytd') return `${new Date().getFullYear()}-01-01`;
   const m = range === 'm3' ? 3 : range === 'm6' ? 6 : 12;
@@ -28,8 +31,6 @@ export function HoursBank() {
   const D = useInsightsData();
   const flights = useFlightStore((s) => s.flights);
   const faa = useRegulationStandardStore((s) => s.standard) === 'faa';
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<'your' | 'all'>('your'); // Your = bara fält med data (default); All = allt
   const [range, setRange] = useState<BankRange>('all');     // All time (default) · 3M · 6M · 1Y · This yr
 
   // 'all' = stats-baserad (inkl. backfill); övriga intervall summeras ur flights på datum.
@@ -56,9 +57,9 @@ export function HoursBank() {
     return { day, night };
   }, [flights, range]);
 
-  const keep = (items: (Item | false)[]): Item[] => items.filter(Boolean) as Item[];
+  const keep = (items: (BankItem | false)[]): BankItem[] => items.filter(Boolean) as BankItem[];
 
-  const groups: Group[] = [
+  const groups: BankGroup[] = [
     { title: 'Roles', unit: 'h', items: keep([
       { label: 'PIC', v: c.pic }, { label: 'Co-pilot', v: c.co_pilot }, { label: 'Dual', v: c.dual },
       { label: 'Instructor', v: c.instructor }, { label: 'Examiner', v: c.examiner },
@@ -98,8 +99,18 @@ export function HoursBank() {
     ]) },
   ].filter((g) => g.items.length > 0);
 
+  return <HoursBankView C={C} total={bank.total} groups={groups} range={range} onRange={setRange} />;
+}
+
+// Kortet: rubrikrad (öppna/stäng, Your/All fields, totalen), tidsintervallen och grupperna i två kolumner.
+export function HoursBankView({ C, total, groups, range, onRange }: {
+  C: BankTheme; total: number; groups: BankGroup[]; range: BankRange; onRange: (r: BankRange) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'your' | 'all'>('your'); // Your = bara fält med data (default); All = allt
+
   // Your = bara fält med data; All = alla fält (nollor gråas). Tomma grupper döljs.
-  const shown: Group[] = groups
+  const shown: BankGroup[] = groups
     .map((g) => ({ ...g, items: mode === 'your' ? g.items.filter((it) => it.v > 0) : g.items }))
     .filter((g) => g.items.length > 0);
 
@@ -122,7 +133,7 @@ export function HoursBank() {
         )}
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={() => setOpen((o) => !o)} hitSlop={{ top: 10, bottom: 10 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontFamily: FONT_LED7, fontSize: 13, fontWeight: '800', color: C.primary }}>{fmtIntH(bank.total)}<Text style={{ fontFamily: MONO, fontSize: 9 }}>h</Text></Text>
+          <Text style={{ fontFamily: FONT_LED7, fontSize: 13, fontWeight: '800', color: C.primary }}>{fmtIntH(total)}<Text style={{ fontFamily: MONO, fontSize: 9 }}>h</Text></Text>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color={C.text3} />
         </TouchableOpacity>
       </View>
@@ -132,7 +143,7 @@ export function HoursBank() {
         <View style={[st.rangeRow, { borderTopColor: C.separator }]}>
           <View style={[st.rangeSeg, { borderColor: C.border }]}>
             {RANGES.map(([k, label]) => (
-              <TouchableOpacity key={k} onPress={() => setRange(k)} activeOpacity={0.8}
+              <TouchableOpacity key={k} onPress={() => onRange(k)} activeOpacity={0.8}
                 style={[st.rangeBtn, range === k && { backgroundColor: C.primary }]}>
                 <Text style={[st.rangeTxt, { color: range === k ? C.card : C.text3 }]}>{label}</Text>
               </TouchableOpacity>

@@ -62,7 +62,7 @@ export default function EssentialSettings() {
         <View>
           <GlassSurface radius={20} />
           <EssentialRow icon="folder-open-outline" accent={accent} title="Manage app data" subtitle="See your data · clear everything" onPress={() => router.push('/settings/manage-data')} />
-          <EssentialRow icon="mail-outline" accent={accent} title="Support" subtitle="support@blades-app.com" onPress={() => Linking.openURL('mailto:support@blades-app.com')} />
+          <EssentialRow icon="help-buoy-outline" accent={accent} title="Support" subtitle="FAQ and contact form" onPress={() => Linking.openURL('https://blades-app.com/support')} />
           <EssentialRow icon="document-text-outline" accent={accent} title="Privacy policy" onPress={() => Linking.openURL('https://blades-app.com/privacy.html')} />
           <EssentialRow icon="ribbon-outline" accent={accent} title="Acknowledgements" subtitle="Open data, open-source software & licenses" onPress={() => router.push('/settings/acknowledgements')} border={false} />
         </View>

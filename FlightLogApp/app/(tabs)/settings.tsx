@@ -815,8 +815,9 @@ export default function SettingsScreen() {
             });
           }}
         />
-        <Row icon="mail" iconColor={Colors.textSecondary} title={t('support')} subtitle="support@blades-app.com" separatorColor={Colors.background}
-          onClick={() => Linking.openURL('mailto:support@blades-app.com')}
+        {/* Supportsidan på hemsidan (FAQ + formulär som når supportinkorgen), inte ett mejl. */}
+        <Row icon="help-buoy-outline" iconColor={Colors.textSecondary} title={t('support')} subtitle="FAQ and contact form" separatorColor={Colors.background}
+          onClick={() => Linking.openURL('https://blades-app.com/support')}
         />
         <Row icon="globe-outline" iconColor={Colors.textSecondary} title="blades-app.com" separatorColor={Colors.background}
           subtitle={t('website_sub')}

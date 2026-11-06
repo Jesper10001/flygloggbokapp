@@ -1,7 +1,7 @@
 // "Import CSV" (drönare) — samma utseende och flöde som pilotens Import: Hero + upload-dropzone → filval →
-// laddskärmen med Blade-myntet (BladeProgress) under AI-kolumnmappningen → resultatrad (format, fil, coins,
-// rader) + kollapsbar AI-analys → "inside data"-summering + "Drone data" (inline-editor per modell, AI sätter
-// airframe/vikt/klass) → Save all (source='import') + registrering + berikning.
+// laddskärmen med Blade-myntet (BladeProgress) under AI-kolumnmappningen → importrapporten (components/import/
+// ImportReport, samma som pilotens): sammanfattning, AI:ns "What we found", "Before you save" med Drone details
+// (AI sätter airframe/vikt/klass, rättas per modell) och "In this file" → Save (source='import') + registrering + berikning.
 import { HowItWorks } from '../../components/HowItWorks';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput, Animated, Easing } from 'react-native';
@@ -24,6 +24,10 @@ import {
   type DroneImportResult, type ParsedDroneRow,
 } from '../../services/droneImport';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
+import {
+  ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
+  type ReportTheme, type CheckStatus,
+} from '../../components/import/ImportReport';
 
 const HOW_IT_WORKS = [
   { n: '1', t: 'Export & choose file', d: 'Export your drone log as CSV — including a file exported from this app — and choose it above.' },
@@ -53,18 +57,11 @@ function toAirframe(t: string): Airframe | '' {
   return '';
 }
 
-function renderBold(text: string, accent: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    p.startsWith('**') && p.endsWith('**')
-      ? <Text key={i} style={{ fontWeight: '800', color: accent }}>{p.slice(2, -2)}</Text>
-      : <Text key={i}>{p}</Text>);
-}
-
 export default function DroneImportCsvScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const accent = useDroneAccentStore((s) => s.color);
-  const { formatTime } = useTimeFormat();
+  const { timeFormat, formatTime } = useTimeFormat();
   const { loadFlights, loadStats } = useDroneFlightStore();
   const show = useToastStore((s) => s.show);
   const [importing, setImporting] = useState(false);
@@ -79,9 +76,13 @@ export default function DroneImportCsvScreen() {
   const [droneData, setDroneData] = useState<Record<string, DroneInfo>>({}); // per-modell airframe/klass/vikt
   const [lookingModels, setLookingModels] = useState<Set<string>>(new Set()); // modeller som slås upp just nu
   const lookedUpRef = useRef<Set<string>>(new Set());                         // auto-lookup: kör en gång per modell
-  const [openLocations, setOpenLocations] = useState(false);
-  const [openDrones, setOpenDrones] = useState(false);
-  const [summaryExpanded, setSummaryExpanded] = useState(false); // kollapsad AI-analys som standard (= piloten)
+  const [aiModels, setAiModels] = useState<Set<string>>(new Set());   // modeller där AI fyllt i något
+  const [openModel, setOpenModel] = useState<string | null>(null);     // modellen som är utfälld i Drone details
+  // Rapportens färger i drönarläget (samma rapport som pilotläget).
+  const T: ReportTheme = {
+    bg: DR.background, card: DR.surface, elevated: DR.elevated, border: DR.border, separator: DR.separator,
+    text: DR.text, text2: DR.text2, muted: DR.muted, accent, success: DR.good, warning: DR.warning, danger: DR.danger, onAccent: DR.inkOnAccent,
+  };
 
   // Roterande stegtext medan filen läses (byts varannan sekund).
   useEffect(() => {
@@ -178,6 +179,7 @@ export default function DroneImportCsvScreen() {
         if (guessed && (manual || !cur.cls)) upd.cls = guessed;
         return { ...p, [model]: upd };
       });
+      setAiModels((p) => new Set(p).add(model));
     } catch { if (manual) show?.('Look-up failed'); }
     finally { setLookingModels((p) => { const n = new Set(p); n.delete(model); return n; }); }
   };
@@ -213,7 +215,7 @@ export default function DroneImportCsvScreen() {
     const file = await pickImportFile();
     if (!file) return;
     setFileName(file.name);
-    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setSummaryExpanded(false);
+    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setAiModels(new Set()); setOpenModel(null);
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
     if (overlayTimer.current) clearTimeout(overlayTimer.current);
@@ -270,12 +272,11 @@ export default function DroneImportCsvScreen() {
 
   const timeRows: [string, number][] = stats ? [
     ['Total', stats.hours], ['VLOS', stats.byMode.VLOS], ['EVLOS', stats.byMode.EVLOS], ['BVLOS', stats.byMode.BVLOS],
-    ['Night', stats.tf.night], ['IFR', stats.tf.ifr], ['Co-pilot / FPV', stats.tf.fpv], ['Dual', stats.tf.dual], ['Instructor', stats.tf.instr],
+    ['Night', stats.tf.night], ['IFR', stats.tf.ifr], ['FPV / 2nd pilot', stats.tf.fpv], ['Dual', stats.tf.dual], ['Instructor', stats.tf.instr],
   ] : [];
 
   const stage = progress.current;
   const flightsFound = rows.length;
-  const analysisCount = aiSummary.split('\n').filter((l) => l.trim()).length;
   const progressLayer = overlay !== 'hidden' ? (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayFade }]}>
       <BladeProgress
@@ -302,13 +303,112 @@ export default function DroneImportCsvScreen() {
     </Animated.View>
   ) : null;
 
+  // ── "Before you save": det man kan rätta, en rad per sak (fälls ut), som i pilotläget.
+  const afLabel = (a: Airframe | '') => AIRFRAMES.find(([k]) => k === a)?.[1] ?? '';
+  const droneRows = droneModels.map((d) => {
+    const info = droneData[d.model] ?? { airframe: '' as Airframe | '', cls: d.defaultCat, mtow_g: 0 };
+    const missing = [!info.airframe && 'airframe', !info.cls && 'class'].filter(Boolean) as string[];
+    const parts = [afLabel(info.airframe), info.mtow_g ? `${info.mtow_g} g` : '', info.cls, `${d.count} ${d.count === 1 ? 'flight' : 'flights'}`].filter(Boolean);
+    return { d, info, missing, parts, looking: lookingModels.has(d.model), ai: aiModels.has(d.model) };
+  });
+  const droneEditor = (r: typeof droneRows[number]) => (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={s.fieldLabel}>WEIGHT (G)</Text>
+          <TextInput
+            style={[s.weightInput, { width: '100%', paddingVertical: 9 }]}
+            value={r.info.mtow_g ? String(r.info.mtow_g) : ''}
+            onChangeText={(v) => setInfo(r.d.model, { mtow_g: parseInt(v.replace(/\D/g, ''), 10) || 0 })}
+            keyboardType="number-pad" placeholder="g" placeholderTextColor={DR.muted}
+          />
+        </View>
+        <TouchableOpacity onPress={() => lookupModel(r.d.model, true)} disabled={r.looking} activeOpacity={0.75}
+          style={[s.aiBtn, { borderColor: accent + '88', backgroundColor: accent + '1F', paddingVertical: 10 }]}>
+          {r.looking ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="sparkles" size={13} color={accent} />}
+          <Text style={[s.aiBtnText, { color: accent }]}>{r.looking ? '…' : 'Look up'}</Text>
+        </TouchableOpacity>
+      </View>
+      {r.d.regs.length > 0 && <Text style={s.dataMeta}>{r.d.regs.join(', ')}</Text>}
+      {/* Airframe (AI kan sätta) */}
+      <View style={s.tgRow}>
+        {AIRFRAMES.map(([key, lbl]) => {
+          const active = r.info.airframe === key;
+          return (
+            <TouchableOpacity key={key} style={[s.tgBtn, { flex: 1 }, active && { borderColor: accent, backgroundColor: accent + '22' }]}
+              onPress={() => setInfo(r.d.model, { airframe: active ? '' : key })} activeOpacity={0.7}>
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[s.tgLabel, active && { color: accent }]}>{lbl}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {/* Klass */}
+      <View style={[s.tgRow, { flexWrap: 'wrap' }]}>
+        {CLASS_OPTS.map((c) => {
+          const active = r.info.cls === c;
+          return (
+            <TouchableOpacity key={c} style={[s.tgChip, active && { borderColor: accent, backgroundColor: accent + '22' }]}
+              onPress={() => setInfo(r.d.model, { cls: active ? '' : c })} activeOpacity={0.7}>
+              <Text style={[s.tgLabel, active && { color: accent }]}>{c}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </>
+  );
+
+  const checks: { key: string; status: CheckStatus; render: (first: boolean) => ReactNode }[] = [];
+  if (droneRows.length > 0) {
+    const looking = droneRows.some((r) => r.looking);
+    const missing = droneRows.filter((r) => r.missing.length > 0).length;
+    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : droneRows.some((r) => r.ai) ? 'ai' : 'done';
+    checks.push({
+      key: 'drones', status,
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="hardware-chip-outline" title="Drone details" status={status}
+          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : status === 'ai' ? 'AI FILLED' : 'DONE'}
+          summary={`${droneRows.length} ${droneRows.length === 1 ? 'drone' : 'drones'}. Airframe fills the multirotor, single-rotor and fixed-wing columns, and class sets the category. Change them later under Manage drones.`}>
+          {droneRows.map((r) => (
+            <EditRow key={r.d.model} T={T} title={r.d.model} loading={r.looking} open={openModel === r.d.model}
+              onPress={() => setOpenModel((o) => (o === r.d.model ? null : r.d.model))}
+              summary={r.missing.length ? `Missing ${r.missing.join(' and ')} · ${r.d.count} ${r.d.count === 1 ? 'flight' : 'flights'}` : r.parts.join(' · ')}
+              tag={r.missing.length ? 'MISSING' : r.ai ? 'AI' : undefined} tagColor={r.missing.length ? T.warning : T.accent}>
+              {droneEditor(r)}
+            </EditRow>
+          ))}
+        </CheckItem>
+      ),
+    });
+  }
+  if (result && result.warnings.length > 0) {
+    const ws = result.warnings;
+    checks.push({
+      key: 'notes', status: 'info',
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="document-text-outline" title="Notes on your file" status="info"
+          statusText={String(ws.length)} summary={ws[0]}>
+          {ws.length > 1 ? ws.map((w, i) => (
+            <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+              <Ionicons name="information-circle-outline" size={14} color={T.text2} style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, color: T.text2, fontSize: 12.5, lineHeight: 17 }}>{w}</Text>
+            </View>
+          )) : null}
+        </CheckItem>
+      ),
+    });
+  }
+
   return (
     <>
-    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 12 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-      <View style={{ gap: 4, marginBottom: 2 }}>
-        <Text style={s.title}>Import drone log</Text>
-        <Text style={s.subtitle}>Upload an export file from your drone-log app. Claude identifies the format and maps the columns for you.</Text>
-      </View>
+    <ScrollView style={{ flex: 1, backgroundColor: DR.background }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
+      contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (result ? FOOTER_SPACE + 16 : 40), gap: 12 }}>
+      {/* Rubrik — bara innan en fil är läst (rapporten har en egen sammanfattning överst) */}
+      {!result && (
+        <View style={{ gap: 4, marginBottom: 2 }}>
+          <Text style={s.title}>Import drone log</Text>
+          <Text style={s.subtitle}>Upload an export file from your drone-log app. Claude identifies the format and maps the columns for you.</Text>
+        </View>
+      )}
 
       {/* Upload-dropzone (hela kortet är tryckytan) — döljs när en analys visas */}
       {!result && (
@@ -339,247 +439,74 @@ export default function DroneImportCsvScreen() {
         </>
       )}
 
-      {/* Importfel — inline-kort med AI-förklaring (i stället för Alert) */}
+      {/* Importfel — AI:ns förklaring i samma kort som rapportens (i stället för Alert) */}
       {importError && !result && !importing && (
-        <View style={[s.aiCard, { borderColor: DR.danger + '55' }]}>
-          <View style={s.aiCardHeader}>
-            <Ionicons name="alert-circle" size={15} color={DR.danger} />
-            <Text style={[s.aiCardTitle, { color: DR.danger }]}>Import failed</Text>
-          </View>
-          {summaryLoading ? (
-            <View style={s.aiLoadingRow}>
-              <ActivityIndicator size="small" color={DR.danger} />
-              <Text style={s.aiLoadingText}>Analyzing imported data…</Text>
-            </View>
-          ) : <AnalysisList text={aiSummary || importError} accent={accent} />}
-        </View>
+        <AnalysisCard T={T} failed loading={summaryLoading} text={aiSummary || importError} fallback={importError} />
       )}
 
-      {/* Förhandsvisning */}
+      {/* Rapporten före Save (components/import/ImportReport, samma som pilotläget): sammanfattningen, AI:ns
+          "What we found", det man kan rätta och vad filen innehåller. */}
       {result && (
         <>
-          <View style={s.resultHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.resultFormat}>{result.detectedFormat}</Text>
-              <Text style={s.resultFile} numberOfLines={1}>{fileName}</Text>
-              {result.tokensUsed > 0 && (
-                <Text style={s.tokenUsedText}>{tokensToCoins(result.tokensUsed).toLocaleString('en-US')} Blade-coins used for import</Text>
-              )}
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <StatPill label="Rows" value={String(result.totalRows)} />
-              <StatPill label="Mapped" value={String(result.mappedRows)} color={DR.success} />
-            </View>
-          </View>
+          <ReportHero T={T} flights={rows.length}
+            time={`${formatTime(stats?.hours ?? 0)}${timeFormat === 'decimal' ? ' h' : ''}`}
+            period={periodOf(rows.map((r) => r.date))} fileName={fileName} format={result.detectedFormat}
+            coins={result.tokensUsed > 0 ? tokensToCoins(result.tokensUsed) : 0}
+            totalRows={result.totalRows} mappedRows={result.mappedRows} toCheck={checks.filter((c) => c.status === 'todo').length} />
 
-          {/* AI-analys — kollapsbar fritextsammanfattning (2 rader syns, tryck för allt) */}
-          <TouchableOpacity style={[s.aiCard, { borderColor: accent + '33' }]} onPress={() => setSummaryExpanded((v) => !v)} activeOpacity={0.8}
-            disabled={summaryLoading || !aiSummary || analysisCount <= 2}>
-            <View style={s.aiCardHeader}>
-              <Ionicons name="sparkles" size={14} color={accent} />
-              <Text style={[s.aiCardTitle, { color: accent }]}>Import analysis</Text>
-              {!summaryLoading && !!aiSummary && analysisCount > 2 && (
-                <Ionicons name={summaryExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={DR.muted} style={{ marginLeft: 'auto' }} />
-              )}
-            </View>
-            {summaryLoading ? (
-              <View style={s.aiLoadingRow}>
-                <ActivityIndicator size="small" color={accent} />
-                <Text style={s.aiLoadingText}>Analyzing imported data…</Text>
-              </View>
-            ) : aiSummary ? (
-              <>
-                <AnalysisList text={aiSummary} accent={accent} max={summaryExpanded ? undefined : 2} />
-                {!summaryExpanded && analysisCount > 2 && <Text style={[s.aiReadMore, { color: accent }]}>Read more</Text>}
-              </>
-            ) : (
-              <Text style={s.aiLoadingText}>Detected {result.detectedFormat} · {result.mappedRows}/{result.totalRows} rows mapped.</Text>
-            )}
-          </TouchableOpacity>
+          <AnalysisCard T={T} loading={summaryLoading} text={summaryLoading ? null : aiSummary}
+            fallback={`The summary isn't available right now. ${result.mappedRows} of ${result.totalRows} rows are ready to import.`} />
 
-          {/* Vad filen innehåller — samma presentation som pilotens Import ("inside data") */}
+          {checks.length > 0 && (
+            <>
+              <SectionLabel T={T}>BEFORE YOU SAVE</SectionLabel>
+              <CheckGroup T={T}>{checks.map((c, i) => <View key={c.key}>{c.render(i === 0)}</View>)}</CheckGroup>
+            </>
+          )}
+
           {stats && (
-            <View style={{ backgroundColor: DR.surface, borderRadius: 12, borderWidth: 1, borderColor: DR.border, overflow: 'hidden' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: accent + '18', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="document-attach-outline" size={18} color={accent} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: DR.text, fontSize: 14, fontWeight: '700' }}>{rows.length} {rows.length === 1 ? 'flight' : 'flights'} · {formatTime(stats.hours)}</Text>
-                  {!!stats.dateRange && <Text style={{ color: DR.muted, fontSize: 11.5, marginTop: 2 }}>{stats.dateRange}</Text>}
-                </View>
+            <>
+              <SectionLabel T={T}>IN THIS FILE</SectionLabel>
+              <View style={{ backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden' }}>
+                <TotalsGrid T={T} items={timeRows.filter(([label, v]) => label === 'Total' || v > 0).map(([label, v]) => ({ label, value: formatTime(v) }))} />
+                <ListRow T={T} icon="location-outline" label="Locations" count={stats.locations.length}>
+                  {() => stats.locations.map((pl) => (
+                    <View key={pl} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="location" size={13} color={DR.muted} />
+                      <Text numberOfLines={1} style={{ flex: 1, color: DR.text, fontSize: 13 }}>{pl}</Text>
+                    </View>
+                  ))}
+                </ListRow>
+                <ListRow T={T} icon="hardware-chip-outline" label="Drones" count={droneModels.length}>
+                  {() => droneModels.map((d) => (
+                    <View key={d.model} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="hardware-chip" size={13} color={DR.muted} />
+                      <Text style={{ flex: 1, color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{d.model}</Text>
+                      <Text style={{ color: DR.text2, fontSize: 12, fontFamily: 'Menlo' }}>{d.count}</Text>
+                    </View>
+                  ))}
+                </ListRow>
               </View>
-
-              {/* Kategoriserad tid (bara > 0 utom Total) */}
-              <View style={{ paddingHorizontal: 14, paddingVertical: 8 }}>
-                {timeRows.filter(([label, v]) => label === 'Total' || v > 0).map(([label, v]) => (
-                  <View key={label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                    <Text style={{ color: DR.text2, fontSize: 13 }}>{label}</Text>
-                    <Text style={{ color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{formatTime(v)}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Locations — expanderbar */}
-              <TouchableOpacity onPress={() => setOpenLocations((v) => !v)} activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: DR.separator }}>
-                <Ionicons name="location-outline" size={15} color={accent} />
-                <Text style={{ flex: 1, color: DR.text2, fontSize: 13 }}>Locations</Text>
-                <Text style={{ color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{stats.locations.length}</Text>
-                <Ionicons name={openLocations ? 'chevron-up' : 'chevron-down'} size={15} color={DR.muted} />
-              </TouchableOpacity>
-              {openLocations && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
-                  {stats.locations.length === 0 ? <Text style={{ color: DR.muted, fontSize: 12 }}>None</Text>
-                    : stats.locations.map((p) => (
-                      <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name="location" size={13} color={DR.muted} />
-                        <Text numberOfLines={1} style={{ flex: 1, color: DR.text, fontSize: 13 }}>{p}</Text>
-                      </View>
-                    ))}
-                </View>
-              )}
-
-              {/* Drones — expanderbar */}
-              <TouchableOpacity onPress={() => setOpenDrones((v) => !v)} activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: DR.separator }}>
-                <Ionicons name="hardware-chip-outline" size={15} color={accent} />
-                <Text style={{ flex: 1, color: DR.text2, fontSize: 13 }}>Drones</Text>
-                <Text style={{ color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{droneModels.length}</Text>
-                <Ionicons name={openDrones ? 'chevron-up' : 'chevron-down'} size={15} color={DR.muted} />
-              </TouchableOpacity>
-              {openDrones && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12, gap: 8 }}>
-                  {droneModels.length === 0 ? <Text style={{ color: DR.muted, fontSize: 12 }}>None</Text>
-                    : droneModels.map((d) => (
-                      <View key={d.model} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Ionicons name="hardware-chip" size={13} color={DR.muted} />
-                        <Text style={{ flex: 1, color: DR.text, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo' }}>{d.model}</Text>
-                      </View>
-                    ))}
-                </View>
-              )}
-            </View>
+            </>
           )}
 
-          {/* Drone data — inline-editor per modell (motsvarar pilotens "Aircraft data"). */}
-          {droneModels.length > 0 && (
-            <View style={s.dataSection}>
-              <View style={s.dataHeader}>
-                <Ionicons name="hardware-chip-outline" size={14} color={DR.warning} />
-                <Text style={s.dataTitle}>Drone data</Text>
-              </View>
-              <Text style={s.dataSubtitle}>Airframe fills the multi/single/fixed columns in your logbook. Use look-up to let AI set airframe, weight and class. You can edit this later under Manage drones.</Text>
-              {droneModels.map((d) => {
-                const info = droneData[d.model] ?? { airframe: '', cls: d.defaultCat, mtow_g: 0 };
-                const looking = lookingModels.has(d.model);
-                return (
-                  <View key={d.model} style={s.dataCard}>
-                    {/* Modell + vikt + smart search */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={s.dataModel} numberOfLines={1}>{d.model}</Text>
-                      <TextInput
-                        style={s.weightInput}
-                        value={info.mtow_g ? String(info.mtow_g) : ''}
-                        onChangeText={(v) => setInfo(d.model, { mtow_g: parseInt(v.replace(/\D/g, ''), 10) || 0 })}
-                        keyboardType="number-pad" placeholder="g" placeholderTextColor={DR.muted}
-                      />
-                      <TouchableOpacity onPress={() => lookupModel(d.model, true)} disabled={looking} activeOpacity={0.75} style={[s.aiBtn, { borderColor: accent + '88', backgroundColor: accent + '1F' }]}>
-                        {looking ? <ActivityIndicator size="small" color={accent} /> : <Ionicons name="sparkles" size={13} color={accent} />}
-                        <Text style={[s.aiBtnText, { color: accent }]}>{looking ? '…' : 'Look up'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={s.dataMeta}>{d.count} {d.count === 1 ? 'flight' : 'flights'}{d.regs.length ? ` · ${d.regs.join(', ')}` : ''}</Text>
-
-                    {/* Airframe (AI kan sätta) */}
-                    <View style={s.tgRow}>
-                      {AIRFRAMES.map(([key, lbl]) => {
-                        const active = info.airframe === key;
-                        return (
-                          <TouchableOpacity key={key} style={[s.tgBtn, { flex: 1 }, active && { borderColor: accent, backgroundColor: accent + '22' }]}
-                            onPress={() => setInfo(d.model, { airframe: active ? '' : key })} activeOpacity={0.7}>
-                            <Text numberOfLines={1} adjustsFontSizeToFit style={[s.tgLabel, active && { color: accent }]}>{lbl}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    {/* Klass */}
-                    <View style={[s.tgRow, { flexWrap: 'wrap' }]}>
-                      {CLASS_OPTS.map((c) => {
-                        const active = info.cls === c;
-                        return (
-                          <TouchableOpacity key={c} style={[s.tgChip, active && { borderColor: accent, backgroundColor: accent + '22' }]}
-                            onPress={() => setInfo(d.model, { cls: active ? '' : c })} activeOpacity={0.7}>
-                            <Text style={[s.tgLabel, active && { color: accent }]}>{c}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {result.warnings.map((w, i) => (
-            <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-              <Ionicons name="warning-outline" size={14} color={DR.warning} style={{ marginTop: 1 }} />
-              <Text style={{ color: DR.warning, fontSize: 12, flex: 1, lineHeight: 17 }}>{w}</Text>
-            </View>
-          ))}
-
-          {rows.length > 0 && (
-            <TouchableOpacity onPress={doImport} disabled={saving} activeOpacity={0.8}
-              style={[s.saveBtn, { backgroundColor: accent }, saving && { opacity: 0.6 }]}>
-              {saving ? <ActivityIndicator color={DR.inkOnAccent} /> : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color={DR.inkOnAccent} />
-                  <Text style={[s.saveBtnText, { color: DR.inkOnAccent }]}>Save all ({rows.length})</Text>
-                </>
-              )}
+          {/* Kort notis + byt fil (uploadkortet är dolt när en analys visas, så ge en väg tillbaka) */}
+          <View style={{ gap: 2, marginTop: 2 }}>
+            <Text style={s.hint}>Nothing is saved until you tap Save.</Text>
+            <TouchableOpacity style={s.chooseOtherBtn} onPress={pick} disabled={importing || saving} activeOpacity={0.7} hitSlop={10}>
+              <Ionicons name="swap-horizontal-outline" size={15} color={DR.text2} />
+              <Text style={s.chooseOtherText}>Choose a different file</Text>
             </TouchableOpacity>
-          )}
-
-          <Text style={s.hint}>All imported data is saved with source "import" and can be reviewed under Imported data.</Text>
-
-          {/* Byt fil — uploadkortet är dolt när en analys visas, så ge en väg tillbaka */}
-          <TouchableOpacity style={s.chooseOtherBtn} onPress={pick} disabled={importing || saving} activeOpacity={0.7}>
-            <Ionicons name="swap-horizontal-outline" size={15} color={DR.text2} />
-            <Text style={s.chooseOtherText}>Choose a different file</Text>
-          </TouchableOpacity>
+          </View>
         </>
       )}
     </ScrollView>
+    {result && (
+      <SaveFooter T={T} label={`Save ${rows.length.toLocaleString('en-US')} ${rows.length === 1 ? 'flight' : 'flights'}`}
+        saving={saving} disabled={rows.length === 0} onPress={doImport} bottom={insets.bottom} />
+    )}
     {progressLayer}
     </>
-  );
-}
-
-function StatPill({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Text style={[s.statValue, color ? { color } : null]}>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function AnalysisList({ text, accent, max }: { text: string; accent: string; max?: number }) {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, max);
-  return (
-    <View style={{ gap: 6 }}>
-      {lines.map((line, i) => {
-        const body = line.replace(/^-\s*/, '');
-        const isFix = /^fix:/i.test(body);
-        return (
-          <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-            <Ionicons name={isFix ? 'construct-outline' : 'ellipse'} size={isFix ? 13 : 6} color={isFix ? accent : DR.muted} style={{ marginTop: isFix ? 2 : 6 }} />
-            <Text style={{ color: DR.text2, fontSize: 12.5, lineHeight: 18, flex: 1 }}>{renderBold(body, accent)}</Text>
-          </View>
-        );
-      })}
-    </View>
   );
 }
 
@@ -612,7 +539,7 @@ const s = StyleSheet.create({
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingVertical: 15, gap: 8, marginTop: 8 },
   saveBtnText: { fontSize: 16, fontWeight: '700' },
   hint: { color: DR.muted, fontSize: 11, textAlign: 'center' },
-  chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, marginTop: 2 },
+  chooseOtherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 6 },
   chooseOtherText: { color: DR.text2, fontSize: 13, fontWeight: '600' },
   // Drone data-sektionen (motsvarar pilotens gyllene "Aircraft data")
   dataSection: { backgroundColor: DR.warning + '14', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: DR.warning + '55', gap: 10 },
@@ -622,6 +549,7 @@ const s = StyleSheet.create({
   dataCard: { backgroundColor: DR.surface, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: DR.border, gap: 8 },
   dataModel: { flex: 1, color: DR.text, fontSize: 14, fontWeight: '800' },
   dataMeta: { color: DR.muted, fontSize: 11 },
+  fieldLabel: { color: DR.text2, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.8 },
   weightInput: { width: 74, color: DR.text, fontSize: 14, fontWeight: '700', fontFamily: 'Menlo', textAlign: 'center', backgroundColor: DR.elevated, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 6, borderWidth: 1, borderColor: DR.border },
   aiBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#22D3EE88', backgroundColor: '#22D3EE1F' },
   aiBtnText: { fontSize: 12, fontWeight: '800', color: '#67E8F9' },

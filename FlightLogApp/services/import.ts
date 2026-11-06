@@ -963,21 +963,30 @@ export async function importFromFile(
 // Kort fritext (engelska) till användaren om vad AI:n kom fram till: format,
 // mappning, antaganden, konstigheter. Körs EFTER lokal tolkning (eller efter
 // ett importfel) så statistiken kan skickas med. Litet, billigt anrop.
-const SUMMARY_PROMPT = `Du är importassistenten i en pilotloggboksapp. Användaren har just importerat (eller försökt importera) en loggboksfil, och appens AI har analyserat den. Skriv analysen PÅ ENGELSKA som en PUNKTLISTA riktad direkt till användaren.
+// Importrapportens "What we found" (components/import/ImportReport: parseAnalysis). En inledande mening och högst tre
+// rader märkta CHECK/OK/FIX, i vardagsspråk; CHECK visas först och i gult, så det viktigaste syns direkt.
+const SUMMARY_PROMPT = `Du är importassistenten i en pilotloggboksapp. Användaren har just importerat (eller försökt importera) en loggboksfil, och appen har läst den. Skriv en KORT sammanfattning PÅ ENGELSKA till användaren, i enkelt vardagsspråk: som till en pilot, inte till en utvecklare.
 
-FORMAT (följ exakt):
-- Endast punkter. Varje punkt på egen rad, inledd med "- " (bindestreck + mellanslag). Ingen rubrik, ingen hälsning, ingen text före eller efter listan.
-- 3–6 punkter, varje punkt EN kort mening.
-- Omslut det som AVVIKER eller kräver användarens UPPMÄRKSAMHET med **fetstil** (dubbla asterisker): antaganden, klampade/uppskattade värden, saknad eller ofullständig data, konstigheter, och fel. Fetmarkera INTE trivial/förväntad information.
+FORMAT (följ exakt, inga andra rader):
+- Rad 1: en kort mening, högst 12 ord, utan prefix, som säger hur det gick. Exempel: "Your logbook is ready to save." eller "Almost everything looks right, but one thing needs a look."
+- Sedan 1–3 rader. Varje rad börjar med exakt en av:
+  "CHECK: " något användaren bör titta på: ett antagande, ett uppskattat eller kapat värde, något som saknas eller ser konstigt ut, ett fel.
+  "OK: " något viktigt som blev rätt.
+  "FIX: " en åtgärd i appen (bara vägarna nedan).
+- CHECK-raderna först. Varje rad är EN mening på högst 14 ord.
+- Fetstil (**…**) på högst tre ord per rad, bara det viktigaste: en siffra, en tid, ett namn.
+- Ingen rubrik, inga bindestreck i början av raderna, ingen hälsning.
 
-INNEHÅLL: Ta med det relevanta av: vilket format/app filen ser ut komma från, vad som mappades och tolkades, gjorda antaganden (vald tidskolumn, tolkade booleska flaggor, klampade tider), samt sådant som ser konstigt ut. Vid importfel: förklara sakligt vad som troligen är fel och hur man exporterar en korrekt fil.
+SPRÅK: säg "flights", "times", "hours", "your file". Använd INTE tekniska ord som parsed, mapped, rows, column, candidate, boolean, field, CSV eller format. Upprepa inte antal flygningar, total tid eller datumintervall (de står redan överst) om det inte är själva poängen.
 
-ÅTGÄRDER I APPEN: Om något i analysen kan korrigeras i appen, avsluta listan med en eller flera åtgärdspunkter som börjar med "Fix: " och ange den EXAKTA navigeringsvägen i **fetstil**. Använd ENDAST dessa vägar, och endast när de är relevanta:
-- Saknade eller ofullständiga kategoritimmar som filen inte innehöll → "Fix: top up missing totals in **Settings → Imported data → Backfill missing hours**"
-- Granska eller justera importerad data i efterhand → "Fix: review it in **Settings → Imported data**"
-- Saknad nattid som kan uppskattas ur rutt + tider → "Fix: use the **night-time estimate card on this screen**"
+INNEHÅLL: vilken app filen verkar komma från (bara om det är tydligt) och det som avviker: tider som kapats, tider eller kategorier som saknas, att en av flera tider valdes som flygtid, konstiga värden. Allt ser bra ut: rad 1 och en eller två OK-rader, ingen CHECK. Nämn inte valet av tid om det bara fanns ett alternativ. Importfel: rad 1 säger att filen inte gick att läsa, en CHECK-rad säger den troliga orsaken och en CHECK-rad hur man exporterar en fil som fungerar.
 
-Var konkret och lugn. Hitta inte på siffror eller andra navigeringsvägar; använd bara det som skickas in.`;
+ÅTGÄRDER: FIX bara när det passar, och bara med dessa vägar i fetstil:
+- Timmar i en kategori som filen saknade → "FIX: top up missing hours in **Settings → Imported data → Backfill missing hours**"
+- Nattid saknas (nightMissing är true) → "FIX: tap **Add night time** below to work it out"
+- Granska importen i efterhand → "FIX: review it later in **Settings → Imported data**"
+
+Hitta inte på siffror, appar eller andra vägar; använd bara det som skickas in.`;
 
 export interface ImportSummaryInput {
   fileName: string;
@@ -992,6 +1001,7 @@ export interface ImportSummaryInput {
   timeCandidates?: { column: string; label: string }[];
   totalTimeColumn?: string;
   warnings?: string[];
+  nightMissing?: boolean; // ingen flygning har nattid → rapporten erbjuder "Add night time"
   error?: string; // satt när importen kastade fel — då beskrivs problemet i stället
 }
 

@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 24,
+      "date": "2026-11-06",
+      "notes": [
+        "Improved: A clearer import report, with everything to check in one place.",
+        "New: Hours bank in drone Insights, like in pilot mode.",
+        "Improved: Support in Settings opens the help page with FAQ and contact form."
+      ]
+    },
+    {
       "id": 23,
       "date": "2026-11-06",
       "notes": [

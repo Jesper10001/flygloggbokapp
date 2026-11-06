@@ -1,5 +1,5 @@
 import { getDatabase } from './database';
-import { getDroneBackfill } from './droneBackfill';
+import { getDroneBackfill, ZERO_DRONE_BACKFILL } from './droneBackfill';
 import { parseDroneCrew } from '../constants/droneRoles';
 import { computeStressHours, loadDailyHours, type StressHours } from './stress';
 
@@ -758,6 +758,74 @@ export async function getDroneStats(): Promise<DroneStats> {
     cat_a3: add(row?.cat_a3, 'cat_a3'),
     cat_specific: add(row?.cat_specific, 'cat_specific'),
     cat_certified: add(row?.cat_certified, 'cat_certified'),
+  };
+}
+
+// Hours bank (Insights) för drönare: alla tidskategorier och antal, för hela historiken (med backfill, = getDroneStats)
+// eller från ett datum (cut, YYYY-MM-DD; backfill är inte daterad och räknas då inte). Räknas i SQL över alla
+// flygningar, inte storens lista (den har bara de senaste 500 och inga summeringsrader).
+export interface DroneHoursBank {
+  total: number; flights: number; night_flights: number;
+  pic: number; sic: number; dual: number; instructor: number;
+  vlos: number; evlos: number; bvlos: number;
+  night: number; ifr: number; com: number; pri: number;
+  landings_day: number; landings_night: number;
+  cats: { label: string; v: number }[];   // A1–Certified, sedan övriga kategorier (t.ex. militära) med tid
+}
+
+const BANK_CATS = [['A1', 'cat_a1'], ['A2', 'cat_a2'], ['A3', 'cat_a3'], ['Specific', 'cat_specific'], ['Certified', 'cat_certified']] as const;
+
+export async function getDroneHoursBank(cut?: string): Promise<DroneHoursBank> {
+  const db = await getDatabase();
+  const args = cut ? [cut] : [];
+  const n = (c: string) => `COALESCE(${c}, 0)`;
+  const row = await db.getFirstAsync<any>(`
+    SELECT
+      -- Summeringsrader (bulk-historik) är klumpsummor, inte flygningar: deras tid räknas, men inte som flygningar.
+      SUM(CASE WHEN COALESCE(source, '') != 'summary' THEN 1 ELSE 0 END) as flights,
+      SUM(CASE WHEN COALESCE(source, '') != 'summary' AND is_night = 1 THEN 1 ELSE 0 END) as night_flights,
+      ROUND(SUM(${n('total_time')}), 2) as total_time,
+      -- PIC = total − co-pilot − dual, 0 för roller som inte flyger (= dronePicTime i constants/droneRoles).
+      ROUND(SUM(CASE WHEN COALESCE(pilot_role, '') IN ('payload', 'mission_commander', 'observer') THEN 0
+        ELSE MAX(0, ${n('total_time')} - ${n('co_pilot_fpv')} - ${n('dual')}) END), 2) as pic,
+      ROUND(SUM(${n('co_pilot_fpv')}), 2) as sic,
+      ROUND(SUM(${n('dual')}), 2) as dual,
+      ROUND(SUM(${n('instructor')}), 2) as instructor,
+      -- Siktläge, natt och kategorier som getDroneStats.
+      ROUND(SUM(CASE WHEN flight_mode='VLOS' AND (${n('h_vlos')} + ${n('h_evlos')} + ${n('h_bvlos')}) = 0 THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_vlos')}), 2) as vlos,
+      ROUND(SUM(CASE WHEN flight_mode='EVLOS' AND (${n('h_vlos')} + ${n('h_evlos')} + ${n('h_bvlos')}) = 0 THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_evlos')}), 2) as evlos,
+      ROUND(SUM(CASE WHEN flight_mode='BVLOS' AND (${n('h_vlos')} + ${n('h_evlos')} + ${n('h_bvlos')}) = 0 THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_bvlos')}), 2) as bvlos,
+      ROUND(SUM(CASE WHEN is_night=1 THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_night')}), 2) as night,
+      ROUND(SUM(${n('ifr')}), 2) as ifr,
+      ROUND(SUM(CASE WHEN operation_type='COM' THEN ${n('total_time')} ELSE 0 END), 2) as com,
+      ROUND(SUM(CASE WHEN operation_type='PRI' THEN ${n('total_time')} ELSE 0 END), 2) as pri,
+      SUM(${n('landings_day')}) as landings_day,
+      SUM(${n('landings_night')}) as landings_night,
+      ROUND(SUM(CASE WHEN category='A1' THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_a1')}), 2) as cat_a1,
+      ROUND(SUM(CASE WHEN category='A2' THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_a2')}), 2) as cat_a2,
+      ROUND(SUM(CASE WHEN category='A3' THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_a3')}), 2) as cat_a3,
+      ROUND(SUM(CASE WHEN category='Specific' THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_specific')}), 2) as cat_specific,
+      ROUND(SUM(CASE WHEN category='Certified' THEN ${n('total_time')} ELSE 0 END) + SUM(${n('h_certified')}), 2) as cat_certified
+    FROM drone_flights ${cut ? 'WHERE date >= ?' : ''}
+  `, args);
+  const other = await db.getAllAsync<{ category: string; h: number }>(`
+    SELECT category, ROUND(SUM(${n('total_time')}), 2) as h FROM drone_flights
+    WHERE ${cut ? 'date >= ? AND ' : ''}COALESCE(category, '') NOT IN ('', 'A1', 'A2', 'A3', 'Specific', 'Certified')
+    GROUP BY category HAVING h > 0 ORDER BY h DESC
+  `, args);
+  const bf = cut ? ZERO_DRONE_BACKFILL : await getDroneBackfill();
+  const v = (key: string) => Number(row?.[key]) || 0;
+  const add = (key: string, bfKey: keyof typeof bf) => Math.round((v(key) + (bf[bfKey] ?? 0)) * 100) / 100;
+  return {
+    total: add('total_time', 'total_time'), flights: v('flights'), night_flights: v('night_flights'),
+    pic: v('pic'), sic: v('sic'), dual: v('dual'), instructor: v('instructor'),
+    vlos: add('vlos', 'vlos'), evlos: add('evlos', 'evlos'), bvlos: add('bvlos', 'bvlos'),
+    night: add('night', 'night'), ifr: v('ifr'), com: v('com'), pri: v('pri'),
+    landings_day: v('landings_day'), landings_night: v('landings_night'),
+    cats: [
+      ...BANK_CATS.map(([label, key]) => ({ label, v: add(key, key) })),
+      ...other.map((o) => ({ label: o.category, v: Number(o.h) || 0 })),
+    ],
   };
 }
 

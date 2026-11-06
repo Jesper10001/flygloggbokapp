@@ -366,20 +366,28 @@ export async function importDroneFromFile(
 }
 
 // ── AI-sammanfattning (engelska, punktlista) — speglar pilotens. ───────────────
-const DRONE_SUMMARY_PROMPT = `Du är importassistenten i en DRÖNAR-loggboksapp. Användaren har just importerat (eller försökt importera) en drönarloggfil, och appens AI har analyserat den. Skriv analysen PÅ ENGELSKA som en PUNKTLISTA riktad direkt till användaren.
+// Importrapportens "What we found" (components/import/ImportReport: parseAnalysis), samma form som pilotens.
+const DRONE_SUMMARY_PROMPT = `Du är importassistenten i en DRÖNAR-loggboksapp. Användaren har just importerat (eller försökt importera) en drönarloggfil, och appen har läst den. Skriv en KORT sammanfattning PÅ ENGELSKA till användaren, i enkelt vardagsspråk: som till en drönarpilot, inte till en utvecklare.
 
-FORMAT (följ exakt):
-- Endast punkter. Varje punkt på egen rad, inledd med "- ". Ingen rubrik, ingen hälsning, ingen text före eller efter.
-- 3–6 punkter, varje punkt EN kort mening.
-- Omslut det som AVVIKER eller kräver UPPMÄRKSAMHET med **fetstil**: antaganden, uppskattade/klampade värden, saknad data, konstigheter, fel. Fetmarkera INTE trivial info.
+FORMAT (följ exakt, inga andra rader):
+- Rad 1: en kort mening, högst 12 ord, utan prefix, som säger hur det gick. Exempel: "Your drone log is ready to save."
+- Sedan 1–3 rader. Varje rad börjar med exakt en av:
+  "CHECK: " något användaren bör titta på: ett antagande, ett uppskattat eller kapat värde, något som saknas eller ser konstigt ut, ett fel.
+  "OK: " något viktigt som blev rätt (t.ex. drönare, kategorier eller siktläge).
+  "FIX: " en åtgärd i appen (bara vägarna nedan).
+- CHECK-raderna först. Varje rad är EN mening på högst 14 ord.
+- Fetstil (**…**) på högst tre ord per rad, bara det viktigaste: en siffra, en tid, ett namn.
+- Ingen rubrik, inga bindestreck i början av raderna, ingen hälsning.
 
-INNEHÅLL: vilket format filen ser ut komma från, vad som mappades (datum, modell, kategori, mode, flygtid, natt, landningar), gjorda antaganden, och sådant som ser konstigt ut. Vid importfel: förklara sakligt vad som troligen är fel och hur man exporterar en korrekt CSV.
+SPRÅK: säg "flights", "times", "hours", "your file". Använd INTE tekniska ord som parsed, mapped, rows, column, boolean, field, CSV eller format. Upprepa inte antal flygningar eller total tid (de står redan överst) om det inte är själva poängen.
 
-ÅTGÄRDER: om något kan korrigeras i appen, avsluta med en "Fix: "-punkt med EXAKT väg i **fetstil**:
-- Saknade kategoritimmar → "Fix: top up missing totals in **Settings → Imported data → Backfill missing hours**"
-- Granska/justera importerad data → "Fix: review it in **Settings → Imported data**"
+INNEHÅLL: vilken app filen verkar komma från (bara om det är tydligt) och det som avviker: tider som kapats, saknad flygtid eller datum, okända kategorier, konstiga värden. Allt ser bra ut: rad 1 och en eller två OK-rader, ingen CHECK. Importfel: rad 1 säger att filen inte gick att läsa, en CHECK-rad säger den troliga orsaken och en CHECK-rad hur man exporterar en fil som fungerar.
 
-Var konkret och lugn. Hitta inte på siffror eller andra vägar; använd bara det som skickas in.`;
+ÅTGÄRDER: FIX bara när det passar, och bara med dessa vägar i fetstil:
+- Timmar i en kategori som filen saknade → "FIX: top up missing hours in **Settings → Imported data → Backfill missing hours**"
+- Granska importen i efterhand → "FIX: review it later in **Settings → Imported data**"
+
+Hitta inte på siffror, appar eller andra vägar; använd bara det som skickas in.`;
 
 export interface DroneImportSummaryInput {
   fileName: string;
