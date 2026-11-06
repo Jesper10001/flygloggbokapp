@@ -1,5 +1,5 @@
 // Ny FlightDetail (design-handoff): loggboksfält grupperade för snabb avläsning.
-// Länkar till full-editorn (/flight/[id]) och till boken.
+// Edit uppe till höger öppnar editorn (/flight/add?editId=).
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import { FlightVideo } from '../../../components/FlightVideo';
@@ -148,14 +148,14 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       {/* header */}
       <View style={{ paddingTop: 12, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.separator }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity onPress={onBack} activeOpacity={0.7}
             style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary }}>{placeCode(f.dep_place, f.dep_place_raw)} → {placeCode(f.arr_place, f.arr_place_raw)}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ flexShrink: 1, fontFamily: FONT_SERIF, fontSize: 22, fontWeight: '600', color: Colors.textPrimary }}>{placeCode(f.dep_place, f.dep_place_raw)} → {placeCode(f.arr_place, f.arr_place_raw)}</Text>
               {f.ifr > 0 ? <DetailBadge color={accent} label="IFR" /> : null}
               {f.night > 0 ? <DetailBadge color={NIGHT_BADGE} label="NGT" /> : null}
             </View>
@@ -165,6 +165,10 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
             <Text style={{ fontFamily: FONT_MONO, fontSize: 18, fontWeight: '700', color: accent }}>{dur}</Text>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 8, color: Colors.textMuted, letterSpacing: 1 }}>TOTAL</Text>
           </View>
+          <TouchableOpacity onPress={openEditor} activeOpacity={0.7} hitSlop={6} accessibilityRole="button" accessibilityLabel="Edit flight"
+            style={{ height: 34, paddingHorizontal: 13, borderRadius: 9, justifyContent: 'center', backgroundColor: accent + '18', borderWidth: 1, borderColor: accent + '88' }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Edit</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -237,11 +241,6 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
         {/* Synkad bild/video från fotobiblioteket (photo_local_id) + byt/välj */}
         <FlightSyncedPhoto flight={f} accent={accent} onChanged={() => getFlightById(id).then(setFlight)} />
 
-        <TouchableOpacity onPress={openEditor} activeOpacity={0.8}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1, borderColor: accent, backgroundColor: accent + '18', marginBottom: 10 }}>
-          <Ionicons name="create-outline" size={16} color={accent} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Open full editor</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={handleDelete} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1.5, borderColor: Colors.danger + '66', backgroundColor: Colors.danger + '12', marginTop: 20 }}>
           <Ionicons name="trash-outline" size={16} color={Colors.danger} />

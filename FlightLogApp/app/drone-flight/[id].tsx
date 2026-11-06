@@ -1,5 +1,5 @@
 // Drönar-flight-detalj — VISUELL TVILLING till pilotens FlightDetailView (app/flight/detail/[id].tsx):
-// samma header (rutt/plats + total + badges), grupperade sektionskort och remarks — men DR-tema,
+// samma header (rutt/plats + total + badges + Edit), grupperade sektionskort och remarks — men DR-tema,
 // användarens drönar-accent och drönar-relevanta fält. Nås via flightcards (dashboard, loggbok m.m.).
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
@@ -134,7 +134,7 @@ export default function DroneFlightDetail() {
     <View style={{ flex: 1, backgroundColor: DR.background }}>
       {/* header (= pilotläget) */}
       <View style={{ paddingTop: 12, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DR.separator }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}
             style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="chevron-back" size={18} color={DR.text} />
@@ -151,6 +151,10 @@ export default function DroneFlightDetail() {
             <Text style={{ fontFamily: FONT_MONO, fontSize: 18, fontWeight: '700', color: accent }}>{dur}</Text>
             <Text style={{ fontFamily: FONT_MONO, fontSize: 8, color: DR.muted, letterSpacing: 1 }}>TOTAL</Text>
           </View>
+          <TouchableOpacity onPress={openEditor} activeOpacity={0.7} hitSlop={6} accessibilityRole="button" accessibilityLabel="Edit flight"
+            style={{ height: 34, paddingHorizontal: 13, borderRadius: 9, justifyContent: 'center', backgroundColor: accent + '18', borderWidth: 1, borderColor: accent + '88' }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Edit</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -188,11 +192,6 @@ export default function DroneFlightDetail() {
           </View>
         ) : null}
 
-        <TouchableOpacity onPress={openEditor} activeOpacity={0.8}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1, borderColor: accent, backgroundColor: accent + '18', marginBottom: 10 }}>
-          <Ionicons name="create-outline" size={16} color={accent} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: accent }}>Open full editor</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={handleDelete} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1.5, borderColor: DR.danger + '66', backgroundColor: DR.danger + '12', marginTop: 20 }}>
           <Ionicons name="trash-outline" size={16} color={DR.danger} />

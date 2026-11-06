@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Flygningens sida (pilot och drönare) har en Edit-knapp uppe till höger i sidhuvudet, bredvid totaltiden. Knappen "Open full editor" längst ner är borttagen. Rutten i rubriken krymper på en rad om den inte får plats.
 - Stressfactor-sidan är omgjord för att bli enklare (designförslag A):
   - Överst står läget just nu i ord ("Light 55%"), timmarna mot ditt normala och zonskalan med en markör. Den gör att det inte längre står två olika zoner och siffror högst upp.
   - Perioderna är kalenderperioder: Month, 3 months och Year, som man stegar bakåt i med pilarna. "All" och läget som bara visade ditt normala är borttagna.
