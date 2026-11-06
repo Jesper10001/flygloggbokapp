@@ -1,6 +1,6 @@
 // Kameraåkningen i Best week- och Longest XC-kartorna (designvyns "Map replay v3"). Här finns klockan som driver
 // uppspelningen, Apple-kartans kamera (lutning och vridning, satt med setCamera i varje steg) och lagren ovanpå:
-// flygplatser som en kod under punkten, ringar som pulserar vid landning, ljuspunkter, farkosten med glöd och skugga,
+// flygplatser som en kod på punkten (utzoomat) eller strax under, ringar som pulserar vid landning, ljuspunkter, farkosten med glöd och skugga,
 // dimma mot horisonten och glaspanelen. MapKit använder kamerans lutning och vridning bara när pitchEnabled och
 // rotateEnabled är på, så kartorna har dem på hela tiden.
 
@@ -162,18 +162,24 @@ export function useReplay(total: number) {
   return { t, playing, play, halt, seek };
 }
 
-// Flygplats: koden i en liten etikett strax under punkten (vyn är symmetrisk kring koordinaten, utan centerOffset).
-export function StopMarker({ p, code, visited }: { p: GeoPt; code: string; visited: boolean }) {
+// Flygplats: koden i en liten etikett. I uppspelningen strax under punkten, eftersom farkosten står på själva punkten;
+// onRoute = mitt på punkten, så att etiketten sitter på rutten (förhandsbilderna). Vyn är symmetrisk kring koordinaten,
+// så den hamnar rätt utan centerOffset.
+export function StopMarker({ p, code, visited, onRoute = false }: { p: GeoPt; code: string; visited: boolean; onRoute?: boolean }) {
   return (
     <Marker coordinate={toLatLng(p)} zIndex={4} tracksViewChanges={false}>
-      <View pointerEvents="none" style={{ width: 52, height: 80 }}>
-        <View style={[k.stop, { borderColor: visited ? 'rgba(0,200,232,0.75)' : '#33475C' }]}>
+      <View pointerEvents="none" style={{ width: 52, height: onRoute ? 18 : 80 }}>
+        <View style={[k.stop, onRoute && { top: 0 }, { borderColor: visited ? 'rgba(0,200,232,0.75)' : '#33475C' }]}>
           <Text numberOfLines={1} style={[k.stopText, { color: visited ? '#FFFFFF' : '#8FA3B8' }]}>{code}</Text>
         </View>
       </View>
     </Marker>
   );
 }
+
+// Utzoomat (nära översikten) sitter etiketterna mitt på flygplatserna, annars ser de ut att höra till fel ställe;
+// närmare farkosten strax under punkten, där farkosten står.
+export const labelsOnRoute = (cam: GeoCam | null, ov: GeoCam | null) => !!cam && !!ov && cam.alt >= ov.alt * 0.5;
 
 // Två ringar som växer och tonar bort där farkosten landade. Monteras när landningen sker.
 export function RippleMarker({ p }: { p: GeoPt }) {

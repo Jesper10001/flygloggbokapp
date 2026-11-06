@@ -1,5 +1,5 @@
 // Apple-kartan (standard, mörkt läge) för Best week och Longest XC: en stillastående förhandsbild i korten och på
-// sidorna, och samma lager i helskärmskartorna. Här finns också geometrin (bågar, region, avstånd, kurs) och
+// sidorna, och samma lager i helskärmskartorna. Här finns också geometrin (region, avstånd, kurs) och
 // markörerna: flygplatser, basen med en streckad ring och farkosten som rör sig vid uppspelningen. Allt i cyan.
 
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -32,19 +32,6 @@ export function headingDeg(a: GeoPt, b: GeoPt): number {
 
 export function lerpPt(a: GeoPt, b: GeoPt, f: number): GeoPt {
   return { lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f };
-}
-
-// En båge mellan två flygplatser (dit och hem buktar åt var sitt håll), räknad i ett plan där longituden skalas med cos(lat).
-export function arcCoords(a: GeoPt, b: GeoPt, bend = 0.16, n = 24): LatLng[] {
-  const k = Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180) || 1;
-  const ax = a.lon * k, ay = a.lat, bx = b.lon * k, by = b.lat;
-  const cx = (ax + bx) / 2 - (by - ay) * bend, cy = (ay + by) / 2 + (bx - ax) * bend;
-  const out: LatLng[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n, u = 1 - t;
-    out.push({ latitude: u * u * ay + 2 * u * t * cy + t * t * by, longitude: (u * u * ax + 2 * u * t * cx + t * t * bx) / k });
-  }
-  return out;
 }
 
 // Regionen som ramar in punkterna med marginal; minst ungefär 60 km så att en enda flygplats inte blir inzoomad.
@@ -145,7 +132,7 @@ export function HomeMarker({ p, label, size = 34 }: { p: GeoPt; label?: string; 
   );
 }
 
-// En punkt längs en båge (koordinaterna från arcCoords) vid andelen f, med kursen där.
+// En punkt längs en linje av punkter (lika tätt mellan dem) vid andelen f, med kursen där.
 export function alongArc(pts: LatLng[], f: number): { p: GeoPt; heading: number } {
   const n = pts.length - 1;
   const x = Math.max(0, Math.min(1, f)) * n, i = Math.min(n - 1, Math.floor(x)), r = x - i;

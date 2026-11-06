@@ -2,7 +2,7 @@
 // tonar in över översikten, sedan dag för dag: dagens namn glider in och kameran följer varje resa för sig, mitt i bild,
 // på en höjd efter resans längd (som Longest XC), så en kort och en lång resa samma dag båda går att följa. Mellan
 // resorna glider kameran över till nästa. Dagar med bara lokala flygningar zoomar in på basen, vilodagar blinkar förbi.
-// Till sist drar kameran sig upp till hela veckan, ljuspunkter löper längs alla bågar och sammanfattningen kommer upp.
+// Till sist drar kameran sig upp till hela veckan, ljuspunkter löper längs alla resor och sammanfattningen kommer upp.
 // Ett tryck på en dag hoppar dit. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore), annars kan
 // skärmen låsa sig.
 
@@ -16,10 +16,10 @@ import { Colors } from '../../constants/colors';
 import { useBestWeekFull } from '../../hooks/useMilestoneDetails';
 import { useMapScreenStore } from '../../store/mapScreenStore';
 import { getAircraftCategory } from '../../db/flights';
-import { arcCoords, alongArc, regionFor, toLatLng, nmBetween, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
+import { alongArc, regionFor, toLatLng, nmBetween, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
-  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp,
-  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle,
+  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, gcPath,
+  StopMarker, labelsOnRoute, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle,
   REPLAY_BG, type GeoCam,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
@@ -45,13 +45,14 @@ function dayParts(iso: string): { name: string; date: string } {
   return { name: DOW_LONG[dt.getDay()], date: `${dt.getDate()} ${MONTH_LONG[dt.getMonth()]}` };
 }
 
-interface Trip { key: string; day: number; from: string; to: string; arc: LatLng[]; nm: number; type: string; t0: number; t1: number; alt: number; pitch: number }
+// path: resan i raka sträck längs storcirkeln, som i Longest XC.
+interface Trip { key: string; day: number; from: string; to: string; path: LatLng[]; nm: number; type: string; t0: number; t1: number; alt: number; pitch: number }
 interface Chapter { day: number; kind: 'fly' | 'local' | 'rest'; t0: number; t1: number }
 // Kameran som en följd av avsnitt: stå still, glida mellan två kameror, eller följa en resa.
 type Seg = { t0: number; t1: number } & ({ kind: 'hold'; c: GeoCam } | { kind: 'blend'; a: GeoCam; b: GeoCam } | { kind: 'chase'; trip: Trip });
 
 const fracOf = (x: Trip, t: number) => { const lin = clamp((t - x.t0) / (x.t1 - x.t0), 0, 1); return lin * 0.85 + ease(lin) * 0.15; };
-const tripCam = (x: Trip, f: number): GeoCam => { const p = alongArc(x.arc, f); return chaseCam(p.p, p.heading, x.alt, x.pitch, 0); };
+const tripCam = (x: Trip, f: number): GeoCam => { const p = alongArc(x.path, f); return chaseCam(p.p, p.heading, x.alt, x.pitch, 0); };
 
 export default function BestWeekMapScreen() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function BestWeekMapScreen() {
       for (const f of day.flights) {
         if (f.local || !coords[f.dep] || !coords[f.arr]) continue;
         const nm = nmBetween(coords[f.dep], coords[f.arr]);
-        trips.push({ key: `${f.id}`, day: i, from: f.dep, to: f.arr, arc: arcCoords(coords[f.dep], coords[f.arr]), nm, type: f.aircraftType, t0: 0, t1: 0, alt: altFor(nm), pitch: pitchFor(nm) });
+        trips.push({ key: `${f.id}`, day: i, from: f.dep, to: f.arr, path: gcPath(coords[f.dep], coords[f.arr], 0, 1, nm).map(toLatLng), nm, type: f.aircraftType, t0: 0, t1: 0, alt: altFor(nm), pitch: pitchFor(nm) });
       }
     });
     const secs = trips.map((x) => tripSecFor(x.nm)), sum = secs.reduce((a, b) => a + b, 0), k = sum > MAX_TRIPS ? MAX_TRIPS / sum : 1;
@@ -194,22 +195,22 @@ export default function BestWeekMapScreen() {
   const active = trips.find((x) => t >= x.t0 && t < x.t1) ?? null;
   const af = active ? fracOf(active, t) : 0;
 
-  // Bågarna ritas om åtta gånger i sekunden, inte varje steg (Apple-kartan flimrar annars).
+  // Linjerna ritas om åtta gånger i sekunden, inte varje steg (Apple-kartan flimrar annars).
   const step = Math.floor(t * 8);
   const lines = useMemo(() => {
     const bright: LatLng[][] = [], dim: LatLng[][] = [], next: LatLng[][] = [];
     let head: LatLng[] = [];
     for (const x of trips) {
-      if (done) { bright.push(x.arc); continue; }
-      if (t >= x.t1) (ch && x.day === ch.day ? bright : dim).push(x.arc);
+      if (done) { bright.push(x.path); continue; }
+      if (t >= x.t1) (ch && x.day === ch.day ? bright : dim).push(x.path);
       else if (x === active) {
-        const n = x.arc.length - 1, cut = Math.max(1, Math.round(af * n));
-        const tip = alongArc(x.arc, af).p;
-        bright.push([...x.arc.slice(0, cut), toLatLng(tip)]);
-        next.push([toLatLng(tip), ...x.arc.slice(cut)]);
+        const n = x.path.length - 1, cut = Math.min(n, Math.floor(af * n) + 1);
+        const tip = alongArc(x.path, af).p;
+        bright.push([...x.path.slice(0, cut), toLatLng(tip)]);
+        next.push([toLatLng(tip), ...x.path.slice(cut)]);
         const hl = Math.min(af, Math.max(10, x.nm * 0.04) / Math.max(1, x.nm), 0.3);
-        head = Array.from({ length: 7 }, (_, k) => toLatLng(alongArc(x.arc, af - hl + (hl * k) / 6).p));
-      } else if (ch && x.day === ch.day) next.push(x.arc);
+        head = Array.from({ length: 7 }, (_, k) => toLatLng(alongArc(x.path, af - hl + (hl * k) / 6).p));
+      } else if (ch && x.day === ch.day) next.push(x.path);
     }
     return { bright, dim, next, head };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,13 +229,13 @@ export default function BestWeekMapScreen() {
   // Farkosten under en flygdag: på resan, på marken där den senaste resan landade, eller vid dagens första avgång.
   const dayTrips = ch && ch.kind === 'fly' ? trips.filter((x) => x.day === ch.day) : [];
   const lastDone = [...dayTrips].reverse().find((x) => t >= x.t1) ?? null;
-  const plane = active ? alongArc(active.arc, af)
-    : lastDone ? alongArc(lastDone.arc, 1)
-    : dayTrips.length && t >= ch!.t0 + DAY_IN * 0.5 ? alongArc(dayTrips[0].arc, 0) : null;
+  const plane = active ? alongArc(active.path, af)
+    : lastDone ? alongArc(lastDone.path, 1)
+    : dayTrips.length && t >= ch!.t0 + DAY_IN * 0.5 ? alongArc(dayTrips[0].path, 0) : null;
   const planeType = (active ?? lastDone ?? dayTrips[0])?.type ?? '';
   const acAngle = useScreenAngle(mapRef, plane ? plane.p : null, plane ? plane.heading : 0, Math.max(2000, (cam?.alt ?? 20000) * 0.04), `${step}-${regionTick}`);
   const lift = active ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp((t - active.t0) / (active.t1 - active.t0), 0, 1)), 0.35) + 2 : 2;
-  const pulses = done && t > fin + 1.6 ? trips.map((x, k) => alongArc(x.arc, ((t - fin) * 0.4 + k * 0.137) % 1).p) : [];
+  const pulses = done && t > fin + 1.6 ? trips.map((x, k) => alongArc(x.path, ((t - fin) * 0.4 + k * 0.137) % 1).p) : [];
 
   const nmSoFar = done ? totalNm : trips.reduce((s, x) => s + (t >= x.t1 ? x.nm : x === active ? x.nm * af : 0), 0);
   const hSoFar = done ? weekH : chapters.reduce((s, c) => s + (t >= c.t1 ? d.days[c.day].hours : t >= c.t0 ? d.days[c.day].hours * ((t - c.t0) / (c.t1 - c.t0)) : 0), 0);
@@ -285,7 +286,7 @@ export default function BestWeekMapScreen() {
         {lines.bright.map((c, i) => <Polyline key={`g${i}`} coordinates={c} strokeColor="rgba(0,200,232,0.18)" strokeWidth={11} lineCap="round" lineJoin="round" />)}
         {lines.bright.map((c, i) => <Polyline key={`b${i}`} coordinates={c} strokeColor={MAP_CYAN} strokeWidth={2.8} lineCap="round" lineJoin="round" />)}
         {lines.head.length > 1 ? <Polyline coordinates={lines.head} strokeColors={headColors} strokeWidth={2.6} lineCap="round" /> : null}
-        {airports.filter((k) => seen[k]).map((k) => <StopMarker key={k} p={coords[k]} code={k} visited={seen[k] === 2} />)}
+        {airports.filter((k) => seen[k]).map((k) => <StopMarker key={k} p={coords[k]} code={k} visited={seen[k] === 2} onRoute={labelsOnRoute(cam, ov)} />)}
         {trips.map((x) => (t >= x.t1 && t - x.t1 < 1.5 ? <RippleMarker key={`r${x.key}`} p={coords[x.to]} /> : null))}
         {ch && ch.kind === 'local' && home && t >= ch.t0 + 0.9 ? <RippleMarker key={`l${ch.day}`} p={coords[home]} /> : null}
         {pulses.map((p, i) => <GlowDot key={`p${i}`} p={p} />)}

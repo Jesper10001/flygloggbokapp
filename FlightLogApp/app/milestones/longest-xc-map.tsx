@@ -18,7 +18,7 @@ import { useMapScreenStore } from '../../store/mapScreenStore';
 import { toLatLng, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
   useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp, gcPoint, gcPath, gcCourse,
-  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle, REPLAY_BG, type GeoCam,
+  StopMarker, labelsOnRoute, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle, REPLAY_BG, type GeoCam,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
@@ -295,7 +295,7 @@ export default function LongestXcMapScreen() {
           <Polyline key={`c${i}`} coordinates={seg.map(toLatLng)} strokeColor={MAP_CYAN} strokeWidth={3} lineCap="round" lineJoin="round" />
         ))}
         {lines.head.length > 1 ? <Polyline coordinates={lines.head.map(toLatLng)} strokeColors={headColors} strokeWidth={2.8} lineCap="round" /> : null}
-        {stops.map((x) => <StopMarker key={x.k} p={x.p} code={x.k} visited={t >= x.at} />)}
+        {stops.map((x) => <StopMarker key={x.k} p={x.p} code={x.k} visited={t >= x.at} onRoute={labelsOnRoute(cam, ov)} />)}
         {legs.map((l, j) => (t >= l.t1 && t - l.t1 < 1.5 ? <RippleMarker key={`r${j}`} p={l.b} /> : null))}
         {glow.map((p, i) => <GlowDot key={`d${i}`} p={p} />)}
         {S && rv < 1 ? <ReplayAircraft p={S.pos} heli={d.heli} heading={acAngle} spinning={playing && !S.ground} lift={lift} /> : null}

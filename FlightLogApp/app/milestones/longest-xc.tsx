@@ -116,7 +116,7 @@ export default function LongestXcScreen() {
             <StaticMap region={region} style={s.map} fade={Colors.background}>
               <GlowLine coords={d.legs.map(toLatLng)} width={2.4} />
               {d.legs.filter((p, i, arr) => arr.findIndex((q) => q.icao === p.icao) === i).map((p) => (
-                <StopMarker key={p.icao} p={p} code={p.icao} visited />
+                <StopMarker key={p.icao} p={p} code={p.icao} visited onRoute />
               ))}
             </StaticMap>
             <Glass style={s.expand}><Ionicons name="expand-outline" size={14} color="#DCE4EE" /></Glass>

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useBestWeekFull, type BWTop5Row } from '../../hooks/useMilestoneDetails';
-import { StaticMap, GlowLine, HomeMarker, arcCoords, regionFor, MAP_CYAN } from '../../components/milestones/MilestoneMap';
+import { StaticMap, GlowLine, HomeMarker, regionFor, toLatLng, MAP_CYAN } from '../../components/milestones/MilestoneMap';
 import { StopMarker, Glass } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
@@ -172,9 +172,9 @@ export default function BestWeekScreen() {
             <Pressable onPress={openMap} accessibilityRole="button" accessibilityLabel="Open the map and replay the week">
               <StaticMap region={region} style={s.map} fade={Colors.background}>
                 {trips.map((t, i) => (
-                  <GlowLine key={`${t.id}-${i}`} coords={arcCoords(geo!.coords[t.dep], geo!.coords[t.arr])} width={t.day === sel ? 2.2 : 1.4} dim={t.day !== sel} />
+                  <GlowLine key={`${t.id}-${i}`} coords={[toLatLng(geo!.coords[t.dep]), toLatLng(geo!.coords[t.arr])]} width={t.day === sel ? 2.2 : 1.4} dim={t.day !== sel} />
                 ))}
-                {away.map((k) => <StopMarker key={k} p={geo!.coords[k]} code={k} visited={trips.some((t) => t.day === sel && (t.dep === k || t.arr === k))} />)}
+                {away.map((k) => <StopMarker key={k} p={geo!.coords[k]} code={k} visited={trips.some((t) => t.day === sel && (t.dep === k || t.arr === k))} onRoute />)}
                 {home && geo?.home ? (
                   <HomeMarker p={home} label={geo.localCount ? `${geo.home} · ${geo.localCount} local · ${geo.localLandings} landings` : geo.home} />
                 ) : null}

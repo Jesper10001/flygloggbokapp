@@ -1,5 +1,5 @@
 // Korten för Best week och Longest XC längst ner i Insights: lika breda, med Apple-kartan som förhandsbild.
-// Best week visar veckans resor som bågar och basen med en streckad ring, Longest XC dagens rutt. Allt i cyan.
+// Best week visar veckans resor som raka linjer och basen med en streckad ring, Longest XC dagens rutt. Allt i cyan.
 
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { Colors } from '../../constants/colors';
 import { FONT_LED7 } from '../logflight/tokens';
 import type { BestWeekDetails } from '../../hooks/useMilestoneDetails';
 import type { RouteLeg } from './MiniRouteMap';
-import { StaticMap, GlowLine, HomeMarker, arcCoords, regionFor, toLatLng, MAP_CYAN } from './MilestoneMap';
+import { StaticMap, GlowLine, HomeMarker, regionFor, toLatLng, MAP_CYAN } from './MilestoneMap';
 
 const MONO = 'JetBrainsMono';
 
@@ -33,7 +33,7 @@ export function BestWeekMapCard({ hoursLabel, weekLabel, details, onPress }: { h
   return (
     <CardShell dot={Colors.accent} title="BEST WEEK" onPress={onPress} a11y={`Best week, ${hoursLabel} hours, ${weekLabel}. Open`}>
       <StaticMap region={regionFor(Object.values(coords))} style={c.map} fade={Colors.card}>
-        {trips.map((t, i) => <GlowLine key={i} coords={arcCoords(coords[t.from], coords[t.to])} width={1.6} />)}
+        {trips.map((t, i) => <GlowLine key={i} coords={[toLatLng(coords[t.from]), toLatLng(coords[t.to])]} width={1.6} />)}
         {home ? <HomeMarker p={home} size={20} /> : null}
       </StaticMap>
       <View style={c.valueRow}>

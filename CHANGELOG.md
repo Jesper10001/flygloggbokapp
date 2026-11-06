@@ -15,6 +15,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Rättat: flygplatsernas etiketter på Longest XC- och Best week-kartorna satt en bit under punkten och såg ut att höra till fel ställe när kartan var utzoomad. På sidornas förhandskartor (och Best week-kortet i Insights) sitter de nu mitt på flygplatsen, på rutten. I uppspelningarna sitter de mitt på punkten när kameran är utzoomad, och strax under när den följer farkosten, där farkosten står på punkten.
+- Best week ritas och spelas upp i raka sträck (storcirkeln, som Longest XC) i stället för bågar, i uppspelningen, på sidan och på Insights-kortet.
 - Rättat: "Manage subscription" på profilsidan gjorde ingenting. Profilsidan öppnades som modalfönster, och RevenueCats Customer Center visas från appens rotvy, som redan visade modalfönstret. Då syntes inget, och knappen fick inget svar. Profilsidan öppnas nu som en vanlig sida med tillbakapil, så att Customer Center och paywallen kan visas ovanpå.
 - Settings har en paywall-knapp direkt under Profile som alltid pekar en nivå uppåt.
   - Gratis: "Upgrade to Premium · Unlimited flights". I TestFlight visar paywallen även Max.
