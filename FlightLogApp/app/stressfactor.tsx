@@ -1,8 +1,9 @@
 // Stressfactor: hur Flight load (arbetsbelastningen) har varierat över tid. Öppnas från dashboardens
-// Stressfactor-knapp (pilot och drönare, ?mode=drone). Y = Flight load i procent av ditt normala tempo,
-// X = tid. Varje dag räknas som dashboardens siffra gjorde den dagen (utils/workload: stressSeries), med samma
-// zoner och färger. Fokus på grafen och de intensiva perioderna (busy periods): perioderna skuggas i grafen,
-// och ett tryck i listan lyser upp perioden. Dra fingret i grafen för att se en dag.
+// Stressfactor-knapp (pilot och drönare, ?mode=drone). Överst läget just nu i ord, med zonskalan och en markör.
+// Under: en kalenderperiod (månad, tre månader eller år) som man stegar bakåt i med pilarna, en graf i procent av
+// ditt normala där normalzonen är ett fast band (70–130 %) och zonernas namn står längs kanten, en mening om
+// perioden och periodens busy periods. Varje dag räknas som dashboardens siffra gjorde den dagen (utils/workload:
+// stressSeries), med samma zoner och färger. Dra fingret i grafen för att se en dag.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions, PanResponder, ActivityIndicator, Platform } from 'react-native';
@@ -19,18 +20,23 @@ import { getDroneStressDaily } from '../db/drones';
 import { formatTimeValue } from '../hooks/useTimeFormat';
 import { useTimeFormatStore } from '../store/timeFormatStore';
 
-type Range = '2M' | '6M' | '1Y' | 'All';
-const RANGE_DAYS: Record<Exclude<Range, 'All'>, number> = { '2M': 60, '6M': 182, '1Y': 365 };
+type Span = 'month' | '3m' | 'year';
+const SPANS: { key: Span; label: string }[] = [{ key: 'month', label: 'Month' }, { key: '3m', label: '3 months' }, { key: 'year', label: 'Year' }];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// Zonernas gränser (%), samma som stressZone.
-const BANDS: { zone: StressZone; from: number; to: number }[] = [
+// Zonernas gränser (%), samma som stressZone. Grafen slutar vid 250 %, så Critical ritas 200–250.
+const MAX_PCT = 250;
+const ZONES: { zone: StressZone; from: number; to: number }[] = [
   { zone: 'low', from: 0, to: 30 }, { zone: 'light', from: 30, to: 70 }, { zone: 'normal', from: 70, to: 130 },
-  { zone: 'elevated', from: 130, to: 170 }, { zone: 'high', from: 170, to: 200 }, { zone: 'critical', from: 200, to: 10000 },
+  { zone: 'elevated', from: 130, to: 170 }, { zone: 'high', from: 170, to: 200 }, { zone: 'critical', from: 200, to: MAX_PCT },
 ];
+const zoneName = (z: StressZone) => z.charAt(0).toUpperCase() + z.slice(1);
 
 const DAY = 86400000;
 const parse = (iso: string) => new Date(iso + 'T00:00:00Z');
+const isoOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+const dayNum = (iso: string) => Math.round(parse(iso).getTime() / DAY);
 const shortDate = (iso: string) => { const d = parse(iso); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
 const longDate = (iso: string) => { const d = parse(iso); return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
 const periodLabel = (a: string, b: string) => {
@@ -39,7 +45,19 @@ const periodLabel = (a: string, b: string) => {
   return `${shortDate(a)}${sameYear ? '' : ` ${x.getUTCFullYear()}`} – ${shortDate(b)} ${y.getUTCFullYear()}`;
 };
 
-type Period = { from: string; to: string; days: number; peak: number; i0: number; i1: number; peakIdx: number };
+// Kalenderperioden: off = antal steg bakåt från den som innehåller idag.
+function periodOf(span: Span, off: number, today: string): { from: string; to: string; label: string } {
+  const t = parse(today), y = t.getUTCFullYear(), m = t.getUTCMonth();
+  if (span === 'year') return { from: isoOf(Date.UTC(y - off, 0, 1)), to: isoOf(Date.UTC(y - off + 1, 0, 1) - DAY), label: String(y - off) };
+  const first = span === 'month' ? m - off : m - 3 * off - 2, last = span === 'month' ? m - off : m - 3 * off;
+  const a = new Date(Date.UTC(y, first, 1)), b = new Date(Date.UTC(y, last + 1, 1) - DAY);
+  const label = span === 'month'
+    ? `${MONTHS_LONG[a.getUTCMonth()]} ${a.getUTCFullYear()}`
+    : `${MONTHS[a.getUTCMonth()]}${a.getUTCFullYear() !== b.getUTCFullYear() ? ` ${a.getUTCFullYear()}` : ''} – ${MONTHS[b.getUTCMonth()]} ${b.getUTCFullYear()}`;
+  return { from: isoOf(a.getTime()), to: isoOf(b.getTime()), label };
+}
+
+type Period = { from: string; to: string; days: number; peak: number; peakPoint: StressPoint };
 
 export default function StressfactorScreen() {
   const router = useRouter();
@@ -48,55 +66,71 @@ export default function StressfactorScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const { timeFormat } = useTimeFormatStore();
   const [all, setAll] = useState<StressPoint[] | null>(null);
-  const [range, setRange] = useState<Range>('2M');
-  const [sel, setSel] = useState<number | null>(null);
-  const [selPeriod, setSelPeriod] = useState<string | null>(null);   // periodens första datum
+  const [daily, setDaily] = useState<Record<string, number>>({});
+  const [span, setSpan] = useState<Span>('3m');
+  const [off, setOff] = useState(0);
+  const [sel, setSel] = useState<string | null>(null);              // vald dag
+  const [selPeriod, setSelPeriod] = useState<string | null>(null);  // vald busy period (första datumet)
+  const [how, setHow] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Hela historiken räknas en gång (snabbt: ~10 ms för tre år); intervallen är utsnitt.
+  // Hela historiken räknas en gång (snabbt: ~10 ms för tre år); perioderna är utsnitt.
   useEffect(() => {
-    (mode === 'drone' ? getDroneStressDaily() : getStressDaily()).then((daily) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const first = Object.keys(daily).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()[0];
-      const from = first && first < today ? first : new Date(Date.now() - 59 * DAY).toISOString().slice(0, 10);
-      setAll(stressSeries(daily, from, today));
+    (mode === 'drone' ? getDroneStressDaily() : getStressDaily()).then((d) => {
+      const first = Object.keys(d).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort()[0];
+      const from = first && first < today ? first : isoOf(Date.now() - 59 * DAY);
+      setDaily(d);
+      setAll(stressSeries(d, from, today));
     }).catch(() => setAll([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+  useEffect(() => { setSel(null); setSelPeriod(null); }, [span, off]);
 
-  const points = useMemo(() => {
-    if (!all) return [];
-    return range === 'All' ? all : all.slice(-RANGE_DAYS[range]);
-  }, [all, range]);
-  const summary = stressFactorSummary(all ? all.slice(-60) : []);
-  // Perioderna med sina index i grafen (för skuggningen och för att välja toppen).
-  const periods: Period[] = useMemo(() => busyPeriods(points).map((p) => {
-    const i0 = points.findIndex((x) => x.date === p.from), i1 = points.findIndex((x) => x.date === p.to);
-    let peakIdx = i0;
-    for (let i = i0; i <= i1; i++) if (points[i].index > points[peakIdx].index) peakIdx = i;
-    return { ...p, i0, i1, peakIdx };
-  }), [points]);
-  useEffect(() => { setSel(null); setSelPeriod(null); }, [range]);
+  const period = periodOf(span, off, today);
+  const vis = useMemo(() => (all ?? []).filter((p) => p.date >= period.from && p.date <= period.to), [all, period.from, period.to]);
+  const periods: Period[] = useMemo(() => busyPeriods(vis).map((p) => {
+    const inside = vis.filter((x) => x.date >= p.from && x.date <= p.to);
+    return { ...p, peakPoint: inside.reduce((a, b) => (b.index > a.index ? b : a)) };
+  }), [vis]);
 
-  const selected = points.length ? points[sel ?? points.length - 1] : null;
-  // All: bara ditt normala över tid (inte Stressfactor).
-  const normalOnly = range === 'All';
-  const normalStats = useMemo(() => {
-    const withN = points.filter((p) => p.baseline14 > 0);
-    if (!withN.length) return null;
-    const now = withN[withN.length - 1];
-    const yearAgo = withN.find((p) => p.date >= new Date(parse(now.date).getTime() - 365 * DAY).toISOString().slice(0, 10)) ?? null;
-    const max = withN.reduce((a, b) => (b.baseline14 > a.baseline14 ? b : a));
-    const min = withN.reduce((a, b) => (b.baseline14 < a.baseline14 ? b : a));
-    const change = yearAgo && yearAgo !== now ? Math.round((now.baseline14 / yearAgo.baseline14 - 1) * 100) : 0;
-    return { now, max, min, since: withN[0].date, yearAgo: yearAgo && yearAgo !== now ? yearAgo : null, change };
-  }, [points]);
   const fmtH = (h: number) => formatTimeValue(h, timeFormat);
   const hasData = !!all && all.some((p) => p.hours14 > 0 || p.baseline14 > 0);
-  const longest = Math.max(1, ...periods.map((p) => p.days));
+  const noBack = !all?.length || period.from <= all[0].date;
+  const noFwd = off === 0;
+  const flown = Object.entries(daily).reduce((s, [d, h]) => (d >= period.from && d <= period.to ? s + (h || 0) : s), 0);
+  const selected = sel ? vis.find((p) => p.date === sel) ?? null : null;
+
+  // Läget just nu, och var på zonskalan det ligger.
+  const cur = all && all.length ? all[all.length - 1] : null;
+  const curZone = cur ? stressZone(cur.index) : 'low';
+  const marker = (() => {
+    if (!cur) return 0;
+    const v = Math.min(cur.index, MAX_PCT);
+    const k = Math.max(0, ZONES.findIndex((z) => z.zone === curZone));
+    const z = ZONES[k];
+    return ((k + Math.max(0, Math.min(1, (v - z.from) / (z.to - z.from)))) / ZONES.length) * 100;
+  })();
+
+  // Perioden i en mening.
+  const summary = (() => {
+    if (!vis.length) return { title: 'No flight load in this period.', sub: '' };
+    const count: Partial<Record<StressZone, number>> = {};
+    vis.forEach((p) => { const z = stressZone(p.index); count[z] = (count[z] ?? 0) + 1; });
+    const top = (Object.keys(count) as StressZone[]).reduce((a, b) => ((count[b] ?? 0) > (count[a] ?? 0) ? b : a));
+    const busy = periods.length ? `, with ${periods.length} busy ${periods.length === 1 ? 'period' : 'periods'}` : '';
+    return { title: `Mostly ${top}${busy}.`, sub: `Average ${stressFactorSummary(vis).avg}% · Drag across the chart to see a day.` };
+  })();
+
   const choosePeriod = (p: Period) => {
     Haptics.selectionAsync().catch(() => {});
     const same = selPeriod === p.from;
     setSelPeriod(same ? null : p.from);
-    setSel(same ? null : p.peakIdx);
+    setSel(same ? null : p.peakPoint.date);
+  };
+  const step = (d: number) => {
+    if ((d > 0 && noBack) || (d < 0 && noFwd)) return;
+    Haptics.selectionAsync().catch(() => {});
+    setOff(off + d);
   };
 
   return (
@@ -113,125 +147,133 @@ export default function StressfactorScreen() {
 
       {!all ? (
         <View style={s.center}><ActivityIndicator color={Colors.primary} /></View>
-      ) : !hasData ? (
+      ) : !hasData || !cur ? (
         <View style={s.center}>
           <Ionicons name="pulse-outline" size={36} color={Colors.textSecondary} />
           <Text style={s.emptyTitle}>No flight load yet</Text>
           <Text style={s.emptyText}>Log or import a few flights and your Stressfactor builds up from there.</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: insets.bottom + 40, gap: 18 }} showsVerticalScrollIndicator={false}>
-          {/* De senaste två månaderna, på en rad (samma färg som knappen på dashboarden). */}
-          <View style={s.summary}>
-            <View style={[s.pill, { backgroundColor: loadZoneColor(summary.zone) + '1F', borderColor: loadZoneColor(summary.zone) + '59' }]}>
-              <Text style={[s.pillText, { color: loadZoneColor(summary.zone) }]}>{summary.zone.toUpperCase()}</Text>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: insets.bottom + 40, gap: 22 }} showsVerticalScrollIndicator={false}>
+          {/* Just nu: zonen i ord, timmarna mot ditt normala och markören på zonskalan. */}
+          <View style={{ gap: 6 }}>
+            <Text style={s.eyebrow}>Right now</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+              <Text style={[s.heroZone, { color: loadZoneColor(curZone) }]}>{zoneName(curZone)}</Text>
+              <Text style={[s.heroPct, { color: loadZoneColor(curZone) }]}>{cur.index}%</Text>
             </View>
-            <Text style={s.summaryText}>avg {summary.avg}% over the last 2 months</Text>
+            <Text style={s.heroSub}>
+              {fmtH(cur.hours14)} h in the last 14 days{cur.baseline14 > 0 ? `. Your normal is ${fmtH(cur.baseline14)} h.` : '.'}
+            </Text>
+            <View style={{ marginTop: 10, gap: 6 }}>
+              <View style={s.gauge}>
+                {ZONES.map((z) => (
+                  <View key={z.zone} style={[s.gaugeSeg, { backgroundColor: loadZoneColor(z.zone), opacity: z.zone === curZone ? 1 : 0.28 }]} />
+                ))}
+                <View style={[s.gaugeDot, { left: `${marker}%` }]} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 3 }}>
+                {ZONES.map((z) => (
+                  <Text key={z.zone} numberOfLines={1} style={[s.gaugeLabel, { color: z.zone === curZone ? loadZoneColor(z.zone) : Colors.textSecondary }]}>{zoneName(z.zone)}</Text>
+                ))}
+              </View>
+            </View>
           </View>
 
-          {/* Vald dag (standard: idag) ovanför grafen. All: ditt normala vid den punkten. */}
-          {selected && normalOnly && (
-            <View style={s.readout}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.readDate}>{sel == null ? 'Your normal now' : `Your normal · ${longDate(selected.date)}`}</Text>
-                <Text style={s.readSub}>Flight hours per 14 days, from the 12 months before</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.readValue, { color: Colors.primary }]}>{selected.baseline14 > 0 ? `${fmtH(selected.baseline14)} h` : '–'}</Text>
-                <Text style={[s.readZone, { color: Colors.primary }]}>PER 14 DAYS</Text>
-              </View>
-            </View>
-          )}
-          {selected && !normalOnly && (
-            <View style={s.readout}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.readDate}>{sel == null ? 'Today' : longDate(selected.date)}</Text>
-                <Text style={s.readSub}>{fmtH(selected.hours14)} h in 14 days · normal {fmtH(selected.baseline14)} h</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.readValue, { color: loadZoneColor(stressZone(selected.index)) }]}>{selected.index}%</Text>
-                <Text style={[s.readZone, { color: loadZoneColor(stressZone(selected.index)) }]}>{stressZone(selected.index).toUpperCase()}</Text>
-              </View>
-            </View>
-          )}
+          <View style={s.rule} />
 
           <View style={{ gap: 12 }}>
-            <StressChart points={points} periods={periods} selPeriod={selPeriod} width={width - 32} height={290} selected={sel}
-              log={range === '1Y'} robust={range === '6M' || range === '1Y'} sample={range === '1Y' || range === 'All' ? 14 : undefined}
-              normalOnly={normalOnly}
-              onSelect={(i) => { setSel(i); setSelPeriod(null); }} />
-            <View style={s.segment}>
-              {(['2M', '6M', '1Y', 'All'] as Range[]).map((r) => (
-                <TouchableOpacity key={r} style={[s.segBtn, range === r && s.segOn]} onPress={() => setRange(r)} accessibilityRole="tab" accessibilityState={{ selected: range === r }}>
-                  <Text style={[s.segText, range === r && s.segTextOn]}>{r}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={s.segment} accessibilityRole="tablist">
+              {SPANS.map((x) => {
+                const on = span === x.key;
+                return (
+                  <TouchableOpacity key={x.key} style={[s.segBtn, on && s.segOn]} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                    onPress={() => { if (!on) { Haptics.selectionAsync().catch(() => {}); setSpan(x.key); setOff(0); } }}>
+                    <Text style={[s.segText, on && s.segTextOn]}>{x.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            <View style={s.nav}>
+              <TouchableOpacity style={[s.navBtn, noBack && { opacity: 0.35 }]} onPress={() => step(1)} disabled={noBack} accessibilityLabel="Earlier period">
+                <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', gap: 2 }}>
+                <Text style={s.navLabel}>{period.label}</Text>
+                <Text style={s.navSub}>{period.to > today ? 'So far: ' : ''}{fmtH(flown)} h flown</Text>
+              </View>
+              <TouchableOpacity style={[s.navBtn, noFwd && { opacity: 0.35 }]} onPress={() => step(-1)} disabled={noFwd} accessibilityLabel="Later period">
+                <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <LoadChart points={vis} from={period.from} to={period.to} today={today} span={span} width={width - 32} height={244}
+              selected={sel} highlight={periods.find((p) => p.from === selPeriod) ?? null}
+              onSelect={(d) => { setSel(d); setSelPeriod(null); }} />
+
+            {selected ? (
+              <View style={s.card}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={s.cardTitle}>{longDate(selected.date)}</Text>
+                  <Text style={s.cardSub}>{fmtH(selected.hours14)} h in 14 days · normal {fmtH(selected.baseline14)} h</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[s.cardPct, { color: loadZoneColor(stressZone(selected.index)) }]}>{selected.index}%</Text>
+                  <Text style={[s.cardZone, { color: loadZoneColor(stressZone(selected.index)) }]}>{zoneName(stressZone(selected.index))}</Text>
+                </View>
+                <TouchableOpacity style={s.clear} onPress={() => { setSel(null); setSelPeriod(null); }} hitSlop={8} accessibilityLabel="Clear the selected day">
+                  <Ionicons name="close" size={15} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={[s.card, { flexDirection: 'column', alignItems: 'stretch', gap: 4 }]}>
+                <Text style={s.cardTitle}>{summary.title}</Text>
+                {summary.sub ? <Text style={s.cardSub}>{summary.sub}</Text> : null}
+              </View>
+            )}
           </View>
 
-          {/* All: hur ditt normala har ändrats (i stället för busy periods). */}
-          {normalOnly && normalStats && (
-            <View>
-              <View style={s.sectionHead}>
-                <Text style={s.sectionTitle}>Your normal over time</Text>
-                <Text style={s.sectionMeta}>since {MONTHS[parse(normalStats.since).getUTCMonth()]} {parse(normalStats.since).getUTCFullYear()}</Text>
-              </View>
-              {[
-                { k: 'Now', v: `${fmtH(normalStats.now.baseline14)} h`, d: normalStats.yearAgo ? `${normalStats.change >= 0 ? '+' : '−'}${Math.abs(normalStats.change)}% vs a year ago` : '' },
-                { k: 'Highest', v: `${fmtH(normalStats.max.baseline14)} h`, d: longDate(normalStats.max.date) },
-                { k: 'Lowest', v: `${fmtH(normalStats.min.baseline14)} h`, d: longDate(normalStats.min.date) },
-              ].map((r) => (
-                <View key={r.k} style={s.normRow}>
-                  <Text style={s.normKey}>{r.k}</Text>
-                  <Text style={s.normSub}>{r.d}</Text>
-                  <Text style={s.normVal}>{r.v}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Intensiva perioder: över normalt (130 %) i minst 3 dagar, nyast först. */}
-          {!normalOnly && <View>
+          {/* Busy periods: över normalt (130 %) i minst 3 dagar, nyast först. Ett tryck lyser upp perioden i grafen. */}
+          <View style={{ gap: 8 }}>
             <View style={s.sectionHead}>
               <Text style={s.sectionTitle}>Busy periods</Text>
-              <Text style={s.sectionMeta}>{periods.length ? `${periods.length} in ${range}` : ''}</Text>
+              <Text style={s.sectionMeta}>{periods.length > 6 ? `latest 6 of ${periods.length}` : ''}</Text>
             </View>
             {periods.length === 0 ? (
-              <Text style={s.none}>No stretch above your normal pace in this range.</Text>
-            ) : periods.slice(0, 8).map((p) => {
+              <Text style={s.none}>None in this period. A busy period is three days or more above normal.</Text>
+            ) : periods.slice(0, 6).map((p) => {
               const c = loadZoneColor(stressZone(p.peak));
               const on = selPeriod === p.from;
               return (
-                <TouchableOpacity key={p.from} style={[s.period, on && s.periodOn]} activeOpacity={0.75} onPress={() => choosePeriod(p)}
-                  accessibilityRole="button" accessibilityState={{ selected: on }}>
-                  <View style={{ flex: 1, gap: 6 }}>
-                    <View style={s.periodRow}>
-                      <Text style={s.periodTitle}>{periodLabel(p.from, p.to)}</Text>
-                      <Text style={[s.periodPeak, { color: c }]}>{p.peak}%</Text>
-                    </View>
-                    <View style={s.periodRow}>
-                      <View style={s.track}><View style={[s.trackFill, { width: `${Math.max(6, (p.days / longest) * 100)}%`, backgroundColor: c }]} /></View>
-                      <Text style={s.periodSub}>{p.days} days</Text>
-                    </View>
+                <TouchableOpacity key={p.from} style={[s.period, on && { borderColor: c, backgroundColor: Colors.elevated }]} activeOpacity={0.75}
+                  onPress={() => choosePeriod(p)} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={s.periodTitle}>{periodLabel(p.from, p.to)}</Text>
+                    <Text style={s.periodSub}>{p.days} days · up to {fmtH(p.peakPoint.hours14)} h in 14 days</Text>
+                  </View>
+                  <View style={[s.peakChip, { backgroundColor: c + '24' }]}>
+                    <Text style={[s.peakText, { color: c }]}>{p.peak}%</Text>
                   </View>
                 </TouchableOpacity>
               );
             })}
-          </View>}
+          </View>
 
-          {/* Zonskalan + kort förklaring. */}
-          <View style={{ gap: 8 }}>
-            <View style={s.scale}>
-              {BANDS.map((b) => <View key={b.zone} style={[s.scaleSeg, { backgroundColor: loadZoneColor(b.zone) }]} />)}
-            </View>
-            <View style={s.scaleLabels}>
-              {BANDS.map((b) => <Text key={b.zone} style={s.scaleLabel} numberOfLines={1}>{b.zone === 'critical' ? '200+' : `${b.from}`}</Text>)}
-            </View>
-            <Text style={s.foot}>
-              {normalOnly
-                ? "All shows how your normal has changed: your usual flight hours per 14 days, based on the 12 months before each point, with recent months counting more. Your Stressfactor compares your last 14 days with it. An awareness cue, not a medical or fitness-to-fly measure."
-                : "The line is your flight hours over the previous 14 days. The dashed line is your normal 14-day total, which changes over time: it's based on the past 12 months, with recent months counting more. Each day's Stressfactor compares the two, as they were that day. An awareness cue, not a medical or fitness-to-fly measure."}
-            </Text>
+          {/* Förklaringen, hopfälld. */}
+          <View style={s.howCard}>
+            <TouchableOpacity style={s.howHead} onPress={() => setHow(!how)} activeOpacity={0.75} accessibilityRole="button" accessibilityState={{ expanded: how }}>
+              <Ionicons name="information-circle-outline" size={18} color={Colors.textSecondary} />
+              <Text style={s.howTitle}>How Stressfactor works</Text>
+              <Ionicons name={how ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
+            </TouchableOpacity>
+            {how && (
+              <View style={s.howBody}>
+                <Text style={s.howText}>It compares the hours you flew in the last 14 days with your normal 14 days, worked out from the past 12 months with recent months counting more.</Text>
+                <Text style={s.howText}>The shaded band is normal (70–130%). Above it you flew more than you normally do, below it less.</Text>
+                <Text style={[s.howText, { color: Colors.textSecondary }]}>An awareness cue, not a medical or fitness-to-fly measure.</Text>
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
@@ -240,199 +282,54 @@ export default function StressfactorScreen() {
 }
 
 // ── Grafen ────────────────────────────────────────────────────────────────────
-// Y = timmar de senaste 14 dagarna, X = tid. Ditt normala ändras över tid och ritas som en egen streckad
-// linje, med normal-korridoren (70–130 % av det normala) och zonerna ovanför (130–170 %, 170 %+) runt den.
-// Linjen för dina timmar färgas efter dagens zon. Så syns både hur mycket du flugit och hur ditt normala rört sig.
-// Långa intervall (1Y, All): logaritmisk timaxel (toppar drar inte), och dagarna slås ihop till ungefär en
-// punkt per två pixlar (snitt), så att kurvan blir mjuk och läsbar. Valet och läsningen gäller alltid dagen.
+// Y = Stressfactor i procent av ditt normala (0–250 %), X = periodens dagar (även de som inte kommit än, så att man
+// ser var idag ligger). Normalzonen är ett fast band; zonernas namn står till vänster i stället för siffror. Linjen
+// färgas efter dagens zon. Ett tryck eller drag väljer en dag.
 
-// Jämna steg för den linjära timaxeln (högst ~5 linjer).
-function niceStep(max: number): number {
-  for (const st of [1, 2, 5, 10, 20, 25, 50, 100, 200]) if (max / st <= 5) return st;
-  return 500;
-}
-// Tidsaxelns intervall i månader (0.5 = den 1:a och 15:e); det minsta där etiketterna får plats väljs.
-const TICK_MONTHS = [0.5, 1, 2, 3, 6, 12, 24, 60, 120];
-const TICK_GAP = 34;   // px mellan etiketterna
+const ZONE_LABEL_AT: Record<StressZone, number> = { low: 15, light: 50, normal: 100, elevated: 150, high: 185, critical: 225 };
 
-type Drawn = { i: number; h: number; b: number; index: number };
-
-// Mjuk kurva genom punkterna utan att skjuta över dem (monoton kubisk interpolation, Fritsch–Carlson):
-// tangenterna per punkt, och en Bézier-bit från punkt k till k+1.
-function monotoneTangents(xs: number[], ys: number[]): number[] {
-  const n = xs.length;
-  const d: number[] = [];
-  for (let k = 0; k < n - 1; k++) d.push((ys[k + 1] - ys[k]) / Math.max(1e-6, xs[k + 1] - xs[k]));
-  const m = new Array<number>(n);
-  m[0] = d[0]; m[n - 1] = d[n - 2];
-  for (let k = 1; k < n - 1; k++) m[k] = d[k - 1] * d[k] <= 0 ? 0 : (d[k - 1] + d[k]) / 2;
-  for (let k = 0; k < n - 1; k++) {
-    if (d[k] === 0) { m[k] = 0; m[k + 1] = 0; continue; }
-    const a = m[k] / d[k], b = m[k + 1] / d[k], q = a * a + b * b;
-    if (q > 9) { const t = 3 / Math.sqrt(q); m[k] = t * a * d[k]; m[k + 1] = t * b * d[k]; }
-  }
-  return m;
-}
-function curveTo(xs: number[], ys: number[], m: number[], k: number): string {
-  const h = xs[k + 1] - xs[k];
-  const f = (v: number) => v.toFixed(1);
-  return ` C ${f(xs[k] + h / 3)} ${f(ys[k] + (m[k] * h) / 3)} ${f(xs[k + 1] - h / 3)} ${f(ys[k + 1] - (m[k + 1] * h) / 3)} ${f(xs[k + 1])} ${f(ys[k + 1])}`;
-}
-
-function StressChart({ points, periods, selPeriod, width, height, selected, onSelect, log = false, robust = false, sample, normalOnly = false }: {
-  points: StressPoint[]; periods: Period[]; selPeriod: string | null; width: number; height: number;
-  selected: number | null; onSelect: (i: number) => void; log?: boolean; robust?: boolean; sample?: number;
-  normalOnly?: boolean;   // All: bara ditt normala över tid, som en linje med fyllnad (inga zoner, ingen stress)
+function LoadChart({ points, from, to, today, span, width, height, selected, highlight, onSelect }: {
+  points: StressPoint[]; from: string; to: string; today: string; span: Span; width: number; height: number;
+  selected: string | null; highlight: Period | null; onSelect: (date: string) => void;
 }) {
-  const L = 34, R = 6, T = 8, B = 22;
+  const L = 58, R = 4, T = 8, B = 22;
   const pw = width - L - R, ph = height - T - B;
-  const n = points.length;
-  const x = (i: number) => L + (n > 1 ? (i / (n - 1)) * pw : pw / 2);
+  const d0 = dayNum(from), days = Math.max(1, dayNum(to) - d0);
+  const x = (iso: string) => L + ((dayNum(iso) - d0) / days) * pw;
+  const y = (v: number) => T + (1 - Math.min(Math.max(v, 0), MAX_PCT) / MAX_PCT) * ph;
 
-  // Det som ritas. sample (1Y, All): ett mått varannan vecka — 14-dagarsfönstret som slutar den dagen, räknat
-  // bakåt från idag, så att fönstren inte överlappar och kurvan blir mjuk. Mycket lång historik glesas ut till
-  // en multipel av två veckor (högst en punkt per ~3 px). Annars varje dag, eller snitt av några dagar.
-  const per = Math.max(1, Math.ceil(n / (pw / 2)));
-  const drawn: Drawn[] = [];
-  if (sample && n > 1) {
-    const stepDays = sample * Math.max(1, Math.ceil(n / sample / (pw / 3)));
-    const idx: number[] = [];
-    for (let i = n - 1; i >= 0; i -= stepDays) idx.push(i);
-    for (const i of idx.reverse()) drawn.push({ i, h: points[i].hours14, b: points[i].baseline14, index: points[i].index });
-  } else for (let a = 0; a < n; a += per) {
-    const chunk = points.slice(a, Math.min(n, a + per));
-    const withNormal = chunk.filter((p) => p.baseline14 > 0);
-    drawn.push({
-      i: a + (chunk.length - 1) / 2,
-      h: chunk.reduce((t, p) => t + p.hours14, 0) / chunk.length,
-      b: withNormal.length ? withNormal.reduce((t, p) => t + p.baseline14, 0) / withNormal.length : 0,
-      index: Math.round(chunk.reduce((t, p) => t + p.index, 0) / chunk.length),
-    });
-  }
-
-  // Skalan. Långa intervall (robust) förankras i ditt normala, så att enstaka extremer — dippar till 0 h under
-  // semestern, en ensam topp — inte trycker ihop resten:
-  //  - nederkant: halva ditt normala (men aldrig över korridoren, 70 %); semester och uppehåll hamnar under
-  //  - överkant: ELEVATED-bandet (150 % av normalt) syns alltid; bara de högsta 2 % av dagarna kan gå över.
-  // Det som ligger utanför ritas mot kanten, nedtonat och med en liten pil; avläsningen visar det verkliga
-  // värdet. Utan normalt (nya användare): 5:e–98:e percentilen. Ligger skalan nära noll börjar den på noll.
-  const hours = drawn.map((p) => p.h).sort((u, v) => u - v);
-  const normals = drawn.filter((p) => p.b > 0).map((p) => p.b).sort((u, v) => u - v);
-  const pct = (arr: number[], q: number) => (arr.length ? arr[Math.round(q * (arr.length - 1))] : 0);
-  let lo = 0;
-  let hi = Math.max(1, ...drawn.map((p) => Math.max(p.h, p.b * 1.75))) * 1.05;
-  if (robust && hours.length > 20) {
-    if (normals.length > 10) {
-      const nLo = pct(normals, 0.05), nHi = pct(normals, 0.95);
-      lo = Math.min(Math.max(pct(hours, 0.05), nLo * 0.5), nLo * 0.7);
-      hi = Math.max(pct(hours, 0.98), nHi * 1.5);
-    } else {
-      lo = pct(hours, 0.05);
-      hi = Math.max(pct(hours, 0.98), lo + 1);
-    }
-  }
-  if (lo < Math.max(3, hi * 0.15)) lo = 0;   // låga nivåer: ingen inzoomning på småskillnader
-  if (normalOnly) { lo = 0; hi = Math.max(1, ...drawn.map((p) => p.b)) * 1.2; }
-  const tf = (h: number) => {
-    const v = Math.min(Math.max(h, lo), hi);
-    return log ? (lo > 0 ? Math.log(v) : Math.log1p(v)) : v;
-  };
-  const t0 = tf(lo), t1 = tf(hi);
-  const padLo = lo === 0 ? 0 : (t1 - t0) * 0.06, padHi = (t1 - t0) * 0.06;
-  const y = (h: number) => T + (1 - (tf(h) - (t0 - padLo)) / (t1 + padHi - (t0 - padLo))) * ph;
-  const side = (h: number) => (h < lo - 1e-9 ? -1 : h > hi + 1e-9 ? 1 : 0);   // utanför skalan: under / över
-
-  // Stödlinjer: logaritmiska steg eller jämna steg inom skalan, aldrig tätare än 16 px.
-  let gridV: number[] = [];
-  if (log) gridV = [0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 70, 100, 150, 200, 300, 500];
-  else { const step = niceStep(hi - lo); for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) gridV.push(v); }
-  gridV = gridV.filter((v) => v > lo && v < hi);
-  gridV = gridV.reduce<number[]>((keep, v) => (!keep.length || y(keep[keep.length - 1]) - y(v) >= 16 ? [...keep, v] : keep), []);
-
-  // Sammanhängande sträckor där det finns ett normalt (de första veckorna finns inget).
-  const runs: [number, number][] = [];
-  drawn.forEach((p, k) => {
-    if (!(p.b > 0)) return;
-    const last = runs[runs.length - 1];
-    if (last && last[1] === k - 1) last[1] = k; else runs.push([k, k]);
-  });
-  // Ett band runt det normala: mellan from × normalt och top × normalt (top = null → grafens överkant).
-  const band = (from: number, top: number | null) => runs.map(([a, b]) => {
-    const up: string[] = [], down: string[] = [];
-    for (let k = a; k <= b; k++) up.push(`${x(drawn[k].i).toFixed(1)} ${(top == null ? T : y(drawn[k].b * top)).toFixed(1)}`);
-    for (let k = b; k >= a; k--) down.push(`${x(drawn[k].i).toFixed(1)} ${y(drawn[k].b * from).toFixed(1)}`);
-    return `M ${up.join(' L ')} L ${down.join(' L ')} Z`;
-  }).join(' ');
-  const normalLine = runs.map(([a, b]) => {
-    const xs: number[] = [], ys: number[] = [];
-    for (let k = a; k <= b; k++) { xs.push(x(drawn[k].i)); ys.push(y(drawn[k].b)); }
-    if (!sample || xs.length < 3) return `M ${xs.map((v, k) => `${v.toFixed(1)} ${ys[k].toFixed(1)}`).join(' L ')}`;
-    const m = monotoneTangents(xs, ys);
-    return `M ${xs[0].toFixed(1)} ${ys[0].toFixed(1)}` + xs.slice(1).map((_, k) => curveTo(xs, ys, m, k)).join('');
-  }).join(' ');
-
-  // All: fyllnad under ditt normala.
-  const normalArea = normalOnly ? runs.map(([a, b]) => {
-    const xs: number[] = [], ys: number[] = [];
-    for (let k = a; k <= b; k++) { xs.push(x(drawn[k].i)); ys.push(y(drawn[k].b)); }
-    const m = xs.length > 2 && sample ? monotoneTangents(xs, ys) : null;
-    const curve = m
-      ? `M ${xs[0].toFixed(1)} ${ys[0].toFixed(1)}` + xs.slice(1).map((_, k) => curveTo(xs, ys, m, k)).join('')
-      : `M ${xs.map((v, k) => `${v.toFixed(1)} ${ys[k].toFixed(1)}`).join(' L ')}`;
-    return `${curve} L ${xs[xs.length - 1].toFixed(1)} ${T + ph} L ${xs[0].toFixed(1)} ${T + ph} Z`;
-  }).join(' ') : '';
-
-  // Timmarna, i bitar efter zon (samma zon i följd → en bit).
-  // Bitar utanför skalan tonas ner; en liten pil vid kanten markerar varje sträcka utanför.
-  const segs: { d: string; c: string; out: boolean }[] = [];
-  const hx = drawn.map((p) => x(p.i)), hy = drawn.map((p) => y(p.h));
-  const hm = sample && drawn.length > 2 ? monotoneTangents(hx, hy) : null;   // mjuk kurva varannan vecka
-  drawn.forEach((p, k) => {
+  // Linjen i bitar efter zon (samma zon i följd → en bit).
+  const segs: { d: string; c: string }[] = [];
+  points.forEach((p, k) => {
     if (k === 0) return;
     const c = loadZoneColor(stressZone(p.index));
-    const out = side(p.h) !== 0 || side(drawn[k - 1].h) !== 0;
-    const piece = hm ? curveTo(hx, hy, hm, k - 1) : ` L ${hx[k].toFixed(1)} ${hy[k].toFixed(1)}`;
+    const prev = points[k - 1];
+    const piece = ` L ${x(p.date).toFixed(1)} ${y(p.index).toFixed(1)}`;
     const last = segs[segs.length - 1];
-    if (last && last.c === c && last.out === out) last.d += piece;
-    else segs.push({ c, out, d: `M ${hx[k - 1].toFixed(1)} ${hy[k - 1].toFixed(1)}${piece}` });
+    if (last && last.c === c) last.d += piece;
+    else segs.push({ c, d: `M ${x(prev.date).toFixed(1)} ${y(prev.index).toFixed(1)}${piece}` });
   });
-  const arrows: { x: number; dir: -1 | 1 }[] = [];
-  for (let k = 0; k < drawn.length;) {
-    const dir = side(drawn[k].h);
-    if (!dir) { k++; continue; }
-    let ext = k, e = k;
-    while (e < drawn.length && side(drawn[e].h) === dir) { if ((drawn[e].h - drawn[ext].h) * dir > 0) ext = e; e++; }
-    arrows.push({ x: x(drawn[ext].i), dir: dir as -1 | 1 });
-    k = e;
+
+  // Tidsaxeln: veckodagar i en månad, månaderna annars.
+  const ticks: { at: string; label: string }[] = [];
+  const a = parse(from);
+  if (span === 'month') [1, 8, 15, 22, 29].forEach((dd) => {
+    const at = isoOf(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), dd));
+    if (at <= to) ticks.push({ at, label: dd === 1 ? `1 ${MONTHS[a.getUTCMonth()]}` : String(dd) });
+  });
+  else for (let k = 0; k < (span === 'year' ? 12 : 3); k++) {
+    const m = new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + k, 1));
+    ticks.push({ at: isoOf(m.getTime()), label: MONTHS[m.getUTCMonth()] });
   }
 
-  // Tidsaxeln: intervall efter hur mycket som får plats; årtalet står vid januari (och på årsintervallen).
-  const every = TICK_MONTHS.find((iv) => ((n / 30.44) / iv) * TICK_GAP <= pw) ?? 120;
-  const ticks: { i: number; label: string }[] = [];
-  let lastX = -Infinity;
-  points.forEach((p, i) => {
-    const d = parse(p.date);
-    const day = d.getUTCDate(), m = d.getUTCMonth(), yr = d.getUTCFullYear();
-    let label: string | null = null;
-    if (every === 0.5) { if (day === 1 || day === 15) label = shortDate(p.date); }
-    else if (day === 1) {
-      if (every < 12) { if ((yr * 12 + m) % every === 0) label = m === 0 ? String(yr) : MONTHS[m]; }
-      else if (m === 0 && yr % (every / 12) === 0) label = String(yr);
-    }
-    if (!label) return;
-    const px = x(i);
-    if (px < L + 10 || px > L + pw - 10 || px - lastX < TICK_GAP * 0.8) return;   // inte utanför kanten, inte krock
-    ticks.push({ i, label });
-    lastX = px;
-  });
-
-  const lastIdx = useRef<number | null>(null);
+  const lastDate = useRef<string | null>(null);
   const pick = (px: number) => {
-    if (!n) return;
-    let i = Math.max(0, Math.min(n - 1, Math.round(((px - L) / pw) * (n - 1))));
-    // Varannan vecka: närmaste mätpunkt, så att markören ligger på linjen.
-    if (sample && drawn.length) i = drawn.reduce((best, d) => (Math.abs(d.i - i) < Math.abs(best - i) ? d.i : best), drawn[0].i);
-    if (i !== lastIdx.current) { lastIdx.current = i; Haptics.selectionAsync().catch(() => {}); onSelect(i); }
+    if (!points.length) return;
+    const f = Math.max(0, Math.min(1, (px - L) / pw));
+    let at = isoOf((d0 + Math.round(f * days)) * DAY);
+    if (at < points[0].date) at = points[0].date;
+    if (at > points[points.length - 1].date) at = points[points.length - 1].date;
+    if (at !== lastDate.current) { lastDate.current = at; Haptics.selectionAsync().catch(() => {}); onSelect(at); }
   };
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -441,85 +338,49 @@ function StressChart({ points, periods, selPeriod, width, height, selected, onSe
     onPanResponderMove: (e) => pick(e.nativeEvent.locationX),
     onPanResponderTerminationRequest: () => false,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [points, width, sample]);
+  }), [points, from, to, width]);
 
-  const si = selected ?? n - 1;
-  const sp = points[si];
-  const firstRun = runs.length ? drawn[runs[runs.length - 1][0]] : null;
+  const sp = selected ? points.find((p) => p.date === selected) ?? null : null;
+  const last = points.length ? points[points.length - 1] : null;
+  const showToday = !!last && last.date === today;
 
   return (
-    <View {...pan.panHandlers}>
+    <View {...pan.panHandlers} accessibilityLabel="Stressfactor chart. Drag across it to see a day.">
       <Svg width={width} height={height}>
-        {/* Korridoren runt ditt normala och zonerna ovanför (inte i All). */}
-        {!normalOnly && (
-          <>
-            <Path d={band(1.7, null)} fill={loadZoneColor('high')} opacity={0.06} />
-            <Path d={band(1.3, 1.7)} fill={loadZoneColor('elevated')} opacity={0.08} />
-            <Path d={band(0.7, 1.3)} fill={loadZoneColor('normal')} opacity={0.09} />
-          </>
-        )}
-        {/* Intensiva perioder skuggas; den valda lyser. */}
-        {!normalOnly && periods.map((p) => {
-          const on = selPeriod === p.from;
-          const x0 = x(p.i0) - 1.5, x1 = x(p.i1) + 1.5;
-          return (
-            <Rect key={p.from} x={x0} y={T} width={Math.max(3, x1 - x0)} height={ph}
-              fill={loadZoneColor(stressZone(p.peak))} opacity={on ? 0.14 : 0.05} rx={2} />
-          );
-        })}
-        {gridV.map((v) => (
+        {/* Normalzonen som ett fast band, och tunna gränser mellan de andra zonerna. */}
+        <Rect x={L} y={y(130)} width={pw} height={y(70) - y(130)} rx={6} fill={loadZoneColor('normal')} opacity={0.1} />
+        {[30, 170, 200].map((v) => (
           <Line key={v} x1={L} x2={L + pw} y1={y(v)} y2={y(v)} stroke="#FFFFFF" strokeOpacity={0.06} strokeWidth={1} />
         ))}
-        <Line x1={L} x2={L + pw} y1={T + ph} y2={T + ph} stroke="#FFFFFF" strokeOpacity={0.12} strokeWidth={1} />
-        {(lo === 0 ? [0, ...gridV] : gridV).map((v) => (
-          <SvgText key={`l${v}`} x={L - 6} y={y(v) + 3.5} fontSize={9.5} fill={Colors.textSecondary} textAnchor="end">{`${v} h`}</SvgText>
+        <Line x1={L} x2={L + pw} y1={T + ph} y2={T + ph} stroke="#FFFFFF" strokeOpacity={0.14} strokeWidth={1} />
+        {ZONES.map((z) => (
+          <SvgText key={z.zone} x={L - 8} y={y(ZONE_LABEL_AT[z.zone]) + 3.5} fontSize={9} fontWeight="700" letterSpacing={0.6}
+            fill={loadZoneColor(z.zone)} fillOpacity={z.zone === 'normal' ? 0.95 : 0.7} textAnchor="end">{z.zone.toUpperCase()}</SvgText>
         ))}
-        {log && <SvgText x={L + pw - 2} y={T + 10} fontSize={9} fill={Colors.textSecondary} textAnchor="end">Log scale</SvgText>}
 
-        {/* All: ditt normala som linje med fyllnad. Annars streckat, med dina timmar ovanpå. */}
-        {normalOnly ? (
-          <>
-            {normalArea ? <Path d={normalArea} fill={Colors.primary} opacity={0.12} /> : null}
-            {normalLine ? <Path d={normalLine} stroke={Colors.primary} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" /> : null}
-          </>
-        ) : (
-          <>
-            {normalLine ? <Path d={normalLine} stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={1.2} strokeDasharray="3 4" fill="none" /> : null}
-            {firstRun && (
-              <SvgText x={L + 4} y={y(firstRun.b * 1.3) - 5} fontSize={9.5} fill="#FFFFFF" fillOpacity={0.6}>Your normal</SvgText>
-            )}
-          </>
+        {highlight && (
+          <Rect x={x(highlight.from) - 3} y={T} width={Math.max(6, x(highlight.to) - x(highlight.from) + 6)} height={ph} rx={4}
+            fill={loadZoneColor(stressZone(highlight.peak))} opacity={0.14} />
         )}
 
-        {/* Dina timmar, färgade efter zon */}
-        {!normalOnly && segs.map((sg, k) => (
-          <Path key={k} d={sg.d} stroke={sg.c} strokeWidth={log ? 1.6 : 2} strokeOpacity={sg.out ? 0.3 : 1} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        {segs.map((sg, k) => (
+          <Path key={k} d={sg.d} stroke={sg.c} strokeWidth={2.2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
         ))}
-        {!normalOnly && arrows.map((a, k) => {
-          const yy = a.dir < 0 ? T + ph - 2 : T + 2;
-          return (
-            <Path key={`a${k}`} fill={Colors.textSecondary} opacity={0.8}
-              d={a.dir < 0 ? `M ${a.x - 3.5} ${yy - 5} L ${a.x + 3.5} ${yy - 5} L ${a.x} ${yy} Z` : `M ${a.x - 3.5} ${yy + 5} L ${a.x + 3.5} ${yy + 5} L ${a.x} ${yy} Z`} />
-          );
-        })}
 
         {ticks.map((t) => (
-          <SvgText key={`t${t.i}`} x={x(t.i)} y={height - 5} fontSize={9.5} fill={Colors.textSecondary} textAnchor="middle">{t.label}</SvgText>
+          <SvgText key={t.at} x={x(t.at) + 1} y={height - 5} fontSize={10} fontWeight="600" fill={Colors.textSecondary} textAnchor="start">{t.label}</SvgText>
         ))}
 
-        {sp && normalOnly && sp.baseline14 > 0 && (
+        {showToday && last && (
           <>
-            <Line x1={x(si)} x2={x(si)} y1={T} y2={T + ph} stroke="#FFFFFF" strokeOpacity={0.22} strokeWidth={1} />
-            <Circle cx={x(si)} cy={y(sp.baseline14)} r={7} fill={Colors.primary} opacity={0.25} />
-            <Circle cx={x(si)} cy={y(sp.baseline14)} r={3.5} fill={Colors.primary} stroke={Colors.background} strokeWidth={1.2} />
+            <Circle cx={x(last.date)} cy={y(last.index)} r={8} fill={loadZoneColor(stressZone(last.index))} opacity={0.25} />
+            <Circle cx={x(last.date)} cy={y(last.index)} r={4} fill={loadZoneColor(stressZone(last.index))} stroke={Colors.background} strokeWidth={1.5} />
           </>
         )}
-        {sp && !normalOnly && (
+        {sp && (
           <>
-            <Line x1={x(si)} x2={x(si)} y1={T} y2={T + ph} stroke="#FFFFFF" strokeOpacity={0.22} strokeWidth={1} />
-            {sp.baseline14 > 0 && <Circle cx={x(si)} cy={y(sp.baseline14)} r={2.5} fill="#FFFFFF" opacity={0.7} />}
-            <Circle cx={x(si)} cy={y(sp.hours14)} r={7} fill={loadZoneColor(stressZone(sp.index))} opacity={0.25} />
-            <Circle cx={x(si)} cy={y(sp.hours14)} r={3.5} fill={loadZoneColor(stressZone(sp.index))} stroke={Colors.background} strokeWidth={1.2} />
+            <Line x1={x(sp.date)} x2={x(sp.date)} y1={T} y2={T + ph} stroke="#FFFFFF" strokeOpacity={0.35} strokeWidth={1} />
+            <Circle cx={x(sp.date)} cy={y(sp.index)} r={5} fill="#FFFFFF" stroke={Colors.background} strokeWidth={2} />
           </>
         )}
       </Svg>
@@ -536,39 +397,42 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
   emptyText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  summary: { flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'center' },
-  pill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8, borderWidth: 0.8 },
-  pillText: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2 },
-  summaryText: { color: Colors.textSecondary, fontSize: 13.5, fontWeight: '600' },
-  readout: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
-  readDate: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
-  readSub: { color: Colors.textSecondary, fontSize: 12.5, marginTop: 3 },
-  readValue: { fontSize: 36, fontWeight: '900', fontVariant: ['tabular-nums'], lineHeight: 40 },
-  readZone: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2 },
-  segment: { flexDirection: 'row', alignSelf: 'center', gap: 4 },
-  segBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 999 },
-  segOn: { backgroundColor: Colors.primary + '22' },
-  segText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
-  segTextOn: { color: Colors.primary },
-  sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 },
-  sectionTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
+  eyebrow: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  heroZone: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
+  heroPct: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'], opacity: 0.85 },
+  heroSub: { color: Colors.textPrimary, opacity: 0.85, fontSize: 15, lineHeight: 21 },
+  gauge: { flexDirection: 'row', gap: 3, height: 8 },
+  gaugeSeg: { flex: 1, borderRadius: 4 },
+  gaugeDot: { position: 'absolute', top: -4, width: 16, height: 16, marginLeft: -8, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 3, borderColor: Colors.background },
+  gaugeLabel: { flex: 1, fontSize: 10.5, fontWeight: '700' },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.border },
+  segment: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: Colors.card },
+  segBtn: { flex: 1, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  segOn: { backgroundColor: Colors.primary },
+  segText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
+  segTextOn: { color: Colors.textInverse },
+  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  navLabel: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
+  navSub: { color: Colors.textSecondary, fontSize: 12, fontVariant: ['tabular-nums'] },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
+  cardTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  cardSub: { color: Colors.textSecondary, fontSize: 13, fontVariant: ['tabular-nums'] },
+  cardPct: { fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  cardZone: { fontSize: 12, fontWeight: '800' },
+  clear: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
   sectionMeta: { color: Colors.textSecondary, fontSize: 12.5, fontWeight: '600' },
-  none: { color: Colors.textSecondary, fontSize: 13.5, paddingVertical: 10 },
-  period: { paddingVertical: 12, paddingHorizontal: 10, marginHorizontal: -10, borderRadius: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
-  periodOn: { backgroundColor: Colors.surface, borderTopColor: 'transparent' },
-  periodRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  periodTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
-  periodPeak: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  track: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.07)' },
-  trackFill: { height: 3, borderRadius: 2, opacity: 0.85 },
-  periodSub: { color: Colors.textSecondary, fontSize: 12, fontVariant: ['tabular-nums'], minWidth: 52, textAlign: 'right' },
-  normRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, paddingVertical: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
-  normKey: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', width: 72 },
-  normSub: { flex: 1, color: Colors.textSecondary, fontSize: 12.5 },
-  normVal: { color: Colors.primary, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  scale: { flexDirection: 'row', height: 4, borderRadius: 2, overflow: 'hidden', gap: 2 },
-  scaleSeg: { flex: 1, opacity: 0.85 },
-  scaleLabels: { flexDirection: 'row' },
-  scaleLabel: { flex: 1, color: Colors.textMuted, fontSize: 10, fontVariant: ['tabular-nums'] },
-  foot: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  none: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  period: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
+  periodTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  periodSub: { color: Colors.textSecondary, fontSize: 13, fontVariant: ['tabular-nums'] },
+  peakChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  peakText: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  howCard: { borderRadius: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden' },
+  howHead: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 16 },
+  howTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
+  howBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  howText: { color: Colors.textPrimary, opacity: 0.85, fontSize: 14, lineHeight: 20 },
 });
