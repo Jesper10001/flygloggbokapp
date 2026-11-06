@@ -76,7 +76,6 @@ export default function DroneImportCsvScreen() {
   const [droneData, setDroneData] = useState<Record<string, DroneInfo>>({}); // per-modell airframe/klass/vikt
   const [lookingModels, setLookingModels] = useState<Set<string>>(new Set()); // modeller som slås upp just nu
   const lookedUpRef = useRef<Set<string>>(new Set());                         // auto-lookup: kör en gång per modell
-  const [aiModels, setAiModels] = useState<Set<string>>(new Set());   // modeller där AI fyllt i något
   const [openModel, setOpenModel] = useState<string | null>(null);     // modellen som är utfälld i Drone details
   // Rapportens färger i drönarläget (samma rapport som pilotläget).
   const T: ReportTheme = {
@@ -179,7 +178,6 @@ export default function DroneImportCsvScreen() {
         if (guessed && (manual || !cur.cls)) upd.cls = guessed;
         return { ...p, [model]: upd };
       });
-      setAiModels((p) => new Set(p).add(model));
     } catch { if (manual) show?.('Look-up failed'); }
     finally { setLookingModels((p) => { const n = new Set(p); n.delete(model); return n; }); }
   };
@@ -215,7 +213,7 @@ export default function DroneImportCsvScreen() {
     const file = await pickImportFile();
     if (!file) return;
     setFileName(file.name);
-    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setAiModels(new Set()); setOpenModel(null);
+    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setOpenModel(null);
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
     if (overlayTimer.current) clearTimeout(overlayTimer.current);
@@ -309,7 +307,7 @@ export default function DroneImportCsvScreen() {
     const info = droneData[d.model] ?? { airframe: '' as Airframe | '', cls: d.defaultCat, mtow_g: 0 };
     const missing = [!info.airframe && 'airframe', !info.cls && 'class'].filter(Boolean) as string[];
     const parts = [afLabel(info.airframe), info.mtow_g ? `${info.mtow_g} g` : '', info.cls, `${d.count} ${d.count === 1 ? 'flight' : 'flights'}`].filter(Boolean);
-    return { d, info, missing, parts, looking: lookingModels.has(d.model), ai: aiModels.has(d.model) };
+    return { d, info, missing, parts, looking: lookingModels.has(d.model) };
   });
   const droneEditor = (r: typeof droneRows[number]) => (
     <>
@@ -361,18 +359,18 @@ export default function DroneImportCsvScreen() {
   if (droneRows.length > 0) {
     const looking = droneRows.some((r) => r.looking);
     const missing = droneRows.filter((r) => r.missing.length > 0).length;
-    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : droneRows.some((r) => r.ai) ? 'ai' : 'done';
+    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : 'done';
     checks.push({
       key: 'drones', status,
       render: (first) => (
         <CheckItem T={T} first={first} icon="hardware-chip-outline" title="Drone details" status={status}
-          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : status === 'ai' ? 'AI FILLED' : 'DONE'}
+          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : ''}
           summary={`${droneRows.length} ${droneRows.length === 1 ? 'drone' : 'drones'}. Airframe fills the multirotor, single-rotor and fixed-wing columns, and class sets the category. Change them later under Manage drones.`}>
           {droneRows.map((r) => (
             <EditRow key={r.d.model} T={T} title={r.d.model} loading={r.looking} open={openModel === r.d.model}
               onPress={() => setOpenModel((o) => (o === r.d.model ? null : r.d.model))}
               summary={r.missing.length ? `Missing ${r.missing.join(' and ')} · ${r.d.count} ${r.d.count === 1 ? 'flight' : 'flights'}` : r.parts.join(' · ')}
-              tag={r.missing.length ? 'MISSING' : r.ai ? 'AI' : undefined} tagColor={r.missing.length ? T.warning : T.accent}>
+              tag={r.missing.length ? 'MISSING' : undefined} tagColor={T.warning}>
               {droneEditor(r)}
             </EditRow>
           ))}
@@ -386,13 +384,14 @@ export default function DroneImportCsvScreen() {
       key: 'notes', status: 'info',
       render: (first) => (
         <CheckItem T={T} first={first} icon="document-text-outline" title="Notes on your file" status="info"
-          statusText={String(ws.length)} summary={ws[0]}>
-          {ws.length > 1 ? ws.map((w, i) => (
+          statusText={String(ws.length)} summary={`${ws.length} ${ws.length === 1 ? 'note' : 'notes'} from reading your file.`}>
+          {/* Alla noteringar som punkter (summeringen ovan upprepar ingen av dem). */}
+          {ws.map((w, i) => (
             <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
               <Ionicons name="information-circle-outline" size={14} color={T.text2} style={{ marginTop: 1 }} />
               <Text style={{ flex: 1, color: T.text2, fontSize: 12.5, lineHeight: 17 }}>{w}</Text>
             </View>
-          )) : null}
+          ))}
         </CheckItem>
       ),
     });

@@ -15,6 +15,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Importrapporten (pilot och drönare): märkningarna "AI FILLED" och "AI" är borttagna (Aircraft/Drone details visar bara "LOOKING UP" eller "X TO CHECK", och raderna bara "MISSING"), rubriken "What we found" är borttagen (kortet börjar med AI:ns mening; "IMPORT FAILED" står kvar vid fel), och "Notes on your file" visar alla noteringar som punkter under en kort rad ("4 notes from reading your file.") i stället för att den första stod som löptext och sedan upprepades.
+- Rättat: AI:n vid importen fick inte veta dagens datum och kallade därför datum från de senaste månaderna för "i framtiden". Dagens datum skickas nu med både till kolumnmappningen och till sammanfattningen.
 - Rapporten efter CSV-import (innan Save) är omgjord, likadan i pilot- och drönarläget (components/import/ImportReport, i skanningsrapportens stil):
   - Överst en sammanfattning: flygningar och flygtid i stort, perioden ("Mar 2018 – Oct 2026"), om alla rader lästes, hur många saker som behöver ses över, filen och coins.
   - "What we found" (f.d. Import analysis) är kortare och enklare: en inledande mening och högst tre rader märkta CHECK (gul, visas först), OK (grön) och FIX (åtgärd). AI:n skriver i vardagsspråk utan ord som parsed/mapped/column och fetmarkerar bara det viktigaste. Pilotens AI får veta när nattid saknas och hänvisar då till "Add night time".

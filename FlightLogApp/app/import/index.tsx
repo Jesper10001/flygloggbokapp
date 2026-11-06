@@ -894,7 +894,7 @@ export default function ImportScreen() {
       hasSpeed ? 'speed saved' : sp ? `${sp} kts` : '', hasEndurance ? 'endurance saved' : en ? `${en} h` : '',
       ...crew, eng.toUpperCase(), cat === 'airplane' ? t('airplane') : cat === 'helicopter' ? t('helicopter') : '',
     ].filter(Boolean);
-    return { type, hasSpeed, hasEndurance, missing, parts, loading: aiLoadingTypes.has(type), ai: (aiFilledByType[type]?.size ?? 0) > 0 };
+    return { type, hasSpeed, hasEndurance, missing, parts, loading: aiLoadingTypes.has(type) };
   });
   const aircraftEditor = (type: string, hasSpeed: boolean, hasEndurance: boolean) => {
     const crewSet = crewTypeInputs[type] ?? new Set<string>();
@@ -1037,18 +1037,18 @@ export default function ImportScreen() {
   if (aircraftRows.length > 0) {
     const looking = aircraftRows.some((r) => r.loading);
     const missing = aircraftRows.filter((r) => r.missing.length > 0).length;
-    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : aircraftRows.some((r) => r.ai) ? 'ai' : 'done';
+    const status: CheckStatus = looking ? 'ai' : missing > 0 ? 'todo' : 'done';
     checks.push({
       key: 'aircraft', status,
       render: (first) => (
         <CheckItem T={T} first={first} icon="airplane-outline" title="Aircraft details" status={status}
-          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : status === 'ai' ? 'AI FILLED' : 'DONE'}
+          statusText={looking ? 'LOOKING UP' : missing > 0 ? `${missing} TO CHECK` : ''}
           summary={`${aircraftRows.length} new ${aircraftRows.length === 1 ? 'type' : 'types'}. Speed and endurance give distances on local flights and spot sim sessions. Change them later in Settings → Aircraft.`}>
           {aircraftRows.map((r) => (
             <EditRow key={r.type} T={T} title={r.type} loading={r.loading} open={openType === r.type}
               onPress={() => setOpenType((o) => (o === r.type ? null : r.type))}
               summary={r.missing.length ? `Missing ${r.missing.join(', ')}` : r.parts.join(' · ')}
-              tag={r.missing.length ? 'MISSING' : r.ai ? 'AI' : undefined} tagColor={r.missing.length ? T.warning : T.accent}>
+              tag={r.missing.length ? 'MISSING' : undefined} tagColor={T.warning}>
               {aircraftEditor(r.type, r.hasSpeed, r.hasEndurance)}
             </EditRow>
           ))}
@@ -1143,13 +1143,14 @@ export default function ImportScreen() {
       key: 'notes', status: 'info',
       render: (first) => (
         <CheckItem T={T} first={first} icon="document-text-outline" title="Notes on your file" status="info"
-          statusText={String(ws.length)} summary={ws[0]}>
-          {ws.length > 1 ? ws.map((w, i) => (
+          statusText={String(ws.length)} summary={`${ws.length} ${ws.length === 1 ? 'note' : 'notes'} from reading your file.`}>
+          {/* Alla noteringar som punkter (summeringen ovan upprepar ingen av dem). */}
+          {ws.map((w, i) => (
             <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
               <Ionicons name="information-circle-outline" size={14} color={T.text2} style={{ marginTop: 1 }} />
               <Text style={{ flex: 1, color: T.text2, fontSize: 12.5, lineHeight: 17 }}>{w}</Text>
             </View>
-          )) : null}
+          ))}
         </CheckItem>
       ),
     });

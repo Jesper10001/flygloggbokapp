@@ -223,7 +223,8 @@ export async function importDroneFromFile(
     maxTokens: 1536,
     timeoutMs: 90000,
     onUsage: (u) => { tokensUsed = u.inputTokens + u.outputTokens; },
-    userContent: `Identifiera format och kolumnmappning:\n\n${sample}`,
+    // Dagens datum: modellen vet det inte själv och kallade annars färska datum för "i framtiden".
+    userContent: `Dagens datum: ${new Date().toISOString().slice(0, 10)}. Datum fram till idag är normala; varna bara för datum efter idag.\n\nIdentifiera format och kolumnmappning:\n\n${sample}`,
   });
 
   const delimiter: string = mapping.delimiter ?? ',';
@@ -407,7 +408,7 @@ export async function generateDroneImportSummary(input: DroneImportSummaryInput)
     system: DRONE_SUMMARY_PROMPT,
     maxTokens: 350,
     timeoutMs: 60000,
-    userContent: `Analysresultat (JSON):\n${JSON.stringify(input)}`,
+    userContent: `Dagens datum: ${new Date().toISOString().slice(0, 10)}. Datum fram till idag är normala; varna bara för datum efter idag.\n\nAnalysresultat (JSON):\n${JSON.stringify(input)}`,
   });
   return res.text.trim();
 }

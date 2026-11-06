@@ -107,10 +107,13 @@ export function AnalysisCard({ T, loading, text, fallback, failed = false }: {
     : { name: 'ellipse' as const, color: T.muted });
   return (
     <View style={[st.card, { backgroundColor: T.card, borderColor: tone + '33', padding: 14, gap: 10 }]}>
-      <View style={st.cardHead}>
-        <Ionicons name={failed ? 'alert-circle' : 'sparkles'} size={14} color={tone} />
-        <Text style={[st.eyebrow, { color: tone }]}>{failed ? 'IMPORT FAILED' : 'WHAT WE FOUND'}</Text>
-      </View>
+      {/* Rubrik bara vid fel; annars börjar kortet direkt med AI:ns mening. */}
+      {failed && (
+        <View style={st.cardHead}>
+          <Ionicons name="alert-circle" size={14} color={tone} />
+          <Text style={[st.eyebrow, { color: tone }]}>IMPORT FAILED</Text>
+        </View>
+      )}
       {loading || text === null ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 }}>
           <ActivityIndicator size="small" color={tone} />
@@ -137,7 +140,8 @@ export function AnalysisCard({ T, loading, text, fallback, failed = false }: {
 }
 
 // ── Before you save ───────────────────────────────────────────────────────────
-// status: todo = behöver dig (gul), ai = AI har fyllt i (accent), done = klart (grön), info = valfritt.
+// status: todo = behöver ses över (gul), ai = AI letar just nu (accent), done = klart (grön), info = valfritt.
+// statusText tom = ingen märkning (t.ex. när allt redan är ifyllt).
 export type CheckStatus = 'todo' | 'ai' | 'done' | 'info';
 
 export function SectionLabel({ T, children }: { T: ReportTheme; children: string }) {
@@ -164,9 +168,11 @@ export function CheckItem({ T, icon, title, summary, status, statusText, first, 
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[st.checkTitle, { color: T.text }]} numberOfLines={1}>{title}</Text>
-            <View style={[st.pill, { backgroundColor: color + '1F', borderColor: color + '55' }]}>
-              <Text style={[st.pillText, { color }]}>{statusText}</Text>
-            </View>
+            {!!statusText && (
+              <View style={[st.pill, { backgroundColor: color + '1F', borderColor: color + '55' }]}>
+                <Text style={[st.pillText, { color }]}>{statusText}</Text>
+              </View>
+            )}
           </View>
           <Text style={[st.checkSummary, { color: T.text2 }]} numberOfLines={open ? undefined : 2}>{summary}</Text>
         </View>
