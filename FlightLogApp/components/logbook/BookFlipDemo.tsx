@@ -128,7 +128,8 @@ export function BookFlipDemo({ width }: { width: number }) {
     return { transform: [{ translateX: (1 - open) * 0.22 * W }, { scaleX: 0.55 + open * 0.45 }] };
   });
 
-  const pageImg = (src: ImageSourcePropType) => <Image source={src} style={StyleSheet.absoluteFill} resizeMode="stretch" />;
+  // Bredd och höjd uttryckligen: utan dem får Image bildfilens egna mått (1280 × 928 px) och sidan visas inzoomad.
+  const pageImg = (src: ImageSourcePropType) => <Image source={src} style={s.pageImg} resizeMode="stretch" />;
   const gutter = (side: 'left' | 'right') => (
     <LinearGradient pointerEvents="none" colors={['rgba(70,48,14,0.42)', 'rgba(70,48,14,0)']} start={{ x: side === 'left' ? 0 : 1, y: 0.5 }} end={{ x: side === 'left' ? 0.14 : 0.86, y: 0.5 }} style={StyleSheet.absoluteFill} />
   );
@@ -164,7 +165,9 @@ export function BookFlipDemo({ width }: { width: number }) {
         onAccessibilityAction={(e) => { if (mode === 'opening') toBrowse(); else turnPage(e.nativeEvent.actionName === 'increment' ? 1 : -1); }}>
         <Animated.View style={[{ position: 'absolute', left: (width - W) / 2, top: (H0 - H) / 2, width: W, height: H }, bookStyle]}>
           {/* Skugga under boken */}
-          <Animated.View style={[s.shadow, { left: W * 0.06, right: W * 0.06, bottom: -H * 0.1, height: H * 0.14 }, shadowStyle]} />
+          <Animated.View style={[s.shadow, { left: W * 0.06, right: W * 0.06, bottom: -H * 0.12, height: H * 0.14 }, shadowStyle]}>
+            <LinearGradient colors={['rgba(0,0,0,0.42)', 'rgba(0,0,0,0)']} style={StyleSheet.absoluteFill} />
+          </Animated.View>
           {/* Pärmarna: den högra syns hela tiden, den vänstra när omslaget lagt sig */}
           <LinearGradient colors={['#1d355d', '#10203d', '#0b1730']} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }}
             style={[s.board, { left: W / 2, width: W * BOARD, top: -H * 0.018, bottom: -H * 0.026, borderTopRightRadius: 8, borderBottomRightRadius: 8 }]} />
@@ -247,7 +250,8 @@ const s = StyleSheet.create({
   board: { position: 'absolute', borderRadius: 3 },
   block: { position: 'absolute', backgroundColor: '#d9ccae', borderRadius: 3 },
   paper: { backgroundColor: '#f5eedb', overflow: 'hidden' },
-  shadow: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.55)', shadowColor: '#000', shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  shadow: { position: 'absolute', borderRadius: 999, overflow: 'hidden' },
+  pageImg: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   cover: { borderTopRightRadius: 8, borderBottomRightRadius: 8, borderTopLeftRadius: 2, borderBottomLeftRadius: 2, overflow: 'hidden' },
   hinge: { position: 'absolute', top: 0, bottom: 0, left: '6%', width: 2, backgroundColor: 'rgba(0,0,0,0.45)' },
   coverIn: { position: 'absolute', top: '8%', bottom: '8%', left: '11%', right: '7%', borderWidth: 1.2, borderColor: 'rgba(212,180,106,0.7)', borderRadius: 4, alignItems: 'center', justifyContent: 'center', gap: 6 },
