@@ -50,6 +50,9 @@ import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { SunStrip } from '../../components/sun/SunStrip';
 import { DayNightMap } from '../../components/DayNightMap';
 import { buildSunTimeline } from '../../utils/sunTimeline';
+import { IcaoInput, type RecentPlace } from '../../components/IcaoInput';
+import { getRecentPlaces } from '../../db/flights';
+import { getAirportTzInfo } from '../../db/icao';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useToastStore } from '../../components/Toast';
 import { DR } from '../../constants/droneTheme';
@@ -282,6 +285,7 @@ export default function AddDroneFlightScreen() {
   const [condRaw, setCondRaw] = useState<Record<string, string>>({});
   const [scrollLocked, setScrollLocked] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<string[]>([]);
+  const [recentAirports, setRecentAirports] = useState<RecentPlace[]>([]);
   const depTimeRef = useRef<SmartTimeInputHandle>(null);
   const arrTimeRef = useRef<SmartTimeInputHandle>(null);
   // Blades introduction: loggningsdemon (effekten före return) — scroll-ref, sektionernas y-lägen och
@@ -327,6 +331,27 @@ export default function AddDroneFlightScreen() {
     setForm((p) => (p.night_time === v ? p : { ...p, night_time: v }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nightManual, routeMode, form.lat, form.lon, form.landing_lat, form.landing_lon, form.takeoff_time, derivedArr, form.date]);
+
+  // A → B: avgång och ankomst är flygplatser (ICAO, som pilotens rutt) → koordinaterna slås upp i registret.
+  // Okända namn behåller koordinaterna de har (t.ex. från GPS).
+  useEffect(() => {
+    if (routeMode !== 'ab') return;
+    let alive = true;
+    const dep = form.location.trim().toUpperCase();
+    const arr = (form.landing_location ?? '').trim().toUpperCase();
+    (async () => {
+      const rows = await getAirportTzInfo([dep, arr].filter((c) => c.length >= 2));
+      if (!alive) return;
+      const d = rows.find((r) => r.icao === dep), a = rows.find((r) => r.icao === arr);
+      setForm((p) => {
+        let next = p;
+        if (d && d.lat != null && (p.lat !== d.lat || p.lon !== d.lon)) next = { ...next, lat: d.lat, lon: d.lon };
+        if (a && a.lat != null && (p.landing_lat !== a.lat || p.landing_lon !== a.lon)) next = { ...next, landing_lat: a.lat, landing_lon: a.lon };
+        return next;
+      });
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, [routeMode, form.location, form.landing_location]);
 
   // Landningar (auto): en per flygning, dag eller natt efter när den landade (platsens sol). −/+ tar över.
   useEffect(() => {
@@ -438,6 +463,7 @@ export default function AddDroneFlightScreen() {
       const ds = await listDrones();
       setDrones(ds);
       getRecentDroneLocations(10).then(setRecentPlaces).catch(() => {});
+      getRecentPlaces().then(setRecentAirports).catch(() => {});
       getRecentDroneCrew().then(setRecentCrew).catch(() => {});
       getDroneCrewByModel().then(setCrewByModel).catch(() => {});
 
@@ -1381,6 +1407,25 @@ export default function AddDroneFlightScreen() {
       </View>
     );
   };
+  // A → B: samma ICAO-fält som pilotens Log Flight (kod eller fritext, flygplatsnamn under, snabbval, sök
+  // och "här"-nålen som föreslår närmaste flygplatser).
+  const renderAirport = (which: 'dep' | 'arr') => {
+    const value = which === 'dep' ? form.location : (form.landing_location ?? '');
+    const put = (v: string) => setForm((p) => (which === 'dep' ? { ...p, location: v } : { ...p, landing_location: v }));
+    return (
+      <IcaoInput
+        label=""
+        inputFontFamily={FONT_LED14}
+        design
+        freeText
+        value={value}
+        onChangeText={(v) => put(v)}
+        onResolve={(raw, icao) => put(icao ?? raw.trim().toUpperCase())}
+        recentPlaces={recentAirports}
+        onConfirm={() => setTimeout(() => (which === 'dep' ? depTimeRef : arrTimeRef).current?.focus(), 80)}
+      />
+    );
+  };
   const renderTime = (which: 'dep' | 'arr') => {
     const utc = which === 'dep' ? (form.takeoff_time ?? '') : arrTime;
     return (
@@ -1585,7 +1630,7 @@ export default function AddDroneFlightScreen() {
               <View style={styles.rRow}>
                 <View style={[styles.panelL, { flex: 1 }]}>
                   <Text style={styles.panelHead}>{t('departure')}</Text>
-                  {renderPlace('dep')}
+                  {renderAirport('dep')}
                   {renderTime('dep')}
                 </View>
                 <View style={styles.connector}>
@@ -1595,7 +1640,7 @@ export default function AddDroneFlightScreen() {
                 </View>
                 <View style={[styles.panelR, { flex: 1 }]}>
                   <Text style={styles.panelHead}>{t('arrival')}</Text>
-                  {renderPlace('arr')}
+                  {renderAirport('arr')}
                   {renderTime('arr')}
                 </View>
               </View>

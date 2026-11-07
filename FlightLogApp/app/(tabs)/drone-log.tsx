@@ -142,7 +142,7 @@ function FlightsTab({ flights, accent, onOpen }: {
       if (filter === 'bvlos' && !(droneModeHours(f).bvlos > 0)) return false;
       if (filter === 'night' && !f.is_night) return false;
       if (q) {
-        const hay = `${f.location ?? ''} ${f.drone_type ?? ''} ${f.registration ?? ''} ${f.mission_type ?? ''} ${f.category ?? ''} ${f.flight_mode ?? ''}`.toLowerCase();
+        const hay = `${f.location ?? ''} ${f.landing_location ?? ''} ${f.drone_type ?? ''} ${f.registration ?? ''} ${f.mission_type ?? ''} ${f.category ?? ''} ${f.flight_mode ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -207,6 +207,14 @@ function FlightsTab({ flights, accent, onOpen }: {
   );
 }
 
+// Radens titel = platsen (= pilotens DEP → ARR): "ESCF → ESSA" för en A → B-flygning, annars startplatsen.
+const dronePlaceTitle = (f: DroneFlight) => {
+  const dep = (f.location ?? '').trim();
+  const arr = (f.landing_location ?? '').trim();
+  if (arr && arr.toUpperCase() !== dep.toUpperCase()) return `${dep || '—'} → ${arr}`;
+  return dep || '—';
+};
+
 // En flygningsrad (serif-datumchip = manned FlightCardRow).
 function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: string; onOpen: (id: number) => void; first?: boolean }) {
   return (
@@ -218,11 +226,11 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={s.mission} numberOfLines={1}>{f.mission_type || 'Flight'}</Text>
+          <Text style={s.mission} numberOfLines={1}>{dronePlaceTitle(f)}</Text>
           <Chip text={droneModeLabel(f, '+')} tone={droneModeHours(f).bvlos > 0 ? 'warn' : 'muted'} accent={accent} />
           {f.category ? <Chip text={categoryLabel(f.category)} tone="acc" accent={accent} /> : null}
         </View>
-        <Text style={s.rowMeta} numberOfLines={1}>{f.registration || f.drone_type || '—'} · {f.location || '—'}</Text>
+        <Text style={s.rowMeta} numberOfLines={1}>{f.mission_type || 'Flight'} · {f.registration || f.drone_type || '—'}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={s.rowTime}>{decimalToMMSS(f.total_time || 0)}</Text>
