@@ -1941,8 +1941,8 @@ export default function AddFlightScreen() {
   // Bryts ett villkor (annan roll, PM, multi pilot) slutar flygningen vara solo.
   const isPfNow = !(pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0);
   const soloOn = solo && form.flight_type !== 'sim' && spSupported && role === 'pic' && !fi && !examinerOverlay && isPfNow && pilotMode === 'single';
-  // Andrepiloterna som fanns när Solo valdes — kommer tillbaka om solo slås av igen.
-  const soloStash = useRef<{ name: string; role: string; extra: typeof extraPilots } | null>(null);
+  // Andrepiloterna och kabinpersonalen som fanns när Solo valdes — kommer tillbaka om solo slås av igen.
+  const soloStash = useRef<{ name: string; role: string; extra: typeof extraPilots; crew: typeof crewMembers } | null>(null);
   useEffect(() => {
     if (solo && !soloOn) {
       setSolo(false);
@@ -1955,6 +1955,7 @@ export default function AddFlightScreen() {
       set('second_pilot', s.name);
       set('second_pilot_role', s.role);
       setExtraPilots(s.extra);
+      setCrewMembers(s.crew);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [solo, soloOn]);
@@ -1969,9 +1970,12 @@ export default function AddFlightScreen() {
     applyDistribution('pic', false, false, false, form.total_time);
     setPfRatio(1); setPilotFlyingManual(false);
     setPilotModeManual(true); setPilotMode('single');
-    if ((form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim())) {
-      soloStash.current = { name: form.second_pilot ?? '', role: form.second_pilot_role ?? '', extra: extraPilots };
-      set('second_pilot', ''); set('second_pilot_role', ''); setExtraPilots([]);
+    const hasSecond = !!(form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim());
+    const hasCrew = crewMembers.some((m) => m.name.trim() || m.role);
+    if (hasSecond || hasCrew) {
+      soloStash.current = { name: form.second_pilot ?? '', role: form.second_pilot_role ?? '', extra: extraPilots, crew: crewMembers };
+      if (hasSecond) { set('second_pilot', ''); set('second_pilot_role', ''); setExtraPilots([]); }
+      if (hasCrew) setCrewMembers([{ id: '1', role: '', name: '' }]);
     }
     setSolo(true);
   };
@@ -3891,9 +3895,9 @@ export default function AddFlightScreen() {
             <TourPress id="lf-crew" variant="focus" radius={10} inset={6} />
           </View>
 
-          {/* Cabin crew — endast i Full (Quicklog visar bara second pilot). Dold i Sim. */}
+          {/* Cabin crew — endast i Full (Quicklog visar bara second pilot). Dold i Sim. Solo: nedtonad som Second pilot. */}
           {logFull && form.flight_type !== 'sim' && (
-          <View>
+          <Animated.View pointerEvents={soloOn ? 'none' : 'auto'} style={{ opacity: soloFade.interpolate({ inputRange: [0, 1], outputRange: [1, 0.18] }) }}>
             <Text style={styles.colFieldLabel}>{t('crew_chief_label')}</Text>
             <View style={{ gap: 6 }}>
               {crewMembers.map((member, idx) => (
@@ -3913,7 +3917,7 @@ export default function AddFlightScreen() {
                 />
               ))}
             </View>
-          </View>
+          </Animated.View>
           )}
         </View>
 
