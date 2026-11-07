@@ -15,7 +15,7 @@ import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '..
 import { PremiumModal } from '../../components/PremiumModal';
 import { presentPaywall } from '../../services/purchases';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { FormField } from '../../components/FormField';
@@ -46,7 +46,7 @@ import { PersonPicker, type SavedPerson } from '../../components/logflight/Perso
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
 import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, positionAtMs, gcRad } from '../../utils/dayNight';
 import { SunStrip } from '../../components/sun/SunStrip';
-import { buildSunTimeline, sunStory, SUN } from '../../utils/sunTimeline';
+import { buildSunTimeline } from '../../utils/sunTimeline';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { useProfileStore } from '../../store/profileStore';
@@ -573,22 +573,6 @@ function makeStyles() {
       color: Colors.textSecondary, fontSize: 9.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1,
     },
     soloCover: { alignItems: 'center', justifyContent: 'center', gap: 2 },
-    sunCaption: {
-      marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 11,
-      borderRadius: 11, backgroundColor: 'rgba(108,140,255,0.12)', borderWidth: 1, borderColor: 'rgba(169,190,255,0.28)',
-    },
-    sunCaptionText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: Colors.textPrimary },
-    sunDirRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 10, paddingLeft: 11, paddingRight: 10,
-      borderRadius: 12, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '4D',
-    },
-    sunDirTitle: { fontSize: 13.5, fontWeight: '600', color: Colors.textPrimary },
-    sunDirSub: { fontSize: 11.5, lineHeight: 15, color: Colors.textSecondary },
-    sunDirPill: {
-      flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 6, paddingLeft: 10, paddingRight: 8,
-      borderRadius: 9, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
-    },
-    sunDirPillText: { fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '800', color: Colors.textPrimary },
     soloCoverTitle: {
       color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1.5, textTransform: 'uppercase',
     },
@@ -3329,46 +3313,16 @@ export default function AddFlightScreen() {
             );
           })()}
 
-          {/* ── Solen längs rutten: dagsbaren, en rad om natten och (samma plats) vilket håll man flög.
-              Allt öppnar Sun route-panelen. ── */}
+          {/* ── Solen längs rutten: dagsbaren öppnar Sun route-panelen (där väljs också hållet vid samma plats). ── */}
           {form.flight_type !== 'sim' && sunTl && (() => {
             const totalH = parseFloat(form.total_time) || 0;
             const nvgPct = totalH > 0 ? Math.min(100, ((parseFloat(form.nvg ?? '0') || 0) / totalH) * 100) : 0;
             const nightLabel = (parseFloat(form.night) || 0) > 0 ? decimalToHHMM(parseFloat(form.night)) : undefined;
-            const story = sunStory(sunTl, form.arr_place);
-            const nLdg = parseInt(form.landings_night ?? '0', 10) || 0;
-            const ldgText = nLdg > 0 ? ` ${nLdg} night landing${nLdg > 1 ? 's' : ''}${form.arr_place ? ` at ${form.arr_place}` : ''}.` : '';
-            const dirLabel = circleBearing == null ? 'LOCAL' : (['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(circleBearing / 45) % 8]);
-            const icon = story.icon === 'moon' ? 'weather-night' : story.icon === 'sunrise' ? 'weather-sunset-up' : story.icon === 'sunset' ? 'weather-sunset-down' : 'weather-sunny';
             return (
-              <View style={{ marginTop: 14, gap: 10 }}>
+              <View style={{ marginTop: 14 }}>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => setSunRouteOpen(true)} accessibilityRole="button" accessibilityLabel="Open Sun route">
                   <SunStrip tl={sunTl} nightLabel={nightLabel} nvgPct={nvgPct} />
-                  {story.short ? (
-                    <View style={styles.sunCaption}>
-                      <MaterialCommunityIcons name={icon} size={15} color={story.icon === 'moon' ? SUN.nightText : SUN.day} />
-                      <Text style={styles.sunCaptionText}>
-                        {story.short}
-                        {ldgText ? <Text style={{ color: SUN.nightText, fontWeight: '600' }}>{ldgText}</Text> : null}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
-                    </View>
-                  ) : null}
                 </TouchableOpacity>
-                {directionMatters && (
-                  <TouchableOpacity style={styles.sunDirRow} onPress={() => setSunRouteOpen(true)} activeOpacity={0.8}
-                    accessibilityRole="button" accessibilityLabel={`Which way did you fly? ${dirLabel}`}>
-                    <Ionicons name="compass-outline" size={22} color={Colors.primary} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.sunDirTitle}>Which way did you fly?</Text>
-                      <Text style={styles.sunDirSub}>The direction changes the night time by up to {bearingNight!.maxDeltaMin} min.</Text>
-                    </View>
-                    <View style={styles.sunDirPill}>
-                      <Text style={styles.sunDirPillText}>{dirLabel}</Text>
-                      <Ionicons name="chevron-forward" size={11} color={Colors.textSecondary} />
-                    </View>
-                  </TouchableOpacity>
-                )}
               </View>
             );
           })()}

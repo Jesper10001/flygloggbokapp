@@ -1,6 +1,7 @@
 // Dagsbaren: dag / skymning / natt över flygningen i tidsordning (utils/sunTimeline), med solnedgång och
 // nattens början utmärkta ovanför och tiden för varje del under. SunBar och SunEventRow används också av
 // Sun route-panelens tidslinje (components/DayNightMap).
+import { Fragment, useState } from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,26 +32,68 @@ export function SunBar({ tl, height = 12 }: { tl: SunTimeline; height?: number }
   );
 }
 
-// Händelserna ovanför baren: ikon + klockslag (UTC), med ord när det får plats. Ligger två för tätt visas
-// bara ikonen på den senare.
+// Händelserna ovanför baren: ikonen står rakt över sitt streck i baren och klockslaget (UTC) bredvid, aldrig
+// under en annan ikon. Ligger två händelser så tätt att ikonerna skulle krocka skjuts de isär precis så mycket
+// som behövs. Klockslaget hamnar på den sida där det finns plats, helst bort från grannen; får texten med ord
+// inte plats prövas bara klockslaget, och får inte heller det plats visas bara ikonen.
 export function SunEventRow({ tl, words = false }: { tl: SunTimeline; words?: boolean }) {
-  const W = words ? 112 : 64;
-  let lastF = -1;
+  const [w, setW] = useState(0);
+  const ICON = words ? 13 : 12, FS = words ? 10 : 9.5, GAP = 2, MIN = ICON + 2, OVER = 28;
+  const n = tl.events.length;
+  const long = tl.events.map((e) => (words ? `${EVENT_LABEL[e.kind]} ${fmtUtc(e.ms)}` : fmtUtc(e.ms)));
+  const short = tl.events.map((e) => fmtUtc(e.ms));
+  const width = (t: string) => Math.ceil(t.length * FS * 0.6) + 2; // JetBrains Mono: 0,6 em per tecken
+  const texts = [...long];
+  const tw = texts.map(width);
+  // Ikonernas lägen: över strecken, tätt liggande grupper isärskjutna runt sin mitt.
+  const pos: number[] = tl.events.map((e) => e.f * w);
+  let i0 = 0;
+  while (i0 < n) {
+    let i1 = i0;
+    while (i1 + 1 < n && pos[i1 + 1] - pos[i1] < MIN) i1++;
+    if (i1 > i0) {
+      const mid = (pos[i0] + pos[i1]) / 2, span = MIN * (i1 - i0);
+      for (let k = i0; k <= i1; k++) pos[k] = mid - span / 2 + (k - i0) * MIN;
+    }
+    i0 = i1 + 1;
+  }
+  // Klockslagens sida, från vänster: får inte gå in i det som redan står där eller i nästa ikon.
+  const side: ('l' | 'r' | null)[] = [];
+  let usedRight = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const iconL = pos[i] - ICON / 2, iconR = pos[i] + ICON / 2;
+    const nextIconL = i + 1 < n ? pos[i + 1] - ICON / 2 : w + OVER;
+    const choose = (): 'l' | 'r' | null => {
+      const leftOk = iconL - GAP - tw[i] >= Math.max(usedRight + GAP, -OVER);
+      const rightOk = iconR + GAP + tw[i] <= nextIconL - GAP && iconR + GAP + tw[i] <= w + OVER;
+      // Ligger nästa händelse nära, lämnas utrymmet mellan dem åt den.
+      const nextClose = i + 1 < n && pos[i + 1] - pos[i] < ICON + tw[i] + tw[i + 1] + 4 * GAP;
+      return nextClose ? (leftOk ? 'l' : rightOk ? 'r' : null) : (rightOk ? 'r' : leftOk ? 'l' : null);
+    };
+    let pick = choose();
+    if (!pick && texts[i] !== short[i]) { texts[i] = short[i]; tw[i] = width(short[i]); pick = choose(); }
+    side.push(pick);
+    usedRight = Math.max(usedRight, iconR, pick === 'r' ? iconR + GAP + tw[i] : -Infinity);
+  }
   return (
-    <View style={{ height: 16 }}>
-      {tl.events.map((e, i) => {
-        const crowded = lastF >= 0 && e.f - lastF < (words ? 0.3 : 0.2);
-        lastF = e.f;
+    <View style={{ height: 16 }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 && tl.events.map((e, i) => {
         const c = eventColor(e.kind);
         return (
-          <View key={i} style={{ position: 'absolute', left: `${e.f * 100}%`, marginLeft: -W / 2, width: W, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-            <MaterialCommunityIcons name={EVENT_ICON[e.kind]} size={words ? 13 : 12} color={c} />
-            {!crowded && (
-              <Text numberOfLines={1} style={{ fontFamily: FONT_MONO, fontSize: words ? 10 : 9.5, fontWeight: '700', color: c }}>
-                {words ? `${EVENT_LABEL[e.kind]} ${fmtUtc(e.ms)}` : fmtUtc(e.ms)}
+          <Fragment key={i}>
+            <View style={{ position: 'absolute', top: 1, left: pos[i] - ICON / 2, width: ICON, alignItems: 'center' }}>
+              <MaterialCommunityIcons name={EVENT_ICON[e.kind]} size={ICON} color={c} />
+            </View>
+            {side[i] ? (
+              <Text numberOfLines={1} style={{
+                position: 'absolute', top: 1, width: tw[i], textAlign: side[i] === 'l' ? 'right' : 'left',
+                left: side[i] === 'l' ? pos[i] - ICON / 2 - GAP - tw[i] : pos[i] + ICON / 2 + GAP,
+                fontFamily: FONT_MONO, fontSize: FS, fontWeight: '700', color: c,
+              }}>
+                {texts[i]}
               </Text>
-            )}
-          </View>
+            ) : null}
+          </Fragment>
         );
       })}
     </View>
