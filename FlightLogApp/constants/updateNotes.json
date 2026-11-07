@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 28,
+      "date": "2026-11-07",
+      "notes": [
+        "New: Imports and logbook scans spot flights already in your logbook and leave them out, so nothing is counted twice.",
+        "New: Flights that overlap another flight in your logbook are flagged, and you choose which one to keep.",
+        "Fixed: Identical flights on the same day, like two circuits, are now all saved."
+      ]
+    },
+    {
       "id": 27,
       "date": "2026-11-07",
       "notes": [

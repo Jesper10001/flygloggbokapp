@@ -15,6 +15,12 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- CSV-import (pilot och drönare) och Scan log jämförs med loggboken innan Save (services/logbookMatch.ts, test: FlightLogApp/scripts/test-logbook-match.cjs).
+  - Dubbletter: pilot = samma datum och rutt med tider inom 10 min, samma tider förskjutna med platsens UTC-avvikelse (lokal tid mot UTC) eller, utan tider, totaltid inom 6 min; drönare = starttid inom 10 min och samma längd, utan starttid samma plats och längd. Varje flygning i loggboken paras med högst en ny (tre varv i filen mot två i loggboken → ett nytt). I CSV räknas även en rad som står två gånger i filen med samma tider.
+  - "Already in your logbook" under "Before you save" (och överst i skanningsrapporten): lämnas utanför från början, visar vad den matchade ("In your logbook: 08:10–09:25 · 1:15 · scanned"), "Include" tar med den. I skanningen kan raden nu bockas i (var låst), och rader som redan finns får inga frågor.
+  - "Overlaps with your logbook": flygningar som överlappar i tid (minst 5 min, drönare 2 min) med en annan flygning i loggboken, oavsett rutt. Båda visas, och man väljer Keep both / Keep new (loggbokens tas bort vid Save) / Keep logbook (den nya lämnas utanför). Save-knappen visar "· remove N".
+  - AI:ns sammanfattning får grupperna (clash/dups) och kan länka till dem; timmarna den får är utan dubbletterna.
+  - Fix: likadana flygningar samma dag i samma import (t.ex. två 0:30-varv) sparas alla. Tidigare kastades den andra som "dubblett" i skanningen (och i CSV när tiderna saknades), eftersom kontrollen gjordes mot det som just sparats.
 - Importrapporten (pilot och drönare): flygningar som behöver ses över samlas som egna rader under "Before you save", och AI:ns gula punkter länkar dit.
   - Grupperna tas fram i appen, inte av AI:n: "Times cut to the flight time" (en tid som var längre än flygningen och kapades, med vad som ändrades, t.ex. "PIC 1:30 → 1:15"; parsern sparar nu det per flygning), "Unlisted places" (pilot: ZZZZ och koder som inte är kända flygplatser) och en grupp per notering från läsningen som nämner ett datum ("Flight on 6 Oct 2026", med noteringen som förklaring och flygningens värden).
   - Varje flygning visas med datum, rutt, typ och tid och, i gult, det som är speciellt. "Leave out" gör att flygningen inte sparas (och den räknas inte i flygtiden eller i "Save N flights"); "Include" ångrar.

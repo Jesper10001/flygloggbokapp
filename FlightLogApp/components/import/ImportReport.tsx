@@ -4,12 +4,15 @@
 // "In this file" med tiderna som rutnät och listorna. Save ligger fast längst ner. Färgerna kommer från läget.
 // Flygningar som behöver ses över (kapade tider, okända platser, noteringar med datum) blir egna rader under
 // "Before you save" (ReviewGroup); AI:ns text länkar dit med [[id|text]], och ett tryck skrollar dit och fäller ut.
+// Jämförelsen med loggboken (services/logbookMatch) ger två grupper till: flygningar som redan finns (lämnas utanför)
+// och flygningar som krockar i tid med en i loggboken, där man väljer vilken som ska vara kvar (ClashRow).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, type ScrollView, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FONT_SERIF, FONT_MONO } from '../logbook-page/tokens';
+import type { LogbookMatch } from '../../services/logbookMatch';
 
 export interface ReportTheme {
   bg: string; card: string; elevated: string; border: string; separator: string;
@@ -28,6 +31,38 @@ export function datesIn(text: string): string[] {
   return [...new Set(text.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [])];
 }
 export const dayMonth = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` : d);
+
+// Grupperna från jämförelsen med loggboken, först under "Before you save": krockar (välj vilken som ska vara kvar)
+// och flygningar som redan finns (lämnas utanför från början). base = flygningens rad som i övriga grupper.
+export function logbookReview(m: LogbookMatch, base: (i: number) => ReviewFlight, fmt: (h: number) => string, drone = false): ReviewGroup[] {
+  const groups: ReviewGroup[] = [];
+  const timed = (i: number) => { const f = base(i), t = m.times.get(i); return t ? { ...f, sub: `${t} · ${f.sub}` } : f; };
+  const clash = [...m.clashes.entries()].sort((a, b) => a[0] - b[0]);
+  if (clash.length) {
+    const one = clash.length === 1;
+    groups.push({
+      id: 'clash', todo: true, title: 'Overlaps with your logbook',
+      about: `${one ? 'This flight overlaps' : 'These flights overlap'} in time with ${one ? 'a flight' : 'flights'} already in your logbook. Choose which one to keep, or keep both.`,
+      flights: clash.map(([i, hits]) => ({ ...timed(i), detail: `Overlaps by ${Math.max(...hits.map((h) => h.minutes))} min` })),
+    });
+  }
+  const dups = [...m.dups.entries()].sort((a, b) => a[0] - b[0]);
+  if (dups.length) {
+    const one = dups.length === 1;
+    const same = drone ? 'date, take-off time and length' : 'date, route and times';
+    groups.push({
+      id: 'dups', todo: false, title: 'Already in your logbook',
+      about: `Same ${same} as ${one ? 'a flight' : 'flights'} you already have, so ${one ? "it's" : "they're"} left out and nothing is counted twice. Tap Include if ${one ? 'it is' : 'one is'} a different flight.`,
+      flights: dups.map(([i, d]) => ({
+        ...timed(i),
+        detail: d.logged
+          ? `In your logbook: ${[d.logged.times, fmt(d.logged.total), d.logged.source].filter(Boolean).join(' · ')}${d.zone ? ` · ${Math.abs(d.zone)} h apart (local time and UTC)` : ''}`
+          : 'Listed twice in this file',
+      })),
+    });
+  }
+  return groups;
+}
 
 // Det AI:n får veta om grupperna, så att den kan länka till dem.
 export const reviewForAi = (gs: ReviewGroup[]) => gs.map((g) => ({
@@ -303,6 +338,76 @@ export function ReviewFlightRow({ T, f, left, onToggleLeave }: { T: ReportTheme;
   );
 }
 
+// Loggbokens flygningar i en krock, som rader i ClashRow.
+export const clashOthers = (m: LogbookMatch, i: number, fmt: (h: number) => string): ClashOther[] =>
+  (m.clashes.get(i) ?? []).map((h) => ({ route: h.logged.route, sub: [h.logged.times, h.logged.what, fmt(h.logged.total), h.logged.source].filter(Boolean).join(' · ') }));
+
+// En flygning som krockar i tid med en eller flera i loggboken: båda visas, och man väljer vilken som ska vara kvar.
+// "Keep new" tar bort loggbokens flygning när man sparar, "Keep logbook" lämnar den nya utanför.
+export type ClashChoice = 'both' | 'new' | 'logbook';
+export interface ClashOther { route: string; sub: string }
+const CLASH_CHOICES: { key: ClashChoice; label: string }[] = [
+  { key: 'both', label: 'Keep both' }, { key: 'new', label: 'Keep new' }, { key: 'logbook', label: 'Keep logbook' },
+];
+export function ClashRow({ T, f, others, choice, onChoose }: {
+  T: ReportTheme; f: ReviewFlight; others: ClashOther[]; choice: ClashChoice; onChoose: (c: ClashChoice) => void;
+}) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(f.date);
+  const many = others.length > 1;
+  const Tag = ({ text, color }: { text: string; color: string }) => (
+    <View style={[st.clashTag, { backgroundColor: color + '1F', borderColor: color + '55' }]}>
+      <Text style={[st.pillText, { color }]}>{text}</Text>
+    </View>
+  );
+  return (
+    <View style={[st.clashRow, { backgroundColor: T.bg, borderColor: T.border }]}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={st.revDate}>
+          <Text style={[st.revDay, { color: T.text }]}>{valid ? Number(f.date.slice(8, 10)) : '?'}</Text>
+          <Text style={[st.revMon, { color: T.muted }]}>{valid ? `${MONTHS[Number(f.date.slice(5, 7)) - 1]} ${f.date.slice(2, 4)}` : ''}</Text>
+        </View>
+        <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
+          <View style={[st.clashLine, choice === 'logbook' && { opacity: 0.4 }]}>
+            <Tag text="NEW" color={T.accent} />
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={[st.revRoute, { color: T.text }]} numberOfLines={1}>{f.route}</Text>
+              <Text style={[st.revSub, { color: T.text2 }]} numberOfLines={1}>{f.sub}</Text>
+            </View>
+          </View>
+          {others.map((o, k) => (
+            <View key={k} style={[st.clashLine, choice === 'new' && { opacity: 0.4 }]}>
+              <Tag text="LOGBOOK" color={T.text2} />
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[st.revRoute, { color: T.text }, choice === 'new' && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{o.route}</Text>
+                <Text style={[st.revSub, { color: T.text2 }]} numberOfLines={1}>{o.sub}</Text>
+              </View>
+            </View>
+          ))}
+          {!!f.detail && <Text style={[st.revDetail, { color: T.warning, marginTop: 0 }]}>{f.detail}</Text>}
+        </View>
+      </View>
+      <View style={[st.seg, { borderColor: T.border, backgroundColor: T.card }]} accessibilityRole="radiogroup">
+        {CLASH_CHOICES.map((c) => {
+          const on = choice === c.key;
+          return (
+            <TouchableOpacity key={c.key} style={[st.segBtn, on && { backgroundColor: T.accent }]} onPress={() => onChoose(c.key)} activeOpacity={0.8}
+              accessibilityRole="radio" accessibilityState={{ selected: on }}>
+              <Text style={[st.segText, { color: on ? T.onAccent : T.text2 }]} numberOfLines={1}>{c.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {choice !== 'both' && (
+        <Text style={[st.clashNote, { color: choice === 'new' ? T.danger : T.text2 }]}>
+          {choice === 'new'
+            ? `${many ? `The ${others.length} logbook flights are` : 'The logbook flight is'} deleted when you save.`
+            : 'This flight is left out of the import.'}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 // ── In this file ──────────────────────────────────────────────────────────────
 export function TotalsGrid({ T, items }: { T: ReportTheme; items: { label: string; value: string }[] }) {
   return (
@@ -390,6 +495,13 @@ const st = StyleSheet.create({
   revSub: { fontFamily: FONT_MONO, fontSize: 10.5 },
   revDetail: { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
   revLeave: { fontSize: 12.5, fontWeight: '700' },
+  clashRow: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, gap: 10 },
+  clashLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  clashTag: { width: 62, alignItems: 'center', paddingVertical: 2, borderRadius: 999, borderWidth: 1, marginTop: 1 },
+  clashNote: { fontSize: 12, fontWeight: '600', marginTop: -2 },
+  seg: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, padding: 3, gap: 3 },
+  segBtn: { flex: 1, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  segText: { fontSize: 12.5, fontWeight: '700' },
   editRow: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   editHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   editTitle: { fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },

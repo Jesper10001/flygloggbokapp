@@ -13,7 +13,8 @@ import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { estimateNightForImport, countComputable, type NightBasis, type NightEstimate } from '../../services/importNight';
 import { CondBar } from '../../components/logflight/CondBar';
 import { CountryFlag } from '../../components/CountryFlag';
-import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, flightExists } from '../../db/flights';
+import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, deleteFlights } from '../../db/flights';
+import { matchFlightsToLogbook, idsToRemove, EMPTY_MATCH, type LogbookMatch } from '../../services/logbookMatch';
 import { enrichFleetInBackground } from '../../services/fleetEnrich';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
 import { useFlightStore } from '../../store/flightStore';
@@ -29,18 +30,22 @@ import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordi
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import {
   ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
-  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi,
-  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight,
+  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi, logbookReview, ClashRow, clashOthers,
+  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight, type ClashChoice,
 } from '../../components/import/ImportReport';
 
 // Flygningar att se över under "Before you save" (och som AI:ns text länkar till): tider som kapades till flygtiden,
 // platser som inte är kända flygplatser (ZZZZ m.fl.) och noteringar från läsningen som nämner ett datum.
 // used = noteringarna som blivit en grupp (de står då inte också under "Notes on your file").
+// Först jämförelsen med loggboken: krockar i tid och flygningar som redan finns (components/import/ImportReport).
 const CAP_LABEL: Record<string, string> = {
   pic: 'PIC', co_pilot: 'Co-pilot', dual: 'Dual', night: 'Night', ifr: 'IFR', instructor: 'Instructor', solo: 'Solo',
   cross_country: 'Cross-country', picus: 'PICUS', se_time: 'SE', me_time: 'ME',
 };
-function buildPilotReview(flights: OcrFlightResult[], unknown: Set<string>, warnings: string[], fmt: (h: number) => string): { groups: ReviewGroup[]; used: Set<string> } {
+const GROUP_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  clash: 'git-compare-outline', dups: 'copy-outline', capped: 'cut-outline', places: 'location-outline',
+};
+function buildPilotReview(flights: OcrFlightResult[], unknown: Set<string>, warnings: string[], fmt: (h: number) => string, match: LogbookMatch = EMPTY_MATCH): { groups: ReviewGroup[]; used: Set<string> } {
   const num = (v: unknown) => parseFloat(String(v ?? '')) || 0;
   const base = (f: OcrFlightResult, i: number): ReviewFlight => ({
     idx: i, date: f.date, route: `${f.dep_place || '?'} → ${f.arr_place || '?'}`,
@@ -54,7 +59,7 @@ function buildPilotReview(flights: OcrFlightResult[], unknown: Set<string>, warn
     if ((f as any).flight_type === 'sim') parts.unshift('Simulator');
     return parts.join(' · ');
   };
-  const groups: ReviewGroup[] = [];
+  const groups: ReviewGroup[] = logbookReview(match, (i) => base(flights[i], i), fmt);
   const used = new Set<string>();
   const capped = flights.map((f, i) => ({ f, i })).filter(({ f }) => (f.capped?.length ?? 0) > 0);
   if (capped.length) {
@@ -465,6 +470,14 @@ export default function ImportScreen() {
   const [openType, setOpenType] = useState<string | null>(null); // flygplanstypen som är utfälld i Aircraft details
   const [excluded, setExcluded] = useState<Set<number>>(new Set());  // flygningar som lämnas utanför ("Leave out")
   const toggleLeave = (i: number) => setExcluded((p) => { const n = new Set(p); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  // Jämförelsen med loggboken (dubbletter + krockar) och krockarna där den nya behålls (loggbokens tas bort vid Save).
+  const [match, setMatch] = useState<LogbookMatch>(EMPTY_MATCH);
+  const [keepNew, setKeepNew] = useState<Set<number>>(new Set());
+  const clashChoice = (i: number): ClashChoice => (excluded.has(i) ? 'logbook' : keepNew.has(i) ? 'new' : 'both');
+  const chooseClash = (i: number, c: ClashChoice) => {
+    setExcluded((p) => { const n = new Set(p); if (c === 'logbook') n.add(i); else n.delete(i); return n; });
+    setKeepNew((p) => { const n = new Set(p); if (c === 'new') n.add(i); else n.delete(i); return n; });
+  };
   const nav = useCheckNav();
   const [airportMeta, setAirportMeta] = useState<Record<string, { name: string; country: string; known: boolean }>>({});
   // Marschfart + uthållighet för fartygstyper utan registrerade värden
@@ -657,6 +670,7 @@ export default function ImportScreen() {
     setImportError(null);
     setOpenType(null);
     setExcluded(new Set());
+    setMatch(EMPTY_MATCH); setKeepNew(new Set());
     nav.reset();
     setAirportMeta({});
 
@@ -710,15 +724,21 @@ export default function ImportScreen() {
       }
       setUnknownAirports(unknowns);
 
+      // Mot loggboken: flygningar som redan finns lämnas utanför från början, krockar i tid visas för val.
+      const m = await matchFlightsToLogbook(res.flights, { withinFile: true }).catch(() => EMPTY_MATCH);
+      setMatch(m);
+      setExcluded(new Set(m.dups.keys()));
+
       // AI-sammanfattning (fritext) — asynkront, blockerar inte förhandsvisningen
       const sumDates = res.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
+      const fresh = res.flights.filter((_, i) => !m.dups.has(i));   // timmarna utan dem som redan finns
       generateImportSummary({
         fileName: file.name,
         detectedFormat: res.detectedFormat,
         totalRows: res.totalRows,
         parsedFlights: res.flights.length,
-        totalHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? 0 : parseFloat(f.total_time) || 0), 0) * 10) / 10,
-        simHours: Math.round(res.flights.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? parseFloat(f.total_time) || 0 : 0), 0) * 10) / 10,
+        totalHours: Math.round(fresh.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? 0 : parseFloat(f.total_time) || 0), 0) * 10) / 10,
+        simHours: Math.round(fresh.reduce((s, f) => s + ((f as any).flight_type === 'sim' ? parseFloat(f.total_time) || 0 : 0), 0) * 10) / 10,
         dateRange: sumDates.length ? `${sumDates[0]} – ${sumDates[sumDates.length - 1]}` : undefined,
         aircraft: [...new Set(res.flights.map((f) => f.aircraft_type).filter(Boolean))],
         airports: [...new Set(res.flights.flatMap((f) => [f.dep_place, f.arr_place]).filter(Boolean))].slice(0, 40) as string[],
@@ -726,7 +746,7 @@ export default function ImportScreen() {
         timeCandidates: res.timeCandidates,
         totalTimeColumn: res.totalTimeColumn,
         warnings: res.warnings,
-        reviewGroups: reviewForAi(buildPilotReview(res.flights, new Set(unknowns.map((u) => u.icao)), res.warnings, fmtH).groups),
+        reviewGroups: reviewForAi(buildPilotReview(res.flights, new Set(unknowns.map((u) => u.icao)), res.warnings, fmtH, m).groups),
         nightMissing: res.flights.length > 0 && res.flights.every((f) => !(parseFloat(String((f as any).night ?? '0')) > 0)),
       })
         .then((s) => setAiSummary(s))
@@ -780,7 +800,6 @@ export default function ImportScreen() {
     savingRef.current = true;
     setSaving(true);
     let saved = 0;
-    let skipped = 0; // dubbletter som redan finns i loggboken
     try {
       // Spara marschfart och uthållighet för fartygstyper som saknade värden
       for (const { type } of typesNeedingData) {
@@ -800,6 +819,9 @@ export default function ImportScreen() {
       // inte uttryckligen valt hot refuel — annars tappades sim-tiden (sparades som 'normal' → försvann
       // ur sim-statistiken). Övriga flygningar default:ar till 'normal'.
       const exceedingIdx = new Set(exceedingFlights.map((e) => e.idx));
+      // Krockar där den nya behålls: loggbokens flygning tas bort först.
+      const removed = idsToRemove(match, keepNew, (i) => excluded.has(i));
+      if (removed.length) await deleteFlights(removed);
       for (let i = 0; i < result.flights.length; i++) {
         if (excluded.has(i)) continue; // "Leave out" i rapporten
         const f = result.flights[i];
@@ -810,9 +832,6 @@ export default function ImportScreen() {
           explanation === 'temporary' ? '[Off-airport (ZZZZ)]' :
           explanation === 'refuel'    ? '[En-route refuel]' : '';
         const remarks = [f.remarks, remarksNote].filter(Boolean).join(' ');
-        // Dubblettkontroll: hoppa över flighter som redan finns (samma datum + rutt + tider) →
-        // en om-import av samma fil skapar inga dubbletter.
-        if (await flightExists(f.date, f.dep_place, f.arr_place, f.dep_utc, f.arr_utc)) { skipped++; continue; }
         await insertFlight({ ...f, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
         saved++;
       }
@@ -820,15 +839,19 @@ export default function ImportScreen() {
       // Hämta resterande Fleet-data (spec + bilder) i BAKGRUNDEN för de importerade typerna → korten
       // är kompletta när användaren öppnar Fleet-sidan. Token-gated (blockerar inte importen). När klart
       // → tappbar toast som tar en till Fleet. Global router (skärmen kan ha stängts när det blir klart).
-      console.log(`[import] saveAll done: ${saved} saved, ${skipped} skipped → starting fleet enrichment`);
+      console.log(`[import] saveAll done: ${saved} saved, ${removed.length} removed → starting fleet enrichment`);
       enrichFleetInBackground().then((res) => {
         console.log(`[import] fleet enrichment finished → enriched=${res.enriched}/${res.total} stoppedForQuota=${res.stoppedForQuota}`);
         // Centrerad global modal (import-skärmen kan ha stängts) → knapp till Logbook-flikens Fleet-vy.
         // Visa om något berikades ELLER om vi pausade pga slut på Blade-coins (då med uppgraderings-CTA).
         if (res.enriched > 0 || res.stoppedForQuota) useFleetDoneStore.getState().show(res);
       }).catch((e) => console.log('[import] fleet enrichment rejected:', e?.message ?? e));
-      // Dubblett-notis (om några hoppades över) läggs till i bekräftelsen.
-      const dupNote = skipped > 0 ? `\n\n${skipped} duplicate${skipped === 1 ? '' : 's'} skipped (already in logbook).` : '';
+      // Flygningar som redan fanns (dubbletter som lämnades utanför) och borttagna krockar läggs till i bekräftelsen.
+      const dupLeft = [...match.dups.keys()].filter((i) => excluded.has(i)).length;
+      const dupNote = [
+        dupLeft > 0 ? `${dupLeft} already in your logbook (left out).` : '',
+        removed.length > 0 ? `${removed.length} overlapping ${removed.length === 1 ? 'flight' : 'flights'} removed from your logbook.` : '',
+      ].filter(Boolean).map((x) => `\n\n${x}`).join('');
       // Importen klar → vanlig bekräftelse (Wrapped-funktionen borttagen).
       Alert.alert(t('done_exclamation'), `${saved} ${t('flights_imported')}${dupNote}`, [
         { text: 'OK', onPress: finishNav },
@@ -883,11 +906,12 @@ export default function ImportScreen() {
   }, [result, simIdx, excluded]);
 
   const review = useMemo(() => (result
-    ? buildPilotReview(result.flights, new Set(unknownAirports.map((u) => u.icao)), result.warnings, fmtH)
+    ? buildPilotReview(result.flights, new Set(unknownAirports.map((u) => u.icao)), result.warnings, fmtH, match)
     : { groups: [] as ReviewGroup[], used: new Set<string>() }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [result, unknownAirports, timeFormat]);
+  [result, unknownAirports, timeFormat, match]);
   const included = result ? result.flights.length - excluded.size : 0;
+  const removeCount = useMemo(() => idsToRemove(match, keepNew, (i) => excluded.has(i)).length, [match, keepNew, excluded]);
 
   // Flygplatslistan öppnas → slå upp namn + land för koder som saknas (samma som Imported data)
   const resolveAirportMeta = () => {
@@ -1134,11 +1158,12 @@ export default function ImportScreen() {
     checks.push({
       key, status,
       render: (first) => (
-        <CheckItem T={T} first={first} icon={g.id === 'capped' ? 'cut-outline' : g.id === 'places' ? 'location-outline' : 'search-outline'}
+        <CheckItem T={T} first={first} icon={GROUP_ICON[g.id] ?? 'search-outline'}
           title={g.title} status={status} statusText={g.todo ? `${n} TO CHECK` : `${n} ${n === 1 ? 'FLIGHT' : 'FLIGHTS'}`}
           summary={g.about} open={!!nav.open[key]} onToggle={() => nav.toggle(key)} highlight={nav.flash === key}>
-          {g.flights.slice(0, 40).map((f) => (
-            <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
+          {g.flights.slice(0, 40).map((f) => (g.id === 'clash'
+            ? <ClashRow key={f.idx} T={T} f={f} others={clashOthers(match, f.idx, fmtH)} choice={clashChoice(f.idx)} onChoose={(c) => chooseClash(f.idx, c)} />
+            : <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
           ))}
           {n > 40 && <Text style={{ color: T.text2, fontSize: 12.5, textAlign: 'center' }}>+ {n - 40} more {n - 40 === 1 ? 'flight' : 'flights'}</Text>}
         </CheckItem>
@@ -1423,7 +1448,7 @@ export default function ImportScreen() {
 
           {/* Kort notis + byt fil (uploadkortet är dolt när en analys visas, så ge en väg tillbaka) */}
           <View style={{ gap: 2, marginTop: 2 }}>
-            <Text style={styles.hint}>Nothing is saved until you tap Save. Duplicates are skipped.</Text>
+            <Text style={styles.hint}>Nothing is saved until you tap Save.</Text>
             <TouchableOpacity
               style={styles.chooseOtherBtn}
               onPress={handlePick}
@@ -1440,7 +1465,7 @@ export default function ImportScreen() {
 
     </ScrollView>
     {result && (
-      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}`}
+      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}${removeCount ? ` · remove ${removeCount}` : ''}`}
         saving={saving} disabled={included === 0} onPress={saveAll} bottom={insets.bottom} />
     )}
     {progressLayer}

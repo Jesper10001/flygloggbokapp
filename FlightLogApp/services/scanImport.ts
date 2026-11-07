@@ -12,6 +12,7 @@ import { getAirportByIcao, addTemporaryPlace, isOffAirportCode } from '../db/ica
 import { saveLearnedMapping } from '../db/ocrLearned';
 import { reconcileBlockTime } from '../utils/flightTime';
 import { clockValue } from '../utils/format';
+import { matchFlightsToLogbook, type DupHit, type ClashHit } from './logbookMatch';
 
 export interface ScanRow {
   key: string;            // stabilt id: `${page}:${rowIndex}`
@@ -293,17 +294,21 @@ function deriveMultiPilot(d: OcrFlightResult) {
   else if ((parseFloat(d.instructor ?? '0') || 0) > 0) d.multi_pilot = String(total);
 }
 
-/** Nycklar för rader som redan finns i loggboken (samma datum, rutt och totaltid). */
-export async function findDuplicateKeys(rows: ScanRow[]): Promise<Set<string>> {
-  const db = await getDatabase();
-  const out = new Set<string>();
-  for (const r of rows) {
-    const dup = await db.getFirstAsync<{ id: number }>(
-      `SELECT id FROM flights WHERE date=? AND dep_place=? AND arr_place=? AND ABS(total_time - ?) < 0.05 LIMIT 1`,
-      [r.data.date, r.data.dep_place, r.data.arr_place, parseFloat(r.data.total_time) || 0],
-    );
-    if (dup) out.add(r.key);
-  }
+/** Skannade rader mot loggboken (services/logbookMatch), per radnyckel: rader som redan finns och rader som krockar
+ *  i tid med en flygning i loggboken. Tider i lokal tid räknas om till UTC först, som när de sparas. */
+export interface ScanMatch { dups: Record<string, DupHit>; clashes: Record<string, ClashHit[]>; times: Record<string, string> }
+export const EMPTY_SCAN_MATCH: ScanMatch = { dups: {}, clashes: {}, times: {} };
+export async function matchScanRows(rows: ScanRow[], timeBasis: 'utc' | 'local' = 'utc'): Promise<ScanMatch> {
+  const data = await Promise.all(rows.map(async (r) => {
+    const d: OcrFlightResult = { ...r.data };
+    if (timeBasis === 'local') await localTimesToUtc(d).catch(() => {});
+    return d;
+  }));
+  const m = await matchFlightsToLogbook(data);
+  const out: ScanMatch = { dups: {}, clashes: {}, times: {} };
+  for (const [i, d] of m.dups) out.dups[rows[i].key] = d;
+  for (const [i, c] of m.clashes) out.clashes[rows[i].key] = c;
+  for (const [i, t] of m.times) out.times[rows[i].key] = t;
   return out;
 }
 
@@ -805,9 +810,11 @@ export interface SaveSummary {
 // Början på orsaken i ändringsloggen för en justering mot sidans summa (flygningens sida känner igen den).
 export const SCAN_ADJUST_REASON = 'Adjusted during the logbook scan so the column matches the page total';
 
+// inLogbook: rader som lämnas utanför för att de redan finns i loggboken → flygningens id (räknas som duplicates).
+// Ingen dubblettkoll här: den görs mot loggboken före sparningen (matchScanRows), så likadana rader sparas alla.
 export async function saveScanRows(
   rows: ScanRow[],
-  opts: { unknownIcaos: Set<string>; pageNumbers: { left: number | null; right: number | null }[]; timeBasis?: 'utc' | 'local' },
+  opts: { unknownIcaos: Set<string>; pageNumbers: { left: number | null; right: number | null }[]; timeBasis?: 'utc' | 'local'; inLogbook?: Record<string, number> },
 ): Promise<SaveSummary> {
   let saved = 0, skipped = 0, duplicates = 0, adjusted = 0;
   const savedIds: number[] = [];
@@ -815,14 +822,13 @@ export async function saveScanRows(
   const db = await getDatabase();
 
   for (const row of rows) {
-    if (row.skip) { skipped++; continue; }
+    if (row.skip) {
+      const had = opts.inLogbook?.[row.key];
+      if (had) { duplicates++; ids[row.key] = had; } else skipped++;
+      continue;
+    }
     const d: OcrFlightResult = { ...row.data };
     if (opts.timeBasis === 'local') await localTimesToUtc(d);
-    const dup = await db.getFirstAsync<{ id: number }>(
-      `SELECT id FROM flights WHERE date=? AND dep_place=? AND arr_place=? AND ABS(total_time - ?) < 0.05 LIMIT 1`,
-      [d.date, d.dep_place, d.arr_place, parseFloat(d.total_time) || 0],
-    );
-    if (dup) { duplicates++; ids[row.key] = dup.id; continue; }
     mapOtherTimes(d);
     deriveMultiPilot(d);
     // Platser som inte är ICAO-koder (namn eller ZZ…) → tillfällig plats med egen kod.

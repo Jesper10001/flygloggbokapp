@@ -24,10 +24,12 @@ import {
   type DroneImportResult, type ParsedDroneRow,
 } from '../../services/droneImport';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
+import { deleteDroneFlight } from '../../db/drones';
+import { matchDroneFlightsToLogbook, idsToRemove, EMPTY_MATCH, type LogbookMatch } from '../../services/logbookMatch';
 import {
   ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
-  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi,
-  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight,
+  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi, logbookReview, ClashRow, clashOthers,
+  type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight, type ClashChoice,
 } from '../../components/import/ImportReport';
 
 const HOW_IT_WORKS = [
@@ -53,8 +55,10 @@ const EMPTY_ROWS: ParsedDroneRow[] = [];
 // AI:s drone_type → airframe-toggeln (vtol viks in i fixed-wing).
 // Flygningar att se över under "Before you save" (och som AI:ns text länkar till), som pilotläget: tider som kapades
 // till flygtiden och noteringar från läsningen som nämner ett datum. used = noteringar som blivit en grupp.
+// Först jämförelsen med loggboken: krockar i tid och flygningar som redan finns.
 const CAP_LABEL: Record<string, string> = { night_time: 'Night', ifr: 'IFR', co_pilot_fpv: 'FPV / 2nd pilot', dual: 'Dual', instructor: 'Instructor' };
-function buildDroneReview(rows: ParsedDroneRow[], warnings: string[], fmt: (h: number) => string): { groups: ReviewGroup[]; used: Set<string> } {
+const GROUP_ICON: Record<string, keyof typeof Ionicons.glyphMap> = { clash: 'git-compare-outline', dups: 'copy-outline', capped: 'cut-outline' };
+function buildDroneReview(rows: ParsedDroneRow[], warnings: string[], fmt: (h: number) => string, match: LogbookMatch = EMPTY_MATCH): { groups: ReviewGroup[]; used: Set<string> } {
   const base = (r: ParsedDroneRow, i: number): ReviewFlight => ({
     idx: i, date: r.date, route: r.location || r.drone_type || 'Flight',
     sub: [r.drone_type, r.registration, fmt(r.total_time)].filter(Boolean).join(' · '), detail: '',
@@ -66,7 +70,7 @@ function buildDroneReview(rows: ParsedDroneRow[], warnings: string[], fmt: (h: n
     if (r.landings_day + r.landings_night > 0) parts.push(`Landings ${r.landings_day} day, ${r.landings_night} night`);
     return parts.join(' · ');
   };
-  const groups: ReviewGroup[] = [];
+  const groups: ReviewGroup[] = logbookReview(match, (i) => base(rows[i], i), fmt, true);
   const used = new Set<string>();
   const capped = rows.map((r, i) => ({ r, i })).filter(({ r }) => (r.capped?.length ?? 0) > 0);
   if (capped.length) {
@@ -123,6 +127,14 @@ export default function DroneImportCsvScreen() {
   const [openModel, setOpenModel] = useState<string | null>(null);     // modellen som är utfälld i Drone details
   const [excluded, setExcluded] = useState<Set<number>>(new Set());     // flygningar som lämnas utanför ("Leave out")
   const toggleLeave = (i: number) => setExcluded((p) => { const n = new Set(p); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  // Jämförelsen med loggboken (dubbletter + krockar) och krockarna där den nya behålls (loggbokens tas bort vid Save).
+  const [match, setMatch] = useState<LogbookMatch>(EMPTY_MATCH);
+  const [keepNew, setKeepNew] = useState<Set<number>>(new Set());
+  const clashChoice = (i: number): ClashChoice => (excluded.has(i) ? 'logbook' : keepNew.has(i) ? 'new' : 'both');
+  const chooseClash = (i: number, c: ClashChoice) => {
+    setExcluded((p) => { const n = new Set(p); if (c === 'logbook') n.add(i); else n.delete(i); return n; });
+    setKeepNew((p) => { const n = new Set(p); if (c === 'new') n.add(i); else n.delete(i); return n; });
+  };
   const nav = useCheckNav();
   const fmtH = (h: number) => `${formatTime(h)}${timeFormat === 'decimal' ? ' h' : ''}`;
   // Rapportens färger i drönarläget (samma rapport som pilotläget).
@@ -175,10 +187,11 @@ export default function DroneImportCsvScreen() {
     dates.sort();
     return { hours, byMode, tf, night, locations: [...locations], dateRange: dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : '' };
   }, [rows, excluded]);
-  const review = useMemo(() => (result ? buildDroneReview(result.rows, result.warnings, fmtH) : { groups: [] as ReviewGroup[], used: new Set<string>() }),
+  const review = useMemo(() => (result ? buildDroneReview(result.rows, result.warnings, fmtH, match) : { groups: [] as ReviewGroup[], used: new Set<string>() }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [result, timeFormat]);
+  [result, timeFormat, match]);
   const included = rows.length - excluded.size;
+  const removeCount = useMemo(() => idsToRemove(match, keepNew, (i) => excluded.has(i)).length, [match, keepNew, excluded]);
 
   // Unika modeller (för Drone data-sektionen).
   const droneModels = useMemo(() => {
@@ -240,7 +253,7 @@ export default function DroneImportCsvScreen() {
     droneModels.forEach((d) => { if (!lookedUpRef.current.has(d.model)) lookupModel(d.model, false); });
   }, [droneModels]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchSummary = async (r: DroneImportResult | null, fname: string, error?: string) => {
+  const fetchSummary = async (r: DroneImportResult | null, fname: string, error?: string, m: LogbookMatch = EMPTY_MATCH) => {
     setSummaryLoading(true);
     try {
       const txt = await generateDroneImportSummary({
@@ -248,11 +261,11 @@ export default function DroneImportCsvScreen() {
         detectedFormat: r?.detectedFormat,
         totalRows: r?.totalRows,
         parsedFlights: r?.mappedRows,
-        totalHours: r ? Math.round(r.rows.reduce((s, x) => s + x.total_time, 0) * 10) / 10 : undefined,
+        totalHours: r ? Math.round(r.rows.reduce((s, x, i) => s + (m.dups.has(i) ? 0 : x.total_time), 0) * 10) / 10 : undefined,
         drones: r ? [...new Set(r.rows.map((x) => x.drone_type).filter(Boolean))] : undefined,
         categories: r ? [...new Set(r.rows.map((x) => x.category).filter(Boolean))] : undefined,
         warnings: r?.warnings,
-        reviewGroups: r ? reviewForAi(buildDroneReview(r.rows, r.warnings, fmtH).groups) : undefined,
+        reviewGroups: r ? reviewForAi(buildDroneReview(r.rows, r.warnings, fmtH, m).groups) : undefined,
         error,
       });
       setAiSummary(txt);
@@ -267,7 +280,7 @@ export default function DroneImportCsvScreen() {
     const file = await pickImportFile();
     if (!file) return;
     setFileName(file.name);
-    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setOpenModel(null); setExcluded(new Set()); nav.reset();
+    setImporting(true); setImportError(null); setResult(null); setAiSummary(''); setDroneData({}); setOpenModel(null); setExcluded(new Set()); setMatch(EMPTY_MATCH); setKeepNew(new Set()); nav.reset();
     lookedUpRef.current = new Set(); setLookingModels(new Set());
     setProgress({ current: 0, total: 3 });
     if (overlayTimer.current) clearTimeout(overlayTimer.current);
@@ -276,9 +289,12 @@ export default function DroneImportCsvScreen() {
     setOverlay('busy');
     try {
       const r = await importDroneFromFile(file.uri, (current, total) => setProgress({ current, total }));
+      // Mot loggboken: flygningar som redan finns lämnas utanför från början, krockar i tid visas för val.
+      const m = await matchDroneFlightsToLogbook(r.rows, { withinFile: true }).catch(() => EMPTY_MATCH);
+      setMatch(m); setExcluded(new Set(m.dups.keys()));
       setResult(r); setImporting(false);
       finishOverlay();
-      fetchSummary(r, file.name);
+      fetchSummary(r, file.name, undefined, m);
     } catch (e: any) {
       setImporting(false);
       setOverlay('hidden');
@@ -301,10 +317,13 @@ export default function DroneImportCsvScreen() {
       const infoByModel: Record<string, { airframe?: string; mtow_g?: number; category?: string }> = {};
       for (const [model, info] of Object.entries(droneData)) infoByModel[model] = { airframe: info.airframe || '', mtow_g: info.mtow_g || 0, category: info.cls || '' };
 
+      // Krockar där den nya behålls: loggbokens flygning tas bort först.
+      const removed = idsToRemove(match, keepNew, (i) => excluded.has(i));
+      for (const id of removed) await deleteDroneFlight(id);
       const n = await saveDroneImport(rowsToSave);
       await registerImportedDrones(rowsToSave, infoByModel); // registrera flottan FÖRE navigering (syns direkt)
       await Promise.all([loadFlights(), loadStats()]);
-      show?.(`Imported ${n} ${n === 1 ? 'flight' : 'flights'}`);
+      show?.(`Imported ${n} ${n === 1 ? 'flight' : 'flights'}${removed.length ? `, removed ${removed.length} overlapping` : ''}`);
       router.replace('/(tabs)/drone-dashboard');
       // Bakgrund: hämta bild + fulla specar → popup som meddelar + navigerar till Fleet (= pilotens flöde).
       enrichImportedDroneModels(rowsToSave)
@@ -415,11 +434,12 @@ export default function DroneImportCsvScreen() {
     checks.push({
       key, status,
       render: (first) => (
-        <CheckItem T={T} first={first} icon={g.id === 'capped' ? 'cut-outline' : 'search-outline'}
+        <CheckItem T={T} first={first} icon={GROUP_ICON[g.id] ?? 'search-outline'}
           title={g.title} status={status} statusText={g.todo ? `${n} TO CHECK` : `${n} ${n === 1 ? 'FLIGHT' : 'FLIGHTS'}`}
           summary={g.about} open={!!nav.open[key]} onToggle={() => nav.toggle(key)} highlight={nav.flash === key}>
-          {g.flights.slice(0, 40).map((f) => (
-            <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
+          {g.flights.slice(0, 40).map((f) => (g.id === 'clash'
+            ? <ClashRow key={f.idx} T={T} f={f} others={clashOthers(match, f.idx, fmtH)} choice={clashChoice(f.idx)} onChoose={(c) => chooseClash(f.idx, c)} />
+            : <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
           ))}
           {n > 40 && <Text style={{ color: T.text2, fontSize: 12.5, textAlign: 'center' }}>+ {n - 40} more {n - 40 === 1 ? 'flight' : 'flights'}</Text>}
         </CheckItem>
@@ -575,7 +595,7 @@ export default function DroneImportCsvScreen() {
       )}
     </ScrollView>
     {result && (
-      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}`}
+      <SaveFooter T={T} label={`Save ${included.toLocaleString('en-US')} ${included === 1 ? 'flight' : 'flights'}${removeCount ? ` · remove ${removeCount}` : ''}`}
         saving={saving} disabled={included <= 0} onPress={doImport} bottom={insets.bottom} />
     )}
     {progressLayer}

@@ -30,7 +30,8 @@ import { useFlightStore } from '../../store/flightStore';
 import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert } from '../../utils/tokenGate';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { presentPaywall } from '../../services/purchases';
-import { getAllAircraftTypes, getFleetRegistrationTypes, getSecondPilotCounts, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting } from '../../db/flights';
+import { getAllAircraftTypes, getFleetRegistrationTypes, getSecondPilotCounts, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting, deleteFlights } from '../../db/flights';
+import type { ClashChoice } from '../../components/import/ImportReport';
 import { lookupAircraft } from '../../services/aircraftLookup';
 import { ScanReport, type CellState } from '../../components/scan/ScanReport';
 import { ScanProgress, type ScanPhase } from '../../components/scan/ScanProgress';
@@ -46,7 +47,7 @@ import {
   label, display, parseInput, inputValue, shapeInput, DURATION, CLOCK, PLACE, COUNT, UPPER, CHOICES, chipKey,
 } from '../../services/scanFields';
 import {
-  prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, findDuplicateKeys, columnTotals,
+  prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, matchScanRows, EMPTY_SCAN_MATCH, type ScanMatch, columnTotals,
   detectTimeAddition, fitsTimeAddition, distributeDifference, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
   rowsMatchBlockTimes, pageTotalsPointAt, suggestAdjustRows, followTotalTime, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, type ScanRow,
 } from '../../services/scanImport';
@@ -214,11 +215,12 @@ function deriveIssues(
   typeGroups: TypeGroup[] = [],        // flygplanstyperna, ihopslagna och kontrollerade mot flottan
   typeChoice: Record<string, string> = {},
   wordsOf: (page: number) => VisionBox[] = () => [],   // Visions ord per uppslag (för värden i grannkolumnen)
+  inLogbook: Set<string> = new Set(),  // rader som redan finns i loggboken (lämnas utanför): inga frågor om dem
 ): Issue[] {
   const out: Issue[] = [];
   const add = addition.accepted;
   for (const row of rows) {
-    if (row.skip) continue;
+    if (row.skip || inLogbook.has(row.key)) continue;
     const grid = pages[row.page]?.grid ?? null;
     const d = row.data;
     const cell = (f: string) => (grid ? cellRect(grid, row.rowIndex, f) : null);
@@ -584,7 +586,20 @@ export default function ScanReviewScreen() {
   const [correctInfo, setCorrectInfo] = useState(false);     // info-knappen under "Correct my total"
   // Kolumnfrågor där användaren sagt att den misstänkta dubbelraden är en riktig flygning.
   const [realRows, setRealRows] = useState<Set<string>>(new Set());
-  const [duplicates, setDuplicates] = useState<Set<string>>(new Set());
+  // Jämförelsen med loggboken (matchScanRows): rader som redan finns och rader som krockar i tid. Raderna som finns
+  // lämnas utanför (duplicates) tills man tar med dem ("Include"); de får inga frågor. keepNew = krockar där den
+  // skannade flygningen behålls och loggbokens tas bort vid Save. Räknas om när datum, rutt eller tider ändras.
+  const [scanMatch, setScanMatch] = useState<ScanMatch>(EMPTY_SCAN_MATCH);
+  const [dupIncluded, setDupIncluded] = useState<Set<string>>(new Set());
+  const [keepNew, setKeepNew] = useState<Set<string>>(new Set());
+  const duplicates = useMemo(() => new Set(Object.keys(scanMatch.dups).filter((k) => !dupIncluded.has(k))), [scanMatch, dupIncluded]);
+  const matchSig = rows.map((r) => [r.key, r.data.date, r.data.dep_place, r.data.arr_place, r.data.dep_utc, r.data.arr_utc, r.data.total_time].join('|')).join(';') + timeBasis;
+  useEffect(() => {
+    if (!rows.length) return;
+    let live = true;
+    const t = setTimeout(() => { matchScanRows(rows, timeBasis).then((m) => { if (live) setScanMatch(m); }).catch(() => {}); }, 400);
+    return () => { live = false; clearTimeout(t); };
+  }, [matchSig]); // eslint-disable-line react-hooks/exhaustive-deps
   const [aircraft, setAircraft] = useState<Record<string, AircraftInput>>({});
   const [acLoading, setAcLoading] = useState<Set<string>>(new Set());
   const [acFailed, setAcFailed] = useState<Set<string>>(new Set());
@@ -1103,8 +1118,8 @@ export default function ScanReviewScreen() {
 
   // Visions ord per uppslag, sparade när uppslaget lästes (pageInputs fylls innan raderna sätts).
   const wordsOf = (page: number) => pageInputs.current.get(page)?.words ?? [];
-  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice, wordsOf),
-    [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice]);
+  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates),
+    [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice, duplicates]);
   const isDone = (i: Issue) => !!resolved[i.id] || (!!i.group && i.group.members.every((m) => resolved[m]));
 
   // Innan man börjar med frågorna: går några sidsummor inte ihop sägs det en gång, och att Blades guidar genom
@@ -1127,7 +1142,7 @@ export default function ScanReviewScreen() {
     if (!done) return null;
     const factor = Math.max(done, pages.filter((p) => p.status !== 'error').length) / done;
     const values = rows.filter((r) => !r.skip && pages[r.page]?.status === 'done').length * VALUES_PER_ROW;
-    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice, wordsOf);
+    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates);
     const size = (i: Issue) => (i.kind === 'column' ? 0 : i.group ? i.group.members.length : 1);
     const exact = derive('exact');
     const exactSize = exact.reduce((n, i) => n + size(i), 0);
@@ -1649,7 +1664,7 @@ export default function ScanReviewScreen() {
     if (busy) { Alert.alert('Still reading', 'Wait until every spread has been read.'); return; }
     const go = async () => {
       Keyboard.dismiss(); setTyping(false); setSelection(null);
-      setDuplicates(await findDuplicateKeys(rows).catch(() => new Set<string>()));
+      setScanMatch(await matchScanRows(rows, timeBasis).catch(() => scanMatch));
       setStage('report');
     };
     if (openIssues.length > 0) {
@@ -1686,6 +1701,25 @@ export default function ScanReviewScreen() {
     router.dismissAll();
   };
 
+  // Rapporten: en rad som redan finns i loggboken tas med ("Include") eller lämnas utanför igen; övriga hoppas över.
+  const reportToggle = (rowKey: string) => {
+    touched.current = true;
+    if (scanMatch.dups[rowKey] && !rowByKey.get(rowKey)?.skip) {
+      setDupIncluded((p) => { const n = new Set(p); if (n.has(rowKey)) n.delete(rowKey); else n.add(rowKey); return n; });
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, skip: !r.skip } : r)));
+  };
+  // Krock med loggboken: behåll båda, den skannade (loggbokens tas bort vid Save) eller loggbokens (raden hoppas över).
+  const clashChoice = (rowKey: string): ClashChoice => (rowByKey.get(rowKey)?.skip ? 'logbook' : keepNew.has(rowKey) ? 'new' : 'both');
+  const chooseClash = (rowKey: string, c: ClashChoice) => {
+    touched.current = true;
+    setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, skip: c === 'logbook' } : r)));
+    setKeepNew((p) => { const n = new Set(p); if (c === 'new') n.add(rowKey); else n.delete(rowKey); return n; });
+  };
+  const removeIds = [...new Set([...keepNew].filter((k) => rowByKey.get(k) && !rowByKey.get(k)!.skip)
+    .flatMap((k) => (scanMatch.clashes[k] ?? []).map((c) => c.logged.id)))];
+
   const saveReport = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -1699,9 +1733,13 @@ export default function ScanReviewScreen() {
         if (speed > 0) await updateAircraftCruiseSpeed(type, speed);
         if (endurance > 0) await updateAircraftEndurance(type, endurance);
       }
+      // Krockar där den skannade flygningen behålls: loggbokens flygning tas bort först.
+      const removed = removeIds;
+      if (removed.length) await deleteFlights(removed);
       const toSave = rows.map((r) => (duplicates.has(r.key) ? { ...r, skip: true } : r));
       await saveLearnedCorrections(toSave);
-      const sum = await saveScanRows(toSave, { unknownIcaos: unknownIcaos.current, pageNumbers: pages.map((p) => p.pageNumbers), timeBasis });
+      const inLogbook = Object.fromEntries([...duplicates].map((k) => [k, scanMatch.dups[k]?.logged?.id ?? 0]).filter(([, id]) => id));
+      const sum = await saveScanRows(toSave, { unknownIcaos: unknownIcaos.current, pageNumbers: pages.map((p) => p.pageNumbers), timeBasis, inLogbook });
       // Bokens format blir mallen "Scanned logbook", förvald när man skapar sin digitala loggbok. Från uppslaget
       // med flest lästa rader (tydligast rutnät).
       try {
@@ -1740,10 +1778,10 @@ export default function ScanReviewScreen() {
         }).catch(() => {});
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const dups = duplicates.size + sum.duplicates;
       const parts = [`${sum.saved} ${sum.saved === 1 ? 'flight' : 'flights'} saved.`];
-      if (sum.skipped - duplicates.size > 0) parts.push(`${sum.skipped - duplicates.size} left out.`);
-      if (dups) parts.push(`${dups} already in your logbook.`);
+      if (sum.skipped > 0) parts.push(`${sum.skipped} left out.`);
+      if (sum.duplicates) parts.push(`${sum.duplicates} already in your logbook.`);
+      if (removed.length) parts.push(`${removed.length} overlapping ${removed.length === 1 ? 'flight' : 'flights'} removed from your logbook.`);
       if (sum.adjusted) parts.push(`${sum.adjusted} adjusted to match the page totals — marked in your logbook so you can check them against the paper book.`);
       if (newTypes.length) parts.push(`${newTypes.length} new aircraft added to your fleet. Their specs and photos are fetched in the background.`);
       if (sum.bookName) parts.push(`Linked to ${sum.bookName}, pages ${sum.pageLabel}.`);
@@ -1978,6 +2016,10 @@ export default function ScanReviewScreen() {
           timeFormat={timeFormat}
           cellState={cellState}
           duplicates={duplicates}
+          logbook={scanMatch}
+          clashChoice={clashChoice}
+          onClash={chooseClash}
+          removeCount={removeIds.length}
           openCount={openIssues.length}
           newTypes={newTypes}
           fleetMatches={fleetMatches}
@@ -1999,7 +2041,7 @@ export default function ScanReviewScreen() {
           onAircraftChange={(type, v) => setAircraft((a) => ({ ...a, [type]: v }))}
           onOpenFlight={(rowKey) => setEditorKey(rowKey)}
           onEditField={editField}
-          onToggleSkip={(rowKey) => { touched.current = true; setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, skip: !r.skip } : r))); }}
+          onToggleSkip={reportToggle}
           onPresentLogbook={setCrossRefPage}
           paperFixes={paperFixes}
           onBack={() => { setStage('review'); setSelection(null); setZoom(1); }}
@@ -2012,7 +2054,7 @@ export default function ScanReviewScreen() {
             openFields={openFieldsFor(editorKey)}
             onChange={(field, value) => editField(editorKey, field, value)}
             onPatch={(patch) => patchRow(editorKey, patch)}
-            onToggleSkip={() => { touched.current = true; setRows((prev) => prev.map((r) => (r.key === editorKey ? { ...r, skip: !r.skip } : r))); }}
+            onToggleSkip={() => reportToggle(editorKey)}
             onClose={() => setEditorKey(null)}
           />
         )}

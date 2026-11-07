@@ -4,7 +4,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import type { TimeFormat } from '../../store/timeFormatStore';
-import type { ScanRow } from '../../services/scanImport';
+import type { ScanRow, ScanMatch } from '../../services/scanImport';
+import { CheckGroup, CheckItem, ClashRow, ReviewFlightRow, type ReportTheme, type ClashChoice, type ReviewFlight } from '../import/ImportReport';
 import { label, COUNT } from '../../services/scanFields';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import { NewAircraftSection, type AircraftInput } from './NewAircraftCard';
@@ -21,9 +22,18 @@ import { dayOfMonth, weekdayShort } from '../logbook-page/flightDisplay';
 //    som i Logbook-listan (kort per flygning, år och månad, det senaste överst)
 //  - flygplanstyper (matchade mot flottan, nya som vid CSV-import), och Save längst ner
 // Ett tryck på en flygning öppnar alla värden (FlightEditor). Simulatorpass räknas aldrig som flygtid.
+// Under sammanfattningen jämförelsen med loggboken (som importrapporten): flygningar som krockar i tid med en i
+// loggboken (välj vilken som ska vara kvar) och flygningar som redan finns (lämnas utanför, kan tas med).
 // Inget sparas förrän "Save".
 
 const MONO = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+
+// Importrapportens rader (ClashRow, ReviewFlightRow) i pilotlägets färger.
+const T: ReportTheme = {
+  bg: Colors.background, card: Colors.card, elevated: Colors.elevated, border: Colors.cardBorder, separator: Colors.separator,
+  text: Colors.textPrimary, text2: Colors.textSecondary, muted: Colors.textMuted,
+  accent: Colors.primary, success: Colors.success, warning: Colors.warning, danger: Colors.danger, onAccent: Colors.textInverse,
+};
 
 // Fält som kan vara ogranskade (gul markering på raden).
 const ALL_FIELDS = ['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'sim', 'sim_category',
@@ -74,7 +84,11 @@ export function ScanReport(p: {
   pageNumbers?: { left: number | null; right: number | null }[];   // samma som tal (rubrikens "p. 78–86")
   timeFormat: TimeFormat;
   cellState: (rowKey: string, field: string) => CellState;
-  duplicates: Set<string>;
+  duplicates: Set<string>;                       // rader som redan finns i loggboken och lämnas utanför
+  logbook?: ScanMatch;                           // jämförelsen med loggboken (dubbletter + krockar)
+  clashChoice?: (rowKey: string) => ClashChoice;
+  onClash?: (rowKey: string, c: ClashChoice) => void;
+  removeCount?: number;                          // loggbokens flygningar som tas bort vid Save (krockar)
   openCount: number;
   newTypes: { type: string; registrations: string[]; rows: number; aka?: string[]; groupId?: string }[];
   // Skrivsätt som fått en typ som redan finns i flottan (services/scanTypes.ts), och varför.
@@ -136,8 +150,22 @@ export function ScanReport(p: {
   const simCount = included.filter(isSim).length;
   const paperFix = (pg: number, field: string) => !!p.paperFixes?.some((f) => f.page === pg && f.field === field);
   const paperCount = p.paperFixes?.length ?? 0;
+  // Jämförelsen med loggboken: krockar (rader som inte hoppas över av annat skäl) och rader som redan finns.
+  const inDups = (r: ScanRow) => !!p.logbook?.dups[r.key];
+  const clashRows = rows.filter((r) => (p.logbook?.clashes[r.key]?.length ?? 0) > 0).sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || a.page - b.page || a.rowIndex - b.rowIndex);
+  const dupRows = rows.filter(inDups).sort((a, b) => (a.data.date || '').localeCompare(b.data.date || '') || a.page - b.page || a.rowIndex - b.rowIndex);
+  const reviewOf = (r: ScanRow, detail: string): ReviewFlight => {
+    const t = p.logbook?.times[r.key];
+    return {
+      idx: rows.indexOf(r), date: r.data.date || '', route: `${r.data.dep_place || '?'} → ${r.data.arr_place || '?'}`,
+      sub: [t, r.data.aircraft_type, r.data.registration, fmtH(num(r, 'total_time'))].filter(Boolean).join(' · '), detail,
+    };
+  };
+  const [clashOpen, setClashOpen] = useState(true);
+  const [dupOpen, setDupOpen] = useState(false);
   const status = [
     ...(p.openCount > 0 ? [{ text: `${p.openCount} unchecked`, warn: true }] : []),
+    ...(clashRows.length > 0 ? [{ text: `${clashRows.length} ${clashRows.length === 1 ? 'overlaps' : 'overlap'} your logbook`, warn: true }] : []),
     ...(adjustedCount > 0 ? [{ text: `${adjustedCount} adjusted to the page total`, warn: true }] : []),
     ...(paperCount > 0 ? [{ text: `${paperCount} ${paperCount === 1 ? 'total' : 'totals'} to fix on paper`, warn: false }] : []),
     ...(p.duplicates.size > 0 ? [{ text: `${p.duplicates.size} already in your logbook`, warn: false }] : []),
@@ -266,6 +294,38 @@ export function ScanReport(p: {
           )}
         </LinearGradient>
 
+        {/* Mot loggboken: krockar i tid (välj vilken som ska vara kvar) och flygningar som redan finns. */}
+        {(clashRows.length > 0 || dupRows.length > 0) && (
+          <CheckGroup T={T}>
+            {clashRows.length > 0 && (
+              <CheckItem T={T} first icon="git-compare-outline" title="Overlaps with your logbook" status="todo"
+                statusText={`${clashRows.length} TO CHECK`} open={clashOpen} onToggle={() => setClashOpen((o) => !o)}
+                summary={`${clashRows.length === 1 ? 'This flight overlaps' : 'These flights overlap'} in time with ${clashRows.length === 1 ? 'a flight' : 'flights'} already in your logbook. Choose which one to keep, or keep both.`}>
+                {clashRows.map((r) => {
+                  const hits = p.logbook!.clashes[r.key];
+                  return (
+                    <ClashRow key={r.key} T={T} f={reviewOf(r, `Overlaps by ${Math.max(...hits.map((h) => h.minutes))} min`)}
+                      others={hits.map((h) => ({ route: h.logged.route, sub: [h.logged.times, h.logged.what, fmtH(h.logged.total), h.logged.source].filter(Boolean).join(' · ') }))}
+                      choice={p.clashChoice?.(r.key) ?? 'both'} onChoose={(c) => p.onClash?.(r.key, c)} />
+                  );
+                })}
+              </CheckItem>
+            )}
+            {dupRows.length > 0 && (
+              <CheckItem T={T} first={clashRows.length === 0} icon="copy-outline" title="Already in your logbook" status="info"
+                statusText={`${dupRows.length} ${dupRows.length === 1 ? 'FLIGHT' : 'FLIGHTS'}`} open={dupOpen} onToggle={() => setDupOpen((o) => !o)}
+                summary={`Same date, route and times as ${dupRows.length === 1 ? 'a flight' : 'flights'} you already have, so ${dupRows.length === 1 ? "it's" : "they're"} left out and nothing is counted twice. Tap Include if ${dupRows.length === 1 ? 'it is' : 'one is'} a different flight.`}>
+                {dupRows.map((r) => {
+                  const d = p.logbook!.dups[r.key];
+                  const lg = d.logged;
+                  const detail = lg ? `In your logbook: ${[lg.times, fmtH(lg.total), lg.source].filter(Boolean).join(' · ')}${d.zone ? ` · ${Math.abs(d.zone)} h apart (local time and UTC)` : ''}` : '';
+                  return <ReviewFlightRow key={r.key} T={T} f={reviewOf(r, detail)} left={!isIn(r)} onToggleLeave={() => p.onToggleSkip(r.key)} />;
+                })}
+              </CheckItem>
+            )}
+          </CheckGroup>
+        )}
+
         {/* Hela skanningen i ett avsnitt, som i loggboken: bokens sidor i rubriken ("p. 78–86"), sidans summor och
             flygningarna per år och månad med det senaste överst. */}
         {(() => {
@@ -383,13 +443,15 @@ export function ScanReport(p: {
                           if (openN > 0) tags.push({ text: `${openN} UNCHECKED`, color: Colors.warning });
                           if (dup) tags.push({ text: 'ALREADY IN YOUR LOGBOOK', color: Colors.textMuted });
                           else if (r.skip) tags.push({ text: 'LEFT OUT', color: Colors.textMuted });
+                          else if (inDups(r)) tags.push({ text: 'ALSO IN YOUR LOGBOOK', color: Colors.warning });
+                          if (!off && p.logbook?.clashes[r.key]?.length) tags.push({ text: 'OVERLAPS YOUR LOGBOOK', color: Colors.warning });
                           const role = roleOf(r);
                           const picRole = role === 'PIC' || role === 'PICUS' || role === 'SPIC';
                           const date = r.data.date || '';
                           const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
                           return (
                             <View key={r.key} style={[s.card, idx === 0 && { borderTopWidth: 0 }, off && { opacity: 0.45 }]}>
-                              <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={8} disabled={dup} style={{ width: 20 }}
+                              <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={8} style={{ width: 20 }}
                                 accessibilityRole="checkbox" accessibilityState={{ checked: !off }} accessibilityLabel={`Include row ${r.rowIndex}`}>
                                 <Ionicons name={off ? 'square-outline' : 'checkbox'} size={18} color={off ? Colors.textMuted : Colors.primary} />
                               </TouchableOpacity>
@@ -539,7 +601,7 @@ export function ScanReport(p: {
       <View style={[s.footer, { paddingBottom: p.insets.bottom + 10 }]}>
         <TouchableOpacity style={[s.save, (p.saving || included.length === 0) && { opacity: 0.5 }]} onPress={p.onSave} disabled={p.saving || included.length === 0}>
           {p.saving ? <ActivityIndicator color={Colors.textInverse} /> : (
-            <Text style={s.saveText}>Save {included.length === 1 ? '1 flight' : `${included.length} flights`}</Text>
+            <Text style={s.saveText}>Save {included.length === 1 ? '1 flight' : `${included.length} flights`}{p.removeCount ? ` · remove ${p.removeCount}` : ''}</Text>
           )}
         </TouchableOpacity>
       </View>
