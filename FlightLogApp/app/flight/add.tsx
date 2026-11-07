@@ -15,7 +15,7 @@ import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '..
 import { PremiumModal } from '../../components/PremiumModal';
 import { presentPaywall } from '../../services/purchases';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { FormField } from '../../components/FormField';
@@ -44,8 +44,9 @@ import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { CountryFlag } from '../../components/CountryFlag';
 import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
-import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, sampleTimedRoute, positionAtMs, gcRad, type SunState } from '../../utils/dayNight';
-import { TwilightBar } from '../../components/logflight/TwilightBar';
+import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, positionAtMs, gcRad } from '../../utils/dayNight';
+import { SunStrip } from '../../components/sun/SunStrip';
+import { buildSunTimeline, sunStory, SUN } from '../../utils/sunTimeline';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
 import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { useProfileStore } from '../../store/profileStore';
@@ -572,6 +573,22 @@ function makeStyles() {
       color: Colors.textSecondary, fontSize: 9.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1,
     },
     soloCover: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+    sunCaption: {
+      marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 11,
+      borderRadius: 11, backgroundColor: 'rgba(108,140,255,0.12)', borderWidth: 1, borderColor: 'rgba(169,190,255,0.28)',
+    },
+    sunCaptionText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: Colors.textPrimary },
+    sunDirRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 10, paddingLeft: 11, paddingRight: 10,
+      borderRadius: 12, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '4D',
+    },
+    sunDirTitle: { fontSize: 13.5, fontWeight: '600', color: Colors.textPrimary },
+    sunDirSub: { fontSize: 11.5, lineHeight: 15, color: Colors.textSecondary },
+    sunDirPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 6, paddingLeft: 10, paddingRight: 8,
+      borderRadius: 9, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    },
+    sunDirPillText: { fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '800', color: Colors.textPrimary },
     soloCoverTitle: {
       color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1.5, textTransform: 'uppercase',
     },
@@ -958,28 +975,32 @@ export default function AddFlightScreen() {
     ];
   }, [isStationaryRoute, circleRadiusNM, circleBearing, routeLegs, form.dep_place, form.arr_place]);
 
-  // Skymnings-segment längs rutten (samma sol-modell som "Sun route"-kartan) → TwilightBar.
-  const twilightSegs = useMemo(() => {
-    if (circleLegs.length < 2 || !form.date || !isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) return [];
+  // Solens tidslinje längs rutten (samma sol-modell som Sun route-panelen) → route-kortets dagsbar.
+  const sunTl = useMemo(() => {
+    if (circleLegs.length < 2 || !form.date || !isValidTime(form.dep_utc) || !isValidTime(form.arr_utc)) return null;
     const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
-    if (!inst) return [];
-    const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
-    const totalMs = arrMs - depMs;
-    if (!(totalMs > 0)) return [];
-    const pts = sampleTimedRoute(circleLegs, depMs, arrMs, 120);
-    if (!pts.length) return [];
-    const stateColor = (k: SunState) => k === 'day' ? Colors.success : k === 'night' ? Colors.info : Colors.gold;
-    const runs: { k: SunState; ms: number }[] = [];
-    for (let i = 0; i < pts.length; i++) {
-      const tPrev = i === 0 ? pts[0].timeMs : (pts[i - 1].timeMs + pts[i].timeMs) / 2;
-      const tNext = i === pts.length - 1 ? pts[i].timeMs : (pts[i].timeMs + pts[i + 1].timeMs) / 2;
-      const w = Math.max(0, tNext - tPrev);
-      const st = pts[i].state;
-      if (runs.length && runs[runs.length - 1].k === st) runs[runs.length - 1].ms += w;
-      else runs.push({ k: st, ms: w });
-    }
-    return runs.map((r) => ({ k: r.k, f: (r.ms / totalMs) * 100, c: stateColor(r.k) }));
+    if (!inst) return null;
+    return buildSunTimeline(circleLegs, inst.dep.getTime(), inst.arr.getTime());
   }, [circleLegs, form.date, form.dep_utc, form.arr_utc]);
+
+  // Samma plats: loggad natt runt flygplatsen och för varje väderstreck. Ändrar hållet inte natten
+  // (avrundad som loggningen) behöver man aldrig välja.
+  const bearingNight = useMemo(() => {
+    if (!(isStationaryRoute && circleRadiusNM > 0)) return null;
+    const inst = buildInstants(form.date, form.dep_utc, form.arr_utc, 0);
+    if (!inst) return null;
+    const depMs = inst.dep.getTime(), arrMs = inst.arr.getTime();
+    const c = routeLegs[0];
+    const local = computeNightHoursTimed(routeLegs, depMs, arrMs);
+    const byBearing: Record<number, number> = {};
+    for (const b of [0, 45, 90, 135, 180, 225, 270, 315]) {
+      const e = destPointDeg(c.lat, c.lon, b, circleRadiusNM / 60);
+      byBearing[b] = computeNightHoursTimed([{ lat: c.lat, lon: c.lon }, { lat: e.lat, lon: e.lon }, { lat: c.lat, lon: c.lon }], depMs, arrMs);
+    }
+    const maxDeltaMin = Math.round(Math.max(...Object.values(byBearing).map((n) => Math.abs(n - local))) * 60);
+    return { local, byBearing, maxDeltaMin };
+  }, [isStationaryRoute, circleRadiusNM, routeLegs, form.date, form.dep_utc, form.arr_utc]);
+  const directionMatters = !!bearingNight && bearingNight.maxDeltaMin > 0;
 
   // Connector-glyf: flygplan vs helikopter — baserat på SENAST flugna modell, annars
   // onboarding-valet (helikopter/fixed wing). Oberoende av aktuell aircraft_type.
@@ -3296,7 +3317,10 @@ export default function AddFlightScreen() {
                   return (
                     <TouchableOpacity onPress={() => setSunRouteOpen(true)} activeOpacity={0.8} style={{ position: 'absolute', right: 0, top: 0, alignItems: 'center', gap: 3 }}>
                       <SunGlobe size={60} lit={lit} />
-                      <Text style={{ flexDirection: 'row', fontFamily: 'JetBrainsMono', fontSize: 7.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textMuted, textTransform: 'uppercase' }}>{t('sun_route')}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                        <Text style={{ fontFamily: 'JetBrainsMono', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.6, color: Colors.primary, textTransform: 'uppercase' }}>{t('sun_route')}</Text>
+                        <Ionicons name="chevron-forward" size={10} color={Colors.primary} />
+                      </View>
                       <TourPress id="lf-sun" radius={12} inset={4} />
                     </TouchableOpacity>
                   );
@@ -3305,14 +3329,46 @@ export default function AddFlightScreen() {
             );
           })()}
 
-          {/* ── Dag/skymning/natt/gryning längs rutten (sol-route-data) — designens TwilightBar ── */}
-          {form.flight_type !== 'sim' && twilightSegs.length > 0 && (() => {
+          {/* ── Solen längs rutten: dagsbaren, en rad om natten och (samma plats) vilket håll man flög.
+              Allt öppnar Sun route-panelen. ── */}
+          {form.flight_type !== 'sim' && sunTl && (() => {
             const totalH = parseFloat(form.total_time) || 0;
             const nvgPct = totalH > 0 ? Math.min(100, ((parseFloat(form.nvg ?? '0') || 0) / totalH) * 100) : 0;
             const nightLabel = (parseFloat(form.night) || 0) > 0 ? decimalToHHMM(parseFloat(form.night)) : undefined;
+            const story = sunStory(sunTl, form.arr_place);
+            const nLdg = parseInt(form.landings_night ?? '0', 10) || 0;
+            const ldgText = nLdg > 0 ? ` ${nLdg} night landing${nLdg > 1 ? 's' : ''}${form.arr_place ? ` at ${form.arr_place}` : ''}.` : '';
+            const dirLabel = circleBearing == null ? 'LOCAL' : (['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(circleBearing / 45) % 8]);
+            const icon = story.icon === 'moon' ? 'weather-night' : story.icon === 'sunrise' ? 'weather-sunset-up' : story.icon === 'sunset' ? 'weather-sunset-down' : 'weather-sunny';
             return (
-              <View style={{ marginTop: 13 }}>
-                <TwilightBar segs={twilightSegs} nightLabel={nightLabel} nvgPct={nvgPct} />
+              <View style={{ marginTop: 14, gap: 10 }}>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => setSunRouteOpen(true)} accessibilityRole="button" accessibilityLabel="Open Sun route">
+                  <SunStrip tl={sunTl} nightLabel={nightLabel} nvgPct={nvgPct} />
+                  {story.short ? (
+                    <View style={styles.sunCaption}>
+                      <MaterialCommunityIcons name={icon} size={15} color={story.icon === 'moon' ? SUN.nightText : SUN.day} />
+                      <Text style={styles.sunCaptionText}>
+                        {story.short}
+                        {ldgText ? <Text style={{ color: SUN.nightText, fontWeight: '600' }}>{ldgText}</Text> : null}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                {directionMatters && (
+                  <TouchableOpacity style={styles.sunDirRow} onPress={() => setSunRouteOpen(true)} activeOpacity={0.8}
+                    accessibilityRole="button" accessibilityLabel={`Which way did you fly? ${dirLabel}`}>
+                    <Ionicons name="compass-outline" size={22} color={Colors.primary} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.sunDirTitle}>Which way did you fly?</Text>
+                      <Text style={styles.sunDirSub}>The direction changes the night time by up to {bearingNight!.maxDeltaMin} min.</Text>
+                    </View>
+                    <View style={styles.sunDirPill}>
+                      <Text style={styles.sunDirPillText}>{dirLabel}</Text>
+                      <Ionicons name="chevron-forward" size={11} color={Colors.textSecondary} />
+                    </View>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })()}
@@ -3436,15 +3492,33 @@ export default function AddFlightScreen() {
             demon och får luft i botten så kartan aldrig hamnar bakom bildtextraden. */}
         <Modal visible={sunRouteOpen && routeReady} transparent animationType={tourActive ? 'fade' : 'slide'} onRequestClose={() => setSunRouteOpen(false)}>
           <Pressable style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }} onPress={() => { if (!tourActive) setSunRouteOpen(false); }}>
-            <Pressable style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingTop: 10, paddingBottom: tourActive ? Math.max(insets.bottom, 10) + 96 : 28, paddingHorizontal: 14 }}
+            <Pressable style={{ maxHeight: '94%', backgroundColor: Colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: Colors.border, paddingTop: 8, paddingHorizontal: 16 }}
               pointerEvents={tourActive ? 'none' : 'auto'} onPress={(e) => e.stopPropagation()}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text style={{ fontFamily: 'Fraunces', fontSize: 17, fontWeight: '600', color: Colors.textPrimary }}>Sun route</Text>
-                <TouchableOpacity onPress={() => setSunRouteOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <View style={{ alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: Colors.border, marginBottom: 10 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{ fontFamily: 'Fraunces', fontSize: 21, fontWeight: '600', color: Colors.textPrimary }}>Sun route</Text>
+                  <Text numberOfLines={1} style={{ fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textSecondary }}>
+                    {(() => {
+                      const d = new Date(`${form.date}T00:00:00Z`);
+                      const day = isNaN(d.getTime()) ? '' : `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getUTCDay()]} ${d.getUTCDate()} ${['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.getUTCMonth()]}`;
+                      return [`${form.dep_place} → ${form.arr_place}`, day, `${form.dep_utc}–${form.arr_utc} UTC`].filter(Boolean).join(' · ');
+                    })()}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setSunRouteOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Close">
                   <Ionicons name="close" size={22} color={Colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              <DayNightMap embedded points={circleLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type} circleNM={circleRadiusNM} circleCenter={isStationaryRoute ? { lat: routeLegs[0].lat, lon: routeLegs[0].lon } : undefined} selectedBearing={circleBearing} onPickBearing={setCircleBearing} vehicle={glyphIsHeli ? 'heli' : 'plane'} />
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tourActive ? Math.max(insets.bottom, 10) + 96 : Math.max(insets.bottom, 12) + 16 }}>
+                <DayNightMap embedded points={circleLegs} date={form.date} depUtc={form.dep_utc} arrUtc={form.arr_utc} flightType={form.flight_type}
+                  circleNM={circleRadiusNM} circleCenter={isStationaryRoute ? { lat: routeLegs[0].lat, lon: routeLegs[0].lon } : undefined}
+                  selectedBearing={circleBearing} onPickBearing={directionMatters ? setCircleBearing : undefined} vehicle={glyphIsHeli ? 'heli' : 'plane'}
+                  logged={{ night: parseFloat(form.night) || 0, nightLdg: parseInt(form.landings_night ?? '0', 10) || 0, total: parseFloat(form.total_time) || 0 }}
+                  bearingNight={bearingNight ?? undefined}
+                  circleInfo={{ cruiseKts: acCruiseKts, totalH: parseFloat(form.total_time) || 0, aircraft: form.aircraft_type }}
+                  editHint />
+              </ScrollView>
             </Pressable>
           </Pressable>
           {tourActive ? <TourCaptionBar still /> : null}
@@ -3582,7 +3656,7 @@ export default function AddFlightScreen() {
                 {/* VFR + IFR alltid synliga; barerna och knapparna (VFR/Y·Z/IFR) är länkade. */}
                 {vfrCond}{ifrCond}
 
-                {/* Natt — manuell dragbar som åsidosätter auto-skymningen (route-kortets TwilightBar).
+                {/* Natt — manuell dragbar som åsidosätter auto-skymningen (route-kortets dagsbar, components/sun/SunStrip).
                     Real: 'auto'-pill tills man drar; reset-knappen dyker upp på samma plats. */}
                 <CondBar
                   label={t('night')}

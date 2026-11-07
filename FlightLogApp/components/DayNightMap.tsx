@@ -1,34 +1,34 @@
-// Dag/natt-karta för en flygning ovanpå den riktiga kartan (Apple Maps via
-// react-native-maps, mörkt tema). Visar: rutten färgad efter solhöjd (dag/skymning/
-// natt) längs vägen, en mörk natt-overlay (terminator) som flyttas med ett tidsreglage,
-// flygplanets position och subsolar-punkten (solen). Astronomin i utils/dayNight.ts.
+// Sun route: dag/natt för en flygning ovanpå den riktiga kartan (Apple Maps via react-native-maps, mörkt
+// tema). Överst en mening om vad solen gör (utils/sunTimeline), sedan kartan med rutten färgad efter
+// solhöjden, mörkret (terminatorn) som flyttas med tidslinjen och farkosten, därunder tidslinjen med
+// solnedgång/natt utmärkta och sist vad som hamnar i loggboken. Astronomin i utils/dayNight.ts.
+//
+// Samma plats (dep = arr) med en flygenvelop (circleNM) och onPickBearing: kartan ligger still och en
+// kompass ovanpå väljer hållet man flög (Local = runt flygplatsen).
 //
 // Lägen:
-//   <DayNightMap flight={flight} />                              — eget kort + rubrik (flygdetaljvyn)
-//   <DayNightMap embedded points={[...]} date depUtc arrUtc />   — bara kartan (inbäddad i formulär)
+//   <DayNightMap flight={flight} />                              — eget kort + rubrik (flygningens översikt)
+//   <DayNightMap embedded points={[...]} date depUtc arrUtc />   — bara innehållet (Sun route-panelen i Log Flight)
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
 import MapView, { Marker, Polyline, Polygon, type Region } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { getAirportCoordinates } from '../db/icao';
 import { buildInstants } from '../utils/flightTime';
 import { nightRings, sampleTimedRoute, positionAtMs, vertexArrivalTimes, classifySun, destPointDeg, type SunState } from '../utils/dayNight';
+import { solarAltitudeDeg, subsolarPoint } from '../utils/sun';
+import { SUN, buildSunTimeline, sunStory, phaseOf, fmtMin, fmtUtc } from '../utils/sunTimeline';
+import { SunBar, SunEventRow } from './sun/SunStrip';
 import type { Flight } from '../types/flight';
 
 const MONO = 'JetBrainsMono';
-const STATE_COLORS: Record<SunState, string> = { day: '#F5C84B', dusk: '#F2914A', night: '#7FC4FF', dawn: '#F291C8' };
-const C_DEP = '#43E0A0';
-const C_STOP = '#C9D2DE';
+const ROUTE_COLORS: Record<SunState, string> = { day: SUN.day, dusk: SUN.twilight, dawn: SUN.twilight, night: SUN.nightOnMap };
+const PHASE_COLOR = { day: SUN.day, twilight: SUN.twilight, night: SUN.nightText } as const;
 const C_PLANE = '#3FE0FF';
-// Markör: etikett ovanför, cirkel i mitten, osynlig spacer under (= etikettens höjd).
-// Symmetrin gör att cirkeln ligger i markörens CENTRUM → standard-ankaret {0.5,0.5}
-// placerar cirkeln exakt på flygplatsen, så rutt-strecket dras mellan cirklarna.
-const MARK_DOT = 12, MARK_GAP = 3, MARK_LABEL_H = 16, MARK_LABEL_GAP = 11;
-const pad2 = (n: number) => String(n).padStart(2, '0');
-const fmtUTC = (ms: number) => { const d = new Date(ms); return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`; };
+const MARK_LABEL_H = 16;
 const normLon = (lon: number) => ((lon % 360) + 540) % 360 - 180;
 
 export interface DayNightMapProps {
@@ -39,29 +39,38 @@ export interface DayNightMapProps {
   arrUtc?: string;
   flightType?: string;
   embedded?: boolean;
-  /** Out-and-back-radie (NM) runt EN plats (dep = arr) → ritas som cirkel = flygenvelop. */
+  /** Out-and-back-radie (NM) runt EN plats (dep = arr) → kompassens ring = flygenvelopen. */
   circleNM?: number;
-  /** Cirkelns centrum (flygplatsen) — annars används första punkten. */
+  /** Ringens centrum (flygplatsen) — annars används första punkten. */
   circleCenter?: { lat: number; lon: number };
-  /** Valt väderstreck (bäring 0–315°) i cirkeln; highlightas. */
+  /** Valt väderstreck (bäring 0–315°); null = Local (runt flygplatsen). */
   selectedBearing?: number | null;
-  /** Callback när man klickar en väderstreck-sektor i cirkeln. */
-  onPickBearing?: (bearing: number) => void;
-  /** Farkost-glyf som "flyger" rutten (nosen mot färdriktningen). Samma bild som dep/arr-connectorn. */
+  /** Visar kompassen: väderstreck eller null (Local). */
+  onPickBearing?: (bearing: number | null) => void;
+  /** Farkost-glyf (oanvänd i kartan just nu, romben ritas). */
   vehicle?: 'heli' | 'plane';
+  /** Det som loggas: natt (h), nattlandningar, total (h). Utelämnas → hämtas ur flight. */
+  logged?: { night: number; nightLdg: number; total: number };
+  /** Loggad natt (h, avrundad som loggningen) runt flygplatsen och per väderstreck → skillnaden i kompassen. */
+  bearingNight?: { local: number; byBearing: Record<number, number> };
+  /** Kompassens förklaring av ringen. */
+  circleInfo?: { cruiseKts: number; totalH: number; aircraft: string };
+  /** Visar "Change the numbers in Full." (Log Flight). */
+  editHint?: boolean;
 }
 
-const COMPASS: [string, number][] = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
+const COMPASS: [string, number, string][] = [['N', 0, 'North'], ['NE', 45, 'North-east'], ['E', 90, 'East'], ['SE', 135, 'South-east'], ['S', 180, 'South'], ['SW', 225, 'South-west'], ['W', 270, 'West'], ['NW', 315, 'North-west']];
 const RAD = Math.PI / 180;
-// Initial bäring A→B (grader, 0 = norr) för att rotera farkosten mot färdriktningen.
 function bearingDeg(aLat: number, aLon: number, bLat: number, bLon: number): number {
   const p1 = aLat * RAD, p2 = bLat * RAD, dl = (bLon - aLon) * RAD;
   const y = Math.sin(dl) * Math.cos(p2);
   const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
   return (Math.atan2(y, x) / RAD + 360) % 360;
 }
-// Samma bilder som dep/arr-connectorn; nosen pekar UPP (norr) vid 0° → rotera med bäringen.
-const VEHICLE_IMG = { heli: require('../assets/Pilot-helicopter.PNG'), plane: require('../assets/Pilot-fixedwing.PNG') };
+const MAP_H = 220, COMPASS_MAP_H = 300;
+// Kompassens karta visar ringen över RING_SPAN av sin höjd: latitudeDelta = radien × RING_SPAN och en liten
+// longitudeDelta, så att höjden styr inzoomningen och ringen alltid har radien höjd / RING_SPAN på skärmen.
+const RING_SPAN = 2.6;
 
 function DayNightMapBase(props: DayNightMapProps) {
   const { t } = useTranslation();
@@ -86,6 +95,7 @@ function DayNightMapBase(props: DayNightMapProps) {
   const playedRef = useRef(false);
   const [trackW, setTrackW] = useState(0);
   const trackWRef = useRef(0);
+  const [mapW, setMapW] = useState(0);
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -116,10 +126,16 @@ function DayNightMapBase(props: DayNightMapProps) {
     return seq.filter((p, i) => i === 0 || p.icao !== seq[i - 1].icao);
   }, [props.points, coords, codeKey, stopDwell]);
 
-  // Cirkelns centrum (flygplatsen) + öst/väst-radie i grader → för cirkel + väderstreck-sektorer.
+  // Kompassen: ringens centrum (flygplatsen) och radie i grader.
   const cCenter = props.circleCenter ?? (legs[0] ? { lat: legs[0].lat, lon: legs[0].lon } : null);
   const rDeg = circleNM / 60;
-  const showSectors = circleNM > 0 && !!cCenter && !!onPickBearing;
+  const compass = circleNM > 0 && !!cCenter && !!onPickBearing;
+  const ringCoords = useMemo(() => {
+    if (!compass) return [];
+    const out: { latitude: number; longitude: number }[] = [];
+    for (let a = 0; a < 360; a += 5) { const p = destPointDeg(cCenter!.lat, cCenter!.lon, a, rDeg); out.push({ latitude: p.lat, longitude: normLon(p.lon) }); }
+    return out;
+  }, [compass, cCenter?.lat, cCenter?.lon, rDeg]); // eslint-disable-line react-hooks/exhaustive-deps
   const sectorCoords = (bearing: number) => {
     const pts = [{ latitude: cCenter!.lat, longitude: normLon(cCenter!.lon) }];
     for (let a = bearing - 22.5; a <= bearing + 22.5 + 0.001; a += 7.5) {
@@ -135,9 +151,11 @@ function DayNightMapBase(props: DayNightMapProps) {
   const dur = arrMs - depMs;
 
   const route = useMemo(() => (times && legs.length >= 1) ? sampleTimedRoute(legs, depMs, arrMs, 100) : [], [legs, depMs, arrMs, times]);
+  const tl = useMemo(() => (times && legs.length >= 1) ? buildSunTimeline(legs, depMs, arrMs) : null, [legs, depMs, arrMs, times]);
 
   // region som ramar in rutten (unwrappad longitud för korrekt centrering över datumlinjen)
   const region = useMemo<Region | null>(() => {
+    if (compass) return { latitude: cCenter!.lat, longitude: normLon(cCenter!.lon), latitudeDelta: Math.min(150, rDeg * RING_SPAN), longitudeDelta: 0.0005 };
     if (!route.length) return null;
     let off = 0, umin = Infinity, umax = -Infinity, latmin = Infinity, latmax = -Infinity;
     for (let i = 0; i < route.length; i++) {
@@ -147,17 +165,10 @@ function DayNightMapBase(props: DayNightMapProps) {
       latmin = Math.min(latmin, route[i].lat); latmax = Math.max(latmax, route[i].lat);
     }
     const latC = (latmin + latmax) / 2;
-    let latD = Math.max(2, Math.min(150, (latmax - latmin) * 1.25 + 3));
-    let lonD = Math.max(2, Math.min(330, (umax - umin) * 1.25 + 4));
-    // Rama in out-and-back-cirkeln (radie NM → grader) med marginal.
-    if (circleNM > 0) {
-      const rDeg = circleNM / 60;
-      const cosl = Math.max(0.2, Math.cos(latC * Math.PI / 180));
-      latD = Math.min(150, Math.max(latD, rDeg * 2.6));
-      lonD = Math.min(330, Math.max(lonD, (rDeg * 2.6) / cosl));
-    }
+    const latD = Math.max(2, Math.min(150, (latmax - latmin) * 1.25 + 3));
+    const lonD = Math.max(2, Math.min(330, (umax - umin) * 1.25 + 4));
     return { latitude: latC, longitude: normLon((umin + umax) / 2), latitudeDelta: latD, longitudeDelta: lonD };
-  }, [route, circleNM]);
+  }, [route, compass, cCenter?.lat, cCenter?.lon, rDeg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // färgade rutt-segment per soltillstånd (bryt vid datumlinje)
   const runs = useMemo(() => {
@@ -165,7 +176,7 @@ function DayNightMapBase(props: DayNightMapProps) {
     let cur: { color: string; coordinates: { latitude: number; longitude: number }[] } | null = null;
     for (let i = 0; i < route.length; i++) {
       const broke = i > 0 && Math.abs(route[i].lon - route[i - 1].lon) > 180;
-      const color = STATE_COLORS[route[i].state];
+      const color = ROUTE_COLORS[route[i].state];
       if (broke) cur = null;
       if (!cur || cur.color !== color) {
         cur = { color, coordinates: [] };
@@ -191,20 +202,14 @@ function DayNightMapBase(props: DayNightMapProps) {
 
   const scrubMs = depMs + frac * dur;
   // Skuggan (polygonerna) uppdateras bara i ~20 steg över flyget — annars ritar Apple Maps
-  // om hela overlay-lagret varje animationssteg, vilket får rutten att blinka. Plan/tumme
-  // rör sig fortfarande mjukt (de använder scrubMs).
+  // om hela overlay-lagret varje animationssteg, vilket får rutten att blinka.
   const shadowMs = depMs + Math.round(frac * 20) / 20 * dur;
-
-  // natt-overlay: räknas inom ett fönster runt rutten (robust, undviker globala jätte-polygoner)
-  // Stort skugg-fönster runt rutten (klamrat till giltiga intervall) — täcker en stor del
-  // av kartan. OK perf-mässigt eftersom skuggan bara uppdateras i ~20 steg.
   const nb = useMemo(() => region ? {
     lonMin: Math.max(-180, region.longitude - region.longitudeDelta / 2 - 85),
     lonMax: Math.min(180, region.longitude + region.longitudeDelta / 2 + 85),
     latMin: Math.max(-90, region.latitude - region.latitudeDelta / 2 - 60),
     latMax: Math.min(90, region.latitude + region.latitudeDelta / 2 + 60),
   } : { lonMin: -180, lonMax: 180, latMin: -90, latMax: 90 }, [region]);
-
   // Två-tons-skugga: ljusare skymning (sol < −0.833°) + mörkare natt (sol < −6°).
   const twilight = useMemo(() => times ? nightRings(new Date(shadowMs), -0.833, 2, 2, nb) : null, [shadowMs, times, nb]);
   const night = useMemo(() => times ? nightRings(new Date(shadowMs), -6, 2, 2, nb) : null, [shadowMs, times, nb]);
@@ -212,40 +217,24 @@ function DayNightMapBase(props: DayNightMapProps) {
   const nightPolys = useMemo(() => night ? night.rings.map((r) => r.map((p) => ({ latitude: p.lat, longitude: normLon(p.lon) }))) : [], [night]);
   const sub = night?.sub ?? twilight?.sub ?? null;
   const plane = useMemo(() => positionAtMs(legs, dur, frac * dur), [legs, dur, frac]);
-  // Färdriktning = bäringen på det ben figuren är på just nu (glitchfritt vid vändpunkten).
-  const planeHeading = useMemo(() => {
-    if (legs.length < 2 || dur <= 0) return 0;
-    const vt = vertexArrivalTimes(legs, depMs, arrMs);
-    let seg = 0;
-    for (let i = 0; i < legs.length - 1; i++) if (scrubMs >= vt[i]) seg = i;
-    const a = legs[seg], b = legs[seg + 1];
-    if (a.lat === b.lat && a.lon === b.lon) return 0;
-    return bearingDeg(a.lat, a.lon, b.lat, b.lon);
-  }, [legs, depMs, arrMs, scrubMs, dur]);
-
-  // Tidslinjens färg (day/dusk/night) över TID — inkl. dwell vid stopp. Oberoende av frac.
-  const timeSegs = useMemo(() => {
-    if (!times || legs.length < 1 || dur <= 0) return [] as { state: SunState; n: number }[];
-    const N = 60; const states: SunState[] = [];
-    for (let k = 0; k < N; k++) {
-      const t = (k + 0.5) / N;
-      const p = positionAtMs(legs, dur, t * dur);
-      states.push(classifySun(new Date(depMs + t * dur), p.lat, p.lon));
-    }
-    const segs: { state: SunState; n: number }[] = [];
-    for (const s of states) { const last = segs[segs.length - 1]; if (last && last.state === s) last.n++; else segs.push({ state: s, n: 1 }); }
-    return segs;
-  }, [legs, depMs, arrMs, dur, times]);
   // Stoppens tidsfraktion (touchdown) längs tidslinjen.
   const stopFracs = useMemo(() => {
     if (!times || legs.length < 3 || dur <= 0) return [] as number[];
-    const t = vertexArrivalTimes(legs, depMs, arrMs);
+    const vt = vertexArrivalTimes(legs, depMs, arrMs);
     const out: number[] = [];
-    for (let i = 1; i < legs.length - 1; i++) out.push((t[i] - depMs) / dur);
+    for (let i = 1; i < legs.length - 1; i++) out.push((vt[i] - depMs) / dur);
     return out;
   }, [legs, depMs, arrMs, dur, times]);
 
-  // Spela upp rutten en gång när kartan blir synlig (fälls ner) — pausar sen vid slutet.
+  // Solnedgångens riktning från flygplatsen (kompassen): bäringen mot subsolar-punkten vid solnedgången.
+  const sunsetBearing = useMemo(() => {
+    if (!compass || !tl) return null;
+    const ev = tl.events.find((e) => e.kind === 'sunset') ?? tl.events.find((e) => e.kind === 'sunrise');
+    const s = subsolarPoint(new Date(ev ? ev.ms : (depMs + arrMs) / 2));
+    return { b: bearingDeg(cCenter!.lat, cCenter!.lon, s.lat, s.lon), label: ev?.kind === 'sunrise' ? 'SUNRISE' : 'SUNSET' };
+  }, [compass, tl, depMs, arrMs, cCenter?.lat, cCenter?.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Spela upp rutten en gång när kartan blir synlig — pausar sen vid slutet.
   const visible = !!times && legs.length >= 1 && !!region && (embedded || open);
   useEffect(() => {
     if (!visible) { playedRef.current = false; return; }
@@ -261,26 +250,75 @@ function DayNightMapBase(props: DayNightMapProps) {
 
   if (flightType === 'sim') return null;
 
-  const hasData = !!times && legs.length >= 1 && !!region;
-  const planeState: SunState = hasData ? classifySun(new Date(scrubMs), plane.lat, plane.lon) : 'day';
-  const stateLabel = (s: SunState) => s === 'day' ? t('dn_day') : s === 'dusk' ? t('dn_dusk') : s === 'dawn' ? t('dn_dawn') : t('dn_night');
+  const hasData = !!times && legs.length >= 1 && !!region && !!tl;
+  const phase = hasData ? phaseOf(classifySun(new Date(scrubMs), plane.lat, plane.lon)) : 'day';
+  const alt = hasData ? solarAltitudeDeg(new Date(scrubMs), plane.lat, plane.lon) : 0;
+  const altDeg = Math.round(Math.abs(alt));
+  const sunText = altDeg === 0 ? 'Sun on the horizon' : `Sun ${altDeg}° ${alt > 0 ? 'above' : 'below'} the horizon`;
+  const arrLabel = props.flight?.arr_place || (legs.length ? legs[legs.length - 1].icao : '');
+  const story = tl ? sunStory(tl, /^\d+$/.test(arrLabel) ? '' : arrLabel) : null;
+  const logged = props.logged ?? (props.flight ? {
+    night: props.flight.night ?? 0, nightLdg: props.flight.landings_night ?? 0, total: props.flight.total_time ?? 0,
+  } : null);
   const togglePlay = () => {
     if (playing) { setPlaying(false); return; }
     if (frac >= 0.999) setFrac(0);
     setPlaying(true);
   };
 
+  // Kompassens skillnad mot Local (loggad natt, avrundad som loggningen).
+  const dirName = selectedBearing == null ? null : COMPASS.find(([, b]) => b === selectedBearing)?.[2] ?? null;
+  let deltaText: string | null = null;
+  if (compass && props.bearingNight) {
+    const local = props.bearingNight.local;
+    const cur = selectedBearing == null ? local : (props.bearingNight.byBearing[selectedBearing] ?? local);
+    const d = Math.round((cur - local) * 60);
+    deltaText = selectedBearing == null
+      ? `Local: night ${fmtMin(local * 60)}.`
+      : `${dirName}: night ${fmtMin(cur * 60)}, ${d === 0 ? 'same as local' : `${Math.abs(d)} min ${d > 0 ? 'more' : 'less'} than local`}.`;
+  }
+
+  const mapH = compass ? COMPASS_MAP_H : MAP_H;
+  const ringPx = mapH / RING_SPAN;
+  const btnR = ringPx * 0.78;
+  const cx = mapW / 2, cy = mapH / 2;
+
+  const storyIcon = story?.icon === 'moon' ? 'weather-night' : story?.icon === 'sunrise' ? 'weather-sunset-up' : story?.icon === 'sunset' ? 'weather-sunset-down' : 'weather-sunny';
+  const storyColor = story?.icon === 'moon' ? SUN.nightText : SUN.day;
+
   const body = !hasData ? (
-    <Text style={[st.hint, { color: Colors.textMuted }]}>{t('dn_no_route')}</Text>
+    <Text style={[st.hint, { color: Colors.textSecondary }]}>{t('dn_no_route')}</Text>
   ) : (
     <>
-      <View style={{ height: 240, borderRadius: 10, overflow: 'hidden' }}>
+      {story ? (
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <View style={[st.storyIcon, { backgroundColor: storyColor + '26' }]}>
+            <MaterialCommunityIcons name={storyIcon as any} size={19} color={storyColor} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={st.storyTitle}>{story.title}</Text>
+            <Text style={st.storySub}>{story.sub}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {compass ? (
+        <View style={{ gap: 3 }}>
+          <Text style={st.promptTitle}>Which way did you fly?</Text>
+          <Text style={st.storySub}>You took off and landed at {legs[0]?.icao ?? 'the same place'}, so Blades can't see the route. Pick the direction you mostly flew.</Text>
+        </View>
+      ) : null}
+
+      <View style={{ height: mapH, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}
+        onLayout={(e) => setMapW(e.nativeEvent.layout.width)}>
         <MapView
           style={{ flex: 1 }}
           initialRegion={region!}
           userInterfaceStyle="dark"
           rotateEnabled={false}
           pitchEnabled={false}
+          scrollEnabled={!compass}
+          zoomEnabled={!compass}
           showsPointsOfInterests={false}
           showsCompass={false}
           toolbarEnabled={false}
@@ -291,103 +329,144 @@ function DayNightMapBase(props: DayNightMapProps) {
           {nightPolys.map((coordinates, i) => (
             <Polygon key={'n' + i} coordinates={coordinates} fillColor="rgba(6,11,22,0.62)" strokeColor="transparent" strokeWidth={0} zIndex={2} />
           ))}
-          {/* Väderstreck-sektorer (klickbara) = flygenvelopen (radie = flygtid × marschfart / 2 NM).
-              Välj hållet du flög → figuren flyger ut till kanten och hem. */}
-          {showSectors ? COMPASS.map(([, b]) => {
-            const sel = selectedBearing === b;
-            return (
-              <Polygon key={'sec' + b} coordinates={sectorCoords(b)} tappable onPress={() => onPickBearing!(b)}
-                fillColor={sel ? 'rgba(63,224,255,0.26)' : 'rgba(63,224,255,0.05)'}
-                strokeColor={sel ? C_PLANE : 'rgba(63,224,255,0.30)'} strokeWidth={sel ? 1.4 : 0.6} zIndex={2} />
-            );
-          }) : null}
-          {showSectors ? COMPASS.map(([lbl, b]) => {
-            const p = destPointDeg(cCenter!.lat, cCenter!.lon, b, rDeg * 0.72);
-            const sel = selectedBearing === b;
-            return (
-              <Marker key={'secl' + b} coordinate={{ latitude: p.lat, longitude: normLon(p.lon) }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={5} onPress={() => onPickBearing!(b)}>
-                <Text style={{ fontFamily: MONO, fontSize: 9, fontWeight: '800', color: sel ? C_PLANE : '#9FB4C8' }}>{lbl}</Text>
-              </Marker>
-            );
-          }) : null}
+          {/* Kompassens ring = flygenvelopen; det valda hållet markeras som en sektor. */}
+          {compass ? (
+            <Polygon key="ring" coordinates={ringCoords} fillColor="rgba(10,22,40,0.28)" strokeColor="rgba(0,200,232,0.55)" strokeWidth={1.2} zIndex={2} />
+          ) : null}
+          {compass && selectedBearing != null ? (
+            <Polygon key={'sec' + selectedBearing} coordinates={sectorCoords(selectedBearing)} fillColor="rgba(0,200,232,0.16)" strokeColor={Colors.primary} strokeWidth={1.2} zIndex={2} />
+          ) : null}
           {runs.map((r, i) => (
-            <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3} zIndex={3} />
+            <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3.5} zIndex={3} />
           ))}
-          {markers.map((m, i) => (
-            /* Bara ICAO-rutan (ingen färgad prick) — centrerad på koordinaten så rutt-strecket
-               går rakt genom rutan. */
+          {!compass && markers.map((m, i) => (
+            /* Bara ICAO-rutan — centrerad på koordinaten så rutt-strecket går rakt genom rutan. */
             <Marker key={'ml' + i} coordinate={{ latitude: m.lat, longitude: m.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} title={m.icao} zIndex={5}>
               <View style={s.labelChip}><Text style={s.labelText}>{m.icao}</Text></View>
             </Marker>
           ))}
-          {sub ? (
+          {sub && !compass ? (
             <Marker coordinate={{ latitude: sub.lat, longitude: normLon(sub.lon) }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={4}>
-              <Text style={{ fontSize: 20 }}>☀️</Text>
+              <Ionicons name="sunny" size={20} color={SUN.day} />
             </Marker>
           ) : null}
-          {/* Farkosten "flyger" rutten; nosen roteras mot färdriktningen via bild-transform.
-              key inkluderar bäringen (avrundad) → ny snapshot tas när riktningen ändras (vändpunkten),
-              annars är den fryst för prestanda medan positionen uppdateras nativt. */}
-          {/* Gamla romb-figuren (symmetrisk → ingen heading-rotation, stabil key = flyttas nativt utan remount). */}
+          {/* Romben flyttas nativt (stabil key, ingen omritning). */}
           <Marker key="plane" coordinate={{ latitude: plane.lat, longitude: plane.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} zIndex={6}>
-            {/* Tight wrapper (rymmer den 45°-roterade romben) — en stor vy förskjuter ankaret på iOS
-                så romben hamnar under linjen. */}
             <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
               <View style={s.planeDiamond} />
             </View>
           </Marker>
         </MapView>
+
+        {/* Läget just nu (överst) — Apple-loggan och Legal nere till vänster lämnas fria. */}
+        <View pointerEvents="none" style={[st.mapChip, { left: 10 }]}>
+          <Text style={st.mapChipTime}>{fmtUtc(scrubMs)} UTC</Text>
+          <Text style={[st.phaseTag, { color: PHASE_COLOR[phase], borderColor: PHASE_COLOR[phase] }]}>{phase.toUpperCase()}</Text>
+        </View>
+        {!compass ? (
+          <View pointerEvents="none" style={[st.mapChip, { right: 10 }]}>
+            <Ionicons name="sunny-outline" size={12} color={SUN.day} />
+            <Text style={st.mapChipText}>{sunText}</Text>
+          </View>
+        ) : null}
+
+        {compass && mapW > 0 ? (
+          <>
+            {sunsetBearing ? (
+              <View pointerEvents="none" style={{ position: 'absolute', alignItems: 'center', width: 60, left: cx + (ringPx + 20) * Math.sin(sunsetBearing.b * RAD) - 30, top: cy - (ringPx + 20) * Math.cos(sunsetBearing.b * RAD) - 14 }}>
+                <MaterialCommunityIcons name={sunsetBearing.label === 'SUNRISE' ? 'weather-sunset-up' : 'weather-sunset-down'} size={16} color={SUN.day} />
+                <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '800', color: SUN.day }}>{sunsetBearing.label}</Text>
+              </View>
+            ) : null}
+            {COMPASS.map(([lbl, b, name]) => {
+              const on = selectedBearing === b;
+              return (
+                <TouchableOpacity key={lbl} onPress={() => onPickBearing!(b)} activeOpacity={0.8}
+                  accessibilityRole="button" accessibilityLabel={name} accessibilityState={{ selected: on }}
+                  style={[st.dirBtn, { left: cx + btnR * Math.sin(b * RAD) - 22, top: cy - btnR * Math.cos(b * RAD) - 22 }, on && st.dirBtnOn]}>
+                  <Text style={[st.dirTxt, on && { color: '#04121F' }]}>{lbl}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity onPress={() => onPickBearing!(null)} activeOpacity={0.8}
+              accessibilityRole="button" accessibilityLabel="Local, around the airport" accessibilityState={{ selected: selectedBearing == null }}
+              style={[st.localBtn, { left: cx - 36, top: cy - 36 }, selectedBearing == null && st.dirBtnOn]}>
+              <Text style={[st.dirTxt, selectedBearing == null && { color: '#04121F' }]}>LOCAL</Text>
+              <Text style={[st.localSub, selectedBearing == null && { color: '#04121F' }]} numberOfLines={1}>around {legs[0]?.icao ?? 'field'}</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
       </View>
 
-      {dur > 0 ? (
-        <View style={st.scrubRow}>
-          <TouchableOpacity onPress={togglePlay} hitSlop={10} style={[st.playBtn, { borderColor: Colors.gold, backgroundColor: Colors.gold + '18' }]} activeOpacity={0.7}>
-            <Ionicons name={playing ? 'pause' : (frac >= 0.999 ? 'refresh' : 'play')} size={13} color={Colors.gold} />
-          </TouchableOpacity>
-          <Text style={[st.timeLbl, { color: Colors.textSecondary }]}>{fmtUTC(depMs)}</Text>
-          <View
-            style={{ flex: 1, height: 28, justifyContent: 'center' }}
-            onLayout={(e) => { const w = e.nativeEvent.layout.width; trackWRef.current = w; setTrackW(w); }}
-            {...pan.panHandlers}
-          >
-            <View style={{ height: 6, borderRadius: 3, overflow: 'hidden', flexDirection: 'row', backgroundColor: Colors.border }}>
-              {timeSegs.map((s, i) => <View key={i} style={{ flex: s.n, backgroundColor: STATE_COLORS[s.state] }} />)}
-            </View>
-            {stopFracs.map((f, i) => (
-              <View key={'sm' + i} pointerEvents="none" style={{ position: 'absolute', left: f * trackW - 3.5, top: 10.5, width: 7, height: 7, borderRadius: 4, backgroundColor: '#06101F', borderWidth: 1, borderColor: '#FFFFFF' }} />
-            ))}
-            <View pointerEvents="none" style={{ position: 'absolute', left: frac * trackW - 7, top: 7, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.gold, borderWidth: 2, borderColor: '#FFFFFF' }} />
-          </View>
-          <Text style={[st.timeLbl, { color: Colors.textSecondary }]}>{fmtUTC(arrMs)}</Text>
+      {compass ? (
+        <View style={{ gap: 4, marginTop: -4 }}>
+          {props.circleInfo ? (
+            <Text style={st.footnote}>
+              Ring = {Math.round(circleNM)} NM: half of {fmtMin(props.circleInfo.totalH * 60)} at {Math.round(props.circleInfo.cruiseKts)} kt{props.circleInfo.aircraft ? ` (${props.circleInfo.aircraft})` : ''}, out and back.
+            </Text>
+          ) : null}
+          {deltaText ? <Text style={[st.footnote, { color: Colors.textPrimary }]}>{deltaText}</Text> : null}
         </View>
       ) : null}
 
-      <View style={st.statusRow}>
-        <Text style={[st.nowTime, { color: Colors.textPrimary }]}>{fmtUTC(scrubMs)} UTC</Text>
-        <View style={[st.chip, { backgroundColor: STATE_COLORS[planeState] + '22', borderColor: STATE_COLORS[planeState] }]}>
-          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: STATE_COLORS[planeState] }} />
-          <Text style={[st.chipTxt, { color: STATE_COLORS[planeState] }]}>{stateLabel(planeState)}</Text>
-        </View>
-      </View>
-
-      <View style={st.legend}>
-        {(['day', 'dusk', 'night', 'dawn'] as SunState[]).map((sKey) => (
-          <View key={sKey} style={st.legItem}>
-            <View style={{ width: 9, height: 3, borderRadius: 2, backgroundColor: STATE_COLORS[sKey] }} />
-            <Text style={[st.legTxt, { color: Colors.textMuted }]}>{stateLabel(sKey)}</Text>
+      {dur > 0 ? (
+        <View style={st.scrubRow}>
+          <TouchableOpacity onPress={togglePlay} style={st.playBtn} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play the flight'}>
+            <Ionicons name={playing ? 'pause' : (frac >= 0.999 ? 'refresh' : 'play')} size={15} color={SUN.day} />
+          </TouchableOpacity>
+          <View style={{ flex: 1, height: 58 }}>
+            <SunEventRow tl={tl!} words />
+            <View
+              style={{ position: 'absolute', left: 0, right: 0, top: 12, height: 32, justifyContent: 'center' }}
+              onLayout={(e) => { const w = e.nativeEvent.layout.width; trackWRef.current = w; setTrackW(w); }}
+              {...pan.panHandlers}
+            >
+              <SunBar tl={tl!} height={14} />
+              <View pointerEvents="none" style={{ position: 'absolute', left: frac * trackW, right: 0, top: 9, height: 14, borderTopRightRadius: 7, borderBottomRightRadius: 7, backgroundColor: 'rgba(15,30,58,0.55)' }} />
+              {stopFracs.map((f, i) => (
+                <View key={'sm' + i} pointerEvents="none" style={{ position: 'absolute', left: f * trackW - 3.5, top: 12.5, width: 7, height: 7, borderRadius: 4, backgroundColor: '#06101F', borderWidth: 1, borderColor: '#FFFFFF' }} />
+              ))}
+              <View pointerEvents="none" style={[st.thumb, { left: frac * trackW - 12, borderColor: PHASE_COLOR[phase] }]} />
+            </View>
+            <Text style={[st.endTime, { left: 0 }]}>T/O {fmtUtc(depMs)}</Text>
+            <Text style={[st.endTime, { right: 0 }]}>LDG {fmtUtc(arrMs)}</Text>
           </View>
-        ))}
-      </View>
+        </View>
+      ) : null}
+
+      {logged ? (
+        <View style={{ gap: 8 }}>
+          <Text style={st.section}>IN YOUR LOGBOOK</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={[st.tile, st.tileNight]}>
+              <Text style={[st.tileLbl, { color: SUN.nightText }]}>NIGHT</Text>
+              <Text style={st.tileVal}>{fmtMin(logged.night * 60)}</Text>
+            </View>
+            <View style={[st.tile, st.tileNight]}>
+              <Text style={[st.tileLbl, { color: SUN.nightText }]}>NIGHT LDG</Text>
+              <Text style={st.tileVal}>{logged.nightLdg}</Text>
+            </View>
+            <View style={st.tile}>
+              <Text style={[st.tileLbl, { color: SUN.day }]}>DAY</Text>
+              <Text style={st.tileVal}>{fmtMin(Math.max(0, logged.total - logged.night) * 60)}</Text>
+            </View>
+          </View>
+          <Text style={st.footnote}>
+            {props.editHint ? 'Filled in for you. ' : ''}Night starts when the sun is 6° below the horizon, so twilight counts as day.{props.editHint ? ' Change the numbers in Full.' : ''}
+          </Text>
+        </View>
+      ) : null}
     </>
   );
 
-  if (embedded) return <View style={{ gap: 10 }}>{body}</View>;
+  if (embedded) return <View style={{ gap: 14 }}>{body}</View>;
 
   return (
     <View style={[st.card, { backgroundColor: Colors.card, borderColor: Colors.cardBorder }]}>
       <TouchableOpacity onPress={() => setOpen((o) => !o)} style={st.head} activeOpacity={0.7}>
-        <Ionicons name="sunny-outline" size={16} color={Colors.gold} />
-        <Text style={[st.title, { color: Colors.textPrimary }]}>{t('dn_title')}</Text>
+        <Ionicons name="sunny-outline" size={16} color={SUN.day} />
+        <Text style={[st.title, { color: Colors.textPrimary }]}>{t('sun_route')}</Text>
         <View style={{ flex: 1 }} />
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
       </TouchableOpacity>
@@ -401,25 +480,36 @@ function DayNightMapBase(props: DayNightMapProps) {
 export const DayNightMap = memo(DayNightMapBase);
 
 const st = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 10 },
+  card: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 14 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 14, fontWeight: '700' },
   hint: { fontFamily: MONO, fontSize: 11 },
-  scrubRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  playBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  timeLbl: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  nowTime: { fontFamily: MONO, fontSize: 13, fontWeight: '700' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1 },
-  chipTxt: { fontFamily: MONO, fontSize: 10, fontWeight: '800' },
-  legend: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  legItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legTxt: { fontFamily: MONO, fontSize: 9, fontWeight: '700' },
+  storyIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  storyTitle: { fontSize: 16.5, fontWeight: '600', lineHeight: 21, color: Colors.textPrimary },
+  storySub: { fontSize: 13, lineHeight: 18, color: Colors.textSecondary },
+  promptTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  mapChip: { position: 'absolute', top: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: 9, borderRadius: 9, backgroundColor: 'rgba(6,12,26,0.85)', borderWidth: 1, borderColor: Colors.border },
+  mapChipTime: { fontFamily: MONO, fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
+  mapChipText: { fontSize: 11, color: '#D6E6F3' },
+  phaseTag: { fontFamily: MONO, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.6, paddingVertical: 1, paddingHorizontal: 5, borderRadius: 5, borderWidth: 1, overflow: 'hidden' },
+  dirBtn: { position: 'absolute', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(21,35,56,0.92)', borderWidth: 1, borderColor: Colors.border },
+  dirBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dirTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  localBtn: { position: 'absolute', width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', gap: 1, backgroundColor: 'rgba(21,35,56,0.92)', borderWidth: 1, borderColor: Colors.border },
+  localSub: { fontSize: 9.5, color: Colors.textSecondary },
+  scrubRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  playBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: SUN.day, backgroundColor: SUN.day + '1A', alignItems: 'center', justifyContent: 'center' },
+  thumb: { position: 'absolute', top: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 3, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  endTime: { position: 'absolute', bottom: 0, fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: Colors.textSecondary },
+  section: { fontFamily: MONO, fontSize: 9.5, fontWeight: '800', letterSpacing: 1.2, color: Colors.textSecondary },
+  tile: { flex: 1, paddingVertical: 10, paddingHorizontal: 11, borderRadius: 12, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, gap: 4 },
+  tileNight: { backgroundColor: 'rgba(108,140,255,0.12)', borderColor: 'rgba(169,190,255,0.28)' },
+  tileLbl: { fontFamily: MONO, fontSize: 8.5, fontWeight: '800', letterSpacing: 0.8 },
+  tileVal: { fontFamily: MONO, fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  footnote: { fontSize: 12, lineHeight: 17, color: Colors.textSecondary },
 });
 
 const s = StyleSheet.create({
-  dot: { width: MARK_DOT, height: MARK_DOT, borderRadius: MARK_DOT / 2, borderWidth: 1.5, marginVertical: MARK_GAP },
-  markerSpacer: { height: MARK_LABEL_H },
   labelChip: { height: MARK_LABEL_H, justifyContent: 'center', backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 5, paddingHorizontal: 5, borderWidth: 0.5, borderColor: Colors.border },
   labelText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700', fontFamily: 'Menlo' },
   planeDiamond: { width: 13, height: 13, backgroundColor: C_PLANE, borderWidth: 1.5, borderColor: '#06101F', transform: [{ rotate: '45deg' }] },
