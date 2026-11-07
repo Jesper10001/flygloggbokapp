@@ -28,6 +28,7 @@ export function planBooks(o: {
   page: number;             // sidan flygningen står på (vilken sida av uppslaget som helst)
   row: number;
   earlierChoice: 'books' | 'bf' | null;
+  earlierFirstPage?: number; // de tidigare böckernas första sida med flygningar (efter bokens inledning); standard = firstPage
   earlierLastPage: number;  // de tidigare böckernas sista sida
 }): SetupPlan {
   const fp = Math.max(1, o.firstPage);
@@ -44,14 +45,15 @@ export function planBooks(o: {
   }];
   if (!(earlier > 0 && o.earlierChoice === 'books')) return { leftPage, room, earlier, books: single };
 
-  const eLast = Math.max(fp + 1, o.earlierLastPage);
-  const cap = (Math.floor((eLast - fp) / 2) + 1) * rs;
+  const ef = Math.max(1, o.earlierFirstPage || fp);
+  const eLast = Math.max(ef + 1, o.earlierLastPage);
+  const cap = (Math.floor((eLast - ef) / 2) + 1) * rs;
   const n = Math.max(1, Math.ceil(earlier / cap));
   // De nyaste av de tidigare böckerna är fulla; den äldsta tar resten.
   const starts = Array.from({ length: n }, (_, k) => (k === 0 ? 0 : earlier - (n - k) * cap));
   const books: PlannedBook[] = starts.map((s, k) => ({
-    startingPage: fp, endPage: eLast,
-    anchorFlightId: k === 0 ? 0 : o.bookFlightIds[s], anchorPage: k === 0 ? 0 : fp, anchorRow: k === 0 ? 0 : 1,
+    startingPage: ef, endPage: eLast,
+    anchorFlightId: k === 0 ? 0 : o.bookFlightIds[s], anchorPage: k === 0 ? 0 : ef, anchorRow: k === 0 ? 0 : 1,
     count: (k + 1 < n ? starts[k + 1] : earlier) - s,
   }));
   books.push({ startingPage: fp, endPage: o.lastPage, anchorFlightId: o.bookFlightIds[earlier], anchorPage: fp, anchorRow: 1, count: 0 });

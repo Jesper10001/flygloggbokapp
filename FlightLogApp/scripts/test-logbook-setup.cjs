@@ -90,6 +90,13 @@ ok(at && at.book === 4 && at.page === 73 && at.row === 10, `4th Logbook: senaste
 at = locate(fake(plan), bookFlights[180].id);
 ok(at && at.book === 3 && at.page === 1 && at.row === 1, `3rd Logbook börjar på sida 1, rad 1 (fick bok ${at && at.book}, ${at && at.page}, ${at && at.row})`);
 
+plan = S.planBooks({ ...base, anchorPos: latest, page: 73, row: 10, earlierChoice: 'books', earlierFirstPage: 3, earlierLastPage: 22 });
+ok(plan.books.length === 4 && plan.books[0].startingPage === 3 && plan.books[3].startingPage === 1, `tidigare böcker börjar på sida 3 (efter inledningen), den här på sida 1 (fick ${plan.books.map((b) => b.startingPage).join(', ')})`);
+at = locate(fake(plan), bookFlights[180].id);
+ok(at && at.book === 3 && at.page === 3 && at.row === 1, `3rd Logbook: första flygningen på sida 3, rad 1 (fick bok ${at && at.book}, ${at && at.page}, ${at && at.row})`);
+at = locate(fake(plan), bookFlights[latest].id);
+ok(at && at.book === 4 && at.page === 73 && at.row === 10, `den här boken oförändrad: sida 73, rad 10 (fick bok ${at && at.book}, ${at && at.page}, ${at && at.row})`);
+
 console.log('Senaste flygningen i pappersboken är inte den senaste i Blades');
 plan = S.planBooks({ ...base, anchorPos: latest - 2, page: 73, row: 10, earlierChoice: 'bf' });
 at = locate(fake(plan), bookFlights[latest - 2].id);

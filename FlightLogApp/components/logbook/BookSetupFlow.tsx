@@ -43,7 +43,7 @@ type Sheet = 'preview' | 'flights' | 'backfill' | null;
 interface Draft {
   step: Step; templateId: string; rows: number; firstPage: string; lastPage: string;
   anchorEdited: boolean; page: string; row: number; back: number;
-  earlierChoice: 'books' | 'bf' | null; earlierLast: string;
+  earlierChoice: 'books' | 'bf' | null; earlierFirst: string; earlierLast: string;
   totalsMode: 'ask' | 'diff'; paper: Record<string, string>; overrides: Record<string, number>;
 }
 let draft: Draft | null = null;
@@ -122,6 +122,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
   const [back, setBack] = useState(init?.back ?? 0);            // nyare flygningar som inte står i pappersboken än
   const [sizeOpen, setSizeOpen] = useState(false);
   const [earlierChoice, setEarlierChoice] = useState<'books' | 'bf' | null>(init?.earlierChoice ?? null);
+  const [earlierFirst, setEarlierFirst] = useState(init?.earlierFirst ?? '');   // tom = samma som den här boken
   const [earlierLast, setEarlierLast] = useState(init?.earlierLast ?? '');
   const [totalsMode, setTotalsMode] = useState<'ask' | 'diff'>(init?.totalsMode ?? 'ask');
   const [paper, setPaper] = useState<Record<string, string>>(init?.paper ?? {});
@@ -145,7 +146,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
 
   // Lämna flödet (Imported data, egen loggbok): läget sparas och flödet öppnas igen när man kommer tillbaka.
   const leaveTo = (path: string) => {
-    draft = { step, templateId, rows, firstPage, lastPage, anchorEdited, page: String(pageNum), row: rowNum, back, earlierChoice, earlierLast, totalsMode, paper, overrides };
+    draft = { step, templateId, rows, firstPage, lastPage, anchorEdited, page: String(pageNum), row: rowNum, back, earlierChoice, earlierFirst, earlierLast, totalsMode, paper, overrides };
     useLogbookSetupStore.getState().requestReopen();
     onClose();
     router.push(path as any);
@@ -165,12 +166,13 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
   }, [anchorPos, fp, rs]);
   const pageNum = anchorEdited ? Math.max(fp, parseInt(page, 10) || fp) : suggest.page;
   const rowNum = Math.max(1, Math.min(rs, anchorEdited ? row : suggest.row));
-  const eLast = Math.max(fp + 1, parseInt(earlierLast, 10) || lp || 100);
+  const eFirst = Math.max(1, parseInt(earlierFirst, 10) || fp);
+  const eLast = Math.max(eFirst + 1, parseInt(earlierLast, 10) || lp || 100);
   // Bokplanen (services/logbook/setupPlan): uppslaget, plats före flygningen, tidigare böcker.
   const { leftPage, room, earlier, books: plan } = useMemo(() => planBooks({
     bookFlightIds: bookFlights.map((f) => f.id), anchorPos, firstPage: fp, lastPage: lp, rowsPerSpread: rs,
-    page: pageNum, row: rowNum, earlierChoice, earlierLastPage: eLast,
-  }), [bookFlights, anchorPos, fp, lp, rs, pageNum, rowNum, earlierChoice, eLast]);
+    page: pageNum, row: rowNum, earlierChoice, earlierFirstPage: eFirst, earlierLastPage: eLast,
+  }), [bookFlights, anchorPos, fp, lp, rs, pageNum, rowNum, earlierChoice, eFirst, eLast]);
   const written = anchorPos + 1;
   const editAnchor = (p: number, r: number) => { setAnchorEdited(true); setPage(String(Math.max(fp, p))); setRow(r); };
 
@@ -520,6 +522,12 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
           <View style={{ gap: 18 }}>
             <Head title={`Where are your first ${earlier.toLocaleString('en-US')} flights?`}
               lead={`Up to page ${pageNum}, row ${rowNum} there’s room for ${room.toLocaleString('en-US')} flights. Blades has ${written.toLocaleString('en-US')} up to that flight, so ${earlier.toLocaleString('en-US')} are from before this logbook.`} />
+            {/* Bokens första sida med flygningar (efter inledningen) avgör hur många som får plats före raden. */}
+            <View style={[s.card, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }]}>
+              <Text style={[s.smallText, { flex: 1, color: Colors.textPrimary }]}>This logbook’s first flight is on page</Text>
+              <TextInput style={s.smallInput} value={firstPage} onChangeText={(v) => setFirstPage(v.replace(/\D/g, ''))} placeholder="1" placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad" selectTextOnFocus accessibilityLabel="First page with flights in this logbook" />
+            </View>
             <View style={{ gap: 8 }} accessible accessibilityLabel={`${earlier} flights before this logbook, ${room} in it`}>
               <View style={s.barRow}>
                 <View style={[s.barBefore, { flex: Math.max(0.16, earlier / written) }]}><Text style={s.barText}>{earlier.toLocaleString('en-US')}</Text></View>
@@ -548,10 +556,16 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                     </TouchableOpacity>
                     {on && id === 'books' && (
                       <View style={{ paddingLeft: 48, paddingRight: 14, paddingBottom: 14, gap: 10 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={s.smallText}>Each one has pages {fp} to</Text>
-                          <TextInput style={s.smallInput} value={earlierLast || String(eLast)} onChangeText={(v) => setEarlierLast(v.replace(/\D/g, ''))}
-                            keyboardType="number-pad" selectTextOnFocus accessibilityLabel="Last page of an earlier logbook" />
+                        <View style={{ gap: 6 }}>
+                          <Text style={s.smallText}>Pages with flights in each one</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <TextInput style={s.smallInput} value={earlierFirst || String(eFirst)} onChangeText={(v) => setEarlierFirst(v.replace(/\D/g, ''))}
+                              keyboardType="number-pad" selectTextOnFocus accessibilityLabel="First page with flights in an earlier logbook" />
+                            <Text style={s.smallText}>to</Text>
+                            <TextInput style={s.smallInput} value={earlierLast || String(eLast)} onChangeText={(v) => setEarlierLast(v.replace(/\D/g, ''))}
+                              keyboardType="number-pad" selectTextOnFocus accessibilityLabel="Last page of an earlier logbook" />
+                          </View>
+                          <Text style={s.fixHint}>Start on the page with the first flight, after the book’s intro pages.</Text>
                         </View>
                         {plan.map((b, i) => (
                           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
