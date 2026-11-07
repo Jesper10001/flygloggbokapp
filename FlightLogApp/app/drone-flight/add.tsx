@@ -72,10 +72,6 @@ import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight
 import { isEssential, rememberSkippedDrones } from '../../services/essentialFleet';
 
 const today = new Date().toISOString().split('T')[0];
-const nowHHMM = () => {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
 // Lokal (enhetens tidszon) ↔ UTC för en given flygdag. Loggboken (fysisk + digital)
 // lagrar UTC (Z); lokaltid räknas om via enhetens tz (användarens region), med DST för datumet.
 const localToUtc = (date: string, hhmm: string): string => {
@@ -200,7 +196,7 @@ export default function AddDroneFlightScreen() {
     date: today,
     drone_id: null,
     location: '',
-    takeoff_time: nowHHMM(),
+    takeoff_time: '', // ingen förvald tid (som pilotens Log Flight)
     landing_location: '',
     mission_type: '', // tomt som standard → bara platshållaren "Type of mission" syns
     category: '',
@@ -887,7 +883,7 @@ export default function AddDroneFlightScreen() {
         setPhotoUri(null); setMediaType('image'); // ny flygning i passet → rensa media
         setForm((p) => ({
           ...p,
-          takeoff_time: nowHHMM(),
+          takeoff_time: '',
           total_time: '0',
           max_altitude_m: '',
           night_time: '', vfr: '', // ny flygning i passet → nollställ kondition-tider
@@ -1366,7 +1362,7 @@ export default function AddDroneFlightScreen() {
   // ── Route-kortets delar (= pilotens Log Flight): platsruta med GPS-nål/bock och snabbval, tidsruta med Z/L ──
   const renderPlace = (which: 'dep' | 'arr') => {
     const value = which === 'dep' ? form.location : (form.landing_location ?? '');
-    const located = which === 'dep' ? !!depCoords : !!arrCoords;
+    const located = !!value.trim() && (which === 'dep' ? !!depCoords : !!arrCoords);
     const setValue = (v: string) => setForm((p) => (which === 'dep'
       ? { ...p, location: v, lat: undefined, lon: undefined }
       : { ...p, landing_location: v, landing_lat: 0, landing_lon: 0 }));
@@ -1594,19 +1590,22 @@ export default function AddDroneFlightScreen() {
                 </View>
                 <View style={styles.legCol}>
                   {fullLegs.map((leg, i) => (
-                    <View key={i} style={[styles.legChip, fullLegs.length > 1 && { paddingRight: 2 }]}>
-                      <Text style={styles.legOrd}>{LEG_ORD(i)}</Text>
-                      <View style={{ flex: 1, justifyContent: 'center' }}>
+                    <View key={i} style={[styles.legChip, fullLegs.length > 1 && { paddingRight: 2 }, !leg && i === 0 && styles.legChipEmpty]}>
+                      <View style={styles.legLblCol}>
+                        <Text style={[styles.legOrd, !leg && i === 0 && { color: accent }]}>{LEG_ORD(i)}</Text>
+                        <Text style={[styles.legSub, !leg && i === 0 && { color: accent }]}>FLIGHT</Text>
+                      </View>
+                      <View style={{ flex: 1, height: '100%', justifyContent: 'center' }}>
                         <TextInput
                           style={styles.legInput}
                           value={leg}
                           onChangeText={(raw) => updateLeg(i, raw)}
                           keyboardType="number-pad"
                           inputAccessoryViewID="drone-add-done"
-                          accessibilityLabel={`${LEG_ORD(i).toLowerCase()} flight time`}
+                          accessibilityLabel={`${LEG_ORD(i).toLowerCase()} flight time, hours and minutes`}
                         />
-                        {/* DSEG7 kan inte rita bokstäver → egen platshållare */}
-                        {!leg ? <View style={styles.legPh} pointerEvents="none"><Text style={styles.legPhText}>h:mm</Text></View> : null}
+                        {/* Platshållare i LED-stil (DSEG7 ritar siffror, inte bokstäver) */}
+                        {!leg ? <View style={styles.legPh} pointerEvents="none"><Text style={styles.legPhText}>0:00</Text></View> : null}
                       </View>
                       {fullLegs.length > 1 && (
                         <TouchableOpacity onPress={() => removeLeg(i)} hitSlop={6} activeOpacity={0.7}
@@ -2386,13 +2385,17 @@ function makeStyles(accent: string) {
     heroNight: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
     heroDot: { width: 4, height: 4, borderRadius: 2 },
     heroNightText: { fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.5, color: DR.text, textTransform: 'uppercase' },
-    legCol: { width: 128, gap: 5 },
-    legChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingLeft: 8, paddingRight: 8, borderRadius: 8, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
-    legOrd: { width: 24, fontFamily: 'JetBrainsMono', fontSize: 8.5, fontWeight: '700', letterSpacing: 0.4, color: DR.faint },
-    legInput: { fontFamily: FONT_LED7, fontSize: 13, fontWeight: '800', color: DR.text, padding: 0 },
+    legCol: { width: 142, gap: 6 },
+    // Flygningens tid: tydlig ruta (LED-siffror, "1ST FLIGHT"); den tomma första rutan lyser i accent.
+    legChip: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingLeft: 10, paddingRight: 10, borderRadius: 10, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface, overflow: 'hidden' },
+    legChipEmpty: { borderColor: accent, backgroundColor: accent + '14' },
+    legLblCol: { width: 34, gap: 1 },
+    legOrd: { fontFamily: 'JetBrainsMono', fontSize: 9, fontWeight: '800', letterSpacing: 0.5, color: DR.text3 },
+    legSub: { fontFamily: 'JetBrainsMono', fontSize: 7, fontWeight: '700', letterSpacing: 0.6, color: DR.faint },
+    legInput: { fontFamily: FONT_LED7, fontSize: 19, fontWeight: '800', color: DR.text, padding: 0, height: '100%' },
     legPh: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center' },
-    legPhText: { fontFamily: 'JetBrainsMono', fontSize: 11, fontWeight: '700', letterSpacing: 1, color: DR.faint },
-    addLegBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 30, borderRadius: 8, borderWidth: 1, borderColor: accent + '66', backgroundColor: accent + '10' },
+    legPhText: { fontFamily: FONT_LED7, fontSize: 19, fontWeight: '800', color: DR.faint },
+    addLegBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 34, borderRadius: 10, borderWidth: 1, borderColor: accent + '66', backgroundColor: accent + '10' },
     addLegText: { color: accent, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.3 },
     connector: { width: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
     connectorLine: { flex: 1, minHeight: 12, width: 0, borderLeftWidth: 2, borderColor: accent + '80', borderStyle: 'dashed' },
