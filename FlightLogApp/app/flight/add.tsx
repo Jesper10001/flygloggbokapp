@@ -572,11 +572,6 @@ function makeStyles() {
     soloChipText: {
       color: Colors.textSecondary, fontSize: 9.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1,
     },
-    soloCover: { alignItems: 'center', justifyContent: 'center', gap: 2 },
-    soloCoverTitle: {
-      color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1.5, textTransform: 'uppercase',
-    },
-    soloCoverSub: { color: Colors.textSecondary, fontSize: 11.5 },
     roleBtnText: {
       color: Colors.textSecondary, fontSize: 10.5, fontWeight: '700',
       fontFamily: 'JetBrainsMono', letterSpacing: 0.3,
@@ -2000,7 +1995,7 @@ export default function AddFlightScreen() {
     );
     return (
       <View style={{ flex: 1, position: 'relative', zIndex: otherOpen ? 40 : undefined }}>
-        <TouchableOpacity style={[styles.roleBtn, specialActive && styles.roleBtnActive]} onPress={() => setOtherOpen((o) => !o)} activeOpacity={0.75}>
+        <TouchableOpacity style={[styles.roleBtn, specialActive && styles.roleBtnActive, soloOn && styles.roleBtnDisabled]} disabled={soloOn} onPress={() => setOtherOpen((o) => !o)} activeOpacity={0.75}>
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, specialActive && styles.roleBtnTextActive]}>{otherLabel}</Text>
         </TouchableOpacity>
         {otherOpen && (
@@ -3799,22 +3794,22 @@ export default function AddFlightScreen() {
                         <Text style={[styles.roleBtnText, role === 'pic' && styles.roleBtnTextActive]}>PIC</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, role === 'dual' && styles.roleBtnDisabled]}
-                        disabled={role === 'dual'} onPress={() => handleRoleChange('co_pilot')} activeOpacity={0.75}
+                        style={[styles.roleBtn, role === 'co_pilot' && styles.roleBtnActive, (role === 'dual' || soloOn) && styles.roleBtnDisabled]}
+                        disabled={role === 'dual' || soloOn} onPress={() => handleRoleChange('co_pilot')} activeOpacity={0.75}
                       >
                         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.roleBtnText, role === 'co_pilot' && styles.roleBtnTextActive]}>SIC</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.roleRow}>
                       <TouchableOpacity
-                        style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive]}
-                        onPress={toggleDual} activeOpacity={0.75}
+                        style={[styles.roleBtn, role === 'dual' && styles.roleBtnActive, soloOn && styles.roleBtnDisabled]}
+                        disabled={soloOn} onPress={toggleDual} activeOpacity={0.75}
                       >
                         <Text style={[styles.roleBtnText, role === 'dual' && styles.roleBtnTextActive]}>DUAL</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, role !== 'pic' && styles.roleBtnDisabled]}
-                        disabled={role !== 'pic'} onPress={toggleFi} activeOpacity={0.75}
+                        style={[styles.roleBtn, fi && role === 'pic' && styles.roleBtnActive, (role !== 'pic' || soloOn) && styles.roleBtnDisabled]}
+                        disabled={role !== 'pic' || soloOn} onPress={toggleFi} activeOpacity={0.75}
                       >
                         <Text style={[styles.roleBtnText, fi && role === 'pic' && styles.roleBtnTextActive]}>FI</Text>
                       </TouchableOpacity>
@@ -3892,14 +3887,6 @@ export default function AddFlightScreen() {
                 />
               ))}
             </View>
-            </Animated.View>
-            {/* Solo: ingen andrepilot ombord — rutan tonas ned och säger det. */}
-            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.soloCover, { opacity: soloFade }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="person" size={12} color={Colors.primary} />
-                <Text style={styles.soloCoverTitle}>Solo flight</Text>
-              </View>
-              <Text style={styles.soloCoverSub}>Only you on board</Text>
             </Animated.View>
             <TourPress id="lf-crew" variant="focus" radius={10} inset={6} />
           </View>
