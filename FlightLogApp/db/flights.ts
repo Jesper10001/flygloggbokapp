@@ -181,7 +181,7 @@ export async function updateFlight(
       flight_rules=?, second_pilot=?, second_pilot_role=?, extra_pilots=?, nvg=?, tng_count=?, flight_type=?,
       multi_pilot=?, single_pilot=?, instructor=?, picus=?,
       spic=?, examiner=?, safety_pilot=?, observer=?, ferry_pic=?, relief_crew=?, sim_category=?, vfr=?,
-      se_time=?, me_time=?, stop_place=?, photo_uri=?, media_type=?, max_fl=?,
+      se_time=?, me_time=?, solo=COALESCE(?, solo), stop_place=?, photo_uri=?, media_type=?, max_fl=?,
       takeoffs_day=?, takeoffs_night=?, app_2d=?, app_3d=?, pilot_flying=?,
       landings_fs_day=?, landings_fs_night=?, takeoffs_faa_night=?, landings_faa_night=?, landings_fs_faa_night=?, holds=?,
       status=CASE WHEN status IN ('scanned','flagged') THEN 'verified' ELSE status END
@@ -222,6 +222,8 @@ export async function updateFlight(
       parseFlightTime(data.vfr),
       seTime,
       meTime,
+      // Solo skickas bara av Log Flight; andra redigeringar (t.ex. skanningen) behåller det sparade värdet.
+      data.solo == null ? null : parseFlightTime(data.solo),
       (data.stop_place ?? '').toUpperCase(),
       data.photo_uri ?? '',
       data.media_type ?? 'image',

@@ -564,6 +564,18 @@ function makeStyles() {
       backgroundColor: Colors.primary + '24', borderColor: Colors.primary,
     },
     roleBtnDisabled: { opacity: 0.35 },
+    soloChip: {
+      marginLeft: 'auto', width: 102, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+      paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
+    },
+    soloChipText: {
+      color: Colors.textSecondary, fontSize: 9.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1,
+    },
+    soloCover: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+    soloCoverTitle: {
+      color: Colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 1.5, textTransform: 'uppercase',
+    },
+    soloCoverSub: { color: Colors.textSecondary, fontSize: 11.5 },
     roleBtnText: {
       color: Colors.textSecondary, fontSize: 10.5, fontWeight: '700',
       fontFamily: 'JetBrainsMono', letterSpacing: 0.3,
@@ -733,6 +745,9 @@ export default function AddFlightScreen() {
   const [fi, setFi] = useState(false);
   const [examinerOverlay, setExaminerOverlay] = useState(false);
   const [safetyPilotOverlay, setSafetyPilotOverlay] = useState(false);
+  // Solo (FAA-loggbokens Solo-kolumn): väljs med Solo-knappen, som sätter PIC + pilot flying + single pilot.
+  // Gäller bara så länge de tre villkoren står kvar (soloOn längre ned).
+  const [solo, setSolo] = useState(false);
   // Sim-läget: egna oberoende toggles (Dual / FI / Pilot flying) — ingen default itryckt, kan kombineras.
   // Tiderna sätts vid SPAR (override) ur dessa, inte via den vanliga live-distributionen.
   const [simDual, setSimDual] = useState(false);
@@ -1175,6 +1190,7 @@ export default function AddFlightScreen() {
         if ((f.instructor ?? 0) > 0) setFi(true);
         if ((f.examiner ?? 0) > 0) setExaminerOverlay(true);
         if ((f.safety_pilot ?? 0) > 0) setSafetyPilotOverlay(true);
+        if ((f.solo ?? 0) > 0) setSolo(true);
       }
     });
   }, [editId]);
@@ -1184,7 +1200,7 @@ export default function AddFlightScreen() {
   // dashboarden. Med: själva formuläret, roll och överlägg, sim-togglar, besättning, stopp, inflygningar,
   // halvsparade platser, media och de manuella lägena (så att autot inte skriver över det man fyllt i).
   const draftSnapshot = () => ({
-    form, role, fi, examinerOverlay, safetyPilotOverlay, simDual, simFi, simPf, logFull, pilotMode, pilotModeManual,
+    form, role, fi, examinerOverlay, safetyPilotOverlay, solo, simDual, simFi, simPf, logFull, pilotMode, pilotModeManual,
     crewMembers, extraPilots, approaches, routeStops, pendingPlaces, photoUri, mediaType,
     nightManual, landingsManual, takeoffsManual, pilotFlyingManual, timeMode, belowExpanded,
   });
@@ -1195,7 +1211,7 @@ export default function AddFlightScreen() {
       if (!st) return;
       if (st.form) setForm({ ...EMPTY, ...st.form });
       if (st.role) setRole(st.role);
-      setFi(!!st.fi); setExaminerOverlay(!!st.examinerOverlay); setSafetyPilotOverlay(!!st.safetyPilotOverlay);
+      setFi(!!st.fi); setExaminerOverlay(!!st.examinerOverlay); setSafetyPilotOverlay(!!st.safetyPilotOverlay); setSolo(!!st.solo);
       setSimDual(!!st.simDual); setSimFi(!!st.simFi); setSimPf(!!st.simPf);
       if (typeof st.logFull === 'boolean') setLogFull(st.logFull);
       if (st.pilotMode) setPilotMode(st.pilotMode);
@@ -1681,6 +1697,8 @@ export default function AddFlightScreen() {
     setFi((lastFlight.instructor ?? 0) > 0 && ['pic','picus','spic','ferry_pic'].includes(detectedRole));
     setExaminerOverlay((lastFlight.examiner ?? 0) > 0 && detectedRole === 'pic');
     setSafetyPilotOverlay((lastFlight.safety_pilot ?? 0) > 0 && detectedRole === 'co_pilot');
+    setSolo((lastFlight.solo ?? 0) > 0);
+    soloStash.current = null; // förra flygningens andrepilot gäller, inte den som sparades undan av Solo
     setForm((prev) => ({
       ...prev,
       aircraft_type: lastFlight.aircraft_type,
@@ -1917,6 +1935,45 @@ export default function AddFlightScreen() {
     const next = !safetyPilotOverlay;
     setSafetyPilotOverlay(next);
     applyDistribution(role, fi, examinerOverlay, next, form.total_time);
+  };
+
+  // Solo = du ensam ombord: PIC + pilot flying + single pilot (FI och examinator har någon med sig).
+  // Bryts ett villkor (annan roll, PM, multi pilot) slutar flygningen vara solo.
+  const isPfNow = !(pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0);
+  const soloOn = solo && form.flight_type !== 'sim' && spSupported && role === 'pic' && !fi && !examinerOverlay && isPfNow && pilotMode === 'single';
+  // Andrepiloterna som fanns när Solo valdes — kommer tillbaka om solo slås av igen.
+  const soloStash = useRef<{ name: string; role: string; extra: typeof extraPilots } | null>(null);
+  useEffect(() => {
+    if (solo && !soloOn) {
+      setSolo(false);
+      // Solo låste single pilot; står det kvar får SP/MP härledas igen (t.ex. PM → multi pilot).
+      if (pilotMode === 'single') setPilotModeManual(false);
+    }
+    if (!soloOn && soloStash.current) {
+      const s = soloStash.current;
+      soloStash.current = null;
+      set('second_pilot', s.name);
+      set('second_pilot_role', s.role);
+      setExtraPilots(s.extra);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solo, soloOn]);
+  const soloFade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(soloFade, { toValue: soloOn ? 1 : 0, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+  }, [soloOn, soloFade]);
+
+  const toggleSolo = () => {
+    if (soloOn) { setSolo(false); setPilotModeManual(false); return; }
+    setRole('pic'); setFi(false); setExaminerOverlay(false); setSafetyPilotOverlay(false);
+    applyDistribution('pic', false, false, false, form.total_time);
+    setPfRatio(1); setPilotFlyingManual(false);
+    setPilotModeManual(true); setPilotMode('single');
+    if ((form.second_pilot ?? '').trim() || extraPilots.some((p) => p.name.trim())) {
+      soloStash.current = { name: form.second_pilot ?? '', role: form.second_pilot_role ?? '', extra: extraPilots };
+      set('second_pilot', ''); set('second_pilot_role', ''); setExtraPilots([]);
+    }
+    setSolo(true);
   };
 
   // "Other"-rutan + stilenlig dropdownflik (samma look som aircraft type/registration).
@@ -2231,6 +2288,8 @@ export default function AddFlightScreen() {
       const extraPilotsClean = extraPilots.filter((p) => p.role || p.name.trim()).map((p) => ({ role: p.role, name: p.name.trim() }));
       const extraPilotsJson = extraPilotsClean.length ? JSON.stringify(extraPilotsClean) : '';
       const finalData = { ...form, ...(overrides ?? {}), remarks: finalRemarks, photo_uri: savedPhotoUri, media_type: mediaType, extra_pilots: extraPilotsJson };
+      // Solo-kolumnen: hela flygtiden när flygningen är solo, annars 0.
+      finalData.solo = soloOn && finalData.flight_type !== 'sim' ? (finalData.total_time || '0') : '0';
 
       // Currency: dwell-aware per-stopp dubbelklassning (EASA −6° + FAA-fönster). Sätter ENDAST
       // de nya full-stop-/FAA-natt-kolumnerna (best-effort ur rutgeometrin) — rör inte de synliga
@@ -3671,6 +3730,15 @@ export default function AddFlightScreen() {
                     <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
                   </TouchableOpacity>
                 )}
+                {/* Solo: ett tryck väljer PIC + pilot flying + single pilot. Ligger över PF- och SP-reglagen. */}
+                {form.flight_type !== 'sim' && spSupported && (
+                  <TouchableOpacity onPress={toggleSolo} activeOpacity={0.75} hitSlop={{ top: 6, bottom: 6 }}
+                    accessibilityRole="button" accessibilityState={{ selected: soloOn }} accessibilityLabel="Solo flight"
+                    style={[styles.soloChip, soloOn && styles.roleBtnActive]}>
+                    <Ionicons name={soloOn ? 'person' : 'person-outline'} size={10} color={soloOn ? Colors.primary : Colors.textMuted} />
+                    <Text style={[styles.soloChipText, soloOn && styles.roleBtnTextActive]}>SOLO</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               {form.flight_type === 'sim' ? (
                 // Sim: Dual/FI = ömsesidigt uteslutande (en elev ELLER instruktör, ej båda); Pilot flying fristående.
@@ -3732,7 +3800,7 @@ export default function AddFlightScreen() {
                   {/* Aviation-toggle PF/PM (samma funktion som förr) */}
                   {(() => {
                     // PF är default (även innan tider fyllts i); PM bara när den valts explicit (manuellt satt 0).
-                    const isPf = !(pilotFlyingManual && (parseFloat(form.pilot_flying ?? '0') || 0) <= 0);
+                    const isPf = isPfNow;
                     return (
                       <AvSwitch
                         top={['Pilot', 'Flying']} bottom={['Pilot', 'Monitoring']}
@@ -3759,6 +3827,7 @@ export default function AddFlightScreen() {
 
           {/* Second pilot + fler piloter ombord — samma stil som aircraft type/registration */}
           <View onLayout={(e) => { demoY.current.crewIn = e.nativeEvent.layout.y; }}>
+            <Animated.View pointerEvents={soloOn ? 'none' : 'auto'} style={{ opacity: soloFade.interpolate({ inputRange: [0, 1], outputRange: [1, 0.18] }) }}>
             <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
             <View style={{ gap: 6 }}>
               <PersonPicker
@@ -3795,6 +3864,15 @@ export default function AddFlightScreen() {
                 />
               ))}
             </View>
+            </Animated.View>
+            {/* Solo: ingen andrepilot ombord — rutan tonas ned och säger det. */}
+            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.soloCover, { opacity: soloFade }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="person" size={12} color={Colors.primary} />
+                <Text style={styles.soloCoverTitle}>Solo flight</Text>
+              </View>
+              <Text style={styles.soloCoverSub}>Only you on board</Text>
+            </Animated.View>
             <TourPress id="lf-crew" variant="focus" radius={10} inset={6} />
           </View>
 
