@@ -29,6 +29,7 @@ import {
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
 import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
+import { BookSetupFlow } from '../../components/logbook/BookSetupFlow';
 import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
@@ -279,6 +280,12 @@ export default function LogbookScreen() {
     );
   }
 
+  // Första loggboken i pilotläget: den guidade uppsättningen (BookSetupFlow). Redigering, fler böcker och
+  // drönarläget: arket med formuläret (BookSetupSheet).
+  const setupBody = (st: NonNullable<typeof setup>) => (st.mode === 'create' && mode !== 'drone' && books.length === 0 && !st.carry
+    ? <BookSetupFlow flights={flights} timeFormat={timeFormat} pilotName={pilotName} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+    : <BookSetupSheet mode={st.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={st.initial} flights={flights} allBooks={books} carryOpeningBalance={st.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />);
+
   // På väg ut: rendera en tom vy (boken/WebViewerna avmonteras) medan orienteringen
   // växlar till portrait och vi navigerar — undviker frysning vid orienteringsbytet.
   if (leaving) {
@@ -292,7 +299,7 @@ export default function LogbookScreen() {
         <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
           <View style={styles.sheetBackdrop}>
             {setup && (
-              <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+              setupBody(setup)
             )}
           </View>
         </Modal>
@@ -435,7 +442,7 @@ export default function LogbookScreen() {
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={styles.sheetBackdrop}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+            setupBody(setup)
           )}
         </View>
       </Modal>
