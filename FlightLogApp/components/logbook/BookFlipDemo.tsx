@@ -1,36 +1,34 @@
 // Loggboken som öppnar sig och bläddrar själv, som på hemsidan (website-v4/js/bookflip.js): en pappersloggbok med
 // sidor renderade av appens egen kod (demologgboken, assets/logbook-demo). Omslaget öppnas och innehållssidan och fyra
-// uppslag bläddras fram till det senaste (ingen inzoomning, till skillnad från hemsidan i mobilen). Sedan går boken att
-// bläddra i: ett tryck på högersidan bläddrar framåt, på vänstersidan bakåt, eller ett svep.
-// Används på Your books innan man har en bok (app/logbook/index.tsx Intro). Med reducerad rörelse visas uppslaget direkt.
+// uppslag bläddras fram till det senaste, där boken blir liggande (ingen inzoomning och ingen bläddring för hand).
+// Boken ritas i sin öppna storlek (skala 1 och hela pixlar när den ligger öppen), så att sidorna blir skarpa; bara den
+// stängda boken är förstorad. Används på Your books innan man har en bok (app/logbook/index.tsx Intro). Med reducerad
+// rörelse visas uppslaget direkt.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, Image, StyleSheet, PanResponder, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { View, Text, Image, StyleSheet, type ImageSourcePropType } from 'react-native';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withTiming, withDelay, cancelAnimation, Easing, useReducedMotion, type SharedValue,
+  useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing, useReducedMotion, type SharedValue,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FONT_SERIF } from '../logbook-page/tokens';
 
-// Demologgbokens sidor (vänstersidorna 71–85, senaste flygningen på uppslaget 79–80).
+// Demologgbokens sidor i öppningen (uppslagen 71–80, senaste flygningen på uppslaget 79–80).
 const PAGE: Record<number, ImageSourcePropType> = {
   71: require('../../assets/logbook-demo/pilot-71.webp'), 72: require('../../assets/logbook-demo/pilot-72.webp'),
   73: require('../../assets/logbook-demo/pilot-73.webp'), 74: require('../../assets/logbook-demo/pilot-74.webp'),
   75: require('../../assets/logbook-demo/pilot-75.webp'), 76: require('../../assets/logbook-demo/pilot-76.webp'),
   77: require('../../assets/logbook-demo/pilot-77.webp'), 78: require('../../assets/logbook-demo/pilot-78.webp'),
   79: require('../../assets/logbook-demo/pilot-79.webp'), 80: require('../../assets/logbook-demo/pilot-80.webp'),
-  81: require('../../assets/logbook-demo/pilot-81.webp'), 82: require('../../assets/logbook-demo/pilot-82.webp'),
-  83: require('../../assets/logbook-demo/pilot-83.webp'), 84: require('../../assets/logbook-demo/pilot-84.webp'),
-  85: require('../../assets/logbook-demo/pilot-85.webp'), 86: require('../../assets/logbook-demo/pilot-86.webp'),
 };
 const TOC = require('../../assets/logbook-demo/pilot-toc.webp');
 const MARK = require('../../assets/blades-mark.png');
-const SPREADS = [71, 73, 75, 77, 79, 81, 83, 85];
+const SPREADS = [71, 73, 75, 77, 79];
 const LATEST = SPREADS.indexOf(79);
 const LEAVES = 5;                // sidor som bläddras när boken öppnas: innehållet och de fyra uppslagen före det senaste
 const OPEN_MS = 4960;            // från stängd bok till senaste uppslaget
 const FLIPPED = 0.8;
-const FIT = 0.92;                // bokens storlek när den ligger öppen
+const CLOSED = 1 / 0.92;         // den stängda boken är lite större än den öppna
 const BOARD = 0.516;             // halva boken med pärmar, som andel av sidornas bredd
 const RATIO = 928 / 2560;        // uppslagets höjd / bredd (sidbilderna är 1280 × 928)
 const GOLD = '#D4B46A';
@@ -48,78 +46,29 @@ const L = (i: number) => PAGE[SPREADS[i]];
 const R = (i: number) => PAGE[SPREADS[i] + 1];
 
 export function BookFlipDemo({ width }: { width: number }) {
-  const { width: winW } = useWindowDimensions();
   const reduce = useReducedMotion();
-  const W = width - 40;                       // sidornas bredd (scenen är skärmbred, boken har luft runt sig)
+  const W = Math.floor((width - 28) / 2) * 2;  // sidornas bredd, jämn så att mitten hamnar på en hel pixel
   const H = Math.round(W * RATIO);
-  const H0 = Math.round(H * 1.16 + 18);       // scenens höjd med hela boken
+  const H0 = Math.round(H * 1.12 + 22);       // scenens höjd med hela boken
+  const left = Math.round((width - W) / 2);
+  const top = Math.round((H0 - H) / 2);
 
-  const p = useSharedValue(0);                // öppningen 0 → 0.8
-  const t = useSharedValue(0);                // bladet som vänds för hand
-  const [mode, setMode] = useState<'opening' | 'browse'>(reduce ? 'browse' : 'opening');
-  const [idx, setIdx] = useState(LATEST);   // uppslaget som ligger öppet
-  const [leftIdx, setLeftIdx] = useState(LATEST);     // uppslaget vars vänstersida ligger öppen
-  const [rightIdx, setRightIdx] = useState(LATEST);   // och högersida
-  const [turn, setTurn] = useState<{ front: ImageSourcePropType; back: ImageSourcePropType } | null>(null);
-  const turning = useRef(false);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
-  useEffect(() => clearTimers, []);
-
-  const toBrowse = () => {
-    clearTimers();
-    cancelAnimation(p);
-    p.value = FLIPPED;
-    setMode('browse');
-  };
-  const play = () => {
-    clearTimers();
-    turning.current = false;
-    setTurn(null);
-    setIdx(LATEST); setLeftIdx(LATEST); setRightIdx(LATEST);
-    if (reduce) { p.value = FLIPPED; setMode('browse'); return; }
-    setMode('opening');
-    p.value = 0;
+  const p = useSharedValue(reduce ? FLIPPED : 0);   // öppningen 0 → 0.8
+  const [open, setOpen] = useState(!!reduce);        // boken ligger öppen på senaste uppslaget
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (reduce) return;
     const lead = 450;
     p.value = withDelay(lead, withTiming(FLIPPED, { duration: OPEN_MS, easing: Easing.linear }));
-    timers.current.push(setTimeout(() => setMode('browse'), lead + OPEN_MS + 30));
-  };
-  useEffect(() => { play(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Bläddra: framåt lyfter högersidan, bakåt vänstersidan; sidorna under syns redan.
-  const turnPage = (dir: 1 | -1) => {
-    if (turning.current) return;
-    const to = idx + dir;
-    if (to < 0 || to >= SPREADS.length) return;
-    turning.current = true;
-    setTurn(dir > 0 ? { front: R(idx), back: L(to) } : { front: R(to), back: L(idx) });
-    if (dir > 0) setRightIdx(to); else setLeftIdx(to);
-    t.value = dir > 0 ? 0 : 1;
-    t.value = withTiming(dir > 0 ? 1 : 0, { duration: 620, easing: Easing.inOut(Easing.quad) });
-    timers.current.push(setTimeout(() => {
-      setIdx(to); setLeftIdx(to); setRightIdx(to); setTurn(null); turning.current = false;
-    }, 650));
-  };
-
-  // Ett tryck eller ett svep på boken (scenen är centrerad på skärmen). Under öppningen: hoppa fram till uppslaget.
-  const handlers = useRef({ release: (_x0: number, _dx: number, _dy: number) => {} });
-  handlers.current.release = (x0, dx, dy) => {
-    if (mode === 'opening') { toBrowse(); return; }
-    if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { turnPage(dx < 0 ? 1 : -1); return; }
-    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) turnPage(x0 > winW / 2 ? 1 : -1);
-  };
-  const pan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
-    onPanResponderTerminationRequest: () => true,
-    onPanResponderRelease: (_, g) => { handlers.current.release(g.x0, g.dx, g.dy); },
-  })).current;
+    timer.current = setTimeout(() => setOpen(true), lead + OPEN_MS + 30);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Boken: den stängda boken (omslaget) i mitten, glider till sin plats när den öppnas ──
   const bookStyle = useAnimatedStyle(() => {
-    const open = leafR(0, p.value);
-    const fz = 1 + open * (FIT - 1);                       // den stängda boken är lite större
-    return { transform: [{ translateX: -0.25 * W * (1 - open) * fz }, { scale: fz }] };
+    const o = leafR(0, p.value);
+    const sc = CLOSED + o * (1 - CLOSED);                  // 1 när boken ligger öppen
+    return o >= 1 ? { transform: [{ translateX: 0 }, { scale: 1 }] } : { transform: [{ translateX: -0.25 * W * (1 - o) * sc }, { scale: sc }] };
   });
   const landedStyle = useAnimatedStyle(() => ({ opacity: clamp((leafR(0, p.value) - 0.9) / 0.1) }));
   const foldStyle = useAnimatedStyle(() => ({ opacity: leafR(0, p.value) }));
@@ -155,15 +104,11 @@ export function BookFlipDemo({ width }: { width: number }) {
     };
   });
 
-  const pages = SPREADS[idx];
   return (
     <View style={{ width, alignSelf: 'center' }}>
-      <View style={{ width, height: H0, overflow: 'hidden' }} {...pan.panHandlers}
-        accessible accessibilityRole="adjustable"
-        accessibilityLabel={`Example logbook, pages ${pages} to ${pages + 1}. Swipe up or down to turn the pages.`}
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-        onAccessibilityAction={(e) => { if (mode === 'opening') toBrowse(); else turnPage(e.nativeEvent.actionName === 'increment' ? 1 : -1); }}>
-        <Animated.View style={[{ position: 'absolute', left: (width - W) / 2, top: (H0 - H) / 2, width: W, height: H }, bookStyle]}>
+      <View style={{ width, height: H0, overflow: 'hidden' }} pointerEvents="none"
+        accessible accessibilityRole="image" accessibilityLabel="Example logbook opening at the page with the latest flights">
+        <Animated.View style={[{ position: 'absolute', left, top, width: W, height: H }, bookStyle]}>
           {/* Skugga under boken */}
           <Animated.View style={[s.shadow, { left: W * 0.06, right: W * 0.06, bottom: -H * 0.12, height: H * 0.14 }, shadowStyle]}>
             <LinearGradient colors={['rgba(0,0,0,0.42)', 'rgba(0,0,0,0)']} style={StyleSheet.absoluteFill} />
@@ -179,22 +124,15 @@ export function BookFlipDemo({ width }: { width: number }) {
           <View style={[s.block, { left: W / 2 + 2, top: 1.5, width: W / 2, height: H }]} />
           {/* Högersidan som ligger öppen under bladen */}
           <View style={[s.paper, { position: 'absolute', left: W / 2, top: 0, width: W / 2, height: H }]}>
-            {pageImg(R(mode === 'browse' ? rightIdx : LATEST))}{gutter('left')}
+            {pageImg(R(LATEST))}{gutter('left')}
           </View>
-          {mode === 'opening' ? (
+          {!open ? (
             leaves.map((lf, i) => <Leaf key={i} i={i} p={p} W={W} H={H} front={lf.front} back={lf.back} />)
           ) : (
-            <>
-              {/* Vänstersidan som ligger öppen */}
-              <View style={[s.paper, { position: 'absolute', left: 0, top: 0, width: W / 2, height: H }]}>
-                {pageImg(L(leftIdx))}{gutter('right')}
-              </View>
-              {turn && (
-                <TurnLeaf t={t} W={W} H={H}
-                  front={<View style={[StyleSheet.absoluteFill, s.paper]}>{pageImg(turn.front)}{gutter('left')}</View>}
-                  back={<View style={[StyleSheet.absoluteFill, s.paper]}>{pageImg(turn.back)}{gutter('right')}</View>} />
-              )}
-            </>
+            // Öppen: vänstersidan ligger platt (ingen 3D-transform), lika skarp som högersidan.
+            <View style={[s.paper, { position: 'absolute', left: 0, top: 0, width: W / 2, height: H }]}>
+              {pageImg(L(LATEST))}{gutter('right')}
+            </View>
           )}
           {/* Vecket i mitten när boken ligger öppen */}
           <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: W / 2 - W * 0.02, width: W * 0.04, top: 0, bottom: 0, zIndex: 60 }, foldStyle]}>
@@ -209,25 +147,16 @@ export function BookFlipDemo({ width }: { width: number }) {
 function Leaf({ i, p, W, H, front, back }: { i: number; p: SharedValue<number>; W: number; H: number; front: ReactNode; back: ReactNode }) {
   const leafStyle = useAnimatedStyle(() => {
     const r = leafR(i, p.value);
-    return {
-      zIndex: r > 0.5 ? 10 + i : 40 - i,
-      transform: [{ perspective: 2000 }, { translateX: -W / 4 }, { rotateY: `${-180 * r}deg` }, { translateX: W / 4 }],
-    };
+    // Ett blad som ligger still ritas platt (ingen perspektiv-transform), så att sidan blir skarp: orört = som det är,
+    // vänt = speglat runt ryggen. Bara bladet som vänds just nu får 3D.
+    const transform = r <= 0 ? [{ translateX: 0 }, { scaleX: 1 }]
+      : r >= 1 ? [{ translateX: -W / 2 }, { scaleX: -1 }]
+      : [{ perspective: 2000 }, { translateX: -W / 4 }, { rotateY: `${-180 * r}deg` }, { translateX: W / 4 }];
+    return { zIndex: r > 0.5 ? 10 + i : 40 - i, transform };
   });
   const frontStyle = useAnimatedStyle(() => ({ opacity: leafR(i, p.value) < 0.5 ? 1 : 0 }));
   const backStyle = useAnimatedStyle(() => ({ opacity: leafR(i, p.value) < 0.5 ? 0 : 1 }));
   const shadeStyle = useAnimatedStyle(() => ({ opacity: Math.sin(leafR(i, p.value) * Math.PI) * 0.5 }));
-  return <Faces W={W} H={H} front={front} back={back} leafStyle={leafStyle} frontStyle={frontStyle} backStyle={backStyle} shadeStyle={shadeStyle} />;
-}
-
-function TurnLeaf({ t, W, H, front, back }: { t: SharedValue<number>; W: number; H: number; front: ReactNode; back: ReactNode }) {
-  const leafStyle = useAnimatedStyle(() => ({
-    zIndex: 50,
-    transform: [{ perspective: 2000 }, { translateX: -W / 4 }, { rotateY: `${-180 * t.value}deg` }, { translateX: W / 4 }],
-  }));
-  const frontStyle = useAnimatedStyle(() => ({ opacity: t.value < 0.5 ? 1 : 0 }));
-  const backStyle = useAnimatedStyle(() => ({ opacity: t.value < 0.5 ? 0 : 1 }));
-  const shadeStyle = useAnimatedStyle(() => ({ opacity: Math.sin(t.value * Math.PI) * 0.5 }));
   return <Faces W={W} H={H} front={front} back={back} leafStyle={leafStyle} frontStyle={frontStyle} backStyle={backStyle} shadeStyle={shadeStyle} />;
 }
 
