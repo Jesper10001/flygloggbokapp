@@ -30,6 +30,7 @@ import {
 } from '../../db/digitalBooks';
 import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
 import { BookSetupFlow } from '../../components/logbook/BookSetupFlow';
+import { BookFlipDemo } from '../../components/logbook/BookFlipDemo';
 import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
@@ -499,6 +500,7 @@ export default function LogbookScreen() {
 function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
   const styles = makeStyles();
   const points: { icon: any; title: string; body: string }[] = [
     { icon: 'book-outline', title: t('dlb_intro_p1_t'), body: t('dlb_intro_p1_b') },
@@ -515,7 +517,8 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
         <View style={styles.iconBtn} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 18, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-        <View style={styles.introHero}><Ionicons name="book" size={34} color={Colors.primary} /></View>
+        {/* Så här ser den digitala loggboken ut: boken öppnar sig och bläddrar fram till senaste uppslaget (som på hemsidan). */}
+        <View style={{ marginHorizontal: -20, marginTop: -6 }}><BookFlipDemo width={Math.min(winW, 640)} /></View>
         <Text style={styles.introTitle}>{t('dlb_intro_title')}</Text>
         <Text style={styles.introLead}>{t('dlb_intro_lead')}</Text>
         <View style={{ gap: 12, marginTop: 4 }}>
