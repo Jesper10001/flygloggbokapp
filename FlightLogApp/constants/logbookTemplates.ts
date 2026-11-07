@@ -281,7 +281,8 @@ export const LOGBOOK_TEMPLATES: LogbookTemplate[] = [
     language: 'en',
     time_format: 'decimal',
     summary_layout: 'bottom',
-    dashed_after: ['sp_se', 'ldg_night', 'ifr', 'instructor', 'fstd'],
+    // Streckat inom en grupp (som rubrikens dashR), heldraget mellan grupperna: Instructor | Type och Total | Remarks.
+    dashed_after: ['sp_se', 'ldg_day', 'night', 'pic', 'co_pilot', 'dual', 'fstd_type'],
     left_columns: [
       { id: 'date',        label: 'Date',         flightKey: 'date',          format: 'date',     width: 94 },
       { id: 'ac_mm',       label: 'Make/mod/var', flightKey: 'aircraft_type', format: 'text',     width: 89, group: 'Aircraft or FSTD' },

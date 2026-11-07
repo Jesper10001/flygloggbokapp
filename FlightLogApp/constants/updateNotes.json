@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 32,
+      "date": "2026-11-07",
+      "notes": [
+        "Fixed: The column lines in the EASA AMC1 FCL.050 logbook now match the printed book."
+      ]
+    },
+    {
       "id": 31,
       "date": "2026-11-07",
       "notes": [
