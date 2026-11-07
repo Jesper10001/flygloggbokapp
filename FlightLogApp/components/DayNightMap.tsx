@@ -57,6 +57,8 @@ export interface DayNightMapProps {
   circleInfo?: { cruiseKts: number; totalH: number; aircraft: string };
   /** Visar "Change the numbers in Full." (Log Flight). */
   editHint?: boolean;
+  /** Meningen överst och "In your logbook". Standard: bara i Log Flight-panelen (embedded), inte i en sparad flygnings översikt. */
+  summary?: boolean;
 }
 
 const COMPASS: [string, number, string][] = [['N', 0, 'North'], ['NE', 45, 'North-east'], ['E', 90, 'East'], ['SE', 135, 'South-east'], ['S', 180, 'South'], ['SW', 225, 'South-west'], ['W', 270, 'West'], ['NW', 315, 'North-west']];
@@ -254,10 +256,11 @@ function DayNightMapBase(props: DayNightMapProps) {
   const phase = hasData ? phaseOf(classifySun(new Date(scrubMs), plane.lat, plane.lon)) : 'day';
   const alt = hasData ? solarAltitudeDeg(new Date(scrubMs), plane.lat, plane.lon) : 0;
   const altDeg = Math.round(Math.abs(alt));
-  const sunText = altDeg === 0 ? 'Sun on the horizon' : `Sun ${altDeg}° ${alt > 0 ? 'above' : 'below'} the horizon`;
+  const sunText = altDeg === 0 ? 'Sun on horizon' : `Sun ${altDeg}° ${alt > 0 ? 'above' : 'below'}`;
   const arrLabel = props.flight?.arr_place || (legs.length ? legs[legs.length - 1].icao : '');
-  const story = tl ? sunStory(tl, /^\d+$/.test(arrLabel) ? '' : arrLabel) : null;
-  const logged = props.logged ?? (props.flight ? {
+  const summary = props.summary ?? !!embedded;
+  const story = tl && summary ? sunStory(tl, /^\d+$/.test(arrLabel) ? '' : arrLabel) : null;
+  const logged = !summary ? null : props.logged ?? (props.flight ? {
     night: props.flight.night ?? 0, nightLdg: props.flight.landings_night ?? 0, total: props.flight.total_time ?? 0,
   } : null);
   const togglePlay = () => {
