@@ -42,6 +42,8 @@ interface Props {
   // Blades introduction: prefix för TourPress-id:n (sökknappen, träffraderna, ICAO-valet) → rundturen
   // kan "trycka" på dem medan den söker via tourSearch (se IcaoInputHandle).
   tourKey?: string;
+  // Fast höjd på inmatningsrutan (t.ex. lika hög som tidsrutan bredvid). Utelämnad = naturlig höjd.
+  boxHeight?: number;
 }
 
 export type IcaoInputHandle = {
@@ -160,7 +162,7 @@ function makeStyles() {
 }
 
 export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
-  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace, freeText = false, onResolve, tourKey },
+  { label, value, onChangeText, error, placeholder, recentPlaces = [], allowHere = false, hideHere = false, onTemporaryPlaceSelect, onConfirm, onFocus, inputFontFamily, design = false, pendingPlaces = [], onPendingPlace, freeText = false, onResolve, tourKey, boxHeight },
   outerRef,
 ) {
   // Pilot airport-fritextläge: bara när freeText och INTE off-airport (allowHere).
@@ -612,10 +614,10 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <View style={styles.inputAnchor}>
-      <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
+      <View style={[styles.inputWrapper, error ? styles.inputError : null, boxHeight ? { height: boxHeight } : null]}>
         <TextInput
           ref={inputRef}
-          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null, airportFree ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null, allowHere ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null]}
+          style={[styles.input, inputFontFamily ? { fontFamily: inputFontFamily } : null, design ? { fontSize: 19, letterSpacing: 2, fontWeight: '700' } : null, airportFree ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null, allowHere ? { fontSize: nameFontSize, letterSpacing: 0.5 } : null, boxHeight ? { paddingVertical: 0, height: '100%' } : null]}
           value={inputText}
           onChangeText={handleChangeText}
           onFocus={onFocus}

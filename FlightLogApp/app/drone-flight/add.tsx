@@ -282,6 +282,8 @@ export default function AddDroneFlightScreen() {
   const [scrollLocked, setScrollLocked] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<string[]>([]);
   const [recentAirports, setRecentAirports] = useState<RecentPlace[]>([]);
+  const [lastFlight, setLastFlight] = useState<Awaited<ReturnType<typeof getDroneFlights>>[number] | null>(null);
+  const [timeBoxH, setTimeBoxH] = useState(46); // uppmätt höjd på tidsrutan → platsrutorna lika höga
   const depTimeRef = useRef<SmartTimeInputHandle>(null);
   const arrTimeRef = useRef<SmartTimeInputHandle>(null);
   // Blades introduction: loggningsdemon (effekten före return) — scroll-ref, sektionernas y-lägen och
@@ -560,16 +562,12 @@ export default function AddDroneFlightScreen() {
 
       const last = (await getDroneFlights(1))[0];
       if (last) {
+        setLastFlight(last); // "Repeat latest flight" överst fyller plats, uppdrag och besättning
         const lastDrone = ds.find((d) => d.id === last.drone_id);
         if (lastDrone) {
           await setDrone(lastDrone);
           setForm((p) => ({
             ...p,
-            location: last.location ?? '',
-            // Kopiera ÄVEN koordinaterna (review-fynd #3): annars sparas "samma plats
-            // som förra" med namn men lat/lon 0,0 → tappas från kartan + natt-auto av.
-            lat: last.lat || undefined,
-            lon: last.lon || undefined,
             category: last.category || p.category,
             flight_mode: (last.flight_mode as DroneFlightMode) ?? p.flight_mode,
           }));
@@ -1369,7 +1367,7 @@ export default function AddDroneFlightScreen() {
     const picks = recentPlaces.filter((rp) => rp.trim()).slice(0, 2);
     return (
       <View>
-        <View style={styles.placeBox}>
+        <View style={[styles.placeBox, { height: timeBoxH }]}>
           <TextInput
             style={[styles.placeInput, { fontSize: placeFontSize(value) }]}
             value={value}
@@ -1418,6 +1416,7 @@ export default function AddDroneFlightScreen() {
         onChangeText={(v) => put(v)}
         onResolve={(raw, icao) => put(icao ?? raw.trim().toUpperCase())}
         recentPlaces={recentAirports}
+        boxHeight={timeBoxH}
         onConfirm={() => setTimeout(() => (which === 'dep' ? depTimeRef : arrTimeRef).current?.focus(), 80)}
       />
     );
@@ -1426,6 +1425,8 @@ export default function AddDroneFlightScreen() {
     const utc = which === 'dep' ? (form.takeoff_time ?? '') : arrTime;
     return (
       <View>
+        {/* Mäter BARA tidsrutan (inte lokaltiden under) → platsrutorna får samma höjd. */}
+        <View onLayout={(e) => { const h = Math.round(e.nativeEvent.layout.height); if (h > 0 && Math.abs(h - timeBoxH) > 1) setTimeBoxH(h); }}>
         <SmartTimeInput
           ref={which === 'dep' ? depTimeRef : arrTimeRef}
           label=""
@@ -1444,6 +1445,7 @@ export default function AddDroneFlightScreen() {
             </Pressable>
           }
         />
+        </View>
         {isValidTime(utc) ? (
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.timeBelowCenter}>
             {timeMode === 'utc' ? `${utcToLocal(form.date, utc)} local` : `${utc} UTC`}
@@ -1497,6 +1499,34 @@ export default function AddDroneFlightScreen() {
     : [{ title: 'CIVIL · EASA', items: CAT_CIVIL }, { title: 'MILITARY', items: CAT_MILITARY }, { title: 'NATO', items: CAT_NATO }];
   const altM = parseFloat(form.max_altitude_m) || 0;
   const overOpenLimit = OPEN_CATS.includes(form.category) && altM > OPEN_ALT_LIMIT_M;
+  // "Repeat latest flight" (= pilotens snabbfyll överst): samma plats(er), drönare, kategori, uppdrag, operation,
+  // siktläge, roll och besättning som förra flygningen — tider, anteckningar och höjd fylls inte i.
+  const lastIsAb = !!lastFlight && !!(lastFlight.landing_location ?? '').trim()
+    && (lastFlight.landing_location ?? '').trim().toUpperCase() !== (lastFlight.location ?? '').trim().toUpperCase();
+  const repeatLastFlight = async () => {
+    const f = lastFlight;
+    if (!f) return;
+    const d = drones.find((x) => x.id === f.drone_id);
+    if (d) await setDrone(d);
+    setRouteMode(lastIsAb ? 'ab' : 'same');
+    setRole(droneRoleOf(f));
+    setExtraPilots(parseDroneExtraPilots(f.extra_pilots).map((p, i) => ({ id: `r${i}`, ...p })));
+    setForm((p) => ({
+      ...p,
+      location: f.location ?? '',
+      lat: f.lat || undefined,
+      lon: f.lon || undefined,
+      landing_location: lastIsAb ? (f.landing_location ?? '') : '',
+      landing_lat: lastIsAb ? (f.landing_lat ?? 0) : 0,
+      landing_lon: lastIsAb ? (f.landing_lon ?? 0) : 0,
+      category: f.category || p.category,
+      mission_type: f.mission_type ?? p.mission_type,
+      operation_type: f.operation_type ?? p.operation_type,
+      flight_mode: (f.flight_mode as DroneFlightMode) || p.flight_mode,
+      second_pilot: f.second_pilot ?? '',
+      second_pilot_role: f.second_pilot_role ?? '',
+    }));
+  };
   const answerCat = (r: 'drone' | 'flight' | null) => { setCatAsk(null); const fn = catAskResolve.current; catAskResolve.current = null; fn?.(r); };
 
   return (
@@ -1566,6 +1596,20 @@ export default function AddDroneFlightScreen() {
             </View>
           );
         })()}
+
+        {/* Snabbfyll överst (= pilotens "Reverse latest flight"): upprepa förra flygningens plats, drönare och besättning. */}
+        {!isEdit && lastFlight && !scanActiveDate && (
+          <TouchableOpacity style={styles.lastFlightBar} onPress={repeatLastFlight} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel="Repeat latest flight">
+            <Ionicons name="repeat" size={14} color={accent} />
+            <Text style={styles.lastFlightText} numberOfLines={1}>
+              Repeat latest flight:{' '}
+              <Text style={styles.lastFlightBold}>
+                {lastIsAb ? `${lastFlight.location} → ${lastFlight.landing_location}` : (lastFlight.location || lastFlight.registration || 'same as last time')}
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Route-kortet (= pilotens): Same spot = plats + take-off, flygtiden med flygningarna bredvid;
             A → B = avgång/ankomst med var sin plats och tid, distans, total och Sun route. ── */}
@@ -2367,12 +2411,15 @@ function makeStyles(accent: string) {
     modeRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: DR.surface, borderBottomWidth: 0.5, borderBottomColor: DR.separator },
     // Route-kortet (= pilotens placeBlock): panelerna blöder ut till kortets kanter.
     rRow: { flexDirection: 'row', alignItems: 'stretch', marginHorizontal: -14 },
+    lastFlightBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: accent + '14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: accent + '33' },
+    lastFlightText: { flex: 1, color: DR.text3, fontSize: 13 },
+    lastFlightBold: { color: DR.text, fontWeight: '700' },
     placeBlock: { backgroundColor: DR.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DR.border, zIndex: 10 },
     panelL: { gap: 8, backgroundColor: accent + '0D', borderTopWidth: 1, borderBottomWidth: 1, borderRightWidth: 1, borderColor: DR.separator, borderTopRightRadius: 12, borderBottomRightRadius: 12, padding: 12, paddingBottom: 11, minWidth: 0 },
     panelR: { gap: 8, backgroundColor: accent + '0D', borderTopWidth: 1, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: DR.separator, borderTopLeftRadius: 12, borderBottomLeftRadius: 12, padding: 12, paddingBottom: 11, minWidth: 0 },
     panelHead: { color: DR.text, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', textAlign: 'center', marginBottom: 2 },
     placeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: DR.surface, borderRadius: 10, borderWidth: 1, borderColor: DR.border, paddingHorizontal: 12 },
-    placeInput: { flex: 1, minWidth: 0, color: DR.text, fontFamily: FONT_LED14, fontWeight: '700', letterSpacing: 2, paddingVertical: 12 },
+    placeInput: { flex: 1, minWidth: 0, height: '100%', color: DR.text, fontFamily: FONT_LED14, fontWeight: '700', letterSpacing: 2, paddingVertical: 0 },
     pickRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
     pickChip: { flex: 1, minWidth: 0, alignItems: 'center', backgroundColor: DR.elevated, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4, borderWidth: 1, borderColor: DR.border },
     pickChipFirst: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },

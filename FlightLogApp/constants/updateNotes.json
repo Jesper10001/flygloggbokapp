@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 39,
+      "date": "2026-11-07",
+      "notes": [
+        "New: Repeat latest flight at the top of drone Log Flight fills in the place, drone and crew from last time.",
+        "Improved: The place is no longer filled in for you, and the place and time boxes are the same size."
+      ]
+    },
+    {
       "id": 38,
       "date": "2026-11-07",
       "notes": [
