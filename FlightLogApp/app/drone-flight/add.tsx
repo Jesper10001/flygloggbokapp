@@ -50,7 +50,7 @@ import { SunGlobe } from '../../components/logflight/SunGlobe';
 import { SunStrip } from '../../components/sun/SunStrip';
 import { DayNightMap } from '../../components/DayNightMap';
 import { buildSunTimeline } from '../../utils/sunTimeline';
-import { IcaoInput, type RecentPlace } from '../../components/IcaoInput';
+import { IcaoInput, type IcaoInputHandle, type RecentPlace } from '../../components/IcaoInput';
 import { getRecentPlaces } from '../../db/flights';
 import { getAirportTzInfo } from '../../db/icao';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
@@ -286,6 +286,9 @@ export default function AddDroneFlightScreen() {
   const [timeBoxH, setTimeBoxH] = useState(46); // uppmätt höjd på tidsrutan → platsrutorna lika höga
   const depTimeRef = useRef<SmartTimeInputHandle>(null);
   const arrTimeRef = useRef<SmartTimeInputHandle>(null);
+  const depIcaoRef = useRef<IcaoInputHandle>(null);
+  const arrIcaoRef = useRef<IcaoInputHandle>(null);
+  const legRefs = useRef<(TextInput | null)[]>([]);
   // Blades introduction: loggningsdemon (effekten före return) — scroll-ref, sektionernas y-lägen och
   // senaste renderns save/värden (demon körs async i flera sekunder → inga inaktuella closures).
   const tourActive = useTourStore((s) => s.active);
@@ -1012,6 +1015,7 @@ export default function AddDroneFlightScreen() {
       setForm((p) => (which === 'dep'
         ? { ...p, lat, lon, location: p.location.trim() ? p.location : name }
         : { ...p, landing_lat: lat, landing_lon: lon, landing_location: (p.landing_location ?? '').trim() ? p.landing_location : name }));
+      if (which === 'dep' && (form.location.trim() || name)) afterDepPlace();
     } catch (e: any) {
       Alert.alert(t('error'), e?.message ?? String(e));
     } finally {
@@ -1357,6 +1361,23 @@ export default function AddDroneFlightScreen() {
   const lock = () => setScrollLocked(true); const unlock = () => setScrollLocked(false);
   const curMode = (form.flight_mode || 'VLOS') as DroneFlightMode;
 
+  // ── Fokuskedjan (= pilotens Log Flight): plats → take-off → 1st flight (Same spot) eller
+  //    ankomstplats → ankomsttid (A → B). Hoppar över tid som redan är ifylld. ──
+  const afterDepTime = () => {
+    if (routeMode === 'same') {
+      const i = fullLegs.findIndex((l) => !l);
+      if (i >= 0) setTimeout(() => legRefs.current[i]?.focus(), 120);
+    } else if ((form.landing_location ?? '').trim()) {
+      setTimeout(() => arrTimeRef.current?.focus(), 120);
+    } else {
+      setTimeout(() => arrIcaoRef.current?.focus(), 120);
+    }
+  };
+  const afterDepPlace = () => {
+    if (isValidTime(form.takeoff_time ?? '')) afterDepTime();
+    else setTimeout(() => depTimeRef.current?.focus(), 80);
+  };
+
   // ── Route-kortets delar (= pilotens Log Flight): platsruta med GPS-nål/bock och snabbval, tidsruta med Z/L ──
   const renderPlace = (which: 'dep' | 'arr') => {
     const value = which === 'dep' ? form.location : (form.landing_location ?? '');
@@ -1373,6 +1394,8 @@ export default function AddDroneFlightScreen() {
             value={value}
             onChangeText={setValue}
             onEndEditing={(e) => geocodePlace(which, e.nativeEvent.text)}
+            returnKeyType="next"
+            onSubmitEditing={(e) => { if (which === 'dep' && e.nativeEvent.text.trim()) afterDepPlace(); }}
             placeholder="Place"
             placeholderTextColor={DR.faint}
             autoCapitalize="characters"
@@ -1392,7 +1415,7 @@ export default function AddDroneFlightScreen() {
           <View style={styles.pickRow}>
             {picks.map((rp, i) => (
               <TouchableOpacity key={rp} style={[styles.pickChip, i === 0 && styles.pickChipFirst]} activeOpacity={0.75}
-                onPress={() => { setValue(rp); geocodePlace(which, rp); }}>
+                onPress={() => { setValue(rp); geocodePlace(which, rp); if (which === 'dep') afterDepPlace(); }}>
                 <Text numberOfLines={1} style={[styles.pickChipText, i === 0 && { color: Colors.gold }]}>{rp}</Text>
               </TouchableOpacity>
             ))}
@@ -1408,6 +1431,7 @@ export default function AddDroneFlightScreen() {
     const put = (v: string) => setForm((p) => (which === 'dep' ? { ...p, location: v } : { ...p, landing_location: v }));
     return (
       <IcaoInput
+        ref={which === 'dep' ? depIcaoRef : arrIcaoRef}
         label=""
         inputFontFamily={FONT_LED14}
         design
@@ -1417,7 +1441,10 @@ export default function AddDroneFlightScreen() {
         onResolve={(raw, icao) => put(icao ?? raw.trim().toUpperCase())}
         recentPlaces={recentAirports}
         boxHeight={timeBoxH}
-        onConfirm={() => setTimeout(() => (which === 'dep' ? depTimeRef : arrTimeRef).current?.focus(), 80)}
+        onConfirm={() => {
+          if (which === 'dep') afterDepPlace();
+          else if (!isValidTime(arrTime)) setTimeout(() => arrTimeRef.current?.focus(), 80);
+        }}
       />
     );
   };
@@ -1438,7 +1465,10 @@ export default function AddDroneFlightScreen() {
           onChangeText={(v) => {
             if (which === 'dep') { if (timeMode === 'utc') setForm((p) => ({ ...p, takeoff_time: v })); else onDepLocalChange(v); }
             else if (timeMode === 'utc') setArrTime(v); else onArrLocalChange(v);
+            // Komplett take-off (HH:MM) → vidare till 1st flight / ankomsten, som pilotens avgångstid.
+            if (which === 'dep' && isValidTime(v)) afterDepTime();
           }}
+          onSubmitEditing={() => { if (which === 'dep' && form.location.trim() && isValidTime(form.takeoff_time ?? '')) afterDepTime(); }}
           rightAdornment={
             <Pressable onPress={toggleTimeMode} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
               <Text style={{ fontFamily: FONT_LED14, fontSize: 15, fontWeight: '700', color: timeMode === 'utc' ? accent : Colors.gold }}>{timeMode === 'utc' ? 'Z' : 'L'}</Text>
@@ -1641,6 +1671,7 @@ export default function AddDroneFlightScreen() {
                       </View>
                       <View style={{ flex: 1, height: '100%', justifyContent: 'center' }}>
                         <TextInput
+                          ref={(r) => { legRefs.current[i] = r; }}
                           style={styles.legInput}
                           value={leg}
                           onChangeText={(raw) => updateLeg(i, raw)}
