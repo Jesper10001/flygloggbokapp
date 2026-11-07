@@ -15,6 +15,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Pilot flying vid CSV-import och Scan log (utils/pilotFlying.ts): säger filen något (PF-tid, Yes/No, PF/PM) gäller det, annars hela flygtiden om flygningen har en landning och 0 utan landning. CSV-mappningen känner igen PF-kolumner (även om AI:n missar dem), och PF kapas till flygtiden som andra tider.
+  - Remarks: kolumner som importen inte känner igen hamnar inte längre där när värdet är tomt (0:00, 0.00, No, -). VFR-tid och pilot monitoring hamnar aldrig där (VFR = flygtid minus IFR).
+  - Engångsrättning vid start (settings pf_remarks_fixed): ur importerade flygningars remarks tas "Pilot flying: …", "VFR: …" och nollsegment bort (en PF-tid eller Yes/No flyttas till fältet), och importerade och skannade flygningar utan PF-tid får flygtiden som pilot flying om de har en landning. Manuellt loggade flygningar och backfill-raderna rörs inte.
 - CSV-import (pilot och drönare) och Scan log jämförs med loggboken innan Save (services/logbookMatch.ts, test: FlightLogApp/scripts/test-logbook-match.cjs).
   - Dubbletter: pilot = samma datum och rutt med tider inom 10 min, samma tider förskjutna med platsens UTC-avvikelse (lokal tid mot UTC) eller, utan tider, totaltid inom 6 min; drönare = starttid inom 10 min och samma längd, utan starttid samma plats och längd. Varje flygning i loggboken paras med högst en ny (tre varv i filen mot två i loggboken → ett nytt). I CSV räknas även en rad som står två gånger i filen med samma tider.
   - "Already in your logbook" under "Before you save" (och överst i skanningsrapporten): lämnas utanför från början, visar vad den matchade ("In your logbook: 08:10–09:25 · 1:15 · scanned"), "Include" tar med den. I skanningen kan raden nu bockas i (var låst), och rader som redan finns får inga frågor.

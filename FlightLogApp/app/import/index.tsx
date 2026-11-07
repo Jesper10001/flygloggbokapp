@@ -40,7 +40,7 @@ import {
 // Först jämförelsen med loggboken: krockar i tid och flygningar som redan finns (components/import/ImportReport).
 const CAP_LABEL: Record<string, string> = {
   pic: 'PIC', co_pilot: 'Co-pilot', dual: 'Dual', night: 'Night', ifr: 'IFR', instructor: 'Instructor', solo: 'Solo',
-  cross_country: 'Cross-country', picus: 'PICUS', se_time: 'SE', me_time: 'ME',
+  cross_country: 'Cross-country', picus: 'PICUS', se_time: 'SE', me_time: 'ME', pilot_flying: 'Pilot flying',
 };
 const GROUP_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   clash: 'git-compare-outline', dups: 'copy-outline', capped: 'cut-outline', places: 'location-outline',

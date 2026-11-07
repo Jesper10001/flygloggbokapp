@@ -717,4 +717,54 @@ async function runMigrations(db: SqliteDb): Promise<void> {
       await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('remarks_meta_cleaned', '1')`);
     }
   } catch { /* städning får aldrig blockera appstart */ }
+
+  // Engångsrättning (2026-11-07): CSV-importen lade kolumner den inte kände igen i remarks även när värdet var noll
+  // ("Pilot flying: 0:00 | VFR: 0:00"), och pilot flying sattes aldrig vid import eller skanning. Ur importerade
+  // flygningars remarks tas VFR-, PF/PM- och nollsegment bort (en PF-tid eller Yes/No flyttas till fältet). Sedan får
+  // importerade och skannade flygningar utan PF-tid flygtiden som pilot flying om de har en landning, som nya
+  // importer (utils/pilotFlying). Backfill-raderna rörs inte. Guardad med settings-flagga → körs bara en gång.
+  try {
+    const fixed = await db.getFirstAsync<{ v: string }>(`SELECT value as v FROM settings WHERE key = 'pf_remarks_fixed'`).catch(() => null);
+    if (!fixed) {
+      const BACKFILL = ['Blades previous experience', '[BACKFILL]'];
+      const PF = new Set(['pilotflying', 'pf', 'pftime', 'pilotflyingtime']);
+      const DROP = new Set(['vfr', 'vfrtime', 'pm', 'pmtime', 'pilotmonitoring', 'pilotmonitoringtime']);
+      const hoursOf = (v: string) => { const m = /^(\d+):(\d{2})$/.exec(v); return m ? Number(m[1]) + Number(m[2]) / 60 : parseFloat(v.replace(',', '.')) || 0; };
+      const rows = await db.getAllAsync<{ id: number; remarks: string; pilot_flying: number; total_time: number }>(
+        `SELECT id, remarks, pilot_flying, total_time FROM flights WHERE source = 'import' AND remarks LIKE '%:%' AND remarks NOT IN (?, ?)`, BACKFILL,
+      ).catch(() => [] as { id: number; remarks: string; pilot_flying: number; total_time: number }[]);
+      const saidNo: number[] = [];
+      for (const r of rows) {
+        let pf = Number(r.pilot_flying) || 0;
+        const tt = Number(r.total_time) || 0;
+        const keep: string[] = [];
+        for (const seg of (r.remarks || '').split(' | ')) {
+          const m = /^\s*([^:|]{1,40}?)\s*:\s*(.*?)\s*$/.exec(seg);
+          const label = m ? m[1].toLowerCase().replace(/[\s_\-.]/g, '') : '';
+          const val = m ? m[2] : '';
+          if (m && PF.has(label)) {
+            if (/^(yes|y|true|x|pf)$/i.test(val)) pf = tt;
+            else if (/^(no|n|false|pm)$/i.test(val)) saidNo.push(r.id);
+            else if (pf <= 0) pf = Math.min(hoursOf(val), tt);
+            continue;
+          }
+          if (m && DROP.has(label)) continue;
+          if (m && /^([0\s.,:]+|false|no)$/i.test(val)) continue;
+          keep.push(seg);
+        }
+        const next = keep.join(' | ').trim();
+        if (next !== (r.remarks || '') || pf !== (Number(r.pilot_flying) || 0)) {
+          await db.runAsync(`UPDATE flights SET remarks = ?, pilot_flying = ? WHERE id = ?`, [next, pf, r.id]);
+        }
+      }
+      await db.runAsync(
+        `UPDATE flights SET pilot_flying = total_time
+         WHERE source IN ('import', 'ocr') AND COALESCE(pilot_flying, 0) <= 0 AND total_time > 0
+           AND COALESCE(landings_day, 0) + COALESCE(landings_night, 0) + COALESCE(landings_fs_day, 0) + COALESCE(landings_fs_night, 0) > 0
+           AND COALESCE(remarks, '') NOT IN (?, ?)${saidNo.length ? ` AND id NOT IN (${saidNo.map(() => '?').join(',')})` : ''}`,
+        [...BACKFILL, ...saidNo],
+      );
+      await db.runAsync(`INSERT OR REPLACE INTO settings (key, value) VALUES ('pf_remarks_fixed', '1')`);
+    }
+  } catch { /* rättningen får aldrig blockera appstart; försöker igen nästa start */ }
 }

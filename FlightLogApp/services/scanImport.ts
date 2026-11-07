@@ -13,6 +13,7 @@ import { saveLearnedMapping } from '../db/ocrLearned';
 import { reconcileBlockTime } from '../utils/flightTime';
 import { clockValue } from '../utils/format';
 import { matchFlightsToLogbook, type DupHit, type ClashHit } from './logbookMatch';
+import { autoPilotFlying } from '../utils/pilotFlying';
 
 export interface ScanRow {
   key: string;            // stabilt id: `${page}:${rowIndex}`
@@ -831,6 +832,7 @@ export async function saveScanRows(
     if (opts.timeBasis === 'local') await localTimesToUtc(d);
     mapOtherTimes(d);
     deriveMultiPilot(d);
+    autoPilotFlying(d);   // pappersböcker har ingen PF-kolumn: flygtiden om det finns en landning, annars 0
     // Platser som inte är ICAO-koder (namn eller ZZ…) → tillfällig plats med egen kod.
     for (const field of ['dep_place', 'arr_place'] as const) {
       const val = (d[field] ?? '').toUpperCase();

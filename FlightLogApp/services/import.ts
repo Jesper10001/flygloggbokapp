@@ -4,6 +4,7 @@ import type { OcrFlightResult } from '../types/flight';
 import * as XLSX from 'xlsx';
 
 import { callAnthropicJson, callAnthropicRaw } from './anthropicClient';
+import { autoPilotFlying, pfFromText, type PfStated } from '../utils/pilotFlying';
 
 // Claude identifierar bara mappningen — appen tolkar alla rader lokalt
 const MAPPING_PROMPT = `Du är expert på flygloggboksformat (ForeFlight, LogTen Pro, MyFlightbook, mccPILOTLOG, APDL, Logbook Pro, Eflightbook, generisk CSV och Excel).
@@ -103,6 +104,8 @@ Använd dessa mönster för att identifiera kolumner även när rubriknamnet är
                    En generisk "Approaches"-kolumn utan typangivelse → mappa hit och notera antagandet i warnings.
   app_3d         — precisionsinflygningar/3D (heltal). Rubriker: "3D", "ILS", "Precision", "PA"
   holds          — väntlägen (heltal). Rubriker: "Holds", "Holding", "Hold"
+  pilot_flying   — tid som pilot flying (timvärde, eller Yes/No, PF/PM). Rubriker: "PF", "Pilot Flying", "PF Time", "Pilot Flying Time".
+                   En "PM"/"Pilot Monitoring"-kolumn och en VFR-tidskolumn mappas INTE (VFR = flygtid minus IFR).
   remarks        — anmärkningar/fri text. Rubriker: "Remarks", "Comments", "Notes", "Anmärkningar", "Bemerkungen"
 
 ── STRATEGI ────────────────────────────────────────────────────────────────
@@ -390,7 +393,7 @@ function convertInt(value: string): string {
 }
 
 // Fält som ska konverteras som flygtid (decimal/HH:MM)
-const TIME_FIELDS = new Set(['total_time','ifr','night','pic','co_pilot','dual','instructor','multi_pilot','single_pilot','sim','se_time','me_time','solo','cross_country','picus','spic','relief_crew']);
+const TIME_FIELDS = new Set(['total_time','ifr','night','pic','co_pilot','dual','instructor','multi_pilot','single_pilot','sim','se_time','me_time','solo','cross_country','picus','spic','relief_crew','pilot_flying']);
 const INT_FIELDS  = new Set(['landings_day','landings_night','takeoffs_day','takeoffs_night','landings_fs_day','landings_fs_night','app_2d','app_3d','holds']);
 
 export function normalize(s: string): string {
@@ -416,7 +419,12 @@ const SKIP_COLUMNS = new Set([
   // Metadata-kolumner från appens EGEN CSV-export → ska INTE dumpas i remarks vid om-import
   // (annars hamnar t.ex. "Flight type: Normal" i varje flygnings remarks). flight_type härleds ändå.
   'flighttype', 'simcategory',
+  // VFR-tid fylls inte i en loggbok (= flygtid minus IFR), och pilot monitoring följer av pilot flying.
+  'vfr', 'vfrtime', 'pm', 'pmtime', 'pilotmonitoring', 'pilotmonitoringtime',
 ]);
+
+// Värden som inte säger något och aldrig ska till remarks: 0, 0:00, 0.00, false, no, -.
+const EMPTY_VALUE = /^([0\s.,:]+|false|no|n\/a|-|—)$/i;
 
 function mapRow(
   fields: string[],
@@ -440,7 +448,7 @@ function mapRow(
     pic: '0', co_pilot: '0', dual: '0',
     instructor: '0', multi_pilot: '0', single_pilot: '0',
     se_time: '0', me_time: '0', solo: '0', cross_country: '0',
-    picus: '0', spic: '0', relief_crew: '0',
+    picus: '0', spic: '0', relief_crew: '0', pilot_flying: '0',
     landings_day: '0', landings_night: '0',
     takeoffs_day: '0', takeoffs_night: '0',
     landings_fs_day: '0', landings_fs_night: '0',
@@ -452,12 +460,15 @@ function mapRow(
   // Spåra vilka CSV-kolumner och interna fält som mappas
   const mappedCsvCols = new Set<string>();
   const mappedInternalFields = new Set<string>();
+  let pfStated: PfStated;   // PF-kolumn med Yes/No eller PF/PM (en tid läses som vanligt)
 
   for (const [csvCol, internalField] of Object.entries(colMap)) {
     mappedCsvCols.add(normalize(csvCol));
     mappedInternalFields.add(internalField);
     const val = findValue(normIndex, csvCol);
-    if (internalField === 'date') {
+    if (internalField === 'pilot_flying' && pfFromText(val)) {
+      pfStated = pfFromText(val);
+    } else if (internalField === 'date') {
       out.date = convertDate(val, dateFormat);
     } else if (TIME_FIELDS.has(internalField)) {
       out[internalField] = convertTime(val, timeFormat);
@@ -497,6 +508,7 @@ function mapRow(
     instructor: 'instructor', dualgiven: 'instructor',
     multipilot: 'multi_pilot', mp: 'multi_pilot',
     singlepilot: 'single_pilot', sp: 'single_pilot',
+    pilotflying: 'pilot_flying', pf: 'pilot_flying', pftime: 'pilot_flying', pilotflyingtime: 'pilot_flying',
   };
 
   // Räddning för textfält som Claude kan missa
@@ -514,10 +526,10 @@ function mapRow(
     if (mappedCsvCols.has(normHeader)) return;
     if (SKIP_COLUMNS.has(normHeader)) return;
     const val = (fields[i] ?? '').trim();
-    if (!val || val === '(null)' || val.toLowerCase() === 'null' || val === '0' || val === '0.0') return;
-
-    // Försök rädda känt tidsfält som Claude missade
+    // Försök rädda känt tidsfält som Claude missade (en PF-kolumn med Yes/No eller PF/PM först)
     const rescued = RESCUE_MAP[normHeader];
+    if (rescued === 'pilot_flying' && pfFromText(val)) { pfStated = pfFromText(val); return; }
+    if (!val || val === '(null)' || val.toLowerCase() === 'null' || EMPTY_VALUE.test(val)) return;
     if (rescued && TIME_FIELDS.has(rescued)) {
       out[rescued] = convertTime(val, 'decimal');
       return;
@@ -583,6 +595,7 @@ function mapRow(
   const hasValidDate = !!out.date && /^\d{4}-\d{2}-\d{2}$/.test(out.date);
   if (!hasValidDate && !out.dep_place && !out.arr_place && (isNaN(totalParsed) || totalParsed === 0) && !isSim) return null;
 
+  if (pfStated) out.pf_stated = pfStated;   // pilot flying sätts efter totaltiden (importFromFile)
   return out as OcrFlightResult;
 }
 
@@ -864,7 +877,7 @@ export async function importFromFile(
     const tt = parseFloat(flight.total_time ?? '0') || 0;
     if (tt <= 0) continue;
     const capped: { field: string; from: number; to: number }[] = [];
-    for (const f of ['pic', 'co_pilot', 'dual', 'night', 'ifr', 'instructor', 'solo', 'cross_country', 'picus', 'se_time', 'me_time'] as const) {
+    for (const f of ['pic', 'co_pilot', 'dual', 'night', 'ifr', 'instructor', 'solo', 'cross_country', 'picus', 'se_time', 'me_time', 'pilot_flying'] as const) {
       const v = parseFloat(flight[f] ?? '0') || 0;
       if (v > tt + 0.02) { capped.push({ field: f, from: v, to: tt }); flight[f] = String(tt); }
     }
@@ -873,6 +886,13 @@ export async function importFromFile(
   }
   if (clampedRows > 0) {
     warnings.push(`${clampedRows} row(s) had role time (PIC/night/IFR…) exceeding total time — capped to total.`);
+  }
+
+  // ── Pilot flying: det filen säger, annars flygtiden om det finns en landning (utils/pilotFlying) ──
+  for (const flight of flights) {
+    const f = flight as OcrFlightResult & { pf_stated?: PfStated };
+    autoPilotFlying(f, f.pf_stated);
+    delete f.pf_stated;
   }
 
   // Härled multi_pilot BARA när filen saknar en multi-pilot-kolumn. Finns kolumnen är den facit —
