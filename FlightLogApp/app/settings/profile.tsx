@@ -46,17 +46,28 @@ export default function ProfileScreen() {
     })();
   }, []);
 
+  const writeProfile = async () => {
+    for (const f of FIELDS) {
+      await setSetting(f.key, form[f.key] ?? '');
+    }
+    // Auto-generera initialer om inte manuellt satta
+    if (!form.profile_initials && form.profile_first_name && form.profile_last_name) {
+      const auto = `${form.profile_first_name[0]}${form.profile_last_name[0]}`.toUpperCase();
+      await setSetting('profile_initials', auto);
+    }
+  };
+  // Abonnemanget öppnar RevenueCats fönster, som inte syns ovanpå en modal: spara det man skrivit, stäng
+  // profilsidan och vänta tills den gått ned innan fönstret visas.
+  const closeForSubscription = async () => {
+    await writeProfile().catch(() => {});
+    router.back();
+    await new Promise((r) => setTimeout(r, 450));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      for (const f of FIELDS) {
-        await setSetting(f.key, form[f.key] ?? '');
-      }
-      // Auto-generera initialer om inte manuellt satta
-      if (!form.profile_initials && form.profile_first_name && form.profile_last_name) {
-        const auto = `${form.profile_first_name[0]}${form.profile_last_name[0]}`.toUpperCase();
-        await setSetting('profile_initials', auto);
-      }
+      await writeProfile();
       Alert.alert(t('done'), t('profile_saved'), [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
@@ -104,7 +115,7 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={styles.sectionHeader}>Subscription</Text>
-        <SubscriptionPanel />
+        <SubscriptionPanel closeFirst={closeForSubscription} />
 
         <Text style={styles.sectionHeader}>{t('profile_basic')}</Text>
         <View style={styles.card}>

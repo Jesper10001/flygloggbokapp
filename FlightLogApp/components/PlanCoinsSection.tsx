@@ -48,7 +48,8 @@ export function UpgradeCard({ T }: { T: PlanTheme }) {
 }
 
 // Abonnemanget på profilsidan: nivå, vad den ger, och hantering. Gratisnivån får paywallen och Restore.
-export function SubscriptionPanel() {
+// closeFirst: profilsidan är en modal, och RevenueCats fönster syns inte ovanpå en modal → stäng den först.
+export function SubscriptionPanel({ closeFirst }: { closeFirst?: () => Promise<void> } = {}) {
   const { isPremium, isMax } = useFlightStore();
   const [restoring, setRestoring] = useState(false);
   const paid = isPremium || isMax;
@@ -57,7 +58,8 @@ export function SubscriptionPanel() {
     : isPremium ? '250 Blade coins a month · Unlimited flights'
     : `${FREE_TIER_LIMIT} manual flights · 100 Blade coins once`;
   const showMax = NEW_PAYWALLS && isPremium && !isMax;
-  const manage = () => { presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }); };
+  const run = async (open: () => unknown) => { if (closeFirst) await closeFirst(); open(); };
+  const manage = () => run(() => presentManageSubscription().then((ok) => { if (!ok) router.push('/settings/premium'); }));
   const restore = async () => {
     if (restoring) return;
     setRestoring(true);
@@ -85,11 +87,11 @@ export function SubscriptionPanel() {
       {paid ? (
         <>
           <PanelRow label="Manage subscription" onPress={manage} />
-          {showMax && <PanelRow label="Upgrade to Max" value="500 coins a month" onPress={() => { presentPaywall('Blades Max', { upgrade: true }); }} />}
+          {showMax && <PanelRow label="Upgrade to Max" value="500 coins a month" onPress={() => run(() => presentPaywall('Blades Max', { upgrade: true }))} />}
         </>
       ) : (
         <>
-          <TouchableOpacity style={st.cta} activeOpacity={0.85} onPress={() => { presentPaywall(); }} accessibilityRole="button">
+          <TouchableOpacity style={st.cta} activeOpacity={0.85} onPress={() => run(() => presentPaywall())} accessibilityRole="button">
             <Text style={st.ctaText}>{NEW_PAYWALLS ? 'See Premium and Max' : 'Get Blades Premium'}</Text>
           </TouchableOpacity>
           <PanelRow label={restoring ? 'Restoring…' : 'Restore purchases'} onPress={restore} />
