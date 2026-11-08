@@ -14,7 +14,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { getSetting, setSetting } from '../../db/flights';
 import { useScanQuotaStore } from '../../store/scanQuotaStore';
-import { setScanBatch, spreadLimit, type ScanImage } from '../../store/scanStore';
+import { setScanBatch, spreadLimit, scanSpreadLimit, type ScanImage } from '../../store/scanStore';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanBookStore } from '../../store/scanBookStore';
 import {
@@ -66,7 +66,9 @@ export default function ScanCameraScreen() {
 
   const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
   const { isPremium, isMax } = useFlightStore();
-  const max = bookMode ? BOOK_MAX : spreadLimit(isPremium || isMax);
+  // En vanlig skanning: aldrig fler uppslag än coinsen räcker till (skanningsrutans "about N spreads").
+  const [max] = useState(() => (bookMode ? BOOK_MAX : scanSpreadLimit(isPremium || isMax)));
+  const byCoins = !bookMode && max < spreadLimit(isPremium || isMax);
   const full = spreads.length >= max;
 
   // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs —
@@ -175,7 +177,9 @@ export default function ScanCameraScreen() {
   const guideInsets: [number, number, number, number] = [insets.top + 64, rightCol, insets.bottom + 18, insets.left + 18];
 
   const hint = full
-    ? `That's ${max} spreads, the most per ${bookMode ? 'round' : 'scan'}. Tap Done.`
+    ? byCoins
+      ? `That's what your coins cover, ${max} spread${max === 1 ? '' : 's'}. Tap Done.`
+      : `That's ${max} spreads, the most per ${bookMode ? 'round' : 'scan'}. Tap Done.`
     : status.state === 'turnPage' && spreads.length > 0
       ? `Spread ${spreads.length} captured. Turn the page`
       : !autoCapture && (status.state === 'ready' || status.state === 'holdStill')

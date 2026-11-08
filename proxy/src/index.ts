@@ -4,6 +4,7 @@ import { handleOps, handleSupportEmail, resolveAeDataset, runOpsMonitor, OPS_MON
 import { handleSupportForm } from './supportForm';
 import { costUsd } from './pricing';
 import { quotaTokens } from './quotaWeight';
+import { scanReach, passSize, grantScanPass, scanPassCovers, noteScanRead } from './scanPass';
 import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
@@ -1182,6 +1183,28 @@ export default {
       });
     }
 
+    // ── Skanningspass (scanPass.ts): skanningen ber om det när läsningen börjar. Svarar med antalet uppslag
+    // som får läsas klart även om coinsen tar slut på vägen. ──
+    if (url.pathname === '/scan/pass') {
+      const devId = request.headers.get('X-Device-ID') ?? 'unknown';
+      const dk = await deviceKeys(devId);
+      let requested = 0;
+      try { requested = Number((JSON.parse(await request.text()) as any)?.spreads) || 0; } catch { /* ogiltig body */ }
+      let granted = 0;
+      if (env.QUOTA_KV && TOKEN_QUOTAS_ENABLED && !quotaExempt(env, dk.hash)) {
+        const tier = await resolveTier(devId, env);
+        const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
+        const used = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tier), tokenKey(dk.legacy, tier), tokenTtl(tier)) ?? '0', 10) || 0;
+        granted = passSize(requested, scanReach(used, limit, await getCredits(env.QUOTA_KV, dk.hash)));
+        await grantScanPass(env.QUOTA_KV, dk.hash, granted);
+      } else {
+        granted = passSize(requested, Infinity); // ingen spärr för enheten → inget pass behövs
+      }
+      return new Response(JSON.stringify({ granted }), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+
     if (!env.ANTHROPIC_API_KEY) {
       return new Response(JSON.stringify({ error: 'API key missing' }), {
         status: 500, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
@@ -1211,7 +1234,8 @@ export default {
         const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
         const tUsed = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tierHeader), tokenKey(dk.legacy, tierHeader), tokenTtl(tierHeader)) ?? '0', 10);
         const tCredits = await getCredits(env.QUOTA_KV, dk.hash);
-        if (!hasAllowance(tUsed, tLimit, tCredits)) {
+        // Slut på coins: en skanningsläsning som skanningspasset täcker släpps ändå igenom (scanPass.ts).
+        if (!hasAllowance(tUsed, tLimit, tCredits) && !(await scanPassCovers(env.QUOTA_KV, dk.hash, parsedBody))) {
           return new Response(JSON.stringify({
             error: 'token_quota_exceeded',
             used: tUsed,
@@ -1267,6 +1291,7 @@ export default {
               });
             }
             if (!exempt) await chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader));
+            if (env.QUOTA_KV) await noteScanRead(env.QUOTA_KV, dk.hash, parsedBody);
           } catch {}
         })());
         return new Response(toClient, {
@@ -1301,6 +1326,7 @@ export default {
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
       // Vikten per anrop kommer från quotaWeight.ts (skanning har i dag full taxa för alla).
       if (!exempt) ctx.waitUntil(chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader)));
+      if (env.QUOTA_KV && resp.status === 200) ctx.waitUntil(noteScanRead(env.QUOTA_KV, dk.hash, parsedBody).catch(() => {}));
 
       return new Response(respBody, {
         status: resp.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },

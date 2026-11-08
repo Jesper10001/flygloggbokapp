@@ -6,9 +6,10 @@ import { GlassDialog, DialogOption } from './GlassDialog';
 import { useFlightStore } from '../store/flightStore';
 import { useScanQuotaStore } from '../store/scanQuotaStore';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
-import { tokensToCoins, coinsPerSpread } from '../utils/tokenGate';
+import { coinsLeft, scanReach, openCoinShop, showMonthlyTokenLimitAlert } from '../utils/tokenGate';
+import { coinShopAvailable } from '../services/coinPacks';
 import { useTranslation } from '../hooks/useTranslation';
-import { setScanBatch, setScanSources, setScanFocus, setScanFromOnboarding, spreadLimit, type ScanImage } from '../store/scanStore';
+import { setScanBatch, setScanSources, setScanFocus, setScanFromOnboarding, scanSpreadLimit, type ScanImage } from '../store/scanStore';
 import { askAiConsent } from '../services/aiConsent';
 import { presentPaywall } from '../services/purchases';
 import { getSetting } from '../db/flights';
@@ -24,11 +25,12 @@ const CLOSE_MS = 320;
 const COIN = require('../assets/Blade_coin.PNG');
 
 // Hur långt saldot räcker: månadens och köpta coins genom vad ett uppslag ungefär kostar (samma taxa för alla).
+// Fler uppslag än så går inte att välja, och så många läses alltid klart (skanningspasset, services/scanPass.ts).
 function CoinReach() {
   const usage = useTokenQuotaStore((s) => s.usage);
   if (!usage) return null;
-  const coins = Math.max(0, tokensToCoins(usage.limit) - tokensToCoins(usage.used)) + Math.max(0, tokensToCoins(usage.credits ?? 0));
-  const spreads = Math.floor(coins / coinsPerSpread());
+  const coins = coinsLeft(usage);
+  const spreads = scanReach() ?? 0;
   const reach = coins <= 0 ? 'no coins left' : spreads < 1 ? 'less than one spread' : `about ${spreads} spread${spreads === 1 ? '' : 's'}`;
   return (
     <View style={s.reach}>
@@ -50,7 +52,9 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
   const router = useRouter();
   const { t } = useTranslation();
   const { isPremium, isMax } = useFlightStore();
-  const limit = spreadLimit(isPremium || isMax);
+  useTokenQuotaStore((s) => s.usage); // ny räckvidd när saldot laddats
+  const paying = isPremium || isMax;
+  const limit = scanSpreadLimit(paying);
   const cameraAvailable = isScanCameraAvailable();
   const [open, setOpen] = useState(false);
   const go = (path: '/import/scan-camera' | '/import/scan-crop' | '/flight/scan-review') => (replace ? router.replace(path) : router.push(path));
@@ -122,6 +126,16 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
     setTimeout(() => { (source === 'camera' ? openCamera() : choosePhotos()).catch(() => {}); }, CLOSE_MS);
   };
 
+  // Saldot räcker inte till ett uppslag: köp coins (Premium) eller se Premium.
+  const getCoins = () => {
+    setOpen(false);
+    setTimeout(() => {
+      if (!paying) presentPaywall('Logbook scan');
+      else if (coinShopAvailable()) openCoinShop({ reason: 'scan' });
+      else showMonthlyTokenLimitAlert();
+    }, CLOSE_MS);
+  };
+
   // OCR är ett AI-anrop → samtycke innan kameran/biblioteket öppnas, och kvoten kontrolleras först.
   const start = async () => {
     if (!replace) setScanFromOnboarding(false);
@@ -129,8 +143,11 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
       if (onNoScans) onNoScans(); else presentPaywall('Logbook scan');
       return;
     }
-    useTokenQuotaStore.getState().load().catch(() => {}); // färskt saldo till raden i rutan
-    if (await askAiConsent()) setOpen(true);
+    // Färskt saldo till raden i rutan och till hur många uppslag som går att välja (högst ett par sekunder).
+    const fresh = useTokenQuotaStore.getState().load().catch(() => {});
+    if (!(await askAiConsent())) return;
+    await Promise.race([fresh, new Promise((r) => setTimeout(r, 2500))]);
+    setOpen(true);
   };
 
   const chooser = (
@@ -143,14 +160,23 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
       secondary={{ label: 'Cancel', onPress: () => setOpen(false) }}
     >
       <CoinReach />
-      <View style={s.options}>
-        <DialogOption icon="camera-outline" title="Take photos" onPress={() => pick('camera')}
-          sub={cameraAvailable
-            ? 'Hold your phone sideways. The camera takes the photo when the whole spread is sharp.'
-            : 'Uses the iPhone document scanner. The new logbook camera comes with the next app build.'} />
-        <DialogOption icon="images-outline" title="Choose from your photos" onPress={() => pick('library')}
-          sub={`Up to ${limit} photos. Blades finds and straightens the logbook in each one.`} />
-      </View>
+      {limit < 1 ? (
+        <View style={s.options}>
+          <DialogOption icon="add-circle-outline" title={paying ? 'Get more coins' : 'See Premium'} onPress={getCoins}
+            sub={paying
+              ? 'A spread costs about 30 coins. Buy more, or wait for your monthly coins.'
+              : 'A spread costs about 30 coins. Premium gives you 250 coins a month.'} />
+        </View>
+      ) : (
+        <View style={s.options}>
+          <DialogOption icon="camera-outline" title="Take photos" onPress={() => pick('camera')}
+            sub={cameraAvailable
+              ? 'Hold your phone sideways. The camera takes the photo when the whole spread is sharp.'
+              : 'Uses the iPhone document scanner. The new logbook camera comes with the next app build.'} />
+          <DialogOption icon="images-outline" title="Choose from your photos" onPress={() => pick('library')}
+            sub={`Up to ${limit} photo${limit === 1 ? '' : 's'}. Blades finds and straightens the logbook in each one.`} />
+        </View>
+      )}
     </GlassDialog>
   );
   return { start, chooser };

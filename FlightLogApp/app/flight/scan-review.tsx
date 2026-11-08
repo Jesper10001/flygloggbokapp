@@ -27,7 +27,8 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import type { TimeFormat } from '../../store/timeFormatStore';
 import { useFlightStore } from '../../store/flightStore';
-import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert } from '../../utils/tokenGate';
+import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert, scanReach } from '../../utils/tokenGate';
+import { requestScanPass } from '../../services/scanPass';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { presentPaywall } from '../../services/purchases';
 import { getAllAircraftTypes, getFleetRegistrationTypes, getSecondPilotCounts, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting, deleteFlights } from '../../db/flights';
@@ -649,7 +650,18 @@ export default function ScanReviewScreen() {
   const resumeScan = () => {
     const p = pausedAt.current;
     pausedAt.current = null;
-    if (p) readPage(p.i, p.ctx, true);
+    if (!p) return;
+    passForSpreads(pagesRef.current.length - p.i);
+    readPage(p.i, p.ctx, true);
+  };
+  // Skanningspasset (services/scanPass.ts): uppslagen som saldot räckte till när läsningen började läses klart även
+  // om de kostar lite mer än uppskattat. Fler än saldot räcker till ges inget pass för (en hel boks omgång kan ha
+  // fler); de läses så länge det finns coins, som förut. Svaret behövs inte innan läsningen börjar: passet behövs
+  // först när coinsen tar slut, och det första uppslaget tar en halv minut.
+  const passForSpreads = (n: number) => {
+    const reach = scanReach();
+    const want = reach == null ? n : Math.min(n, reach);
+    if (want > 0) requestScanPass(want).then((g) => console.log(`[SCAN] Skanningspass: ${g} av ${want} uppslag`)).catch(() => {});
   };
   const isPaying = () => { const st = useFlightStore.getState(); return st.isPremium || st.isMax; };
   const getCoins = () => {
@@ -988,6 +1000,7 @@ export default function ScanReviewScreen() {
       // Formatet vet redan om anmärkningens rubrik säger att pilotens namn står där.
       if (format?.remarksPilotNames) pilotNamesRef.current = true;
       if (format) console.log(`[SCAN] Omgång ur hel bok: format ${format.id}, ${sized.length} uppslag${book?.ctx ? `, fortsätter efter ${book.ctx.last_date}` : ''}`);
+      passForSpreads(sized.length);
       readPage(0, book?.ctx, true);
       for (let i = 0; i < sized.length && !closedRef.current; i++) await locate(i);   // resten letas upp medan första läses
     })();

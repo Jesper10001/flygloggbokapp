@@ -5,6 +5,7 @@
 // premium-gated på egen hand — inte prissatt/klar än).
 import { Alert } from 'react-native';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
+import type { TokenUsage } from '../services/tokenUsage';
 
 // Blade-coins = användarvänlig enhet ovanpå råa AI-tokens (döljer exakt tokenåtgång per
 // funktion). 1 Blade-coin = 200 tokens. Fri pott 20 000 tok = 100 coins; Premium 50 000 = 250.
@@ -18,6 +19,21 @@ export const tokensToCoins = (tokens: number): number => Math.max(0, Math.round(
 export const SCAN_COINS_PER_SPREAD = 30;
 export function coinsPerSpread(): number {
   return SCAN_COINS_PER_SPREAD;
+}
+
+/** Coins kvar: månadens (eller gratisnivåns) och köpta, som Settings och skanningsrutan visar dem. */
+export function coinsLeft(u: TokenUsage): number {
+  return Math.max(0, tokensToCoins(u.limit) - tokensToCoins(u.used)) + tokensToCoins(u.credits ?? 0);
+}
+
+/**
+ * Hur många uppslag saldot räcker till ("about 3 spreads" i skanningsrutan). Fler än så går inte att välja, och
+ * så många läses klart även om de kostar lite mer än 30 coins (skanningspasset, services/scanPass.ts).
+ * Räknas som proxyn (proxy/src/scanPass.ts scanReach). null = saldot okänt (proxyn inte nådd).
+ */
+export function scanReach(): number | null {
+  const u = useTokenQuotaStore.getState().usage;
+  return u ? Math.floor(coinsLeft(u) / SCAN_COINS_PER_SPREAD) : null;
 }
 
 export function hasTokenQuota(): boolean {

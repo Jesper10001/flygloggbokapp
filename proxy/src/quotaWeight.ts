@@ -10,8 +10,8 @@ export const SCAN_QUOTA_WEIGHT = 1;
 const SCAN_TOOL = 'emit_flights';
 const SCAN_MAX_TOKENS = 16000;
 
-export function quotaWeight(body: any, tier = 'free'): number {
-  if (tier === 'free') return 1; // Premium och Max får skanningstaxan
+/** Är anropet en läsning av ett loggboksuppslag? Används även av skanningspasset (scanPass.ts). */
+export function isScanCall(body: any): boolean {
   try {
     const tools = Array.isArray(body?.tools) ? body.tools : [];
     const forced = body?.tool_choice?.type === 'tool' && body?.tool_choice?.name === SCAN_TOOL;
@@ -20,10 +20,15 @@ export function quotaWeight(body: any, tier = 'free'): number {
       Array.isArray(m?.content) && m.content.some((c: any) => c?.type === 'image'));
     const max = Number(body?.max_tokens);
     const capped = max > 0 && max <= SCAN_MAX_TOKENS;
-    return forced && onlyScanTool && hasImage && capped ? SCAN_QUOTA_WEIGHT : 1;
+    return forced && onlyScanTool && hasImage && capped;
   } catch {
-    return 1;
+    return false;
   }
+}
+
+export function quotaWeight(body: any, tier = 'free'): number {
+  if (tier === 'free') return 1; // Premium och Max får skanningstaxan
+  return isScanCall(body) ? SCAN_QUOTA_WEIGHT : 1;
 }
 
 /** Tokens som dras från kvoten för ett anrop (avrundat uppåt). */

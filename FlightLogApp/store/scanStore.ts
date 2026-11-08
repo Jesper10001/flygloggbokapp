@@ -1,5 +1,6 @@
 import * as Updates from 'expo-updates';
 import type { PageContext } from '../services/ocr';
+import { scanReach } from '../utils/tokenGate';
 
 // Buffer för OCR-bilder — stöder enkel skanning (1 bild) och batch (upp till MAX_SPREADS bilder)
 
@@ -11,6 +12,12 @@ export const MAX_SPREADS = 10;
 // coins kvar att prova resten av appen med; tre kan tömma potten innan typerna hunnit slås upp.
 export const FREE_SPREADS = 2;
 export const spreadLimit = (paying: boolean) => (paying ? MAX_SPREADS : FREE_SPREADS);
+// Högst så många uppslag i den här skanningen: planens gräns, och aldrig fler än saldot räcker till (det
+// skanningsrutan visar). Okänt saldo → planens gräns; proxyn spärrar ändå när coinsen är slut.
+export function scanSpreadLimit(paying: boolean): number {
+  const reach = scanReach();
+  return reach == null ? spreadLimit(paying) : Math.min(spreadLimit(paying), reach);
+}
 // Testbygge: dev-builden eller TestFlight-bygget (kanalen preview, bara din telefon). Aldrig App Store-bygget.
 export const TEST_BUILD = __DEV__ || Updates.channel === 'preview';
 // Skanningen av pappersloggboken är pausad i App Store-bygget ("coming soon") men öppen i testbyggena medan den
