@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Settings: Blade coins-raden tätare och symmetrisk (14 pt luft ovanför och under ringen, raden lika hög som ringen) och +-knappen 30 % mindre (44 → 31 pt, större tryckyta via hitSlop).
 - Skanning av loggbok: man kan inte välja fler uppslag än saldot räcker till ("97 coins · about 3 spreads" → högst 3), och aldrig fler än 10 (gratis 2). Gäller fotoväljaren, kameran och dokumentskannern (scanSpreadLimit). Räcker saldot inte till ett uppslag visar rutan "Get more coins"/"See Premium" i stället för kamera och foton. Rutan väntar upp till 2,5 s på ett färskt saldo innan den öppnas.
 - Skanningspass (proxy/src/scanPass.ts + services/scanPass.ts): när läsningen börjar ber appen om ett pass för uppslagen saldot räcker till. De läses klart även om coinsen tar slut på vägen; det som går över uppskattningen bjuder vi på (saldot visas som 0, ingen skuld). Bara riktiga skanningsläsningar, högst 10, giltigt i 3 timmar, nytt pass ersätter det gamla. Kräver att proxyn deployas.
 - Settings: Blade coins-raden utan kort (förslag D) – myntet och ringen står direkt på bakgrunden med ett svagt sken bakom, runda +-knappen, detaljerna indragna under texten med pillerknappen Buy coins och länken How coins work. Nästan slut: skenet, ringens spår och siffran blir orange. Likadant i drönarläget.

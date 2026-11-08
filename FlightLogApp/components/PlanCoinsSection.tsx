@@ -182,8 +182,9 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
         </TouchableOpacity>
         {canBuy && (
           <TouchableOpacity style={[st.buyBtn, { borderColor: T.accent + '80', backgroundColor: T.accent + '14' }]}
-            onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} accessibilityLabel="Buy more Blade coins">
-            <Ionicons name="add" size={20} color={T.accent} />
+            onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} accessibilityLabel="Buy more Blade coins"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="add" size={15} color={T.accent} />
           </TouchableOpacity>
         )}
       </View>
@@ -256,16 +257,18 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   ctaText: { fontSize: 15, fontWeight: '800', color: Colors.textInverse },
-  coins: { marginVertical: 4 },
+  // Lika luft ovanför och under ringen (14 pt) i Settings: ovanför gruppens gap 10 + 4; under gruppens
+  // paddingBottom 8 + nästa rubriks marginTop 16 − 10.
+  coins: { marginTop: 4, marginBottom: -10 },
   coinRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  coinMain: { flex: 1, minWidth: 0, height: 76, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 4, paddingRight: 6 },
+  coinMain: { flex: 1, minWidth: 0, height: RING, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 4, paddingRight: 6 },
   ring: { width: RING, height: RING },
   halo: { position: 'absolute', left: HALO_OFF, top: HALO_OFF },
   // Myntet fyller nästan hela bilden → 50 pt inuti en 56 pt-ring ger ringen tätt intill kanten.
   ringCoin: { position: 'absolute', left: 3.5, top: 3.5, width: 50, height: 50 },
   coinLine: { fontSize: 15, fontWeight: '600' },
   // Rund som ringen (inte en ruta): raden står direkt på bakgrunden.
-  buyBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  buyBtn: { width: 31, height: 31, borderRadius: 15.5, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   // Detaljerna indragna under texten (myntet 4 + 56 + mellanrum 14).
   detail: { paddingLeft: 74, paddingRight: 4, paddingTop: 2, paddingBottom: 8, gap: 10 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
