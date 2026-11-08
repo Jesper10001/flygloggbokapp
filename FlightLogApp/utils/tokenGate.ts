@@ -10,25 +10,14 @@ import { useTokenQuotaStore } from '../store/tokenQuotaStore';
 // funktion). 1 Blade-coin = 200 tokens. Fri pott 20 000 tok = 100 coins; Premium 50 000 = 250.
 export const TOKENS_PER_COIN = 200;
 export const tokensToCoins = (tokens: number): number => Math.max(0, Math.round((tokens || 0) / TOKENS_PER_COIN));
-// Skanning av loggbok för PREMIUM: en coin räcker till dubbelt så många tokens (400). Gratisnivån betalar full
-// taxa (200). Proxyn räknar likadant och är den som bestämmer (proxy/src/quotaWeight.ts); appen speglar det
-// för sin lokala räknare.
-export const SCAN_QUOTA_WEIGHT = 0.5;
-export function scanQuotaWeight(): number {
-  try {
-    const { useFlightStore } = require('../store/flightStore');
-    const s = useFlightStore.getState();
-    return s.isPremium || s.isMax ? SCAN_QUOTA_WEIGHT : 1;
-  } catch {
-    return 1;
-  }
-}
+// Skanning av loggbok kostar full taxa för alla (Premium och Max hade halva taxan till 2026-11-08). Proxyn
+// bestämmer (proxy/src/quotaWeight.ts).
 
-// Ungefär vad ett uppslag kostar att skanna (bild + långt svar ≈ 6 000 tokens): 30 coins för gratisnivån och
-// 15 för Premium och Max, som får skanningstaxan. En uppskattning: tomma sidor kostar mindre, täta mer.
+// Ungefär vad ett uppslag kostar att skanna (bild + långt svar ≈ 6 000 tokens): 30 coins, samma för alla.
+// En uppskattning: tomma sidor kostar mindre, täta mer.
 export const SCAN_COINS_PER_SPREAD = 30;
 export function coinsPerSpread(): number {
-  return Math.round(SCAN_COINS_PER_SPREAD * scanQuotaWeight());
+  return SCAN_COINS_PER_SPREAD;
 }
 
 export function hasTokenQuota(): boolean {

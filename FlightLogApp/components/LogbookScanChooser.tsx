@@ -23,9 +23,8 @@ import { Colors } from '../constants/colors';
 const CLOSE_MS = 320;
 const COIN = require('../assets/Blade_coin.PNG');
 
-// Hur långt saldot räcker: månadens och köpta coins genom vad ett uppslag ungefär kostar. Gratisnivån betalar
-// dubbelt per uppslag (proxyns skanningstaxa gäller bara Premium och Max), så den får en rad om det.
-function CoinReach({ paid }: { paid: boolean }) {
+// Hur långt saldot räcker: månadens och köpta coins genom vad ett uppslag ungefär kostar (samma taxa för alla).
+function CoinReach() {
   const usage = useTokenQuotaStore((s) => s.usage);
   if (!usage) return null;
   const coins = Math.max(0, tokensToCoins(usage.limit) - tokensToCoins(usage.used)) + Math.max(0, tokensToCoins(usage.credits ?? 0));
@@ -39,7 +38,6 @@ function CoinReach({ paid }: { paid: boolean }) {
           {coins.toLocaleString('en-US')} coins<Text style={s.pillMuted}> · {reach}</Text>
         </Text>
       </View>
-      {!paid && <Text style={s.reachNote}>With Premium, a spread costs half as many coins.</Text>}
     </View>
   );
 }
@@ -144,7 +142,7 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
       body="Take the photos now, or choose photos you've already taken."
       secondary={{ label: 'Cancel', onPress: () => setOpen(false) }}
     >
-      <CoinReach paid={isPremium || isMax} />
+      <CoinReach />
       <View style={s.options}>
         <DialogOption icon="camera-outline" title="Take photos" onPress={() => pick('camera')}
           sub={cameraAvailable
@@ -167,5 +165,4 @@ const s = StyleSheet.create({
   },
   pillText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '600' },
   pillMuted: { color: Colors.textSecondary, fontWeight: '500' },
-  reachNote: { color: Colors.textSecondary, fontSize: 12, textAlign: 'center' },
 });

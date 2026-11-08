@@ -1299,7 +1299,7 @@ export default {
         });
       }
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
-      // Skanning av loggbok räknas med halva antalet tokens för premium (quotaWeight.ts).
+      // Vikten per anrop kommer från quotaWeight.ts (skanning har i dag full taxa för alla).
       if (!exempt) ctx.waitUntil(chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader)));
 
       return new Response(respBody, {

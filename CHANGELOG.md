@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Skanning av loggbok har full taxa även för Premium och Max (ingen halv taxa längre): proxyns SCAN_QUOTA_WEIGHT = 1, appen räknar ~30 coins per uppslag för alla (coinsPerSpread), och raden "With Premium, a spread costs half as many coins." är borttagen ur skanningsrutan. 500 coins räcker nu till ~16 uppslag.
 - Profile: "Upgrade to Max" (och Manage subscription/See Premium and Max) stängde bara profilen utan att paywallen kom upp. RevenueCats fönster visades medan modalen fortfarande gled ned, vilket iOS tyst vägrar; väntan efter stängningen höjd från 450 till 850 ms.
 - Settings: Blade coins-kortet omgjort (förslag C) – en lugn rad med ett större Blade coin i en ring tätt intill (guld = månadens, sidans accent/cyan = köpta), "97 left · refills Dec 1" (eller one-time/running low), +-knapp för att köpa. Tryck på raden fäller ut detaljerna: Monthly x of y (används först, fylls på), Bought (används när månadens är slut), Buy coins och How coins work (ersätter ?-ikonen). Likadant i drönarläget.
 - Drönarens Log Flight leder vidare som pilotens: Same spot – ifylld plats (Return, snabbval eller GPS-nålen) → Take-off, komplett take-off-tid → 1st flight (första tomma flygtidsrutan). A → B – avgångsplats → avgångstid, komplett avgångstid → ankomstplats (eller ankomsttid om platsen redan finns), ankomstplats → ankomsttid. Redan ifyllda tider hoppas över.

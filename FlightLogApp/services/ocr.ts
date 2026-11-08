@@ -153,7 +153,6 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
   required: ['flights', 'grid'],
 };
 import { buildContextHint } from '../db/ocrLearned';
-import { scanQuotaWeight } from '../utils/tokenGate';
 
 function timeFormatHint(fmt: TimeFormat): string {
   return fmt === 'hhmm'
@@ -657,7 +656,6 @@ async function runOcrCall(base64: string, mediaType: string, userText: string, m
     system: SYSTEM_PROMPT,
     maxTokens: 16000,
     toolName: 'emit_flights',
-    quotaWeight: scanQuotaWeight(),   // premium: en coin räcker till dubbelt så många tokens vid skanning (som proxyn)
     toolDescription: 'Returnera alla extraherade flygningsrader från loggbokssidan',
     inputSchema: OCR_TOOL_SCHEMA,
     userContent: [

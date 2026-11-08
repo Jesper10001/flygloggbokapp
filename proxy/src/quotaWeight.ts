@@ -1,13 +1,12 @@
-// Hur mycket ett anrop drar från användarens Blade coins (1 coin = 200 tokens). Skanning av loggbok får
-// dubbelt så många tokens per coin som andra funktioner för PREMIUM och MAX: ett uppslag är stort (bild + långt svar),
-// och en betalande användare ska kunna skanna en hel bok. Gratisnivån betalar full taxa — den har inte
-// betalat något, så den lägre taxan skulle bara öka kostnaden.
+// Hur mycket ett anrop drar från användarens Blade coins (1 coin = 200 tokens). Skanning av loggbok gav tidigare
+// Premium och Max halva taxan (0.5); sedan 2026-11-08 betalar alla full taxa även vid skanning, så vikten är 1.
+// Igenkänningen nedan ligger kvar så att en skanningstaxa kan slås på igen genom att ändra SCAN_QUOTA_WEIGHT.
 //
-// Skanningen känns igen på själva anropet, inte på en header från appen, så att den lägre taxan inte kan
+// Skanningen känns igen på själva anropet, inte på en header från appen, så att en lägre taxa inte kan
 // användas för annat: verktyget emit_flights är tvingat (tool_choice), det är det enda verktyget, anropet
 // innehåller en bild och svaret har ett tak. Svaret måste då följa skanningens schema.
 
-export const SCAN_QUOTA_WEIGHT = 0.5;
+export const SCAN_QUOTA_WEIGHT = 1;
 const SCAN_TOOL = 'emit_flights';
 const SCAN_MAX_TOKENS = 16000;
 

@@ -470,7 +470,7 @@ export async function callAnthropicJsonStream<T = any>(
 
 export interface ToolCallOptions extends CallAnthropicOptions {
   toolName: string;                      // verktygets namn (t.ex. 'emit_flights')
-  quotaWeight?: number;                  // andel av tokens som dras från kvoten (skanning 0.5, som proxyn)
+  quotaWeight?: number;                  // andel av tokens som dras från kvoten (som proxyns quotaWeight; i dag 1 för allt)
   inputSchema: Record<string, any>;      // JSON-schema för verktygets input (top-level type:'object')
   toolDescription?: string;
 }
