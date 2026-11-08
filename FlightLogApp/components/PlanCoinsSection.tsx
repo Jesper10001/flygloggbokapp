@@ -1,9 +1,11 @@
 // Abonnemang och Blade coins. SubscriptionPanel ligger på profilsidan (app/settings/profile.tsx).
 // UpgradeCard direkt under Profile i Settings: alltid nästa nivå uppåt (gratis → Premium, Premium → Max).
-// CoinsCard under den i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): EN mätare för månadens och köpta coins. Månadens ligger först och går åt först; köpta (vita) ligger
-// efter och används när månadens är slut, som proxyn drar dem (proxy/src/credits.ts splitCharge).
+// CoinsCard under den i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): en lugn rad med
+// myntet i en ring. Månadens (guld) ligger först och går åt först; köpta (sidans accent) ligger efter och används
+// när månadens är slut, som proxyn drar dem (proxy/src/credits.ts splitCharge). Tryck på raden = detaljerna.
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, LayoutAnimation } from 'react-native';
+import Svg, { Circle, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFlightStore } from '../store/flightStore';
@@ -25,7 +27,6 @@ export interface PlanTheme {
 }
 
 const COIN = require('../assets/Blade_coin.PNG');
-const EXTRA = 'rgba(255,255,255,0.86)';
 const TRACK = '#1A2D45';
 const WARN = '#FFB830';
 const GOLD = '#FFB830';
@@ -111,9 +112,12 @@ function PanelRow({ label, value, onPress }: { label: string; value?: string; on
   );
 }
 
+const RING = 56, RING_R = 26.5, RING_C = 2 * Math.PI * RING_R;
+
 export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
   const usage = useTokenQuotaStore((s) => s.usage);
   const { isPremium, isMax } = useFlightStore();
+  const [open, setOpen] = useState(false);
   if (!usage) return null;
   const limit = tokensToCoins(usage.limit);
   const monthLeft = Math.max(0, limit - tokensToCoins(usage.used));
@@ -125,42 +129,88 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
   const canBuy = (isPremium || isMax) && coinShopAvailable();
   const now = new Date();
   const refill = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Ringen: månadens båge från toppen medurs, köpta direkt efter med ett litet glapp.
+  const mLen = (monthLeft / scale) * RING_C;
+  const gap = monthLeft > 0 && extra > 0 ? 6 : 0;
+  const bLen = Math.max(0, (extra / scale) * RING_C - gap);
+  const subline = isFree ? 'one-time' : low ? 'running low' : `refills ${refill}`;
+  const toggle = () => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setOpen((o) => !o); };
   return (
-    <View style={[st.card, st.coins, { backgroundColor: T.card, borderColor: T.border }]}>
-      <View style={st.top}>
-        <Image source={COIN} style={{ width: 18, height: 18 }} resizeMode="contain" />
-        <Text style={[st.label, { color: T.label, flex: 0 }]}>Blade coins</Text>
-        <TouchableOpacity onPress={onInfo} hitSlop={8} activeOpacity={0.7} accessibilityLabel="About Blade coins">
-          <Ionicons name="help-circle-outline" size={15} color={T.label} />
+    <View style={[st.card, { backgroundColor: T.card, borderColor: low ? WARN + '73' : T.border }]}>
+      <View style={st.coinRow}>
+        <TouchableOpacity style={st.coinMain} onPress={toggle} activeOpacity={0.7} accessibilityRole="button"
+          accessibilityState={{ expanded: open }} accessibilityLabel={`Blade coins, ${total} left`}>
+          <View style={st.ring}>
+            <Image source={COIN} style={st.ringCoin} resizeMode="contain" />
+            <Svg width={RING} height={RING} style={StyleSheet.absoluteFill}>
+              <G rotation={-90} origin={`${RING / 2}, ${RING / 2}`}>
+                <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={TRACK} strokeWidth={3} />
+                {monthLeft > 0 && (
+                  <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={GOLD} strokeWidth={3} strokeLinecap="round"
+                    strokeDasharray={`${mLen} ${RING_C}`} />
+                )}
+                {bLen > 0 && (
+                  <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={T.accent} strokeWidth={3} strokeLinecap="round"
+                    strokeDasharray={`${bLen} ${RING_C}`} strokeDashoffset={-(mLen + gap)} />
+                )}
+              </G>
+            </Svg>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+            <Text style={[st.label, { color: T.label, flex: 0 }]}>Blade coins</Text>
+            <Text style={[st.coinLine, { color: T.text }]} numberOfLines={1}>
+              <Text style={{ color: total <= 0 ? T.label : low ? WARN : T.text, fontVariant: ['tabular-nums'] }}>{total.toLocaleString('en-US')}</Text>
+              {' left'}
+              <Text style={{ color: T.label, fontWeight: '400' }}>{` · ${subline}`}</Text>
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={T.accent} style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <Text style={[st.count, { color: total <= 0 ? T.label : low ? WARN : T.text }]}>{total.toLocaleString('en-US')}</Text>
         {canBuy && (
-          <TouchableOpacity onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} hitSlop={10}
-            accessibilityLabel="Buy more Blade coins">
-            <Ionicons name="add-circle-outline" size={18} color={T.label} />
+          <TouchableOpacity style={[st.buyBtn, { borderColor: T.accent + '73', backgroundColor: T.accent + '1A' }]}
+            onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} accessibilityLabel="Buy more Blade coins">
+            <Ionicons name="add" size={20} color={T.accent} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Fyllt = kvar. Månadens först (accent), köpta efter (vit), så det är månadens som krymper först. */}
-      <View style={[st.track, { backgroundColor: TRACK }]}>
-        {monthLeft > 0 && <View style={[st.seg, { width: `${(monthLeft / scale) * 100}%`, backgroundColor: T.accent }]} />}
-        {extra > 0 && <View style={[st.seg, { width: `${(extra / scale) * 100}%`, backgroundColor: EXTRA, marginLeft: monthLeft > 0 ? 2 : 0 }]} />}
-      </View>
-
-      <View style={st.legend}>
-        <View style={[st.dot, { backgroundColor: T.accent }]} />
-        <Text style={[st.cap, { color: T.label }]}>{monthLeft.toLocaleString('en-US')} {isFree ? 'free' : 'this month'}</Text>
-        {extra > 0 && (
-          <>
-            <View style={[st.dot, { backgroundColor: EXTRA, marginLeft: 12 }]} />
-            <Text style={[st.cap, { color: T.label }]}>{extra.toLocaleString('en-US')} extra</Text>
-          </>
-        )}
-        <View style={{ flex: 1 }} />
-        <Text style={[st.cap, { color: T.label }]}>{isFree ? 'One-time' : `Refills ${refill}`}</Text>
-      </View>
+      {open && (
+        <View style={[st.detail, { borderTopColor: T.border }]}>
+          <View>
+            <View style={st.detailRow}>
+              <View style={[st.dot, { backgroundColor: GOLD }]} />
+              <Text style={[st.detailName, { color: T.text }]}>{isFree ? 'Free coins' : 'Monthly'}</Text>
+              <Text style={[st.detailVal, { color: T.text }]}>
+                {monthLeft.toLocaleString('en-US')}<Text style={{ color: T.label, fontWeight: '400' }}>{` of ${limit.toLocaleString('en-US')}`}</Text>
+              </Text>
+            </View>
+            <Text style={[st.detailFoot, { color: T.label }]}>
+              {isFree ? 'One-time. Premium gives 250 a month.' : `Used first. Refills ${refill}.`}
+            </Text>
+          </View>
+          {!isFree && (
+            <View>
+              <View style={st.detailRow}>
+                <View style={[st.dot, { backgroundColor: T.accent }]} />
+                <Text style={[st.detailName, { color: T.text }]}>Bought</Text>
+                <Text style={[st.detailVal, { color: T.text }]}>{extra.toLocaleString('en-US')}</Text>
+              </View>
+              <Text style={[st.detailFoot, { color: T.label }]}>Used when monthly coins run out</Text>
+            </View>
+          )}
+          <View style={st.detailBtns}>
+            {canBuy && (
+              <TouchableOpacity style={[st.detailBtn, { backgroundColor: T.accent, borderColor: T.accent }]} activeOpacity={0.8}
+                onPress={() => openCoinShop({ reason: 'browse' })} accessibilityRole="button">
+                <Text style={[st.detailBtnText, { color: Colors.textInverse, fontWeight: '800' }]}>Buy coins</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[st.detailBtn, { borderColor: T.border }]} activeOpacity={0.7} onPress={onInfo} accessibilityRole="button">
+              <Text style={[st.detailBtnText, { color: T.text }]}>How coins work</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -192,12 +242,20 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   ctaText: { fontSize: 15, fontWeight: '800', color: Colors.textInverse },
-  coins: { paddingHorizontal: 18, paddingTop: 15, paddingBottom: 14, gap: 11 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  count: { fontFamily: 'Menlo', fontSize: 15, fontWeight: '700' },
-  track: { height: 6, borderRadius: 3, flexDirection: 'row', overflow: 'hidden' },
-  seg: { height: '100%', borderRadius: 3, minWidth: 3 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  cap: { fontSize: 12 },
+  coinRow: { flexDirection: 'row', alignItems: 'center' },
+  coinMain: { flex: 1, minWidth: 0, height: 76, flexDirection: 'row', alignItems: 'center', gap: 13, paddingLeft: 12, paddingRight: 8 },
+  ring: { width: RING, height: RING },
+  // Myntet fyller nästan hela bilden → 50 pt inuti en 56 pt-ring ger ringen tätt intill kanten.
+  ringCoin: { position: 'absolute', left: 3.5, top: 3.5, width: 50, height: 50 },
+  coinLine: { fontSize: 15, fontWeight: '600' },
+  buyBtn: { width: 44, height: 44, marginRight: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  detail: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 10 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  detailName: { flex: 1, fontSize: 14 },
+  detailVal: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  detailFoot: { fontSize: 12, marginTop: 3, marginLeft: 18 },
+  detailBtns: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  detailBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  detailBtnText: { fontSize: 15, fontWeight: '600' },
 });
