@@ -23,6 +23,8 @@ import type { Flight } from '../types/flight';
 
 const WINDOW_MS = 30 * 60 * 1000;           // ±30 min: kandidaterna när man byter bild på flygningens sida
 const LAST_SYNC_KEY = 'last_photo_sync';
+// Högsta flygnings-id vid senaste synken: nästa synk letar bara runt flygningar som tillkommit efter den.
+const SYNCED_ID_KEY = 'photo_sync_max_flight_id';
 const WINDOW_KEY = 'photo_album_window';
 const PAGE = 500;
 
@@ -43,6 +45,28 @@ function ctMs(a: ML.Asset): number {
 function flightInterval(f: Flight): { dep: number; arr: number } | null {
   const inst = buildInstants(f.date, f.dep_utc, f.arr_utc, 0);
   return inst ? { dep: inst.dep.getTime(), arr: inst.arr.getTime() } : null;
+}
+
+function flightCreatedMs(f: Flight): number {
+  const d = new Date(((f.created_at as any) || '').replace(' ', 'T') + 'Z');
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+/**
+ * Vilka flygningar har redan synkats? Efter en synk: de med id upp till det högsta id:t då. Synkat med albumet
+ * innan id:t sparades (fönstret valt): de som skapades före den synken. Aldrig synkat med albumet (även efter den
+ * gamla granskningen, som bara kopplade en bild per flygning): inga — då läses alla flygningar.
+ */
+async function syncedFilter(): Promise<((f: Flight) => boolean) | null> {
+  const maxId = parseInt((await getSetting(SYNCED_ID_KEY)) || '', 10);
+  if (Number.isFinite(maxId)) return (f) => f.id <= maxId;
+  const last = parseInt((await getSetting(LAST_SYNC_KEY)) || '0', 10) || 0;
+  if (last && (await getSetting(WINDOW_KEY))) return (f) => { const c = flightCreatedMs(f); return c > 0 && c <= last; };
+  return null;
+}
+/** Har albumet synkats förut? Då letar synken bara runt nya flygningar och lägger till dem direkt. */
+export async function hasSyncedBefore(): Promise<boolean> {
+  return (await syncedFilter()) !== null;
 }
 
 function mapPerm(res: ML.PermissionResponse): PhotoPermission {
@@ -82,10 +106,19 @@ async function assetsInWindow(afterMs: number, beforeMs: number): Promise<ML.Ass
   return out;
 }
 
-/** Synken kan alltid köras när modulen finns: den hittar nya bilder även för flygningar som redan har bilder. */
+/** Finns det något att synka? Ja om albumet aldrig synkats, eller om det finns flygningar med tider som tillkommit
+ *  efter senaste synken. Styr "Up to date" på dashboardens Sync-knapp och knappen i albumet. */
 export async function hasPendingSync(): Promise<boolean> {
-  return ml() !== null;
+  if (!ml()) return false;
+  const synced = await syncedFilter();
+  const flights = await getFlights(100000);
+  return flights.some((f) => !!flightInterval(f) && (!synced || !synced(f)));
 }
+
+// Beskedet albumet visar när synken öppnats därifrån och gått tillbaka (router.back kan inte bära parametrar).
+let albumToast: string | null = null;
+export function setAlbumToast(text: string): void { albumToast = text; }
+export function takeAlbumToast(): string | null { const t = albumToast; albumToast = null; return t; }
 /** Den gamla granskningen flygning för flygning finns inte längre (allt läggs till på en gång). */
 export async function hasUnfinishedReview(): Promise<boolean> {
   return false;
@@ -102,29 +135,50 @@ export async function setPhotoWindow(w: PhotoWindow): Promise<void> {
 // ── Svepet ──────────────────────────────────────────────────────────────────────────────
 export interface ScanProgress { read: number; total: number | null; flights: number; fraction: number }
 
+export interface ScanResult {
+  read: number;          // bilder lästa ur biblioteket
+  added: number;         // nya bilder i albumet
+  flights: number;       // flygningar med bilder i närheten (visas under läsningen)
+  newFlights: number;    // flygningar som tillkommit sedan förra synken (alla vid första synken)
+  flightsAdded: number;  // flygningar som fick nya bilder
+}
+
 /**
- * Läser biblioteket en gång och lägger till varje ny bild inom 15 minuter från en flygning. Ligger flygningarna
- * tätt (eller är biblioteket litet) läses hela tidsspannet i ett svep; annars bara fönstren runt flygningarna.
- * Bilder som redan hör till en flygning (även borttagna ur albumet) läggs aldrig till igen.
+ * Läser biblioteket en gång och lägger till varje ny bild inom 15 minuter från en flygning. Efter första synken
+ * letar den bara runt flygningar som tillkommit sedan förra synken (syncedFilter). Ligger flygningarna tätt (eller
+ * är biblioteket litet) läses hela tidsspannet i ett svep; annars bara fönstren runt flygningarna. Bilder som
+ * redan hör till en flygning (även borttagna ur albumet) läggs aldrig till igen.
  */
 export async function scanLibrary(
   onProgress?: (p: ScanProgress) => void,
   shouldStop?: () => boolean,
-): Promise<{ read: number; added: number; flights: number }> {
+): Promise<ScanResult> {
   const M = ml();
-  if (!M) return { read: 0, added: 0, flights: 0 };
+  if (!M) return { read: 0, added: 0, flights: 0, newFlights: 0, flightsAdded: 0 };
   await seedCoverPhotos();
   const PAD = MAX_WINDOW_MIN * 60000;
-  const flights = (await getFlights(100000))
+  const all = await getFlights(100000);
+  const maxId = all.reduce((m, f) => Math.max(m, f.id), 0);
+  const synced = await syncedFilter();
+  const isNew = (f: Flight) => !synced || !synced(f);
+  const newFlights = all.filter(isNew).length;
+  // Alla flygningar med tider (en bild går till den närmaste, även om den är gammal) — men bara runt de nya letas det.
+  const flights = all
     .map((f) => ({ f, iv: flightInterval(f) }))
     .filter((x): x is { f: Flight; iv: { dep: number; arr: number } } => !!x.iv && x.iv.arr >= x.iv.dep)
     .sort((a, b) => a.iv.dep - b.iv.dep);
-  const near = await getFlightIdsWithAlbumPhotos();
-  if (!flights.length) return { read: 0, added: 0, flights: near.size };
+  const targets = flights.filter((x) => isNew(x.f));
+  const targetIds = new Set(targets.map((x) => x.f.id));
+  const near = synced ? new Set<number>() : await getFlightIdsWithAlbumPhotos();
+  const markDone = async () => {
+    await setSetting(SYNCED_ID_KEY, String(maxId));
+    await setSetting(LAST_SYNC_KEY, String(Date.now()));
+  };
+  if (!targets.length) { await markDone(); return { read: 0, added: 0, flights: 0, newFlights, flightsAdded: 0 }; }
 
-  // Sammanslagna sökfönster runt flygningarna.
+  // Sammanslagna sökfönster runt de nya flygningarna.
   const ranges: [number, number][] = [];
-  for (const { iv } of flights) {
+  for (const { iv } of targets) {
     // En minut extra åt båda hållen: biblioteket räknar gränserna som exklusiva (matchningen nedan avgör de 15 minuterna).
     const lo = iv.dep - PAD - 60000, hi = iv.arr + PAD + 60000;
     const last = ranges[ranges.length - 1];
@@ -173,7 +227,7 @@ export async function scanLibrary(
         if (known.has(a.id)) continue;
         const t = ctMs(a);
         const f = match(t);
-        if (!f) continue;
+        if (!f || !targetIds.has(f.id)) continue; // ligger närmare en redan synkad flygning
         known.add(a.id);
         near.add(f.id);
         rows.push({ flightId: f.id, localId: a.id, takenAt: t, isVideo: a.mediaType === 'video', duration: a.duration || 0 });
@@ -188,10 +242,10 @@ export async function scanLibrary(
     if (shouldStop?.()) break;
     await Promise.all(work.slice(i, i + 4).map(async ([lo, hi]) => { await readRange(lo, hi); rangesDone++; report(); }));
   }
-  if (shouldStop?.()) return { read, added: 0, flights: near.size };
+  if (shouldStop?.()) return { read, added: 0, flights: near.size, newFlights, flightsAdded: 0 };
   await insertFlightPhotos(rows);
-  await setSetting(LAST_SYNC_KEY, String(Date.now()));
-  return { read, added: rows.length, flights: near.size };
+  await markDone();
+  return { read, added: rows.length, flights: near.size, newFlights, flightsAdded: new Set(rows.map((r) => r.flightId)).size };
 }
 
 // ── Albumet ─────────────────────────────────────────────────────────────────────────────
@@ -273,14 +327,17 @@ export function coverOf(af: AlbumFlight, visible: AlbumPhoto[]): AlbumPhoto | nu
 }
 
 /**
- * Flygningar med bilder men inget omslag får det automatiska (dashboarden, loggboken och delningen visar det). En
- * flygning med en bild som lagts till för hand har den som omslag och rörs inte.
+ * Varje flygning med bilder får ett omslag utan att man behöver välja (dashboarden, loggboken och delningen visar
+ * det): saknas omslaget, eller finns det inte kvar i albumet (borttaget), väljs det automatiska — har flygningen
+ * bara en bild eller video blir det den. En flygning med en bild som lagts till för hand har den som omslag.
  */
 export async function assignCovers(w: PhotoWindow): Promise<void> {
   for (const af of await loadAlbum()) {
-    if (af.flight.photo_local_id || af.flight.photo_uri) continue;
+    if (af.flight.photo_uri) continue;
+    const cur = af.flight.photo_local_id;
+    if (cur && af.photos.some((p) => p.localId === cur)) continue;
     const vis = visiblePhotos(af, w).filter((p) => p.localId);
-    const c = coverOf(af, vis);
+    const c = coverOf({ ...af, flight: { ...af.flight, photo_local_id: null } }, vis);
     if (c?.localId) await setFlightPhotoLocalId(af.flight.id, c.localId, c.isVideo ? 'video' : 'image');
   }
 }

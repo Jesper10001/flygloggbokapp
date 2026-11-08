@@ -1,6 +1,8 @@
 // Flygalbumets synk (piloten, rutten /photo-sync): ett svep genom fotobiblioteket, sedan tidsfönstret — hur långt
 // före start och efter landning en bild räknas — med antalet bilder direkt, och allt läggs till på en gång.
-// Från albumet (?window=1) öppnas bara fönstret (inget nytt svep). Logiken: services/photoSync, utils/photoWindow.
+// Har albumet synkats förut letar synken bara runt flygningar som tillkommit sedan dess och lägger till dem direkt
+// med det sparade fönstret (ingen fönsterskärm). ?window=1 (albumets fönsterknapp): bara fönstret, inget svep.
+// ?from=album: tillbaka till albumet med beskedet (setAlbumToast). Logiken: services/photoSync, utils/photoWindow.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Pressable, Switch, Linking, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -14,6 +16,7 @@ import { AssetImage } from './AssetImage';
 import { useFlightStore } from '../../store/flightStore';
 import {
   getPhotoPermissionStatus, requestPhotoPermission, scanLibrary, loadAlbum, getPhotoWindow, setPhotoWindow, assignCovers, notifyAlbumChanged,
+  hasSyncedBefore, setAlbumToast,
   type PhotoPermission, type ScanProgress, type AlbumFlight,
 } from '../../services/photoSync';
 import {
@@ -23,12 +26,15 @@ import {
 const LIGHT = '#7FDCEF';   // med, före start / efter landning
 const DIM = '#22344F';     // utanför fönstret
 const fmt = (n: number) => n.toLocaleString('en-US');
+const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
 
 export function AlbumSync() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const fromAlbum = useLocalSearchParams<{ window?: string }>().window === '1';
+  const params = useLocalSearchParams<{ window?: string; from?: string }>();
+  const fromAlbum = params.window === '1';
+  const backToAlbum = fromAlbum || params.from === 'album';
   const [phase, setPhase] = useState<'checking' | 'perm' | 'reading' | 'window'>('checking');
   const [perm, setPerm] = useState<PhotoPermission>('undetermined');
   const [prog, setProg] = useState<ScanProgress>({ read: 0, total: null, flights: 0, fraction: 0 });
@@ -47,10 +53,23 @@ export function AlbumSync() {
       setPerm(p);
       if (fromAlbum) { setAlbum(await loadAlbum()); setPhase('window'); return; }
       if (p !== 'full' && p !== 'limited') { setPhase('perm'); return; }
+      const again = await hasSyncedBefore();
       setPhase('reading');
       try {
         const r = await scanLibrary(setProg, () => stop.current);
         if (stop.current) return;
+        if (again) {
+          // Bara nya flygningar: fönstret är redan valt → lägg till direkt och visa vad som hände.
+          await assignCovers(await getPhotoWindow()).catch(() => {});
+          useFlightStore.getState().loadFlights?.();
+          notifyAlbumChanged();
+          finish(r.newFlights === 0
+            ? 'Up to date. No new flights since your last sync.'
+            : r.added
+              ? `${plural(r.added, 'new photo', 'new photos')} added to ${plural(r.flightsAdded, 'flight', 'flights')}.`
+              : `No photos found near your ${plural(r.newFlights, 'new flight', 'new flights')}.`);
+          return;
+        }
         setAdded(r.added);
         setAlbum(await loadAlbum());
         setPhase('window');
@@ -59,6 +78,12 @@ export function AlbumSync() {
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Klart: till albumet med beskedet. Öppnad från albumet → tillbaka dit (annars hamnar två album på varandra).
+  const finish = (toast: string | null) => {
+    if (backToAlbum) { if (toast) setAlbumToast(toast); router.back(); return; }
+    router.replace({ pathname: '/settings/album', params: toast ? { toast } : {} } as any);
+  };
 
   // Bilderna ur biblioteket (inte de som lagts till för hand) med var de ligger i förhållande till flygningen.
   const items: WindowItem[] = useMemo(() => album.flatMap((af) => af.photos.filter((p) => p.localId).map((p) => ({
@@ -82,11 +107,7 @@ export function AlbumSync() {
     useFlightStore.getState().loadFlights?.();
     notifyAlbumChanged();
     if (fromAlbum) { router.back(); return; }
-    const first = added > 0 && added >= items.length;
-    const toast = first
-      ? `${fmt(stats.photos)} photos added to ${fmt(stats.flights)} flights.`
-      : added > 0 ? `${fmt(added)} new photos found.` : 'No new photos found.';
-    router.replace({ pathname: '/settings/album', params: { toast } } as any);
+    finish(`${plural(stats.photos, 'photo', 'photos')} added to ${plural(stats.flights, 'flight', 'flights')}.`);
   };
 
   if (phase === 'checking') {

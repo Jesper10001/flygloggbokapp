@@ -20,7 +20,8 @@ import { setFlightPhotosRemoved, setFlightManualPhoto } from '../../db/flightPho
 import { useFlightStore } from '../../store/flightStore';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import {
-  loadAlbum, visiblePhotos, coverOf, getPhotoWindow, getAssetDisplay, notifyAlbumChanged, type AlbumFlight, type AlbumPhoto,
+  loadAlbum, visiblePhotos, coverOf, getPhotoWindow, getAssetDisplay, notifyAlbumChanged, assignCovers, hasPendingSync,
+  takeAlbumToast, type AlbumFlight, type AlbumPhoto,
 } from '../../services/photoSync';
 import { DEFAULT_WINDOW, windowLabel, type PhotoWindow } from '../../utils/photoWindow';
 import type { Flight } from '../../types/flight';
@@ -54,21 +55,37 @@ export default function AlbumScreen() {
   const [share, setShare] = useState<{ flight: Flight; uri: string } | null>(null);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
-
-  const reload = useCallback(async () => {
-    const [a, ww] = await Promise.all([loadAlbum().catch(() => [] as AlbumFlight[]), getPhotoWindow()]);
-    setAlbum(a);
-    setW(ww);
-    const icaos = a.flatMap((x) => [x.flight.dep_place, x.flight.arr_place]).filter(Boolean);
-    if (icaos.length) batchPlaceNames(icaos).then(setPlaceNames).catch(() => {});
-  }, []);
-  useFocusEffect(useCallback(() => { reload(); }, [reload]));
+  const [pending, setPending] = useState(true); // finns nya flygningar sedan förra synken?
 
   const showToast = useCallback((text: string, undo?: () => void) => {
     const id = Date.now();
     setToast({ id, text, undo });
     setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 4500);
   }, []);
+
+  const reload = useCallback(async () => {
+    let [a, ww] = await Promise.all([loadAlbum().catch(() => [] as AlbumFlight[]), getPhotoWindow()]);
+    // En flygning med bilder men utan giltigt omslag (t.ex. från en äldre synk) får det automatiska direkt.
+    const lacksCover = a.some((af) => !af.flight.photo_uri && visiblePhotos(af, ww).some((p) => p.localId)
+      && !(af.flight.photo_local_id && af.photos.some((p) => p.localId === af.flight.photo_local_id)));
+    if (lacksCover) {
+      await assignCovers(ww).catch(() => {});
+      a = await loadAlbum().catch(() => a);
+      useFlightStore.getState().loadFlights?.();
+      notifyAlbumChanged();
+    }
+    setAlbum(a);
+    setW(ww);
+    hasPendingSync().then(setPending).catch(() => {});
+    const icaos = a.flatMap((x) => [x.flight.dep_place, x.flight.arr_place]).filter(Boolean);
+    if (icaos.length) batchPlaceNames(icaos).then(setPlaceNames).catch(() => {});
+  }, []);
+  useFocusEffect(useCallback(() => {
+    reload();
+    const t = takeAlbumToast(); // beskedet från en synk som öppnades härifrån
+    if (t) showToast(t);
+  }, [reload])); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => { if (params.toast) showToast(String(params.toast)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown: Shown[] = useMemo(() => (album ?? []).map((af) => {
@@ -105,7 +122,17 @@ export default function AlbumScreen() {
   const viewerItem = viewer ? shown.find((x) => x.af.flight.id === viewer.flightId) ?? null : null;
 
   // ── Ändringar ─────────────────────────────────────────────────────────────
-  const afterChange = async () => { await reload(); useFlightStore.getState().loadFlights?.(); notifyAlbumChanged(); };
+  // Efter en ändring: varje flygning med bilder har ett omslag (en enda bild blir det automatiskt), sedan läses allt om.
+  const afterChange = async () => {
+    await assignCovers(w).catch(() => {});
+    await reload();
+    useFlightStore.getState().loadFlights?.();
+    notifyAlbumChanged();
+  };
+  const sync = () => {
+    if (pending) router.push('/photo-sync?from=album' as any);
+    else showToast('Up to date. No new flights since your last sync.');
+  };
 
   const removePhotos = async (x: Shown, ps: AlbumPhoto[]) => {
     const f = x.af.flight;
@@ -219,7 +246,7 @@ export default function AlbumScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={s.title}>Flight album</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity style={s.round} onPress={() => router.push('/photo-sync' as any)} accessibilityLabel="Sync new photos">
+          <TouchableOpacity style={s.round} onPress={sync} accessibilityLabel="Sync photos for new flights">
             <Ionicons name="sync" size={19} color="#CFE0EE" />
           </TouchableOpacity>
           <TouchableOpacity style={s.round} onPress={() => router.back()} accessibilityLabel="Close">
@@ -278,7 +305,7 @@ export default function AlbumScreen() {
           Blades reads when each photo in your library was taken and puts it with the flight it belongs to. Your photos stay in Photos. Nothing is copied or uploaded.
         </Text>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity style={s.primary} onPress={() => router.push('/photo-sync' as any)} activeOpacity={0.85}>
+        <TouchableOpacity style={s.primary} onPress={() => router.push('/photo-sync?from=album' as any)} activeOpacity={0.85}>
           <Text style={{ fontSize: 17, fontWeight: '800', color: Colors.textInverse }}>Sync from Photos</Text>
         </TouchableOpacity>
       </View>
