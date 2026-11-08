@@ -57,11 +57,13 @@ export default function ProfileScreen() {
     }
   };
   // Abonnemanget öppnar RevenueCats fönster, som inte syns ovanpå en modal: spara det man skrivit, stäng
-  // profilsidan och vänta tills den gått ned innan fönstret visas.
+  // profilsidan och vänta tills den gått ned innan fönstret visas. Visas det medan modalen fortfarande glider
+  // ned vägrar iOS tyst (och RevenueCats promise svarar aldrig): 450 ms räckte inte för Upgrade to Max, därför
+  // 850 ms (stängningen startar först en bit efter router.back() och tar själv ~0,5 s).
   const closeForSubscription = async () => {
     await writeProfile().catch(() => {});
     router.back();
-    await new Promise((r) => setTimeout(r, 450));
+    await new Promise((r) => setTimeout(r, 850));
   };
 
   const handleSave = async () => {

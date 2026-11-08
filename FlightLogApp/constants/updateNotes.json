@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 42,
+      "date": "2026-11-08",
+      "notes": [
+        "Fixed: Upgrade to Max on your profile now opens the upgrade screen instead of just closing the profile."
+      ]
+    },
+    {
       "id": 41,
       "date": "2026-11-08",
       "notes": [
