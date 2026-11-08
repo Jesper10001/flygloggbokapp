@@ -20,7 +20,7 @@ import { setFlightPhotosRemoved, setFlightManualPhoto } from '../../db/flightPho
 import { useFlightStore } from '../../store/flightStore';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import {
-  loadAlbum, visiblePhotos, coverOf, getPhotoWindow, getAssetDisplay, type AlbumFlight, type AlbumPhoto,
+  loadAlbum, visiblePhotos, coverOf, getPhotoWindow, getAssetDisplay, notifyAlbumChanged, type AlbumFlight, type AlbumPhoto,
 } from '../../services/photoSync';
 import { DEFAULT_WINDOW, windowLabel, type PhotoWindow } from '../../utils/photoWindow';
 import type { Flight } from '../../types/flight';
@@ -105,7 +105,7 @@ export default function AlbumScreen() {
   const viewerItem = viewer ? shown.find((x) => x.af.flight.id === viewer.flightId) ?? null : null;
 
   // ── Ändringar ─────────────────────────────────────────────────────────────
-  const afterChange = async () => { await reload(); useFlightStore.getState().loadFlights?.(); };
+  const afterChange = async () => { await reload(); useFlightStore.getState().loadFlights?.(); notifyAlbumChanged(); };
 
   const removePhotos = async (x: Shown, ps: AlbumPhoto[]) => {
     const f = x.af.flight;

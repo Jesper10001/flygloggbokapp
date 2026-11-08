@@ -13,7 +13,7 @@ import { AppBackground } from '../AppBackground';
 import { AssetImage } from './AssetImage';
 import { useFlightStore } from '../../store/flightStore';
 import {
-  getPhotoPermissionStatus, requestPhotoPermission, scanLibrary, loadAlbum, getPhotoWindow, setPhotoWindow, assignCovers,
+  getPhotoPermissionStatus, requestPhotoPermission, scanLibrary, loadAlbum, getPhotoWindow, setPhotoWindow, assignCovers, notifyAlbumChanged,
   type PhotoPermission, type ScanProgress, type AlbumFlight,
 } from '../../services/photoSync';
 import {
@@ -80,6 +80,7 @@ export function AlbumSync() {
     await setPhotoWindow(w);
     await assignCovers(w).catch(() => {});
     useFlightStore.getState().loadFlights?.();
+    notifyAlbumChanged();
     if (fromAlbum) { router.back(); return; }
     const first = added > 0 && added >= items.length;
     const toast = first

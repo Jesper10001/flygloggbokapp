@@ -35,8 +35,8 @@ import { LatestFlightCard } from '../../components/logbook-page/LatestFlightCard
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
-import { getStressHours, getStressDaily, getSetting, getFlightsWithPhotos, updateFlightNight } from '../../db/flights';
-import { hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/photoSync';
+import { getStressHours, getStressDaily, getSetting, updateFlightNight } from '../../db/flights';
+import { hasPendingSync, hasUnfinishedReview, latestAlbumCovers, onAlbumChanged } from '../../services/photoSync';
 import { useVersionStore } from '../../store/versionStore';
 import { usePendingPlaceStore } from '../../store/pendingPlaceStore';
 import { useNightUpdateStore } from '../../store/nightUpdateStore';
@@ -388,24 +388,14 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
   const SIDE_PAD = 0;
 
   const reload = useCallback(() => {
-    // Senaste media (uppladdade photo_uri ELLER synkade photo_local_id), nyast först, max 10.
-    (async () => {
-      const f = await getFlightsWithPhotos().catch(() => [] as Flight[]);
-      const out: { flight: Flight; uri: string; isVideo: boolean }[] = [];
-      for (const fl of f) {
-        if (out.length >= 10) break;
-        if (fl.photo_uri) out.push({ flight: fl, uri: fl.photo_uri, isVideo: fl.media_type === 'video' });
-        else if (fl.photo_local_id) {
-          const d = await getAssetDisplay(fl.photo_local_id).catch(() => null);
-          if (d?.uri) out.push({ flight: fl, uri: d.uri, isVideo: d.isVideo });
-        }
-      }
-      setMedia(out);
-    })();
+    // Omslaget för de senaste 10 flygningarna med bilder i flygalbumet, nyast först (samma omslag som albumet visar;
+    // services/photoSync latestAlbumCovers). Förut lästes bara flygningens egen bild, en i taget med nedladdning.
+    latestAlbumCovers(10).then(setMedia).catch(() => {});
     hasPendingSync().then(setCanSync).catch(() => setCanSync(false));
     hasUnfinishedReview().then(setResumeReview).catch(() => setResumeReview(false));
   }, []);
   useEffect(() => { reload(); }, [flightCount, reload]);
+  useEffect(() => onAlbumChanged(reload), [reload]); // synk, borttaget eller nytt omslag → läs om direkt
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
   const hasFlight = media.length > 0;

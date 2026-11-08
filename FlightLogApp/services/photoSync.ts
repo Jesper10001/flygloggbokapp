@@ -251,7 +251,7 @@ export async function loadAlbum(): Promise<AlbumFlight[]> {
     photos.sort((a, b) => (a.takenAt ?? Number.MAX_SAFE_INTEGER) - (b.takenAt ?? Number.MAX_SAFE_INTEGER));
     out.push({ flight: f, dep, arr, photos });
   }
-  out.sort((a, b) => (b.dep || 0) - (a.dep || 0) || (b.flight.date || '').localeCompare(a.flight.date || ''));
+  out.sort((a, b) => (b.flight.date || '').localeCompare(a.flight.date || '') || (b.dep || 0) - (a.dep || 0)); // nyast först
   return out;
 }
 
@@ -260,21 +260,62 @@ export function visiblePhotos(af: AlbumFlight, w: PhotoWindow): AlbumPhoto[] {
   return af.photos.filter((p) => p.localId === af.flight.photo_local_id || p.uri || inWindow(p, w));
 }
 
-/** Omslaget: det valda om det syns, annars första bilden i luften, annars första. */
+/**
+ * Omslaget: det valda om det syns, annars bilden som lagts till för hand, annars första stillbilden i luften (en
+ * video bara om det inte finns någon stillbild), annars första bilden.
+ */
 export function coverOf(af: AlbumFlight, visible: AlbumPhoto[]): AlbumPhoto | null {
   return visible.find((p) => p.localId && p.localId === af.flight.photo_local_id)
-    ?? visible.find((p) => p.phase === 'air')
+    ?? visible.find((p) => p.uri)
+    ?? visible.find((p) => p.phase === 'air' && !p.isVideo)
+    ?? visible.find((p) => !p.isVideo)
     ?? visible[0] ?? null;
 }
 
-/** Flygningar som har bilder men inget omslag får det automatiska (dashboarden, loggboken och delningen visar det). */
+/**
+ * Flygningar med bilder men inget omslag får det automatiska (dashboarden, loggboken och delningen visar det). En
+ * flygning med en bild som lagts till för hand har den som omslag och rörs inte.
+ */
 export async function assignCovers(w: PhotoWindow): Promise<void> {
   for (const af of await loadAlbum()) {
-    if (af.flight.photo_local_id) continue;
+    if (af.flight.photo_local_id || af.flight.photo_uri) continue;
     const vis = visiblePhotos(af, w).filter((p) => p.localId);
     const c = coverOf(af, vis);
-    if (c?.localId) await setFlightPhotoLocalId(af.flight.id, c.localId, af.flight.photo_uri ? undefined : c.isVideo ? 'video' : 'image');
+    if (c?.localId) await setFlightPhotoLocalId(af.flight.id, c.localId, c.isVideo ? 'video' : 'image');
   }
+}
+
+// Albumet har ändrats (synk, nytt fönster, borttaget, nytt omslag) → dashboardens bildkarusell läser om direkt.
+const albumListeners = new Set<() => void>();
+export function onAlbumChanged(cb: () => void): () => void {
+  albumListeners.add(cb);
+  return () => { albumListeners.delete(cb); };
+}
+export function notifyAlbumChanged(): void {
+  albumListeners.forEach((cb) => { try { cb(); } catch { /* lyssnaren får inte fälla anroparen */ } });
+}
+
+/**
+ * Dashboardens bildkarusell: omslaget för de senaste flygningarna med bilder i albumet (samma omslag som albumet
+ * visar). Stillbilder läses som filer på telefonen utan nedladdning när det går; en video bara om den är omslaget.
+ */
+export async function latestAlbumCovers(max = 10): Promise<{ flight: Flight; uri: string; isVideo: boolean }[]> {
+  const [album, w] = await Promise.all([loadAlbum(), getPhotoWindow()]);
+  const picks = album
+    .map((af) => ({ af, cover: coverOf(af, visiblePhotos(af, w)) }))
+    .filter((x): x is { af: AlbumFlight; cover: AlbumPhoto } => !!x.cover)
+    .slice(0, max);
+  const out = await Promise.all(picks.map(async ({ af, cover }) => {
+    if (cover.uri) return { flight: af.flight, uri: cover.uri, isVideo: cover.isVideo };
+    if (!cover.localId) return null;
+    if (cover.isVideo) {
+      const d = await getAssetDisplay(cover.localId).catch(() => null);
+      return d ? { flight: af.flight, uri: d.uri, isVideo: d.isVideo } : null;
+    }
+    const uri = await thumbFor(cover.localId, false).catch(() => null);
+    return uri ? { flight: af.flight, uri, isVideo: false } : null;
+  }));
+  return out.filter((x): x is { flight: Flight; uri: string; isVideo: boolean } => !!x);
 }
 
 // ── Miniatyrer ──────────────────────────────────────────────────────────────────────────
