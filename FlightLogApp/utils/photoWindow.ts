@@ -1,15 +1,17 @@
 // Flygalbumets tidsfönster: hur långt före start och efter landning en bild får vara tagen för att räknas till
-// flygningen. Synken sparar alla bilder inom tre timmar (MAX_WINDOW_MIN); fönstret väljer bara vilka som visas,
-// så det kan ändras i efterhand utan att biblioteket läses igen. Bilder tagna i luften räknas alltid.
+// flygningen. Som längst och som standard 15 minuter (MAX_WINDOW_MIN); snävare går att välja. Synken sparar allt
+// inom 15 minuter och fönstret väljer bara vad som visas, så det kan ändras utan att biblioteket läses igen.
+// Bilder tagna i luften räknas alltid.
 
-export const WINDOW_CHOICES = [0, 15, 30, 60, 120, 180];          // minuter
-export const WINDOW_LABELS = ['None', '15 min', '30 min', '1 h', '2 h', '3 h'];
-export const WINDOW_SHORT = ['0 min', '15 min', '30 min', '1 h', '2 h', '3 h'];
+export const WINDOW_CHOICES = [0, 5, 10, 15];          // minuter
+export const WINDOW_LABELS = ['None', '5 min', '10 min', '15 min'];
+export const WINDOW_SHORT = ['0 min', '5 min', '10 min', '15 min'];
 export const MAX_WINDOW_MIN = WINDOW_CHOICES[WINDOW_CHOICES.length - 1];
+export const BUCKETS = WINDOW_CHOICES.length - 1;      // staplar per sida i tidslinjen
 
 /** before/after = index i WINDOW_CHOICES. */
 export interface PhotoWindow { before: number; after: number; videos: boolean }
-export const DEFAULT_WINDOW: PhotoWindow = { before: 2, after: 2, videos: true };
+export const DEFAULT_WINDOW: PhotoWindow = { before: BUCKETS, after: BUCKETS, videos: true };
 
 // unknown: tidpunkten okänd (ett foto kopplat innan albumet fick tider) → visas alltid.
 export type Phase = 'before' | 'air' | 'after' | 'unknown';
@@ -40,15 +42,15 @@ export function inWindow(p: Placement & { isVideo: boolean }, w: PhotoWindow): b
 export interface WindowStats {
   photos: number;     // med i albumet
   flights: number;    // flygningar med minst en bild
-  left: number;       // inom tre timmar men utanför fönstret
+  left: number;       // inom 15 minuter men utanför fönstret
   before: number; air: number; after: number;
-  videos: number;     // videor inom tre timmar (oavsett fönstret)
+  videos: number;     // videor inom 15 minuter (oavsett fönstret)
   // Staplarna i tidslinjen: antal per intervall mellan valen (index 0 = närmast start/landning), och i luften
   // sex lika delar av flygtiden.
   bars: { before: number[]; air: number[]; after: number[] };
 }
 
-/** Bucket för en bild före start/efter landning: 0 = inom 15 min, … 4 = 2–3 h. */
+/** Bucket för en bild före start/efter landning: 0 = inom 5 min, 1 = 5–10 min, 2 = 10–15 min. */
 export function bucketOf(rel: number): number {
   for (let i = 1; i < WINDOW_CHOICES.length; i++) if (rel <= WINDOW_CHOICES[i]) return i - 1;
   return WINDOW_CHOICES.length - 2;
@@ -57,10 +59,12 @@ export function bucketOf(rel: number): number {
 export function windowStats(items: WindowItem[], w: PhotoWindow): WindowStats {
   const s: WindowStats = {
     photos: 0, flights: 0, left: 0, before: 0, air: 0, after: 0, videos: 0,
-    bars: { before: [0, 0, 0, 0, 0], air: [0, 0, 0, 0, 0, 0], after: [0, 0, 0, 0, 0] },
+    bars: { before: new Array(BUCKETS).fill(0), air: [0, 0, 0, 0, 0, 0], after: new Array(BUCKETS).fill(0) },
   };
   const flights = new Set<number>();
   for (const p of items) {
+    // Längre bort än fönstret kan bli (t.ex. sparat när synken letade längre ut): räknas inte alls.
+    if ((p.phase === 'before' || p.phase === 'after') && p.rel > MAX_WINDOW_MIN) continue;
     if (p.isVideo) s.videos++;
     if (!(w.videos || !p.isVideo)) { s.left++; continue; }
     if (p.phase === 'before') s.bars.before[bucketOf(p.rel)]++;

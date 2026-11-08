@@ -17,7 +17,7 @@ import {
   type PhotoPermission, type ScanProgress, type AlbumFlight,
 } from '../../services/photoSync';
 import {
-  WINDOW_LABELS, WINDOW_SHORT, DEFAULT_WINDOW, inWindow, windowStats, type PhotoWindow, type WindowItem,
+  WINDOW_LABELS, WINDOW_SHORT, DEFAULT_WINDOW, BUCKETS, inWindow, windowStats, type PhotoWindow, type WindowItem,
 } from '../../utils/photoWindow';
 
 const LIGHT = '#7FDCEF';   // med, före start / efter landning
@@ -144,13 +144,17 @@ export function AlbumSync() {
   }
 
   // ── Fönstret ──
+  // Tidslinjen: före start (BUCKETS staplar, längst bort till vänster) | flygningen (sex staplar) | efter landning.
   const TW = width - 48 - 34;                 // tidslinjens bredd i kortet
-  const u = TW / 306;                         // en enhet i tidslinjens rutnät (stapel 19, steg 22)
+  const L = TW * 0.36, M = TW * 0.28;         // före start / flygningen; efter landning lika bred som före
+  const step = L / BUCKETS, bw = step - 4;
+  const aw = (M - 8) / 6;
   const all = [...stats.bars.before, ...stats.bars.air, ...stats.bars.after];
   const maxBar = Math.max(1, ...all);
   const barH = (n: number) => (n ? Math.max(4, Math.round((n / maxBar) * 64)) : 2);
-  const bx = w.before === 0 ? 110 * u : Math.max(1, ((5 - w.before) * 22 - 1.5) * u);
-  const ax = w.after === 0 ? 196 * u : Math.min(TW - 1, (199 + w.after * 22 - 1.5) * u);
+  const bx = w.before === 0 ? L : Math.max(1, (BUCKETS - w.before) * step - 2);
+  const ax = w.after === 0 ? L + M : Math.min(TW - 1, L + M + 4 + w.after * step - 2);
+  const nearFirst = Array.from({ length: BUCKETS }, (_, i) => i);
   const tag = (x: number) => Math.max(0, Math.min(TW - 50, x - 25));
   const setBefore = (i: number) => setW((cur) => ({ ...cur, before: cur.before === i + 1 ? i : i + 1 }));
   const setAfter = (i: number) => setW((cur) => ({ ...cur, after: cur.after === i + 1 ? i : i + 1 }));
@@ -183,21 +187,21 @@ export function AlbumSync() {
           {/* Tidslinjen: staplar = bilder per intervall. Ljusa är med, mörka utanför. Tryck på en stapel flyttar kanten. */}
           <View style={{ width: TW, height: 122 }}>
             <View pointerEvents="none" style={{ position: 'absolute', top: 24, bottom: 20, left: bx, width: Math.max(0, ax - bx), backgroundColor: 'rgba(0,200,232,0.07)', borderRadius: 6 }} />
-            <View pointerEvents="none" style={{ position: 'absolute', top: 24, bottom: 20, left: 110 * u, width: 86 * u, borderLeftWidth: 1, borderRightWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(0,200,232,0.6)' }} />
-            {[4, 3, 2, 1, 0].map((idx, k) => (
+            <View pointerEvents="none" style={{ position: 'absolute', top: 24, bottom: 20, left: L, width: M, borderLeftWidth: 1, borderRightWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(0,200,232,0.6)' }} />
+            {nearFirst.map((idx) => (
               <Pressable key={`b${idx}`} onPress={() => setBefore(idx)} accessibilityRole="button"
                 accessibilityLabel={`Include photos up to ${WINDOW_LABELS[idx + 1]} before take-off`}
-                style={{ position: 'absolute', left: k * 22 * u, bottom: 20, width: 19 * u, height: 78, justifyContent: 'flex-end' }}>
+                style={{ position: 'absolute', left: (BUCKETS - 1 - idx) * step, bottom: 20, width: bw, height: 78, justifyContent: 'flex-end' }}>
                 <View style={{ height: barH(stats.bars.before[idx]), borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: idx < w.before ? LIGHT : DIM }} />
               </Pressable>
             ))}
             {stats.bars.air.map((n, j) => (
-              <View key={`a${j}`} pointerEvents="none" style={{ position: 'absolute', left: (114 + j * 13.5) * u, bottom: 20, width: 10 * u, height: barH(n), borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: Colors.primary }} />
+              <View key={`a${j}`} pointerEvents="none" style={{ position: 'absolute', left: L + 4 + j * aw, bottom: 20, width: aw - 3, height: barH(n), borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: Colors.primary }} />
             ))}
-            {[0, 1, 2, 3, 4].map((idx, k) => (
+            {nearFirst.map((idx) => (
               <Pressable key={`r${idx}`} onPress={() => setAfter(idx)} accessibilityRole="button"
                 accessibilityLabel={`Include photos up to ${WINDOW_LABELS[idx + 1]} after landing`}
-                style={{ position: 'absolute', left: (199 + k * 22) * u, bottom: 20, width: 19 * u, height: 78, justifyContent: 'flex-end' }}>
+                style={{ position: 'absolute', left: L + M + 4 + idx * step, bottom: 20, width: bw, height: 78, justifyContent: 'flex-end' }}>
                 <View style={{ height: barH(stats.bars.after[idx]), borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: idx < w.after ? LIGHT : DIM }} />
               </Pressable>
             ))}
@@ -205,10 +209,10 @@ export function AlbumSync() {
             <View pointerEvents="none" style={[s.handle, { left: ax - 1 }]} />
             <View pointerEvents="none" style={[s.tag, { left: tag(bx) }]}><Text style={s.tagText}>{WINDOW_SHORT[w.before]}</Text></View>
             <View pointerEvents="none" style={[s.tag, { left: tag(ax) }]}><Text style={s.tagText}>{WINDOW_SHORT[w.after]}</Text></View>
-            <Text style={[s.axis, { left: 0 }]}>3 h</Text>
-            <Text style={[s.axis, s.axisMid, { left: 110 * u - 30 }]}>Take-off</Text>
-            <Text style={[s.axis, s.axisMid, { left: 196 * u - 30 }]}>Landing</Text>
-            <Text style={[s.axis, { right: 0 }]}>3 h</Text>
+            <Text style={[s.axis, { left: 0 }]}>15 min</Text>
+            <Text style={[s.axis, s.axisMid, { left: L - 30 }]}>Take-off</Text>
+            <Text style={[s.axis, s.axisMid, { left: L + M - 30 }]}>Landing</Text>
+            <Text style={[s.axis, { right: 0 }]}>15 min</Text>
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -263,7 +267,7 @@ export function AlbumSync() {
         {items.length === 0 && (
           <View style={s.card}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }}>No photos near your flights</Text>
-            <Text style={s.body}>Blades looked up to 3 hours before take-off and after landing for every flight with times.</Text>
+            <Text style={s.body}>Blades looked up to 15 minutes before take-off and after landing for every flight with times.</Text>
           </View>
         )}
       </ScrollView>

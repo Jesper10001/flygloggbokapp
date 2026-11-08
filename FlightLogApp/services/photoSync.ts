@@ -1,4 +1,4 @@
-// Foto-synk för flygalbumet (piloten): ETT svep genom fotobiblioteket. Varje bild/video tagen inom tre timmar från
+// Foto-synk för flygalbumet (piloten): ETT svep genom fotobiblioteket. Varje bild/video tagen inom 15 minuter från
 // en loggad flygning sparas till den flygning den ligger närmast (inne i flygtiden vinner); tidsfönstret
 // (utils/photoWindow.ts) väljer sedan vad albumet visar, så fönstret kan ändras utan att biblioteket läses om.
 // Allt sker lokalt — inga bilder lämnar enheten, och bara referensen (localIdentifier) sparas (db/flightPhotos.ts).
@@ -103,7 +103,7 @@ export async function setPhotoWindow(w: PhotoWindow): Promise<void> {
 export interface ScanProgress { read: number; total: number | null; flights: number; fraction: number }
 
 /**
- * Läser biblioteket en gång och lägger till varje ny bild inom tre timmar från en flygning. Ligger flygningarna
+ * Läser biblioteket en gång och lägger till varje ny bild inom 15 minuter från en flygning. Ligger flygningarna
  * tätt (eller är biblioteket litet) läses hela tidsspannet i ett svep; annars bara fönstren runt flygningarna.
  * Bilder som redan hör till en flygning (även borttagna ur albumet) läggs aldrig till igen.
  */
@@ -125,7 +125,7 @@ export async function scanLibrary(
   // Sammanslagna sökfönster runt flygningarna.
   const ranges: [number, number][] = [];
   for (const { iv } of flights) {
-    // En minut extra åt båda hållen: biblioteket räknar gränserna som exklusiva (matchningen nedan avgör de tre timmarna).
+    // En minut extra åt båda hållen: biblioteket räknar gränserna som exklusiva (matchningen nedan avgör de 15 minuterna).
     const lo = iv.dep - PAD - 60000, hi = iv.arr + PAD + 60000;
     const last = ranges[ranges.length - 1];
     if (last && lo <= last[1]) last[1] = Math.max(last[1], hi);

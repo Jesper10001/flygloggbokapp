@@ -647,7 +647,7 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   `);
 
   // Flygalbumet: bilder/videor ur fotobiblioteket per flygning (bara referensen, local_id; filen kopieras aldrig).
-  // Synken sparar allt inom tre timmar från en flygning; tidsfönstret väljer vad albumet visar. removed = borttagen
+  // Synken sparar allt inom 15 minuter från en flygning; tidsfönstret väljer vad albumet visar. removed = borttagen
   // ur albumet av användaren (raden ligger kvar så att nästa synk inte lägger till den igen). Omslaget är
   // flights.photo_local_id som förut.
   await db.execAsync(`
