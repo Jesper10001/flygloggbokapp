@@ -1,11 +1,12 @@
 // Abonnemang och Blade coins. SubscriptionPanel ligger på profilsidan (app/settings/profile.tsx).
 // UpgradeCard direkt under Profile i Settings: alltid nästa nivå uppåt (gratis → Premium, Premium → Max).
-// CoinsCard under den i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): en lugn rad med
-// myntet i en ring. Månadens (guld) ligger först och går åt först; köpta (sidans accent) ligger efter och används
-// när månadens är slut, som proxyn drar dem (proxy/src/credits.ts splitCharge). Tryck på raden = detaljerna.
+// CoinsCard under den i Settings, likadant i pilot- och drönarläget (färgerna kommer från sidan): en rad utan kort,
+// direkt på bakgrunden, med myntet i en ring och ett svagt sken bakom. Månadens (guld) ligger först och går åt
+// först; köpta (sidans accent) ligger efter och används när månadens är slut, som proxyn drar dem
+// (proxy/src/credits.ts splitCharge). Tryck på raden = detaljerna.
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, LayoutAnimation } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle, G, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFlightStore } from '../store/flightStore';
@@ -27,7 +28,7 @@ export interface PlanTheme {
 }
 
 const COIN = require('../assets/Blade_coin.PNG');
-const TRACK = '#1A2D45';
+const TRACK = 'rgba(127,168,200,0.18)'; // ringens spår, genomskinligt mot bakgrundens gradient
 const WARN = '#FFB830';
 const GOLD = '#FFB830';
 
@@ -113,6 +114,8 @@ function PanelRow({ label, value, onPress }: { label: string; value?: string; on
 }
 
 const RING = 56, RING_R = 26.5, RING_C = 2 * Math.PI * RING_R;
+// Skenet bakom myntet: en mjuk cirkel som sticker ut 24 pt runt ringen (raden har inget kort, myntet står på bakgrunden).
+const HALO = 104, HALO_OFF = (RING - HALO) / 2;
 
 export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
   const usage = useTokenQuotaStore((s) => s.usage);
@@ -136,15 +139,26 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
   const subline = isFree ? 'one-time' : low ? 'running low' : `refills ${refill}`;
   const toggle = () => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setOpen((o) => !o); };
   return (
-    <View style={[st.card, { backgroundColor: T.card, borderColor: low ? WARN + '73' : T.border }]}>
+    <View style={st.coins}>
       <View style={st.coinRow}>
         <TouchableOpacity style={st.coinMain} onPress={toggle} activeOpacity={0.7} accessibilityRole="button"
           accessibilityState={{ expanded: open }} accessibilityLabel={`Blade coins, ${total} left`}>
           <View style={st.ring}>
+            {/* Nästan slut: skenet, ringens spår och siffran blir orange (det finns ingen kortkant att färga). */}
+            <Svg width={HALO} height={HALO} style={st.halo} pointerEvents="none">
+              <Defs>
+                <RadialGradient id="coinHalo" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0" stopColor={GOLD} stopOpacity={low ? 0.26 : 0.15} />
+                  <Stop offset="0.4" stopColor={low ? GOLD : T.accent} stopOpacity={low ? 0.08 : 0.07} />
+                  <Stop offset="0.7" stopColor={T.accent} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle cx={HALO / 2} cy={HALO / 2} r={HALO / 2} fill="url(#coinHalo)" />
+            </Svg>
             <Image source={COIN} style={st.ringCoin} resizeMode="contain" />
             <Svg width={RING} height={RING} style={StyleSheet.absoluteFill}>
               <G rotation={-90} origin={`${RING / 2}, ${RING / 2}`}>
-                <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={TRACK} strokeWidth={3} />
+                <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={low ? 'rgba(255,184,48,0.22)' : TRACK} strokeWidth={3} />
                 {monthLeft > 0 && (
                   <Circle cx={RING / 2} cy={RING / 2} r={RING_R} fill="none" stroke={GOLD} strokeWidth={3} strokeLinecap="round"
                     strokeDasharray={`${mLen} ${RING_C}`} />
@@ -161,13 +175,13 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
             <Text style={[st.coinLine, { color: T.text }]} numberOfLines={1}>
               <Text style={{ color: total <= 0 ? T.label : low ? WARN : T.text, fontVariant: ['tabular-nums'] }}>{total.toLocaleString('en-US')}</Text>
               {' left'}
-              <Text style={{ color: T.label, fontWeight: '400' }}>{` · ${subline}`}</Text>
+              <Text style={{ color: low ? WARN : T.label, fontWeight: '400' }}>{` · ${subline}`}</Text>
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={T.accent} style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }} />
         </TouchableOpacity>
         {canBuy && (
-          <TouchableOpacity style={[st.buyBtn, { borderColor: T.accent + '73', backgroundColor: T.accent + '1A' }]}
+          <TouchableOpacity style={[st.buyBtn, { borderColor: T.accent + '80', backgroundColor: T.accent + '14' }]}
             onPress={() => openCoinShop({ reason: 'browse' })} activeOpacity={0.7} accessibilityLabel="Buy more Blade coins">
             <Ionicons name="add" size={20} color={T.accent} />
           </TouchableOpacity>
@@ -175,7 +189,7 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
       </View>
 
       {open && (
-        <View style={[st.detail, { borderTopColor: T.border }]}>
+        <View style={st.detail}>
           <View>
             <View style={st.detailRow}>
               <View style={[st.dot, { backgroundColor: GOLD }]} />
@@ -200,13 +214,13 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
           )}
           <View style={st.detailBtns}>
             {canBuy && (
-              <TouchableOpacity style={[st.detailBtn, { backgroundColor: T.accent, borderColor: T.accent }]} activeOpacity={0.8}
+              <TouchableOpacity style={[st.pillBtn, { backgroundColor: T.accent }]} activeOpacity={0.8}
                 onPress={() => openCoinShop({ reason: 'browse' })} accessibilityRole="button">
                 <Text style={[st.detailBtnText, { color: Colors.textInverse, fontWeight: '800' }]}>Buy coins</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[st.detailBtn, { borderColor: T.border }]} activeOpacity={0.7} onPress={onInfo} accessibilityRole="button">
-              <Text style={[st.detailBtnText, { color: T.text }]}>How coins work</Text>
+            <TouchableOpacity style={st.linkBtn} activeOpacity={0.7} onPress={onInfo} accessibilityRole="button">
+              <Text style={[st.detailBtnText, { color: T.accent }]}>How coins work</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -242,20 +256,25 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   ctaText: { fontSize: 15, fontWeight: '800', color: Colors.textInverse },
-  coinRow: { flexDirection: 'row', alignItems: 'center' },
-  coinMain: { flex: 1, minWidth: 0, height: 76, flexDirection: 'row', alignItems: 'center', gap: 13, paddingLeft: 12, paddingRight: 8 },
+  coins: { marginVertical: 4 },
+  coinRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  coinMain: { flex: 1, minWidth: 0, height: 76, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 4, paddingRight: 6 },
   ring: { width: RING, height: RING },
+  halo: { position: 'absolute', left: HALO_OFF, top: HALO_OFF },
   // Myntet fyller nästan hela bilden → 50 pt inuti en 56 pt-ring ger ringen tätt intill kanten.
   ringCoin: { position: 'absolute', left: 3.5, top: 3.5, width: 50, height: 50 },
   coinLine: { fontSize: 15, fontWeight: '600' },
-  buyBtn: { width: 44, height: 44, marginRight: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  detail: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 10 },
+  // Rund som ringen (inte en ruta): raden står direkt på bakgrunden.
+  buyBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  // Detaljerna indragna under texten (myntet 4 + 56 + mellanrum 14).
+  detail: { paddingLeft: 74, paddingRight: 4, paddingTop: 2, paddingBottom: 8, gap: 10 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   detailName: { flex: 1, fontSize: 14 },
   detailVal: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
   detailFoot: { fontSize: 12, marginTop: 3, marginLeft: 18 },
-  detailBtns: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  detailBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  detailBtnText: { fontSize: 15, fontWeight: '600' },
+  detailBtns: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 2 },
+  pillBtn: { height: 38, paddingHorizontal: 18, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  linkBtn: { height: 38, paddingHorizontal: 2, justifyContent: 'center' },
+  detailBtnText: { fontSize: 14, fontWeight: '600' },
 });
