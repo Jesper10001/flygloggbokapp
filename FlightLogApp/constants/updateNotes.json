@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 45,
+      "date": "2026-11-08",
+      "notes": [
+        "New: Photo sync adds all your flight photos at once. Choose how long before take-off and after landing they count.",
+        "New: Redesigned flight album with one card per flight, photos by phase, and easy removing.",
+        "Improved: The Blade coins row in Settings is tighter, with a smaller + button."
+      ]
+    },
+    {
       "id": 44,
       "date": "2026-11-08",
       "notes": [

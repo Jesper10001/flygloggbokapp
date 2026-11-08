@@ -325,7 +325,7 @@ export default function RootLayout() {
         <Stack.Screen name="drone-import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
-        <Stack.Screen name="settings/album" options={{ title: 'Flight album', presentation: 'modal' }} />
+        <Stack.Screen name="settings/album" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/drones" options={{ title: 'Manage drones', presentation: 'modal' }} />
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
         <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />

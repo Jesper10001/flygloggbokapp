@@ -646,6 +646,25 @@ async function runMigrations(db: SqliteDb): Promise<void> {
     );
   `);
 
+  // Flygalbumet: bilder/videor ur fotobiblioteket per flygning (bara referensen, local_id; filen kopieras aldrig).
+  // Synken sparar allt inom tre timmar från en flygning; tidsfönstret väljer vad albumet visar. removed = borttagen
+  // ur albumet av användaren (raden ligger kvar så att nästa synk inte lägger till den igen). Omslaget är
+  // flights.photo_local_id som förut.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS flight_photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      flight_id INTEGER NOT NULL,
+      local_id TEXT NOT NULL,
+      taken_at INTEGER,
+      is_video INTEGER NOT NULL DEFAULT 0,
+      duration REAL NOT NULL DEFAULT 0,
+      removed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(flight_id, local_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_flight_photos_flight ON flight_photos(flight_id);
+  `);
+
   // AI-inlärning: sparar bekräftade mappningar så nästa skanning blir bättre
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS ocr_learned (

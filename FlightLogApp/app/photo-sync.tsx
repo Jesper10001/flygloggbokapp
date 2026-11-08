@@ -1,5 +1,6 @@
-// Foto-synk-wizard: begär behörighet → synkar (progress) → sammanfattning → guidad
-// granskning EN flygning i taget (äldst först). Allt lokalt; endast referensen sparas.
+// Foto-synk. Piloten: flygalbumets synk (components/album/AlbumSync — ett svep, välj tidsfönster, allt läggs till).
+// Drönaren (?mode=drone): wizarden nedan — behörighet → synk (progress) → sammanfattning → guidad granskning EN
+// flygning i taget (äldst först). Allt lokalt; endast referensen sparas.
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Modal, ActivityIndicator, Dimensions, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -8,13 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlightVideo } from '../components/FlightVideo';
 import type * as MediaLibrary from 'expo-media-library/legacy';
 import { Colors } from '../constants/colors';
-import { useFlightStore } from '../store/flightStore';
 import { useDroneFlightStore } from '../store/droneFlightStore';
-import { setFlightPhotoLocalId } from '../db/flights';
 import { setDroneFlightPhotoLocalId } from '../db/drones';
-import * as pilotSync from '../services/photoSync';
 import * as droneSync from '../services/dronePhotoSync';
 import type { PhotoPermission } from '../services/photoSync';
+import { AlbumSync } from '../components/album/AlbumSync';
 // Flygningen kan vara pilot- ELLER drönar-typ beroende på ?mode → lös typ som any för visning.
 type FlightMatch = { flight: any; assets: MediaLibrary.Asset[] };
 
@@ -29,15 +28,18 @@ function fmtDur(sec: number): string {
 }
 
 export default function PhotoSyncScreen() {
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  return mode === 'drone' ? <DronePhotoSync /> : <AlbumSync />;
+}
+
+function DronePhotoSync() {
   const router = useRouter();
-  const { resume, mode } = useLocalSearchParams<{ resume?: string; mode?: string }>();
-  const isDrone = mode === 'drone';
-  const S = isDrone ? droneSync : pilotSync; // läges-medveten synk-tjänst (samma funktionsnamn)
+  const { resume } = useLocalSearchParams<{ resume?: string }>();
+  const isDrone = true;
+  const S = droneSync;
   const insets = useSafeAreaInsets();
-  const loadPilotFlights = useFlightStore((s) => s.loadFlights);
-  const loadDroneFlights = useDroneFlightStore((s) => s.loadFlights);
-  const loadFlights = isDrone ? loadDroneFlights : loadPilotFlights;
-  const linkPhoto = isDrone ? setDroneFlightPhotoLocalId : setFlightPhotoLocalId;
+  const loadFlights = useDroneFlightStore((s) => s.loadFlights);
+  const linkPhoto = setDroneFlightPhotoLocalId;
   const [phase, setPhase] = useState<'perm' | 'syncing' | 'resuming' | 'summary' | 'review' | 'done'>(resume === '1' ? 'resuming' : 'syncing');
   const [perm, setPerm] = useState<PhotoPermission>('undetermined');
   const [progress, setProgress] = useState({ done: 0, total: 0 });

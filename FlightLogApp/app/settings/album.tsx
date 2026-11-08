@@ -1,320 +1,348 @@
-// Flight album: bilder/videor (uppladdade photo_uri ELLER synkade photo_local_id) grupperade
-// per år & månad (3 per rad med info-overlay), med en kartvy (Apple-karta). På kartan är varje
-// media utmarkerad; markera → mediet förstoras i mitten (video spelas upp), sträck dras till
-// avgångs- och destinationsflygplatsen, övriga media döljs, och en översiktsruta visas i botten
-// (tryck → flight detail).
-import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, Dimensions, ActivityIndicator, Modal,
-} from 'react-native';
-import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
-import { LinearGradient } from 'expo-linear-gradient';
-import { FlightVideo } from '../../components/FlightVideo';
-import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+// Flygalbumet (piloten): ett kort per flygning, grupperat per månad, eller alla bilder i ett rutnät. Bilderna kommer
+// från foto-synken (services/photoSync: ett svep genom biblioteket; tidsfönstret väljer vad som visas) och den bild
+// som lagts till för hand. Tryck på en flygning → FlightAlbumView (bilderna per fas, markera och ta bort); en bild →
+// PhotoViewer. share=1 (dashboardens Share): en bild öppnar delningskortet direkt. toast: beskedet efter synken.
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getFlightsWithPhotos } from '../../db/flights';
-import { getAssetDisplay } from '../../services/photoSync';
-import { FlightShareCard } from '../../components/FlightShareCard';
-import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { useTranslation } from '../../hooks/useTranslation';
+import { FONT_SERIF } from '../../components/logbook-page/tokens';
+import { AppBackground } from '../../components/AppBackground';
+import { AssetImage } from '../../components/album/AssetImage';
+import { FlightAlbumView, routeText } from '../../components/album/FlightAlbumView';
+import { PhotoViewer } from '../../components/album/PhotoViewer';
+import { FlightShareCard } from '../../components/FlightShareCard';
+import { batchPlaceNames } from '../../db/icao';
+import { setFlightPhotoLocalId } from '../../db/flights';
+import { setFlightPhotosRemoved, setFlightManualPhoto } from '../../db/flightPhotos';
+import { useFlightStore } from '../../store/flightStore';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
-import { formatDate } from '../../utils/format';
+import {
+  loadAlbum, visiblePhotos, coverOf, getPhotoWindow, getAssetDisplay, type AlbumFlight, type AlbumPhoto,
+} from '../../services/photoSync';
+import { DEFAULT_WINDOW, windowLabel, type PhotoWindow } from '../../utils/photoWindow';
 import type { Flight } from '../../types/flight';
 
-const { width, height } = Dimensions.get('window');
-const GAP = 3;
-const TILE = (width - GAP * 4) / 3; // 3 per rad
-const BIG = 150;                     // förstorat media på kartan
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmt = (n: number) => n.toLocaleString('en-US');
+const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
+const monthLabel = (date: string) => {
+  const [y, m] = (date || '').split('-').map(Number);
+  return y && m ? `${MONTHS[m - 1]} ${y}`.toUpperCase() : 'UNDATED';
+};
 
-type Media = { uri: string; isVideo: boolean; location?: { latitude: number; longitude: number } | null };
-type LatLon = { lat: number; lon: number };
-
-function fitRegion(pts: { latitude: number; longitude: number }[]): Region {
-  if (!pts.length) return { latitude: 20, longitude: 0, latitudeDelta: 120, longitudeDelta: 120 };
-  let minLa = 90, maxLa = -90, minLo = 180, maxLo = -180;
-  for (const p of pts) { minLa = Math.min(minLa, p.latitude); maxLa = Math.max(maxLa, p.latitude); minLo = Math.min(minLo, p.longitude); maxLo = Math.max(maxLo, p.longitude); }
-  return {
-    latitude: (minLa + maxLa) / 2, longitude: (minLo + maxLo) / 2,
-    latitudeDelta: Math.max(1, Math.min(160, (maxLa - minLa) * 1.5 + 2)),
-    longitudeDelta: Math.max(1, Math.min(330, (maxLo - minLo) * 1.5 + 2)),
-  };
-}
-
-function PhotoMarker({ coordinate, thumb, isVideo, onPress }: {
-  coordinate: { latitude: number; longitude: number }; thumb?: string | null; isVideo: boolean; onPress: () => void;
-}) {
-  const [tracks, setTracks] = useState(true);
-  useEffect(() => {
-    setTracks(true);
-    if (thumb) return; // ikon-fallback: sluta spåra nästa frame (annars fångas markören aldrig → osynlig)
-    const id = requestAnimationFrame(() => setTracks(false));
-    return () => cancelAnimationFrame(id);
-  }, [thumb]);
-  return (
-    <Marker coordinate={coordinate} onPress={onPress} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}>
-      <View style={{ width: 38, height: 38, borderRadius: 9, borderWidth: 2, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' }}>
-        {thumb ? <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" onLoad={() => setTracks(false)} />
-          : <Ionicons name={isVideo ? 'videocam' : 'image'} size={16} color="rgba(255,255,255,0.6)" />}
-        {isVideo && <View style={{ position: 'absolute', bottom: 1, right: 1, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: 1 }}><Ionicons name="play" size={8} color="#fff" /></View>}
-      </View>
-    </Marker>
-  );
-}
-
-type MarkerItem = { f: Flight; pos: { latitude: number; longitude: number } };
-
-// Zoom-beroende rutnäts-klustring (à la Apple Bilder): media i samma cell slås ihop. Ju mer
-// utzoomad (större delta) desto större celler → färre kluster; inzoomat → allt delas upp.
-function clusterMarkers(markers: MarkerItem[], region: Region): { key: string; lat: number; lon: number; items: MarkerItem[] }[] {
-  const cellLat = Math.max(region.latitudeDelta / 6, 1e-4);
-  const cellLon = Math.max(region.longitudeDelta / 6, 1e-4);
-  const buckets = new Map<string, MarkerItem[]>();
-  for (const m of markers) {
-    const key = `${Math.floor(m.pos.latitude / cellLat)}_${Math.floor(m.pos.longitude / cellLon)}`;
-    const arr = buckets.get(key); if (arr) arr.push(m); else buckets.set(key, [m]);
-  }
-  return [...buckets.entries()].map(([key, items]) => {
-    let lat = 0, lon = 0;
-    for (const it of items) { lat += it.pos.latitude; lon += it.pos.longitude; }
-    return { key, lat: lat / items.length, lon: lon / items.length, items };
-  });
-}
-
-// Kluster-bricka: STATISK vy + tracksViewChanges={false} — exakt samma pålitliga mönster som
-// GlobalAirportMap:s flagg-pins (emoji/ikon + text, ingen async-bild-i-markör, som strular på iOS).
-// Tryck → zooma in (delar upp klustret).
-function ClusterMarker({ coordinate, count, onPress }: {
-  coordinate: { latitude: number; longitude: number }; count: number; onPress: () => void;
-}) {
-  return (
-    <Marker coordinate={coordinate} onPress={onPress} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, borderRadius: 15, borderWidth: 2, borderColor: '#fff', paddingLeft: 7, paddingRight: 9, paddingVertical: 5 }}>
-        <Ionicons name="images" size={13} color="#fff" />
-        <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '800' }}>{count}</Text>
-      </View>
-    </Marker>
-  );
-}
-
-// Stabil, memo:ad grid-ruta — undviker remount (=blink) när skärmen re-renderar under
-// medieupplösningen. Re-renderar bara när dess egen thumb/isVideo ändras.
-const AlbumTile = memo(function AlbumTile({ f, thumb, isVideo, onOpen }: { f: Flight; thumb?: string; isVideo: boolean; onOpen: (f: Flight) => void }) {
-  return (
-    <TouchableOpacity style={styles.tile} onPress={() => onOpen(f)} activeOpacity={0.85}>
-      {thumb ? <Image source={{ uri: thumb }} style={styles.image} />
-        : <View style={[styles.image, { backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' }]}>{isVideo ? <Ionicons name="videocam" size={20} color="rgba(255,255,255,0.5)" /> : <ActivityIndicator size="small" color={Colors.textMuted} />}</View>}
-      {isVideo && <View style={{ position: 'absolute', top: 4, right: 4 }}><Ionicons name="play-circle" size={18} color="rgba(255,255,255,0.9)" /></View>}
-      {/* Info-overlay: dep→arr + datum */}
-      <LinearGradient colors={['transparent', 'rgba(6,11,22,0.85)']} locations={[0.5, 1]} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%', justifyContent: 'flex-end', padding: 5 }}>
-        <Text numberOfLines={1} style={{ fontFamily: 'Menlo', fontSize: 10.5, fontWeight: '800', color: '#fff', letterSpacing: 0.3 }}>{f.dep_place} → {f.arr_place}</Text>
-        <Text numberOfLines={1} style={{ fontFamily: 'Menlo', fontSize: 8, color: 'rgba(255,255,255,0.78)', marginTop: 1 }}>{formatDate(f.date)}</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-});
+type Shown = { af: AlbumFlight; vis: AlbumPhoto[]; cover: AlbumPhoto | null };
+type Row =
+  | { type: 'month'; key: string; label: string; sub: string }
+  | { type: 'flight'; key: string; item: Shown }
+  | { type: 'tiles'; key: string; items: { item: Shown; p: AlbumPhoto }[] };
 
 export default function AlbumScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { formatTime } = useTimeFormat();
-  // share=1 → "share mode": tryck på en bild öppnar delningsfönstret (performance/route/postcard)
-  // i stället för fullskärmsvisning. Nås via Share-knappen i dashboardens fotokarusell.
-  const { share } = useLocalSearchParams<{ share?: string }>();
-  const shareMode = share === '1';
-  const mapRef = useRef<MapView>(null);
-  const [flights, setFlights] = useState<Flight[]>([]);
+  const params = useLocalSearchParams<{ share?: string; toast?: string }>();
+  const shareMode = params.share === '1';
+  const [album, setAlbum] = useState<AlbumFlight[] | null>(null);
+  const [w, setW] = useState<PhotoWindow>(DEFAULT_WINDOW);
+  const [view, setView] = useState<'flights' | 'photos'>(shareMode ? 'photos' : 'flights');
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [viewer, setViewer] = useState<{ flightId: number; index: number } | null>(null);
+  const [share, setShare] = useState<{ flight: Flight; uri: string } | null>(null);
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Flight | null>(null); // fullskärm
-  const [shareFlight, setShareFlight] = useState<Flight | null>(null); // valt media för delning
-  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
-  const [media, setMedia] = useState<Record<number, Media>>({});
-  const [airports, setAirports] = useState<Record<string, LatLon>>({});
-  const [view, setView] = useState<'grid' | 'map'>('grid');
-  const [pin, setPin] = useState<Flight | null>(null); // vald på kartan
-  const [mapType, setMapType] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
-  const [overlayPt, setOverlayPt] = useState<{ x: number; y: number } | null>(null); // skärmpos för förstorat media
-  const [region, setRegion] = useState<Region | null>(null); // aktuell region → styr klustring
+  const [toast, setToast] = useState<{ id: number; text: string; undo?: () => void } | null>(null);
 
-  useEffect(() => {
-    getFlightsWithPhotos().then(async (f) => {
-      setFlights(f);
-      const icaos = f.flatMap((fl) => [fl.dep_place, fl.arr_place].filter(Boolean));
-      if (icaos.length) {
-        batchPlaceNames(icaos).then(setPlaceNames);
-        getAirportCoordinates([...new Set(icaos.map((s) => s.toUpperCase()))]).then((rows) => {
-          const m: Record<string, LatLon> = {};
-          for (const r of rows) m[r.icao.toUpperCase()] = { lat: r.lat, lon: r.lon };
-          setAirports(m);
-        });
-      }
-      const m: Record<number, Media> = {};
-      for (const fl of f) if (fl.photo_uri) m[fl.id] = { uri: fl.photo_uri, isVideo: fl.media_type === 'video' };
-      setMedia({ ...m });
-      setLoading(false);
-      for (const fl of f) {
-        if (!fl.photo_uri && fl.photo_local_id) {
-          const d = await getAssetDisplay(fl.photo_local_id);
-          if (d) setMedia((prev) => ({ ...prev, [fl.id]: d }));
-        }
-      }
-    });
+  const reload = useCallback(async () => {
+    const [a, ww] = await Promise.all([loadAlbum().catch(() => [] as AlbumFlight[]), getPhotoWindow()]);
+    setAlbum(a);
+    setW(ww);
+    const icaos = a.flatMap((x) => [x.flight.dep_place, x.flight.arr_place]).filter(Boolean);
+    if (icaos.length) batchPlaceNames(icaos).then(setPlaceNames).catch(() => {});
   }, []);
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
-  useEffect(() => {
-    for (const [id, mm] of Object.entries(media)) {
-      const fid = Number(id);
-      if (mm.isVideo && !thumbnails[fid]) {
-        VideoThumbnails.getThumbnailAsync(mm.uri, { time: 0 }).then(({ uri }) => setThumbnails((p) => ({ ...p, [fid]: uri }))).catch(() => {});
+  const showToast = useCallback((text: string, undo?: () => void) => {
+    const id = Date.now();
+    setToast({ id, text, undo });
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 4500);
+  }, []);
+  useEffect(() => { if (params.toast) showToast(String(params.toast)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shown: Shown[] = useMemo(() => (album ?? []).map((af) => {
+    const vis = visiblePhotos(af, w);
+    return { af, vis, cover: coverOf(af, vis) };
+  }).filter((x) => x.vis.length > 0), [album, w]);
+  const totalPhotos = shown.reduce((n, x) => n + x.vis.length, 0);
+  const place = (icao: string) => placeNames[(icao || '').toUpperCase()] ?? icao;
+
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    const byMonth = new Map<string, Shown[]>();
+    const order: string[] = [];
+    for (const x of shown) {
+      const k = monthLabel(x.af.flight.date);
+      if (!byMonth.has(k)) { byMonth.set(k, []); order.push(k); }
+      byMonth.get(k)!.push(x);
+    }
+    for (const k of order) {
+      const list = byMonth.get(k)!;
+      const n = list.reduce((s, x) => s + x.vis.length, 0);
+      out.push({ type: 'month', key: `m${k}`, label: k, sub: `${plural(list.length, 'flight', 'flights')} · ${plural(n, 'photo', 'photos')}` });
+      if (view === 'flights') {
+        for (const x of list) out.push({ type: 'flight', key: `f${x.af.flight.id}`, item: x });
+      } else {
+        const all = list.flatMap((x) => x.vis.map((p) => ({ item: x, p })));
+        for (let i = 0; i < all.length; i += 3) out.push({ type: 'tiles', key: `t${k}${i}`, items: all.slice(i, i + 3) });
       }
     }
-  }, [media]); // eslint-disable-line react-hooks/exhaustive-deps
+    return out;
+  }, [shown, view]);
 
-  const thumbFor = (f: Flight): string | undefined => {
-    const mm = media[f.id]; if (!mm) return undefined;
-    return mm.isVideo ? thumbnails[f.id] : mm.uri;
-  };
-  const isVideoFor = (f: Flight) => media[f.id]?.isVideo || f.media_type === 'video';
-  const markerPos = (f: Flight): { latitude: number; longitude: number } | null => {
-    const loc = media[f.id]?.location;
-    if (loc) return { latitude: loc.latitude, longitude: loc.longitude };
-    const dep = airports[f.dep_place?.toUpperCase()], arr = airports[f.arr_place?.toUpperCase()];
-    if (dep && arr) return { latitude: (dep.lat + arr.lat) / 2, longitude: (dep.lon + arr.lon) / 2 };
-    if (dep) return { latitude: dep.lat, longitude: dep.lon };
-    if (arr) return { latitude: arr.lat, longitude: arr.lon };
-    return null;
-  };
+  const open = shown.find((x) => x.af.flight.id === openId) ?? null;
+  const viewerItem = viewer ? shown.find((x) => x.af.flight.id === viewer.flightId) ?? null : null;
 
-  const groups = useMemo(() => {
-    const sorted = [...flights].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    const byY = new Map<number, Map<number, Flight[]>>();
-    for (const f of sorted) {
-      const [y, m] = (f.date || '').split('-').map(Number);
-      if (!y || !m) continue;
-      if (!byY.has(y)) byY.set(y, new Map());
-      const mm = byY.get(y)!;
-      if (!mm.has(m)) mm.set(m, []);
-      mm.get(m)!.push(f);
+  // ── Ändringar ─────────────────────────────────────────────────────────────
+  const afterChange = async () => { await reload(); useFlightStore.getState().loadFlights?.(); };
+
+  const removePhotos = async (x: Shown, ps: AlbumPhoto[]) => {
+    const f = x.af.flight;
+    const rowIds = ps.map((p) => p.rowId).filter((id): id is number => id != null);
+    const manual = ps.find((p) => p.uri);
+    const prevCover = f.photo_local_id ?? null;
+    const prevManual = { uri: f.photo_uri, type: (f.media_type === 'video' ? 'video' : 'image') as 'image' | 'video' };
+    await setFlightPhotosRemoved(rowIds, true);
+    // Omslaget togs bort → nästa bild i luften (eller första) blir omslag.
+    const coverRemoved = !!prevCover && ps.some((p) => p.localId === prevCover);
+    let nextCover: AlbumPhoto | null = null;
+    if (coverRemoved) {
+      const rest = x.vis.filter((p) => p.localId && !ps.includes(p));
+      nextCover = rest.find((p) => p.phase === 'air') ?? rest[0] ?? null;
+      await setFlightPhotoLocalId(f.id, nextCover?.localId ?? null, f.photo_uri && !manual ? undefined : nextCover?.isVideo ? 'video' : 'image');
     }
-    return [...byY.entries()].sort((a, b) => b[0] - a[0]).map(([year, mm]) => ({
-      year, months: [...mm.entries()].sort((a, b) => b[0] - a[0]).map(([month, fl]) => ({ month, flights: fl })),
-    }));
-  }, [flights]);
-
-  const mapMarkers = useMemo(() => flights.map((f) => ({ f, pos: markerPos(f) })).filter((x) => !!x.pos) as { f: Flight; pos: { latitude: number; longitude: number } }[], [flights, media, airports]);
-  const mapRegion = useMemo(() => fitRegion(mapMarkers.map((x) => x.pos)), [mapMarkers]);
-  const clusters = useMemo(() => clusterMarkers(mapMarkers, region ?? mapRegion), [mapMarkers, region, mapRegion]);
-
-  // Välj media på kartan → centrera på mediet, zooma så dep/arr ryms (mediet hamnar i mitten).
-  const selectPin = (f: Flight) => {
-    setPin(f);
-    const pos = markerPos(f); if (!pos) return;
-    const dep = airports[f.dep_place?.toUpperCase()], arr = airports[f.arr_place?.toUpperCase()];
-    let d = 0.6;
-    for (const a of [dep, arr]) if (a) d = Math.max(d, Math.abs(pos.latitude - a.lat) * 2.6, Math.abs(pos.longitude - a.lon) * 2.6);
-    mapRef.current?.animateToRegion({ latitude: pos.latitude, longitude: pos.longitude, latitudeDelta: d + 0.3, longitudeDelta: d + 0.3 }, 500);
+    if (manual) {
+      const coverIsVideo = nextCover ? nextCover.isVideo : x.vis.find((p) => p.localId === prevCover)?.isVideo;
+      await setFlightManualPhoto(f.id, '', coverIsVideo ? 'video' : 'image');
+    }
+    await afterChange();
+    const n = ps.length;
+    showToast(manual && n === 1 ? 'Photo removed from this flight.' : `${plural(n, 'photo', 'photos')} removed from this flight. Still in Photos.`, async () => {
+      setToast(null);
+      await setFlightPhotosRemoved(rowIds, false);
+      if (manual) await setFlightManualPhoto(f.id, prevManual.uri, prevManual.type);
+      if (coverRemoved) {
+        await setFlightPhotoLocalId(f.id, prevCover, f.photo_uri ? undefined : x.vis.find((p) => p.localId === prevCover)?.isVideo ? 'video' : 'image');
+      }
+      await afterChange();
+    });
   };
 
-  // Förankra det förstorade mediet till dess geografiska punkt (följer med vid zoom/pan).
-  const updateOverlay = async () => {
-    if (!pin || !mapRef.current) return;
-    const pos = markerPos(pin); if (!pos) return;
-    try { setOverlayPt(await mapRef.current.pointForCoordinate(pos)); } catch {}
-  };
-  useEffect(() => { if (pin) updateOverlay(); else setOverlayPt(null); }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openTile = useCallback((f: Flight) => { if (shareMode) setShareFlight(f); else setSelected(f); }, [shareMode]);
-
-  // Tryck på ett kluster → zooma in mot dess centrum (delar upp det).
-  const zoomToCluster = (c: { lat: number; lon: number }) => {
-    const r = region ?? mapRegion;
-    mapRef.current?.animateToRegion({ latitude: c.lat, longitude: c.lon, latitudeDelta: Math.max(r.latitudeDelta / 2.6, 0.008), longitudeDelta: Math.max(r.longitudeDelta / 2.6, 0.008) }, 350);
+  const setCover = async (x: Shown, p: AlbumPhoto) => {
+    if (!p.localId) return;
+    await setFlightPhotoLocalId(x.af.flight.id, p.localId, x.af.flight.photo_uri ? undefined : p.isVideo ? 'video' : 'image');
+    await afterChange();
+    showToast('Cover photo changed.');
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
-  if (flights.length === 0) return (
-    <View style={styles.center}><Ionicons name="images-outline" size={48} color={Colors.textMuted} /><Text style={styles.emptyText}>{t('no_photos')}</Text></View>
-  );
+  const openPhoto = async (x: Shown, p: AlbumPhoto) => {
+    if (shareMode) {
+      const uri = p.uri ?? (p.localId ? (await getAssetDisplay(p.localId))?.uri : null);
+      if (uri) setShare({ flight: x.af.flight, uri });
+      return;
+    }
+    setViewer({ flightId: x.af.flight.id, index: Math.max(0, x.vis.indexOf(p)) });
+  };
 
-  const dep = pin ? airports[pin.dep_place?.toUpperCase()] : null;
-  const arr = pin ? airports[pin.arr_place?.toUpperCase()] : null;
-  const pinPos = pin ? markerPos(pin) : null;
-  const pinMedia = pin ? media[pin.id] : null;
-  const pinVid = pin ? isVideoFor(pin) : false;
+  // ── Rader ─────────────────────────────────────────────────────────────────
+  const tile = (width - 40 - 4) / 3;
+  const renderRow = ({ item: r }: { item: Row }) => {
+    if (r.type === 'month') {
+      return (
+        <View style={s.monthRow}>
+          <Text style={s.eyebrow}>{r.label}</Text>
+          <Text style={{ fontSize: 12.5, color: Colors.textSecondary }}>{r.sub}</Text>
+        </View>
+      );
+    }
+    if (r.type === 'tiles') {
+      return (
+        <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
+          {r.items.map(({ item, p }) => (
+            <TouchableOpacity key={p.key} activeOpacity={0.85} onPress={() => openPhoto(item, p)} style={{ width: tile, height: tile, backgroundColor: Colors.card }}
+              accessibilityLabel={`${routeText(item.af.flight)}, photo`}>
+              <AssetImage localId={p.localId} uri={p.uri} isVideo={p.isVideo} style={{ width: tile, height: tile }} />
+              {p.isVideo && <View style={s.vid}><Ionicons name="play" size={9} color="#fff" /></View>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
+    const { af, vis, cover } = r.item;
+    const f = af.flight;
+    const others = vis.filter((p) => p !== cover);
+    const more = vis.length - 3;
+    const H = vis.length === 1 ? 190 : 204;
+    return (
+      <TouchableOpacity activeOpacity={0.9} onPress={() => setOpenId(f.id)} style={s.card}
+        accessibilityLabel={`Open ${routeText(f)}, ${f.date}, ${plural(vis.length, 'photo', 'photos')}`}>
+        <View style={{ flexDirection: 'row', gap: 2, height: H }}>
+          {cover && <AssetImage localId={cover.localId} uri={cover.uri} isVideo={cover.isVideo} style={{ flex: 2, height: H }} />}
+          {others.length > 0 && (
+            <View style={{ flex: 1, gap: 2 }}>
+              <AssetImage localId={others[0].localId} uri={others[0].uri} isVideo={others[0].isVideo} style={{ flex: 1, width: '100%' }} />
+              {others[1] && (
+                <View style={{ flex: 1 }}>
+                  <AssetImage localId={others[1].localId} uri={others[1].uri} isVideo={others[1].isVideo} style={StyleSheet.absoluteFill as any} />
+                  {more > 0 && <View style={s.more}><Text style={{ fontSize: 20, fontWeight: '700', color: '#fff' }}>+{more}</Text></View>}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }} numberOfLines={1}>{routeText(f)}</Text>
+            <Text style={{ fontSize: 13, color: Colors.textSecondary }} numberOfLines={1}>{[f.date, f.aircraft_type, f.registration].filter(Boolean).join(' · ')}</Text>
+          </View>
+          <Ionicons name="images-outline" size={15} color="#CFE0EE" />
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#CFE0EE', fontVariant: ['tabular-nums'] }}>{vis.length}</Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-  return (
-    <View style={styles.container}>
-      {/* Share-läge: liten instruktion högst upp */}
+  const header = (
+    <View style={{ gap: 14, paddingBottom: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={s.title}>Flight album</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={s.round} onPress={() => router.push('/photo-sync' as any)} accessibilityLabel="Sync new photos">
+            <Ionicons name="sync" size={19} color="#CFE0EE" />
+          </TouchableOpacity>
+          <TouchableOpacity style={s.round} onPress={() => router.back()} accessibilityLabel="Close">
+            <Ionicons name="close" size={20} color="#CFE0EE" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: -6 }}>
+        <Text style={{ fontSize: 14, color: '#CFE0EE', fontVariant: ['tabular-nums'] }}>{plural(totalPhotos, 'photo', 'photos')} · {plural(shown.length, 'flight', 'flights')}</Text>
+        <TouchableOpacity style={s.windowChip} onPress={() => router.push('/photo-sync?window=1' as any)} accessibilityLabel={`Change which photos count: ${windowLabel(w)}`}>
+          <Ionicons name="options-outline" size={15} color={Colors.primary} />
+          <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.primary }}>{windowLabel(w)}</Text>
+        </TouchableOpacity>
+      </View>
       {shareMode && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44' }}>
+        <View style={s.shareBanner}>
           <Ionicons name="share-outline" size={15} color={Colors.primary} />
           <Text style={{ flex: 1, color: Colors.primary, fontSize: 12.5, fontWeight: '700' }}>Pick a photo to share</Text>
         </View>
       )}
-
-      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
-        {groups.map((yg) => (
-          <View key={yg.year}>
-            <Text style={styles.yearHeader}>{yg.year}</Text>
-            {yg.months.map((mg) => (
-              <View key={mg.month} style={{ marginBottom: 4 }}>
-                <Text style={styles.monthHeader}>{MONTHS[mg.month - 1]}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingHorizontal: GAP }}>
-                  {mg.flights.map((f) => <AlbumTile key={f.id} f={f} thumb={thumbFor(f)} isVideo={isVideoFor(f)} onOpen={openTile} />)}
-                </View>
-              </View>
-            ))}
-          </View>
+      <View style={s.segment}>
+        {(['flights', 'photos'] as const).map((v) => (
+          <TouchableOpacity key={v} onPress={() => setView(v)} accessibilityRole="button" accessibilityState={{ selected: view === v }}
+            style={[s.segBtn, view === v && { backgroundColor: 'rgba(0,200,232,0.18)' }]}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: view === v ? '#fff' : Colors.textSecondary }}>{v === 'flights' ? 'Flights' : 'All photos'}</Text>
+          </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
+    </View>
+  );
 
-      {/* Fullskärm */}
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          {selected && (() => {
-            const mm = media[selected.id];
-            if (!mm) return <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#fff" /></View>;
-            return (mm.isVideo || selected.media_type === 'video')
-              ? <FlightVideo uri={mm.uri} style={{ width, height }} contentFit="contain" loop autoPlay nativeControls />
-              : <Image source={{ uri: mm.uri }} style={{ width, height }} resizeMode="contain" />;
-          })()}
-          <View style={{ position: 'absolute', top: insets.top + 8, left: 0, right: 0, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => setSelected(null)} hitSlop={12}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>{selected ? `${placeNames[selected.dep_place?.toUpperCase()] ?? selected.dep_place} → ${placeNames[selected.arr_place?.toUpperCase()] ?? selected.arr_place}` : ''}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{selected ? `${formatDate(selected.date)} · ${formatTime(selected.total_time)}h` : ''}</Text>
-            </View>
-            <View style={{ width: 26 }} />
-          </View>
-          {/* Dela vidare till fotodelnings-modulen (FlightShareCard) med samma bild + alla filter.
-              Fördröjning så fullskärms-modalen hinner stängas innან share-modalen öppnas (iOS). */}
-          {selected && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => { const s = selected; setSelected(null); setTimeout(() => setShareFlight(s), 320); }}
-              style={{ position: 'absolute', left: 20, right: 20, bottom: insets.bottom + 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14 }}>
-              <Ionicons name="share-outline" size={18} color={Colors.textInverse} />
-              <Text style={{ color: Colors.textInverse, fontSize: 15, fontWeight: '800' }}>Share with flight insights</Text>
+  let body;
+  if (!album) {
+    body = <ActivityIndicator color={Colors.primary} style={{ marginTop: insets.top + 120 }} />;
+  } else if (open) {
+    body = (
+      <FlightAlbumView af={open.af} vis={open.vis} cover={open.cover}
+        depName={place(open.af.flight.dep_place)} arrName={place(open.af.flight.arr_place)}
+        onBack={() => setOpenId(null)} onOpen={(p) => openPhoto(open, p)}
+        onRemove={(ps) => removePhotos(open, ps)} onSetCover={(p) => setCover(open, p)} />
+    );
+  } else if (!shown.length) {
+    body = (
+      <View style={{ flex: 1, paddingTop: insets.top + 8, paddingHorizontal: 24, paddingBottom: insets.bottom + 24 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={s.title}>Flight album</Text>
+          <TouchableOpacity style={s.round} onPress={() => router.back()} accessibilityLabel="Close"><Ionicons name="close" size={20} color="#CFE0EE" /></TouchableOpacity>
+        </View>
+        <View style={{ height: 250, marginTop: 22 }}>
+          <Image source={require('../../assets/sample-photos/sample1.jpg')} style={[s.fan, { left: 4, top: 34, width: 180, height: 126, transform: [{ rotate: '-8deg' }] }]} />
+          <Image source={require('../../assets/sample-photos/sample3.jpg')} style={[s.fan, { right: 4, top: 16, width: 172, height: 120, transform: [{ rotate: '7deg' }] }]} />
+          <Image source={require('../../assets/sample-photos/samplealbum.jpg')} style={[s.fan, { left: 56, top: 88, width: 214, height: 150, transform: [{ rotate: '-1.5deg' }] }]} />
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.textPrimary, marginTop: 22 }}>Your flights, in pictures</Text>
+        <Text style={{ fontSize: 15, lineHeight: 22, color: '#CFE0EE', marginTop: 10 }}>
+          Blades reads when each photo in your library was taken and puts it with the flight it belongs to. Your photos stay in Photos. Nothing is copied or uploaded.
+        </Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity style={s.primary} onPress={() => router.push('/photo-sync' as any)} activeOpacity={0.85}>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: Colors.textInverse }}>Sync from Photos</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  } else {
+    body = (
+      <FlatList
+        data={rows}
+        keyExtractor={(r) => r.key}
+        renderItem={renderRow}
+        ListHeaderComponent={header}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 20, paddingBottom: insets.bottom + 40 }}
+        initialNumToRender={8}
+        windowSize={7}
+      />
+    );
+  }
+
+  const viewerList = viewerItem?.vis ?? [];
+  return (
+    <View style={s.root}>
+      <AppBackground />
+      {body}
+
+      {toast && (
+        <View style={[s.toast, { bottom: insets.bottom + 20 }]}>
+          <Ionicons name="checkmark" size={18} color={Colors.primary} />
+          <Text style={{ flex: 1, fontSize: 14, lineHeight: 19, color: '#fff' }}>{toast.text}</Text>
+          {toast.undo && (
+            <TouchableOpacity onPress={toast.undo} hitSlop={8} style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.primary }}>Undo</Text>
             </TouchableOpacity>
           )}
         </View>
-      </Modal>
+      )}
 
-      {/* Delningsfönster (performance/route/postcard) — öppnas i share-läge */}
-      {shareFlight && (
+      <PhotoViewer
+        list={viewerList}
+        index={viewer && viewerItem && viewer.index < viewerList.length ? viewer.index : null}
+        flight={viewerItem?.af.flight ?? null}
+        coverKey={viewerItem?.cover?.key ?? null}
+        onIndex={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
+        onClose={() => setViewer(null)}
+        onShare={(p, uri) => {
+          const fl = viewerItem?.af.flight;
+          setViewer(null);
+          if (fl) setTimeout(() => setShare({ flight: fl, uri }), 320); // fullskärmen hinner stängas först (iOS)
+        }}
+        onSetCover={(p) => { if (viewerItem) setCover(viewerItem, p); }}
+        onRemove={(p) => {
+          if (!viewerItem || !viewer) return;
+          const left = viewerList.length - 1;
+          setViewer(left > 0 ? { ...viewer, index: Math.min(viewer.index, left - 1) } : null);
+          removePhotos(viewerItem, [p]);
+        }}
+      />
+
+      {share && (
         <FlightShareCard
-          // Bilden kan vara en synkad foto-biblioteks-asset (photo_uri tom, bara photo_local_id) →
-          // skicka den upplösta URI:n från media-mappen som photo_uri så share-kortet visar bilden.
-          flight={{ ...shareFlight, photo_uri: media[shareFlight.id]?.uri ?? shareFlight.photo_uri ?? '' }}
-          depName={placeNames[shareFlight.dep_place?.toUpperCase()] ?? shareFlight.dep_place}
-          arrName={placeNames[shareFlight.arr_place?.toUpperCase()] ?? shareFlight.arr_place}
-          visible={!!shareFlight}
-          onClose={() => setShareFlight(null)}
+          flight={{ ...share.flight, photo_uri: share.uri }}
+          depName={place(share.flight.dep_place)}
+          arrName={place(share.flight.arr_place)}
+          visible={!!share}
+          onClose={() => setShare(null)}
           formatTime={formatTime}
         />
       )}
@@ -322,15 +350,20 @@ export default function AlbumScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  emptyText: { color: Colors.textMuted, fontSize: 13 },
-  yearHeader: { color: Colors.textPrimary, fontSize: 22, fontWeight: '800', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 2 },
-  monthHeader: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6 },
-  tile: { width: TILE, height: TILE, borderRadius: 4, overflow: 'hidden', backgroundColor: Colors.elevated },
-  image: { width: '100%', height: '100%' },
-  aptPin: { backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 8, borderWidth: 1.5, borderColor: Colors.primary, paddingHorizontal: 7, paddingVertical: 3 },
-  aptTxt: { color: Colors.primary, fontSize: 11, fontWeight: '800', fontFamily: 'Menlo' },
-  badge: { fontFamily: 'Menlo', fontSize: 8.5, fontWeight: '700', color: Colors.primary, borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: Colors.primary + '1F', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, overflow: 'hidden' },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background },
+  title: { fontFamily: FONT_SERIF, fontSize: 30, fontWeight: '600', color: Colors.textPrimary },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 2.2, color: Colors.textSecondary },
+  monthRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 2, paddingTop: 18, paddingBottom: 10 },
+  round: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(15,30,58,0.78)', alignItems: 'center', justifyContent: 'center' },
+  windowChip: { height: 34, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10, paddingRight: 12, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(0,200,232,0.45)', backgroundColor: 'rgba(0,200,232,0.08)' },
+  shareBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44' },
+  segment: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: Colors.cardBorder },
+  segBtn: { flex: 1, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  card: { borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, overflow: 'hidden', backgroundColor: 'rgba(15,30,58,0.78)', marginBottom: 10 },
+  more: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(4,10,20,0.55)', alignItems: 'center', justifyContent: 'center' },
+  vid: { position: 'absolute', top: 5, right: 5, padding: 3, borderRadius: 7, backgroundColor: 'rgba(4,10,20,0.6)' },
+  fan: { position: 'absolute', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  primary: { height: 54, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  toast: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, borderRadius: 14, backgroundColor: '#132B4D', borderWidth: 1, borderColor: '#24507E' },
 });
