@@ -282,7 +282,8 @@ function LongestXcTile() {
   return (
     <View style={{ flex: 1 }}>
       <Tile title="LONGEST XC" bg="#0A1524" scrim={MAP_SCRIM}
-        value={has ? nm.toLocaleString('en-US') : '—'} valueColor={has ? undefined : '#4A5C72'} unit="NM" unitColor={has ? undefined : '#4A5C72'}
+        // Utan tusentalskomma: LED-typsnittet saknar kommatecken, och ett tecken i ett annat typsnitt kapar siffrornas överkant.
+        value={has ? String(nm) : '--'} valueColor={has ? undefined : '#4A5C72'} unit="NM" unitColor={has ? undefined : '#4A5C72'}
         sub={has && date ? `${route} · ${dayShort(date)}` : route}
         a11y={has ? `Longest cross-country: ${nm} nautical miles, ${route}. Open` : 'Longest cross-country: none yet'}
         onPress={!paid ? paywall('Longest XC') : has ? () => router.push('/milestones/longest-xc') : undefined}
