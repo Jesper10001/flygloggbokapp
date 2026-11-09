@@ -10,6 +10,11 @@
 //                 flottans namn
 //  similar      – samma namn med ett variantsuffix ("EC135" / "EC135T2", "B206" / "B206L") när inget talar emot
 //                 (olika typkoder skiljer t.ex. PA28 och PA28R åt). Visas i rapporten, där man kan hålla isär.
+//
+// Två OLIKA varianter (EC135T1 och EC135T2, samma typkod EC35) slås aldrig ihop: de blir egna typer i samma
+// familj (services/aircraftFamily.ts), och rapporten frågar om de ska hållas isär eller slås ihop. Ett allmänt
+// skrivsätt ("EC135") går bara ihop med en variant när det finns en enda. Gruppen får det vanligaste skrivna
+// namnet, inte typkoden.
 
 export type TypeVia = 'registration' | 'name' | 'type-code' | 'similar';
 
@@ -30,7 +35,8 @@ export interface TypeGroup {
   fleet: string | null;      // befintlig typ i flottan
   via: TypeVia | null;       // varför gruppen matchades mot flottan
   merged: TypeVia[];         // varför skrivsätten slogs ihop (när de är fler än ett)
-  suggested: string;         // typen raderna får: flottans, annars typkoden, annars vanligaste skrivsättet
+  suggested: string;         // typen raderna får: flottans, annars vanligaste skrivsättet
+  familyFleet: string | null; // en typ i flottan som gruppen är en annan variant av (EC135T2 när flottan har EC135T1)
   rows: number;
 }
 
@@ -72,6 +78,14 @@ const majority = (m: Map<string, number>): string | null => {
   for (const [k, v] of m) if (v > n) { best = k; n = v; }
   return best;
 };
+
+// Två olika varianter av samma modell (EC135T1/EC135T2). Laddas vid körning: aircraftFamily.ts importerar härifrån.
+function distinct(a: string, b: string): boolean {
+  try { return require('./aircraftFamily').distinctVariants(a, b); } catch { return false; }
+}
+function sameFam(a: string, b: string): boolean {
+  try { return require('./aircraftFamily').sameFamily(a, b); } catch { return false; }
+}
 
 export function resolveScanTypes(
   rows: TypeRowInput[], detections: TypeDetection[], fleet: FleetInfo, separate: Set<string> = new Set(),
@@ -119,10 +133,23 @@ export function resolveScanTypes(
   const parent = new Map(keys.map((k) => [k, k]));
   const find = (k: string): string => { let p = parent.get(k)!; while (p !== parent.get(p)) p = parent.get(p)!; parent.set(k, p); return p; };
   const why = new Map<string, Set<TypeVia>>();
+  const groupMembers = new Map(keys.map((k) => [k, [k]]));
+  // Ett allmänt skrivsätt med två eller fler olika varianter i skanningen ("EC135" bredvid EC135T1 och EC135T2)
+  // hör inte till någon av dem mer än den andra.
+  const ambiguous = new Set(keys.filter((g) => {
+    const vs = keys.filter((k) => k !== g && k.startsWith(g) && isVariant(g, k));
+    return vs.some((a, i) => vs.slice(i + 1).some((b) => distinct(a, b)));
+  }));
   const union = (a: string, b: string, via: TypeVia) => {
     if (separate.has(a) || separate.has(b)) return;
+    if (via !== 'registration' && (ambiguous.has(a) || ambiguous.has(b))) return;
     const ra = find(a), rb = find(b);
     if (ra === rb) return;
+    // Aldrig två olika varianter i samma grupp.
+    const ma = groupMembers.get(ra)!, mb = groupMembers.get(rb)!;
+    if (ma.some((x) => mb.some((y) => distinct(x, y)))) return;
+    groupMembers.set(ra, [...ma, ...mb]);
+    groupMembers.delete(rb);
     parent.set(rb, ra);
     const s = why.get(ra) ?? new Set<TypeVia>();
     for (const x of why.get(rb) ?? []) s.add(x);
@@ -177,12 +204,14 @@ export function resolveScanTypes(
     // 2. Samma namn som i flottan.
     if (!fleetType) { const hit = ms.find((m) => fleetByKey.has(m.key)); if (hit) { fleetType = fleetByKey.get(hit.key)!; via = 'name'; } }
     // 3. Typkoden är flottans namn.
-    if (!fleetType && designator && fleetByKey.has(designator) && !sep) { fleetType = fleetByKey.get(designator)!; via = 'type-code'; }
+    if (!fleetType && designator && fleetByKey.has(designator) && !sep && !ms.some((m) => distinct(m.key, designator))) { fleetType = fleetByKey.get(designator)!; via = 'type-code'; }
     // 4. Ett variantsuffix av en typ i flottan (längst gemensamt namn vinner).
     if (!fleetType && !sep) {
       let best: string | null = null;
       for (const m of ms) for (const [fk, ft] of fleetByKey) {
         if (!isVariant(m.key, fk)) continue;
+        // En annan variant i flottan (A109E mot A109LUH) är inte samma typ: den blir familj (familyFleet nedan).
+        if (distinct(m.key, fk)) continue;
         // Säger typkoderna emot (flottans namn lästes som en annan typkod i skanningen), hålls de isär.
         const fc = codeOfFleet(fk, codeVotes);
         if (designator && fc && fc !== designator) continue;
@@ -197,10 +226,19 @@ export function resolveScanTypes(
       fleet: fleetType,
       via,
       merged: ks.length > 1 ? [...(why.get(root) ?? [])] : [],
-      // Isärhållna skrivsätt behåller sitt namn (annars blev EC135 och EC135T1 båda EC35 igen).
-      suggested: fleetType ?? (sep ? ms[0].display : designator ?? ms[0].display),
+      // Det skrivna namnet (vanligast först), inte typkoden: EC135T2 ska inte bli EC35.
+      suggested: fleetType ?? ms[0].display,
+      familyFleet: null,
       rows: rowsTotal,
     };
+    // Ingen typ i flottan, men en annan variant av samma modell finns där → samma familj.
+    if (!fleetType && !sep) {
+      let fam: string | null = null;
+      for (const m of ms) for (const [fk, ft] of fleetByKey) {
+        if (sameFam(m.key, fk) && (!fam || distinct(m.key, fk))) fam = ft;
+      }
+      g.familyFleet = fam;
+    }
     groups.push(g);
     for (const k of ks) groupOf.set(k, g);
   }

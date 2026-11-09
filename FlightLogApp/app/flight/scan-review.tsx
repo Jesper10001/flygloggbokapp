@@ -23,6 +23,7 @@ import { applyValueRules, undoValueRule, noteAnswer, ruleFor, ruleClassOf, upper
 import { resolveNames } from '../../services/scanNames';
 import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
 import { resolveScanTypes, typeKey, isVariant, maybeSameType, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
+import { distinctVariants, familyName } from '../../services/aircraftFamily';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import type { TimeFormat } from '../../store/timeFormatStore';
@@ -1231,6 +1232,29 @@ export default function ScanReviewScreen() {
     return out;
   }, [newTypes, known, typesKept]);
   const keepTypes = (a: string, b: string) => setTypesKept((st) => new Set([...st, [typeKey(a), typeKey(b)].sort().join('|')]));
+  // Olika varianter av samma modell: två nya (EC135T1 och EC135T2), eller en ny och en i flottan (EC135T2 när
+  // flottan har EC135T1). Hålls isär som standard; rapporten frågar om de ska slås ihop.
+  const variantPairs = useMemo(() => {
+    const pair = (a: string, b: string) => [typeKey(a), typeKey(b)].sort().join('|');
+    const rowsOf = new Map(newTypes.map((n) => [n.type, n.rows]));
+    const out: { a: string; b: string; aRows: number; bRows: number; fleet: boolean; family: string; code: string | null }[] = [];
+    for (let i = 0; i < newTypes.length; i++) {
+      const a = newTypes[i].type;
+      for (let j = i + 1; j < newTypes.length; j++) {
+        const b = newTypes[j].type;
+        if (!distinctVariants(a, b) || typesKept.has(pair(a, b))) continue;
+        const code = newTypes[i].designator && newTypes[i].designator === newTypes[j].designator ? newTypes[i].designator! : null;
+        out.push({ a, b, aRows: rowsOf.get(a) ?? 0, bRows: rowsOf.get(b) ?? 0, fleet: false, family: familyName([a, b]) ?? a, code });
+      }
+      const g = typeRes.groups.find((x) => typeFor(x) === a);
+      const fleetPeer = g?.familyFleet ?? [...known].find((k) => distinctVariants(a, k)) ?? null;
+      if (fleetPeer && !typesKept.has(pair(a, fleetPeer))) {
+        out.push({ a, b: fleetPeer, aRows: rowsOf.get(a) ?? 0, bRows: 0, fleet: true, family: familyName([a, fleetPeer]) ?? fleetPeer, code: newTypes[i].designator ?? null });
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newTypes, known, typesKept, typeRes, typeChoice]);
 
   // Skrivsätt som fått flottans typ (rapporten: "Matched to your fleet", med "Keep separate").
   const fleetMatches = useMemo(() => typeRes.groups
@@ -1347,16 +1371,20 @@ export default function ScanReviewScreen() {
     if (keys.length) setTypeSpread({ from: from.toUpperCase().trim(), to: to.toUpperCase().trim(), keys });
   };
   // Byter typen på raderna (de räknas sedan som ändrade av användaren, så ihopslagningen ändrar dem inte tillbaka).
-  const retype = (keys: string[], to: string) => {
+  // keepOrig: en annan variant slås ihop ("Merge into one") → den gamla typen sparas så att det går att ångra i Fleet.
+  const retype = (keys: string[], to: string, keepOrig = false) => {
     if (!keys.length) return;
     touched.current = true;
     for (const k of keys) typeEdited.current.add(k);
     const set = new Set(keys);
-    setRows((prev) => prev.map((r) => (set.has(r.key) ? { ...r, data: { ...r.data, aircraft_type: to } } : r)));
+    setRows((prev) => prev.map((r) => (set.has(r.key)
+      ? { ...r, data: { ...r.data, aircraft_type: to, ...(keepOrig ? { aircraft_type_orig: r.data.aircraft_type_orig || r.data.aircraft_type || '' } : {}) } }
+      : r)));
     for (const k of keys) resolveFields(k, ['aircraft_type']);
   };
-  const mergeTypes = (from: string, to: string) =>
-    retype(rows.filter((r) => !r.skip && typeKey(r.data.aircraft_type) === typeKey(from)).map((r) => r.key), to.toUpperCase().trim());
+  const keysOfType = (t: string) => rows.filter((r) => !r.skip && typeKey(r.data.aircraft_type) === typeKey(t)).map((r) => r.key);
+  const mergeTypes = (from: string, to: string) => retype(keysOfType(from), to.toUpperCase().trim());
+  const mergeVariant = (from: string, to: string) => retype(keysOfType(from), to.toUpperCase().trim(), true);
 
   const setField = (rowKey: string, field: string, value: string) => {
     touched.current = true;
@@ -2087,6 +2115,8 @@ export default function ScanReviewScreen() {
           similarTypes={similarTypes}
           onMergeTypes={mergeTypes}
           onKeepTypes={keepTypes}
+          variantPairs={variantPairs}
+          onMergeVariant={mergeVariant}
           fleetMatches={fleetMatches}
           onRemoveCrew={removeCrew}
           onRestoreCrew={restoreCrew}

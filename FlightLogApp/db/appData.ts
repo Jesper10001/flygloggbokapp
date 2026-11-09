@@ -63,6 +63,7 @@ export async function wipeAllUserData(): Promise<void> {
   await run('DELETE FROM drone_registry');
   await run('DELETE FROM drone_certificates');
   await run('DELETE FROM aircraft_registry');
+  await run('DELETE FROM aircraft_aliases');
   await run('DELETE FROM audit_log');
   await run('DELETE FROM ocr_learned');
   await run('DELETE FROM logbook_books');

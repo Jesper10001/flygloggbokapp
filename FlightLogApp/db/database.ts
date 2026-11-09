@@ -466,6 +466,16 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'fuel_capacity_l', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'range_nm', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'aircraft_registry', 'cutout_url', "TEXT NOT NULL DEFAULT ''");
+  // Flygplansfamilj (services/aircraftFamily.ts): varianter av samma modell (EC135T1, EC135T2) delar familj
+  // ("EC135"). '' = egen typ. family_locked = 1: användaren har valt familjen själv (eller "egen typ"), så den
+  // räknas inte om automatiskt.
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'family', "TEXT NOT NULL DEFAULT ''");
+  await addColumnIfMissingOnTable(db, 'aircraft_registry', 'family_locked', 'INTEGER NOT NULL DEFAULT 0');
+  // Typen flygningen hade innan användaren slog ihop den med en annan variant ("Merge into one"), så att
+  // sammanslagningen kan ångras ("Split into variants" i Fleet). '' = inte ihopslagen.
+  await addColumnIfMissing(db, 'aircraft_type_orig', `TEXT NOT NULL DEFAULT ''`);
+  // Typer som ska loggas som en annan (valet "Merge into …" i Add aircraft frågas en gång): alias → typ.
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS aircraft_aliases (alias TEXT PRIMARY KEY, target TEXT NOT NULL);`);
   // Flygningstyp: normal | sim | hot_refuel
   await addColumnIfMissing(db, 'flight_type', `TEXT NOT NULL DEFAULT 'normal'`);
 

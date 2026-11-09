@@ -1,10 +1,14 @@
 // Fleet-vy: flygna modeller, sorterade senast-flugen (nuvarande först). Swipebar karusell (en farkost i taget).
+// Varianter av samma modell (EC135T1, EC135T2) delar en sida som familj (FleetFamilyPage); familjerna räknas
+// fram när flottan laddas (services/aircraftFamily.ts) och sparas, utom för typer användaren själv valt.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
-import { getAllAircraftTypes, addAircraftTypeToRegistry, persistAircraftFleetLookup, type AircraftRegistryEntry } from '../../db/flights';
+import { getAllAircraftTypes, addAircraftTypeToRegistry, persistAircraftFleetLookup, setAircraftFamily, type AircraftRegistryEntry } from '../../db/flights';
+import { computeFamilies } from '../../services/aircraftFamily';
+import { FleetFamilyPage, FleetTypeFooter } from './FleetFamilyPage';
 import { useTourStore } from '../../store/tourStore';
 import { useProfileStore } from '../../store/profileStore';
 import { DEMO_AIRCRAFT } from '../../constants/tourDemoData';
@@ -33,16 +37,38 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const scrollToKey = useRef<string | null>(null); // sätts efter add → karusellen scrollar till den nya farkosten
 
-  const load = useCallback(() => { getAllAircraftTypes().then(setFleet); }, []);
+  const load = useCallback(() => {
+    getAllAircraftTypes().then(async (list) => {
+      const changes = computeFamilies(list);
+      for (const [type, family] of changes) await setAircraftFamily(type, family).catch(() => {});
+      setFleet(list.map((a) => (changes.has(a.aircraft_type) ? { ...a, family: changes.get(a.aircraft_type) } : a)));
+    }).catch(() => {});
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const sorted = [...fleet].sort((a, b) => (b.last_flown || '').localeCompare(a.last_flown || ''));
+  // En sida per familj (en typ utan familj är sin egen sida), i ordningen den senast flugna medlemmen ger.
+  const pages: { key: string; family: string; members: AircraftRegistryEntry[] }[] = [];
+  for (const ac of sorted) {
+    const fam = (ac.family || '').trim();
+    const page = fam ? pages.find((p) => p.family === fam) : undefined;
+    if (page) page.members.push(ac);
+    else pages.push({ key: fam ? `fam:${fam}` : ac.aircraft_type, family: fam, members: [ac] });
+  }
+  const renderPage = (p: (typeof pages)[number], big = false) => (p.members.length > 1
+    ? <FleetFamilyPage key={p.key} family={p.family} members={p.members} accent={accent} onSaved={load} />
+    : (
+      <View key={p.key} style={{ gap: 10 }}>
+        <FleetCard ac={p.members[0]} accent={accent} big={big} onSaved={load} />
+        <FleetTypeFooter ac={p.members[0]} onSaved={load} />
+      </View>
+    ));
 
   // Efter att en ny farkost lagts till (och listan laddats om): scrolla karusellen till den.
   useEffect(() => {
     const key = scrollToKey.current;
-    if (!key || sorted.length < 2) return;
-    const idx = sorted.findIndex((a) => a.aircraft_type === key);
+    if (!key || pages.length < 2) return;
+    const idx = pages.findIndex((p) => p.members.some((a) => a.aircraft_type === key));
     if (idx < 0) return;
     scrollToKey.current = null;
     setPageIdx(idx);
@@ -65,23 +91,21 @@ export function FleetView({ accent, headerRight }: { accent: string; headerRight
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: tabSpace + 28 }}>
         {sorted.length === 0 ? (
           <FleetEmptyPreview kind={previewKind} accent={accent} />
-        ) : sorted.length === 1 ? (
-          // En enda farkost → fyll hela bredden (som förr).
-          <FleetCard key={sorted[0].aircraft_type} ac={sorted[0]} accent={accent} big onSaved={load} />
+        ) : pages.length === 1 ? (
+          // En enda sida → fyll hela bredden (som förr).
+          renderPage(pages[0], true)
         ) : (
           // Flera → swipebar karusell (en farkost i taget, senast flugen först).
           <>
             {/* Höjden följer kortet som visas → konstant avstånd till prickarna och Add aircraft (AutoHeightPager). */}
             <AutoHeightPager ref={carouselRef} pageWidth={PAGE_W} pagingEnabled decelerationRate="fast"
               onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / PAGE_W))}>
-              {sorted.map((ac) => (
-                <FleetCard key={ac.aircraft_type} ac={ac} accent={accent} onSaved={load} />
-              ))}
+              {pages.map((p) => renderPage(p))}
             </AutoHeightPager>
             {/* Sid-indikator (aktiv = accent, längre) */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
-              {sorted.map((ac, i) => (
-                <View key={ac.aircraft_type} style={{ width: i === pageIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === pageIdx ? accent : Colors.border }} />
+              {pages.map((p, i) => (
+                <View key={p.key} style={{ width: i === pageIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === pageIdx ? accent : Colors.border }} />
               ))}
             </View>
           </>

@@ -106,6 +106,9 @@ export function ScanReport(p: {
   similarTypes?: { a: string; b: string; aRows: number; bRows: number; fleet: boolean }[];
   onMergeTypes?: (from: string, to: string) => void;
   onKeepTypes?: (a: string, b: string) => void;
+  // Olika varianter av samma modell (EC135T1/EC135T2), två nya eller en ny och en i flottan. Hålls isär som standard.
+  variantPairs?: { a: string; b: string; aRows: number; bRows: number; fleet: boolean; family: string; code: string | null }[];
+  onMergeVariant?: (from: string, to: string) => void;
   aircraft: Record<string, AircraftInput>;
   aircraftLoading: Set<string>;
   aircraftFailed: Set<string>;
@@ -596,6 +599,35 @@ export function ScanReport(p: {
         {p.newTypes.length > 0 && (
           <View style={{ gap: 8, marginTop: 4 }}>
             <Text style={s.section}>NEW AIRCRAFT</Text>
+            {p.variantPairs?.map((x) => {
+              // Ihopslagning av två nya: den med färre flygningar går in i den andra.
+              const [from, to] = x.fleet || x.aRows < x.bRows ? [x.a, x.b] : [x.b, x.a];
+              return (
+                <View key={`v:${x.a}|${x.b}`} style={[s.matchCard, { paddingVertical: 12, gap: 10, borderColor: x.fleet ? Colors.primary + '66' : Colors.gold + '66' }]}>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Ionicons name={x.fleet ? 'add-circle-outline' : 'git-merge-outline'} size={17} color={x.fleet ? Colors.primary : Colors.gold} style={{ marginTop: 1 }} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={s.matchTitle}>
+                        {x.fleet ? `${x.a} is a new variant of your ${x.family}`
+                          : x.code ? `${x.a} and ${x.b} share type code ${x.code}` : `${x.a} and ${x.b} are variants of the ${x.family}`}
+                      </Text>
+                      <Text style={[s.matchSub, { lineHeight: 17 }]}>
+                        {x.fleet ? `It joins the ${x.family} family in your fleet, next to ${x.b}. They share the type rating and a family total.`
+                          : `Two variants of the ${x.family}. Keep them as separate types in one family, with a combined total.`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingLeft: 27 }}>
+                    <TouchableOpacity onPress={() => p.onKeepTypes?.(x.a, x.b)} style={[s.variantBtn, s.variantBtnOn]} accessibilityRole="button">
+                      <Text style={[s.variantBtnText, { color: '#fff' }]}>{x.fleet ? 'Add as variant' : 'Keep as variants'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => p.onMergeVariant?.(from, to)} style={s.variantBtn} accessibilityRole="button">
+                      <Text style={s.variantBtnText}>{x.fleet ? `Use ${x.b}` : `Merge into ${to}`}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
             {(p.similarTypes?.length ?? 0) > 0 && (
               <View style={[s.matchCard, { borderColor: Colors.gold + '66' }]}>
                 {p.similarTypes!.map((x, k) => (
@@ -707,6 +739,9 @@ const s = StyleSheet.create({
   matchTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
   matchSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   matchLink: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
+  variantBtn: { height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center' },
+  variantBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+  variantBtnText: { color: Colors.textSecondary, fontSize: 12.5, fontWeight: '700' },
 
   v: { color: '#fff', fontSize: 12.5, fontFamily: MONO, borderRadius: 4, overflow: 'hidden' },
   vEmpty: { color: Colors.textMuted },

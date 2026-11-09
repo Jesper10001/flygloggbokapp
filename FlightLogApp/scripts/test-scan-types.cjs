@@ -4,11 +4,20 @@ const fs = require('fs');
 const path = require('path');
 const ts = require('typescript');
 
-const src = fs.readFileSync(path.join(__dirname, '../services/scanTypes.ts'), 'utf8');
-const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-const mod = { exports: {} };
-new Function('module', 'exports', 'require', js)(mod, mod.exports, require);
-const T = mod.exports;
+// Modulerna laddas som i appen: scanTypes och aircraftFamily kräver varandra.
+const cache = {};
+function load(name) {
+  if (cache[name]) return cache[name].exports;
+  const src = fs.readFileSync(path.join(__dirname, `../services/${name}.ts`), 'utf8');
+  const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const mod = { exports: {} };
+  cache[name] = mod;
+  const req = (p) => (p.startsWith('./') ? load(p.slice(2)) : require(p));
+  new Function('module', 'exports', 'require', js)(mod, mod.exports, req);
+  return mod.exports;
+}
+const T = load('scanTypes');
+const F = load('aircraftFamily');
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { fails++; console.log('  FEL:', msg); } };
@@ -33,9 +42,9 @@ let r = T.resolveScanTypes(
   noFleet,
 );
 ok(r.groups.length === 2, `två typer (${r.groups.map((g) => g.id).join(' / ')})`);
-ok(typeOf(r, 'EC135T1') === 'EC35' && typeOf(r, 'EC135') === 'EC35' && typeOf(r, 'EC35') === 'EC35', `alla EC135 → EC35 (${typeOf(r, 'EC135')})`);
+ok(typeOf(r, 'EC135T1') === 'EC135T1' && typeOf(r, 'EC135') === 'EC135T1' && typeOf(r, 'EC35') === 'EC135T1', `alla EC135 → det vanligaste skrivna namnet EC135T1 (${typeOf(r, 'EC135')})`);
 ok(r.groupOf.get('EC135').rows === 38, 'raderna räknas ihop');
-ok(r.groupOf.get('B206').suggested === 'B06', `B206 → Claudes typkod B06 (${r.groupOf.get('B206').suggested})`);
+ok(r.groupOf.get('B206').suggested === 'B206', `B206 behåller sitt skrivna namn, inte typkoden B06 (${r.groupOf.get('B206').suggested})`);
 
 // 3. Utan Claudes typkoder: samma registrering räcker.
 r = T.resolveScanTypes(rows([['EC135T1', '8265', 3], ['EC-135', '8265', 2]]), [], noFleet);
@@ -86,6 +95,38 @@ ok(typeOf(r, 'B206L') === 'B206L' && !r.groups[0].fleet, 'isärhållen variant b
 r = T.resolveScanTypes(rows([['A320', 'SE-ROA', 3], ['A321', 'SE-ROB', 2]]),
   [{ as_written: 'A320', resolved: 'A320' }, { as_written: 'A321', resolved: 'A321' }], noFleet);
 ok(r.groups.length === 2, 'A320 och A321 är olika');
+
+// 13. Varianter: EC135T1 och EC135T2 har samma typkod men slås inte ihop, och behåller sina namn.
+r = T.resolveScanTypes(rows([['EC135T1', 'SE-HMA', 10], ['EC135T2', 'SE-HMB', 6]]),
+  [{ as_written: 'EC135T1', resolved: 'EC35' }, { as_written: 'EC135T2', resolved: 'EC35' }], noFleet);
+ok(r.groups.length === 2, `T1 och T2 är två typer (${r.groups.map((g) => g.id).join(' / ')})`);
+ok(typeOf(r, 'EC135T1') === 'EC135T1' && typeOf(r, 'EC135T2') === 'EC135T2', `namnen behålls (${typeOf(r, 'EC135T1')}, ${typeOf(r, 'EC135T2')})`);
+
+// 14. Ett allmänt "EC135" bredvid både T1 och T2 går inte ihop med någon av dem.
+r = T.resolveScanTypes(rows([['EC135T1', '', 10], ['EC135T2', '', 6], ['EC135', '', 3]]),
+  [{ as_written: 'EC135T1', resolved: 'EC35' }, { as_written: 'EC135T2', resolved: 'EC35' }, { as_written: 'EC135', resolved: 'EC35' }], noFleet);
+ok(r.groups.length === 3, `tre typer (${r.groups.map((g) => g.id).join(' / ')})`);
+
+// 15. Flottan har EC135T1, skanningen EC135T2 → ny typ EC135T2 i EC135T1:s familj (inte "EC35", inte T1).
+r = T.resolveScanTypes(rows([['EC135T2', 'SE-HMB', 6]]), [{ as_written: 'EC135T2', resolved: 'EC35' }],
+  { types: ['EC135T1'], regs: [{ registration: 'SE-HMA', aircraft_type: 'EC135T1', n: 40 }] });
+ok(typeOf(r, 'EC135T2') === 'EC135T2' && !r.groups[0].fleet, `T2 blir egen typ (${typeOf(r, 'EC135T2')}, fleet=${r.groups[0].fleet})`);
+ok(r.groups[0].familyFleet === 'EC135T1', `familj med flottans T1 (${r.groups[0].familyFleet})`);
+
+// 16. Samma registrering som flottans T1 → flottans typ (samma luftfartyg), trots annat skrivsätt.
+r = T.resolveScanTypes(rows([['EC135T2', 'SE-HMA', 2]]), [{ as_written: 'EC135T2', resolved: 'EC35' }],
+  { types: ['EC135T1'], regs: [{ registration: 'SE-HMA', aircraft_type: 'EC135T1', n: 40 }] });
+ok(typeOf(r, 'EC135T2') === 'EC135T1' && r.groups[0].via === 'registration', 'känd registrering vinner');
+
+// 17. Familjelogiken.
+ok(F.distinctVariants('EC135T1', 'EC135T2') && F.distinctVariants('A109LUH', 'A109E') && F.distinctVariants('AS350B2', 'AS350B3'), 'olika varianter');
+ok(!F.distinctVariants('EC135', 'EC135T1') && !F.distinctVariants('H125', 'H145') && !F.distinctVariants('B737', 'B738') && !F.distinctVariants('AW139', 'AW169'), 'inte olika varianter');
+ok(F.sameFamily('EC135', 'EC135T1') && F.sameFamily('PA28', 'PA28R') && !F.sameFamily('A320', 'A321') && !F.sameFamily('H125', 'H145'), 'samma familj');
+ok(F.familyName(['EC135T1', 'EC135T2', 'EC135']) === 'EC135' && F.familyName(['A109LUH', 'A109E']) === 'A109', `familjenamn (${F.familyName(['A109LUH', 'A109E'])})`);
+let fam = F.computeFamilies([{ aircraft_type: 'EC135T1' }, { aircraft_type: 'EC135T2' }, { aircraft_type: 'R44' }, { aircraft_type: 'A109LUH', family_locked: 1 }, { aircraft_type: 'A109E' }]);
+ok(fam.get('EC135T1') === 'EC135' && fam.get('EC135T2') === 'EC135' && !fam.has('R44') && !fam.has('A109E') && !fam.has('A109LUH'), `familjer i flottan (${[...fam].join(' ')})`);
+fam = F.computeFamilies([{ aircraft_type: 'EC135T1', family: 'EC135' }]);
+ok(fam.get('EC135T1') === '', 'ensam typ tappar familjen');
 
 // 12. Tomma typer räknas inte.
 r = T.resolveScanTypes(rows([['', '', 3]]), [], noFleet);

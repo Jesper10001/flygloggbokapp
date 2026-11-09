@@ -846,6 +846,10 @@ export async function saveScanRows(
     }
     const id = await insertFlight(d, { source: 'ocr', originalData: JSON.stringify(row.original) });
     if (id) { savedIds.push(id); ids[row.key] = id; }
+    // Ihopslagen med en annan variant i rapporten → den gamla varianten sparas, så att det går att ångra i Fleet.
+    if (id && d.aircraft_type_orig && d.aircraft_type_orig.toUpperCase() !== (d.aircraft_type ?? '').toUpperCase()) {
+      await db.runAsync(`UPDATE flights SET aircraft_type_orig=? WHERE id=?`, [d.aircraft_type_orig.toUpperCase(), id]);
+    }
     saved++;
     // Justerad mot sidans summa → markerad flygning + en rad i ändringsloggen per fält, med var i boken.
     if (id && row.adjusted?.length) {

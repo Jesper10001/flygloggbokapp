@@ -1253,6 +1253,62 @@ export async function addAircraftTypeToRegistry(
   );
 }
 
+// ── Flygplansfamiljer och varianter (services/aircraftFamily.ts) ──────────────
+
+/** Sätter typens familj. locked = användarens eget val (räknas inte om automatiskt). */
+export async function setAircraftFamily(type: string, family: string, locked = false): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`UPDATE aircraft_registry SET family=?, family_locked=? WHERE aircraft_type=?`,
+    [family.toUpperCase(), locked ? 1 : 0, type.toUpperCase()]);
+}
+
+/** Typer som ska loggas som en annan (alias → typ), nycklade som services/scanTypes typeKey. */
+export async function getAircraftAliases(): Promise<Map<string, string>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ alias: string; target: string }>(`SELECT alias, target FROM aircraft_aliases`);
+  return new Map(rows.map((r) => [r.alias, r.target]));
+}
+
+export async function setAircraftAlias(aliasKey: string, target: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`INSERT INTO aircraft_aliases (alias, target) VALUES (?, ?) ON CONFLICT(alias) DO UPDATE SET target=excluded.target`,
+    [aliasKey, target.toUpperCase()]);
+}
+
+export async function deleteAircraftAlias(aliasKey: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(`DELETE FROM aircraft_aliases WHERE alias=?`, [aliasKey]);
+}
+
+/**
+ * Ångrar sammanslagningar till en typ: flygningarna som slagits ihop hit från andra varianter får tillbaka sin
+ * typ, varianterna läggs in i flottan igen (med registreringarna) i samma familj, och deras alias tas bort.
+ * Returnerar varianterna som kom tillbaka.
+ */
+export async function splitMergedFlights(type: string): Promise<string[]> {
+  const db = await getDatabase();
+  const T = type.toUpperCase();
+  const origs = (await db.getAllAsync<{ o: string }>(
+    `SELECT DISTINCT aircraft_type_orig as o FROM flights WHERE aircraft_type=? AND aircraft_type_orig != ''`, [T],
+  )).map((r) => r.o.toUpperCase()).filter((o) => o && o !== T);
+  if (!origs.length) return [];
+  const fam = await db.getFirstAsync<{ family: string }>(`SELECT MAX(family) as family FROM aircraft_registry WHERE aircraft_type=?`, [T]);
+  const { familyName } = require('../services/aircraftFamily');
+  const family = (fam?.family || familyName([T, ...origs]) || '').toUpperCase();
+  for (const o of origs) {
+    await db.runAsync(`UPDATE flights SET aircraft_type=?, aircraft_type_orig='' WHERE aircraft_type=? AND aircraft_type_orig=?`, [o, T, o]);
+    await db.runAsync(`INSERT OR IGNORE INTO aircraft_registry (aircraft_type, registration) VALUES (?, '')`, [o]);
+    await db.runAsync(
+      `INSERT OR IGNORE INTO aircraft_registry (aircraft_type, registration)
+       SELECT DISTINCT aircraft_type, registration FROM flights WHERE aircraft_type=? AND registration != ''`, [o]);
+    await db.runAsync(`DELETE FROM aircraft_aliases WHERE target=? AND alias=?`, [T, o.replace(/[^A-Z0-9]/g, '')]);
+  }
+  if (family) {
+    for (const t of [T, ...origs]) await db.runAsync(`UPDATE aircraft_registry SET family=? WHERE aircraft_type=?`, [family, t]);
+  }
+  return origs;
+}
+
 export async function getAircraftCruiseSpeed(type: string): Promise<number> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<{ cruise_speed_kts: number }>(
@@ -1363,6 +1419,9 @@ export type AircraftRegistryEntry = {
   rating_class: string;
   last_flown: string; // MAX(f.date) eller '' (aldrig flugen)
   first_flown: string; // MIN(f.date) eller '' (aldrig flugen)
+  family?: string; // flygplansfamilj ('' = egen typ), services/aircraftFamily.ts
+  family_locked?: number; // 1 = vald av användaren, räknas inte om
+  merged_count?: number; // flygningar som slagits ihop hit från en annan variant ("Split into variants")
 };
 
 export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
@@ -1392,6 +1451,9 @@ export async function getAllAircraftTypes(): Promise<AircraftRegistryEntry[]> {
            MAX(ar.cutout_url) as cutout_url,
            MAX(ar.rating_expiry) as rating_expiry,
            MAX(ar.rating_class) as rating_class,
+           MAX(ar.family) as family,
+           MAX(ar.family_locked) as family_locked,
+           (SELECT COUNT(*) FROM flights fm WHERE fm.aircraft_type = ar.aircraft_type AND fm.aircraft_type_orig != '') as merged_count,
            COALESCE(MAX(f.date), '') as last_flown,
            COALESCE(MIN(f.date), '') as first_flown,
            COUNT(DISTINCT CASE WHEN f.registration != '' THEN f.registration END) as reg_count,
