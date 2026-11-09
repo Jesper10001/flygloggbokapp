@@ -68,9 +68,9 @@ export function PhotoViewer({ list, index, flight, coverKey, onIndex, onClose, o
                 <Text style={{ fontSize: 15, fontWeight: '600', color: isCover ? Colors.gold : '#fff' }}>{isCover ? 'Cover photo' : 'Set as cover'}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[s.btn, s.danger]} onPress={() => p && onRemove(p)}>
+            <TouchableOpacity style={[s.btn, s.danger]} onPress={() => p && onRemove(p)} accessibilityRole="button" accessibilityLabel="Remove from album">
               <Ionicons name="trash-outline" size={16} color={DANGER} />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: DANGER }}>Remove from album</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: DANGER }}>Remove</Text>
             </TouchableOpacity>
           </View>
         </View>
