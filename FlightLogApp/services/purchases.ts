@@ -120,6 +120,47 @@ export async function getPremiumOffering(): Promise<PurchasesOffering | null> {
   } catch { return null; }
 }
 
+/** En plan på onboardingens egen betalvägg, med App Store-priset och provperioden användaren har rätt till. */
+export interface PlanOption {
+  tier: 'premium' | 'max';
+  pkg: PurchasesPackage;
+  priceString: string;
+  trialDays: number; // 0 = ingen provperiod (finns inte, eller redan använd på det här Apple-ID:t)
+}
+
+const DAYS_PER_UNIT: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
+
+/**
+ * Planerna till onboardingens betalvägg (components/onboarding/OnboardingPaywall): Premium och Max ur erbjudandet
+ * med båda när de nya paywallsen är på, annars Premium ur current. Provperioden räknas bara när App Store har ett
+ * gratis introduktionserbjudande och RevenueCat säger att användaren har rätt till det (Apple ger det en gång per
+ * Apple-ID och prenumerationsgrupp); okänt läge visas som vanligt pris. Tom lista när köp inte går.
+ */
+export async function getOnboardingPlans(): Promise<PlanOption[]> {
+  if (!configured || !Purchases) return [];
+  try {
+    const offerings = await Purchases.getOfferings();
+    const offering: PurchasesOffering | null = (NEW_PAYWALLS ? offerings?.all?.[PLANS_OFFERING_ID] : null) ?? offerings?.current ?? null;
+    if (!offering) return [];
+    const pkgs = offering.availablePackages ?? [];
+    const max = pkgs.find((p) => p.product.identifier === MAX_PRODUCT_ID) ?? null;
+    const premium = pkgs.find((p) => p.identifier === '$rc_monthly' && p !== max)
+      ?? pkgs.find((p) => p.packageType === 'MONTHLY' && p !== max) ?? null;
+    const list = [premium && { tier: 'premium' as const, pkg: premium }, max && { tier: 'max' as const, pkg: max }]
+      .filter(Boolean) as { tier: 'premium' | 'max'; pkg: PurchasesPackage }[];
+    if (!list.length) return [];
+    let elig: Record<string, { status: number }> = {};
+    try { elig = await Purchases.checkTrialOrIntroductoryPriceEligibility(list.map((x) => x.pkg.product.identifier)); } catch { elig = {}; }
+    const ELIGIBLE = Purchases.INTRO_ELIGIBILITY_STATUS?.INTRO_ELIGIBILITY_STATUS_ELIGIBLE ?? 2;
+    return list.map(({ tier, pkg }) => {
+      const intro = pkg.product.introPrice;
+      const free = !!intro && intro.price === 0 && elig[pkg.product.identifier]?.status === ELIGIBLE;
+      const days = free ? (DAYS_PER_UNIT[intro!.periodUnit] ?? 0) * (intro!.periodNumberOfUnits || 1) * (intro!.cycles || 1) : 0;
+      return { tier, pkg, priceString: pkg.product.priceString, trialDays: days };
+    });
+  } catch { return []; }
+}
+
 export type PurchaseOutcome = 'success' | 'cancelled' | 'unavailable' | 'nothing' | 'error';
 
 /** Köper ett paket. Returnerar ett stabilt resultat som UI:t kan mappa till en toast. */

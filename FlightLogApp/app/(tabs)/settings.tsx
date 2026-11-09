@@ -26,6 +26,7 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
+import { NEW_PAYWALLS } from '../../constants/paywalls';
 import { TourPress } from '../../components/TourPress';
 import { useToastStore } from '../../components/Toast';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
@@ -884,6 +885,16 @@ export default function SettingsScreen() {
             Take the Blades introduction
           </Text>
         </TouchableOpacity>
+        {/* Bara i TestFlight-bygget: den nya onboardingen att titta på, utan att något sparas. */}
+        {NEW_PAYWALLS ? (
+          <TouchableOpacity onPress={() => router.push('/onboarding?preview=1' as any)} activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+            style={{ minHeight: 44, justifyContent: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
+              Preview the new onboarding
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
 
