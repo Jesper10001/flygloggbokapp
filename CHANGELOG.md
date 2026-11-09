@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Onboardingens betalvägg: knappen säger "Start my trial week, then 69,00 kr/month" (priset för den valda planen, krymper för att få plats på en rad) när planen har en provvecka; utan provvecka som förut "Get Premium · 39,00 kr/month".
 - Ny onboarding (design "Onboarding redesign", components/onboarding/NewOnboarding) i appens stil: välkomst med hemsidans telefonbild och Blades-loggan → farkost (helikopter/flygplan/drönare på en skärm) → mål och regelverk (gissat ur regionen) → förnamn, timmar och pappersbok → profilkortet → egen betalvägg (OnboardingPaywall: rubrik efter svaren, Premium/Max med App Store-pris, provperiod bara om App Store har en och användaren har rätt till den) → timmarna (skanna/CSV/starttotaler/senare). Initialer, signatur och tidsformat väljs inte längre i onboardingen. Visas bara med de nya paywallsen (TestFlight/preview); App Store-bygget har kvar den gamla (LegacyOnboarding). I TestFlight finns "Preview the new onboarding" i Inställningar, som inte sparar något.
 - Flygalbumets bildvisare: knappen heter bara "Remove" (VoiceOver läser fortfarande "Remove from album").
 - Best week-kartan: vilodagar (och slutet) visar samma farkost som senast flögs, även lokalt, i stället för ett plan. Förut blev det alltid ett plan när veckan bara hade lokala helikopterflygningar.

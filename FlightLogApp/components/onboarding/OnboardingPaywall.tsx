@@ -156,9 +156,11 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, title, sub, onDone
 
       <View style={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: insets.bottom + 6 }}>
         <Pressable onPress={buy} disabled={!!busy} style={({ pressed }) => [s.cta, pressed && { transform: [{ scale: 0.985 }] }]}
-          accessibilityRole="button" accessibilityLabel={trial ? `Start my ${trialName}` : `Get ${planName}, ${price} a month`}>
+          accessibilityRole="button" accessibilityLabel={trial ? `Start my ${trialName}, then ${price} a month` : `Get ${planName}, ${price} a month`}>
           {busy === 'buy' ? <ActivityIndicator color={INK} />
-            : <Text style={s.ctaText}>{trial ? `Start my ${trialName}` : `Get ${planName} · ${price}/month`}</Text>}
+            : <Text style={s.ctaText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {trial ? `Start my ${trialName}, then ${price}/month` : `Get ${planName} · ${price}/month`}
+            </Text>}
         </Pressable>
         {note ? <Text style={s.note}>{note}</Text> : null}
         <Pressable onPress={() => onDone(null)} style={s.ghost} accessibilityRole="button">
@@ -206,7 +208,7 @@ const s = StyleSheet.create({
   ptag: { position: 'absolute', top: -10, right: 10, backgroundColor: GOLD, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   ptagText: { fontFamily: MONO, fontSize: 9, fontWeight: '800', letterSpacing: 1.1, color: INK },
   cta: { height: 54, borderRadius: 16, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', shadowColor: CYAN, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
-  ctaText: { fontSize: 16.5, fontWeight: '700', color: INK },
+  ctaText: { fontSize: 16.5, fontWeight: '700', color: INK, paddingHorizontal: 16 },
   note: { fontSize: 12.5, color: '#FFB4A8', textAlign: 'center', marginTop: 8 },
   ghost: { height: 44, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   ghostText: { fontSize: 14.5, fontWeight: '600', color: SUB },
