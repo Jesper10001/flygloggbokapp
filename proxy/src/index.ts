@@ -251,6 +251,43 @@ async function resolveTier(deviceId: string, env: Env): Promise<string> {
   return (await promoActive(env.QUOTA_KV, await deviceKeys(deviceId))) ? 'premium' : 'free';
 }
 
+// ── Provveckan: Premiums eller Max funktioner, men gratispottens coins ─────────
+// Under en gratis provperiod (App Store-introduktionserbjudandet) räknas coinsen som för en gratisanvändare,
+// alltså engångspotten på 100 coins. Månadens 250 eller 500 kommer när den betalda perioden börjar. Allt annat
+// (obegränsat, köpa coins, nyheter, appens nivå) följer den riktiga nivån. RevenueCat-webhooken sätter flaggan
+// vid köpet (period_type TRIAL) och nollar den vid första betalda perioden; saknas flaggan frågar vi RevenueCats
+// prenumerationslista (status "trialing", kräver behörigheten customer_information:subscriptions:read).
+const TRIAL_TTL = 900; // 15 min, som premium-cachen
+const trialKey = async (deviceId: string) => `trial:v1:${await hashDevice(deviceId)}`;
+
+async function rcTrialStatus(customerId: string, env: Env): Promise<{ status: number; trial: boolean }> {
+  if (!env.REVENUECAT_SECRET_KEY || !env.REVENUECAT_PROJECT_ID) return { status: 0, trial: false };
+  try {
+    const r = await fetch(
+      `https://api.revenuecat.com/v2/projects/${env.REVENUECAT_PROJECT_ID}/customers/${encodeURIComponent(customerId)}/subscriptions?limit=100`,
+      { headers: { Authorization: `Bearer ${env.REVENUECAT_SECRET_KEY}` } },
+    );
+    if (!r.ok) return { status: r.status, trial: false };
+    const data = await r.json() as { items?: Array<{ status?: string; gives_access?: boolean }> };
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return { status: r.status, trial: items.some((x) => x.gives_access === true && x.status === 'trialing') };
+  } catch {
+    return { status: -1, trial: false };
+  }
+}
+
+// Nivån som coinsen räknas efter: 'free' under en provperiod, annars samma som tier.
+async function coinTier(deviceId: string, tier: string, env: Env): Promise<string> {
+  if (!isPaid(tier) || !env.QUOTA_KV || !deviceId || deviceId === 'unknown') return tier;
+  const key = await trialKey(deviceId);
+  let flag = await env.QUOTA_KV.get(key);
+  if (flag === null) {
+    flag = (await rcTrialStatus(deviceId, env)).trial ? '1' : '0';
+    await env.QUOTA_KV.put(key, flag, { expirationTtl: TRIAL_TTL });
+  }
+  return flag === '1' ? 'free' : tier;
+}
+
 // ── Login-sida ─────────────────────────────────────────────────────────────
 
 function loginPage(): string {
@@ -1037,16 +1074,17 @@ export default {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
       const dk = await deviceKeys(devId);
       const tier = await resolveTier(devId, env); // server-sanning (promo/RevenueCat), inte headern
-      const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
+      const ctier = await coinTier(devId, tier, env); // 'free' under provveckan
+      const limit = TOKEN_LIMITS[ctier] ?? TOKEN_LIMITS.free;
       const used = env.QUOTA_KV
-        ? parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tier), tokenKey(dk.legacy, tier), tokenTtl(tier)) ?? '0', 10)
+        ? parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, ctier), tokenKey(dk.legacy, ctier), tokenTtl(ctier)) ?? '0', 10)
         : 0;
       const premium = isPaid(tier);
-      const period = tier === 'free' ? 'lifetime' : currentMonth();
+      const period = ctier === 'free' ? 'lifetime' : currentMonth();
       const exempt = quotaExempt(env, dk.hash);
       // Köpta coins (tokens) går aldrig ut och visas för sig; bara Premium och Max kan köpa fler.
       const credits = env.QUOTA_KV ? await getCredits(env.QUOTA_KV, dk.hash) : 0;   // negativt = skuld efter återbetalning
-      return new Response(JSON.stringify({ used: exempt ? 0 : used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium, tier, exempt, credits, can_buy: premium }), {
+      return new Response(JSON.stringify({ used: exempt ? 0 : used, limit, month: period, enforced: TOKEN_QUOTAS_ENABLED, premium, tier, trial: ctier !== tier, exempt, credits, can_buy: premium }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
@@ -1107,6 +1145,13 @@ export default {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
       const premium = isPaid(await resolveTier(devId, env));
       const promo = premium && await promoActive(env.QUOTA_KV, await deviceKeys(devId));
+      // ?debug=1: RevenueCats svarskoder (inga nycklar), t.ex. 403 = nyckeln saknar behörighet.
+      if (url.searchParams.get('debug') === '1') {
+        const rc = { entitlements: (await rcFetchActive(devId, env)).status, subscriptions: (await rcTrialStatus(devId, env)).status };
+        return new Response(JSON.stringify({ premium, promo, rc }), {
+          headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        });
+      }
       return new Response(JSON.stringify({ premium, promo }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
@@ -1158,7 +1203,18 @@ export default {
         console.log(`[credits] återbetald ${event.product_id} ${taken ? `−${taken} tokens` : '(inget att dra)'}`);
         return new Response('ok');
       }
-      if (appUserId && env.QUOTA_KV) await cacheTier(appUserId, await rcTier(appUserId, env), env);
+      if (appUserId && env.QUOTA_KV) {
+        await cacheTier(appUserId, await rcTier(appUserId, env), env);
+        // Provveckan: ett köp i provperioden sätter flaggan till periodens slut, en betald period nollar den.
+        const pt = String(event?.period_type ?? '').toUpperCase();
+        if (pt === 'TRIAL') {
+          const endMs = Number(event?.expiration_at_ms) || 0;
+          const ttl = endMs ? Math.max(TRIAL_TTL, Math.ceil((endMs - Date.now()) / 1000) + 3600) : TRIAL_TTL;
+          await env.QUOTA_KV.put(await trialKey(appUserId), '1', { expirationTtl: ttl });
+        } else if (pt) {
+          await env.QUOTA_KV.put(await trialKey(appUserId), '0', { expirationTtl: TRIAL_TTL });
+        }
+      }
       return new Response('ok');
     }
 
@@ -1192,7 +1248,7 @@ export default {
       try { requested = Number((JSON.parse(await request.text()) as any)?.spreads) || 0; } catch { /* ogiltig body */ }
       let granted = 0;
       if (env.QUOTA_KV && TOKEN_QUOTAS_ENABLED && !quotaExempt(env, dk.hash)) {
-        const tier = await resolveTier(devId, env);
+        const tier = await coinTier(devId, await resolveTier(devId, env), env); // provveckan räknas som gratis
         const limit = TOKEN_LIMITS[tier] ?? TOKEN_LIMITS.free;
         const used = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tier), tokenKey(dk.legacy, tier), tokenTtl(tier)) ?? '0', 10) || 0;
         granted = passSize(requested, scanReach(used, limit, await getCredits(env.QUOTA_KV, dk.hash)));
@@ -1225,14 +1281,15 @@ export default {
 
       // ── Server-side tier: promo ELLER RevenueCat (aldrig klient-headern) ──
       const tierHeader = await resolveTier(deviceId, env);
+      const coinTierHeader = await coinTier(deviceId, tierHeader, env); // coinsen: 'free' under provveckan
       const exempt = quotaExempt(env, dk.hash);
 
       // (Incident news hanteras numera av den cachade GET /incident-news — ingen web search här.)
 
       // ── Token-tak (enda aktiva spärren) — CSV-import/flight-scan/lookup är token-låsta ──
       if (TOKEN_QUOTAS_ENABLED && env.QUOTA_KV && !exempt) {
-        const tLimit = TOKEN_LIMITS[tierHeader] ?? TOKEN_LIMITS.free;
-        const tUsed = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, tierHeader), tokenKey(dk.legacy, tierHeader), tokenTtl(tierHeader)) ?? '0', 10);
+        const tLimit = TOKEN_LIMITS[coinTierHeader] ?? TOKEN_LIMITS.free;
+        const tUsed = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, coinTierHeader), tokenKey(dk.legacy, coinTierHeader), tokenTtl(coinTierHeader)) ?? '0', 10);
         const tCredits = await getCredits(env.QUOTA_KV, dk.hash);
         // Slut på coins: en skanningsläsning som skanningspasset täcker släpps ändå igenom (scanPass.ts).
         if (!hasAllowance(tUsed, tLimit, tCredits) && !(await scanPassCovers(env.QUOTA_KV, dk.hash, parsedBody))) {
@@ -1290,7 +1347,7 @@ export default {
                 indexes: [deviceHash],
               });
             }
-            if (!exempt) await chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader));
+            if (!exempt) await chargeTokens(env.QUOTA_KV, dk, coinTierHeader, quotaTokens(parsedBody, inTok, outTok, coinTierHeader));
             if (env.QUOTA_KV) await noteScanRead(env.QUOTA_KV, dk.hash, parsedBody);
           } catch {}
         })());
@@ -1325,7 +1382,7 @@ export default {
       }
       // Token-räkning i bakgrunden — blockerar inte svaret till appen.
       // Vikten per anrop kommer från quotaWeight.ts (skanning har i dag full taxa för alla).
-      if (!exempt) ctx.waitUntil(chargeTokens(env.QUOTA_KV, dk, tierHeader, quotaTokens(parsedBody, inTok, outTok, tierHeader)));
+      if (!exempt) ctx.waitUntil(chargeTokens(env.QUOTA_KV, dk, coinTierHeader, quotaTokens(parsedBody, inTok, outTok, coinTierHeader)));
       if (env.QUOTA_KV && resp.status === 200) ctx.waitUntil(noteScanRead(env.QUOTA_KV, dk.hash, parsedBody).catch(() => {}));
 
       return new Response(respBody, {
