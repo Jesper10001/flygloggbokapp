@@ -143,15 +143,21 @@ export async function getOnboardingPlans(): Promise<PlanOption[]> {
   if (!configured || !Purchases) return [];
   try {
     const offerings = await Purchases.getOfferings();
-    const offering: PurchasesOffering | null = (NEW_PAYWALLS ? offerings?.all?.[ONBOARDING_OFFERING_ID] ?? offerings?.all?.[PLANS_OFFERING_ID] : null)
-      ?? offerings?.current ?? null;
-    if (!offering) return [];
-    const pkgs = offering.availablePackages ?? [];
-    const max = pkgs.find((p) => MAX_PRODUCT_IDS.has(p.product.identifier)) ?? null;
-    const premium = pkgs.find((p) => p.identifier === '$rc_monthly' && p !== max)
-      ?? pkgs.find((p) => p.packageType === 'MONTHLY' && p !== max) ?? null;
-    const list = [premium && { tier: 'premium' as const, pkg: premium }, max && { tier: 'max' as const, pkg: max }]
-      .filter(Boolean) as { tier: 'premium' | 'max'; pkg: PurchasesPackage }[];
+    // Första erbjudandet som har planer: onboardingens, sedan det med båda, sedan current. Kommer ett erbjudande
+    // utan paket (t.ex. om App Store inte levererade produkterna) används nästa i stället för att hoppa över.
+    const candidates: (PurchasesOffering | null | undefined)[] = NEW_PAYWALLS
+      ? [offerings?.all?.[ONBOARDING_OFFERING_ID], offerings?.all?.[PLANS_OFFERING_ID], offerings?.current]
+      : [offerings?.current];
+    let list: { tier: 'premium' | 'max'; pkg: PurchasesPackage }[] = [];
+    for (const offering of candidates) {
+      const pkgs = offering?.availablePackages ?? [];
+      const max = pkgs.find((p) => MAX_PRODUCT_IDS.has(p.product.identifier)) ?? null;
+      const premium = pkgs.find((p) => p.identifier === '$rc_monthly' && p !== max)
+        ?? pkgs.find((p) => p.packageType === 'MONTHLY' && p !== max) ?? null;
+      list = [premium && { tier: 'premium' as const, pkg: premium }, max && { tier: 'max' as const, pkg: max }]
+        .filter(Boolean) as { tier: 'premium' | 'max'; pkg: PurchasesPackage }[];
+      if (list.length) break;
+    }
     if (!list.length) return [];
     let elig: Record<string, { status: number }> = {};
     try { elig = await Purchases.checkTrialOrIntroductoryPriceEligibility(list.map((x) => x.pkg.product.identifier)); } catch { elig = {}; }

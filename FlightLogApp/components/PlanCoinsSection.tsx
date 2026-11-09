@@ -174,7 +174,8 @@ export function CoinsCard({ T, onInfo }: { T: PlanTheme; onInfo: () => void }) {
             <Text style={[st.label, { color: T.label, flex: 0 }]}>Blade coins</Text>
             <Text style={[st.coinLine, { color: T.text }]} numberOfLines={1}>
               <Text style={{ color: total <= 0 ? T.label : low ? WARN : T.text, fontVariant: ['tabular-nums'] }}>{total.toLocaleString('en-US')}</Text>
-              {' left'}
+              {/* Nästan slut: hela raden i guld (siffran, "left" och "running low"). */}
+              <Text style={{ color: low ? WARN : T.text }}>{' left'}</Text>
               <Text style={{ color: low ? WARN : T.label, fontWeight: '400' }}>{` · ${subline}`}</Text>
             </Text>
           </View>

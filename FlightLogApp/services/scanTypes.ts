@@ -51,6 +51,22 @@ export function isVariant(a: string, b: string): boolean {
   return rest.length > 0 && rest.length <= 3 && /^[A-Z]{0,2}\d{0,2}$/.test(rest);
 }
 
+/**
+ * Mildare än isVariant: kan två skrivsätt vara samma luftfartyg? Används bara för att FRÅGA i skanningsrapporten,
+ * aldrig för att slå ihop av sig själv. Samma typkod, eller samma modell med ett suffix på upp till fyra tecken
+ * (A109 och A109LUH, AS350 och AS350B3). Suffixet får inte fortsätta modellnumret (EC13 och EC135 är olika).
+ */
+export function maybeSameType(a: string, b: string): boolean {
+  const x = typeKey(a), y = typeKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.length < 3 || !/\d/.test(short) || !long.startsWith(short)) return false;
+  const rest = long.slice(short.length);
+  if (/\d$/.test(short) && /^\d/.test(rest)) return false;
+  return rest.length >= 1 && rest.length <= 4 && /^[A-Z0-9]+$/.test(rest);
+}
+
 const majority = (m: Map<string, number>): string | null => {
   let best: string | null = null, n = -1;
   for (const [k, v] of m) if (v > n) { best = k; n = v; }

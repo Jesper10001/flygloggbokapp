@@ -22,7 +22,7 @@ import { loadScanFormat, saveScanFormat, formatToLayout, type ScanFormat } from 
 import { applyValueRules, undoValueRule, noteAnswer, ruleFor, ruleClassOf, upper, type ValueRule, type RuleStash } from '../../services/scanValueRules';
 import { resolveNames } from '../../services/scanNames';
 import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
-import { resolveScanTypes, typeKey, isVariant, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
+import { resolveScanTypes, typeKey, isVariant, maybeSameType, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { formatTimeValue } from '../../hooks/useTimeFormat';
 import type { TimeFormat } from '../../store/timeFormatStore';
@@ -525,6 +525,8 @@ export default function ScanReviewScreen() {
   const [typeSeparate, setTypeSeparate] = useState<Set<string>>(new Set());
   const [typeChoice, setTypeChoice] = useState<Record<string, string>>({});
   const typeEdited = useRef(new Set<string>());   // rader där användaren själv ändrat typen
+  const [typeSpread, setTypeSpread] = useState<{ from: string; to: string; keys: string[] } | null>(null);
+  const [typesKept, setTypesKept] = useState<Set<string>>(new Set());   // par som användaren sagt är olika flygplan
   // Andrepiloterna: namnen som redan finns, isärhållna namn, och rader användaren själv ändrat.
   const [knownNames, setKnownNames] = useState<{ name: string; n: number }[]>([]);
   const [nameSeparate, setNameSeparate] = useState<Set<string>>(new Set());
@@ -1209,6 +1211,27 @@ export default function ScanReviewScreen() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, known, typeRes, typeChoice]);
+  // Nya typer som ser ut att vara samma luftfartyg (samma typkod, eller ett variantsuffix: A109 och A109LUH), och
+  // nya typer som ser ut som en i flottan. Rapporten föreslår att slå ihop dem innan de blir två flygplan.
+  const similarTypes = useMemo(() => {
+    const pair = (a: string, b: string) => [typeKey(a), typeKey(b)].sort().join('|');
+    const alike = maybeSameType;
+    const rowsOf = new Map(newTypes.map((n) => [n.type, n.rows]));
+    const out: { a: string; b: string; aRows: number; bRows: number; fleet: boolean }[] = [];
+    for (let i = 0; i < newTypes.length; i++) {
+      for (let j = i + 1; j < newTypes.length; j++) {
+        const a = newTypes[i].type, b = newTypes[j].type;
+        if (alike(a, b) && !typesKept.has(pair(a, b))) out.push({ a, b, aRows: rowsOf.get(a) ?? 0, bRows: rowsOf.get(b) ?? 0, fleet: false });
+      }
+      for (const k of known) {
+        const a = newTypes[i].type;
+        if (alike(a, k) && !typesKept.has(pair(a, k))) out.push({ a, b: k, aRows: rowsOf.get(a) ?? 0, bRows: 0, fleet: true });
+      }
+    }
+    return out;
+  }, [newTypes, known, typesKept]);
+  const keepTypes = (a: string, b: string) => setTypesKept((st) => new Set([...st, [typeKey(a), typeKey(b)].sort().join('|')]));
+
   // Skrivsätt som fått flottans typ (rapporten: "Matched to your fleet", med "Keep separate").
   const fleetMatches = useMemo(() => typeRes.groups
     .filter((g) => g.fleet && g.via && typeChoice[g.members[0].key] == null)
@@ -1315,9 +1338,32 @@ export default function ScanReviewScreen() {
 
   // ── Ändringar ──────────────────────────────────────────────────────────────
 
+  // Samma typ på andra rader: ändrar man typen på EN rad frågar appen om skanningens övriga rader med samma typ ska
+  // få den nya också, så att en rättelse inte blir två olika flygplan i flottan ("A109" och "A109LUH").
+  const offerTypeSpread = (rowKey: string, from: string, to: string) => {
+    const f = typeKey(from), t = typeKey(to);
+    if (!f || !t || f === t) return;
+    const keys = rows.filter((r) => !r.skip && r.key !== rowKey && typeKey(r.data.aircraft_type) === f).map((r) => r.key);
+    if (keys.length) setTypeSpread({ from: from.toUpperCase().trim(), to: to.toUpperCase().trim(), keys });
+  };
+  // Byter typen på raderna (de räknas sedan som ändrade av användaren, så ihopslagningen ändrar dem inte tillbaka).
+  const retype = (keys: string[], to: string) => {
+    if (!keys.length) return;
+    touched.current = true;
+    for (const k of keys) typeEdited.current.add(k);
+    const set = new Set(keys);
+    setRows((prev) => prev.map((r) => (set.has(r.key) ? { ...r, data: { ...r.data, aircraft_type: to } } : r)));
+    for (const k of keys) resolveFields(k, ['aircraft_type']);
+  };
+  const mergeTypes = (from: string, to: string) =>
+    retype(rows.filter((r) => !r.skip && typeKey(r.data.aircraft_type) === typeKey(from)).map((r) => r.key), to.toUpperCase().trim());
+
   const setField = (rowKey: string, field: string, value: string) => {
     touched.current = true;
-    if (field === 'aircraft_type' && (rows.find((r) => r.key === rowKey)?.data.aircraft_type || '').toUpperCase() !== value.toUpperCase()) typeEdited.current.add(rowKey);
+    if (field === 'aircraft_type' && (rows.find((r) => r.key === rowKey)?.data.aircraft_type || '').toUpperCase() !== value.toUpperCase()) {
+      typeEdited.current.add(rowKey);
+      offerTypeSpread(rowKey, rows.find((r) => r.key === rowKey)?.data.aircraft_type || '', value);
+    }
     if (field === 'second_pilot') { crewEdited.current.add(rowKey); nameWritten.current.delete(rowKey); }
     const before = rows.find((r) => r.key === rowKey);
     if (before && upper((before.data as any)[field]) !== upper(value)) learnAnswer(field, rowKey, (before.data as any)[field], value);
@@ -1862,7 +1908,10 @@ export default function ScanReviewScreen() {
   };
   const patchRow = (rowKey: string, patch: Partial<OcrFlightResult>) => {
     touched.current = true;
-    if ('aircraft_type' in patch) typeEdited.current.add(rowKey);
+    if ('aircraft_type' in patch) {
+      typeEdited.current.add(rowKey);
+      offerTypeSpread(rowKey, rows.find((r) => r.key === rowKey)?.data.aircraft_type || '', patch.aircraft_type || '');
+    }
     setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, data: { ...r.data, ...patch } } : r)));
     resolveFields(rowKey, [...Object.keys(patch), 'sim']);
   };
@@ -2035,6 +2084,9 @@ export default function ScanReviewScreen() {
           removeCount={removeIds.length}
           openCount={openIssues.length}
           newTypes={newTypes}
+          similarTypes={similarTypes}
+          onMergeTypes={mergeTypes}
+          onKeepTypes={keepTypes}
           fleetMatches={fleetMatches}
           onRemoveCrew={removeCrew}
           onRestoreCrew={restoreCrew}
@@ -2369,6 +2421,17 @@ export default function ScanReviewScreen() {
         stillReading={pages.some((p) => p.status === 'waiting' || p.status === 'finding' || p.status === 'reading')}
         onChange={setFocusPick}
         onStart={startChecking}
+      />
+
+      <GlassDialog
+        visible={!!typeSpread}
+        onClose={() => setTypeSpread(null)}
+        icon={<DialogIcon name="airplane-outline" />}
+        eyebrow="AIRCRAFT TYPE"
+        title={typeSpread ? `Use ${typeSpread.to} on all ${typeSpread.keys.length + 1} flights?` : ''}
+        body={typeSpread ? `${typeSpread.keys.length === 1 ? '1 other flight' : `${typeSpread.keys.length} other flights`} in this scan ${typeSpread.keys.length === 1 ? 'says' : 'say'} ${typeSpread.from}. Change ${typeSpread.keys.length === 1 ? 'it' : 'them'} to ${typeSpread.to} too, so they end up as one aircraft in your fleet.` : ''}
+        primary={{ label: typeSpread ? `Change all ${typeSpread.keys.length + 1}` : 'Change all', onPress: () => { if (typeSpread) retype(typeSpread.keys, typeSpread.to); setTypeSpread(null); } }}
+        secondary={{ label: 'Only this flight', onPress: () => setTypeSpread(null) }}
       />
 
       <GlassDialog

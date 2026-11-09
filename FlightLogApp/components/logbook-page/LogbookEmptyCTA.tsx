@@ -1,4 +1,5 @@
-// Tom-tillstånd i loggboken (List-vyn) när man INTE har någon registrerad flygning: rubrik + tre vägar in.
+// Tom-tillstånd i loggboken (List-vyn) när man INTE har någon registrerad flygning: rubrik + tre vägar in, och
+// för piloter en fjärde (skanna pappersloggboken) när skanningen är öppen (SCAN_OPEN, i dag bara testbyggena).
 // Visas bara när loggboken faktiskt är tom (inte vid filtrerad/sökt tom träff) och försvinner så fort man
 // har minst en flygning. Delas av pilot- och drönarläget (accent-prop skiljer dem åt).
 import { View, Text, TouchableOpacity } from 'react-native';
@@ -6,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FONT_SERIF } from './tokens';
+import { SCAN_OPEN } from '../../store/scanStore';
 
 export function LogbookEmptyCTA({ accent, mode }: { accent: string; mode: 'pilot' | 'drone' }) {
   const router = useRouter();
@@ -14,14 +16,16 @@ export function LogbookEmptyCTA({ accent, mode }: { accent: string; mode: 'pilot
     { icon: 'document-attach-outline', label: 'Import CSV/Excel', route: drone ? '/drone-import' : '/import' },
     { icon: 'create-outline', label: 'Block import manually', route: drone ? '/drone-import/manual' : '/import/manual' },
     { icon: 'airplane', label: 'Log flight', route: drone ? '/drone-flight/add' : '/flight/add' },
+    ...(!drone && SCAN_OPEN ? [{ icon: 'scan-outline' as const, label: 'Scan your logbook', route: '/import/scan' }] : []),
   ];
+  const count = ['', 'one', 'two', 'three', 'four', 'five'][options.length] ?? String(options.length);
   return (
     <View style={{ alignItems: 'center', paddingVertical: 44, paddingHorizontal: 22 }}>
       <Text style={{ fontFamily: FONT_SERIF, fontSize: 19, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' }}>
         No flights yet?
       </Text>
       <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 22 }}>
-        Get started by one of three options:
+        Get started by one of {count} options:
       </Text>
       <View style={{ alignSelf: 'stretch', gap: 10 }}>
         {options.map((o) => (

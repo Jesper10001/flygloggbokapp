@@ -443,7 +443,6 @@ function Cta({ label, onPress, disabled, busy }: { label: string; onPress: () =>
 function HoursRow({ icon, title, desc, rec, onPress }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; desc: string; rec?: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={[s.row, rec && s.rowRec]} accessibilityRole="button" accessibilityLabel={`${title}. ${desc}`}>
-      {rec ? <View style={s.rtag}><Text style={s.rtagText}>RECOMMENDED</Text></View> : null}
       <View style={s.ricon}><MaterialCommunityIcons name={icon} size={24} color={CYAN} /></View>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <Text style={s.ot}>{title}</Text>
@@ -613,8 +612,6 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 76, padding: 14, borderRadius: 18, backgroundColor: 'rgba(15,30,58,0.55)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.16)' },
   rowRec: { borderColor: 'rgba(0,200,232,0.6)', backgroundColor: 'rgba(0,200,232,0.07)' },
   ricon: { width: 46, height: 46, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  rtag: { position: 'absolute', top: -9, left: 16, backgroundColor: CYAN, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, zIndex: 2 },
-  rtagText: { fontFamily: MONO, fontSize: 9, fontWeight: '800', letterSpacing: 1.1, color: INK },
   toast: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, paddingHorizontal: 14, borderRadius: 14, marginBottom: 16, backgroundColor: 'rgba(25,230,165,0.10)', borderWidth: 1, borderColor: 'rgba(25,230,165,0.35)' },
   toastText: { flex: 1, fontSize: 13.5, fontWeight: '600', color: '#E6FFF6' },
 });

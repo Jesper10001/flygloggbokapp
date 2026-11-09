@@ -166,11 +166,8 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, title, sub, onDone
         <Pressable onPress={() => onDone(null)} style={s.ghost} accessibilityRole="button">
           <Text style={s.ghostText}>Not now, continue with Free</Text>
         </Pressable>
-        <Text style={s.fine}>
-          {trial
-            ? `${trialName.charAt(0).toUpperCase()}${trialName.slice(1)}: Premium features with the ${FREE_COINS} Blade coins every new user gets. Then ${price} a month with ${coins} coins. Renews monthly until you cancel.`
-            : `${price} a month. Renews monthly until you cancel.`}
-        </Text>
+        {/* Priset, provveckan och coinsen står redan på skärmen; Apple kräver att det också framgår att den förnyas. */}
+        <Text style={s.fine}>Renews monthly until you cancel.</Text>
         <View style={s.links}>
           <Pressable onPress={restore} hitSlop={6} disabled={!!busy} accessibilityRole="button">
             {busy === 'restore' ? <ActivityIndicator size="small" color={SUB} /> : <Text style={s.link}>Restore</Text>}

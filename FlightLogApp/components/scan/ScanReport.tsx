@@ -102,6 +102,10 @@ export function ScanReport(p: {
   learned?: { rule: ValueRule; rows: number }[];
   onUndoRule?: (rule: ValueRule) => void;
   onNameType?: (groupId: string, name: string) => void;
+  // Nya typer som ser ut att vara samma luftfartyg (A109 och A109LUH), eller en ny typ som liknar en i flottan.
+  similarTypes?: { a: string; b: string; aRows: number; bRows: number; fleet: boolean }[];
+  onMergeTypes?: (from: string, to: string) => void;
+  onKeepTypes?: (a: string, b: string) => void;
   aircraft: Record<string, AircraftInput>;
   aircraftLoading: Set<string>;
   aircraftFailed: Set<string>;
@@ -592,6 +596,37 @@ export function ScanReport(p: {
         {p.newTypes.length > 0 && (
           <View style={{ gap: 8, marginTop: 4 }}>
             <Text style={s.section}>NEW AIRCRAFT</Text>
+            {(p.similarTypes?.length ?? 0) > 0 && (
+              <View style={[s.matchCard, { borderColor: Colors.gold + '66' }]}>
+                {p.similarTypes!.map((x, k) => (
+                  <View key={`${x.a}|${x.b}`} style={[{ paddingVertical: 11, gap: 8 }, k > 0 && s.matchRowBorder]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="git-merge-outline" size={16} color={Colors.gold} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.matchTitle}>{x.fleet ? `${x.a} looks like ${x.b} in your fleet` : `${x.a} and ${x.b} look like the same aircraft`}</Text>
+                        <Text style={s.matchSub}>
+                          {x.fleet ? `${x.aRows === 1 ? '1 flight' : `${x.aRows} flights`} would add ${x.a} as a new aircraft.`
+                            : `${x.aRows === 1 ? '1 flight' : `${x.aRows} flights`} say ${x.a}, ${x.bRows === 1 ? '1 says' : `${x.bRows} say`} ${x.b}.`}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingLeft: 26 }}>
+                      <TouchableOpacity onPress={() => p.onMergeTypes?.(x.a, x.b)} hitSlop={8} accessibilityRole="button">
+                        <Text style={s.matchLink}>Use {x.b}</Text>
+                      </TouchableOpacity>
+                      {!x.fleet && (
+                        <TouchableOpacity onPress={() => p.onMergeTypes?.(x.b, x.a)} hitSlop={8} accessibilityRole="button">
+                          <Text style={s.matchLink}>Use {x.a}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={() => p.onKeepTypes?.(x.a, x.b)} hitSlop={8} accessibilityRole="button">
+                        <Text style={[s.matchLink, { color: Colors.textSecondary }]}>{x.fleet ? `Keep ${x.a} as new` : 'Keep both'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
             <NewAircraftSection types={p.newTypes} values={p.aircraft} loading={p.aircraftLoading} failed={p.aircraftFailed}
               onChange={p.onAircraftChange} onName={p.onNameType} onSeparate={p.onKeepSeparate} />
           </View>
