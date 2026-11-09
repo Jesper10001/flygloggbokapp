@@ -1,7 +1,8 @@
 // Insights: fyra lika förhandsvisningar i ett rutnät 2 × 2 — Projections och Next licence överst, Longest XC och
 // Best week under. Samma byggsätt i alla: en bild i hela rutan (kurva eller karta), rubriken överst, värdet nederst
 // med LED-siffror. Rutorna går inte att dra i; ett tryck öppnar helskärmen (Projections, Next licence) eller
-// milstolpens sida (Premium). Kartorna är Apple-kartan utan linjer och markörer.
+// milstolpens sida. Allt det är Premium och Max: en gratisanvändare ser rutorna med "PREMIUM" uppe till höger, och
+// ett tryck öppnar paywallen. Kartorna är Apple-kartan utan linjer och markörer.
 
 import { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, type ViewStyle } from 'react-native';
@@ -28,6 +29,15 @@ const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oc
 const yShort = (a: number) => `’${String(Math.floor(a / 12)).slice(2)}`;
 const dayShort = (d: Date) => `${d.getDate()} ${MON3[d.getMonth()]}`;
 const r1 = (n: number) => Math.round(n * 10) / 10;
+const GOLD = '#FFB830';
+
+// Premium eller Max: får öppna skärmarna bakom rutorna. Annars öppnar ett tryck paywallen.
+function usePaid(): boolean {
+  const isPremium = useFlightStore((s) => s.isPremium);
+  const isMax = useFlightStore((s) => s.isMax);
+  return isPremium || isMax;
+}
+const paywall = (feature: string) => () => { presentPaywall(feature); };
 
 export function InsightsPreviews() {
   const { width } = useWindowDimensions();
@@ -92,6 +102,7 @@ function ProjectionsTile({ w }: { w: number }) {
   const flights = useFlightStore((s) => s.flights);
   const unlock = useMemo(() => projectionUnlock(flights), [flights]);
   const view = useProjectionView();
+  const paid = usePaid();
   const nowA = absNow();
   const M = projectionModel(D, view, nowA);
   const sx = w / 177, top = 56, bottom = 196, nowX = 100 * sx;
@@ -109,10 +120,11 @@ function ProjectionsTile({ w }: { w: number }) {
     const daysLeft = Math.max(0, PROJECTION_MIN_DAYS - unlock.days);
     return (
       <View style={{ flex: 1 }}>
-        <Tile title="PROJECTIONS" right={`${unlock.flights}/${PROJECTION_MIN_FLIGHTS} flights`} rightColor={LABEL} bg={CARD} scrim={CARD}
+        <Tile title="PROJECTIONS" right={paid ? `${unlock.flights}/${PROJECTION_MIN_FLIGHTS} flights` : 'PREMIUM'} rightColor={paid ? LABEL : GOLD} bg={CARD} scrim={CARD}
+          onPress={paid ? undefined : paywall('Projections')}
           value={String(flightsLeft || daysLeft)} valueColor="#CFE0EE" unit={flightsLeft ? 'flights to go' : 'days to go'} unitColor={LABEL}
           sub={unlock.unlockDate && daysLeft ? `Unlocks ${dayShort(unlock.unlockDate)}` : 'Unlocks soon'}
-          a11y={`Projections unlock after ${flightsLeft} more flights${daysLeft ? ` and ${daysLeft} days` : ''}`}
+          a11y={`Projections unlock after ${flightsLeft} more flights${daysLeft ? ` and ${daysLeft} days` : ''}${paid ? '' : '. Premium'}`}
           background={
             <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
               <Path d={`M0 91 H${w} M0 126 H${w} M0 161 H${w}`} stroke="#1C2E47" strokeWidth={1} />
@@ -128,10 +140,10 @@ function ProjectionsTile({ w }: { w: number }) {
   const kind = view.metric === 'total' ? '' : `${labelOf(view.metric)} · `;
   return (
     <View style={{ flex: 1 }}>
-      <Tile title="PROJECTIONS" right={M.pace > 0 ? `${one(M.pace)} h/mo` : undefined} bg={CARD} scrim={CARD}
+      <Tile title="PROJECTIONS" right={paid ? (M.pace > 0 ? `${one(M.pace)} h/mo` : undefined) : 'PREMIUM'} rightColor={paid ? undefined : GOLD} bg={CARD} scrim={CARD}
         value={led(M.have)} unit={`/ ${fmtIntH(M.tgt)} h`} sub={`${kind}${etaA != null ? `ETA ${mLabel(etaA)}` : 'No pace yet'}`}
-        a11y={`Projections: ${fmtIntH(M.have)} of ${fmtIntH(M.tgt)} hours${etaA != null ? `, ETA ${mLabel(etaA)}` : ''}. Open full screen`}
-        onPress={() => router.push('/projections-full')}
+        a11y={`Projections: ${fmtIntH(M.have)} of ${fmtIntH(M.tgt)} hours${etaA != null ? `, ETA ${mLabel(etaA)}` : ''}. ${paid ? 'Open full screen' : 'Premium'}`}
+        onPress={paid ? () => router.push('/projections-full') : paywall('Projections')}
         background={
           <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
             <Defs>
@@ -165,11 +177,13 @@ function LicenceTile({ w }: { w: number }) {
   const D = useInsightsData();
   const { standard, flights, set } = useLicenceSet();
   const unlock = useMemo(() => projectionUnlock(flights), [flights]);
+  const paid = usePaid();
 
   if (standard === 'other' || !set) {
     return (
       <View style={{ flex: 1 }}>
-        <Tile title="NEXT LICENCE" bg={CARD} scrim={CARD} value="—" valueColor={C.quiet} sub="Choose EASA, FAA or CAA"
+        <Tile title="NEXT LICENCE" right={paid ? undefined : 'PREMIUM'} rightColor={GOLD} onPress={paid ? undefined : paywall('Next licence')}
+          bg={CARD} scrim={CARD} value="—" valueColor={C.quiet} sub="Choose EASA, FAA or CAA"
           a11y="Licence tracking isn't available for the Other framework" background={null} />
       </View>
     );
@@ -226,10 +240,10 @@ function LicenceTile({ w }: { w: number }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tile title="NEXT LICENCE" right={`${S.metCount}/${S.reqs.length} met`} bg={CARD} scrim={CARD}
+      <Tile title="NEXT LICENCE" right={paid ? `${S.metCount}/${S.reqs.length} met` : 'PREMIUM'} rightColor={paid ? undefined : GOLD} bg={CARD} scrim={CARD}
         value={String(readyPct)} unit={S.done ? '%' : '% ready'} sub={sub} extra={ladder}
-        a11y={`Next licence: ${S.code}, ${readyPct} percent ready${!locked && etaA != null ? `, ETA ${mLabel(etaA)}` : ''}. Open full screen`}
-        onPress={() => { useLicenceView.setState({ sel: null }); router.push('/licence-full'); }}
+        a11y={`Next licence: ${S.code}, ${readyPct} percent ready${!locked && etaA != null ? `, ETA ${mLabel(etaA)}` : ''}. ${paid ? 'Open full screen' : 'Premium'}`}
+        onPress={paid ? () => { useLicenceView.setState({ sel: null }); router.push('/licence-full'); } : paywall('Next licence')}
         background={
           <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
             <Defs>
@@ -260,8 +274,7 @@ function LicenceTile({ w }: { w: number }) {
 
 function LongestXcTile() {
   const st0 = useFlightStore((s) => s.stats);
-  const isPremium = useFlightStore((s) => s.isPremium);
-  const isMax = useFlightStore((s) => s.isMax);
+  const paid = usePaid();
   const legs = useLongestXcLegs(st0?.longest_xc_date || undefined);
   const nm = Math.round(st0?.longest_xc_km ?? 0);   // fältet lagrar nautiska mil
   const date = st0?.longest_xc_date ? new Date(`${st0.longest_xc_date.slice(0, 10)}T12:00:00`) : null;
@@ -269,11 +282,11 @@ function LongestXcTile() {
   const route = has ? `${st0?.longest_xc_first_dep || '—'} → ${st0?.longest_xc_last_arr || '—'}` : 'No cross-country yet';
   return (
     <View style={{ flex: 1 }}>
-      <Tile title="LONGEST XC" bg="#0A1524" scrim={MAP_SCRIM}
+      <Tile title="LONGEST XC" right={paid ? undefined : 'PREMIUM'} rightColor={GOLD} bg="#0A1524" scrim={MAP_SCRIM}
         value={has ? nm.toLocaleString('en-US') : '—'} valueColor={has ? undefined : '#4A5C72'} unit="NM" unitColor={has ? undefined : '#4A5C72'}
         sub={has && date ? `${route} · ${dayShort(date)}` : route}
         a11y={has ? `Longest cross-country: ${nm} nautical miles, ${route}. Open` : 'Longest cross-country: none yet'}
-        onPress={has ? () => { if (!(isPremium || isMax)) { presentPaywall('Longest XC'); return; } router.push('/milestones/longest-xc'); } : undefined}
+        onPress={!paid ? paywall('Longest XC') : has ? () => router.push('/milestones/longest-xc') : undefined}
         background={<StaticMap region={regionFor(legs)} style={StyleSheet.absoluteFill} />} />
     </View>
   );
@@ -281,8 +294,7 @@ function LongestXcTile() {
 
 function BestWeekTile() {
   const st0 = useFlightStore((s) => s.stats);
-  const isPremium = useFlightStore((s) => s.isPremium);
-  const isMax = useFlightStore((s) => s.isMax);
+  const paid = usePaid();
   const details = useBestWeekDetails(st0?.best_week_start || undefined);
   const hours = st0?.best_week_hours ?? 0;
   const has = hours > 0 && !!st0?.best_week_start;
@@ -291,10 +303,10 @@ function BestWeekTile() {
   const sub = has ? [week, details.sectors ? `${details.sectors} ${details.sectors === 1 ? 'sector' : 'sectors'}` : ''].filter(Boolean).join(' · ') : 'Fly a week to set it';
   return (
     <View style={{ flex: 1 }}>
-      <Tile title="BEST WEEK" bg="#0A1524" scrim={MAP_SCRIM}
+      <Tile title="BEST WEEK" right={paid ? undefined : 'PREMIUM'} rightColor={GOLD} bg="#0A1524" scrim={MAP_SCRIM}
         value={has ? decimalToHHMM(hours) : '--:--'} valueColor={has ? undefined : '#4A5C72'} unit="h" unitColor={has ? undefined : '#4A5C72'}
         sub={sub} a11y={has ? `Best week: ${decimalToHHMM(hours)} hours, ${sub}. Open` : 'Best week: none yet'}
-        onPress={has ? () => { if (!(isPremium || isMax)) { presentPaywall('Best week'); return; } router.push('/milestones/best-week'); } : undefined}
+        onPress={!paid ? paywall('Best week') : has ? () => router.push('/milestones/best-week') : undefined}
         background={<StaticMap region={regionFor(coords)} style={[StyleSheet.absoluteFill, { opacity: has ? 1 : 0.45 }]} />} />
     </View>
   );
