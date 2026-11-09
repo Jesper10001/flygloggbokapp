@@ -88,7 +88,10 @@ export function deriveLogbookFields(f: Flight): Flight {
   const mp = num((f as any).multi_pilot);
   const se = num((f as any).se_time);
   const me = num((f as any).me_time);
-  const singlePilot = !isSim && mp <= 0;
+  // Backfill-raden ("Blades previous experience") är en summa, inte en flygning: dess SE/ME är rättelser av bokens
+  // Single-pilot SE/ME-kolumner även om samma rad också har multi-pilot-tid.
+  const backfillRow = (f as any).flight_type === 'summary' && (f as any).remarks === 'Blades previous experience';
+  const singlePilot = !isSim && (mp <= 0 || backfillRow);
   return {
     ...f,
     tt_total: isSim ? 0 : tt,

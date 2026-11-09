@@ -149,7 +149,8 @@ async function doSyncBackfillRow(db?: any): Promise<void> {
 
   // ── "Blades previous experience"-raden (summary): total_time = total-justeringen, + kategorifält ──
   const total = Number(v.total) || 0;
-  const hasCats = total > 0 || Object.values(ROW_COLS).some((f) => (Number(v[f]) || 0) > 0);
+  // Även negativa värden: en korrigering när Blades har mer än pappersboken (loggboksguiden, BookSetupFlow).
+  const hasCats = total !== 0 || Object.values(ROW_COLS).some((f) => (Number(v[f]) || 0) !== 0);
   if (hasCats) {
     const cols = Object.keys(ROW_COLS);
     const vals = cols.map((c) => {
@@ -177,7 +178,7 @@ async function doSyncBackfillRow(db?: any): Promise<void> {
 
   // ── Sim-raden (flight_type='sim', total_time = sim-timmar) ──
   const sim = Number(v.sim) || 0;
-  if (sim > 0) {
+  if (sim !== 0) {
     if (simId && await rowExists(db, simId)) {
       await db.runAsync('UPDATE flights SET date=?, total_time=?, remarks=? WHERE id=?', [date, sim, PREV_EXP_REMARK, simId]);
     } else {

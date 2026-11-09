@@ -5,9 +5,10 @@
 //     en tidigare flygning; de nyare blir "Write next". Bokens storlek (rader, första/sista sida) är hopfälld.
 //  3. Tidigare loggböcker: bara när flygningarna före raden inte får plats i boken → fler böcker av samma
 //     sort (ankar-styrda, services/logbook/books.ts) eller äldre timmar som Brought forward.
-//  4. Totalerna mot pappersbokens Total to date. Skiljer något: Blades har för lite → Backfill missing hours
-//     direkt här; för mycket → Imported data (dubbletter); eller pappersbokens siffra för den här boken
-//     (opening_balance-override).
+//  4. Totalerna mot pappersbokens Total to date. Skiljer något skriver man in pappersbokens siffra och väljer
+//     "Use … from your paper book". När boken skapas justeras Backfill missing hours med skillnaden (plus eller
+//     minus), så att statistiken och boken visar pappersbokens siffra. Kolumner som Backfill inte har gäller
+//     bara den här boken (opening_balance-override).
 //  5. Uppslaget som det kommer att se ut (riktiga sidan, svep till högersidan) och en sammanfattning.
 // Lämnar man flödet (Imported data, egen loggbok) sparas läget och flödet öppnas igen på samma steg.
 // Redigering, fler böcker och drönarläget använder fortfarande BookSetupSheet.
@@ -53,6 +54,7 @@ const BF_KEY: Record<string, keyof BackfillValues> = {
   tt_total: 'total', total_time: 'total', pic: 'pic', co_pilot: 'co_pilot', dual: 'dual', instructor: 'instructor',
   ifr: 'ifr', night: 'night', multi_pilot: 'multi_pilot', cross_country: 'cross_country',
   landings_day: 'landings_day', landings_night: 'landings_night', fstd: 'sim',
+  sp_se: 'se_time', sp_me: 'me_time',
 };
 
 const DESC: Record<string, string> = {
@@ -192,13 +194,15 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
 
   // ── Totalerna fram till och med flygningen (som pappersbokens Total to date på samma uppslag) ──
   const cols = useMemo(() => numericColumns(template), [template]);
-  const totals = useMemo<ColumnTotals>(() => {
+  const totalsFor = (fl: Flight[]): ColumnTotals => {
     if (!anchor) return {};
-    const all = sortFlightsChrono(flights.filter((f) => !((f as any).flight_type === 'sim' && (f as any).remarks === '[BACKFILL]')));
+    const all = sortFlightsChrono(fl.filter((f) => !((f as any).flight_type === 'sim' && (f as any).remarks === '[BACKFILL]')));
     const i = all.findIndex((f) => f.id === anchor.id);
     const nextFlight = i >= 0 ? all[i + 1] : undefined;
-    return nextFlight ? computeBroughtForward(flights, template, nextFlight.id) : computeBroughtForward(flights, template, 0, undefined, { noAnchorBase: 'all' });
-  }, [flights, template, anchor]);
+    return nextFlight ? computeBroughtForward(fl, template, nextFlight.id) : computeBroughtForward(fl, template, 0, undefined, { noAnchorBase: 'all' });
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const totals = useMemo<ColumnTotals>(() => totalsFor(flights), [flights, template, anchor]);
   const isInt = (c: LogbookColumn) => c.format === 'int';
   const fmt = (c: LogbookColumn, v: number) => (isInt(c) ? String(Math.round(v)) : timeFormat === 'hhmm' ? formatTimeValue(v, 'hhmm') : (Math.round(v * 10) / 10).toFixed(1));
   const unit = (c: LogbookColumn) => (isInt(c) ? '' : timeFormat === 'decimal' ? ' h' : '');
@@ -279,9 +283,35 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
     try {
       const existing = await listDigitalBooks('digital');
       const base = existing.length;
+      // Pappersbokens siffror: kolumnerna som Backfill missing hours har justeras där med skillnaden (statistiken
+      // och boken följer med); övriga gäller bara den här boken.
+      const bfDelta: Partial<Record<keyof BackfillValues, number>> = {};
+      const bookOnly: Record<string, number> = {};
+      for (const [k, v] of Object.entries(overrides)) {
+        const bk = BF_KEY[k];
+        if (bk) bfDelta[bk] = (bfDelta[bk] ?? 0) + (v - (totals[k] ?? 0));
+        else bookOnly[k] = v;
+      }
+      let fl = flights;
+      if (Object.keys(bfDelta).length) {
+        const cur0 = await getBackfill();
+        const nv = { ...cur0 };
+        for (const [bk, d] of Object.entries(bfDelta) as [keyof BackfillValues, number][]) {
+          nv[bk] = Math.round(((Number(cur0[bk]) || 0) + d) * 100) / 100;
+        }
+        await setBackfill(nv);
+        await loadFlights();
+        fl = useFlightStore.getState().flights;
+      }
       const books = fakeBooks({});
       const cur = books[books.length - 1];
-      const ob = Object.keys(overrides).length ? withOverrides(resolveOpeningBalance(cur, books, flights, template)) : {};
+      let ob: ColumnTotals = {};
+      if (Object.keys(bookOnly).length) {
+        const auto = resolveOpeningBalance(cur, books, fl, template);
+        const t = totalsFor(fl);
+        ob = { ...auto };
+        for (const [k, v] of Object.entries(bookOnly)) ob[k] = (auto[k] ?? 0) + (v - (t[k] ?? 0));
+      }
       for (let i = 0; i < plan.length; i++) {
         const b = plan[i];
         await createDigitalBook({
@@ -635,37 +665,24 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                           <Text style={[s.fixText, { color: t.status === 'match' ? Colors.success : t.status === 'paper' ? Colors.textSecondary : Colors.warning }]}>
                             {t.status === 'short' ? `Blades is ${fmt(t.c, t.diff)}${unit(t.c)} short of your paper book.`
                               : t.status === 'more' ? `Blades has ${fmt(t.c, t.diff)}${unit(t.c)} more than your paper book.`
-                              : t.status === 'paper' ? `This logbook uses ${t.raw} from your paper book. Your statistics keep ${fmt(t.c, t.blades)}.`
+                              : t.status === 'paper' ? (BF_KEY[t.key]
+                                ? `Set to ${t.raw}. When you create the logbook, Backfill missing hours ${(overrides[t.key] ?? 0) >= t.blades ? 'adds' : 'takes off'} ${fmt(t.c, Math.abs((overrides[t.key] ?? 0) - t.blades))}${unit(t.c)}, so your statistics match your paper book too.`
+                                : `This logbook uses ${t.raw} from your paper book. Your statistics keep ${fmt(t.c, t.blades)}.`)
                               : 'Matches your paper book.'}
                           </Text>
                         )}
-                        {t.status === 'short' && (BF_KEY[t.key] ? (
-                          <>
-                            <TouchableOpacity style={s.fixPrimary} onPress={() => { setSheetKey(t.key); setSheet('backfill'); }} activeOpacity={0.85} accessibilityRole="button">
-                              <Ionicons name="add" size={18} color={Colors.textInverse} />
-                              <Text style={s.fixPrimaryText}>Add {fmt(t.c, t.diff)}{unit(t.c)} as previous experience</Text>
-                            </TouchableOpacity>
-                            <Text style={s.fixHint}>If a whole flight is missing instead, import or scan it, and the total follows.</Text>
-                          </>
-                        ) : (
-                          <TouchableOpacity style={s.fixSecondary} onPress={() => leaveTo('/import/history')} activeOpacity={0.85} accessibilityRole="button">
-                            <Ionicons name="construct-outline" size={17} color={Colors.primary} />
-                            <Text style={s.fixSecondaryText}>Open Backfill missing hours</Text>
-                          </TouchableOpacity>
-                        ))}
-                        {t.status === 'more' && (
-                          <>
-                            <TouchableOpacity style={s.fixSecondary} onPress={() => leaveTo('/import/history')} activeOpacity={0.85} accessibilityRole="button">
-                              <Ionicons name="search" size={17} color={Colors.primary} />
-                              <Text style={s.fixSecondaryText}>Look for flights counted twice</Text>
-                            </TouchableOpacity>
-                            <Text style={s.fixHint}>Usually a flight imported twice, or time logged in another column. Opens Imported data.</Text>
-                          </>
-                        )}
                         {warn && t.pv != null && (
-                          <TouchableOpacity onPress={() => setOverrides((o) => ({ ...o, [t.key]: t.pv as number }))} accessibilityRole="button" hitSlop={6}>
-                            <Text style={s.fixLink}>Use {t.raw} for this logbook instead</Text>
-                          </TouchableOpacity>
+                          <>
+                            <TouchableOpacity style={s.fixPrimary} onPress={() => { Haptics.selectionAsync().catch(() => {}); setOverrides((o) => ({ ...o, [t.key]: t.pv as number })); }}
+                              activeOpacity={0.85} accessibilityRole="button">
+                              <Ionicons name="checkmark" size={18} color={Colors.textInverse} />
+                              <Text style={s.fixPrimaryText}>Use {t.raw} from your paper book</Text>
+                            </TouchableOpacity>
+                            <Text style={s.fixHint}>
+                              {BF_KEY[t.key] ? 'Backfill missing hours is updated when you create the logbook, so your statistics match too.'
+                                : 'Used in this logbook. Your statistics keep the hours Blades has.'}
+                            </Text>
+                          </>
                         )}
                         {t.status === 'paper' && (
                           <TouchableOpacity onPress={() => setOverrides((o) => { const n = { ...o }; delete n[t.key]; return n; })} accessibilityRole="button" hitSlop={6}>
@@ -1052,8 +1069,8 @@ const s = StyleSheet.create({
   fix: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
   paperInput: { width: 124, height: 42, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A85', backgroundColor: Colors.background, color: Colors.textPrimary, fontFamily: MONO, fontSize: 16, fontWeight: '600', paddingHorizontal: 12, textAlign: 'right' },
   fixText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  fixPrimary: { height: 42, borderRadius: 11, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12 },
-  fixPrimaryText: { color: Colors.textInverse, fontSize: 14, fontWeight: '700' },
+  fixPrimary: { height: 50, borderRadius: 13, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
+  fixPrimaryText: { color: Colors.textInverse, fontSize: 16, fontWeight: '800' },
   fixSecondary: { height: 42, borderRadius: 11, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '73', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12 },
   fixSecondaryText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
   fixHint: { fontSize: 12, lineHeight: 17, color: '#8FB0CC' },

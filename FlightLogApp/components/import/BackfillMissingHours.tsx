@@ -105,7 +105,7 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
   }, [flights]);
 
   const fmt = (v: number, kind: 'time' | 'int') => (kind === 'int' ? String(Math.round(v)) : formatTimeValue(v, timeFormat));
-  const fmtRef = (v: number, kind: 'time' | 'int') => (!v ? '—' : fmt(v, kind));
+  const fmtRef = (v: number, kind: 'time' | 'int') => (!v ? '—' : v < 0 ? `− ${fmt(-v, kind)}` : fmt(v, kind));
   const parseVal = (key: FieldKey, kind: 'time' | 'int'): number => {
     const raw = (vals[key] || '').trim();
     if (!raw) return 0;
@@ -140,7 +140,8 @@ export function BackfillMissingHours({ flights, onSaved }: { flights: Flight[]; 
     if (isNaN(target)) { Alert.alert('Invalid value', `${f.label}: enter time as h:mm`); return; }
     // base inkluderar den committerade backfillen → genuint loggat = base − bf. Ny additional = target − det.
     const logged = (base[f.key] || 0) - (bf[f.key] ?? 0);
-    const nv: BackfillValues = { ...bf, [f.key]: Math.max(0, target - logged) };
+    // Lägre än det loggade ger en negativ korrigering (pappersboken har mindre än Blades).
+    const nv: BackfillValues = { ...bf, [f.key]: Math.round((target - logged) * 100) / 100 };
     try {
       await setBackfill(nv);
       setBf(nv);
