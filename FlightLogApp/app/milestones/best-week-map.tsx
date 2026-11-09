@@ -1,10 +1,10 @@
-// Best week i helskärm på Apple-kartan, uppspelad som en film i kapitel (designvyns "Map replay v3"). Veckans titel
-// tonar in över översikten, sedan dag för dag: dagens namn glider in och kameran följer varje resa för sig, mitt i bild,
-// på en höjd efter resans längd (som Longest XC), så en kort och en lång resa samma dag båda går att följa. Mellan
-// resorna glider kameran över till nästa. Dagar med bara lokala flygningar zoomar in på basen, vilodagar blinkar förbi.
-// Till sist drar kameran sig upp till hela veckan, ljuspunkter löper längs alla resor och sammanfattningen kommer upp.
-// Ett tryck på en dag hoppar dit. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore), annars kan
-// skärmen låsa sig.
+// Best week i helskärm på Apple-kartan, uppspelad ovanifrån i en stilla bild: kartan ramar in hela veckan med norr
+// uppåt och står kvar, medan farkosten flyger resorna dag för dag och linjerna ritas efter den. Veckans titel tonar in
+// först, sedan står dagens namn och rutt överst så länge dagen pågår. Dagar med bara lokala flygningar lyser upp basens
+// ring och pulserar där (en ring per landning, högst tre), vilodagar blinkar förbi. Till sist löper ljuspunkter längs
+// alla resor och sammanfattningen kommer upp. Kartan går att flytta och zooma under uppspelningen; Replay ramar in
+// veckan igen. Ett tryck på en dag hoppar dit. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore),
+// annars kan skärmen låsa sig.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
@@ -18,22 +18,23 @@ import { useMapScreenStore } from '../../store/mapScreenStore';
 import { getAircraftCategory } from '../../db/flights';
 import { alongArc, regionFor, toLatLng, nmBetween, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
-  useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, gcPath,
-  StopMarker, labelsOnRoute, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref, useScreenAngle,
-  REPLAY_BG, type GeoCam,
+  useReplay, useOverview, toCamera, ease, clamp, gcPath, offsetPt,
+  StopMarker, RippleMarker, GlowDot, ReplayAircraft, ReplayShade, Glass, TitleCard, MapControls, useSatellitePref,
+  REPLAY_BG,
 } from '../../components/milestones/ReplayKit';
 import { MONO, SERIF } from '../../components/milestones/MilestoneUI';
 
 const DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-// Kapitlens tider i sekunder: titeln, dagens inledning, glidningen mellan två resor, en lokal dag, en vilodag, slutet.
-const INTRO = 2.6, DAY_IN = 1.6, GAP = 1.2, DAY_OUT = 0.6, LOCAL = 2.4, REST = 0.8, FINALE = 4.2, PITCH = 52, ZOOM_STEP = 0.7;
-// Samma anpassning efter avstånd som Longest XC: tiden växer med roten ur avståndet (veckans resor högst 70 s
-// tillsammans), kamerans höjd följer resans längd och lutningen minskar på långa resor. Lokala dagar ses från 28 km.
-const MIN_TRIP = 3.5, MAX_TRIPS = 70, LOCAL_ALT = 28000;
-const tripSecFor = (nm: number) => clamp(4 + 1.8 * Math.sqrt(nm / 50), 4.5, 11);
-const altFor = (nm: number) => clamp(nm * 1852 * 0.38, 15000, 2500000);
-const pitchFor = (nm: number) => lerp(PITCH, 36, clamp((nm - 100) / 900, 0, 1));
+// Kapitlens tider i sekunder: titeln, dagens inledning, tiden på marken mellan två resor, dagens slut, en lokal dag,
+// en vilodag, slutet.
+const INTRO = 2.2, DAY_IN = 0.9, GAP = 0.6, DAY_OUT = 0.5, LOCAL = 2.6, REST = 0.8, FINALE = 3.2, ZOOM_STEP = 0.7;
+// Resans tid växer med roten ur avståndet, så att en kort resa hinner synas och en lång inte drar ut (veckans resor
+// högst 50 s tillsammans).
+const MIN_TRIP = 2.4, MAX_TRIPS = 50;
+const tripSecFor = (nm: number) => clamp(2.4 + 1.3 * Math.sqrt(nm / 50), 2.8, 7);
+// Basens lokala område (10 NM) ritas som en ring och ingår i bilden.
+const LOCAL_R = 18520;
 
 function hhmm(h: number): string {
   const total = Math.round(h * 60);
@@ -46,13 +47,10 @@ function dayParts(iso: string): { name: string; date: string } {
 }
 
 // path: resan i raka sträck längs storcirkeln, som i Longest XC.
-interface Trip { key: string; day: number; from: string; to: string; path: LatLng[]; nm: number; type: string; t0: number; t1: number; alt: number; pitch: number }
+interface Trip { key: string; day: number; from: string; to: string; path: LatLng[]; nm: number; type: string; t0: number; t1: number }
 interface Chapter { day: number; kind: 'fly' | 'local' | 'rest'; t0: number; t1: number }
-// Kameran som en följd av avsnitt: stå still, glida mellan två kameror, eller följa en resa.
-type Seg = { t0: number; t1: number } & ({ kind: 'hold'; c: GeoCam } | { kind: 'blend'; a: GeoCam; b: GeoCam } | { kind: 'chase'; trip: Trip });
 
 const fracOf = (x: Trip, t: number) => { const lin = clamp((t - x.t0) / (x.t1 - x.t0), 0, 1); return lin * 0.85 + ease(lin) * 0.15; };
-const tripCam = (x: Trip, f: number): GeoCam => { const p = alongArc(x.path, f); return chaseCam(p.p, p.heading, x.alt, x.pitch, 0); };
 
 export default function BestWeekMapScreen() {
   const router = useRouter();
@@ -68,6 +66,7 @@ export default function BestWeekMapScreen() {
 
   const coords = d.geo?.coords ?? {};
   const home = d.geo?.home && coords[d.geo.home] ? d.geo.home : null;
+  const localLdg = (i: number) => d.days[i].flights.filter((f) => f.local).reduce((s, f) => s + (f.landings || 0), 0);
 
   // Resorna (inte lokala flygningar) och kapitlen, en per dag, med sina tider.
   const plan = useMemo(() => {
@@ -76,11 +75,13 @@ export default function BestWeekMapScreen() {
       for (const f of day.flights) {
         if (f.local || !coords[f.dep] || !coords[f.arr]) continue;
         const nm = nmBetween(coords[f.dep], coords[f.arr]);
-        trips.push({ key: `${f.id}`, day: i, from: f.dep, to: f.arr, path: gcPath(coords[f.dep], coords[f.arr], 0, 1, nm).map(toLatLng), nm, type: f.aircraftType, t0: 0, t1: 0, alt: altFor(nm), pitch: pitchFor(nm) });
+        trips.push({ key: `${f.id}`, day: i, from: f.dep, to: f.arr, path: gcPath(coords[f.dep], coords[f.arr], 0, 1, nm).map(toLatLng), nm, type: f.aircraftType, t0: 0, t1: 0 });
       }
     });
     const secs = trips.map((x) => tripSecFor(x.nm)), sum = secs.reduce((a, b) => a + b, 0), k = sum > MAX_TRIPS ? MAX_TRIPS / sum : 1;
     const chapters: Chapter[] = [];
+    // Ringarna vid basen under lokala dagar: en per landning (högst tre), en dryg halv sekund isär.
+    const rings: { key: string; at: number }[] = [];
     let t = INTRO, ti = 0;
     d.days.forEach((day, i) => {
       const t0 = t, list = trips.filter((x) => x.day === i);
@@ -92,19 +93,22 @@ export default function BestWeekMapScreen() {
           t = x.t1 + (j < list.length - 1 ? GAP : DAY_OUT);
         });
         chapters.push({ day: i, kind: 'fly', t0, t1: t });
-      } else if (day.hours > 0) { t += LOCAL; chapters.push({ day: i, kind: 'local', t0, t1: t }); }
-      else { t += REST; chapters.push({ day: i, kind: 'rest', t0, t1: t }); }
+      } else if (day.hours > 0) {
+        t += LOCAL;
+        chapters.push({ day: i, kind: 'local', t0, t1: t });
+        for (let r = 0; r < clamp(localLdg(i), 1, 3); r++) rings.push({ key: `l${i}-${r}`, at: t0 + 0.5 + r * 0.55 });
+      } else { t += REST; chapters.push({ day: i, kind: 'rest', t0, t1: t }); }
     });
-    return { trips, chapters, fin: t, total: d.days.length ? t + FINALE : 0 };
+    return { trips, chapters, rings, fin: t, total: d.days.length ? t + FINALE : 0 };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d.days, d.geo]);
-  const { trips, chapters, fin } = plan;
+  const { trips, chapters, rings, fin } = plan;
   const totalNm = trips.reduce((s, x) => s + x.nm, 0);
   const weekH = d.days.reduce((s, x) => s + x.hours, 0);
 
-  // Helikopter eller plan per farkosttyp, ur flottan.
+  // Helikopter eller plan per farkosttyp, ur flottan (även de lokala flygningarnas).
   const [heliTypes, setHeliTypes] = useState<Record<string, boolean>>({});
-  const typeKey = [...new Set(trips.map((x) => x.type).filter(Boolean))].sort().join('|');
+  const typeKey = [...new Set(d.days.flatMap((x) => x.flights.map((f) => f.aircraftType)).filter(Boolean))].sort().join('|');
   useEffect(() => {
     let alive = true;
     const types = typeKey ? typeKey.split('|') : [];
@@ -113,79 +117,29 @@ export default function BestWeekMapScreen() {
     return () => { alive = false; };
   }, [typeKey]);
 
+  // Bilden: veckans flygplatser och basens ring, med plats för dagens namn överst och panelen nederst.
   const airports = [...new Set(trips.flatMap((x) => [x.from, x.to]).concat(home ? [home] : []))];
-  const pts: GeoPt[] = airports.length ? airports.map((k) => coords[k]) : Object.values(coords);
-  const { ov, onMapReady } = useOverview(mapRef, pts, { top: insets.top + 110, right: 60, bottom: 200, left: 50 });
+  const pts: GeoPt[] = [
+    ...(airports.length ? airports.map((k) => coords[k]) : Object.values(coords)),
+    ...(home ? [0, 90, 180, 270].map((b) => offsetPt(coords[home], b, LOCAL_R)) : []),
+  ];
+  const { ov, onMapReady } = useOverview(mapRef, pts, { top: insets.top + 128, right: 56, bottom: 210, left: 48 });
   const { t, playing, play, halt, seek } = useReplay(plan.total);
   const started = useRef(false);
   useEffect(() => {
     if (ov && chapters.length && !started.current) { started.current = true; play(); }
   }, [ov, chapters.length, play]);
 
-  // Kamerans avsnitt för hela veckan.
-  const segs = useMemo<Seg[] | null>(() => {
-    if (!ov) return null;
-    const base = home ? coords[home] : pts[0];
-    const out: Seg[] = [{ kind: 'hold', t0: 0, t1: INTRO, c: ov }];
-    let prev: GeoCam = ov;
-    for (const ch of chapters) {
-      if (ch.kind === 'fly') {
-        const list = trips.filter((x) => x.day === ch.day);
-        out.push({ kind: 'blend', t0: ch.t0, t1: ch.t0 + DAY_IN, a: prev, b: tripCam(list[0], 0) });
-        list.forEach((x, j) => {
-          out.push({ kind: 'chase', t0: x.t0, t1: x.t1, trip: x });
-          const end = tripCam(x, 1), nextT = j < list.length - 1 ? list[j + 1].t0 : ch.t1;
-          out.push(j < list.length - 1 ? { kind: 'blend', t0: x.t1, t1: nextT, a: end, b: tripCam(list[j + 1], 0) } : { kind: 'hold', t0: x.t1, t1: nextT, c: end });
-          prev = end;
-        });
-      } else if (ch.kind === 'local' && base) {
-        const c: GeoCam = { lat: base.lat, lon: base.lon, alt: LOCAL_ALT, heading: 0, pitch: 30 };
-        out.push({ kind: 'blend', t0: ch.t0, t1: ch.t0 + 1.0, a: prev, b: c });
-        out.push({ kind: 'hold', t0: ch.t0 + 1.0, t1: ch.t1, c });
-        prev = c;
-      } else out.push({ kind: 'hold', t0: ch.t0, t1: ch.t1, c: prev });
-    }
-    out.push({ kind: 'blend', t0: fin, t1: fin + 2.2, a: prev, b: ov });
-    out.push({ kind: 'hold', t0: fin + 2.2, t1: Infinity, c: ov });
-    return out;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ov, plan]);
-
-  // Zoomen är en faktor på kamerans höjd, som i Longest XC.
-  const [zoomK, setZoomK] = useState(1);
-  const [satellite, toggleSatellite] = useSatellitePref();
-  const cam = useMemo<GeoCam | null>(() => {
-    if (!segs) return null;
-    const sg = segs.find((x) => t >= x.t0 && t < x.t1) ?? segs[segs.length - 1];
-    const c = sg.kind === 'hold' ? sg.c
-      : sg.kind === 'blend' ? blendCam(sg.a, sg.b, ease((t - sg.t0) / Math.max(0.01, sg.t1 - sg.t0)), true)
-      : tripCam(sg.trip, fracOf(sg.trip, t));
-    return { ...c, alt: c.alt * zoomK };
-  }, [segs, t, zoomK]);
-  const camMode = useRef<'set' | 'animate' | 'skip'>('set');
-  useEffect(() => {
-    if (!cam) return;
-    const mode = camMode.current;
-    camMode.current = 'set';
-    if (mode === 'skip') return;
-    if (mode === 'animate') mapRef.current?.animateCamera(toCamera(cam), { duration: 300 });
-    else mapRef.current?.setCamera(toCamera(cam));
-  }, [cam]);
-  const zoomBy = (f: number) => {
-    const next = clamp(zoomK * f, 0.25, 4);
-    if (Math.abs(next - zoomK) < 1e-3) return;
-    if (!playing) camMode.current = 'animate';
-    setZoomK(next);
+  // Från början igen: kartan ramas in kring veckan, om den flyttats under uppspelningen.
+  const start = () => {
+    if (t >= plan.total - 0.01 && ov) mapRef.current?.animateCamera(toCamera(ov), { duration: 600 });
+    play();
   };
-  const [regionTick, setRegionTick] = useState(0);
-  const onRegionDone = () => {
-    mapRef.current?.getCamera().then((c) => {
-      setRegionTick((v) => v + 1);
-      if (playing || !cam || !c.altitude || Math.abs(c.altitude / cam.alt - 1) <= 0.02) return;
-      const next = clamp((c.altitude / cam.alt) * zoomK, 0.25, 4);
-      if (Math.abs(next - zoomK) < 1e-3) return;
-      camMode.current = 'skip';
-      setZoomK(next);
+  const [satellite, toggleSatellite] = useSatellitePref();
+  const zoomBy = (f: number) => {
+    const map = mapRef.current;
+    map?.getCamera().then((c) => {
+      if (c.altitude) map.animateCamera({ altitude: clamp(c.altitude * f, 1500, 30000000) }, { duration: 300 });
     }).catch(() => {});
   };
 
@@ -194,6 +148,7 @@ export default function BestWeekMapScreen() {
   const done = t >= fin;
   const active = trips.find((x) => t >= x.t0 && t < x.t1) ?? null;
   const af = active ? fracOf(active, t) : 0;
+  const local = ch && ch.kind === 'local' && home ? ch : null;
 
   // Linjerna ritas om åtta gånger i sekunden, inte varje steg (Apple-kartan flimrar annars).
   const step = Math.floor(t * 8);
@@ -226,34 +181,36 @@ export default function BestWeekMapScreen() {
     else if (ch && x.day === ch.day && !seen[x.to]) seen[x.to] = 1;
   }
 
-  // Farkosten under en flygdag: på resan, på marken där den senaste resan landade, eller vid dagens första avgång.
+  // Farkosten: på resan, vid dagens första avgång, vid basen en lokal dag, annars där den senast landade (eller vid
+  // basen en vilodag innan veckans första resa). Kursen räcker som vinkel, eftersom kartan står med norr uppåt.
   const dayTrips = ch && ch.kind === 'fly' ? trips.filter((x) => x.day === ch.day) : [];
-  const lastDone = [...dayTrips].reverse().find((x) => t >= x.t1) ?? null;
+  const waiting = !!ch && dayTrips.length > 0 && t >= ch.t0 + DAY_IN * 0.5 && t < dayTrips[0].t0;
+  const lastAny = [...trips].reverse().find((x) => t >= x.t1) ?? null;
+  const parked = lastAny ? alongArc(lastAny.path, 1) : null;
   const plane = active ? alongArc(active.path, af)
-    : lastDone ? alongArc(lastDone.path, 1)
-    : dayTrips.length && t >= ch!.t0 + DAY_IN * 0.5 ? alongArc(dayTrips[0].path, 0) : null;
-  const planeType = (active ?? lastDone ?? dayTrips[0])?.type ?? '';
-  const acAngle = useScreenAngle(mapRef, plane ? plane.p : null, plane ? plane.heading : 0, Math.max(2000, (cam?.alt ?? 20000) * 0.04), `${step}-${regionTick}`);
-  const lift = active ? (4 + 12 * ((cam?.pitch ?? 0) / PITCH)) * Math.pow(Math.sin(Math.PI * clamp((t - active.t0) / (active.t1 - active.t0), 0, 1)), 0.35) + 2 : 2;
-  const pulses = done && t > fin + 1.6 ? trips.map((x, k) => alongArc(x.path, ((t - fin) * 0.4 + k * 0.137) % 1).p) : [];
+    : waiting ? alongArc(dayTrips[0].path, 0)
+    : local ? { p: coords[home!], heading: parked?.heading ?? 0 }
+    : parked ?? (ch && ch.kind !== 'fly' && home ? { p: coords[home], heading: 0 } : null);
+  const planeType = active?.type ?? (waiting ? dayTrips[0].type : local ? d.days[local.day].flights.find((f) => f.local)?.aircraftType : lastAny?.type) ?? '';
+  const k0 = ch ? t - ch.t0 : 0;
+  const lift = active ? 2 + 7 * Math.pow(Math.sin(Math.PI * clamp((t - active.t0) / (active.t1 - active.t0), 0, 1)), 0.35)
+    : local ? 2 + 4 * clamp(Math.min(k0 / 0.5, (LOCAL - k0) / 0.5), 0, 1) : 2;
+  const pulses = done && t > fin + 0.4 ? trips.map((x, k) => alongArc(x.path, ((t - fin) * 0.4 + k * 0.137) % 1).p) : [];
 
   const nmSoFar = done ? totalNm : trips.reduce((s, x) => s + (t >= x.t1 ? x.nm : x === active ? x.nm * af : 0), 0);
   const hSoFar = done ? weekH : chapters.reduce((s, c) => s + (t >= c.t1 ? d.days[c.day].hours : t >= c.t0 ? d.days[c.day].hours * ((t - c.t0) / (c.t1 - c.t0)) : 0), 0);
   const tripsDone = trips.filter((x) => done || t >= x.t1).length;
   const maxDay = Math.max(0.1, ...d.days.map((x) => x.hours));
   const busiest = d.days.reduce<typeof d.days[number] | null>((b, x) => (!b || x.hours > b.hours ? x : b), null);
-  const rv = clamp((t - fin - 1.4) / 0.7, 0, 1);
-  const fog = ((cam?.pitch ?? 0) / PITCH) * 0.6;
+  const rv = clamp((t - fin - 0.6) / 0.7, 0, 1);
   const weekTitle = (params.label ?? '').replace('W', 'Week ');
 
+  // Dagens namn och rutt står kvar hela dagen (kartan står still, så de skymmer inget).
   let dayCard: { o: number; name: string; sub: string } | null = null;
   if (ch) {
-    const day = d.days[ch.day], dp = dayParts(day.iso), span = ch.t1 - ch.t0, k = t - ch.t0;
-    const ldg = day.flights.filter((f) => f.local).reduce((s, f) => s + (f.landings || 0), 0);
-    // Under en flygdag tonar namnet bort när första resan börjat, så kartan syns.
-    const hold = ch.kind === 'fly' ? Math.min(span, DAY_IN + 1.2) : span;
+    const day = d.days[ch.day], dp = dayParts(day.iso), span = ch.t1 - ch.t0, ldg = localLdg(ch.day);
     dayCard = {
-      o: clamp(Math.min(k / 0.3, (hold - k) / 0.4), 0, 1), name: dp.name,
+      o: clamp(Math.min(k0 / 0.3, (span - k0) / 0.35), 0, 1), name: dp.name,
       sub: `${dp.date} · ${ch.kind === 'fly' ? `${[dayTrips[0].from, ...dayTrips.map((x) => x.to)].join(' → ')} · ${hhmm(day.hours)}`
         : ch.kind === 'local' ? `Local flights · ${hhmm(day.hours)}${ldg ? ` · ${ldg} ${ldg === 1 ? 'landing' : 'landings'}` : ''}` : 'Rest day'}`,
     };
@@ -274,27 +231,27 @@ export default function BestWeekMapScreen() {
         showsCompass={false}
         showsTraffic={false}
         toolbarEnabled={false}
-        scrollEnabled={!playing}
-        zoomEnabled={!playing}
-        rotateEnabled
-        pitchEnabled
-        onRegionChangeComplete={onRegionDone}
+        rotateEnabled={false}
+        pitchEnabled={false}
       >
-        {home ? <MapCircle center={toLatLng(coords[home])} radius={18520} strokeColor="rgba(0,200,232,0.45)" strokeWidth={1.2} fillColor="rgba(0,200,232,0.04)" lineDashPattern={[3, 4]} /> : null}
+        {home ? (
+          <MapCircle center={toLatLng(coords[home])} radius={LOCAL_R} strokeColor={local ? 'rgba(0,200,232,0.85)' : 'rgba(0,200,232,0.45)'}
+            strokeWidth={local ? 1.8 : 1.2} fillColor={local ? 'rgba(0,200,232,0.12)' : 'rgba(0,200,232,0.04)'} lineDashPattern={[3, 4]} />
+        ) : null}
         {lines.dim.map((c, i) => <Polyline key={`d${i}`} coordinates={c} strokeColor="rgba(0,200,232,0.32)" strokeWidth={1.8} lineCap="round" />)}
         {lines.next.map((c, i) => <Polyline key={`n${i}`} coordinates={c} strokeColor="rgba(0,200,232,0.32)" strokeWidth={1.6} lineDashPattern={[5, 7]} />)}
         {lines.bright.map((c, i) => <Polyline key={`g${i}`} coordinates={c} strokeColor="rgba(0,200,232,0.18)" strokeWidth={11} lineCap="round" lineJoin="round" />)}
         {lines.bright.map((c, i) => <Polyline key={`b${i}`} coordinates={c} strokeColor={MAP_CYAN} strokeWidth={2.8} lineCap="round" lineJoin="round" />)}
         {lines.head.length > 1 ? <Polyline coordinates={lines.head} strokeColors={headColors} strokeWidth={2.6} lineCap="round" /> : null}
-        {airports.filter((k) => seen[k]).map((k) => <StopMarker key={k} p={coords[k]} code={k} visited={seen[k] === 2} onRoute={labelsOnRoute(cam, ov)} />)}
+        {airports.filter((k) => seen[k]).map((k) => <StopMarker key={k} p={coords[k]} code={k} visited={seen[k] === 2} pin />)}
         {trips.map((x) => (t >= x.t1 && t - x.t1 < 1.5 ? <RippleMarker key={`r${x.key}`} p={coords[x.to]} /> : null))}
-        {ch && ch.kind === 'local' && home && t >= ch.t0 + 0.9 ? <RippleMarker key={`l${ch.day}`} p={coords[home]} /> : null}
+        {home ? rings.map((r) => (t >= r.at && t - r.at < 1.6 ? <RippleMarker key={r.key} p={coords[home]} /> : null)) : null}
         {pulses.map((p, i) => <GlowDot key={`p${i}`} p={p} />)}
         {plane && rv < 1 ? (
-          <ReplayAircraft p={plane.p} heli={!!heliTypes[planeType]} heading={acAngle} spinning={playing && !!active} lift={lift} />
+          <ReplayAircraft p={plane.p} heli={!!heliTypes[planeType]} heading={plane.heading} spinning={playing && (!!active || !!local)} lift={lift} />
         ) : null}
       </MapView>
-      <ReplayShade fog={fog} fadeH={200} />
+      <ReplayShade fog={0} fadeH={200} />
       <TitleCard t={t} top={insets.top + 180} cap="YOUR BEST WEEK" title={`${hhmm(weekH)} h`} sub={`${weekTitle} · ${d.rangeLabel}`} />
       {dayCard && dayCard.o > 0 ? (
         <View pointerEvents="none" style={[s.dayCard, { top: insets.top + 64, opacity: dayCard.o, transform: [{ translateY: (1 - dayCard.o) * -8 }] }]}>
@@ -319,7 +276,7 @@ export default function BestWeekMapScreen() {
       <Glass style={[s.panel, { bottom: insets.bottom + 8, height: 112 + 74 * rv }]}>
         <View pointerEvents={rv > 0.5 ? 'none' : 'auto'} style={[s.panelIn, { opacity: 1 - rv }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => (playing ? halt() : play())} disabled={!chapters.length} style={[s.play, !chapters.length && { opacity: 0.4 }]}
+            <Pressable onPress={() => (playing ? halt() : start())} disabled={!chapters.length} style={[s.play, !chapters.length && { opacity: 0.4 }]}
               accessibilityLabel={playing ? 'Pause the replay' : 'Replay the week'}>
               <Ionicons name={playing ? 'pause' : 'play'} size={16} color={Colors.textInverse} />
             </Pressable>
@@ -367,7 +324,7 @@ export default function BestWeekMapScreen() {
               </View>
             ))}
           </View>
-          <Pressable onPress={play} style={s.replay} accessibilityRole="button">
+          <Pressable onPress={start} style={s.replay} accessibilityRole="button">
             <Ionicons name="refresh" size={13} color={MAP_CYAN} />
             <Text style={s.replayText}>Replay the week</Text>
           </Pressable>

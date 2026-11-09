@@ -1,4 +1,4 @@
-// Kameraåkningen i Best week- och Longest XC-kartorna (designvyns "Map replay v3"). Här finns klockan som driver
+// Uppspelningen i Best week-kartan (ovanifrån, stilla bild) och Longest XC-kartan (kameraåkning, designvyns "Map replay v3"). Här finns klockan som driver
 // uppspelningen, Apple-kartans kamera (lutning och vridning, satt med setCamera i varje steg) och lagren ovanpå:
 // flygplatser som en kod på punkten (utzoomat) eller strax under, ringar som pulserar vid landning, ljuspunkter, farkosten med glöd och skugga,
 // dimma mot horisonten och glaspanelen. MapKit använder kamerans lutning och vridning bara när pitchEnabled och
@@ -163,13 +163,14 @@ export function useReplay(total: number) {
 }
 
 // Flygplats: koden i en liten etikett. I uppspelningen strax under punkten, eftersom farkosten står på själva punkten;
-// onRoute = mitt på punkten, så att etiketten sitter på rutten (förhandsbilderna). Vyn är symmetrisk kring koordinaten,
-// så den hamnar rätt utan centerOffset.
-export function StopMarker({ p, code, visited, onRoute = false }: { p: GeoPt; code: string; visited: boolean; onRoute?: boolean }) {
+// onRoute = mitt på punkten, så att etiketten sitter på rutten (förhandsbilderna); pin = en prick på själva flygplatsen
+// och koden under (uppspelningen ovanifrån). Vyn är symmetrisk kring koordinaten, så den hamnar rätt utan centerOffset.
+export function StopMarker({ p, code, visited, onRoute = false, pin = false }: { p: GeoPt; code: string; visited: boolean; onRoute?: boolean; pin?: boolean }) {
   return (
     <Marker coordinate={toLatLng(p)} zIndex={4} tracksViewChanges={false}>
       <View pointerEvents="none" style={{ width: 52, height: onRoute ? 18 : 80 }}>
-        <View style={[k.stop, onRoute && { top: 0 }, { borderColor: visited ? 'rgba(0,200,232,0.75)' : '#33475C' }]}>
+        {pin ? <View style={[k.pin, { backgroundColor: visited ? MAP_CYAN : '#33475C' }]} /> : null}
+        <View style={[k.stop, onRoute && { top: 0 }, pin && { top: 56 }, { borderColor: visited ? 'rgba(0,200,232,0.75)' : '#33475C' }]}>
           <Text numberOfLines={1} style={[k.stopText, { color: visited ? '#FFFFFF' : '#8FA3B8' }]}>{code}</Text>
         </View>
       </View>
@@ -330,6 +331,7 @@ export function TitleCard({ t, cap, title, sub, top }: { t: number; cap: string;
 
 const k = StyleSheet.create({
   stop: { position: 'absolute', left: 4, top: 60, width: 44, height: 18, borderRadius: 6, borderWidth: 1, backgroundColor: 'rgba(10,20,32,0.86)', alignItems: 'center', justifyContent: 'center' },
+  pin: { position: 'absolute', left: 21.5, top: 35.5, width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.5, borderColor: REPLAY_BG },
   stopText: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4 },
   ring: { position: 'absolute', left: 0, top: 0, width: 110, height: 110, borderRadius: 55, borderWidth: 2, borderColor: MAP_CYAN, backgroundColor: 'rgba(0,200,232,0.10)' },
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#E6FBFF', shadowColor: MAP_CYAN, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },

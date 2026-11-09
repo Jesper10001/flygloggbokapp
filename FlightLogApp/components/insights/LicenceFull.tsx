@@ -75,12 +75,6 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
   const unlockDay = unlock.unlockDate ? `${unlock.unlockDate.getDate()} ${mShort(unlock.unlockDate.getFullYear() * 12 + unlock.unlockDate.getMonth()).split(' ')[0]}` : '';
   const lockWhen = !daysOk && flightsLeft > 0 ? `Dates from ${unlockDay}, after ${flightsLeft} more flights`
     : !daysOk ? `Dates from ${unlockDay}` : `Dates after ${flightsLeft} more ${flightsLeft === 1 ? 'flight' : 'flights'}`;
-  // Listans grafer delar tidsaxeln: från första flygningen till det sista datumet i den valda takten.
-  const lastA = Math.max(nowA + 6, ...S.reqs.map((r) => {
-    if (r.met) return r.metA ?? nowA;
-    const mm = datesLocked ? null : monthsAt(r, pick);
-    return mm != null ? nowA + mm : nowA;
-  })) + 2;
   const miniW = listW > 0 ? Math.floor((listW - 18) / 2) : 0;
 
   let subLeft: string;
@@ -217,7 +211,7 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
           })}
         </View>
         </>) : (
-          // List: alla krav i två kolumner, var och en med en egen liten graf (LicenceReqMini) på samma tidsaxel;
+          // List: alla krav i två kolumner, var och en med en egen liten graf (LicenceReqMini) och egen tidsaxel;
           // datumen i den takt som är vald till vänster.
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 10, paddingTop: 2, paddingBottom: 6 }}
             showsVerticalScrollIndicator={false} onLayout={(e) => setListW(Math.round(e.nativeEvent.layout.width))}>
@@ -242,7 +236,7 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
                   </View>
                   {miniW > 0 ? (
                     <View style={{ borderRadius: 8, overflow: 'hidden' }}>
-                      <LicenceReqMini C={C} r={r} w={miniW} a0={startA} a1={lastA} nowA={nowA} m={m} isLim={isLim} />
+                      <LicenceReqMini C={C} r={r} w={miniW} a0={startA} nowA={nowA} m={m} isLim={isLim} />
                     </View>
                   ) : <View style={{ height: 60 }} />}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>

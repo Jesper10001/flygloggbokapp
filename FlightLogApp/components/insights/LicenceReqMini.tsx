@@ -1,6 +1,7 @@
 // En liten graf per krav i Next licence-listan (helskärmen): timmarna hittills, kravets linje med värdet, i dag, och
-// vägen fram till datumet i den valda takten (eller var kravet klarades). Alla krav delar tidsaxeln (a0–a1), men har
-// en egen höjdskala, så att 30 h instrument går att läsa bredvid 1 000 h total.
+// vägen fram till datumet i den valda takten (eller var kravet klarades). Varje graf har en egen tidsaxel, från första
+// flygningen (a0) till kravets eget datum (i dag om det är klarat eller saknar takt), och en egen höjdskala, så att 30 h
+// instrument går att läsa bredvid 1 000 h total. Årtalen glesas ut när axeln är lång (vartannat, vart femte år …).
 
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import type { InsightsTheme } from './insightsTheme';
@@ -11,11 +12,16 @@ const H = 60, PT = 8, PB = 12;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const yShort = (a: number) => `’${String(Math.floor(a / 12)).slice(2)}`;
 
-export function LicenceReqMini({ C, r, w, a0, a1, nowA, m, isLim }: {
-  C: InsightsTheme; r: LicReq; w: number; a0: number; a1: number; nowA: number;
+// Minsta avstånd i punkter mellan två årtal på axeln, och stegen som prövas i tur och ordning.
+const YEAR_GAP = 24, YEAR_STEPS = [1, 2, 5, 10, 20, 25, 50];
+
+export function LicenceReqMini({ C, r, w, a0, nowA, m, isLim }: {
+  C: InsightsTheme; r: LicReq; w: number; a0: number; nowA: number;
   m: number | null;      // månader kvar i den valda takten (null = ingen takt eller datumen låsta)
   isLim: boolean;        // kravet sätter datumet
 }) {
+  const end = r.met || m == null ? nowA : nowA + m;
+  const a1 = end + Math.max(2, Math.round((end - a0) * 0.06));
   const X = (a: number) => r1(1 + ((a - a0) / Math.max(1, a1 - a0)) * (w - 2));
   const yMax = Math.max(r.required, r.have, 1) * 1.18;
   const Y = (h: number) => r1(H - PB - (h / yMax) * (H - PT - PB));
@@ -26,7 +32,9 @@ export function LicenceReqMini({ C, r, w, a0, a1, nowA, m, isLim }: {
   const color = r.met ? C.text2 : C.primary;
   let years = '';
   const yearLabels: { x: number; t: string }[] = [];
-  for (let y = Math.ceil(a0 / 12); y * 12 <= a1; y++) {
+  const perYear = ((w - 2) * 12) / Math.max(1, a1 - a0);
+  const yStep = YEAR_STEPS.find((v) => v * perYear >= YEAR_GAP) ?? 100;
+  for (let y = Math.ceil(a0 / 12 / yStep) * yStep; y * 12 <= a1; y += yStep) {
     const x = X(y * 12);
     years += `M${x} ${PT} V${H - PB} `;
     if (x < w - 14) yearLabels.push({ x: x + 2, t: yShort(y * 12) });
