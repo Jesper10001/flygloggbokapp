@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Best week-kartan: vilodagar (och slutet) visar samma farkost som senast flögs, även lokalt, i stället för ett plan. Förut blev det alltid ett plan när veckan bara hade lokala helikopterflygningar.
 - Best week-kartan spelas upp ovanifrån i en stilla bild: kartan ramar in hela veckan (och basens 10 NM-ring) med norr uppåt och står kvar medan farkosten flyger resorna dag för dag, i stället för att kameran följer farkosten. Dagens namn och rutt står kvar överst hela dagen, flygplatserna har en prick med koden under, lokala dagar lyser upp basens ring och pulserar där (en ring per landning, högst tre) med rotorn igång. Kartan går att flytta och zooma under uppspelningen; Replay ramar in veckan igen. Resorna går fortare (2,8–7 s, högst 50 s för veckan).
 - Next licence, List: varje krav har en egen tidsaxel (från första flygningen till kravets eget datum, i dag om det är klarat), och årtalen glesas ut på långa axlar (vartannat, vart femte år …) så de går att läsa.
 - Insights: "PREMIUM"-texten (guld) uppe till höger på förhandsrutorna borttagen. Gratisanvändare ser samma rutor som Premium (takt, x/y met osv.); ett tryck öppnar fortfarande paywallen.

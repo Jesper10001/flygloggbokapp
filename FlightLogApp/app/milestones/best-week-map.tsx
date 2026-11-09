@@ -191,7 +191,18 @@ export default function BestWeekMapScreen() {
     : waiting ? alongArc(dayTrips[0].path, 0)
     : local ? { p: coords[home!], heading: parked?.heading ?? 0 }
     : parked ?? (ch && ch.kind !== 'fly' && home ? { p: coords[home], heading: 0 } : null);
-  const planeType = active?.type ?? (waiting ? dayTrips[0].type : local ? d.days[local.day].flights.find((f) => f.local)?.aircraftType : lastAny?.type) ?? '';
+  // Farkosttypen: resans, annars den som senast flögs fram till dagen (även lokalt), så att en vilodag visar samma
+  // helikopter eller plan; före veckans första flygning den första som flygs.
+  const flownType = (upto: number) => {
+    for (let i = Math.min(upto, d.days.length - 1); i >= 0; i--) {
+      const f = [...d.days[i].flights].reverse().find((x) => x.aircraftType);
+      if (f) return f.aircraftType;
+    }
+    return d.days.flatMap((x) => x.flights).find((x) => x.aircraftType)?.aircraftType ?? '';
+  };
+  const lastDone = [...dayTrips].reverse().find((x) => t >= x.t1) ?? null;
+  const planeType = active?.type ?? (waiting ? dayTrips[0].type : ch?.kind === 'fly' ? (lastDone ?? dayTrips[0]).type
+    : flownType(ch ? ch.day : d.days.length - 1));
   const k0 = ch ? t - ch.t0 : 0;
   const lift = active ? 2 + 7 * Math.pow(Math.sin(Math.PI * clamp((t - active.t0) / (active.t1 - active.t0), 0, 1)), 0.35)
     : local ? 2 + 4 * clamp(Math.min(k0 / 0.5, (LOCAL - k0) / 0.5), 0, 1) : 2;
