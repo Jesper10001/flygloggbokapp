@@ -1,19 +1,21 @@
 // Next licence i liggande helskärm. Samma licens som kortet (useLicenceView). Till vänster stegen PPL → CPL → ATPL,
 // READY / MET / ETA och takten man räknar med: ens bästa, som de senaste 12 månaderna eller ens långsammaste, med
-// datumet för var och en. Till höger den breda kurvan (LicenceFullChart) och alla krav i en rad under, med stapel,
-// timmar och datum i samma ruta, så Chart och List blir en vy. Tryck på en ruta för att markera kravet i kurvan.
+// datumet för var och en. Till höger Chart eller List (växeln överst): den breda kurvan (LicenceFullChart) med alla
+// krav i en rad under — tryck på en ruta för att markera kravet i kurvan — eller kraven som en lista med stapel,
+// timmar och datum i den valda takten.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useInsightsTheme } from './insightsTheme';
-import { useInsightsData } from './insightsData';
+import { useInsightsData, projectionUnlock, PROJECTION_MIN_DAYS, PROJECTION_MIN_FLIGHTS } from './insightsData';
 import { buildState, hoursTxt, etaFor, pacePick, monthsAt, type LicPace, type LicState } from './licenceState';
 import { useLicenceSet, useLicenceView, LIC_IDS, type LicId } from './licenceView';
-import { absNow, mLabel, mShort, dur } from './projectionModel';
+import { absNow, mLabel, mShort, dur, one } from './projectionModel';
+import { LicenceReqMini } from './LicenceReqMini';
 import { LicenceFullChart, type LicRange } from './LicenceFullChart';
 import { FullscreenClose } from './FullscreenShell';
 
@@ -30,11 +32,14 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
   const C = useInsightsTheme();
   const D = useInsightsData();
   const insets = useSafeAreaInsets();
-  const { set } = useLicenceSet();
+  const { set, flights } = useLicenceSet();
+  const unlock = useMemo(() => projectionUnlock(flights), [flights]);
+  const [listW, setListW] = useState(0);
   const selId = useLicenceView((s) => s.sel);
   const [pace, setPace] = useState<LicPace>('usual');
   const [range, setRange] = useState<LicRange>('recent');
   const [focus, setFocus] = useState<string | null>(null);
+  const [view, setView] = useState<'chart' | 'list'>('chart');
   const tap = () => { Haptics.selectionAsync().catch(() => {}); };
 
   const pad = {
@@ -62,8 +67,25 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
   const etaA = E.m != null ? nowA + E.m : null;
   const readyPct = S.done ? 100 : Math.min(99, Math.floor(S.ready * 100));
 
+  // Före 60 dagar och 10 flygningar finns inga datum (som Projections): bara listan med timmarna.
+  const datesLocked = !unlock.ready && !S.done;
+  const shownView = datesLocked ? 'list' : view;
+  const flightsLeft = Math.max(0, PROJECTION_MIN_FLIGHTS - unlock.flights);
+  const daysOk = unlock.days >= PROJECTION_MIN_DAYS;
+  const unlockDay = unlock.unlockDate ? `${unlock.unlockDate.getDate()} ${mShort(unlock.unlockDate.getFullYear() * 12 + unlock.unlockDate.getMonth()).split(' ')[0]}` : '';
+  const lockWhen = !daysOk && flightsLeft > 0 ? `Dates from ${unlockDay}, after ${flightsLeft} more flights`
+    : !daysOk ? `Dates from ${unlockDay}` : `Dates after ${flightsLeft} more ${flightsLeft === 1 ? 'flight' : 'flights'}`;
+  // Listans grafer delar tidsaxeln: från första flygningen till det sista datumet i den valda takten.
+  const lastA = Math.max(nowA + 6, ...S.reqs.map((r) => {
+    if (r.met) return r.metA ?? nowA;
+    const mm = datesLocked ? null : monthsAt(r, pick);
+    return mm != null ? nowA + mm : nowA;
+  })) + 2;
+  const miniW = listW > 0 ? Math.floor((listW - 18) / 2) : 0;
+
   let subLeft: string;
-  if (S.done) subLeft = `All ${S.reqs.length} requirements met${S.doneA != null ? ` · ${dur(Math.max(0, S.doneA - startA))} from first flight` : ''}`;
+  if (datesLocked) subLeft = lockWhen;
+  else if (S.done) subLeft = `All ${S.reqs.length} requirements met${S.doneA != null ? ` · ${dur(Math.max(0, S.doneA - startA))} from first flight` : ''}`;
   else if (E.m == null) subLeft = `No ${E.lim?.short ?? ''} time in the last 12 months`;
   else subLeft = `${E.lim?.short ?? ''} sets the date · ${toGoTxt(E.lim?.toGo ?? 0)} h`;
 
@@ -126,16 +148,16 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ gap: 1, flexShrink: 1 }}>
-            <Text style={[st.cap, { color: C.text2 }]}>{S.done ? 'COMPLETE' : 'ETA'}</Text>
+            <Text style={[st.cap, { color: C.text2 }]}>{S.done ? 'COMPLETE' : datesLocked ? 'DATES' : 'ETA'}</Text>
             <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 26, fontWeight: '600', color: C.text }}>
-              {S.done ? mLabel(S.doneA ?? nowA) : etaA != null ? mLabel(etaA) : '—'}
+              {S.done ? mLabel(S.doneA ?? nowA) : datesLocked ? 'Locked' : etaA != null ? mLabel(etaA) : '—'}
             </Text>
           </View>
-          {!S.done && E.m != null ? <Text style={[st.small, { color: C.text2, paddingBottom: 4 }]}>in {dur(E.m)}</Text> : null}
+          {!S.done && !datesLocked && E.m != null ? <Text style={[st.small, { color: C.text2, paddingBottom: 4 }]}>in {dur(E.m)}</Text> : null}
         </View>
         <Text style={[st.small, { color: C.text2, marginTop: -4 }]}>{subLeft}</Text>
 
-        {!S.done ? (
+        {!S.done && !datesLocked ? (
           <View style={{ marginTop: 'auto', gap: 6 }}>
             <Text style={[st.cap, { color: C.text2 }]}>IF YOU FLY AT</Text>
             {PACES.map(([k, label]) => {
@@ -153,6 +175,22 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
       </ScrollView>
 
       <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+        {!datesLocked ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <View style={[st.seg, { backgroundColor: C.deep }]}>
+            {(['chart', 'list'] as const).map((v) => {
+              const on = view === v;
+              return (
+                <TouchableOpacity key={v} onPress={() => { tap(); setView(v); setFocus(null); }} accessibilityRole="button" accessibilityState={{ selected: on }}
+                  accessibilityLabel={v === 'chart' ? 'Show as chart' : 'Show as list'} hitSlop={{ top: 8, bottom: 8 }}
+                  style={[st.segBtn, { backgroundColor: on ? C.elevated : 'transparent' }]}>
+                  <Ionicons name={v === 'chart' ? 'analytics-outline' : 'list'} size={11} color={on ? C.text : C.muted} />
+                  <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: on ? C.text : C.muted }}>{v === 'chart' ? 'Chart' : 'List'}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View> : null}
+        {shownView === 'chart' ? (<>
         <LicenceFullChart C={C} S={S} nowA={nowA} startA={startA} pick={pick} etaM={E.m} lim={E.lim}
           scaleM={etas.slow.m ?? etas.usual.m} focus={focus} range={range} onRange={setRange} />
         <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -178,6 +216,46 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
             );
           })}
         </View>
+        </>) : (
+          // List: alla krav i två kolumner, var och en med en egen liten graf (LicenceReqMini) på samma tidsaxel;
+          // datumen i den takt som är vald till vänster.
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 10, paddingTop: 2, paddingBottom: 6 }}
+            showsVerticalScrollIndicator={false} onLayout={(e) => setListW(Math.round(e.nativeEvent.layout.width))}>
+            {S.reqs.map((r) => {
+              const isLim = !S.done && !datesLocked && E.m != null && r === E.lim;
+              const m = datesLocked ? null : monthsAt(r, pick);
+              const when = r.met ? `✓ ${mShort(r.metA ?? nowA)}` : datesLocked ? `${toGoTxt(r.toGo)} h to go` : m != null ? mShort(nowA + m) : 'No pace';
+              const whenColor = r.met || datesLocked ? C.text2 : m == null ? C.muted : C.text;
+              const foot = r.met ? `+${hoursTxt(Math.max(0, r.have - r.required))} h over` : datesLocked ? '' : m != null ? `${one(pick(r))} h/mo` : 'No pace';
+              return (
+                <View key={r.key} style={{ width: miniW || '45%', gap: 3 }}
+                  accessible accessibilityLabel={r.met ? `${r.label}, met ${mLabel(r.metA ?? nowA)}`
+                    : `${r.label}, ${haveTxt(r.have)} of ${hoursTxt(r.required)} hours, ${toGoTxt(r.toGo)} to go${m != null ? `, ${mLabel(nowA + m)}` : ''}`}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                    <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 12, fontWeight: '600', color: C.text }}>{r.label}</Text>
+                    {isLim ? (
+                      <View style={{ paddingVertical: 2, paddingHorizontal: 5, borderRadius: 5, borderWidth: 1, borderColor: C.quiet }}>
+                        <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.8, color: C.soft }}>SETS THE DATE</Text>
+                      </View>
+                    ) : null}
+                    <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: whenColor }}>{when}</Text>
+                  </View>
+                  {miniW > 0 ? (
+                    <View style={{ borderRadius: 8, overflow: 'hidden' }}>
+                      <LicenceReqMini C={C} r={r} w={miniW} a0={startA} a1={lastA} nowA={nowA} m={m} isLim={isLim} />
+                    </View>
+                  ) : <View style={{ height: 60 }} />}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                    <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: r.met ? C.text2 : C.text }}>
+                      {haveTxt(r.have)}<Text style={{ fontWeight: '400', color: C.muted }}>/{hoursTxt(r.required)} h</Text>
+                    </Text>
+                    {foot ? <Text style={{ fontFamily: MONO, fontSize: 9.5, color: C.text2 }}>{foot}</Text> : null}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -191,4 +269,6 @@ const st = StyleSheet.create({
   rung: { flex: 1, minWidth: 0, minHeight: 38, paddingHorizontal: 4, paddingVertical: 4, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 1 },
   paceRow: { minHeight: 36, borderRadius: 9, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10 },
   tile: { flex: 1, minWidth: 0, minHeight: 62, borderRadius: 11, borderWidth: 1, paddingVertical: 6, paddingHorizontal: 8, justifyContent: 'center', gap: 4 },
+  seg: { flexDirection: 'row', gap: 2, padding: 2, borderRadius: 9 },
+  segBtn: { minHeight: 24, paddingHorizontal: 8, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 4 },
 });
