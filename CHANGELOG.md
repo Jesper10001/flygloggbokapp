@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Loggböckerna (Pilot logbook, Professional Pilot Logbook och EASA AMC1 FCL.050): kolumnkanterna som var streckade (SE|ME, Day|Night, PIC|Co-pilot, FSTD Type|Total m.fl.) ritas som hela linjer, så att skiljelinjerna syns tydligt. Gäller även PDF-exporten.
 - Loggboksguiden, steg Totals: skiljer en summa från pappersboken skriver man in pappersbokens siffra och trycker den stora knappen "Use 240 from your paper book". När boken skapas justeras Backfill missing hours med skillnaden (plus eller minus), så att både statistiken och boken visar pappersbokens siffra. "Look for flights counted twice" och Backfill-arket i flödet är borttagna; kolumner som Backfill saknar gäller bara boken som förut. SE/ME (sp_se/sp_me) kopplade till Backfill.
 - Backfill missing hours tar även negativa korrigeringar (Current lägre än det loggade); raden "Blades previous experience" räknar sina SE/ME i bokens Single-pilot-kolumner.
 - Insights, Longest XC-rutan: distansen visas utan tusentalskomma (1662 NM). LED-typsnittet saknar kommatecken, och kommat ritat i ett annat typsnitt kapade siffrornas överkant.

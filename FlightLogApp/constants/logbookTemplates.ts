@@ -86,7 +86,7 @@ export interface LogbookTemplate {
   cover?: number;             // require(...) av omslagsbild — visas i väljaren
   descriptionKey?: string;    // i18n-nyckel för detaljtext under omslaget
   header_rows?: LogbookHeaderCell[][]; // explicit nästlad rubrik
-  dashed_after?: string[];    // kolumn-id vars högerkant ritas streckad
+  dashed_after?: string[];    // kolumn-id vars högerkant markeras (ritas numera som hel linje, renderSpread .dash-r)
   summary_layout?: 'bf-top' | 'bottom'; // historiskt; alla böcker ritas nu 'bottom' (applyBookRules, renderSpread)
 }
 

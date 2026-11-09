@@ -342,8 +342,9 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
   table.lb { border-collapse: collapse; width: ${contentWidth}px; table-layout: fixed; }
   table.lb th, table.lb td { border-right: 0.8px solid #8A7048; overflow: hidden; }
   table.lb th:first-child, table.lb td:first-child { border-left: 0.8px solid #8A7048; }
-  /* streckad kolumnkant (t.ex. SE|ME, Day|Night, Night|Sea) — brun som övriga */
-  .dash-r { border-right: 0.8px dashed #8A7048 !important; }
+  /* kolumnkanten mallarna markerar (dashed_after, t.ex. SE|ME, Day|Night, PIC|Co-pilot) — hel linje som övriga,
+     så att skiljelinjerna syns tydligt (streckad såg prickig ut i den tunna storleken) */
+  .dash-r { border-right: 0.8px solid #8A7048 !important; }
   /* vågräta linjer endast i rubrik + summarader — inte mellan dataraderna */
   th.hx, th.hdr, th.grp { border-top: 0.8px solid #8A7048; border-bottom: 0.8px solid #8A7048; }
   tr.sum td { border-top: 0.8px solid #8A7048; border-bottom: 0.8px solid #8A7048; }
