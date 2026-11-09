@@ -19,7 +19,7 @@ import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-na
 import { getDeviceId } from './anthropicClient';
 import { getSetting } from '../db/flights';
 import { useFlightStore, type SubscriptionTier } from '../store/flightStore';
-import { NEW_PAYWALLS, PLANS_OFFERING_ID } from '../constants/paywalls';
+import { NEW_PAYWALLS, PLANS_OFFERING_ID, ONBOARDING_OFFERING_ID } from '../constants/paywalls';
 
 const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
 const ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';
@@ -27,6 +27,8 @@ const ENTITLEMENT_ID = 'premium';
 // Blades Max ger både "premium" och "max", så äldre byggen ser en Max-kund som Premium.
 const MAX_ENTITLEMENT_ID = 'max';
 const MAX_PRODUCT_ID = 'blades_max_monthly';
+// Max-produkterna: den vanliga och onboardingens med provvecka.
+const MAX_PRODUCT_IDS = new Set([MAX_PRODUCT_ID, 'blades_max_monthly_trial']);
 
 // Lazy-require: får aldrig fälla en build som saknar native-modulen.
 let Purchases: any = null;
@@ -76,8 +78,8 @@ export async function configurePurchases(): Promise<void> {
 function tierOf(info: CustomerInfo | null | undefined): SubscriptionTier {
   try {
     const active = info?.entitlements?.active ?? {};
-    // Max känns igen på sitt entitlement, eller på att det är Max-produkten som ger "premium".
-    if (active[MAX_ENTITLEMENT_ID] || active[ENTITLEMENT_ID]?.productIdentifier === MAX_PRODUCT_ID) return 'max';
+    // Max känns igen på sitt entitlement, eller på att det är en Max-produkt som ger "premium".
+    if (active[MAX_ENTITLEMENT_ID] || MAX_PRODUCT_IDS.has(active[ENTITLEMENT_ID]?.productIdentifier ?? '')) return 'max';
     return active[ENTITLEMENT_ID] ? 'premium' : 'free';
   } catch { return 'free'; }
 }
@@ -131,8 +133,9 @@ export interface PlanOption {
 const DAYS_PER_UNIT: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
 
 /**
- * Planerna till onboardingens betalvägg (components/onboarding/OnboardingPaywall): Premium och Max ur erbjudandet
- * med båda när de nya paywallsen är på, annars Premium ur current. Provperioden räknas bara när App Store har ett
+ * Planerna till onboardingens betalvägg (components/onboarding/OnboardingPaywall): Premium och Max ur onboardingens
+ * erbjudande (produkterna med provvecka) när de nya paywallsen är på, annars ur erbjudandet med båda, annars Premium
+ * ur current. Provperioden räknas bara när App Store har ett
  * gratis introduktionserbjudande och RevenueCat säger att användaren har rätt till det (Apple ger det en gång per
  * Apple-ID och prenumerationsgrupp); okänt läge visas som vanligt pris. Tom lista när köp inte går.
  */
@@ -140,10 +143,11 @@ export async function getOnboardingPlans(): Promise<PlanOption[]> {
   if (!configured || !Purchases) return [];
   try {
     const offerings = await Purchases.getOfferings();
-    const offering: PurchasesOffering | null = (NEW_PAYWALLS ? offerings?.all?.[PLANS_OFFERING_ID] : null) ?? offerings?.current ?? null;
+    const offering: PurchasesOffering | null = (NEW_PAYWALLS ? offerings?.all?.[ONBOARDING_OFFERING_ID] ?? offerings?.all?.[PLANS_OFFERING_ID] : null)
+      ?? offerings?.current ?? null;
     if (!offering) return [];
     const pkgs = offering.availablePackages ?? [];
-    const max = pkgs.find((p) => p.product.identifier === MAX_PRODUCT_ID) ?? null;
+    const max = pkgs.find((p) => MAX_PRODUCT_IDS.has(p.product.identifier)) ?? null;
     const premium = pkgs.find((p) => p.identifier === '$rc_monthly' && p !== max)
       ?? pkgs.find((p) => p.packageType === 'MONTHLY' && p !== max) ?? null;
     const list = [premium && { tier: 'premium' as const, pkg: premium }, max && { tier: 'max' as const, pkg: max }]

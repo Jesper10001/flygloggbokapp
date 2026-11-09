@@ -11,3 +11,8 @@ export const NEW_PAYWALLS = NEW_PAYWALLS_LIVE || channel === 'preview';
 // RevenueCats offering med Premium och Max (identifier i RevenueCat-dashboarden). Det nuvarande erbjudandet
 // "standard" ligger kvar som current för App Store-bygget.
 export const PLANS_OFFERING_ID = 'premium_max';
+
+// Onboardingens erbjudande: samma Premium och Max men som egna produkter (blades_premium_monthly_trial och
+// blades_max_monthly_trial) med en gratis provvecka i App Store. Provveckan finns bara där; betalväggen i
+// Inställningar säljer de vanliga produkterna utan. Saknas erbjudandet används premium_max.
+export const ONBOARDING_OFFERING_ID = 'onboarding';
