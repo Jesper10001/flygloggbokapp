@@ -73,6 +73,7 @@ export interface Solution { hero: 'paper' | 'file' | 'type' | 'drone'; kicker: s
  */
 export function buildSolution(a: {
   pilot: boolean; prio: Prio; want: Want; path: PitchPath; deal: { month: string; year: string } | null;
+  drone?: 'hobby' | 'commercial' | 'military' | null;
   bookShort: string | null; freeSpreads: number;
 }): Solution {
   const R = ROWS(a.pilot);
@@ -82,14 +83,25 @@ export function buildSolution(a: {
   const auto: Tile = { value: 'Auto', label: 'night, distance and landings' };
   const pdf: Tile = { value: 'PDF', label: 'logbook pages, like paper' };
   if (!a.pilot) {
+    // Kategorierna följer den sortens flygning man valt: militära piloter loggar per NATO-klass, inte A1–Specific.
+    const mil = a.drone === 'military';
+    const split: PitchRow = mil
+      ? { key: 'split', icon: 'layers-outline', title: 'Hours per NATO class and sight mode', sub: 'Class I to III, VLOS to BVLOS, and per drone, added up for you.' }
+      : R.split;
+    const proof: PitchRow = mil
+      ? { key: 'proof', icon: 'document-text-outline', title: 'A logbook you can hand over', sub: 'Real remote pilot logbook pages, with a PDF when your unit asks.' }
+      : R.proof;
+    const pick = (r: PitchRow) => (r.key === 'split' ? split : r.key === 'proof' ? proof : r);
     return {
-      hero: 'drone', kicker: 'YOUR DRONE LOGBOOK', title: 'Proof of every flight,\nready when asked.',
+      hero: 'drone', kicker: 'YOUR DRONE LOGBOOK', title: 'Proof of every flight, ready when asked.',
       tiles: [
-        { value: 'A1–SPEC', label: 'hours per category', good: true },
+        mil ? { value: 'NATO I–III', label: 'hours per class', good: true }
+          : a.drone === 'hobby' ? { value: 'A1–A3', label: 'hours per category', good: true }
+          : { value: 'A1–SPEC', label: 'hours per category', good: true },
         { value: 'BVLOS', label: 'time per sight mode' },
         { value: 'PDF', label: 'logbook to hand over' },
       ],
-      rows: [...mine, { key: 'dscan', icon: 'scan-outline', title: 'Scan the flight list from your drone app', sub: 'A screenshot is enough.' }],
+      rows: [...mine.map(pick), { key: 'dscan', icon: 'scan-outline', title: 'Scan the flight list from your drone app', sub: 'A screenshot is enough.' }],
     };
   }
   if (a.path === 'paper') {

@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, cancelAnimation, useReducedMotion } from 'react-native-reanimated';
 
 export type HeroKind = 'paper' | 'file' | 'type' | 'drone';
+export type DroneKind = 'hobby' | 'commercial' | 'military';
 
 const CYAN = '#00C8E8';
 const GREEN = '#19E6A5';
@@ -26,24 +27,31 @@ const FLIGHTS: [string, string, string, string, string][] = [
   ['17', 'EKCH', 'ESSA', '1:10', '2 LDG'],
   ['19', 'ESSA', 'ESMS', '1:05', '283 NM'],
 ];
-const DRONE: [string, string, string, string][] = [
-  ['12 Mar 09:14', '18', '1.2 km', 'VLOS · A2'],
-  ['12 Mar 09:41', '22', '2.0 km', 'VLOS · A2'],
-  ['12 Mar 10:20', '16', '0.9 km', 'VLOS · A2'],
-  ['14 Mar 13:02', '25', '3.4 km', 'BVLOS · SPEC'],
-  ['14 Mar 13:40', '21', '2.8 km', 'BVLOS · SPEC'],
-  ['17 Mar 08:55', '19', '1.1 km', 'VLOS · A1'],
-  ['17 Mar 09:30', '24', '2.2 km', 'VLOS · A1'],
+const DRONE: [string, string, string][] = [
+  ['12 Mar 09:14', '18', '1.2 km'],
+  ['12 Mar 09:41', '22', '2.0 km'],
+  ['12 Mar 10:20', '16', '0.9 km'],
+  ['14 Mar 13:02', '25', '3.4 km'],
+  ['14 Mar 13:40', '21', '2.8 km'],
+  ['17 Mar 08:55', '19', '1.1 km'],
+  ['17 Mar 09:30', '24', '2.2 km'],
 ];
+// Etiketterna i drönarloggboken följer den sortens flygning man valt: Open (A1–A3), Open och Specific, eller
+// NATO-klasserna för militära piloter (constants/droneCategories.ts).
+const DRONE_TAGS: Record<DroneKind, string[]> = {
+  hobby: ['VLOS · A1', 'VLOS · A1', 'VLOS · A1', 'VLOS · A3', 'VLOS · A3', 'VLOS · A2', 'VLOS · A2'],
+  commercial: ['VLOS · A2', 'VLOS · A2', 'VLOS · A2', 'BVLOS · SPEC', 'BVLOS · SPEC', 'VLOS · A1', 'VLOS · A1'],
+  military: ['VLOS · CLASS I', 'VLOS · CLASS I', 'VLOS · CLASS I', 'BVLOS · CLASS II', 'BVLOS · CLASS II', 'BVLOS · CLASS III', 'BVLOS · CLASS III'],
+};
 
 const A11Y: Record<HeroKind, string> = {
   paper: 'A handwritten logbook page on the left, the same flights typed into Blades on the right',
   file: 'An export file on the left, the same flights in Blades on the right with night, distance and landings added',
   type: 'What you type on the left, the flight in Blades on the right with night, distance and landings added',
-  drone: 'The flight list from a drone app on the left, the same flights in your logbook on the right with sight mode and category',
+  drone: 'The flight list from a drone app on the left, the same flights in your logbook on the right with sight mode and category or class',
 };
 
-export function SolutionHero({ kind }: { kind: HeroKind }) {
+export function SolutionHero({ kind, drone = 'commercial' }: { kind: HeroKind; drone?: DroneKind }) {
   const { width } = useWindowDimensions();
   const W = width + 28;
   const half = W / 2;
@@ -94,7 +102,7 @@ export function SolutionHero({ kind }: { kind: HeroKind }) {
       <Text style={[s.head, { color: '#33D4ED' }]}>{kind === 'drone' ? 'YOUR LOGBOOK' : 'IN BLADES'}</Text>
       {kind === 'drone' ? DRONE.map((f, i) => (
         <View key={i} style={[s.row, s.rowR]}>
-          <Text style={s.dig} numberOfLines={1}>{f[0].slice(0, 6)} 0:{f[1]}</Text>{tag(f[3])}
+          <Text style={s.dig} numberOfLines={1}>{f[0].slice(0, 6)} 0:{f[1]}</Text>{tag(DRONE_TAGS[drone][i])}
         </View>
       )) : FLIGHTS.map((f, i) => (
         <View key={i} style={[s.row, s.rowR]}>

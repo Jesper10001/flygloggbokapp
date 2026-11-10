@@ -177,7 +177,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     : src === 'sheet' ? 'sheet'
     : deal ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
   const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
-  const solution = prio && want ? buildSolution({ pilot, prio, want, path, deal, bookShort: book?.short ?? null, freeSpreads: FREE_SPREADS }) : null;
+  const solution = prio && want ? buildSolution({ pilot, prio, want, path, deal, drone: pilot ? null : (droneKind as 'hobby' | 'commercial' | 'military' | null), bookShort: book?.short ?? null, freeSpreads: FREE_SPREADS }) : null;
   const back: Partial<Record<Step, Step>> = { aircraft: 'welcome', questions: 'aircraft', solution: 'questions', hours: 'solution' };
   // Frågesidan: allt som måste vara besvarat innan man går vidare.
   const sourceDone = !!src && (src === 'sheet' || !pilot || !!app);
@@ -404,9 +404,9 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
         {step === 'solution' && solution ? (
           <Screen insets={insets} top={78} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
-            <SolutionHero kind={solution.hero} />
+            <SolutionHero kind={solution.hero} drone={(droneKind as 'hobby' | 'commercial' | 'military' | null) ?? undefined} />
             <Text style={[s.eyebrow, { marginTop: 14 }]}>{solution.kicker}</Text>
-            <Text style={s.hBig} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{solution.title}</Text>
+            <Text style={s.hBig}>{solution.title}</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
               {solution.tiles.map((t) => (
                 <View key={t.label} style={[s.tileS, t.good && s.tileGood]} accessible accessibilityLabel={`${t.value} ${t.label}`}>
@@ -650,7 +650,7 @@ const s = StyleSheet.create({
   chgText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: CYAN },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', backgroundColor: 'rgba(15,30,58,0.5)', justifyContent: 'center' },
   chipTall: { height: 44 },
-  hBig: { fontFamily: SERIF, fontSize: 38, fontWeight: '700', lineHeight: 41, letterSpacing: -0.7, color: '#FFFFFF', marginTop: 6 },
+  hBig: { fontFamily: SERIF, fontSize: 35, fontWeight: '700', lineHeight: 38, letterSpacing: -0.7, color: '#FFFFFF', marginTop: 6 },
   tileS: { flex: 1, gap: 3, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 16, backgroundColor: 'rgba(15,30,58,0.7)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.3)' },
   tileGood: { backgroundColor: 'rgba(25,230,165,0.1)', borderColor: 'rgba(25,230,165,0.55)' },
   tileN: { fontFamily: SERIF, fontSize: 25, fontWeight: '700', lineHeight: 29, color: '#FFFFFF' },

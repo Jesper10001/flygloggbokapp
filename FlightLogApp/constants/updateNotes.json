@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 72,
+      "date": "2026-11-10",
+      "notes": [
+        "Improved: Military drone pilots see NATO classes on the onboarding page, hobby pilots A1 to A3.",
+        "Fixed: The headline on that page is no longer cut off."
+      ]
+    },
+    {
       "id": 71,
       "date": "2026-11-10",
       "notes": [
