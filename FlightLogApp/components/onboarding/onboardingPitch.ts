@@ -1,0 +1,200 @@
+// Onboardingens "varför Blades"-ruta: texterna vävs ihop av tre svar. Vägen (var timmarna finns i dag) ger
+// rubriken och blocket överst, svaret på "What matters most to you?" ger underraden och första raden, och svaret på
+// "What do you want out of your logbook?" ger andra raden. Sista raden säger hur timmarna kommer in.
+// Här ligger också räkningen bakom "vad kostar en hel loggbok att skanna" och prisjämförelsen mot en annan app:
+// allt räknas på App Stores priser för användaren (RevenueCat), aldrig på inskrivna belopp. Saknas priserna visas
+// inga belopp alls.
+
+import type { Ionicons } from '@expo/vector-icons';
+
+export type Prio = 'fast' | 'trust' | 'licence' | 'proof';       // proof = drönarlägets tredje svar
+export type Want = 'place' | 'current' | 'overview' | 'split';    // split = drönarlägets andra svar
+export type Where = 'paper' | 'digital';
+export type Src = 'app' | 'sheet';
+export type PitchPath = 'start' | 'paper' | 'paperNoScan' | 'appPricey' | 'appMid' | 'app' | 'sheet';
+type Icon = keyof typeof Ionicons.glyphMap;
+export interface PitchRow { key: string; icon: Icon; title: string; sub: string }
+
+export const PILOT_PRIOS: { k: Prio; title: string }[] = [
+  { k: 'fast', title: 'Logging fast' },
+  { k: 'trust', title: 'Numbers I can trust' },
+  { k: 'licence', title: 'Reaching my next licence' },
+];
+export const DRONE_PRIOS: { k: Prio; title: string }[] = [
+  { k: 'fast', title: 'Logging fast' },
+  { k: 'trust', title: 'Numbers I can trust' },
+  { k: 'proof', title: 'Proving my experience' },
+];
+export const PILOT_WANTS: { k: Want; title: string }[] = [
+  { k: 'place', title: 'Everything in one place' },
+  { k: 'current', title: "Knowing I'm current" },
+  { k: 'overview', title: 'A better overview' },
+];
+export const DRONE_WANTS: { k: Want; title: string }[] = [
+  { k: 'place', title: 'Everything in one place' },
+  { k: 'split', title: 'Hours per drone and category' },
+  { k: 'overview', title: 'A better overview' },
+];
+export const PILOT_APPS = ['ForeFlight', 'LogTen', 'mccPILOTLOG', 'eFlightbook', 'Another app'];
+
+// En hel loggbok, som siffrorna i rutan räknar med.
+export const BOOK = { flightsLo: 420, flightsHi: 600, spreadsLo: 35, spreadsHi: 50, secondsPerFlight: 20 };
+
+const ROWS = (pilot: boolean): Record<string, PitchRow> => ({
+  fast: pilot
+    ? { key: 'fast', icon: 'timer-outline', title: 'About 20 seconds a flight', sub: 'Route, times and aircraft. Night, distance and landings are worked out for you.' }
+    : { key: 'fast', icon: 'timer-outline', title: 'A day in the field, logged in one go', sub: 'One session holds several flights. About 20 seconds each.' },
+  trust: pilot
+    ? { key: 'trust', icon: 'checkmark-done-outline', title: 'Numbers that add up', sub: 'Totals carried forward on every page, night worked out from route and times, duplicates caught when you import.' }
+    : { key: 'trust', icon: 'checkmark-done-outline', title: 'Numbers that add up', sub: 'Totals carried forward on every page, and duplicates caught when you import.' },
+  licence: { key: 'licence', icon: 'ribbon-outline', title: 'Your next licence, with a date', sub: 'How far you are from each requirement, and when you get there.' },
+  proof: { key: 'proof', icon: 'document-text-outline', title: 'A logbook you can hand over', sub: 'Real remote pilot logbook pages, with a PDF when a client or an authority asks.' },
+  place: { key: 'place', icon: 'albums-outline', title: 'Every hour in one logbook', sub: 'Paper pages, old apps and new flights, together and searchable.' },
+  current: { key: 'current', icon: 'time-outline', title: 'Current today?', sub: 'Landings, night and instrument recency, checked every time you open the app.' },
+  overview: pilot
+    ? { key: 'overview', icon: 'stats-chart-outline', title: 'See how your flying adds up', sub: 'Hours by aircraft, role and conditions, your year so far, and where it is all heading.' }
+    : { key: 'overview', icon: 'stats-chart-outline', title: 'See how your flying adds up', sub: 'Hours over time, by drone and by place, and your year so far.' },
+  split: { key: 'split', icon: 'layers-outline', title: 'Hours per category and sight mode', sub: 'A1 to Specific, VLOS to BVLOS, and per drone, added up for you.' },
+  totals: { key: 'totals', icon: 'calculator-outline', title: 'Totals that add themselves up', sub: 'Every column, carried forward on every page. No more adding by hand.' },
+  book: pilot
+    ? { key: 'book', icon: 'book-outline', title: 'A book that looks like your book', sub: 'Your flights on real logbook pages, with a PDF whenever you need one.' }
+    : { key: 'book', icon: 'book-outline', title: 'A real remote pilot logbook', sub: 'Your flights on logbook pages, with a PDF whenever you need one.' },
+  map: { key: 'map', icon: 'earth-outline', title: 'Every flight on the map', sub: 'Your longest cross-country and your best week, replayed.' },
+  fleet: { key: 'fleet', icon: 'hardware-chip-outline', title: 'Every drone you fly', sub: 'Hours per drone in your fleet, picked with one tap when you log.' },
+});
+
+export interface Pitch { path: PitchPath; eyebrow: string; title: string; sub: string; rows: PitchRow[] }
+
+export function buildPitch(a: {
+  pilot: boolean; prio: Prio; want: Want; path: PitchPath; app: string | null; saving: string | null; freeSpreads: number;
+}): Pitch {
+  const R = ROWS(a.pilot);
+  const named = a.app && a.app !== 'Another app' ? a.app : null;
+  const bySub = (m: Record<Prio, string>) => m[a.prio];
+  let eyebrow = 'WHY BLADES', title: string, sub: string, last: PitchRow;
+  switch (a.path) {
+    case 'paper':
+      eyebrow = 'YOUR PAPER LOGBOOK';
+      title = 'We have the solution for you.';
+      sub = bySub({
+        fast: 'Scan your logbook once. After that, a flight takes about 20 seconds.',
+        trust: 'Blades reads every row and asks you about anything it is unsure of.',
+        licence: 'Scan your logbook and see today how far you are from your next licence.',
+        proof: 'Scan your logbook once and get one you can hand over.',
+      });
+      last = { key: 'try', icon: 'scan-outline', title: `Try ${a.freeSpreads} spreads free`, sub: 'See how it reads your handwriting first.' };
+      break;
+    case 'paperNoScan':
+      title = 'Start from the hours you have.';
+      sub = 'Your paper logbook stays your record. Blades takes it from here.';
+      last = { key: 'totals0', icon: 'create-outline', title: 'Enter your totals once', sub: 'Type in the hours you have so far, and log from today.' };
+      break;
+    case 'appPricey':
+      title = `Your logbook, for at least ${a.saving} less a year.`;
+      sub = bySub({
+        fast: 'And a flight takes about 20 seconds.', trust: 'With totals you can trust.',
+        licence: 'With a date for your next licence.', proof: 'With a logbook you can hand over.',
+      });
+      last = { key: 'move', icon: 'download-outline', title: named ? `Your ${named} flights come with you` : 'Your flights come with you', sub: 'Export your logbook there and import the file here. The coins you start with cover it.' };
+      break;
+    case 'appMid':
+    case 'app':
+      title = 'Keep every hour. Get more out of them.';
+      sub = a.path === 'appMid' ? 'Blades costs less than what you pay today.' : 'Bring your flights over and try Blades next to what you use today.';
+      last = { key: 'move', icon: 'download-outline', title: named ? `Your ${named} flights come with you` : 'Your flights come with you', sub: 'Export your logbook there and import the file here. The coins you start with cover it.' };
+      break;
+    case 'sheet':
+      title = 'Your spreadsheet did the job. Blades does the maths.';
+      sub = 'Your rows come with you. The formulas stay behind.';
+      last = { key: 'move', icon: 'download-outline', title: 'Your rows come with you', sub: 'Save the sheet as CSV and import it. Blades matches the columns.' };
+      break;
+    default:
+      title = 'Start your logbook the right way.';
+      sub = 'Every hour counts. From day one.';
+      last = { key: 'free', icon: 'gift-outline', title: 'Free to start', sub: 'Your first 20 flights logged by hand are free.' };
+  }
+  return { path: a.path, eyebrow, title, sub, rows: [R[a.prio], R[a.want], last] };
+}
+
+/** Fördelarna på pappersvägens andra sida: allt som rutan före inte redan sagt. */
+export function gainRows(pilot: boolean, prio: Prio, want: Want): PitchRow[] {
+  const R = ROWS(pilot);
+  const all = pilot ? ['totals', 'licence', 'current', 'book', 'map'] : ['totals', 'split', 'fleet', 'book', 'overview'];
+  return all.filter((k) => k !== prio && k !== want).map((k) => R[k]);
+}
+
+// ── Pengar ──────────────────────────────────────────────────────────────────
+
+export interface Prices {
+  currency: string;
+  sample: string;          // ett pris som App Store skrivit det, t.ex. "39,00 kr"
+  premium: number | null;  // per månad
+  max: number | null;
+  packs: { coins: number; price: number }[];
+}
+
+// Belopp skrivs som App Store skriver dem för användaren: priset på betalväggen ("39,00 kr", "$2.99") är mallen,
+// och bara siffrorna byts. Då står valutan på samma sida och med samma tecken som på köpknappen.
+export function money(v: number, pr: Pick<Prices, 'sample' | 'currency'>, decimals = 0): string {
+  const m = /\d(?:[\d\s.,\u00A0\u202F]*\d)?/.exec(pr.sample);
+  const comma = /,\d{1,2}\s*(\D*)$/.test(pr.sample) && !/\.\d{1,2}\s*(\D*)$/.test(pr.sample);
+  const [int, frac] = v.toFixed(decimals).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, comma ? '\u00A0' : ',');
+  const num = frac ? `${grouped}${comma ? ',' : '.'}${frac}` : grouped;
+  if (!m) return `${num} ${pr.currency}`;
+  return pr.sample.slice(0, m.index) + num + pr.sample.slice(m.index + m[0].length);
+}
+// Jämna belopp: tiotal över 100, annars heltal.
+const round = (v: number) => (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v));
+const floor = (v: number) => (v >= 100 ? Math.floor(v / 10) * 10 : Math.floor(v));
+// Närmaste "jämna" belopp uppåt: 1, 2, 2,5 eller 5 gånger en tiopotens (468 → 500, 35,88 → 50).
+function niceCeil(v: number): number {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+
+// Billigaste sättet att få ihop `coins`: en månad Premium eller Max och coinpaket för resten.
+function cheapest(coins: number, pr: Prices): number | null {
+  if (!pr.packs.length) return null;
+  const packCost = (need: number): number => {
+    if (need <= 0) return 0;
+    const step = 50, n = Math.ceil(need / step);
+    const best = new Array<number>(n + 1).fill(Infinity);
+    best[0] = 0;
+    for (let i = 1; i <= n; i++) for (const p of pr.packs) {
+      const from = Math.max(0, i - Math.ceil(p.coins / step));
+      if (best[from] + p.price < best[i]) best[i] = best[from] + p.price;
+    }
+    return best[n];
+  };
+  const opts: number[] = [];
+  if (pr.max != null) opts.push(pr.max + packCost(coins - 500));
+  if (pr.premium != null) opts.push(pr.premium + packCost(coins - 250));
+  const v = Math.min(...opts);
+  return Number.isFinite(v) ? v : null;
+}
+
+/** "About 170 kr to 210 kr" för en hel bok, och "Under 0,40 kr a flight". null när priserna saknas. */
+export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: string; perFlight: string } | null {
+  if (!pr) return null;
+  const lo = cheapest(BOOK.spreadsLo * coinsPerSpread, pr), hi = cheapest(BOOK.spreadsHi * coinsPerSpread, pr);
+  if (lo == null || hi == null) return null;
+  const per = Math.ceil(Math.max(lo / BOOK.flightsLo, hi / BOOK.flightsHi) * 100) / 100;
+  return { range: `${money(round(lo), pr)} to ${money(round(hi), pr)}`, perFlight: money(per, pr, 2) };
+}
+
+/**
+ * Frågan "What does it cost you a year?": gränserna sätts efter Premiums årspris i användarens valuta, så att
+ * "över den övre gränsen" alltid betyder en besparing man kan stå för. null när priset saknas (frågan ställs inte).
+ */
+export function costChoices(pr: Prices | null): { labels: string[]; yearly: string; saving: string; top: string } | null {
+  if (!pr || pr.premium == null) return null;
+  const yearly = pr.premium * 12;
+  const t1 = niceCeil(yearly), t2 = t1 * 2;
+  const f = (v: number) => money(v, pr);
+  return {
+    labels: ['Free', `Under ${f(t1)}`, `${f(t1)} to ${f(t2)}`, `Over ${f(t2)}`, 'Not sure'],
+    yearly: f(Math.round(yearly)), saving: f(floor(t2 - yearly)), top: f(t2),
+  };
+}

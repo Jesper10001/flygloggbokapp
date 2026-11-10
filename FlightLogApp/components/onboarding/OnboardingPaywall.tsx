@@ -28,11 +28,12 @@ export type PaywallResult = { tier: 'premium' | 'max'; trialDays: number } | nul
 
 type Feature = { key: string; icon: 'scan' | 'eta' | 'inf' | 'map'; title: string; sub: string };
 
-export function OnboardingPaywall({ plans, pilot, lic, paper, title, sub, onDone }: {
+export function OnboardingPaywall({ plans, pilot, lic, paper, overview = false, title, sub, onDone }: {
   plans: PlanOption[];
   pilot: boolean;
   lic: string;       // målets licens, t.ex. "CPL(H)", eller tom
-  paper: boolean;    // har en pappersloggbok
+  paper: boolean;    // pappersvägen: boken ska skannas (Max förvald, skanningen först)
+  overview?: boolean; // vill ha bättre överblick: kartraden före de andra
   title: string;
   sub: string;
   onDone: (r: PaywallResult) => void;
@@ -40,7 +41,7 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, title, sub, onDone
   const insets = useSafeAreaInsets();
   const premium = plans.find((p) => p.tier === 'premium') ?? null;
   const max = plans.find((p) => p.tier === 'max') ?? null;
-  const [sel, setSel] = useState<'premium' | 'max'>(premium ? 'premium' : 'max');
+  const [sel, setSel] = useState<'premium' | 'max'>(premium && !(paper && max) ? 'premium' : 'max');
   const [busy, setBusy] = useState<'buy' | 'restore' | null>(null);
   const [note, setNote] = useState('');
 
@@ -61,10 +62,11 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, title, sub, onDone
   const map: Feature = { key: 'map', icon: 'map', title: 'Best week and Longest XC', sub: 'Your biggest flying, replayed on the map' };
   const feats: Feature[] = [];
   if (paper) feats.push(scan);
+  if (pilot && overview) feats.push(map);
   if (lic) feats.push(eta);
   feats.push(inf);
   if (!paper) feats.push(scan);
-  if (pilot) feats.push(map);
+  if (pilot && !overview) feats.push(map);
 
   const pick = (t: 'premium' | 'max') => { Haptics.selectionAsync().catch(() => {}); setSel(t); setNote(''); };
 

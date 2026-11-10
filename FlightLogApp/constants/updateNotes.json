@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 66,
+      "date": "2026-11-10",
+      "notes": [
+        "New: Onboarding asks what matters to you and where your hours are today, then shows what Blades does for you.",
+        "New: See the time and cost of scanning a whole paper logbook, in your own currency.",
+        "Improved: The last onboarding step suggests one way to bring in your hours."
+      ]
+    },
+    {
       "id": 65,
       "date": "2026-11-10",
       "notes": [

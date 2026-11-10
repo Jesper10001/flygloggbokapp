@@ -1,12 +1,14 @@
-// Den nya onboardingen (designen "Onboarding redesign"): välkomst → farkost → mål och regelverk → om dig →
-// profilkortet → betalväggen (OnboardingPaywall) → timmarna, sedan dashboarden med rundturfrågan som förut. Samma
+// Den nya onboardingen: välkomst → farkost → vad som är viktigt (två frågor, tre svar var) → timmar och var de
+// finns i dag → (digital loggbok: var och vad den kostar) → "varför Blades"-rutan, vävd av svaren
+// (onboardingPitch.ts) → (pappersvägen: fördelarna) → profilkortet → betalväggen (OnboardingPaywall) → timmarna
+// med ett förvalt förslag, sedan dashboarden med rundturfrågan som förut. Förnamnet frågas inte efter här. Samma
 // navy-gradient, typsnitt och kort som appen. Den som lägger till en andra roll får farkost → … → timmar, utan
 // välkomst och betalvägg. Initialer, signatur och tidsformat väljs inte här längre (profilsidan har dem).
 // Svaren om timmar, mål och pappersbok sparas i settings (onboarding_*) för senare anpassning.
 // preview: visas från Inställningar i TestFlight-bygget; sparar ingenting och går tillbaka i slutet.
 
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, Pressable, TextInput, ScrollView, Switch, ActivityIndicator, StyleSheet, type ImageSourcePropType } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, ActivityIndicator, StyleSheet, type ImageSourcePropType } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,11 +26,17 @@ import { markIntroTourPending } from '../../store/tourStore';
 import { SCAN_OPEN, FREE_SPREADS } from '../../store/scanStore';
 import { SCAN_COINS_PER_SPREAD } from '../../utils/tokenGate';
 import { setSetting, getSetting } from '../../db/flights';
-import { getOnboardingPlans, type PlanOption } from '../../services/purchases';
+import { getOnboardingPlans, getCoinPackages, type PlanOption } from '../../services/purchases';
+import { COIN_PACKS, COIN_PACKS_ENABLED } from '../../services/coinPacks';
+import {
+  buildPitch, gainRows, bookCost, costChoices, PILOT_PRIOS, DRONE_PRIOS, PILOT_WANTS, DRONE_WANTS, PILOT_APPS,
+  type Prio, type Want, type Where, type Src, type PitchPath, type PitchRow, type Prices,
+} from './onboardingPitch';
 import { OnboardingPaywall, type PaywallResult } from './OnboardingPaywall';
 
 const CYAN = '#00C8E8';
 const GOLD = '#FFB830';
+const GREEN = '#19E6A5';
 const INK = '#06101E';
 const SUB = '#8FB0CC';
 const MUTED = '#6E8FB0';
@@ -36,7 +44,7 @@ const SOFT = '#CFE0EE';
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
 
-type Step = 'welcome' | 'aircraft' | 'goal' | 'you' | 'ready' | 'paywall' | 'hours';
+type Step = 'welcome' | 'aircraft' | 'goal' | 'you' | 'source' | 'pitch' | 'gains' | 'ready' | 'paywall' | 'hours';
 type Craft = 'heli' | 'plane' | 'drone';
 type Dest = '/import/scan' | '/import/manual' | '/import' | '/drone-import' | '/drone-import/manual';
 
@@ -73,7 +81,11 @@ const RULES: { k: RegulationStandard; name: string; short: string }[] = [
 ];
 const PILOT_HOURS = ['Just starting', 'Under 100 h', '100–500 h', '500–1 500 h', '1 500 h +'];
 const DRONE_HOURS = ['Just starting', 'Under 50 h', '50–200 h', '200 h +'];
-const PROGRESS: Partial<Record<Step, number>> = { aircraft: 1, goal: 2, you: 3, ready: 4, hours: 5 };
+const PROGRESS: Partial<Record<Step, number>> = { aircraft: 1, goal: 2, you: 3, source: 3, pitch: 4, gains: 4, ready: 5, hours: 6 };
+const SEGMENTS = [1, 2, 3, 4, 5, 6];
+// Skanning av drönarloggboken (pappersboken) finns inte än. När den finns: sätt vägen hit, så får drönarläget
+// samma "skanna din bok" som pilotläget i rutan och i sista steget.
+const DRONE_BOOK_SCAN: Dest | null = null;
 
 // Regelverket gissas ur telefonens region (USA → FAA, Storbritannien → UK CAA, EASA-länderna → EASA), annars det
 // som redan är valt. Användaren kan byta på målsidan.
@@ -99,11 +111,18 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
   const [step, setStep] = useState<Step>(returning ? 'aircraft' : 'welcome');
   const [craft, setCraft] = useState<Craft | null>(null);
-  const [goal, setGoal] = useState<string | null>(null);
+  const [prio, setPrio] = useState<Prio | null>(null);       // "What matters most to you?"
+  const [want, setWant] = useState<Want | null>(null);       // "What do you want out of your logbook?"
+  const [licGoal, setLicGoal] = useState<string | null>(null);   // ppl/cpl/atpl, bara när målet är nästa licens
+  const [droneKind, setDroneKind] = useState<SubRole | null>(null);
+  const [where, setWhere] = useState<Where | null>(null);    // var timmarna finns i dag
+  const [src, setSrc] = useState<Src | null>(null);          // digital loggbok: app eller eget kalkylblad
+  const [app, setApp] = useState<string | null>(null);
+  const [cost, setCost] = useState<number | null>(null);     // index i costChoices().labels
+  const [prices, setPrices] = useState<Prices | null>(null);
   const [rules, setRules] = useState<RegulationStandard>(() => standardForRegion(useRegulationStandardStore.getState().standard));
-  const [name, setName] = useState('');
+  const [name, setName] = useState('');   // bara det som redan finns i profilen; frågas inte efter här
   const [hours, setHours] = useState<number | null>(null);
-  const [paper, setPaper] = useState(false);
   const [readyStep, setReadyStep] = useState(0);
   const [plans, setPlans] = useState<PlanOption[] | null>(null);
   const [bought, setBought] = useState<PaywallResult>(null);
@@ -117,6 +136,17 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     if (!returning) {
       plansPromise.current = getOnboardingPlans().catch(() => []);
       plansPromise.current.then(setPlans);
+      // Priserna bakom "vad kostar en hel loggbok" och prisjämförelsen: App Stores, för den här användaren.
+      Promise.all([plansPromise.current, COIN_PACKS_ENABLED ? getCoinPackages().catch(() => []) : Promise.resolve([])]).then(([pl, packs]) => {
+        const prem = pl.find((x) => x.tier === 'premium') ?? null, mx = pl.find((x) => x.tier === 'max') ?? null;
+        const ref = prem ?? mx;
+        if (!ref) return;
+        setPrices({
+          currency: ref.pkg.product.currencyCode, sample: ref.priceString,
+          premium: prem ? prem.pkg.product.price : null, max: mx ? mx.pkg.product.price : null,
+          packs: packs.map((x) => ({ coins: COIN_PACKS.find((c) => c.productId === x.productId)?.coins ?? 0, price: x.pkg.product.price })).filter((x) => x.coins > 0),
+        });
+      }).catch(() => {});
     }
     return () => { timers.current.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,6 +163,8 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   const pilot = craft !== 'drone';
   const sfx = craft === 'plane' ? '(A)' : '(H)';
   const rule = RULES.find((r) => r.k === rules) ?? RULES[0];
+  // Målet som resten av appen känner det: licensen (bara när nästa licens är det viktiga) eller "log"; drönare: typ av flygning.
+  const goal: string | null = pilot ? (prio === 'licence' ? licGoal : prio ? 'log' : null) : droneKind;
   const pilotGoal = pilot ? PILOT_GOALS.find((g) => g.k === goal) ?? null : null;
   const droneGoal = !pilot ? DRONE_GOALS.find((g) => g.k === goal) ?? null : null;
   const lic = pilotGoal?.lic ? pilotGoal.lic + sfx : '';
@@ -144,12 +176,27 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
   const tap = () => { Haptics.selectionAsync().catch(() => {}); };
   const go = (s: Step) => setStep(s);
-  const back: Partial<Record<Step, Step>> = { aircraft: 'welcome', goal: 'aircraft', you: 'goal', ready: 'you', hours: 'ready' };
+  // Vägen genom rutorna efter svaren.
+  const starting = hours === 0;
+  const paper = !starting && where === 'paper';
+  const canScan = pilot ? SCAN_OPEN : !!DRONE_BOOK_SCAN;
+  const choices = costChoices(prices);
+  const path: PitchPath = starting || !where ? 'start'
+    : where === 'paper' ? (canScan ? 'paper' : 'paperNoScan')
+    : src === 'sheet' ? 'sheet'
+    : choices && cost === 3 ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
+  const pitch = prio && want ? buildPitch({ pilot, prio, want, path, app, saving: choices?.saving ?? null, freeSpreads: FREE_SPREADS }) : null;
+  const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
+  const back: Partial<Record<Step, Step>> = {
+    aircraft: 'welcome', goal: 'aircraft', you: 'goal', source: 'you',
+    pitch: !starting && where === 'digital' ? 'source' : 'you', gains: 'pitch',
+    ready: path === 'paper' ? 'gains' : 'pitch', hours: 'ready',
+  };
   const canBack = step !== 'welcome' && step !== 'paywall' && !(returning && step === 'aircraft');
 
   const pickCraft = (k: Craft) => {
     tap();
-    if (craft && (craft === 'drone') !== (k === 'drone')) { setGoal(null); setHours(null); }
+    if (craft && (craft === 'drone') !== (k === 'drone')) { setPrio(null); setWant(null); setLicGoal(null); setDroneKind(null); setHours(null); setWhere(null); setSrc(null); setApp(null); setCost(null); }
     setCraft(k);
     timers.current.push(setTimeout(() => go('goal'), 320));
   };
@@ -170,8 +217,9 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   // underraden kommer från nästa svar. Inget namn i texterna.
   const acLine = craft === 'plane' ? 'From short hops to long cross-countries.' : 'From local circuits to long cross-countries.';
   let pwTitle: string, pwSub: string;
-  if (!pilot) { pwTitle = 'Every drone flight logged in seconds.'; pwSub = 'VLOS to BVLOS, all your flying in one place.'; }
-  else if (paper) { pwTitle = 'Bring your paper logbook with you.'; pwSub = 'Scan your pages and keep every hour in one place.'; }
+  if (path === 'paper') { pwTitle = 'Your whole paper logbook, in Blades.'; pwSub = 'Scan it once. Log every flight after that in about 20 seconds.'; }
+  else if (path === 'appPricey') { pwTitle = 'Your logbook, for less than you pay today.'; pwSub = 'Bring your flights over and keep going.'; }
+  else if (!pilot) { pwTitle = 'Every drone flight logged in seconds.'; pwSub = 'VLOS to BVLOS, all your flying in one place.'; }
   else if (hours === 4) { pwTitle = '1 500+ hours deserve a better logbook.'; pwSub = acLine; }
   else if (hours === 3) { pwTitle = 'Every hour you have flown, finally in one place.'; pwSub = acLine; }
   else if (hours === 0 || hours === 1) { pwTitle = 'Start your logbook the right way.'; pwSub = 'Every hour counts. From day one.'; }
@@ -188,14 +236,13 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
       if (pilot) await useRegulationStandardStore.getState().setStandard(rules);
       else await useTimeFormatStore.getState().setTimeFormat('hhmm');
       await useProfileStore.getState().setProfile(profile);
-      if (first) {
-        await setSetting('profile_first_name', first);
-        const ini = await getSetting('profile_initials');
-        if (!ini) await setSetting('profile_initials', first.charAt(0).toUpperCase());
-      }
       await setSetting('onboarding_goal', goal ?? '');
       await setSetting('onboarding_hours', hours == null ? '' : hourList[hours]);
       await setSetting('onboarding_paper', paper ? '1' : '0');
+      await setSetting('onboarding_priority', prio ?? '');
+      await setSetting('onboarding_want', want ?? '');
+      await setSetting('onboarding_source', starting || !where ? '' : where === 'paper' ? 'paper' : src ?? 'digital');
+      await setSetting('onboarding_app', where === 'digital' && src === 'app' ? app ?? '' : '');
       await useAppModeStore.getState().setMode(targetForProfile(profile));
       await setSetting('has_onboarded', '1');
       // Blades introduction startar som förut när dashboarden visas (efter en eventuell import).
@@ -222,8 +269,8 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
               <Ionicons name="chevron-back" size={22} color={SOFT} />
             </Pressable>
           ) : <View style={s.back} />}
-          <View style={s.segs} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 5, now: prog }}>
-            {[1, 2, 3, 4, 5].map((n) => <View key={n} style={[s.seg, n <= prog && s.segOn]} />)}
+          <View style={s.segs} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: SEGMENTS.length, now: prog }}>
+            {SEGMENTS.map((n) => <View key={n} style={[s.seg, n <= prog && s.segOn]} />)}
           </View>
           {preview ? <CloseBtn onPress={() => router.back()} /> : <View style={s.back} />}
         </View>
@@ -261,30 +308,39 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         ) : null}
 
         {step === 'goal' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" disabled={!goal} onPress={() => go('you')} />}>
+          <Screen insets={insets} footer={<Cta label="Continue" disabled={!prio || !want || !goal} onPress={() => go('you')} />}>
             <Text style={s.eyebrow}>{pilot ? 'YOUR GOAL' : 'YOUR FLYING'}</Text>
-            <Text style={s.h1}>{pilot ? 'Where are you headed?' : 'What kind of flying?'}</Text>
-            <Text style={s.sub}>{pilot ? 'Blades tracks every requirement and estimates the month you get there.' : 'We tailor categories, certificates and reports to it.'}</Text>
-            <View style={{ gap: 10, marginTop: 22 }}>
-              {(pilot ? PILOT_GOALS : DRONE_GOALS as { k: string; title: string; sub: string; lic?: string; badge?: string }[]).map((g: { k: string; title: string; sub: string; lic?: string; badge?: string }) => {
-                const on = goal === g.k;
-                const badge = g.lic ? g.lic + sfx : g.badge ?? '';
-                return (
-                  <Pressable key={g.k} onPress={() => { tap(); setGoal(g.k); }} style={[s.opt, on && s.optOn]}
-                    accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${g.title}, ${g.sub}`}>
-                    <View style={[s.radio, on && { borderColor: CYAN }]}>{on ? <View style={s.radioDot} /> : null}</View>
-                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                      <Text style={s.ot}>{g.title}</Text>
-                      <Text style={s.os}>{g.sub}</Text>
-                    </View>
-                    <Text style={[s.badge, on && { color: CYAN, borderColor: 'rgba(0,200,232,0.5)' }]}>{badge}</Text>
-                  </Pressable>
-                );
-              })}
+            <Text style={s.h1}>What matters most to you?</Text>
+            <View style={{ gap: 8, marginTop: 16 }} accessibilityRole="radiogroup">
+              {(pilot ? PILOT_PRIOS : DRONE_PRIOS).map((o) => (
+                <Choice key={o.k} title={o.title} on={prio === o.k} onPress={() => { tap(); setPrio(o.k); }} />
+              ))}
+            </View>
+            {pilot && prio === 'licence' ? (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Text style={[s.lbl, { marginTop: 14, marginBottom: 8 }]}>WHICH ONE?</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {PILOT_GOALS.filter((g) => g.lic).map((g) => {
+                    const on = licGoal === g.k;
+                    return (
+                      <Pressable key={g.k} onPress={() => { tap(); setLicGoal(g.k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
+                        accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${g.lic}${sfx}`}>
+                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{g.lic}{sfx}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            ) : null}
+            <Text style={[s.h2, { marginTop: 26 }]}>What do you want out of your logbook?</Text>
+            <View style={{ gap: 8, marginTop: 14 }} accessibilityRole="radiogroup">
+              {(pilot ? PILOT_WANTS : DRONE_WANTS).map((o) => (
+                <Choice key={o.k} title={o.title} on={want === o.k} onPress={() => { tap(); setWant(o.k); }} />
+              ))}
             </View>
             {pilot ? (
               <>
-                <View style={[s.glass, { marginTop: 16, paddingVertical: 10, paddingLeft: 16, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
+                <View style={[s.glass, { marginTop: 20, paddingVertical: 10, paddingLeft: 16, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
                   <Text style={s.lbl}>RULES</Text>
                   <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>{rule.name}</Text>
                   <Pressable onPress={() => { tap(); setRules(RULES[(RULES.indexOf(rule) + 1) % RULES.length].k); }} style={s.chg}
@@ -294,38 +350,162 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
                 </View>
                 <Text style={[s.note, { paddingHorizontal: 4 }]}>Set from your region. EASA, FAA and UK CAA are all supported.</Text>
               </>
-            ) : null}
+            ) : (
+              <>
+                <Text style={[s.lbl, { marginTop: 22, marginBottom: 8 }]}>KIND OF FLYING</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {DRONE_GOALS.map((g) => {
+                    const on = droneKind === g.k;
+                    return (
+                      <Pressable key={g.k} onPress={() => { tap(); setDroneKind(g.k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
+                        accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${g.title}, ${g.sub}`}>
+                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{g.title}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
           </Screen>
         ) : null}
 
         {step === 'you' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go('ready')} />}>
+          <Screen insets={insets} footer={<Cta label="Continue" disabled={hours == null || (!starting && !where)}
+            onPress={() => go(!starting && where === 'digital' ? 'source' : 'pitch')} />}>
             <Text style={s.eyebrow}>ABOUT YOU</Text>
-            <Text style={s.h1}>What should we call you?</Text>
-            <Text style={s.sub}>Your name goes on your logbook pages and exports.</Text>
-            <Text style={[s.lbl, { marginTop: 22 }]} nativeID="ob-first-name">FIRST NAME</Text>
-            <TextInput value={name} onChangeText={setName} placeholder="First name" placeholderTextColor={MUTED}
-              style={s.field} autoCapitalize="words" autoComplete="given-name" textContentType="givenName" returnKeyType="done"
-              accessibilityLabelledBy="ob-first-name" accessibilityLabel="First name" />
-            <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>{pilot ? 'HOURS SO FAR' : 'FLIGHT HOURS SO FAR'}</Text>
+            <Text style={s.h1}>How much have you flown?</Text>
+            <Text style={s.sub}>We bring your hours with you, wherever they are today.</Text>
+            <Text style={[s.lbl, { marginTop: 22, marginBottom: 10 }]}>{pilot ? 'HOURS SO FAR' : 'FLIGHT HOURS SO FAR'}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {hourList.map((l, i) => {
                 const on = hours === i;
                 return (
-                  <Pressable key={l} onPress={() => { tap(); setHours(i); }} style={[s.chip, on && s.chipOn]}
+                  <Pressable key={l} onPress={() => { tap(); setHours(i); }} style={[s.chip, s.chipTall, on && s.chipOn]}
                     accessibilityRole="radio" accessibilityState={{ checked: on }}>
                     <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            <View style={[s.glass, { marginTop: 18, padding: 14, paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={s.ot}>{pilot ? 'I have a paper logbook' : 'I have flights in another app'}</Text>
-                <Text style={s.os}>{pilot ? 'We help you bring it in, page by page.' : 'Bring them in with a CSV.'}</Text>
+            {hours != null && !starting ? (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Text style={[s.lbl, { marginTop: 26, marginBottom: 10 }]}>WHERE ARE THEY TODAY?</Text>
+                <View style={{ gap: 10 }} accessibilityRole="radiogroup">
+                  <Choice icon="book-outline" title="Only in my paper logbook" sub="Nothing digital yet." on={where === 'paper'} onPress={() => { tap(); setWhere('paper'); }} />
+                  <Choice icon="phone-portrait-outline" title="In a digital logbook too" sub="An app, or a spreadsheet of my own." on={where === 'digital'} onPress={() => { tap(); setWhere('digital'); }} />
+                </View>
+              </Animated.View>
+            ) : null}
+          </Screen>
+        ) : null}
+
+        {step === 'source' ? (
+          <Screen insets={insets} footer={<Cta label="Continue" disabled={!src || (pilot && src === 'app' && !app)} onPress={() => go('pitch')} />}>
+            <Text style={s.eyebrow}>YOUR LOGBOOK TODAY</Text>
+            <Text style={s.h1}>Tell us about your digital logbook.</Text>
+            <Text style={[s.lbl, { marginTop: 22, marginBottom: 10 }]}>WHERE IS IT?</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {([['app', 'A logbook app'], ['sheet', 'My own spreadsheet']] as [Src, string][]).map(([k, l]) => {
+                const on = src === k;
+                return (
+                  <Pressable key={k} onPress={() => { tap(); setSrc(k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
+                    accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                    <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {src === 'app' && pilot ? (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHICH APP?</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {PILOT_APPS.map((l) => {
+                    const on = app === l;
+                    return (
+                      <Pressable key={l} onPress={() => { tap(); setApp(l); }} style={[s.chip, s.chipTall, on && s.chipOn]}
+                        accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            ) : null}
+            {src === 'app' && choices ? (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT DOES IT COST YOU A YEAR?</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {choices.labels.map((l, i) => {
+                    const on = cost === i;
+                    return (
+                      <Pressable key={l} onPress={() => { tap(); setCost(i); }} style={[s.chip, s.chipTall, on && s.chipOn]}
+                        accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            ) : null}
+          </Screen>
+        ) : null}
+
+        {step === 'pitch' && pitch ? (
+          <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go(path === 'paper' ? 'gains' : 'ready')} />}>
+            <Text style={s.eyebrow}>{pitch.eyebrow}</Text>
+            <Text style={s.h1}>{pitch.title}</Text>
+            <Text style={s.sub}>{pitch.sub}</Text>
+            {path === 'paper' ? (
+              <>
+                <View style={[s.glass, s.card, { marginTop: 18 }]}>
+                  <Text style={s.lbl}>A WHOLE LOGBOOK · 420–600 FLIGHTS</Text>
+                  <Bar label="Typed in by hand" value="2 h 20 – 3 h 20" fill={1} color="#6F87A3" />
+                  <Bar label="Scanned with Blades" value="about 30–45 min" fill={0.21} color={GREEN} strong />
+                </View>
+                {book ? (
+                  <View style={[s.glass, s.card, { marginTop: 10, gap: 4 }]}>
+                    <Text style={s.lbl}>WHAT IT COSTS</Text>
+                    <Text style={s.big} numberOfLines={1} adjustsFontSizeToFit>About {book.range}</Text>
+                    <Text style={s.os}>For the whole book, 35 to 50 spreads. Under {book.perFlight} a flight, paid once.</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+            {path === 'appPricey' && choices ? (
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+                <View style={[s.glass, s.cmp]}>
+                  <Text style={s.lbl}>TODAY</Text>
+                  <Text style={s.cmpN} numberOfLines={1} adjustsFontSizeToFit>Over {choices.top}</Text>
+                  <Text style={s.os}>a year, as you told us</Text>
+                </View>
+                <View style={[s.glass, s.cmp, { borderColor: 'rgba(25,230,165,0.5)', backgroundColor: 'rgba(25,230,165,0.09)' }]}>
+                  <Text style={[s.lbl, { color: GREEN }]}>BLADES PREMIUM</Text>
+                  <Text style={s.cmpN} numberOfLines={1} adjustsFontSizeToFit>{choices.yearly}</Text>
+                  <Text style={s.os}>a year, billed monthly</Text>
+                </View>
               </View>
-              <Switch value={paper} onValueChange={(v) => { tap(); setPaper(v); }} trackColor={{ true: CYAN, false: 'rgba(127,168,200,0.25)' }}
-                accessibilityLabel={pilot ? 'I have a paper logbook' : 'I have flights in another app'} />
+            ) : null}
+            <View style={{ marginTop: 12 }}>
+              {pitch.rows.map((r, i) => <PitchLine key={r.key} row={r} last={i === pitch.rows.length - 1} />)}
+            </View>
+          </Screen>
+        ) : null}
+
+        {step === 'gains' && prio && want ? (
+          <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go('ready')} />}>
+            <Text style={s.eyebrow}>ONCE YOUR HOURS ARE IN</Text>
+            <Text style={s.h1}>Your logbook starts working for you.</Text>
+            <View style={[s.glass, s.card, { marginTop: 18, gap: 11 }]}>
+              <Text style={s.lbl}>HOW THE SCAN WORKS</Text>
+              {([['camera-outline', 'Photograph each spread, a few seconds a page.'], ['scan-outline', 'Blades reads every row while you carry on.'], ['checkmark-circle-outline', 'You check only what it is unsure about.']] as [keyof typeof Ionicons.glyphMap, string][]).map(([ic, t]) => (
+                <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+                  <Ionicons name={ic} size={19} color={CYAN} />
+                  <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: SOFT }}>{t}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={{ marginTop: 10 }}>
+              {gainRows(pilot, prio, want).map((r, i, all) => <PitchLine key={r.key} row={r} last={i === all.length - 1} />)}
             </View>
           </Screen>
         ) : null}
@@ -333,7 +513,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         {step === 'ready' ? (
           <Screen insets={insets} footer={<Cta label="Continue" disabled={readyStep < 5} busy={waiting} onPress={afterReady} />}>
             <Text style={s.eyebrow}>{readyStep >= 5 ? 'ALL SET' : 'ONE MOMENT'}</Text>
-            <Text style={s.h1}>{readyStep >= 5 ? (first ? `Your logbook is ready, ${first}.` : 'Your logbook is ready.') : 'Setting up your logbook…'}</Text>
+            <Text style={s.h1}>{readyStep >= 5 ? 'Your logbook is ready.' : 'Setting up your logbook…'}</Text>
             <View style={{ gap: 6, marginTop: 16 }}>
               {(pilot
                 ? [`${craft === 'plane' ? 'Airplane' : 'Helicopter'} logbook`, `${rule.name} rules`, lic ? `${lic} requirements` : 'Currency and recency', 'Airports worldwide']
@@ -352,7 +532,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
             </View>
             {readyStep >= 5 ? (
               <Animated.View entering={FadeInDown.duration(520)}>
-                <ProfileCard name={first || 'Your name'} pilot={pilot} craft={craft ?? 'heli'} rule={rule} lic={lic} sfx={sfx}
+                <ProfileCard name={first} pilot={pilot} craft={craft ?? 'heli'} rule={rule} lic={lic} sfx={sfx}
                   goalKey={goal} droneGoal={droneGoal?.title ?? 'Open'} droneBadge={droneGoal?.badge ?? 'OPEN'}
                   hours={hours == null ? '—' : hourList[Math.min(hours, hourList.length - 1)]} />
               </Animated.View>
@@ -361,7 +541,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         ) : null}
 
         {step === 'paywall' && plans && plans.length ? (
-          <OnboardingPaywall plans={plans} pilot={pilot} lic={lic} paper={paper} title={pwTitle} sub={pwSub}
+          <OnboardingPaywall plans={plans} pilot={pilot} lic={lic} paper={path === 'paper'} overview={want === 'overview'} title={pwTitle} sub={pwSub}
             onDone={(r) => { setBought(r); go('hours'); }} />
         ) : null}
 
@@ -382,19 +562,47 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
               </View>
             ) : null}
             <Text style={s.eyebrow}>LAST STEP</Text>
-            <Text style={s.h1}>Bring in your hours</Text>
-            <Text style={s.sub}>So your totals and licence progress are right from day one.</Text>
-            <View style={{ gap: 12, marginTop: 24 }}>
-              {SCAN_OPEN && pilot ? (
-                <HoursRow icon="line-scan" title="Scan your paper logbook" rec={paper}
-                  desc={hoursScanDesc(paying, bought)} onPress={() => finalize('/import/scan')} />
-              ) : null}
-              <HoursRow icon="file-delimited-outline" title="Import a CSV"
-                desc={pilot ? 'From ForeFlight, LogTen Pro or any other app' : 'From the app you log in today'}
-                onPress={() => finalize(pilot ? '/import' : '/drone-import')} />
-              <HoursRow icon="pencil-outline" title="Enter starting totals" desc="Type in the hours you have so far"
-                onPress={() => finalize(pilot ? '/import/manual' : '/drone-import/manual')} />
-            </View>
+            {(() => {
+              // Ett förvalt förslag efter vägen: skanna boken, eller importera från appen eller filen man har.
+              const scanDest: Dest | null = pilot ? (SCAN_OPEN ? '/import/scan' : null) : DRONE_BOOK_SCAN;
+              const importDest: Dest = pilot ? '/import' : '/drone-import';
+              const totalsDest: Dest = pilot ? '/import/manual' : '/drone-import/manual';
+              const named = app && app !== 'Another app' ? app : null;
+              const scanRow = scanDest ? (
+                <HoursRow key="scan" icon="line-scan" title="Scan your paper logbook" rec={path === 'paper'}
+                  desc={hoursScanDesc(paying, bought)} onPress={() => finalize(scanDest)} />
+              ) : null;
+              const importRow = (
+                <HoursRow key="import" icon="file-delimited-outline" rec={where === 'digital' && !starting}
+                  title={path === 'sheet' ? 'Import your spreadsheet' : named ? `Import from ${named}` : pilot || where === 'digital' ? 'Import a file' : 'Import a CSV'}
+                  desc={where === 'digital' && !starting ? 'You review everything before it is saved.'
+                    : pilot ? 'From ForeFlight, LogTen Pro or any other app' : 'From the app you log in today'}
+                  onPress={() => finalize(importDest)} />
+              );
+              const totalsRow = (
+                <HoursRow key="totals" icon="pencil-outline" title="Enter starting totals" desc="Type in the hours you have so far"
+                  onPress={() => finalize(totalsDest)} />
+              );
+              const lead = path === 'paper' && scanRow ? scanRow : where === 'digital' && !starting ? importRow : null;
+              const rest = [scanRow, importRow, totalsRow].filter((r) => r && r !== lead);
+              const title = lead === scanRow && scanRow ? `Start with your first ${FREE_SPREADS} spreads.`
+                : lead === importRow ? (path === 'sheet' ? 'Bring your spreadsheet over.' : named ? `Bring your ${named} logbook over.` : 'Bring your logbook over.')
+                : 'Bring in your hours';
+              const sub = lead === scanRow && scanRow ? 'See how it reads your handwriting before you scan the rest.'
+                : lead === importRow ? (path === 'sheet' ? 'Save it as CSV, then pick the file here.' : 'Export it there, then pick the file here.')
+                : 'So your totals and licence progress are right from day one.';
+              return (
+                <>
+                  <Text style={s.h1}>{title}</Text>
+                  <Text style={s.sub}>{sub}</Text>
+                  <View style={{ gap: 12, marginTop: 24 }}>
+                    {lead}
+                    {lead ? <Text style={[s.lbl, { marginTop: 8 }]}>OR</Text> : null}
+                    {rest}
+                  </View>
+                </>
+              );
+            })()}
           </Screen>
         ) : null}
       </Animated.View>
@@ -437,6 +645,47 @@ function Cta({ label, onPress, disabled, busy }: { label: string; onPress: () =>
       style={({ pressed }) => [s.cta, disabled && { opacity: 0.32, shadowOpacity: 0 }, pressed && { transform: [{ scale: 0.985 }] }]}>
       {busy ? <ActivityIndicator color={INK} /> : <Text style={s.ctaText}>{label}</Text>}
     </Pressable>
+  );
+}
+
+// Ett svar på en fråga: radioknapp och text, med ikon och underrad där det behövs.
+function Choice({ title, sub, icon, on, onPress }: { title: string; sub?: string; icon?: keyof typeof Ionicons.glyphMap; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[s.opt, !sub && { minHeight: 52, paddingVertical: 8 }, on && s.optOn]}
+      accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={sub ? `${title}. ${sub}` : title}>
+      {icon ? <View style={s.cicon}><Ionicons name={icon} size={20} color={CYAN} /></View> : null}
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={s.ot}>{title}</Text>
+        {sub ? <Text style={s.os}>{sub}</Text> : null}
+      </View>
+      <View style={[s.radio, on && { borderColor: CYAN }]}>{on ? <View style={s.radioDot} /> : null}</View>
+    </Pressable>
+  );
+}
+
+// En rad i "varför Blades"-rutan.
+function PitchLine({ row, last }: { row: PitchRow; last?: boolean }) {
+  return (
+    <View style={[s.pline, last && { borderBottomWidth: 0 }]} accessible accessibilityLabel={`${row.title}. ${row.sub}`}>
+      <Ionicons name={row.icon} size={21} color={CYAN} style={{ marginTop: 1 }} />
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={s.ot}>{row.title}</Text>
+        <Text style={[s.os, { fontSize: 13, lineHeight: 18 }]}>{row.sub}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Tidsjämförelsen: en stapel per sätt att få in boken.
+function Bar({ label, value, fill, color, strong }: { label: string; value: string; fill: number; color: string; strong?: boolean }) {
+  return (
+    <View style={{ gap: 5 }} accessible accessibilityLabel={`${label}: ${value}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+        <Text style={{ flex: 1, fontSize: 13.5, color: SOFT }}>{label}</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: '700', color: strong ? color : '#FFFFFF' }}>{value}</Text>
+      </View>
+      <View style={s.track}><View style={{ width: `${Math.round(fill * 100)}%`, height: '100%', borderRadius: 5, backgroundColor: color }} /></View>
+    </View>
   );
 }
 
@@ -521,9 +770,12 @@ function ProfileCard({ name, pilot, craft, rule, lic, sfx, goalKey, droneGoal, d
         <Text style={[s.lbl, { color: SUB }]}>{pilot ? 'PILOT PROFILE' : 'DRONE PILOT PROFILE'}</Text>
         <Text style={[s.lbl, { marginLeft: 'auto', color: CYAN }]}>{pilot ? rule.short : droneBadge}</Text>
       </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 36, fontWeight: '600', color: '#FFFFFF', marginTop: 14 }}>{name}</Text>
+      {/* Namnet frågas inte efter i onboardingen: finns det inget i profilen står farkosten som rubrik. */}
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 36, fontWeight: '600', color: '#FFFFFF', marginTop: 14 }}>{name || kind}</Text>
       <Text style={[s.os, { fontSize: 13.5, marginTop: 4 }]}>
-        {pilot ? `${kind}${lic ? ` · goal ${lic}` : ' · logging and currency'}` : `${kind} · ${droneGoal}`}
+        {name
+          ? (pilot ? `${kind}${lic ? ` · goal ${lic}` : ' · logging and currency'}` : `${kind} · ${droneGoal}`)
+          : (pilot ? (lic ? `Goal ${lic}` : 'Logging and currency') : droneGoal)}
       </Text>
       <View style={s.cells}>
         {cells.map((c, i) => (
@@ -587,6 +839,15 @@ const s = StyleSheet.create({
   chgText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: CYAN },
   field: { height: 58, marginTop: 8, borderRadius: 16, backgroundColor: 'rgba(15,30,58,0.6)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', paddingHorizontal: 18, fontFamily: SERIF, fontSize: 24, color: '#FFFFFF' },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', backgroundColor: 'rgba(15,30,58,0.5)', justifyContent: 'center' },
+  chipTall: { height: 44 },
+  h2: { fontFamily: SERIF, fontSize: 23, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
+  cicon: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
+  card: { padding: 15, gap: 10 },
+  track: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+  big: { fontFamily: SERIF, fontSize: 28, fontWeight: '600', lineHeight: 33, color: '#FFFFFF' },
+  cmp: { flex: 1, padding: 12, gap: 4 },
+  cmpN: { fontFamily: SERIF, fontSize: 22, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
+  pline: { flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.09)' },
   chipOn: { borderColor: CYAN, backgroundColor: 'rgba(0,200,232,0.14)' },
   chipText: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', color: SOFT },
   rline: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 26 },
