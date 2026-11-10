@@ -181,11 +181,13 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   const paper = !starting && where === 'paper';
   const canScan = pilot ? SCAN_OPEN : !!DRONE_BOOK_SCAN;
   const choices = costChoices(prices);
+  // Betalar man mer än Premium i dag (enligt eget svar) visas vad man sparar per månad och på ett år.
+  const deal = choices && cost != null && !starting && where === 'digital' && src === 'app' ? choices.deals[cost] ?? null : null;
   const path: PitchPath = starting || !where ? 'start'
     : where === 'paper' ? (canScan ? 'paper' : 'paperNoScan')
     : src === 'sheet' ? 'sheet'
-    : choices && cost === 3 ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
-  const pitch = prio && want ? buildPitch({ pilot, prio, want, path, app, saving: choices?.saving ?? null, freeSpreads: FREE_SPREADS }) : null;
+    : deal ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
+  const pitch = prio && want ? buildPitch({ pilot, prio, want, path, app, saving: deal?.month ?? null, freeSpreads: FREE_SPREADS }) : null;
   const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
   const back: Partial<Record<Step, Step>> = {
     aircraft: 'welcome', goal: 'aircraft', you: 'goal', source: 'you',
@@ -472,10 +474,19 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
                   </View>
                 ) : null}
               </>
-            ) : path === 'appPricey' && choices ? (
-              <Duo style={{ marginTop: 20 }}
-                a={{ label: 'TODAY', value: `Over ${choices.top}`, unit: 'a month' }}
-                b={{ label: 'BLADES PREMIUM', value: choices.premium, unit: 'a month', good: true }} />
+            ) : path === 'appPricey' && choices && deal ? (
+              <>
+                <Duo style={{ marginTop: 20 }}
+                  a={{ label: 'TODAY', value: deal.today, unit: 'a month' }}
+                  b={{ label: 'BLADES PREMIUM', value: choices.premium, unit: 'a month', good: true }} />
+                <View style={[s.glass, s.strip, { borderColor: 'rgba(25,230,165,0.4)' }]}>
+                  <Ionicons name="trending-down-outline" size={22} color={GREEN} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.stripN} numberOfLines={1} adjustsFontSizeToFit>At least {deal.year} saved in a year</Text>
+                    <Text style={s.os}>{deal.month} less every month</Text>
+                  </View>
+                </View>
+              </>
             ) : (
               <Duo style={{ marginTop: 20 }}
                 a={{ label: 'TO LOG A FLIGHT', value: '20', unit: 'seconds', good: true }}

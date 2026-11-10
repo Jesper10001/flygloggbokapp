@@ -188,12 +188,21 @@ export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: st
  * Frågan "What does it cost you a month?": gränserna sätts efter Premiums månadspris i användarens valuta, så att
  * "över den övre gränsen" alltid betyder en besparing man kan stå för. null när priset saknas (frågan ställs inte).
  */
-export function costChoices(pr: Prices | null): { labels: string[]; premium: string; saving: string; top: string } | null {
+export interface Deal { today: string; month: string; year: string }
+export function costChoices(pr: Prices | null): { labels: string[]; premium: string; deals: Record<number, Deal | null> } | null {
   if (!pr || pr.premium == null) return null;
-  const t1 = niceCeil(pr.premium), t2 = t1 * 2;
+  const price = pr.premium;
+  const t1 = niceCeil(price), t2 = t1 * 2;
   const f = (v: number) => money(v, pr);
+  // Besparingen räknas från intervallets nedre gräns, så "at least" alltid stämmer. Ingen besparing att tala om
+  // (under en hel valutaenhet i månaden) → ingen jämförelse.
+  const deal = (from: number, today: string): Deal | null => {
+    const m = floor(from - price);
+    return m >= 1 ? { today, month: f(m), year: f(floor((from - price) * 12)) } : null;
+  };
   return {
     labels: ['Free', `Under ${f(t1)}`, `${f(t1)} to ${f(t2)}`, `Over ${f(t2)}`, 'Not sure'],
-    premium: pr.premiumString ?? money(pr.premium, pr, 2), saving: f(floor(t2 - pr.premium)), top: f(t2),
+    premium: pr.premiumString ?? money(price, pr, 2),
+    deals: { 2: deal(t1, `${f(t1)} to ${f(t2)}`), 3: deal(t2, `Over ${f(t2)}`) },
   };
 }
