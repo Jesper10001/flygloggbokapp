@@ -90,7 +90,7 @@ export function buildPitch(a: {
       last = { key: 'totals0', icon: 'create-outline', title: 'Enter your totals once', sub: 'Type in the hours you have so far, and log from today.' };
       break;
     case 'appPricey':
-      title = `Your logbook, for at least ${a.saving} less a year.`;
+      title = `Your logbook, for at least ${a.saving} less a month.`;
       sub = bySub({
         fast: 'And a flight takes about 20 seconds.', trust: 'With totals you can trust.',
         licence: 'With a date for your next licence.', proof: 'With a logbook you can hand over.',
@@ -128,6 +128,7 @@ export function gainRows(pilot: boolean, prio: Prio, want: Want): PitchRow[] {
 export interface Prices {
   currency: string;
   sample: string;          // ett pris som App Store skrivit det, t.ex. "39,00 kr"
+  premiumString: string | null; // Premiums månadspris som App Store skriver det
   premium: number | null;  // per månad
   max: number | null;
   packs: { coins: number; price: number }[];
@@ -175,26 +176,24 @@ function cheapest(coins: number, pr: Prices): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
-/** "About 170 kr to 210 kr" för en hel bok, och "Under 0,40 kr a flight". null när priserna saknas. */
-export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: string; perFlight: string } | null {
+/** "170 kr to 210 kr" för en hel bok. null när priserna saknas. */
+export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: string } | null {
   if (!pr) return null;
   const lo = cheapest(BOOK.spreadsLo * coinsPerSpread, pr), hi = cheapest(BOOK.spreadsHi * coinsPerSpread, pr);
   if (lo == null || hi == null) return null;
-  const per = Math.ceil(Math.max(lo / BOOK.flightsLo, hi / BOOK.flightsHi) * 100) / 100;
-  return { range: `${money(round(lo), pr)} to ${money(round(hi), pr)}`, perFlight: money(per, pr, 2) };
+  return { range: `${money(round(lo), pr)} to ${money(round(hi), pr)}` };
 }
 
 /**
- * Frågan "What does it cost you a year?": gränserna sätts efter Premiums årspris i användarens valuta, så att
+ * Frågan "What does it cost you a month?": gränserna sätts efter Premiums månadspris i användarens valuta, så att
  * "över den övre gränsen" alltid betyder en besparing man kan stå för. null när priset saknas (frågan ställs inte).
  */
-export function costChoices(pr: Prices | null): { labels: string[]; yearly: string; saving: string; top: string } | null {
+export function costChoices(pr: Prices | null): { labels: string[]; premium: string; saving: string; top: string } | null {
   if (!pr || pr.premium == null) return null;
-  const yearly = pr.premium * 12;
-  const t1 = niceCeil(yearly), t2 = t1 * 2;
+  const t1 = niceCeil(pr.premium), t2 = t1 * 2;
   const f = (v: number) => money(v, pr);
   return {
     labels: ['Free', `Under ${f(t1)}`, `${f(t1)} to ${f(t2)}`, `Over ${f(t2)}`, 'Not sure'],
-    yearly: f(Math.round(yearly)), saving: f(floor(t2 - yearly)), top: f(t2),
+    premium: pr.premiumString ?? money(pr.premium, pr, 2), saving: f(floor(t2 - pr.premium)), top: f(t2),
   };
 }

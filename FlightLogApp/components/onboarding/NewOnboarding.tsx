@@ -142,7 +142,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         const ref = prem ?? mx;
         if (!ref) return;
         setPrices({
-          currency: ref.pkg.product.currencyCode, sample: ref.priceString,
+          currency: ref.pkg.product.currencyCode, sample: ref.priceString, premiumString: prem ? prem.priceString : null,
           premium: prem ? prem.pkg.product.price : null, max: mx ? mx.pkg.product.price : null,
           packs: packs.map((x) => ({ coins: COIN_PACKS.find((c) => c.productId === x.productId)?.coins ?? 0, price: x.pkg.product.price })).filter((x) => x.coins > 0),
         });
@@ -433,7 +433,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
             ) : null}
             {src === 'app' && choices ? (
               <Animated.View entering={FadeInDown.duration(260)}>
-                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT DOES IT COST YOU A YEAR?</Text>
+                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT DOES IT COST YOU A MONTH?</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {choices.labels.map((l, i) => {
                     const on = cost === i;
@@ -455,37 +455,35 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
             <Text style={s.eyebrow}>{pitch.eyebrow}</Text>
             <Text style={s.h1}>{pitch.title}</Text>
             <Text style={s.sub}>{pitch.sub}</Text>
+            {/* Två stora siffror bredvid varandra säger det mesta; resten är tre korta rader. */}
             {path === 'paper' ? (
               <>
-                <View style={[s.glass, s.card, { marginTop: 18 }]}>
-                  <Text style={s.lbl}>A WHOLE LOGBOOK · 420–600 FLIGHTS</Text>
-                  <Bar label="Typed in by hand" value="2 h 20 – 3 h 20" fill={1} color="#6F87A3" />
-                  <Bar label="Scanned with Blades" value="about 30–45 min" fill={0.21} color={GREEN} strong />
-                </View>
+                <Duo style={{ marginTop: 20 }}
+                  a={{ label: 'BY HAND', value: '5–10+', unit: 'hours' }}
+                  b={{ label: 'WITH BLADES', value: '30–45', unit: 'minutes', good: true }} />
+                <Text style={[s.note, { textAlign: 'center', marginTop: 8 }]}>To bring in a whole logbook.</Text>
                 {book ? (
-                  <View style={[s.glass, s.card, { marginTop: 10, gap: 4 }]}>
-                    <Text style={s.lbl}>WHAT IT COSTS</Text>
-                    <Text style={s.big} numberOfLines={1} adjustsFontSizeToFit>About {book.range}</Text>
-                    <Text style={s.os}>For the whole book, 35 to 50 spreads. Under {book.perFlight} a flight, paid once.</Text>
+                  <View style={[s.glass, s.strip]}>
+                    <MaterialCommunityIcons name="line-scan" size={22} color={CYAN} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.stripN} numberOfLines={1} adjustsFontSizeToFit>About {book.range}</Text>
+                      <Text style={s.os}>to scan the whole book, paid once</Text>
+                    </View>
                   </View>
                 ) : null}
               </>
-            ) : null}
-            {path === 'appPricey' && choices ? (
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-                <View style={[s.glass, s.cmp]}>
-                  <Text style={s.lbl}>TODAY</Text>
-                  <Text style={s.cmpN} numberOfLines={1} adjustsFontSizeToFit>Over {choices.top}</Text>
-                  <Text style={s.os}>a year, as you told us</Text>
-                </View>
-                <View style={[s.glass, s.cmp, { borderColor: 'rgba(25,230,165,0.5)', backgroundColor: 'rgba(25,230,165,0.09)' }]}>
-                  <Text style={[s.lbl, { color: GREEN }]}>BLADES PREMIUM</Text>
-                  <Text style={s.cmpN} numberOfLines={1} adjustsFontSizeToFit>{choices.yearly}</Text>
-                  <Text style={s.os}>a year, billed monthly</Text>
-                </View>
-              </View>
-            ) : null}
-            <View style={{ marginTop: 12 }}>
+            ) : path === 'appPricey' && choices ? (
+              <Duo style={{ marginTop: 20 }}
+                a={{ label: 'TODAY', value: `Over ${choices.top}`, unit: 'a month' }}
+                b={{ label: 'BLADES PREMIUM', value: choices.premium, unit: 'a month', good: true }} />
+            ) : (
+              <Duo style={{ marginTop: 20 }}
+                a={{ label: 'TO LOG A FLIGHT', value: '20', unit: 'seconds', good: true }}
+                b={where === 'digital' && !starting
+                  ? { label: 'TO MOVE OVER', value: '1', unit: path === 'sheet' ? 'CSV file' : 'export file' }
+                  : { label: 'FREE TO START', value: '20', unit: 'flights by hand' }} />
+            )}
+            <View style={[s.glass, { marginTop: 14, paddingHorizontal: 14 }]}>
               {pitch.rows.map((r, i) => <PitchLine key={r.key} row={r} last={i === pitch.rows.length - 1} />)}
             </View>
           </Screen>
@@ -493,18 +491,22 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
         {step === 'gains' && prio && want ? (
           <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go('ready')} />}>
-            <Text style={s.eyebrow}>ONCE YOUR HOURS ARE IN</Text>
-            <Text style={s.h1}>Your logbook starts working for you.</Text>
-            <View style={[s.glass, s.card, { marginTop: 18, gap: 11 }]}>
-              <Text style={s.lbl}>HOW THE SCAN WORKS</Text>
-              {([['camera-outline', 'Photograph each spread, a few seconds a page.'], ['scan-outline', 'Blades reads every row while you carry on.'], ['checkmark-circle-outline', 'You check only what it is unsure about.']] as [keyof typeof Ionicons.glyphMap, string][]).map(([ic, t]) => (
-                <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-                  <Ionicons name={ic} size={19} color={CYAN} />
-                  <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: SOFT }}>{t}</Text>
+            <Text style={s.eyebrow}>HOW IT WORKS</Text>
+            <Text style={s.h1}>Three steps, then it works for you.</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }}>
+              {([['camera-outline', 'Photograph', 'each spread'], ['scan-outline', 'Blades reads', 'every row'], ['checkmark-circle-outline', 'You check', 'what it asks']] as [keyof typeof Ionicons.glyphMap, string, string][]).map(([ic, t, u], i) => (
+                <View key={t} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start' }}>
+                  {i > 0 ? <Ionicons name="chevron-forward" size={14} color={MUTED} style={{ marginTop: 20, marginHorizontal: -3 }} /> : null}
+                  <View style={{ flex: 1, alignItems: 'center', gap: 8 }} accessible accessibilityLabel={`Step ${i + 1}: ${t} ${u}`}>
+                    <View style={s.stepIcon}><Ionicons name={ic} size={24} color={CYAN} /></View>
+                    <Text style={[s.ot, { fontSize: 14, textAlign: 'center' }]}>{t}</Text>
+                    <Text style={[s.os, { textAlign: 'center', marginTop: -6 }]}>{u}</Text>
+                  </View>
                 </View>
               ))}
             </View>
-            <View style={{ marginTop: 10 }}>
+            <Text style={[s.lbl, { marginTop: 28, marginBottom: 10 }]}>ONCE YOUR HOURS ARE IN</Text>
+            <View style={[s.glass, { paddingHorizontal: 14 }]}>
               {gainRows(pilot, prio, want).map((r, i, all) => <PitchLine key={r.key} row={r} last={i === all.length - 1} />)}
             </View>
           </Screen>
@@ -663,30 +665,27 @@ function Choice({ title, sub, icon, on, onPress }: { title: string; sub?: string
   );
 }
 
-// En rad i "varför Blades"-rutan.
+// En rad i "varför Blades"-rutan: ikon och en kort rubrik. Underraden läses upp av skärmläsaren men visas inte.
 function PitchLine({ row, last }: { row: PitchRow; last?: boolean }) {
   return (
     <View style={[s.pline, last && { borderBottomWidth: 0 }]} accessible accessibilityLabel={`${row.title}. ${row.sub}`}>
-      <Ionicons name={row.icon} size={21} color={CYAN} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <Text style={s.ot}>{row.title}</Text>
-        <Text style={[s.os, { fontSize: 13, lineHeight: 18 }]}>{row.sub}</Text>
-      </View>
+      <View style={s.pIcon}><Ionicons name={row.icon} size={19} color={CYAN} /></View>
+      <Text style={[s.ot, { flex: 1, fontSize: 15 }]}>{row.title}</Text>
     </View>
   );
 }
 
-// Tidsjämförelsen: en stapel per sätt att få in boken.
-function Bar({ label, value, fill, color, strong }: { label: string; value: string; fill: number; color: string; strong?: boolean }) {
-  return (
-    <View style={{ gap: 5 }} accessible accessibilityLabel={`${label}: ${value}`}>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-        <Text style={{ flex: 1, fontSize: 13.5, color: SOFT }}>{label}</Text>
-        <Text style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: '700', color: strong ? color : '#FFFFFF' }}>{value}</Text>
-      </View>
-      <View style={s.track}><View style={{ width: `${Math.round(fill * 100)}%`, height: '100%', borderRadius: 5, backgroundColor: color }} /></View>
+// Två stora siffror bredvid varandra (t.ex. för hand mot med Blades). Den gröna är den som gäller Blades.
+type DuoSide = { label: string; value: string; unit: string; good?: boolean };
+function Duo({ a, b, style }: { a: DuoSide; b: DuoSide; style?: object }) {
+  const side = (x: DuoSide) => (
+    <View style={[s.duoSide, x.good && s.duoGood]} accessible accessibilityLabel={`${x.label}: ${x.value} ${x.unit}`}>
+      <Text style={[s.lbl, { fontSize: 9.5 }, x.good && { color: GREEN }]}>{x.label}</Text>
+      <Text style={[s.duoN, x.good && { color: GREEN }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{x.value}</Text>
+      <Text style={s.os}>{x.unit}</Text>
     </View>
   );
+  return <View style={[{ flexDirection: 'row', gap: 10 }, style]}>{side(a)}{side(b)}</View>;
 }
 
 function HoursRow({ icon, title, desc, rec, onPress }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; desc: string; rec?: boolean; onPress: () => void }) {
@@ -842,12 +841,14 @@ const s = StyleSheet.create({
   chipTall: { height: 44 },
   h2: { fontFamily: SERIF, fontSize: 23, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
   cicon: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
-  card: { padding: 15, gap: 10 },
-  track: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
-  big: { fontFamily: SERIF, fontSize: 28, fontWeight: '600', lineHeight: 33, color: '#FFFFFF' },
-  cmp: { flex: 1, padding: 12, gap: 4 },
-  cmpN: { fontFamily: SERIF, fontSize: 22, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
-  pline: { flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.09)' },
+  duoSide: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 18, paddingHorizontal: 10, borderRadius: 20, backgroundColor: 'rgba(15,30,58,0.62)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.18)' },
+  duoGood: { borderColor: 'rgba(25,230,165,0.5)', backgroundColor: 'rgba(25,230,165,0.08)' },
+  duoN: { fontFamily: SERIF, fontSize: 36, fontWeight: '600', lineHeight: 42, color: '#FFFFFF' },
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 12, paddingVertical: 12, paddingHorizontal: 15 },
+  stripN: { fontFamily: SERIF, fontSize: 21, fontWeight: '600', lineHeight: 26, color: '#FFFFFF' },
+  stepIcon: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(0,200,232,0.1)', borderWidth: 1, borderColor: 'rgba(0,200,232,0.3)', alignItems: 'center', justifyContent: 'center' },
+  pIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
+  pline: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 56, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   chipOn: { borderColor: CYAN, backgroundColor: 'rgba(0,200,232,0.14)' },
   chipText: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', color: SOFT },
   rline: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 26 },
