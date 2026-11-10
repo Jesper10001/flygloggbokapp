@@ -1,10 +1,11 @@
-// Den nya onboardingen: välkomst → farkost → vad som är viktigt (två frågor, tre svar var) → timmar och var de
-// finns i dag → (digital loggbok: var och vad den kostar) → "varför Blades"-rutan, vävd av svaren
-// (onboardingPitch.ts) → (pappersvägen: fördelarna) → profilkortet → betalväggen (OnboardingPaywall) → timmarna
-// med ett förvalt förslag, sedan dashboarden med rundturfrågan som förut. Förnamnet frågas inte efter här. Samma
+// Den nya onboardingen: välkomst → farkost → EN sida med alla frågor (vad som är viktigt, vad man vill få ut,
+// timmar, var de finns i dag och, för digital loggbok, var och vad den kostar; nästa fråga kommer fram när den
+// förra är besvarad) → EN sida med hela lösningen, vävd av svaren (onboardingPitch.ts) → betalväggen
+// (OnboardingPaywall) → timmarna med ett förvalt förslag, sedan dashboarden med rundturfrågan som förut.
+// Förnamnet frågas inte efter, och det finns ingen "sätter upp din loggbok"-sida. Samma
 // navy-gradient, typsnitt och kort som appen. Den som lägger till en andra roll får farkost → … → timmar, utan
 // välkomst och betalvägg. Initialer, signatur och tidsformat väljs inte här längre (profilsidan har dem).
-// Svaren om timmar, mål och pappersbok sparas i settings (onboarding_*) för senare anpassning.
+// Svaren sparas i settings (onboarding_*) för senare anpassning.
 // preview: visas från Inställningar i TestFlight-bygget; sparar ingenting och går tillbaka i slutet.
 
 import { useEffect, useRef, useState } from 'react';
@@ -12,7 +13,6 @@ import { View, Text, Image, Pressable, ScrollView, ActivityIndicator, StyleSheet
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -25,7 +25,7 @@ import { useFlightStore } from '../../store/flightStore';
 import { markIntroTourPending } from '../../store/tourStore';
 import { SCAN_OPEN, FREE_SPREADS } from '../../store/scanStore';
 import { SCAN_COINS_PER_SPREAD } from '../../utils/tokenGate';
-import { setSetting, getSetting } from '../../db/flights';
+import { setSetting } from '../../db/flights';
 import { getOnboardingPlans, getCoinPackages, type PlanOption } from '../../services/purchases';
 import { COIN_PACKS, COIN_PACKS_ENABLED } from '../../services/coinPacks';
 import {
@@ -44,7 +44,7 @@ const SOFT = '#CFE0EE';
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
 
-type Step = 'welcome' | 'aircraft' | 'goal' | 'you' | 'source' | 'pitch' | 'gains' | 'ready' | 'paywall' | 'hours';
+type Step = 'welcome' | 'aircraft' | 'questions' | 'solution' | 'paywall' | 'hours';
 type Craft = 'heli' | 'plane' | 'drone';
 type Dest = '/import/scan' | '/import/manual' | '/import' | '/drone-import' | '/drone-import/manual';
 
@@ -55,7 +55,6 @@ const IMG: Record<Craft, ImageSourcePropType> = {
 };
 const HERO = require('../../assets/onboarding/hero-phones.png');
 const LOCKUP = require('../../assets/onboarding/blades-lockup.png');
-const MARK = require('../../assets/onboarding/b-mark.png');
 
 const CRAFTS: { key: Craft; title: string; desc: string; tag: string }[] = [
   { key: 'heli', title: 'Helicopter', desc: 'Single and multi engine, HEMS, offshore.', tag: 'PPL · CPL · ATPL (H)' },
@@ -81,8 +80,8 @@ const RULES: { k: RegulationStandard; name: string; short: string }[] = [
 ];
 const PILOT_HOURS = ['Just starting', 'Under 100 h', '100–500 h', '500–1 500 h', '1 500 h +'];
 const DRONE_HOURS = ['Just starting', 'Under 50 h', '50–200 h', '200 h +'];
-const PROGRESS: Partial<Record<Step, number>> = { aircraft: 1, goal: 2, you: 3, source: 3, pitch: 4, gains: 4, ready: 5, hours: 6 };
-const SEGMENTS = [1, 2, 3, 4, 5, 6];
+const PROGRESS: Partial<Record<Step, number>> = { aircraft: 1, questions: 2, solution: 3, hours: 4 };
+const SEGMENTS = [1, 2, 3, 4];
 // Skanning av drönarloggboken (pappersboken) finns inte än. När den finns: sätt vägen hit, så får drönarläget
 // samma "skanna din bok" som pilotläget i rutan och i sista steget.
 const DRONE_BOOK_SCAN: Dest | null = null;
@@ -121,9 +120,8 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   const [cost, setCost] = useState<number | null>(null);     // index i costChoices().labels
   const [prices, setPrices] = useState<Prices | null>(null);
   const [rules, setRules] = useState<RegulationStandard>(() => standardForRegion(useRegulationStandardStore.getState().standard));
-  const [name, setName] = useState('');   // bara det som redan finns i profilen; frågas inte efter här
   const [hours, setHours] = useState<number | null>(null);
-  const [readyStep, setReadyStep] = useState(0);
+  const qScroll = useRef<ScrollView>(null);
   const [plans, setPlans] = useState<PlanOption[] | null>(null);
   const [bought, setBought] = useState<PaywallResult>(null);
   const [waiting, setWaiting] = useState(false);
@@ -131,7 +129,6 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   const plansPromise = useRef<Promise<PlanOption[]> | null>(null);
 
   useEffect(() => {
-    getSetting('profile_first_name').then((v) => { if (v) setName(v); }).catch(() => {});
     // Planerna hämtas i bakgrunden, så att betalväggen är redo när man kommer dit.
     if (!returning) {
       plansPromise.current = getOnboardingPlans().catch(() => []);
@@ -152,14 +149,6 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Profilkortet: raderna bockas av en i taget, sedan kommer kortet upp.
-  useEffect(() => {
-    if (step !== 'ready') return;
-    setReadyStep(0);
-    const ids = [1, 2, 3, 4, 5].map((n) => setTimeout(() => setReadyStep(n), 430 * n));
-    return () => ids.forEach(clearTimeout);
-  }, [step]);
-
   const pilot = craft !== 'drone';
   const sfx = craft === 'plane' ? '(A)' : '(H)';
   const rule = RULES.find((r) => r.k === rules) ?? RULES[0];
@@ -169,7 +158,6 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   const droneGoal = !pilot ? DRONE_GOALS.find((g) => g.k === goal) ?? null : null;
   const lic = pilotGoal?.lic ? pilotGoal.lic + sfx : '';
   const hourList = pilot ? PILOT_HOURS : DRONE_HOURS;
-  const first = name.trim();
 
   const crafts = CRAFTS.filter((c) => !returning
     || (currentProfile?.mainRole === 'pilot-manned' ? c.key === 'drone' : c.key !== 'drone'));
@@ -189,21 +177,22 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     : deal ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
   const pitch = prio && want ? buildPitch({ pilot, prio, want, path, app, saving: deal?.month ?? null, freeSpreads: FREE_SPREADS }) : null;
   const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
-  const back: Partial<Record<Step, Step>> = {
-    aircraft: 'welcome', goal: 'aircraft', you: 'goal', source: 'you',
-    pitch: !starting && where === 'digital' ? 'source' : 'you', gains: 'pitch',
-    ready: path === 'paper' ? 'gains' : 'pitch', hours: 'ready',
-  };
+  const back: Partial<Record<Step, Step>> = { aircraft: 'welcome', questions: 'aircraft', solution: 'questions', hours: 'solution' };
+  // Frågesidan: allt som måste vara besvarat innan man går vidare.
+  const sourceDone = !!src && (src === 'sheet' || !pilot || !!app);
+  const answered = !!prio && !!want && !!goal && hours != null && (starting || where === 'paper' || (where === 'digital' && sourceDone));
+  // När en ny fråga kommer fram rullas sidan dit.
+  const reveal = () => { timers.current.push(setTimeout(() => qScroll.current?.scrollToEnd({ animated: true }), 140)); };
   const canBack = step !== 'welcome' && step !== 'paywall' && !(returning && step === 'aircraft');
 
   const pickCraft = (k: Craft) => {
     tap();
     if (craft && (craft === 'drone') !== (k === 'drone')) { setPrio(null); setWant(null); setLicGoal(null); setDroneKind(null); setHours(null); setWhere(null); setSrc(null); setApp(null); setCost(null); }
     setCraft(k);
-    timers.current.push(setTimeout(() => go('goal'), 320));
+    timers.current.push(setTimeout(() => go('questions'), 320));
   };
 
-  // Efter profilkortet: betalväggen för nya användare som inte redan betalar och när köp går, annars timmarna.
+  // Efter lösningssidan: betalväggen för nya användare som inte redan betalar och när köp går, annars timmarna.
   const afterReady = async () => {
     if (returning || paying) { go('hours'); return; }
     let list = plans;
@@ -309,155 +298,115 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
           </Screen>
         ) : null}
 
-        {step === 'goal' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" disabled={!prio || !want || !goal} onPress={() => go('you')} />}>
-            <Text style={s.eyebrow}>{pilot ? 'YOUR GOAL' : 'YOUR FLYING'}</Text>
-            <Text style={s.h1}>What matters most to you?</Text>
-            <View style={{ gap: 8, marginTop: 16 }} accessibilityRole="radiogroup">
+        {step === 'questions' ? (
+          <Screen insets={insets} scrollRef={qScroll} footer={<Cta label="See what Blades does for you" disabled={!answered} onPress={() => go('solution')} />}>
+            <Text style={s.eyebrow}>ABOUT YOUR FLYING</Text>
+            <Text style={s.h1}>A few quick questions.</Text>
+            <Text style={s.sub}>So we can show you what Blades does for you.</Text>
+
+            <Text style={s.q}>What matters most to you?</Text>
+            <View style={s.qBody} accessibilityRole="radiogroup">
               {(pilot ? PILOT_PRIOS : DRONE_PRIOS).map((o) => (
-                <Choice key={o.k} title={o.title} on={prio === o.k} onPress={() => { tap(); setPrio(o.k); }} />
+                <Choice key={o.k} title={o.title} on={prio === o.k} onPress={() => { tap(); if (!prio) reveal(); setPrio(o.k); }} />
               ))}
             </View>
             {pilot && prio === 'licence' ? (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Text style={[s.lbl, { marginTop: 14, marginBottom: 8 }]}>WHICH ONE?</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {PILOT_GOALS.filter((g) => g.lic).map((g) => {
-                    const on = licGoal === g.k;
-                    return (
-                      <Pressable key={g.k} onPress={() => { tap(); setLicGoal(g.k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                        accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${g.lic}${sfx}`}>
-                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{g.lic}{sfx}</Text>
-                      </Pressable>
-                    );
-                  })}
+              <Animated.View entering={FadeInDown.duration(260)} style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                {PILOT_GOALS.filter((g) => g.lic).map((g) => (
+                  <Chip key={g.k} label={`${g.lic}${sfx}`} on={licGoal === g.k} onPress={() => { tap(); setLicGoal(g.k); }} />
+                ))}
+              </Animated.View>
+            ) : null}
+
+            {prio ? (
+              <Animated.View entering={FadeInDown.duration(280)}>
+                <Text style={s.q}>What do you want out of your logbook?</Text>
+                <View style={s.qBody} accessibilityRole="radiogroup">
+                  {(pilot ? PILOT_WANTS : DRONE_WANTS).map((o) => (
+                    <Choice key={o.k} title={o.title} on={want === o.k} onPress={() => { tap(); if (!want) reveal(); setWant(o.k); }} />
+                  ))}
                 </View>
               </Animated.View>
             ) : null}
-            <Text style={[s.h2, { marginTop: 26 }]}>What do you want out of your logbook?</Text>
-            <View style={{ gap: 8, marginTop: 14 }} accessibilityRole="radiogroup">
-              {(pilot ? PILOT_WANTS : DRONE_WANTS).map((o) => (
-                <Choice key={o.k} title={o.title} on={want === o.k} onPress={() => { tap(); setWant(o.k); }} />
-              ))}
-            </View>
+
+            {prio && want && !pilot ? (
+              <Animated.View entering={FadeInDown.duration(280)}>
+                <Text style={s.q}>What kind of flying?</Text>
+                <View style={s.chips}>
+                  {DRONE_GOALS.map((g) => (
+                    <Chip key={g.k} label={g.title} on={droneKind === g.k} onPress={() => { tap(); if (!droneKind) reveal(); setDroneKind(g.k); }} />
+                  ))}
+                </View>
+              </Animated.View>
+            ) : null}
+
+            {prio && want && (pilot || droneKind) ? (
+              <Animated.View entering={FadeInDown.duration(280)}>
+                <Text style={s.q}>How much have you flown?</Text>
+                <View style={s.chips}>
+                  {hourList.map((l, i) => (
+                    <Chip key={l} label={l} on={hours === i} onPress={() => { tap(); if (hours == null) reveal(); setHours(i); }} />
+                  ))}
+                </View>
+              </Animated.View>
+            ) : null}
+
+            {prio && want && hours != null && !starting ? (
+              <Animated.View entering={FadeInDown.duration(280)}>
+                <Text style={s.q}>Where are those hours today?</Text>
+                <View style={[s.qBody, { gap: 10 }]} accessibilityRole="radiogroup">
+                  <Choice icon="book-outline" title="Only in my paper logbook" on={where === 'paper'} onPress={() => { tap(); setWhere('paper'); }} />
+                  <Choice icon="phone-portrait-outline" title="In a digital logbook too" on={where === 'digital'} onPress={() => { tap(); if (where !== 'digital') reveal(); setWhere('digital'); }} />
+                </View>
+              </Animated.View>
+            ) : null}
+
+            {prio && want && hours != null && !starting && where === 'digital' ? (
+              <Animated.View entering={FadeInDown.duration(280)}>
+                <Text style={s.q}>Tell us about your digital logbook.</Text>
+                <View style={s.chips}>
+                  {([['app', 'A logbook app'], ['sheet', 'My own spreadsheet']] as [Src, string][]).map(([k, l]) => (
+                    <Chip key={k} label={l} on={src === k} onPress={() => { tap(); if (!src) reveal(); setSrc(k); }} />
+                  ))}
+                </View>
+                {src === 'app' && pilot ? (
+                  <Animated.View entering={FadeInDown.duration(260)}>
+                    <Text style={[s.lbl, s.qSub]}>WHICH APP?</Text>
+                    <View style={[s.chips, { marginTop: 0 }]}>
+                      {PILOT_APPS.map((l) => <Chip key={l} label={l} on={app === l} onPress={() => { tap(); if (!app) reveal(); setApp(l); }} />)}
+                    </View>
+                  </Animated.View>
+                ) : null}
+                {src === 'app' && choices && (!pilot || app) ? (
+                  <Animated.View entering={FadeInDown.duration(260)}>
+                    <Text style={[s.lbl, s.qSub]}>WHAT DOES IT COST YOU A MONTH?</Text>
+                    <View style={[s.chips, { marginTop: 0 }]}>
+                      {choices.labels.map((l, i) => <Chip key={l} label={l} on={cost === i} onPress={() => { tap(); setCost(i); }} />)}
+                    </View>
+                  </Animated.View>
+                ) : null}
+              </Animated.View>
+            ) : null}
+
             {pilot ? (
-              <>
-                <View style={[s.glass, { marginTop: 20, paddingVertical: 10, paddingLeft: 16, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-                  <Text style={s.lbl}>RULES</Text>
-                  <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>{rule.name}</Text>
-                  <Pressable onPress={() => { tap(); setRules(RULES[(RULES.indexOf(rule) + 1) % RULES.length].k); }} style={s.chg}
-                    accessibilityRole="button" accessibilityLabel={`Rules: ${rule.name}. Change`}>
-                    <Text style={s.chgText}>Change</Text>
-                  </Pressable>
-                </View>
-                <Text style={[s.note, { paddingHorizontal: 4 }]}>Set from your region. EASA, FAA and UK CAA are all supported.</Text>
-              </>
-            ) : (
-              <>
-                <Text style={[s.lbl, { marginTop: 22, marginBottom: 8 }]}>KIND OF FLYING</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {DRONE_GOALS.map((g) => {
-                    const on = droneKind === g.k;
-                    return (
-                      <Pressable key={g.k} onPress={() => { tap(); setDroneKind(g.k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                        accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${g.title}, ${g.sub}`}>
-                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{g.title}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-          </Screen>
-        ) : null}
-
-        {step === 'you' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" disabled={hours == null || (!starting && !where)}
-            onPress={() => go(!starting && where === 'digital' ? 'source' : 'pitch')} />}>
-            <Text style={s.eyebrow}>ABOUT YOU</Text>
-            <Text style={s.h1}>How much have you flown?</Text>
-            <Text style={s.sub}>We bring your hours with you, wherever they are today.</Text>
-            <Text style={[s.lbl, { marginTop: 22, marginBottom: 10 }]}>{pilot ? 'HOURS SO FAR' : 'FLIGHT HOURS SO FAR'}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {hourList.map((l, i) => {
-                const on = hours === i;
-                return (
-                  <Pressable key={l} onPress={() => { tap(); setHours(i); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                    accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                    <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {hours != null && !starting ? (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Text style={[s.lbl, { marginTop: 26, marginBottom: 10 }]}>WHERE ARE THEY TODAY?</Text>
-                <View style={{ gap: 10 }} accessibilityRole="radiogroup">
-                  <Choice icon="book-outline" title="Only in my paper logbook" sub="Nothing digital yet." on={where === 'paper'} onPress={() => { tap(); setWhere('paper'); }} />
-                  <Choice icon="phone-portrait-outline" title="In a digital logbook too" sub="An app, or a spreadsheet of my own." on={where === 'digital'} onPress={() => { tap(); setWhere('digital'); }} />
-                </View>
-              </Animated.View>
+              <View style={[s.glass, { marginTop: 30, paddingVertical: 8, paddingLeft: 16, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
+                <Text style={s.lbl}>RULES</Text>
+                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: '#FFFFFF' }}>{rule.name}</Text>
+                <Pressable onPress={() => { tap(); setRules(RULES[(RULES.indexOf(rule) + 1) % RULES.length].k); }} style={s.chg}
+                  accessibilityRole="button" accessibilityLabel={`Rules: ${rule.name}. Change`}>
+                  <Text style={s.chgText}>Change</Text>
+                </Pressable>
+              </View>
             ) : null}
           </Screen>
         ) : null}
 
-        {step === 'source' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" disabled={!src || (pilot && src === 'app' && !app)} onPress={() => go('pitch')} />}>
-            <Text style={s.eyebrow}>YOUR LOGBOOK TODAY</Text>
-            <Text style={s.h1}>Tell us about your digital logbook.</Text>
-            <Text style={[s.lbl, { marginTop: 22, marginBottom: 10 }]}>WHERE IS IT?</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {([['app', 'A logbook app'], ['sheet', 'My own spreadsheet']] as [Src, string][]).map(([k, l]) => {
-                const on = src === k;
-                return (
-                  <Pressable key={k} onPress={() => { tap(); setSrc(k); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                    accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                    <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {src === 'app' && pilot ? (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHICH APP?</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {PILOT_APPS.map((l) => {
-                    const on = app === l;
-                    return (
-                      <Pressable key={l} onPress={() => { tap(); setApp(l); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                        accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </Animated.View>
-            ) : null}
-            {src === 'app' && choices ? (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT DOES IT COST YOU A MONTH?</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {choices.labels.map((l, i) => {
-                    const on = cost === i;
-                    return (
-                      <Pressable key={l} onPress={() => { tap(); setCost(i); }} style={[s.chip, s.chipTall, on && s.chipOn]}
-                        accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                        <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{l}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </Animated.View>
-            ) : null}
-          </Screen>
-        ) : null}
-
-        {step === 'pitch' && pitch ? (
-          <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go(path === 'paper' ? 'gains' : 'ready')} />}>
+        {step === 'solution' && pitch && prio && want ? (
+          <Screen insets={insets} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
             <Text style={s.eyebrow}>{pitch.eyebrow}</Text>
             <Text style={s.h1}>{pitch.title}</Text>
             <Text style={s.sub}>{pitch.sub}</Text>
-            {/* Två stora siffror bredvid varandra säger det mesta; resten är tre korta rader. */}
+            {/* Två stora siffror bredvid varandra säger det mesta; resten är korta rader. */}
             {path === 'paper' ? (
               <>
                 <Duo style={{ marginTop: 20 }}
@@ -473,6 +422,18 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
                     </View>
                   </View>
                 ) : null}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }}>
+                  {([['camera-outline', 'Photograph', 'each spread'], ['scan-outline', 'Blades reads', 'every row'], ['checkmark-circle-outline', 'You check', 'what it asks']] as [keyof typeof Ionicons.glyphMap, string, string][]).map(([ic, t, u], i) => (
+                    <View key={t} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start' }}>
+                      {i > 0 ? <Ionicons name="chevron-forward" size={14} color={MUTED} style={{ marginTop: 20, marginHorizontal: -3 }} /> : null}
+                      <View style={{ flex: 1, alignItems: 'center', gap: 8 }} accessible accessibilityLabel={`Step ${i + 1}: ${t} ${u}`}>
+                        <View style={s.stepIcon}><Ionicons name={ic} size={24} color={CYAN} /></View>
+                        <Text style={[s.ot, { fontSize: 14, textAlign: 'center' }]}>{t}</Text>
+                        <Text style={[s.os, { textAlign: 'center', marginTop: -6 }]}>{u}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
               </>
             ) : path === 'appPricey' && choices && deal ? (
               <>
@@ -494,62 +455,14 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
                   ? { label: 'TO MOVE OVER', value: '1', unit: path === 'sheet' ? 'CSV file' : 'export file' }
                   : { label: 'FREE TO START', value: '20', unit: 'flights by hand' }} />
             )}
-            <View style={[s.glass, { marginTop: 14, paddingHorizontal: 14 }]}>
-              {pitch.rows.map((r, i) => <PitchLine key={r.key} row={r} last={i === pitch.rows.length - 1} />)}
-            </View>
-          </Screen>
-        ) : null}
-
-        {step === 'gains' && prio && want ? (
-          <Screen insets={insets} footer={<Cta label="Continue" onPress={() => go('ready')} />}>
-            <Text style={s.eyebrow}>HOW IT WORKS</Text>
-            <Text style={s.h1}>Three steps, then it works for you.</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }}>
-              {([['camera-outline', 'Photograph', 'each spread'], ['scan-outline', 'Blades reads', 'every row'], ['checkmark-circle-outline', 'You check', 'what it asks']] as [keyof typeof Ionicons.glyphMap, string, string][]).map(([ic, t, u], i) => (
-                <View key={t} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start' }}>
-                  {i > 0 ? <Ionicons name="chevron-forward" size={14} color={MUTED} style={{ marginTop: 20, marginHorizontal: -3 }} /> : null}
-                  <View style={{ flex: 1, alignItems: 'center', gap: 8 }} accessible accessibilityLabel={`Step ${i + 1}: ${t} ${u}`}>
-                    <View style={s.stepIcon}><Ionicons name={ic} size={24} color={CYAN} /></View>
-                    <Text style={[s.ot, { fontSize: 14, textAlign: 'center' }]}>{t}</Text>
-                    <Text style={[s.os, { textAlign: 'center', marginTop: -6 }]}>{u}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-            <Text style={[s.lbl, { marginTop: 28, marginBottom: 10 }]}>ONCE YOUR HOURS ARE IN</Text>
+            <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT YOU GET</Text>
             <View style={[s.glass, { paddingHorizontal: 14 }]}>
-              {gainRows(pilot, prio, want).map((r, i, all) => <PitchLine key={r.key} row={r} last={i === all.length - 1} />)}
+              {(() => {
+                // Raderna efter svaren först, sedan det övriga på pappersvägen (högst fem rader).
+                const rows = [...pitch.rows.slice(0, 2), ...(path === 'paper' ? gainRows(pilot, prio, want).slice(0, 2) : []), pitch.rows[2]];
+                return rows.map((r, i) => <PitchLine key={r.key} row={r} last={i === rows.length - 1} />);
+              })()}
             </View>
-          </Screen>
-        ) : null}
-
-        {step === 'ready' ? (
-          <Screen insets={insets} footer={<Cta label="Continue" disabled={readyStep < 5} busy={waiting} onPress={afterReady} />}>
-            <Text style={s.eyebrow}>{readyStep >= 5 ? 'ALL SET' : 'ONE MOMENT'}</Text>
-            <Text style={s.h1}>{readyStep >= 5 ? 'Your logbook is ready.' : 'Setting up your logbook…'}</Text>
-            <View style={{ gap: 6, marginTop: 16 }}>
-              {(pilot
-                ? [`${craft === 'plane' ? 'Airplane' : 'Helicopter'} logbook`, `${rule.name} rules`, lic ? `${lic} requirements` : 'Currency and recency', 'Airports worldwide']
-                : ['Drone logbook', `${droneGoal?.title ?? 'Open'} category`, 'VLOS, EVLOS and BVLOS time', 'Airports worldwide']
-              ).map((t, i) => {
-                const done = readyStep > i;
-                return (
-                  <View key={t} style={s.rline}>
-                    <View style={s.rdot}>{done
-                      ? <View style={s.chk}><Ionicons name="checkmark" size={13} color={CYAN} /></View>
-                      : <ActivityIndicator size="small" color={CYAN} />}</View>
-                    <Text style={{ fontSize: 14, color: done ? '#FFFFFF' : SUB }}>{t}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            {readyStep >= 5 ? (
-              <Animated.View entering={FadeInDown.duration(520)}>
-                <ProfileCard name={first} pilot={pilot} craft={craft ?? 'heli'} rule={rule} lic={lic} sfx={sfx}
-                  goalKey={goal} droneGoal={droneGoal?.title ?? 'Open'} droneBadge={droneGoal?.badge ?? 'OPEN'}
-                  hours={hours == null ? '—' : hourList[Math.min(hours, hourList.length - 1)]} />
-              </Animated.View>
-            ) : null}
           </Screen>
         ) : null}
 
@@ -632,10 +545,10 @@ function hoursScanDesc(paying: boolean, bought: PaywallResult): string {
   return `${FREE_SPREADS} spreads free, more with Blade coins`;
 }
 
-function Screen({ insets, children, footer }: { insets: { top: number; bottom: number }; children: React.ReactNode; footer?: React.ReactNode }) {
+function Screen({ insets, children, footer, scrollRef }: { insets: { top: number; bottom: number }; children: React.ReactNode; footer?: React.ReactNode; scrollRef?: React.RefObject<ScrollView | null> }) {
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 22, paddingBottom: 20 }}
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 22, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {children}
       </ScrollView>
@@ -657,6 +570,15 @@ function Cta({ label, onPress, disabled, busy }: { label: string; onPress: () =>
     <Pressable onPress={onPress} disabled={disabled || busy} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [s.cta, disabled && { opacity: 0.32, shadowOpacity: 0 }, pressed && { transform: [{ scale: 0.985 }] }]}>
       {busy ? <ActivityIndicator color={INK} /> : <Text style={s.ctaText}>{label}</Text>}
+    </Pressable>
+  );
+}
+
+// Ett kort svar som en bricka (timmar, app, pris).
+function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[s.chip, s.chipTall, on && s.chipOn]} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={label}>
+      <Text style={[s.chipText, on && { color: '#FFFFFF' }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -761,64 +683,6 @@ function Welcome({ insets, onStart, onClose }: { insets: { top: number; bottom: 
   );
 }
 
-// Profilkortet: namnet, farkosten, regelverket och timmarna, och licensstegen med målet tänt.
-function ProfileCard({ name, pilot, craft, rule, lic, sfx, goalKey, droneGoal, droneBadge, hours }: {
-  name: string; pilot: boolean; craft: Craft; rule: { short: string; name: string }; lic: string; sfx: string;
-  goalKey: string | null; droneGoal: string; droneBadge: string; hours: string;
-}) {
-  const kind = craft === 'plane' ? 'Airplane pilot' : craft === 'heli' ? 'Helicopter pilot' : 'Drone pilot';
-  const gi = ['ppl', 'cpl', 'atpl'].indexOf(goalKey ?? '');
-  const cells = [
-    { l: 'AIRCRAFT', v: craft === 'plane' ? 'Airplane' : craft === 'heli' ? 'Helicopter' : 'Drone' },
-    { l: pilot ? 'RULES' : 'CATEGORY', v: pilot ? rule.short : droneBadge },
-    { l: 'HOURS', v: hours },
-  ];
-  return (
-    <LinearGradient colors={['rgba(18,40,74,0.95)', 'rgba(10,24,46,0.95)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }} style={s.pcard}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Image source={MARK} style={{ width: 18, height: 20 }} resizeMode="contain" />
-        <Text style={[s.lbl, { color: SUB }]}>{pilot ? 'PILOT PROFILE' : 'DRONE PILOT PROFILE'}</Text>
-        <Text style={[s.lbl, { marginLeft: 'auto', color: CYAN }]}>{pilot ? rule.short : droneBadge}</Text>
-      </View>
-      {/* Namnet frågas inte efter i onboardingen: finns det inget i profilen står farkosten som rubrik. */}
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: SERIF, fontSize: 36, fontWeight: '600', color: '#FFFFFF', marginTop: 14 }}>{name || kind}</Text>
-      <Text style={[s.os, { fontSize: 13.5, marginTop: 4 }]}>
-        {name
-          ? (pilot ? `${kind}${lic ? ` · goal ${lic}` : ' · logging and currency'}` : `${kind} · ${droneGoal}`)
-          : (pilot ? (lic ? `Goal ${lic}` : 'Logging and currency') : droneGoal)}
-      </Text>
-      <View style={s.cells}>
-        {cells.map((c, i) => (
-          <View key={c.l} style={[s.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: 'rgba(0,200,232,0.18)' }]}>
-            <Text style={s.cl}>{c.l}</Text>
-            <Text style={s.cv} numberOfLines={1} adjustsFontSizeToFit>{c.v}</Text>
-          </View>
-        ))}
-      </View>
-      {pilot && gi >= 0 ? (
-        <View style={s.ladder}>
-          <View style={s.lline} />
-          {['PPL', 'CPL', 'ATPL'].map((l, i) => (
-            <View key={l} style={s.ln}>
-              <View style={[s.lnode, i < gi && s.lnodePre, i === gi && s.lnodeGoal]} />
-              <Text style={[s.llabel, i === gi && { color: '#FFFFFF' }]}>{l}{sfx}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {!pilot ? (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-          {['VLOS', 'EVLOS', 'BVLOS'].map((m) => <Text key={m} style={s.mode}>{m}</Text>)}
-        </View>
-      ) : null}
-      <Text style={[s.note, { marginTop: 12 }]}>
-        {lic ? `Log or import 10 flights and Blades estimates the month you reach ${lic}.`
-          : pilot ? 'Currency and stats update with every flight you log.' : 'Hours per flight mode update with every flight you log.'}
-      </Text>
-    </LinearGradient>
-  );
-}
-
 const s = StyleSheet.create({
   top: { position: 'absolute', left: 0, right: 0, top: 0, zIndex: 5, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -847,9 +711,12 @@ const s = StyleSheet.create({
   badge: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, color: SOFT, paddingVertical: 5, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(127,168,200,0.25)', overflow: 'hidden' },
   chg: { height: 34, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,200,232,0.4)', backgroundColor: 'rgba(0,200,232,0.08)', alignItems: 'center', justifyContent: 'center' },
   chgText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: CYAN },
-  field: { height: 58, marginTop: 8, borderRadius: 16, backgroundColor: 'rgba(15,30,58,0.6)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', paddingHorizontal: 18, fontFamily: SERIF, fontSize: 24, color: '#FFFFFF' },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', backgroundColor: 'rgba(15,30,58,0.5)', justifyContent: 'center' },
   chipTall: { height: 44 },
+  q: { fontFamily: SERIF, fontSize: 21, fontWeight: '600', lineHeight: 26, color: '#FFFFFF', marginTop: 30 },
+  qBody: { gap: 8, marginTop: 12 },
+  qSub: { marginTop: 18, marginBottom: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   h2: { fontFamily: SERIF, fontSize: 23, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
   cicon: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
   duoSide: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 18, paddingHorizontal: 10, borderRadius: 20, backgroundColor: 'rgba(15,30,58,0.62)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.18)' },
@@ -862,22 +729,6 @@ const s = StyleSheet.create({
   pline: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 56, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   chipOn: { borderColor: CYAN, backgroundColor: 'rgba(0,200,232,0.14)' },
   chipText: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', color: SOFT },
-  rline: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 26 },
-  rdot: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  chk: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,200,232,0.16)', alignItems: 'center', justifyContent: 'center' },
-  pcard: { marginTop: 16, padding: 18, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(0,200,232,0.35)', shadowColor: CYAN, shadowOpacity: 0.14, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } },
-  cells: { flexDirection: 'row', marginTop: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(0,200,232,0.18)' },
-  cell: { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 4 },
-  cl: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.5, color: GOLD },
-  cv: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', color: '#FFFFFF' },
-  ladder: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, marginHorizontal: 6, height: 48 },
-  lline: { position: 'absolute', left: 30, right: 30, top: 8, height: 2, backgroundColor: 'rgba(0,200,232,0.4)' },
-  ln: { width: 72, alignItems: 'center', gap: 8 },
-  lnode: { width: 12, height: 12, marginTop: 3, borderRadius: 6, backgroundColor: '#0A1628', borderWidth: 2, borderColor: 'rgba(127,168,200,0.5)' },
-  lnodePre: { backgroundColor: 'rgba(127,168,200,0.5)', borderColor: 'transparent' },
-  lnodeGoal: { width: 18, height: 18, marginTop: 0, borderRadius: 9, borderColor: CYAN, shadowColor: CYAN, shadowOpacity: 0.9, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } },
-  llabel: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: MUTED },
-  mode: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.9, color: CYAN, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: 'rgba(0,200,232,0.35)', overflow: 'hidden' },
   cta: { height: 54, borderRadius: 16, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', shadowColor: CYAN, shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
   ctaText: { fontSize: 16.5, fontWeight: '700', color: INK },
   ghost: { height: 48, alignItems: 'center', justifyContent: 'center' },
