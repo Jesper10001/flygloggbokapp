@@ -17,7 +17,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import Animated, {
-  FadeIn, FadeInDown, LinearTransition, useSharedValue, useAnimatedStyle, withTiming, cancelAnimation, runOnJS, Easing,
+  FadeIn, FadeInDown, FadeInUp, LinearTransition, useSharedValue, useAnimatedStyle, withTiming, withDelay, withSequence, cancelAnimation, runOnJS, Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -40,10 +40,13 @@ const waitFor = async (ok: () => boolean, maxMs: number) => {
   const t0 = Date.now();
   while (!ok() && Date.now() - t0 < maxMs) await delay(60);
 };
+// Knapparna i kortet är små; tryckytan är större (minst 44 px på höjden).
+const TB_SLOP = { top: 8, bottom: 8, left: 3, right: 3 };
 const SETTLE = 380;   // en push/back eller ett flikbyte hinner bli klart
 const SPOT_WAIT = 1500; // så länge väntar kortet högst på ljuset — sen visas det ändå
 const REPLAY_HINT = 'You can replay this tour anytime in Settings, under "Blades introduction".';
 const DIM = 'rgba(4,10,20,0.68)';
+const PILOT_SCAN_WITH_LOGBOOK = 'The scan button fills in flights from a photo: an ACARS printout or the flight log screen, or a page of your paper logbook.';
 const PILOT_HOURS_WITH_SCAN = 'Scan your paper logbook, import a file from another app, or enter your totals by hand. Your stats update at once.';
 
 // Flikens route + en nonce (så vy/expand-effekterna triggar om) och, för loggboken, exempelradens månad.
@@ -65,6 +68,22 @@ function ensureExample(mode: TourMode) {
   }
   if (mode === 'drone' && !st.exampleDrone) st.setExample({ drone: makeTourExampleDroneFlight() });
 }
+
+// Skanningsknappens val, som rundturen visar dem (samma val och ordning som appens egen meny).
+type MenuItem = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap };
+function scanMenu(mode: TourMode): MenuItem[] {
+  if (mode === 'drone') return [
+    { key: 'shot', label: 'Choose a screenshot', icon: 'images-outline' },
+    { key: 'photo', label: 'Take a photo', icon: 'camera-outline' },
+  ];
+  return [
+    ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const }] : []),
+    { key: 'acars', label: 'ACARS scan', icon: 'hardware-chip-outline' },
+  ];
+}
+const PILL_H = 48;
+const PILL_GAP = 8;
+const MENU_PRESS_MS = 650; // så länge lyser knappen innan "trycket" och valen kommer
 
 // Rundad rektangel som SVG-bana (hålet i dämpningen).
 function holePath(r: SpotRect): string {
@@ -99,7 +118,16 @@ export function TourHost() {
 
   const openPageRef = useRef<string | null>(null); // sidan (push) som rundturen just nu håller öppen
   const runRef = useRef(0);
-  const [cardH, setCardH] = useState(190);
+  const [cardH, setCardH] = useState(130);
+  // Skanningsstoppet: knappen lyser en stund, "trycks" och valen glider fram.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuStep = !!step?.menu && active && phase === 'shown';
+  useEffect(() => {
+    setMenuOpen(false);
+    if (!menuStep) return;
+    const t = setTimeout(() => setMenuOpen(true), MENU_PRESS_MS);
+    return () => clearTimeout(t);
+  }, [menuStep, stepIndex]);
 
   // Appen i bakgrunden → klockan står still.
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
@@ -265,7 +293,15 @@ export function TourHost() {
   const cardPos = onTop ? { top: insets.top + 8 } : { bottom: bottomOffset };
 
   const isFirst = stepIndex === 0;
-  const body = step.key === 'hours' && mode === 'pilot' && SCAN_OPEN ? PILOT_HOURS_WITH_SCAN : step.body;
+  const body = mode === 'pilot' && SCAN_OPEN && step.key === 'hours' ? PILOT_HOURS_WITH_SCAN
+    : mode === 'pilot' && SCAN_OPEN && step.key === 'logscan' ? PILOT_SCAN_WITH_LOGBOOK : step.body;
+
+  // Skanningsknappens val: ovanför knappen när de får plats, annars under, i linje med knappens närmaste sida.
+  const menuAnchor = step.menu ? rects[0]?.r : undefined;
+  const menuItems = step.menu ? scanMenu(mode) : [];
+  const menuH = menuItems.length * (PILL_H + PILL_GAP);
+  const menuAbove = !!menuAnchor && menuAnchor.y - menuH >= insets.top + 8;
+  const menuLeft = !!menuAnchor && menuAnchor.x + menuAnchor.w / 2 <= W / 2;
   const hit = (x: number, y: number) => rects.some(({ r }) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
 
   return (
@@ -294,6 +330,28 @@ export function TourHost() {
         </Animated.View>
       ) : null}
 
+      {!moving && menuAnchor && menuOpen ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <PressPulse r={menuAnchor} />
+          <View style={[styles.menuStack, {
+            top: menuAbove ? menuAnchor.y - menuH : menuAnchor.y + menuAnchor.h + PILL_GAP,
+            alignItems: menuLeft ? 'flex-start' : 'flex-end',
+            ...(menuLeft ? { left: menuAnchor.x } : { right: W - menuAnchor.x - menuAnchor.w }),
+          }]}>
+            {menuItems.map((o, i) => {
+              const order = menuAbove ? menuItems.length - 1 - i : i; // närmast knappen först
+              const Enter = menuAbove ? FadeInDown : FadeInUp;
+              return (
+                <Animated.View key={o.key} entering={Enter.delay(180 + order * 90).duration(260)} style={styles.pill}>
+                  <Ionicons name={o.icon} size={19} color={Colors.primary} />
+                  <Text style={styles.pillText} maxFontSizeMultiplier={1.2}>{o.label}</Text>
+                </Animated.View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {!moving ? (
         <Animated.View entering={FadeIn.duration(240)} layout={LinearTransition.duration(300)} style={[styles.shadow, styles.cardSide, cardPos]}
           onLayout={(e) => { const h = e.nativeEvent.layout.height; if (Math.abs(h - cardH) > 2) setCardH(h); }}>
@@ -304,36 +362,50 @@ export function TourHost() {
               <View style={styles.topRow}>
                 <Segments stop={step.stop} fillStyle={fillStyle} />
                 <Text style={styles.count} maxFontSizeMultiplier={1.2}>{step.stop} of {TOUR_STOPS}</Text>
-                <TouchableOpacity onPress={stop} hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Skip the tour">
+                <TouchableOpacity onPress={stop} hitSlop={{ top: 14, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Skip the tour">
                   <Text style={styles.skip} maxFontSizeMultiplier={1.2}>Skip tour</Text>
                 </TouchableOpacity>
               </View>
 
-              <Animated.View key={stepIndex} entering={FadeInDown.duration(300)}>
-                <Text style={styles.title} maxFontSizeMultiplier={1.3}>{step.title}</Text>
+              {/* Rubriken och knapparna delar rad, så kortet tar så lite av skärmen som möjligt. */}
+              <View style={styles.headRow}>
+                <Animated.View key={stepIndex} entering={FadeInDown.duration(300)} style={{ flex: 1 }}>
+                  <Text style={styles.title} maxFontSizeMultiplier={1.3}>{step.title}</Text>
+                </Animated.View>
+                <View style={styles.transport}>
+                  <TouchableOpacity onPress={prev} disabled={isFirst} activeOpacity={0.8} style={[styles.sb, isFirst && styles.tbOff]} hitSlop={TB_SLOP}
+                    accessibilityRole="button" accessibilityLabel="Previous stop">
+                    <Ionicons name="chevron-back" size={18} color={Colors.textPrimary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPaused(!paused)} activeOpacity={0.85} style={[styles.sb, styles.sbMain]} hitSlop={TB_SLOP}
+                    accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'}>
+                    <Ionicons name={paused ? 'play' : 'pause'} size={17} color={Colors.textInverse} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={next} activeOpacity={0.8} style={styles.sb} hitSlop={TB_SLOP}
+                    accessibilityRole="button" accessibilityLabel="Next stop">
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Animated.View key={`b-${stepIndex}`} entering={FadeInDown.duration(300)}>
                 <Text style={styles.body} maxFontSizeMultiplier={1.3}>{body}</Text>
               </Animated.View>
-
-              <View style={styles.transport}>
-                <TouchableOpacity onPress={prev} disabled={isFirst} activeOpacity={0.8} style={[styles.tb, isFirst && styles.tbOff]}
-                  accessibilityRole="button" accessibilityLabel="Previous stop">
-                  <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setPaused(!paused)} activeOpacity={0.85} style={[styles.tb, styles.tbMain]}
-                  accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'}>
-                  <Ionicons name={paused ? 'play' : 'pause'} size={22} color={Colors.textInverse} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={next} activeOpacity={0.8} style={styles.tb}
-                  accessibilityRole="button" accessibilityLabel="Next stop">
-                  <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </Animated.View>
       ) : null}
     </View>
   );
+}
+
+// Ett kort "tryck" på knappen som lyser: en cyan ton som blinkar till när valen kommer fram.
+function PressPulse({ r }: { r: SpotRect }) {
+  const o = useSharedValue(0);
+  useEffect(() => {
+    o.value = withSequence(withTiming(0.4, { duration: 120 }), withDelay(60, withTiming(0, { duration: 320 })));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const st = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View style={[{ position: 'absolute', left: r.x, top: r.y, width: r.w, height: r.h, borderRadius: r.r, backgroundColor: Colors.primary }, st]} />;
 }
 
 // Sju streck: klara stopp fyllda, det pågående fylls medan kortet visas.
@@ -464,19 +536,28 @@ const styles = StyleSheet.create({
   cardSide: { left: 14, right: 14 },
   cardClip: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '5C' },
   cardTint: { backgroundColor: 'rgba(12,26,50,0.78)' },
-  cardInner: { paddingHorizontal: 15, paddingTop: 12, paddingBottom: 13 },
+  cardInner: { paddingHorizontal: 13, paddingTop: 10, paddingBottom: 11 },
 
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   segs: { flex: 1, flexDirection: 'row', gap: 4 },
   seg: { flex: 1, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF2E', overflow: 'hidden' },
   segFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: Colors.primary },
   count: { color: '#9DB4CC', fontSize: 11.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
   skip: { color: '#A9C3DA', fontSize: 13, fontWeight: '700' },
 
-  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', letterSpacing: -0.2, marginBottom: 5 },
-  body: { color: '#C3D6E8', fontSize: 14, lineHeight: 20 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  title: { color: Colors.textPrimary, fontSize: 15.5, fontWeight: '800', letterSpacing: -0.2 },
+  body: { color: '#C3D6E8', fontSize: 13, lineHeight: 18 },
 
-  transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 13 },
+  transport: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sb: { width: 36, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#FFFFFF29' },
+  sbMain: { width: 44, backgroundColor: Colors.primary, borderColor: Colors.primary },
+
+  menuStack: { position: 'absolute', gap: PILL_GAP },
+  pill: { height: PILL_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, borderRadius: 16,
+    // Fast yta i stället för glas: glas som tonas in ritas inte alltid av iOS.
+    backgroundColor: 'rgba(16,32,58,0.97)', borderWidth: 1, borderColor: '#FFFFFF2E' },
+  pillText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   tb: { width: 48, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#FFFFFF29' },
   tbMain: { width: 72, backgroundColor: Colors.primary, borderColor: Colors.primary },
   tbOff: { opacity: 0.35 },

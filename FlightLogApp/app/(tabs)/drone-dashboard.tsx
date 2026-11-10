@@ -157,6 +157,7 @@ export default function DroneDashboardScreen() {
   // Blades introduction: stopp 1 visar översikten högst upp, stopp 2 rullar fram Log flight-knappen.
   useTourScrollTo('dash-stats', dashScrollRef, 100000);
   const onLogRowLayout = useTourScrollTo('dash-log', dashScrollRef, 170);
+  const onScanRowLayout = useTourScrollTo('dash-scan', dashScrollRef, 170);
 
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);
@@ -256,10 +257,11 @@ export default function DroneDashboardScreen() {
 
       {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
-      <View style={s.logRow} onLayout={onLogRowLayout}>
+      <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
         <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
           onPress={droneScan.start}>
           <Ionicons name="scan-outline" size={22} color={accent} />
+          <TourSpot id="dash-scan" radius={14} inset={0} />
         </TouchableOpacity>
         <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>
           <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />

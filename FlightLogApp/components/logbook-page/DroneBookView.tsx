@@ -35,12 +35,14 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
   const { timeFormat } = useTimeFormatStore();
   // Blades introduction: DEMO drönar-bok (Remote Pilot Logbook) + demo-flygningar när rundturen kör och
   // drönar-loggboken annars är tom. Inget rör DB.
+  // Har man flygningar men ingen bok visas en exempelbok med ens egna flygningar medan rundturen kör.
   const tourDemo = useTourStore((s) => s.demo);
-  const droneFlights = tourDemo ? DEMO_DRONE_FLIGHTS : realDroneFlights;
+  const tourActive = useTourStore((s) => s.active);
+  const droneFlights = tourDemo || (tourActive && realDroneFlights.length === 0) ? DEMO_DRONE_FLIGHTS : realDroneFlights;
 
   const [loading, setLoading] = useState(true);
   const [booksState, setBooks] = useState<DigitalBook[]>([]);
-  const books = tourDemo ? [DEMO_DRONE_BOOK] : booksState;
+  const books = tourDemo || (tourActive && !loading && booksState.length === 0) ? [DEMO_DRONE_BOOK] : booksState;
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [dronesById, setDronesById] = useState<Map<number, { model: string; klass: string }>>(new Map());

@@ -5,6 +5,7 @@ import type { Flight, FlightStats } from '../types/flight';
 import type { AircraftRegistryEntry } from '../db/flights';
 import type { DigitalBook } from '../db/digitalBooks';
 import type { DroneFlight, DroneStats, DroneModelFleet } from '../db/drones';
+import { buildSunTimeline } from '../utils/sunTimeline';
 
 // Fleet-bilden hämtas i demo på SAMMA sätt som på riktigt (gratis Wikipedia-uppslag via
 // fetchAircraftImage/fetchDroneImage i FleetCard/DroneFleetCard) — inte en bundlad asset. Dessa
@@ -89,7 +90,7 @@ export const DEMO_AIRCRAFT: AircraftRegistryEntry[] = [
 
 // En byggd "Professional Pilot Logbook" (template-id 'easa-professional-pilot'), obegränsad (end_page 0).
 export const DEMO_BOOK: DigitalBook = {
-  id: -1, name: '1st Logbook', template_id: 'easa-professional-pilot',
+  id: -1, name: 'Example logbook', template_id: 'easa-professional-pilot',
   starting_page: 1, rows_per_spread: 12, end_page: 0, end_row: 0,
   is_active: 1, created_at: '2026-08-01T00:00:00.000Z', kind: 'digital',
   opening_balance: '{}', custom_cols: '{}',
@@ -145,7 +146,7 @@ export const DEMO_DRONE_MODELS: DroneModelFleet[] = [
 
 // En byggd "Remote Pilot Logbook" (template-id 'sv-drone-logbook', 15 rader), obegränsad.
 export const DEMO_DRONE_BOOK: DigitalBook = {
-  id: -2, name: '1st Logbook', template_id: 'sv-drone-logbook',
+  id: -2, name: 'Example logbook', template_id: 'sv-drone-logbook',
   starting_page: 1, rows_per_spread: 15, end_page: 0, end_row: 0,
   is_active: 1, created_at: '2026-08-01T00:00:00.000Z', kind: 'drone',
   opening_balance: '{}', custom_cols: '{}',
@@ -164,12 +165,48 @@ export function tourExampleDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Exemplets rutt och besättning. Koordinaterna står här så att tiderna kan räknas ut utan databasen.
+export const TOUR_EXAMPLE_ROUTE = {
+  dep: 'ESSA', arr: 'ESGG',
+  legs: [{ lat: 59.6519, lon: 17.9186, label: 'ESSA', dwellMin: 0 }, { lat: 57.6628, lon: 12.2798, label: 'ESGG', dwellMin: 0 }],
+};
+export const TOUR_EXAMPLE_CAPTAIN = 'Anna Berg';
+
+const hhmm = (min: number) => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
+/**
+ * Avgångs- och ankomsttid (UTC) för exemplet, valda så att ungefär halva flygningen går i dagsljus och
+ * halva i natt det datumet: då syns det i Log flight hur dag, skymning och natt ritas ut längs rutten.
+ * Kvällen väljs före morgonen (start i dagsljus, landning i mörker). Samma sol-modell som appens natt-tid.
+ */
+export function tourExampleTimes(date: string, durMin: number): { dep: string; arr: string; nightH: number } {
+  const [y, mo, d] = date.split('-').map(Number);
+  const day0 = Date.UTC(y, (mo || 1) - 1, d || 1, 0, 0, 0);
+  let best = { dep: 16 * 60 + 40, score: Infinity, night: 0 };
+  for (let m = 0; m < 1440; m += 5) {
+    const depMs = day0 + m * 60000;
+    const tl = buildSunTimeline(TOUR_EXAMPLE_ROUTE.legs, depMs, depMs + durMin * 60000, 36);
+    if (!tl) continue;
+    const frac = tl.minutes.night / durMin;
+    const score = Math.abs(frac - 0.5) + (tl.runs[0]?.phase === 'night' ? 0.1 : 0);
+    if (score < best.score) best = { dep: m, score, night: tl.minutes.night };
+  }
+  return { dep: hhmm(best.dep), arr: hhmm(best.dep + durMin), nightH: Math.round((best.night / 60) * 10) / 10 };
+}
+
 export function makeTourExampleFlight(p: Partial<Flight> = {}): Flight {
+  // Du är SIC, kaptenen är PIC — som i loggningsexemplet.
+  const date = p.date ?? tourExampleDate();
+  const total = p.total_time ?? 0.92;
+  const t = tourExampleTimes(date, Math.round(total * 60));
+  const night = Math.min(total, t.nightH);
   return mkFlight({
-    id: TOUR_EXAMPLE_ID, date: tourExampleDate(), aircraft_type: 'AT72', registration: 'SE-MKG',
-    dep_place: 'ESSA', dep_utc: '16:40', arr_place: 'ESGG', arr_utc: '17:35',
-    total_time: 0.92, pic: 0.92, ifr: 0.92, multi_pilot: 0.92, me_time: 0.92, cross_country: 0.92,
-    landings_day: 1, takeoffs_day: 1, flight_rules: 'IFR', remarks: 'Example flight · Blades introduction',
+    id: TOUR_EXAMPLE_ID, date, aircraft_type: 'AT72', registration: 'SE-MKG',
+    dep_place: TOUR_EXAMPLE_ROUTE.dep, dep_utc: t.dep, arr_place: TOUR_EXAMPLE_ROUTE.arr, arr_utc: t.arr,
+    total_time: total, co_pilot: total, ifr: total, multi_pilot: total, me_time: total, cross_country: total, night,
+    second_pilot: TOUR_EXAMPLE_CAPTAIN, second_pilot_role: 'PIC', pilot_flying: total,
+    landings_day: night > 0 ? 0 : 1, landings_night: night > 0 ? 1 : 0, takeoffs_day: 1,
+    flight_rules: 'IFR', remarks: 'Example flight · Blades introduction',
     ...p,
   });
 }

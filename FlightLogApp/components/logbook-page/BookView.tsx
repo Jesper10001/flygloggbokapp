@@ -44,12 +44,15 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
   const { timeFormat } = useTimeFormatStore();
   // Blades introduction: visa en byggd DEMO-bok (Professional Pilot Logbook) + demo-flygningar när
   // rundturen kör och loggboken annars är tom. Inget rör DB.
+  // Har man flygningar men ingen bok visas en exempelbok med ens egna flygningar medan rundturen kör, så att
+  // bokstoppet alltid har en riktig sida att visa. Boken finns bara i minnet.
   const tourDemo = useTourStore((s) => s.demo);
-  const flights = tourDemo ? DEMO_FLIGHTS : realFlights;
+  const tourActive = useTourStore((s) => s.active);
+  const flights = tourDemo || (tourActive && realFlights.length === 0) ? DEMO_FLIGHTS : realFlights;
 
   const [loading, setLoading] = useState(true);
   const [booksState, setBooks] = useState<DigitalBook[]>([]);
-  const books = tourDemo ? [DEMO_BOOK] : booksState;
+  const books = tourDemo || (tourActive && !loading && booksState.length === 0) ? [DEMO_BOOK] : booksState;
   const [pilotName, setPilotName] = useState('');
   const [signature, setSignature] = useState<SignatureData | null>(null);
   const [idx, setIdx] = useState(0);

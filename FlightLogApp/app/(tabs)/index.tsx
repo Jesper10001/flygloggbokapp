@@ -671,6 +671,7 @@ export default function DashboardScreen() {
   // Blades introduction: stopp 1 visar översikten högst upp, stopp 2 rullar fram Log flight-knappen.
   useTourScrollTo('dash-stats', dashScrollRef, 100000);
   const onLogRowLayout = useTourScrollTo('dash-log', dashScrollRef, 170);
+  const onScanRowLayout = useTourScrollTo('dash-scan', dashScrollRef, 170);
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
@@ -1005,7 +1006,7 @@ export default function DashboardScreen() {
       ))}
 
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
-      <View style={s.logRow} onLayout={onLogRowLayout}>
+      <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
         {/* Logbook scan är öppen bara när skanningen är lanserad (SCAN_OPEN); annars går knappen direkt till ACARS. */}
         <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" options={[
           ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),

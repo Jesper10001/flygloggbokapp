@@ -54,7 +54,7 @@ import { useTourStore } from '../../store/tourStore';
 import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from '../../services/flightDrafts';
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
-import { makeTourExampleFlight, tourExampleDate } from '../../constants/tourDemoData';
+import { makeTourExampleFlight, tourExampleDate, tourExampleTimes, TOUR_EXAMPLE_ROUTE, TOUR_EXAMPLE_CAPTAIN } from '../../constants/tourDemoData';
 import { TourCaptionBar } from '../../components/TourCaptionBar';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode, isOffAirportCode } from '../../db/icao';
@@ -119,10 +119,11 @@ const EMPTY: FlightFormData = {
 
 // Blades introduction — loggningsexemplet: ESSA → ESGG i Quicklog, med ett exempelflygplan efter profilen
 // (flygplan/helikopter). Sparas aldrig; se effekten på logDemoRun längre ner.
-const TOUR_ROUTE = { dep: 'ESSA', arr: 'ESGG' };
+// Tiderna räknas ut för dagen (tourExampleTimes) så att ungefär halva flygningen går i natt.
+const TOUR_ROUTE = TOUR_EXAMPLE_ROUTE;
 const TOUR_EXAMPLE = {
-  fixed: { type: 'AT72', reg: 'SE-MKG', dep: '16:40', arr: '17:35', hours: 0.92 },
-  rotary: { type: 'H145', reg: 'SE-HEM', dep: '16:40', arr: '18:15', hours: 1.58 },
+  fixed: { type: 'AT72', reg: 'SE-MKG', minutes: 55 },
+  rotary: { type: 'H145', reg: 'SE-HEM', minutes: 95 },
 };
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
@@ -768,7 +769,7 @@ export default function AddFlightScreen() {
   const stopsRef = useRef<View>(null);         // Stops/via-raden i route-kortet
   const heroRef = useRef<View>(null);          // total/distans/sol-glob-raden
   const scrollMetrics = useRef({ contentH: 0, viewH: 0 });
-  const demoLatest = useRef<{ set: (key: keyof FlightFormData, val: string) => void; hasDep: boolean; hasArr: boolean; form: FlightFormData } | null>(null);
+  const demoLatest = useRef<{ set: (key: keyof FlightFormData, val: string) => void; hasDep: boolean; hasArr: boolean; form: FlightFormData; setRole: (r: PrimaryRole) => void; setSecondRole: (k: string) => void } | null>(null);
 
   // Senaste flygningen per typ → reverse/fill-latest blir LÄGE-beroende: i Sim används senaste sim-
   // flygningen, i Real senaste riktiga. Man kan alltså inte reversa en real flight in i en sim (el. tvärtom).
@@ -2462,10 +2463,11 @@ export default function AddFlightScreen() {
   // ── Blades introduction: loggningsdemon ───────────────────────────────────
   // Blades introduction — loggningsexemplet. TourHost öppnar Log flight (Quicklog), väntar tills formuläret
   // sagt att det är monterat (formReady) och ökar sedan logDemoRun. Formuläret fyller då själv i ett kort
-  // exempel i fem moment: rutt, tider, det som räknas ut, flygplan, spara. Inga rutor öppnas (ingen sökruta,
+  // exempel i sex moment: rutt, tider, det som räknas ut (halva flygningen i natt), flygplan, roll (du är SIC,
+  // kaptenen PIC), spara. Inga rutor öppnas (ingen sökruta,
   // ingen Sun route) och INGENTING sparas: "flygningen" läggs i tourStore.examplePilot och visas ur minnet
   // i loggbokslistan tills rundturen slutar. Paus i rundturen stannar exemplet mitt i ett moment.
-  demoLatest.current = { set, hasDep: !!depLatLon, hasArr: !!arrLatLon, form };
+  demoLatest.current = { set, hasDep: !!depLatLon, hasArr: !!arrLatLon, form, setRole: handleRoleChange, setSecondRole: selectSecondPilotRole };
   useEffect(() => {
     if (isEdit || !useTourStore.getState().active) return;
     useTourStore.getState().setFormReady(true);
@@ -2494,7 +2496,7 @@ export default function AddFlightScreen() {
       const t0 = Date.now();
       while (!ok() && Date.now() - t0 < maxMs) await wait(80);
     };
-    const PHASES = 5;
+    const PHASES = 6;
     const say = (n: number, caption: string) => tour().setCaption(caption, n / (PHASES + 1));
     const focus = (id: string | null) => tour().setPressTarget(id);
     // Scrolla så sektionen hamnar `above` px under skärmens överkant — aldrig förbi botten.
@@ -2521,6 +2523,7 @@ export default function AddFlightScreen() {
         const R = TOUR_ROUTE;
         const ex = useProfileStore.getState().profile?.subRole === 'rotary' ? TOUR_EXAMPLE.rotary : TOUR_EXAMPLE.fixed;
         const date = tourExampleDate();
+        const times = tourExampleTimes(date, ex.minutes);
 
         // ── Rent formulär: exemplets datum, UTC-tider, inga rester från förifyllningen ──
         setTimeMode('utc'); setDepLocalBuf(''); setArrLocalBuf('');
@@ -2534,6 +2537,7 @@ export default function AddFlightScreen() {
           aircraft_type: '', registration: '', second_pilot: '', second_pilot_role: '', remarks: '',
           flight_rules: 'VFR', ifr: '0', vfr: '0', night: '0', nvg: '0', app_2d: '0', app_3d: '0', holds: '0',
         }));
+        L().setRole('pic');
         scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         await wait(500); if (!alive()) return;
 
@@ -2552,17 +2556,17 @@ export default function AddFlightScreen() {
         // 2 · Tiderna.
         say(2, 'The times: off-block and on-block');
         focus('lf-dep');
-        if (!(await typeSeq(clock(ex.dep), (v) => L().set('dep_utc', v), 150))) return;
+        if (!(await typeSeq(clock(times.dep), (v) => L().set('dep_utc', v), 150))) return;
         await wait(450); if (!alive()) return;
         focus('lf-arr');
-        if (!(await typeSeq(clock(ex.arr), (v) => L().set('arr_utc', v), 150))) return;
+        if (!(await typeSeq(clock(times.arr), (v) => L().set('arr_utc', v), 150))) return;
         focus(null);
         await wait(1100); if (!alive()) return; // panelerna glider isär, total och distans växer fram
 
         // 3 · Det som räknas ut automatiskt.
-        say(3, 'Time, night and distance are worked out for you');
+        say(3, 'Time, distance and night are worked out. The bar shows day, dusk and night.');
         focus('lf-total');
-        await wait(3200); if (!alive()) return;
+        await wait(3600); if (!alive()) return;
         focus(null);
 
         // 4 · Flygplanet.
@@ -2575,19 +2579,33 @@ export default function AddFlightScreen() {
         setForm((f) => ({ ...f, registration: ex.reg }));
         await wait(1500); if (!alive()) return;
 
-        // 5 · Spara — utan att något skrivs: raden läggs i minnet och visas i loggboken under rundturen.
-        say(5, 'Save. For crew, approaches and stops, switch to Full.');
+        // 5 · Rollen: du flyger som SIC, kaptenen läggs in som second pilot med rollen PIC.
+        say(5, 'Your role: SIC, with the captain as PIC');
+        scrollTo((demoY.current.card ?? 0) + (demoY.current.roleIn ?? 0), 120);
+        focus('lf-role');
+        await wait(900); if (!alive()) return;
+        L().setRole('co_pilot');
+        await wait(1100); if (!alive()) return;
+        focus('lf-crew');
+        await wait(450);
+        if (!(await typeSeq(chars(TOUR_EXAMPLE_CAPTAIN), (v) => L().set('second_pilot', v), 70))) return;
+        await wait(350); if (!alive()) return;
+        L().setSecondRole('PIC');
+        await wait(1500); if (!alive()) return;
+
+        // 6 · Spara — utan att något skrivs: raden läggs i minnet och visas i loggboken under rundturen.
+        say(6, 'Save. For approaches, stops and cabin crew, switch to Full.');
         focus(null);
         scrollViewRef.current?.scrollToEnd({ animated: true });
         await wait(700); if (!alive()) return;
         focus('lf-save');
         await wait(2000); if (!alive()) return;
         const f = L().form;
-        const total = parseFloat(f.total_time) || ex.hours;
-        const night = Math.min(total, parseFloat(f.night) || 0);
+        const total = parseFloat(f.total_time) || ex.minutes / 60;
+        const night = Math.min(total, parseFloat(f.night) || times.nightH);
         tour().setExample({ pilot: makeTourExampleFlight({
-          date, aircraft_type: ex.type, registration: ex.reg, dep_place: R.dep, arr_place: R.arr, dep_utc: ex.dep, arr_utc: ex.arr,
-          total_time: total, pic: total, ifr: total, multi_pilot: total, me_time: total, cross_country: total, night,
+          date, aircraft_type: ex.type, registration: ex.reg, dep_place: R.dep, arr_place: R.arr, dep_utc: times.dep, arr_utc: times.arr,
+          total_time: total, co_pilot: total, ifr: total, multi_pilot: total, me_time: total, cross_country: total, night, pilot_flying: total,
           landings_day: night > 0 ? 0 : 1, landings_night: night > 0 ? 1 : 0,
         }) });
         focus(null);
