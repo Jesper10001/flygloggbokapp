@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Pilot CV: fyra designer att välja mellan (Sidebar, Classic, Banner, Clean) med små bilder, sju färgteman och val av vad som kommer först (timmar, erfarenhet eller utbildning); finjusteringen av färger, typsnitt och storlek ligger under en egen rad. Uppgifterna fylls i kort för kort (om dig, profiltext, kontakt, licens, behörigheter, erfarenhet, utbildning, kunskaper, språk, övrigt, referenser) med status och ett reglage per kort; nya delar: utbildning, kunskaper med förslag att trycka på, övrig information och referenser; profiltexten kan föreslås ur loggbokens siffror. Det som räknas ur loggboken har en egen flik (Flight data).
 - Mot hängningar: medan Global map eller Visited airports är öppen väntar appens popup-rutor (Update ready, Your fleet is ready, Update available) och systemrutorna (Alert) tills kartan stängts, som redan gällde Best week och Longest XC; betalväggen från väderfiltret och nyheterna öppnas först när kartan stängts.
 - "Your fleet is ready"-rutan väntar medan Blades introduction pågår (eller frågan om rundturen visas) och kommer fram strax efter att rundturen är slut.
 - Onboarding, förhandsvisningen: knapparna på sista steget (skanna, importera, starttotaler) öppnar de riktiga sidorna i stället för att gå tillbaka till Inställningar.

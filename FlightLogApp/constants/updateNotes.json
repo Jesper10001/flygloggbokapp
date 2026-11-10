@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 76,
+      "date": "2026-11-10",
+      "notes": [
+        "New: Pilot CV has four designs and seven colour themes to choose from.",
+        "New: Add education, skills, references and more, and get a profile text suggested from your logbook.",
+        "Improved: Your CV details are filled in one part at a time, each with its own on and off switch."
+      ]
+    },
+    {
       "id": 75,
       "date": "2026-11-10",
       "notes": [
