@@ -29,9 +29,10 @@ import { setSetting } from '../../db/flights';
 import { getOnboardingPlans, getCoinPackages, type PlanOption } from '../../services/purchases';
 import { COIN_PACKS, COIN_PACKS_ENABLED } from '../../services/coinPacks';
 import {
-  buildPitch, gainRows, bookCost, costChoices, PILOT_PRIOS, DRONE_PRIOS, PILOT_WANTS, DRONE_WANTS, PILOT_APPS,
+  buildSolution, bookCost, costChoices, PILOT_PRIOS, DRONE_PRIOS, PILOT_WANTS, DRONE_WANTS, PILOT_APPS,
   type Prio, type Want, type Where, type Src, type PitchPath, type PitchRow, type Prices,
 } from './onboardingPitch';
+import { SolutionHero } from './SolutionHero';
 import { OnboardingPaywall, type PaywallResult } from './OnboardingPaywall';
 
 const CYAN = '#00C8E8';
@@ -175,8 +176,8 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     : where === 'paper' ? (canScan ? 'paper' : 'paperNoScan')
     : src === 'sheet' ? 'sheet'
     : deal ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
-  const pitch = prio && want ? buildPitch({ pilot, prio, want, path, app, saving: deal?.month ?? null, freeSpreads: FREE_SPREADS }) : null;
   const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
+  const solution = prio && want ? buildSolution({ pilot, prio, want, path, deal, bookShort: book?.short ?? null, freeSpreads: FREE_SPREADS }) : null;
   const back: Partial<Record<Step, Step>> = { aircraft: 'welcome', questions: 'aircraft', solution: 'questions', hours: 'solution' };
   // Frågesidan: allt som måste vara besvarat innan man går vidare.
   const sourceDone = !!src && (src === 'sheet' || !pilot || !!app);
@@ -401,67 +402,26 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
           </Screen>
         ) : null}
 
-        {step === 'solution' && pitch && prio && want ? (
-          <Screen insets={insets} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
-            <Text style={s.eyebrow}>{pitch.eyebrow}</Text>
-            <Text style={s.h1}>{pitch.title}</Text>
-            <Text style={s.sub}>{pitch.sub}</Text>
-            {/* Två stora siffror bredvid varandra säger det mesta; resten är korta rader. */}
-            {path === 'paper' ? (
-              <>
-                <Duo style={{ marginTop: 20 }}
-                  a={{ label: 'BY HAND', value: '5–10+', unit: 'hours' }}
-                  b={{ label: 'WITH BLADES', value: '30–45', unit: 'minutes', good: true }} />
-                <Text style={[s.note, { textAlign: 'center', marginTop: 8 }]}>To bring in a whole logbook.</Text>
-                {book ? (
-                  <View style={[s.glass, s.strip]}>
-                    <MaterialCommunityIcons name="line-scan" size={22} color={CYAN} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={s.stripN} numberOfLines={1} adjustsFontSizeToFit>About {book.range}</Text>
-                      <Text style={s.os}>to scan the whole book, paid once</Text>
-                    </View>
-                  </View>
-                ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }}>
-                  {([['camera-outline', 'Photograph', 'each spread'], ['scan-outline', 'Blades reads', 'every row'], ['checkmark-circle-outline', 'You check', 'what it asks']] as [keyof typeof Ionicons.glyphMap, string, string][]).map(([ic, t, u], i) => (
-                    <View key={t} style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start' }}>
-                      {i > 0 ? <Ionicons name="chevron-forward" size={14} color={MUTED} style={{ marginTop: 20, marginHorizontal: -3 }} /> : null}
-                      <View style={{ flex: 1, alignItems: 'center', gap: 8 }} accessible accessibilityLabel={`Step ${i + 1}: ${t} ${u}`}>
-                        <View style={s.stepIcon}><Ionicons name={ic} size={24} color={CYAN} /></View>
-                        <Text style={[s.ot, { fontSize: 14, textAlign: 'center' }]}>{t}</Text>
-                        <Text style={[s.os, { textAlign: 'center', marginTop: -6 }]}>{u}</Text>
-                      </View>
-                    </View>
-                  ))}
+        {step === 'solution' && solution ? (
+          <Screen insets={insets} top={50} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
+            <SolutionHero kind={solution.hero} />
+            <Text style={[s.eyebrow, { marginTop: 14 }]}>{solution.kicker}</Text>
+            <Text style={s.hBig}>{solution.title}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+              {solution.tiles.map((t) => (
+                <View key={t.label} style={[s.tileS, t.good && s.tileGood]} accessible accessibilityLabel={`${t.value} ${t.label}`}>
+                  <Text style={[s.tileN, t.good && { color: GREEN }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{t.value}</Text>
+                  <Text style={[s.tileL, t.good && { color: '#D6FFF0' }]}>{t.label}</Text>
                 </View>
-              </>
-            ) : path === 'appPricey' && choices && deal ? (
-              <>
-                <Duo style={{ marginTop: 20 }}
-                  a={{ label: 'TODAY', value: deal.today, unit: 'a month' }}
-                  b={{ label: 'BLADES PREMIUM', value: choices.premium, unit: 'a month', good: true }} />
-                <View style={[s.glass, s.strip, { borderColor: 'rgba(25,230,165,0.4)' }]}>
-                  <Ionicons name="trending-down-outline" size={22} color={GREEN} />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={s.stripN} numberOfLines={1} adjustsFontSizeToFit>At least {deal.year} saved in a year</Text>
-                    <Text style={s.os}>{deal.month} less every month</Text>
-                  </View>
+              ))}
+            </View>
+            <View style={{ gap: 9, marginTop: 20 }}>
+              {solution.rows.map((r) => (
+                <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityLabel={`${r.title}. ${r.sub}`}>
+                  <Ionicons name="checkmark" size={18} color={CYAN} />
+                  <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: '#FFFFFF' }}>{r.title}</Text>
                 </View>
-              </>
-            ) : (
-              <Duo style={{ marginTop: 20 }}
-                a={{ label: 'TO LOG A FLIGHT', value: '20', unit: 'seconds', good: true }}
-                b={where === 'digital' && !starting
-                  ? { label: 'TO MOVE OVER', value: '1', unit: path === 'sheet' ? 'CSV file' : 'export file' }
-                  : { label: 'FREE TO START', value: '20', unit: 'flights by hand' }} />
-            )}
-            <Text style={[s.lbl, { marginTop: 24, marginBottom: 10 }]}>WHAT YOU GET</Text>
-            <View style={[s.glass, { paddingHorizontal: 14 }]}>
-              {(() => {
-                // Raderna efter svaren först, sedan det övriga på pappersvägen (högst fem rader).
-                const rows = [...pitch.rows.slice(0, 2), ...(path === 'paper' ? gainRows(pilot, prio, want).slice(0, 2) : []), pitch.rows[2]];
-                return rows.map((r, i) => <PitchLine key={r.key} row={r} last={i === rows.length - 1} />);
-              })()}
+              ))}
             </View>
           </Screen>
         ) : null}
@@ -545,10 +505,10 @@ function hoursScanDesc(paying: boolean, bought: PaywallResult): string {
   return `${FREE_SPREADS} spreads free, more with Blade coins`;
 }
 
-function Screen({ insets, children, footer, scrollRef }: { insets: { top: number; bottom: number }; children: React.ReactNode; footer?: React.ReactNode; scrollRef?: React.RefObject<ScrollView | null> }) {
+function Screen({ insets, children, footer, scrollRef, top = 64 }: { insets: { top: number; bottom: number }; children: React.ReactNode; footer?: React.ReactNode; scrollRef?: React.RefObject<ScrollView | null>; top?: number }) {
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 22, paddingBottom: 20 }}
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + top, paddingHorizontal: 22, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {children}
       </ScrollView>
@@ -596,29 +556,6 @@ function Choice({ title, sub, icon, on, onPress }: { title: string; sub?: string
       <View style={[s.radio, on && { borderColor: CYAN }]}>{on ? <View style={s.radioDot} /> : null}</View>
     </Pressable>
   );
-}
-
-// En rad i "varför Blades"-rutan: ikon och en kort rubrik. Underraden läses upp av skärmläsaren men visas inte.
-function PitchLine({ row, last }: { row: PitchRow; last?: boolean }) {
-  return (
-    <View style={[s.pline, last && { borderBottomWidth: 0 }]} accessible accessibilityLabel={`${row.title}. ${row.sub}`}>
-      <View style={s.pIcon}><Ionicons name={row.icon} size={19} color={CYAN} /></View>
-      <Text style={[s.ot, { flex: 1, fontSize: 15 }]}>{row.title}</Text>
-    </View>
-  );
-}
-
-// Två stora siffror bredvid varandra (t.ex. för hand mot med Blades). Den gröna är den som gäller Blades.
-type DuoSide = { label: string; value: string; unit: string; good?: boolean };
-function Duo({ a, b, style }: { a: DuoSide; b: DuoSide; style?: object }) {
-  const side = (x: DuoSide) => (
-    <View style={[s.duoSide, x.good && s.duoGood]} accessible accessibilityLabel={`${x.label}: ${x.value} ${x.unit}`}>
-      <Text style={[s.lbl, { fontSize: 9.5 }, x.good && { color: GREEN }]}>{x.label}</Text>
-      <Text style={[s.duoN, x.good && { color: GREEN }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{x.value}</Text>
-      <Text style={s.os}>{x.unit}</Text>
-    </View>
-  );
-  return <View style={[{ flexDirection: 'row', gap: 10 }, style]}>{side(a)}{side(b)}</View>;
 }
 
 function HoursRow({ icon, title, desc, rec, onPress }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; desc: string; rec?: boolean; onPress: () => void }) {
@@ -713,20 +650,17 @@ const s = StyleSheet.create({
   chgText: { fontFamily: MONO, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: CYAN },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(127,168,200,0.22)', backgroundColor: 'rgba(15,30,58,0.5)', justifyContent: 'center' },
   chipTall: { height: 44 },
+  hBig: { fontFamily: SERIF, fontSize: 38, fontWeight: '700', lineHeight: 41, letterSpacing: -0.7, color: '#FFFFFF', marginTop: 6 },
+  tileS: { flex: 1, gap: 3, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 16, backgroundColor: 'rgba(15,30,58,0.7)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.3)' },
+  tileGood: { backgroundColor: 'rgba(25,230,165,0.1)', borderColor: 'rgba(25,230,165,0.55)' },
+  tileN: { fontFamily: SERIF, fontSize: 25, fontWeight: '700', lineHeight: 29, color: '#FFFFFF' },
+  tileL: { fontSize: 12, lineHeight: 16, color: '#B4C9DD' },
   q: { fontFamily: SERIF, fontSize: 21, fontWeight: '600', lineHeight: 26, color: '#FFFFFF', marginTop: 30 },
   qBody: { gap: 8, marginTop: 12 },
   qSub: { marginTop: 18, marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   h2: { fontFamily: SERIF, fontSize: 23, fontWeight: '600', lineHeight: 27, color: '#FFFFFF' },
   cicon: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
-  duoSide: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 18, paddingHorizontal: 10, borderRadius: 20, backgroundColor: 'rgba(15,30,58,0.62)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.18)' },
-  duoGood: { borderColor: 'rgba(25,230,165,0.5)', backgroundColor: 'rgba(25,230,165,0.08)' },
-  duoN: { fontFamily: SERIF, fontSize: 36, fontWeight: '600', lineHeight: 42, color: '#FFFFFF' },
-  strip: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 12, paddingVertical: 12, paddingHorizontal: 15 },
-  stripN: { fontFamily: SERIF, fontSize: 21, fontWeight: '600', lineHeight: 26, color: '#FFFFFF' },
-  stepIcon: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(0,200,232,0.1)', borderWidth: 1, borderColor: 'rgba(0,200,232,0.3)', alignItems: 'center', justifyContent: 'center' },
-  pIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(0,200,232,0.1)', alignItems: 'center', justifyContent: 'center' },
-  pline: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 56, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   chipOn: { borderColor: CYAN, backgroundColor: 'rgba(0,200,232,0.14)' },
   chipText: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', color: SOFT },
   cta: { height: 54, borderRadius: 16, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', shadowColor: CYAN, shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },

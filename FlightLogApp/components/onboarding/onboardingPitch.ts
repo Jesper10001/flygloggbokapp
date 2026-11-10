@@ -63,64 +63,58 @@ const ROWS = (pilot: boolean): Record<string, PitchRow> => ({
   fleet: { key: 'fleet', icon: 'hardware-chip-outline', title: 'Every drone you fly', sub: 'Hours per drone in your fleet, picked with one tap when you log.' },
 });
 
-export interface Pitch { path: PitchPath; eyebrow: string; title: string; sub: string; rows: PitchRow[] }
+export interface Tile { value: string; label: string; good?: boolean }
+export interface Solution { hero: 'paper' | 'file' | 'type' | 'drone'; kicker: string; title: string; tiles: Tile[]; rows: PitchRow[] }
 
-export function buildPitch(a: {
-  pilot: boolean; prio: Prio; want: Want; path: PitchPath; app: string | null; saving: string | null; freeSpreads: number;
-}): Pitch {
+/**
+ * Lösningssidan: bilden överst, rubriken, tre siffror och tre korta rader. Tre grunddesigner: piloten med bara
+ * pappersbok (fotografera, Blades skriver in), piloten med digital loggbok (flytta över, Blades fyller i resten)
+ * och drönarpiloten (bevis för varje flygning). Raderna börjar med det användaren svarat är viktigt.
+ */
+export function buildSolution(a: {
+  pilot: boolean; prio: Prio; want: Want; path: PitchPath; deal: { month: string; year: string } | null;
+  bookShort: string | null; freeSpreads: number;
+}): Solution {
   const R = ROWS(a.pilot);
-  const named = a.app && a.app !== 'Another app' ? a.app : null;
-  const bySub = (m: Record<Prio, string>) => m[a.prio];
-  let eyebrow = 'WHY BLADES', title: string, sub: string, last: PitchRow;
-  switch (a.path) {
-    case 'paper':
-      eyebrow = 'YOUR PAPER LOGBOOK';
-      title = 'We have the solution for you.';
-      sub = bySub({
-        fast: 'Scan your logbook once. After that, a flight takes about 20 seconds.',
-        trust: 'Blades reads every row and asks you about anything it is unsure of.',
-        licence: 'Scan your logbook and see today how far you are from your next licence.',
-        proof: 'Scan your logbook once and get one you can hand over.',
-      });
-      last = { key: 'try', icon: 'scan-outline', title: `Try ${a.freeSpreads} spreads free`, sub: 'See how it reads your handwriting first.' };
-      break;
-    case 'paperNoScan':
-      title = 'Start from the hours you have.';
-      sub = 'Your paper logbook stays your record. Blades takes it from here.';
-      last = { key: 'totals0', icon: 'create-outline', title: 'Enter your totals once', sub: 'Type in the hours you have so far, and log from today.' };
-      break;
-    case 'appPricey':
-      title = `Your logbook, for at least ${a.saving} less a month.`;
-      sub = bySub({
-        fast: 'And a flight takes about 20 seconds.', trust: 'With totals you can trust.',
-        licence: 'With a date for your next licence.', proof: 'With a logbook you can hand over.',
-      });
-      last = { key: 'move', icon: 'download-outline', title: named ? `Your ${named} flights come with you` : 'Your flights come with you', sub: 'Export your logbook there and import the file here. The coins you start with cover it.' };
-      break;
-    case 'appMid':
-    case 'app':
-      title = 'Keep every hour. Get more out of them.';
-      sub = a.path === 'appMid' ? 'Blades costs less than what you pay today.' : 'Bring your flights over and try Blades next to what you use today.';
-      last = { key: 'move', icon: 'download-outline', title: named ? `Your ${named} flights come with you` : 'Your flights come with you', sub: 'Export your logbook there and import the file here. The coins you start with cover it.' };
-      break;
-    case 'sheet':
-      title = 'Your spreadsheet did the job. Blades does the maths.';
-      sub = 'Your rows come with you. The formulas stay behind.';
-      last = { key: 'move', icon: 'download-outline', title: 'Your rows come with you', sub: 'Save the sheet as CSV and import it. Blades matches the columns.' };
-      break;
-    default:
-      title = 'Start your logbook the right way.';
-      sub = 'Every hour counts. From day one.';
-      last = { key: 'free', icon: 'gift-outline', title: 'Free to start', sub: 'Your first 20 flights logged by hand are free.' };
+  const mine = [R[a.prio], R[a.want]];
+  const privacy: PitchRow = { key: 'private', icon: 'lock-closed-outline', title: 'Stays on your phone. No account needed.', sub: 'Your logbook is stored on this phone.' };
+  const fast: Tile = { value: '20 s', label: 'to log a flight', good: true };
+  if (!a.pilot) {
+    return {
+      hero: 'drone', kicker: 'YOUR DRONE LOGBOOK', title: 'Proof of every flight,\nready when asked.',
+      tiles: [
+        { value: 'A1–SPEC', label: 'hours per category', good: true },
+        { value: 'BVLOS', label: 'time per sight mode' },
+        { value: 'PDF', label: 'logbook to hand over' },
+      ],
+      rows: [...mine, { key: 'dscan', icon: 'scan-outline', title: 'Scan the flight list from your drone app', sub: 'A screenshot is enough.' }],
+    };
   }
-  return { path: a.path, eyebrow, title, sub, rows: [R[a.prio], R[a.want], last] };
-}
-
-/** Fördelarna på pappersvägens andra sida: allt som rutan före inte redan sagt. */
-export function gainRows(pilot: boolean, prio: Prio, want: Want): PitchRow[] {
-  const R = ROWS(pilot);
-  const all = pilot ? ['totals', 'licence', 'current', 'book', 'map'] : ['totals', 'split', 'fleet', 'book', 'overview'];
-  return all.filter((k) => k !== prio && k !== want).map((k) => R[k]);
+  if (a.path === 'paper') {
+    return {
+      hero: 'paper', kicker: 'WE HAVE THE SOLUTION FOR YOU', title: 'Photograph it.\nBlades types it.',
+      tiles: [
+        { value: '30–45', label: 'minutes, not 5–10+ hours', good: true },
+        a.bookShort ? { value: a.bookShort, label: 'for the whole book' } : { value: '3 steps', label: 'photo, read, check' },
+        { value: `${a.freeSpreads} free`, label: 'spreads to try it' },
+      ],
+      rows: [...mine, privacy],
+    };
+  }
+  if (a.path === 'start' || a.path === 'paperNoScan') {
+    return {
+      hero: 'type', kicker: 'WHY BLADES', title: 'Log it once.\nBlades does the rest.',
+      tiles: [fast, { value: '20', label: 'flights free by hand' }, { value: 'PDF', label: 'logbook pages' }],
+      rows: [...mine, privacy],
+    };
+  }
+  return {
+    hero: 'file', kicker: 'WHY BLADES', title: 'Bring it over.\nBlades fills in the rest.',
+    tiles: a.deal
+      ? [{ value: a.deal.month, label: `less a month, ${a.deal.year} a year`, good: true }, { ...fast, good: false }, { value: '1 file', label: 'moves your logbook' }]
+      : [fast, { value: '1 file', label: 'moves your logbook' }, { value: '20', label: 'flights free by hand' }],
+    rows: [...mine, privacy],
+  };
 }
 
 // ── Pengar ──────────────────────────────────────────────────────────────────
@@ -177,11 +171,16 @@ function cheapest(coins: number, pr: Prices): number | null {
 }
 
 /** "170 kr to 210 kr" för en hel bok. null när priserna saknas. */
-export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: string } | null {
+export function bookCost(pr: Prices | null, coinsPerSpread: number): { range: string; short: string } | null {
   if (!pr) return null;
   const lo = cheapest(BOOK.spreadsLo * coinsPerSpread, pr), hi = cheapest(BOOK.spreadsHi * coinsPerSpread, pr);
   if (lo == null || hi == null) return null;
-  return { range: `${money(round(lo), pr)} to ${money(round(hi), pr)}` };
+  // Kort form till siffer-rutan: "$12–15" eller "170–210 kr" (valutan står en gång, på sin vanliga sida).
+  const prefix = !/^\s*\d/.test(pr.sample);
+  const bare = (v: number) => money(v, { ...pr, sample: '0' });
+  const short = round(lo) === round(hi) ? money(round(lo), pr)
+    : prefix ? `${money(round(lo), pr)}–${bare(round(hi))}` : `${bare(round(lo))}–${money(round(hi), pr)}`;
+  return { range: `${money(round(lo), pr)} to ${money(round(hi), pr)}`, short };
 }
 
 /**
