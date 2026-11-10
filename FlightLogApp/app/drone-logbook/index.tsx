@@ -32,7 +32,7 @@ import {
   listDigitalBooks, setActiveDigitalBook,
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
-import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
+import { BookSetupFlow } from '../../components/logbook/BookSetupFlow';
 import { TranscribeOverlay } from '../../components/logbook/TranscribeOverlay';
 
 const parseJson = <T,>(s: string | undefined, fallback: T): T => {
@@ -120,6 +120,8 @@ export default function DroneLogbookScreen() {
   );
 
   const slices = useMemo<BookSlice[]>(() => assignFlightsToBooks(books, flightRows), [books, flightRows]);
+  const latestSlice = slices[slices.length - 1];
+  const needsNextBook = !!latestSlice && (latestSlice.isFull || latestSlice.overflowCount > 0);
   const selectedBook = useMemo(() => books.find((b) => b.id === activeBookId) ?? null, [books, activeBookId]);
   const selectedSlice = useMemo(() => slices.find((s) => s.book.id === activeBookId) ?? null, [slices, activeBookId]);
 
@@ -228,7 +230,7 @@ export default function DroneLogbookScreen() {
         <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
           <View style={styles.sheetBackdrop}>
             {setup && (
-              <BookSetupSheet mode={setup.mode} appMode="drone" initial={setup.initial} flights={flightRows} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+              <BookSetupFlow kind="drone" flights={flightRows} timeFormat={timeFormat} pilotName={pilotName} books={books} edit={setup.mode === 'edit' ? setup.initial : null} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
             )}
           </View>
         </Modal>
@@ -323,10 +325,13 @@ export default function DroneLogbookScreen() {
                 );
               })}
             </ScrollView>
-            <TouchableOpacity style={styles.newBookRow} onPress={() => { setShowBooks(false); setSetup({ mode: 'create', initial: null }); }} activeOpacity={0.85}>
-              <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
-              <Text style={styles.newBookTxt}>{t('dlb_new_book')}</Text>
-            </TouchableOpacity>
+            {/* En bok till när den senaste boken är full (samma regel som pilotläget). */}
+            {needsNextBook && (
+              <TouchableOpacity style={styles.newBookRow} onPress={() => { setShowBooks(false); setSetup({ mode: 'create', initial: null }); }} activeOpacity={0.85}>
+                <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+                <Text style={styles.newBookTxt}>{t('dlb_new_book')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -372,7 +377,7 @@ export default function DroneLogbookScreen() {
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={styles.sheetBackdrop}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode="drone" initial={setup.initial} flights={flightRows} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+            <BookSetupFlow kind="drone" flights={flightRows} timeFormat={timeFormat} pilotName={pilotName} books={books} edit={setup.mode === 'edit' ? setup.initial : null} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
           )}
         </View>
       </Modal>

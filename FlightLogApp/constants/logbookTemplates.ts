@@ -69,6 +69,16 @@ export function slotKind(template: LogbookTemplate, colId: string): AssignableFi
   return col?.group === 'Pilot function time' ? 'function' : 'other';
 }
 
+/** Bokens egna val för tomma kolumner ({ kolumn-id: flightKey }, sparas per bok) inlagda i mallen. */
+export function withCustomCols(template: LogbookTemplate, customCols: Record<string, string> | null | undefined): LogbookTemplate {
+  if (!customCols || Object.keys(customCols).length === 0) return template;
+  const apply = (c: LogbookColumn): LogbookColumn => {
+    const f = ASSIGNABLE_TIME_FIELDS.find((a) => a.key === customCols[c.id]);
+    return f ? { ...c, flightKey: f.key, format: f.format, label: f.label } : c;
+  };
+  return { ...template, left_columns: template.left_columns.map(apply), right_columns: template.right_columns.map(apply) };
+}
+
 export interface LogbookTemplate {
   id: string;
   name: string;

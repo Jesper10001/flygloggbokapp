@@ -1,6 +1,6 @@
 // Den skannade loggbokens format som mall. När en skanning sparas blir det skannade uppslagets layout
 // (bookTemplateFromScan: samma kolumner, ordning, bredder och sidor, bokregeln längst ner) en egen mall,
-// "Scanned logbook". Den förväljs när man skapar sin digitala loggbok (BookSetupSheet), med alla fält klara,
+// "Scanned logbook". Den förväljs när man skapar sin digitala loggbok (BookSetupFlow), med alla fält klara,
 // och kolumnerna kan ändras i samma editor som andra egna mallar.
 
 import type { PageGrid } from '../scanGeometry';

@@ -1,7 +1,7 @@
 // Drönar-Book-vy (in-flik) — KLON av manned BookView, samma motor och layout, men
 // datakällan är drönarflygningar (droneToFlightRow → Flight[]) och böckerna lagras
 // med kind='drone'. Två stående sidor i full bredd; bläddra/fullskärm under höger
-// sida; Modify / New logbook via samma BookSetupSheet (appMode='drone').
+// sida; Modify / New logbook via samma uppsättning som pilotläget (BookSetupFlow, kind='drone').
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Modal, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -16,12 +16,12 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import { getTemplate } from '../../constants/logbookTemplates';
 import type { Flight } from '../../types/flight';
-import { buildBookSpreads, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
+import { buildBookSpreads, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks, resolveOpeningBalance, type BookSlice } from '../../services/logbook/books';
 import { listDigitalBooks, setActiveDigitalBook, type DigitalBook } from '../../db/digitalBooks';
 import { droneToFlightRow, loadDroneMetaById } from '../../services/logbook/droneSpread';
 import { SpreadWebView } from '../logbook/SpreadWebView';
-import { BookSetupSheet } from '../logbook/BookSetupSheet';
+import { BookSetupFlow } from '../logbook/BookSetupFlow';
 import { type SignatureData } from '../SignaturePad';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { useTabBarSpace } from '../GlassTabBar';
@@ -49,7 +49,7 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
   const [idx, setIdx] = useState(0);
   const [showOverview, setShowOverview] = useState(false); // page-overview dropdown
   const [showBooks, setShowBooks] = useState(false);       // bok-väljare (via titeln)
-  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
+  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null } | null>(null);
   const [ratioL, setRatioL] = useState(0.72); // höjd/bredd för vänster sida (uppdateras av onAspect)
   const [ratioR, setRatioR] = useState(0.72);
 
@@ -79,7 +79,11 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
   );
 
   const book = useMemo(() => books.find((b) => b.is_active === 1) ?? books[books.length - 1] ?? null, [books]);
-  const slice = useMemo<BookSlice | null>(() => (book ? assignFlightsToBooks(books, flightRows).find((s) => s.book.id === book.id) ?? null : null), [book, books, flightRows]);
+  const slices = useMemo<BookSlice[]>(() => assignFlightsToBooks(books, flightRows), [books, flightRows]);
+  const slice = useMemo<BookSlice | null>(() => (book ? slices.find((s) => s.book.id === book.id) ?? null : null), [book, slices]);
+  // Nästa bok behövs när den SENASTE boken är full (samma regel som pilotläget).
+  const latestSlice = slices[slices.length - 1];
+  const needsNextBook = !!latestSlice && (latestSlice.isFull || latestSlice.overflowCount > 0);
   const template = useMemo(() => (book ? getTemplate(book.template_id) : null), [book]);
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const spreads = useMemo<LogbookSpread[]>(() => {
@@ -186,10 +190,13 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
                 <Ionicons name="create-outline" size={16} color={accent} />
                 <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>Modify logbook</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null, carry: spreads.length ? spreads[spreads.length - 1].total_to_date : undefined })} activeOpacity={0.8} style={secBtn}>
-                <Ionicons name="add" size={18} color={accent} />
-                <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>New logbook</Text>
-              </TouchableOpacity>
+              {/* "New logbook" visas när den senaste boken är full. Böcker utan sista sida fylls aldrig. */}
+              {needsNextBook && (
+                <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null })} activeOpacity={0.8} style={secBtn}>
+                  <Ionicons name="add" size={18} color={accent} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>New logbook</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         ) : (
@@ -244,12 +251,12 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
         </>
       )}
 
-      {/* Skapa/redigera bok — samma sheet som i helskärm (stående) */}
+      {/* Ny bok / ändra boken — samma uppsättning som i helskärm (stående) */}
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode="drone" initial={setup.initial} flights={flightRows} carryOpeningBalance={setup.carry} timeFormat={timeFormat}
-              onClose={() => setSetup(null)} onSaved={() => { setSetup(null); listDigitalBooks('drone').then(setBooks); }} />
+            <BookSetupFlow kind="drone" flights={flightRows} timeFormat={timeFormat} pilotName={pilotName} books={booksState} edit={setup.mode === 'edit' ? setup.initial : null}
+              onClose={() => setSetup(null)} onSaved={async () => { setBooks(await listDigitalBooks('drone')); setSetup(null); }} />
           )}
         </View>
       </Modal>

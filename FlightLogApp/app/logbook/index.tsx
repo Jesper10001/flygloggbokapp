@@ -28,7 +28,6 @@ import {
   ensureDigitalBooksMigrated, listDigitalBooks, setActiveDigitalBook,
   deleteDigitalBook, renameDigitalBook, updateDigitalBook, type DigitalBook,
 } from '../../db/digitalBooks';
-import { BookSetupSheet } from '../../components/logbook/BookSetupSheet';
 import { BookSetupFlow } from '../../components/logbook/BookSetupFlow';
 import { BookFlipDemo } from '../../components/logbook/BookFlipDemo';
 import { useLogbookSetupStore } from '../../store/logbookSetupStore';
@@ -72,16 +71,22 @@ export default function LogbookScreen() {
 
   const [showBooks, setShowBooks] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
-  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
+  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null } | null>(null);
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [transcribe, setTranscribe] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
-  // När man kommer tillbaka från "Create custom logbook" → återöppna new logbook-arket (setup) i stället
-  // för att landa på Your books. Flaggan sattes av BookSetupSheet; consume() läser + nollställer den.
+  // När man kommer tillbaka från "Create custom logbook" → återöppna uppsättningen (setup) i stället
+  // för att landa på Your books. Flaggan sattes av uppsättningen; consume() läser + nollställer den.
+  const booksRef = useRef<DigitalBook[]>([]);
+  booksRef.current = books;
   useFocusEffect(useCallback(() => {
-    if (useLogbookSetupStore.getState().consume()) setSetup({ mode: 'create', initial: null });
+    const re = useLogbookSetupStore.getState().consume();
+    if (re) {
+      const book = re.editId ? booksRef.current.find((b) => b.id === re.editId) ?? null : null;
+      setSetup(book ? { mode: 'edit', initial: book } : { mode: 'create', initial: null });
+    }
     // Tillbaka från "Edit columns": läs om böckerna, så att boken ritas med den ändrade mallen.
     if (!loadingRef.current) reloadBooksRef.current?.();
   }, []));
@@ -281,11 +286,10 @@ export default function LogbookScreen() {
     );
   }
 
-  // Första loggboken i pilotläget: den guidade uppsättningen (BookSetupFlow). Redigering, fler böcker och
-  // drönarläget: arket med formuläret (BookSetupSheet).
-  const setupBody = (st: NonNullable<typeof setup>) => (st.mode === 'create' && mode !== 'drone' && books.length === 0 && !st.carry
-    ? <BookSetupFlow flights={flights} timeFormat={timeFormat} pilotName={pilotName} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
-    : <BookSetupSheet mode={st.mode} appMode={mode === 'drone' ? 'drone' : 'manned'} initial={st.initial} flights={flights} allBooks={books} carryOpeningBalance={st.carry} timeFormat={timeFormat} onClose={() => setSetup(null)} onSaved={onSetupSaved} />);
+  // Den guidade uppsättningen (BookSetupFlow) för första boken, en bok till och ändringar.
+  const setupBody = (st: NonNullable<typeof setup>) => (
+    <BookSetupFlow flights={flights} timeFormat={timeFormat} pilotName={pilotName} books={books} edit={st.mode === 'edit' ? st.initial : null} onClose={() => setSetup(null)} onSaved={onSetupSaved} />
+  );
 
   // På väg ut: rendera en tom vy (boken/WebViewerna avmonteras) medan orienteringen
   // växlar till portrait och vi navigerar — undviker frysning vid orienteringsbytet.

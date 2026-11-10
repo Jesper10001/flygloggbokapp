@@ -1,5 +1,6 @@
-// Guidad uppsättning av den första digitala loggboken (pilotläget). Ersätter formuläret i BookSetupSheet när
-// boken skapas: en fråga per skärm.
+// Loggbokens uppsättning i pilotläget, en fråga per skärm. Tre lägen:
+//
+// FÖRSTA BOKEN (inga böcker finns):
 //  1. Vilken loggbok (mallarna som kort med kolumnerna i miniatyr; ögat visar en sida med egna flygningar)
 //  2. Var den senaste flygningen står i pappersboken: sida + rad (tryck på raden). Inte inskriven än → välj
 //     en tidigare flygning; de nyare blir "Write next". Bokens storlek (rader, första/sista sida) är hopfälld.
@@ -10,8 +11,22 @@
 //     minus), så att statistiken och boken visar pappersbokens siffra. Kolumner som Backfill inte har gäller
 //     bara den här boken (opening_balance-override).
 //  5. Uppslaget som det kommer att se ut (riktiga sidan, svep till högersidan) och en sammanfattning.
+//
+// EN BOK TILL (böcker finns, `books`): samma skärmar, men först frågan om den nya boken ser ut som den förra
+// (ja → samma mall, storlek och kolumnval; nej → välj mall) och om man har skrivit i den än. Har man det anger
+// man sidan + raden för den senaste flygningen; boken börjar så många rader före den, och flygningarna före
+// står kvar i böckerna före (ankaret, services/logbook/books.ts). Tom bok → den tar vid där den förra blev full.
+//
+// ÄNDRA EN BOK (`edit`): en översikt (namn, uppslaget som det ser ut, en rad per inställning med Change) i
+// stället för steg. Change öppnar samma skärm som i uppsättningen; Done går tillbaka till översikten och
+// Save changes sparar allt på en gång.
+//
 // Lämnar man flödet (Imported data, egen loggbok) sparas läget och flödet öppnas igen på samma steg.
-// Redigering, fler böcker och drönarläget använder fortfarande BookSetupSheet.
+//
+// DRÖNARLÄGET (`kind="drone"`): samma flöde med drönarflygningarna som rader (droneToFlightRow) och böcker av
+// sorten 'drone'. Det finns en layout (Remote Pilot Logbook), så frågorna om layout hoppas över och en bok till
+// får förra bokens storlek. Drönarens Backfill missing hours räknas i statistiken men inte i boken: pappersbokens
+// siffror sparas därför alltid i boken, och Backfill justeras dessutom för fälten den har (DRONE_BF_KEY).
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -23,25 +38,29 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { FONT_SERIF, FONT_MONO } from '../logbook-page/tokens';
-import { LOGBOOK_TEMPLATES, getTemplate, type LogbookTemplate, type LogbookColumn } from '../../constants/logbookTemplates';
+import { LOGBOOK_TEMPLATES, getTemplate, withCustomCols, type LogbookTemplate, type LogbookColumn } from '../../constants/logbookTemplates';
 import { getCustomTemplates } from '../../db/customTemplates';
 import { getScannedTemplateId } from '../../services/logbook/bookFromScan';
 import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { useFlightStore } from '../../store/flightStore';
 import { numericColumns, sortFlightsChrono, buildBookSpreads, computeBroughtForward, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
-import { assignFlightsToBooks, resolveOpeningBalance } from '../../services/logbook/books';
+import { assignFlightsToBooks, resolveOpeningBalance, anchorRowIndex, isBookRow } from '../../services/logbook/books';
 import { planBooks } from '../../services/logbook/setupPlan';
-import { createDigitalBook, listDigitalBooks, type DigitalBook } from '../../db/digitalBooks';
+import { createDigitalBook, updateDigitalBook, deleteDigitalBook, listDigitalBooks, type DigitalBook, type BookKind } from '../../db/digitalBooks';
+import { getDroneBackfill, setDroneBackfill, type DroneBackfillValues } from '../../db/droneBackfill';
+import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getBackfill, setBackfill, PREV_EXP_REMARK, type BackfillValues } from '../../db/backfill';
 import { parseTimeInput, formatTimeValue } from '../../hooks/useTimeFormat';
 import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 
-type Step = 'intro' | 'layout' | 'latest' | 'earlier' | 'totals' | 'ready';
+type Variant = 'first' | 'another' | 'edit';
+type Step = 'intro' | 'same' | 'layout' | 'started' | 'latest' | 'earlier' | 'totals' | 'ready';
 type Sheet = 'preview' | 'flights' | 'backfill' | null;
 
 // Läget när man lämnar flödet (Imported data, egen loggbok); återställs när det öppnas igen.
 interface Draft {
+  variant: Variant; editId: number; name: string; same: boolean | null; started: boolean | null; posTouched: boolean;
   step: Step; templateId: string; rows: number; firstPage: string; lastPage: string;
   anchorEdited: boolean; page: string; row: number; back: number;
   earlierChoice: 'books' | 'bf' | null; earlierFirst: string; earlierLast: string;
@@ -57,7 +76,12 @@ const BF_KEY: Record<string, keyof BackfillValues> = {
   sp_se: 'se_time', sp_me: 'me_time',
 };
 
+// Drönarbokens kolumn → fältet i drönarens Backfill missing hours (db/droneBackfill; bara statistiken).
+const DRONE_BF_KEY: Record<string, keyof DroneBackfillValues> = { total_time: 'total_time', vlos: 'vlos', bvlos: 'bvlos', night: 'night' };
+const DRONE_TEMPLATES = LOGBOOK_TEMPLATES.filter((t) => t.id.includes('drone'));
+
 const DESC: Record<string, string> = {
+  'sv-drone-logbook': 'Remote pilot layout for RPAS, UAS and UAV',
   'easa-pilot-logbook': 'EASA layout for private and student pilots',
   'easa-professional-pilot': 'Multi-pilot, single- and multi-engine time',
   'easa-amc1-fcl050': 'The layout in the EASA rules',
@@ -68,14 +92,18 @@ const ordinal = (n: number) => { const s = ['th', 'st', 'nd', 'rd']; const v = n
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayMon = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${Number(d.slice(8, 10))} ${MON[Number(d.slice(5, 7)) - 1]}` : d || '');
 const longDate = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${dayMon(d)} ${d.slice(0, 4)}` : d || '');
-const route = (f: Flight) => `${(f.dep_place || '?').toUpperCase()} → ${(f.arr_place || '?').toUpperCase()}`;
-const isBookRow = (f: Flight) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]';
+const pilotRoute = (f: Flight) => `${(f.dep_place || '?').toUpperCase()} → ${(f.arr_place || '?').toUpperCase()}`;
 const tap = () => { Haptics.selectionAsync().catch(() => {}); };
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+const parseObj = <T,>(raw: string | undefined | null): Record<string, T> => { try { return raw ? JSON.parse(raw) : {}; } catch { return {}; } };
 
-export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved }: {
-  flights: Flight[];
+export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp, edit, kind = 'digital', onClose, onSaved }: {
+  flights: Flight[];            // bokens rader (drönarläget: droneToFlightRow)
   timeFormat: 'decimal' | 'hhmm';
   pilotName: string;
+  books?: DigitalBook[];        // böckerna som redan finns (inga = första boken)
+  edit?: DigitalBook | null;    // boken som ändras (Modify logbook)
+  kind?: BookKind;              // 'drone' = drönarlägets böcker
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -83,9 +111,27 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
   const router = useRouter();
   const { width: winW } = useWindowDimensions();
   const loadFlights = useFlightStore((s) => s.loadFlights);
-  const [init] = useState<Draft | null>(() => { const d = draft; draft = null; return d; });
+  const drone = kind === 'drone';
+  // Drönarflygningar har en plats, inte en sträcka.
+  const route = (f: Flight) => (drone ? (f.dep_place || 'No location') : pilotRoute(f));
+  const bfKey = (k: string): string | undefined => (drone ? DRONE_BF_KEY[k] : BF_KEY[k]);
+
+  // ── Läget: första boken, en bok till eller ändra en bok ──
+  const existing = useMemo(() => {
+    const all = [...(booksProp ?? [])];
+    if (edit && !all.some((b) => b.id === edit.id)) all.push(edit);
+    return all.sort((a, b) => (a.display_order - b.display_order) || (a.id - b.id));
+  }, [booksProp, edit]);
+  const variant: Variant = edit ? 'edit' : existing.length ? 'another' : 'first';
+  const prevBook = variant === 'another' ? existing[existing.length - 1] : null;
+  const prevTpl = useMemo(() => (prevBook ? getTemplate(prevBook.template_id) : null), [prevBook]);
+
+  const [init] = useState<Draft | null>(() => {
+    const d = draft; draft = null;
+    return d && d.variant === variant && d.editId === (edit?.id ?? 0) ? d : null;
+  });
   // Tillbaka från Imported data (Backfill, dubbletter): läs om flygningarna så att totalerna stämmer direkt.
-  useEffect(() => { if (init) loadFlights().catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (init && !drone) loadFlights().catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mallar (våra + egna; formatet från skanningen först och förvalt) ──
   const [custom, setCustom] = useState<LogbookTemplate[]>([]);
@@ -95,15 +141,51 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
     getScannedTemplateId().then(setScannedId).catch(() => {});
   }, []);
   const templates = useMemo(() => {
+    if (drone) return DRONE_TEMPLATES;
     const all = [...custom.filter((c) => c.id === scannedId), ...LOGBOOK_TEMPLATES, ...custom.filter((c) => c.id !== scannedId)];
     return all.filter((t) => !t.id.includes('drone') && t.id !== 'sv-easa-standard');
-  }, [custom, scannedId]);
+  }, [custom, scannedId, drone]);
+  // Finns det bara en layout (drönarläget) hoppas frågorna om layout över, och en bok till blir som den förra.
+  const pickLayout = !drone || DRONE_TEMPLATES.length > 1;
+  const autoSame = variant === 'another' && !pickLayout ? prevBook : null;
 
-  const [step, setStep] = useState<Step>(init?.step ?? 'intro');
-  const [templateId, setTemplateId] = useState(init?.templateId ?? 'easa-pilot-logbook');
+  // ── Flygningarna och var de står i böckerna i dag ──
+  const bookFlights = useMemo(() => sortFlightsChrono(flights.filter(isBookRow)), [flights]);
+  const realSlices = useMemo(() => (existing.length ? assignFlightsToBooks(existing, flights) : []), [existing, flights]);
+  // Utgångsläget för sidan + raden:
+  //  start/lead = var boken börjar bland flygningarna (och tomma rader överst), base = sista flygningen man kan
+  //  peka ut, anchorIdx/ari = bokens sparade ankare (ändra), waiting = flygningar som inte fick plats i boken före.
+  const origin = useMemo(() => {
+    const at = (id?: number) => (id ? bookFlights.findIndex((f) => f.id === id) : -1);
+    const last = bookFlights.length - 1;
+    if (variant === 'edit' && edit) {
+      const sl = realSlices.find((x) => x.book.id === edit.id);
+      const own = sl?.flights ?? [];
+      const anchorIdx = at(edit.anchor_flight_id);
+      // En senare bok med ankar-flygning men utan sida/rad börjar med flygningen (första sidan, rad 1).
+      const ari = anchorIdx >= 0 ? (anchorRowIndex(edit) ?? (existing[0]?.id === edit.id ? null : 0)) : null;
+      return {
+        start: Math.max(0, at(own[0]?.id)), lead: sl?.leadingEmptyRows ?? 0,
+        base: Math.max(at(own[own.length - 1]?.id), ari !== null ? anchorIdx : -1),
+        anchorIdx: ari !== null ? anchorIdx : -1, ari, waiting: 0,
+      };
+    }
+    if (variant === 'another') {
+      const waiting = realSlices[realSlices.length - 1]?.overflowCount ?? 0;
+      return { start: bookFlights.length - waiting, lead: 0, base: last, anchorIdx: -1, ari: null as number | null, waiting };
+    }
+    return { start: 0, lead: 0, base: last, anchorIdx: -1, ari: null as number | null, waiting: 0 };
+  }, [variant, edit, existing, realSlices, bookFlights]);
+  const anchored0 = variant === 'edit' && origin.ari !== null;   // boken har redan en flygning med sida + rad
+
+  const [step, setStep] = useState<Step>(init?.step ?? (variant === 'first' ? 'intro' : variant === 'another' ? (pickLayout ? 'same' : 'started') : 'ready'));
+  const [name, setName] = useState(init?.name ?? edit?.name ?? '');
+  const [same, setSame] = useState<boolean | null>(init?.same ?? (autoSame ? true : null));   // en bok till: ser ut som den förra
+  const [started, setStarted] = useState<boolean | null>(init ? init.started : variant === 'another' && origin.waiting > 0 ? true : null);  // en bok till: det står flygningar i den
+  const [templateId, setTemplateId] = useState(init?.templateId ?? edit?.template_id ?? autoSame?.template_id ?? (drone ? 'sv-drone-logbook' : 'easa-pilot-logbook'));
   const template = useMemo(() => templates.find((t) => t.id === templateId) ?? getTemplate(templateId), [templates, templateId]);
-  const [rows, setRows] = useState(init?.rows ?? template.rows_per_spread);
-  const picked = useRef(!!init);
+  const [rows, setRows] = useState(init?.rows ?? edit?.rows_per_spread ?? autoSame?.rows_per_spread ?? template.rows_per_spread);
+  const picked = useRef(!!init || variant === 'edit' || drone);
   const chooseTemplate = (id: string) => {
     picked.current = true;
     setTemplateId(id);
@@ -116,12 +198,15 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
     setRows((custom.find((c) => c.id === scannedId) as LogbookTemplate).rows_per_spread);
   }, [scannedId, custom]);
 
-  const [firstPage, setFirstPage] = useState(init?.firstPage ?? '1');
-  const [lastPage, setLastPage] = useState(init?.lastPage ?? '');
-  const [anchorEdited, setAnchorEdited] = useState(init?.anchorEdited ?? false);
-  const [page, setPage] = useState(init?.page ?? '');
-  const [row, setRow] = useState(init?.row ?? 1);
-  const [back, setBack] = useState(init?.back ?? 0);            // nyare flygningar som inte står i pappersboken än
+  const sizeFrom = edit ?? autoSame;   // ändra: boken; en bok till med en enda layout: boken före
+  const [firstPage, setFirstPage] = useState(init?.firstPage ?? String(sizeFrom?.starting_page ?? 1));
+  const [lastPage, setLastPage] = useState(init?.lastPage ?? (sizeFrom && sizeFrom.end_page > 0 ? String(sizeFrom.end_page) : ''));
+  const [anchorEdited, setAnchorEdited] = useState(init?.anchorEdited ?? anchored0);
+  const [page, setPage] = useState(init?.page ?? (anchored0 && edit ? String(edit.anchor_page > 0 ? edit.anchor_page : edit.starting_page) : ''));
+  const [row, setRow] = useState(init?.row ?? (anchored0 && edit && edit.anchor_row > 0 ? edit.anchor_row : 1));
+  // Flygningar efter den utpekade: nyare som inte står i pappersboken än (ny bok), eller senare i boken (ändra).
+  const [back, setBack] = useState(init?.back ?? (anchored0 ? Math.max(0, origin.base - origin.anchorIdx) : 0));
+  const [posTouched, setPosTouched] = useState(init?.posTouched ?? false);   // ändra: sidan, raden eller flygningen är ändrad
   const [sizeOpen, setSizeOpen] = useState(false);
   const [earlierChoice, setEarlierChoice] = useState<'books' | 'bf' | null>(init?.earlierChoice ?? null);
   const [earlierFirst, setEarlierFirst] = useState(init?.earlierFirst ?? '');   // tom = samma som den här boken
@@ -137,9 +222,11 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
   const [flightPick, setFlightPick] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [delArmed, setDelArmed] = useState(false);
+  const delTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toast, setToast] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); if (delTimer.current) clearTimeout(delTimer.current); }, []);
   const flash = (msg: string) => {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -148,61 +235,168 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
 
   // Lämna flödet (Imported data, egen loggbok): läget sparas och flödet öppnas igen när man kommer tillbaka.
   const leaveTo = (path: string) => {
-    draft = { step, templateId, rows, firstPage, lastPage, anchorEdited, page: String(pageNum), row: rowNum, back, earlierChoice, earlierFirst, earlierLast, totalsMode, paper, overrides };
-    useLogbookSetupStore.getState().requestReopen();
+    draft = {
+      variant, editId: edit?.id ?? 0, name, same, started, posTouched,
+      step, templateId, rows, firstPage, lastPage, anchorEdited, page: String(pageNum), row: rowNum, back, earlierChoice, earlierFirst, earlierLast, totalsMode, paper, overrides,
+    };
+    useLogbookSetupStore.getState().requestReopen(edit?.id ?? 0);
     onClose();
     router.push(path as any);
   };
 
-  // ── Flygningarna i boken och var den senaste står ──
-  const bookFlights = useMemo(() => sortFlightsChrono(flights.filter(isBookRow)), [flights]);
-  const anchorPos = Math.max(-1, bookFlights.length - 1 - back);
+  // ── Flygningen man pekar ut och var den står ──
+  const anchorPos = Math.max(-1, origin.base - back);
   const anchor = anchorPos >= 0 ? bookFlights[anchorPos] : null;
+  // Flygningen får en sida + rad. Inte i en ny bok som man inte har skrivit i än: den tar vid efter boken före.
+  const placing = !!anchor && !(variant === 'another' && started !== true);
   const fp = Math.max(1, parseInt(firstPage, 10) || 1);
   const lp = parseInt(lastPage, 10) || 0;
-  const rs = Math.max(4, Math.min(30, rows));
-  // Förslag tills man själv ändrar: alla flygningar från första sidan.
+  const rs = Math.max(1, Math.min(60, rows));
+  // Förslag tills man själv ändrar: där flygningen står i dag (första boken: alla flygningar från första sidan;
+  // en bok till: flygningarna som inte fick plats i boken före, från första sidan).
   const suggest = useMemo(() => {
-    const pos = Math.max(1, anchorPos + 1);
+    const pos = Math.max(1, anchorPos + 1 - origin.start + origin.lead);
     return { page: fp + (Math.ceil(pos / rs) - 1) * 2, row: ((pos - 1) % rs) + 1 };
-  }, [anchorPos, fp, rs]);
+  }, [anchorPos, origin.start, origin.lead, fp, rs]);
   const pageNum = anchorEdited ? Math.max(fp, parseInt(page, 10) || fp) : suggest.page;
   const rowNum = Math.max(1, Math.min(rs, anchorEdited ? row : suggest.row));
   const eFirst = Math.max(1, parseInt(earlierFirst, 10) || fp);
   const eLast = Math.max(eFirst + 1, parseInt(earlierLast, 10) || lp || 100);
-  // Bokplanen (services/logbook/setupPlan): uppslaget, plats före flygningen, tidigare böcker.
-  const { leftPage, room, earlier, books: plan } = useMemo(() => planBooks({
+  // Bokplanen (services/logbook/setupPlan): uppslaget, plats före flygningen, tidigare böcker (bara första boken).
+  const planned = useMemo(() => planBooks({
     bookFlightIds: bookFlights.map((f) => f.id), anchorPos, firstPage: fp, lastPage: lp, rowsPerSpread: rs,
-    page: pageNum, row: rowNum, earlierChoice, earlierFirstPage: eFirst, earlierLastPage: eLast,
-  }), [bookFlights, anchorPos, fp, lp, rs, pageNum, rowNum, earlierChoice, eFirst, eLast]);
+    page: pageNum, row: rowNum, earlierChoice: variant === 'first' ? earlierChoice : null, earlierFirstPage: eFirst, earlierLastPage: eLast,
+  }), [bookFlights, anchorPos, fp, lp, rs, pageNum, rowNum, earlierChoice, eFirst, eLast, variant]);
+  const { leftPage, room, books: plan } = planned;
+  const earlier = variant === 'first' ? planned.earlier : 0;
   const written = anchorPos + 1;
-  const editAnchor = (p: number, r: number) => { setAnchorEdited(true); setPage(String(Math.max(fp, p))); setRow(r); };
+  const editAnchor = (p: number, r: number) => { setAnchorEdited(true); setPosTouched(true); setPage(String(Math.max(fp, p))); setRow(r); };
 
-  const steps: Step[] = ['layout', 'latest', ...(earlier > 0 ? ['earlier' as Step] : []), ...(anchor ? ['totals' as Step] : []), 'ready'];
+  const chooseSame = (yes: boolean) => {
+    setSame(yes);
+    if (!yes || !prevBook) return;
+    picked.current = true;
+    setTemplateId(prevBook.template_id);
+    setRows(prevBook.rows_per_spread);
+    setFirstPage(String(prevBook.starting_page));
+    setLastPage(prevBook.end_page > 0 ? String(prevBook.end_page) : '');
+  };
+
+  const steps: Step[] = variant === 'first'
+    ? [...(pickLayout ? ['layout' as Step] : []), 'latest', ...(earlier > 0 ? ['earlier' as Step] : []), ...(anchor ? ['totals' as Step] : []), 'ready']
+    : variant === 'another'
+      ? [...(pickLayout ? ['same' as Step] : []), ...(pickLayout && same === false ? ['layout' as Step] : []), 'started', 'latest', ...(placing ? ['totals' as Step] : []), 'ready']
+      : [];   // ändra: översikten ('ready') och en skärm i taget därifrån
   const stepIdx = steps.indexOf(step);
   const go = (s: Step) => { setSheet(null); setStep(s); };
-  const next = () => { if (step === 'intro') return go('layout'); if (stepIdx >= 0 && stepIdx < steps.length - 1) go(steps[stepIdx + 1]); };
-  const prev = () => { if (step === 'layout') return go('intro'); if (stepIdx > 0) go(steps[stepIdx - 1]); };
-
-  // Böckerna som de skulle se ut (förhandsvisningen och den ingående balansen räknas på dem innan de skapas).
-  const fakeBooks = (ob: ColumnTotals): DigitalBook[] => plan.map((b, i) => ({
-    id: i + 1, name: `${ordinal(i + 1)} Logbook`, template_id: templateId, starting_page: b.startingPage, rows_per_spread: rs,
-    end_page: b.endPage, end_row: 0, is_active: i === plan.length - 1 ? 1 : 0, created_at: '', kind: 'digital',
-    opening_balance: i === plan.length - 1 ? JSON.stringify(ob) : '{}', custom_cols: '{}',
-    anchor_flight_id: b.anchorFlightId, anchor_page: b.anchorPage, anchor_row: b.anchorRow, display_order: i, acked_spread: 0,
-  }));
-
-  // ── Totalerna fram till och med flygningen (som pappersbokens Total to date på samma uppslag) ──
-  const cols = useMemo(() => numericColumns(template), [template]);
-  const totalsFor = (fl: Flight[]): ColumnTotals => {
-    if (!anchor) return {};
-    const all = sortFlightsChrono(fl.filter((f) => !((f as any).flight_type === 'sim' && (f as any).remarks === '[BACKFILL]')));
-    const i = all.findIndex((f) => f.id === anchor.id);
-    const nextFlight = i >= 0 ? all[i + 1] : undefined;
-    return nextFlight ? computeBroughtForward(fl, template, nextFlight.id) : computeBroughtForward(fl, template, 0, undefined, { noAnchorBase: 'all' });
+  const next = () => {
+    if (variant === 'edit') return go('ready');
+    if (step === 'intro') return go(steps[0]);
+    if (stepIdx >= 0 && stepIdx < steps.length - 1) go(steps[stepIdx + 1]);
   };
+  const prev = () => {
+    if (variant === 'edit') return go('ready');
+    if (stepIdx > 0) return go(steps[stepIdx - 1]);
+    if (variant === 'first' && stepIdx === 0) go('intro');
+  };
+  const canBack = variant === 'edit' ? step !== 'ready' : variant === 'first' ? step !== 'intro' : stepIdx > 0;
+
+  // ── Böckerna som de blir (förhandsvisningen, fördelningen och den ingående balansen räknas på dem) ──
+  // Ankaret som sparas. Ändra: en bok utan sida + rad behåller sitt ankare tills man själv ändrar läget.
+  const keepAnchor = variant === 'edit' && !!edit && !posTouched && !anchored0;
+  const aId = keepAnchor ? edit!.anchor_flight_id : placing && anchor ? anchor.id : 0;
+  const aPage = keepAnchor ? edit!.anchor_page : placing && anchor ? leftPage : 0;
+  const aRow = keepAnchor ? edit!.anchor_row : placing && anchor ? rowNum : 0;
+  const newName = `${ordinal(existing.length + 1)} Logbook`;
+  const curId = variant === 'first' ? plan.length : variant === 'another' ? -1 : edit!.id;
+  // Bokens egna val för tomma kolumner följer med när mallen är densamma.
+  const customCols = useMemo<Record<string, string>>(() => {
+    if (variant === 'edit' && edit) return templateId === edit.template_id ? parseObj<string>(edit.custom_cols) : {};
+    if (variant === 'another' && prevBook && same) return templateId === prevBook.template_id ? parseObj<string>(prevBook.custom_cols) : {};
+    return {};
+  }, [variant, edit, prevBook, same, templateId]);
+  const bookTpl = useMemo(() => withCustomCols(template, customCols), [template, customCols]);
+  /** ob = ingående balans för boken (utan: härledd; ändra: bokens sparade). */
+  const pendingBooks = (ob?: ColumnTotals): DigitalBook[] => {
+    if (variant === 'first') {
+      return plan.map((b, i) => ({
+        id: i + 1, name: `${ordinal(i + 1)} Logbook`, template_id: templateId, starting_page: b.startingPage, rows_per_spread: rs,
+        end_page: b.endPage, end_row: 0, is_active: i === plan.length - 1 ? 1 : 0, created_at: '', kind,
+        opening_balance: i === plan.length - 1 ? JSON.stringify(ob ?? {}) : '{}', custom_cols: '{}',
+        anchor_flight_id: b.anchorFlightId, anchor_page: b.anchorPage, anchor_row: b.anchorRow, display_order: i, acked_spread: 0,
+      }));
+    }
+    const mine = { template_id: templateId, starting_page: fp, rows_per_spread: rs, end_page: lp, anchor_flight_id: aId, anchor_page: aPage, anchor_row: aRow };
+    if (variant === 'another') {
+      return [...existing, {
+        id: -1, name: newName, ...mine, end_row: 0, is_active: 1, created_at: '', kind,
+        opening_balance: JSON.stringify(ob ?? {}), custom_cols: JSON.stringify(customCols),
+        display_order: (prevBook?.display_order ?? 0) + 1, acked_spread: 0,
+      }];
+    }
+    return existing.map((b) => (b.id === edit!.id ? { ...b, ...mine, opening_balance: ob ? JSON.stringify(ob) : b.opening_balance } : b));
+  };
+  // Fördelningen med de nya inställningarna: bokens flygningar och böckerna före.
+  const pend = useMemo(() => {
+    const books = pendingBooks();
+    const slices = assignFlightsToBooks(books, flights);
+    const i = slices.findIndex((x) => x.book.id === curId);
+    return { slices, i, slice: i >= 0 ? slices[i] : undefined };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant, plan, existing, templateId, fp, lp, rs, aId, aPage, aRow, flights, curId]);
+  const fit = useMemo(() => {
+    if (variant === 'first' || !pend.slice) return { count: 0, before: 0, where: '', note: '' };
+    const sl = pend.slice;
+    const before = pend.slices.slice(0, pend.i);
+    const prevSl = before[before.length - 1];
+    let note = '';
+    if (prevSl && prevSl.overCapacity > 0) {
+      note = `${prevSl.book.name} then has ${plural(prevSl.overCapacity, 'more flight')} than its pages ${prevSl.book.starting_page} to ${prevSl.book.end_page} hold. Check the page and row, or the last page of ${prevSl.book.name}.`;
+    } else if (sl.overCapacity > 0) {
+      note = `This logbook has ${plural(sl.overCapacity, 'more flight')} than pages ${fp} to ${lp} hold. They are shown after page ${lp}.`;
+    } else if (sl.overflowCount > 0) {
+      note = `${plural(sl.overflowCount, 'flight')} ${sl.overflowCount === 1 ? 'doesn’t' : 'don’t'} fit before the last page, ${lp}. ${sl.overflowCount === 1 ? 'It waits' : 'They wait'} for your next logbook.`;
+    }
+    return {
+      count: sl.flights.length,
+      before: before.reduce((a, x) => a + x.flights.length, 0),
+      where: before.length === 1 ? before[0].book.name : 'your earlier logbooks',
+      note,
+    };
+  }, [variant, pend, fp, lp]);
+  // Bokens uppslag med de nya inställningarna (extra = pappersbokens siffror ovanpå den ingående balansen).
+  const spreadsFor = (fl: Flight[], extra?: (auto: ColumnTotals) => ColumnTotals): LogbookSpread[] => {
+    const books = pendingBooks();
+    const cur = books.find((b) => b.id === curId) ?? books[books.length - 1];
+    const slice = assignFlightsToBooks(books, fl).find((x) => x.book.id === cur.id);
+    const auto = resolveOpeningBalance(cur, books, fl, bookTpl);
+    return buildBookSpreads(slice?.flights ?? [], bookTpl, { startingPage: fp, rowsPerSpread: rs, openingBalance: extra ? extra(auto) : auto, leadingEmptyRows: slice?.leadingEmptyRows ?? 0 });
+  };
+  const needSpreads = step === 'ready' || variant === 'edit';
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const totals = useMemo<ColumnTotals>(() => totalsFor(flights), [flights, template, anchor]);
+  const curSpreads = useMemo<LogbookSpread[]>(() => (needSpreads ? spreadsFor(flights) : []), [needSpreads, pend, bookTpl]);
+
+  // ── Totalerna som jämförs med pappersbokens Total to date ──
+  // Ny bok: fram till och med flygningen man pekat ut (det som står i pappersboken). Ändra: bokens sista
+  // uppslag som det ritas, alltså efter bokens sista flygning och med bokens sparade ingående balans.
+  const ownFlights = pend.slice?.flights ?? [];
+  const refFlight = variant === 'edit' ? (ownFlights[ownFlights.length - 1] ?? null) : placing ? anchor : null;
+  const lastSpread = curSpreads[curSpreads.length - 1];
+  const totLeft = variant === 'edit' && lastSpread ? lastSpread.page_left : leftPage;
+  const cols = useMemo(() => numericColumns(bookTpl), [bookTpl]);
+  const totalsFor = (fl: Flight[]): ColumnTotals => {
+    if (!refFlight) return {};
+    if (variant === 'edit') { const sp = spreadsFor(fl); return sp[sp.length - 1]?.total_to_date ?? {}; }
+    const all = sortFlightsChrono(fl.filter((f) => !((f as any).flight_type === 'sim' && (f as any).remarks === '[BACKFILL]')));
+    const i = all.findIndex((f) => f.id === refFlight.id);
+    const nextFlight = i >= 0 ? all[i + 1] : undefined;
+    return nextFlight ? computeBroughtForward(fl, bookTpl, nextFlight.id) : computeBroughtForward(fl, bookTpl, 0, undefined, { noAnchorBase: 'all' });
+  };
+  const totals = useMemo<ColumnTotals>(
+    () => (variant === 'edit' ? (refFlight && lastSpread ? lastSpread.total_to_date : {}) : totalsFor(flights)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variant, flights, bookTpl, refFlight, lastSpread],
+  );
   const isInt = (c: LogbookColumn) => c.format === 'int';
   const fmt = (c: LogbookColumn, v: number) => (isInt(c) ? String(Math.round(v)) : timeFormat === 'hhmm' ? formatTimeValue(v, 'hhmm') : (Math.round(v * 10) / 10).toFixed(1));
   const unit = (c: LogbookColumn) => (isInt(c) ? '' : timeFormat === 'decimal' ? ' h' : '');
@@ -237,9 +431,9 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
 
   // Var timmarna kommer ifrån (fram till flygningen).
   const sources = useMemo(() => {
-    if (!anchor) return [];
+    if (!refFlight) return [];
     const all = sortFlightsChrono(flights);
-    const i = all.findIndex((f) => f.id === anchor.id);
+    const i = all.findIndex((f) => f.id === refFlight.id);
     const upTo = i >= 0 ? all.slice(0, i + 1) : all;
     const acc: Record<string, { label: string; n: number; h: number; color: string; unit: string }> = {
       import: { label: 'CSV import', n: 0, h: 0, color: Colors.primary, unit: 'flight' },
@@ -254,20 +448,16 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
       acc[k].n += 1; acc[k].h += Number(f.total_time) || 0;
     }
     return Object.values(acc).filter((s) => s.n > 0);
-  }, [flights, anchor]);
+  }, [flights, refFlight]);
 
   // ── Förhandsvisningen: uppslaget med flygningen, precis som boken ritas ──
-  const readySpread = useMemo<LogbookSpread | null>(() => {
-    if (step !== 'ready') return null;
-    const books = fakeBooks({});
-    const cur = books[books.length - 1];
-    const slice = assignFlightsToBooks(books, flights).find((s) => s.book.id === cur.id);
-    const auto = resolveOpeningBalance(cur, books, flights, template);
-    const ob = Object.keys(overrides).length ? withOverrides(auto) : auto;
-    const spreads = buildBookSpreads(slice?.flights ?? [], template, { startingPage: fp, rowsPerSpread: rs, openingBalance: ob, leadingEmptyRows: slice?.leadingEmptyRows ?? 0 });
-    return (anchor && spreads.find((s) => s.flights.some((f) => f.id === anchor.id))) || spreads[spreads.length - 1] || null;
+  const shownSpreads = useMemo<LogbookSpread[]>(
+    () => (needSpreads && Object.keys(overrides).length ? spreadsFor(flights, withOverrides) : curSpreads),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, plan, flights, template, overrides, fp, rs, anchor]);
+    [needSpreads, curSpreads, overrides, totals],
+  );
+  const readySpread: LogbookSpread | null = step !== 'ready' || !shownSpreads.length ? null
+    : (placing && anchor && shownSpreads.find((sp) => sp.flights.some((f) => f.id === anchor.id))) || shownSpreads[shownSpreads.length - 1];
   const previewTpl = templates.find((t) => t.id === previewId) ?? template;
   const previewSpread = useMemo<LogbookSpread | null>(() => {
     if (sheet !== 'preview') return null;
@@ -276,55 +466,132 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
     return sp[sp.length - 1] ?? null;
   }, [sheet, previewTpl, flights, bookFlights.length]);
 
+  // Justerar Backfill missing hours med skillnaderna och ger flygningarna som de är efteråt.
+  const adjustBackfill = async (delta: Record<string, number>): Promise<Flight[]> => {
+    if (!Object.keys(delta).length) return flights;
+    const add = (cur: number | undefined, d: number) => Math.round(((Number(cur) || 0) + d) * 100) / 100;
+    if (drone) {
+      const cur0 = await getDroneBackfill();
+      const nv = { ...cur0 };
+      for (const [bk, d] of Object.entries(delta) as [keyof DroneBackfillValues, number][]) nv[bk] = add(cur0[bk], d);
+      await setDroneBackfill(nv);
+      useDroneFlightStore.getState().loadStats().catch(() => {});
+      return flights;   // drönarens Backfill är ingen rad: bokens rader är oförändrade
+    }
+    const cur0 = await getBackfill();
+    const nv = { ...cur0 };
+    for (const [bk, d] of Object.entries(delta) as [keyof BackfillValues, number][]) nv[bk] = add(cur0[bk], d);
+    await setBackfill(nv);
+    await loadFlights();
+    return useFlightStore.getState().flights;
+  };
+
   // ── Skapa ──
   const create = async () => {
     if (saving) return;
     setSaving(true);
     try {
-      const existing = await listDigitalBooks('digital');
+      const existing = await listDigitalBooks(kind);
       const base = existing.length;
       // Pappersbokens siffror: kolumnerna som Backfill missing hours har justeras där med skillnaden (statistiken
-      // och boken följer med); övriga gäller bara den här boken.
-      const bfDelta: Partial<Record<keyof BackfillValues, number>> = {};
+      // och boken följer med); övriga gäller bara den här boken. Drönarläget: Backfill räknas inte i boken, så
+      // där sparas alla i boken.
+      const bfDelta: Record<string, number> = {};
       const bookOnly: Record<string, number> = {};
       for (const [k, v] of Object.entries(overrides)) {
-        const bk = BF_KEY[k];
+        const bk = bfKey(k);
         if (bk) bfDelta[bk] = (bfDelta[bk] ?? 0) + (v - (totals[k] ?? 0));
-        else bookOnly[k] = v;
+        if (!bk || drone) bookOnly[k] = v;
       }
-      let fl = flights;
-      if (Object.keys(bfDelta).length) {
-        const cur0 = await getBackfill();
-        const nv = { ...cur0 };
-        for (const [bk, d] of Object.entries(bfDelta) as [keyof BackfillValues, number][]) {
-          nv[bk] = Math.round(((Number(cur0[bk]) || 0) + d) * 100) / 100;
-        }
-        await setBackfill(nv);
-        await loadFlights();
-        fl = useFlightStore.getState().flights;
-      }
-      const books = fakeBooks({});
-      const cur = books[books.length - 1];
+      const fl = await adjustBackfill(bfDelta);
+      const books = pendingBooks();
+      const cur = books.find((b) => b.id === curId) ?? books[books.length - 1];
       let ob: ColumnTotals = {};
       if (Object.keys(bookOnly).length) {
-        const auto = resolveOpeningBalance(cur, books, fl, template);
+        const auto = resolveOpeningBalance(cur, books, fl, bookTpl);
         const t = totalsFor(fl);
         ob = { ...auto };
         for (const [k, v] of Object.entries(bookOnly)) ob[k] = (auto[k] ?? 0) + (v - (t[k] ?? 0));
       }
-      for (let i = 0; i < plan.length; i++) {
+      if (variant === 'another') {
+        // En bok till: en bok, med sitt ankare (eller utan: den tar vid där boken före blev full).
+        await createDigitalBook({
+          name: newName, templateId, startingPage: fp, rowsPerSpread: rs, endPage: lp,
+          anchorFlightId: aId, anchorPage: aPage, anchorRow: aRow, openingBalance: ob, customCols,
+        }, kind);
+      } else for (let i = 0; i < plan.length; i++) {
         const b = plan[i];
         await createDigitalBook({
           name: `${ordinal(base + i + 1)} Logbook`, templateId, startingPage: b.startingPage, rowsPerSpread: rs, endPage: b.endPage,
           anchorFlightId: b.anchorFlightId, anchorPage: b.anchorPage, anchorRow: b.anchorRow,
           openingBalance: i === plan.length - 1 ? ob : {}, customCols: {},
-        }, 'digital');
+        }, kind);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       await onSaved();
     } catch (e: any) {
       setSaving(false);
       Alert.alert('Could not create the logbook', e?.message ?? 'Try again.');
+    }
+  };
+
+  // ── Ändra: spara allt på en gång ──
+  const dirty = variant === 'edit' && !!edit && (
+    (name.trim() || edit.name) !== edit.name || templateId !== edit.template_id || fp !== edit.starting_page
+    || lp !== Math.max(0, edit.end_page) || rs !== edit.rows_per_spread || posTouched || Object.keys(overrides).length > 0
+  );
+  const saveEdit = async () => {
+    if (saving || !edit) return;
+    setSaving(true);
+    try {
+      // Pappersbokens siffror: Backfill missing hours justeras med skillnaden (statistiken och böckerna följer med).
+      // Kolumner som Backfill inte har, och böcker med en egen sparad ingående balans, rättas i boken.
+      const stored = parseObj<number>(edit.opening_balance);
+      const hasStored = Object.keys(stored).length > 0;
+      const bfDelta: Record<string, number> = {};
+      const bookDelta: Record<string, number> = {};
+      for (const [k, v] of Object.entries(overrides)) {
+        const d = v - (totals[k] ?? 0);
+        const bk = bfKey(k);
+        if (bk) bfDelta[bk] = (bfDelta[bk] ?? 0) + d;
+        if (!bk || hasStored || drone) bookDelta[k] = d;
+      }
+      const fl = await adjustBackfill(bfDelta);
+      let openingBalance = edit.opening_balance || '{}';
+      if (Object.keys(bookDelta).length) {
+        const books = pendingBooks();
+        const cur = books.find((b) => b.id === edit.id) ?? edit;
+        const ob: ColumnTotals = hasStored ? { ...stored } : { ...resolveOpeningBalance(cur, books, fl, bookTpl) };
+        for (const [k, d] of Object.entries(bookDelta)) ob[k] = Math.round(((ob[k] ?? 0) + d) * 100) / 100;
+        openingBalance = JSON.stringify(ob);
+      }
+      await updateDigitalBook(edit.id, {
+        name: name.trim() || edit.name, template_id: templateId, starting_page: fp, rows_per_spread: rs, end_page: lp,
+        anchor_flight_id: aId, anchor_page: aPage, anchor_row: aRow, opening_balance: openingBalance,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      await onSaved();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert('Could not save the logbook', e?.message ?? 'Try again.');
+    }
+  };
+  // Ta bort boken: två tryck (ingen ruta ovanpå flödet). Flygningarna ligger kvar.
+  const removeBook = async () => {
+    if (!edit || saving) return;
+    if (!delArmed) {
+      setDelArmed(true);
+      if (delTimer.current) clearTimeout(delTimer.current);
+      delTimer.current = setTimeout(() => setDelArmed(false), 4000);
+      return;
+    }
+    setSaving(true);
+    try {
+      await deleteDigitalBook(edit.id);
+      await onSaved();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert('Could not delete the logbook', e?.message ?? 'Try again.');
     }
   };
 
@@ -354,32 +621,89 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
   let cta2: { label: string; onPress: () => void } | null = null;
   let footNote = '';
   if (step === 'intro') cta = { ...cta, label: 'Start' };
+  if (variant === 'edit') cta = { ...cta, label: 'Done' };
+  if (step === 'same' && same === null) cta = { ...cta, label: 'Choose one', disabled: true };
+  if (step === 'started' && started === null) cta = { ...cta, label: 'Choose one', disabled: true };
   if (step === 'earlier' && !earlierChoice) cta = { ...cta, label: 'Choose where they are', disabled: true };
   if (step === 'totals' && !diffMode) {
     cta = { ...cta, label: 'Yes, they all match' };
     cta2 = { label: 'Something is different', onPress: () => { tap(); setTotalsMode('diff'); } };
   }
   if (step === 'totals' && diffMode && unresolved.length) footNote = `${unresolved.length} ${unresolved.length === 1 ? 'total still differs' : 'totals still differ'}. You can go on and fix it later.`;
-  if (step === 'ready') cta = { label: plan.length > 1 ? `Create ${plan.length} logbooks` : 'Create logbook', onPress: create, disabled: saving };
+  if (step === 'ready') {
+    cta = variant === 'edit'
+      ? (dirty ? { label: 'Save changes', onPress: saveEdit, disabled: saving } : { label: 'Done', onPress: onClose, disabled: saving })
+      : { label: plan.length > 1 ? `Create ${plan.length} logbooks` : 'Create logbook', onPress: create, disabled: saving };
+  }
 
-  const TITLES: Record<Step, string> = { intro: '', layout: 'Which logbook', latest: 'Latest flight', earlier: 'Older flights', totals: 'Totals', ready: 'Check and create' };
+  const TITLES: Record<Step, string> = {
+    intro: '', same: 'Same or different', layout: 'Which logbook', started: 'Flights in it',
+    latest: variant === 'edit' ? 'Page and row' : 'Latest flight', earlier: 'Older flights', totals: 'Totals', ready: 'Check and create',
+  };
+  // Raderna i sammanfattningen (ny bok) och översikten (ändra): en per inställning, med Change.
+  const flightsText = `${plural(fit.count, 'flight')} in this logbook${fit.before ? ` · ${fit.before.toLocaleString('en-US')} in ${fit.where}` : ''}`;
+  const sumRows: { label: string; value: string; ok: boolean; to?: Step; size?: boolean; action?: string }[] = [
+    {
+      label: 'Logbook',
+      value: variant === 'another' && same && prevBook && pickLayout ? `${template.name}, the same as ${prevBook.name}` : template.name,
+      ok: true, to: !pickLayout ? undefined : variant === 'another' ? 'same' : 'layout',
+    },
+    ...(placing && anchor ? [{
+      label: variant === 'edit' ? 'Page and row' : variant === 'another' ? 'Latest flight in the new logbook' : 'Latest flight in your paper book',
+      value: `Page ${pageNum}, row ${rowNum} · ${longDate(anchor.date)}, ${route(anchor)}`, ok: true, to: 'latest' as Step,
+    }] : []),
+    ...(variant === 'another' && !placing ? [{
+      label: 'Flights in it',
+      value: origin.waiting > 0 ? `Not written yet. ${plural(origin.waiting, 'flight')} from page ${fp}, row 1` : `Empty. Your next flight goes on page ${fp}, row 1`,
+      ok: true, to: 'started' as Step,
+    }] : []),
+    ...(variant === 'edit' && !placing ? [{ label: 'Page and row', value: `No flights here yet. The first one goes on page ${fp}, row 1`, ok: true, to: 'latest' as Step }] : []),
+    ...(earlier > 0 ? [{
+      label: 'Older flights',
+      value: earlierChoice === 'books' ? `${plan.slice(0, -1).map((_, i) => `${ordinal(i + 1)} Logbook`).join(', ')} with ${earlier.toLocaleString('en-US')} flights`
+        : `${earlier.toLocaleString('en-US')} flights as Brought forward on page ${fp}`,
+      ok: true, to: 'earlier' as Step,
+    }] : []),
+    ...(variant !== 'first' && (placing || fit.count > 0 || !!fit.note) ? [{
+      label: 'Flights', value: fit.note ? `${flightsText}. ${fit.note}` : flightsText, ok: !fit.note, to: 'latest' as Step,
+    }] : []),
+    ...(refFlight ? [{
+      label: 'Totals',
+      value: !diffMode ? (variant === 'edit' ? 'Check them against your paper book' : 'All match your paper book')
+        : unresolved.length ? `${unresolved.map((t) => colName(t.c)).join(', ')} still ${unresolved.length === 1 ? 'differs' : 'differ'}. Fix it later in Settings → Imported data.`
+        : usingPaper.length ? `All match. ${usingPaper.map((t) => colName(t.c)).join(', ')} ${usingPaper.length === 1 ? 'uses' : 'use'} your paper book’s number.`
+        : 'All match your paper book',
+      ok: !unresolved.length, to: 'totals' as Step, action: variant === 'edit' && !diffMode ? 'Check' : undefined,
+    }] : []),
+    { label: 'Book size', value: `${rs} rows per spread · pages ${fp} to ${lp || 'the end'}`, ok: true, to: 'latest', size: true },
+  ];
   const contentW = winW - 32;
+  // Bokens storlek. En ny bok som inte ser ut som den förra: överst och öppen, eftersom sidorna avgör var raden hamnar.
+  const sizeFirst = variant === 'another' && same === false && placing;
+  const sizeCard = (
+    <BookSize open={sizeOpen || !placing || sizeFirst} fixed={!placing || sizeFirst} onToggle={() => setSizeOpen((o) => !o)} rows={rs} fp={firstPage} lp={lastPage}
+      onRows={(n) => setRows(Math.max(4, Math.min(30, n)))} onFp={(v) => setFirstPage(v.replace(/\D/g, ''))} onLp={(v) => setLastPage(v.replace(/\D/g, ''))}
+      summary={`${rs} rows per spread · pages ${fp} to ${lp || 'the end'}`} />
+  );
 
   return (
     <View style={[StyleSheet.absoluteFill, s.root]}>
       {/* Topp: tillbaka, rubrik + steg, stäng, stegmätare */}
       <View style={[s.top, { paddingTop: insets.top + 6 }]}>
         <View style={s.topRow}>
-          {step !== 'intro' ? (
+          {canBack ? (
             <TouchableOpacity onPress={prev} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Back">
               <Ionicons name="chevron-back" size={20} color={Colors.primary} />
             </TouchableOpacity>
           ) : <View style={{ width: 40 }} />}
           <View style={{ flex: 1, alignItems: 'center', gap: 3 }}>
-            <Text style={s.topTitle}>New logbook</Text>
-            <Text style={s.topStep}>{stepIdx >= 0 ? `STEP ${stepIdx + 1} OF ${steps.length} · ${TITLES[step].toUpperCase()}` : 'BEFORE YOU START'}</Text>
+            <Text style={s.topTitle} numberOfLines={1}>{variant === 'edit' ? (name.trim() || edit?.name) : 'New logbook'}</Text>
+            <Text style={s.topStep}>
+              {variant === 'edit' ? (step === 'ready' ? 'LOGBOOK SETTINGS' : TITLES[step].toUpperCase())
+                : stepIdx >= 0 ? `STEP ${stepIdx + 1} OF ${steps.length} · ${TITLES[step].toUpperCase()}` : 'BEFORE YOU START'}
+            </Text>
           </View>
-          <TouchableOpacity onPress={onClose} style={s.closeBtn} accessibilityRole="button" accessibilityLabel="Close without creating a logbook">
+          <TouchableOpacity onPress={onClose} style={s.closeBtn} accessibilityRole="button" accessibilityLabel={variant === 'edit' ? 'Close without saving' : 'Close without creating a logbook'}>
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -406,7 +730,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
             <View>
               <Text style={s.eyebrow}>WHAT YOU’LL DO</Text>
               {[
-                ['Pick the logbook you have', 'So every page has the same columns as your paper book.'],
+                ...(pickLayout ? [['Pick the logbook you have', 'So every page has the same columns as your paper book.']] : []),
                 ['Show where your latest flight is', 'Page and row, so the pages line up.'],
                 ['Check that the totals match', 'Blades helps you fix anything that’s off.'],
               ].map(([t, b], i) => (
@@ -422,10 +746,78 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
           </View>
         )}
 
+        {/* ═══ En bok till · Ser den ut som den förra ═══ */}
+        {step === 'same' && prevBook && prevTpl && (
+          <View style={{ gap: 18 }}>
+            <Head title="Does your new logbook look like the last one?"
+              lead={`${prevBook.name} uses the ${prevTpl.name} layout. If the new one has the same columns, Blades sets it up the same way.`} />
+            <View style={{ gap: 10 }} accessibilityRole="radiogroup">
+              <TouchableOpacity style={[s.choice, same === true && s.choiceOn]} onPress={() => { tap(); chooseSame(true); }} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityState={{ checked: same === true }}>
+                <View style={[s.choiceMain, { paddingRight: 14 }]}>
+                  <Thumb tpl={prevTpl} />
+                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                    <Text style={s.choiceTitle}>Yes, the same logbook</Text>
+                    <Text style={s.choiceSub}>{prevTpl.name} · {prevBook.rows_per_spread} rows · pages {prevBook.starting_page} to {prevBook.end_page > 0 ? prevBook.end_page : 'the end'}</Text>
+                  </View>
+                  <Radio on={same === true} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.choice, same === false && s.choiceOn]} onPress={() => { tap(); chooseSame(false); }} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityState={{ checked: same === false }}>
+                <View style={[s.choiceMain, { paddingRight: 14 }]}>
+                  <View style={s.choiceIcon}><Ionicons name="swap-horizontal" size={20} color={Colors.primary} /></View>
+                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                    <Text style={s.choiceTitle}>No, it looks different</Text>
+                    <Text style={s.choiceSub}>
+                      {scannedId && scannedId !== prevBook.template_id
+                        ? 'Pick its layout next. The one from your latest scan is first in the list.'
+                        : 'Pick its layout next, or take a photo of a page and Blades makes a matching one.'}
+                    </Text>
+                  </View>
+                  <Radio on={same === false} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ═══ En bok till · Har man skrivit i den än ═══ */}
+        {step === 'started' && prevBook && (
+          <View style={{ gap: 18 }}>
+            <Head title="Have you written in the new logbook yet?"
+              lead={origin.waiting > 0
+                ? `${plural(origin.waiting, 'flight')} didn’t fit in ${prevBook.name}. ${origin.waiting === 1 ? 'It goes' : 'They go'} in the new logbook.`
+                : `${prevBook.name} is full, so your next flights go in the new one.`} />
+            <View style={{ gap: 10 }} accessibilityRole="radiogroup">
+              {([
+                [true, 'Yes, there are flights in it', 'Next you show the page and row of the latest one, so every page lines up with your paper book.'],
+                [false, 'Not yet, it’s empty', origin.waiting > 0
+                  ? `The ${plural(origin.waiting, 'flight')} ${origin.waiting === 1 ? 'starts' : 'start'} on the first page, row 1. Blades shows which rows to write them in.`
+                  : 'Your next flight goes on the first page, row 1.'],
+              ] as const).map(([val, title, body]) => {
+                const on = started === val;
+                return (
+                  <TouchableOpacity key={String(val)} style={[s.choice, on && s.choiceOn]} onPress={() => { tap(); setStarted(val); }} activeOpacity={0.8}
+                    accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                    <View style={[s.choiceMain, { alignItems: 'flex-start', paddingRight: 14 }]}>
+                      <Radio on={on} />
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text style={s.choiceTitle}>{title}</Text>
+                        <Text style={s.choiceSub}>{body}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* ═══ 1 · Vilken loggbok ═══ */}
         {step === 'layout' && (
           <View style={{ gap: 18 }}>
-            <Head title="Which logbook do you have?" lead="Pick the one with the same columns as your paper book. Tap the eye to see a page with your own flights." />
+            <Head title={variant === 'another' ? 'Which logbook is the new one?' : 'Which logbook do you have?'} lead="Pick the one with the same columns as your paper book. Tap the eye to see a page with your own flights." />
             <View style={{ gap: 10 }} accessibilityRole="radiogroup">
               {templates.map((t) => {
                 const on = t.id === templateId;
@@ -451,24 +843,43 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                 );
               })}
             </View>
-            <TouchableOpacity style={s.customCard} onPress={() => leaveTo('/logbook/create-custom')} activeOpacity={0.85} accessibilityRole="button">
-              <View style={s.customIcon}><Ionicons name="camera-outline" size={19} color={Colors.primary} /></View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={s.customTitle}>Yours isn’t here?</Text>
-                <Text style={s.choiceSub}>Take a photo of one page. Blades reads the columns and makes a matching layout.</Text>
-              </View>
-            </TouchableOpacity>
+            {/* Egen mall (t.ex. från en skanning): ändra kolumnerna i samma editor. */}
+            {!drone && template.id.startsWith('custom-') && (
+              <TouchableOpacity style={[s.customCard, { borderStyle: 'solid' }]} onPress={() => leaveTo(`/logbook/create-custom?template=${encodeURIComponent(template.id)}`)} activeOpacity={0.85} accessibilityRole="button">
+                <View style={s.customIcon}><Ionicons name="create-outline" size={19} color={Colors.primary} /></View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={s.customTitle}>Change the columns of {template.name}</Text>
+                  <Text style={s.choiceSub}>Rename, reorder or resize them until the page matches your paper book.</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {!drone && (
+              <TouchableOpacity style={s.customCard} onPress={() => leaveTo('/logbook/create-custom')} activeOpacity={0.85} accessibilityRole="button">
+                <View style={s.customIcon}><Ionicons name="camera-outline" size={19} color={Colors.primary} /></View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={s.customTitle}>Yours isn’t here?</Text>
+                  <Text style={s.choiceSub}>Take a photo of one page. Blades reads the columns and makes a matching layout.</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
         {/* ═══ 2 · Var står flygningen i pappersboken ═══ */}
         {step === 'latest' && (
           <View style={{ gap: 18 }}>
-            {anchor ? (
+            {placing && anchor ? (
               <>
-                <Head title="Where is this flight in your paper book?" lead="Blades lines up every page with your paper book from here." />
+                <Head title={variant === 'another' ? 'Where is this flight in your new logbook?' : 'Where is this flight in your paper book?'}
+                  lead={variant === 'edit'
+                    ? 'Change the page or row if the pages here don’t line up with your paper book. Every other flight follows.'
+                    : 'Blades lines up every page with your paper book from here.'} />
+                {sizeFirst && sizeCard}
                 <View style={s.card}>
-                  <Text style={[s.eyebrow, { paddingBottom: 8 }]}>{back === 0 ? 'YOUR LATEST FLIGHT IN BLADES' : 'LAST FLIGHT IN YOUR PAPER BOOK'}</Text>
+                  <Text style={[s.eyebrow, { paddingBottom: 8 }]}>
+                    {variant === 'edit' ? (back === 0 ? 'THE LAST FLIGHT IN THIS LOGBOOK' : 'A FLIGHT IN THIS LOGBOOK')
+                      : back === 0 ? 'YOUR LATEST FLIGHT IN BLADES' : 'LAST FLIGHT IN YOUR PAPER BOOK'}
+                  </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                     <View style={{ width: 44, alignItems: 'center' }}>
                       <Text style={s.dateDay}>{Number(anchor.date.slice(8, 10)) || '?'}</Text>
@@ -480,7 +891,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                     </View>
                   </View>
                   <TouchableOpacity style={s.cardLink} onPress={() => { setFlightPick(back); setSheet('flights'); }} accessibilityRole="button">
-                    <Text style={s.cardLinkText}>{back === 0 ? 'Not in your paper book yet? Pick an earlier flight' : 'Pick another flight'}</Text>
+                    <Text style={s.cardLinkText}>{variant !== 'edit' && back === 0 ? 'Not in your paper book yet? Pick an earlier flight' : 'Pick another flight'}</Text>
                     <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
                   </TouchableOpacity>
                 </View>
@@ -495,7 +906,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                       <Ionicons name="remove" size={22} color={Colors.primary} />
                     </TouchableOpacity>
                     <TextInput style={s.pageInput} value={anchorEdited ? page : String(pageNum)} keyboardType="number-pad" accessibilityLabel="Page number"
-                      onChangeText={(v) => { setAnchorEdited(true); setRow(rowNum); setPage(v.replace(/\D/g, '')); }} selectTextOnFocus />
+                      onChangeText={(v) => { setAnchorEdited(true); setPosTouched(true); setRow(rowNum); setPage(v.replace(/\D/g, '')); }} selectTextOnFocus />
                     <TouchableOpacity style={s.stepBtn} onPress={() => { tap(); editAnchor(leftPage + 2, rowNum); }} accessibilityLabel="Next spread">
                       <Ionicons name="add" size={22} color={Colors.primary} />
                     </TouchableOpacity>
@@ -512,7 +923,8 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                       const k = i + 1;
                       const idx = anchorPos + (k - rowNum);
                       const f = idx >= 0 && idx < bookFlights.length ? bookFlights[idx] : null;
-                      const kind = k === rowNum ? 'latest' : k < rowNum ? (f ? 'earlier' : 'empty') : f ? 'write' : 'empty';
+                      // Ändra: flygningarna efter står redan i boken (inga "Write next").
+                      const kind = k === rowNum ? 'latest' : !f ? 'empty' : k < rowNum || variant === 'edit' ? 'earlier' : 'write';
                       return (
                         <TouchableOpacity key={k} onPress={() => { tap(); editAnchor(pageNum, k); }} activeOpacity={0.75}
                           style={[s.rowBtn, kind === 'latest' && s.rowLatest, kind === 'earlier' && s.rowEarlier, kind === 'write' && s.rowWrite, kind === 'empty' && s.rowEmpty]}
@@ -531,19 +943,30 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                       );
                     })}
                   </View>
-                  {back > 0 && Math.min(back, rs - rowNum) > 0 && (
+                  {variant !== 'edit' && back > 0 && Math.min(back, rs - rowNum) > 0 && (
                     <Text style={s.warnText}>
                       {Math.min(back, rs - rowNum) === 1 ? 'The newer flight goes' : `The ${Math.min(back, rs - rowNum)} newer flights go`} in the rows marked Write next. Blades already has {back === 1 ? 'it' : 'them'}.
                     </Text>
                   )}
+                  {variant !== 'first' && (
+                    <Text style={s.infoText}>
+                      {plural(fit.count, 'flight')} {fit.count === 1 ? 'goes' : 'go'} in this logbook{fit.before ? `. The ${fit.before.toLocaleString('en-US')} before ${fit.count === 1 ? 'it' : 'them'} stay in ${fit.where}` : ''}.
+                    </Text>
+                  )}
+                  {!!fit.note && <Text style={s.warnText}>{fit.note}</Text>}
                 </View>
               </>
+            ) : variant === 'another' ? (
+              <Head title="How big is the new logbook?"
+                lead={origin.waiting > 0
+                  ? `The ${plural(origin.waiting, 'flight')} that didn’t fit in ${prevBook?.name} ${origin.waiting === 1 ? 'goes' : 'go'} on page ${fp}, from row 1. Check the pages and rows below.`
+                  : `Your next flight goes on page ${fp}, row 1. Check the pages and rows below.`} />
             ) : (
-              <Head title="Where does your book start?" lead={`You haven’t logged any flights yet. Your first flight goes on page ${fp}, row 1.`} />
+              <Head title="Where does your book start?" lead={variant === 'edit'
+                ? `There are no flights in this logbook yet. The first one goes on page ${fp}, row 1.`
+                : `You haven’t logged any flights yet. Your first flight goes on page ${fp}, row 1.`} />
             )}
-            <BookSize open={sizeOpen || !anchor} onToggle={() => setSizeOpen((o) => !o)} rows={rs} fp={firstPage} lp={lastPage}
-              onRows={(n) => setRows(Math.max(4, Math.min(30, n)))} onFp={(v) => setFirstPage(v.replace(/\D/g, ''))} onLp={(v) => setLastPage(v.replace(/\D/g, ''))}
-              summary={`${rs} rows per spread · pages ${fp} to ${lp || 'the end'}`} />
+            {!sizeFirst && sizeCard}
           </View>
         )}
 
@@ -619,11 +1042,13 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
             <Head title={diffMode ? 'Which numbers are different?' : 'Do your totals match?'}
               lead={diffMode
                 ? 'Tap a number that doesn’t match and type what your paper book says. Blades shows how to fix it.'
-                : `Compare with the Total to date row at the bottom of page ${leftPage}–${leftPage + 1} in your paper book.`} />
+                : variant === 'edit' && refFlight
+                  ? `Compare with the Total to date row at the bottom of page ${totLeft}–${totLeft + 1} in your paper book, after ${longDate(refFlight.date)}, ${route(refFlight)}.`
+                  : `Compare with the Total to date row at the bottom of page ${totLeft}–${totLeft + 1} in your paper book.`} />
             <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
               <View style={s.totHead}>
                 <Text style={[s.eyebrow, { color: Colors.primary, flex: 1 }]}>TOTAL TO DATE</Text>
-                <Text style={s.eyebrow}>P. {leftPage}–{leftPage + 1}</Text>
+                <Text style={s.eyebrow}>P. {totLeft}–{totLeft + 1}</Text>
               </View>
               {trows.map((t, i) => {
                 const open = diffMode && openKey === t.key;
@@ -665,8 +1090,8 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                           <Text style={[s.fixText, { color: t.status === 'match' ? Colors.success : t.status === 'paper' ? Colors.textSecondary : Colors.warning }]}>
                             {t.status === 'short' ? `Blades is ${fmt(t.c, t.diff)}${unit(t.c)} short of your paper book.`
                               : t.status === 'more' ? `Blades has ${fmt(t.c, t.diff)}${unit(t.c)} more than your paper book.`
-                              : t.status === 'paper' ? (BF_KEY[t.key]
-                                ? `Set to ${t.raw}. When you create the logbook, Backfill missing hours ${(overrides[t.key] ?? 0) >= t.blades ? 'adds' : 'takes off'} ${fmt(t.c, Math.abs((overrides[t.key] ?? 0) - t.blades))}${unit(t.c)}, so your statistics match your paper book too.`
+                              : t.status === 'paper' ? (bfKey(t.key)
+                                ? `Set to ${t.raw}. When you ${variant === 'edit' ? 'save' : 'create the logbook'}, Backfill missing hours ${(overrides[t.key] ?? 0) >= t.blades ? 'adds' : 'takes off'} ${fmt(t.c, Math.abs((overrides[t.key] ?? 0) - t.blades))}${unit(t.c)}, so your statistics match your paper book too.`
                                 : `This logbook uses ${t.raw} from your paper book. Your statistics keep ${fmt(t.c, t.blades)}.`)
                               : 'Matches your paper book.'}
                           </Text>
@@ -679,7 +1104,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
                               <Text style={s.fixPrimaryText}>Use {t.raw} from your paper book</Text>
                             </TouchableOpacity>
                             <Text style={s.fixHint}>
-                              {BF_KEY[t.key] ? 'Backfill missing hours is updated when you create the logbook, so your statistics match too.'
+                              {bfKey(t.key) ? `Backfill missing hours is updated when you ${variant === 'edit' ? 'save' : 'create the logbook'}, so your statistics match too.`
                                 : 'Used in this logbook. Your statistics keep the hours Blades has.'}
                             </Text>
                           </>
@@ -696,7 +1121,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
               })}
             </View>
 
-            {sources.length > 0 && (
+            {!drone && sources.length > 0 && (
               <View style={s.card0}>
                 <TouchableOpacity style={s.collapseHead} onPress={() => setSourcesOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: sourcesOpen }}>
                   <Text style={[s.label, { flex: 1, fontSize: 14 }]}>Where these hours come from</Text>
@@ -726,45 +1151,58 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
           </View>
         )}
 
-        {/* ═══ 5 · Kontrollera och skapa ═══ */}
+        {/* ═══ 5 · Kontrollera och skapa (ny bok) · Översikten (ändra) ═══ */}
         {step === 'ready' && (
           <View style={{ gap: 18 }}>
-            <Head title={`This is page ${leftPage}–${leftPage + 1}`} lead="It should look like the same pages in your paper book. Swipe to see the right-hand page." />
+            {variant === 'edit' ? (
+              <>
+                <View style={{ gap: 8 }}>
+                  <Text style={s.label}>Name</Text>
+                  <TextInput style={s.nameInput} value={name} onChangeText={setName} placeholder={edit?.name} placeholderTextColor={Colors.textMuted}
+                    maxLength={40} returnKeyType="done" autoCorrect={false} accessibilityLabel="Logbook name" />
+                </View>
+                {readySpread && (
+                  <View style={s.labelRow}>
+                    <Text style={s.label}>Page {readySpread.page_left}–{readySpread.page_right}</Text>
+                    <Text style={s.labelHint}>{dirty ? 'With your changes' : 'As it is now'}</Text>
+                  </View>
+                )}
+              </>
+            ) : placing || variant === 'first' ? (
+              <Head title={`This is page ${leftPage}–${leftPage + 1}`}
+                lead={`It should look like the same pages in your ${variant === 'another' ? 'new logbook' : 'paper book'}. Swipe to see the right-hand page.`} />
+            ) : (
+              <Head title={`Your new logbook starts on page ${fp}`}
+                lead={`Brought forward carries your totals over from ${prevBook?.name}. Swipe to see the right-hand page.`} />
+            )}
             {readySpread ? (
-              <SpreadSwipe spread={readySpread} template={template} timeFormat={timeFormat} width={contentW} pilotName={pilotName} />
+              <SpreadSwipe spread={readySpread} template={bookTpl} timeFormat={timeFormat} width={contentW} pilotName={pilotName} />
             ) : <ActivityIndicator color={Colors.primary} />}
             <View style={s.card0}>
-              {[
-                { label: 'Logbook', value: template.name, ok: true, to: 'layout' as Step },
-                ...(anchor ? [{ label: 'Latest flight in your paper book', value: `Page ${pageNum}, row ${rowNum} · ${longDate(anchor.date)}, ${route(anchor)}`, ok: true, to: 'latest' as Step }] : []),
-                ...(earlier > 0 ? [{
-                  label: 'Older flights',
-                  value: earlierChoice === 'books' ? `${plan.slice(0, -1).map((_, i) => `${ordinal(i + 1)} Logbook`).join(', ')} with ${earlier.toLocaleString('en-US')} flights`
-                    : `${earlier.toLocaleString('en-US')} flights as Brought forward on page ${fp}`,
-                  ok: true, to: 'earlier' as Step,
-                }] : []),
-                ...(anchor ? [{
-                  label: 'Totals',
-                  value: !diffMode ? 'All match your paper book'
-                    : unresolved.length ? `${unresolved.map((t) => colName(t.c)).join(', ')} still ${unresolved.length === 1 ? 'differs' : 'differ'}. Fix it later in Settings → Imported data.`
-                    : usingPaper.length ? `All match. ${usingPaper.map((t) => colName(t.c)).join(', ')} ${usingPaper.length === 1 ? 'uses' : 'use'} your paper book’s number.`
-                    : 'All match your paper book',
-                  ok: !unresolved.length, to: 'totals' as Step,
-                }] : []),
-                { label: 'Book size', value: `${rs} rows per spread · pages ${fp} to ${lp || 'the end'}`, ok: true, to: 'latest' as Step, size: true },
-              ].map((x, i) => (
+              {sumRows.map((x, i) => (
                 <View key={x.label} style={[s.sumRow, i > 0 && s.sep]}>
                   <Ionicons name={x.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={19} color={x.ok ? Colors.success : Colors.warning} />
                   <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                     <Text style={s.sumLabel}>{x.label}</Text>
                     <Text style={s.sumValue}>{x.value}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => { if ((x as any).size) setSizeOpen(true); go(x.to); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Change ${x.label.toLowerCase()}`}>
-                    <Text style={s.changeText}>Change</Text>
-                  </TouchableOpacity>
+                  {!!x.to && (
+                    <TouchableOpacity onPress={() => { if (x.size) setSizeOpen(true); if (x.to) go(x.to); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${x.action ?? 'Change'} ${x.label.toLowerCase()}`}>
+                      <Text style={s.changeText}>{x.action ?? 'Change'}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
             </View>
+            {variant === 'edit' && existing.length > 1 && (
+              <View style={{ alignItems: 'center', gap: 6, paddingTop: 2 }}>
+                <TouchableOpacity onPress={removeBook} disabled={saving} hitSlop={8} accessibilityRole="button" style={[s.deleteBtn, delArmed && s.deleteBtnOn]}>
+                  <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+                  <Text style={s.deleteText}>{delArmed ? `Tap again to delete ${edit?.name}` : 'Delete this logbook'}</Text>
+                </TouchableOpacity>
+                <Text style={[s.fixHint, { textAlign: 'center' }]}>Your flights stay in Blades. They move to your other {existing.length > 2 ? 'logbooks' : 'logbook'}.</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -797,10 +1235,12 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
       {/* Ark: sista flygningen som står i pappersboken */}
       {sheet === 'flights' && (
         <SheetFrame onClose={() => setSheet(null)} bottom={insets.bottom}>
-          <Text style={s.sheetTitle}>Which flight did you write last?</Text>
-          <Text style={s.sheetSub}>The ones after it aren’t in your paper book yet. Blades shows which rows they go in.</Text>
+          <Text style={s.sheetTitle}>{variant === 'edit' ? 'Which flight do you want to place?' : 'Which flight did you write last?'}</Text>
+          <Text style={s.sheetSub}>{variant === 'edit'
+            ? 'Pick one you can find in your paper book, then set its page and row.'
+            : 'The ones after it aren’t in your paper book yet. Blades shows which rows they go in.'}</Text>
           <View style={{ gap: 6 }} accessibilityRole="radiogroup">
-            {bookFlights.slice(-8).reverse().map((f, i) => {
+            {bookFlights.slice(Math.max(0, origin.base - 7), origin.base + 1).reverse().map((f, i) => {
               const on = i === flightPick;
               return (
                 <TouchableOpacity key={f.id} style={[s.pickRow, on && s.choiceOn]} onPress={() => { tap(); setFlightPick(i); }} activeOpacity={0.8}
@@ -813,7 +1253,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, onClose, onSaved
               );
             })}
           </View>
-          <TouchableOpacity style={s.cta} onPress={() => { setBack(flightPick); setSheet(null); }} accessibilityRole="button">
+          <TouchableOpacity style={s.cta} onPress={() => { if (flightPick !== back) setPosTouched(true); setBack(flightPick); setSheet(null); }} accessibilityRole="button">
             <Text style={s.ctaText}>Use this flight</Text>
           </TouchableOpacity>
         </SheetFrame>
@@ -924,18 +1364,18 @@ function SpreadSwipe({ spread, template, timeFormat, width, pilotName }: {
   );
 }
 
-function BookSize({ open, onToggle, rows, fp, lp, onRows, onFp, onLp, summary }: {
-  open: boolean; onToggle: () => void; rows: number; fp: string; lp: string;
+function BookSize({ open, fixed, onToggle, rows, fp, lp, onRows, onFp, onLp, summary }: {
+  open: boolean; fixed?: boolean; onToggle: () => void; rows: number; fp: string; lp: string;
   onRows: (n: number) => void; onFp: (v: string) => void; onLp: (v: string) => void; summary: string;
 }) {
   return (
     <View style={s.card0}>
-      <TouchableOpacity style={s.collapseHead} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+      <TouchableOpacity style={s.collapseHead} onPress={onToggle} disabled={fixed} accessibilityRole="button" accessibilityState={{ expanded: open }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[s.label, { fontSize: 14 }]}>Book size</Text>
           <Text style={s.choiceSub}>{summary}</Text>
         </View>
-        <Text style={s.changeText}>{open ? 'Done' : 'Change'}</Text>
+        {!fixed && <Text style={s.changeText}>{open ? 'Done' : 'Change'}</Text>}
       </TouchableOpacity>
       {open && (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 14 }}>
@@ -1000,6 +1440,12 @@ const s = StyleSheet.create({
   smallText: { fontSize: 13, color: '#8FB0CC' },
   monoSmall: { fontFamily: MONO, fontSize: 12, color: '#A9C3DB' },
   warnText: { fontSize: 12.5, lineHeight: 18, color: Colors.warning },
+  infoText: { fontSize: 12.5, lineHeight: 18, color: '#A9C3DB' },
+  nameInput: { height: 50, borderRadius: 14, borderWidth: 1, borderColor: '#1F4468', backgroundColor: '#0D1B33', color: Colors.textPrimary, fontFamily: FONT_SERIF, fontSize: 20, fontWeight: '600', paddingHorizontal: 14 },
+  choiceIcon: { width: 70, height: 48, borderRadius: 5, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '40', alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
+  deleteBtnOn: { borderColor: Colors.danger + '80', backgroundColor: Colors.danger + '1A' },
+  deleteText: { fontSize: 14.5, fontWeight: '700', color: Colors.danger },
 
   introIcon: { width: 64, height: 64, borderRadius: 18, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '4D', alignItems: 'center', justifyContent: 'center' },
   noteCard: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14, borderRadius: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },

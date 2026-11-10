@@ -14,11 +14,12 @@ import { DEMO_FLIGHTS, DEMO_BOOK } from '../../constants/tourDemoData';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
 import { getTemplate, ASSIGNABLE_TIME_FIELDS, type LogbookTemplate, type LogbookColumn } from '../../constants/logbookTemplates';
-import { buildBookSpreads, type ColumnTotals, type LogbookSpread } from '../../services/logbook/paginate';
+import { buildBookSpreads, type LogbookSpread } from '../../services/logbook/paginate';
 import { assignFlightsToBooks, resolveOpeningBalance, type BookSlice } from '../../services/logbook/books';
 import { ensureDigitalBooksMigrated, listDigitalBooks, setActiveDigitalBook, type DigitalBook } from '../../db/digitalBooks';
 import { SpreadWebView } from '../logbook/SpreadWebView';
-import { BookSetupSheet } from '../logbook/BookSetupSheet';
+import { BookSetupFlow } from '../logbook/BookSetupFlow';
+import { useLogbookSetupStore } from '../../store/logbookSetupStore';
 import { type SignatureData } from '../SignaturePad';
 import { FONT_SERIF, FONT_MONO } from './tokens';
 import { useTabBarSpace } from '../GlassTabBar';
@@ -58,7 +59,7 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
   const [idx, setIdx] = useState(0);
   const [showOverview, setShowOverview] = useState(false); // page-overview dropdown
   const [showBooks, setShowBooks] = useState(false);       // bok-väljare (via titeln)
-  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null; carry?: ColumnTotals } | null>(null);
+  const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null } | null>(null);
   // Realistisk default-ratio för en halvsida (~0.7) så containern aldrig blir dubbelt
   // för hög innan onAspect hinner mäta → ingen lång navy-lucka mellan sidorna.
   const [ratioL, setRatioL] = useState(0.72); // höjd/bredd för vänster sida (uppdateras av onAspect)
@@ -79,10 +80,23 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
 
   // Ladda om böckerna varje gång vyn återfår fokus (t.ex. efter att man skapat en bok i
   // helskärmsläget /logbook och gått tillbaka) → "No logbook yet" ersätts direkt av boken.
-  useFocusEffect(useCallback(() => { listDigitalBooks().then(setBooks); }, []));
+  // Tillbaka från "Create custom logbook" eller Imported data: öppna uppsättningen igen där man var.
+  useFocusEffect(useCallback(() => {
+    listDigitalBooks().then((bks) => {
+      setBooks(bks);
+      const re = useLogbookSetupStore.getState().consume();
+      if (!re) return;
+      const book = re.editId ? bks.find((b) => b.id === re.editId) ?? null : null;
+      setSetup(book ? { mode: 'edit', initial: book } : { mode: 'create', initial: null });
+    });
+  }, []));
 
   const book = useMemo(() => books.find((b) => b.is_active === 1) ?? books[books.length - 1] ?? null, [books]);
-  const slice = useMemo<BookSlice | null>(() => (book ? assignFlightsToBooks(books, flights).find((s) => s.book.id === book.id) ?? null : null), [book, books, flights]);
+  const slices = useMemo<BookSlice[]>(() => assignFlightsToBooks(books, flights), [books, flights]);
+  const slice = useMemo<BookSlice | null>(() => (book ? slices.find((s) => s.book.id === book.id) ?? null : null), [book, slices]);
+  // Nästa bok behövs när den SENASTE boken är full (inte boken man råkar titta på).
+  const latestSlice = slices[slices.length - 1];
+  const needsNextBook = !!latestSlice && (latestSlice.isFull || latestSlice.overflowCount > 0);
   const template = useMemo(() => (book ? applyCustomCols(getTemplate(book.template_id), parseJson<Record<string, string>>(book.custom_cols, {})) : null), [book]);
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const spreads = useMemo<LogbookSpread[]>(() => {
@@ -191,10 +205,10 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
                 <Ionicons name="create-outline" size={16} color={accent} />
                 <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>Modify logbook</Text>
               </TouchableOpacity>
-              {/* "New logbook" visas bara när nuvarande bok är full (kapacitet nådd / overflow) — man ska
+              {/* "New logbook" visas bara när den senaste boken är full (kapacitet nådd / overflow) — man ska
                   inte kunna skapa nästa bok innan den förra fyllts. Böcker utan sidgräns fylls aldrig → döljs alltid. */}
-              {(slice?.isFull || (slice?.overflowCount ?? 0) > 0) && (
-                <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null, carry: spreads.length ? spreads[spreads.length - 1].total_to_date : undefined })} activeOpacity={0.8} style={secBtn}>
+              {needsNextBook && (
+                <TouchableOpacity onPress={() => setSetup({ mode: 'create', initial: null })} activeOpacity={0.8} style={secBtn}>
                   <Ionicons name="add" size={18} color={accent} />
                   <Text style={{ fontSize: 13.5, fontWeight: '700', color: accent }}>New logbook</Text>
                 </TouchableOpacity>
@@ -253,12 +267,12 @@ export function BookView({ accent, headerRight }: { accent: string; headerRight?
         </>
       )}
 
-      {/* Skapa/redigera bok — samma sheet som i helskärm (stående) */}
+      {/* Ny bok / ändra boken — samma uppsättning som i helskärm (stående) */}
       <Modal visible={!!setup} animationType="slide" transparent supportedOrientations={['portrait']} onRequestClose={() => setSetup(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           {setup && (
-            <BookSetupSheet mode={setup.mode} appMode="manned" initial={setup.initial} flights={flights} allBooks={books} carryOpeningBalance={setup.carry} timeFormat={timeFormat}
-              onClose={() => setSetup(null)} onSaved={() => { setSetup(null); listDigitalBooks().then(setBooks); }} />
+            <BookSetupFlow flights={realFlights} timeFormat={timeFormat} pilotName={pilotName} books={booksState} edit={setup.mode === 'edit' ? setup.initial : null}
+              onClose={() => setSetup(null)} onSaved={async () => { setBooks(await listDigitalBooks()); setSetup(null); }} />
           )}
         </View>
       </Modal>

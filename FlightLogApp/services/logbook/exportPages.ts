@@ -16,7 +16,7 @@ import {
   type LogbookTemplate, type LogbookColumn,
 } from '../../constants/logbookTemplates';
 import { buildBookSpreads, computeBroughtForward, type LogbookSpread } from './paginate';
-import { assignFlightsToBooks, resolveOpeningBalance } from './books';
+import { assignFlightsToBooks, resolveOpeningBalance, isBookRow } from './books';
 import { renderSpreadsPDF } from './renderSpread';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 
@@ -164,7 +164,7 @@ export async function loadExportFlights(kind: BookKind = 'digital'): Promise<Fli
 }
 
 export function templateSpreads(flights: Flight[], template: LogbookTemplate): LogbookSpread[] {
-  const rows = flights.filter((f) => (f as any).flight_type !== 'summary' && (f as any).remarks !== '[BACKFILL]');
+  const rows = flights.filter(isBookRow);
   return buildBookSpreads(rows, template, {
     startingPage: 1,
     rowsPerSpread: template.rows_per_spread,

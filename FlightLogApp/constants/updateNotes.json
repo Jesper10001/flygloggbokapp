@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 77,
+      "date": "2026-11-10",
+      "notes": [
+        "Fixed: A second logbook now starts on the page and row you set, and the one before it ends on its last page.",
+        "New: Adding another logbook uses the guided setup and asks if it looks like your last one.",
+        "Improved: Modify logbook is an overview with a live preview of the page, in drone mode too."
+      ]
+    },
+    {
       "id": 76,
       "date": "2026-11-10",
       "notes": [
