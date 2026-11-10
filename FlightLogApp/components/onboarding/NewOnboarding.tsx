@@ -403,10 +403,10 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         ) : null}
 
         {step === 'solution' && solution ? (
-          <Screen insets={insets} top={50} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
+          <Screen insets={insets} top={78} footer={<Cta label="Continue" busy={waiting} onPress={afterReady} />}>
             <SolutionHero kind={solution.hero} />
             <Text style={[s.eyebrow, { marginTop: 14 }]}>{solution.kicker}</Text>
-            <Text style={s.hBig}>{solution.title}</Text>
+            <Text style={s.hBig} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{solution.title}</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
               {solution.tiles.map((t) => (
                 <View key={t.label} style={[s.tileS, t.good && s.tileGood]} accessible accessibilityLabel={`${t.value} ${t.label}`}>

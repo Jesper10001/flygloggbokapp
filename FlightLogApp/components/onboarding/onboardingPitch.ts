@@ -79,6 +79,8 @@ export function buildSolution(a: {
   const mine = [R[a.prio], R[a.want]];
   const privacy: PitchRow = { key: 'private', icon: 'lock-closed-outline', title: 'Stays on your phone. No account needed.', sub: 'Your logbook is stored on this phone.' };
   const fast: Tile = { value: '20 s', label: 'to log a flight', good: true };
+  const auto: Tile = { value: 'Auto', label: 'night, distance and landings' };
+  const pdf: Tile = { value: 'PDF', label: 'logbook pages, like paper' };
   if (!a.pilot) {
     return {
       hero: 'drone', kicker: 'YOUR DRONE LOGBOOK', title: 'Proof of every flight,\nready when asked.',
@@ -110,9 +112,10 @@ export function buildSolution(a: {
   }
   return {
     hero: 'file', kicker: 'WHY BLADES', title: 'Bring it over.\nBlades fills in the rest.',
+    // Siffrorna säger det bilden ovanför visar (Blades räknar ut natt, distans och landningar) och det man får ut.
     tiles: a.deal
-      ? [{ value: a.deal.month, label: `less a month, ${a.deal.year} a year`, good: true }, { ...fast, good: false }, { value: '1 file', label: 'moves your logbook' }]
-      : [fast, { value: '1 file', label: 'moves your logbook' }, { value: '20', label: 'flights free by hand' }],
+      ? [{ value: a.deal.month, label: `less a month, ${a.deal.year} a year`, good: true }, auto, pdf]
+      : [{ ...auto, good: true }, pdf, { value: '20', label: 'flights free by hand' }],
     rows: [...mine, privacy],
   };
 }

@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Onboarding: lösningssidan för digital loggbok visar "Auto · night, distance and landings" och "PDF · logbook pages, like paper" i stället för "20 s" och "1 file"; panelen går inte längre upp över förloppsraden; rubriken håller sig på två rader.
 - Onboarding: lösningssidan omgjord efter design B: en lutad panel överst (pappersbokens sida, exportfilen eller drönarappens flyglista till vänster, samma flygningar i Blades till höger, lysande linje i mitten), stor rubrik, tre siffror och tre korta rader. Tre varianter: pilot med bara pappersbok, pilot med digital loggbok och drönarpilot.
 - Onboarding: alla frågor efter farkostvalet ligger på en sida (nästa fråga kommer fram när den förra är besvarad) och hela lösningen på nästa; sidan "Setting up your logbook" med profilkortet är borttagen.
 - Onboarding: även mellanintervallet i prisfrågan ger prisjämförelsen, och jämförelsen visar besparingen per månad och på ett år (räknad från intervallets nedre gräns).
