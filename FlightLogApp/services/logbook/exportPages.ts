@@ -39,6 +39,7 @@ function applyCustomCols(template: LogbookTemplate, customCols: Record<string, s
 interface LoadedLogbook {
   template: LogbookTemplate;
   spreads: LogbookSpread[];
+  bookName: string;
   pilotName: string;
   timeFormat: 'decimal' | 'hhmm';
   signature: { paths: string[]; w: number; h: number; x?: number; y?: number } | null;
@@ -62,7 +63,7 @@ async function loadLogbook(bookId?: number, kind: BookKind = 'digital'): Promise
     : (books.find((b) => b.is_active === 1) ?? books[books.length - 1]);
 
   if (!active) {
-    return { template: getTemplate(''), spreads: [], pilotName, timeFormat, signature };
+    return { template: getTemplate(''), spreads: [], bookName: '', pilotName, timeFormat, signature };
   }
 
   const base = getTemplate(active.template_id);
@@ -88,7 +89,26 @@ async function loadLogbook(bookId?: number, kind: BookKind = 'digital'): Promise
     leadingEmptyRows: slice?.leadingEmptyRows ?? 0,
   });
 
-  return { template, spreads, pilotName, timeFormat, signature };
+  return { template, spreads, bookName: active.name, pilotName, timeFormat, signature };
+}
+
+/**
+ * De senaste `count` uppslagen ur den digitala boken som färdig PDF-HTML (senaste först), för Pilot CV:
+ * samma sidor som bokvyn visar, hämtade direkt ur boken. null när boken saknas eller är tom.
+ */
+export async function buildSpreadsPdf(count: number, bookId?: number): Promise<{
+  html: string; width: number; height: number; pageWidthPx: number; n: number; total: number;
+  pageFrom: number; pageTo: number; bookName: string;
+} | null> {
+  const { template, spreads, bookName, pilotName, timeFormat, signature } = await loadLogbook(bookId, 'digital');
+  if (!spreads.length || count <= 0) return null;
+  const n = Math.max(1, Math.min(Math.round(count), spreads.length));
+  const selected = spreads.slice(spreads.length - n).reverse();
+  const pdf = renderSpreadsPDF({ template, spreads: selected, pilotName, timeFormat, signature });
+  return {
+    ...pdf, n, total: spreads.length, bookName,
+    pageFrom: Math.min(...selected.map((x) => x.page_left)), pageTo: Math.max(...selected.map((x) => x.page_right)),
+  };
 }
 
 /** Antal siduppslag i boken (för custom-väljaren). */

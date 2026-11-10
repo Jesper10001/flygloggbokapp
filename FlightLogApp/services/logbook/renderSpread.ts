@@ -458,6 +458,7 @@ export interface RenderedPdf {
   html: string;
   width: number;   // sidbredd i punkter (till expo-print)
   height: number;  // sidhöjd i punkter
+  pageWidthPx: number; // uppslagets bredd i px (förhandsvisningen skalar sidan efter den)
 }
 
 // Flersidig PDF: ett uppslag per liggande sida, senaste först. Naturlig storlek
@@ -499,5 +500,5 @@ ${bodies.join('')}
 </body>
 </html>`;
 
-  return { html, width: widthPt, height: heightPt };
+  return { html, width: widthPt, height: heightPt, pageWidthPx: pageWidth };
 }

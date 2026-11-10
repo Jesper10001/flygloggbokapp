@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Export to PDF (pilot) är nu Pilot CV: en egen sida (app/export-cv) där man fyller i uppgifter (hämtas från profilen första gången, sparas sedan för CV:t), väljer innehåll (delar, vilka totaler, antal typer), utseende (accentfärg, sidopanelens färg och sida, typsnitt, textstorlek) och hur många uppslag ur den digitala boken som bifogas, med förhandsvisning som ritas om medan man ändrar. PDF:en är CV-sidan plus uppslagen i samma fil (pdf-lib). De tre gamla PDF-mallarna (EASA, Modern, Editorial) är borttagna.
 - Onboarding: tredje rutan på lösningssidan för digital loggbok nämner skanningen ("Scan · your paper pages too") i stället för "20 flights free by hand".
 - Onboarding: drönarpilotens lösningssida följer vald sorts flygning: militära piloter ser NATO-klasser (Class I–III) i bilden, siffran och raderna, hobbypiloter A1–A3; rubriken klipps inte längre av.
 - Onboarding: lösningssidan för digital loggbok visar "Auto · night, distance and landings" och "PDF · logbook pages, like paper" i stället för "20 s" och "1 file"; panelen går inte längre upp över förloppsraden; rubriken håller sig på två rader.

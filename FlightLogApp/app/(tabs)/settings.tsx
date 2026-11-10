@@ -16,7 +16,6 @@ import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { Colors } from '../../constants/colors';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { exportToCSV } from '../../services/export';
-import { exportPilotPDF, type PdfTemplate } from '../../services/pdfExport/generatePDF';
 import { exportLogbookPages, getLogbookSpreadCount } from '../../services/logbook/exportPages';
 import { exportDroneToCSV } from '../../services/droneExport';
 import { getFlightCount } from '../../db/flights';
@@ -209,7 +208,6 @@ export default function SettingsScreen() {
   const profile = useProfileStore((s) => s.profile);
   const setProfile = useProfileStore((s) => s.setProfile);
   const [exportingCSV, setExportingCSV] = useState(false);
-  const [exportingPDF, setExportingPDF] = useState(false);
   const [exportingPages, setExportingPages] = useState(false);
   const [pagesModal, setPagesModal] = useState(false);
   const [pagesTotal, setPagesTotal] = useState(0);
@@ -371,26 +369,6 @@ export default function SettingsScreen() {
       }
     } catch (e: any) { Alert.alert(t('export_failed'), e.message); }
     finally { setExportingCSV(false); }
-  };
-
-  const handleExportPDF = () => {
-    Alert.alert(
-      t('pdf_layout_title'),
-      t('pdf_layout_desc'),
-      [
-        { text: t('pdf_layout_easa'), onPress: () => runPdfExport('easa') },
-        { text: t('pdf_layout_modern'), onPress: () => runPdfExport('modern') },
-        { text: t('pdf_layout_editorial'), onPress: () => runPdfExport('editorial') },
-        { text: t('cancel'), style: 'cancel' },
-      ],
-    );
-  };
-
-  const runPdfExport = async (template: PdfTemplate) => {
-    setExportingPDF(true);
-    try { await exportPilotPDF(template); }
-    catch (e: any) { Alert.alert(t('export_failed'), e.message); }
-    finally { setExportingPDF(false); }
   };
 
   const openPagesExport = async () => {
@@ -706,12 +684,11 @@ export default function SettingsScreen() {
       </CollapsibleSectionHeader>
       {expandedSection === 'export' && (
         <Card backgroundColor="transparent" borderColor="transparent">
-          {/* Export to PDF — pausad inför lansering, visas som "coming soon". */}
+          {/* Export to PDF → Pilot CV: ett CV man bygger själv, med totalerna och valfria loggbokssidor. */}
           {isPilot && <Row
-            icon="document-text-outline" iconColor={Colors.textMuted}
-            title={t('export_to_pdf')} subtitle={t('coming_soon')}
-            right={<Text style={styles.soonPill}>SOON</Text>}
-            pressable={false}
+            icon="document-text-outline" iconColor={Colors.primary}
+            title={t('export_to_pdf')} subtitle="Your pilot CV, with your totals and logbook pages"
+            onClick={() => router.push('/export-cv' as any)}
             separatorColor={Colors.background}
           />}
           {isPilot && <Row
