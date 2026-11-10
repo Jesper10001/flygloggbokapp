@@ -1,3 +1,4 @@
+import { useHoldPopups } from '../store/mapScreenStore';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, ScrollView,
@@ -157,6 +158,8 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   const [airports, setAirports] = useState<AirportPoint[]>([]);
   const [allIcaos, setAllIcaos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  // Medan helskärmskartan är öppen väntar appens popup-rutor och systemrutor (de kan annars låsa skärmen).
+  useHoldPopups(modalVisible);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedAirport, setSelectedAirport] = useState<string | null>(null);
   const [metarPopup, setMetarPopup] = useState<AirportMetar | null>(null); // väderrutan som overlay över kartan

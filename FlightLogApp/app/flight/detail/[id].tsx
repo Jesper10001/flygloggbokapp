@@ -1,5 +1,6 @@
 // Ny FlightDetail (design-handoff): loggboksfält grupperade för snabb avläsning.
 // Edit uppe till höger öppnar editorn (/flight/add?editId=).
+import { alertNow } from '../../../services/alertGuard';
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import { FlightVideo } from '../../../components/FlightVideo';
@@ -59,7 +60,8 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete flight', "This can't be undone.", [
+    // alertNow: frågan ska komma direkt även när översikten ligger ovanpå Global map.
+    alertNow('Delete flight', "This can't be undone.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         await deleteFlight(id);

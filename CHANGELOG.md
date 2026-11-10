@@ -15,6 +15,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A clearer "What's new" message when a new version is available.
 
 ### Alla ändringar
+- Mot hängningar: medan Global map eller Visited airports är öppen väntar appens popup-rutor (Update ready, Your fleet is ready, Update available) och systemrutorna (Alert) tills kartan stängts, som redan gällde Best week och Longest XC; betalväggen från väderfiltret och nyheterna öppnas först när kartan stängts.
+- "Your fleet is ready"-rutan väntar medan Blades introduction pågår (eller frågan om rundturen visas) och kommer fram strax efter att rundturen är slut.
+- Onboarding, förhandsvisningen: knapparna på sista steget (skanna, importera, starttotaler) öppnar de riktiga sidorna i stället för att gå tillbaka till Inställningar.
 - Export to PDF (pilot) är nu Pilot CV: en egen sida (app/export-cv) där man fyller i uppgifter (hämtas från profilen första gången, sparas sedan för CV:t), väljer innehåll (delar, vilka totaler, antal typer), utseende (accentfärg, sidopanelens färg och sida, typsnitt, textstorlek) och hur många uppslag ur den digitala boken som bifogas, med förhandsvisning som ritas om medan man ändrar. PDF:en är CV-sidan plus uppslagen i samma fil (pdf-lib). De tre gamla PDF-mallarna (EASA, Modern, Editorial) är borttagna.
 - Onboarding: tredje rutan på lösningssidan för digital loggbok nämner skanningen ("Scan · your paper pages too") i stället för "20 flights free by hand".
 - Onboarding: drönarpilotens lösningssida följer vald sorts flygning: militära piloter ser NATO-klasser (Class I–III) i bilden, siffran och raderna, hobbypiloter A1–A3; rubriken klipps inte längre av.

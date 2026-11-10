@@ -1,11 +1,16 @@
 // Popup när Fleet-datan (spec + bild) hämtats i bakgrunden efter en import: CSV, skanning av pappersboken
 // eller drönarimport. GLOBAL (renderas i _layout, som ToastHost) eftersom importskärmen ofta hunnit stängas
 // när bakgrundshämtningen blir klar. Samma stil som appens övriga popup-rutor (GlassDialog).
+// Medan Blades introduction pågår (eller frågan om rundturen visas) väntar rutan: den kommer fram strax efter att
+// rundturen är slut, så att den inte stör. Det gäller särskilt direkt efter onboarding, där man importerar och
+// sedan får rundturen medan Fleet-datan hämtas.
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { create } from 'zustand';
 import { GlassDialog, DialogIcon } from './GlassDialog';
 import { useFlightStore } from '../store/flightStore';
 import { useAppVariantStore } from '../store/appVariantStore';
+import { useTourStore } from '../store/tourStore';
 
 // Info om hämtningen (för delvis hämtat / slut på coins). null = enkel "klart"-variant.
 export interface FleetDoneInfo { enriched: number; total: number; remaining: number; stoppedForQuota: boolean; }
@@ -36,7 +41,17 @@ export const useFleetDoneStore = create<FleetDoneStore>((set) => ({
 const FROM: Record<FleetSource, string> = { csv: 'your import', scan: 'your logbook scan', drone: 'your import' };
 
 export function FleetDoneHost() {
-  const { visible, info, fleetRoute, source, hide } = useFleetDoneStore();
+  const { visible: wanted, info, fleetRoute, source, hide } = useFleetDoneStore();
+  // Rundturen (eller frågan om den) har företräde. När den är slut dröjer rutan en kort stund, så att rundturens
+  // sista sida och navigeringen därifrån hinner bli klara.
+  const tourBusy = useTourStore((s) => s.active || !!s.promptMode);
+  const [clear, setClear] = useState(!tourBusy);
+  useEffect(() => {
+    if (tourBusy) { setClear(false); return; }
+    const t = setTimeout(() => setClear(true), 900);
+    return () => clearTimeout(t);
+  }, [tourBusy]);
+  const visible = wanted && clear;
   const premium = useFlightStore((s) => s.isPremium);
 
   const goFleet = () => {

@@ -12,6 +12,8 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } fr
 import { Colors } from '../constants/colors';
 import { useVersionStore, type ReleaseNote } from '../store/versionStore';
 import { useTourStore } from '../store/tourStore';
+import { useMapScreenStore } from '../store/mapScreenStore';
+import { useShareSheetStore } from '../services/shareFile';
 import { canUseLiquidGlass } from '../utils/liquidGlass';
 
 const RADIUS = 30;
@@ -55,7 +57,9 @@ export function UpdateAvailableModal() {
   }, [check]);
 
   // forceUpdate visas som egen helskärm i _layout; göm den mjuka popupen under rundturen.
-  const visible = updateAvailable && !forceUpdate && !dismissed && !tourActive;
+  // Den väntar också medan en karta eller delningsrutan är öppen: ett fönster ovanpå dem kan låsa skärmen.
+  const held = useMapScreenStore((st) => st.open) || useShareSheetStore((st) => st.open);
+  const visible = updateAvailable && !forceUpdate && !dismissed && !tourActive && !held;
 
   useEffect(() => {
     if (!visible) return;

@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import { getDatabase } from '../db/database';
+import { installAlertGuard } from '../services/alertGuard';
 import { runEncryptionSelfTest } from '../db/sqlite';
 import { seedIcaoAirports } from '../db/icao';
 import { getSetting, setSetting } from '../db/flights';
@@ -74,6 +75,9 @@ function offerICloudRestore(m: BackupManifest): Promise<boolean> {
     );
   });
 }
+
+// Systemrutor väntar medan en karta eller delningsrutan är öppen (services/alertGuard.ts).
+installAlertGuard();
 
 export default function RootLayout() {
   const router = useRouter();

@@ -219,7 +219,9 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
   else { pwTitle = 'Your whole flying life in one logbook.'; pwSub = acLine; }
 
   const finalize = async (dest?: Dest) => {
-    if (preview) { router.back(); return; }
+    // Förhandsvisningen sparar ingenting, men knapparna på sista steget öppnar de riktiga sidorna (skanning,
+    // import, starttotaler) så att hela vägen går att prova. Tillbaka därifrån leder till Inställningar.
+    if (preview) { if (dest) router.replace(dest as any); else router.back(); return; }
     try {
       if (!craft) { router.replace('/(tabs)'); return; }
       const mainRole: MainRole = pilot ? 'pilot-manned' : 'pilot-unmanned';

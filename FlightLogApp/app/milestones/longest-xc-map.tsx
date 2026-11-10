@@ -2,7 +2,7 @@
 // tonar in över hela rutten, kameran dyker ner till avgången och följer farkosten snett bakifrån (lutad och vriden i
 // färdriktningen), svänger vid varje mellanlandning, och drar sig till sist upp till hela rutten där ljuspunkter löper
 // längs linjen och sammanfattningen kommer upp. Uppspelningen börjar när kartan öppnas. Tidslinjen går att dra i, och
-// i paus går kartan att flytta. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore), annars kan
+// i paus går kartan att flytta. Medan kartan är öppen väntar appens popup-rutor (useHoldPopups), annars kan
 // skärmen låsa sig.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useFlightStore } from '../../store/flightStore';
 import { useLongestXcFull } from '../../hooks/useMilestoneDetails';
-import { useMapScreenStore } from '../../store/mapScreenStore';
+import { useHoldPopups } from '../../store/mapScreenStore';
 import { toLatLng, regionFor, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
   useReplay, useOverview, blendCam, chaseCam, toCamera, ease, clamp, lerp, angLerp, gcPoint, gcPath, gcCourse,
@@ -63,10 +63,7 @@ export default function LongestXcMapScreen() {
     flightId: stats?.longest_xc_id ?? null, firstDep: stats?.longest_xc_first_dep, lastArr: stats?.longest_xc_last_arr,
   });
 
-  useEffect(() => {
-    useMapScreenStore.setState({ open: true });
-    return () => { useMapScreenStore.setState({ open: false }); };
-  }, []);
+  useHoldPopups(true);
 
   // Benen med klockslag (för TIME och GS). Saknas eller krockar klockslagen läggs benen efter varandra med sin flygtid.
   const plan = useMemo(() => {

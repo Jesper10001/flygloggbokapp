@@ -31,6 +31,7 @@ import { useFlightStore } from '../store/flightStore';
 import { presentPaywall } from '../services/purchases';
 import { useTourStore } from '../store/tourStore';
 import { IncidentNewsOverlay } from './IncidentNewsOverlay';
+import { useHoldPopups } from '../store/mapScreenStore';
 
 // Väderfilter: min-kategori (lägsta acceptabla). VFR bäst → LIFR sämst. En flygplats "möter" kravet
 // om dess aktuella kategori är minst lika bra som vald tröskel (VFR-tröskel = enbart VFR-fält).
@@ -160,7 +161,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const wxLegendRows = useMemo(() => wxLegendRowsFor(regStandard === 'faa'), [regStandard]);
   // Väderfiltret är en Blades Premium-funktion → RevenueCat-paywallen (inte den gamla egna sidan).
   const isPremium = useFlightStore((s) => s.isPremium);
-  const promptWeatherPremium = () => { presentPaywall('Weather filter'); };
+  // Betalväggen är ett eget fönster och får inte öppnas ovanpå kartans: kartan stängs först, sedan betalväggen.
+  const paywallAfterClose = (feature: string) => { closeMap(); setTimeout(() => presentPaywall(feature), 550); };
+  const promptWeatherPremium = () => paywallAfterClose('Weather filter');
+  // Medan kartan är öppen väntar appens popup-rutor och systemrutor (de kan annars låsa skärmen).
+  useHoldPopups(visible);
 
   // Region-drill på kartan (ersätter land-listan). Tom = världsvy (flaggor).
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
@@ -1040,7 +1045,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           onClose={() => setNewsOpen(false)}
           onViewOnMap={(icao) => { setNewsOpen(false); setCameFromNews(true); focusByIcao(icao); }}
           canLocate={(icao) => !!icao && seedData.some((r) => r[0] === icao)}
-          onUpgrade={() => { setNewsOpen(false); presentPaywall('Flight incident news'); }}
+          onUpgrade={() => { setNewsOpen(false); paywallAfterClose('Flight incident news'); }}
         />
 
         {/* Flight-detalj som OVERLAY ovanpå kartan (ej nästlad Modal → ingen iOS-kart-frysning). Opak

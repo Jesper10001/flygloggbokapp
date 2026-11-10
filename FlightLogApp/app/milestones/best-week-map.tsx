@@ -3,7 +3,7 @@
 // först, sedan står dagens namn och rutt överst så länge dagen pågår. Dagar med bara lokala flygningar lyser upp basens
 // ring och pulserar där (en ring per landning, högst tre), vilodagar blinkar förbi. Till sist löper ljuspunkter längs
 // alla resor och sammanfattningen kommer upp. Kartan går att flytta och zooma under uppspelningen; Replay ramar in
-// veckan igen. Ett tryck på en dag hoppar dit. Medan kartan är öppen väntar appens popup-rutor (useMapScreenStore),
+// veckan igen. Ett tryck på en dag hoppar dit. Medan kartan är öppen väntar appens popup-rutor (useHoldPopups),
 // annars kan skärmen låsa sig.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +14,7 @@ import MapView, { Polyline, Circle as MapCircle, type LatLng } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useBestWeekFull } from '../../hooks/useMilestoneDetails';
-import { useMapScreenStore } from '../../store/mapScreenStore';
+import { useHoldPopups } from '../../store/mapScreenStore';
 import { getAircraftCategory } from '../../db/flights';
 import { alongArc, regionFor, toLatLng, nmBetween, MAP_CYAN, type GeoPt } from '../../components/milestones/MilestoneMap';
 import {
@@ -59,10 +59,7 @@ export default function BestWeekMapScreen() {
   const d = useBestWeekFull(params.week, params.label ?? '', parseFloat(params.hours ?? '') || 0);
   const mapRef = useRef<MapView>(null);
 
-  useEffect(() => {
-    useMapScreenStore.setState({ open: true });
-    return () => { useMapScreenStore.setState({ open: false }); };
-  }, []);
+  useHoldPopups(true);
 
   const coords = d.geo?.coords ?? {};
   const home = d.geo?.home && coords[d.geo.home] ? d.geo.home : null;
