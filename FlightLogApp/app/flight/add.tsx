@@ -2463,7 +2463,7 @@ export default function AddFlightScreen() {
   // ── Blades introduction: loggningsdemon ───────────────────────────────────
   // Blades introduction — loggningsexemplet. TourHost öppnar Log flight (Quicklog), väntar tills formuläret
   // sagt att det är monterat (formReady) och ökar sedan logDemoRun. Formuläret fyller då själv i ett kort
-  // exempel i sex moment: rutt, tider, det som räknas ut (halva flygningen i natt), flygplan, roll (du är SIC,
+  // exempel i sex moment: avgång (plats, tid), ankomst (plats, tid), det som räknas ut (halva flygningen i natt), flygplan, roll (du är SIC,
   // kaptenen PIC), spara. Inga rutor öppnas (ingen sökruta,
   // ingen Sun route) och INGENTING sparas: "flygningen" läggs i tourStore.examplePilot och visas ur minnet
   // i loggbokslistan tills rundturen slutar. Paus i rundturen stannar exemplet mitt i ett moment.
@@ -2541,24 +2541,23 @@ export default function AddFlightScreen() {
         scrollViewRef.current?.scrollTo({ y: 0, animated: false });
         await wait(500); if (!alive()) return;
 
-        // 1 · Rutten: ICAO tecken för tecken (flygplatserna slås upp i den lokala databasen).
-        say(1, 'The route: Stockholm Arlanda to Gothenburg');
+        // 1 · Avgången: plats och sedan tid — samma ordning som formuläret själv leder en genom
+        // (avgångsplats → avgångstid → ankomstplats → ankomsttid).
+        say(1, 'Departure: Stockholm Arlanda, then the off-block time');
         scrollTo(demoY.current.route, 14);
         focus('lf-dep');
         await wait(500);
         if (!(await typeSeq(chars(R.dep), (v) => setForm((f) => ({ ...f, dep_place_raw: v, dep_place: v })), 120))) return;
         await waitFor(() => L().hasDep, 1500); await wait(350); if (!alive()) return;
-        focus('lf-arr');
-        await wait(350);
-        if (!(await typeSeq(chars(R.arr), (v) => setForm((f) => ({ ...f, arr_place_raw: v, arr_place: v })), 120))) return;
-        await waitFor(() => L().hasArr, 1500); await wait(900); if (!alive()) return;
-
-        // 2 · Tiderna.
-        say(2, 'The times: off-block and on-block');
-        focus('lf-dep');
         if (!(await typeSeq(clock(times.dep), (v) => L().set('dep_utc', v), 150))) return;
-        await wait(450); if (!alive()) return;
+        await wait(700); if (!alive()) return;
+
+        // 2 · Ankomsten: plats och sedan tid.
+        say(2, 'Arrival: Gothenburg, then the on-block time');
         focus('lf-arr');
+        await wait(400);
+        if (!(await typeSeq(chars(R.arr), (v) => setForm((f) => ({ ...f, arr_place_raw: v, arr_place: v })), 120))) return;
+        await waitFor(() => L().hasArr, 1500); await wait(350); if (!alive()) return;
         if (!(await typeSeq(clock(times.arr), (v) => L().set('arr_utc', v), 150))) return;
         focus(null);
         await wait(1100); if (!alive()) return; // panelerna glider isär, total och distans växer fram
