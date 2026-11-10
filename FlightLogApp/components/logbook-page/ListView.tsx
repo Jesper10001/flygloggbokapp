@@ -11,6 +11,7 @@ import { LogbookEmptyCTA } from './LogbookEmptyCTA';
 import { useTourStore } from '../../store/tourStore';
 import { HeatmapCalendar } from '../insights/ActivitySection';
 import { useTabBarSpace } from '../GlassTabBar';
+import { BulkEditEntry } from '../bulk/BulkEditEntry';
 
 const FILTERS: [string, string][] = [['all', 'All'], ['pic', 'PIC'], ['ifr', 'IFR'], ['night', 'Night'], ['nvg', 'NVG'], ['sim', 'Simulator'], ['photo', 'Photo']];
 
@@ -22,6 +23,7 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const tourDemo = useTourStore((s) => s.demo);
+  const tourActive = useTourStore((s) => s.active);
   const scrollRef = useRef<ScrollView>(null);
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const [viewportH, setViewportH] = useState(0); // synlig höjd på list-scrollen (för att centrera fokus-dagen)
@@ -76,6 +78,8 @@ export function ListView({ flights, accent, placeNames, onOpenFlight, expandYear
             );
           })}
         </ScrollView>
+        {/* Ändra många flygningar på en gång (inte under rundturen: exempelflygningarna finns inte i databasen). */}
+        {flights.length > 0 && !tourDemo && !tourActive && <BulkEditEntry mode="pilot" rows={flights} accent={accent} />}
       </View>
 
       {/* body */}

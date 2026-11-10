@@ -675,6 +675,28 @@ async function runMigrations(db: SqliteDb): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_flight_photos_flight ON flight_photos(flight_id);
   `);
 
+  // Ändra många flygningar på en gång (db/bulkEdits.ts): en post per ändring och ett gammalt + nytt värde per
+  // flygning och fält, så att hela ändringen kan ångras. mode = 'pilot' (flights) eller 'drone' (drone_flights).
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS bulk_edits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mode TEXT NOT NULL DEFAULT 'pilot',
+      label TEXT NOT NULL DEFAULT '',
+      flight_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      undone_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS bulk_edit_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      edit_id INTEGER NOT NULL,
+      flight_id INTEGER NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_bulk_edit_changes_edit ON bulk_edit_changes(edit_id);
+  `);
+
   // AI-inlärning: sparar bekräftade mappningar så nästa skanning blir bättre
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS ocr_learned (

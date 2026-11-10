@@ -18,6 +18,7 @@ import { useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS, TOUR_EXAMPLE_ID } from '../../constants/tourDemoData';
 import { TourSpot } from '../../components/TourSpot';
 import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
+import { BulkEditEntry } from '../../components/bulk/BulkEditEntry';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
   getDroneFleetByModel, addDrone, persistDroneModelLookup,
@@ -136,6 +137,7 @@ function FlightsTab({ flights, accent, onOpen }: {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const tourDemo = useTourStore((s) => s.demo);
+  const tourActive = useTourStore((s) => s.active);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -183,6 +185,8 @@ function FlightsTab({ flights, accent, onOpen }: {
             );
           })}
         </ScrollView>
+        {/* Ändra många flygningar på en gång (inte under rundturen: exempelflygningarna finns inte i databasen). */}
+        {flights.length > 0 && !tourDemo && !tourActive && <BulkEditEntry mode="drone" rows={flights} accent={accent} />}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 28 }} keyboardShouldPersistTaps="handled">

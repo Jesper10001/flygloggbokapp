@@ -318,6 +318,7 @@ export default function RootLayout() {
         <Stack.Screen name="stressfactor" options={{ headerShown: false, presentation: 'modal' }} />
         {/* Pilot CV (Export to PDF): push, så att delningsrutan öppnas från en vanlig skärm. */}
         <Stack.Screen name="export-cv" options={{ headerShown: false }} />
+        <Stack.Screen name="bulk-edit" options={{ headerShown: false }} />
         <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation, gestureEnabled: tourGesture }} />
