@@ -177,7 +177,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     : src === 'sheet' ? 'sheet'
     : deal ? 'appPricey' : choices && cost === 2 ? 'appMid' : 'app';
   const book = path === 'paper' ? bookCost(prices, SCAN_COINS_PER_SPREAD) : null;
-  const solution = prio && want ? buildSolution({ pilot, prio, want, path, deal, drone: pilot ? null : (droneKind as 'hobby' | 'commercial' | 'military' | null), bookShort: book?.short ?? null, freeSpreads: FREE_SPREADS }) : null;
+  const solution = prio && want ? buildSolution({ pilot, prio, want, path, deal, scanBook: canScan, drone: pilot ? null : (droneKind as 'hobby' | 'commercial' | 'military' | null), bookShort: book?.short ?? null, freeSpreads: FREE_SPREADS }) : null;
   const back: Partial<Record<Step, Step>> = { aircraft: 'welcome', questions: 'aircraft', solution: 'questions', hours: 'solution' };
   // Frågesidan: allt som måste vara besvarat innan man går vidare.
   const sourceDone = !!src && (src === 'sheet' || !pilot || !!app);

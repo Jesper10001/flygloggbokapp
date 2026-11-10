@@ -74,6 +74,7 @@ export interface Solution { hero: 'paper' | 'file' | 'type' | 'drone'; kicker: s
 export function buildSolution(a: {
   pilot: boolean; prio: Prio; want: Want; path: PitchPath; deal: { month: string; year: string } | null;
   drone?: 'hobby' | 'commercial' | 'military' | null;
+  scanBook?: boolean;
   bookShort: string | null; freeSpreads: number;
 }): Solution {
   const R = ROWS(a.pilot);
@@ -82,6 +83,8 @@ export function buildSolution(a: {
   const fast: Tile = { value: '20 s', label: 'to log a flight', good: true };
   const auto: Tile = { value: 'Auto', label: 'night, distance and landings' };
   const pdf: Tile = { value: 'PDF', label: 'logbook pages, like paper' };
+  // Skanningen: pappersbokens sidor där den är öppen, annars ACARS-utskrifter och flygloggskärmar (som alltid finns).
+  const scan: Tile = a.scanBook ? { value: 'Scan', label: 'your paper pages too' } : { value: 'Scan', label: 'ACARS and flight log screens' };
   if (!a.pilot) {
     // Kategorierna följer den sortens flygning man valt: militära piloter loggar per NATO-klass, inte A1–Specific.
     const mil = a.drone === 'military';
@@ -127,7 +130,7 @@ export function buildSolution(a: {
     // Siffrorna säger det bilden ovanför visar (Blades räknar ut natt, distans och landningar) och det man får ut.
     tiles: a.deal
       ? [{ value: a.deal.month, label: `less a month, ${a.deal.year} a year`, good: true }, auto, pdf]
-      : [{ ...auto, good: true }, pdf, { value: '20', label: 'flights free by hand' }],
+      : [{ ...auto, good: true }, pdf, scan],
     rows: [...mine, privacy],
   };
 }
